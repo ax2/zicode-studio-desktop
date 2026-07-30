@@ -26,7 +26,7 @@ function fail(message) {
 
 function targetKey() {
   const override = process.env.PI_TARGET_PLATFORM;
-  if (override) return override;
+  if (override) return override.startsWith("windows-") ? override : null;
   if (process.platform !== "win32") return null;
   if (process.arch === "x64") return "windows-x64";
   fail(`Unsupported Windows architecture: ${process.arch}`);
