@@ -1,9 +1,10 @@
 # ZiCode Studio Desktop
 
-ZiCode Studio Desktop 是基于 Tauri 2 和 Pi 构建的开箱即用 Windows AI
-工作台。它将 Pi Runtime、PortableGit（Git + Bash）和 Microsoft WebView2
-离线安装器一并打入安装包，最终用户不需要预装 Node.js、Bun、Git、Bash、Pi 或
-WSL。
+ZiCode Studio Desktop 是基于 Tauri 2 和 Pi 构建的桌面 AI 工作台，支持
+Windows、macOS 和 Linux。所有平台均内置 Pi Runtime；Windows 安装包还内置
+PortableGit（Git + Bash）和 Microsoft WebView2 离线安装器，最终用户不需要预装
+Node.js、Bun、Git、Bash、Pi 或 WSL。当前 macOS 和 Linux 构建仍使用操作系统提供的
+Shell 与 Git 工具。
 
 项目面向编程、金融、创作和自定义工作流，支持自定义模型渠道以及彼此隔离的场景、
 实例和会话。
@@ -12,14 +13,16 @@ WSL。
 
 ## 主要能力
 
-- **自包含运行环境**：内置锁定版本的 Pi、Git、Bash 和 WebView2 安装器。
+- **自包含运行环境**：所有平台内置锁定版本的 Pi；Windows 另内置 Git、Bash 和
+  WebView2 安装器。
 - **无终端窗口**：Windows 后台子进程统一以无控制台模式启动。
 - **自定义模型渠道**：配置 `base_url`、API 协议、模型列表和 API Key。
 - **多场景工作台**：内置编程、金融、创作场景，并可创建自定义场景。
 - **场景隔离**：每个场景拥有独立的模型、凭据、扩展、系统指令和工具策略。
 - **实例隔离**：每个实例拥有独立的进程、会话、日志和临时目录。
 - **安全策略**：金融场景默认使用只读工具白名单，自定义场景可限制工具范围。
-- **自动发布**：推送 `v*` tag 后自动测试、构建 NSIS 安装包并创建 GitHub Release。
+- **自动发布**：推送 `v*` tag 后自动构建 Windows NSIS、macOS DMG、Linux
+  AppImage/DEB，并在全部成功后公开 GitHub Release。
 - **工程文档**：使用 MkDocs Material 维护需求、架构、ADR、打包和方案评审。
 
 ## 架构概览
@@ -83,16 +86,24 @@ bun run build
 
 ## 发布
 
-推送形如 `v0.1.0` 的 tag 后，
-[Windows release workflow](.github/workflows/release.yml) 会：
+不要在 GitHub 网页中手动创建 tag 或 Release。使用发布脚本同步全部版本源并推送：
 
-1. 下载并校验锁定版本的 Pi、PortableGit 和 WebView2；
-2. 验证 `pi.exe`、`git.exe` 和 `bash.exe`；
-3. 运行前端、权限、Windows 子进程和 Rust 检查；
-4. 构建包含离线依赖的 NSIS EXE；
-5. 将安装包发布到当前仓库的 GitHub Release。
+```bash
+bun run release 0.1.0
+```
 
-发布和签名说明见 [Windows 打包文档](docs/windows-packaging.md)。
+[Desktop release workflow](.github/workflows/release.yml) 会先校验 tag 与
+`package.json`、Tauri、Cargo 版本完全一致，创建不可见的草稿 Release，然后并行：
+
+1. 构建 Windows x64 NSIS（内置 Pi、PortableGit、WebView2）；
+2. 构建 macOS Apple Silicon DMG（内置 Pi）；
+3. 构建 Linux x64 AppImage 和 DEB（内置 Pi）；
+4. 运行平台验证并上传所有产物；
+5. 仅在全部构建成功后公开 Release。
+
+macOS 和 Linux 当前使用系统 Shell/Git；macOS 包采用 ad-hoc 签名，尚未进行 Apple
+Developer ID 签名与公证。发布和签名说明见
+[Windows 打包文档](docs/windows-packaging.md)。
 
 ## 数据与凭据
 

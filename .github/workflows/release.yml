@@ -1,25 +1,115 @@
-name: Windows release
+name: Desktop release
 
 on:
   push:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing v-prefixed tag to build and publish
+        required: true
+        type: string
 
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  CARGO_HTTP_MULTIPLEXING: "false"
+  CARGO_NET_RETRY: "10"
+
 jobs:
-  test-build-release:
-    runs-on: windows-2022
+  prepare-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Verify tag matches application versions
+        run: bun run scripts/check-release-version.js "$RELEASE_TAG"
+
+      - name: Create private draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
+            if [[ "$IS_DRAFT" != "true" ]]; then
+              echo "::error::Release $RELEASE_TAG is already public. Do not create releases manually; use bun run release <version>."
+              exit 1
+            fi
+            echo "Reusing existing draft release $RELEASE_TAG."
+            exit 0
+          fi
+
+          cat > "$RUNNER_TEMP/release-notes.md" <<'EOF'
+          Automated ZiCode Studio Desktop release.
+
+          Artifacts:
+          - Windows x64 NSIS installer: embeds Pi, PortableGit (Git + Bash), and the WebView2 offline installer.
+          - macOS Apple Silicon DMG: embeds Pi; uses the operating system's shell and Git tooling.
+          - Linux x64 AppImage and Debian package: embed Pi; use the operating system's shell and Git tooling.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            --draft \
+            --title "ZiCode Studio Desktop $RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --verify-tag
+
+  build:
+    needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-2022
+            pi_target: windows-x64
+            bundles: nsis
+          - name: macOS Apple Silicon
+            os: macos-14
+            pi_target: darwin-arm64
+            bundles: dmg
+          - name: Linux x64
+            os: ubuntu-22.04
+            pi_target: linux-x64
+            bundles: appimage,deb
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     env:
-      PI_TARGET_PLATFORM: windows-x64
-      CARGO_HTTP_MULTIPLEXING: "false"
-      CARGO_NET_RETRY: "10"
+      PI_TARGET_PLATFORM: ${{ matrix.pi_target }}
 
     steps:
-      - name: Checkout
+      - name: Checkout release tag
         uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -33,6 +123,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.pi_target }}
 
       - name: Cache embedded runtimes
         uses: actions/cache@v5
@@ -41,17 +132,25 @@ jobs:
             .cache/pi-binaries
             .cache/portable-git
             .cache/webview2
-          key: windows-runtimes-${{ hashFiles('scripts/pi-version.json', 'scripts/portable-git-version.json', 'scripts/webview2-version.json') }}
+          key: ${{ matrix.pi_target }}-runtimes-${{ hashFiles('scripts/pi-version.json', 'scripts/portable-git-version.json', 'scripts/webview2-version.json') }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Fetch and verify embedded runtimes
-        shell: pwsh
+      - name: Fetch embedded runtimes
         run: |
           bun run fetch:pi
           bun run fetch:portable-git
           bun run fetch:webview2
+
+      - name: Verify embedded Pi on Unix
+        if: runner.os != 'Windows'
+        run: ./src-tauri/resources/pi/pi --version
+
+      - name: Verify embedded Windows runtimes
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
           .\src-tauri\resources\pi\pi.exe --version
           .\src-tauri\resources\portable-git\cmd\git.exe --version
           .\src-tauri\resources\portable-git\bin\bash.exe --version
@@ -65,23 +164,42 @@ jobs:
       - name: Test frontend and packaging guards
         run: bun run test
 
-      - name: Check Rust
+      - name: Check Rust on Unix
+        if: runner.os != 'Windows'
+        run: bash scripts/check-rust.sh
+
+      - name: Check Rust on Windows
+        if: runner.os == 'Windows'
         shell: pwsh
         run: .\src-tauri\resources\portable-git\bin\bash.exe scripts/check-rust.sh
 
-      - name: Build installers and publish GitHub Release
-        uses: tauri-apps/tauri-action@v0
+      - name: Build bundles and upload to draft release
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "ZiCode Studio Desktop ${{ github.ref_name }}"
-          releaseBody: |
-            Automated Windows x64 release for `${{ github.ref_name }}`.
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseDraft: true
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          args: --bundles ${{ matrix.bundles }}
 
-            The NSIS installer includes the pinned Pi runtime and
-            PortableGit distribution (Git + Bash), and the pinned Microsoft
-            WebView2 offline installer; no separate runtime install is required.
-          releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          args: --bundles nsis
+  publish-release:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Publish completed release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false \
+              --prerelease
+          else
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false \
+              --prerelease=false
+          fi

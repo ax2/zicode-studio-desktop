@@ -127,6 +127,9 @@ else
   echo "  (cargo not found; skipping Cargo.lock refresh)"
 fi
 
+echo "Checking release tag and application versions..."
+bun run scripts/check-release-version.js "$TAG"
+
 echo "Committing release version bump..."
 git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock package.json bun.lock
 git commit -m "chore(release): $TAG"
