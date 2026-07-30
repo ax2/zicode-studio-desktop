@@ -26,7 +26,7 @@
     "fetch:webview2": "bun run scripts/fetch-webview2.js",
     "smoke:pi-rpc": "bun run scripts/smoke-pi-rpc.js",
     "build:extensions": "bun run scripts/build-extensions.js",
-    "build": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri build",
+    "build": "bun run scripts/build-desktop.js",
     "prebuild": "bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions",
     "release": "bash scripts/release.sh",
     "release:mac:dmg": "bash scripts/release-macos-dmg.sh",
