@@ -1,0 +1,19 @@
+Pi Windows Desktop
+Copyright (c) 2026 ax2 and contributors
+
+This project is derived from Picot by shixin-guo/deflating and other Picot
+contributors:
+https://github.com/shixin-guo/picot
+
+Picot is distributed under the MIT License. The original license and copyright
+notice are retained in LICENSE and in relevant source files.
+
+Bundled third-party runtimes keep their own licenses:
+
+- Pi: https://github.com/earendil-works/pi
+- Git for Windows / PortableGit: https://gitforwindows.org/
+- Microsoft Edge WebView2 Runtime:
+  https://developer.microsoft.com/microsoft-edge/webview2/
+
+Release builds download pinned official artifacts and verify their SHA-256
+digests. See THIRD_PARTY_NOTICES.md and docs/windows-packaging.md.

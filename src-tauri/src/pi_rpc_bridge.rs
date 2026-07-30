@@ -336,7 +336,7 @@ impl InMemoryPiProcess {
     }
 
     pub(crate) async fn write_frame(&mut self, value: Value) -> Result<(), BridgeError> {
-        self.write_raw(format!("{}\n", value)).await
+        self.write_raw(format!("{value}\n")).await
     }
 
     async fn write_raw(&mut self, raw: String) -> Result<(), BridgeError> {

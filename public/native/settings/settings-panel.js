@@ -1,6 +1,7 @@
 import { applyTheme, getCurrentTheme, themes } from "../../themes.js";
 import { loadCostDashboard } from "./cost-dashboard.js";
 import { setupPackageBrowse } from "./package-browse.js";
+import { setupSceneProfiles } from "./scene-profiles.js";
 import { setupSettingsConfig } from "./settings-config.js";
 import { setupSettingsToggles } from "./settings-toggles.js";
 import { setupThinkingEffortControl } from "./thinking-effort-control.js";
@@ -40,6 +41,7 @@ export function setupSettingsPanel({
   const appVersionValue = document.getElementById("setting-app-version-value");
   const costDashboard = document.getElementById("settings-cost-dashboard");
   const packageBrowse = setupPackageBrowse(control, { notify });
+  const sceneProfiles = setupSceneProfiles();
   const config = configGateway
     ? setupSettingsConfig({ configGateway, onModelConfigurationChanged })
     : null;
@@ -58,6 +60,7 @@ export function setupSettingsPanel({
   function loadConfiguration() {
     if (!config) return;
     void config.loadApiKeysPanel();
+    void config.loadProviderChannels();
     void config.loadInlineConfigEditor();
     void config.loadInlineModelsEditor();
   }
@@ -72,6 +75,7 @@ export function setupSettingsPanel({
     }
 
     if (target === "usage") loadUsage();
+    if (target === "general") void sceneProfiles?.load();
     if (target === "extensions") void packageBrowse.load();
     if (target === "configuration") loadConfiguration();
   }

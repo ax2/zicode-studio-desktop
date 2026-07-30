@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-/// Hard guarantee: a Picot release build CANNOT be produced without the
+/// Hard guarantee: a Pi Windows Desktop release build CANNOT be produced without the
 /// embedded pi binary inside `src-tauri/resources/pi/`.
 ///
 /// Why this lives in build.rs
@@ -21,6 +21,7 @@ use std::{fs, path::PathBuf};
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let extension_dist_dir = manifest_dir.join("..").join("extensions").join("dist");
+    let resources_dir = manifest_dir.join("resources");
 
     // Tauri validates every configured bundle resource while running the build
     // script, even for debug `cargo check` / clippy flows. The extension bundle
@@ -32,6 +33,15 @@ fn main() {
             err
         )
     });
+    for generated_resource in ["pi", "portable-git", "webview2"] {
+        fs::create_dir_all(resources_dir.join(generated_resource)).unwrap_or_else(|err| {
+            panic!(
+                "failed to create generated resource directory {}: {}",
+                resources_dir.join(generated_resource).display(),
+                err
+            )
+        });
+    }
 
     tauri_build::build();
 
@@ -56,7 +66,13 @@ fn main() {
     // Re-run if the version pin or the binary itself changes, so cached
     // builds notice when fetch:pi has been run between invocations.
     println!("cargo:rerun-if-changed=resources/pi/.version");
+    println!("cargo:rerun-if-changed=resources/portable-git/.version");
+    println!(
+        "cargo:rerun-if-changed=resources/webview2/MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+    );
     println!("cargo:rerun-if-changed=../scripts/pi-version.json");
+    println!("cargo:rerun-if-changed=../scripts/portable-git-version.json");
+    println!("cargo:rerun-if-changed=../scripts/webview2-version.json");
     println!("cargo:rerun-if-changed=../extensions/picot-bridge.ts");
     println!("cargo:rerun-if-changed=../extensions/dist/picot-bridge.mjs");
     println!("cargo:rerun-if-env-changed=PI_STUDIO_SKIP_BIN_CHECK");
@@ -82,9 +98,9 @@ fn main() {
     if !bin_path.is_file() {
         panic!(
             "\n\n\
-             Picot release build aborted: embedded pi binary is missing.\n\
+             Pi Windows Desktop release build aborted: embedded pi binary is missing.\n\
              Expected: {}\n\n\
-             Picot bundles the pi runtime inside the .app so end users do\n\
+             Pi Windows Desktop bundles the pi runtime so end users do\n\
              not need to fetch anything. Release builds therefore refuse to\n\
              produce a .app without it.\n\n\
              Fix: run `bun run fetch:pi` from the repo root before building.\n\
@@ -98,7 +114,7 @@ fn main() {
     if !extension_bundle_path.is_file() {
         panic!(
             "\n\n\
-             Picot release build aborted: picot-bridge extension bundle is missing.\n\
+             Pi Windows Desktop release build aborted: picot-bridge extension bundle is missing.\n\
              Expected: {}\n\n\
              Release builds ship the bundled extension instead of relying on\n\
              repo-local TypeScript sources or node_modules.\n\n\
@@ -108,5 +124,35 @@ fn main() {
              PI_STUDIO_SKIP_BIN_CHECK=1.\n\n",
             extension_bundle_path.display()
         );
+    }
+
+    if cfg!(target_os = "windows") {
+        let portable_git = manifest_dir.join("resources").join("portable-git");
+        let git_path = portable_git.join("cmd").join("git.exe");
+        let bash_path = portable_git.join("bin").join("bash.exe");
+        if !git_path.is_file() || !bash_path.is_file() {
+            panic!(
+                "\n\n\
+                 Pi Windows Desktop release build aborted: bundled Git/Bash is missing.\n\
+                 Expected:\n  {}\n  {}\n\n\
+                 Fix: run `bun run fetch:portable-git` from the repo root.\n\n",
+                git_path.display(),
+                bash_path.display()
+            );
+        }
+
+        let webview2_path = manifest_dir
+            .join("resources")
+            .join("webview2")
+            .join("MicrosoftEdgeWebView2RuntimeInstallerX64.exe");
+        if !webview2_path.is_file() {
+            panic!(
+                "\n\n\
+                 Pi Windows Desktop release build aborted: bundled WebView2 installer is missing.\n\
+                 Expected: {}\n\n\
+                 Fix: run `bun run fetch:webview2` from the repo root.\n\n",
+                webview2_path.display()
+            );
+        }
     }
 }

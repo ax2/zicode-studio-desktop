@@ -7,16 +7,20 @@ mod metadata_store;
 mod native_pi_manager;
 mod pi_launch;
 mod pi_rpc_bridge;
+mod process_command;
 mod remote_auth;
 mod runtime_coordinator;
+mod runtime_isolation;
+mod scene_profiles;
 mod settings_store;
 
 use host_server::HostServer;
 use metadata_store::MetadataStore;
 use native_pi_manager::NativePiManager;
-use pi_launch::PiLaunchResolver;
+use pi_launch::{configure_bundled_tool_path, PiLaunchResolver};
 use remote_auth::RemoteAuth;
 use runtime_coordinator::RuntimeTarget;
+use scene_profiles::{delete_scene_profile, list_scene_profiles, save_scene_profile};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -34,7 +38,7 @@ type NativePiManagerState = NativePiManager;
 
 const MENU_NEW_SESSION_ID: &str = "picot-new-session";
 const BETA_UPDATE_ENDPOINT: &str =
-    "https://github.com/shixin-guo/picot/releases/download/beta/latest.json";
+    "https://github.com/ax2/pi-windows-desktop/releases/download/beta/latest.json";
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,12 +124,13 @@ async fn open_new_session_in_workspace(
     app: AppHandle,
     window: WebviewWindow,
     project_path: String,
+    scene_id: Option<String>,
 ) -> Result<(), String> {
     let cwd = PathBuf::from(&project_path);
     if !cwd.is_dir() {
         return Err(format!("Project folder no longer exists: {project_path}"));
     }
-    open_fresh_session_at_path(&app, Some(&window), &cwd)
+    open_fresh_session_at_path(&app, Some(&window), &cwd, scene_id.as_deref())
 }
 
 /// Switch the focused Picot window to `projectPath` and resume the given saved
@@ -189,7 +194,13 @@ async fn ensure_agent_inbox_session(app: AppHandle) -> Result<(), String> {
     {
         return Ok(());
     }
-    let _ = spawn_fresh_runtime(&runtimes, &launcher.launch, &cwd, workspace_id)?;
+    let _ = spawn_fresh_runtime(
+        &runtimes,
+        &launcher.launch,
+        &cwd,
+        workspace_id,
+        Some("programming"),
+    )?;
     Ok(())
 }
 
@@ -198,12 +209,14 @@ fn spawn_fresh_runtime(
     launch: &PiLaunchResolver,
     cwd: &Path,
     workspace_id: String,
+    scene_id: Option<&str>,
 ) -> Result<RuntimeTarget, String> {
     let session_id = format!("temporary-{}", uuid::Uuid::new_v4().simple());
     let instance_id = format!("instance-{}", uuid::Uuid::new_v4().simple());
-    let target = RuntimeTarget::new(workspace_id, session_id, instance_id);
+    let target = RuntimeTarget::new(workspace_id, session_id, instance_id)
+        .with_scene(scene_id.unwrap_or("programming"));
     let cwd_str = cwd.to_string_lossy().into_owned();
-    let launch_spec = launch.native_launch_spec(&cwd_str, None)?;
+    let launch_spec = launch.native_launch_spec(&cwd_str, None, &target)?;
     runtimes.spawn(target.clone(), launch_spec)?;
     Ok(target)
 }
@@ -212,6 +225,7 @@ fn open_fresh_session_at_path(
     app: &AppHandle,
     source_window: Option<&WebviewWindow>,
     cwd: &Path,
+    scene_id: Option<&str>,
 ) -> Result<(), String> {
     let launcher = app
         .try_state::<WorkspaceLauncher>()
@@ -229,7 +243,13 @@ fn open_fresh_session_at_path(
         .workspace_id_for_path(cwd)?;
 
     host.register_workspace(&workspace_id, cwd.to_path_buf())?;
-    let target = spawn_fresh_runtime(&runtimes, &launcher.launch, cwd, workspace_id.clone())?;
+    let target = spawn_fresh_runtime(
+        &runtimes,
+        &launcher.launch,
+        cwd,
+        workspace_id.clone(),
+        scene_id,
+    )?;
     if let Some(window) =
         source_window.filter(|window| window.label().starts_with("native-workspace-"))
     {
@@ -273,12 +293,24 @@ fn open_workspace_at_path(
     // When resuming a saved session, navigate directly to that session id so
     // its history loads; otherwise start a fresh temporary session.
     let target = match resume_session_id {
-        Some(id) => RuntimeTarget::new(
+        Some(id) => {
+            let scene_id = host
+                .scene_id_for_session(&workspace_id, id)?
+                .unwrap_or_else(|| "programming".to_string());
+            RuntimeTarget::new(
+                workspace_id.clone(),
+                id.to_string(),
+                format!("instance-{}", uuid::Uuid::new_v4().simple()),
+            )
+            .with_scene(scene_id)
+        }
+        None => spawn_fresh_runtime(
+            &runtimes,
+            &launcher.launch,
+            cwd,
             workspace_id.clone(),
-            id.to_string(),
-            format!("instance-{}", uuid::Uuid::new_v4().simple()),
-        ),
-        None => spawn_fresh_runtime(&runtimes, &launcher.launch, cwd, workspace_id.clone())?,
+            Some("programming"),
+        )?,
     };
 
     if let Some(window) =
@@ -366,7 +398,7 @@ fn open_native_workspace_window(
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
-        .title("Picot")
+        .title("Pi Windows Desktop")
         .inner_size(1300.0, 860.0)
         .min_inner_size(800.0, 600.0)
         .icon(icon)
@@ -424,7 +456,7 @@ fn open_fresh_session_for_focused_workspace(app: &AppHandle) -> Result<(), Strin
         .try_state::<HostServer>()
         .ok_or_else(|| "Host server is not ready".to_string())?;
     let cwd = host.workspace_root_path(&workspace_id)?;
-    open_fresh_session_at_path(app, Some(&focused_window), &cwd)
+    open_fresh_session_at_path(app, Some(&focused_window), &cwd, None)
 }
 
 fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
@@ -513,7 +545,7 @@ fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), Str
         .replace('\n', "%0A");
     let url = format!("bootstrap.html?startupError={encoded_error}");
     let builder = WebviewWindowBuilder::new(app, "bootstrap", WebviewUrl::App(url.into()))
-        .title("Picot")
+        .title("Pi Windows Desktop")
         .inner_size(900.0, 640.0)
         .min_inner_size(700.0, 480.0)
         .icon(icon)
@@ -732,6 +764,7 @@ fn select_fresh_startup_target(
 }
 
 fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(), String> {
+    configure_bundled_tool_path(&static_dir)?;
     let home_cwd = dirs::home_dir()
         .unwrap_or_default()
         .to_string_lossy()
@@ -755,7 +788,7 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         format!("instance-{}", uuid::Uuid::new_v4().simple()),
     );
     let launch_resolver = PiLaunchResolver::new(static_dir.clone());
-    let launch = launch_resolver.native_launch_spec(&cwd, session_path.as_deref())?;
+    let launch = launch_resolver.native_launch_spec(&cwd, session_path.as_deref(), &target)?;
     let runtimes = NativePiManager::new(256);
     let remote_auth = Arc::new(Mutex::new(RemoteAuth::new(metadata.clone())));
     let host = tauri::async_runtime::block_on(async {
@@ -826,6 +859,9 @@ fn main() {
             open_new_session_in_workspace,
             open_session_in_project,
             ensure_agent_inbox_session,
+            list_scene_profiles,
+            save_scene_profile,
+            delete_scene_profile,
             check_beta_update,
             install_beta_update
         ])
@@ -846,9 +882,9 @@ fn main() {
                     );
                     app.dialog()
                         .message(format!(
-                            "Picot could not start the embedded pi runtime.\n\n{error}\n\nThe Picot installation may be incomplete or corrupted. Please reinstall Picot and try again."
+                            "Pi Windows Desktop could not start the embedded Pi runtime.\n\n{error}\n\nThe installation may be incomplete or corrupted. Please reinstall the app and try again."
                         ))
-                        .title("Picot startup failed")
+                        .title("Pi Windows Desktop startup failed")
                         .kind(MessageDialogKind::Error)
                         .show(|_| {});
                 }

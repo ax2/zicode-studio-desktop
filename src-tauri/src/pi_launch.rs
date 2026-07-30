@@ -1,8 +1,13 @@
 use crate::native_pi_manager::NativeLaunchSpec;
+use crate::process_command::new_command;
+use crate::runtime_coordinator::RuntimeTarget;
+use crate::runtime_isolation::prepare_runtime_isolation;
+use crate::scene_profiles::resolve_scene_profile;
 use serde::Serialize;
+#[cfg(target_os = "macos")]
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::OnceLock;
 
 mod extensions;
@@ -49,8 +54,22 @@ impl PiLaunchResolver {
         &self,
         cwd: &str,
         session_path: Option<&str>,
+        target: &RuntimeTarget,
     ) -> Result<NativeLaunchSpec, String> {
         let binary = self.resolve_bundled_pi()?;
+        let portable_git = self.resolve_bundled_portable_git()?;
+        let isolation = prepare_runtime_isolation(target, portable_git.as_deref())?;
+        let scene = resolve_scene_profile(&target.scene_id)?;
+        let mut environment = isolation.environment;
+        environment.insert("PI_DESKTOP_SCENE_NAME".into(), scene.name);
+        environment.insert("PI_DESKTOP_SCENE_PROMPT".into(), scene.system_prompt);
+        if let Some(allowed_tools) = scene.allowed_tools {
+            environment.insert(
+                "PI_DESKTOP_ALLOWED_TOOLS".into(),
+                serde_json::to_string(&allowed_tools)
+                    .map_err(|error| format!("Cannot encode scene tool policy: {error}"))?,
+            );
+        }
         let extensions =
             resolve_bundled_extensions(&self.static_dir, Path::new(cwd), session_path.is_some())?;
         Ok(NativeLaunchSpec {
@@ -59,7 +78,8 @@ impl PiLaunchResolver {
             session_path: session_path.map(|path| PathBuf::from(strip_verbatim_prefix(path))),
             extensions,
             pi_version: locked_pi_version().to_owned(),
-            path_env: build_augmented_path(),
+            path_env: build_augmented_path(portable_git.as_deref(), Some(&isolation.agent_dir)),
+            environment,
         })
     }
 
@@ -68,9 +88,9 @@ impl PiLaunchResolver {
     pub fn run_pi_command(&self, args: &[&str]) -> Result<String, String> {
         let pi_bin = self.resolve_bundled_pi()?;
         let pi_bin_str = strip_verbatim_prefix(&pi_bin.to_string_lossy());
-        let augmented_path = build_augmented_path();
-        let mut command = Command::new(&pi_bin_str);
-        configure_child_process_for_windows(&mut command);
+        let portable_git = self.resolve_bundled_portable_git()?;
+        let augmented_path = build_augmented_path(portable_git.as_deref(), None);
+        let mut command = new_command(&pi_bin_str);
         command
             .args(args)
             .env("PATH", augmented_path)
@@ -176,8 +196,32 @@ impl PiLaunchResolver {
             "Could not find embedded pi binary. Tried:\n{}\n\n\
              For dev: run `bun run fetch:pi` from the repo root.\n\
              For release: the .app bundle is missing `resources/pi/{bin_name}`. \
-             Reinstall Picot.",
+             Reinstall Pi Windows Desktop.",
             tried
+                .iter()
+                .map(|path| format!("  - {}", path.display()))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ))
+    }
+
+    fn resolve_bundled_portable_git(&self) -> Result<Option<PathBuf>, String> {
+        if !cfg!(target_os = "windows") {
+            return Ok(None);
+        }
+
+        let candidates = portable_git_candidates(&self.static_dir);
+        if let Some(root) = candidates.iter().find(|root| {
+            root.join("cmd").join("git.exe").is_file()
+                && root.join("bin").join("bash.exe").is_file()
+        }) {
+            return Ok(Some(root.clone()));
+        }
+
+        Err(format!(
+            "Could not find bundled PortableGit. Tried:\n{}\n\n\
+             Run `bun run fetch:portable-git` from the repository root.",
+            candidates
                 .iter()
                 .map(|path| format!("  - {}", path.display()))
                 .collect::<Vec<_>>()
@@ -186,10 +230,63 @@ impl PiLaunchResolver {
     }
 }
 
-fn build_augmented_path() -> String {
-    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
+pub fn configure_bundled_tool_path(static_dir: &Path) -> Result<(), String> {
+    if !cfg!(target_os = "windows") {
+        return Ok(());
+    }
+    let root = portable_git_candidates(static_dir)
+        .into_iter()
+        .find(|root| {
+            root.join("cmd").join("git.exe").is_file()
+                && root.join("bin").join("bash.exe").is_file()
+        })
+        .ok_or_else(|| {
+            "Bundled PortableGit is missing from the application resources".to_string()
+        })?;
+    std::env::set_var("PATH", build_augmented_path(Some(&root), None));
+    Ok(())
+}
+
+fn portable_git_candidates(static_dir: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(path) = static_dir
+        .parent()
+        .map(|parent| parent.join("portable-git"))
+    {
+        candidates.push(path);
+    }
+    if cfg!(debug_assertions) {
+        candidates.push(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join("portable-git"),
+        );
+    }
+    candidates
+}
+
+fn build_augmented_path(portable_git_root: Option<&Path>, agent_dir: Option<&Path>) -> String {
+    let mut dirs = Vec::new();
+
+    if let Some(root) = portable_git_root {
+        dirs.extend([
+            root.join("cmd"),
+            root.join("bin"),
+            root.join("usr").join("bin"),
+        ]);
+    }
+    if let Some(agent_dir) = agent_dir {
+        dirs.push(agent_dir.join("npm").join("node_modules").join(".bin"));
+    }
+
+    let ambient: Vec<PathBuf> = std::env::var_os("PATH")
         .map(|value| std::env::split_paths(&value).collect())
         .unwrap_or_default();
+    for path in ambient {
+        if !dirs.iter().any(|existing| existing == &path) {
+            dirs.push(path);
+        }
+    }
 
     #[cfg(not(target_os = "windows"))]
     {
@@ -373,7 +470,7 @@ pub fn open_in_app(
     }
 
     if let Some(command) = command.map(str::trim).filter(|command| !command.is_empty()) {
-        let status = Command::new(command)
+        let status = new_command(command)
             .arg(trimmed_path)
             .status()
             .map_err(|error| format!("Failed to launch `{command}`: {error}"))?;
@@ -388,13 +485,13 @@ pub fn open_in_app(
         .filter(|app_name| !app_name.is_empty())
     {
         #[cfg(target_os = "macos")]
-        let status = Command::new("open")
+        let status = new_command("open")
             .arg("-a")
             .arg(app_name)
             .arg(trimmed_path)
             .status();
         #[cfg(not(target_os = "macos"))]
-        let status = Command::new(app_name).arg(trimmed_path).status();
+        let status = new_command(app_name).arg(trimmed_path).status();
 
         let status = status.map_err(|error| format!("Failed to open `{app_name}`: {error}"))?;
         if !status.success() {
@@ -408,15 +505,14 @@ pub fn open_in_app(
 
 fn open_path(path: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
-    let status = Command::new("open").arg(path).status();
+    let status = new_command("open").arg(path).status();
     #[cfg(target_os = "windows")]
     let status = {
-        let mut command = Command::new("explorer");
-        configure_child_process_for_windows(&mut command);
+        let mut command = new_command("explorer");
         command.arg(path).status()
     };
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let status = Command::new("xdg-open").arg(path).status();
+    let status = new_command("xdg-open").arg(path).status();
 
     match status.map_err(|error| format!("Failed to reveal path: {error}"))? {
         code if code.success() => Ok(()),
@@ -432,31 +528,20 @@ pub fn open_external(url: &str) -> Result<(), String> {
     }
 
     #[cfg(target_os = "macos")]
-    let status = Command::new("open").arg(trimmed).status();
+    let status = new_command("open").arg(trimmed).status();
     #[cfg(target_os = "windows")]
     let status = {
-        let mut command = Command::new("cmd");
-        configure_child_process_for_windows(&mut command);
+        let mut command = new_command("cmd");
         command.args(["/C", "start", "", trimmed]).status()
     };
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let status = Command::new("xdg-open").arg(trimmed).status();
+    let status = new_command("xdg-open").arg(trimmed).status();
 
     match status.map_err(|error| format!("Failed to open URL: {error}"))? {
         code if code.success() => Ok(()),
         code => Err(format!("Opener exited with status {code}")),
     }
 }
-
-#[cfg(target_os = "windows")]
-fn configure_child_process_for_windows(command: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    // CREATE_NO_WINDOW: keep console-less GUI children from flashing a window.
-    command.creation_flags(0x0800_0000);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn configure_child_process_for_windows(_command: &mut Command) {}
 
 fn pi_extension_npm_bin_dir(home: &Path) -> PathBuf {
     home.join(".pi")
@@ -468,7 +553,7 @@ fn pi_extension_npm_bin_dir(home: &Path) -> PathBuf {
 
 fn strip_verbatim_prefix(path: &str) -> String {
     if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
-        format!(r"\\{}", rest)
+        format!(r"\\{rest}")
     } else if let Some(rest) = path.strip_prefix(r"\\?\") {
         rest.to_string()
     } else {

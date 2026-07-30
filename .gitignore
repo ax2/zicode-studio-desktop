@@ -1,7 +1,9 @@
 node_modules/
+site/
 .npm-cache/
 .worktrees/
 .DS_Store
+.cache/
 
 # Tauri build artifacts
 target/
@@ -13,7 +15,9 @@ extensions/dist/
 
 # Embedded pi binary tree (produced by scripts/fetch-pi-binary.js)
 src-tauri/resources/pi/
-.cache/pi-binaries/
-
+src-tauri/resources/portable-git/*
+!src-tauri/resources/portable-git/.gitkeep
+src-tauri/resources/webview2/*
+!src-tauri/resources/webview2/.gitkeep
 # Pi session exports
 pi-session-*.html

@@ -4,6 +4,8 @@
  * the native folder picker, which spawns a dedicated window + pi runtime for
  * the chosen directory.
  */
+import { getSelectedSceneId } from "../settings/scene-profiles.js";
+
 
 /**
  * Resolve the Tauri `invoke` function exposed via `withGlobalTauri`.
@@ -22,11 +24,11 @@ function resolveInvoke() {
  * @param {string} workspaceId
  * @returns {Promise<void>}
  */
-export async function createSessionViaHost(workspaceId) {
+export async function createSessionViaHost(workspaceId, sceneId = getSelectedSceneId()) {
   const response = await fetch("/v2/new-session", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ workspaceId }),
+    body: JSON.stringify({ workspaceId, sceneId }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -48,11 +50,11 @@ export async function createSessionViaHost(workspaceId) {
  * @param {string} workspaceId
  * @returns {Promise<{workspaceId: string, sessionId: string, instanceId: string}>}
  */
-export async function spawnSessionViaHost(workspaceId) {
+export async function spawnSessionViaHost(workspaceId, sceneId = getSelectedSceneId()) {
   const response = await fetch("/v2/new-session", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ workspaceId }),
+    body: JSON.stringify({ workspaceId, sceneId }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -127,7 +129,10 @@ export function setupNewSessionButton({ data, workspaceId, onError } = {}) {
         const response = await data.workspaceInfo(workspaceId);
         const path = response?.info?.path;
         if (!path) throw new Error("Workspace path is unavailable");
-        await invoke("open_new_session_in_workspace", { projectPath: path });
+        await invoke("open_new_session_in_workspace", {
+          projectPath: path,
+          sceneId: getSelectedSceneId(),
+        });
       } else {
         await createSessionViaHost(workspaceId);
       }

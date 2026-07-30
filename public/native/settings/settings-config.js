@@ -20,6 +20,162 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
   const call = (op, params, options) => configGateway.call(op, params, options);
   const apiKeysContainer = document.getElementById("settings-api-keys");
   const providerExpansionState = new Map();
+  const providerChannelList = document.getElementById("provider-channel-list");
+  const providerChannelEditor = document.getElementById("provider-channel-editor");
+  const providerChannelAdd = document.getElementById("provider-channel-add");
+  const providerChannelOriginalId = document.getElementById("provider-channel-original-id");
+  const providerChannelId = document.getElementById("provider-channel-id");
+  const providerChannelBaseUrl = document.getElementById("provider-channel-base-url");
+  const providerChannelApi = document.getElementById("provider-channel-api");
+  const providerChannelApiKey = document.getElementById("provider-channel-api-key");
+  const providerChannelModels = document.getElementById("provider-channel-models");
+  const providerChannelStatus = document.getElementById("provider-channel-status");
+  const providerChannelCancel = document.getElementById("provider-channel-cancel");
+  const providerChannelSave = document.getElementById("provider-channel-save");
+
+  function openProviderChannelEditor(channel = null) {
+    if (!providerChannelEditor) return;
+    providerChannelEditor.classList.remove("hidden");
+    providerChannelOriginalId.value = channel?.provider || "";
+    providerChannelId.value = channel?.provider || "";
+    providerChannelBaseUrl.value = channel?.baseUrl || "";
+    providerChannelApi.value = channel?.api || "openai-completions";
+    providerChannelApiKey.value = "";
+    providerChannelModels.value = (channel?.models || [])
+      .map((model) => model?.id)
+      .filter(Boolean)
+      .join("\n");
+    clearSettingsSaveMessage(providerChannelStatus);
+    providerChannelId.focus();
+  }
+
+  function closeProviderChannelEditor() {
+    providerChannelEditor?.classList.add("hidden");
+    providerChannelEditor?.reset();
+    clearSettingsSaveMessage(providerChannelStatus);
+  }
+
+  function buildProviderChannelRow(channel) {
+    const row = document.createElement("div");
+    row.className = "provider-channel-row";
+    const info = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = channel.provider;
+    const endpoint = document.createElement("span");
+    endpoint.textContent = `${channel.api} · ${channel.baseUrl}`;
+    info.append(name, endpoint);
+
+    const actions = document.createElement("div");
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "ui-button ui-button--secondary";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => openProviderChannelEditor(channel));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ui-button ui-button--secondary danger";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", async () => {
+      if (!confirm(`Remove model channel "${channel.provider}" and its stored key?`)) return;
+      remove.disabled = true;
+      const result = await call("remove_provider_channel", {
+        provider: channel.provider,
+      }).catch((error) => ({ ok: false, error: error?.message }));
+      if (!result?.ok) {
+        remove.disabled = false;
+        notifyProviderChannelError(result?.error || "Failed to remove channel.");
+        return;
+      }
+      await Promise.all([
+        loadProviderChannels(),
+        loadInlineModelsEditor(),
+        loadApiKeysPanel({ preserveUi: true }),
+      ]);
+      await onModelConfigurationChanged?.();
+    });
+    actions.append(edit, remove);
+    row.append(info, actions);
+    return row;
+  }
+
+  function notifyProviderChannelError(message) {
+    if (providerChannelStatus && !providerChannelEditor?.classList.contains("hidden")) {
+      showSettingsSaveError(providerChannelStatus, message);
+      return;
+    }
+    if (!providerChannelList) return;
+    providerChannelList.replaceChildren();
+    const error = document.createElement("div");
+    error.className = "settings-api-keys-empty";
+    error.textContent = message;
+    providerChannelList.append(error);
+  }
+
+  async function loadProviderChannels() {
+    if (!providerChannelList) return;
+    providerChannelList.textContent = "Loading channels…";
+    const response = await call("list_provider_channels").catch((error) => ({
+      ok: false,
+      error: error?.message,
+    }));
+    if (!response?.ok) {
+      notifyProviderChannelError(response?.error || "Failed to load channels.");
+      return;
+    }
+    providerChannelList.replaceChildren();
+    const channels = Array.isArray(response.data?.channels) ? response.data.channels : [];
+    if (channels.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "settings-api-keys-empty";
+      empty.textContent = "No custom model channels in this scene.";
+      providerChannelList.append(empty);
+      return;
+    }
+    for (const channel of channels) {
+      providerChannelList.append(buildProviderChannelRow(channel));
+    }
+  }
+
+  providerChannelAdd?.addEventListener("click", () => openProviderChannelEditor());
+  providerChannelCancel?.addEventListener("click", closeProviderChannelEditor);
+  providerChannelEditor?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearSettingsSaveMessage(providerChannelStatus);
+    const models = providerChannelModels.value
+      .split(/\r?\n/)
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .map((id) => ({ id }));
+    if (models.length === 0) {
+      showSettingsSaveError(providerChannelStatus, "Add at least one model ID.");
+      return;
+    }
+    setSettingsSaveButtonSaving(providerChannelSave, true);
+    const response = await call("save_provider_channel", {
+      originalProvider: providerChannelOriginalId.value,
+      provider: providerChannelId.value.trim(),
+      baseUrl: providerChannelBaseUrl.value.trim(),
+      api: providerChannelApi.value,
+      apiKey: providerChannelApiKey.value.trim(),
+      authHeader: true,
+      models,
+    }).catch((error) => ({ ok: false, error: error?.message }));
+    setSettingsSaveButtonSaving(providerChannelSave, false);
+    if (!response?.ok) {
+      showSettingsSaveError(
+        providerChannelStatus,
+        response?.error || "Failed to save model channel.",
+      );
+      return;
+    }
+    closeProviderChannelEditor();
+    await Promise.all([
+      loadProviderChannels(),
+      loadInlineModelsEditor(),
+      loadApiKeysPanel({ preserveUi: true }),
+    ]);
+    await onModelConfigurationChanged?.();
+  });
 
   async function loadApiKeysPanel(options = {}) {
     if (!apiKeysContainer) return;
@@ -668,5 +824,10 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     });
   });
 
-  return { loadApiKeysPanel, loadInlineConfigEditor, loadInlineModelsEditor };
+  return {
+    loadApiKeysPanel,
+    loadProviderChannels,
+    loadInlineConfigEditor,
+    loadInlineModelsEditor,
+  };
 }

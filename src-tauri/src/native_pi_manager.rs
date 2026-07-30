@@ -3,6 +3,7 @@
 #[cfg(test)]
 use crate::pi_rpc_bridge::InMemoryPiProcess;
 use crate::pi_rpc_bridge::{BridgeFrame, PiRpcBridge, PiRpcProcess};
+use crate::process_command::new_command;
 use crate::runtime_coordinator::{
     MutationAcceptance, RuntimeCoordinator, RuntimeSnapshot, RuntimeState, RuntimeStatus,
     RuntimeTarget,
@@ -10,7 +11,7 @@ use crate::runtime_coordinator::{
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::broadcast;
@@ -25,6 +26,7 @@ pub struct NativeLaunchSpec {
     pub extensions: Vec<PathBuf>,
     pub pi_version: String,
     pub path_env: String,
+    pub environment: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,7 +48,8 @@ impl NativeLaunchSpec {
             args.push("--session".into());
             args.push(session_path.to_string_lossy().into_owned());
         }
-        let environment = BTreeMap::from([
+        let mut environment = self.environment.clone();
+        environment.extend([
             ("PATH".into(), self.path_env.clone()),
             ("PI_STUDIO_PI_VERSION".into(), self.pi_version.clone()),
         ]);
@@ -104,8 +107,7 @@ impl NativePiManager {
 
     pub fn spawn(&self, target: RuntimeTarget, spec: NativeLaunchSpec) -> Result<(), String> {
         let launch = spec.command_description();
-        let mut command = Command::new(&launch.program);
-        configure_child_process(&mut command);
+        let mut command = new_command(&launch.program);
         command
             .args(&launch.args)
             .envs(&launch.environment)
@@ -544,20 +546,12 @@ fn is_mutation(command_type: &str) -> bool {
     )
 }
 
-#[cfg(target_os = "windows")]
-fn configure_child_process(command: &mut Command) {
-    use std::os::windows::process::CommandExt;
-    command.creation_flags(0x0800_0000);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn configure_child_process(_command: &mut Command) {}
-
 #[cfg(test)]
 mod tests {
     use super::{NativeLaunchSpec, NativePiManager};
     use crate::runtime_coordinator::RuntimeTarget;
     use serde_json::json;
+    use std::collections::BTreeMap;
     use std::path::PathBuf;
     use std::time::Duration;
 
@@ -570,6 +564,7 @@ mod tests {
             extensions: vec![PathBuf::from("/extensions/picot-bridge.mjs")],
             pi_version: env!("PI_STUDIO_PI_VERSION_BUNDLED").into(),
             path_env: "/usr/bin".into(),
+            environment: BTreeMap::from([("PI_CODING_AGENT_DIR".into(), "/isolated/agent".into())]),
         };
         let launch = spec.command_description();
         assert_eq!(launch.program, PathBuf::from("/embedded/pi"));
@@ -579,6 +574,7 @@ mod tests {
             .windows(2)
             .any(|pair| pair == ["--session", "/sessions/a.jsonl"]));
         assert!(!launch.environment.contains_key("PI_STUDIO_PORT"));
+        assert_eq!(launch.environment["PI_CODING_AGENT_DIR"], "/isolated/agent");
         assert!(!launch
             .args
             .iter()

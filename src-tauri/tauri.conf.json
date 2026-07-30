@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Picot",
-  "identifier": "works.earendil.picot",
-  "version": "0.3.1-10013",
+  "productName": "Pi Windows Desktop",
+  "identifier": "com.ax2.pi-windows-desktop",
+  "version": "0.1.0",
   "build": {
     "frontendDist": "../public",
-    "beforeDevCommand": "bun run fetch:pi",
-    "beforeBuildCommand": "bun run fetch:pi && bun run build:extensions"
+    "beforeDevCommand": "bun run fetch:pi && bun run fetch:portable-git",
+    "beforeBuildCommand": "bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions"
   },
   "app": {
     "withGlobalTauri": true,
@@ -22,11 +22,19 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "macOS": {
       "signingIdentity": "-",
       "entitlements": "./entitlements.plist",
       "infoPlist": "./Info.plist"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "skip"
+      },
+      "nsis": {
+        "installerHooks": "./windows/hooks.nsh"
+      }
     },
     "icon": [
       "icons/32x32.png",
@@ -38,14 +46,18 @@
     "resources": {
       "../public": "public",
       "../extensions/dist": "extensions",
-      "./resources/pi": "pi"
+      "../NOTICE": "NOTICE",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "./resources/pi": "pi",
+      "./resources/portable-git": "portable-git",
+      "./resources/webview2": "webview2"
     }
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU5OUQ4Q0Y5MTA1MTFDRTEKUldUaEhGRVErWXlkNlNSa01lY0g5S1ltM3BjMHJhdUYxdXdsc25USndZdDBFeGZyeGpUa2JVZWEK",
       "endpoints": [
-        "https://github.com/shixin-guo/picot/releases/latest/download/latest.json"
+        "https://github.com/ax2/pi-windows-desktop/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

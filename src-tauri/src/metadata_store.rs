@@ -9,6 +9,7 @@ const SCHEMA_VERSION: i64 = 1;
 
 pub struct MetadataStore {
     connection: Connection,
+    #[cfg_attr(not(unix), allow(dead_code))]
     path: PathBuf,
 }
 

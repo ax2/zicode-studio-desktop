@@ -63,6 +63,13 @@ type CatalogRegistry = {
 
 type ApiKeyCredential = { type: "api_key"; key: string };
 
+const SUPPORTED_MODEL_APIS = new Set([
+  "openai-completions",
+  "openai-responses",
+  "anthropic-messages",
+  "google-generative-ai",
+]);
+
 type CredentialStoreLike = {
   modify?: (
     provider: string,
@@ -92,6 +99,10 @@ function errMessage(e: unknown): string {
 }
 
 function resolvePiAgentRoot(): string {
+  const isolatedRoot = process.env.PI_CODING_AGENT_DIR;
+  if (typeof isolatedRoot === "string" && isolatedRoot.trim()) {
+    return path.resolve(isolatedRoot.trim());
+  }
   const candidates: string[] = [];
   const add = (value?: string) => {
     if (typeof value === "string" && value.trim()) candidates.push(path.resolve(value.trim()));
@@ -102,15 +113,6 @@ function resolvePiAgentRoot(): string {
     add(`${process.env.HOMEDRIVE}${process.env.HOMEPATH}`);
   }
   add(os.homedir());
-  for (const home of candidates) {
-    const candidate = path.join(home, ".pi", "agent");
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  const appData = process.env.APPDATA;
-  if (typeof appData === "string" && appData.trim()) {
-    const roaming = path.join(path.resolve(appData), "pi", "agent");
-    if (fs.existsSync(roaming)) return roaming;
-  }
   return path.join(candidates[0] || os.homedir(), ".pi", "agent");
 }
 
@@ -122,7 +124,9 @@ const CHAT_CONFIG_PATH = path.join(PI_AGENT_ROOT, "chat", "config.json");
 const AUTH_CONFIG_PATH = path.join(PI_AGENT_ROOT, "auth.json");
 const CHAT_WORKER_STATUS_DIR = path.join(PI_AGENT_ROOT, "chat", "worker-status");
 const SUPER_AGENT_TASKS_PATH = path.join(PI_AGENT_ROOT, "super-agent", "tasks.json");
-const PISTUDIO_INSTANCES_DIR = path.join(os.homedir(), ".pi", "pistudio-instances");
+const PISTUDIO_INSTANCES_DIR = process.env.PI_DESKTOP_INSTANCE_DIR
+  ? path.join(path.resolve(process.env.PI_DESKTOP_INSTANCE_DIR), "super-agent")
+  : path.join(os.homedir(), ".pi", "pistudio-instances");
 
 function modelPreferenceKey(provider: string, modelId: string): string {
   return `${provider}/${modelId}`;
@@ -322,6 +326,88 @@ function writeConfigFile(filePath: string, content: unknown): void {
   JSON.parse(content); // validate before writing
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, "utf8");
+}
+
+function readModelsDocument(): {
+  providers: Record<string, Record<string, unknown>>;
+  [key: string]: unknown;
+} {
+  if (!fs.existsSync(MODELS_CONFIG_PATH)) return { providers: {} };
+  const parsed = JSON.parse(fs.readFileSync(MODELS_CONFIG_PATH, "utf8")) as Record<string, unknown>;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("models.json must be a JSON object");
+  }
+  const providers =
+    parsed.providers && typeof parsed.providers === "object" && !Array.isArray(parsed.providers)
+      ? (parsed.providers as Record<string, Record<string, unknown>>)
+      : {};
+  return { ...parsed, providers };
+}
+
+function writeModelsDocument(document: Record<string, unknown>): void {
+  writeConfigFile(MODELS_CONFIG_PATH, `${JSON.stringify(document, null, 2)}\n`);
+}
+
+function validateBaseUrl(value: unknown): string {
+  const baseUrl = asString(value);
+  if (!baseUrl) throw new Error("baseUrl is required");
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new Error("baseUrl must be a valid URL");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error("baseUrl must use http or https");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("baseUrl must not contain credentials");
+  }
+  return baseUrl.replace(/\/+$/, "");
+}
+
+function validateProviderId(value: unknown): string {
+  const provider = asString(value);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(provider)) {
+    throw new Error("provider must be 1-64 letters, digits, dots, underscores, or hyphens");
+  }
+  return provider;
+}
+
+function normalizeChannelModels(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error("at least one model is required");
+  }
+  const seen = new Set<string>();
+  return value.map((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error("each model must be an object");
+    }
+    const model = entry as Record<string, unknown>;
+    const id = asString(model.id);
+    if (!id) throw new Error("each model requires an id");
+    if (seen.has(id)) throw new Error(`duplicate model id: ${id}`);
+    seen.add(id);
+    const normalized: Record<string, unknown> = { id };
+    const name = asString(model.name);
+    if (name) normalized.name = name;
+    if (typeof model.reasoning === "boolean") normalized.reasoning = model.reasoning;
+    const contextWindow = asNumber(model.contextWindow);
+    if (contextWindow && contextWindow > 0) normalized.contextWindow = Math.trunc(contextWindow);
+    const maxTokens = asNumber(model.maxTokens);
+    if (maxTokens && maxTokens > 0) normalized.maxTokens = Math.trunc(maxTokens);
+    return normalized;
+  });
+}
+
+async function refreshRegistry(registry?: CatalogRegistry): Promise<boolean> {
+  if (!registry) return false;
+  try {
+    await registry.refresh();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function asString(value: unknown): string {
@@ -524,6 +610,53 @@ export async function handlePicotConfig(
         return { ok: true, data: { provider } };
       }
 
+      case "list_provider_channels": {
+        const document = readModelsDocument();
+        const channels = Object.entries(document.providers).map(([provider, config]) => ({
+          provider,
+          baseUrl: asString(config.baseUrl),
+          api: asString(config.api) || "openai-completions",
+          authHeader: config.authHeader !== false,
+          models: Array.isArray(config.models) ? config.models : [],
+        }));
+        return { ok: true, data: { channels } };
+      }
+
+      case "save_provider_channel": {
+        const provider = validateProviderId(params.provider);
+        const originalProvider = params.originalProvider
+          ? validateProviderId(params.originalProvider)
+          : provider;
+        const baseUrl = validateBaseUrl(params.baseUrl);
+        const api = asString(params.api) || "openai-completions";
+        if (!SUPPORTED_MODEL_APIS.has(api)) throw new Error(`unsupported API type: ${api}`);
+        const models = normalizeChannelModels(params.models);
+        const document = readModelsDocument();
+        if (originalProvider !== provider) delete document.providers[originalProvider];
+        document.providers[provider] = {
+          baseUrl,
+          api,
+          authHeader: params.authHeader !== false,
+          models,
+        };
+        writeModelsDocument(document);
+        const apiKey = asString(params.apiKey);
+        if (apiKey) await setStoredApiKey(registry, provider, apiKey);
+        if (originalProvider !== provider) await removeStoredApiKey(registry, originalProvider);
+        const refreshed = await refreshRegistry(registry);
+        return { ok: true, data: { provider, refreshed } };
+      }
+
+      case "remove_provider_channel": {
+        const provider = validateProviderId(params.provider);
+        const document = readModelsDocument();
+        delete document.providers[provider];
+        writeModelsDocument(document);
+        await removeStoredApiKey(registry, provider);
+        const refreshed = await refreshRegistry(registry);
+        return { ok: true, data: { provider, refreshed } };
+      }
+
       case "read_agent_config":
         return { ok: true, data: readConfigFile(AGENT_CONFIG_PATH, "{}") };
 
@@ -549,15 +682,7 @@ export async function handlePicotConfig(
           throw new Error("'providers' must be an object");
         }
         writeConfigFile(MODELS_CONFIG_PATH, content);
-        let refreshed = false;
-        try {
-          if (registry) {
-            await registry.refresh();
-            refreshed = true;
-          }
-        } catch {
-          // Non-fatal: file is saved; user can /reload or restart.
-        }
+        const refreshed = await refreshRegistry(registry);
         return { ok: true, data: { path: MODELS_CONFIG_PATH, refreshed } };
       }
 

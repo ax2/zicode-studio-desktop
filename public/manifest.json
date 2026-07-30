@@ -1,7 +1,7 @@
 {
-  "name": "Picot",
-  "short_name": "Picot",
-  "description": "Local desktop GUI for the Pi coding agent",
+  "name": "Pi Windows Desktop",
+  "short_name": "Pi Desktop",
+  "description": "Self-contained Windows desktop application for the Pi agent",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f3ef",

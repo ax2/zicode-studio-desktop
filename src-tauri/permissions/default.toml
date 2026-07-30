@@ -26,16 +26,31 @@ commands.allow = ["ensure_agent_inbox_session"]
 
 [[permission]]
 identifier = "allow-check-beta-update"
-description = "Allow checking the prerelease Picot updater channel."
+description = "Allow checking the prerelease Pi Windows Desktop updater channel."
 commands.allow = ["check_beta_update"]
 
 [[permission]]
 identifier = "allow-install-beta-update"
-description = "Allow installing an available prerelease Picot update."
+description = "Allow installing an available prerelease Pi Windows Desktop update."
 commands.allow = ["install_beta_update"]
 
+[[permission]]
+identifier = "allow-list-scene-profiles"
+description = "Allow listing built-in and custom desktop scene profiles."
+commands.allow = ["list_scene_profiles"]
+
+[[permission]]
+identifier = "allow-save-scene-profile"
+description = "Allow saving a validated custom desktop scene profile."
+commands.allow = ["save_scene_profile"]
+
+[[permission]]
+identifier = "allow-delete-scene-profile"
+description = "Allow deleting a custom desktop scene profile."
+commands.allow = ["delete_scene_profile"]
+
 [default]
-description = "Default set of Picot app command permissions."
+description = "Default set of Pi Windows Desktop app command permissions."
 permissions = [
   "allow-open-folder-as-workspace",
   "allow-open-new-session-in-workspace",
@@ -43,4 +58,7 @@ permissions = [
   "allow-ensure-agent-inbox-session",
   "allow-check-beta-update",
   "allow-install-beta-update",
+  "allow-list-scene-profiles",
+  "allow-save-scene-profile",
+  "allow-delete-scene-profile",
 ]

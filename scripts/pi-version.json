@@ -1,4 +1,8 @@
 {
   "version": "0.82.0",
-  "_comment": "Locked pi-mono release version that pi-studio bundles. Bump this, run `bun run fetch:pi`, smoke-test, then commit. Optionally pin sha256 per-asset under `sha256` to enable strict checksum verification."
+  "sha256": {
+    "pi-windows-x64.zip": "c7d3d6859e8e9352ba1cba374f1a436fcb0e6737d05d93806569ae338c46d5b0",
+    "pi-windows-arm64.zip": "2d392c0752eb60bcfe6b7a98dcfc6657f18d4f8e481a7f9e870857823ea0d965"
+  },
+  "_comment": "Locked pi release and GitHub-published SHA-256 digests. Add pins for other target assets before shipping those targets."
 }

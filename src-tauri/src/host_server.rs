@@ -69,6 +69,9 @@ impl HostServer {
     ) -> Result<Self, String> {
         let mut data = HostDataPlane::new(workspace_roots)
             .map_err(|error| format!("Cannot initialize Host data plane: {error:?}"))?;
+        if let Some(local_data) = dirs::data_local_dir() {
+            data = data.with_session_root(local_data.join("PiWindowsDesktop").join("instances"));
+        }
         if let Some(home) = dirs::home_dir() {
             data = data.with_session_root(home.join(".pi/agent/sessions"));
         }
@@ -171,6 +174,17 @@ impl HostServer {
             .map_err(|error| format!("Cannot resolve workspace path: {error:?}"))
     }
 
+    pub fn scene_id_for_session(
+        &self,
+        workspace_id: &str,
+        session_id: &str,
+    ) -> Result<Option<String>, String> {
+        self.state
+            .data
+            .scene_id_for_session(workspace_id, session_id)
+            .map_err(|error| format!("Cannot resolve session scene: {error:?}"))
+    }
+
     pub fn origin(&self) -> &str {
         &self.origin
     }
@@ -217,7 +231,7 @@ fn local_lan_ip() -> Option<std::net::IpAddr> {
 /// Returns `None` — the port is only known once the server is bound.
 /// Callers that need a full URL must pass the port in separately.
 fn local_lan_url_with_port(port: u16) -> Option<String> {
-    local_lan_ip().map(|ip| format!("http://{}:{}", ip, port))
+    local_lan_ip().map(|ip| format!("http://{ip}:{port}"))
 }
 
 fn append_pairing_token(url: &mut String, token: &str) {
@@ -336,18 +350,26 @@ async fn bootstrap_target(
         .data
         .workspace_root_path(&query.workspace_id)
         .map_err(|_| api_error(StatusCode::NOT_FOUND, "workspace_not_found"))?;
+    let scene_id = state
+        .data
+        .scene_id_for_session(&query.workspace_id, &query.session_id)
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "programming".to_string());
+    let target = RuntimeTarget::new(
+        query.workspace_id.clone(),
+        query.session_id.clone(),
+        format!("instance-{}", uuid::Uuid::new_v4().simple()),
+    )
+    .with_scene(scene_id);
     let launch = state
         .pi_launch
         .native_launch_spec(
             &cwd.to_string_lossy(),
             Some(&session_path.to_string_lossy()),
+            &target,
         )
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "launch_spec_failed"))?;
-    let target = RuntimeTarget::new(
-        query.workspace_id.clone(),
-        query.session_id.clone(),
-        format!("instance-{}", uuid::Uuid::new_v4().simple()),
-    );
     state
         .runtimes
         .spawn(target.clone(), launch)
@@ -359,6 +381,8 @@ async fn bootstrap_target(
 #[serde(rename_all = "camelCase")]
 struct NewSessionRequest {
     workspace_id: String,
+    #[serde(default)]
+    scene_id: Option<String>,
 }
 
 /// POST /v2/new-session — spawn a fresh temporary runtime for `workspaceId`.
@@ -373,11 +397,12 @@ async fn new_session(
         .map_err(|_| api_error(StatusCode::NOT_FOUND, "workspace_not_found"))?;
     let session_id = format!("temporary-{}", uuid::Uuid::new_v4().simple());
     let instance_id = format!("instance-{}", uuid::Uuid::new_v4().simple());
-    let target = RuntimeTarget::new(body.workspace_id.clone(), session_id, instance_id);
+    let target = RuntimeTarget::new(body.workspace_id.clone(), session_id, instance_id)
+        .with_scene(body.scene_id.as_deref().unwrap_or("programming"));
     let cwd_str = cwd.to_string_lossy().into_owned();
     let launch = state
         .pi_launch
-        .native_launch_spec(&cwd_str, None)
+        .native_launch_spec(&cwd_str, None, &target)
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "launch_spec_failed"))?;
     state
         .runtimes

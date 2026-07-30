@@ -10,6 +10,12 @@ pub struct RuntimeTarget {
     pub workspace_id: String,
     pub session_id: String,
     pub instance_id: String,
+    #[serde(default = "default_scene_id")]
+    pub scene_id: String,
+}
+
+fn default_scene_id() -> String {
+    "programming".to_string()
 }
 
 impl RuntimeTarget {
@@ -22,7 +28,18 @@ impl RuntimeTarget {
             workspace_id: workspace_id.into(),
             session_id: session_id.into(),
             instance_id: instance_id.into(),
+            scene_id: default_scene_id(),
         }
+    }
+
+    pub fn with_scene(mut self, scene_id: impl Into<String>) -> Self {
+        let scene_id = scene_id.into();
+        self.scene_id = if scene_id.trim().is_empty() {
+            default_scene_id()
+        } else {
+            scene_id
+        };
+        self
     }
 }
 

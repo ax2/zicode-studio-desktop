@@ -1,0 +1,11 @@
+{
+  "version": "evergreen-2026-07-28",
+  "assets": {
+    "windows-x64": {
+      "name": "MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+      "url": "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/f3274495-ff02-440e-b522-2d4129a911e8/MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+      "sha256": "04b9f08d839c8c06f34a85acea0d9f1568d3d8aa309a77619aaa46bb29ade0f8"
+    }
+  },
+  "_comment": "Pinned official Microsoft Evergreen Standalone Installer. Update URL, version and SHA-256 together."
+}

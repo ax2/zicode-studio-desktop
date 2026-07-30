@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Picot Startup</title>
+  <title>Pi Windows Desktop Startup</title>
   <style>
     :root { color-scheme: dark; }
     body {
@@ -63,9 +63,9 @@
 </head>
 <body>
   <main class="card">
-    <h1>Picot could not start</h1>
-    <p>The embedded <code>pi</code> runtime that ships with Picot failed to launch.</p>
-    <p>This usually means the installation is incomplete or corrupted. Reinstalling Picot normally fixes it. Click <b>Retry startup</b> after reinstalling or rebooting.</p>
+    <h1>Pi Windows Desktop could not start</h1>
+    <p>The embedded <code>pi</code> runtime that ships with Pi Windows Desktop failed to launch.</p>
+    <p>This usually means the installation is incomplete or corrupted. Reinstalling Pi Windows Desktop normally fixes it. Click <b>Retry startup</b> after reinstalling or rebooting.</p>
     <div id="startup-error" class="error"></div>
     <div class="actions">
       <button id="retry-btn" type="button">Retry startup</button>
@@ -84,7 +84,7 @@
 
     retryBtn.addEventListener('click', async () => {
       retryBtn.disabled = true;
-      hint.textContent = 'Restart Picot to retry startup.';
+      hint.textContent = 'Restart Pi Windows Desktop to retry startup.';
     });
   </script>
 </body>

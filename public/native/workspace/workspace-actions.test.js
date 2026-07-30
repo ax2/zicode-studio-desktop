@@ -8,6 +8,7 @@ function installTauriInvoke(invoke) {
 describe("workspace actions", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    localStorage.clear();
     delete globalThis.__TAURI__;
     vi.restoreAllMocks();
   });
@@ -27,6 +28,7 @@ describe("workspace actions", () => {
     expect(data.workspaceInfo).toHaveBeenCalledWith("workspace-a");
     expect(invoke).toHaveBeenCalledWith("open_new_session_in_workspace", {
       projectPath: "/tmp/picot",
+      sceneId: "programming",
     });
   });
 
@@ -60,7 +62,7 @@ describe("workspace actions", () => {
     expect(fetchMock).toHaveBeenCalledWith("/v2/new-session", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ workspaceId: "workspace-a" }),
+      body: JSON.stringify({ workspaceId: "workspace-a", sceneId: "programming" }),
     });
     await vi.waitFor(() =>
       expect(globalThis.location.href).toBe(

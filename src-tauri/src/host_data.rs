@@ -1,8 +1,8 @@
+use crate::process_command::new_command;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
@@ -159,7 +159,7 @@ pub enum HostDataError {
 #[derive(Clone, Default)]
 pub struct HostDataPlane {
     workspace_roots: Arc<RwLock<HashMap<String, PathBuf>>>,
-    session_root: Option<PathBuf>,
+    session_roots: Vec<PathBuf>,
     session_summary_cache: Arc<RwLock<HashMap<PathBuf, CachedSessionSummary>>>,
 }
 
@@ -187,14 +187,24 @@ impl HostDataPlane {
         }
         Ok(Self {
             workspace_roots: Arc::new(RwLock::new(canonical)),
-            session_root: None,
+            session_roots: Vec::new(),
             session_summary_cache: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
     pub fn with_session_root(mut self, session_root: PathBuf) -> Self {
-        self.session_root = Some(session_root);
+        if !self.session_roots.contains(&session_root) {
+            self.session_roots.push(session_root);
+        }
         self
+    }
+
+    fn session_files(&self) -> Result<Vec<PathBuf>, HostDataError> {
+        let mut files = Vec::new();
+        for root in &self.session_roots {
+            collect_session_files(root, &mut files)?;
+        }
+        Ok(files)
     }
 
     /// Register (or update) a workspace root at runtime. Used when the user
@@ -282,7 +292,7 @@ impl HostDataPlane {
     pub fn workspace_info(&self, workspace_id: &str) -> Result<WorkspaceInfo, HostDataError> {
         let root = self.workspace_root(workspace_id)?;
         let path = root.to_string_lossy().into_owned();
-        let git_branch = Command::new("git")
+        let git_branch = new_command("git")
             .args(["rev-parse", "--abbrev-ref", "HEAD"])
             .current_dir(&root)
             .output()
@@ -304,35 +314,45 @@ impl HostDataPlane {
     ) -> Result<Option<PathBuf>, HostDataError> {
         let workspace = self.workspace_root(workspace_id)?;
         let workspace = workspace.as_path();
-        let Some(session_root) = &self.session_root else {
+        for path in self.session_files()? {
+            let Some(summary) = parse_session_summary(&path)? else {
+                continue;
+            };
+            if summary.id == session_id && same_dir(workspace, Path::new(&summary.project_path)) {
+                return Ok(Some(path));
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn scene_id_for_session(
+        &self,
+        workspace_id: &str,
+        session_id: &str,
+    ) -> Result<Option<String>, HostDataError> {
+        let Some(session_path) = self.resolve_session_path(workspace_id, session_id)? else {
             return Ok(None);
         };
-        if !session_root.is_dir() {
-            return Ok(None);
-        }
-        for project in std::fs::read_dir(session_root)
-            .map_err(|error| HostDataError::Io(error.to_string()))?
-            .filter_map(Result::ok)
-        {
-            if !project.path().is_dir() {
-                continue;
+        let mut directory = session_path.parent();
+        for _ in 0..5 {
+            let Some(current) = directory else {
+                break;
+            };
+            let metadata_path = current.join("runtime.json");
+            if metadata_path.is_file() {
+                let value: serde_json::Value = serde_json::from_slice(
+                    &std::fs::read(&metadata_path)
+                        .map_err(|error| HostDataError::Io(error.to_string()))?,
+                )
+                .map_err(|error| HostDataError::Io(error.to_string()))?;
+                return Ok(value
+                    .get("sceneId")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|scene_id| !scene_id.is_empty())
+                    .map(str::to_string));
             }
-            for file in std::fs::read_dir(project.path())
-                .map_err(|error| HostDataError::Io(error.to_string()))?
-                .filter_map(Result::ok)
-            {
-                let path = file.path();
-                if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
-                    continue;
-                }
-                let Some(summary) = parse_session_summary(&path)? else {
-                    continue;
-                };
-                if summary.id == session_id && same_dir(workspace, Path::new(&summary.project_path))
-                {
-                    return Ok(Some(path));
-                }
-            }
+            directory = current.parent();
         }
         Ok(None)
     }
@@ -486,45 +506,26 @@ impl HostDataPlane {
         if session_ids.is_empty() {
             return Ok(result);
         }
-        let Some(session_root) = &self.session_root else {
-            result.errors = session_ids.to_vec();
-            return Ok(result);
-        };
-        if !session_root.is_dir() {
+        if self.session_roots.is_empty() {
             result.errors = session_ids.to_vec();
             return Ok(result);
         }
         let requested: HashSet<&str> = session_ids.iter().map(String::as_str).collect();
         let mut deleted = HashSet::new();
         let mut failed = HashSet::new();
-        for project in std::fs::read_dir(session_root)
-            .map_err(|error| HostDataError::Io(error.to_string()))?
-            .filter_map(Result::ok)
-        {
-            if !project.path().is_dir() {
+        for path in self.session_files()? {
+            let Some(session_id) = parse_session_id(&path)? else {
+                continue;
+            };
+            if !requested.contains(session_id.as_str()) {
                 continue;
             }
-            for file in std::fs::read_dir(project.path())
-                .map_err(|error| HostDataError::Io(error.to_string()))?
-                .filter_map(Result::ok)
-            {
-                let path = file.path();
-                if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
-                    continue;
+            match std::fs::remove_file(&path) {
+                Ok(()) => {
+                    deleted.insert(session_id);
                 }
-                let Some(session_id) = parse_session_id(&path)? else {
-                    continue;
-                };
-                if !requested.contains(session_id.as_str()) {
-                    continue;
-                }
-                match std::fs::remove_file(&path) {
-                    Ok(()) => {
-                        deleted.insert(session_id);
-                    }
-                    Err(_) => {
-                        failed.insert(session_id);
-                    }
+                Err(_) => {
+                    failed.insert(session_id);
                 }
             }
         }
@@ -545,38 +546,17 @@ impl HostDataPlane {
         &self,
         workspace_filter: Option<&Path>,
     ) -> Result<Vec<SessionSummary>, HostDataError> {
-        let Some(session_root) = &self.session_root else {
-            return Ok(Vec::new());
-        };
-        if !session_root.is_dir() {
-            return Ok(Vec::new());
-        }
         let mut sessions = Vec::new();
-        for project in std::fs::read_dir(session_root)
-            .map_err(|error| HostDataError::Io(error.to_string()))?
-            .filter_map(Result::ok)
-        {
-            if !project.path().is_dir() {
-                continue;
-            }
-            let Ok(files) = std::fs::read_dir(project.path()) else {
+        for path in self.session_files()? {
+            let Ok(Some(summary)) = self.cached_session_summary(&path) else {
                 continue;
             };
-            for file in files.filter_map(Result::ok) {
-                let path = file.path();
-                if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
+            if let Some(filter) = workspace_filter {
+                if !same_dir(filter, Path::new(&summary.project_path)) {
                     continue;
                 }
-                let Ok(Some(summary)) = self.cached_session_summary(&path) else {
-                    continue;
-                };
-                if let Some(filter) = workspace_filter {
-                    if !same_dir(filter, Path::new(&summary.project_path)) {
-                        continue;
-                    }
-                }
-                sessions.push(summary);
             }
+            sessions.push(summary);
         }
         Ok(sessions)
     }
@@ -620,35 +600,17 @@ impl HostDataPlane {
         const MAX_RESULTS: usize = 30;
         let workspace = self.workspace_root(workspace_id)?;
         let workspace = workspace.as_path();
-        let Some(session_root) = &self.session_root else {
-            return Ok(Vec::new());
-        };
         let query = query.trim().to_lowercase();
-        if query.len() < 2 || !session_root.is_dir() {
+        if query.len() < 2 {
             return Ok(Vec::new());
         }
         let mut results = Vec::new();
-        for project in std::fs::read_dir(session_root)
-            .map_err(|error| HostDataError::Io(error.to_string()))?
-            .filter_map(Result::ok)
-        {
-            if !project.path().is_dir() {
-                continue;
+        for path in self.session_files()? {
+            if results.len() >= MAX_RESULTS {
+                return Ok(results);
             }
-            for file in std::fs::read_dir(project.path())
-                .map_err(|error| HostDataError::Io(error.to_string()))?
-                .filter_map(Result::ok)
-            {
-                if results.len() >= MAX_RESULTS {
-                    return Ok(results);
-                }
-                let path = file.path();
-                if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
-                    continue;
-                }
-                if let Some(result) = search_session_file(&path, workspace, &query)? {
-                    results.push(result);
-                }
+            if let Some(result) = search_session_file(&path, workspace, &query)? {
+                results.push(result);
             }
         }
         Ok(results)
@@ -659,35 +621,41 @@ impl HostDataPlane {
         // aggregates usage across ALL projects under the session root — the UI
         // is designed to rank projects globally, not scope to one workspace.
         let _ = self.workspace_root(workspace_id)?;
-        let Some(session_root) = &self.session_root else {
-            return Ok(CostDashboard::default());
-        };
-        if !session_root.is_dir() {
-            return Ok(CostDashboard::default());
-        }
         let mut sessions = Vec::new();
-        for project in std::fs::read_dir(session_root)
-            .map_err(|error| HostDataError::Io(error.to_string()))?
-            .filter_map(Result::ok)
-        {
-            if !project.path().is_dir() {
-                continue;
-            }
-            for file in std::fs::read_dir(project.path())
-                .map_err(|error| HostDataError::Io(error.to_string()))?
-                .filter_map(Result::ok)
-            {
-                let path = file.path();
-                if path.extension().and_then(|value| value.to_str()) != Some("jsonl") {
-                    continue;
-                }
-                if let Some(metrics) = parse_session_metrics(&path, None)? {
-                    sessions.push(metrics);
-                }
+        for path in self.session_files()? {
+            if let Some(metrics) = parse_session_metrics(&path, None)? {
+                sessions.push(metrics);
             }
         }
         Ok(build_cost_dashboard(sessions))
     }
+}
+
+fn collect_session_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), HostDataError> {
+    if !root.is_dir() {
+        return Ok(());
+    }
+    let mut pending = vec![(root.to_path_buf(), 0_u8)];
+    while let Some((directory, depth)) = pending.pop() {
+        if depth > 8 {
+            continue;
+        }
+        let entries =
+            std::fs::read_dir(&directory).map_err(|error| HostDataError::Io(error.to_string()))?;
+        for entry in entries.filter_map(Result::ok) {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
+                pending.push((entry.path(), depth + 1));
+            } else if file_type.is_file()
+                && entry.path().extension().and_then(|value| value.to_str()) == Some("jsonl")
+            {
+                files.push(entry.path());
+            }
+        }
+    }
+    Ok(())
 }
 
 fn find_chars(haystack: &[char], needle: &[char]) -> Option<usize> {
@@ -1637,6 +1605,58 @@ mod tests {
         assert_eq!(dashboard.by_tool[0].name, "bash");
         // The most expensive session sorts first.
         assert_eq!(dashboard.top_sessions[0].id, "session-b");
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn discovers_sessions_recursively_across_isolated_and_legacy_roots() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("pi-desktop-multi-root-{nonce}"));
+        let workspace = temp.join("workspace");
+        let isolated = temp.join("instances/hash-a/sessions/project");
+        let legacy = temp.join("legacy/project");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::create_dir_all(&isolated).unwrap();
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(
+            temp.join("instances/hash-a/runtime.json"),
+            r#"{"sceneId":"finance"}"#,
+        )
+        .unwrap();
+        for (directory, id) in [(&isolated, "isolated-a"), (&legacy, "legacy-a")] {
+            fs::write(
+                directory.join(format!("{id}.jsonl")),
+                format!(
+                    "{{\"type\":\"session\",\"id\":\"{id}\",\"timestamp\":\"2026-01-01\",\"cwd\":{}}}\n",
+                    serde_json::to_string(&workspace.to_string_lossy()).unwrap()
+                ),
+            )
+            .unwrap();
+        }
+        let data = HostDataPlane::new(HashMap::from([("workspace-a".into(), workspace)]))
+            .unwrap()
+            .with_session_root(temp.join("instances"))
+            .with_session_root(temp.join("legacy"));
+
+        let sessions = data.list_sessions("workspace-a").unwrap();
+
+        assert_eq!(sessions.len(), 2);
+        assert!(sessions.iter().any(|session| session.id == "isolated-a"));
+        assert!(sessions.iter().any(|session| session.id == "legacy-a"));
+        assert_eq!(
+            data.scene_id_for_session("workspace-a", "isolated-a")
+                .unwrap()
+                .as_deref(),
+            Some("finance")
+        );
+        assert_eq!(
+            data.scene_id_for_session("workspace-a", "legacy-a")
+                .unwrap(),
+            None
+        );
         fs::remove_dir_all(temp).unwrap();
     }
 }

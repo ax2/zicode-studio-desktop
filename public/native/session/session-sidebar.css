@@ -384,7 +384,7 @@
   justify-content: flex-end;
   align-items: center;
   border-radius: var(--radius-pill);
-  background: none;
+  background: linear-gradient(90deg, transparent 0%, var(--bg-solid) 38%);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

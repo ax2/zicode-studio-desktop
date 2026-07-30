@@ -7,7 +7,7 @@
             content="width=device-width, initial-scale=1.0, viewport-fit=cover"
         />
         <base href="/" />
-        <title>Picot</title>
+        <title>Pi Windows Desktop</title>
         <link rel="icon" type="image/svg+xml" href="icons/logo-dark.svg" />
         <meta name="theme-color" content="#f5f3ef" />
         <link rel="stylesheet" href="style-theme.css" />
@@ -71,7 +71,7 @@
                         <span class="mode-link active" title="Chat"
                             ><img
                                 src="icons/logo-dark.svg"
-                                alt="Picot logo"
+                                alt="Pi Windows Desktop logo"
                                 class="tau-icon"
                         /></span>
                     </div>
@@ -397,11 +397,11 @@
                         <div class="welcome-icon">
                             <img
                                 src="icons/logo-dark.svg"
-                                alt="Picot logo"
+                                alt="Pi Windows Desktop logo"
                                 class="tau-icon-welcome"
                             />
                         </div>
-                        <p>Welcome to Picot</p>
+                        <p>Welcome to Pi Windows Desktop</p>
                         <p class="hint">
                             Type a message below to start chatting with Pi, or select a session from the sidebar.
                         </p>
@@ -914,6 +914,126 @@
                                 ></button>
                             </div>
                         </div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">
+                                New session scene
+                            </div>
+                            <p class="settings-help">
+                                Each scene has isolated model channels,
+                                credentials, extensions, and sessions. The
+                                selection applies when you create the next
+                                session.
+                            </p>
+                            <div class="settings-row">
+                                <span
+                                    class="settings-label settings-label-stack"
+                                >
+                                    <span class="settings-label-main"
+                                        >Scene</span
+                                    >
+                                    <span
+                                        class="settings-label-sub"
+                                        id="scene-profile-description"
+                                    ></span>
+                                </span>
+                                <select
+                                    class="ui-input scene-profile-select"
+                                    id="scene-profile-select"
+                                ></select>
+                            </div>
+                            <div class="scene-profile-actions">
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="scene-profile-new"
+                                    type="button"
+                                >
+                                    New custom scene
+                                </button>
+                                <button
+                                    class="ui-button ui-button--secondary danger hidden"
+                                    id="scene-profile-delete"
+                                    type="button"
+                                >
+                                    Delete selected
+                                </button>
+                            </div>
+                            <form
+                                class="scene-profile-editor hidden"
+                                id="scene-profile-editor"
+                            >
+                                <label>
+                                    <span>Scene ID</span>
+                                    <input
+                                        class="ui-input"
+                                        id="scene-profile-id"
+                                        required
+                                        pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+                                        placeholder="research"
+                                    />
+                                </label>
+                                <label>
+                                    <span>Name</span>
+                                    <input
+                                        class="ui-input"
+                                        id="scene-profile-name"
+                                        required
+                                        maxlength="80"
+                                        placeholder="Research"
+                                    />
+                                </label>
+                                <label class="scene-profile-wide">
+                                    <span>Description</span>
+                                    <input
+                                        class="ui-input"
+                                        id="scene-profile-description-input"
+                                        maxlength="300"
+                                    />
+                                </label>
+                                <label class="scene-profile-wide">
+                                    <span>Scene system instructions</span>
+                                    <textarea
+                                        class="ui-textarea"
+                                        id="scene-profile-prompt"
+                                        rows="5"
+                                    ></textarea>
+                                </label>
+                                <label class="scene-profile-wide">
+                                    <span
+                                        >Allowed tools (comma-separated; blank
+                                        allows all)</span
+                                    >
+                                    <input
+                                        class="ui-input"
+                                        id="scene-profile-tools"
+                                        placeholder="read, grep, find"
+                                    />
+                                </label>
+                                <div
+                                    class="settings-save-status hidden scene-profile-wide"
+                                    id="scene-profile-status"
+                                    aria-live="polite"
+                                    role="status"
+                                ></div>
+                                <div
+                                    class="settings-config-actions scene-profile-wide"
+                                >
+                                    <button
+                                        class="ui-button ui-button--secondary"
+                                        id="scene-profile-cancel"
+                                        type="button"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        id="scene-profile-save"
+                                        type="submit"
+                                    >
+                                        Save scene
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                         <div
                             class="settings-section"
                             id="setting-updater-section"
@@ -929,7 +1049,7 @@
                             </div>
                             <div class="settings-row">
                                 <span class="settings-label"
-                                    >Picot version</span
+                                    >Desktop version</span
                                 >
                                 <span
                                     class="settings-static-value"
@@ -959,7 +1079,7 @@
                             <div class="settings-row">
                                 <span class="settings-label settings-label-stack">
                                     <span class="settings-label-main">Beta updates</span>
-                                    <span class="settings-label-sub">Receive prerelease Picot builds</span>
+                                    <span class="settings-label-sub">Receive prerelease desktop builds</span>
                                 </span>
                                 <button
                                     type="button"
@@ -1090,9 +1210,9 @@
                             <p class="settings-help">
                                 Keys are stored locally in
                                 <code>~/.pi/agent/auth.json</code> (chmod 600).
-                                Picot launched from Finder does not read shell
-                                environment variables, so set keys here for them
-                                to stick across launches.
+                                The desktop app stores keys in this scene's
+                                isolated agent directory so they persist across
+                                launches.
                             </p>
                             <div
                                 class="settings-api-keys"
@@ -1118,6 +1238,122 @@
                                     id="toggle-auth"
                                 ></button>
                             </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <div class="settings-section-title settings-section-title-row">
+                                <span>Custom model channels</span>
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="provider-channel-add"
+                                    type="button"
+                                >
+                                    Add channel
+                                </button>
+                            </div>
+                            <p class="settings-help">
+                                Configure an OpenAI-, Anthropic-, or
+                                Google-compatible endpoint for this scene.
+                                Credentials are stored separately from
+                                <code>models.json</code>.
+                            </p>
+                            <div
+                                class="provider-channel-list"
+                                id="provider-channel-list"
+                            ></div>
+                            <form
+                                class="provider-channel-editor hidden"
+                                id="provider-channel-editor"
+                            >
+                                <input
+                                    id="provider-channel-original-id"
+                                    type="hidden"
+                                />
+                                <label>
+                                    <span>Channel ID</span>
+                                    <input
+                                        class="ui-input"
+                                        id="provider-channel-id"
+                                        required
+                                        pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+                                        placeholder="team-proxy"
+                                    />
+                                </label>
+                                <label class="provider-channel-wide">
+                                    <span>Base URL</span>
+                                    <input
+                                        class="ui-input"
+                                        id="provider-channel-base-url"
+                                        required
+                                        type="url"
+                                        placeholder="https://models.example.com/v1"
+                                    />
+                                </label>
+                                <label>
+                                    <span>API protocol</span>
+                                    <select
+                                        class="ui-input"
+                                        id="provider-channel-api"
+                                    >
+                                        <option value="openai-completions">
+                                            OpenAI Chat Completions
+                                        </option>
+                                        <option value="openai-responses">
+                                            OpenAI Responses
+                                        </option>
+                                        <option value="anthropic-messages">
+                                            Anthropic Messages
+                                        </option>
+                                        <option value="google-generative-ai">
+                                            Google Generative AI
+                                        </option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>API key</span>
+                                    <input
+                                        class="ui-input"
+                                        id="provider-channel-api-key"
+                                        type="password"
+                                        autocomplete="new-password"
+                                        placeholder="Leave blank to keep current key"
+                                    />
+                                </label>
+                                <label class="provider-channel-wide">
+                                    <span>Models (one ID per line)</span>
+                                    <textarea
+                                        class="ui-textarea"
+                                        id="provider-channel-models"
+                                        required
+                                        rows="4"
+                                        placeholder="gpt-5.2&#10;gpt-5.2-codex"
+                                    ></textarea>
+                                </label>
+                                <div
+                                    class="settings-save-status hidden provider-channel-wide"
+                                    id="provider-channel-status"
+                                    aria-live="polite"
+                                    role="status"
+                                ></div>
+                                <div
+                                    class="settings-config-actions provider-channel-wide"
+                                >
+                                    <button
+                                        class="ui-button ui-button--secondary"
+                                        id="provider-channel-cancel"
+                                        type="button"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        id="provider-channel-save"
+                                        type="submit"
+                                    >
+                                        Save channel
+                                    </button>
+                                </div>
+                            </form>
                         </div>
 
                         <div class="settings-section">
@@ -1159,7 +1395,7 @@
 
                         <div class="settings-section">
                             <div class="settings-section-title">
-                                LLM providers
+                                Advanced provider JSON
                             </div>
                             <p class="settings-help">
                                 Edit <code>~/.pi/agent/models.json</code> to add
@@ -1378,7 +1614,7 @@
                         alt="QR code for mobile access"
                     />
                     <div class="lan-qr-hint">
-                        Scan with your phone to open Picot on the same network
+                        Scan with your phone to open Pi Desktop on the same network
                     </div>
                     <button
                         class="lan-qr-open-link hidden"
