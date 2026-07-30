@@ -14,13 +14,13 @@ function buildConversation(root: string, dm: boolean): ResolvedConversation {
   const conversationDir = join(root, dm ? "dm" : "channel");
   const workspaceDir = join(conversationDir, "workspace");
   return {
-    service: "telegram",
+    service: "feishu",
     botName: "picot",
-    accountId: "telegram-main",
+    accountId: "feishu-main",
     account: {
-      service: "telegram",
-      botToken: "test-token",
-      botUsername: "picot",
+      service: "feishu",
+      appId: "cli_test",
+      appSecret: "test-secret",
       channels: {},
     },
     channelKey: dm ? "dm-user" : "group-main",
@@ -30,8 +30,8 @@ function buildConversation(root: string, dm: boolean): ResolvedConversation {
       dm,
       access: { ignoreBots: true },
     },
-    conversationId: dm ? "telegram-main/dm-user" : "telegram-main/group-main",
-    conversationName: dm ? "Telegram / DM User" : "Telegram / Group",
+    conversationId: dm ? "feishu-main/dm-user" : "feishu-main/group-main",
+    conversationName: dm ? "Feishu / DM User" : "Feishu / Group",
     access: { ignoreBots: true },
     accountDir,
     sharedDir: join(accountDir, "shared"),

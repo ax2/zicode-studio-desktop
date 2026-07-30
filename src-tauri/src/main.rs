@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod app_paths;
 mod host_data;
 mod host_router;
 mod host_server;
@@ -605,9 +606,7 @@ fn find_static_dir(app: &tauri::App) -> PathBuf {
 }
 
 fn agent_inbox_path() -> Result<PathBuf, String> {
-    dirs::home_dir()
-        .map(|home| home.join(".pi").join("agent").join("super-agent"))
-        .ok_or_else(|| "Cannot resolve home directory for Agent Inbox".to_string())
+    app_paths::agent_inbox_workspace()
 }
 
 fn session_dir_name(cwd: &Path) -> String {
@@ -632,12 +631,7 @@ fn ensure_agent_inbox_placeholder_session(cwd: &Path) -> Result<(), String> {
     if find_latest_session_for_cwd(cwd).is_some() {
         return Ok(());
     }
-    let sessions_root = dirs::home_dir()
-        .ok_or_else(|| "Cannot resolve home directory for Agent Inbox sessions".to_string())?
-        .join(".pi")
-        .join("agent")
-        .join("sessions")
-        .join(session_dir_name(cwd));
+    let sessions_root = app_paths::sessions_root()?.join(session_dir_name(cwd));
     fs::create_dir_all(&sessions_root)
         .map_err(|error| format!("Cannot create Agent Inbox session folder: {error}"))?;
     let id = uuid::Uuid::new_v4().to_string();
@@ -662,7 +656,7 @@ fn ensure_agent_inbox_placeholder_session(cwd: &Path) -> Result<(), String> {
 }
 
 fn find_latest_session_for_cwd(cwd: &Path) -> Option<PathBuf> {
-    let sessions_root = dirs::home_dir()?.join(".pi/agent/sessions");
+    let sessions_root = app_paths::sessions_root().ok()?;
     list_session_files(&sessions_root)
         .into_iter()
         .filter(|path| {
@@ -732,7 +726,7 @@ fn extract_session_cwd(session_path: &Path) -> Option<String> {
 }
 
 fn find_latest_session_boot_target() -> Option<(String, String)> {
-    let sessions_root = dirs::home_dir()?.join(".pi/agent/sessions");
+    let sessions_root = app_paths::sessions_root().ok()?;
     if !sessions_root.exists() {
         log::info!(
             "[picot-native] startup target skipped: sessions dir not found at {}",

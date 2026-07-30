@@ -69,11 +69,10 @@ impl HostServer {
     ) -> Result<Self, String> {
         let mut data = HostDataPlane::new(workspace_roots)
             .map_err(|error| format!("Cannot initialize Host data plane: {error:?}"))?;
-        if let Some(local_data) = dirs::data_local_dir() {
-            data = data.with_session_root(local_data.join("ZiCodeStudioDesktop").join("instances"));
-        }
-        if let Some(home) = dirs::home_dir() {
-            data = data.with_session_root(home.join(".pi/agent/sessions"));
+        if let Ok(data_root) = crate::app_paths::data_root() {
+            data = data
+                .with_session_root(data_root.join("instances"))
+                .with_session_root(data_root.join("sessions"));
         }
         // Prefer a stable, high, rarely-used port so LAN clients get a stable
         // URL/QR across restarts. Scan a small contiguous range so multiple

@@ -808,7 +808,20 @@
                     <div class="settings-body">
                         <div class="settings-section">
                             <div class="settings-section-title">Appearance</div>
-                            <div class="theme-grid" id="theme-grid"></div>
+                            <label class="settings-row" for="theme-select">
+                                <span class="settings-label">Theme</span>
+                                <select
+                                    class="ui-select settings-preference-select"
+                                    id="theme-select"
+                                ></select>
+                            </label>
+                            <label class="settings-row" for="language-select">
+                                <span class="settings-label">Language</span>
+                                <select
+                                    class="ui-select settings-preference-select"
+                                    id="language-select"
+                                ></select>
+                            </label>
                         </div>
                         <div class="settings-section">
                             <div class="settings-section-title">Agent</div>
@@ -1209,7 +1222,7 @@
                             </div>
                             <p class="settings-help">
                                 Keys are stored locally in
-                                <code>~/.pi/agent/auth.json</code> (chmod 600).
+                                <code>zicode/agent/auth.json</code> (chmod 600).
                                 The desktop app stores keys in this scene's
                                 isolated agent directory so they persist across
                                 launches.
@@ -1398,7 +1411,7 @@
                                 Advanced provider JSON
                             </div>
                             <p class="settings-help">
-                                Edit <code>~/.pi/agent/models.json</code> to add
+                                Edit <code>zicode/agent/models.json</code> to add
                                 custom providers (Ollama, vLLM, LM Studio,
                                 OpenAI-compatible proxies, OpenRouter routing
                                 overrides, etc). See the

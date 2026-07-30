@@ -96,7 +96,7 @@ pub fn delete_scene_profile(scene_id: String) -> Result<(), String> {
 
 fn profiles_path() -> Result<PathBuf, String> {
     dirs::data_local_dir()
-        .map(|root| root.join("ZiCodeStudioDesktop").join("scene-profiles.json"))
+        .map(|root| root.join("zicode").join("scene-profiles.json"))
         .ok_or_else(|| "Cannot resolve local application data directory".to_string())
 }
 

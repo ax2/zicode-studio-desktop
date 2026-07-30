@@ -5,8 +5,6 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const APP_DATA_DIR_NAME: &str = "ZiCodeStudioDesktop";
-
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct RuntimeIsolation {
@@ -21,9 +19,7 @@ pub fn prepare_runtime_isolation(
     target: &RuntimeTarget,
     portable_git_root: Option<&Path>,
 ) -> Result<RuntimeIsolation, String> {
-    let root = dirs::data_local_dir()
-        .ok_or_else(|| "Cannot resolve the local application data directory".to_string())?
-        .join(APP_DATA_DIR_NAME);
+    let root = crate::app_paths::data_root()?;
     prepare_runtime_isolation_at(&root, target, portable_git_root)
 }
 
@@ -85,6 +81,7 @@ fn prepare_runtime_isolation_at(
             path_string(&instance_root),
         ),
         ("PI_DESKTOP_LOG_DIR".to_string(), path_string(&log_dir)),
+        ("PI_DESKTOP_DATA_DIR".to_string(), path_string(root)),
         ("TEMP".to_string(), path_string(&temp_dir)),
         ("TMP".to_string(), path_string(&temp_dir)),
     ]);

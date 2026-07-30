@@ -1,4 +1,4 @@
-export type ChatService = "telegram";
+export type ChatService = "feishu" | "wecom";
 
 export interface AccessPolicy {
   ignoreBots?: boolean;
@@ -19,14 +19,19 @@ export interface BaseAccountConfig {
   channels: Record<string, ConfiguredChannel>;
 }
 
-export interface TelegramAccountConfig extends BaseAccountConfig {
-  service: "telegram";
-  botToken: string;
-  botUsername?: string;
-  botUserId?: string;
+export interface FeishuAccountConfig extends BaseAccountConfig {
+  service: "feishu";
+  appId: string;
+  appSecret: string;
 }
 
-export type ChatAccountConfig = TelegramAccountConfig;
+export interface WeComAccountConfig extends BaseAccountConfig {
+  service: "wecom";
+  botId: string;
+  secret: string;
+}
+
+export type ChatAccountConfig = FeishuAccountConfig | WeComAccountConfig;
 
 export interface ChatConfig {
   botName?: string;

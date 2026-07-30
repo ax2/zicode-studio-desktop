@@ -10,7 +10,26 @@ import type {
   ResolvedConversation,
 } from "./core/config-types.js";
 
-export const CHAT_HOME = join(homedir(), ".pi", "agent", "chat");
+function resolveChatHome(): string {
+  const agentRoot = process.env.PI_CODING_AGENT_DIR;
+  if (agentRoot?.trim()) return join(agentRoot, "chat");
+  const dataRoot = process.env.PI_DESKTOP_DATA_DIR;
+  if (dataRoot?.trim()) return join(dataRoot, "agent", "chat");
+  if (process.platform === "win32" && process.env.LOCALAPPDATA) {
+    return join(process.env.LOCALAPPDATA, "zicode", "agent", "chat");
+  }
+  if (process.platform === "darwin") {
+    return join(homedir(), "Library", "Application Support", "zicode", "agent", "chat");
+  }
+  return join(
+    process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+    "zicode",
+    "agent",
+    "chat",
+  );
+}
+
+export const CHAT_HOME = resolveChatHome();
 export const CHAT_CONFIG_PATH = join(CHAT_HOME, "config.json");
 export const CHAT_CACHE_DIR = join(CHAT_HOME, "cache");
 

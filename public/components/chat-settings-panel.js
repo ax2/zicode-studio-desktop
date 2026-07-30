@@ -1,13 +1,5 @@
 import { isSuperAgentEnabled, setSuperAgentEnabled } from "../super-agent/settings.js";
 
-/**
- * <chat-settings-panel> Web Component
- *
- * The "Agent Inbox" tab inside Settings. The normal Telegram setup flow only asks
- * for a bot token; ZiCode Studio Desktop validates the bot, waits for the user's first DM, and
- * writes the full internal ~/.pi/agent/chat/config.json automatically.
- */
-
 class ChatSettingsPanel extends HTMLElement {
   connectedCallback() {
     if (this._initialized) return;
@@ -16,457 +8,248 @@ class ChatSettingsPanel extends HTMLElement {
       <div class="settings-body">
         <div class="settings-section">
           <div class="settings-section-title chat-settings-title-row">
-            Agent Inbox
-            <span class="ui-badge chat-settings-beta-badge">Beta</span>
+            Agent Inbox <span class="ui-badge chat-settings-beta-badge">测试版</span>
           </div>
-          <div class="settings-row" id="setting-super-agent">
+          <div class="settings-row">
             <span class="settings-label settings-label-stack">
-              <span class="settings-label-main">Start automatically</span>
-              <span class="settings-label-sub">Launch Agent Inbox when ZiCode Studio Desktop opens</span>
+              <span class="settings-label-main">自动启动</span>
+              <span class="settings-label-sub">ZiCode Studio Desktop 启动时同时启动 Agent Inbox</span>
             </span>
             <button class="settings-toggle" id="toggle-super-agent"></button>
+          </div>
+          <p class="settings-help">外部消息先进入独立的 Agent Inbox，向项目实例派发任务仍需本机确认。</p>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">飞书</div>
+          <p class="settings-help">使用飞书开放平台应用的 WebSocket 长连接，无需公网回调地址。</p>
+          <div class="chat-platform-form" data-service="feishu">
+            <input class="ui-input" data-field="appId" placeholder="App ID（cli_xxx）" autocomplete="off" />
+            <input class="ui-input" data-field="appSecret" placeholder="App Secret" type="password" autocomplete="off" />
+            <input class="ui-input" data-field="channelId" placeholder="会话 chat_id" autocomplete="off" />
+            <input class="ui-input" data-field="allowedUserId" placeholder="允许的用户 open_id（可选）" autocomplete="off" />
+            <button class="ui-button ui-button--primary" data-action="save-platform" data-service="feishu">保存飞书配置</button>
           </div>
         </div>
 
         <div class="settings-section">
-          <div class="settings-section-title">Telegram</div>
-          <p class="settings-help">
-            Paste a Telegram bot token from <code>@BotFather</code>. ZiCode Studio Desktop will detect your
-            Telegram DM automatically after you send <code>/start</code> to the bot.
-          </p>
-          <p class="settings-help telegram-safety-note">
-            Telegram messages enter Agent Inbox first. ZiCode Studio Desktop keeps project-agent dispatch
-            behind local approval.
-          </p>
-          <div class="telegram-setup-card">
-            <label class="telegram-token-label" for="telegram-bot-token">Bot token</label>
-            <div class="telegram-token-row">
-              <input id="telegram-bot-token" class="ui-input telegram-token-input"
-                data-token-input type="password" autocomplete="off" spellcheck="false"
-                placeholder="123456:ABCDEF…" />
-              <button class="ui-button ui-button--primary" data-action="connect-telegram">Connect Telegram</button>
-              <button class="ui-button ui-button--secondary" data-action="cancel-telegram" hidden>Cancel</button>
-            </div>
-            <div class="settings-save-status hidden" data-status aria-live="polite" role="status"></div>
-            <div class="telegram-bind-instructions hidden" data-bind-instructions></div>
+          <div class="settings-section-title">企业微信</div>
+          <p class="settings-help">使用企业微信智能机器人的官方长连接。单聊填写 userid，群聊填写 chatid。</p>
+          <div class="chat-platform-form" data-service="wecom">
+            <input class="ui-input" data-field="botId" placeholder="Bot ID" autocomplete="off" />
+            <input class="ui-input" data-field="secret" placeholder="Secret" type="password" autocomplete="off" />
+            <input class="ui-input" data-field="channelId" placeholder="userid 或 chatid" autocomplete="off" />
+            <input class="ui-input" data-field="allowedUserId" placeholder="允许的用户 userid（可选）" autocomplete="off" />
+            <button class="ui-button ui-button--primary" data-action="save-platform" data-service="wecom">保存企业微信配置</button>
           </div>
-          <div class="telegram-doctor-card" data-telegram-doctor>
-            <div class="chat-account-header">
-              <span class="chat-account-name">Telegram Doctor</span>
-              <button class="ui-button ui-button--secondary" data-action="run-telegram-doctor">Run Doctor</button>
-            </div>
-            <div class="settings-help" data-telegram-doctor-summary>Not checked yet.</div>
-            <div class="telegram-doctor-checks" data-telegram-doctor-checks></div>
-          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">已配置平台</div>
+          <div class="settings-save-status hidden" data-status aria-live="polite"></div>
           <div class="chat-accounts-list" data-accounts-list></div>
         </div>
 
-        <details class="settings-section chat-advanced-config" hidden>
-          <summary class="settings-section-title">Advanced Raw Config</summary>
-          <p class="settings-help">
-            Internal config stored in <code>~/.pi/agent/chat/config.json</code>. You normally do not
-            need to edit this manually.
-          </p>
+        <details class="settings-section chat-advanced-config">
+          <summary class="settings-section-title">高级配置</summary>
+          <p class="settings-help">配置保存在 ZiCode Studio Desktop 专用数据目录，不使用 ~/.pi。</p>
           <textarea class="ui-textarea config-editor-textarea settings-config-textarea"
-            data-textarea spellcheck="false" autocomplete="off"
-            autocorrect="off" autocapitalize="off" placeholder="Loading…"></textarea>
-          <div class="settings-config-actions">
-            <div class="settings-config-button-group">
-              <button class="ui-button ui-button--primary" data-action="save">Save Raw Config</button>
-            </div>
-          </div>
+            data-textarea spellcheck="false" autocomplete="off"></textarea>
+          <button class="ui-button ui-button--primary" data-action="save-raw">保存原始配置</button>
         </details>
       </div>
     `;
 
-    this._setupSuperAgentToggle();
-
     this._textarea = this.querySelector("[data-textarea]");
     this._statusEl = this.querySelector("[data-status]");
     this._accountsEl = this.querySelector("[data-accounts-list]");
-    this._tokenInput = this.querySelector("[data-token-input]");
-    this._bindInstructionsEl = this.querySelector("[data-bind-instructions]");
-    this._doctorSummaryEl = this.querySelector("[data-telegram-doctor-summary]");
-    this._doctorChecksEl = this.querySelector("[data-telegram-doctor-checks]");
-
-    this.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-action]");
-      if (!btn) return;
-      const action = btn.dataset.action;
-      if (action === "save") this._save();
-      if (action === "connect-telegram") this._connectTelegram();
-      if (action === "cancel-telegram") this._cancelTelegram();
-      if (action === "disconnect-telegram") this._disconnectTelegram();
-      if (action === "run-telegram-doctor") this._loadTelegramDoctor();
-    });
-
-    this._tokenInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this._connectTelegram();
+    this._setupSuperAgentToggle();
+    this.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]");
+      if (!button) return;
+      if (button.dataset.action === "save-platform") {
+        void this._savePlatform(button.dataset.service);
       }
-    });
-
-    document.querySelectorAll(".settings-nav-item").forEach((btn) => {
-      if (btn.dataset.settingsTab === "chat") {
-        btn.addEventListener("click", () => this._load());
+      if (button.dataset.action === "remove-platform") {
+        void this._removePlatform(button.dataset.accountId);
       }
+      if (button.dataset.action === "save-raw") void this._saveRaw();
     });
-
-    this._handleConfigGatewayReady = () => this._load();
+    this._handleConfigGatewayReady = () => void this._load();
     window.addEventListener("picot-config-gateway-ready", this._handleConfigGatewayReady);
-    this._load();
+    void this._load();
   }
 
   disconnectedCallback() {
-    if (this._handleConfigGatewayReady) {
-      window.removeEventListener("picot-config-gateway-ready", this._handleConfigGatewayReady);
-    }
+    window.removeEventListener("picot-config-gateway-ready", this._handleConfigGatewayReady);
   }
-
-  // ── Super Agent toggle ──────────────────────────────────────────────────
 
   _setupSuperAgentToggle() {
     const button = this.querySelector("#toggle-super-agent");
-    if (!button) return;
-
-    const isEnabled = isSuperAgentEnabled();
-    button.classList.toggle("on", isEnabled);
-    button.setAttribute("aria-checked", String(isEnabled));
+    const enabled = isSuperAgentEnabled();
+    button.classList.toggle("on", enabled);
+    button.setAttribute("aria-checked", String(enabled));
     button.setAttribute("role", "switch");
-
     button.addEventListener("click", () => {
-      const newState = !button.classList.contains("on");
-      button.classList.toggle("on", newState);
-      button.setAttribute("aria-checked", String(newState));
-      setSuperAgentEnabled(newState);
+      const next = !button.classList.contains("on");
+      button.classList.toggle("on", next);
+      button.setAttribute("aria-checked", String(next));
+      setSuperAgentEnabled(next);
       window.dispatchEvent(
-        new CustomEvent("picot-super-agent-autostart-changed", { detail: { enabled: newState } }),
+        new CustomEvent("picot-super-agent-autostart-changed", { detail: { enabled: next } }),
       );
     });
   }
-
-  // ── API ───────────────────────────────────────────────────────────────────
 
   async _load() {
     try {
       const { content } = await readChatConfig();
-      this._setRawContent(content || "{}");
-      this._renderAccounts(content);
-      await this._loadTelegramDoctor();
-    } catch {}
+      this._textarea.value = content || '{"botName":"ZiCode","accounts":{}}';
+      this._renderAccounts();
+    } catch (error) {
+      this._show(messageFromError(error), true);
+    }
   }
 
-  async _save() {
-    const content = this._textarea.value;
-    try {
-      JSON.parse(content);
-    } catch {
-      this._showError("Invalid JSON");
+  _readConfig() {
+    const parsed = JSON.parse(this._textarea.value || "{}");
+    parsed.botName ||= "ZiCode";
+    parsed.accounts ||= {};
+    return parsed;
+  }
+
+  async _savePlatform(service) {
+    const form = this.querySelector(`.chat-platform-form[data-service="${service}"]`);
+    const value = (field) => form.querySelector(`[data-field="${field}"]`).value.trim();
+    const channelId = value("channelId");
+    const allowedUserId = value("allowedUserId");
+    const config = this._readConfig();
+    const accountId = service === "feishu" ? "feishu-main" : "wecom-main";
+    const credentials =
+      service === "feishu"
+        ? { appId: value("appId"), appSecret: value("appSecret") }
+        : { botId: value("botId"), secret: value("secret") };
+    if (!channelId || Object.values(credentials).some((item) => !item)) {
+      this._show("请填写平台凭证和会话 ID。", true);
       return;
     }
-    this._clearStatus();
-    const saveBtn = this.querySelector('[data-action="save"]');
-    saveBtn.disabled = true;
-    try {
-      await writeChatConfig(content);
-      this._renderAccounts(content);
-      this._showSuccess("Saved raw config.");
-      await this._loadTelegramDoctor();
-    } catch (e) {
-      this._showError(messageFromError(e));
-    } finally {
-      saveBtn.disabled = false;
-    }
+    config.accounts[accountId] = {
+      service,
+      name: service === "feishu" ? "飞书" : "企业微信",
+      ...credentials,
+      access: { ignoreBots: true },
+      channels: {
+        main: {
+          id: channelId,
+          name: "主会话",
+          dm: true,
+          access: {
+            ignoreBots: true,
+            ...(allowedUserId ? { allowedUserIds: [allowedUserId] } : {}),
+          },
+        },
+      },
+    };
+    await this._persist(config, `${service === "feishu" ? "飞书" : "企业微信"}配置已保存。`);
+    form.querySelectorAll("input").forEach((input) => {
+      input.value = "";
+    });
   }
 
-  async _connectTelegram() {
-    const botToken = this._tokenInput.value.trim();
-    if (!botToken) {
-      this._showError("Paste your Telegram bot token first.");
-      this._tokenInput.focus();
-      return;
-    }
+  async _removePlatform(accountId) {
+    const config = this._readConfig();
+    delete config.accounts[accountId];
+    await this._persist(config, "平台配置已移除。");
+  }
 
-    this._cancelTelegram();
-    const controller = new AbortController();
-    this._telegramSetupAbort = controller;
-    this._setTelegramBusy(true);
-    this._clearBindInstructions();
-
+  async _saveRaw() {
     try {
-      this._showInfo("Validating Telegram bot token…");
-      const validated = await telegramValidate({ botToken }, { signal: controller.signal });
-      const bot = validated.bot || {};
-      this._renderBindInstructions(bot);
-      this._showInfo("Bot connected. Send /start to the bot in Telegram to finish setup.");
-
-      const bound = await telegramBind(
-        { botToken, afterUpdateId: validated.afterUpdateId },
-        { signal: controller.signal },
+      const config = this._readConfig();
+      const invalid = Object.values(config.accounts).some(
+        (account) => !["feishu", "wecom"].includes(account?.service),
       );
-      this._setRawContent(bound.content || "{}");
-      this._renderAccounts(bound.content);
-      this._tokenInput.value = "";
-      this._showSuccess("Telegram connected. Only the detected DM user is authorized.");
-      this._clearBindInstructions();
-      await this._loadTelegramDoctor();
-      window.dispatchEvent(new CustomEvent("picot-chat-config-updated"));
-    } catch (e) {
-      if (controller.signal.aborted) {
-        this._showInfo("Telegram setup canceled.");
-      } else {
-        this._showError(messageFromError(e));
-      }
-    } finally {
-      if (this._telegramSetupAbort === controller) this._telegramSetupAbort = null;
-      this._setTelegramBusy(false);
+      if (invalid) throw new Error("仅支持飞书和企业微信账号。");
+      await this._persist(config, "原始配置已保存。");
+    } catch (error) {
+      this._show(messageFromError(error), true);
     }
   }
 
-  _cancelTelegram() {
-    if (this._telegramSetupAbort) {
-      this._telegramSetupAbort.abort();
-      this._telegramSetupAbort = null;
-    }
+  async _persist(config, message) {
+    const content = `${JSON.stringify(config, null, 2)}\n`;
+    await writeChatConfig(content);
+    this._textarea.value = content;
+    this._renderAccounts();
+    this._show(message);
+    window.dispatchEvent(new CustomEvent("picot-chat-config-updated"));
   }
 
-  async _disconnectTelegram() {
-    if (!window.confirm("Disconnect Telegram from ZiCode Studio Desktop?")) return;
+  _renderAccounts() {
     try {
-      const config = JSON.parse(this._textarea.value || "{}");
-      const accounts = Object.entries(config.accounts || {}).filter(
-        ([, account]) => account?.service !== "telegram",
-      );
-      config.accounts = Object.fromEntries(accounts);
-      const content = `${JSON.stringify(config, null, "\t")}\n`;
-      await writeChatConfig(content);
-      this._setRawContent(content);
-      this._renderAccounts(content);
-      this._showSuccess("Telegram disconnected.");
-      await this._loadTelegramDoctor();
-      window.dispatchEvent(new CustomEvent("picot-chat-config-updated"));
-    } catch (e) {
-      this._showError(messageFromError(e));
-    }
-  }
-
-  async _loadTelegramDoctor() {
-    const runBtn = this.querySelector('[data-action="run-telegram-doctor"]');
-    runBtn.disabled = true;
-    this._doctorSummaryEl.textContent = "Checking Telegram…";
-    this._doctorChecksEl.innerHTML = "";
-    try {
-      const { report } = await telegramDoctor();
-      this._renderTelegramDoctor(report);
-    } catch (e) {
-      this._doctorSummaryEl.textContent = messageFromError(e);
-      this._doctorChecksEl.innerHTML = "";
-    } finally {
-      runBtn.disabled = false;
-    }
-  }
-
-  _renderTelegramDoctor(report) {
-    const summary = report?.summary || "error";
-    const label =
-      summary === "ready" ? "Ready" : summary === "warning" ? "Needs attention" : "Not ready";
-    this._doctorSummaryEl.textContent = label;
-    this._doctorChecksEl.innerHTML = (report?.checks || [])
-      .map(
-        (check) => `
-          <div class="telegram-doctor-check ${doctorStatusClass(check.status)}">
-            <span class="telegram-doctor-label">${esc(check.label)}</span>
-            <span class="telegram-doctor-message">${esc(check.message)}</span>
-          </div>
-        `,
-      )
-      .join("");
-  }
-
-  // ── Render accounts list ──────────────────────────────────────────────────
-
-  _renderAccounts(rawContent) {
-    try {
-      const config = JSON.parse(rawContent || "{}");
-      const accountEntry = Object.entries(config.accounts || {}).find(
-        ([, account]) => account?.service === "telegram",
-      );
-      if (!accountEntry) {
-        this._accountsEl.innerHTML = `<p class="settings-help">Telegram is not connected.</p>`;
-        this._tokenInput.placeholder = "123456:ABCDEF...";
-        this.querySelector('[data-action="connect-telegram"]').textContent = "Connect Telegram";
-        return;
-      }
-
-      const [id, account] = accountEntry;
-      const dm = Object.values(account.channels || {}).find((channel) => channel?.dm === true);
-      const botName = account.botUsername ? `@${account.botUsername}` : account.name || id;
-      const authorizedUser = dm?.name || dm?.access?.allowedUserIds?.[0] || dm?.id || "Detected DM";
-      this._tokenInput.placeholder = "Paste a new token to reconnect";
-      this.querySelector('[data-action="connect-telegram"]').textContent = "Reconnect Telegram";
-      this._accountsEl.innerHTML = `
-        <div class="chat-account-card">
-          <div class="chat-account-header">
-            <span class="chat-account-name">${esc(botName)}</span>
-          </div>
-          <div class="chat-account-detail">Authorized DM: ${esc(authorizedUser)}</div>
-          <div class="chat-account-detail">Internal ID: <code>${esc(id)}</code></div>
-          <div class="chat-account-actions">
-            <button class="ui-button ui-button--danger" data-action="disconnect-telegram">Disconnect</button>
-          </div>
-        </div>
-      `;
+      const accounts = Object.entries(this._readConfig().accounts);
+      this._accountsEl.innerHTML = accounts.length
+        ? accounts
+            .map(
+              ([id, account]) => `
+                <div class="chat-account-card">
+                  <div class="chat-account-header">
+                    <span class="chat-account-name">${account.service === "feishu" ? "飞书" : "企业微信"}</span>
+                    <button class="ui-button ui-button--danger" data-action="remove-platform"
+                      data-account-id="${esc(id)}">移除</button>
+                  </div>
+                  <div class="chat-account-detail">账号：<code>${esc(id)}</code></div>
+                  <div class="chat-account-detail">会话数：${Object.keys(account.channels || {}).length}</div>
+                </div>`,
+            )
+            .join("")
+        : '<p class="settings-help">尚未配置消息平台。</p>';
     } catch {
       this._accountsEl.innerHTML = "";
     }
   }
 
-  _renderBindInstructions(bot) {
-    const username = bot.username;
-    const link = bot.webUrl || (username ? `https://web.telegram.org/k/#@${username}` : "");
-    this._bindInstructionsEl.innerHTML = `
-      <div class="telegram-bind-title">Waiting for your Telegram DM…</div>
-      <ol class="telegram-bind-steps">
-        <li>Open ${username ? `<code>@${esc(username)}</code>` : "the bot"} in Telegram.</li>
-        <li>Send <code>/start</code> in the private chat.</li>
-      </ol>
-      ${
-        link
-          ? `<a class="ui-button ui-button--secondary telegram-open-link" href="${escAttr(link)}" target="_blank" rel="noreferrer">Open Telegram</a>`
-          : ""
-      }
-    `;
-    this._bindInstructionsEl.classList.remove("hidden");
-  }
-
-  _clearBindInstructions() {
-    this._bindInstructionsEl.classList.add("hidden");
-    this._bindInstructionsEl.innerHTML = "";
-  }
-
-  _setRawContent(content) {
-    this._textarea.value = content || "{}";
-  }
-
-  _setTelegramBusy(isBusy) {
-    this._tokenInput.disabled = isBusy;
-    this.querySelector('[data-action="connect-telegram"]').disabled = isBusy;
-    this.querySelector('[data-action="cancel-telegram"]').hidden = !isBusy;
-  }
-
-  // ── Status helpers ────────────────────────────────────────────────────────
-
-  _showError(msg) {
-    this._statusEl.textContent = msg;
-    this._statusEl.style.color = "";
+  _show(message, error = false) {
+    this._statusEl.textContent = message;
+    this._statusEl.style.color = error ? "var(--color-danger)" : "var(--color-success)";
     this._statusEl.classList.remove("hidden");
-  }
-
-  _showInfo(msg) {
-    this._statusEl.textContent = msg;
-    this._statusEl.style.color = "var(--text-dim)";
-    this._statusEl.classList.remove("hidden");
-  }
-
-  _showSuccess(msg) {
-    this._statusEl.textContent = msg;
-    this._statusEl.style.color = "var(--color-success, #4ade80)";
-    this._statusEl.classList.remove("hidden");
-  }
-
-  _clearStatus() {
-    this._statusEl.classList.add("hidden");
   }
 }
 
-async function postJson(url, payload, options = {}) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: options.signal,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.success === false) throw new Error(data.error || "Request failed");
-  return data;
-}
-
-async function callPicotConfig(op, params = {}, options = {}) {
-  if (typeof window.__picotConfigCall !== "function") return null;
-  const result = await window.__picotConfigCall(op, params, options);
+async function callPicotConfig(op, params = {}) {
+  const result = await window.__picotConfigCall(op, params);
   if (!result?.ok) throw new Error(result?.error || `${op} failed`);
   return result.data || {};
 }
 
 async function readChatConfig() {
-  if (typeof window.__picotConfigCall === "function") {
-    return callPicotConfig("read_chat_config");
-  }
-  const res = await fetch("/api/chat-config");
-  if (!res.ok) throw new Error("Failed to load chat config");
-  return res.json();
+  if (typeof window.__picotConfigCall === "function") return callPicotConfig("read_chat_config");
+  const response = await fetch("/api/chat-config");
+  if (!response.ok) throw new Error("读取消息平台配置失败");
+  return response.json();
 }
 
 async function writeChatConfig(content) {
   if (typeof window.__picotConfigCall === "function") {
     return callPicotConfig("write_chat_config", { content });
   }
-  const res = await fetch("/api/chat-config", {
+  const response = await fetch("/api/chat-config", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
   });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || "Save failed");
-  return data;
-}
-
-async function telegramValidate(payload, options) {
-  if (typeof window.__picotConfigCall === "function") {
-    return callPicotConfig("telegram_validate", payload, options);
-  }
-  return postJson("/api/chat-telegram/validate", payload, options);
-}
-
-async function telegramBind(payload, options) {
-  if (typeof window.__picotConfigCall === "function") {
-    return callPicotConfig("telegram_bind", payload, options);
-  }
-  return postJson("/api/chat-telegram/bind", payload, options);
-}
-
-async function telegramDoctor() {
-  if (typeof window.__picotConfigCall === "function") {
-    return callPicotConfig("telegram_doctor");
-  }
-  const res = await fetch("/api/chat-telegram/doctor");
-  const data = await res.json();
-  if (!res.ok || data.success === false) throw new Error(data.error || "Telegram doctor failed");
-  return data;
+  if (!response.ok) throw new Error("保存消息平台配置失败");
 }
 
 function messageFromError(error) {
-  if (error instanceof Error) return error.message;
-  return String(error);
+  return error instanceof Error ? error.message : String(error);
 }
 
-function esc(str) {
-  return String(str ?? "")
+function esc(value) {
+  return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function escAttr(str) {
-  return esc(str).replace(/'/g, "&#39;");
-}
-
-function doctorStatusClass(status) {
-  if (status === "ok") return "ok";
-  if (status === "warning") return "warning";
-  return "error";
 }
 
 customElements.define("chat-settings-panel", ChatSettingsPanel);

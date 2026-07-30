@@ -29,6 +29,10 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 
 ## 3. 自定义模型渠道
 
+应用必须预置不可删除的 QVeris Model Gateway，`base_url` 固定为
+`https://aigateway.qveris.ai`；用户可以为该渠道添加模型和凭证，也可以继续创建其他
+自定义渠道。
+
 每个渠道至少保存：
 
 - 稳定 ID、显示名称和渠道类型。
@@ -100,7 +104,16 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 - MkDocs 使用 `--strict` 构建。
 - 架构、需求、ADR、阶段日志和验证记录随代码提交。
 
-## 8. 验收
+## 8. 桌面体验与外部消息
+
+- 默认语言为简体中文，至少支持简体中文与英文切换。
+- 默认主题为明亮白色；外观设置使用下拉框显示主题名称，不展示颜色样本。
+- 应用数据必须使用操作系统本地数据根目录下的 `zicode`，不得使用
+  `~/.pi`。
+- Agent Inbox 支持飞书开放平台和企业微信智能机器人的官方 WebSocket 长连接。
+- 不支持 Telegram；“微信”特指企业微信智能机器人，个人微信没有官方机器人接口。
+
+## 9. 验收
 
 完成状态需要以下证据：
 

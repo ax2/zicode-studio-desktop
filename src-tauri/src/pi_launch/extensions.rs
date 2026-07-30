@@ -16,7 +16,7 @@ fn bundled_extension_names_for_launch(cwd: &Path, is_saved_session: bool) -> Vec
     let normalized = cwd.to_string_lossy().replace('\\', "/");
     let is_agent_inbox = normalized
         .trim_end_matches('/')
-        .ends_with("/.pi/agent/super-agent");
+        .ends_with("/zicode/workspaces/agent-inbox");
     if is_agent_inbox && is_saved_session {
         vec!["picot-bridge.mjs", "pi-chat.mjs"]
     } else {
@@ -119,15 +119,18 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn saved_agent_inbox_session_loads_the_bundled_telegram_listener() {
+    fn saved_agent_inbox_session_loads_the_bundled_chat_listener() {
         assert_eq!(
-            bundled_extension_names_for_launch(Path::new("/Users/me/.pi/agent/super-agent"), true,),
+            bundled_extension_names_for_launch(
+                Path::new("/Users/me/zicode/workspaces/agent-inbox"),
+                true,
+            ),
             vec!["picot-bridge.mjs", "pi-chat.mjs"]
         );
     }
 
     #[test]
-    fn regular_projects_do_not_compete_for_the_telegram_listener() {
+    fn regular_projects_do_not_compete_for_the_chat_listener() {
         assert_eq!(
             bundled_extension_names_for_launch(Path::new("/Users/me/code/project"), true),
             vec!["picot-bridge.mjs"]
@@ -135,9 +138,12 @@ mod tests {
     }
 
     #[test]
-    fn temporary_agent_inbox_runtime_does_not_steal_the_telegram_listener() {
+    fn temporary_agent_inbox_runtime_does_not_steal_the_chat_listener() {
         assert_eq!(
-            bundled_extension_names_for_launch(Path::new("/Users/me/.pi/agent/super-agent"), false,),
+            bundled_extension_names_for_launch(
+                Path::new("/Users/me/zicode/workspaces/agent-inbox"),
+                false,
+            ),
             vec!["picot-bridge.mjs"]
         );
     }

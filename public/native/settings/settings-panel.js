@@ -1,3 +1,4 @@
+import { getLocale, setLocale, supportedLocales } from "../../i18n.js";
 import { applyTheme, getCurrentTheme, themes } from "../../themes.js";
 import { loadCostDashboard } from "./cost-dashboard.js";
 import { setupPackageBrowse } from "./package-browse.js";
@@ -7,7 +8,7 @@ import { setupSettingsToggles } from "./settings-toggles.js";
 import { setupThinkingEffortControl } from "./thinking-effort-control.js";
 
 // Wires the settings overlay panel for the native runtime: open/close, tab
-// switching, theme grid, the embedded pi version readout, the Usage tab (cost
+// switching, appearance preferences, the embedded pi version readout, the Usage tab (cost
 // dashboard), the Extensions tab (community package browse), and the
 // Configuration tab (API keys / model catalog + agent-config / models.json
 // editors). When `data` + `getWorkspaceId` are supplied the Usage tab loads
@@ -36,7 +37,8 @@ export function setupSettingsPanel({
   const navItems = Array.from(document.querySelectorAll(".settings-nav-item"));
   const tabs = Array.from(document.querySelectorAll(".settings-tab"));
   const validTabKeys = new Set(navItems.map((item) => item.dataset.settingsTab));
-  const themeGrid = document.getElementById("theme-grid");
+  const themeSelect = document.getElementById("theme-select");
+  const languageSelect = document.getElementById("language-select");
   const piVersionValue = document.getElementById("setting-pi-version-value");
   const appVersionValue = document.getElementById("setting-app-version-value");
   const costDashboard = document.getElementById("settings-cost-dashboard");
@@ -80,32 +82,43 @@ export function setupSettingsPanel({
     if (target === "configuration") loadConfiguration();
   }
 
-  function buildThemeGrid() {
-    if (!themeGrid) return;
-    themeGrid.replaceChildren();
+  function buildAppearancePreferences() {
     const current = getCurrentTheme();
-    for (const [id, theme] of Object.entries(themes)) {
-      const btn = document.createElement("button");
-      btn.className = `theme-swatch${current === id ? " active" : ""}`;
-      const colors = document.createElement("span");
-      colors.className = "swatch-colors";
-      for (const color of theme.colors || []) {
-        const dot = document.createElement("span");
-        dot.className = "swatch-dot";
-        dot.style.background = color;
-        colors.append(dot);
+    if (themeSelect) {
+      themeSelect.replaceChildren();
+      for (const [id, theme] of Object.entries(themes)) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = theme.name[getLocale()] || theme.name.en;
+        option.selected = current === id;
+        themeSelect.append(option);
       }
-      btn.append(colors);
-      btn.addEventListener("click", () => {
-        applyTheme(id);
-        for (const swatch of themeGrid.querySelectorAll(".theme-swatch")) {
-          swatch.classList.remove("active");
-        }
-        btn.classList.add("active");
-      });
-      themeGrid.append(btn);
+      themeSelect.onchange = () => applyTheme(themeSelect.value);
+    }
+    if (!languageSelect) return;
+    languageSelect.replaceChildren();
+    for (const [id, name] of Object.entries(supportedLocales)) {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = name;
+      option.selected = getLocale() === id;
+      languageSelect.append(option);
+    }
+    languageSelect.onchange = () => {
+      setLocale(languageSelect.value);
+      buildAppearancePreferences();
+    };
+  }
+
+  function refreshThemeNames() {
+    if (!themeSelect) return;
+    for (const [id, theme] of Object.entries(themes)) {
+      const option = themeSelect.querySelector(`option[value="${id}"]`);
+      if (option) option.textContent = theme.name[getLocale()] || theme.name.en;
     }
   }
+
+  window.addEventListener("zicode:locale-changed", refreshThemeNames);
 
   async function loadPiVersion() {
     if (!piVersionValue) return;
@@ -164,7 +177,7 @@ export function setupSettingsPanel({
     if (updateHash) updateSettingsHash(normalizedTabKey);
     panel.classList.remove("hidden");
     selectTab(normalizedTabKey);
-    buildThemeGrid();
+    buildAppearancePreferences();
     void loadPiVersion();
     void loadAppVersion();
   }

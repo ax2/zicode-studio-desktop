@@ -301,7 +301,6 @@ fn build_augmented_path(portable_git_root: Option<&Path>, agent_dir: Option<&Pat
 
         if let Ok(home) = std::env::var("HOME") {
             let home = Path::new(&home);
-            extras.push(pi_extension_npm_bin_dir(home));
             extras.push(home.join(".local/bin"));
             extras.push(home.join(".bun/bin"));
             extras.push(home.join(".volta/bin"));
@@ -333,7 +332,6 @@ fn build_augmented_path(portable_git_root: Option<&Path>, agent_dir: Option<&Pat
         }
         if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
             let home = Path::new(&home);
-            extras.push(pi_extension_npm_bin_dir(home));
             extras.push(home.join(".cargo").join("bin"));
             extras.push(home.join(".bun").join("bin"));
             extras.push(home.join("scoop").join("shims"));
@@ -541,14 +539,6 @@ pub fn open_external(url: &str) -> Result<(), String> {
         code if code.success() => Ok(()),
         code => Err(format!("Opener exited with status {code}")),
     }
-}
-
-fn pi_extension_npm_bin_dir(home: &Path) -> PathBuf {
-    home.join(".pi")
-        .join("agent")
-        .join("npm")
-        .join("node_modules")
-        .join(".bin")
 }
 
 fn strip_verbatim_prefix(path: &str) -> String {

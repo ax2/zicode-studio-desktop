@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type Dirent, constants as fsConstants } from "node:fs";
 import { lstat, open, readdir, realpath } from "node:fs/promises";
-import { homedir } from "node:os";
-import { basename, extname, isAbsolute, join, relative } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
   createBashTool,
@@ -461,7 +460,7 @@ export default function (pi: ExtensionAPI) {
       "/tasks - list the 10 most relevant Agent Index tasks",
       "/task <id> - show one task by full ID or unique prefix",
       "/models - list current and available models",
-      "/health - show Telegram, task, instance, and model health",
+      "/health - show chat, task, instance, and model health",
       "/errors - show the 10 most recent full operations errors",
       "/new - start a new pi session after confirmation in ZiCode Studio Desktop",
       "/compact - compact the current session",
@@ -474,10 +473,10 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function buildOperationsSnapshot() {
-    const agentRoot = join(homedir(), ".pi", "agent");
+    const agentRoot = dirname(dirname(CHAT_CONFIG_PATH));
     return buildRemoteOperationsSnapshot({
       tasksPath: join(agentRoot, "super-agent", "tasks.json"),
-      instancesDir: join(homedir(), ".pi", "pistudio-instances"),
+      instancesDir: join(dirname(agentRoot), "instances"),
       modelPreferencesPath: join(agentRoot, "picot-models.json"),
       workersDir: join(agentRoot, "chat", "worker-status"),
       isProcessAlive: (pid) => {
@@ -918,7 +917,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("chat-config", {
-    description: "Configure pi-chat Telegram DM accounts",
+    description: "Configure Agent Inbox Feishu and WeCom accounts",
     handler: async (_args, ctx) => {
       await loadConfigOnce();
       await runChatConfigUI(ctx);
@@ -1056,8 +1055,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_start", async (_event, _ctx) => {});
 
   pi.on("context", async (event) => {
-    // Capture last user message for local ZiCode Studio Desktop → Telegram sync.
-    // Only when not a Telegram-triggered turn (chatTurnInFlight = false) and not yet captured.
+    // Capture the last local user message for Agent Inbox synchronization.
+    // Only when not a remote-triggered turn and not yet captured.
     if (liveConnection && !chatTurnInFlight && pendingLocalPrompt === undefined) {
       for (let i = event.messages.length - 1; i >= 0; i--) {
         const msg = event.messages[i] as unknown as Record<string, unknown>;
@@ -1104,7 +1103,7 @@ export default function (pi: ExtensionAPI) {
     if (!runtime || !chatTurnInFlight) {
       stopTypingLoop();
       updateStatus(ctx);
-      // Sync local ZiCode Studio Desktop turn to Telegram: combine "user input\n\nagent reply" in one message.
+      // Sync the local turn to the configured Agent Inbox platform.
       if (pendingLocalPrompt !== undefined && liveConnection) {
         const localPrompt = pendingLocalPrompt;
         pendingLocalPrompt = undefined;

@@ -32,8 +32,11 @@ class SAChatHeader extends HTMLElement {
         </div>
       </div>
       <div class="header-right">
-        <button class="pill sa-service-pill" data-action="telegram" disabled aria-disabled="true" title="Telegram is not configured">
-          <span class="sa-service-dot sa-dot-telegram"></span>Telegram
+        <button class="pill sa-service-pill" data-action="feishu" disabled aria-disabled="true" title="飞书尚未配置">
+          <span class="sa-service-dot sa-dot-feishu"></span>飞书
+        </button>
+        <button class="pill sa-service-pill" data-action="wecom" disabled aria-disabled="true" title="企业微信尚未配置">
+          <span class="sa-service-dot sa-dot-wecom"></span>企业微信
         </button>
         <button class="icon-btn sa-runtime-toggle" data-action="runtime" title="Task board" aria-label="Toggle task board">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -59,7 +62,7 @@ class SAChatHeader extends HTMLElement {
       if (btn.disabled) return;
       const action = btn.dataset.action;
       if (action === "lan-qr") document.getElementById("lan-qr-btn")?.click();
-      if (action === "telegram") window.__saOpenSettings?.(action);
+      if (action === "feishu" || action === "wecom") window.__saOpenSettings?.("chat");
       if (action === "runtime") this._toggleRuntime(btn);
     });
 
@@ -113,7 +116,8 @@ class SAChatHeader extends HTMLElement {
     }
 
     if (generation !== this._serviceStatusLoadGeneration) return;
-    this._setServiceConnected("telegram", connectedServices.has("telegram"));
+    this._setServiceConnected("feishu", connectedServices.has("feishu"));
+    this._setServiceConnected("wecom", connectedServices.has("wecom"));
   }
 
   _setServiceConnected(service, connected) {
@@ -139,7 +143,8 @@ class SAChatHeader extends HTMLElement {
 
 function isConfiguredAccount(account) {
   if (!account || typeof account !== "object") return false;
-  if (account.service === "telegram") return Boolean(account.botToken);
+  if (account.service === "feishu") return Boolean(account.appId && account.appSecret);
+  if (account.service === "wecom") return Boolean(account.botId && account.secret);
   return false;
 }
 

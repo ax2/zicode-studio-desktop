@@ -60,7 +60,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     row.className = "provider-channel-row";
     const info = document.createElement("div");
     const name = document.createElement("strong");
-    name.textContent = channel.provider;
+    name.textContent = channel.builtIn ? "QVeris Model Gateway" : channel.provider;
     const endpoint = document.createElement("span");
     endpoint.textContent = `${channel.api} · ${channel.baseUrl}`;
     info.append(name, endpoint);
@@ -75,6 +75,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     remove.type = "button";
     remove.className = "ui-button ui-button--secondary danger";
     remove.textContent = "Remove";
+    remove.hidden = channel.builtIn === true;
     remove.addEventListener("click", async () => {
       if (!confirm(`Remove model channel "${channel.provider}" and its stored key?`)) return;
       remove.disabled = true;
