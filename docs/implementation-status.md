@@ -5,7 +5,7 @@
 ## 已实现
 
 - Windows GUI subsystem 与统一 `CREATE_NO_WINDOW` 子进程工厂。
-- Pi `0.82.0` x64/arm64 官方资产 SHA-256 锁定。
+- Pi `0.83.0` x64/arm64 官方资产 SHA-256 锁定。
 - PortableGit `2.55.0.3` x64/arm64 官方资产 SHA-256 锁定。
 - Release 构建缺少 Pi、Git 或 Bash 时直接失败。
 - Rust Host 与 Pi 子进程都优先使用内置 PortableGit。
@@ -36,7 +36,7 @@
 - NSIS：`Pi Windows Desktop_0.1.0_x64-setup.exe`
 - 大小：311,788,643 bytes
 - SHA-256：`4500ab72ea5b1092a790d5341165ffbda2092eb702ef2670fa1d45901e12024a`
-- 包内复核：Pi `0.82.0`、Git `2.55.0.windows.3`、Bash `5.3.15`。
+- 包内复核：Pi `0.83.0`、Git `2.55.0.windows.3`、Bash `5.3.15`。
 - 包内 WebView2 SHA-256 与 `scripts/webview2-version.json` 一致。
 - Release EXE 已在 Windows 上实际启动，标题、连接状态和欢迎界面检查通过。
 

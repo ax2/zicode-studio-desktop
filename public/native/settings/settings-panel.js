@@ -67,6 +67,17 @@ export function setupSettingsPanel({
     void config.loadInlineModelsEditor();
   }
 
+  function reloadVisibleConfiguration() {
+    const configurationTab = document.querySelector('[data-settings-panel="configuration"]');
+    if (
+      panel.classList.contains("hidden") ||
+      !configurationTab?.classList.contains("active")
+    ) {
+      return;
+    }
+    loadConfiguration();
+  }
+
   function selectTab(tabKey = "general") {
     const target = tabKey === "auth" ? "configuration" : tabKey;
     for (const item of navItems) {
@@ -119,6 +130,7 @@ export function setupSettingsPanel({
   }
 
   window.addEventListener("zicode:locale-changed", refreshThemeNames);
+  window.addEventListener("picot-config-gateway-ready", reloadVisibleConfiguration);
 
   async function loadPiVersion() {
     if (!piVersionValue) return;

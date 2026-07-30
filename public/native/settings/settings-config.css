@@ -181,6 +181,21 @@
   gap: var(--space-1-5);
 }
 
+.settings-provider-filter {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.settings-provider-filter .ui-input {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-provider-filter .ui-button {
+  flex: 0 0 auto;
+}
+
 .settings-api-keys-loading,
 .settings-api-keys-empty {
   font-size: var(--font-size-sm);

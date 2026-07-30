@@ -20,14 +20,18 @@
   },
   "scripts": {
     "tauri": "tauri",
-    "dev": "bun run fetch:pi && bun run fetch:portable-git && PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
+    "dev": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
+    "sync:vendor": "bun run scripts/sync-vendor.js",
+    "update:pi:lock": "bun run scripts/update-pi-version.js --lock-only",
+    "update:pi": "bun run scripts/update-pi-version.js",
     "fetch:pi": "bun run scripts/fetch-pi-binary.js",
     "fetch:portable-git": "bun run scripts/fetch-portable-git.js",
     "fetch:webview2": "bun run scripts/fetch-webview2.js",
     "smoke:pi-rpc": "bun run scripts/smoke-pi-rpc.js",
+    "smoke:pi-rpc:update": "bun run scripts/smoke-pi-rpc.js --update",
     "build:extensions": "bun run scripts/build-extensions.js",
     "build": "bun run scripts/build-desktop.js",
-    "prebuild": "bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions",
+    "prebuild": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions",
     "release": "bash scripts/release.sh",
     "release:mac:dmg": "bash scripts/release-macos-dmg.sh",
     "test": "vitest run && bun run scripts/check-tauri-permissions.js && bun run scripts/check-windows-subprocesses.js",
@@ -47,6 +51,7 @@
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.72.0",
     "@wecom/aibot-node-sdk": "^1.0.7",
+    "chart.js": "4.4.3",
     "remend": "^1.3.0"
   },
   "devDependencies": {

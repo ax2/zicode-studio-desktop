@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupSettingsPanel } from "./settings-panel.js";
 
 function renderSettingsDom() {
@@ -17,7 +17,16 @@ function renderSettingsDom() {
         <div class="settings-tab active" data-settings-panel="general"></div>
         <div class="settings-tab" data-settings-panel="extensions"></div>
         <div class="settings-tab" data-settings-panel="usage"></div>
-        <div class="settings-tab" data-settings-panel="configuration"></div>
+        <div class="settings-tab" data-settings-panel="configuration">
+          <div id="settings-api-keys"></div>
+          <div id="provider-channel-list"></div>
+          <span id="inline-config-path"></span>
+          <textarea id="inline-config-textarea"></textarea>
+          <div id="inline-config-error" class="hidden"></div>
+          <span id="inline-models-path"></span>
+          <textarea id="inline-models-textarea"></textarea>
+          <div id="inline-models-error" class="hidden"></div>
+        </div>
       </section>
     </div>
   `;
@@ -83,5 +92,62 @@ describe("settings panel hash routing", () => {
     expect(document.getElementById("settings-panel").classList.contains("hidden")).toBe(false);
     const extensionsTab = document.querySelector('[data-settings-panel="extensions"]');
     expect(extensionsTab.classList.contains("active")).toBe(true);
+  });
+
+  it("reloads a visible configuration tab when the runtime gateway becomes ready", async () => {
+    window.location.hash = "#/settings/configuration";
+    const call = vi.fn(async (operation) => {
+      if (operation === "list_model_catalog") {
+        return { ok: true, data: { providers: [], models: [] } };
+      }
+      if (operation === "list_provider_channels") {
+        return { ok: true, data: { channels: [] } };
+      }
+      return { ok: true, data: { content: "{}", path: "zicode/config.json" } };
+    });
+
+    setupSettingsPanel({ configGateway: { call } });
+    await vi.waitFor(() => expect(call).toHaveBeenCalled());
+    const beforeReady = call.mock.calls.length;
+
+    window.dispatchEvent(new CustomEvent("picot-config-gateway-ready"));
+
+    await vi.waitFor(() => expect(call.mock.calls.length).toBeGreaterThan(beforeReady));
+    expect(call.mock.calls.some(([operation]) => operation === "read_agent_config")).toBe(true);
+    expect(call.mock.calls.some(([operation]) => operation === "read_models_config")).toBe(true);
+  });
+
+  it("keeps unconfigured providers collapsed until searched or explicitly revealed", async () => {
+    window.location.hash = "#/settings/configuration";
+    const call = vi.fn(async (operation) => {
+      if (operation === "list_model_catalog") {
+        return {
+          ok: true,
+          data: {
+            providers: [
+              { provider: "configured", displayName: "Configured", configured: true, models: [] },
+              { provider: "hidden", displayName: "Hidden Provider", configured: false, models: [] },
+            ],
+            models: [],
+          },
+        };
+      }
+      if (operation === "list_provider_channels") {
+        return { ok: true, data: { channels: [] } };
+      }
+      return { ok: true, data: { content: "{}", path: "zicode/config.json" } };
+    });
+
+    setupSettingsPanel({ configGateway: { call } });
+    await vi.waitFor(() =>
+      expect(document.querySelector('[data-provider="hidden"]')).not.toBeNull(),
+    );
+
+    const hiddenRow = document.querySelector('[data-provider="hidden"]');
+    expect(hiddenRow.classList.contains("hidden")).toBe(true);
+    const search = document.getElementById("provider-auth-search");
+    search.value = "Hidden";
+    search.dispatchEvent(new Event("input"));
+    expect(hiddenRow.classList.contains("hidden")).toBe(false);
   });
 });

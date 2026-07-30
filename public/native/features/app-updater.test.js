@@ -32,7 +32,7 @@ describe("app updater sidebar action", () => {
       },
     };
 
-    setupAppUpdater({ settingsPanel: { openSettings } });
+    setupAppUpdater({ settingsPanel: { openSettings }, enabled: true });
 
     const sidebarButton = document.getElementById("sidebar-update-btn");
     await vi.waitFor(() => expect(sidebarButton.classList.contains("hidden")).toBe(false));
@@ -42,5 +42,18 @@ describe("app updater sidebar action", () => {
     await vi.waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
     expect(relaunch).toHaveBeenCalledTimes(1);
     expect(openSettings).not.toHaveBeenCalled();
+  });
+
+  it("does not contact an unsigned update feed by default", () => {
+    const check = vi.fn();
+    globalThis.__TAURI__ = { updater: { check } };
+
+    setupAppUpdater();
+
+    expect(check).not.toHaveBeenCalled();
+    expect(document.getElementById("setting-update-status").textContent).toContain(
+      "not configured",
+    );
+    expect(document.getElementById("btn-check-updates").disabled).toBe(true);
   });
 });

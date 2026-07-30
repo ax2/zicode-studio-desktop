@@ -14,11 +14,10 @@ use axum::http::header::{CACHE_CONTROL, PRAGMA};
 #[cfg(debug_assertions)]
 use axum::http::HeaderValue;
 use axum::http::StatusCode;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
 use futures_util::StreamExt;
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -43,7 +42,7 @@ struct HostState {
     session_owners: Mutex<std::collections::HashMap<RuntimeTarget, String>>,
     data: HostDataPlane,
     pi_launch: PiLaunchResolver,
-    port: u16,
+    allowed_origin: String,
 }
 
 pub struct HostServer {
@@ -74,18 +73,17 @@ impl HostServer {
                 .with_session_root(data_root.join("instances"))
                 .with_session_root(data_root.join("sessions"));
         }
-        // Prefer a stable, high, rarely-used port so LAN clients get a stable
-        // URL/QR across restarts. Scan a small contiguous range so multiple
-        // project windows each get a deterministic port (57620, 57621, ...),
-        // and fall back to an OS-assigned ephemeral port (0) only if the whole
-        // preferred range is taken.
+        // Prefer a stable, high, rarely-used loopback port. The desktop Host
+        // exposes workspace and runtime control endpoints, so it must never be
+        // reachable from the LAN unless a future authenticated LAN gateway is
+        // enabled explicitly.
         const PREFERRED_PORT_BASE: u16 = 57620;
         const PREFERRED_PORT_COUNT: u16 = 32;
         let mut listener = None;
         for offset in 0..PREFERRED_PORT_COUNT {
             let candidate = PREFERRED_PORT_BASE + offset;
             if let Ok(bound) =
-                tokio::net::TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, candidate)).await
+                tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, candidate)).await
             {
                 listener = Some(bound);
                 break;
@@ -93,16 +91,13 @@ impl HostServer {
         }
         let listener = match listener {
             Some(listener) => listener,
-            None => tokio::net::TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
+            None => tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
                 .await
                 .map_err(|error| format!("Cannot bind ZiCode Studio Desktop Host: {error}"))?,
         };
         let address = listener
             .local_addr()
             .map_err(|error| format!("Cannot read ZiCode Studio Desktop Host address: {error}"))?;
-        // Bind on 0.0.0.0 so LAN clients can reach the server, but always use
-        // 127.0.0.1 for the Tauri WebView origin — browsers reject 0.0.0.0 as
-        // a destination address.
         let loopback_origin = format!("http://127.0.0.1:{}", address.port());
         let state = Arc::new(HostState {
             router: Mutex::new(HostRouter::new()),
@@ -111,7 +106,7 @@ impl HostServer {
             session_owners: Mutex::new(std::collections::HashMap::new()),
             data,
             pi_launch: PiLaunchResolver::new(static_dir.clone()),
-            port: address.port(),
+            allowed_origin: loopback_origin.clone(),
         });
         let index = static_dir.join("index.html");
         let static_service = ServeDir::new(static_dir).fallback(ServeFile::new(index));
@@ -203,96 +198,22 @@ impl Drop for HostServer {
     }
 }
 
-async fn health(State(state): State<Arc<HostState>>) -> Json<Value> {
+async fn health() -> Json<Value> {
     Json(json!({
         "status": "ok",
         "protocolVersion": PROTOCOL_VERSION,
         "piVersion": crate::pi_launch::locked_pi_version(),
-        "lanUrl": local_lan_url_with_port(state.port).unwrap_or_default(),
+        "lanUrl": "",
+        "lanAccessEnabled": false,
     }))
 }
 
-/// Returns the first non-loopback IPv4 LAN address of this machine,
-/// or an empty string if none is found.
-fn local_lan_ip() -> Option<std::net::IpAddr> {
-    use std::net::{IpAddr, Ipv4Addr, UdpSocket};
-    // Cheapest approach: connect a UDP socket to an external addr (no packet
-    // is actually sent) and read back which local interface was chosen.
-    let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).ok()?;
-    socket.connect("8.8.8.8:80").ok()?;
-    let local = socket.local_addr().ok()?;
-    match local.ip() {
-        IpAddr::V4(v4) if !v4.is_loopback() && !v4.is_unspecified() => Some(local.ip()),
-        _ => None,
-    }
-}
-
-/// Returns `None` — the port is only known once the server is bound.
-/// Callers that need a full URL must pass the port in separately.
-fn local_lan_url_with_port(port: u16) -> Option<String> {
-    local_lan_ip().map(|ip| format!("http://{ip}:{port}"))
-}
-
-fn append_pairing_token(url: &mut String, token: &str) {
-    let separator = if url.contains('?') { '&' } else { '?' };
-    url.push(separator);
-    url.push_str("pairingToken=");
-    url.push_str(&utf8_percent_encode(token, NON_ALPHANUMERIC).to_string());
-}
-
-#[derive(Deserialize)]
-struct LanQrQuery {
-    path: Option<String>,
-}
-
-async fn lan_qr(
-    State(state): State<Arc<HostState>>,
-    Query(query): Query<LanQrQuery>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let port = state.port;
-    let base_url = local_lan_url_with_port(port).unwrap_or_default();
-    if base_url.is_empty() {
-        return Err((
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": "No LAN interface found" })),
-        ));
-    }
-    // Append the session path (e.g. /app/workspaces/{id}/sessions/{id}) if provided.
-    let mut url = if let Some(path) = query.path.as_deref() {
-        let path = path.trim_start_matches('/');
-        format!("{}/{}", base_url.trim_end_matches('/'), path)
-    } else {
-        base_url.clone()
-    };
-    let pairing = state
-        .auth
-        .lock()
-        .map_err(|_| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({ "error": "Remote auth unavailable" })),
-            )
-        })?
-        .create_pairing(now_seconds());
-    append_pairing_token(&mut url, &pairing.token);
-    // Build QR code as SVG, then base64-encode it as a data URL.
-    let code = qrcode::QrCode::new(url.as_bytes()).map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": format!("QR encode failed: {e}") })),
-        )
-    })?;
-    let svg_str = code
-        .render()
-        .min_dimensions(200, 200)
-        .dark_color(qrcode::render::svg::Color("#000000"))
-        .light_color(qrcode::render::svg::Color("#ffffff"))
-        .build();
-    use base64::Engine as _;
-    let b64 = base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
-    let data_url = format!("data:image/svg+xml;base64,{b64}");
-    Ok(Json(
-        json!({ "dataUrl": data_url, "url": url, "baseUrl": base_url }),
+async fn lan_qr() -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    Err((
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "error": "LAN access is disabled until authenticated pairing is available"
+        })),
     ))
 }
 
@@ -453,8 +374,18 @@ async fn resolve_workspace(
 
 async fn websocket_upgrade(
     State(state): State<Arc<HostState>>,
+    headers: axum::http::HeaderMap,
     websocket: WebSocketUpgrade,
 ) -> Response {
+    if let Some(origin) = headers.get(axum::http::header::ORIGIN) {
+        let allowed = origin
+            .to_str()
+            .map(|value| value == state.allowed_origin)
+            .unwrap_or(false);
+        if !allowed {
+            return StatusCode::FORBIDDEN.into_response();
+        }
+    }
     websocket
         .max_message_size(MAX_WS_MESSAGE_BYTES)
         .on_upgrade(move |socket| handle_websocket(socket, state))
@@ -1263,10 +1194,7 @@ fn now_seconds() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        append_pairing_token, extension_ui_requires_owner, messages_from_entries_response,
-        HostServer,
-    };
+    use super::{extension_ui_requires_owner, messages_from_entries_response, HostServer};
     use crate::metadata_store::MetadataStore;
     use crate::native_pi_manager::NativePiManager;
     use crate::remote_auth::RemoteAuth;
@@ -1274,24 +1202,25 @@ mod tests {
     use futures_util::{SinkExt, StreamExt};
     use serde_json::json;
     use std::fs;
+    use std::path::Path;
     use std::sync::{Arc, Mutex};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[test]
-    fn appends_pairing_token_to_lan_deep_link() {
-        let mut plain = "http://192.168.1.10:9000/app/workspaces/a/sessions/b".to_string();
-        append_pairing_token(&mut plain, "picot_pair_a+b");
-        assert_eq!(
-            plain,
-            "http://192.168.1.10:9000/app/workspaces/a/sessions/b?pairingToken=picot%5Fpair%5Fa%2Bb"
-        );
-
-        let mut with_query =
-            "http://192.168.1.10:9000/app/workspaces/a/sessions/b?tab=settings".to_string();
-        append_pairing_token(&mut with_query, "token");
-        assert_eq!(
-            with_query,
-            "http://192.168.1.10:9000/app/workspaces/a/sessions/b?tab=settings&pairingToken=token"
+    async fn remove_temp_dir_when_released(path: &Path) {
+        let mut last_error = None;
+        for _ in 0..20 {
+            match fs::remove_dir_all(path) {
+                Ok(()) => return,
+                Err(error) => {
+                    last_error = Some(error);
+                    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                }
+            }
+        }
+        panic!(
+            "temporary host directory remained locked: {}: {:?}",
+            path.display(),
+            last_error
         );
     }
 
@@ -1386,16 +1315,30 @@ mod tests {
         let host = HostServer::start(public, NativePiManager::new(32), auth)
             .await
             .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
 
-        let health: serde_json::Value = reqwest::get(format!("{}/health", host.origin()))
-            .await
-            .unwrap()
-            .json()
+        let health_response = client
+            .get(format!("{}/health", host.origin()))
+            .send()
             .await
             .unwrap();
+        let health_status = health_response.status();
+        let health_body = health_response.text().await.unwrap();
+        assert_eq!(
+            health_status,
+            reqwest::StatusCode::OK,
+            "unexpected health response from {}: {health_body:?}",
+            host.origin()
+        );
+        let health: serde_json::Value = serde_json::from_str(&health_body)
+            .unwrap_or_else(|error| panic!("invalid health response {health_body:?}: {error}"));
         assert_eq!(health["protocolVersion"], 2);
         assert_eq!(health["piVersion"], env!("PI_STUDIO_PI_VERSION_BUNDLED"));
-        let index = reqwest::get(format!("{}/app/settings", host.origin()))
+        assert_eq!(health["lanUrl"], "");
+        assert_eq!(health["lanAccessEnabled"], false);
+        let index = client
+            .get(format!("{}/app/settings", host.origin()))
+            .send()
             .await
             .unwrap()
             .text()
@@ -1404,7 +1347,7 @@ mod tests {
         assert!(index.contains("ZiCode Studio Desktop native host"));
 
         host.stop();
-        fs::remove_dir_all(temp).unwrap();
+        remove_temp_dir_when_released(&temp).await;
     }
 
     #[tokio::test]
@@ -1464,8 +1407,45 @@ mod tests {
         assert_eq!(event["target"]["sessionId"], "session-a");
         assert_eq!(event["sequence"], 1);
 
+        drop(socket);
         host.stop();
-        fs::remove_dir_all(temp).unwrap();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn rejects_websocket_upgrades_from_a_foreign_web_origin() {
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-origin-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let ws_url = host.origin().replace("http://", "ws://") + "/v2/ws";
+        let mut request = ws_url.into_client_request().unwrap();
+        request.headers_mut().insert(
+            axum::http::header::ORIGIN,
+            axum::http::HeaderValue::from_static("https://malicious.example"),
+        );
+
+        let error = tokio_tungstenite::connect_async(request).await.unwrap_err();
+        match error {
+            tokio_tungstenite::tungstenite::Error::Http(response) => {
+                assert_eq!(response.status(), axum::http::StatusCode::FORBIDDEN);
+            }
+            other => panic!("expected an HTTP rejection, got {other:?}"),
+        }
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
     }
 
     #[tokio::test]
@@ -1552,7 +1532,9 @@ mod tests {
             })
         );
 
+        drop(socket);
+        drop(fake);
         host.stop();
-        fs::remove_dir_all(temp).unwrap();
+        remove_temp_dir_when_released(&temp).await;
     }
 }

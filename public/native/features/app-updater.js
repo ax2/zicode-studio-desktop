@@ -5,14 +5,24 @@ function betaUpdatesEnabled() {
   return localStorage.getItem(BETA_SETTINGS_KEY) === "true";
 }
 
-export function setupAppUpdater({ logger = console } = {}) {
+export function setupAppUpdater({ logger = console, enabled = false } = {}) {
   const relaunch = globalThis.__TAURI__?.process?.relaunch;
   const check = globalThis.__TAURI__?.updater?.check;
   const invoke = globalThis.__TAURI__?.core?.invoke;
   const statusEl = document.getElementById("setting-update-status");
   const checkBtn = document.getElementById("btn-check-updates");
   const sidebarBtn = document.getElementById("sidebar-update-btn");
-  if (!statusEl || !checkBtn || typeof check !== "function") return null;
+  const betaToggle = document.getElementById("toggle-beta-updates");
+  if (!statusEl || !checkBtn) return null;
+  if (!enabled || typeof check !== "function") {
+    statusEl.textContent = "Automatic updates are not configured";
+    checkBtn.textContent = "Use GitHub Releases";
+    checkBtn.disabled = true;
+    checkBtn.setAttribute("aria-disabled", "true");
+    sidebarBtn?.classList.add("hidden");
+    betaToggle?.closest(".settings-row")?.classList.add("hidden");
+    return { enabled: false };
+  }
 
   let update = null;
   let lastCheckMs = 0;

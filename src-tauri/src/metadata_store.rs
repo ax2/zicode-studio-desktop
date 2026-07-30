@@ -234,6 +234,7 @@ mod tests {
         store.revoke_device("phone").unwrap();
         assert!(!store.verify_device_token("plain-device-token").unwrap());
 
+        drop(store);
         fs::remove_dir_all(temp).unwrap();
     }
 
@@ -255,6 +256,7 @@ mod tests {
             "{\"type\":\"session\"}\n"
         );
         assert_eq!(store.schema_version().unwrap(), 1);
+        drop(store);
         fs::remove_dir_all(temp).unwrap();
     }
 }

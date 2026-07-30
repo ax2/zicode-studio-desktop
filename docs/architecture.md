@@ -57,6 +57,9 @@ Pi 继续负责：
 ```text
 %LOCALAPPDATA%\zicode\
 ├── scene-profiles.json
+├── metadata\picot.sqlite3
+├── logs\
+├── webview\
 ├── scenes\
 │   └── <sha256(scene-id)>\agent\
 │       ├── auth.json
@@ -68,14 +71,16 @@ Pi 继续负责：
 │       ├── sessions\
 │       ├── logs\
 │       └── tmp\
-
-%APPDATA%\com.zicode.studio.desktop\
-└── picot.sqlite3
 ```
 
-`picot.sqlite3` 沿用上游文件名以避免无必要的数据迁移。当前 API Key 使用 Pi
+旧版本位于 `%APPDATA%\com.zicode.studio.desktop\picot.sqlite3` 的元数据会在首次
+启动时复制到新目录；旧文件保留作为迁移备份。`picot.sqlite3` 沿用上游文件名以避免
+无必要的格式迁移。当前 API Key 使用 Pi
 兼容的场景隔离 `auth.json`，不会进入 `models.json`、日志或文档。Windows
 Credential Manager 适配属于后续安全里程碑，详见“实现状态”。
+
+Host HTTP/WebSocket 服务仅监听 `127.0.0.1`。在为所有路由补齐设备鉴权和加密传输前，
+局域网二维码与远程访问入口保持禁用。
 
 ## 5. 启动环境
 

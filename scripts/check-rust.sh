@@ -34,6 +34,9 @@ fi
 echo "==> cargo check (all targets)"
 cargo check --manifest-path "$MANIFEST" --all-targets
 
+echo "==> cargo test"
+cargo test --manifest-path "$MANIFEST"
+
 echo "==> cargo clippy (warnings as errors)"
 cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
 

@@ -5,6 +5,8 @@ import {
 } from "./settings-save-status.js";
 
 const STORAGE_KEY = "pi-desktop:selected-scene";
+const COOKIE_KEY = "zicode-studio-scene";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 10;
 const FALLBACK_SCENES = [
   {
     id: "programming",
@@ -27,7 +29,30 @@ const FALLBACK_SCENES = [
 ];
 
 export function getSelectedSceneId() {
-  return localStorage.getItem(STORAGE_KEY) || "programming";
+  try {
+    const entry = document.cookie
+      .split("; ")
+      .find((value) => value.startsWith(`${COOKIE_KEY}=`));
+    if (entry) return decodeURIComponent(entry.slice(COOKIE_KEY.length + 1));
+    const legacy = localStorage.getItem(STORAGE_KEY);
+    if (legacy) {
+      persistSelectedScene(legacy);
+      return legacy;
+    }
+  } catch {
+    // Sandboxed WebViews may reject cookie or localStorage access.
+  }
+  return "programming";
+}
+
+function persistSelectedScene(sceneId) {
+  try {
+    // biome-ignore lint/suspicious/noDocumentCookie: cross-port desktop preference storage
+    document.cookie = `${COOKIE_KEY}=${encodeURIComponent(sceneId)}; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
+    localStorage.setItem(STORAGE_KEY, sceneId);
+  } catch {
+    // Keep the in-memory select usable even when persistence is unavailable.
+  }
 }
 
 export function setupSceneProfiles() {
@@ -57,7 +82,7 @@ export function setupSceneProfiles() {
     if (!profile) return;
     description.textContent = profile.description || "";
     deleteButton.classList.toggle("hidden", profile.builtin !== false);
-    localStorage.setItem(STORAGE_KEY, profile.id);
+    persistSelectedScene(profile.id);
   }
 
   function render() {
@@ -120,7 +145,7 @@ export function setupSceneProfiles() {
           builtin: false,
         },
       });
-      localStorage.setItem(STORAGE_KEY, profile.id);
+      persistSelectedScene(profile.id);
       closeEditor();
       await load();
     } catch (error) {
@@ -138,7 +163,7 @@ export function setupSceneProfiles() {
     deleteButton.disabled = true;
     try {
       await invoke("delete_scene_profile", { sceneId: profile.id });
-      localStorage.setItem(STORAGE_KEY, "programming");
+      persistSelectedScene("programming");
       await load();
     } finally {
       deleteButton.disabled = false;

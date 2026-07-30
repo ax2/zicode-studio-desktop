@@ -77,7 +77,7 @@ class ChatSettingsPanel extends HTMLElement {
     });
     this._handleConfigGatewayReady = () => void this._load();
     window.addEventListener("picot-config-gateway-ready", this._handleConfigGatewayReady);
-    void this._load();
+    if (typeof window.__picotConfigCall === "function") void this._load();
   }
 
   disconnectedCallback() {
@@ -106,6 +106,7 @@ class ChatSettingsPanel extends HTMLElement {
       const { content } = await readChatConfig();
       this._textarea.value = content || '{"botName":"ZiCode","accounts":{}}';
       this._renderAccounts();
+      this._clearStatus();
     } catch (error) {
       this._show(messageFromError(error), true);
     }
@@ -213,6 +214,12 @@ class ChatSettingsPanel extends HTMLElement {
     this._statusEl.style.color = error ? "var(--color-danger)" : "var(--color-success)";
     this._statusEl.classList.remove("hidden");
   }
+
+  _clearStatus() {
+    this._statusEl.textContent = "";
+    this._statusEl.style.removeProperty("color");
+    this._statusEl.classList.add("hidden");
+  }
 }
 
 async function callPicotConfig(op, params = {}) {
@@ -223,21 +230,14 @@ async function callPicotConfig(op, params = {}) {
 
 async function readChatConfig() {
   if (typeof window.__picotConfigCall === "function") return callPicotConfig("read_chat_config");
-  const response = await fetch("/api/chat-config");
-  if (!response.ok) throw new Error("读取消息平台配置失败");
-  return response.json();
+  throw new Error("ZiCode Studio Desktop 配置服务尚未连接");
 }
 
 async function writeChatConfig(content) {
   if (typeof window.__picotConfigCall === "function") {
     return callPicotConfig("write_chat_config", { content });
   }
-  const response = await fetch("/api/chat-config", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
-  });
-  if (!response.ok) throw new Error("保存消息平台配置失败");
+  throw new Error("ZiCode Studio Desktop 配置服务尚未连接");
 }
 
 function messageFromError(error) {

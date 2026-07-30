@@ -23,6 +23,8 @@ function render() {
 afterEach(() => {
   document.body.innerHTML = "";
   localStorage.clear();
+  // biome-ignore lint/suspicious/noDocumentCookie: test cleanup for cross-port preference
+  document.cookie = "zicode-studio-scene=; Max-Age=0; Path=/";
   delete globalThis.__TAURI__;
 });
 

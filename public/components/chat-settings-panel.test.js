@@ -14,10 +14,7 @@ describe("chat-settings-panel", () => {
   });
 
   it("offers Feishu and WeCom without Telegram", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: '{"botName":"ZiCode","accounts":{}}' }),
-    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
     const Panel = customElements.get("chat-settings-panel");
     const panel = new Panel();
     document.body.appendChild(panel);
@@ -28,5 +25,29 @@ describe("chat-settings-panel", () => {
     expect(panel.textContent).not.toContain("Telegram");
     expect(panel.querySelector('[data-service="feishu"]')).not.toBeNull();
     expect(panel.querySelector('[data-service="wecom"]')).not.toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("waits for the config gateway and clears stale load errors after recovery", async () => {
+    const Panel = customElements.get("chat-settings-panel");
+    const panel = new Panel();
+    document.body.appendChild(panel);
+
+    window.__picotConfigCall = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, error: "temporarily disconnected" })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { content: '{"botName":"ZiCode","accounts":{}}' },
+      });
+
+    window.dispatchEvent(new CustomEvent("picot-config-gateway-ready"));
+    await flushPromises();
+    expect(panel.querySelector("[data-status]").textContent).toContain("temporarily disconnected");
+
+    window.dispatchEvent(new CustomEvent("picot-config-gateway-ready"));
+    await flushPromises();
+    expect(panel.querySelector("[data-status]").classList.contains("hidden")).toBe(true);
+    expect(panel.querySelector("[data-textarea]").value).toContain('"botName":"ZiCode"');
   });
 });

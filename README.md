@@ -72,6 +72,22 @@ bun run build:extensions
 bun run tauri dev
 ```
 
+升级内置 Pi 到上游最新版并验证本机 RPC：
+
+```powershell
+bun run update:pi
+```
+
+升级到指定版本：
+
+```powershell
+bun run update:pi -- 0.83.0
+```
+
+该命令会从 `earendil-works/pi-mono` Release 读取六个平台资源的 GitHub
+SHA-256 摘要，原子更新 `scripts/pi-version.json`，下载当前平台二进制并执行
+RPC 冒烟测试。每日检查工作流使用同一套锁文件生成逻辑，避免只改版本号却遗留旧摘要。
+
 ## 验证
 
 ```powershell
@@ -114,10 +130,15 @@ Developer ID 签名与公证。发布和签名说明见
 
 - 应用数据统一保存在操作系统的 `zicode` 专用本地数据目录，不读取或
   写入用户主目录下的 `~/.pi`。
+- Windows 下元数据、日志和 WebView 数据统一位于 `%LOCALAPPDATA%\zicode`；
+  旧版元数据库首次启动时只复制迁移，原文件保留作为备份。
 - 模型密钥不会写入 `models.json`、日志或项目文档。
 - 每个场景使用独立的 Pi agent 目录和 `auth.json`。
 - 每个运行实例使用独立的 Session、日志和临时目录。
 - Windows Credential Manager 集成仍是后续安全工作。
+- Host 服务仅监听 `127.0.0.1`；局域网访问在完整鉴权和加密传输实现前保持禁用。
+- 当前私有仓库不提供匿名 updater 产物，桌面端不会在启动时请求无效更新源；
+  新版本通过 GitHub Releases 手动安装。
 
 内部仍保留少量 `picot-*` 协议名、存储键和 `picot.sqlite3` 文件名。这些是上游
 兼容标识，不是当前产品品牌；保留它们可以避免破坏已有扩展、会话和本地数据。

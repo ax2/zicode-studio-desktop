@@ -1630,7 +1630,8 @@ mod tests {
             fs::write(
                 directory.join(format!("{id}.jsonl")),
                 format!(
-                    "{{\"type\":\"session\",\"id\":\"{id}\",\"timestamp\":\"2026-01-01\",\"cwd\":{}}}\n",
+                    "{{\"type\":\"session\",\"id\":\"{id}\",\"timestamp\":\"2026-01-01\",\"cwd\":{}}}\n\
+                     {{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"hello\"}}}}\n",
                     serde_json::to_string(&workspace.to_string_lossy()).unwrap()
                 ),
             )

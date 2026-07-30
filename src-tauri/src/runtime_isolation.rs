@@ -160,7 +160,12 @@ mod tests {
         assert!(isolation.agent_dir.starts_with(temp.join("scenes")));
         assert!(isolation.session_dir.starts_with(temp.join("instances")));
         assert!(!isolation.agent_dir.to_string_lossy().contains("finance"));
-        assert!(!isolation.session_dir.to_string_lossy().contains("instance"));
+        assert_eq!(
+            isolation.session_dir,
+            temp.join("instances")
+                .join(opaque_key("../../instance"))
+                .join("sessions")
+        );
         assert_ne!(
             opaque_key(&target.scene_id),
             opaque_key(&target.instance_id)

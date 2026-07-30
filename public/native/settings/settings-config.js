@@ -255,9 +255,59 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
       apiKeysContainer.innerHTML = '<div class="settings-api-keys-empty">No providers known.</div>';
       return;
     }
-    for (const p of [...providers].sort((a, b) => Number(b.configured) - Number(a.configured))) {
-      apiKeysContainer.appendChild(buildApiKeyRow(p));
+
+    const controls = document.createElement("div");
+    controls.className = "settings-provider-filter";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.id = "provider-auth-search";
+    search.className = "ui-input";
+    search.placeholder = "Search providers…";
+    search.setAttribute("aria-label", "Search providers");
+    const showAll = document.createElement("button");
+    showAll.type = "button";
+    showAll.id = "provider-auth-show-all";
+    showAll.className = "ui-button ui-button--secondary";
+    controls.append(search, showAll);
+    apiKeysContainer.appendChild(controls);
+
+    const empty = document.createElement("div");
+    empty.className = "settings-api-keys-empty";
+    empty.textContent = "No configured providers. Search or show all providers to add a key.";
+    apiKeysContainer.appendChild(empty);
+
+    let revealAll = false;
+    const rows = [];
+    for (const provider of [...providers].sort(
+      (a, b) => Number(b.configured) - Number(a.configured),
+    )) {
+      const row = buildApiKeyRow(provider);
+      row.dataset.configured = String(Boolean(provider.configured));
+      row.dataset.searchText =
+        `${provider.displayName || ""} ${provider.provider || ""}`.toLocaleLowerCase();
+      rows.push(row);
+      apiKeysContainer.appendChild(row);
     }
+
+    const applyFilter = () => {
+      const query = search.value.trim().toLocaleLowerCase();
+      let visibleCount = 0;
+      for (const row of rows) {
+        const matchesQuery = !query || row.dataset.searchText.includes(query);
+        const visible =
+          matchesQuery && (revealAll || Boolean(query) || row.dataset.configured === "true");
+        row.classList.toggle("hidden", !visible);
+        if (visible) visibleCount += 1;
+      }
+      empty.classList.toggle("hidden", visibleCount > 0);
+      showAll.textContent = revealAll ? "Show configured only" : "Show all providers";
+    };
+    search.addEventListener("input", applyFilter);
+    showAll.addEventListener("click", () => {
+      revealAll = !revealAll;
+      applyFilter();
+    });
+    applyFilter();
   }
 
   function escapeSelectorValue(value) {

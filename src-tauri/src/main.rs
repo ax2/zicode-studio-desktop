@@ -399,6 +399,7 @@ fn open_native_workspace_window(
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
+        .data_directory(app_paths::webview_root()?)
         .title("ZiCode Studio Desktop")
         .inner_size(1300.0, 860.0)
         .min_inner_size(800.0, 600.0)
@@ -546,6 +547,7 @@ fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), Str
         .replace('\n', "%0A");
     let url = format!("bootstrap.html?startupError={encoded_error}");
     let builder = WebviewWindowBuilder::new(app, "bootstrap", WebviewUrl::App(url.into()))
+        .data_directory(app_paths::webview_root()?)
         .title("ZiCode Studio Desktop")
         .inner_size(900.0, 640.0)
         .min_inner_size(700.0, 480.0)
@@ -759,19 +761,25 @@ fn select_fresh_startup_target(
 
 fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(), String> {
     configure_bundled_tool_path(&static_dir)?;
+    let removed_instances = app_paths::cleanup_empty_instances()?;
+    if removed_instances > 0 {
+        log::info!("[picot-native] removed {removed_instances} abandoned empty runtime instances");
+    }
     let home_cwd = dirs::home_dir()
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
     let (cwd, session_path) =
         select_fresh_startup_target(home_cwd, find_latest_session_boot_target());
-    let metadata_path = app
+    let legacy_metadata_path = app
         .path()
         .app_data_dir()
         .map_err(|error| {
             format!("Cannot resolve ZiCode Studio Desktop app data directory: {error}")
         })?
         .join("picot.sqlite3");
+    let metadata_path = app_paths::metadata_path()?;
+    app_paths::migrate_legacy_metadata(&legacy_metadata_path, &metadata_path)?;
     let metadata = Arc::new(Mutex::new(MetadataStore::open(&metadata_path)?));
     let workspace_id = metadata
         .lock()
@@ -863,6 +871,14 @@ fn main() {
         ])
         .plugin(
             tauri_plugin_log::Builder::new()
+                .clear_targets()
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Folder {
+                        path: app_paths::logs_root()
+                            .unwrap_or_else(|_| std::env::temp_dir().join("zicode-logs")),
+                        file_name: Some("ZiCode Studio Desktop".into()),
+                    },
+                ))
                 .level(log::LevelFilter::Info)
                 .level_for("tokio_util", log::LevelFilter::Warn)
                 .level_for("hyper", log::LevelFilter::Warn)

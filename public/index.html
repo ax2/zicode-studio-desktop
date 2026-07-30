@@ -13,7 +13,7 @@
         <link rel="stylesheet" href="style-theme.css" />
         <link rel="stylesheet" href="design-system.css" />
         <link rel="stylesheet" href="style.css" />
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+        <script src="/vendor/chart.umd.js"></script>
         <script>
             // Boot-time instance-swap overlay gate kept for session route swaps.
             // Read synchronously before <body> renders so the first paint is the
@@ -1222,7 +1222,7 @@
                             </div>
                             <p class="settings-help">
                                 Keys are stored locally in
-                                <code>zicode/agent/auth.json</code> (chmod 600).
+                                <code>zicode/agent/auth.json</code>.
                                 The desktop app stores keys in this scene's
                                 isolated agent directory so they persist across
                                 launches.

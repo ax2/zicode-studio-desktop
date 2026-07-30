@@ -5,15 +5,15 @@
   "version": "0.1.0",
   "build": {
     "frontendDist": "../public",
-    "beforeDevCommand": "bun run fetch:pi && bun run fetch:portable-git",
-    "beforeBuildCommand": "bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions"
+    "beforeDevCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git",
+    "beforeBuildCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions"
   },
   "app": {
     "withGlobalTauri": true,
     "macOSPrivateApi": true,
     "windows": [],
     "security": {
-      "csp": "default-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' mediastream:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;",
+      "csp": "default-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' mediastream:; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;",
       "capabilities": [
         "default"
       ]

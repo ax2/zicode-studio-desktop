@@ -32,7 +32,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const _os = require("node:os");
 const crypto = require("node:crypto");
-const https = require("node:https");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -134,31 +133,82 @@ function ensureDirEmpty(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function downloadTo(url, dest) {
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
-    const cleanup = (err) => {
-      file.close();
-      fs.unlink(dest, () => {});
-      reject(err);
-    };
-    const handle = (res) => {
-      // Follow redirects (GitHub release downloads always redirect to S3).
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        downloadTo(res.headers.location, dest).then(resolve, reject);
-        return;
-      }
-      if (res.statusCode !== 200) {
-        cleanup(new Error(`HTTP ${res.statusCode} for ${url}`));
-        return;
-      }
-      res.pipe(file);
-      file.on("finish", () => file.close(() => resolve()));
-      file.on("error", cleanup);
-    };
-    https.get(url, { headers: { "User-Agent": "pi-studio-fetch" } }, handle).on("error", cleanup);
-  });
+async function downloadTo(url, dest) {
+  const partial = `${dest}.part`;
+  fs.rmSync(partial, { force: true });
+  if (process.platform === "win32") {
+    const bits = spawnSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Import-Module BitsTransfer; Start-BitsTransfer -Source $env:ZICODE_PI_DOWNLOAD_SOURCE -Destination $env:ZICODE_PI_DOWNLOAD_DEST",
+      ],
+      {
+        stdio: "inherit",
+        timeout: 600_000,
+        env: {
+          ...process.env,
+          ZICODE_PI_DOWNLOAD_SOURCE: url,
+          ZICODE_PI_DOWNLOAD_DEST: partial,
+        },
+      },
+    );
+    if (bits.status === 0) {
+      fs.renameSync(partial, dest);
+      return;
+    }
+    warn(`BITS download failed; falling back to curl (exit ${bits.status}).`);
+    fs.rmSync(partial, { force: true });
+  }
+
+  const curl = spawnSync(
+    "curl",
+    [
+      "--fail",
+      "--location",
+      "--retry",
+      "3",
+      "--connect-timeout",
+      "30",
+      "--max-time",
+      "600",
+      "--user-agent",
+      "zicode-studio-desktop",
+      "--output",
+      partial,
+      url,
+    ],
+    { stdio: "inherit" },
+  );
+  if (curl.status === 0) {
+    fs.renameSync(partial, dest);
+    return;
+  }
+  if (curl.error?.code !== "ENOENT") {
+    fs.rmSync(partial, { force: true });
+    throw curl.error ?? new Error(`curl exited with code ${curl.status}`);
+  }
+
+  // Minimal environments may not ship curl. Bun/Node fetch is a portable
+  // fallback, though curl is preferred because it honors common system proxy
+  // configurations and streams large release assets directly to disk.
+  try {
+    const response = await fetch(url, {
+      headers: { "User-Agent": "zicode-studio-desktop" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(600_000),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    fs.writeFileSync(partial, Buffer.from(await response.arrayBuffer()));
+    fs.renameSync(partial, dest);
+  } catch (error) {
+    try {
+      fs.unlinkSync(partial);
+    } catch {}
+    throw error;
+  }
 }
 
 function sha256OfFile(filePath) {

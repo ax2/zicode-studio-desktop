@@ -1,12 +1,12 @@
 # ADR 0003: Separate Picot metadata and use QR device authorization
 
-- Status: Accepted
+- Status: Superseded for LAN transport by the loopback-only security change on 2026-07-30
 - Date: 2026-07-14
 
 ## Context
 
 Picot needs stable UI identity and remote-client authorization without taking ownership of Pi sessions,
-credentials, settings, or project trust. The approved release retains LAN access without transport
+credentials, settings, or project trust. The original decision retained LAN access without transport
 encryption.
 
 ## Decision
@@ -24,8 +24,9 @@ revocable long-term device token; only its hash is persisted. Remote clients may
 operations but cannot invoke folder picking, app launching, package changes, updates, workspace
 deletion, or other dangerous Host operations.
 
-The LAN transport remains unencrypted for this release. The product must display an explicit warning
-that prompts and source may be observable on the network.
+The original LAN transport decision is no longer active. The Host now binds only to `127.0.0.1`, and
+the LAN QR endpoint is disabled. LAN access may return only after every exposed route has authenticated
+authorization and the transport protects prompts, source code, and credentials in transit.
 
 ## Consequences
 

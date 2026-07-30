@@ -23,7 +23,7 @@ jobs:
           RESPONSE=$(curl -sSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/earendil-works/pi/releases/latest)
+            https://api.github.com/repos/earendil-works/pi-mono/releases/latest)
 
           LATEST=$(echo "$RESPONSE" | jq -r '.tag_name // empty' | sed 's/^v//')
 
@@ -78,18 +78,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bump pi-version.json
+      - name: Set up Bun
+        if: |
+          steps.compare.outputs.needs_update == 'true' &&
+          steps.existing_pr.outputs.exists == 'false'
+        uses: oven-sh/setup-bun@v2
+
+      - name: Update and verify the complete Pi lock
         if: |
           steps.compare.outputs.needs_update == 'true' &&
           steps.existing_pr.outputs.exists == 'false'
         run: |
           NEW="${{ steps.latest.outputs.version }}"
-
-          # 更新 version 字段，保留文件中其他字段（如 sha256、_comment）
-          jq --arg v "$NEW" '.version = $v' scripts/pi-version.json > tmp.json
-          mv tmp.json scripts/pi-version.json
-
-          echo "Updated scripts/pi-version.json to v$NEW"
+          bun run update:pi:lock -- "$NEW"
+          bun run fetch:pi
+          bun run smoke:pi-rpc:update
+          bun run smoke:pi-rpc
           cat scripts/pi-version.json
 
       - name: Get pi release notes
@@ -103,7 +107,7 @@ jobs:
           NOTES=$(curl -sSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/earendil-works/pi/releases/tags/v${NEW}" \
+            "https://api.github.com/repos/earendil-works/pi-mono/releases/tags/v${NEW}" \
             | jq -r '.body // "No release notes available."')
 
           # GitHub Actions 多行输出需要用 delimiter
@@ -132,7 +136,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH"
-          git add scripts/pi-version.json
+          git add scripts/pi-version.json tests/fixtures/pi-rpc
           git commit -m "chore: bump embedded pi to v${NEW}"
           # Force-push so re-runs overwrite any orphaned branch from a
           # previous failed run (branch pushed but PR creation failed).
@@ -141,7 +145,7 @@ jobs:
           cat > /tmp/pr-body.md <<PREOF
           ## Embedded pi update
 
-          pi released [v${NEW}](https://github.com/earendil-works/pi/releases/tag/v${NEW}).
+          pi released [v${NEW}](https://github.com/earendil-works/pi-mono/releases/tag/v${NEW}).
 
           | | Version |
           |---|---|
@@ -152,9 +156,9 @@ jobs:
           ${RELEASE_NOTES}
 
           ## Checklist before merging
-          - [ ] Run \`bun run fetch:pi\` locally and confirm it downloads successfully
-          - [ ] Run \`./src-tauri/resources/pi/pi --version\` shows \`${NEW}\`
-          - [ ] Smoke test: \`bun run dev\` opens Pi Studio, sessions work
+          - [x] The lock contains GitHub-published SHA-256 digests for every desktop target
+          - [ ] Run \`bun run update:pi -- ${NEW}\` locally and confirm the RPC smoke test passes
+          - [ ] Smoke test: \`bun run dev\` opens ZiCode Studio Desktop and sessions work
           - [ ] If breaking changes in release notes, update embedded-server or frontend accordingly
 
           ---
