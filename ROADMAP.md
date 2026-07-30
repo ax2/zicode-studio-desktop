@@ -1,4 +1,9 @@
-# Picot Roadmap
+# Upstream Picot Roadmap
+
+> Historical reference inherited from the Picot codebase. It is not the
+> ZiCode Studio Desktop delivery plan. Current product scope and status are
+> maintained in `docs/implementation-plan.md` and
+> `docs/implementation-status.md`.
 
 Ideas and planned features. Nothing here is committed — just captured so it doesn't get lost.
 

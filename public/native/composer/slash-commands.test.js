@@ -10,7 +10,7 @@ const catalog = buildCommandCatalog({
     { name: "todos", description: "Show todos", source: "extension", location: "global" },
     {
       name: "picot-config",
-      description: "Picot Settings → Configuration data plane",
+      description: "ZiCode Studio Desktop Settings → Configuration data plane",
       source: "extension",
       location: "global",
     },

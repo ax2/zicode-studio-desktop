@@ -3,8 +3,8 @@
 ## 1. 安装内容
 
 ```text
-PiWindowsDesktop\
-├── pi-windows-desktop.exe
+ZiCodeStudioDesktop\
+├── zicode-studio-desktop.exe
 ├── pi\
 │   └── pi.exe
 ├── extensions\

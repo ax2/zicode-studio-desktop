@@ -38,7 +38,7 @@ type NativePiManagerState = NativePiManager;
 
 const MENU_NEW_SESSION_ID: &str = "picot-new-session";
 const BETA_UPDATE_ENDPOINT: &str =
-    "https://github.com/ax2/pi-windows-desktop/releases/download/beta/latest.json";
+    "https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json";
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,7 +97,7 @@ struct FocusedWorkspaceState(Mutex<Option<String>>);
 struct WindowWorkspaceState(Mutex<HashMap<String, String>>);
 
 /// Open the native folder picker and, if the user selects a directory, switch
-/// the focused Picot window to that workspace. Returns the chosen path, or
+/// the focused ZiCode Studio Desktop window to that workspace. Returns the chosen path, or
 /// `None` if cancelled.
 #[tauri::command]
 async fn open_folder_as_workspace(
@@ -133,7 +133,7 @@ async fn open_new_session_in_workspace(
     open_fresh_session_at_path(&app, Some(&window), &cwd, scene_id.as_deref())
 }
 
-/// Switch the focused Picot window to `projectPath` and resume the given saved
+/// Switch the focused ZiCode Studio Desktop window to `projectPath` and resume the given saved
 /// session in it. Used by the sidebar to jump to a session that belongs to a
 /// different project without opening a second project window.
 #[tauri::command]
@@ -179,7 +179,7 @@ async fn ensure_agent_inbox_session(app: AppHandle) -> Result<(), String> {
     let workspace_id = launcher
         .metadata
         .lock()
-        .map_err(|_| "Picot metadata store is unavailable".to_string())?
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
         .workspace_id_for_path(&cwd)?;
 
     host.register_workspace(&workspace_id, cwd.clone())?;
@@ -239,7 +239,7 @@ fn open_fresh_session_at_path(
     let workspace_id = launcher
         .metadata
         .lock()
-        .map_err(|_| "Picot metadata store is unavailable".to_string())?
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
         .workspace_id_for_path(cwd)?;
 
     host.register_workspace(&workspace_id, cwd.to_path_buf())?;
@@ -285,7 +285,7 @@ fn open_workspace_at_path(
     let workspace_id = launcher
         .metadata
         .lock()
-        .map_err(|_| "Picot metadata store is unavailable".to_string())?
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
         .workspace_id_for_path(cwd)?;
 
     host.register_workspace(&workspace_id, cwd.to_path_buf())?;
@@ -398,7 +398,7 @@ fn open_native_workspace_window(
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
-        .title("Pi Windows Desktop")
+        .title("ZiCode Studio Desktop")
         .inner_size(1300.0, 860.0)
         .min_inner_size(800.0, 600.0)
         .icon(icon)
@@ -437,7 +437,7 @@ fn open_fresh_session_for_focused_workspace(app: &AppHandle) -> Result<(), Strin
                 .and_then(|state| state.0.lock().ok().and_then(|guard| guard.clone()))?;
             app.get_webview_window(&format!("native-workspace-{workspace_id}"))
         })
-        .ok_or_else(|| "No focused Picot workspace window".to_string())?;
+        .ok_or_else(|| "No focused ZiCode Studio Desktop workspace window".to_string())?;
 
     let label = focused_window.label().to_string();
     let workspace_id = app
@@ -545,7 +545,7 @@ fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), Str
         .replace('\n', "%0A");
     let url = format!("bootstrap.html?startupError={encoded_error}");
     let builder = WebviewWindowBuilder::new(app, "bootstrap", WebviewUrl::App(url.into()))
-        .title("Pi Windows Desktop")
+        .title("ZiCode Studio Desktop")
         .inner_size(900.0, 640.0)
         .min_inner_size(700.0, 480.0)
         .icon(icon)
@@ -774,12 +774,14 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     let metadata_path = app
         .path()
         .app_data_dir()
-        .map_err(|error| format!("Cannot resolve Picot app data directory: {error}"))?
+        .map_err(|error| {
+            format!("Cannot resolve ZiCode Studio Desktop app data directory: {error}")
+        })?
         .join("picot.sqlite3");
     let metadata = Arc::new(Mutex::new(MetadataStore::open(&metadata_path)?));
     let workspace_id = metadata
         .lock()
-        .map_err(|_| "Picot metadata store is unavailable".to_string())?
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
         .workspace_id_for_path(Path::new(&cwd))?;
     let session_id = format!("temporary-{}", uuid::Uuid::new_v4().simple());
     let target = RuntimeTarget::new(
@@ -882,9 +884,9 @@ fn main() {
                     );
                     app.dialog()
                         .message(format!(
-                            "Pi Windows Desktop could not start the embedded Pi runtime.\n\n{error}\n\nThe installation may be incomplete or corrupted. Please reinstall the app and try again."
+                            "ZiCode Studio Desktop could not start the embedded Pi runtime.\n\n{error}\n\nThe installation may be incomplete or corrupted. Please reinstall the app and try again."
                         ))
-                        .title("Pi Windows Desktop startup failed")
+                        .title("ZiCode Studio Desktop startup failed")
                         .kind(MessageDialogKind::Error)
                         .show(|_| {});
                 }

@@ -34,7 +34,7 @@ export async function resolveRemoteAuth({
         deviceId: remoteDeviceId(storage),
       }),
     });
-    if (!response.ok) throw new Error("LAN pairing expired. Generate a new QR code from Picot.");
+    if (!response.ok) throw new Error("LAN pairing expired. Generate a new QR code from ZiCode Studio Desktop.");
     const body = await response.json();
     if (!body?.deviceToken) throw new Error("LAN pairing did not return a device token.");
     storage.setItem(DEVICE_TOKEN_KEY, body.deviceToken);

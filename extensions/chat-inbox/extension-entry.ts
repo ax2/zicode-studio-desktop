@@ -450,10 +450,10 @@ export default function (pi: ExtensionAPI) {
 
   function buildRemoteHelp(): string {
     return [
-      "Picot Super Agent is connected.",
+      "ZiCode Studio Desktop Super Agent is connected.",
       "",
       "Send a normal message here to create a Super Agent intake item.",
-      "Picot keeps project-agent dispatch behind local approval.",
+      "ZiCode Studio Desktop keeps project-agent dispatch behind local approval.",
       "",
       "Commands:",
       "/status - show current model, queue, and context status",
@@ -463,7 +463,7 @@ export default function (pi: ExtensionAPI) {
       "/models - list current and available models",
       "/health - show Telegram, task, instance, and model health",
       "/errors - show the 10 most recent full operations errors",
-      "/new - start a new pi session after confirmation in Picot",
+      "/new - start a new pi session after confirmation in ZiCode Studio Desktop",
       "/compact - compact the current session",
       "/stop - abort the current turn",
     ].join("\n");
@@ -1056,7 +1056,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_start", async (_event, _ctx) => {});
 
   pi.on("context", async (event) => {
-    // Capture last user message for local Picot → Telegram sync.
+    // Capture last user message for local ZiCode Studio Desktop → Telegram sync.
     // Only when not a Telegram-triggered turn (chatTurnInFlight = false) and not yet captured.
     if (liveConnection && !chatTurnInFlight && pendingLocalPrompt === undefined) {
       for (let i = event.messages.length - 1; i >= 0; i--) {
@@ -1104,7 +1104,7 @@ export default function (pi: ExtensionAPI) {
     if (!runtime || !chatTurnInFlight) {
       stopTypingLoop();
       updateStatus(ctx);
-      // Sync local Picot turn to Telegram: combine "user input\n\nagent reply" in one message.
+      // Sync local ZiCode Studio Desktop turn to Telegram: combine "user input\n\nagent reply" in one message.
       if (pendingLocalPrompt !== undefined && liveConnection) {
         const localPrompt = pendingLocalPrompt;
         pendingLocalPrompt = undefined;

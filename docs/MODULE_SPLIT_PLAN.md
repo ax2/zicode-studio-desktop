@@ -1,6 +1,9 @@
 # Module split and modularization plan
 
-This plan reduces the largest Picot source files and prevents new work from making them larger. The goal is not line-count golf; the goal is deeper modules with narrow responsibilities, stable interfaces, and smaller files that are easier for humans and agents to navigate.
+This plan reduces the largest ZiCode Studio Desktop source files and prevents
+new work from making them larger. The goal is not line-count golf; the goal is
+deeper modules with narrow responsibilities, stable interfaces, and smaller
+files that are easier for humans and agents to navigate.
 
 ## Current large-file inventory
 

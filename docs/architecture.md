@@ -47,7 +47,7 @@ Pi 继续负责：
 ## 4. 存储
 
 ```text
-%LOCALAPPDATA%\PiWindowsDesktop\
+%LOCALAPPDATA%\ZiCodeStudioDesktop\
 ├── scene-profiles.json
 ├── scenes\
 │   └── <sha256(scene-id)>\agent\
@@ -61,7 +61,7 @@ Pi 继续负责：
 │       ├── logs\
 │       └── tmp\
 
-%APPDATA%\com.ax2.pi-windows-desktop\
+%APPDATA%\com.zicode.studio.desktop\
 └── picot.sqlite3
 ```
 

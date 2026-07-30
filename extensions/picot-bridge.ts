@@ -35,7 +35,7 @@ export default function picotBridge(pi: ExtensionAPI) {
   // `ctx.ui.notify(JSON)` and correlated by request id on the frontend
   // (see public/native/config-gateway.js).
   pi.registerCommand("picot-config", {
-    description: "Picot Settings → Configuration data plane",
+    description: "ZiCode Studio Desktop Settings → Configuration data plane",
     handler: async (rawArguments, ctx) => {
       let request: ConfigRequest;
       try {

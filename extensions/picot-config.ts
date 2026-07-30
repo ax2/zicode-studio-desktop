@@ -1,4 +1,4 @@
-// Configuration data plane for the native Picot Settings → Configuration tab.
+// Configuration data plane for the native ZiCode Studio Desktop Settings → Configuration tab.
 //
 // The legacy `embedded-server.ts` served these operations over its own HTTP/WS
 // server. In the native architecture there is no such server: the WebView talks
@@ -446,7 +446,7 @@ type SuperAgentProject = { name: string; cwd: string; status: string };
 // The Runtime panel's project picker lists dispatch targets. In the native
 // architecture the old `/api/super-agent/projects` HTTP endpoint no longer
 // exists, so we reconstruct the list from the per-process instance records
-// Picot writes to ~/.pi/pistudio-instances/*.json (each has a `cwd`). The
+// ZiCode Studio Desktop writes to ~/.pi/pistudio-instances/*.json (each has a `cwd`). The
 // super-agent workspace itself is never a dispatch target.
 function listSuperAgentProjects(): SuperAgentProject[] {
   let entries: string[];

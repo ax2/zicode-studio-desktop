@@ -1,5 +1,5 @@
 {
-  "name": "Pi Windows Desktop",
+  "name": "ZiCode Studio Desktop",
   "short_name": "Pi Desktop",
   "description": "Self-contained Windows desktop application for the Pi agent",
   "start_url": "/",

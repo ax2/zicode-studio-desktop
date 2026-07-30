@@ -1,5 +1,5 @@
 /**
- * LAN QR code modal: shows a QR code for opening Picot on a mobile device
+ * LAN QR code modal: shows a QR code for opening ZiCode Studio Desktop on a mobile device
  * on the same local network.
  *
  * Requires the following elements in index.html (already present):

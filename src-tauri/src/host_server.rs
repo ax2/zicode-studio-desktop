@@ -70,7 +70,7 @@ impl HostServer {
         let mut data = HostDataPlane::new(workspace_roots)
             .map_err(|error| format!("Cannot initialize Host data plane: {error:?}"))?;
         if let Some(local_data) = dirs::data_local_dir() {
-            data = data.with_session_root(local_data.join("PiWindowsDesktop").join("instances"));
+            data = data.with_session_root(local_data.join("ZiCodeStudioDesktop").join("instances"));
         }
         if let Some(home) = dirs::home_dir() {
             data = data.with_session_root(home.join(".pi/agent/sessions"));
@@ -96,11 +96,11 @@ impl HostServer {
             Some(listener) => listener,
             None => tokio::net::TcpListener::bind((std::net::Ipv4Addr::UNSPECIFIED, 0))
                 .await
-                .map_err(|error| format!("Cannot bind Picot Host: {error}"))?,
+                .map_err(|error| format!("Cannot bind ZiCode Studio Desktop Host: {error}"))?,
         };
         let address = listener
             .local_addr()
-            .map_err(|error| format!("Cannot read Picot Host address: {error}"))?;
+            .map_err(|error| format!("Cannot read ZiCode Studio Desktop Host address: {error}"))?;
         // Bind on 0.0.0.0 so LAN clients can reach the server, but always use
         // 127.0.0.1 for the Tauri WebView origin — browsers reject 0.0.0.0 as
         // a destination address.
@@ -1377,7 +1377,11 @@ mod tests {
         let temp = std::env::temp_dir().join(format!("picot-host-{nonce}"));
         let public = temp.join("public");
         fs::create_dir_all(&public).unwrap();
-        fs::write(public.join("index.html"), "<h1>Picot native host</h1>").unwrap();
+        fs::write(
+            public.join("index.html"),
+            "<h1>ZiCode Studio Desktop native host</h1>",
+        )
+        .unwrap();
         let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
         let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
         let host = HostServer::start(public, NativePiManager::new(32), auth)
@@ -1398,7 +1402,7 @@ mod tests {
             .text()
             .await
             .unwrap();
-        assert!(index.contains("Picot native host"));
+        assert!(index.contains("ZiCode Studio Desktop native host"));
 
         host.stop();
         fs::remove_dir_all(temp).unwrap();
@@ -1413,7 +1417,7 @@ mod tests {
         let temp = std::env::temp_dir().join(format!("picot-host-ws-{nonce}"));
         let public = temp.join("public");
         fs::create_dir_all(&public).unwrap();
-        fs::write(public.join("index.html"), "Picot").unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
         let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
         let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
         let runtimes = NativePiManager::new(32);
@@ -1474,7 +1478,7 @@ mod tests {
         let temp = std::env::temp_dir().join(format!("picot-host-dialog-{nonce}"));
         let public = temp.join("public");
         fs::create_dir_all(&public).unwrap();
-        fs::write(public.join("index.html"), "Picot").unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
         let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
         let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
         let runtimes = NativePiManager::new(32);

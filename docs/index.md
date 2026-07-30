@@ -1,6 +1,6 @@
-# Pi Windows Desktop
+# ZiCode Studio Desktop
 
-Pi Windows Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。最终用户只安装一个经过签名的安装包，不需要预装 Pi、Node.js、Git、Bash、Rust 或 WSL。
+ZiCode Studio Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。最终用户只安装一个经过签名的安装包，不需要预装 Pi、Node.js、Git、Bash、Rust 或 WSL。
 
 项目以 Picot `v0.3.1-beta.13` 的 MIT 代码为工程基线，保留其 Tauri、Rust Host、Pi RPC、会话管理和自动更新能力，并针对正式 Windows 产品补齐依赖、场景、隔离、安全和发布链路。
 

@@ -41,7 +41,7 @@ function sha256OfFile(filePath) {
 function downloadTo(url, destination) {
   return new Promise((resolve, reject) => {
     const request = https.get(url, {
-      headers: { "User-Agent": "pi-windows-desktop-build" },
+      headers: { "User-Agent": "zicode-studio-desktop-build" },
     });
     request.on("response", (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {

@@ -227,8 +227,8 @@ class SuperAgentRuntime extends HTMLElement {
       },
       routingConfidence: "user_selected",
       routingReason: project
-        ? `Selected in Picot Runtime panel from project registry (${project.name}).`
-        : "Selected in Picot Runtime panel.",
+        ? `Selected in ZiCode Studio Desktop Runtime panel from project registry (${project.name}).`
+        : "Selected in ZiCode Studio Desktop Runtime panel.",
     };
     this._renderTasks();
   }

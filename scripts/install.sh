@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Picot installer — macOS & Linux
-# Usage:  curl -fsSL https://raw.githubusercontent.com/shixin-guo/picot/main/scripts/install.sh | bash
-# Or:     curl -fsSL https://raw.githubusercontent.com/shixin-guo/picot/main/scripts/install.sh | bash -s -- --version v0.3.0
+# ZiCode Studio Desktop installer — macOS & Linux
+# Usage:  curl -fsSL https://raw.githubusercontent.com/ax2/zicode-studio-desktop/main/scripts/install.sh | bash
+# Or:     curl -fsSL https://raw.githubusercontent.com/ax2/zicode-studio-desktop/main/scripts/install.sh | bash -s -- --version v0.1.0
 set -euo pipefail
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-REPO="shixin-guo/picot"
+REPO="ax2/zicode-studio-desktop"
 GITHUB_API="https://api.github.com/repos/${REPO}/releases"
 GITHUB_DL="https://github.com/${REPO}/releases/download"
-APP_NAME="Picot"
+APP_NAME="ZiCode Studio Desktop"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -162,7 +162,7 @@ case "$PLATFORM" in
     rm -rf "$MOUNTPOINT"
 
     # Remove the quarantine bit so Gatekeeper does not block the first launch.
-    # Picot uses ad-hoc signing (not Apple-notarized). Files downloaded via
+    # ZiCode Studio Desktop uses ad-hoc signing (not Apple-notarized). Files downloaded via
     # curl still receive the com.apple.quarantine xattr from macOS, which
     # causes the "app can't be opened" / Privacy & Security prompt on first
     # launch. Stripping it here means the app opens directly without any

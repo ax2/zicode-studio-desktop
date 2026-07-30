@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-/// Hard guarantee: a Pi Windows Desktop release build CANNOT be produced without the
+/// Hard guarantee: a ZiCode Studio Desktop release build CANNOT be produced without the
 /// embedded pi binary inside `src-tauri/resources/pi/`.
 ///
 /// Why this lives in build.rs
@@ -98,9 +98,9 @@ fn main() {
     if !bin_path.is_file() {
         panic!(
             "\n\n\
-             Pi Windows Desktop release build aborted: embedded pi binary is missing.\n\
+             ZiCode Studio Desktop release build aborted: embedded pi binary is missing.\n\
              Expected: {}\n\n\
-             Pi Windows Desktop bundles the pi runtime so end users do\n\
+             ZiCode Studio Desktop bundles the pi runtime so end users do\n\
              not need to fetch anything. Release builds therefore refuse to\n\
              produce a .app without it.\n\n\
              Fix: run `bun run fetch:pi` from the repo root before building.\n\
@@ -114,7 +114,7 @@ fn main() {
     if !extension_bundle_path.is_file() {
         panic!(
             "\n\n\
-             Pi Windows Desktop release build aborted: picot-bridge extension bundle is missing.\n\
+             ZiCode Studio Desktop release build aborted: picot-bridge extension bundle is missing.\n\
              Expected: {}\n\n\
              Release builds ship the bundled extension instead of relying on\n\
              repo-local TypeScript sources or node_modules.\n\n\
@@ -133,7 +133,7 @@ fn main() {
         if !git_path.is_file() || !bash_path.is_file() {
             panic!(
                 "\n\n\
-                 Pi Windows Desktop release build aborted: bundled Git/Bash is missing.\n\
+                 ZiCode Studio Desktop release build aborted: bundled Git/Bash is missing.\n\
                  Expected:\n  {}\n  {}\n\n\
                  Fix: run `bun run fetch:portable-git` from the repo root.\n\n",
                 git_path.display(),
@@ -148,7 +148,7 @@ fn main() {
         if !webview2_path.is_file() {
             panic!(
                 "\n\n\
-                 Pi Windows Desktop release build aborted: bundled WebView2 installer is missing.\n\
+                 ZiCode Studio Desktop release build aborted: bundled WebView2 installer is missing.\n\
                  Expected: {}\n\n\
                  Fix: run `bun run fetch:webview2` from the repo root.\n\n",
                 webview2_path.display()

@@ -1,5 +1,5 @@
 // `crypto.randomUUID()` is only defined in secure contexts (HTTPS, or the
-// `localhost`/127.0.0.1 loopback). Picot's LAN mode serves the app over plain
+// `localhost`/127.0.0.1 loopback). ZiCode Studio Desktop's LAN mode serves the app over plain
 // `http://<lan-ip>:<port>`, which the browser treats as an *insecure*
 // context — `crypto.randomUUID` is `undefined` there, so calling it directly
 // throws a `TypeError` and can crash whichever module called it at import

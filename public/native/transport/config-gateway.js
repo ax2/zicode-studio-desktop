@@ -1,4 +1,4 @@
-// Client for the Picot Configuration data plane.
+// Client for the ZiCode Studio Desktop Configuration data plane.
 //
 // pi's native RPC command set is fixed and cannot be extended, so Configuration
 // operations (model catalog, API keys, agent-config / models.json files) are

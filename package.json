@@ -1,20 +1,22 @@
 {
-  "name": "pi-windows-desktop",
+  "name": "zicode-studio-desktop",
   "version": "0.1.0",
-  "description": "Self-contained Windows desktop application for the Pi agent",
+  "description": "Self-contained multi-scene AI desktop workspace powered by Pi and Tauri",
   "keywords": [
-    "pi-windows-desktop",
+    "zicode-studio-desktop",
+    "zicode",
+    "ai-workspace",
     "pi",
     "coding-agent",
     "desktop",
     "multi-agent",
     "tauri"
   ],
-  "author": "ax2 and contributors",
+  "author": "Alex Xiang and contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ax2/pi-windows-desktop.git"
+    "url": "https://github.com/ax2/zicode-studio-desktop.git"
   },
   "scripts": {
     "tauri": "tauri",

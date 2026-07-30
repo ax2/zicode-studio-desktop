@@ -196,7 +196,7 @@ impl PiLaunchResolver {
             "Could not find embedded pi binary. Tried:\n{}\n\n\
              For dev: run `bun run fetch:pi` from the repo root.\n\
              For release: the .app bundle is missing `resources/pi/{bin_name}`. \
-             Reinstall Pi Windows Desktop.",
+             Reinstall ZiCode Studio Desktop.",
             tried
                 .iter()
                 .map(|path| format!("  - {}", path.display()))
@@ -390,7 +390,7 @@ fn macos_installed_app_names() -> HashSet<String> {
     names
 }
 
-/// List launch targets Picot can use to open a workspace in an external app.
+/// List launch targets ZiCode Studio Desktop can use to open a workspace in an external app.
 pub fn list_installed_apps() -> Vec<AppTarget> {
     let candidates: [(&str, &str, &[&str], &str); 6] = [
         ("vscode", "VS Code", &["Visual Studio Code", "Code"], "code"),

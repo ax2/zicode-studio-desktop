@@ -1,6 +1,6 @@
 ---
 name: release-notes
-description: Cut a Picot release and/or write and publish its GitHub release notes. Use when the user asks to cut a release, bump the version, or write/update release notes, or runs /skill:release-notes <version>. Uses the existing scripts/release.sh to bump versions + tag + push, then you write the notes and a helper publishes them via gh. No API key or auth.json needed.
+description: Cut a ZiCode Studio Desktop release and/or write and publish its GitHub release notes. Use when the user asks to cut a release, bump the version, or write/update release notes, or runs /skill:release-notes <version>. Uses the existing scripts/release.sh to bump versions + tag + push, then you write the notes and a helper publishes them via gh. No API key or auth.json needed.
 ---
 
 # Release Notes

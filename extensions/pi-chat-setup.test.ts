@@ -86,7 +86,7 @@ describe("Telegram one-token setup", () => {
       {
         bot: {
           id: "8965277673",
-          name: "Picot",
+          name: "ZiCode Studio Desktop",
           username: "picot_shixin_bot",
         },
         workerStatuses: [

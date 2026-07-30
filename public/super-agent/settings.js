@@ -1,6 +1,6 @@
 // Persistence for the "Agent Inbox → Start automatically" toggle.
 //
-// Storage note: Picot's host binds to an ephemeral port, so every app launch
+// Storage note: ZiCode Studio Desktop's host binds to an ephemeral port, so every app launch
 // serves the WebView from a different `http://127.0.0.1:<port>` origin.
 // localStorage is partitioned per-origin, so a value written on one launch is
 // invisible on the next — the toggle appeared to "reset" on every restart.

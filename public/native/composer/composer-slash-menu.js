@@ -25,14 +25,14 @@ export function activeSlashQuery(input) {
 function scopeLabel(scope) {
   if (scope === "project") return "Project";
   if (scope === "temporary") return "Temporary";
-  if (scope === "picot") return "Picot";
+  if (scope === "picot") return "ZiCode Studio Desktop";
   return "Personal";
 }
 
 function typeLabel(command) {
   if (command.type === "skill" || command.source === "skill") return "Skill";
   if (command.type === "prompt" || command.source === "prompt") return "Prompt";
-  if (command.type === "builtin") return "Picot";
+  if (command.type === "builtin") return "ZiCode Studio Desktop";
   return "Command";
 }
 

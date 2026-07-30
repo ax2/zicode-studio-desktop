@@ -17,7 +17,7 @@ describe("randomId", () => {
   });
 
   it("falls back to crypto.getRandomValues when randomUUID is missing", () => {
-    // Simulates an insecure context (e.g. Picot opened over LAN via plain
+    // Simulates an insecure context (e.g. ZiCode Studio Desktop opened over LAN via plain
     // http://<lan-ip>:<port>), where crypto.randomUUID is undefined but
     // crypto.getRandomValues remains available.
     Object.defineProperty(globalThis, "crypto", {

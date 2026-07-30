@@ -1,6 +1,7 @@
-# Pi Windows Desktop
+# ZiCode Studio Desktop
 
-中文项目说明已统一维护在 [README.md](README.md)。
+本仓库以中文为主要文档语言，完整项目说明统一维护在
+[README.md](README.md)。
 
-完整的产品需求、架构、场景/实例隔离和 Windows 打包说明见
+产品需求、架构、场景与实例隔离、Windows 打包及方案评审见
 [MkDocs 文档入口](docs/index.md)。

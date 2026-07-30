@@ -12,8 +12,8 @@ export function getPackageInstallFailure(err, operation = "install") {
   return {
     title: isUninstall ? "Uninstall failed" : "Install failed",
     note: isUninstall
-      ? "Picot could not remove this extension package. Check the error details, then try again."
-      : "This extension requires npm. Make sure npm is installed and available to Picot, then try again.",
+      ? "ZiCode Studio Desktop could not remove this extension package. Check the error details, then try again."
+      : "This extension requires npm. Make sure npm is installed and available to ZiCode Studio Desktop, then try again.",
     detail: summarizePackageError(fullMessage),
   };
 }

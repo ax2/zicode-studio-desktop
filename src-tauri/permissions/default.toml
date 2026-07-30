@@ -26,12 +26,12 @@ commands.allow = ["ensure_agent_inbox_session"]
 
 [[permission]]
 identifier = "allow-check-beta-update"
-description = "Allow checking the prerelease Pi Windows Desktop updater channel."
+description = "Allow checking the prerelease ZiCode Studio Desktop updater channel."
 commands.allow = ["check_beta_update"]
 
 [[permission]]
 identifier = "allow-install-beta-update"
-description = "Allow installing an available prerelease Pi Windows Desktop update."
+description = "Allow installing an available prerelease ZiCode Studio Desktop update."
 commands.allow = ["install_beta_update"]
 
 [[permission]]
@@ -50,7 +50,7 @@ description = "Allow deleting a custom desktop scene profile."
 commands.allow = ["delete_scene_profile"]
 
 [default]
-description = "Default set of Pi Windows Desktop app command permissions."
+description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
   "allow-open-folder-as-workspace",
   "allow-open-new-session-in-workspace",

@@ -1,18 +1,20 @@
-# Picot
+# ZiCode Studio Desktop
 
 ## Product
 
-**Picot** is a local desktop GUI for the Pi coding agent. It is a Tauri app that bundles its own `pi` runtime — there is no separate install of `pi` to manage.
+**ZiCode Studio Desktop** is a local, multi-scene desktop workspace for the Pi
+agent. It is a Tauri app that bundles its own `pi` runtime — there is no
+separate install of `pi` to manage.
 
 ### Architecture
 
 Tauri wraps the web UI. Rust starts a native `HostServer` plus a managed `pi --mode rpc` subprocess using the embedded pi binary shipped in `src-tauri/resources/pi/` (downloaded by `scripts/fetch-pi-binary.js` from pi-mono releases at the version pinned in `scripts/pi-version.json`). The WebView talks to the Rust host over `/v2/ws`; the host bridges runtime requests to Pi over stdio RPC.
 
 ```
-Picot .app
+ZiCode Studio Desktop
   resources/
     public/                       (frontend)
-    extensions/picot-bridge.mjs    (Picot-specific Pi commands)
+    extensions/picot-bridge.mjs    (legacy-compatible product commands)
     pi/<bun-compiled pi binary + assets>
   Rust HostServer + NativePiManager
     spawn pi --mode rpc --extension picot-bridge.mjs
@@ -143,12 +145,12 @@ The frontend (`public/`) is vanilla JS with **no framework**. Keep it modular. S
 
 ## Architecture
 
-Picot is a Tauri v2 app. The three main layers:
+ZiCode Studio Desktop is a Tauri v2 app. The three main layers:
 
 **1. Rust / Tauri (`src-tauri/`)** — process lifecycle, host protocol, and window management.
 - `src-tauri/src/native_pi_manager.rs` — spawns and supervises native `pi --mode rpc` processes.
 - `src-tauri/src/host_server.rs` — owns the HTTP/WebSocket host (`/v2/ws`, `/v2/bootstrap`) and dispatches protocol frames.
-- `src-tauri/src/pi_launch.rs` — resolves the bundled pi binary and bundled Picot bridge extension.
+- `src-tauri/src/pi_launch.rs` — resolves the bundled pi binary and bundled compatibility bridge extension.
 
 **2. Frontend (`public/`)** — vanilla JS, no framework.
 - `bootstrap-entry.js` + `native/app.js` — native host protocol entry point, wires up all native modules
@@ -179,7 +181,8 @@ Cross-subdir import conventions:
 **Where to put a new `native/` module:** place it in the subdir whose responsibility best matches it. If a module is purely algorithmic/pure-function with no DOM, prefer `utils/`. If it spans two subdirs equally, prefer the subdir of its primary consumer.
 
 **3. Pi bridge extensions (`extensions/`)** — TypeScript compiled into `extensions/dist/`.
-- `picot-bridge.ts` runs inside Pi and exposes Picot-specific commands.
+- `picot-bridge.ts` runs inside Pi and exposes product-specific commands. The
+  filename and `picot-*` protocol names are retained for compatibility.
 - `pi-chat` remains an optional bundled extension for chat integrations.
 
 ## Key data flows
@@ -203,7 +206,9 @@ End users never run `fetch:pi`. The flow that puts `pi` inside the shipped bundl
 3. **Tauri bundling.** `tauri.conf.json` `bundle.resources` maps `./resources/pi` → `pi`, so the entire pi runtime tree is copied into `<App>.app/Contents/Resources/pi/` at package time.
 4. **Last-line guard (build.rs).** `src-tauri/build.rs` PANICS at compile time if `resources/pi/<bin>` is missing in a release profile. This prevents `cargo build --release` (or any IDE that bypasses bun) from silently producing a .app with no pi inside. Override only for local experiments via `PI_STUDIO_SKIP_BIN_CHECK=1`.
 
-Net effect: there is no path that ships a Picot release without the embedded pi binary. End users get a self-contained app — no PATH lookups, no `bun run fetch:pi`, no manual install of pi.
+Net effect: there is no path that ships a ZiCode Studio Desktop release without
+the embedded pi binary. End users get a self-contained app — no PATH lookups,
+no `bun run fetch:pi`, no manual install of pi.
 
 ## Post-fix verification (Rust / Tauri)
 
@@ -229,7 +234,8 @@ bash scripts/check-rust.sh
 
 ## Auto-updater
 
-Picot uses the Tauri v2 updater plugin to fetch new releases from GitHub. The build side is wired into `.github/workflows/release.yml` via the `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets. See `docs/AUTO_UPDATER.md` for the one-time signing-key setup and how `latest.json` flows from CI → GitHub release → installed app.
+ZiCode Studio Desktop includes the Tauri v2 updater plugin, but updater artifacts
+are disabled while the repository is private. See `docs/AUTO_UPDATER.md`.
 
 ## Tests
 

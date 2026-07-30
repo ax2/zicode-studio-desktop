@@ -1,8 +1,8 @@
-# Picot installer — Windows (PowerShell 5.1+)
+# ZiCode Studio Desktop installer — Windows (PowerShell 5.1+)
 # Usage:
-#   irm https://raw.githubusercontent.com/shixin-guo/picot/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/ax2/zicode-studio-desktop/main/scripts/install.ps1 | iex
 # Or with a pinned version:
-#   & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/shixin-guo/picot/main/scripts/install.ps1'))) -Version v0.3.0
+#   & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/ax2/zicode-studio-desktop/main/scripts/install.ps1'))) -Version v0.1.0
 # Or with MSI (for enterprise/GPO deployment):
 #   & ([scriptblock]::Create((irm '...'))) -MSI
 [CmdletBinding()]
@@ -15,7 +15,7 @@ param(
 
 if ($Help) {
   Write-Host @"
-Picot Windows Installer
+ZiCode Studio Desktop Windows Installer
 
 Usage: install.ps1 [-Version <tag>] [-MSI]
   -Version   Install a specific release tag (e.g. v0.3.0). Defaults to latest.
@@ -42,10 +42,10 @@ $ArchNorm = switch ($CpuArch) {
 }
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-$Repo       = "shixin-guo/picot"
+$Repo       = "ax2/zicode-studio-desktop"
 $ApiBase    = "https://api.github.com/repos/$Repo/releases"
 $DlBase     = "https://github.com/$Repo/releases/download"
-$AppName    = "Picot"
+$AppName    = "ZiCode Studio Desktop"
 
 # ── Resolve version ───────────────────────────────────────────────────────────
 Write-Header "🎯  $AppName Installer (Windows)"
@@ -55,7 +55,7 @@ if ($Version -ne "") {
 } else {
   Write-Info "Fetching latest release from GitHub..."
   try {
-    $release = Invoke-RestMethod -Uri "$ApiBase/latest" -Headers @{ "User-Agent" = "picot-installer" }
+    $release = Invoke-RestMethod -Uri "$ApiBase/latest" -Headers @{ "User-Agent" = "zicode-studio-desktop-installer" }
     $Version = $release.tag_name
   } catch {
     Fail "Failed to fetch latest release: $_"

@@ -1,7 +1,7 @@
-site_name: Pi Windows Desktop
-site_description: Product, architecture, packaging, and delivery documentation for Pi Windows Desktop.
-repo_url: https://github.com/ax2/pi-windows-desktop
-repo_name: ax2/pi-windows-desktop
+site_name: ZiCode Studio Desktop
+site_description: Product, architecture, packaging, and delivery documentation for ZiCode Studio Desktop.
+repo_url: https://github.com/ax2/zicode-studio-desktop
+repo_name: ax2/zicode-studio-desktop
 docs_dir: docs
 site_dir: site
 strict: true

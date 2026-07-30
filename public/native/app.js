@@ -60,7 +60,7 @@ import {
 } from "./workspace/workspace-actions.js";
 
 const route = parseAppRoute(window.location.pathname);
-if (route.name !== "session") throw new Error("Native Picot requires a session route");
+if (route.name !== "session") throw new Error("Native ZiCode Studio Desktop requires a session route");
 
 applyTheme(getCurrentTheme());
 document.body.dataset.runtime = "native";
@@ -207,7 +207,7 @@ const extensionUi = new ExtensionUiHost({
       // Configuration data-plane responses arrive as notify events; swallow
       // them so they don't render as chat messages.
       if (config.consumeNotify(request)) return;
-      // rpiv-todo's /todos command emits a centered notify transcript. Picot
+      // rpiv-todo's /todos command emits a centered notify transcript. ZiCode Studio Desktop
       // already mirrors the same state natively, so expand the panel instead
       // of rendering a duplicate system message.
       if (isRpivTodoCommandNotify(request.message)) {
@@ -225,7 +225,7 @@ const extensionUi = new ExtensionUiHost({
       input.focus();
     },
     widget: (request) => {
-      // rpiv-todo owns the tool/reducer; Picot renders a native mirror from
+      // rpiv-todo owns the tool/reducer; ZiCode Studio Desktop renders a native mirror from
       // the persisted todo tool-result snapshots instead of the TUI widget.
       if (isRpivTodoWidgetRequest(request)) return;
     },
@@ -366,7 +366,7 @@ setupCommandPalette({
     {
       icon: "⚙️",
       label: "Settings",
-      desc: "Open Picot settings",
+      desc: "Open ZiCode Studio Desktop settings",
       action: () => document.getElementById("settings-btn")?.click(),
     },
     {
@@ -476,7 +476,7 @@ async function requestBootstrapTarget(currentRoute) {
   });
   const response = await fetch(`/v2/bootstrap?${query}`);
   if (!response.ok) {
-    const error = new Error("This Picot runtime is stopped or unavailable");
+    const error = new Error("This ZiCode Studio Desktop runtime is stopped or unavailable");
     error.status = response.status;
     throw error;
   }

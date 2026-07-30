@@ -31,6 +31,8 @@
 
 ## 本地交付证据
 
+以下是改名前完成的安装包验证，文件仍使用历史产品名，不作为当前品牌发布包：
+
 - NSIS：`Pi Windows Desktop_0.1.0_x64-setup.exe`
 - 大小：311,788,643 bytes
 - SHA-256：`4500ab72ea5b1092a790d5341165ffbda2092eb702ef2670fa1d45901e12024a`
@@ -38,9 +40,13 @@
 - 包内 WebView2 SHA-256 与 `scripts/webview2-version.json` 一致。
 - Release EXE 已在 Windows 上实际启动，标题、连接状态和欢迎界面检查通过。
 
+改名后的代码已通过前端、Rust 和文档检查；名为
+`ZiCode Studio Desktop_0.1.0_x64-setup.exe` 的安装包尚未重新构建，将由下一次
+本地完整构建或 `v*` Release tag 生成并重新记录哈希与启动验证。
+
 ## 发布前外部事项
 
-- GitHub 私有仓库需要在已授权的 `ax2` 账号下创建并设置为 `origin`。
+- 私有仓库为 `ax2/zicode-studio-desktop`，默认分支为 `main`。
 - 正式对外分发前建议配置 Windows Authenticode 代码签名。
 - 私有仓库 Release 不适合匿名自动更新；当前以安装包下载为交付方式。
 

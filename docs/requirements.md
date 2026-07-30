@@ -2,7 +2,7 @@
 
 ## 1. 产品定位
 
-Pi Windows Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序。用户无需打开终端即可选择工作区、选择业务场景、配置模型、创建会话、审阅工具调用和恢复历史任务。
+ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序。用户无需打开终端即可选择工作区、选择业务场景、配置模型、创建会话、审阅工具调用和恢复历史任务。
 
 首个正式支持范围：
 

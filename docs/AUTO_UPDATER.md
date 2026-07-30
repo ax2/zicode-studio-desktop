@@ -1,146 +1,63 @@
-# Pi Studio auto-updater
+# 自动更新
 
-Pi Studio ships with the official Tauri v2 updater plugin
-(`tauri-plugin-updater`). On every launch — and every 6 hours while the app
-is open — it asks GitHub if a newer release is available and surfaces the
-result in **Settings → General → Updates**. Users can also click
-**Check now** at any time.
+ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私有仓库，
+`createUpdaterArtifacts` 暂时设为 `false`。现阶段发布流程只生成并上传完整 NSIS
+安装包，不向未认证客户端提供自动更新。
 
-The updater talks to a static `latest.json` manifest published as part of
-the GitHub release for the repo configured in `tauri.conf.json`:
+## 当前状态
 
-```
-https://github.com/shixin-guo/pi-web-ui/releases/latest/download/latest.json
-```
+- 稳定更新地址预留为：
+  `https://github.com/ax2/zicode-studio-desktop/releases/latest/download/latest.json`
+- Beta 更新地址预留为：
+  `https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json`
+- 私有仓库的 Release 资产需要 GitHub 授权，普通桌面客户端无法匿名下载。
+- `.github/workflows/release.yml` 当前构建 NSIS 安装包，但不生成
+  `latest.json` 或签名更新包。
 
-`latest.json` lists, per platform/arch, the bundle URL plus a signature
-that Tauri verifies against the public key baked into the app. The release
-workflow (`.github/workflows/release.yml`) builds the platform installers,
-signs them, and uploads both the installer and `latest.json` automatically
-via `tauri-apps/tauri-action`.
+因此，当前版本通过 GitHub Release 手动下载安装包升级。应用内更新入口只有在未来
+启用签名产物并提供可授权的更新分发服务后才能正式开放。
 
-## One-time setup (maintainer)
+## 启用条件
 
-The auto-updater is **disabled** until a signing key pair exists. Without
-it, `tauri build` will not emit `*.sig` files or `latest.json`, and the
-plugin in the installed app will refuse to accept any update.
+正式启用自动更新前需要同时完成：
 
-## Beta update channel
+1. 为 Tauri updater 生成独立签名密钥。
+2. 将公钥写入 `src-tauri/tauri.conf.json` 的
+   `plugins.updater.pubkey`。
+3. 将私钥和密码保存为 GitHub Actions secrets：
+   `TAURI_SIGNING_PRIVATE_KEY` 和
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
+4. 将 `bundle.createUpdaterArtifacts` 改为 `true`。
+5. 在 Release workflow 中注入签名变量并验证生成的 `.sig` 与
+   `latest.json`。
+6. 为私有仓库实现受控下载代理，或者在产品公开后允许匿名访问 Release 资产。
+7. 用旧版本到新版本完成一次真实的下载、签名校验、安装和重启测试。
 
-Picot defaults to the stable update channel. Settings → General → Updates →
-Beta updates enables prerelease builds. Beta builds use the updater manifest at:
-
-```text
-https://github.com/shixin-guo/picot/releases/download/beta/latest.json
-```
-
-The `beta` release is a mutable channel release containing the latest
-prerelease `latest.json`; the signed installer URLs inside that manifest point
-to the actual prerelease release. Any tag containing a hyphen, such as
-`v0.4.0-beta.1`, is treated as a prerelease by the release workflow and updates
-the beta channel manifest after all platform builds finish.
-
-Because Windows MSI only accepts numeric prerelease identifiers, the release
-script encodes `beta.N` as `-10000+N`, `rc.N` as `-20000+N`, and `alpha.N` as
-`-30000+N` in the bundled app version. The Git tag and GitHub release name
-remain human-readable.
-
-Keep stable tags free of a hyphen, for example `v0.4.0`, so they remain
-available through the stable endpoint and are never selected by beta-only
-publishing.
-
-### 1. Generate the signing key pair
-
-Run once on a trusted machine — keep the private key safe.
+生成密钥示例：
 
 ```bash
-bun run tauri signer generate -- -w ~/.tauri/pi-studio.key
+bun run tauri signer generate -- -w ~/.tauri/zicode-studio-desktop.key
 ```
 
-This prints the **public key** (a single base64 line) and writes the
-**private key** to `~/.tauri/pi-studio.key`. You will also be prompted for
-an optional password that encrypts the private key.
+私钥不得提交到 Git、文档、安装包或日志。
 
-### 2. Embed the public key in the app
+## Release tag
 
-Open `src-tauri/tauri.conf.json` and paste the public key into
-`plugins.updater.pubkey`:
-
-```json
-{
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWdu...",
-      "endpoints": [
-        "https://github.com/shixin-guo/pi-web-ui/releases/latest/download/latest.json"
-      ]
-    }
-  }
-}
-```
-
-Commit this change. Every released build will validate updates against
-this exact public key — rotating it later requires shipping a new app
-version with the new public key, then re-signing future releases with the
-new private key.
-
-### 3. Add the private key to GitHub Actions secrets
-
-Repo → **Settings** → **Secrets and variables** → **Actions** →
-**New repository secret**:
-
-| Name                                 | Value                                            |
-| ------------------------------------ | ------------------------------------------------ |
-| `TAURI_SIGNING_PRIVATE_KEY`          | Full contents of `~/.tauri/pi-studio.key`        |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The password you chose (empty string if none)    |
-
-The release workflow reads both as env vars when invoking
-`tauri-action`.
-
-### 4. Cut a release
+当前发布入口仍然是：
 
 ```bash
-bun run release 0.1.13
+bun run release 0.1.0
 ```
 
-This bumps the version in all manifests, commits, tags `v0.1.13`, and
-pushes. GitHub Actions builds installers for macOS / Linux / Windows,
-signs each bundle, and uploads:
+脚本会同步更新应用版本、创建 `v0.1.0` tag 并推送。Windows Release workflow
+随后运行测试、构建自包含 NSIS 安装包并创建 GitHub Release。
 
-- `Pi Studio_0.1.13_aarch64.dmg` (etc.)
-- `Pi Studio_0.1.13_aarch64.app.tar.gz` + `.sig` (macOS updater bundle)
-- `pi-studio_0.1.13_amd64.AppImage` + `.sig` (Linux updater bundle)
-- `Pi Studio_0.1.13_x64-setup.exe` + `.sig` (Windows NSIS updater)
-- `latest.json` (manifest the updater fetches)
+## 相关文件
 
-End users on older versions will see a **"Update available: 0.1.13"** row
-in Settings on their next launch (or within ~6 hours of staying open).
-
-## Verifying it works
-
-1. Install the previous release locally.
-2. Cut a new release with a strictly greater version.
-3. Open Pi Studio → **Settings** → **General** → **Updates** →
-   **Check now**. You should see *Update available: 0.1.13*.
-4. Click **Download & install**. The app downloads, installs, and
-   relaunches into the new version.
-
-## How it's wired
-
-| Layer          | File                                        | Role                                                                 |
-| -------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| Rust runtime   | `src-tauri/Cargo.toml`                      | Pulls in `tauri-plugin-updater` + `tauri-plugin-process`             |
-| Rust init      | `src-tauri/src/main.rs`                     | `.plugin(tauri_plugin_updater::Builder::new().build())`              |
-| Bundler config | `src-tauri/tauri.conf.json`                 | `createUpdaterArtifacts: true`, `pubkey`, `endpoints`                |
-| Permissions    | `src-tauri/capabilities/default.json`       | Grants `updater:default` + `process:default` to the WebView          |
-| JS bridge      | `public/tauri-bridge.js`                    | Wraps `check()` / `downloadAndInstall()` / `relaunch()`              |
-| UI             | `public/index.html`, `public/app.js`        | Settings → Updates panel + silent background check on startup        |
-| CI             | `.github/workflows/release.yml`             | Injects signing key, runs `tauri-action`, attaches `latest.json`     |
-
-## Disabling auto-updates for a build
-
-If you want to ship an internal build without auto-updates (e.g. a
-debug-signed local DMG), simply build without `TAURI_SIGNING_PRIVATE_KEY`
-set. The bundler will still produce installers but no `.sig`/`latest.json`,
-and the in-app updater check will report "no update available" (because
-the manifest will 404).
+| 文件 | 职责 |
+|---|---|
+| `src-tauri/tauri.conf.json` | 产品标识、更新地址和 updater 公钥 |
+| `src-tauri/src/main.rs` | updater 插件和 Beta 更新命令 |
+| `public/native/features/app-updater.js` | 更新设置与前端交互 |
+| `.github/workflows/release.yml` | Windows 测试、打包和 Release 发布 |
+| `scripts/release.sh` | 版本号、提交和 tag 管理 |

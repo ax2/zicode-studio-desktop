@@ -20,7 +20,7 @@ await writeFile(
   extension,
   `export default function (pi) {
     pi.registerCommand("picot-smoke", {
-      description: "Picot RPC contract smoke command",
+      description: "ZiCode Studio Desktop RPC contract smoke command",
       handler: async (_args, ctx) => ctx.ui.notify("picot smoke accepted", "info"),
     });
   }\n`,

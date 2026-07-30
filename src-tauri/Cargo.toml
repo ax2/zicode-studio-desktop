@@ -1,12 +1,12 @@
 [package]
-name = "pi-windows-desktop"
+name = "zicode-studio-desktop"
 version = "0.1.0"
-description = "Self-contained Windows desktop application for the Pi agent"
-authors = ["ax2 and contributors"]
+description = "Self-contained multi-scene AI desktop workspace powered by Pi and Tauri"
+authors = ["Alex Xiang and contributors"]
 edition = "2021"
 
 [[bin]]
-name = "pi-windows-desktop"
+name = "zicode-studio-desktop"
 path = "src/main.rs"
 
 [build-dependencies]

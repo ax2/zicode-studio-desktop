@@ -34,6 +34,6 @@ if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
   gh release edit "$TAG" --repo "$REPO" --notes-file "$NOTES_FILE"
   echo "Updated GitHub release body for $TAG ($REPO)"
 else
-  gh release create "$TAG" --repo "$REPO" --notes-file "$NOTES_FILE" --verify-tag --title "Picot $TAG"
+  gh release create "$TAG" --repo "$REPO" --notes-file "$NOTES_FILE" --verify-tag --title "ZiCode Studio Desktop $TAG"
   echo "Created GitHub release $TAG ($REPO)"
 fi

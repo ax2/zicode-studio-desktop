@@ -18,14 +18,14 @@ impl MetadataStore {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|error| {
                 format!(
-                    "Cannot create Picot metadata directory {}: {error}",
+                    "Cannot create ZiCode Studio Desktop metadata directory {}: {error}",
                     parent.display()
                 )
             })?;
         }
         let connection = Connection::open(path).map_err(|error| {
             format!(
-                "Cannot open Picot metadata database {}: {error}",
+                "Cannot open ZiCode Studio Desktop metadata database {}: {error}",
                 path.display()
             )
         })?;
@@ -42,19 +42,20 @@ impl MetadataStore {
         let current: i64 = self
             .connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
-            .map_err(|error| format!("Cannot read Picot metadata schema version: {error}"))?;
+            .map_err(|error| {
+                format!("Cannot read ZiCode Studio Desktop metadata schema version: {error}")
+            })?;
         if current > SCHEMA_VERSION {
             return Err(format!(
-                "Picot metadata schema {current} is newer than supported schema {SCHEMA_VERSION}"
+                "ZiCode Studio Desktop metadata schema {current} is newer than supported schema {SCHEMA_VERSION}"
             ));
         }
         if current == SCHEMA_VERSION {
             return Ok(());
         }
-        let transaction = self
-            .connection
-            .transaction()
-            .map_err(|error| format!("Cannot start Picot metadata migration: {error}"))?;
+        let transaction = self.connection.transaction().map_err(|error| {
+            format!("Cannot start ZiCode Studio Desktop metadata migration: {error}")
+        })?;
         transaction
             .execute_batch(
                 "CREATE TABLE IF NOT EXISTS workspaces (
@@ -74,10 +75,12 @@ impl MetadataStore {
                 );
                 PRAGMA user_version = 1;",
             )
-            .map_err(|error| format!("Cannot migrate Picot metadata schema: {error}"))?;
-        transaction
-            .commit()
-            .map_err(|error| format!("Cannot commit Picot metadata migration: {error}"))
+            .map_err(|error| {
+                format!("Cannot migrate ZiCode Studio Desktop metadata schema: {error}")
+            })?;
+        transaction.commit().map_err(|error| {
+            format!("Cannot commit ZiCode Studio Desktop metadata migration: {error}")
+        })
     }
 
     #[cfg(unix)]
@@ -101,7 +104,9 @@ impl MetadataStore {
     pub fn schema_version(&self) -> Result<i64, String> {
         self.connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
-            .map_err(|error| format!("Cannot read Picot metadata schema version: {error}"))
+            .map_err(|error| {
+                format!("Cannot read ZiCode Studio Desktop metadata schema version: {error}")
+            })
     }
 
     pub fn workspace_id_for_path(&mut self, workspace: &Path) -> Result<String, String> {
@@ -179,10 +184,10 @@ impl MetadataStore {
             .execute_batch(
                 "DELETE FROM workspaces; DELETE FROM paired_devices; DELETE FROM preferences;",
             )
-            .map_err(|error| format!("Cannot reset Picot metadata: {error}"))?;
+            .map_err(|error| format!("Cannot reset ZiCode Studio Desktop metadata: {error}"))?;
         transaction
             .commit()
-            .map_err(|error| format!("Cannot commit Picot metadata reset: {error}"))
+            .map_err(|error| format!("Cannot commit ZiCode Studio Desktop metadata reset: {error}"))
     }
 }
 

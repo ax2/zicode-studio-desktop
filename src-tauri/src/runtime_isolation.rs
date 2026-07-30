@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const APP_DATA_DIR_NAME: &str = "PiWindowsDesktop";
+const APP_DATA_DIR_NAME: &str = "ZiCodeStudioDesktop";
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]

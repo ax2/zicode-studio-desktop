@@ -19,7 +19,7 @@ function setup(choice: string | undefined, hasUI = true) {
   return () => handler?.({ cwd: "/workspace" }, context);
 }
 
-describe("Picot project trust bridge", () => {
+describe("ZiCode Studio Desktop project trust bridge", () => {
   it.each([
     ["Trust once", { trusted: "yes" }],
     ["Trust and remember", { trusted: "yes", remember: true }],

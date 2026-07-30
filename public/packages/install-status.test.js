@@ -41,7 +41,7 @@ describe("package install failure status", () => {
   test("returns reusable failure content for notifications", () => {
     expect(getPackageInstallFailure(new Error("remove failed"), "uninstall")).toEqual({
       title: "Uninstall failed",
-      note: "Picot could not remove this extension package. Check the error details, then try again.",
+      note: "ZiCode Studio Desktop could not remove this extension package. Check the error details, then try again.",
       detail: "remove failed",
     });
   });

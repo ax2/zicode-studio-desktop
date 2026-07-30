@@ -1,6 +1,8 @@
-# Picot design system
+# ZiCode Studio Desktop design system
 
-Picot uses CSS custom properties and reusable `.ui-*` primitives to keep the desktop UI consistent. The CSS variables in `public/style-theme.css` are the single source of truth.
+ZiCode Studio Desktop uses CSS custom properties and reusable `.ui-*`
+primitives to keep the desktop UI consistent. The CSS variables in
+`public/style-theme.css` are the single source of truth.
 
 ## CSS layers
 

@@ -75,7 +75,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Pi Windows Desktop ${{ github.ref_name }}"
+          releaseName: "ZiCode Studio Desktop ${{ github.ref_name }}"
           releaseBody: |
             Automated Windows x64 release for `${{ github.ref_name }}`.
 
