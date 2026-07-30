@@ -16,7 +16,7 @@ class SuperAgentEntry extends HTMLElement {
           <div class="super-agent-entry-name">AGENT INBOX</div>
           <div class="super-agent-entry-status">
             <span class="super-agent-status-dot"></span>
-            <span class="super-agent-status-text">Incoming work · Telegram</span>
+            <span class="super-agent-status-text">外部任务 · 飞书 / 企业微信</span>
           </div>
         </div>
         <div class="super-agent-entry-badge hidden" data-badge>0</div>

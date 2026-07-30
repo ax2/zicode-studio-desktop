@@ -1,7 +1,7 @@
 export function summarizePackageError(err) {
   const raw = String(err?.message || err || "unknown error");
   if (raw.includes("EACCES") || raw.includes("permission denied")) {
-    return "Permission denied in ~/.pi/agent/npm (check owner/permissions).";
+    return "Permission denied in the ZiCode Studio Desktop package directory.";
   }
   return raw;
 }

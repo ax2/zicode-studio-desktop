@@ -1,3 +1,4 @@
+import { initializeI18n } from "../i18n.js";
 import { reconcileSnapshotTarget } from "../session/bootstrap-target.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
@@ -62,6 +63,7 @@ import {
 const route = parseAppRoute(window.location.pathname);
 if (route.name !== "session") throw new Error("Native ZiCode Studio Desktop requires a session route");
 
+initializeI18n();
 applyTheme(getCurrentTheme());
 document.body.dataset.runtime = "native";
 

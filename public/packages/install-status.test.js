@@ -33,9 +33,11 @@ describe("package install failure status", () => {
   });
 
   test("keeps permission errors actionable", () => {
-    expect(summarizePackageError("EACCES: permission denied, open ~/.pi/agent/npm")).toBe(
-      "Permission denied in ~/.pi/agent/npm (check owner/permissions).",
-    );
+    expect(
+      summarizePackageError(
+        "EACCES: permission denied, open zicode/agent/npm",
+      ),
+    ).toBe("Permission denied in the ZiCode Studio Desktop package directory.");
   });
 
   test("returns reusable failure content for notifications", () => {

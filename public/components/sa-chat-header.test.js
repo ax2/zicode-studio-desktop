@@ -24,7 +24,8 @@ describe("sa-chat-header", () => {
     const header = new Header();
     document.body.appendChild(header);
 
-    expect(header.textContent).toContain("Telegram");
+    expect(header.textContent).toContain("飞书");
+    expect(header.textContent).toContain("企业微信");
     expect(header.querySelector('[data-action="simulate"]')).toBeNull();
 
     const taskToggle = header.querySelector('[data-action="runtime"]');
@@ -74,9 +75,10 @@ describe("sa-chat-header", () => {
       json: async () => ({
         content: JSON.stringify({
           accounts: {
-            "telegram-main": {
-              service: "telegram",
-              botToken: "token",
+            "feishu-main": {
+              service: "feishu",
+              appId: "cli_test",
+              appSecret: "secret",
               channels: {},
             },
           },
@@ -92,10 +94,12 @@ describe("sa-chat-header", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    const telegram = header.querySelector('[data-action="telegram"]');
+    const feishu = header.querySelector('[data-action="feishu"]');
+    const wecom = header.querySelector('[data-action="wecom"]');
 
-    expect(telegram.disabled).toBe(false);
-    expect(telegram.classList.contains("connected")).toBe(true);
+    expect(feishu.disabled).toBe(false);
+    expect(feishu.classList.contains("connected")).toBe(true);
+    expect(wecom.disabled).toBe(true);
   });
 
   it("reloads service status when the native config gateway becomes ready", async () => {
@@ -111,9 +115,10 @@ describe("sa-chat-header", () => {
       data: {
         content: JSON.stringify({
           accounts: {
-            "telegram-main": {
-              service: "telegram",
-              botToken: "token",
+            "wecom-main": {
+              service: "wecom",
+              botId: "bot-id",
+              secret: "secret",
               channels: {},
             },
           },
@@ -124,10 +129,10 @@ describe("sa-chat-header", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    const telegram = header.querySelector('[data-action="telegram"]');
+    const wecom = header.querySelector('[data-action="wecom"]');
     expect(window.__picotConfigCall).toHaveBeenCalledWith("read_chat_config");
-    expect(telegram.disabled).toBe(false);
-    expect(telegram.classList.contains("connected")).toBe(true);
+    expect(wecom.disabled).toBe(false);
+    expect(wecom.classList.contains("connected")).toBe(true);
   });
 
   it("keeps the base header measurable while super agent mode is active", () => {

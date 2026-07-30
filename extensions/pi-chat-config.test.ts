@@ -8,9 +8,10 @@ describe("pi-chat configured conversations", () => {
   it("only exposes DM conversations", () => {
     const config: ChatConfig = {
       accounts: {
-        telegram: {
-          service: "telegram",
-          botToken: "test-token",
+        feishu: {
+          service: "feishu",
+          appId: "cli_test",
+          appSecret: "test-secret",
           channels: {
             dm: { id: "100", dm: true },
             group: { id: "-100", dm: false },

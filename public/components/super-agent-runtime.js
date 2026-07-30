@@ -579,7 +579,9 @@ class SuperAgentRuntime extends HTMLElement {
 
 function isDispatchableProjectPath(path) {
   const normalized = String(path || "").replace(/\/+$/, "");
-  return normalized.includes("/") && !normalized.endsWith("/.pi/agent/super-agent");
+  return (
+    normalized.includes("/") && !normalized.endsWith("/zicode/agent/super-agent")
+  );
 }
 
 function sourceHtml(task) {

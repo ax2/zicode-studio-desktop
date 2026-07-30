@@ -322,7 +322,7 @@ export function formatRemoteOperationsCommand(
     return respond(
       [
         "ZiCode Studio Desktop operations health:",
-        `Telegram workers: ${snapshot.workers.length} (${workerErrors} errors)`,
+        `Chat workers: ${snapshot.workers.length} (${workerErrors} errors)`,
         `Agent Index tasks: ${snapshot.tasks.length}`,
         `Running instances: ${snapshot.instances.length}`,
         `Model health: ${snapshot.modelHealth.length - unhealthy} healthy/unknown, ${unhealthy} unhealthy`,

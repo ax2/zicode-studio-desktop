@@ -3,7 +3,7 @@ const HIDDEN_NATIVE_COMMANDS = new Set(["picot-config"]);
 function normalizeNativeCommand(command) {
   const scope =
     command.location ??
-    (typeof command.path === "string" && command.path.includes("/.pi/agent/")
+    (typeof command.path === "string" && command.path.replace(/\\/g, "/").includes("/agent/")
       ? "global"
       : "global");
   return {

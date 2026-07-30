@@ -19,6 +19,7 @@ async function loadConfigWithTempHome() {
   vi.resetModules();
   vi.stubEnv("PI_CODING_AGENT_DIR", "");
   vi.stubEnv("PI_DESKTOP_INSTANCE_DIR", "");
+  vi.stubEnv("PI_DESKTOP_DATA_DIR", home);
   process.env.HOME = home;
   const module = await import("./picot-config.ts");
   return {
@@ -63,7 +64,7 @@ describe("picot config auth operations", () => {
   it("stores and removes API keys without requiring registry authStorage", async () => {
     vi.stubEnv("HOME", "");
     const { home, handlePicotConfig } = await loadConfigWithTempHome();
-    const authPath = join(home, ".pi", "agent", "auth.json");
+    const authPath = join(home, "agent", "auth.json");
 
     await expect(
       handlePicotConfig("set_api_key", { provider: "openai", apiKey: "sk-test" }, {}),
@@ -163,7 +164,17 @@ describe("structured provider channels", () => {
     expect(listed).toMatchObject({
       ok: true,
       data: {
-        channels: [{ provider: "team-proxy", baseUrl: "https://models.example.com/v1" }],
+        channels: expect.arrayContaining([
+          expect.objectContaining({
+            provider: "qveris",
+            baseUrl: "https://aigateway.qveris.ai",
+            builtIn: true,
+          }),
+          expect.objectContaining({
+            provider: "team-proxy",
+            baseUrl: "https://models.example.com/v1",
+          }),
+        ]),
       },
     });
     expect(JSON.stringify(listed)).not.toContain("secret-value");

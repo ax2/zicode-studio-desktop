@@ -1,5 +1,5 @@
 /**
- * Theme system — four themes: two light, two dark
+ * Theme system shared by every workspace window.
  *
  * Storage note: the active theme is persisted in a cookie (not
  * localStorage). ZiCode Studio Desktop spawns one pi process per workspace, each on
@@ -14,39 +14,33 @@
 
 export const themes = {
   night: {
-    name: "Dusk",
+    name: { "zh-CN": "石墨深色", en: "Graphite Dark" },
     dark: true,
-    colors: ["#212121", "#a0a0a0", "#777777", "#666666"],
     vars: {},
   },
   dawn: {
-    name: "Dawn",
+    name: { "zh-CN": "雾蓝深色", en: "Mist Blue Dark" },
     dark: true,
-    colors: ["#1a1d26", "#7a8ab0", "#6a5a80", "#5a7a9a"],
     vars: {},
   },
   midnight: {
-    name: "Midnight",
+    name: { "zh-CN": "纯黑深色", en: "Midnight Black" },
     dark: true,
-    colors: ["#000000", "#5a7a9a", "#4a5565", "#4a5a72"],
     vars: {},
   },
   clean: {
-    name: "Clean",
+    name: { "zh-CN": "明亮白色", en: "Bright White" },
     dark: false,
-    colors: ["#ffffff", "#0580c4", "#007aff", "#5ac8fa"],
     vars: {},
   },
   terracotta: {
-    name: "Terracotta",
+    name: { "zh-CN": "暖砂浅色", en: "Warm Sand" },
     dark: false,
-    colors: ["#f4f1ec", "#b06a48", "#5c2860", "#3a6a9b"],
     vars: {},
   },
   sage: {
-    name: "Sage",
+    name: { "zh-CN": "鼠尾草浅色", en: "Sage Light" },
     dark: false,
-    colors: ["#f0f2ec", "#6a7d5a", "#4a3860", "#3a6a7a"],
     vars: {},
   },
 };
@@ -103,7 +97,7 @@ migrateLegacyLocalStorageValue();
 
 export function applyTheme(themeId) {
   const root = document.documentElement;
-  if (!themes[themeId]) themeId = "night";
+  if (!themes[themeId]) themeId = "clean";
   root.setAttribute("data-theme", themeId);
   writeThemeCookie(themeId);
 }
@@ -111,10 +105,9 @@ export function applyTheme(themeId) {
 export function getCurrentTheme() {
   const saved = readThemeCookie();
   if (saved === "dark") return "night";
-  if (saved === "light") return "terracotta";
+  if (saved === "light") return "clean";
   if (saved && themes[saved]) return saved;
-  if (window.matchMedia?.("(prefers-color-scheme: light)").matches) return "terracotta";
-  return "night";
+  return "clean";
 }
 
 // Track OS theme changes only when the user hasn't picked a theme yet.
@@ -124,7 +117,7 @@ if (!readThemeCookie()) {
   window.matchMedia?.("(prefers-color-scheme: light)").addEventListener("change", (e) => {
     if (!readThemeCookie()) {
       const root = document.documentElement;
-      root.setAttribute("data-theme", e.matches ? "terracotta" : "night");
+      root.setAttribute("data-theme", e.matches ? "clean" : "night");
     }
   });
 }

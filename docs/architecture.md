@@ -1,5 +1,13 @@
 # 架构方案
 
+## 本地数据根目录
+
+Rust Host 通过系统本地数据目录创建 `zicode` 根目录。场景配置位于
+`scenes/<scene-key>/agent`，实例运行状态位于 `instances/<instance-key>`，Agent
+Inbox 工作区位于 `workspaces/agent-inbox`。所有子进程显式接收
+`PI_DESKTOP_DATA_DIR`、`PI_CODING_AGENT_DIR` 和 `PI_CODING_AGENT_SESSION_DIR`，
+不依赖 `~/.pi`。
+
 ## 1. 进程模型
 
 ```text
@@ -47,7 +55,7 @@ Pi 继续负责：
 ## 4. 存储
 
 ```text
-%LOCALAPPDATA%\ZiCodeStudioDesktop\
+%LOCALAPPDATA%\zicode\
 ├── scene-profiles.json
 ├── scenes\
 │   └── <sha256(scene-id)>\agent\
