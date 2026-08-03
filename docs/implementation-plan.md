@@ -35,6 +35,35 @@
 - MkDocs 严格构建。
 - 安装、升级、卸载、断网和非管理员测试。
 
+## Stage 5：应用插件基础
+
+- 接受 ADR 0005，冻结 Manifest v1、权限目录和稳定错误码。
+- 增加 Rust Plugin Registry、Manifest Validator 和 Plugin Manager。
+- 增加 Activity Bar、Accordion Sidebar、Command Palette 和 Main View Router。
+- 将现有 Chat 包装为不可卸载的 Core Plugin。
+
+## Stage 6：插件 SDK 与 Pi Broker
+
+- 增加隔离 Plugin View、Host API、Command 和 Capability Registry。
+- 增加 Developer Mode、调试、诊断、超时、取消和熔断。
+- Pi 只加载一个内置 Plugin Broker，将当前 Scene 已授权工具转发到 Rust Host。
+- Chat 和 Pi 共用 Capability，验证按 Scene 授权和撤销。
+
+## Stage 7：内置插件
+
+- Notes：Notebook、Markdown、Astro 兼容内容目录、网页剪藏、搜索和 Chat/Pi 工具。
+- Finance：迁移现有 Workbench，保留 QVeris、确定性回测、费用确认和模拟账户。
+- Artifacts：统一保存报告、图表、文件、来源和导出。
+
+## Stage 8：第三方生态与多端基础
+
+- `.zicode-plugin` 包哈希、发布者签名、更新、回滚和撤销。
+- 在公开第三方分发前增加 WASI 或等价 OS 级后台沙箱。
+- Notes 增量变更、Sync Provider 和独立客户端共享协议。
+
+插件阶段的详细依赖、每阶段验收和八项需求覆盖见
+[内置插件与实施路线图](plugins/built-ins-and-roadmap.md)。
+
 ## 已知基线问题
 
 2026-07-30 在 Windows 上运行上游 tag 的 `bun run test`：

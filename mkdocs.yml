@@ -39,6 +39,22 @@ nav:
   - 产品需求: requirements.md
   - 架构方案: architecture.md
   - 场景与实例隔离: scenes-and-isolation.md
+  - 应用插件:
+      - 平台总览: plugins/overview.md
+      - Manifest: plugins/manifest.md
+      - 签名包与发布: plugins/signed-packages.md
+      - Host API: plugins/host-api.md
+      - UI 与导航: plugins/ui-contributions.md
+      - Notes 内置插件: plugins/notes.md
+      - Artifacts 内置插件: plugins/artifacts.md
+      - 安全与生命周期: plugins/security-and-lifecycle.md
+      - 开发指南: plugins/development-guide.md
+      - 内置插件与路线图: plugins/built-ins-and-roadmap.md
+  - 金融工作台: finance-workbench.md
+  - 产品化路线图 M0–M6: product-roadmap.md
+  - 移动端体验: mobile-experience.md
+  - 移动端真机验收清单: mobile-real-device-acceptance.md
+  - 本地发布验证: release-validation-2026-08-01.md
   - Windows 打包: windows-packaging.md
   - 实施计划: implementation-plan.md
   - 实现状态: implementation-status.md
@@ -48,6 +64,7 @@ nav:
       - Runtime 身份与生命周期: adr/0002-runtime-identity-and-lifecycle.md
       - 数据所有权与远程安全: adr/0003-data-ownership-and-remote-security.md
       - 场景与实例隔离: adr/0004-scene-and-instance-isolation.md
+      - 应用插件平台: adr/0005-application-plugin-platform.md
   - 开发资料:
       - 设计规范: DESIGN.md
       - 自动更新: AUTO_UPDATER.md

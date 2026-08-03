@@ -62,38 +62,47 @@ interface RuntimeInstance {
 工具白名单。工具白名单由 Pi 扩展在 `tool_call` 执行前拦截，不依赖模型
 自觉遵守。
 
+主界面顶部和空白会话开始页显示的是**当前运行实例的实际场景**，数据来自
+`RuntimeTarget.sceneId`，不是设置页中“下一个新会话”的待选值。点击场景标识可直接
+跳转到场景设置。
+
+执行链路如下：
+
+1. 新建会话把所选 `sceneId` 发送给 Rust Host。
+2. Host 为场景分配独立 Agent 目录，为实例分配独立 Session、日志和临时目录。
+3. Pi 启动前，Host 注入 `PI_DESKTOP_SCENE_PROMPT` 和
+   `PI_DESKTOP_ALLOWED_TOOLS`。
+4. 内置 `picot-bridge` 扩展在 `before_agent_start` 中追加场景系统指令，并在
+   `tool_call` 中强制执行工具白名单。
+
 ### Programming
 
-```yaml
-shell: approval
-workspace_write: allow
-delete: approval
-network: approval
-extensions: trusted
-```
+- 完整工程工具可用，适合读写代码、运行构建和测试。
+- 要求先检查相关实现，再进行最小且完整的修改。
+- 要求保留无关改动，执行聚焦验证，并明确未验证风险。
 
 ### Finance
 
-```yaml
-shell: deny
-workspace_write: approval
-delete: deny
-network: allowlist
-extensions: builtin_only
-source_attribution: required
-```
+- 本地通用工具仅允许 `read`、`grep`、`find` 和 `ls`；此外允许内置的
+  `qveris_status`、`qveris_discover`、`qveris_inspect`、`qveris_call`、
+  `qveris_usage` 和
+  `finance_backtest`、`finance_normalize_ohlcv`、`finance_screen`、
+  `finance_market_data`、`finance_paper_account`、
+  `finance_paper_order`、`finance_paper_limit_order`。
+- `bash`、写文件和其他未列入白名单的工具会在执行前被阻止。
+- 模拟交易工具只能写入当前 Finance 场景的专用账本，不具有真实券商连接能力。
+- 数字必须明确币种、单位、期间和数据日期；衍生值需展示计算方法。
+- 必须区分事实、计算、假设、情景和不确定性，不得伪造行情或来源。
+- 不提供个性化金融、税务或法律建议，也不建议执行具体交易。
 
-### Writing
+### Creation
 
-```yaml
-shell: deny
-workspace_write: allow
-delete: approval
-network: approval
-extensions: trusted
-```
+- 完整创作工具可用，适合写作、构思、视觉方向和内容制作。
+- 先确定受众、格式、目标和语气，再交付具体草稿或可制作方案。
+- 修改时保持术语、语气、角色和视觉语言一致，并说明关键创作选择。
 
-这些默认值可以在自定义场景中收紧；放宽金融场景限制时必须显示风险确认。
+自定义场景可通过工具白名单进一步收紧权限。内置场景不可在设置中覆盖；需要不同
+策略时应创建新的自定义场景。
 
 ## 5. 凭证隔离
 
@@ -105,7 +114,8 @@ Provider 配置保存：
 }
 ```
 
-目标方案是将密钥值保存在 Windows Credential Manager，并由 Rust Credential
-Broker 注入。当前实现为兼容 Pi，使用场景隔离的 `auth.json`，密钥不会进入
-`models.json`、普通日志或 Scene JSON；Credential Manager 迁移列为后续安全
-里程碑。
+密钥值由 Rust Credential Broker 保存到 Windows Credential Manager（其他平台使用
+系统 Keychain/Secret Service）。非敏感索引只保存 Scene、Provider 和不透明账号引用。
+Pi 启动时 Broker 短暂生成场景隔离的兼容 `auth.json`；模型注册表初始化后扩展将其删除，
+QVeris Key 仅保留在进程内运行时缓存。密钥不会进入 `models.json`、普通日志、项目文档
+或 Scene JSON；旧版 `auth.json` 会在启动时迁移。

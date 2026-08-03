@@ -14,6 +14,7 @@ ZiCode Studio Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。
 - 自定义模型渠道，包括 `base_url`、协议、Headers、模型目录和连接测试。
 - 金融、编程、创作及用户自定义场景。
 - 每个实例独立的进程、配置、会话、扩展、日志、临时目录和权限策略。
+- 独立于 Pi Extension 的应用插件平台，包括主界面、工具栏、Capability 和权限管理。
 - Release tag 自动构建 Windows NSIS EXE 安装包。
 - MkDocs 文档构建和可下载文档站产物。
 
@@ -22,6 +23,10 @@ ZiCode Studio Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。
 - [产品需求](requirements.md)
 - [架构方案](architecture.md)
 - [场景与实例隔离](scenes-and-isolation.md)
+- [应用插件平台总览](plugins/overview.md)
+- [内置插件与实施路线图](plugins/built-ins-and-roadmap.md)
+- [金融工作台](finance-workbench.md)
+- 应用内 Help 内容位于 `public/help/`，通过 Help 按钮打开。
 - [Windows 打包](windows-packaging.md)
 - [实施计划](implementation-plan.md)
 - [实现状态](implementation-status.md)

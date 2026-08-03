@@ -30,8 +30,8 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 ## 3. 自定义模型渠道
 
 应用必须预置不可删除的 QVeris Model Gateway，`base_url` 固定为
-`https://aigateway.qveris.ai`；用户可以为该渠道添加模型和凭证，也可以继续创建其他
-自定义渠道。
+`https://aigateway.qveris.ai/v1`；用户可以为该渠道添加凭证并从 `/v1/models`
+同步模型，也可以继续创建其他自定义渠道。
 
 每个渠道至少保存：
 
@@ -113,7 +113,29 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 - Agent Inbox 支持飞书开放平台和企业微信智能机器人的官方 WebSocket 长连接。
 - 不支持 Telegram；“微信”特指企业微信智能机器人，个人微信没有官方机器人接口。
 
-## 9. 验收
+## 9. 应用插件平台
+
+应用插件必须独立于 Pi Extension，并由桌面 Host 统一管理：
+
+- 左侧提供 Activity Bar 和可折叠的 Sidebar Views；
+- Chat 是内置、不可卸载的默认插件；
+- 插件可以占用 Main View；激活后 Chat 界面不可见但会话状态保留；
+- 插件通过权限化 Host API 调用 Pi，不获得原始 RPC 或任意 Tauri IPC；
+- Chat 和 Pi 可以通过 Capability/Pi Tool Broker 调用插件；
+- 插件可以贡献 Command、Setting 和 Keybinding，不要求每个插件都有 Activity；
+- 应用插件不贡献顶部 Toolbar 或应用 Menu；轻量插件通过 Command Palette、快捷键、
+  上下文动作或插件界面内的局部动作使用；
+- 安装、启用、禁用、更新、回滚、权限、卸载和数据保留都可以在 Plugin Manager 中
+  管理；
+- 内置插件至少包括 Chat、Notes 和 Finance，并规划 Artifacts 与自动化能力；
+- Notes 使用本地可读 Markdown 作为内容真相，并维护 Astro Content Collection 兼容
+  目录，为同步、多端和独立客户端保留稳定 ID 与变更协议；
+- 第三方插件在默认分发前必须具备包签名和可信的后台沙箱，不能把 iframe 或 Web Worker
+  宣称为操作系统安全边界。
+
+Manifest、Host API、UI、安全和实施阶段见[应用插件平台文档](plugins/overview.md)。
+
+## 10. 验收
 
 完成状态需要以下证据：
 
@@ -124,3 +146,5 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 - 干净 Windows 虚拟机断网安装验证。
 - 无可见子进程控制台窗口。
 - 多场景、多实例并行运行和目录隔离验证。
+- 插件按场景启停、权限撤销、Main View 切换、Chat/Pi Capability 调用和卸载数据保留
+  验证。

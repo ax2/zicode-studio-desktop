@@ -18,7 +18,7 @@ Shell 与 Git 工具。
 - **无终端窗口**：Windows 后台子进程统一以无控制台模式启动。
 - **自定义模型渠道**：配置 `base_url`、API 协议、模型列表和 API Key。
 - **内置模型网关**：预置 QVeris Model Gateway
-  (`https://aigateway.qveris.ai`)，并允许继续添加自定义渠道。
+  (`https://aigateway.qveris.ai/v1`)，配置 Key 后自动同步聊天模型，并允许继续添加自定义渠道。
 - **中文优先界面**：默认简体中文，可切换 English；默认使用明亮白色主题。
 - **Agent Inbox**：通过官方长连接接入飞书和企业微信智能机器人，不提供个人微信或
   Telegram 接入。
@@ -133,9 +133,10 @@ Developer ID 签名与公证。发布和签名说明见
 - Windows 下元数据、日志和 WebView 数据统一位于 `%LOCALAPPDATA%\zicode`；
   旧版元数据库首次启动时只复制迁移，原文件保留作为备份。
 - 模型密钥不会写入 `models.json`、日志或项目文档。
-- 每个场景使用独立的 Pi agent 目录和 `auth.json`。
+- 模型密钥由 Rust Credential Broker 存入操作系统凭据库；Pi 启动时只短暂生成兼容
+  `auth.json`，模型注册表加载后立即删除。
 - 每个运行实例使用独立的 Session、日志和临时目录。
-- Windows Credential Manager 集成仍是后续安全工作。
+- Windows 使用 Credential Manager；其他桌面平台使用 `keyring` 对应的系统凭据服务。
 - Host 服务仅监听 `127.0.0.1`；局域网访问在完整鉴权和加密传输实现前保持禁用。
 - 当前私有仓库不提供匿名 updater 产物，桌面端不会在启动时请求无效更新源；
   新版本通过 GitHub Releases 手动安装。
