@@ -1,0 +1,2278 @@
+use base64::Engine;
+use chrono::{SecondsFormat, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeSet, HashMap};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use std::time::{Duration, Instant};
+use uuid::Uuid;
+
+const NOTES_PLUGIN_ID: &str = "com.zicode.notes";
+const VAULT_SCHEMA_VERSION: u32 = 1;
+const MAX_NOTE_BYTES: usize = 1024 * 1024;
+const MAX_NOTES: usize = 2_000;
+const MAX_NOTEBOOKS: usize = 200;
+const MAX_TITLE_CHARS: usize = 200;
+const MAX_TAGS: usize = 20;
+const MAX_TAG_CHARS: usize = 64;
+const MAX_ATTACHMENT_BYTES: usize = 5 * 1024 * 1024;
+const MAX_EXPORT_ATTACHMENT_BYTES: usize = 50 * 1024 * 1024;
+const MAX_CHANGE_LOG_BYTES: u64 = 10 * 1024 * 1024;
+const RETAINED_CHANGE_RECORDS: usize = 10_000;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotebookDescriptor {
+    pub id: String,
+    pub title: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub note_count: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSource {
+    pub url: String,
+    pub captured_at: String,
+    pub content_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub published_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteSummary {
+    pub id: String,
+    pub notebook_id: String,
+    pub title: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<NoteSource>,
+    pub version: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteDocument {
+    #[serde(flatten)]
+    pub summary: NoteSummary,
+    pub content: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesSnapshot {
+    pub notebooks: Vec<NotebookDescriptor>,
+    pub notes: Vec<NoteSummary>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteKnowledgeLink {
+    pub from_notebook_id: String,
+    pub from_note_id: String,
+    pub from_title: String,
+    pub to_notebook_id: String,
+    pub to_note_id: String,
+    pub to_title: String,
+    pub kind: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimilarNotePair {
+    pub left_notebook_id: String,
+    pub left_note_id: String,
+    pub left_title: String,
+    pub right_notebook_id: String,
+    pub right_note_id: String,
+    pub right_title: String,
+    pub score: f64,
+    pub shared_tags: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteKnowledgeConflict {
+    pub left_notebook_id: String,
+    pub left_note_id: String,
+    pub left_title: String,
+    pub right_notebook_id: String,
+    pub right_note_id: String,
+    pub right_title: String,
+    pub reason: String,
+    pub source_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesKnowledgeSnapshot {
+    pub links: Vec<NoteKnowledgeLink>,
+    pub similar: Vec<SimilarNotePair>,
+    pub conflicts: Vec<NoteKnowledgeConflict>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteChange {
+    pub cursor: String,
+    pub operation: String,
+    pub notebook_id: String,
+    pub note_id: String,
+    pub version: Option<String>,
+    pub changed_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotesChangeSnapshot {
+    pub changes: Vec<NoteChange>,
+    pub next_cursor: Option<String>,
+    pub reset_required: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentDescriptor {
+    pub id: String,
+    pub note_id: String,
+    pub file_name: String,
+    pub mime_type: String,
+    pub size: usize,
+    pub public_path: String,
+    pub markdown: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultExportAttachment {
+    pub note_id: String,
+    pub file_name: String,
+    pub mime_type: String,
+    pub data_base64: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultExport {
+    pub schema_version: u32,
+    pub exported_at: String,
+    pub notebook: NotebookDescriptor,
+    pub notes: Vec<NoteDocument>,
+    pub attachments: Vec<VaultExportAttachment>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultRebuildReport {
+    pub notebook_id: String,
+    pub valid_notes: usize,
+    pub invalid_files: Vec<VaultInvalidFile>,
+    pub orphan_attachment_directories: Vec<String>,
+    pub rebuilt_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AstroPublishReport {
+    pub notebook_id: String,
+    pub note_count: usize,
+    pub output_directory: String,
+    pub built_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultInvalidFile {
+    pub file_name: String,
+    pub error: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct NotesError {
+    pub code: &'static str,
+    pub message: String,
+}
+
+impl NotesError {
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct NotesVault {
+    root: PathBuf,
+}
+
+impl NotesVault {
+    pub fn new(plugin_root: PathBuf) -> Result<Self, String> {
+        let root = plugin_root
+            .parent()
+            .unwrap_or(&plugin_root)
+            .join("plugin-data")
+            .join(NOTES_PLUGIN_ID);
+        fs::create_dir_all(root.join("vaults"))
+            .map_err(|error| format!("Cannot create Notes data directory: {error}"))?;
+        Ok(Self { root })
+    }
+
+    pub fn list(
+        &self,
+        notebook_id: Option<&str>,
+        query: Option<&str>,
+        tag: Option<&str>,
+        source_only: bool,
+    ) -> Result<NotesSnapshot, NotesError> {
+        let notebooks = self.list_notebooks()?;
+        let selected = notebook_id.map(validate_opaque_id).transpose()?;
+        let query = query
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_lowercase);
+        let requested_tag = tag
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_lowercase);
+        let mut notes = Vec::new();
+        let mut tags = BTreeSet::new();
+        for notebook in &notebooks {
+            if selected.as_ref().is_some_and(|id| id != &notebook.id) {
+                continue;
+            }
+            for note in self.scan_notebook_notes(&notebook.id)? {
+                for candidate in &note.tags {
+                    tags.insert(candidate.clone());
+                }
+                if source_only && note.source.is_none() {
+                    continue;
+                }
+                if requested_tag.as_ref().is_some_and(|expected| {
+                    !note
+                        .tags
+                        .iter()
+                        .any(|candidate| candidate.to_lowercase() == *expected)
+                }) {
+                    continue;
+                }
+                if let Some(needle) = &query {
+                    let document = self.get_note(&notebook.id, &note.id)?;
+                    let source_url = document
+                        .summary
+                        .source
+                        .as_ref()
+                        .map(|source| source.url.as_str())
+                        .unwrap_or_default();
+                    if !format!(
+                        "{}\n{}\n{}\n{}",
+                        document.summary.title,
+                        document.summary.tags.join("\n"),
+                        document.content,
+                        source_url
+                    )
+                    .to_lowercase()
+                    .contains(needle)
+                    {
+                        continue;
+                    }
+                }
+                notes.push(note);
+                if notes.len() >= MAX_NOTES {
+                    break;
+                }
+            }
+        }
+        notes.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        Ok(NotesSnapshot {
+            notebooks,
+            notes,
+            tags: tags.into_iter().collect(),
+        })
+    }
+
+    pub fn knowledge(&self) -> Result<NotesKnowledgeSnapshot, NotesError> {
+        let summaries = self.list(None, None, None, false)?.notes;
+        let by_title: HashMap<String, &NoteSummary> = summaries
+            .iter()
+            .map(|note| (note.title.trim().to_lowercase(), note))
+            .collect();
+        let by_ref: HashMap<String, &NoteSummary> = summaries
+            .iter()
+            .map(|note| (format!("{}/{}", note.notebook_id, note.id), note))
+            .collect();
+        let mut links = Vec::new();
+        let mut seen_links = BTreeSet::new();
+        for source in &summaries {
+            let document = self.get_note(&source.notebook_id, &source.id)?;
+            for (kind, target) in extract_note_targets(&document.content, &by_title, &by_ref) {
+                if target.id == source.id && target.notebook_id == source.notebook_id {
+                    continue;
+                }
+                let key = format!(
+                    "{}/{}/{}/{}/{}",
+                    source.notebook_id, source.id, target.notebook_id, target.id, kind
+                );
+                if !seen_links.insert(key) {
+                    continue;
+                }
+                links.push(NoteKnowledgeLink {
+                    from_notebook_id: source.notebook_id.clone(),
+                    from_note_id: source.id.clone(),
+                    from_title: source.title.clone(),
+                    to_notebook_id: target.notebook_id.clone(),
+                    to_note_id: target.id.clone(),
+                    to_title: target.title.clone(),
+                    kind,
+                });
+            }
+        }
+        let mut similar = Vec::new();
+        for (index, left) in summaries.iter().enumerate() {
+            let left_tags: BTreeSet<String> =
+                left.tags.iter().map(|tag| tag.to_lowercase()).collect();
+            if left_tags.is_empty() {
+                continue;
+            }
+            for right in summaries.iter().skip(index + 1) {
+                let right_tags: BTreeSet<String> =
+                    right.tags.iter().map(|tag| tag.to_lowercase()).collect();
+                let shared_tags: Vec<String> =
+                    left_tags.intersection(&right_tags).cloned().collect();
+                if shared_tags.is_empty() {
+                    continue;
+                }
+                let union_size = left_tags.union(&right_tags).count();
+                similar.push(SimilarNotePair {
+                    left_notebook_id: left.notebook_id.clone(),
+                    left_note_id: left.id.clone(),
+                    left_title: left.title.clone(),
+                    right_notebook_id: right.notebook_id.clone(),
+                    right_note_id: right.id.clone(),
+                    right_title: right.title.clone(),
+                    score: shared_tags.len() as f64 / union_size as f64,
+                    shared_tags,
+                });
+            }
+        }
+        similar.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        similar.truncate(100);
+        let mut conflicts = Vec::new();
+        for (index, left) in summaries.iter().enumerate() {
+            for right in summaries.iter().skip(index + 1) {
+                if left.version == right.version {
+                    continue;
+                }
+                let shared_source = left.source.as_ref().and_then(|left_source| {
+                    right
+                        .source
+                        .as_ref()
+                        .filter(|right_source| right_source.url == left_source.url)
+                        .map(|_| left_source.url.clone())
+                });
+                let same_title = left.title.trim().eq_ignore_ascii_case(right.title.trim());
+                if !same_title && shared_source.is_none() {
+                    continue;
+                }
+                conflicts.push(NoteKnowledgeConflict {
+                    left_notebook_id: left.notebook_id.clone(),
+                    left_note_id: left.id.clone(),
+                    left_title: left.title.clone(),
+                    right_notebook_id: right.notebook_id.clone(),
+                    right_note_id: right.id.clone(),
+                    right_title: right.title.clone(),
+                    reason: if shared_source.is_some() {
+                        "source_changed".to_string()
+                    } else {
+                        "duplicate_title".to_string()
+                    },
+                    source_url: shared_source,
+                });
+            }
+        }
+        conflicts.truncate(100);
+        Ok(NotesKnowledgeSnapshot {
+            links,
+            similar,
+            conflicts,
+        })
+    }
+
+    pub fn changes(
+        &self,
+        cursor: Option<&str>,
+        limit: usize,
+    ) -> Result<NotesChangeSnapshot, NotesError> {
+        let path = self.root.join("changes.jsonl");
+        if !path.exists() {
+            return Ok(NotesChangeSnapshot {
+                changes: Vec::new(),
+                next_cursor: cursor.map(str::to_string),
+                reset_required: cursor.is_some(),
+            });
+        }
+        let metadata = fs::metadata(&path)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot read note changes"))?;
+        if metadata.len() > MAX_CHANGE_LOG_BYTES {
+            compact_change_log(&path, MAX_CHANGE_LOG_BYTES, RETAINED_CHANGE_RECORDS)?;
+        }
+        let text = fs::read_to_string(path)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot read note changes"))?;
+        let all = text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<NoteChange>(line).ok())
+            .collect::<Vec<_>>();
+        let (start, reset_required) = match cursor {
+            None => (0, false),
+            Some(cursor) => match all.iter().position(|change| change.cursor == cursor) {
+                Some(index) => (index + 1, false),
+                None => (0, true),
+            },
+        };
+        let changes = all
+            .into_iter()
+            .skip(start)
+            .take(limit.clamp(1, 500))
+            .collect::<Vec<_>>();
+        let next_cursor = changes
+            .last()
+            .map(|change| change.cursor.clone())
+            .or_else(|| cursor.map(str::to_string));
+        Ok(NotesChangeSnapshot {
+            changes,
+            next_cursor,
+            reset_required,
+        })
+    }
+
+    pub fn create_notebook(&self, title: &str) -> Result<NotebookDescriptor, NotesError> {
+        let title = validate_title(title)?;
+        if self.list_notebooks()?.len() >= MAX_NOTEBOOKS {
+            return Err(NotesError::new(
+                "quota_exceeded",
+                "The maximum number of notebooks has been reached",
+            ));
+        }
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        let descriptor = NotebookDescriptor {
+            id: id.clone(),
+            title,
+            created_at: now.clone(),
+            updated_at: now,
+            note_count: 0,
+        };
+        let root = self.vault_root(&id)?;
+        create_astro_vault(&root, &descriptor)?;
+        Ok(descriptor)
+    }
+
+    pub fn create_note(
+        &self,
+        notebook_id: &str,
+        title: &str,
+        content: &str,
+        tags: Vec<String>,
+        source: Option<NoteSource>,
+    ) -> Result<NoteDocument, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        self.read_notebook(&notebook_id)?;
+        let title = validate_title(title)?;
+        validate_content(content)?;
+        let tags = normalize_tags(tags)?;
+        if let Some(source) = &source {
+            validate_source(source)?;
+        }
+        let id = Uuid::new_v4().to_string();
+        let now = now_iso();
+        let summary = NoteSummary {
+            id: id.clone(),
+            notebook_id: notebook_id.clone(),
+            title,
+            created_at: now.clone(),
+            updated_at: now,
+            tags,
+            source,
+            version: String::new(),
+        };
+        let document = NoteDocument {
+            summary,
+            content: normalize_newlines(content),
+        };
+        let written = self.write_note(&document, None)?;
+        self.touch_notebook(&notebook_id)?;
+        self.append_change("created", &written.summary, Some(&written.summary.version))?;
+        Ok(written)
+    }
+
+    pub fn get_note(&self, notebook_id: &str, note_id: &str) -> Result<NoteDocument, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let note_id = validate_opaque_id(note_id)?;
+        let path = self.note_path(&notebook_id, &note_id)?;
+        read_note_file(&path, &notebook_id)
+    }
+
+    pub fn save_note(
+        &self,
+        notebook_id: &str,
+        note_id: &str,
+        title: &str,
+        content: &str,
+        tags: Vec<String>,
+        expected_version: &str,
+    ) -> Result<NoteDocument, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let note_id = validate_opaque_id(note_id)?;
+        let existing = self.get_note(&notebook_id, &note_id)?;
+        if expected_version.is_empty() || existing.summary.version != expected_version {
+            return Err(NotesError::new(
+                "version_conflict",
+                "The note changed after it was opened",
+            ));
+        }
+        let document = NoteDocument {
+            summary: NoteSummary {
+                id: note_id,
+                notebook_id: notebook_id.clone(),
+                title: validate_title(title)?,
+                created_at: existing.summary.created_at,
+                updated_at: now_iso(),
+                tags: normalize_tags(tags)?,
+                source: existing.summary.source,
+                version: String::new(),
+            },
+            content: {
+                validate_content(content)?;
+                normalize_newlines(content)
+            },
+        };
+        let written = self.write_note(&document, Some(expected_version))?;
+        self.touch_notebook(&notebook_id)?;
+        self.append_change("updated", &written.summary, Some(&written.summary.version))?;
+        Ok(written)
+    }
+
+    pub fn delete_note(
+        &self,
+        notebook_id: &str,
+        note_id: &str,
+        expected_version: &str,
+    ) -> Result<(), NotesError> {
+        let existing = self.get_note(notebook_id, note_id)?;
+        if expected_version.is_empty() || existing.summary.version != expected_version {
+            return Err(NotesError::new(
+                "version_conflict",
+                "The note changed after it was opened",
+            ));
+        }
+        let path = self.note_path(notebook_id, note_id)?;
+        fs::remove_file(path)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot delete the note"))?;
+        let attachment_directory = self
+            .vault_root(notebook_id)?
+            .join("public")
+            .join("attachments")
+            .join(validate_opaque_id(note_id)?);
+        if attachment_directory.is_dir() {
+            fs::remove_dir_all(attachment_directory).map_err(|_| {
+                NotesError::new("storage_unavailable", "Cannot delete note attachments")
+            })?;
+        }
+        self.touch_notebook(notebook_id)?;
+        self.append_change("deleted", &existing.summary, None)?;
+        Ok(())
+    }
+
+    pub fn store_attachment(
+        &self,
+        notebook_id: &str,
+        note_id: &str,
+        file_name: &str,
+        mime_type: &str,
+        bytes: &[u8],
+    ) -> Result<AttachmentDescriptor, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let note_id = validate_opaque_id(note_id)?;
+        self.get_note(&notebook_id, &note_id)?;
+        if bytes.is_empty() || bytes.len() > MAX_ATTACHMENT_BYTES {
+            return Err(NotesError::new(
+                "payload_too_large",
+                "Attachments must contain 1 byte to 5 MiB",
+            ));
+        }
+        let (extension, normalized_mime, image) = validate_attachment(file_name, mime_type)?;
+        let id = format!("{}.{}", Uuid::new_v4(), extension);
+        let directory = self
+            .vault_root(&notebook_id)?
+            .join("public")
+            .join("attachments")
+            .join(&note_id);
+        let path = directory.join(&id);
+        atomic_write(&path, bytes)?;
+        let public_path = format!("/attachments/{note_id}/{id}");
+        let escaped_name = file_name.replace(['[', ']'], "");
+        let markdown = if image {
+            format!("![{escaped_name}]({public_path})")
+        } else {
+            format!("[{escaped_name}]({public_path})")
+        };
+        Ok(AttachmentDescriptor {
+            id,
+            note_id,
+            file_name: file_name.trim().to_string(),
+            mime_type: normalized_mime.to_string(),
+            size: bytes.len(),
+            public_path,
+            markdown,
+        })
+    }
+
+    pub fn read_attachment(
+        &self,
+        notebook_id: &str,
+        note_id: &str,
+        attachment_id: &str,
+    ) -> Result<(Vec<u8>, String), NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let note_id = validate_opaque_id(note_id)?;
+        let attachment_id = validate_attachment_id(attachment_id)?;
+        self.get_note(&notebook_id, &note_id)?;
+        let path = self
+            .vault_root(&notebook_id)?
+            .join("public")
+            .join("attachments")
+            .join(&note_id)
+            .join(&attachment_id);
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|_| NotesError::new("attachment_not_found", "Attachment does not exist"))?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.len() > MAX_ATTACHMENT_BYTES as u64
+        {
+            return Err(NotesError::new(
+                "attachment_not_found",
+                "Attachment is not a valid file",
+            ));
+        }
+        let mime = attachment_mime_from_name(&attachment_id)?;
+        let bytes = fs::read(path)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot read attachment"))?;
+        Ok((bytes, mime.to_string()))
+    }
+
+    pub fn export_notebook(&self, notebook_id: &str) -> Result<VaultExport, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let notebook = self.read_notebook(&notebook_id)?;
+        let summaries = self.scan_notebook_notes(&notebook_id)?;
+        let mut notes = Vec::with_capacity(summaries.len());
+        for summary in summaries {
+            notes.push(self.get_note(&notebook_id, &summary.id)?);
+        }
+        let mut attachments = Vec::new();
+        let mut total_attachment_bytes = 0usize;
+        let attachment_root = self
+            .vault_root(&notebook_id)?
+            .join("public")
+            .join("attachments");
+        if let Ok(note_directories) = fs::read_dir(attachment_root) {
+            for note_directory in note_directories.flatten() {
+                let Some(note_id) = note_directory.file_name().to_str().map(str::to_string) else {
+                    continue;
+                };
+                if validate_opaque_id(&note_id).is_err() {
+                    continue;
+                }
+                let Ok(files) = fs::read_dir(note_directory.path()) else {
+                    continue;
+                };
+                for file in files.flatten() {
+                    let Some(file_name) = file.file_name().to_str().map(str::to_string) else {
+                        continue;
+                    };
+                    let Ok((bytes, mime_type)) =
+                        self.read_attachment(&notebook_id, &note_id, &file_name)
+                    else {
+                        continue;
+                    };
+                    total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
+                    if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
+                        return Err(NotesError::new(
+                            "quota_exceeded",
+                            "Notebook attachments exceed the 50 MiB export limit",
+                        ));
+                    }
+                    attachments.push(VaultExportAttachment {
+                        note_id: note_id.clone(),
+                        file_name,
+                        mime_type,
+                        data_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+                    });
+                }
+            }
+        }
+        Ok(VaultExport {
+            schema_version: VAULT_SCHEMA_VERSION,
+            exported_at: now_iso(),
+            notebook,
+            notes,
+            attachments,
+        })
+    }
+
+    pub fn import_export(&self, export: VaultExport) -> Result<NotebookDescriptor, NotesError> {
+        if export.schema_version != VAULT_SCHEMA_VERSION {
+            return Err(NotesError::new(
+                "invalid_parameters",
+                "Unsupported Notes backup schema version",
+            ));
+        }
+        if export.notes.len() > MAX_NOTES {
+            return Err(NotesError::new(
+                "quota_exceeded",
+                "Notes backup contains too many notes",
+            ));
+        }
+        let imported_title = format!("{} (Imported)", export.notebook.title);
+        validate_title(&imported_title)?;
+        let mut note_ids = BTreeSet::new();
+        for document in &export.notes {
+            validate_opaque_id(&document.summary.id)?;
+            validate_title(&document.summary.title)?;
+            validate_content(&document.content)?;
+            normalize_tags(document.summary.tags.clone())?;
+            if let Some(source) = &document.summary.source {
+                validate_source(source)?;
+            }
+            if !note_ids.insert(document.summary.id.clone()) {
+                return Err(NotesError::new(
+                    "invalid_parameters",
+                    "Notes backup contains duplicate note IDs",
+                ));
+            }
+        }
+        let mut total_attachment_bytes = 0usize;
+        let mut decoded_attachments = Vec::with_capacity(export.attachments.len());
+        for attachment in export.attachments {
+            if !note_ids.contains(&attachment.note_id) {
+                return Err(NotesError::new(
+                    "invalid_parameters",
+                    "Backup attachment references a missing note",
+                ));
+            }
+            let attachment_id = validate_attachment_id(&attachment.file_name)?;
+            let expected_mime = attachment_mime_from_name(&attachment_id)?;
+            if expected_mime != attachment.mime_type {
+                return Err(NotesError::new(
+                    "invalid_parameters",
+                    "Backup attachment MIME type is invalid",
+                ));
+            }
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(attachment.data_base64)
+                .map_err(|_| {
+                    NotesError::new(
+                        "invalid_parameters",
+                        "Backup attachment is not valid base64",
+                    )
+                })?;
+            if bytes.is_empty() || bytes.len() > MAX_ATTACHMENT_BYTES {
+                return Err(NotesError::new(
+                    "payload_too_large",
+                    "Backup attachment exceeds the 5 MiB per-file limit",
+                ));
+            }
+            total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
+            if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
+                return Err(NotesError::new(
+                    "quota_exceeded",
+                    "Backup attachments exceed the 50 MiB import limit",
+                ));
+            }
+            decoded_attachments.push((attachment.note_id, attachment_id, bytes));
+        }
+
+        let notebook = self.create_notebook(&imported_title)?;
+        let import_result = (|| {
+            for document in export.notes {
+                let imported = NoteDocument {
+                    summary: NoteSummary {
+                        id: document.summary.id,
+                        notebook_id: notebook.id.clone(),
+                        title: document.summary.title,
+                        created_at: document.summary.created_at,
+                        updated_at: document.summary.updated_at,
+                        tags: normalize_tags(document.summary.tags)?,
+                        source: document.summary.source,
+                        version: String::new(),
+                    },
+                    content: normalize_newlines(&document.content),
+                };
+                self.write_note(&imported, None)?;
+            }
+            for (note_id, attachment_id, bytes) in decoded_attachments {
+                let path = self
+                    .vault_root(&notebook.id)?
+                    .join("public")
+                    .join("attachments")
+                    .join(validate_opaque_id(&note_id)?)
+                    .join(attachment_id);
+                atomic_write(&path, &bytes)?;
+            }
+            self.touch_notebook(&notebook.id)
+        })();
+        if let Err(error) = import_result {
+            let _ = fs::remove_dir_all(self.vault_root(&notebook.id)?);
+            return Err(error);
+        }
+        Ok(notebook)
+    }
+
+    pub fn import_markdown(
+        &self,
+        notebook_id: &str,
+        file_name: &str,
+        markdown: &str,
+    ) -> Result<NoteDocument, NotesError> {
+        validate_content(markdown)?;
+        let normalized = normalize_newlines(markdown);
+        let (title, content, tags) = if normalized.starts_with("---\n") {
+            match split_frontmatter(&normalized) {
+                Ok((frontmatter, content)) => (
+                    optional_frontmatter_string(frontmatter, "title")
+                        .unwrap_or_else(|| title_from_file_name(file_name)),
+                    content.to_string(),
+                    frontmatter_line(frontmatter, "tags")
+                        .and_then(|value| serde_json::from_str::<Vec<String>>(value).ok())
+                        .unwrap_or_default(),
+                ),
+                Err(_) => (title_from_file_name(file_name), normalized, Vec::new()),
+            }
+        } else {
+            (title_from_file_name(file_name), normalized, Vec::new())
+        };
+        self.create_note(notebook_id, &title, &content, tags, None)
+    }
+
+    pub fn rebuild_index(&self, notebook_id: &str) -> Result<VaultRebuildReport, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        self.read_notebook(&notebook_id)?;
+        let vault_root = self.vault_root(&notebook_id)?;
+        let notes_directory = vault_root.join("src").join("content").join("notes");
+        fs::create_dir_all(&notes_directory)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot repair notes directory"))?;
+        let mut summaries = Vec::new();
+        let mut invalid_files = Vec::new();
+        for entry in fs::read_dir(&notes_directory)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot scan notes directory"))?
+            .flatten()
+            .take(MAX_NOTES + 1)
+        {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            if entry.path().extension().and_then(|value| value.to_str()) != Some("md") {
+                continue;
+            }
+            match read_note_file(&entry.path(), &notebook_id) {
+                Ok(note) => summaries.push(note.summary),
+                Err(error) => invalid_files.push(VaultInvalidFile {
+                    file_name,
+                    error: error.message,
+                }),
+            }
+        }
+        summaries.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        let valid_note_ids = summaries
+            .iter()
+            .map(|summary| summary.id.as_str())
+            .collect::<BTreeSet<_>>();
+        let mut orphan_attachment_directories = Vec::new();
+        let attachment_root = vault_root.join("public").join("attachments");
+        fs::create_dir_all(&attachment_root).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot repair attachment directory")
+        })?;
+        for entry in fs::read_dir(&attachment_root)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot scan attachments"))?
+            .flatten()
+        {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if entry.path().is_dir() && !valid_note_ids.contains(name.as_str()) {
+                orphan_attachment_directories.push(name);
+            }
+        }
+        let rebuilt_at = now_iso();
+        atomic_json_write(
+            &vault_root.join(".zicode").join("index.json"),
+            &json!({
+                "schemaVersion": VAULT_SCHEMA_VERSION,
+                "rebuiltAt": rebuilt_at,
+                "notes": &summaries,
+                "invalidFiles": &invalid_files,
+                "orphanAttachmentDirectories": &orphan_attachment_directories,
+            }),
+        )?;
+        Ok(VaultRebuildReport {
+            notebook_id,
+            valid_notes: summaries.len(),
+            invalid_files,
+            orphan_attachment_directories,
+            rebuilt_at,
+        })
+    }
+
+    pub fn publish_astro(&self, notebook_id: &str) -> Result<AstroPublishReport, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        self.read_notebook(&notebook_id)?;
+        let note_count = self
+            .list(Some(&notebook_id), None, None, false)?
+            .notes
+            .len();
+        let root = self.vault_root(&notebook_id)?;
+        let package_path = root.join("package.json");
+        let config_path = root.join("astro.config.mjs");
+        if !package_path.is_file() || !config_path.is_file() {
+            return Err(NotesError::new(
+                "invalid_vault",
+                "The notebook does not contain a complete Astro project",
+            ));
+        }
+        let package: Value = serde_json::from_str(
+            &fs::read_to_string(&package_path)
+                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read package.json"))?,
+        )
+        .map_err(|_| NotesError::new("invalid_vault", "package.json is not valid JSON"))?;
+        if package["scripts"]["build"].as_str() != Some("astro build") {
+            return Err(NotesError::new(
+                "unsafe_build",
+                "The Astro build script was modified and cannot be executed",
+            ));
+        }
+        let log_path = root.join(".zicode").join("publish.log");
+        fs::write(&log_path, b"").map_err(|error| {
+            NotesError::new(
+                "storage_unavailable",
+                format!("Cannot reset Astro publish log: {error}"),
+            )
+        })?;
+        run_bun_step(&root, &["install", "--ignore-scripts"], &log_path, 300)?;
+        run_bun_step(&root, &["run", "build"], &log_path, 300)?;
+        let output = root.join("dist").join("index.html");
+        if !output.is_file() {
+            return Err(NotesError::new(
+                "build_failed",
+                "Astro finished without producing dist/index.html",
+            ));
+        }
+        Ok(AstroPublishReport {
+            notebook_id,
+            note_count,
+            output_directory: "dist".to_string(),
+            built_at: now_iso(),
+        })
+    }
+
+    pub fn find_source_duplicate(
+        &self,
+        content_hash: &str,
+    ) -> Result<Option<NoteSummary>, NotesError> {
+        for notebook in self.list_notebooks()? {
+            if let Some(note) = self
+                .scan_notebook_notes(&notebook.id)?
+                .into_iter()
+                .find(|note| {
+                    note.source
+                        .as_ref()
+                        .is_some_and(|source| source.content_hash == content_hash)
+                })
+            {
+                return Ok(Some(note));
+            }
+        }
+        Ok(None)
+    }
+
+    fn list_notebooks(&self) -> Result<Vec<NotebookDescriptor>, NotesError> {
+        let vaults = self.root.join("vaults");
+        fs::create_dir_all(&vaults)
+            .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
+        let entries = fs::read_dir(vaults)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot read notebooks"))?;
+        let mut notebooks = Vec::new();
+        for entry in entries.flatten().take(MAX_NOTEBOOKS + 1) {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_dir() || file_type.is_symlink() {
+                continue;
+            }
+            let Some(id) = entry.file_name().to_str().map(str::to_string) else {
+                continue;
+            };
+            if validate_opaque_id(&id).is_err() {
+                continue;
+            }
+            if let Ok(mut descriptor) = self.read_notebook(&id) {
+                descriptor.note_count = self.scan_notebook_notes(&id)?.len();
+                notebooks.push(descriptor);
+            }
+        }
+        notebooks.sort_by(|left, right| left.title.to_lowercase().cmp(&right.title.to_lowercase()));
+        Ok(notebooks)
+    }
+
+    fn read_notebook(&self, notebook_id: &str) -> Result<NotebookDescriptor, NotesError> {
+        let path = self
+            .vault_root(notebook_id)?
+            .join(".zicode")
+            .join("vault.json");
+        let bytes = fs::read(path)
+            .map_err(|_| NotesError::new("notebook_not_found", "Notebook does not exist"))?;
+        let metadata: VaultMetadata = serde_json::from_slice(&bytes)
+            .map_err(|_| NotesError::new("vault_corrupt", "Notebook metadata is damaged"))?;
+        if metadata.schema_version != VAULT_SCHEMA_VERSION || metadata.id != notebook_id {
+            return Err(NotesError::new(
+                "vault_corrupt",
+                "Notebook metadata identity is invalid",
+            ));
+        }
+        Ok(NotebookDescriptor {
+            id: metadata.id,
+            title: metadata.title,
+            created_at: metadata.created_at,
+            updated_at: metadata.updated_at,
+            note_count: 0,
+        })
+    }
+
+    fn touch_notebook(&self, notebook_id: &str) -> Result<(), NotesError> {
+        let mut notebook = self.read_notebook(notebook_id)?;
+        notebook.updated_at = now_iso();
+        let metadata = VaultMetadata {
+            schema_version: VAULT_SCHEMA_VERSION,
+            id: notebook.id,
+            title: notebook.title,
+            created_at: notebook.created_at,
+            updated_at: notebook.updated_at,
+        };
+        atomic_json_write(
+            &self
+                .vault_root(notebook_id)?
+                .join(".zicode")
+                .join("vault.json"),
+            &metadata,
+        )
+    }
+
+    fn scan_notebook_notes(&self, notebook_id: &str) -> Result<Vec<NoteSummary>, NotesError> {
+        let directory = self
+            .vault_root(notebook_id)?
+            .join("src")
+            .join("content")
+            .join("notes");
+        let entries = fs::read_dir(directory)
+            .map_err(|_| NotesError::new("vault_corrupt", "Notebook notes directory is missing"))?;
+        let mut notes = Vec::new();
+        for entry in entries.flatten().take(MAX_NOTES + 1) {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_file()
+                || file_type.is_symlink()
+                || entry.path().extension().and_then(|value| value.to_str()) != Some("md")
+            {
+                continue;
+            }
+            if let Ok(note) = read_note_file(&entry.path(), notebook_id) {
+                notes.push(note.summary);
+            }
+        }
+        Ok(notes)
+    }
+
+    fn write_note(
+        &self,
+        document: &NoteDocument,
+        expected_version: Option<&str>,
+    ) -> Result<NoteDocument, NotesError> {
+        let path = self.note_path(&document.summary.notebook_id, &document.summary.id)?;
+        if let Some(expected) = expected_version {
+            let current = fs::read(&path)
+                .map_err(|_| NotesError::new("note_not_found", "Note does not exist"))?;
+            if version_for(&current) != expected {
+                return Err(NotesError::new(
+                    "version_conflict",
+                    "The note changed after it was opened",
+                ));
+            }
+        } else if path.exists() {
+            return Err(NotesError::new("conflict", "Note already exists"));
+        }
+        let bytes = serialize_note(document)?;
+        atomic_write(&path, &bytes)?;
+        let mut written = document.clone();
+        written.summary.version = version_for(&bytes);
+        Ok(written)
+    }
+
+    fn append_change(
+        &self,
+        operation: &str,
+        summary: &NoteSummary,
+        version: Option<&str>,
+    ) -> Result<(), NotesError> {
+        fs::create_dir_all(&self.root)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot create note change log"))?;
+        let path = self.root.join("changes.jsonl");
+        compact_change_log(&path, MAX_CHANGE_LOG_BYTES, RETAINED_CHANGE_RECORDS)?;
+        let change = NoteChange {
+            cursor: Uuid::new_v4().to_string(),
+            operation: operation.to_string(),
+            notebook_id: summary.notebook_id.clone(),
+            note_id: summary.id.clone(),
+            version: version.map(str::to_string),
+            changed_at: now_iso(),
+        };
+        let line = serde_json::to_string(&change)
+            .map_err(|_| NotesError::new("serialization_failed", "Cannot encode note change"))?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot write note change log"))?;
+        writeln!(file, "{line}")
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot write note change log"))
+    }
+
+    fn vault_root(&self, notebook_id: &str) -> Result<PathBuf, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        Ok(self.root.join("vaults").join(notebook_id))
+    }
+
+    fn note_path(&self, notebook_id: &str, note_id: &str) -> Result<PathBuf, NotesError> {
+        let note_id = validate_opaque_id(note_id)?;
+        Ok(self
+            .vault_root(notebook_id)?
+            .join("src")
+            .join("content")
+            .join("notes")
+            .join(format!("{note_id}.md")))
+    }
+}
+
+fn compact_change_log(path: &Path, max_bytes: u64, retain: usize) -> Result<(), NotesError> {
+    if !path
+        .metadata()
+        .is_ok_and(|metadata| metadata.len() > max_bytes)
+    {
+        return Ok(());
+    }
+    let text = fs::read_to_string(path)
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot compact note change log"))?;
+    let records = text
+        .lines()
+        .filter_map(|line| serde_json::from_str::<NoteChange>(line).ok())
+        .collect::<Vec<_>>();
+    let start = records.len().saturating_sub(retain.max(1));
+    let mut compacted = Vec::new();
+    for change in &records[start..] {
+        serde_json::to_writer(&mut compacted, change)
+            .map_err(|_| NotesError::new("serialization_failed", "Cannot compact note changes"))?;
+        compacted.push(b'\n');
+    }
+    atomic_write(path, &compacted)
+}
+
+fn run_bun_step(
+    working_directory: &Path,
+    arguments: &[&str],
+    log_path: &Path,
+    timeout_seconds: u64,
+) -> Result<(), NotesError> {
+    let parent = log_path
+        .parent()
+        .ok_or_else(|| NotesError::new("storage_unavailable", "Invalid publish log path"))?;
+    fs::create_dir_all(parent)
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot create publish log"))?;
+    let stdout = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot write publish log"))?;
+    let stderr = stdout
+        .try_clone()
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot write publish log"))?;
+    let mut command = crate::process_command::new_command(resolve_bun_executable());
+    command
+        .args(arguments)
+        .current_dir(working_directory)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr));
+    let mut child = command.spawn().map_err(|_| {
+        NotesError::new(
+            "runtime_unavailable",
+            "Bun is required to build this Astro notebook but was not found",
+        )
+    })?;
+    let deadline = Instant::now() + Duration::from_secs(timeout_seconds);
+    loop {
+        if let Some(status) = child
+            .try_wait()
+            .map_err(|_| NotesError::new("build_failed", "Cannot monitor the Astro build"))?
+        {
+            return if status.success() {
+                Ok(())
+            } else {
+                Err(NotesError::new(
+                    "build_failed",
+                    "Astro build failed. See .zicode/publish.log in the notebook Vault.",
+                ))
+            };
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(NotesError::new(
+                "build_timeout",
+                "Astro build exceeded the five minute limit",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+fn resolve_bun_executable() -> PathBuf {
+    if let Some(configured) = std::env::var_os("ZICODE_BUN_RUNTIME") {
+        let configured = PathBuf::from(configured);
+        if configured.is_file() {
+            return configured;
+        }
+    }
+    let executable_name = if cfg!(target_os = "windows") {
+        "bun.exe"
+    } else {
+        "bun"
+    };
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(resource_root) = current.parent() {
+            let bundled = resource_root.join("bun").join(executable_name);
+            if bundled.is_file() {
+                return bundled;
+            }
+        }
+    }
+    if cfg!(debug_assertions) {
+        let bundled = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("bun")
+            .join(executable_name);
+        if bundled.is_file() {
+            return bundled;
+        }
+    }
+    PathBuf::from("bun")
+}
+
+pub fn configure_bundled_bun(static_directory: &Path) -> Result<(), String> {
+    let executable_name = if cfg!(target_os = "windows") {
+        "bun.exe"
+    } else {
+        "bun"
+    };
+    let mut candidates = static_directory
+        .parent()
+        .map(|root| vec![root.join("bun").join(executable_name)])
+        .unwrap_or_default();
+    if cfg!(debug_assertions) {
+        candidates.push(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join("bun")
+                .join(executable_name),
+        );
+    }
+    if let Some(executable) = candidates.into_iter().find(|candidate| candidate.is_file()) {
+        std::env::set_var("ZICODE_BUN_RUNTIME", executable);
+        return Ok(());
+    }
+    if cfg!(debug_assertions) {
+        Ok(())
+    } else {
+        Err("Bundled Bun runtime is missing from the application resources".to_string())
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VaultMetadata {
+    schema_version: u32,
+    id: String,
+    title: String,
+    created_at: String,
+    updated_at: String,
+}
+
+fn create_astro_vault(root: &Path, descriptor: &NotebookDescriptor) -> Result<(), NotesError> {
+    if root.exists() {
+        return Err(NotesError::new(
+            "conflict",
+            "Notebook directory already exists",
+        ));
+    }
+    let notes = root.join("src").join("content").join("notes");
+    let zicode = root.join(".zicode");
+    fs::create_dir_all(&notes)
+        .and_then(|_| fs::create_dir_all(root.join("src").join("pages")))
+        .and_then(|_| fs::create_dir_all(root.join("src").join("layouts")))
+        .and_then(|_| fs::create_dir_all(root.join("public").join("attachments")))
+        .and_then(|_| fs::create_dir_all(&zicode))
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot create notebook structure"))?;
+    let metadata = VaultMetadata {
+        schema_version: VAULT_SCHEMA_VERSION,
+        id: descriptor.id.clone(),
+        title: descriptor.title.clone(),
+        created_at: descriptor.created_at.clone(),
+        updated_at: descriptor.updated_at.clone(),
+    };
+    let result = (|| {
+        atomic_json_write(&zicode.join("vault.json"), &metadata)?;
+        atomic_json_write(
+            &zicode.join("index.json"),
+            &json!({
+                "schemaVersion": VAULT_SCHEMA_VERSION,
+                "rebuiltAt": descriptor.created_at,
+                "notes": [],
+                "invalidFiles": [],
+                "orphanAttachmentDirectories": [],
+            }),
+        )?;
+        atomic_write(
+            &root.join("package.json"),
+            serde_json::to_string_pretty(&json!({
+                "name": format!("zicode-notes-{}", descriptor.id),
+                "private": true,
+                "type": "module",
+                "scripts": {
+                    "dev": "astro dev",
+                    "build": "astro build",
+                    "preview": "astro preview"
+                },
+                "dependencies": { "astro": "5.13.5" }
+            }))
+            .map_err(|_| NotesError::new("serialization_failed", "Cannot encode package metadata"))?
+            .as_bytes(),
+        )?;
+        atomic_write(
+            &root.join("astro.config.mjs"),
+            b"import { defineConfig } from \"astro/config\";\n\nexport default defineConfig({});\n",
+        )?;
+        atomic_write(
+            &root.join("src").join("content.config.ts"),
+            br#"import { defineCollection, z } from "astro:content";
+
+const notes = defineCollection({
+  type: "content",
+  schema: z.object({
+    id: z.string(),
+    title: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    tags: z.array(z.string()).default([]),
+    source: z.object({
+      url: z.string().url(),
+      capturedAt: z.string(),
+      contentHash: z.string(),
+      author: z.string().optional(),
+      publishedAt: z.string().optional(),
+    }).optional(),
+  }),
+});
+
+export const collections = { notes };
+"#,
+        )?;
+        atomic_write(
+            &root.join("src").join("layouts").join("NoteLayout.astro"),
+            br#"---
+const { title, description = "", tags = [] } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <nav><a href="/">All notes</a></nav>
+      <article>
+        <h1>{title}</h1>
+        {tags.length > 0 && <p class="tags">{tags.join(" / ")}</p>}
+        <slot />
+      </article>
+    </main>
+  </body>
+</html>
+"#,
+        )?;
+        atomic_write(
+            &root.join("src").join("pages").join("index.astro"),
+            br#"---
+import { getCollection } from "astro:content";
+import NoteLayout from "../layouts/NoteLayout.astro";
+const notes = (await getCollection("notes")).sort((a, b) => b.data.updatedAt.localeCompare(a.data.updatedAt));
+---
+<NoteLayout title="Notes" description="Published from ZiCode Notes">
+  <ul class="note-list">
+    {notes.map((note) => <li><a href={`/notes/${note.id}/`}>{note.data.title}</a><time>{note.data.updatedAt}</time></li>)}
+  </ul>
+</NoteLayout>
+"#,
+        )?;
+        atomic_write(
+            &root
+                .join("src")
+                .join("pages")
+                .join("notes")
+                .join("[...id].astro"),
+            br#"---
+import { getCollection, render } from "astro:content";
+import NoteLayout from "../../layouts/NoteLayout.astro";
+export async function getStaticPaths() {
+  const notes = await getCollection("notes");
+  return notes.map((note) => ({ params: { id: note.id }, props: { note } }));
+}
+const { note } = Astro.props;
+const { Content } = await render(note);
+---
+<NoteLayout title={note.data.title} tags={note.data.tags}>
+  <Content />
+</NoteLayout>
+"#,
+        )?;
+        atomic_write(
+            &root.join("public").join("styles.css"),
+            br#":root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; }
+body { margin: 0; line-height: 1.65; }
+main { width: min(760px, calc(100% - 32px)); margin: 48px auto; }
+nav { margin-bottom: 32px; }
+a { color: #4f7cff; }
+.note-list { display: grid; gap: 12px; padding: 0; list-style: none; }
+.note-list li { display: flex; justify-content: space-between; gap: 16px; }
+time, .tags { opacity: .65; }
+pre { overflow: auto; padding: 16px; border-radius: 8px; background: #111827; color: #f9fafb; }
+img { max-width: 100%; height: auto; }
+"#,
+        )
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_dir_all(root);
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
+    let mut output = String::from("---\n");
+    output.push_str(&format!(
+        "id: {}\ntitle: {}\ncreatedAt: {}\nupdatedAt: {}\ntags: {}\n",
+        yaml_string(&document.summary.id),
+        yaml_string(&document.summary.title),
+        yaml_string(&document.summary.created_at),
+        yaml_string(&document.summary.updated_at),
+        serde_json::to_string(&document.summary.tags)
+            .map_err(|_| NotesError::new("serialization_failed", "Cannot encode note tags"))?,
+    ));
+    if let Some(source) = &document.summary.source {
+        output.push_str("source:\n");
+        output.push_str(&format!("  url: {}\n", yaml_string(&source.url)));
+        output.push_str(&format!(
+            "  capturedAt: {}\n",
+            yaml_string(&source.captured_at)
+        ));
+        output.push_str(&format!(
+            "  contentHash: {}\n",
+            yaml_string(&source.content_hash)
+        ));
+        if let Some(author) = &source.author {
+            output.push_str(&format!("  author: {}\n", yaml_string(author)));
+        }
+        if let Some(published_at) = &source.published_at {
+            output.push_str(&format!("  publishedAt: {}\n", yaml_string(published_at)));
+        }
+    }
+    output.push_str("---\n\n");
+    output.push_str(&document.content);
+    if !output.ends_with('\n') {
+        output.push('\n');
+    }
+    if output.len() > MAX_NOTE_BYTES {
+        return Err(NotesError::new(
+            "payload_too_large",
+            "Note exceeds the 1 MiB limit",
+        ));
+    }
+    Ok(output.into_bytes())
+}
+
+fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesError> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|_| NotesError::new("note_not_found", "Note does not exist"))?;
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() > MAX_NOTE_BYTES as u64
+    {
+        return Err(NotesError::new(
+            "note_corrupt",
+            "Note is not a valid Markdown file",
+        ));
+    }
+    let bytes = fs::read(path)
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot read the note"))?;
+    let text = String::from_utf8(bytes.clone())
+        .map_err(|_| NotesError::new("note_corrupt", "Note is not UTF-8 Markdown"))?;
+    let (frontmatter, content) = split_frontmatter(&text)?;
+    let id = required_frontmatter_string(frontmatter, "id")?;
+    let file_id = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
+    if id != file_id || validate_opaque_id(&id).is_err() {
+        return Err(NotesError::new(
+            "note_corrupt",
+            "Note identity does not match its filename",
+        ));
+    }
+    let tags = frontmatter_line(frontmatter, "tags")
+        .and_then(|value| serde_json::from_str::<Vec<String>>(value).ok())
+        .unwrap_or_default();
+    let source = if frontmatter.lines().any(|line| line.trim() == "source:") {
+        let url = required_frontmatter_string(frontmatter, "url")?;
+        Some(NoteSource {
+            url,
+            captured_at: required_frontmatter_string(frontmatter, "capturedAt")?,
+            content_hash: required_frontmatter_string(frontmatter, "contentHash")?,
+            author: optional_frontmatter_string(frontmatter, "author"),
+            published_at: optional_frontmatter_string(frontmatter, "publishedAt"),
+        })
+    } else {
+        None
+    };
+    Ok(NoteDocument {
+        summary: NoteSummary {
+            id,
+            notebook_id: notebook_id.to_string(),
+            title: required_frontmatter_string(frontmatter, "title")?,
+            created_at: required_frontmatter_string(frontmatter, "createdAt")?,
+            updated_at: required_frontmatter_string(frontmatter, "updatedAt")?,
+            tags,
+            source,
+            version: version_for(&bytes),
+        },
+        content: content.to_string(),
+    })
+}
+
+fn extract_note_targets<'a>(
+    content: &str,
+    by_title: &HashMap<String, &'a NoteSummary>,
+    by_ref: &HashMap<String, &'a NoteSummary>,
+) -> Vec<(String, &'a NoteSummary)> {
+    let mut targets = Vec::new();
+    for segment in content.split("[[").skip(1) {
+        let Some(end) = segment.find("]]") else {
+            continue;
+        };
+        let title = segment[..end]
+            .split('|')
+            .next()
+            .unwrap_or("")
+            .trim()
+            .to_lowercase();
+        if let Some(target) = by_title.get(&title) {
+            targets.push(("wikilink".into(), *target));
+        }
+    }
+    for (index, _) in content.match_indices("zicode-note://") {
+        let tail = &content[index + "zicode-note://".len()..];
+        let reference: String = tail
+            .chars()
+            .take_while(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '/')
+            })
+            .collect();
+        if let Some(target) = by_ref.get(&reference) {
+            targets.push(("reference".into(), *target));
+        }
+    }
+    targets
+}
+
+fn split_frontmatter(text: &str) -> Result<(&str, &str), NotesError> {
+    let normalized = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let rest = normalized
+        .strip_prefix("---\n")
+        .ok_or_else(|| NotesError::new("note_corrupt", "Markdown frontmatter is missing"))?;
+    let end = rest
+        .find("\n---\n")
+        .ok_or_else(|| NotesError::new("note_corrupt", "Markdown frontmatter is incomplete"))?;
+    let content = rest[end + 5..]
+        .strip_prefix('\n')
+        .unwrap_or(&rest[end + 5..]);
+    Ok((&rest[..end], content.strip_suffix('\n').unwrap_or(content)))
+}
+
+fn required_frontmatter_string(frontmatter: &str, key: &str) -> Result<String, NotesError> {
+    optional_frontmatter_string(frontmatter, key)
+        .ok_or_else(|| NotesError::new("note_corrupt", format!("Frontmatter is missing {key}")))
+}
+
+fn optional_frontmatter_string(frontmatter: &str, key: &str) -> Option<String> {
+    let value = frontmatter_line(frontmatter, key)?;
+    serde_json::from_str::<String>(value).ok()
+}
+
+fn frontmatter_line<'a>(frontmatter: &'a str, key: &str) -> Option<&'a str> {
+    frontmatter.lines().find_map(|line| {
+        let line = line.trim();
+        let value = line.strip_prefix(key)?.strip_prefix(':')?;
+        Some(value.trim())
+    })
+}
+
+fn validate_opaque_id(value: &str) -> Result<String, NotesError> {
+    Uuid::parse_str(value)
+        .map(|id| id.to_string())
+        .map_err(|_| NotesError::new("invalid_parameters", "Invalid Notes resource ID"))
+}
+
+fn validate_title(value: &str) -> Result<String, NotesError> {
+    let title = value.trim();
+    if title.is_empty() || title.chars().count() > MAX_TITLE_CHARS {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Title must contain 1 to 200 characters",
+        ));
+    }
+    Ok(title.to_string())
+}
+
+fn title_from_file_name(file_name: &str) -> String {
+    let title = Path::new(file_name)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Imported note");
+    title.chars().take(MAX_TITLE_CHARS).collect()
+}
+
+fn validate_attachment(
+    file_name: &str,
+    mime_type: &str,
+) -> Result<(&'static str, &'static str, bool), NotesError> {
+    if file_name.trim().is_empty()
+        || file_name.chars().count() > 255
+        || file_name.chars().any(char::is_control)
+    {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Attachment filename is invalid",
+        ));
+    }
+    let extension = Path::new(file_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let descriptor = match extension.as_str() {
+        "png" => ("png", "image/png", true),
+        "jpg" | "jpeg" => ("jpg", "image/jpeg", true),
+        "gif" => ("gif", "image/gif", true),
+        "webp" => ("webp", "image/webp", true),
+        "pdf" => ("pdf", "application/pdf", false),
+        "txt" => ("txt", "text/plain", false),
+        "md" => ("md", "text/markdown", false),
+        "csv" => ("csv", "text/csv", false),
+        "json" => ("json", "application/json", false),
+        _ => {
+            return Err(NotesError::new(
+                "invalid_parameters",
+                "Attachment type is not allowed",
+            ))
+        }
+    };
+    let supplied = mime_type.trim().to_ascii_lowercase();
+    if !supplied.is_empty()
+        && supplied != "application/octet-stream"
+        && supplied != descriptor.1
+        && !(descriptor.0 == "md" && supplied == "text/plain")
+        && !(descriptor.0 == "csv" && supplied == "application/vnd.ms-excel")
+    {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Attachment MIME type does not match its extension",
+        ));
+    }
+    Ok(descriptor)
+}
+
+fn validate_attachment_id(value: &str) -> Result<String, NotesError> {
+    let (uuid, extension) = value
+        .rsplit_once('.')
+        .ok_or_else(|| NotesError::new("invalid_parameters", "Invalid attachment ID"))?;
+    let uuid = Uuid::parse_str(uuid)
+        .map_err(|_| NotesError::new("invalid_parameters", "Invalid attachment ID"))?;
+    attachment_mime_from_extension(extension)?;
+    let canonical = format!("{}.{}", uuid, extension.to_ascii_lowercase());
+    if canonical != value {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Invalid attachment ID",
+        ));
+    }
+    Ok(canonical)
+}
+
+fn attachment_mime_from_name(value: &str) -> Result<&'static str, NotesError> {
+    let extension = Path::new(value)
+        .extension()
+        .and_then(|candidate| candidate.to_str())
+        .unwrap_or_default();
+    attachment_mime_from_extension(extension)
+}
+
+fn attachment_mime_from_extension(extension: &str) -> Result<&'static str, NotesError> {
+    match extension {
+        "png" => Ok("image/png"),
+        "jpg" => Ok("image/jpeg"),
+        "gif" => Ok("image/gif"),
+        "webp" => Ok("image/webp"),
+        "pdf" => Ok("application/pdf"),
+        "txt" => Ok("text/plain"),
+        "md" => Ok("text/markdown"),
+        "csv" => Ok("text/csv"),
+        "json" => Ok("application/json"),
+        _ => Err(NotesError::new(
+            "invalid_parameters",
+            "Attachment type is not allowed",
+        )),
+    }
+}
+
+fn validate_content(value: &str) -> Result<(), NotesError> {
+    if value.len() > MAX_NOTE_BYTES {
+        return Err(NotesError::new(
+            "payload_too_large",
+            "Note exceeds the 1 MiB limit",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_source(source: &NoteSource) -> Result<(), NotesError> {
+    let url = reqwest::Url::parse(&source.url)
+        .map_err(|_| NotesError::new("invalid_parameters", "Note source URL is invalid"))?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || source.url.chars().count() > 4096
+    {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Note source must be an HTTP(S) URL without credentials",
+        ));
+    }
+    if source.captured_at.chars().count() > 100
+        || source.content_hash.chars().count() > 100
+        || source
+            .author
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 500)
+        || source
+            .published_at
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > 100)
+    {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Note source metadata exceeds its limits",
+        ));
+    }
+    Ok(())
+}
+
+fn normalize_tags(tags: Vec<String>) -> Result<Vec<String>, NotesError> {
+    if tags.len() > MAX_TAGS {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "A note can have at most 20 tags",
+        ));
+    }
+    let mut normalized = BTreeSet::new();
+    for tag in tags {
+        let tag = tag.trim();
+        if tag.is_empty() || tag.chars().count() > MAX_TAG_CHARS {
+            return Err(NotesError::new(
+                "invalid_parameters",
+                "Tags must contain 1 to 64 characters",
+            ));
+        }
+        normalized.insert(tag.to_string());
+    }
+    Ok(normalized.into_iter().collect())
+}
+
+fn normalize_newlines(value: &str) -> String {
+    value.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+fn yaml_string(value: &str) -> String {
+    serde_json::to_string(value).unwrap_or_else(|_| "\"\"".into())
+}
+
+fn version_for(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!(
+        "sha256:{}",
+        digest
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    )
+}
+
+pub fn content_hash(content: &str) -> String {
+    version_for(normalize_newlines(content).trim().as_bytes())
+}
+
+pub fn now_iso() -> String {
+    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
+fn atomic_json_write(path: &Path, value: &impl Serialize) -> Result<(), NotesError> {
+    let bytes = serde_json::to_vec_pretty(value)
+        .map_err(|_| NotesError::new("serialization_failed", "Cannot encode Notes metadata"))?;
+    atomic_write(path, &bytes)
+}
+
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), NotesError> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| NotesError::new("storage_unavailable", "Invalid Notes storage path"))?;
+    fs::create_dir_all(parent)
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot create Notes directory"))?;
+    let suffix = Uuid::new_v4().simple().to_string();
+    let temporary = parent.join(format!(".write-{suffix}.tmp"));
+    let backup = parent.join(format!(".write-{suffix}.bak"));
+    fs::write(&temporary, bytes)
+        .map_err(|_| NotesError::new("storage_unavailable", "Cannot write Notes data"))?;
+    let had_previous = path.is_file();
+    if had_previous {
+        fs::rename(path, &backup)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot prepare Notes update"))?;
+    }
+    if let Err(error) = fs::rename(&temporary, path) {
+        if had_previous {
+            let _ = fs::rename(&backup, path);
+        }
+        let _ = fs::remove_file(&temporary);
+        return Err(NotesError::new(
+            "storage_unavailable",
+            format!("Cannot finish Notes update: {error}"),
+        ));
+    }
+    if had_previous {
+        let _ = fs::remove_file(backup);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{compact_change_log, content_hash, now_iso, NoteChange, NoteSource, NotesVault};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use uuid::Uuid;
+
+    fn root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "zicode-notes-vault-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn creates_astro_compatible_vault_and_round_trips_markdown() {
+        let root = root();
+        let plugin_root = root.join("plugins");
+        let vault = NotesVault::new(plugin_root).unwrap();
+        let notebook = vault.create_notebook("Research").unwrap();
+        let note = vault
+            .create_note(
+                &notebook.id,
+                "Roadmap",
+                "# Roadmap\n\nCapability broker.",
+                vec!["plugin".into(), "roadmap".into()],
+                None,
+            )
+            .unwrap();
+        let markdown = root
+            .join("plugin-data/com.zicode.notes/vaults")
+            .join(&notebook.id)
+            .join("src/content/notes")
+            .join(format!("{}.md", note.summary.id));
+        assert!(markdown.is_file());
+        assert!(markdown
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("content.config.ts")
+            .is_file());
+        let vault_root = markdown
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let package: serde_json::Value =
+            serde_json::from_slice(&fs::read(vault_root.join("package.json")).unwrap()).unwrap();
+        assert_eq!(package["scripts"]["build"], "astro build");
+        assert!(vault_root.join("src/pages/index.astro").is_file());
+        assert!(vault_root.join("src/pages/notes/[...id].astro").is_file());
+        let text = fs::read_to_string(&markdown).unwrap();
+        assert!(text.contains("title: \"Roadmap\""));
+        assert!(text.contains("# Roadmap"));
+        let loaded = vault.get_note(&notebook.id, &note.summary.id).unwrap();
+        assert_eq!(loaded.content, "# Roadmap\n\nCapability broker.");
+        assert_eq!(loaded.summary.tags, vec!["plugin", "roadmap"]);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[ignore = "downloads the pinned Astro dependency"]
+    fn publishes_a_notebook_as_a_static_astro_site() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Publish test").unwrap();
+        vault
+            .create_note(
+                &notebook.id,
+                "Hello",
+                "# Built\n\nThis page was generated by Astro.",
+                vec!["publish".into()],
+                None,
+            )
+            .unwrap();
+
+        let report = vault.publish_astro(&notebook.id).unwrap();
+
+        assert_eq!(report.note_count, 1);
+        assert!(vault
+            .vault_root(&notebook.id)
+            .unwrap()
+            .join("dist/index.html")
+            .is_file());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn enforces_optimistic_versions_and_preserves_source_metadata() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Clips").unwrap();
+        let original = vault
+            .create_note(
+                &notebook.id,
+                "Example",
+                "Captured body",
+                vec!["clip".into()],
+                Some(NoteSource {
+                    url: "https://example.com/article".into(),
+                    captured_at: "2026-07-31T00:00:00Z".into(),
+                    content_hash: content_hash("Captured body"),
+                    author: Some("Example Author".into()),
+                    published_at: None,
+                }),
+            )
+            .unwrap();
+        let updated = vault
+            .save_note(
+                &notebook.id,
+                &original.summary.id,
+                "Example edited",
+                "Captured body\n\nComment",
+                vec!["clip".into()],
+                &original.summary.version,
+            )
+            .unwrap();
+        assert_eq!(
+            updated.summary.source.unwrap().url,
+            "https://example.com/article"
+        );
+        assert_eq!(
+            vault
+                .save_note(
+                    &notebook.id,
+                    &original.summary.id,
+                    "Stale",
+                    "Overwrite",
+                    vec![],
+                    &original.summary.version,
+                )
+                .unwrap_err()
+                .code,
+            "version_conflict"
+        );
+        let duplicate = vault
+            .find_source_duplicate(&content_hash("Captured body"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(duplicate.id, original.summary.id);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn stores_safe_attachments_and_round_trips_readable_backups() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Portable").unwrap();
+        let note = vault
+            .create_note(
+                &notebook.id,
+                "With image",
+                "Attachment below.",
+                vec![],
+                None,
+            )
+            .unwrap();
+        let attachment = vault
+            .store_attachment(
+                &notebook.id,
+                &note.summary.id,
+                "diagram.png",
+                "image/png",
+                b"safe-png-test-bytes",
+            )
+            .unwrap();
+        assert!(attachment.markdown.starts_with("![diagram.png]"));
+        let (loaded, mime) = vault
+            .read_attachment(&notebook.id, &note.summary.id, &attachment.id)
+            .unwrap();
+        assert_eq!(loaded, b"safe-png-test-bytes");
+        assert_eq!(mime, "image/png");
+        assert_eq!(
+            vault
+                .store_attachment(
+                    &notebook.id,
+                    &note.summary.id,
+                    "payload.exe",
+                    "application/octet-stream",
+                    b"MZ"
+                )
+                .unwrap_err()
+                .code,
+            "invalid_parameters"
+        );
+
+        let backup = vault.export_notebook(&notebook.id).unwrap();
+        assert_eq!(backup.notes.len(), 1);
+        assert_eq!(backup.attachments.len(), 1);
+        let imported = vault.import_export(backup).unwrap();
+        let imported_note = vault
+            .get_note(&imported.id, &note.summary.id)
+            .expect("backup preserves stable note IDs inside the new vault");
+        assert_eq!(imported_note.content, "Attachment below.");
+        let (imported_bytes, imported_mime) = vault
+            .read_attachment(&imported.id, &note.summary.id, &attachment.id)
+            .unwrap();
+        assert_eq!(imported_bytes, b"safe-png-test-bytes");
+        assert_eq!(imported_mime, "image/png");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn imports_markdown_and_rebuilds_an_index_with_corruption_diagnostics() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Recovery").unwrap();
+        let imported = vault
+            .import_markdown(
+                &notebook.id,
+                "outside-note.md",
+                "---\ntitle: \"External note\"\ntags: [\"imported\"]\n---\n\nReadable body.",
+            )
+            .unwrap();
+        assert_eq!(imported.summary.title, "External note");
+        assert_eq!(imported.summary.tags, vec!["imported"]);
+
+        let vault_root = root
+            .join("plugin-data/com.zicode.notes/vaults")
+            .join(&notebook.id);
+        fs::write(
+            vault_root.join("src/content/notes/broken.md"),
+            "not frontmatter",
+        )
+        .unwrap();
+        fs::create_dir_all(vault_root.join("public/attachments/orphan")).unwrap();
+        let report = vault.rebuild_index(&notebook.id).unwrap();
+        assert_eq!(report.valid_notes, 1);
+        assert_eq!(report.invalid_files[0].file_name, "broken.md");
+        assert_eq!(report.orphan_attachment_directories, vec!["orphan"]);
+        let index = fs::read_to_string(vault_root.join(".zicode/index.json")).unwrap();
+        assert!(index.contains("External note"));
+        assert!(index.contains("broken.md"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn derives_links_backlinks_and_tag_similarity_from_readable_markdown() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Knowledge").unwrap();
+        let target = vault
+            .create_note(
+                &notebook.id,
+                "Architecture",
+                "Host and runtime boundaries.",
+                vec!["design".into(), "runtime".into()],
+                None,
+            )
+            .unwrap();
+        let source = vault
+            .create_note(
+                &notebook.id,
+                "Decision",
+                &format!(
+                    "See [[Architecture]] and zicode-note://{}/{}.",
+                    notebook.id, target.summary.id
+                ),
+                vec!["design".into(), "decision".into()],
+                None,
+            )
+            .unwrap();
+        vault
+            .create_note(
+                &notebook.id,
+                "Architecture",
+                "A conflicting architecture proposal.",
+                vec![],
+                None,
+            )
+            .unwrap();
+        let snapshot = vault.knowledge().unwrap();
+        assert_eq!(snapshot.links.len(), 2);
+        assert!(snapshot
+            .links
+            .iter()
+            .all(|link| link.from_note_id == source.summary.id));
+        assert_eq!(snapshot.similar.len(), 1);
+        assert_eq!(snapshot.similar[0].shared_tags, vec!["design"]);
+        assert_eq!(snapshot.conflicts.len(), 1);
+        assert_eq!(snapshot.conflicts[0].reason, "duplicate_title");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emits_incremental_changes_and_delete_tombstones() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Sync").unwrap();
+        let created = vault
+            .create_note(&notebook.id, "Draft", "one", vec![], None)
+            .unwrap();
+        let first = vault.changes(None, 1).unwrap();
+        assert_eq!(first.changes[0].operation, "created");
+        let updated = vault
+            .save_note(
+                &notebook.id,
+                &created.summary.id,
+                "Draft",
+                "two",
+                vec![],
+                &created.summary.version,
+            )
+            .unwrap();
+        vault
+            .delete_note(&notebook.id, &updated.summary.id, &updated.summary.version)
+            .unwrap();
+        let remainder = vault.changes(first.next_cursor.as_deref(), 10).unwrap();
+        assert_eq!(
+            remainder
+                .changes
+                .iter()
+                .map(|change| change.operation.as_str())
+                .collect::<Vec<_>>(),
+            vec!["updated", "deleted"]
+        );
+        assert!(remainder.changes[1].version.is_none());
+        assert!(!remainder.reset_required);
+        assert!(
+            vault
+                .changes(Some("unknown-cursor"), 10)
+                .unwrap()
+                .reset_required
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn compacts_change_logs_without_blocking_future_writes() {
+        let root = std::env::temp_dir().join(format!("zicode-change-compact-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("changes.jsonl");
+        let records = (0..3)
+            .map(|index| NoteChange {
+                cursor: format!("cursor-{index}"),
+                operation: "updated".to_string(),
+                notebook_id: Uuid::new_v4().to_string(),
+                note_id: Uuid::new_v4().to_string(),
+                version: Some(format!("version-{index}")),
+                changed_at: now_iso(),
+            })
+            .collect::<Vec<_>>();
+        let contents = records
+            .iter()
+            .map(|record| serde_json::to_string(record).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&path, format!("{contents}\n")).unwrap();
+
+        compact_change_log(&path, 1, 2).unwrap();
+
+        let compacted = fs::read_to_string(&path).unwrap();
+        assert!(!compacted.contains("cursor-0"));
+        assert!(compacted.contains("cursor-1"));
+        assert!(compacted.contains("cursor-2"));
+        fs::remove_dir_all(root).unwrap();
+    }
+}

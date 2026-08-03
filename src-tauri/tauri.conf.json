@@ -5,8 +5,8 @@
   "version": "0.1.0",
   "build": {
     "frontendDist": "../public",
-    "beforeDevCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git",
-    "beforeBuildCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run build:extensions"
+    "beforeDevCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run build:extensions",
+    "beforeBuildCommand": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run fetch:bun-runtime && bun run build:extensions"
   },
   "app": {
     "withGlobalTauri": true,
@@ -50,7 +50,8 @@
       "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "./resources/pi": "pi",
       "./resources/portable-git": "portable-git",
-      "./resources/webview2": "webview2"
+      "./resources/webview2": "webview2",
+      "./resources/bun": "bun"
     }
   },
   "plugins": {

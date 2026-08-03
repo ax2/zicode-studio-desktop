@@ -10,6 +10,31 @@ description = "Allow opening the native folder picker to spawn a new workspace w
 commands.allow = ["open_folder_as_workspace"]
 
 [[permission]]
+identifier = "allow-select-and-install-developer-plugin"
+description = "Allow selecting and installing a validated local developer plugin package."
+commands.allow = ["select_and_install_developer_plugin"]
+
+[[permission]]
+identifier = "allow-select-signed-plugin-package"
+description = "Allow selecting and cryptographically previewing a signed ZiCode plugin package."
+commands.allow = ["select_signed_plugin_package"]
+
+[[permission]]
+identifier = "allow-install-signed-plugin-package"
+description = "Allow installing a verified signed ZiCode plugin after publisher confirmation."
+commands.allow = ["install_signed_plugin_package"]
+
+[[permission]]
+identifier = "allow-rollback-signed-plugin-package"
+description = "Allow atomically rolling a signed plugin back to a retained version."
+commands.allow = ["rollback_signed_plugin_package"]
+
+[[permission]]
+identifier = "allow-revoke-plugin-publisher"
+description = "Allow revoking a signed plugin publisher and disabling its plugins."
+commands.allow = ["revoke_plugin_publisher"]
+
+[[permission]]
 identifier = "allow-open-new-session-in-workspace"
 description = "Allow opening a fresh session in the current workspace window."
 commands.allow = ["open_new_session_in_workspace"]
@@ -49,10 +74,35 @@ identifier = "allow-delete-scene-profile"
 description = "Allow deleting a custom desktop scene profile."
 commands.allow = ["delete_scene_profile"]
 
+[[permission]]
+identifier = "allow-store-scene-credential"
+description = "Allow storing a provider credential in the operating system credential vault."
+commands.allow = ["store_scene_credential"]
+
+[[permission]]
+identifier = "allow-delete-scene-credential"
+description = "Allow removing a provider credential from the operating system credential vault."
+commands.allow = ["delete_scene_credential"]
+
+[[permission]]
+identifier = "allow-scene-credential-status"
+description = "Allow checking whether a scene provider credential exists without reading its value."
+commands.allow = ["scene_credential_status"]
+
+[[permission]]
+identifier = "allow-publish-notes-notebook"
+description = "Allow explicitly building a local Notes notebook as an Astro static site."
+commands.allow = ["publish_notes_notebook"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
   "allow-open-folder-as-workspace",
+  "allow-select-and-install-developer-plugin",
+  "allow-select-signed-plugin-package",
+  "allow-install-signed-plugin-package",
+  "allow-rollback-signed-plugin-package",
+  "allow-revoke-plugin-publisher",
   "allow-open-new-session-in-workspace",
   "allow-open-session-in-project",
   "allow-ensure-agent-inbox-session",
@@ -61,4 +111,8 @@ permissions = [
   "allow-list-scene-profiles",
   "allow-save-scene-profile",
   "allow-delete-scene-profile",
+  "allow-store-scene-credential",
+  "allow-delete-scene-credential",
+  "allow-scene-credential-status",
+  "allow-publish-notes-notebook",
 ]

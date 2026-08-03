@@ -1,13 +1,18 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
-use crate::metadata_store::MetadataStore;
+use crate::metadata_store::{MetadataStore, PairedDeviceRecord};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::net::IpAddr;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 const PAIRING_LIFETIME_SECONDS: u64 = 5 * 60;
+const PAIRING_FAILURE_WINDOW_SECONDS: u64 = 60;
+const MAX_PAIRING_FAILURES_PER_WINDOW: usize = 8;
+const MAX_DEVICE_ID_LENGTH: usize = 128;
+const MAX_DEVICE_NAME_LENGTH: usize = 80;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pairing {
@@ -19,12 +24,15 @@ pub struct Pairing {
 pub enum PairingError {
     InvalidOrUsed,
     Expired,
+    InvalidDevice,
+    RateLimited { retry_after_seconds: u64 },
     Storage(String),
 }
 
 pub struct RemoteAuth {
     store: Arc<Mutex<MetadataStore>>,
     pending: HashMap<Vec<u8>, u64>,
+    exchange_failures: HashMap<IpAddr, VecDeque<u64>>,
 }
 
 impl RemoteAuth {
@@ -32,6 +40,7 @@ impl RemoteAuth {
         Self {
             store,
             pending: HashMap::new(),
+            exchange_failures: HashMap::new(),
         }
     }
 
@@ -58,8 +67,11 @@ impl RemoteAuth {
         &mut self,
         pairing_token: &str,
         device_id: &str,
+        device_name: &str,
         now: u64,
     ) -> Result<String, PairingError> {
+        let device_id = validate_device_id(device_id)?;
+        let device_name = normalize_device_name(device_name);
         let token_hash = hash(pairing_token);
         let expires_at = self
             .pending
@@ -76,12 +88,57 @@ impl RemoteAuth {
         self.store
             .lock()
             .map_err(|_| PairingError::Storage("metadata store poisoned".into()))?
-            .store_device_token(device_id, &device_token)
+            .store_device_token(device_id, &device_name, &device_token)
             .map_err(PairingError::Storage)?;
         Ok(device_token)
     }
 
-    pub fn authorize(&self, device_token: &str) -> Result<bool, String> {
+    pub fn exchange_from(
+        &mut self,
+        peer_ip: IpAddr,
+        pairing_token: &str,
+        device_id: &str,
+        device_name: &str,
+        now: u64,
+    ) -> Result<String, PairingError> {
+        if let Some(retry_after_seconds) = self.retry_after(peer_ip, now) {
+            return Err(PairingError::RateLimited {
+                retry_after_seconds,
+            });
+        }
+        match self.exchange(pairing_token, device_id, device_name, now) {
+            Ok(token) => {
+                self.exchange_failures.remove(&peer_ip);
+                Ok(token)
+            }
+            Err(error @ (PairingError::InvalidOrUsed | PairingError::Expired)) => {
+                self.exchange_failures
+                    .entry(peer_ip)
+                    .or_default()
+                    .push_back(now);
+                Err(error)
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn retry_after(&mut self, peer_ip: IpAddr, now: u64) -> Option<u64> {
+        let failures = self.exchange_failures.get_mut(&peer_ip)?;
+        while failures
+            .front()
+            .is_some_and(|attempt| now.saturating_sub(*attempt) >= PAIRING_FAILURE_WINDOW_SECONDS)
+        {
+            failures.pop_front();
+        }
+        if failures.len() < MAX_PAIRING_FAILURES_PER_WINDOW {
+            return None;
+        }
+        failures
+            .front()
+            .map(|first| PAIRING_FAILURE_WINDOW_SECONDS.saturating_sub(now.saturating_sub(*first)))
+    }
+
+    pub fn authorize(&mut self, device_token: &str) -> Result<bool, String> {
         self.store
             .lock()
             .map_err(|_| "metadata store poisoned".to_string())?
@@ -94,6 +151,34 @@ impl RemoteAuth {
             .map_err(|_| "metadata store poisoned".to_string())?
             .revoke_device(device_id)
     }
+
+    pub fn list_devices(&self) -> Result<Vec<PairedDeviceRecord>, String> {
+        self.store
+            .lock()
+            .map_err(|_| "metadata store poisoned".to_string())?
+            .list_paired_devices()
+    }
+}
+
+fn validate_device_id(device_id: &str) -> Result<&str, PairingError> {
+    let device_id = device_id.trim();
+    if device_id.is_empty()
+        || device_id.len() > MAX_DEVICE_ID_LENGTH
+        || !device_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err(PairingError::InvalidDevice);
+    }
+    Ok(device_id)
+}
+
+fn normalize_device_name(device_name: &str) -> String {
+    let normalized = device_name.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        return "Mobile device".to_string();
+    }
+    normalized.chars().take(MAX_DEVICE_NAME_LENGTH).collect()
 }
 
 fn hash(token: &str) -> Vec<u8> {
@@ -125,10 +210,12 @@ mod tests {
         let pairing = auth.create_pairing(1_000);
         assert_eq!(pairing.expires_at, 1_300);
 
-        let device_token = auth.exchange(&pairing.token, "phone", 1_001).unwrap();
+        let device_token = auth
+            .exchange(&pairing.token, "phone", "Alice's phone", 1_001)
+            .unwrap();
         assert!(auth.authorize(&device_token).unwrap());
         assert_eq!(
-            auth.exchange(&pairing.token, "second-phone", 1_002),
+            auth.exchange(&pairing.token, "second-phone", "Second phone", 1_002),
             Err(PairingError::InvalidOrUsed)
         );
         assert!(
@@ -144,14 +231,44 @@ mod tests {
         let (mut auth, temp) = auth();
         let expired = auth.create_pairing(2_000);
         assert_eq!(
-            auth.exchange(&expired.token, "phone", 2_301),
+            auth.exchange(&expired.token, "phone", "Phone", 2_301),
             Err(PairingError::Expired)
         );
 
         let pairing = auth.create_pairing(3_000);
-        let token = auth.exchange(&pairing.token, "phone", 3_001).unwrap();
+        let token = auth
+            .exchange(&pairing.token, "phone", "Phone", 3_001)
+            .unwrap();
+        let devices = auth.list_devices().unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].device_name, "Phone");
         auth.revoke("phone").unwrap();
         assert!(!auth.authorize(&token).unwrap());
+        assert!(auth.list_devices().unwrap()[0].revoked_at.is_some());
+        drop(auth);
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn rate_limits_repeated_invalid_pairing_exchanges_by_peer() {
+        let (mut auth, temp) = auth();
+        let peer = "192.168.1.20".parse().unwrap();
+        for attempt in 0..8 {
+            assert_eq!(
+                auth.exchange_from(peer, "invalid", "phone", "Phone", 4_000 + attempt),
+                Err(PairingError::InvalidOrUsed)
+            );
+        }
+        assert_eq!(
+            auth.exchange_from(peer, "invalid", "phone", "Phone", 4_008),
+            Err(PairingError::RateLimited {
+                retry_after_seconds: 52
+            })
+        );
+        assert_eq!(
+            auth.exchange_from(peer, "invalid", "phone", "Phone", 4_060),
+            Err(PairingError::InvalidOrUsed)
+        );
         drop(auth);
         fs::remove_dir_all(temp).unwrap();
     }

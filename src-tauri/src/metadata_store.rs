@@ -5,7 +5,16 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PairedDeviceRecord {
+    pub device_id: String,
+    pub device_name: String,
+    pub paired_at: i64,
+    pub last_seen_at: i64,
+    pub revoked_at: Option<i64>,
+}
 
 pub struct MetadataStore {
     connection: Connection,
@@ -66,7 +75,9 @@ impl MetadataStore {
                 CREATE TABLE IF NOT EXISTS paired_devices (
                     device_id TEXT PRIMARY KEY,
                     token_hash BLOB NOT NULL UNIQUE,
+                    device_name TEXT NOT NULL DEFAULT 'Mobile device',
                     paired_at INTEGER NOT NULL DEFAULT (unixepoch()),
+                    last_seen_at INTEGER NOT NULL DEFAULT (unixepoch()),
                     revoked_at INTEGER
                 );
                 CREATE TABLE IF NOT EXISTS preferences (
@@ -78,6 +89,41 @@ impl MetadataStore {
             .map_err(|error| {
                 format!("Cannot migrate ZiCode Studio Desktop metadata schema: {error}")
             })?;
+        if current < 2 {
+            let columns = transaction
+                .prepare("PRAGMA table_info(paired_devices)")
+                .and_then(|mut statement| {
+                    statement
+                        .query_map([], |row| row.get::<_, String>(1))?
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .map_err(|error| format!("Cannot inspect paired device metadata: {error}"))?;
+            if !columns.iter().any(|column| column == "device_name") {
+                transaction
+                    .execute(
+                        "ALTER TABLE paired_devices ADD COLUMN device_name TEXT NOT NULL DEFAULT 'Mobile device'",
+                        [],
+                    )
+                    .map_err(|error| format!("Cannot add paired device name: {error}"))?;
+            }
+            if !columns.iter().any(|column| column == "last_seen_at") {
+                transaction
+                    .execute(
+                        "ALTER TABLE paired_devices ADD COLUMN last_seen_at INTEGER NOT NULL DEFAULT 0",
+                        [],
+                    )
+                    .map_err(|error| format!("Cannot add paired device activity: {error}"))?;
+                transaction
+                    .execute(
+                        "UPDATE paired_devices SET last_seen_at = paired_at WHERE last_seen_at = 0",
+                        [],
+                    )
+                    .map_err(|error| format!("Cannot migrate paired device activity: {error}"))?;
+            }
+            transaction
+                .pragma_update(None, "user_version", SCHEMA_VERSION)
+                .map_err(|error| format!("Cannot update metadata schema version: {error}"))?;
+        }
         transaction.commit().map_err(|error| {
             format!("Cannot commit ZiCode Studio Desktop metadata migration: {error}")
         })
@@ -136,24 +182,41 @@ impl MetadataStore {
         Ok(id)
     }
 
-    pub fn store_device_token(&mut self, device_id: &str, token: &str) -> Result<(), String> {
+    pub fn store_device_token(
+        &mut self,
+        device_id: &str,
+        device_name: &str,
+        token: &str,
+    ) -> Result<(), String> {
         let token_hash = token_hash(token);
         self.connection
             .execute(
-                "INSERT INTO paired_devices (device_id, token_hash, revoked_at)
-                 VALUES (?1, ?2, NULL)
+                "INSERT INTO paired_devices (
+                    device_id, token_hash, device_name, paired_at, last_seen_at, revoked_at
+                 ) VALUES (?1, ?2, ?3, unixepoch(), unixepoch(), NULL)
                  ON CONFLICT(device_id) DO UPDATE SET
                    token_hash = excluded.token_hash,
+                   device_name = excluded.device_name,
                    paired_at = unixepoch(),
+                   last_seen_at = unixepoch(),
                    revoked_at = NULL",
-                params![device_id, token_hash],
+                params![device_id, token_hash, device_name],
             )
             .map_err(|error| format!("Cannot store paired device: {error}"))?;
         Ok(())
     }
 
-    pub fn verify_device_token(&self, token: &str) -> Result<bool, String> {
+    pub fn verify_device_token(&mut self, token: &str) -> Result<bool, String> {
         let token_hash = token_hash(token);
+        self.connection
+            .execute(
+                "UPDATE paired_devices
+                 SET last_seen_at = unixepoch()
+                 WHERE token_hash = ?1 AND revoked_at IS NULL
+                   AND last_seen_at < unixepoch() - 60",
+                [&token_hash],
+            )
+            .map_err(|error| format!("Cannot update paired device activity: {error}"))?;
         self.connection
             .query_row(
                 "SELECT EXISTS(
@@ -163,6 +226,31 @@ impl MetadataStore {
                 |row| row.get(0),
             )
             .map_err(|error| format!("Cannot verify paired device: {error}"))
+    }
+
+    pub fn list_paired_devices(&self) -> Result<Vec<PairedDeviceRecord>, String> {
+        let mut statement = self
+            .connection
+            .prepare(
+                "SELECT device_id, device_name, paired_at, last_seen_at, revoked_at
+                 FROM paired_devices
+                 ORDER BY revoked_at IS NOT NULL, last_seen_at DESC, paired_at DESC",
+            )
+            .map_err(|error| format!("Cannot prepare paired device list: {error}"))?;
+        let devices = statement
+            .query_map([], |row| {
+                Ok(PairedDeviceRecord {
+                    device_id: row.get(0)?,
+                    device_name: row.get(1)?,
+                    paired_at: row.get(2)?,
+                    last_seen_at: row.get(3)?,
+                    revoked_at: row.get(4)?,
+                })
+            })
+            .map_err(|error| format!("Cannot list paired devices: {error}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("Cannot read paired device: {error}"))?;
+        Ok(devices)
     }
 
     pub fn revoke_device(&mut self, device_id: &str) -> Result<(), String> {
@@ -198,6 +286,7 @@ fn token_hash(token: &str) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::MetadataStore;
+    use rusqlite::Connection;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -222,13 +311,17 @@ mod tests {
         let first = store.workspace_id_for_path(&workspace).unwrap();
         let second = store.workspace_id_for_path(&workspace).unwrap();
         assert_eq!(first, second);
-        assert_eq!(store.schema_version().unwrap(), 1);
+        assert_eq!(store.schema_version().unwrap(), 2);
 
         store
-            .store_device_token("phone", "plain-device-token")
+            .store_device_token("phone", "Alice's phone", "plain-device-token")
             .unwrap();
         assert!(store.verify_device_token("plain-device-token").unwrap());
         assert!(!store.verify_device_token("wrong-token").unwrap());
+        let devices = store.list_paired_devices().unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].device_name, "Alice's phone");
+        assert!(devices[0].revoked_at.is_none());
         let bytes = fs::read(&database).unwrap();
         assert!(!String::from_utf8_lossy(&bytes).contains("plain-device-token"));
         store.revoke_device("phone").unwrap();
@@ -255,7 +348,46 @@ mod tests {
             fs::read_to_string(session).unwrap(),
             "{\"type\":\"session\"}\n"
         );
-        assert_eq!(store.schema_version().unwrap(), 1);
+        assert_eq!(store.schema_version().unwrap(), 2);
+        drop(store);
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn migrates_existing_paired_devices_without_losing_revocation_state() {
+        let temp = temp_dir();
+        let database = temp.join("picot.sqlite3");
+        let connection = Connection::open(&database).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE paired_devices (
+                    device_id TEXT PRIMARY KEY,
+                    token_hash BLOB NOT NULL UNIQUE,
+                    paired_at INTEGER NOT NULL,
+                    revoked_at INTEGER
+                );
+                CREATE TABLE workspaces (
+                    workspace_id TEXT PRIMARY KEY,
+                    canonical_path TEXT NOT NULL UNIQUE,
+                    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+                );
+                CREATE TABLE preferences (
+                    key TEXT PRIMARY KEY,
+                    value_json TEXT NOT NULL
+                );
+                INSERT INTO paired_devices VALUES ('old-phone', X'0102', 1234, 1300);
+                PRAGMA user_version = 1;",
+            )
+            .unwrap();
+        drop(connection);
+
+        let store = MetadataStore::open(&database).unwrap();
+        assert_eq!(store.schema_version().unwrap(), 2);
+        let devices = store.list_paired_devices().unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].device_name, "Mobile device");
+        assert_eq!(devices[0].last_seen_at, 1234);
+        assert_eq!(devices[0].revoked_at, Some(1300));
         drop(store);
         fs::remove_dir_all(temp).unwrap();
     }

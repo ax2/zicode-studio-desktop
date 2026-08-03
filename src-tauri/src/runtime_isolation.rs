@@ -65,6 +65,8 @@ fn prepare_runtime_isolation_at(
         merge_shell_path(&agent_dir.join("settings.json"), &bash_path)?;
     }
 
+    crate::credential_broker::prepare_scene_credentials(root, &target.scene_id, &agent_dir)?;
+
     let environment = BTreeMap::from([
         ("PI_CODING_AGENT_DIR".to_string(), path_string(&agent_dir)),
         (
@@ -72,6 +74,10 @@ fn prepare_runtime_isolation_at(
             path_string(&session_dir),
         ),
         ("PI_DESKTOP_SCENE_ID".to_string(), target.scene_id.clone()),
+        (
+            "PI_DESKTOP_CREDENTIAL_BROKER".to_string(),
+            "system".to_string(),
+        ),
         (
             "PI_DESKTOP_INSTANCE_ID".to_string(),
             target.instance_id.clone(),

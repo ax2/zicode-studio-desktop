@@ -18,9 +18,9 @@ fn bundled_extension_names_for_launch(cwd: &Path, is_saved_session: bool) -> Vec
         .trim_end_matches('/')
         .ends_with("/zicode/workspaces/agent-inbox");
     if is_agent_inbox && is_saved_session {
-        vec!["picot-bridge.mjs", "pi-chat.mjs"]
+        vec!["picot-bridge.mjs", "plugin-broker.mjs", "pi-chat.mjs"]
     } else {
-        vec!["picot-bridge.mjs"]
+        vec!["picot-bridge.mjs", "plugin-broker.mjs"]
     }
 }
 
@@ -51,6 +51,13 @@ fn resolve_bundled_extension(static_dir: &Path, extension_name: &str) -> Result<
                     .join("extensions")
                     .join("chat-inbox")
                     .join("extension-entry.ts"),
+            );
+        } else if extension_name == "plugin-broker.mjs" {
+            candidates.push(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("..")
+                    .join("extensions")
+                    .join("plugin-broker.ts"),
             );
         }
     }
@@ -125,7 +132,7 @@ mod tests {
                 Path::new("/Users/me/zicode/workspaces/agent-inbox"),
                 true,
             ),
-            vec!["picot-bridge.mjs", "pi-chat.mjs"]
+            vec!["picot-bridge.mjs", "plugin-broker.mjs", "pi-chat.mjs"]
         );
     }
 
@@ -133,7 +140,7 @@ mod tests {
     fn regular_projects_do_not_compete_for_the_chat_listener() {
         assert_eq!(
             bundled_extension_names_for_launch(Path::new("/Users/me/code/project"), true),
-            vec!["picot-bridge.mjs"]
+            vec!["picot-bridge.mjs", "plugin-broker.mjs"]
         );
     }
 
@@ -144,7 +151,7 @@ mod tests {
                 Path::new("/Users/me/zicode/workspaces/agent-inbox"),
                 false,
             ),
-            vec!["picot-bridge.mjs"]
+            vec!["picot-bridge.mjs", "plugin-broker.mjs"]
         );
     }
 }

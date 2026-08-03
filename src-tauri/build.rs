@@ -33,7 +33,7 @@ fn main() {
             err
         )
     });
-    for generated_resource in ["pi", "portable-git", "webview2"] {
+    for generated_resource in ["pi", "portable-git", "webview2", "bun"] {
         fs::create_dir_all(resources_dir.join(generated_resource)).unwrap_or_else(|err| {
             panic!(
                 "failed to create generated resource directory {}: {}",
@@ -73,6 +73,7 @@ fn main() {
     println!("cargo:rerun-if-changed=../scripts/pi-version.json");
     println!("cargo:rerun-if-changed=../scripts/portable-git-version.json");
     println!("cargo:rerun-if-changed=../scripts/webview2-version.json");
+    println!("cargo:rerun-if-changed=../scripts/bun-runtime-version.json");
     println!("cargo:rerun-if-changed=../extensions/picot-bridge.ts");
     println!("cargo:rerun-if-changed=../extensions/dist/picot-bridge.mjs");
     println!("cargo:rerun-if-env-changed=PI_STUDIO_SKIP_BIN_CHECK");
@@ -94,6 +95,12 @@ fn main() {
 
     let bin_path = manifest_dir.join("resources").join("pi").join(bin_name);
     let extension_bundle_path = extension_dist_dir.join("picot-bridge.mjs");
+    let bun_name = if cfg!(target_os = "windows") {
+        "bun.exe"
+    } else {
+        "bun"
+    };
+    let bun_path = manifest_dir.join("resources").join("bun").join(bun_name);
 
     if !bin_path.is_file() {
         panic!(
@@ -123,6 +130,13 @@ fn main() {
              To bypass this check (NOT for shipping builds), set\n\
              PI_STUDIO_SKIP_BIN_CHECK=1.\n\n",
             extension_bundle_path.display()
+        );
+    }
+
+    if !bun_path.is_file() {
+        panic!(
+            "\n\nZiCode Studio Desktop release build aborted: bundled Bun is missing.\nExpected: {}\n\nFix: run `bun run fetch:bun-runtime`.\n",
+            bun_path.display()
         );
     }
 

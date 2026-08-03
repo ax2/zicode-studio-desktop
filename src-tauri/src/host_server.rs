@@ -1,27 +1,37 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
+use crate::artifact_store::{ArtifactDraft, ArtifactError, ArtifactStore};
 use crate::host_data::{HostDataError, HostDataPlane};
 use crate::host_router::{HostRouter, RoutedAction, PROTOCOL_VERSION};
-use crate::native_pi_manager::NativePiManager;
+use crate::native_pi_manager::{NativeLaunchSpec, NativePiManager};
+use crate::notes_vault::{content_hash, now_iso, NoteSource, NotesError, NotesVault, VaultExport};
 use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunchResolver};
-use crate::remote_auth::RemoteAuth;
+use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
+use crate::plugin_package::SignedPluginPreview;
+use crate::plugin_registry::PluginRegistry;
+use crate::remote_auth::{PairingError, RemoteAuth};
 use crate::runtime_coordinator::{RuntimeStatus, RuntimeTarget};
+use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::Query;
-use axum::extract::{DefaultBodyLimit, Json, State};
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Json, Request, State};
 #[cfg(debug_assertions)]
 use axum::http::header::{CACHE_CONTROL, PRAGMA};
 #[cfg(debug_assertions)]
 use axum::http::HeaderValue;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
+use base64::Engine;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -32,8 +42,27 @@ use tower_http::services::{ServeDir, ServeFile};
 #[cfg(debug_assertions)]
 use tower_http::set_header::SetResponseHeaderLayer;
 
-const MAX_HTTP_BODY_BYTES: usize = 1024 * 1024;
+const MAX_HTTP_BODY_BYTES: usize = 2 * 1024 * 1024;
+const MAX_ATTACHMENT_HTTP_BODY_BYTES: usize = 8 * 1024 * 1024;
+const MAX_BACKUP_HTTP_BODY_BYTES: usize = 70 * 1024 * 1024;
 const MAX_WS_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+const PLUGIN_BROKER_TOKEN_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+
+#[derive(Clone)]
+struct RuntimePluginToken {
+    token_hash: String,
+    target: RuntimeTarget,
+    expires_at: SystemTime,
+}
+
+#[derive(Clone, Default)]
+struct RemoteAccessRuntime {
+    running: bool,
+    urls: Vec<String>,
+    enrollment_urls: Vec<String>,
+    ca_certificate_pem: String,
+    ca_fingerprint: String,
+}
 
 struct HostState {
     router: Mutex<HostRouter>,
@@ -41,17 +70,34 @@ struct HostState {
     auth: Arc<Mutex<RemoteAuth>>,
     session_owners: Mutex<std::collections::HashMap<RuntimeTarget, String>>,
     data: HostDataPlane,
+    plugins: Mutex<PluginRegistry>,
+    capability_broker: Mutex<CapabilityBroker>,
+    notes: Mutex<NotesVault>,
+    artifacts: Mutex<ArtifactStore>,
+    plugin_tokens: Mutex<HashMap<String, RuntimePluginToken>>,
     pi_launch: PiLaunchResolver,
     allowed_origin: String,
+    allowed_origins: HashSet<String>,
+    remote_access: RemoteAccessRuntime,
 }
 
 pub struct HostServer {
     origin: String,
     shutdown: Option<oneshot::Sender<()>>,
+    lan_shutdown: Option<axum_server::Handle<SocketAddr>>,
+    enrollment_shutdown: Option<oneshot::Sender<()>>,
     state: Arc<HostState>,
 }
 
 impl HostServer {
+    pub fn notes_vault(&self) -> Result<NotesVault, String> {
+        self.state
+            .notes
+            .lock()
+            .map(|vault| vault.clone())
+            .map_err(|_| "Notes vault is unavailable".to_string())
+    }
+
     pub async fn start(
         static_dir: PathBuf,
         runtimes: NativePiManager,
@@ -99,14 +145,56 @@ impl HostServer {
             .local_addr()
             .map_err(|error| format!("Cannot read ZiCode Studio Desktop Host address: {error}"))?;
         let loopback_origin = format!("http://127.0.0.1:{}", address.port());
+        let remote_access_enabled = configured_remote_access_enabled()?;
+        let prepared_remote = if remote_access_enabled {
+            Some(crate::remote_tls::prepare_lan_listener().await?)
+        } else {
+            None
+        };
+        let mut allowed_origins = HashSet::from([loopback_origin.clone()]);
+        if let Some(prepared) = &prepared_remote {
+            allowed_origins.extend(prepared.urls.iter().cloned());
+        }
+        #[cfg(test)]
+        let plugin_root = static_dir
+            .parent()
+            .unwrap_or(&static_dir)
+            .join("test-plugin-registry");
+        #[cfg(not(test))]
+        let plugin_root = crate::app_paths::plugins_root()?;
+        let plugins = PluginRegistry::open(plugin_root.clone())
+            .map_err(|error| format!("Cannot initialize application plugin registry: {error}"))?;
+        let notes = NotesVault::new(plugin_root.clone())
+            .map_err(|error| format!("Cannot initialize Notes vault: {error}"))?;
+        let artifacts = ArtifactStore::new(plugin_root.clone())
+            .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?;
+        let capability_broker = CapabilityBroker::new(plugin_root)
+            .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?;
+        let remote_access = prepared_remote
+            .as_ref()
+            .map(|prepared| RemoteAccessRuntime {
+                running: true,
+                urls: prepared.urls.clone(),
+                enrollment_urls: prepared.enrollment_urls.clone(),
+                ca_certificate_pem: prepared.ca_certificate_pem.clone(),
+                ca_fingerprint: prepared.ca_fingerprint.clone(),
+            })
+            .unwrap_or_default();
         let state = Arc::new(HostState {
             router: Mutex::new(HostRouter::new()),
             runtimes,
             auth,
             session_owners: Mutex::new(std::collections::HashMap::new()),
             data,
+            plugins: Mutex::new(plugins),
+            capability_broker: Mutex::new(capability_broker),
+            notes: Mutex::new(notes),
+            artifacts: Mutex::new(artifacts),
+            plugin_tokens: Mutex::new(HashMap::new()),
             pi_launch: PiLaunchResolver::new(static_dir.clone()),
             allowed_origin: loopback_origin.clone(),
+            allowed_origins,
+            remote_access,
         });
         let index = static_dir.join("index.html");
         let static_service = ServeDir::new(static_dir).fallback(ServeFile::new(index));
@@ -126,20 +214,110 @@ impl HostServer {
             .route("/v2/ws", get(websocket_upgrade))
             .route("/v2/bootstrap", get(bootstrap_target))
             .route("/v2/sessions", get(list_all_sessions_http))
+            .route("/v2/plugins", get(list_plugins))
+            .route("/v2/plugins/enablement", post(set_plugin_enablement))
+            .route("/v2/plugins/permission", post(set_plugin_permission))
+            .route("/v2/plugins/reload", post(reload_plugins))
+            .route("/v2/plugins/uninstall", post(uninstall_plugin))
+            .route("/v2/plugin-views/source", get(read_plugin_view_source))
+            .route("/v2/plugin-capabilities", get(list_plugin_capabilities))
+            .route(
+                "/v2/plugin-capabilities/invoke",
+                post(invoke_plugin_capability),
+            )
+            .route("/v2/plugin-commands/invoke", post(invoke_plugin_command))
+            .route("/v2/plugin-tools/invoke", post(invoke_plugin_tool))
+            .route("/v2/notes", get(list_notes))
+            .route("/v2/notes/knowledge", get(list_note_knowledge))
+            .route("/v2/notes/changes", get(list_note_changes))
+            .route("/v2/notes/notebooks", post(create_notebook))
+            .route("/v2/notes/note", get(get_note))
+            .route("/v2/notes/create", post(create_note))
+            .route("/v2/notes/save", post(save_note))
+            .route("/v2/notes/delete", post(delete_note))
+            .route("/v2/notes/capture", post(capture_note))
+            .route(
+                "/v2/notes/attachments",
+                post(upload_note_attachment)
+                    .layer(DefaultBodyLimit::max(MAX_ATTACHMENT_HTTP_BODY_BYTES)),
+            )
+            .route("/v2/notes/attachment", get(read_note_attachment))
+            .route("/v2/notes/import-markdown", post(import_markdown_note))
+            .route("/v2/notes/export", get(export_notes_backup))
+            .route(
+                "/v2/notes/import-backup",
+                post(import_notes_backup).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
+            )
+            .route("/v2/notes/rebuild", post(rebuild_notes_index))
+            .route("/v2/artifacts", get(list_artifacts))
+            .route("/v2/artifacts/item", get(get_artifact))
+            .route("/v2/artifacts/create", post(create_artifact))
+            .route("/v2/artifacts/delete", post(delete_artifact))
             .route("/v2/auth/exchange", post(exchange_pairing))
+            .route("/v2/auth/ca.pem", get(download_remote_ca))
             .route("/v2/lan-qr", get(lan_qr))
             .route("/v2/new-session", post(new_session))
             .route("/v2/resolve-workspace", post(resolve_workspace))
             .fallback_service(static_service)
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                authorize_remote_http,
+            ))
             .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_BYTES))
             .with_state(state.clone());
+        let (lan_shutdown, enrollment_shutdown) = if let Some(prepared) = prepared_remote {
+            let handle = axum_server::Handle::new();
+            let server_handle = handle.clone();
+            let lan_app = app.clone();
+            let enrollment_listener =
+                tokio::net::TcpListener::from_std(prepared.enrollment_listener)
+                    .map_err(|error| format!("Cannot start mobile setup listener: {error}"))?;
+            let enrollment_app = crate::remote_enrollment::router(
+                prepared.ca_certificate_pem.clone(),
+                prepared.ca_fingerprint.clone(),
+            );
+            let (enrollment_tx, enrollment_rx) = oneshot::channel();
+            tokio::spawn(async move {
+                if let Err(error) = axum::serve(enrollment_listener, enrollment_app)
+                    .with_graceful_shutdown(async {
+                        let _ = enrollment_rx.await;
+                    })
+                    .await
+                {
+                    log::error!("[picot-host] mobile setup server stopped unexpectedly: {error}");
+                }
+            });
+            tokio::spawn(async move {
+                let server =
+                    match axum_server::from_tcp_rustls(prepared.listener, prepared.tls_config) {
+                        Ok(server) => server,
+                        Err(error) => {
+                            log::error!("[picot-host] cannot start secure mobile server: {error}");
+                            return;
+                        }
+                    };
+                if let Err(error) = server
+                    .handle(server_handle)
+                    .serve(lan_app.into_make_service_with_connect_info::<SocketAddr>())
+                    .await
+                {
+                    log::error!("[picot-host] secure mobile server stopped unexpectedly: {error}");
+                }
+            });
+            (Some(handle), Some(enrollment_tx))
+        } else {
+            (None, None)
+        };
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         tokio::spawn(async move {
-            if let Err(error) = axum::serve(listener, app)
-                .with_graceful_shutdown(async {
-                    let _ = shutdown_rx.await;
-                })
-                .await
+            if let Err(error) = axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
             {
                 log::error!("[picot-host] server stopped unexpectedly: {error}");
             }
@@ -147,6 +325,8 @@ impl HostServer {
         Ok(Self {
             origin: loopback_origin,
             shutdown: Some(shutdown_tx),
+            lan_shutdown,
+            enrollment_shutdown,
             state,
         })
     }
@@ -159,13 +339,6 @@ impl HostServer {
             .data
             .register_workspace(workspace_id, root)
             .map_err(|error| format!("Cannot register workspace: {error:?}"))
-    }
-
-    pub fn workspace_root_path(&self, workspace_id: &str) -> Result<PathBuf, String> {
-        self.state
-            .data
-            .workspace_root_path(workspace_id)
-            .map_err(|error| format!("Cannot resolve workspace path: {error:?}"))
     }
 
     pub fn scene_id_for_session(
@@ -183,11 +356,125 @@ impl HostServer {
         &self.origin
     }
 
+    pub fn configure_plugin_broker(
+        &self,
+        target: &RuntimeTarget,
+        launch: &mut NativeLaunchSpec,
+    ) -> Result<(), String> {
+        configure_plugin_broker_for_state(&self.state, target, launch)
+    }
+
+    pub fn install_developer_plugin(&self, source: &std::path::Path) -> Result<String, String> {
+        self.state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .install_developer(source)
+    }
+
+    pub fn preview_signed_plugin(
+        &self,
+        package: &std::path::Path,
+    ) -> Result<SignedPluginPreview, String> {
+        self.state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .preview_signed(package)
+    }
+
+    pub fn install_signed_plugin(
+        &self,
+        package: &std::path::Path,
+        trust_publisher: bool,
+    ) -> Result<String, String> {
+        self.state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .install_signed(package, trust_publisher)
+    }
+
+    pub fn rollback_signed_plugin(&self, plugin_id: &str, version: &str) -> Result<(), String> {
+        self.state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .rollback_signed(plugin_id, version)
+    }
+
+    pub fn revoke_plugin_publisher(&self, key_id: &str) -> Result<(), String> {
+        self.state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .revoke_signed_publisher(key_id)
+    }
+
     pub fn stop(mut self) {
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
         }
+        if let Some(handle) = self.lan_shutdown.take() {
+            handle.graceful_shutdown(Some(Duration::from_secs(5)));
+        }
+        if let Some(shutdown) = self.enrollment_shutdown.take() {
+            let _ = shutdown.send(());
+        }
     }
+}
+
+fn configure_plugin_broker_for_state(
+    state: &HostState,
+    target: &RuntimeTarget,
+    launch: &mut NativeLaunchSpec,
+) -> Result<(), String> {
+    let tools = state
+        .plugins
+        .lock()
+        .map_err(|_| "Plugin registry is unavailable".to_string())?
+        .pi_tools(&target.scene_id);
+    let token = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let token_hash = sha256_hex(token.as_bytes());
+    let mut tokens = state
+        .plugin_tokens
+        .lock()
+        .map_err(|_| "Plugin broker token store is unavailable".to_string())?;
+    let now = SystemTime::now();
+    tokens.retain(|_, record| record.expires_at > now);
+    tokens.insert(
+        target.instance_id.clone(),
+        RuntimePluginToken {
+            token_hash,
+            target: target.clone(),
+            expires_at: now + PLUGIN_BROKER_TOKEN_TTL,
+        },
+    );
+    launch.environment.insert(
+        "PI_DESKTOP_PLUGIN_HOST_ORIGIN".into(),
+        state.allowed_origin.clone(),
+    );
+    launch
+        .environment
+        .insert("PI_DESKTOP_PLUGIN_BROKER_TOKEN".into(), token);
+    launch.environment.insert(
+        "PI_DESKTOP_PLUGIN_TOOLS".into(),
+        serde_json::to_string(&tools)
+            .map_err(|error| format!("Cannot encode plugin tool snapshot: {error}"))?,
+    );
+    launch.environment.insert(
+        "PI_DESKTOP_PLUGIN_RUNTIME_ID".into(),
+        target.instance_id.clone(),
+    );
+    launch.environment.insert(
+        "PI_DESKTOP_PLUGIN_SESSION_ID".into(),
+        target.session_id.clone(),
+    );
+    Ok(())
 }
 
 impl Drop for HostServer {
@@ -195,25 +482,169 @@ impl Drop for HostServer {
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
         }
+        if let Some(handle) = self.lan_shutdown.take() {
+            handle.graceful_shutdown(Some(Duration::from_secs(5)));
+        }
+        if let Some(shutdown) = self.enrollment_shutdown.take() {
+            let _ = shutdown.send(());
+        }
     }
 }
 
-async fn health() -> Json<Value> {
+async fn health(State(state): State<Arc<HostState>>) -> Json<Value> {
+    let lan_url = state
+        .remote_access
+        .urls
+        .first()
+        .cloned()
+        .unwrap_or_default();
     Json(json!({
         "status": "ok",
         "protocolVersion": PROTOCOL_VERSION,
         "piVersion": crate::pi_launch::locked_pi_version(),
-        "lanUrl": "",
-        "lanAccessEnabled": false,
+        "lanUrl": lan_url,
+        "lanAccessEnabled": state.remote_access.running,
     }))
 }
 
-async fn lan_qr() -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    Err((
-        StatusCode::NOT_FOUND,
-        Json(json!({
-            "error": "LAN access is disabled until authenticated pairing is available"
-        })),
+#[cfg(test)]
+fn configured_remote_access_enabled() -> Result<bool, String> {
+    Ok(false)
+}
+
+#[cfg(not(test))]
+fn configured_remote_access_enabled() -> Result<bool, String> {
+    Ok(crate::remote_access_config::load()?.enabled)
+}
+
+fn public_remote_path(path: &str) -> bool {
+    matches!(
+        path,
+        "/health" | "/v2/ws" | "/v2/auth/exchange" | "/v2/auth/ca.pem"
+    ) || !path.starts_with("/v2/")
+}
+
+async fn download_remote_ca(State(state): State<Arc<HostState>>) -> Response {
+    if !state.remote_access.running || state.remote_access.ca_certificate_pem.is_empty() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(axum::http::header::CONTENT_TYPE, "application/x-pem-file")
+        .header(
+            axum::http::header::CONTENT_DISPOSITION,
+            "attachment; filename=ZiCode-Studio-Mobile-CA.pem",
+        )
+        .body(Body::from(state.remote_access.ca_certificate_pem.clone()))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+fn remote_http_authorized(
+    auth: &Arc<Mutex<RemoteAuth>>,
+    peer_ip: IpAddr,
+    headers: &HeaderMap,
+) -> bool {
+    if peer_ip.is_loopback() {
+        return true;
+    }
+    let Some(token) = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .filter(|value| !value.is_empty())
+    else {
+        return false;
+    };
+    auth.lock()
+        .ok()
+        .and_then(|mut auth| auth.authorize(token).ok())
+        .unwrap_or(false)
+}
+
+async fn authorize_remote_http(
+    State(state): State<Arc<HostState>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if public_remote_path(request.uri().path())
+        || remote_http_authorized(&state.auth, peer.ip(), request.headers())
+    {
+        return next.run(request).await;
+    }
+    api_error(StatusCode::UNAUTHORIZED, "device_auth_required").into_response()
+}
+
+#[derive(Deserialize)]
+struct LanQrQuery {
+    path: Option<String>,
+    kind: Option<String>,
+}
+
+async fn lan_qr(
+    State(state): State<Arc<HostState>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Query(query): Query<LanQrQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if !lan_qr_issuer_allowed(peer.ip()) {
+        return Err(api_error(StatusCode::FORBIDDEN, "desktop_pairing_required"));
+    }
+    let kind = query.kind.as_deref().unwrap_or("session");
+    if kind == "setup" {
+        let Some(url) = state.remote_access.enrollment_urls.first() else {
+            return Err(api_error(StatusCode::NOT_FOUND, "lan_access_disabled"));
+        };
+        return Ok(Json(json!({
+            "kind": "setup",
+            "url": url,
+            "dataUrl": qr_data_url(url)?,
+            "expiresAt": Value::Null,
+            "caFingerprint": state.remote_access.ca_fingerprint,
+        })));
+    }
+    if kind != "session" {
+        return Err(api_error(StatusCode::BAD_REQUEST, "invalid_qr_kind"));
+    }
+    let Some(origin) = state.remote_access.urls.first() else {
+        return Err(api_error(StatusCode::NOT_FOUND, "lan_access_disabled"));
+    };
+    let path = query
+        .path
+        .as_deref()
+        .filter(|path| path.starts_with("/app/") && !path.contains(['?', '#']))
+        .unwrap_or("/");
+    let pairing = state
+        .auth
+        .lock()
+        .map_err(|_| api_error(StatusCode::SERVICE_UNAVAILABLE, "auth_unavailable"))?
+        .create_pairing(now_seconds());
+    let url = format!("{origin}{path}?pairingToken={}", pairing.token);
+    let data_url = qr_data_url(&url)?;
+    Ok(Json(json!({
+        "kind": "session",
+        "url": url,
+        "dataUrl": data_url,
+        "expiresAt": pairing.expires_at,
+        "caFingerprint": state.remote_access.ca_fingerprint,
+    })))
+}
+
+fn lan_qr_issuer_allowed(peer_ip: IpAddr) -> bool {
+    peer_ip.is_loopback()
+}
+
+fn qr_data_url(url: &str) -> Result<String, (StatusCode, Json<Value>)> {
+    let code = qrcode::QrCode::new(url.as_bytes())
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "qr_generation_failed"))?;
+    let svg = code
+        .render::<qrcode::render::svg::Color>()
+        .min_dimensions(320, 320)
+        .dark_color(qrcode::render::svg::Color("#111827"))
+        .light_color(qrcode::render::svg::Color("#ffffff"))
+        .build();
+    Ok(format!(
+        "data:image/svg+xml;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(svg.as_bytes())
     ))
 }
 
@@ -228,6 +659,968 @@ struct BootstrapQuery {
 #[serde(rename_all = "camelCase")]
 struct SessionsQuery {
     workspace_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginsQuery {
+    scene_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginEnablementRequest {
+    scene_id: String,
+    plugin_id: String,
+    enabled: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginPermissionRequest {
+    scene_id: String,
+    plugin_id: String,
+    permission: String,
+    granted: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginUninstallRequest {
+    plugin_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginViewQuery {
+    scene_id: String,
+    plugin_id: String,
+    view_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CapabilityInvokeRequest {
+    scene_id: String,
+    plugin_id: String,
+    capability_id: String,
+    #[serde(default)]
+    input: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CommandInvokeRequest {
+    scene_id: String,
+    command_id: String,
+    #[serde(default)]
+    args: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PluginToolInvokeRequest {
+    runtime_id: String,
+    session_id: String,
+    tool_call_id: String,
+    tool_name: String,
+    #[serde(default)]
+    input: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NotesQuery {
+    scene_id: String,
+    #[serde(default)]
+    notebook_id: Option<String>,
+    #[serde(default)]
+    query: Option<String>,
+    #[serde(default)]
+    tag: Option<String>,
+    #[serde(default)]
+    source_only: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NoteQuery {
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NotesChangesQuery {
+    scene_id: String,
+    #[serde(default)]
+    cursor: Option<String>,
+    #[serde(default = "default_note_changes_limit")]
+    limit: usize,
+}
+
+fn default_note_changes_limit() -> usize {
+    100
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateNotebookRequest {
+    scene_id: String,
+    title: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateNoteRequest {
+    scene_id: String,
+    notebook_id: String,
+    title: String,
+    #[serde(default)]
+    content: String,
+    #[serde(default)]
+    tags: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveNoteRequest {
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+    title: String,
+    content: String,
+    #[serde(default)]
+    tags: Vec<String>,
+    expected_version: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteNoteRequest {
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+    expected_version: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CaptureNoteRequest {
+    scene_id: String,
+    notebook_id: String,
+    url: String,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    tags: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AttachmentRequest {
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+    file_name: String,
+    #[serde(default)]
+    mime_type: String,
+    data_base64: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AttachmentQuery {
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+    attachment_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportMarkdownRequest {
+    scene_id: String,
+    notebook_id: String,
+    file_name: String,
+    markdown: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExportNotesQuery {
+    scene_id: String,
+    notebook_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportBackupRequest {
+    scene_id: String,
+    backup: VaultExport,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RebuildNotesRequest {
+    scene_id: String,
+    notebook_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactsQuery {
+    scene_id: String,
+    #[serde(default)]
+    kind: Option<String>,
+    #[serde(default)]
+    plugin_id: Option<String>,
+    #[serde(default)]
+    query: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactQuery {
+    scene_id: String,
+    artifact_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateArtifactRequest {
+    scene_id: String,
+    plugin_id: String,
+    kind: String,
+    title: String,
+    #[serde(default)]
+    summary: String,
+    mime_type: String,
+    #[serde(default)]
+    provenance: Value,
+    #[serde(default)]
+    content: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteArtifactRequest {
+    scene_id: String,
+    artifact_id: String,
+    expected_version: String,
+}
+
+async fn list_plugins(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<PluginsQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "plugins": registry.list(&query.scene_id),
+        "diagnostics": registry.diagnostics(),
+    })))
+}
+
+async fn read_plugin_view_source(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<PluginViewQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let document = registry
+        .view_document(&query.scene_id, &query.plugin_id, &query.view_id)
+        .map_err(|message| {
+            let (status, code) = if message.contains("not enabled") {
+                (StatusCode::FORBIDDEN, "plugin_not_enabled")
+            } else if message.contains("Unknown") || message.contains("does not declare") {
+                (StatusCode::NOT_FOUND, "view_not_found")
+            } else if message.contains("Built-in") {
+                (StatusCode::BAD_REQUEST, "view_not_external")
+            } else {
+                (StatusCode::UNPROCESSABLE_ENTITY, "view_invalid")
+            };
+            plugin_api_error(status, code, &message)
+        })?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "view": document,
+    })))
+}
+
+async fn list_notes(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<NotesQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let snapshot = state
+        .notes
+        .lock()
+        .map_err(|_| {
+            notes_api_error(NotesError {
+                code: "storage_unavailable",
+                message: "Notes vault is unavailable".into(),
+            })
+        })?
+        .list(
+            query.notebook_id.as_deref(),
+            query.query.as_deref(),
+            query.tag.as_deref(),
+            query.source_only,
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(
+        json!({ "schemaVersion": 1, "sceneId": query.scene_id, "snapshot": snapshot }),
+    ))
+}
+
+async fn list_note_knowledge(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<NotesQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let snapshot = state
+        .notes
+        .lock()
+        .map_err(|_| {
+            notes_api_error(NotesError {
+                code: "storage_unavailable",
+                message: "Notes vault is unavailable".into(),
+            })
+        })?
+        .knowledge()
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "snapshot": snapshot,
+    })))
+}
+
+async fn list_note_changes(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<NotesChangesQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let snapshot = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .changes(query.cursor.as_deref(), query.limit)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "snapshot": snapshot,
+    })))
+}
+
+async fn create_notebook(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CreateNotebookRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notebook = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .create_notebook(&request.title)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "notebook": notebook })))
+}
+
+async fn get_note(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<NoteQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let note = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .get_note(&query.notebook_id, &query.note_id)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "note": note })))
+}
+
+async fn create_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CreateNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let note = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .create_note(
+            &request.notebook_id,
+            &request.title,
+            &request.content,
+            request.tags,
+            None,
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "note": note })))
+}
+
+async fn save_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<SaveNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let note = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .save_note(
+            &request.notebook_id,
+            &request.note_id,
+            &request.title,
+            &request.content,
+            request.tags,
+            &request.expected_version,
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "note": note })))
+}
+
+async fn delete_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<DeleteNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .delete_note(
+            &request.notebook_id,
+            &request.note_id,
+            &request.expected_version,
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "deleted": true, "noteId": request.note_id })))
+}
+
+async fn capture_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CaptureNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    ensure_notes_network_permission(&state, &request.scene_id)?;
+    let captured = fetch_capture_source(&request.url)
+        .await
+        .map_err(notes_api_error)?;
+    let hash = content_hash(&captured.markdown);
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    if let Some(existing) = notes
+        .find_source_duplicate(&hash)
+        .map_err(notes_api_error)?
+    {
+        return Ok(Json(json!({
+            "duplicate": true,
+            "note": existing,
+        })));
+    }
+    let title = request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&captured.title);
+    let mut tags = request.tags;
+    if !tags.iter().any(|tag| tag == "web-clip") {
+        tags.push("web-clip".into());
+    }
+    let note = notes
+        .create_note(
+            &request.notebook_id,
+            title,
+            &captured.markdown,
+            tags,
+            Some(NoteSource {
+                url: captured.final_url,
+                captured_at: now_iso(),
+                content_hash: hash,
+                author: captured.author,
+                published_at: captured.published_at,
+            }),
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "duplicate": false, "note": note })))
+}
+
+async fn upload_note_attachment(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<AttachmentRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(request.data_base64)
+        .map_err(|_| {
+            notes_api_error(NotesError::new(
+                "invalid_parameters",
+                "Attachment data is not valid base64",
+            ))
+        })?;
+    let attachment = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .store_attachment(
+            &request.notebook_id,
+            &request.note_id,
+            &request.file_name,
+            &request.mime_type,
+            &bytes,
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "attachment": attachment })))
+}
+
+async fn read_note_attachment(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<AttachmentQuery>,
+) -> Result<Response, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let (bytes, mime_type) = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .read_attachment(&query.notebook_id, &query.note_id, &query.attachment_id)
+        .map_err(notes_api_error)?;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(axum::http::header::CONTENT_TYPE, mime_type)
+        .header(axum::http::header::CACHE_CONTROL, "private, max-age=300")
+        .header("x-content-type-options", "nosniff")
+        .header("content-security-policy", "default-src 'none'; sandbox")
+        .body(Body::from(bytes))
+        .map_err(|_| notes_unavailable())
+}
+
+async fn import_markdown_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ImportMarkdownRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let note = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .import_markdown(&request.notebook_id, &request.file_name, &request.markdown)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "note": note })))
+}
+
+async fn export_notes_backup(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ExportNotesQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let backup = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .export_notebook(&query.notebook_id)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "backup": backup })))
+}
+
+async fn import_notes_backup(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ImportBackupRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notebook = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .import_export(request.backup)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "notebook": notebook })))
+}
+
+async fn rebuild_notes_index(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<RebuildNotesRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let report = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .rebuild_index(&request.notebook_id)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "report": report })))
+}
+
+async fn list_artifacts(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ArtifactsQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_artifacts_authorized(&state, &query.scene_id, None)?;
+    let snapshot = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?
+        .list(
+            &query.scene_id,
+            query.kind.as_deref(),
+            query.plugin_id.as_deref(),
+            query.query.as_deref(),
+        )
+        .map_err(artifacts_api_error)?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "snapshot": snapshot,
+    })))
+}
+
+async fn get_artifact(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ArtifactQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_artifacts_authorized(&state, &query.scene_id, None)?;
+    let artifact = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?
+        .get(&query.scene_id, &query.artifact_id)
+        .map_err(artifacts_api_error)?;
+    Ok(Json(json!({ "artifact": artifact })))
+}
+
+async fn create_artifact(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CreateArtifactRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_artifacts_authorized(&state, &request.scene_id, Some(&request.plugin_id))?;
+    let artifact = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?
+        .create(ArtifactDraft {
+            scene_id: request.scene_id,
+            plugin_id: request.plugin_id,
+            kind: request.kind,
+            title: request.title,
+            summary: request.summary,
+            mime_type: request.mime_type,
+            provenance: request.provenance,
+            content: request.content,
+        })
+        .map_err(artifacts_api_error)?;
+    Ok(Json(json!({ "artifact": artifact })))
+}
+
+async fn delete_artifact(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<DeleteArtifactRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_artifacts_authorized(&state, &request.scene_id, None)?;
+    state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?
+        .delete(
+            &request.scene_id,
+            &request.artifact_id,
+            &request.expected_version,
+        )
+        .map_err(artifacts_api_error)?;
+    Ok(Json(json!({
+        "deleted": true,
+        "artifactId": request.artifact_id,
+    })))
+}
+
+async fn list_plugin_capabilities(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<PluginsQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "capabilities": registry.capabilities(&query.scene_id),
+    })))
+}
+
+async fn invoke_plugin_capability(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CapabilityInvokeRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let mut broker = state.capability_broker.lock().map_err(|_| {
+        plugin_api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "capability_broker_unavailable",
+            "",
+        )
+    })?;
+    let result = broker
+        .invoke(
+            &registry,
+            CapabilityInvocation {
+                caller: "chat".into(),
+                scene_id: request.scene_id,
+                plugin_id: request.plugin_id,
+                capability_id: request.capability_id,
+                tool_call_id: None,
+                idempotency_scope: None,
+                input: request.input,
+            },
+        )
+        .map_err(capability_api_error)?;
+    Ok(Json(json!({ "result": result })))
+}
+
+async fn invoke_plugin_command(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CommandInvokeRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if request.scene_id.is_empty()
+        || request.command_id.is_empty()
+        || request.command_id.len() > 256
+    {
+        return Err(plugin_api_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_parameters",
+            "sceneId and commandId are required",
+        ));
+    }
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let mut broker = state.capability_broker.lock().map_err(|_| {
+        plugin_api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "capability_broker_unavailable",
+            "",
+        )
+    })?;
+    let result = broker
+        .invoke_command(
+            &registry,
+            &request.scene_id,
+            &request.command_id,
+            request.args,
+        )
+        .map_err(capability_api_error)?;
+    Ok(Json(json!({ "result": result })))
+}
+
+async fn invoke_plugin_tool(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+    Json(request): Json<PluginToolInvokeRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if request.tool_call_id.is_empty()
+        || request.tool_call_id.len() > 256
+        || request.runtime_id.is_empty()
+        || request.session_id.is_empty()
+    {
+        return Err(plugin_api_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_parameters",
+            "runtimeId, sessionId, and toolCallId are required",
+        ));
+    }
+    let bearer = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::UNAUTHORIZED,
+                "broker_auth_required",
+                "A runtime broker token is required",
+            )
+        })?;
+    let record = {
+        let mut tokens = state.plugin_tokens.lock().map_err(|_| {
+            plugin_api_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "broker_auth_unavailable",
+                "",
+            )
+        })?;
+        let now = SystemTime::now();
+        tokens.retain(|_, record| record.expires_at > now);
+        tokens.get(&request.runtime_id).cloned()
+    }
+    .ok_or_else(|| {
+        plugin_api_error(
+            StatusCode::UNAUTHORIZED,
+            "broker_token_invalid",
+            "Runtime broker token is invalid or expired",
+        )
+    })?;
+    if record.token_hash != sha256_hex(bearer.as_bytes())
+        || record.target.session_id != request.session_id
+        || record.target.instance_id != request.runtime_id
+    {
+        return Err(plugin_api_error(
+            StatusCode::UNAUTHORIZED,
+            "broker_token_invalid",
+            "Runtime broker token does not match this runtime",
+        ));
+    }
+    let live = state
+        .runtimes
+        .statuses()
+        .map(|statuses| statuses.iter().any(|status| status.target == record.target))
+        .unwrap_or(false);
+    if !live {
+        return Err(plugin_api_error(
+            StatusCode::GONE,
+            "runtime_stopped",
+            "The runtime that owns this broker token is no longer active",
+        ));
+    }
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let tool = registry
+        .pi_tools(&record.target.scene_id)
+        .into_iter()
+        .find(|tool| tool.name == request.tool_name)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::NOT_FOUND,
+                "tool_unavailable",
+                "The tool is missing, disabled, or not granted for this scene",
+            )
+        })?;
+    let mut broker = state.capability_broker.lock().map_err(|_| {
+        plugin_api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "capability_broker_unavailable",
+            "",
+        )
+    })?;
+    let result = broker
+        .invoke(
+            &registry,
+            CapabilityInvocation {
+                caller: "pi".into(),
+                scene_id: record.target.scene_id.clone(),
+                plugin_id: tool.plugin_id,
+                capability_id: tool.capability,
+                tool_call_id: Some(request.tool_call_id),
+                idempotency_scope: Some(record.target.instance_id),
+                input: request.input,
+            },
+        )
+        .map_err(capability_api_error)?;
+    Ok(Json(json!({ "result": result })))
+}
+
+async fn set_plugin_enablement(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<PluginEnablementRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let mut registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    registry
+        .set_enabled(&request.scene_id, &request.plugin_id, request.enabled)
+        .map_err(|message| {
+            plugin_api_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "enablement_rejected",
+                &message,
+            )
+        })?;
+    Ok(Json(json!({
+        "pluginId": request.plugin_id,
+        "sceneId": request.scene_id,
+        "enabled": request.enabled,
+    })))
+}
+
+async fn set_plugin_permission(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<PluginPermissionRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let mut registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    registry
+        .set_permission(
+            &request.scene_id,
+            &request.plugin_id,
+            &request.permission,
+            request.granted,
+        )
+        .map_err(|message| {
+            plugin_api_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "permission_rejected",
+                &message,
+            )
+        })?;
+    Ok(Json(json!({
+        "pluginId": request.plugin_id,
+        "sceneId": request.scene_id,
+        "permission": request.permission,
+        "granted": request.granted,
+    })))
+}
+
+async fn reload_plugins(
+    State(state): State<Arc<HostState>>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let mut registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    registry.reload_developer_plugins().map_err(|message| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "plugin_reload_failed",
+            &message,
+        )
+    })?;
+    Ok(Json(json!({
+        "reloaded": true,
+        "diagnostics": registry.diagnostics(),
+    })))
+}
+
+async fn uninstall_plugin(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<PluginUninstallRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let mut registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    registry
+        .uninstall_developer(&request.plugin_id)
+        .map_err(|message| {
+            plugin_api_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "uninstall_rejected",
+                &message,
+            )
+        })?;
+    Ok(Json(json!({
+        "pluginId": request.plugin_id,
+        "uninstalled": true,
+        "dataPreserved": true,
+    })))
 }
 
 async fn list_all_sessions_http(
@@ -282,7 +1675,7 @@ async fn bootstrap_target(
         format!("instance-{}", uuid::Uuid::new_v4().simple()),
     )
     .with_scene(scene_id);
-    let launch = state
+    let mut launch = state
         .pi_launch
         .native_launch_spec(
             &cwd.to_string_lossy(),
@@ -290,6 +1683,8 @@ async fn bootstrap_target(
             &target,
         )
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "launch_spec_failed"))?;
+    configure_plugin_broker_for_state(&state, &target, &mut launch)
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "plugin_broker_failed"))?;
     state
         .runtimes
         .spawn(target.clone(), launch)
@@ -320,10 +1715,12 @@ async fn new_session(
     let target = RuntimeTarget::new(body.workspace_id.clone(), session_id, instance_id)
         .with_scene(body.scene_id.as_deref().unwrap_or("programming"));
     let cwd_str = cwd.to_string_lossy().into_owned();
-    let launch = state
+    let mut launch = state
         .pi_launch
         .native_launch_spec(&cwd_str, None, &target)
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "launch_spec_failed"))?;
+    configure_plugin_broker_for_state(&state, &target, &mut launch)
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "plugin_broker_failed"))?;
     state
         .runtimes
         .spawn(target.clone(), launch)
@@ -374,24 +1771,33 @@ async fn resolve_workspace(
 
 async fn websocket_upgrade(
     State(state): State<Arc<HostState>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: axum::http::HeaderMap,
     websocket: WebSocketUpgrade,
 ) -> Response {
-    if let Some(origin) = headers.get(axum::http::header::ORIGIN) {
-        let allowed = origin
-            .to_str()
-            .map(|value| value == state.allowed_origin)
-            .unwrap_or(false);
-        if !allowed {
-            return StatusCode::FORBIDDEN.into_response();
-        }
+    if !websocket_origin_allowed(peer.ip(), &headers, &state.allowed_origins) {
+        return StatusCode::FORBIDDEN.into_response();
     }
     websocket
         .max_message_size(MAX_WS_MESSAGE_BYTES)
-        .on_upgrade(move |socket| handle_websocket(socket, state))
+        .on_upgrade(move |socket| handle_websocket(socket, state, peer.ip()))
 }
 
-async fn handle_websocket(mut socket: WebSocket, state: Arc<HostState>) {
+fn websocket_origin_allowed(
+    peer_ip: IpAddr,
+    headers: &HeaderMap,
+    allowed_origins: &HashSet<String>,
+) -> bool {
+    match headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|origin| origin.to_str().ok())
+    {
+        Some(origin) => allowed_origins.contains(origin),
+        None => peer_ip.is_loopback(),
+    }
+}
+
+async fn handle_websocket(mut socket: WebSocket, state: Arc<HostState>, peer_ip: IpAddr) {
     let Some(Ok(Message::Text(first))) = socket.next().await else {
         return;
     };
@@ -415,10 +1821,28 @@ async fn handle_websocket(mut socket: WebSocket, state: Arc<HostState>) {
             return;
         }
     };
-    if hello.get("clientType").and_then(Value::as_str) == Some("remote") {
-        let authorized = hello
-            .get("deviceToken")
-            .and_then(Value::as_str)
+    let client_type = hello.get("clientType").and_then(Value::as_str);
+    let remote_device_token = (client_type == Some("remote"))
+        .then(|| {
+            hello
+                .get("deviceToken")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .flatten();
+    if !peer_ip.is_loopback() && client_type != Some("remote") {
+        let _ = send_error(
+            &mut socket,
+            None,
+            "remote_auth_required",
+            "Non-loopback clients must authenticate as remote devices",
+        )
+        .await;
+        return;
+    }
+    if client_type == Some("remote") {
+        let authorized = remote_device_token
+            .as_deref()
             .and_then(|token| state.auth.lock().ok()?.authorize(token).ok())
             .unwrap_or(false);
         if !authorized {
@@ -459,8 +1883,26 @@ async fn handle_websocket(mut socket: WebSocket, state: Arc<HostState>) {
 
     let mut runtime_events = state.runtimes.subscribe();
     let mut subscriptions = HashSet::new();
+    let mut remote_auth_check = tokio::time::interval(Duration::from_secs(5));
+    remote_auth_check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         tokio::select! {
+            _ = remote_auth_check.tick(), if remote_device_token.is_some() => {
+                let authorized = remote_device_token
+                    .as_deref()
+                    .and_then(|token| state.auth.lock().ok()?.authorize(token).ok())
+                    .unwrap_or(false);
+                if !authorized {
+                    let _ = send_error(
+                        &mut socket,
+                        None,
+                        "device_access_revoked",
+                        "This device no longer has access",
+                    )
+                    .await;
+                    break;
+                }
+            }
             incoming = socket.next() => {
                 let Some(Ok(message)) = incoming else { break };
                 let Message::Text(text) = message else {
@@ -814,6 +2256,76 @@ async fn dispatch(
                     "expiresAt": pairing.expires_at,
                 }))
             }
+            Some("list_devices") => {
+                let devices = state
+                    .auth
+                    .lock()
+                    .map_err(|_| ("auth_unavailable", "Remote auth unavailable".into()))?
+                    .list_devices()
+                    .map_err(|message| ("device_list_failed", message))?;
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "devices": devices.into_iter().map(|device| json!({
+                        "deviceId": device.device_id,
+                        "deviceName": device.device_name,
+                        "pairedAt": device.paired_at,
+                        "lastSeenAt": device.last_seen_at,
+                        "revokedAt": device.revoked_at,
+                    })).collect::<Vec<_>>(),
+                }))
+            }
+            Some("remote_access_status") => {
+                let config = crate::remote_access_config::load()
+                    .map_err(|message| ("remote_access_config_failed", message))?;
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "configuredEnabled": config.enabled,
+                    "running": state.remote_access.running,
+                    "restartRequired": config.enabled != state.remote_access.running,
+                    "urls": state.remote_access.urls,
+                    "enrollmentUrls": state.remote_access.enrollment_urls,
+                    "caFingerprint": state.remote_access.ca_fingerprint,
+                }))
+            }
+            Some("set_remote_access_enabled") => {
+                let enabled = frame.get("enabled").and_then(Value::as_bool).ok_or((
+                    "invalid_remote_access_setting",
+                    "enabled must be a boolean".into(),
+                ))?;
+                crate::remote_access_config::set_enabled(enabled)
+                    .map_err(|message| ("remote_access_config_failed", message))?;
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "configuredEnabled": enabled,
+                    "running": state.remote_access.running,
+                    "restartRequired": enabled != state.remote_access.running,
+                    "urls": state.remote_access.urls,
+                    "enrollmentUrls": state.remote_access.enrollment_urls,
+                    "caFingerprint": state.remote_access.ca_fingerprint,
+                }))
+            }
+            Some("revoke_device") => {
+                let device_id = frame
+                    .get("deviceId")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.is_empty())
+                    .ok_or(("invalid_device", "deviceId is required".into()))?;
+                state
+                    .auth
+                    .lock()
+                    .map_err(|_| ("auth_unavailable", "Remote auth unavailable".into()))?
+                    .revoke(device_id)
+                    .map_err(|message| ("device_revoke_failed", message))?;
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "deviceId": device_id,
+                    "revoked": true,
+                }))
+            }
             _ => Err((
                 "unknown_auth_operation",
                 "Unsupported auth operation".into(),
@@ -1135,6 +2647,8 @@ fn host_data_http_error(error: HostDataError) -> (StatusCode, Json<Value>) {
 struct PairingExchangeRequest {
     pairing_token: String,
     device_id: String,
+    #[serde(default)]
+    device_name: String,
 }
 
 #[derive(Serialize)]
@@ -1145,21 +2659,604 @@ struct PairingExchangeResponse {
 
 async fn exchange_pairing(
     State(state): State<Arc<HostState>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     Json(request): Json<PairingExchangeRequest>,
 ) -> Result<Json<PairingExchangeResponse>, (StatusCode, Json<Value>)> {
     let token = state
         .auth
         .lock()
         .map_err(|_| api_error(StatusCode::SERVICE_UNAVAILABLE, "auth_unavailable"))?
-        .exchange(&request.pairing_token, &request.device_id, now_seconds())
-        .map_err(|_| api_error(StatusCode::UNAUTHORIZED, "pairing_rejected"))?;
+        .exchange_from(
+            peer.ip(),
+            &request.pairing_token,
+            &request.device_id,
+            &request.device_name,
+            now_seconds(),
+        )
+        .map_err(|error| match error {
+            PairingError::RateLimited { .. } => {
+                api_error(StatusCode::TOO_MANY_REQUESTS, "pairing_rate_limited")
+            }
+            PairingError::InvalidDevice => api_error(StatusCode::BAD_REQUEST, "invalid_device"),
+            PairingError::Storage(_) => {
+                api_error(StatusCode::SERVICE_UNAVAILABLE, "auth_unavailable")
+            }
+            PairingError::InvalidOrUsed | PairingError::Expired => {
+                api_error(StatusCode::UNAUTHORIZED, "pairing_rejected")
+            }
+        })?;
     Ok(Json(PairingExchangeResponse {
         device_token: token,
     }))
 }
 
+fn ensure_notes_authorized(
+    state: &HostState,
+    scene_id: &str,
+    _write: bool,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let notes = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.notes")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Notes is not enabled in this scene",
+            )
+        })?;
+    if !notes
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Notes storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_notes_network_permission(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let granted = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.notes" && plugin.enabled)
+        .and_then(|plugin| plugin.permission_grants.get("network.fetch").copied())
+        .unwrap_or(false);
+    if !granted {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Grant Notes network access in Plugin Manager before capturing a web page",
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_artifacts_authorized(
+    state: &HostState,
+    scene_id: &str,
+    source_plugin_id: Option<&str>,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugins = registry.list(scene_id);
+    let artifacts = plugins
+        .iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.artifacts")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Artifacts is not enabled in this scene",
+            )
+        })?;
+    if !artifacts
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Artifacts storage permission is not granted",
+        ));
+    }
+    if let Some(plugin_id) = source_plugin_id {
+        let source_enabled = plugins
+            .iter()
+            .any(|plugin| plugin.manifest.id == plugin_id && plugin.enabled);
+        if !source_enabled {
+            return Err(plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "source_plugin_not_enabled",
+                "The source plugin is not enabled in this scene",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn notes_unavailable() -> (StatusCode, Json<Value>) {
+    notes_api_error(NotesError {
+        code: "storage_unavailable",
+        message: "Notes vault is unavailable".into(),
+    })
+}
+
+fn artifacts_unavailable() -> (StatusCode, Json<Value>) {
+    artifacts_api_error(ArtifactError::new(
+        "storage_unavailable",
+        "Artifacts store is unavailable",
+    ))
+}
+
+fn artifacts_api_error(error: ArtifactError) -> (StatusCode, Json<Value>) {
+    let status = match error.code {
+        "invalid_parameters" => StatusCode::BAD_REQUEST,
+        "artifact_not_found" => StatusCode::NOT_FOUND,
+        "version_conflict" => StatusCode::CONFLICT,
+        "payload_too_large" | "quota_exceeded" => StatusCode::PAYLOAD_TOO_LARGE,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    plugin_api_error(status, error.code, &error.message)
+}
+
+fn notes_api_error(error: NotesError) -> (StatusCode, Json<Value>) {
+    let status = match error.code {
+        "invalid_parameters" => StatusCode::BAD_REQUEST,
+        "notebook_not_found" | "note_not_found" | "attachment_not_found" => StatusCode::NOT_FOUND,
+        "version_conflict" | "conflict" => StatusCode::CONFLICT,
+        "payload_too_large" | "quota_exceeded" => StatusCode::PAYLOAD_TOO_LARGE,
+        "permission_denied" => StatusCode::FORBIDDEN,
+        "capture_blocked" => StatusCode::FORBIDDEN,
+        "capture_failed" => StatusCode::BAD_GATEWAY,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    plugin_api_error(status, error.code, &error.message)
+}
+
+struct CapturedPage {
+    title: String,
+    markdown: String,
+    final_url: String,
+    author: Option<String>,
+    published_at: Option<String>,
+}
+
+async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError> {
+    const MAX_CAPTURE_BYTES: usize = 2 * 1024 * 1024;
+    const MAX_REDIRECTS: usize = 5;
+    let mut url = reqwest::Url::parse(raw_url)
+        .map_err(|_| NotesError::new("invalid_parameters", "Enter a valid HTTP(S) URL"))?;
+    for redirect_count in 0..=MAX_REDIRECTS {
+        let addresses = validate_capture_url(&url).await?;
+        let host = url
+            .host_str()
+            .ok_or_else(|| NotesError::new("capture_blocked", "URL host is missing"))?;
+        let mut builder = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(20))
+            .user_agent("ZiCode-Notes-Capture/1.0");
+        if !addresses.is_empty() && host.parse::<IpAddr>().is_err() {
+            builder = builder.resolve_to_addrs(host, &addresses);
+        }
+        let client = builder
+            .build()
+            .map_err(|_| NotesError::new("capture_failed", "Cannot initialize web capture"))?;
+        let response = client
+            .get(url.clone())
+            .header(
+                reqwest::header::ACCEPT,
+                "text/html, text/plain;q=0.8, application/xhtml+xml;q=0.7",
+            )
+            .send()
+            .await
+            .map_err(|_| NotesError::new("capture_failed", "Cannot retrieve the web page"))?;
+        if response.status().is_redirection() {
+            if redirect_count == MAX_REDIRECTS {
+                return Err(NotesError::new(
+                    "capture_failed",
+                    "The web page redirected too many times",
+                ));
+            }
+            let location = response
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|value| value.to_str().ok())
+                .ok_or_else(|| {
+                    NotesError::new(
+                        "capture_failed",
+                        "The web page returned an invalid redirect",
+                    )
+                })?;
+            url = url
+                .join(location)
+                .map_err(|_| NotesError::new("capture_failed", "Redirect URL is invalid"))?;
+            continue;
+        }
+        if !response.status().is_success() {
+            return Err(NotesError::new(
+                "capture_failed",
+                format!("The web page returned HTTP {}", response.status().as_u16()),
+            ));
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_CAPTURE_BYTES as u64)
+        {
+            return Err(NotesError::new(
+                "payload_too_large",
+                "The web page exceeds the 2 MiB capture limit",
+            ));
+        }
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("")
+            .to_lowercase();
+        if !content_type.is_empty()
+            && !content_type.starts_with("text/html")
+            && !content_type.starts_with("text/plain")
+            && !content_type.starts_with("application/xhtml+xml")
+        {
+            return Err(NotesError::new(
+                "capture_blocked",
+                "Only HTML and plain-text pages can be captured",
+            ));
+        }
+        let mut bytes = Vec::new();
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk =
+                chunk.map_err(|_| NotesError::new("capture_failed", "Web page download failed"))?;
+            if bytes.len().saturating_add(chunk.len()) > MAX_CAPTURE_BYTES {
+                return Err(NotesError::new(
+                    "payload_too_large",
+                    "The web page exceeds the 2 MiB capture limit",
+                ));
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let text = String::from_utf8(bytes)
+            .map_err(|_| NotesError::new("capture_failed", "The web page is not UTF-8 text"))?;
+        let is_plain = content_type.starts_with("text/plain");
+        let title = if is_plain {
+            url.path_segments()
+                .and_then(|segments| segments.filter(|value| !value.is_empty()).next_back())
+                .unwrap_or(host)
+                .to_string()
+        } else {
+            extract_tag_text(&text, "title")
+                .map(|value| decode_html_entities(&value))
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| host.to_string())
+        };
+        let markdown = if is_plain {
+            text.trim().to_string()
+        } else {
+            html_to_markdown(&text)
+        };
+        if markdown.trim().is_empty() {
+            return Err(NotesError::new(
+                "capture_failed",
+                "No readable page content was found",
+            ));
+        }
+        return Ok(CapturedPage {
+            title: title.trim().chars().take(200).collect(),
+            markdown,
+            final_url: url.to_string(),
+            author: extract_meta_content(&text, &["author", "article:author"]),
+            published_at: extract_meta_content(
+                &text,
+                &[
+                    "article:published_time",
+                    "date",
+                    "datePublished",
+                    "publishdate",
+                ],
+            ),
+        });
+    }
+    Err(NotesError::new(
+        "capture_failed",
+        "The web page could not be captured",
+    ))
+}
+
+async fn validate_capture_url(url: &reqwest::Url) -> Result<Vec<std::net::SocketAddr>, NotesError> {
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err(NotesError::new(
+            "capture_blocked",
+            "Only credential-free HTTP(S) URLs are allowed",
+        ));
+    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| NotesError::new("capture_blocked", "URL host is missing"))?;
+    if host.eq_ignore_ascii_case("localhost") || host.ends_with(".localhost") {
+        return Err(NotesError::new(
+            "capture_blocked",
+            "Loopback and private network URLs are not allowed",
+        ));
+    }
+    let port = url
+        .port_or_known_default()
+        .ok_or_else(|| NotesError::new("capture_blocked", "URL port is invalid"))?;
+    let addresses = if let Ok(address) = host.parse::<IpAddr>() {
+        vec![std::net::SocketAddr::new(address, port)]
+    } else {
+        tokio::net::lookup_host((host, port))
+            .await
+            .map_err(|_| NotesError::new("capture_failed", "Cannot resolve the web page host"))?
+            .collect::<Vec<_>>()
+    };
+    if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
+        return Err(NotesError::new(
+            "capture_blocked",
+            "Loopback and private network URLs are not allowed",
+        ));
+    }
+    Ok(addresses)
+}
+
+fn is_public_ip(address: IpAddr) -> bool {
+    match address {
+        IpAddr::V4(address) => {
+            let [a, b, c, _] = address.octets();
+            !(address.is_private()
+                || address.is_loopback()
+                || address.is_link_local()
+                || address.is_unspecified()
+                || address.is_multicast()
+                || address.is_broadcast()
+                || a == 0
+                || (a == 100 && (64..=127).contains(&b))
+                || (a == 192 && b == 0 && c == 2)
+                || (a == 198 && b == 51 && c == 100)
+                || (a == 203 && b == 0 && c == 113)
+                || (a == 198 && (18..=19).contains(&b)))
+        }
+        IpAddr::V6(address) => {
+            let first = address.segments()[0];
+            !(address.is_loopback()
+                || address.is_unspecified()
+                || address.is_multicast()
+                || (first & 0xfe00) == 0xfc00
+                || (first & 0xffc0) == 0xfe80)
+        }
+    }
+}
+
+fn extract_tag_text(html: &str, tag: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    let open = format!("<{tag}");
+    let start = lower.find(&open)?;
+    let content_start = lower[start..].find('>')? + start + 1;
+    let close = format!("</{tag}>");
+    let end = lower[content_start..].find(&close)? + content_start;
+    Some(
+        strip_html_tags(&html[content_start..end])
+            .trim()
+            .to_string(),
+    )
+}
+
+fn extract_meta_content(html: &str, names: &[&str]) -> Option<String> {
+    let lower = html.to_lowercase();
+    let mut offset = 0usize;
+    while let Some(relative) = lower[offset..].find("<meta") {
+        let start = offset + relative;
+        let end = lower[start..].find('>')? + start + 1;
+        let tag = &html[start..end];
+        let name = html_attribute(tag, "name").or_else(|| html_attribute(tag, "property"));
+        if name.as_ref().is_some_and(|value| {
+            names
+                .iter()
+                .any(|candidate| value.eq_ignore_ascii_case(candidate))
+        }) {
+            return html_attribute(tag, "content")
+                .map(|value| decode_html_entities(&value))
+                .filter(|value| !value.trim().is_empty());
+        }
+        offset = end;
+    }
+    None
+}
+
+fn html_attribute(tag: &str, attribute: &str) -> Option<String> {
+    let lower = tag.to_lowercase();
+    let mut offset = 0usize;
+    while let Some(relative) = lower[offset..].find(attribute) {
+        let start = offset + relative;
+        let before_ok = start == 0 || !lower.as_bytes()[start - 1].is_ascii_alphanumeric();
+        let mut cursor = start + attribute.len();
+        while lower
+            .as_bytes()
+            .get(cursor)
+            .is_some_and(u8::is_ascii_whitespace)
+        {
+            cursor += 1;
+        }
+        if before_ok && lower.as_bytes().get(cursor) == Some(&b'=') {
+            cursor += 1;
+            while lower
+                .as_bytes()
+                .get(cursor)
+                .is_some_and(u8::is_ascii_whitespace)
+            {
+                cursor += 1;
+            }
+            let quote = *tag.as_bytes().get(cursor)?;
+            if matches!(quote, b'"' | b'\'') {
+                cursor += 1;
+                let end = tag[cursor..].find(quote as char)? + cursor;
+                return Some(tag[cursor..end].to_string());
+            }
+        }
+        offset = start + attribute.len();
+    }
+    None
+}
+
+fn html_to_markdown(html: &str) -> String {
+    let cleaned = remove_html_blocks(html, &["script", "style", "noscript", "svg", "nav"]);
+    let mut output = String::new();
+    let mut cursor = 0usize;
+    while cursor < cleaned.len() {
+        let Some(relative) = cleaned[cursor..].find('<') else {
+            output.push_str(&cleaned[cursor..]);
+            break;
+        };
+        let start = cursor + relative;
+        output.push_str(&cleaned[cursor..start]);
+        let Some(end_relative) = cleaned[start..].find('>') else {
+            break;
+        };
+        let end = start + end_relative + 1;
+        let raw = cleaned[start + 1..end - 1].trim();
+        let closing = raw.starts_with('/');
+        let name = raw
+            .trim_start_matches('/')
+            .split(|character: char| character.is_ascii_whitespace() || character == '/')
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
+        match (closing, name.as_str()) {
+            (false, "h1") => output.push_str("\n\n# "),
+            (false, "h2") => output.push_str("\n\n## "),
+            (false, "h3") => output.push_str("\n\n### "),
+            (false, "h4") => output.push_str("\n\n#### "),
+            (false, "li") => output.push_str("\n- "),
+            (false, "br") => output.push('\n'),
+            (true, "p" | "div" | "article" | "section" | "blockquote")
+            | (true, "h1" | "h2" | "h3" | "h4" | "li" | "ul" | "ol") => output.push_str("\n\n"),
+            _ => {}
+        }
+        cursor = end;
+    }
+    normalize_markdown_whitespace(&decode_html_entities(&output))
+}
+
+fn remove_html_blocks(html: &str, tags: &[&str]) -> String {
+    let mut result = html.to_string();
+    for tag in tags {
+        loop {
+            let lower = result.to_lowercase();
+            let Some(start) = lower.find(&format!("<{tag}")) else {
+                break;
+            };
+            let Some(relative_end) = lower[start..].find(&format!("</{tag}>")) else {
+                result.truncate(start);
+                break;
+            };
+            let end = start + relative_end + tag.len() + 3;
+            result.replace_range(start..end, "");
+        }
+    }
+    result
+}
+
+fn strip_html_tags(value: &str) -> String {
+    let mut output = String::new();
+    let mut in_tag = false;
+    for character in value.chars() {
+        match character {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => output.push(character),
+            _ => {}
+        }
+    }
+    output
+}
+
+fn decode_html_entities(value: &str) -> String {
+    value
+        .replace("&nbsp;", " ")
+        .replace("&#160;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+}
+
+fn normalize_markdown_whitespace(value: &str) -> String {
+    let mut output = String::new();
+    let mut blank_lines = 0usize;
+    for line in value.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            blank_lines += 1;
+            if blank_lines <= 1 && !output.is_empty() {
+                output.push('\n');
+            }
+            continue;
+        }
+        blank_lines = 0;
+        output.push_str(line);
+        output.push('\n');
+    }
+    output.trim().to_string()
+}
+
 fn api_error(status: StatusCode, code: &'static str) -> (StatusCode, Json<Value>) {
     (status, Json(json!({ "error": { "code": code } })))
+}
+
+fn plugin_api_error(
+    status: StatusCode,
+    code: &'static str,
+    message: &str,
+) -> (StatusCode, Json<Value>) {
+    (
+        status,
+        Json(json!({ "error": { "code": code, "message": message } })),
+    )
+}
+
+fn capability_api_error(error: CapabilityError) -> (StatusCode, Json<Value>) {
+    let status = match error.code {
+        "invalid_parameters" => StatusCode::BAD_REQUEST,
+        "payload_too_large" | "result_too_large" => StatusCode::PAYLOAD_TOO_LARGE,
+        "capability_unavailable" | "command_not_available" | "plugin_not_active" => {
+            StatusCode::NOT_FOUND
+        }
+        "idempotency_conflict" => StatusCode::CONFLICT,
+        "storage_unavailable" | "serialization_failed" => StatusCode::INTERNAL_SERVER_ERROR,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    plugin_api_error(status, error.code, &error.message)
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 async fn send_error(
@@ -1194,14 +3291,20 @@ fn now_seconds() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{extension_ui_requires_owner, messages_from_entries_response, HostServer};
+    use super::{
+        extension_ui_requires_owner, html_to_markdown, is_public_ip, lan_qr_issuer_allowed,
+        messages_from_entries_response, public_remote_path, remote_http_authorized,
+        websocket_origin_allowed, HostServer,
+    };
     use crate::metadata_store::MetadataStore;
     use crate::native_pi_manager::NativePiManager;
     use crate::remote_auth::RemoteAuth;
     use crate::runtime_coordinator::RuntimeTarget;
     use futures_util::{SinkExt, StreamExt};
     use serde_json::json;
+    use std::collections::HashSet;
     use std::fs;
+    use std::net::{IpAddr, Ipv4Addr};
     use std::path::Path;
     use std::sync::{Arc, Mutex};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1222,6 +3325,76 @@ mod tests {
             path.display(),
             last_error
         );
+    }
+
+    #[test]
+    fn requires_an_exact_allowed_origin_for_remote_websockets() {
+        let allowed = HashSet::from([
+            "http://127.0.0.1:57620".to_string(),
+            "https://192.168.1.20:57621".to_string(),
+        ]);
+        let remote = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 42));
+        let loopback = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let mut headers = axum::http::HeaderMap::new();
+
+        assert!(websocket_origin_allowed(loopback, &headers, &allowed));
+        assert!(!websocket_origin_allowed(remote, &headers, &allowed));
+        headers.insert(
+            axum::http::header::ORIGIN,
+            "https://192.168.1.20:57621".parse().unwrap(),
+        );
+        assert!(websocket_origin_allowed(remote, &headers, &allowed));
+        headers.insert(
+            axum::http::header::ORIGIN,
+            "https://192.168.1.20:57621.evil.example".parse().unwrap(),
+        );
+        assert!(!websocket_origin_allowed(remote, &headers, &allowed));
+    }
+
+    #[test]
+    fn requires_a_paired_device_token_for_non_loopback_http_api_requests() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-http-auth-{nonce}"));
+        fs::create_dir_all(&temp).unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let pairing = auth.lock().unwrap().create_pairing(1_000);
+        let token = auth
+            .lock()
+            .unwrap()
+            .exchange(&pairing.token, "phone", "Phone", 1_001)
+            .unwrap();
+        let remote = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 20));
+        let loopback = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let mut headers = axum::http::HeaderMap::new();
+
+        assert!(!remote_http_authorized(&auth, remote, &headers));
+        assert!(remote_http_authorized(&auth, loopback, &headers));
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        assert!(remote_http_authorized(&auth, remote, &headers));
+        assert!(public_remote_path("/health"));
+        assert!(public_remote_path("/v2/auth/exchange"));
+        assert!(!public_remote_path("/v2/bootstrap"));
+
+        drop(auth);
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn only_a_loopback_desktop_client_may_issue_mobile_qr_credentials() {
+        assert!(lan_qr_issuer_allowed(IpAddr::V4(Ipv4Addr::LOCALHOST)));
+        assert!(lan_qr_issuer_allowed(IpAddr::V6(
+            std::net::Ipv6Addr::LOCALHOST
+        )));
+        assert!(!lan_qr_issuer_allowed(IpAddr::V4(Ipv4Addr::new(
+            192, 168, 1, 20
+        ))));
     }
 
     #[test]
@@ -1296,6 +3469,20 @@ mod tests {
         );
     }
 
+    #[test]
+    fn web_capture_sanitizes_active_html_and_rejects_private_network_addresses() {
+        let markdown = html_to_markdown(
+            r#"<main><h1>Public title</h1><script>alert("secret")</script><p>Readable <strong>text</strong>.</p></main>"#,
+        );
+        assert!(markdown.contains("# Public title"));
+        assert!(markdown.contains("Readable text."));
+        assert!(!markdown.contains("alert"));
+        assert!(!is_public_ip("127.0.0.1".parse().unwrap()));
+        assert!(!is_public_ip("10.2.3.4".parse().unwrap()));
+        assert!(!is_public_ip("::1".parse().unwrap()));
+        assert!(is_public_ip("1.1.1.1".parse().unwrap()));
+    }
+
     #[tokio::test]
     async fn serves_health_and_static_assets_from_one_origin() {
         let nonce = SystemTime::now()
@@ -1345,6 +3532,615 @@ mod tests {
             .await
             .unwrap();
         assert!(index.contains("ZiCode Studio Desktop native host"));
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn manages_scene_specific_plugin_state_through_the_host_api() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-plugins-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let before: serde_json::Value = client
+            .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 7);
+        assert!(before["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|plugin| plugin["id"] == "core.chat"));
+
+        let response = client
+            .post(format!("{}/v2/plugins/enablement", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "pluginId": "com.zicode.notes",
+                "enabled": false
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+        let after: serde_json::Value = client
+            .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let notes = after["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|plugin| plugin["id"] == "com.zicode.notes")
+            .unwrap();
+        assert_eq!(notes["enabled"], false);
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn serves_only_enabled_declared_developer_views_through_the_host_api() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-plugin-view-{nonce}"));
+        let public = temp.join("public");
+        let package = temp.join("test-plugin-registry/developer/com.example.view");
+        fs::create_dir_all(package.join("views")).unwrap();
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        fs::write(
+            package.join("plugin.json"),
+            serde_json::to_vec_pretty(&json!({
+                "schemaVersion": 1,
+                "id": "com.example.view",
+                "name": "Example View",
+                "description": "Sandboxed view contract test",
+                "version": "1.0.0",
+                "publisher": "example",
+                "contributes": {
+                    "activities": [{ "id": "example", "title": "Example", "order": 10 }],
+                    "views": [{
+                        "id": "example.main",
+                        "activity": "example",
+                        "location": "main",
+                        "title": "Example",
+                        "entry": "views/main.html"
+                    }]
+                }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            package.join("views/main.html"),
+            "<main><h1>Developer sandbox</h1></main>",
+        )
+        .unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let source_url = format!(
+            "{}/v2/plugin-views/source?sceneId=programming&pluginId=com.example.view&viewId=example.main",
+            host.origin()
+        );
+
+        let disabled = client.get(&source_url).send().await.unwrap();
+        assert_eq!(disabled.status(), reqwest::StatusCode::FORBIDDEN);
+        let enabled = client
+            .post(format!("{}/v2/plugins/enablement", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "pluginId": "com.example.view",
+                "enabled": true
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(enabled.status(), reqwest::StatusCode::OK);
+
+        let document: serde_json::Value = client
+            .get(&source_url)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(document["view"]["viewId"], "example.main");
+        assert_eq!(document["view"]["location"], "main");
+        assert!(document["view"]["html"]
+            .as_str()
+            .unwrap()
+            .contains("Developer sandbox"));
+
+        let other_scene = client
+            .get(source_url.replace("sceneId=programming", "sceneId=finance"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(other_scene.status(), reqwest::StatusCode::FORBIDDEN);
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn manages_markdown_notes_with_optimistic_versions_through_the_host_api() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-notes-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let notebook: serde_json::Value = client
+            .post(format!("{}/v2/notes/notebooks", host.origin()))
+            .json(&json!({ "sceneId": "programming", "title": "Product Notes" }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let notebook_id = notebook["notebook"]["id"].as_str().unwrap();
+        assert!(temp
+            .join("plugin-data/com.zicode.notes/vaults")
+            .join(notebook_id)
+            .join("astro.config.mjs")
+            .is_file());
+
+        let created: serde_json::Value = client
+            .post(format!("{}/v2/notes/create", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "title": "P5 roadmap",
+                "content": "The searchable body contains capability broker.",
+                "tags": ["plugin", "roadmap"]
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let note_id = created["note"]["id"].as_str().unwrap();
+        let version = created["note"]["version"].as_str().unwrap();
+
+        let searched: serde_json::Value = client
+            .get(format!(
+                "{}/v2/notes?sceneId=programming&query=capability%20broker",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(searched["snapshot"]["notes"][0]["id"], note_id);
+
+        let saved: serde_json::Value = client
+            .post(format!("{}/v2/notes/save", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id,
+                "title": "P5 roadmap",
+                "content": "Updated Markdown body.",
+                "tags": ["plugin"],
+                "expectedVersion": version
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_ne!(saved["note"]["version"], version);
+
+        let uploaded: serde_json::Value = client
+            .post(format!("{}/v2/notes/attachments", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id,
+                "fileName": "proof.txt",
+                "mimeType": "text/plain",
+                "dataBase64": "aGVsbG8="
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let attachment_id = uploaded["attachment"]["id"].as_str().unwrap();
+        let attachment_response = client
+            .get(format!(
+                "{}/v2/notes/attachment?sceneId=programming&notebookId={notebook_id}&noteId={note_id}&attachmentId={attachment_id}",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(attachment_response.headers()["content-type"], "text/plain");
+        assert_eq!(
+            attachment_response.bytes().await.unwrap().as_ref(),
+            b"hello"
+        );
+
+        let exported: serde_json::Value = client
+            .get(format!(
+                "{}/v2/notes/export?sceneId=programming&notebookId={notebook_id}",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(exported["backup"]["notes"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            exported["backup"]["attachments"].as_array().unwrap().len(),
+            1
+        );
+        let imported: serde_json::Value = client
+            .post(format!("{}/v2/notes/import-backup", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "backup": exported["backup"].clone()
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(imported["notebook"]["title"], "Product Notes (Imported)");
+
+        let rebuilt: serde_json::Value = client
+            .post(format!("{}/v2/notes/rebuild", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "notebookId": notebook_id
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(rebuilt["report"]["validNotes"], 1);
+
+        let conflict = client
+            .post(format!("{}/v2/notes/save", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id,
+                "title": "Stale edit",
+                "content": "Must not overwrite.",
+                "tags": [],
+                "expectedVersion": version
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(conflict.status(), reqwest::StatusCode::CONFLICT);
+        let conflict_body: serde_json::Value = conflict.json().await.unwrap();
+        assert_eq!(conflict_body["error"]["code"], "version_conflict");
+
+        let markdown_path = temp
+            .join("plugin-data/com.zicode.notes/vaults")
+            .join(notebook_id)
+            .join("src/content/notes")
+            .join(format!("{note_id}.md"));
+        let markdown = fs::read_to_string(markdown_path).unwrap();
+        assert!(markdown.contains("Updated Markdown body."));
+        assert!(!markdown.contains("Must not overwrite."));
+
+        let private_capture = client
+            .post(format!("{}/v2/notes/capture", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "url": "http://127.0.0.1/private"
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(private_capture.status(), reqwest::StatusCode::FORBIDDEN);
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn manages_scene_scoped_artifacts_with_opaque_handles_through_the_host_api() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-artifacts-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let created: serde_json::Value = client
+            .post(format!("{}/v2/artifacts/create", host.origin()))
+            .json(&json!({
+                "sceneId": "finance",
+                "pluginId": "com.zicode.finance",
+                "kind": "report",
+                "title": "Deterministic backtest",
+                "summary": "Local engine result",
+                "mimeType": "application/json",
+                "provenance": { "engine": "finance.backtest.local", "seed": 7 },
+                "content": { "metrics": { "totalReturn": 0.12 } }
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let artifact = &created["artifact"];
+        let artifact_id = artifact["id"].as_str().unwrap();
+        let version = artifact["version"].as_str().unwrap();
+        let handle = artifact["handle"].as_str().unwrap();
+        assert_eq!(handle, format!("artifact:{artifact_id}"));
+        assert!(!handle.contains(&temp.to_string_lossy().to_string()));
+        assert!(temp
+            .join("plugin-data/com.zicode.artifacts/items")
+            .join(format!("{artifact_id}.json"))
+            .is_file());
+
+        let listed: serde_json::Value = client
+            .get(format!(
+                "{}/v2/artifacts?sceneId=finance&kind=report&pluginId=com.zicode.finance&query=backtest",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(listed["snapshot"]["artifacts"][0]["id"], artifact_id);
+
+        let read: serde_json::Value = client
+            .get(format!(
+                "{}/v2/artifacts/item?sceneId=finance&artifactId={artifact_id}",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(read["artifact"]["content"]["metrics"]["totalReturn"], 0.12);
+
+        let stale = client
+            .post(format!("{}/v2/artifacts/delete", host.origin()))
+            .json(&json!({
+                "sceneId": "finance",
+                "artifactId": artifact_id,
+                "expectedVersion": "sha256:stale"
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(stale.status(), reqwest::StatusCode::CONFLICT);
+
+        let deleted = client
+            .post(format!("{}/v2/artifacts/delete", host.origin()))
+            .json(&json!({
+                "sceneId": "finance",
+                "artifactId": artifact_id,
+                "expectedVersion": version
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), reqwest::StatusCode::OK);
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn lists_and_invokes_authorized_capabilities_through_the_host_api() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-capabilities-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let vault_id = "11111111-1111-4111-8111-111111111111";
+        let note_root = temp
+            .join("plugin-data/com.zicode.notes/vaults")
+            .join(vault_id)
+            .join("src/content/notes");
+        fs::create_dir_all(&note_root).unwrap();
+        fs::write(
+            note_root.join("broker.md"),
+            "---\nid: \"22222222-2222-4222-8222-222222222222\"\ntitle: \"Broker design\"\n---\n\nCapability Registry is Host-authoritative.",
+        )
+        .unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let listed: serde_json::Value = client
+            .get(format!(
+                "{}/v2/plugin-capabilities?sceneId=programming",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(listed["capabilities"][0]["id"], "notes.search");
+
+        let response = client
+            .post(format!("{}/v2/plugin-capabilities/invoke", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "pluginId": "com.zicode.notes",
+                "capabilityId": "notes.search",
+                "input": { "query": "authoritative" }
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let body: serde_json::Value = response.json().await.unwrap();
+        assert_eq!(body["result"]["matches"][0]["title"], "Broker design");
+        assert_eq!(
+            body["result"]["matches"][0]["path"],
+            format!("{vault_id}/src/content/notes/broker.md")
+        );
+
+        let unavailable = client
+            .post(format!("{}/v2/plugin-commands/invoke", host.origin()))
+            .json(&json!({
+                "sceneId": "programming",
+                "commandId": "missing.command",
+                "args": {}
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(unavailable.status(), reqwest::StatusCode::NOT_FOUND);
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn installs_reloads_and_uninstalls_a_developer_plugin_without_removing_source_data() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-plugin-lifecycle-{nonce}"));
+        let public = temp.join("public");
+        let source = temp.join("source-plugin");
+        fs::create_dir_all(&public).unwrap();
+        fs::create_dir_all(&source).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        fs::write(
+            source.join("plugin.json"),
+            serde_json::to_vec_pretty(&json!({
+                "schemaVersion": 1,
+                "id": "com.example.host-test",
+                "name": "Host test",
+                "description": "Host API lifecycle test plugin",
+                "version": "1.0.0",
+                "publisher": "example",
+                "contributes": {
+                    "commands": [{ "id": "hostTest.run", "title": "Run" }]
+                }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        assert_eq!(
+            host.install_developer_plugin(&source).unwrap(),
+            "com.example.host-test"
+        );
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let reload = client
+            .post(format!("{}/v2/plugins/reload", host.origin()))
+            .json(&json!({}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(reload.status(), reqwest::StatusCode::OK);
+        let listed: serde_json::Value = client
+            .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(listed["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|plugin| plugin["id"] == "com.example.host-test"));
+
+        let uninstalled: serde_json::Value = client
+            .post(format!("{}/v2/plugins/uninstall", host.origin()))
+            .json(&json!({ "pluginId": "com.example.host-test" }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(uninstalled["uninstalled"], true);
+        assert_eq!(uninstalled["dataPreserved"], true);
+        assert!(source.join("plugin.json").is_file());
 
         host.stop();
         remove_temp_dir_when_released(&temp).await;

@@ -29,6 +29,11 @@ pub fn webview_root() -> Result<PathBuf, String> {
     Ok(data_root()?.join("webview"))
 }
 
+#[cfg_attr(test, allow(dead_code))]
+pub fn plugins_root() -> Result<PathBuf, String> {
+    Ok(data_root()?.join("plugins"))
+}
+
 /// Copy legacy Tauri metadata into the ZiCode data root on first launch.
 ///
 /// The old file is intentionally preserved as a recovery backup. All new

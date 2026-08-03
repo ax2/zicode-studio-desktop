@@ -1,15 +1,25 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_paths;
+mod artifact_store;
+mod credential_broker;
 mod host_data;
 mod host_router;
 mod host_server;
 mod metadata_store;
 mod native_pi_manager;
+mod notes_vault;
 mod pi_launch;
 mod pi_rpc_bridge;
+mod plugin_capabilities;
+mod plugin_package;
+mod plugin_registry;
+mod plugin_worker;
 mod process_command;
+mod remote_access_config;
 mod remote_auth;
+mod remote_enrollment;
+mod remote_tls;
 mod runtime_coordinator;
 mod runtime_isolation;
 mod scene_profiles;
@@ -19,6 +29,7 @@ use host_server::HostServer;
 use metadata_store::MetadataStore;
 use native_pi_manager::NativePiManager;
 use pi_launch::{configure_bundled_tool_path, PiLaunchResolver};
+use plugin_package::SignedPluginPreview;
 use remote_auth::RemoteAuth;
 use runtime_coordinator::RuntimeTarget;
 use scene_profiles::{delete_scene_profile, list_scene_profiles, save_scene_profile};
@@ -29,15 +40,47 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_dialog::MessageDialogKind;
 use tauri_plugin_updater::UpdaterExt;
 
+#[tauri::command]
+fn store_scene_credential(
+    scene_id: String,
+    provider: String,
+    secret: String,
+) -> Result<(), String> {
+    credential_broker::store_scene_credential(&scene_id, &provider, &secret)
+}
+
+#[tauri::command]
+fn delete_scene_credential(scene_id: String, provider: String) -> Result<(), String> {
+    credential_broker::delete_scene_credential(&scene_id, &provider)
+}
+
+#[tauri::command]
+fn scene_credential_status(
+    scene_id: String,
+    provider: String,
+) -> Result<credential_broker::CredentialStatus, String> {
+    credential_broker::scene_credential_status(&scene_id, &provider)
+}
+
+#[tauri::command]
+async fn publish_notes_notebook(
+    host: tauri::State<'_, HostServer>,
+    notebook_id: String,
+) -> Result<notes_vault::AstroPublishReport, String> {
+    let vault = host.notes_vault()?;
+    tauri::async_runtime::spawn_blocking(move || vault.publish_astro(&notebook_id))
+        .await
+        .map_err(|error| format!("Astro publisher stopped unexpectedly: {error}"))?
+        .map_err(|error| error.message)
+}
+
 type NativePiManagerState = NativePiManager;
 
-const MENU_NEW_SESSION_ID: &str = "picot-new-session";
 const BETA_UPDATE_ENDPOINT: &str =
     "https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json";
 
@@ -114,6 +157,75 @@ async fn open_folder_as_workspace(
         .to_path_buf();
     open_workspace_at_path(&app, Some(&window), &path, None)?;
     Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+/// Select a local developer plugin directory, validate and copy it into the
+/// managed plugin registry. Cancelling the picker has no side effects.
+#[tauri::command]
+async fn select_and_install_developer_plugin(app: AppHandle) -> Result<Option<String>, String> {
+    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let source = picked
+        .as_path()
+        .ok_or_else(|| "Selected plugin folder is not a local path".to_string())?;
+    let host = app
+        .try_state::<HostServer>()
+        .ok_or_else(|| "Host server is not ready".to_string())?;
+    host.install_developer_plugin(source).map(Some)
+}
+
+#[tauri::command]
+async fn select_signed_plugin_package(
+    app: AppHandle,
+) -> Result<Option<SignedPluginPreview>, String> {
+    let Some(picked) = app
+        .dialog()
+        .file()
+        .add_filter("ZiCode plugin", &["zicode-plugin"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = picked
+        .as_path()
+        .ok_or_else(|| "Selected signed plugin is not a local file".to_string())?;
+    let host = app
+        .try_state::<HostServer>()
+        .ok_or_else(|| "Host server is not ready".to_string())?;
+    host.preview_signed_plugin(path).map(Some)
+}
+
+#[tauri::command]
+async fn install_signed_plugin_package(
+    app: AppHandle,
+    package_path: String,
+    trust_publisher: bool,
+) -> Result<String, String> {
+    let host = app
+        .try_state::<HostServer>()
+        .ok_or_else(|| "Host server is not ready".to_string())?;
+    host.install_signed_plugin(Path::new(&package_path), trust_publisher)
+}
+
+#[tauri::command]
+async fn rollback_signed_plugin_package(
+    app: AppHandle,
+    plugin_id: String,
+    version: String,
+) -> Result<(), String> {
+    let host = app
+        .try_state::<HostServer>()
+        .ok_or_else(|| "Host server is not ready".to_string())?;
+    host.rollback_signed_plugin(&plugin_id, &version)
+}
+
+#[tauri::command]
+async fn revoke_plugin_publisher(app: AppHandle, key_id: String) -> Result<(), String> {
+    let host = app
+        .try_state::<HostServer>()
+        .ok_or_else(|| "Host server is not ready".to_string())?;
+    host.revoke_plugin_publisher(&key_id)
 }
 
 /// Open a brand-new session in the given workspace (identified by its
@@ -198,6 +310,7 @@ async fn ensure_agent_inbox_session(app: AppHandle) -> Result<(), String> {
     let _ = spawn_fresh_runtime(
         &runtimes,
         &launcher.launch,
+        &host,
         &cwd,
         workspace_id,
         Some("programming"),
@@ -208,6 +321,7 @@ async fn ensure_agent_inbox_session(app: AppHandle) -> Result<(), String> {
 fn spawn_fresh_runtime(
     runtimes: &NativePiManagerState,
     launch: &PiLaunchResolver,
+    host: &HostServer,
     cwd: &Path,
     workspace_id: String,
     scene_id: Option<&str>,
@@ -217,7 +331,8 @@ fn spawn_fresh_runtime(
     let target = RuntimeTarget::new(workspace_id, session_id, instance_id)
         .with_scene(scene_id.unwrap_or("programming"));
     let cwd_str = cwd.to_string_lossy().into_owned();
-    let launch_spec = launch.native_launch_spec(&cwd_str, None, &target)?;
+    let mut launch_spec = launch.native_launch_spec(&cwd_str, None, &target)?;
+    host.configure_plugin_broker(&target, &mut launch_spec)?;
     runtimes.spawn(target.clone(), launch_spec)?;
     Ok(target)
 }
@@ -247,6 +362,7 @@ fn open_fresh_session_at_path(
     let target = spawn_fresh_runtime(
         &runtimes,
         &launcher.launch,
+        &host,
         cwd,
         workspace_id.clone(),
         scene_id,
@@ -308,6 +424,7 @@ fn open_workspace_at_path(
         None => spawn_fresh_runtime(
             &runtimes,
             &launcher.launch,
+            &host,
             cwd,
             workspace_id.clone(),
             Some("programming"),
@@ -416,126 +533,6 @@ fn open_native_workspace_window(
     let window = builder.build().map_err(|error| error.to_string())?;
     set_window_workspace(app, window.label(), &target.workspace_id);
     Ok(())
-}
-
-fn open_fresh_session_for_focused_workspace(app: &AppHandle) -> Result<(), String> {
-    // Resolve the *actual* workspace window that currently has OS focus. Passing
-    // this real window (instead of None) to `open_fresh_session_at_path`
-    // guarantees the new session opens inside the focused window, rather than
-    // falling back to a fragile label lookup that can spawn a brand-new window
-    // when the global focus state is stale.
-    let focused_window = app
-        .webview_windows()
-        .into_values()
-        .find(|window| {
-            window.label().starts_with("native-workspace-") && window.is_focused().unwrap_or(false)
-        })
-        .or_else(|| {
-            // No window reports OS focus (e.g. focus was on the menu bar at
-            // trigger time): fall back to the last-focused workspace id and look
-            // up its existing window.
-            let workspace_id = app
-                .try_state::<FocusedWorkspaceState>()
-                .and_then(|state| state.0.lock().ok().and_then(|guard| guard.clone()))?;
-            app.get_webview_window(&format!("native-workspace-{workspace_id}"))
-        })
-        .ok_or_else(|| "No focused ZiCode Studio Desktop workspace window".to_string())?;
-
-    let label = focused_window.label().to_string();
-    let workspace_id = app
-        .try_state::<WindowWorkspaceState>()
-        .and_then(|state| {
-            state
-                .0
-                .lock()
-                .ok()
-                .and_then(|windows| windows.get(&label).cloned())
-        })
-        .or_else(|| label.strip_prefix("native-workspace-").map(str::to_string))
-        .ok_or_else(|| "Unable to resolve workspace for focused window".to_string())?;
-
-    let host = app
-        .try_state::<HostServer>()
-        .ok_or_else(|| "Host server is not ready".to_string())?;
-    let cwd = host.workspace_root_path(&workspace_id)?;
-    open_fresh_session_at_path(app, Some(&focused_window), &cwd, None)
-}
-
-fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let new_session = MenuItem::with_id(
-        app,
-        MENU_NEW_SESSION_ID,
-        "New Session",
-        true,
-        Some("CmdOrCtrl+N"),
-    )?;
-    let file = Submenu::with_items(
-        app,
-        "File",
-        true,
-        &[
-            &new_session,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::close_window(app, None)?,
-            #[cfg(not(target_os = "macos"))]
-            &PredefinedMenuItem::quit(app, None)?,
-        ],
-    )?;
-    let edit = Submenu::with_items(
-        app,
-        "Edit",
-        true,
-        &[
-            &PredefinedMenuItem::undo(app, None)?,
-            &PredefinedMenuItem::redo(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::cut(app, None)?,
-            &PredefinedMenuItem::copy(app, None)?,
-            &PredefinedMenuItem::paste(app, None)?,
-            &PredefinedMenuItem::select_all(app, None)?,
-        ],
-    )?;
-    let window = Submenu::with_items(
-        app,
-        "Window",
-        true,
-        &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::close_window(app, None)?,
-        ],
-    )?;
-    let help = Submenu::with_items(app, "Help", true, &[])?;
-    #[cfg(target_os = "macos")]
-    {
-        let app_menu = Submenu::with_items(
-            app,
-            app.package_info().name.clone(),
-            true,
-            &[
-                &PredefinedMenuItem::about(app, None, None)?,
-                &PredefinedMenuItem::separator(app)?,
-                &PredefinedMenuItem::services(app, None)?,
-                &PredefinedMenuItem::separator(app)?,
-                &PredefinedMenuItem::hide(app, None)?,
-                &PredefinedMenuItem::hide_others(app, None)?,
-                &PredefinedMenuItem::separator(app)?,
-                &PredefinedMenuItem::quit(app, None)?,
-            ],
-        )?;
-        let view = Submenu::with_items(
-            app,
-            "View",
-            true,
-            &[&PredefinedMenuItem::fullscreen(app, None)?],
-        )?;
-        Menu::with_items(app, &[&app_menu, &file, &edit, &view, &window, &help])
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Menu::with_items(app, &[&file, &edit, &window, &help])
-    }
 }
 
 fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), String> {
@@ -761,6 +758,20 @@ fn select_fresh_startup_target(
 
 fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(), String> {
     configure_bundled_tool_path(&static_dir)?;
+    notes_vault::configure_bundled_bun(&static_dir)?;
+    let data_root = app_paths::data_root()?;
+    let scene_profiles = list_scene_profiles()?;
+    let credential_migration = credential_broker::migrate_registered_scene_credentials(
+        &data_root,
+        scene_profiles.iter().map(|profile| profile.id.as_str()),
+    )?;
+    if credential_migration.migrated > 0 || credential_migration.removed_orphans > 0 {
+        log::info!(
+            "[picot-native] migrated {} legacy scene credential documents and removed {} orphan plaintext documents",
+            credential_migration.migrated,
+            credential_migration.removed_orphans
+        );
+    }
     let removed_instances = app_paths::cleanup_empty_instances()?;
     if removed_instances > 0 {
         log::info!("[picot-native] removed {removed_instances} abandoned empty runtime instances");
@@ -792,7 +803,7 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         format!("instance-{}", uuid::Uuid::new_v4().simple()),
     );
     let launch_resolver = PiLaunchResolver::new(static_dir.clone());
-    let launch = launch_resolver.native_launch_spec(&cwd, session_path.as_deref(), &target)?;
+    let mut launch = launch_resolver.native_launch_spec(&cwd, session_path.as_deref(), &target)?;
     let runtimes = NativePiManager::new(256);
     let remote_auth = Arc::new(Mutex::new(RemoteAuth::new(metadata.clone())));
     let host = tauri::async_runtime::block_on(async {
@@ -803,6 +814,7 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
             std::collections::HashMap::from([(target.workspace_id.clone(), PathBuf::from(&cwd))]),
         )
         .await?;
+        host.configure_plugin_broker(&target, &mut launch)?;
         runtimes.spawn(target.clone(), launch)?;
         Ok::<HostServer, String>(host)
     })?;
@@ -835,24 +847,14 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
 }
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--zicode-plugin-worker") {
+        std::process::exit(plugin_worker::run_stdio());
+    }
     if let Err(error) = fix_path_env::fix() {
         eprintln!("[picot] failed to sync PATH from login shell: {error}");
     }
 
     tauri::Builder::default()
-        .menu(build_app_menu)
-        .on_menu_event(|app, event| {
-            if event.id().as_ref() == MENU_NEW_SESSION_ID {
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(error) = open_fresh_session_for_focused_workspace(&app) {
-                        log::error!(
-                            "[picot-native] failed to open new session from menu: {error}"
-                        );
-                    }
-                });
-            }
-        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
@@ -860,12 +862,21 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             open_folder_as_workspace,
+            select_and_install_developer_plugin,
+            select_signed_plugin_package,
+            install_signed_plugin_package,
+            rollback_signed_plugin_package,
+            revoke_plugin_publisher,
             open_new_session_in_workspace,
             open_session_in_project,
             ensure_agent_inbox_session,
             list_scene_profiles,
             save_scene_profile,
             delete_scene_profile,
+            store_scene_credential,
+            delete_scene_credential,
+            scene_credential_status,
+            publish_notes_notebook,
             check_beta_update,
             install_beta_update
         ])

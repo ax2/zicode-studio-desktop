@@ -186,11 +186,19 @@ impl HostRouter {
                 request_id,
                 frame: frame.clone(),
             }),
-            "auth_request" => Ok(RoutedAction::Auth {
-                client_id: client_id.to_owned(),
-                request_id,
-                frame: frame.clone(),
-            }),
+            "auth_request" => {
+                if client_kind == ClientKind::Remote {
+                    return Err(RouterError::new(
+                        "remote_pairing_forbidden",
+                        "Only the local desktop client may create pairing credentials",
+                    ));
+                }
+                Ok(RoutedAction::Auth {
+                    client_id: client_id.to_owned(),
+                    request_id,
+                    frame: frame.clone(),
+                })
+            }
             _ => Err(RouterError::new(
                 "unknown_frame_type",
                 "Unsupported protocol v2 frame type",
@@ -355,5 +363,15 @@ mod tests {
                 )
                 .is_err());
         }
+        assert!(router
+            .route(
+                "phone",
+                &json!({
+                    "type": "auth_request",
+                    "requestId": "pair-another-device",
+                    "operation": "create_pairing",
+                }),
+            )
+            .is_err());
     }
 }

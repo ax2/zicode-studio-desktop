@@ -22,8 +22,10 @@ tauri-plugin-process = "2"
 tauri-plugin-log = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+semver = "1"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json"] }
+tokio-rustls = "0.26"
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
 dirs = "5"
 log = "0.4"
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
@@ -33,9 +35,23 @@ percent-encoding = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+base64 = "0.22"
+boa_engine = "0.21"
+ed25519-dalek = "2"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
 axum = { version = "0.8", features = ["ws"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+local-ip-address = "0.6"
+pem = "3"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
+keyring = { version = "4.1.5", features = ["v1"] }
+wasmtime = { version = "36.0.2", default-features = false, features = ["cranelift", "runtime", "std", "wat"] }
+wasmtime-wasi = { version = "36.0.2", default-features = false, features = ["preview1"] }
 
 [profile.dev]
 incremental = true

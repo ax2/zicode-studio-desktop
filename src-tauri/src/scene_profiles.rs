@@ -164,24 +164,71 @@ fn builtin_profiles() -> Vec<SceneProfile> {
         SceneProfile {
             id: "programming".into(),
             name: "Programming".into(),
-            description: "Code, debugging, repositories, and technical research.".into(),
-            system_prompt: "You are operating in the Programming scene. Prioritize correctness, reproducible verification, and preserving the user's existing work.".into(),
+            description: "Engineering workflows for coding, debugging, repository changes, and reproducible verification.".into(),
+            system_prompt: concat!(
+                "You are operating in the Programming scene. ",
+                "Treat repository instructions and the user's existing work as constraints. ",
+                "Inspect the relevant code and establish the likely cause before editing. ",
+                "Make the smallest coherent change, preserve unrelated work, and verify it with focused tests or checks. ",
+                "Clearly distinguish observed facts from inference, report the files changed, and disclose any unverified risk. ",
+                "Ask for clarification only when a missing choice would materially change the implementation."
+            ).into(),
             allowed_tools: None,
             builtin: true,
         },
         SceneProfile {
             id: "finance".into(),
             name: "Finance".into(),
-            description: "Financial analysis with a read-only local tool policy.".into(),
-            system_prompt: "You are operating in the Finance scene. Clearly separate sourced facts, calculations, assumptions, and uncertainty. Do not present analysis as personalized financial advice.".into(),
-            allowed_tools: Some(vec!["read".into(), "grep".into(), "find".into(), "ls".into()]),
+            description: "Evidence-led financial research, strategy testing, screening, and isolated paper trading.".into(),
+            system_prompt: concat!(
+                "You are operating in the Finance scene. ",
+                "Separate sourced facts, calculations, assumptions, scenarios, and uncertainty. ",
+                "For every material figure, state its currency, unit, period, and as-of date when known; show formulas for derived values. ",
+                "Never invent prices, filings, economic data, or source attribution, and make stale or missing data explicit. ",
+                "Compare meaningful base, upside, and downside cases when forecasting. ",
+                "For external data, use QVeris Discover then Inspect, disclose the current billing rule, and call only after the user confirms the expected cost. ",
+                "After a Call, use qveris_usage when final charge outcome or credit reconciliation matters. ",
+                "Use the deterministic finance_backtest tool for strategy results instead of estimating a backtest in prose. ",
+                "Normalize provider price rows with finance_normalize_ohlcv using explicit fields from the current Inspect schema before backtesting. ",
+                "Use finance_screen for explainable factor rankings and report missing-data coverage. ",
+                "Persist external results with finance_market_data so downstream analysis retains as-of time, currency, provider, and execution provenance. ",
+                "Paper accounts and orders are simulations only; require an explicit sourced price snapshot and never imply that a real broker order was placed. ",
+                "Pending limit orders reserve simulated resources; process or cancel them only through finance_paper_limit_order and report every status transition. ",
+                "Do not present analysis as personalized financial, tax, or legal advice and do not recommend executing a transaction. ",
+                "The repository tool policy is read-only; only the dedicated paper-trading tools may persist their isolated simulated ledger."
+            ).into(),
+            allowed_tools: Some(vec![
+                "read".into(),
+                "grep".into(),
+                "find".into(),
+                "ls".into(),
+                "qveris_status".into(),
+                "qveris_discover".into(),
+                "qveris_inspect".into(),
+                "qveris_call".into(),
+                "qveris_usage".into(),
+                "finance_backtest".into(),
+                "finance_normalize_ohlcv".into(),
+                "finance_screen".into(),
+                "finance_market_data".into(),
+                "finance_paper_account".into(),
+                "finance_paper_order".into(),
+                "finance_paper_limit_order".into(),
+            ]),
             builtin: true,
         },
         SceneProfile {
             id: "creation".into(),
             name: "Creation".into(),
-            description: "Writing, ideation, visual direction, and content production.".into(),
-            system_prompt: "You are operating in the Creation scene. Preserve the requested voice, iterate concretely, and make creative choices explicit when they materially affect the result.".into(),
+            description: "Structured writing, ideation, visual direction, and iterative content production.".into(),
+            system_prompt: concat!(
+                "You are operating in the Creation scene. ",
+                "Infer the audience, format, objective, and voice from the request and preserve the meaning of supplied source material. ",
+                "Move quickly from abstract ideas to a concrete draft or production-ready direction. ",
+                "Maintain internal consistency across terminology, tone, characters, and visual language. ",
+                "Offer alternatives only when they help a real decision, and explain creative choices that materially affect the result. ",
+                "When revising, preserve effective elements and identify what changed."
+            ).into(),
             allowed_tools: None,
             builtin: true,
         },
@@ -209,8 +256,39 @@ mod tests {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>(),
-            vec!["read", "grep", "find", "ls"]
+            vec![
+                "read",
+                "grep",
+                "find",
+                "ls",
+                "qveris_status",
+                "qveris_discover",
+                "qveris_inspect",
+                "qveris_call",
+                "qveris_usage",
+                "finance_backtest",
+                "finance_normalize_ohlcv",
+                "finance_screen",
+                "finance_market_data",
+                "finance_paper_account",
+                "finance_paper_order",
+                "finance_paper_limit_order"
+            ]
         );
+        assert!(finance.system_prompt.contains("currency"));
+        assert!(finance.system_prompt.contains("as-of date"));
+        assert!(profiles
+            .iter()
+            .find(|profile| profile.id == "programming")
+            .unwrap()
+            .system_prompt
+            .contains("focused tests"));
+        assert!(profiles
+            .iter()
+            .find(|profile| profile.id == "creation")
+            .unwrap()
+            .system_prompt
+            .contains("concrete draft"));
     }
 
     #[test]
