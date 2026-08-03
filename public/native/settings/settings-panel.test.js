@@ -11,6 +11,7 @@ function renderSettingsDom() {
         <button class="settings-nav-item" data-settings-tab="extensions">Extensions</button>
         <button class="settings-nav-item" data-settings-tab="usage">Usage</button>
         <button class="settings-nav-item" data-settings-tab="configuration">Configuration</button>
+        <button class="settings-nav-item" data-settings-tab="remote-access">Remote access</button>
         <button class="settings-nav-back" id="settings-close">Back</button>
       </aside>
       <section class="settings-content">
@@ -18,6 +19,8 @@ function renderSettingsDom() {
         <div class="settings-tab" data-settings-panel="extensions"></div>
         <div class="settings-tab" data-settings-panel="usage"></div>
         <div class="settings-tab" data-settings-panel="configuration">
+          <strong id="configuration-scene-name"></strong>
+          <code id="configuration-scene-id"></code>
           <div id="settings-api-keys"></div>
           <div id="provider-channel-list"></div>
           <span id="inline-config-path"></span>
@@ -26,6 +29,9 @@ function renderSettingsDom() {
           <span id="inline-models-path"></span>
           <textarea id="inline-models-textarea"></textarea>
           <div id="inline-models-error" class="hidden"></div>
+        </div>
+        <div class="settings-tab" data-settings-panel="remote-access">
+          <div id="settings-remote-access"></div>
         </div>
       </section>
     </div>
@@ -58,6 +64,19 @@ describe("settings panel hash routing", () => {
 
     expect(window.location.hash).toBe("");
     expect(document.getElementById("settings-panel").classList.contains("hidden")).toBe(true);
+  });
+
+  it("preserves application history state while changing settings tabs", () => {
+    history.replaceState(
+      { zicodePluginId: "core.settings" },
+      "",
+      "/app/workspaces/workspace-a/sessions/session-a",
+    );
+    const panel = setupSettingsPanel();
+    panel.openSettings("appearance");
+    expect(history.state).toEqual({ zicodePluginId: "core.settings" });
+    panel.closeSettings();
+    expect(history.state).toEqual({ zicodePluginId: "core.settings" });
   });
 
   it("reopens the settings panel on the saved tab when the hash is already present at load", () => {
@@ -94,6 +113,36 @@ describe("settings panel hash routing", () => {
     expect(extensionsTab.classList.contains("active")).toBe(true);
   });
 
+  it("mounts navigation and content into the application shell", () => {
+    const settings = setupSettingsPanel();
+    const openHandler = vi.fn();
+    settings.setOpenHandler(openHandler);
+    const navigationHost = document.createElement("aside");
+    const contentHost = document.createElement("main");
+
+    settings.openSettings("usage");
+    settings.renderNavigation(navigationHost);
+    settings.renderContent(contentHost);
+
+    expect(openHandler).toHaveBeenCalledWith("usage");
+    expect(navigationHost.querySelector('[data-settings-tab="usage"]')).not.toBeNull();
+    expect(contentHost.querySelector('[data-settings-panel="usage"]')).not.toBeNull();
+    expect(document.getElementById("settings-panel").classList.contains("hidden")).toBe(true);
+  });
+
+  it("loads paired devices when the remote access tab opens", async () => {
+    const listDevices = vi.fn(async () => []);
+    const getStatus = vi.fn(async () => ({ configuredEnabled: false, running: false }));
+    const settings = setupSettingsPanel({ remoteAccessGateway: { getStatus, listDevices } });
+
+    settings.openSettings("remote-access");
+
+    await vi.waitFor(() => expect(listDevices).toHaveBeenCalledOnce());
+    expect(getStatus).toHaveBeenCalledOnce();
+    expect(window.location.hash).toBe("#/settings/remote-access");
+    expect(document.querySelector('[data-settings-panel="remote-access"].active')).not.toBeNull();
+  });
+
   it("reloads a visible configuration tab when the runtime gateway becomes ready", async () => {
     window.location.hash = "#/settings/configuration";
     const call = vi.fn(async (operation) => {
@@ -115,6 +164,50 @@ describe("settings panel hash routing", () => {
     await vi.waitFor(() => expect(call.mock.calls.length).toBeGreaterThan(beforeReady));
     expect(call.mock.calls.some(([operation]) => operation === "read_agent_config")).toBe(true);
     expect(call.mock.calls.some(([operation]) => operation === "read_models_config")).toBe(true);
+  });
+
+  it("labels the active scene and automatically loads an empty QVeris model catalog", async () => {
+    window.location.hash = "#/settings/configuration";
+    let synced = false;
+    const call = vi.fn(async (operation) => {
+      if (operation === "list_model_catalog") {
+        return { ok: true, data: { providers: [] } };
+      }
+      if (operation === "list_provider_channels") {
+        return {
+          ok: true,
+          data: {
+            channels: [
+              {
+                provider: "qveris",
+                builtIn: true,
+                configured: true,
+                baseUrl: "https://aigateway.qveris.ai/v1",
+                api: "openai-completions",
+                models: synced ? [{ id: "qveris-chat" }] : [],
+              },
+            ],
+          },
+        };
+      }
+      if (operation === "sync_qveris_models") {
+        synced = true;
+        return { ok: true, data: { modelSync: { count: 1 } } };
+      }
+      return { ok: true, data: { content: "{}", path: "zicode/config.json" } };
+    });
+    const settings = setupSettingsPanel({
+      configGateway: { call },
+      getTarget: () => ({ sceneId: "finance" }),
+    });
+
+    await vi.waitFor(() =>
+      expect(call).toHaveBeenCalledWith("sync_qveris_models", {}, { timeoutMs: 30_000 }),
+    );
+    expect(document.getElementById("configuration-scene-id").textContent).toBe("finance");
+
+    settings.setTarget({ sceneId: "programming" });
+    expect(document.getElementById("configuration-scene-name").textContent).toBe("Programming");
   });
 
   it("keeps unconfigured providers collapsed until searched or explicitly revealed", async () => {

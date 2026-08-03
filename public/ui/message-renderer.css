@@ -23,7 +23,7 @@
 
 .welcome-icon {
   font-size: var(--font-size-2xl);
-  opacity: 0.25;
+  opacity: 1;
   font-weight: 200;
 }
 
@@ -340,7 +340,9 @@ body.hide-thinking .thinking-block {
 
 /* Copy message button (below message) */
 
-.message-copy-btn {
+.message-copy-btn,
+.message-note-btn,
+.message-share-btn {
   opacity: 0.45;
   background: none;
   border: none;
@@ -354,12 +356,16 @@ body.hide-thinking .thinking-block {
   white-space: nowrap;
 }
 
-.message-copy-btn:hover {
+.message-copy-btn:hover,
+.message-note-btn:hover,
+.message-share-btn:hover {
   opacity: 1;
   color: var(--text-primary);
 }
 
-.message-copy-btn:active {
+.message-copy-btn:active,
+.message-note-btn:active,
+.message-share-btn:active {
   transform: scale(0.9);
 }
 
@@ -374,6 +380,45 @@ body.hide-thinking .thinking-block {
 .message-copy-btn.copied::after {
   content: "✓";
   font-size: var(--font-size-sm);
+}
+
+.message-share-btn.copied svg,
+.message-share-btn.failed svg {
+  display: none;
+}
+
+.message-share-btn.copied,
+.message-share-btn.failed {
+  opacity: 1;
+}
+
+.message-share-btn.copied {
+  color: var(--success);
+}
+
+.message-share-btn.failed {
+  color: var(--error);
+}
+
+.message-share-btn.copied::after,
+.message-share-btn.failed::after {
+  content: attr(data-feedback);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .message-copy-btn,
+  .message-note-btn,
+  .message-share-btn,
+  .message-fork-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: var(--space-2);
+    opacity: 0.7;
+  }
 }
 
 /* Fork session button (beside copy button on user messages) */
@@ -426,6 +471,76 @@ body.hide-thinking .thinking-block {
   font-size: var(--font-size-md);
   line-height: 1.5;
   backdrop-filter: blur(8px);
+}
+
+.model-error-card {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin: var(--space-2) 0;
+  border: 1px solid color-mix(in srgb, var(--error) 30%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--error) 6%, var(--bg-solid));
+  box-shadow: var(--shadow-sm);
+}
+
+.model-error-card__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  color: var(--error);
+  font-weight: 700;
+}
+
+.model-error-card__body {
+  min-width: 0;
+}
+
+.model-error-card__title {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  line-height: 1.4;
+}
+
+.model-error-card__summary,
+.model-error-card__suggestion {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.model-error-card__suggestion {
+  font-size: var(--font-size-sm);
+}
+
+.model-error-card__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.model-error-card__metric {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--error) 22%, var(--border));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--error) 5%, var(--bg-solid));
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.model-error-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .system-message {

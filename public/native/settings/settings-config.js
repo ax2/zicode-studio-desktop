@@ -11,13 +11,71 @@ import {
   showSettingsSaveError,
   showSettingsSaveSuccess,
 } from "./settings-save-status.js";
+import { fallbackSceneProfiles } from "./scene-profiles.js";
+import { t } from "../../i18n.js";
 
 const HEALTH_CHECK_TIMEOUT_MS = 120_000;
 const MODELS_DOCS_URL =
   "https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/models.md";
 
-export function setupSettingsConfig({ configGateway, onModelConfigurationChanged }) {
+export function setupSettingsConfig({
+  configGateway,
+  onModelConfigurationChanged,
+  getTarget,
+}) {
   const call = (op, params, options) => configGateway.call(op, params, options);
+  const invoke = globalThis.__TAURI__?.core?.invoke;
+
+  function activeSceneId() {
+    const sceneId = getTarget?.()?.sceneId;
+    return typeof sceneId === "string" && sceneId.trim() ? sceneId.trim() : "programming";
+  }
+
+  async function storeSystemCredential(provider, secret) {
+    if (!invoke) return;
+    await invoke("store_scene_credential", {
+      sceneId: activeSceneId(),
+      provider,
+      secret,
+    });
+  }
+
+  async function deleteSystemCredential(provider) {
+    if (!invoke) return;
+    await invoke("delete_scene_credential", {
+      sceneId: activeSceneId(),
+      provider,
+    });
+  }
+
+  async function sceneCredentialPrefix(provider) {
+    if (!invoke) return null;
+    try {
+      const status = await invoke("scene_credential_status", {
+        sceneId: activeSceneId(),
+        provider,
+      });
+      if (!status?.configured || !status.prefix) return null;
+      return `${status.prefix}•••`;
+    } catch {
+      return null;
+    }
+  }
+
+  function keyPrefixHint(container) {
+    let hint = container.querySelector(".api-key-prefix-hint");
+    if (!hint) {
+      hint = document.createElement("span");
+      hint.className = "api-key-prefix-hint";
+      hint.hidden = true;
+      container.append(hint);
+    }
+    hint.hidden = true;
+    hint.textContent = "";
+    return hint;
+  }
+  const configurationSceneName = document.getElementById("configuration-scene-name");
+  const configurationSceneId = document.getElementById("configuration-scene-id");
   const apiKeysContainer = document.getElementById("settings-api-keys");
   const providerExpansionState = new Map();
   const providerChannelList = document.getElementById("provider-channel-list");
@@ -32,12 +90,27 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
   const providerChannelStatus = document.getElementById("provider-channel-status");
   const providerChannelCancel = document.getElementById("provider-channel-cancel");
   const providerChannelSave = document.getElementById("provider-channel-save");
+  let qverisAutoSyncAttempted = false;
+  let renderedSceneId = "";
+
+  function renderSceneContext(target = getTarget?.()) {
+    const sceneId =
+      typeof target?.sceneId === "string" && target.sceneId.trim()
+        ? target.sceneId.trim()
+        : "programming";
+    const profile = fallbackSceneProfiles.find((entry) => entry.id === sceneId);
+    if (renderedSceneId && renderedSceneId !== sceneId) qverisAutoSyncAttempted = false;
+    renderedSceneId = sceneId;
+    if (configurationSceneName) configurationSceneName.textContent = profile?.name || sceneId;
+    if (configurationSceneId) configurationSceneId.textContent = sceneId;
+  }
 
   function openProviderChannelEditor(channel = null) {
     if (!providerChannelEditor) return;
     providerChannelEditor.classList.remove("hidden");
     providerChannelOriginalId.value = channel?.provider || "";
     providerChannelId.value = channel?.provider || "";
+    providerChannelId.readOnly = channel?.builtIn === true;
     providerChannelBaseUrl.value = channel?.baseUrl || "";
     providerChannelApi.value = channel?.api || "openai-completions";
     providerChannelApiKey.value = "";
@@ -46,6 +119,17 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
       .filter(Boolean)
       .join("\n");
     clearSettingsSaveMessage(providerChannelStatus);
+    const hint = keyPrefixHint(providerChannelApiKey.closest("label"));
+    if (channel?.configured && channel.provider) {
+      void sceneCredentialPrefix(channel.provider).then((masked) => {
+        if (!masked) return;
+        hint.hidden = false;
+        hint.textContent = t("API key is configured (prefix {prefix})").replace(
+          "{prefix}",
+          masked,
+        );
+      });
+    }
     providerChannelId.focus();
   }
 
@@ -69,16 +153,32 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     const edit = document.createElement("button");
     edit.type = "button";
     edit.className = "ui-button ui-button--secondary";
-    edit.textContent = "Edit";
+    edit.textContent = t("Edit");
     edit.addEventListener("click", () => openProviderChannelEditor(channel));
+    if (channel.builtIn) {
+      const refresh = document.createElement("button");
+      refresh.type = "button";
+      refresh.className = "ui-button ui-button--secondary";
+      refresh.textContent = t("Refresh models");
+      refresh.disabled = channel.configured !== true;
+      refresh.addEventListener("click", () => syncQVerisModels(refresh));
+      actions.appendChild(refresh);
+    }
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "ui-button ui-button--secondary danger";
-    remove.textContent = "Remove";
-    remove.hidden = channel.builtIn === true;
+    remove.textContent = t("Remove");
+    remove.classList.toggle("hidden", channel.builtIn === true);
     remove.addEventListener("click", async () => {
       if (!confirm(`Remove model channel "${channel.provider}" and its stored key?`)) return;
       remove.disabled = true;
+      try {
+        await deleteSystemCredential(channel.provider);
+      } catch (error) {
+        remove.disabled = false;
+        notifyProviderChannelError(error?.message || "Failed to remove system credential.");
+        return;
+      }
       const result = await call("remove_provider_channel", {
         provider: channel.provider,
       }).catch((error) => ({ ok: false, error: error?.message }));
@@ -114,7 +214,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
 
   async function loadProviderChannels() {
     if (!providerChannelList) return;
-    providerChannelList.textContent = "Loading channels…";
+    providerChannelList.textContent = t("Loading channels…");
     const response = await call("list_provider_channels").catch((error) => ({
       ok: false,
       error: error?.message,
@@ -125,16 +225,49 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     }
     providerChannelList.replaceChildren();
     const channels = Array.isArray(response.data?.channels) ? response.data.channels : [];
+    const qveris = channels.find((channel) => channel.builtIn === true);
+    if (
+      qveris?.configured === true &&
+      (!Array.isArray(qveris.models) || qveris.models.length === 0) &&
+      !qverisAutoSyncAttempted
+    ) {
+      qverisAutoSyncAttempted = true;
+      providerChannelList.textContent = t("Loading QVeris models…");
+      const synced = await syncQVerisModels();
+      if (synced) return;
+    }
     if (channels.length === 0) {
       const empty = document.createElement("div");
       empty.className = "settings-api-keys-empty";
-      empty.textContent = "No custom model channels in this scene.";
+      empty.textContent = t("No custom model channels in this scene.");
       providerChannelList.append(empty);
       return;
     }
     for (const channel of channels) {
       providerChannelList.append(buildProviderChannelRow(channel));
     }
+  }
+
+  async function syncQVerisModels(button) {
+    if (button) button.disabled = true;
+    const response = await call("sync_qveris_models", {}, { timeoutMs: 30_000 }).catch(
+      (error) => ({
+        ok: false,
+        error: error?.message,
+      }),
+    );
+    if (!response?.ok) {
+      notifyProviderChannelError(response?.error || "Failed to load QVeris models.");
+      if (button) button.disabled = false;
+      return false;
+    }
+    await onModelConfigurationChanged?.();
+    await Promise.all([
+      loadApiKeysPanel({ preserveUi: true }),
+      loadInlineModelsEditor(),
+      loadProviderChannels(),
+    ]);
+    return true;
   }
 
   providerChannelAdd?.addEventListener("click", () => openProviderChannelEditor());
@@ -147,20 +280,30 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
       .map((id) => id.trim())
       .filter(Boolean)
       .map((id) => ({ id }));
-    if (models.length === 0) {
+    const editingQVeris = providerChannelOriginalId.value === "qveris";
+    if (models.length === 0 && !editingQVeris) {
       showSettingsSaveError(providerChannelStatus, "Add at least one model ID.");
       return;
     }
     setSettingsSaveButtonSaving(providerChannelSave, true);
-    const response = await call("save_provider_channel", {
-      originalProvider: providerChannelOriginalId.value,
-      provider: providerChannelId.value.trim(),
-      baseUrl: providerChannelBaseUrl.value.trim(),
-      api: providerChannelApi.value,
-      apiKey: providerChannelApiKey.value.trim(),
-      authHeader: true,
-      models,
-    }).catch((error) => ({ ok: false, error: error?.message }));
+    const originalProvider = providerChannelOriginalId.value;
+    const provider = providerChannelId.value.trim();
+    const apiKey = providerChannelApiKey.value.trim();
+    let response;
+    try {
+      if (apiKey) await storeSystemCredential(provider, apiKey);
+      response = await call("save_provider_channel", {
+        originalProvider,
+        provider,
+        baseUrl: providerChannelBaseUrl.value.trim(),
+        api: providerChannelApi.value,
+        apiKey,
+        authHeader: true,
+        models,
+      });
+    } catch (error) {
+      response = { ok: false, error: error?.message };
+    }
     setSettingsSaveButtonSaving(providerChannelSave, false);
     if (!response?.ok) {
       showSettingsSaveError(
@@ -168,6 +311,11 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
         response?.error || "Failed to save model channel.",
       );
       return;
+    }
+    if (originalProvider && originalProvider !== provider) {
+      await deleteSystemCredential(originalProvider).catch((error) => {
+        console.warn("[credentials] Failed to remove renamed provider credential", error);
+      });
     }
     closeProviderChannelEditor();
     await Promise.all([
@@ -241,7 +389,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "ui-button ui-button--secondary config-editor-cancel";
-    retry.textContent = "Retry";
+    retry.textContent = t("Retry");
     retry.style.marginTop = "var(--space-2)";
     retry.addEventListener("click", () => loadApiKeysPanel());
     wrap.appendChild(msg);
@@ -255,7 +403,6 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
       apiKeysContainer.innerHTML = '<div class="settings-api-keys-empty">No providers known.</div>';
       return;
     }
-
     const controls = document.createElement("div");
     controls.className = "settings-provider-filter";
     const search = document.createElement("input");
@@ -273,7 +420,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
 
     const empty = document.createElement("div");
     empty.className = "settings-api-keys-empty";
-    empty.textContent = "No configured providers. Search or show all providers to add a key.";
+    empty.textContent = t("No configured providers. Search or show all providers to add a key.");
     apiKeysContainer.appendChild(empty);
 
     let revealAll = false;
@@ -354,7 +501,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
       const checkHealthBtn = document.createElement("button");
       checkHealthBtn.type = "button";
       checkHealthBtn.className = "api-model-check-visible";
-      checkHealthBtn.textContent = "Check health";
+      checkHealthBtn.textContent = t("Check health");
       checkHealthBtn.disabled = !models.some((model) => model.available);
       checkHealthBtn.addEventListener("click", () => checkModelHealth(p.provider));
       actions.appendChild(checkHealthBtn);
@@ -364,7 +511,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "danger";
-      removeBtn.textContent = "Remove";
+      removeBtn.textContent = t("Remove");
       removeBtn.addEventListener("click", () => removeApiKey(p));
       actions.appendChild(removeBtn);
     }
@@ -422,7 +569,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     columnLabels.className = "api-model-list-heading";
     const statusColumn = document.createElement("span");
     const modelColumn = document.createElement("span");
-    modelColumn.textContent = "Model";
+    modelColumn.textContent = t("Model");
 
     const actions = document.createElement("div");
     actions.className = "api-model-list-heading-actions";
@@ -549,7 +696,7 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
 
   function describeModelStatus(model) {
     const parts = [];
-    if (!model.available) parts.push("No key available");
+    if (!model.available) parts.push(t("No key available"));
     parts.push(describeModelHealth(model.health || { status: "unknown" }));
     return parts.join(" · ");
   }
@@ -558,15 +705,15 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     const enabled = models.filter((model) => model.visible !== false).length;
     const healthy = models.filter((model) => model.health?.status === "healthy").length;
     const issues = models.filter((model) => model.health?.status === "unhealthy").length;
-    return `${enabled} enabled · ${healthy} healthy · ${issues} issues`;
+    return `${enabled} ${t("enabled")} · ${healthy} ${t("healthy")} · ${issues} ${t("issues")}`;
   }
 
   function describeModelHealth(health) {
-    if (!health || health.status === "unknown") return "Health unknown";
+    if (!health || health.status === "unknown") return t("Health unknown");
     if (health.status === "healthy") {
-      return health.latencyMs ? `Healthy (${health.latencyMs}ms)` : "Healthy";
+      return health.latencyMs ? `${t("Healthy")} (${health.latencyMs}ms)` : t("Healthy");
     }
-    return health.error ? `Failed: ${health.error}` : "Failed";
+    return health.error ? `${t("Failed")}: ${health.error}` : t("Failed");
   }
 
   function setModelRowChecking(row) {
@@ -575,16 +722,16 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     const status = row.querySelector(".api-model-health-status");
     if (dot) {
       dot.className = "api-model-health-dot checking";
-      dot.title = "Checking health";
+      dot.title = t("Checking health");
     }
-    if (status) status.textContent = "Checking health...";
+    if (status) status.textContent = t("Checking health...");
   }
 
   function setModelRowHealthError(row, message) {
     if (!row) return;
     const dot = row.querySelector(".api-model-health-dot");
     const status = row.querySelector(".api-model-health-status");
-    const text = `Failed: ${message || "Health check failed"}`;
+    const text = `${t("Failed")}: ${message || t("Health check failed")}`;
     if (dot) {
       dot.className = "api-model-health-dot unknown";
       dot.title = text;
@@ -645,6 +792,17 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     input.spellcheck = false;
     input.placeholder = "Paste API key…";
     editor.appendChild(input);
+    const hint = keyPrefixHint(editor);
+    if (p.configured) {
+      void sceneCredentialPrefix(p.provider).then((masked) => {
+        if (!masked) return;
+        hint.hidden = false;
+        hint.textContent = t("API key is configured (prefix {prefix})").replace(
+          "{prefix}",
+          masked,
+        );
+      });
+    }
 
     const err = document.createElement("div");
     err.className = "api-key-editor-error";
@@ -656,11 +814,11 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     const cancelBtn = document.createElement("button");
     cancelBtn.type = "button";
     cancelBtn.className = "ui-button ui-button--secondary config-editor-cancel";
-    cancelBtn.textContent = "Cancel";
+    cancelBtn.textContent = t("Cancel");
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "ui-button ui-button--primary";
-    saveBtn.textContent = "Save";
+    saveBtn.textContent = t("Save");
     actions.appendChild(cancelBtn);
     actions.appendChild(saveBtn);
     editor.appendChild(actions);
@@ -676,20 +834,29 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     const save = async () => {
       const key = input.value.trim();
       if (!key) {
-        err.textContent = "Key cannot be empty.";
+        err.textContent = t("Key cannot be empty.");
         err.style.display = "";
         return;
       }
       saveBtn.disabled = true;
-      const resp = await call("set_api_key", { provider: p.provider, apiKey: key }).catch(
-        (error) => ({
+      const resp = await (async () => {
+        try {
+          await storeSystemCredential(p.provider, key);
+          return await call("set_api_key", { provider: p.provider, apiKey: key });
+        } catch (error) {
+          return {
           ok: false,
           error: error?.message,
-        }),
-      );
+          };
+        }
+      })();
       if (resp?.ok) {
         await onModelConfigurationChanged?.();
-        loadApiKeysPanel();
+        await Promise.all([
+          loadApiKeysPanel(),
+          loadProviderChannels(),
+          loadInlineModelsEditor(),
+        ]);
       } else {
         err.textContent = resp?.error || "Failed to save key.";
         err.style.display = "";
@@ -712,10 +879,20 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
   async function removeApiKey(p) {
     const ok = confirm(`Remove stored API key for ${p.displayName || p.provider}?`);
     if (!ok) return;
+    try {
+      await deleteSystemCredential(p.provider);
+    } catch (error) {
+      window.alert(error?.message || "Failed to remove system credential.");
+      return;
+    }
     const resp = await call("remove_api_key", { provider: p.provider }).catch(() => null);
     if (resp?.ok) {
       await onModelConfigurationChanged?.();
-      loadApiKeysPanel();
+      await Promise.all([
+        loadApiKeysPanel(),
+        loadProviderChannels(),
+        loadInlineModelsEditor(),
+      ]);
     }
   }
 
@@ -875,10 +1052,13 @@ export function setupSettingsConfig({ configGateway, onModelConfigurationChanged
     });
   });
 
+  renderSceneContext();
+
   return {
     loadApiKeysPanel,
     loadProviderChannels,
     loadInlineConfigEditor,
     loadInlineModelsEditor,
+    setTarget: renderSceneContext,
   };
 }

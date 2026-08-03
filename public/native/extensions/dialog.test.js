@@ -47,4 +47,37 @@ describe("native extension dialog", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     return expect(promise).resolves.toEqual({ cancelled: true });
   });
+
+  it("focuses the first action for confirm dialogs and restores focus on close", async () => {
+    document.body.innerHTML = `
+      <button id="dialog-trigger" type="button">Open</button>
+      <div id="dialog-container" class="hidden"></div>
+    `;
+    const trigger = document.getElementById("dialog-trigger");
+    trigger.focus();
+    const promise = showNativeDialog({ method: "confirm", title: "Confirm?" });
+    const container = document.getElementById("dialog-container");
+    expect(container.classList.contains("hidden")).toBe(false);
+    expect(document.activeElement?.textContent?.trim()).toBe("No");
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await promise;
+    expect(container.classList.contains("hidden")).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("traps Tab inside the dialog while open", async () => {
+    document.body.innerHTML = '<div id="dialog-container" class="hidden"></div>';
+    const promise = showNativeDialog({ method: "confirm", title: "Confirm?" });
+    const buttons = [...document.querySelectorAll(".dialog-actions button")];
+    const first = buttons[0];
+    const last = buttons.at(-1);
+    first.focus();
+
+    last.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(document.activeElement).toBe(first);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await promise;
+  });
 });

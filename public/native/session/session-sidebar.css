@@ -130,6 +130,13 @@
   background: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
+.project-header:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
 .project-header .chevron {
   font-size: var(--font-size-md);
   opacity: 0.5;
@@ -352,6 +359,12 @@
   background: color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
+.session-item:focus-visible {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
 .session-item:active {
   transform: scale(0.99);
 }
@@ -480,6 +493,29 @@
 
 .context-menu-item:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.context-menu-item:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .context-menu-item {
+    min-height: var(--space-10);
+    align-items: center;
+  }
+
+  .sidebar-confirm-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .sidebar-confirm-actions button {
+    min-height: var(--control-height-lg);
+  }
 }
 
 .context-menu-icon {

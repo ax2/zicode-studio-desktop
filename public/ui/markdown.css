@@ -9,9 +9,16 @@
 /* Tables */
 .message.assistant .message-content .table-wrapper {
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
   margin: 8px 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+.message.assistant .message-content .table-wrapper:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .message.assistant .message-content table {
@@ -130,6 +137,31 @@
   color: var(--text-dim);
 }
 
+.code-language {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.code-copy-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.code-copy-status {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .copy-btn {
   background: none;
   border: none;
@@ -150,10 +182,21 @@
   color: var(--success);
 }
 
+.copy-btn.failed {
+  color: var(--error);
+}
+
+.copy-btn:disabled {
+  cursor: wait;
+  opacity: 1;
+}
+
 pre {
   background: transparent;
   padding: var(--space-3);
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
   font-size: var(--font-size-sm);
   line-height: 1.6;
   margin: 0;
@@ -184,4 +227,21 @@ code {
   border-radius: var(--radius-sm);
   font-size: 0.88em;
   color: var(--accent-text);
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--control-height-lg);
+    min-height: var(--control-height-lg);
+    padding: var(--space-2);
+  }
+
+  .code-block-header {
+    min-height: var(--control-height-lg);
+    padding: 0 var(--space-2) 0 var(--space-3);
+  }
+
 }

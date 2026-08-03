@@ -24,8 +24,12 @@ function resolveInvoke() {
  * @param {string} workspaceId
  * @returns {Promise<void>}
  */
-export async function createSessionViaHost(workspaceId, sceneId = getSelectedSceneId()) {
-  const response = await fetch("/v2/new-session", {
+export async function createSessionViaHost(
+  workspaceId,
+  sceneId = getSelectedSceneId(),
+  fetchImpl = globalThis.fetch,
+) {
+  const response = await fetchImpl("/v2/new-session", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ workspaceId, sceneId }),
@@ -50,8 +54,12 @@ export async function createSessionViaHost(workspaceId, sceneId = getSelectedSce
  * @param {string} workspaceId
  * @returns {Promise<{workspaceId: string, sessionId: string, instanceId: string}>}
  */
-export async function spawnSessionViaHost(workspaceId, sceneId = getSelectedSceneId()) {
-  const response = await fetch("/v2/new-session", {
+export async function spawnSessionViaHost(
+  workspaceId,
+  sceneId = getSelectedSceneId(),
+  fetchImpl = globalThis.fetch,
+) {
+  const response = await fetchImpl("/v2/new-session", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ workspaceId, sceneId }),
@@ -76,8 +84,8 @@ export async function spawnSessionViaHost(workspaceId, sceneId = getSelectedScen
  * @param {string} projectPath
  * @returns {Promise<string>} the resolved workspace id
  */
-export async function resolveWorkspaceViaHost(projectPath) {
-  const response = await fetch("/v2/resolve-workspace", {
+export async function resolveWorkspaceViaHost(projectPath, fetchImpl = globalThis.fetch) {
+  const response = await fetchImpl("/v2/resolve-workspace", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ projectPath }),
@@ -100,8 +108,9 @@ export async function resolveWorkspaceViaHost(projectPath) {
  * @param {{ projectPath: string, id: string, workspaceId?: string }} session
  * @returns {Promise<void>}
  */
-export async function openSessionInProjectViaHost(session) {
-  const workspaceId = session.workspaceId || (await resolveWorkspaceViaHost(session.projectPath));
+export async function openSessionInProjectViaHost(session, fetchImpl = globalThis.fetch) {
+  const workspaceId =
+    session.workspaceId || (await resolveWorkspaceViaHost(session.projectPath, fetchImpl));
   window.location.href = `/app/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`;
 }
 
@@ -116,7 +125,7 @@ export async function openSessionInProjectViaHost(session) {
  * @param {(error: Error) => void} [options.onError]
  * @returns {boolean}
  */
-export function setupNewSessionButton({ data, workspaceId, onError } = {}) {
+export function setupNewSessionButton({ data, workspaceId, onError, fetchImpl } = {}) {
   const button = document.getElementById("new-session-btn");
   if (!button) return false;
 
@@ -134,7 +143,7 @@ export function setupNewSessionButton({ data, workspaceId, onError } = {}) {
           sceneId: getSelectedSceneId(),
         });
       } else {
-        await createSessionViaHost(workspaceId);
+        await createSessionViaHost(workspaceId, getSelectedSceneId(), fetchImpl);
       }
     } catch (error) {
       onError?.(error instanceof Error ? error : new Error(String(error)));

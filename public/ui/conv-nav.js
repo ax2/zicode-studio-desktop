@@ -1,3 +1,5 @@
+import { t } from "../i18n.js";
+
 /**
  * Conversation navigator rail (Codex-style dot track).
  *
@@ -27,11 +29,14 @@ export class ConvNav {
   #tooltipQ;
   #tooltipA;
   #tooltipSep;
+  #statusEl;
 
   #isScrolledUp = false;
   #tooltipHideTimer = null;
   #navLockedIdx = -1;
   #navLockTimer = null;
+  #pendingLatestFocus = false;
+  #latestFocusTimer = null;
 
   static #MAX_HEIGHT = 560;
 
@@ -45,6 +50,7 @@ export class ConvNav {
     this.#tooltipQ = document.getElementById("conv-nav-tooltip-q");
     this.#tooltipA = document.getElementById("conv-nav-tooltip-a");
     this.#tooltipSep = document.getElementById("conv-nav-tooltip-sep");
+    this.#statusEl = document.getElementById("conv-nav-live-status");
   }
 
   mount() {
@@ -60,25 +66,42 @@ export class ConvNav {
       const el = this.#messagesEl;
       const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
       this.#isScrolledUp = !atBottom;
-      if (atBottom) this.#badgeEl?.classList.add("hidden");
+      if (atBottom) {
+        this.#badgeEl?.classList.add("hidden");
+        this.#clearLatestAnnouncement();
+        this.#focusLatestMessage();
+      }
       this.#buildDots();
     };
 
     this._onResize = () => this.#buildDots();
+    this._onLocaleChange = () => {
+      this.#refreshLocalizedLabels();
+      this.#buildDots();
+    };
+    this._onBadgeClick = () => this.#scrollToLatest();
 
     this._observer = new MutationObserver(() => this.#buildDots());
     this._observer.observe(this.#messagesEl, { childList: true });
 
     this.#messagesEl.addEventListener("scroll", this._onScroll);
     window.addEventListener("resize", this._onResize);
+    window.addEventListener("zicode:locale-changed", this._onLocaleChange);
+    this.#badgeEl?.addEventListener("click", this._onBadgeClick);
 
+    this.#refreshLocalizedLabels();
     this.#buildDots();
   }
 
   destroy() {
     this.#messagesEl?.removeEventListener("scroll", this._onScroll);
     window.removeEventListener("resize", this._onResize);
+    window.removeEventListener("zicode:locale-changed", this._onLocaleChange);
+    this.#badgeEl?.removeEventListener("click", this._onBadgeClick);
     this._observer?.disconnect();
+    clearTimeout(this.#latestFocusTimer);
+    this.#pendingLatestFocus = false;
+    this.#clearLatestAnnouncement();
   }
 
   /**
@@ -93,6 +116,17 @@ export class ConvNav {
   notifyNewMessage() {
     if (this.#isScrolledUp) {
       this.#badgeEl?.classList.remove("hidden");
+      this.#announceLatest();
+    }
+    this.#buildDots();
+  }
+
+  /** Call when an assistant answer starts streaming, so scrolled-up users
+   *  get an immediate activity hint instead of waiting for message_end. */
+  notifyStreamingStart() {
+    if (this.#isScrolledUp) {
+      this.#badgeEl?.classList.remove("hidden");
+      this.#announceLatest();
     }
     this.#buildDots();
   }
@@ -114,6 +148,58 @@ export class ConvNav {
       }
     }
     return turns;
+  }
+
+  #refreshLocalizedLabels() {
+    if (this.#badgeEl) {
+      this.#badgeEl.textContent = t("Latest ↓");
+      this.#badgeEl.setAttribute("aria-label", t("Jump to latest message"));
+    }
+    if (this.#statusEl?.textContent) this.#announceLatest();
+  }
+
+  #announceLatest() {
+    if (!this.#statusEl) return;
+    this.#statusEl.textContent = t(
+      "A new answer is available. Use Latest to jump to the end.",
+    );
+  }
+
+  #clearLatestAnnouncement() {
+    if (this.#statusEl) this.#statusEl.textContent = "";
+  }
+
+  #requestLatestFocus() {
+    this.#pendingLatestFocus = true;
+    clearTimeout(this.#latestFocusTimer);
+    this.#latestFocusTimer = setTimeout(() => {
+      this.#pendingLatestFocus = false;
+    }, 2000);
+  }
+
+  #focusLatestMessage() {
+    if (!this.#pendingLatestFocus) return;
+    clearTimeout(this.#latestFocusTimer);
+    this.#pendingLatestFocus = false;
+
+    const target = [...this.#messagesEl.children]
+      .reverse()
+      .find((element) => element.classList.contains("message"));
+    if (!(target instanceof HTMLElement)) return;
+
+    const hadTabIndex = target.hasAttribute("tabindex");
+    if (!hadTabIndex) target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+    if (!hadTabIndex) {
+      target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true });
+    }
+  }
+
+  #scrollBehavior(targetTop) {
+    const prefersReducedMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    const isLongJump = Math.abs(targetTop - this.#messagesEl.scrollTop) > this.#messagesEl.clientHeight * 2;
+    return prefersReducedMotion || isLongJump ? "instant" : "smooth";
   }
 
   #getActiveIndex(turns) {
@@ -144,7 +230,10 @@ export class ConvNav {
       const dot = document.createElement("button");
       dot.type = "button";
       dot.className = "conv-nav-dot";
-      dot.setAttribute("aria-label", `Jump to conversation ${this.#trackEl.children.length + 1}`);
+      dot.setAttribute(
+        "aria-label",
+        `${t("Jump to conversation")} ${this.#trackEl.children.length + 1}`,
+      );
       this.#trackEl.appendChild(dot);
     }
     // Remove extra dots
@@ -163,7 +252,7 @@ export class ConvNav {
         this.#hideTooltip();
       };
       dot.classList.toggle("active", i === activeIdx);
-      dot.setAttribute("aria-label", `Jump to conversation ${i + 1}`);
+      dot.setAttribute("aria-label", `${t("Jump to conversation")} ${i + 1}`);
       // No wave when not hovering — keep all dots at their base CSS width
       dot.style.removeProperty("--nav-w");
     });
@@ -206,8 +295,26 @@ export class ConvNav {
     const delta = turn.user.getBoundingClientRect().top - visibleTop;
     const maxScrollTop = this.#messagesEl.scrollHeight - this.#messagesEl.clientHeight;
     const targetScrollTop = Math.max(0, Math.min(this.#messagesEl.scrollTop + delta, maxScrollTop));
-    this.#messagesEl.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+    this.#messagesEl.scrollTo({ top: targetScrollTop, behavior: this.#scrollBehavior(targetScrollTop) });
     this.#flashHighlight(turn.user);
+    this.#buildDots();
+  }
+
+  #scrollToLatest() {
+    const top = Math.max(0, this.#messagesEl.scrollHeight - this.#messagesEl.clientHeight);
+    const behavior = this.#scrollBehavior(top);
+    this.#requestLatestFocus();
+    if (typeof this.#messagesEl.scrollTo === "function") {
+      this.#messagesEl.scrollTo({ top, behavior });
+    } else {
+      this.#messagesEl.scrollTop = top;
+    }
+    if (behavior === "instant" || typeof this.#messagesEl.scrollTo !== "function") {
+      this.#isScrolledUp = false;
+      this.#badgeEl?.classList.add("hidden");
+      this.#clearLatestAnnouncement();
+      this.#focusLatestMessage();
+    }
     this.#buildDots();
   }
 

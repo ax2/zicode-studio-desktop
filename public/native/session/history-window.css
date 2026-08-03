@@ -1,0 +1,36 @@
+.history-window-notice,
+.history-window-loaded {
+  align-self: center;
+  width: min(100%, 42rem);
+  margin: var(--space-2) auto var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.history-window-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+}
+
+.history-window-load {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .history-window-notice {
+    align-items: stretch;
+    flex-direction: column;
+    margin-top: var(--space-1);
+  }
+
+  .history-window-load {
+    min-height: var(--control-height-lg);
+  }
+}

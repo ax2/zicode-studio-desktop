@@ -160,4 +160,37 @@ describe("session search dialog", () => {
     expect(overlay.classList.contains("hidden")).toBe(true);
     expect(onQueryChange).toHaveBeenLastCalledWith("");
   });
+
+  it("keeps Tab focus inside the dialog and restores the trigger on Escape", () => {
+    setupSessionSearchDialog({
+      triggerInput,
+      triggerClear,
+      overlay,
+      dialog,
+      input,
+      list,
+      getSessions: () => [{ id: "s1", name: "Mobile QA" }],
+    });
+
+    triggerInput.focus();
+    input.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement).toBe(list.querySelector(".session-search-result"));
+
+    document.activeElement.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(input);
+
+    input.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(triggerInput);
+  });
 });

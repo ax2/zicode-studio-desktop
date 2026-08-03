@@ -1,0 +1,105 @@
+{
+  "sections": ["Getting started", "Chat and productivity", "Scenes and configuration", "Plugins", "Notes", "Finance Workbench", "Artifacts", "Support and security", "Reference"],
+  "pages": [
+    {
+      "id": "getting-started",
+      "title": "Quick start",
+      "section": "Getting started",
+      "file": "getting-started.md",
+      "summary": "Learn the three-region workspace and start your first chat",
+      "keywords": ["onboarding", "navigation", "interface"]
+    },
+    {
+      "id": "interface",
+      "title": "Interface and navigation",
+      "section": "Getting started",
+      "file": "interface.md",
+      "summary": "Activity rail, function area, main view, and file manager"
+    },
+    {
+      "id": "mobile-access",
+      "title": "Mobile access and installation",
+      "section": "Getting started",
+      "file": "mobile-access.md",
+      "summary": "Trust the certificate, pair by QR, install to the Home Screen, and recover from network changes",
+      "keywords": ["mobile", "Android", "iPhone", "PWA", "certificate", "pairing"]
+    },
+    {
+      "id": "chat",
+      "title": "Chat workflow",
+      "section": "Chat and productivity",
+      "file": "chat.md",
+      "summary": "Sessions, context, error recovery, and Notes integration"
+    },
+    {
+      "id": "projects-tasks",
+      "title": "Projects, tasks, and automation",
+      "section": "Chat and productivity",
+      "file": "projects-tasks.md",
+      "summary": "Turn goals into trackable and recoverable workflows"
+    },
+    {
+      "id": "scenes",
+      "title": "Scenes and isolation",
+      "section": "Scenes and configuration",
+      "file": "scenes.md",
+      "summary": "Understand workspace, runtime, and configuration boundaries"
+    },
+    {
+      "id": "models",
+      "title": "Models and API keys",
+      "section": "Scenes and configuration",
+      "file": "models.md",
+      "summary": "Configure QVeris, routing, budgets, and protected credentials"
+    },
+    {
+      "id": "plugins",
+      "title": "Plugin installation and trust",
+      "section": "Plugins",
+      "file": "plugins.md",
+      "summary": "Installation, permissions, signatures, and the WASI sandbox"
+    },
+    {
+      "id": "notes",
+      "title": "Local Notes library",
+      "section": "Notes",
+      "file": "notes.md",
+      "summary": "Chat links, knowledge relationships, and static publishing"
+    },
+    {
+      "id": "finance",
+      "title": "Finance Workbench",
+      "section": "Finance Workbench",
+      "file": "finance.md",
+      "summary": "Research assets, summarize risk, and preserve findings"
+    },
+    {
+      "id": "artifacts",
+      "title": "Artifacts",
+      "section": "Artifacts",
+      "file": "artifacts.md",
+      "summary": "Browse files produced by chats and plugins"
+    },
+    {
+      "id": "security-data",
+      "title": "Data, security, and backup",
+      "section": "Support and security",
+      "file": "security-data.md",
+      "summary": "Local data, system credentials, and backup boundaries"
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "section": "Support and security",
+      "file": "troubleshooting.md",
+      "summary": "Resolve model, task, plugin, and publishing problems"
+    },
+    {
+      "id": "shortcuts",
+      "title": "Keyboard shortcuts",
+      "section": "Reference",
+      "file": "shortcuts.md",
+      "summary": "A quick reference for common keyboard actions"
+    }
+  ]
+}

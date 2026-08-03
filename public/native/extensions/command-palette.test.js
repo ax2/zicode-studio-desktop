@@ -50,4 +50,40 @@ describe("command palette", () => {
     expect(action).toHaveBeenCalledTimes(1);
     expect(palette.classList.contains("hidden")).toBe(true);
   });
+
+  it("traps keyboard focus and restores the trigger on Escape", () => {
+    setupCommandPalette({
+      button,
+      palette,
+      overlay,
+      list,
+      commands: [
+        { label: "First", action() {} },
+        { label: "Last", action() {} },
+      ],
+    });
+
+    button.click();
+    const items = [...list.querySelectorAll(".command-item")];
+    items.at(-1).focus();
+    items.at(-1).dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(items[0]);
+
+    items[0].dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement).toBe(items.at(-1));
+
+    document.dispatchEvent(
+      new dom.window.KeyboardEvent("keydown", { key: "Escape", cancelable: true }),
+    );
+    expect(document.activeElement).toBe(button);
+  });
 });

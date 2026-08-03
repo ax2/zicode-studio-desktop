@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { appRoutePath, parseAppRoute, replaceTemporarySessionRoute } from "./router.js";
+import {
+  appRoutePath,
+  parseAppRoute,
+  replaceTemporarySessionRoute,
+  resolveHistoryNavigation,
+} from "./router.js";
 
 describe("app router", () => {
   it("round-trips opaque launcher and session routes", () => {
@@ -41,5 +46,18 @@ describe("app router", () => {
     const history = { replaceState: (...args) => calls.push(args) };
     replaceTemporarySessionRoute(history, "workspace-a", "temporary-1", "session-formal");
     expect(calls).toEqual([[null, "", "/app/workspaces/workspace-a/sessions/session-formal"]]);
+  });
+
+  it("routes browser Back to an in-workspace session switch or a cross-workspace reload", () => {
+    const current = { workspaceId: "workspace-a", sessionId: "session-2" };
+    expect(
+      resolveHistoryNavigation(current, "/app/workspaces/workspace-a/sessions/session-1"),
+    ).toEqual({ type: "switch_session", sessionId: "session-1" });
+    expect(
+      resolveHistoryNavigation(current, "/app/workspaces/workspace-b/sessions/session-1"),
+    ).toEqual({ type: "reload" });
+    expect(
+      resolveHistoryNavigation(current, "/app/workspaces/workspace-a/sessions/session-2"),
+    ).toEqual({ type: "none" });
   });
 });

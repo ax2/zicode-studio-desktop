@@ -1,0 +1,143 @@
+.automation-main {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-8);
+}
+
+.automation-header,
+.automation-card > header,
+.automation-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.automation-header h1,
+.automation-card h2,
+.automation-form h2,
+.automation-state h2 {
+  margin: 0;
+}
+
+.automation-header p,
+.automation-prompt,
+.automation-state p {
+  color: var(--text-secondary);
+}
+
+.automation-navigation {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+
+.automation-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.automation-nav-item:hover,
+.automation-nav-item.active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.automation-form,
+.automation-list,
+.automation-card,
+.automation-state {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.automation-form,
+.automation-card,
+.automation-state {
+  padding: var(--space-5);
+}
+
+.automation-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.automation-form-limits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.automation-field {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.automation-field > :is(.ui-input, .ui-select, .ui-textarea) {
+  min-width: 0;
+}
+
+.automation-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.automation-card dt {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.automation-card dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-history ol {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.automation-history li {
+  display: grid;
+  grid-template-columns: 180px auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+}
+
+@media (max-width: 760px) {
+  .automation-main { padding: 0; }
+  .automation-header,
+  .automation-card > header,
+  .automation-actions { flex-direction: column; }
+  .automation-card dl,
+  .automation-history li,
+  .automation-form-limits { grid-template-columns: 1fr; }
+
+  .automation-card dd {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}

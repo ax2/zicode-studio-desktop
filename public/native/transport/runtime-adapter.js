@@ -11,6 +11,7 @@ export class HostRuntimeAdapter {
   #connected = false;
   #connectionListeners = new Set();
   #deviceToken;
+  #fatalErrorListeners = new Set();
   #nextSubscriptionId = 1;
   #receivers = new Set();
   #readyWaiters = [];
@@ -51,6 +52,11 @@ export class HostRuntimeAdapter {
   setConnectionListener(listener) {
     this.#connectionListeners.add(listener);
     return () => this.#connectionListeners.delete(listener);
+  }
+
+  setFatalErrorListener(listener) {
+    this.#fatalErrorListeners.add(listener);
+    return () => this.#fatalErrorListeners.delete(listener);
   }
 
   connect() {
@@ -95,6 +101,24 @@ export class HostRuntimeAdapter {
         for (const resolve of this.#readyWaiters.splice(0)) resolve();
         return;
       }
+      if (
+        this.#clientType === "remote" &&
+        ["unauthorized_device", "device_access_revoked", "remote_auth_required"].includes(
+          frame?.error?.code,
+        )
+      ) {
+        this.#shouldReconnect = false;
+        this.#clearReconnectTimer();
+        const error = new Error(frame.error.message || "Remote device access was rejected");
+        error.code =
+          frame.error.code === "device_access_revoked"
+            ? "device_access_revoked"
+            : "device_pairing_required";
+        for (const listener of this.#fatalErrorListeners) listener(error);
+        this.#receive(frame);
+        socket.close();
+        return;
+      }
       if (frame.type === "runtime_subscribed") return;
       this.#receive(frame);
     };
@@ -113,9 +137,33 @@ export class HostRuntimeAdapter {
     this.#socket?.close();
   }
 
+  /**
+   * Replace a connection that may have gone stale while a mobile browser was
+   * suspended. A connection already being established is left alone, and a
+   * fatal remote-auth rejection cannot be bypassed by lifecycle events.
+   */
+  reconnectNow() {
+    if (!this.#shouldReconnect) return false;
+    if (!this.#connected && this.#socket?.readyState < 2) return false;
+    this.#clearReconnectTimer();
+    const socket = this.#socket;
+    this.#socket = null;
+    if (this.#connected) {
+      this.#connected = false;
+      for (const listener of this.#connectionListeners) listener(false);
+    }
+    if (socket?.readyState < 2) socket.close();
+    this.connect();
+    return true;
+  }
+
   ready() {
     if (this.#connected) return Promise.resolve();
     return new Promise((resolve) => this.#readyWaiters.push(resolve));
+  }
+
+  isConnected() {
+    return this.#connected && this.#isSocketOpen();
   }
 
   send(frame) {

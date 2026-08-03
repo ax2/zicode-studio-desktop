@@ -1,0 +1,67 @@
+# Chat workflow
+
+Chat is both a conversation surface and an entry point to projects, notes, and artifacts. Each session keeps the scene and runtime selected when it was created.
+
+## Organize sessions
+
+- Create separate sessions for long-running topics.
+- Use a project to group conversations, tasks, and artifacts for one goal.
+- New sessions use the scene selected in Settings; existing sessions keep their original scene.
+
+## Send and queue
+
+| Action | Result |
+|---|---|
+| `Enter` | Send, or add live guidance while work is running |
+| `Alt+Enter` | Queue a follow-up |
+| `//text` | Send ordinary text that begins with `/` |
+
+## Add photos on a phone
+
+Use **Attach image** below the composer to choose **Take photo** or **Choose from photos**.
+While ZiCode resizes a phone photo, it shows **Preparing image** and temporarily disables Send.
+This prevents a text message from being sent before its photo is ready. The remove control stays
+visible on touch devices. If an image cannot be read, ZiCode shows an actionable error so you can
+retry with a smaller PNG or JPEG.
+
+## Share an answer
+
+On a phone browser or Home Screen app that supports system sharing, **Share answer** appears below
+each Pi response. It can send the answer to chat, mail, notes, and other applications exposed by the
+operating system. ZiCode shares only the visible answer, never reasoning, tool calls, or session
+credentials. Closing the system share sheet is treated as cancellation. If the browser cannot open
+the sheet, ZiCode copies the answer instead and shows **Copied** on the button.
+
+Copy, Save to Notes, and Share use action areas of at least 40×40px on narrow or touch devices.
+
+After ZiCode is installed to the Android Home Screen, it can also receive a system share. A page
+title, selected text, link, and common image formats enter the current composer without replacing
+its draft. Images appear as previews and nothing is sent automatically. See **Use ZiCode on a phone
+→ Share into ZiCode from Android** for format, size, compatibility, and privacy details.
+
+## Unsent drafts on a phone
+
+ZiCode encrypts phone-entered text and bounded image attachments per session in local device storage.
+Reopening the same session after a reload or process reclaim restores the text and image previews without
+sending them, and a successful submission deletes them. See **Use ZiCode on a phone → Recover an unsent
+draft** for encryption, image capacity, expiry, and deletion boundaries.
+
+If the phone is disconnected when you choose Send, ZiCode saves an encrypted send-later draft instead
+of contacting a model. After reconnection, confirm with **Send now** above the composer or choose **Keep
+as draft** to cancel the send intent. See **Use ZiCode on a phone → Save a message while disconnected**
+for the complete lifecycle.
+
+## Connect Chat and Notes
+
+Use “Link conversation” in Notes to create a durable source relationship instead of copying text through a chat command. You can then:
+
+- return from a note to its source conversation and message;
+- assemble related notes into a context pack for a new chat;
+- inspect similar notes, conflicting claims, and knowledge links;
+- turn conversation findings into a maintainable knowledge base.
+
+## Recover from errors
+
+Failed model requests show a friendly error card. Choose “Retry request” to reuse the original text and images, or open model settings to repair the configuration.
+
+> If a task appears active without new output, inspect its state and error card before sending duplicate requests.

@@ -27,11 +27,25 @@
 
 .rpiv-todo-panel__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
   min-height: var(--control-height-sm);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: min-height var(--duration) var(--ease);
+}
+
+.rpiv-todo-panel__header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .rpiv-todo-panel__titleGroup {
@@ -68,6 +82,12 @@
 .rpiv-todo-panel__more {
   color: var(--text-dim);
   font-size: var(--font-size-sm);
+}
+
+.rpiv-todo-panel__indicator {
+  color: var(--text-dim);
+  font-size: var(--font-size-md);
+  line-height: 1;
 }
 
 .rpiv-todo-panel__list {
@@ -156,7 +176,7 @@
 
 .rpiv-todo-panel.is-collapsed:hover,
 .rpiv-todo-panel.is-collapsed:focus-within,
-.rpiv-todo-panel.is-collapsed.is-hover-expanded {
+.rpiv-todo-panel.is-collapsed.is-expanded {
   width: min(420px, calc(100vw - var(--space-8)));
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -168,7 +188,7 @@
 
 .rpiv-todo-panel.is-collapsed:hover .rpiv-todo-panel__header,
 .rpiv-todo-panel.is-collapsed:focus-within .rpiv-todo-panel__header,
-.rpiv-todo-panel.is-collapsed.is-hover-expanded .rpiv-todo-panel__header {
+.rpiv-todo-panel.is-collapsed.is-expanded .rpiv-todo-panel__header {
   min-height: var(--control-height-sm);
 }
 
@@ -179,7 +199,7 @@
 
 .rpiv-todo-panel.is-collapsed:hover .rpiv-todo-panel__title,
 .rpiv-todo-panel.is-collapsed:focus-within .rpiv-todo-panel__title,
-.rpiv-todo-panel.is-collapsed.is-hover-expanded .rpiv-todo-panel__title {
+.rpiv-todo-panel.is-collapsed.is-expanded .rpiv-todo-panel__title {
   max-width: 120px;
   opacity: 1;
 }
@@ -193,7 +213,7 @@
 
 .rpiv-todo-panel.is-collapsed:hover .rpiv-todo-panel__list,
 .rpiv-todo-panel.is-collapsed:focus-within .rpiv-todo-panel__list,
-.rpiv-todo-panel.is-collapsed.is-hover-expanded .rpiv-todo-panel__list {
+.rpiv-todo-panel.is-collapsed.is-expanded .rpiv-todo-panel__list {
   max-height: 200px;
   margin: var(--space-1) 0 0;
   opacity: 1;
@@ -201,7 +221,7 @@
 
 .rpiv-todo-panel.is-collapsed:hover .rpiv-todo-panel__more,
 .rpiv-todo-panel.is-collapsed:focus-within .rpiv-todo-panel__more,
-.rpiv-todo-panel.is-collapsed.is-hover-expanded .rpiv-todo-panel__more {
+.rpiv-todo-panel.is-collapsed.is-expanded .rpiv-todo-panel__more {
   max-height: var(--control-height-sm);
   margin-top: var(--space-1);
   opacity: 1;
@@ -223,4 +243,60 @@
 
 .rpiv-todo-panel.is-complete .rpiv-todo-panel__meta {
   display: none;
+}
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .rpiv-todo-panel {
+    right: max(var(--space-2), env(safe-area-inset-right, 0px));
+    left: max(var(--space-2), env(safe-area-inset-left, 0px));
+    width: auto;
+    max-width: none;
+  }
+
+  .rpiv-todo-panel.is-collapsed:not(.is-expanded),
+  .rpiv-todo-panel.is-collapsed:hover:not(.is-expanded),
+  .rpiv-todo-panel.is-collapsed:focus-within:not(.is-expanded) {
+    right: max(var(--space-2), env(safe-area-inset-right, 0px));
+    left: auto;
+    width: 132px;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-pill);
+  }
+
+  .rpiv-todo-panel.is-collapsed .rpiv-todo-panel__header,
+  .rpiv-todo-panel.is-collapsed.is-expanded .rpiv-todo-panel__header,
+  .rpiv-todo-panel.is-collapsed:hover:not(.is-expanded) .rpiv-todo-panel__header,
+  .rpiv-todo-panel.is-collapsed:focus-within:not(.is-expanded) .rpiv-todo-panel__header {
+    min-height: var(--control-height-lg);
+  }
+
+  .rpiv-todo-panel.is-collapsed:hover:not(.is-expanded) .rpiv-todo-panel__list,
+  .rpiv-todo-panel.is-collapsed:focus-within:not(.is-expanded) .rpiv-todo-panel__list,
+  .rpiv-todo-panel.is-collapsed:hover:not(.is-expanded) .rpiv-todo-panel__more,
+  .rpiv-todo-panel.is-collapsed:focus-within:not(.is-expanded) .rpiv-todo-panel__more {
+    max-height: 0;
+    margin: 0;
+    opacity: 0;
+  }
+
+  .rpiv-todo-panel.is-expanded .rpiv-todo-panel__list {
+    overflow-y: auto;
+    max-height: min(40dvh, 240px);
+  }
+
+  .rpiv-todo-panel__task {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .rpiv-todo-panel__text {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .rpiv-todo-panel__meta {
+    grid-column: 2;
+  }
 }

@@ -8,8 +8,13 @@
         />
         <base href="/" />
         <title>ZiCode Studio Desktop</title>
-        <link rel="icon" type="image/svg+xml" href="icons/logo-dark.svg" />
-        <meta name="theme-color" content="#f5f3ef" />
+        <link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+        <link rel="apple-touch-icon" href="icons/app-192.png" />
+        <link rel="manifest" href="manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="ZiCode Studio" />
+        <meta name="theme-color" content="#ffffff" />
         <link rel="stylesheet" href="style-theme.css" />
         <link rel="stylesheet" href="design-system.css" />
         <link rel="stylesheet" href="style.css" />
@@ -67,14 +72,6 @@
             <!-- Left Sidebar -->
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header">
-                    <div class="mode-toggle" id="mode-toggle">
-                        <span class="mode-link active" title="Chat"
-                            ><img
-                                src="icons/logo-dark.svg"
-                                alt="ZiCode Studio Desktop logo"
-                                class="tau-icon"
-                        /></span>
-                    </div>
                     <div class="sidebar-search-wrap">
                         <input
                             type="text"
@@ -176,44 +173,19 @@
                     <div class="session-loading">Loading sessions...</div>
                 </div>
                 <div class="sidebar-footer">
-                    <div class="sidebar-settings-row">
-                        <button
-                            class="ui-icon-button ui-icon-button--sm sidebar-settings-btn"
-                            id="settings-btn"
-                            title="Settings"
-                            aria-label="Settings"
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <path
-                                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-                                />
-                                <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            <span>Settings</span>
-                        </button>
-                        <button
-                            class="sidebar-update-pill hidden"
-                            id="sidebar-update-btn"
-                            title="Download and install update"
-                            aria-label="Download and install update"
-                        >
-                            Update
-                        </button>
-                    </div>
+                    <button
+                        class="sidebar-update-pill hidden"
+                        id="sidebar-update-btn"
+                        title="Download and install update"
+                        aria-label="Download and install update"
+                    >
+                        Update
+                    </button>
                 </div>
             </div>
 
             <!-- Sidebar overlay for mobile -->
-            <div class="sidebar-overlay" id="sidebar-overlay"></div>
+            <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
             <!-- Main Chat Area -->
             <div class="main">
@@ -225,6 +197,8 @@
                             id="sidebar-toggle"
                             title="Toggle sidebar"
                             aria-label="Toggle sidebar"
+                            aria-controls="sidebar"
+                            aria-expanded="true"
                         >
                             <svg
                                 width="18"
@@ -277,6 +251,22 @@
                                 >Connecting...</span
                             >
                         </div>
+                        <button
+                            class="scene-indicator"
+                            id="scene-indicator"
+                            type="button"
+                            data-scene="programming"
+                            title="Current scene"
+                        >
+                            <span
+                                class="scene-indicator-dot"
+                                aria-hidden="true"
+                            ></span>
+                            <span class="scene-indicator-prefix">Scene</span>
+                            <strong id="scene-indicator-name"
+                                >Programming</strong
+                            >
+                        </button>
                     </div>
                     <div class="header-right">
                         <span
@@ -306,61 +296,11 @@
                             </div>
                         </span>
                         <span
-                            class="pill workspace-indicator hidden"
-                            id="workspace-indicator"
-                            title="Workspace path"
-                        ></span>
-                        <span
                             class="pill git-branch-indicator hidden"
                             id="git-branch-indicator"
                             title="Git branch"
                         ></span>
 
-                        <span
-                            class="header-open-app hidden"
-                            id="header-open-app"
-                            role="group"
-                        >
-                            <button
-                                class="ui-button ui-button--sm ui-button--secondary header-open-app-btn"
-                                id="header-open-app-btn"
-                                title="Open workspace"
-                                aria-label="Open workspace in app"
-                            >
-                                <span
-                                    class="header-open-app-logo"
-                                    id="header-open-app-logo"
-                                    aria-hidden="true"
-                                    ><img
-                                        src="icons/app-cursor.svg"
-                                        alt=""
-                                        class="header-open-app-logo-img"
-                                /></span>
-                            </button>
-                            <button
-                                class="header-open-app-toggle"
-                                id="header-open-app-toggle"
-                                title="Choose app"
-                                aria-label="Choose app to open workspace"
-                            >
-                                <svg
-                                    width="10"
-                                    height="10"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.5"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                >
-                                    <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                            </button>
-                            <div
-                                class="header-open-app-menu hidden"
-                                id="header-open-app-menu"
-                            ></div>
-                        </span>
                         <button
                             class="ui-icon-button ui-icon-button--sm ui-icon-button--ghost icon-btn"
                             id="file-sidebar-toggle"
@@ -385,6 +325,400 @@
                     </div>
                 </div>
 
+                <aside
+                    class="finance-workbench hidden"
+                    id="finance-workbench"
+                    aria-label="Finance Workbench"
+                >
+                    <div class="finance-workbench-header">
+                        <div>
+                            <span class="finance-workbench-kicker"
+                                >Finance scene</span
+                            >
+                            <h2>Finance Workbench</h2>
+                        </div>
+                        <button
+                            class="ui-icon-button ui-icon-button--sm ui-icon-button--ghost"
+                            id="finance-workbench-close"
+                            type="button"
+                            aria-label="Close Finance Workbench"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div class="finance-workbench-body">
+                        <section class="ui-card finance-status-card">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>QVeris financial data</h3>
+                                    <p>Live and historical capabilities</p>
+                                </div>
+                                <span
+                                    class="ui-badge"
+                                    id="finance-qveris-status"
+                                    >Checking…</span
+                                >
+                            </div>
+                            <div class="finance-form-actions">
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="finance-qveris-usage"
+                                    type="button"
+                                >
+                                    Usage & credits
+                                </button>
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="finance-open-configuration"
+                                    type="button"
+                                >
+                                    Configure data key
+                                </button>
+                            </div>
+                            <div
+                                class="finance-results"
+                                id="finance-qveris-usage-results"
+                                aria-live="polite"
+                            ></div>
+                        </section>
+
+                        <section class="ui-card">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>Capability discovery</h3>
+                                    <p>Discover is free; inspect cost before calling.</p>
+                                </div>
+                            </div>
+                            <form
+                                class="finance-discovery-form"
+                                id="finance-discovery-form"
+                            >
+                                <input
+                                    class="ui-input"
+                                    id="finance-discovery-query"
+                                    value="historical daily adjusted equity prices and company fundamentals"
+                                    required
+                                />
+                                <button
+                                    class="ui-button ui-button--primary"
+                                    type="submit"
+                                >
+                                    Discover
+                                </button>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-discovery-results"
+                                aria-live="polite"
+                            ></div>
+                        </section>
+
+                        <section class="ui-card">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>Market data snapshots</h3>
+                                    <p>
+                                        Preserve as-of time, currency and QVeris
+                                        execution provenance.
+                                    </p>
+                                </div>
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="finance-snapshot-list"
+                                    type="button"
+                                >
+                                    Recent snapshots
+                                </button>
+                            </div>
+                            <form
+                                class="finance-json-form"
+                                id="finance-snapshot-form"
+                            >
+                                <textarea
+                                    class="ui-textarea"
+                                    id="finance-snapshot-input"
+                                    rows="7"
+                                    placeholder='{"kind":"quote","symbol":"600519.SH","currency":"CNY","asOf":"...","source":{"provider":"QVeris","executionId":"exec_..."},"payload":{"price":1400}}'
+                                    required
+                                ></textarea>
+                                <div class="finance-form-actions">
+                                    <button
+                                        class="ui-button ui-button--secondary"
+                                        id="finance-snapshot-sample"
+                                        type="button"
+                                    >
+                                        Insert sample
+                                    </button>
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        type="submit"
+                                    >
+                                        Save snapshot
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-snapshot-results"
+                                aria-live="polite"
+                            ></div>
+                        </section>
+
+                        <section class="ui-card">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>Strategy backtest</h3>
+                                    <p>
+                                        Deterministic next-bar execution with fees
+                                        and slippage.
+                                    </p>
+                                </div>
+                            </div>
+                            <form
+                                class="finance-backtest-form"
+                                id="finance-backtest-form"
+                            >
+                                <textarea
+                                    class="ui-textarea"
+                                    id="finance-backtest-input"
+                                    rows="9"
+                                    placeholder='{"bars":[...],"strategy":{"type":"sma_crossover","fastPeriod":20,"slowPeriod":60}}'
+                                    required
+                                ></textarea>
+                                <div class="finance-form-actions">
+                                    <button
+                                        class="ui-button ui-button--secondary"
+                                        id="finance-backtest-sample"
+                                        type="button"
+                                    >
+                                        Insert sample
+                                    </button>
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        type="submit"
+                                    >
+                                        Run backtest
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-backtest-results"
+                                aria-live="polite"
+                            ></div>
+                        </section>
+
+                        <section class="ui-card">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>Multi-factor screener</h3>
+                                    <p>
+                                        Explainable local ranking with missing-data
+                                        coverage.
+                                    </p>
+                                </div>
+                            </div>
+                            <form
+                                class="finance-json-form"
+                                id="finance-screen-form"
+                            >
+                                <textarea
+                                    class="ui-textarea"
+                                    id="finance-screen-input"
+                                    rows="8"
+                                    placeholder='{"securities":[...],"factors":[...]}'
+                                    required
+                                ></textarea>
+                                <div class="finance-form-actions">
+                                    <button
+                                        class="ui-button ui-button--secondary"
+                                        id="finance-screen-sample"
+                                        type="button"
+                                    >
+                                        Insert sample
+                                    </button>
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        type="submit"
+                                    >
+                                        Rank candidates
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-screen-results"
+                                aria-live="polite"
+                            ></div>
+                        </section>
+
+                        <section class="ui-card">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>Paper trading</h3>
+                                    <p>
+                                        Isolated simulation ledger; never sends real
+                                        orders.
+                                    </p>
+                                </div>
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="finance-paper-refresh"
+                                    type="button"
+                                >
+                                    Refresh
+                                </button>
+                            </div>
+                            <form
+                                class="finance-paper-account-form"
+                                id="finance-paper-account-form"
+                            >
+                                <input
+                                    class="ui-input"
+                                    id="finance-paper-account-name"
+                                    placeholder="Account name"
+                                    required
+                                />
+                                <input
+                                    class="ui-input"
+                                    id="finance-paper-account-currency"
+                                    value="CNY"
+                                    maxlength="3"
+                                    required
+                                />
+                                <input
+                                    class="ui-input"
+                                    id="finance-paper-account-cash"
+                                    type="number"
+                                    min="1"
+                                    value="1000000"
+                                    required
+                                />
+                                <button
+                                    class="ui-button ui-button--primary"
+                                    type="submit"
+                                >
+                                    Create account
+                                </button>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-paper-accounts"
+                                aria-live="polite"
+                            ></div>
+                            <form
+                                class="finance-json-form"
+                                id="finance-paper-order-form"
+                            >
+                                <textarea
+                                    class="ui-textarea"
+                                    id="finance-paper-order-input"
+                                    rows="7"
+                                    placeholder='{"accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"snapshot":{"price":1400,"asOf":"2026-07-30T07:00:00Z","source":"QVeris execution id"}}'
+                                    required
+                                ></textarea>
+                                <div class="finance-form-actions">
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        type="submit"
+                                    >
+                                        Record simulated order
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-paper-order-results"
+                                aria-live="polite"
+                            ></div>
+                            <form
+                                class="finance-json-form"
+                                id="finance-paper-limit-form"
+                            >
+                                <textarea
+                                    class="ui-textarea"
+                                    id="finance-paper-limit-input"
+                                    rows="7"
+                                    placeholder='{"action":"place","accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"limitPrice":1380,"currency":"CNY"}'
+                                    required
+                                ></textarea>
+                                <div class="finance-form-actions">
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        type="submit"
+                                    >
+                                        Manage limit order
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-paper-limit-results"
+                                aria-live="polite"
+                            ></div>
+                            <form
+                                class="finance-json-form"
+                                id="finance-paper-mark-form"
+                            >
+                                <textarea
+                                    class="ui-textarea"
+                                    id="finance-paper-mark-input"
+                                    rows="6"
+                                    placeholder='{"accountId":"...","quotes":[{"symbol":"600519.SH","price":1410,"asOf":"...","source":"QVeris exec_...","currency":"CNY"}]}'
+                                    required
+                                ></textarea>
+                                <div class="finance-form-actions">
+                                    <button
+                                        class="ui-button ui-button--primary"
+                                        type="submit"
+                                    >
+                                        Mark portfolio
+                                    </button>
+                                </div>
+                            </form>
+                            <div
+                                class="finance-results"
+                                id="finance-paper-mark-results"
+                                aria-live="polite"
+                            ></div>
+                        </section>
+
+                        <section class="ui-card finance-research-workspace">
+                            <div class="finance-section-heading">
+                                <div>
+                                    <h3>Research workspace</h3>
+                                    <p>Watchlist, evidence, invalidation rules and upcoming events.</p>
+                                </div>
+                                <button
+                                    class="ui-button ui-button--secondary"
+                                    id="finance-research-refresh"
+                                    type="button"
+                                >
+                                    Refresh
+                                </button>
+                            </div>
+                            <form class="finance-research-form" id="finance-research-form">
+                                <div class="finance-research-fields">
+                                    <input class="ui-input" id="finance-research-symbol" placeholder="Symbol" required />
+                                    <input class="ui-input" id="finance-research-title" placeholder="Research title" />
+                                    <input class="ui-input" id="finance-research-event" type="datetime-local" aria-label="Upcoming event" />
+                                </div>
+                                <textarea class="ui-textarea" id="finance-research-thesis" rows="3" placeholder="Investment thesis" required></textarea>
+                                <div class="finance-research-columns">
+                                    <textarea class="ui-textarea" id="finance-research-bull" rows="4" placeholder="Bull case and supporting evidence"></textarea>
+                                    <textarea class="ui-textarea" id="finance-research-bear" rows="4" placeholder="Bear case and counter-evidence"></textarea>
+                                </div>
+                                <textarea class="ui-textarea" id="finance-research-invalidation" rows="3" placeholder="What would invalidate the thesis?"></textarea>
+                                <textarea class="ui-textarea" id="finance-research-sources" rows="3" placeholder="Source URLs or execution IDs, one per line"></textarea>
+                                <div class="finance-form-actions">
+                                    <button class="ui-button ui-button--primary" type="submit">Save research card</button>
+                                </div>
+                            </form>
+                            <div class="finance-results" id="finance-research-results" aria-live="polite"></div>
+                        </section>
+                    </div>
+                </aside>
+
                 <!-- Super Agent Chat Header web component (shown when SA is active) -->
                 <sa-chat-header
                     class="super-agent-chat-header hidden"
@@ -405,6 +739,21 @@
                         <p class="hint">
                             Type a message below to start chatting with Pi, or select a session from the sidebar.
                         </p>
+                        <button
+                            class="welcome-scene"
+                            type="button"
+                            data-scene="programming"
+                            title="Open scene settings"
+                        >
+                            <span class="welcome-scene-dot" aria-hidden="true"></span>
+                            <span class="welcome-scene-copy">
+                                <span class="welcome-scene-kicker">Current scene</span>
+                                <strong data-scene-name>Programming</strong>
+                                <span data-scene-description
+                                    >Engineering workflows for coding, debugging, repository changes, and reproducible verification.</span
+                                >
+                            </span>
+                        </button>
                         <div class="shortcuts-hint" aria-label="Keyboard shortcuts">
                             <span><kbd>/</kbd> Focus input</span>
                             <span><kbd>Esc</kbd> Abort</span>
@@ -426,41 +775,25 @@
                     <div class="conv-nav-tooltip-a" id="conv-nav-tooltip-a"></div>
                 </div>
 
-                <!-- New-message badge kept separate so badge logic still works -->
-                <div class="conv-nav-new-badge hidden" id="scroll-bottom-badge">New ↓</div>
-
-                <!-- Legacy IDs kept as invisible references so existing JS bindings don't break -->
-                <button id="scroll-prev-btn" hidden aria-hidden="true"></button>
-                <button id="scroll-bottom-btn" hidden aria-hidden="true"></button>
-
-                <!-- Typing indicator (hidden, kept for JS reference) -->
+                <!-- New-message action kept separate from the desktop-only conversation rail -->
+                <button
+                    type="button"
+                    class="ui-button ui-button--primary ui-button--sm conv-nav-new-badge hidden"
+                    id="scroll-bottom-badge"
+                    aria-label="Jump to latest message"
+                >
+                    Latest ↓
+                </button>
                 <div
-                    class="typing-indicator hidden"
-                    id="typing-indicator"
+                    class="conv-nav-live-status"
+                    id="conv-nav-live-status"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
                 ></div>
 
                 <!-- Input Area -->
                 <div class="input-area">
-                    <button
-                        class="mobile-context-toggle"
-                        id="mobile-context-toggle"
-                    >
-                        <svg
-                            width="10"
-                            height="6"
-                            viewBox="0 0 10 6"
-                            fill="none"
-                        >
-                            <path
-                                d="M1 5L5 1L9 5"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </button>
-                    <div class="mobile-model-bar" id="mobile-model-bar"></div>
                     <div
                         class="queued-messages hidden"
                         id="queued-messages"
@@ -770,6 +1103,54 @@
             </div>
         </div>
 
+        <div
+            class="help-center-overlay hidden"
+            id="help-center-overlay"
+        ></div>
+        <section
+            class="help-center hidden"
+            id="help-center"
+            aria-label="ZiCode Help"
+        >
+            <header class="help-center-header">
+                <button
+                    class="ui-button ui-button--ghost help-center-brand"
+                    id="help-center-home"
+                    type="button"
+                >
+                    ZiCode Help
+                </button>
+                <span
+                    class="help-center-page-title"
+                    id="help-center-page-title"
+                ></span>
+                <button
+                    class="ui-icon-button ui-icon-button--ghost help-center-close"
+                    id="help-center-close"
+                    type="button"
+                    aria-label="Close Help"
+                >
+                    ×
+                </button>
+            </header>
+            <div class="help-center-layout">
+                <nav
+                    class="help-center-navigation"
+                    id="help-center-navigation"
+                    aria-label="Help navigation"
+                ></nav>
+                <article
+                    class="help-center-article markdown-body"
+                    id="help-center-article"
+                ></article>
+                <nav
+                    class="help-center-toc"
+                    id="help-center-toc"
+                    aria-label="On this page"
+                ></nav>
+            </div>
+        </section>
+
         <div class="settings-overlay hidden" id="settings-overlay"></div>
 
         <div class="settings-panel hidden" id="settings-panel">
@@ -795,6 +1176,9 @@
                     data-settings-tab="configuration"
                 >
                     Configuration
+                </button>
+                <button class="settings-nav-item" data-settings-tab="remote-access">
+                    Remote access
                 </button>
                 <button class="settings-nav-item" data-settings-tab="chat">
                     Agent Inbox
@@ -927,9 +1311,85 @@
                                 ></button>
                             </div>
                         </div>
-                        <div class="settings-section">
+                        <div
+                            class="settings-section hidden"
+                            id="mobile-task-notification-section"
+                        >
+                            <div class="settings-section-title">Mobile</div>
+                            <div class="settings-row">
+                                <span
+                                    class="settings-label settings-label-stack"
+                                >
+                                    <span class="settings-label-main"
+                                        >Task completion alerts</span
+                                    >
+                                    <span class="settings-label-sub"
+                                        >Notify when Pi finishes in the
+                                        background</span
+                                    >
+                                </span>
+                                <button
+                                    type="button"
+                                    class="settings-toggle"
+                                    id="toggle-mobile-task-notifications"
+                                    role="switch"
+                                    aria-checked="false"
+                                    aria-label="Task completion alerts"
+                                ></button>
+                            </div>
+                            <p
+                                class="settings-help"
+                                id="mobile-task-notification-status"
+                                role="status"
+                                aria-live="polite"
+                            ></p>
+                            <div
+                                class="settings-row hidden"
+                                id="mobile-draft-storage-row"
+                            >
+                                <span
+                                    class="settings-label settings-label-stack"
+                                >
+                                    <span class="settings-label-main"
+                                        >Protect local drafts</span
+                                    >
+                                    <span class="settings-label-sub"
+                                        >Ask the browser not to evict encrypted
+                                        drafts automatically</span
+                                    >
+                                </span>
+                                <button
+                                    type="button"
+                                    class="ui-button ui-button--secondary"
+                                    id="protect-mobile-draft-storage"
+                                >
+                                    Protect drafts
+                                </button>
+                            </div>
+                            <p
+                                class="settings-help"
+                                id="mobile-draft-storage-status"
+                                role="status"
+                                aria-live="polite"
+                            ></p>
+                        </div>
+                        <div
+                            class="settings-section"
+                            id="scene-profile-section"
+                        >
                             <div class="settings-section-title">
                                 New session scene
+                            </div>
+                            <div class="settings-scene-context">
+                                <span class="settings-scene-context-label"
+                                    >Current session</span
+                                >
+                                <strong id="scene-profile-current-name"
+                                    >Programming</strong
+                                >
+                                <code id="scene-profile-current-id"
+                                    >programming</code
+                                >
                             </div>
                             <p class="settings-help">
                                 Each scene has isolated model channels,
@@ -942,7 +1402,7 @@
                                     class="settings-label settings-label-stack"
                                 >
                                     <span class="settings-label-main"
-                                        >Scene</span
+                                        >Scene for the next session</span
                                     >
                                     <span
                                         class="settings-label-sub"
@@ -1216,16 +1676,28 @@
 
                 <div class="settings-tab" data-settings-panel="configuration">
                     <div class="settings-body">
+                        <div class="settings-scene-context configuration-scene-context">
+                            <span class="settings-scene-context-label"
+                                >Editing current scene</span
+                            >
+                            <strong id="configuration-scene-name"
+                                >Programming</strong
+                            >
+                            <code id="configuration-scene-id">programming</code>
+                            <span class="settings-scene-context-note"
+                                >Credentials and model channels below belong
+                                only to this session scene.</span
+                            >
+                        </div>
                         <div class="settings-section">
                             <div class="settings-section-title">
                                 Authentication
                             </div>
                             <p class="settings-help">
-                                Keys are stored locally in
-                                <code>zicode/agent/auth.json</code>.
-                                The desktop app stores keys in this scene's
-                                isolated agent directory so they persist across
-                                launches.
+                                Keys are stored in the operating system
+                                credential vault. Scene configuration contains
+                                only non-sensitive references; secrets are never
+                                written to models.json or documentation.
                             </p>
                             <div
                                 class="settings-api-keys"
@@ -1465,65 +1937,15 @@
                     </div>
                 </div>
 
+                <div class="settings-tab" data-settings-panel="remote-access">
+                    <div id="settings-remote-access"></div>
+                </div>
+
                 <chat-settings-panel
                     class="settings-tab"
                     data-settings-panel="chat"
                 ></chat-settings-panel>
             </section>
-        </div>
-
-        <!-- Agent Config Editor Modal -->
-        <div
-            class="config-editor-overlay hidden"
-            id="config-editor-overlay"
-        ></div>
-        <div class="config-editor-modal hidden" id="config-editor-modal">
-            <div class="config-editor-header">
-                <div class="config-editor-title-group">
-                    <h3>Agent Configuration</h3>
-                    <span
-                        class="config-editor-path"
-                        id="config-editor-path"
-                    ></span>
-                </div>
-                <button class="settings-close" id="config-editor-close">
-                    <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                </button>
-            </div>
-            <div class="config-editor-body">
-                <textarea
-                    class="ui-textarea config-editor-textarea"
-                    id="config-editor-textarea"
-                    spellcheck="false"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="off"
-                ></textarea>
-                <div
-                    class="config-editor-error hidden"
-                    id="config-editor-error"
-                ></div>
-            </div>
-            <div class="config-editor-footer">
-                <button class="ui-button ui-button--secondary config-editor-cancel" id="config-editor-cancel">
-                    Cancel
-                </button>
-                <button class="ui-button ui-button--primary" id="config-editor-save">
-                    Save
-                </button>
-            </div>
         </div>
 
         <!-- Global Session Search -->
@@ -1618,17 +2040,60 @@
                     </button>
                 </div>
                 <div class="lan-qr-modal-body">
+                    <div
+                        class="lan-qr-tabs"
+                        role="tablist"
+                        aria-label="Mobile connection step"
+                    >
+                        <button
+                            type="button"
+                            class="lan-qr-tab active"
+                            id="lan-qr-tab-session"
+                            role="tab"
+                            aria-selected="true"
+                            data-lan-qr-kind="session"
+                        >
+                            Open this chat
+                        </button>
+                        <button
+                            type="button"
+                            class="lan-qr-tab"
+                            id="lan-qr-tab-setup"
+                            role="tab"
+                            aria-selected="false"
+                            data-lan-qr-kind="setup"
+                        >
+                            First-time setup
+                        </button>
+                    </div>
                     <div class="lan-qr-loading" id="lan-qr-loading">
                         Generating QR code…
                     </div>
                     <img
                         class="lan-qr-image hidden"
                         id="lan-qr-image"
-                        alt="QR code for mobile access"
+                        alt="QR code for current chat"
                     />
-                    <div class="lan-qr-hint">
-                        Scan with your phone to open Pi Desktop on the same network
+                    <div class="lan-qr-hint" id="lan-qr-hint">
+                        Already trusted this computer? Scan to pair and open the current chat.
                     </div>
+                    <code
+                        class="lan-qr-address hidden"
+                        id="lan-qr-address"
+                    ></code>
+                    <div
+                        class="lan-qr-meta hidden"
+                        id="lan-qr-meta"
+                        role="status"
+                        aria-live="polite"
+                    ></div>
+                    <button
+                        class="ui-button ui-button--secondary ui-button--sm lan-qr-refresh hidden"
+                        id="lan-qr-refresh"
+                        type="button"
+                    >
+                        Refresh QR code
+                    </button>
                     <button
                         class="lan-qr-open-link hidden"
                         id="lan-qr-open-link"

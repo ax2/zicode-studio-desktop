@@ -2,6 +2,7 @@ import { getLocale, setLocale, supportedLocales } from "../../i18n.js";
 import { applyTheme, getCurrentTheme, themes } from "../../themes.js";
 import { loadCostDashboard } from "./cost-dashboard.js";
 import { setupPackageBrowse } from "./package-browse.js";
+import { setupRemoteAccessSettings } from "./remote-access-settings.js";
 import { setupSceneProfiles } from "./scene-profiles.js";
 import { setupSettingsConfig } from "./settings-config.js";
 import { setupSettingsToggles } from "./settings-toggles.js";
@@ -21,6 +22,7 @@ export function setupSettingsPanel({
   data,
   getWorkspaceId,
   control,
+  remoteAccessGateway,
   configGateway,
   onModelConfigurationChanged,
   runtime,
@@ -32,7 +34,9 @@ export function setupSettingsPanel({
   const openBtn = document.getElementById("settings-btn");
   const closeBtn = document.getElementById("settings-close");
   const overlay = document.getElementById("settings-overlay");
-  if (!panel || !openBtn) return;
+  const navigation = panel?.querySelector(".settings-nav");
+  const content = panel?.querySelector(".settings-content");
+  if (!panel || !navigation || !content) return;
 
   const navItems = Array.from(document.querySelectorAll(".settings-nav-item"));
   const tabs = Array.from(document.querySelectorAll(".settings-tab"));
@@ -43,15 +47,19 @@ export function setupSettingsPanel({
   const appVersionValue = document.getElementById("setting-app-version-value");
   const costDashboard = document.getElementById("settings-cost-dashboard");
   const packageBrowse = setupPackageBrowse(control, { notify });
-  const sceneProfiles = setupSceneProfiles();
+  const remoteAccess = setupRemoteAccessSettings({ gateway: remoteAccessGateway });
+  const sceneProfiles = setupSceneProfiles({ getTarget });
   const config = configGateway
-    ? setupSettingsConfig({ configGateway, onModelConfigurationChanged })
+    ? setupSettingsConfig({ configGateway, onModelConfigurationChanged, getTarget })
     : null;
   const thinkingControl = runtime
     ? setupThinkingEffortControl({ runtime, getTarget, onError })
     : null;
   setupSettingsToggles();
   let usageLoaded = false;
+  let activeTab = "general";
+  let embeddedActive = false;
+  let openHandler = null;
 
   function loadUsage() {
     if (usageLoaded || !costDashboard || !data || !getWorkspaceId) return;
@@ -68,29 +76,26 @@ export function setupSettingsPanel({
   }
 
   function reloadVisibleConfiguration() {
-    const configurationTab = document.querySelector('[data-settings-panel="configuration"]');
-    if (
-      panel.classList.contains("hidden") ||
-      !configurationTab?.classList.contains("active")
-    ) {
-      return;
-    }
+    if (activeTab !== "configuration") return;
+    if (!embeddedActive && panel.classList.contains("hidden")) return;
     loadConfiguration();
   }
 
   function selectTab(tabKey = "general") {
     const target = tabKey === "auth" ? "configuration" : tabKey;
+    activeTab = validTabKeys.has(target) ? target : "general";
     for (const item of navItems) {
-      item.classList.toggle("active", item.dataset.settingsTab === target);
+      item.classList.toggle("active", item.dataset.settingsTab === activeTab);
     }
     for (const tab of tabs) {
-      tab.classList.toggle("active", tab.dataset.settingsPanel === target);
+      tab.classList.toggle("active", tab.dataset.settingsPanel === activeTab);
     }
 
-    if (target === "usage") loadUsage();
-    if (target === "general") void sceneProfiles?.load();
-    if (target === "extensions") void packageBrowse.load();
-    if (target === "configuration") loadConfiguration();
+    if (activeTab === "usage") loadUsage();
+    if (activeTab === "general") void sceneProfiles?.load();
+    if (activeTab === "extensions") void packageBrowse.load();
+    if (activeTab === "configuration") loadConfiguration();
+    if (activeTab === "remote-access") void remoteAccess?.load();
   }
 
   function buildAppearancePreferences() {
@@ -173,7 +178,7 @@ export function setupSettingsPanel({
     const nextHash = settingsHashForTab(tabKey);
     if (window.location.hash === nextHash) return;
     history.replaceState(
-      null,
+      history.state,
       "",
       `${window.location.pathname}${window.location.search}${nextHash}`,
     );
@@ -181,14 +186,18 @@ export function setupSettingsPanel({
 
   function clearSettingsHash() {
     if (!window.location.hash.startsWith("#/settings")) return;
-    history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    history.replaceState(history.state, "", `${window.location.pathname}${window.location.search}`);
   }
 
   function openSettings(tabKey = "general", { updateHash = true } = {}) {
     const normalizedTabKey = normalizeSettingsTabKey(tabKey);
     if (updateHash) updateSettingsHash(normalizedTabKey);
-    panel.classList.remove("hidden");
     selectTab(normalizedTabKey);
+    if (openHandler) {
+      openHandler(normalizedTabKey);
+      return;
+    }
+    panel.classList.remove("hidden");
     buildAppearancePreferences();
     void loadPiVersion();
     void loadAppVersion();
@@ -196,6 +205,10 @@ export function setupSettingsPanel({
 
   function closeSettings({ clearHash = true } = {}) {
     if (clearHash) clearSettingsHash();
+    if (openHandler) {
+      openHandler(null);
+      return;
+    }
     panel.classList.add("hidden");
   }
 
@@ -206,16 +219,17 @@ export function setupSettingsPanel({
       openSettings(tabKey, { updateHash: false });
       return;
     }
-    if (!panel.classList.contains("hidden")) closeSettings({ clearHash: false });
+    if (embeddedActive || !panel.classList.contains("hidden")) {
+      closeSettings({ clearHash: false });
+    }
   }
 
-  openBtn.addEventListener("click", () => openSettings());
+  openBtn?.addEventListener("click", () => openSettings());
   closeBtn?.addEventListener("click", () => closeSettings());
   overlay?.addEventListener("click", () => closeSettings());
   for (const item of navItems) {
     item.addEventListener("click", () => {
-      selectTab(item.dataset.settingsTab);
-      updateSettingsHash(item.dataset.settingsTab);
+      openSettings(item.dataset.settingsTab);
     });
   }
   document.addEventListener("keydown", (event) => {
@@ -224,5 +238,43 @@ export function setupSettingsPanel({
   window.addEventListener("hashchange", restoreFromHash);
   restoreFromHash();
 
-  return { openSettings, closeSettings, thinkingControl };
+  return {
+    openSettings,
+    closeSettings,
+    getActiveTab: () => activeTab,
+    setOpenHandler(handler) {
+      openHandler = typeof handler === "function" ? handler : null;
+      if (!openHandler) return;
+      panel.classList.add("hidden");
+      overlay?.classList.add("hidden");
+      const route = window.location.hash.slice(1);
+      if (route === "/settings" || route.startsWith("/settings/")) {
+        openHandler(normalizeSettingsTabKey(route.split("/")[2] || "general"));
+      }
+    },
+    renderNavigation(container) {
+      closeBtn?.classList.add("hidden");
+      navigation.querySelector(".settings-nav-title")?.classList.add("hidden");
+      container.append(navigation);
+    },
+    renderContent(container) {
+      embeddedActive = true;
+      panel.classList.add("hidden");
+      overlay?.classList.add("hidden");
+      container.replaceChildren(content);
+      selectTab(activeTab);
+      buildAppearancePreferences();
+      void loadPiVersion();
+      void loadAppVersion();
+    },
+    deactivate() {
+      embeddedActive = false;
+    },
+    thinkingControl,
+    setTarget(nextTarget) {
+      sceneProfiles?.setTarget(nextTarget);
+      config?.setTarget(nextTarget);
+      reloadVisibleConfiguration();
+    },
+  };
 }

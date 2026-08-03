@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { t } from "../../i18n.js";
 import { setSuperAgentEnabled } from "../../super-agent/settings.js";
 import { formatSessionTime, SessionSidebar } from "./session-sidebar.js";
 
@@ -373,8 +374,8 @@ describe("SessionSidebar.render", () => {
 
     const pinnedGroup = container.firstElementChild;
     expect(pinnedGroup?.classList.contains("super-agent-pinned-group")).toBe(true);
-    expect(pinnedGroup?.querySelector(".project-header")?.textContent).toContain("Agent Inbox");
-    expect(pinnedGroup?.querySelector(".project-header")?.textContent).toContain("Pinned");
+    expect(pinnedGroup?.querySelector(".project-header")?.textContent).toContain(t("Agent Inbox"));
+    expect(pinnedGroup?.querySelector(".project-header")?.textContent).toContain(t("Pinned"));
     const pinnedSession = pinnedGroup?.querySelector(".session-item");
     expect(pinnedSession?.dataset.sessionId).toBe("sa-new");
     expect(pinnedSession?.textContent).toContain("Agent Inbox");
@@ -505,5 +506,132 @@ describe("SessionSidebar.render", () => {
     expect(
       container.querySelector('.session-item[data-session-id="s-background"]').classList,
     ).toContain("unread");
+  });
+
+  it("gives the context menu menu roles, keyboard navigation, and focus restore", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
+      { id: "s-b", timestamp: new Date().toISOString(), name: "Beta" },
+    ]);
+    document.body.appendChild(container);
+    await sidebar.load();
+    const item = container.querySelector('.session-item[data-session-id="s-a"]');
+    item.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+    const menu = document.querySelector(".session-context-menu");
+    expect(menu).not.toBeNull();
+    expect(menu.getAttribute("role")).toBe("menu");
+    const items = [...menu.querySelectorAll(".context-menu-item")];
+    expect(items.length).toBeGreaterThanOrEqual(2);
+    for (const menuItem of items) {
+      expect(menuItem.getAttribute("role")).toBe("menuitem");
+    }
+    expect(document.activeElement).toBe(items[0]);
+
+    items[0].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(document.activeElement).toBe(items[1]);
+    items[1].dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
+    expect(document.activeElement).toBe(items[0]);
+    items[0].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    expect(document.activeElement).toBe(items.at(-1));
+    items.at(-1).dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    expect(document.activeElement).toBe(items[0]);
+
+    items[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(document.querySelector(".session-context-menu")).toBeNull();
+    expect(document.activeElement).toBe(item);
+  });
+
+  it("anchors the roving tabindex on the active session", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
+      { id: "s-active", timestamp: new Date().toISOString(), name: "Active" },
+    ]);
+    await sidebar.load();
+    expect(
+      container.querySelector('.session-item[data-session-id="s-active"]').tabIndex,
+    ).toBe(0);
+    expect(container.querySelector('.session-item[data-session-id="s-a"]').tabIndex).toBe(-1);
+  });
+
+  it("navigates session items with arrows, skipping collapsed projects", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
+      {
+        id: "s-other",
+        timestamp: new Date().toISOString(),
+        name: "Other",
+        projectPath: "/other",
+        projectName: "other",
+        isCurrentWorkspace: false,
+      },
+    ]);
+    document.body.appendChild(container);
+    await sidebar.load();
+
+    const otherHeader = container.querySelector(
+      '.project-group:not(.current-project) .project-header',
+    );
+    const otherList = container.querySelector(
+      '.project-group:not(.current-project) .project-sessions',
+    );
+    // Non-current projects default to collapsed, so their items are not
+    // reachable with arrow navigation.
+    expect(
+      otherList.classList.contains("collapsed"),
+    ).toBe(true);
+
+    const alpha = container.querySelector('.session-item[data-session-id="s-a"]');
+    alpha.focus();
+    alpha.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    // The collapsed project's session item is skipped; focus lands on its header.
+    expect(document.activeElement).toBe(otherHeader);
+
+    // Expand the other project; its session becomes reachable again.
+    otherHeader.click();
+    expect(otherList.classList.contains("collapsed")).toBe(false);
+    alpha.focus();
+    alpha.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(document.activeElement).toBe(otherHeader);
+    otherHeader.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(document.activeElement).toBe(
+      container.querySelector('.session-item[data-session-id="s-other"]'),
+    );
+  });
+
+  it("activates sessions and project headers with Enter or Space", async () => {
+    const { sidebar, container, onSelect } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
+      { id: "s-b", timestamp: new Date().toISOString(), name: "Beta" },
+    ]);
+    await sidebar.load();
+
+    const alpha = container.querySelector('.session-item[data-session-id="s-a"]');
+    alpha.focus();
+    alpha.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "s-a" }));
+
+    const header = container.querySelector(".project-group.current-project .project-header");
+    header.focus();
+    header.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(
+      container
+        .querySelector(".project-group.current-project .project-sessions")
+        .classList.contains("collapsed"),
+    ).toBe(true);
+  });
+
+  it("does not hijack keys focused on buttons inside session items", async () => {
+    const { sidebar, container, onSelect } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
+    ]);
+    await sidebar.load();
+
+    const archiveBtn = container.querySelector(
+      '.session-item[data-session-id="s-a"] .session-archive-btn',
+    );
+    archiveBtn.focus();
+    archiveBtn.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

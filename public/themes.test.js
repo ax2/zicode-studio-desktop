@@ -20,4 +20,17 @@ describe("appearance themes", () => {
     applyTheme("unknown");
     expect(document.documentElement.dataset.theme).toBe("clean");
   });
+
+  it("keeps the installed-app system chrome aligned with the selected theme", () => {
+    const themeColor = document.createElement("meta");
+    themeColor.name = "theme-color";
+    document.head.append(themeColor);
+
+    applyTheme("midnight");
+    expect(themeColor.content).toBe("#000000");
+    applyTheme("terracotta");
+    expect(themeColor.content).toBe("#f4f1ec");
+
+    themeColor.remove();
+  });
 });

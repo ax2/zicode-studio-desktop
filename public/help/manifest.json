@@ -1,0 +1,111 @@
+{
+  "sections": ["开始使用", "对话与效率", "场景与配置", "插件", "笔记", "金融工作台", "产物库", "支持与安全", "参考"],
+  "pages": [
+    {
+      "id": "getting-started",
+      "title": "快速开始",
+      "section": "开始使用",
+      "file": "getting-started.md",
+      "summary": "认识三栏界面并创建第一次对话",
+      "keywords": ["入门", "导航", "界面"]
+    },
+    {
+      "id": "interface",
+      "title": "界面与导航",
+      "section": "开始使用",
+      "file": "interface.md",
+      "summary": "导航、功能区、主视图和文件管理",
+      "keywords": ["三栏", "应用", "布局"]
+    },
+    {
+      "id": "mobile-access",
+      "title": "手机访问与安装",
+      "section": "开始使用",
+      "file": "mobile-access.md",
+      "summary": "配置证书、扫码配对、安装到主屏幕并处理断网恢复",
+      "keywords": ["手机", "Android", "iPhone", "PWA", "证书", "配对"]
+    },
+    {
+      "id": "chat",
+      "title": "对话工作流",
+      "section": "对话与效率",
+      "file": "chat.md",
+      "summary": "会话、上下文、错误恢复与笔记联动",
+      "keywords": ["消息", "重试", "上下文"]
+    },
+    {
+      "id": "projects-tasks",
+      "title": "项目、任务与自动化",
+      "section": "对话与效率",
+      "file": "projects-tasks.md",
+      "summary": "把目标拆成可跟踪、可恢复的执行工作流",
+      "keywords": ["项目", "任务", "暂停", "自动化"]
+    },
+    {
+      "id": "scenes",
+      "title": "场景与隔离",
+      "section": "场景与配置",
+      "file": "scenes.md",
+      "summary": "理解工作区、运行实例与配置边界"
+    },
+    {
+      "id": "models",
+      "title": "模型与 API Key",
+      "section": "场景与配置",
+      "file": "models.md",
+      "summary": "配置 QVeris、模型路由、预算与安全凭据",
+      "keywords": ["QVeris", "模型网关", "费用"]
+    },
+    {
+      "id": "plugins",
+      "title": "插件安装与信任",
+      "section": "插件",
+      "file": "plugins.md",
+      "summary": "安装、权限审查、签名与 WASI 沙箱"
+    },
+    {
+      "id": "notes",
+      "title": "本地笔记库",
+      "section": "笔记",
+      "file": "notes.md",
+      "summary": "对话联动、知识关系与静态站点发布"
+    },
+    {
+      "id": "finance",
+      "title": "金融工作台",
+      "section": "金融工作台",
+      "file": "finance.md",
+      "summary": "研究资产、风险摘要与研究产物"
+    },
+    {
+      "id": "artifacts",
+      "title": "产物库",
+      "section": "产物库",
+      "file": "artifacts.md",
+      "summary": "统一浏览对话和插件生成的文件"
+    },
+    {
+      "id": "security-data",
+      "title": "数据、安全与备份",
+      "section": "支持与安全",
+      "file": "security-data.md",
+      "summary": "本地数据位置、系统凭据和备份边界",
+      "keywords": ["隐私", "Credential Manager", "恢复"]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "故障排查",
+      "section": "支持与安全",
+      "file": "troubleshooting.md",
+      "summary": "处理模型、任务、插件与发布问题",
+      "keywords": ["错误", "无法运行", "诊断"]
+    },
+    {
+      "id": "shortcuts",
+      "title": "快捷键",
+      "section": "参考",
+      "file": "shortcuts.md",
+      "summary": "常用键盘操作速查"
+    }
+  ]
+}

@@ -1,15 +1,20 @@
-import { initializeI18n } from "../i18n.js";
+import { initializeI18n, t } from "../i18n.js";
 import { reconcileSnapshotTarget } from "../session/bootstrap-target.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
 import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
-import { buildTaskComposerPrompt, markTaskChildSessionBound } from "../super-agent/task-state.js";
+import {
+  buildTaskComposerPrompt,
+  markTaskChildSessionBound,
+  markTaskFinished,
+} from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
 import { applyTheme, getCurrentTheme } from "../themes.js";
 import { ConvNav } from "../ui/conv-nav.js";
 import { setupMessagesInsets } from "../ui/layout-insets.js";
 import { MessageRenderer } from "../ui/message-renderer.js";
+import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js";
 import { ToolCardRenderer } from "../ui/tool-card.js";
 import { setupComposerImageAttachments } from "./composer/composer-images.js";
 import { setupComposerSlashMenu } from "./composer/composer-slash-menu.js";
@@ -21,14 +26,47 @@ import { showNativeDialog } from "./extensions/dialog.js";
 import { ExtensionUiHost } from "./extensions/extension-ui-host.js";
 import { showInlineExtensionPrompt } from "./extensions/inline-extension-prompt.js";
 import { setupAppUpdater } from "./features/app-updater.js";
+import { setupFinanceWorkbench } from "./features/finance-workbench.js";
+import { setupHelpCenter } from "./features/help-center.js";
 import { refreshLanQrButton, setupLanQr } from "./features/lan-qr.js";
-import { resolveRemoteAuth } from "./features/remote-auth.js";
+import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
+import { setupMobileExperience } from "./features/mobile-experience.js";
+import { setupMobileSendLater } from "./features/mobile-send-later.js";
+import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
+import { createAuthenticatedHostFetch, resolveRemoteAuth } from "./features/remote-auth.js";
 import {
   isRpivTodoCommandNotify,
   isRpivTodoWidgetRequest,
   RpivTodoMirrorPanel,
 } from "./features/rpiv-todo-mirror.js";
+import { setupSceneIndicator } from "./features/scene-indicator.js";
+import { renderStartupFailure } from "./features/startup-failure.js";
 import { createNotificationCenter } from "./notifications/notification-center.js";
+import {
+  estimateRequestCost,
+  findLowestCostModel,
+  formatModelPricing,
+} from "./models/model-routing.js";
+import { setupArtifactApp } from "./plugins/artifact-app.js";
+import { ArtifactGateway } from "./plugins/artifact-gateway.js";
+import { setupAutomationApp } from "./plugins/automation-app.js";
+import { setupNotesApp } from "./plugins/notes-app.js";
+import { NotesGateway } from "./plugins/notes-gateway.js";
+import { PluginCapabilityGateway } from "./plugins/plugin-capability-gateway.js";
+import { PluginHostGateway } from "./plugins/plugin-host-gateway.js";
+import { createBuiltinPluginRegistry } from "./plugins/plugin-registry.js";
+import { PLUGIN_HISTORY_STATE_KEY, setupPluginShell } from "./plugins/plugin-shell.js";
+import { setupPluginViewHost } from "./plugins/plugin-view-host.js";
+import {
+  readProjectWorkspaceProfile,
+  setupProjectWorkspaceApp,
+} from "./plugins/project-workspace-app.js";
+import { setupTaskCenterApp } from "./plugins/task-center-app.js";
+import {
+  createHistoryLoadedStatus,
+  createHistoryWindow,
+  createHistoryWindowNotice,
+} from "./session/history-window.js";
 import { createSessionSelectionHandler } from "./session/session-navigation.js";
 import { setupSessionSearchDialog } from "./session/session-search-dialog.js";
 import { SessionSidebar } from "./session/session-sidebar.js";
@@ -41,15 +79,20 @@ import {
   signalConfigGatewayReady,
 } from "./transport/config-gateway-readiness.js";
 import { HostControlGateway } from "./transport/control-gateway.js";
+import { RemoteAccessGateway } from "./transport/remote-access-gateway.js";
 import { HostDataGateway } from "./transport/data-gateway.js";
 import { HostRuntimeAdapter, resolveHostWebSocketUrl } from "./transport/runtime-adapter.js";
 import { RuntimeGateway } from "./transport/runtime-gateway.js";
 import { setupAppKeyboardShortcuts } from "./utils/keyboard-shortcuts.js";
 import { randomId } from "./utils/random-id.js";
-import { appRoutePath, parseAppRoute, replaceTemporarySessionRoute } from "./utils/router.js";
+import {
+  appRoutePath,
+  parseAppRoute,
+  replaceTemporarySessionRoute,
+  resolveHistoryNavigation,
+} from "./utils/router.js";
 import { findLatestAssistantUsage, setupContextUsage } from "./workspace/context-usage.js";
 import { NativeFileBrowser } from "./workspace/file-browser.js";
-import { setupHeaderOpenApp } from "./workspace/header-open-app.js";
 import { setupProjectHeader } from "./workspace/project-header.js";
 import {
   createSessionViaHost,
@@ -61,7 +104,8 @@ import {
 } from "./workspace/workspace-actions.js";
 
 const route = parseAppRoute(window.location.pathname);
-if (route.name !== "session") throw new Error("Native ZiCode Studio Desktop requires a session route");
+if (route.name !== "session")
+  throw new Error("Native ZiCode Studio Desktop requires a session route");
 
 initializeI18n();
 applyTheme(getCurrentTheme());
@@ -116,6 +160,9 @@ let currentThinkingLevel = "off";
 let currentModelId = null;
 let currentModelContextWindow = 0;
 let availableModels = [];
+let modelsLoading = false;
+let modelLoadError = "";
+let modelLoadPromise = null;
 let target = provisionalTargetFromRoute(route);
 let configGatewayTargetReady = false;
 let store = createSessionStore(target);
@@ -123,7 +170,16 @@ let navigationGeneration = 0;
 let commandCatalog = buildCommandCatalog({});
 let streamingElement = null;
 let sidebar = null;
+let pluginShell = null;
 let activeSearchQuery = "";
+let lastRetryableRequest = null;
+let mobileDrafts = null;
+let mobileSendLater = null;
+let imageAttachments = null;
+let historyWindow = null;
+let historyWindowTargetKey = "";
+let currentHistoryMessages = [];
+let historyRevealCompleted = false;
 // Auto-launch guard. Stored in sessionStorage (not a module variable) so it
 // survives same-window `window.navigate()` reloads: when the user selects
 // another project's session the inbox window reloads at the new URL, and
@@ -162,6 +218,11 @@ let superAgentEnsureInFlight = null;
 const dispatchedInstances = new Map();
 
 const remoteAuth = await resolveRemoteAuth();
+const hostFetch = createAuthenticatedHostFetch({
+  deviceToken: remoteAuth.deviceToken,
+  location: window.location,
+  fetchImpl: window.fetch.bind(window),
+});
 
 const adapter = new HostRuntimeAdapter({
   url: resolveHostWebSocketUrl(window),
@@ -169,9 +230,12 @@ const adapter = new HostRuntimeAdapter({
   clientType: remoteAuth.clientType,
   deviceToken: remoteAuth.deviceToken,
 });
+const mobileExperience = setupMobileExperience({ adapter, clientType: remoteAuth.clientType });
+adapter.setFatalErrorListener((error) => renderStartupFailure(error));
 const runtime = new RuntimeGateway(adapter);
-const data = new HostDataGateway(adapter, { fetchImpl: window.fetch.bind(window) });
+const data = new HostDataGateway(adapter, { fetchImpl: hostFetch });
 const control = new HostControlGateway(adapter);
+const remoteAccessGateway = new RemoteAccessGateway(adapter);
 const config = new ConfigGateway({ runtime, getTarget: () => target });
 window.__picotConfigCall = (op, params, options) => config.call(op, params, options);
 const contextUsage = setupContextUsage();
@@ -224,6 +288,7 @@ const extensionUi = new ExtensionUiHost({
     },
     editorText: (request) => {
       input.value = request.text || "";
+      mobileDrafts?.sync();
       input.focus();
     },
     widget: (request) => {
@@ -239,6 +304,7 @@ await extensionUi.flushForegroundQueue();
 const hydrateFromSnapshot = async (snapshot) => {
   await adoptTarget(reconcileSnapshotTarget(target, snapshot.target));
   store = reduceSessionState(store, snapshot);
+  mobileExperience?.setTaskRunning(target, store.lifecycle === "working");
   renderHistory(snapshot.state.messages ?? []);
   todoMirrorPanel.hydrateFromMessages(snapshot.state.messages ?? []);
   renderQueuedMessages(queuedMessages, store.queue);
@@ -259,6 +325,7 @@ const hydrateFromSnapshot = async (snapshot) => {
 
 runtime.subscribe((frame) => {
   if (frame.type !== "runtime_event") return;
+  mobileExperience?.handleRuntimeEvent(frame.event, frame.target, frame.sequence);
   if (
     frame.target.instanceId !== target.instanceId ||
     (frame.target.sessionId && frame.target.sessionId !== target.sessionId)
@@ -307,6 +374,7 @@ messagesElement.addEventListener("messagefork", async (event) => {
     const data = result?.response?.data;
     if (!data?.cancelled && data?.text != null) {
       input.value = data.text;
+      mobileDrafts?.sync();
       input.focus();
     }
   } catch (error) {
@@ -327,19 +395,98 @@ window.addEventListener("picot-super-agent-autostart-changed", (event) => {
   else sidebar?.render();
 });
 setupFileBrowser();
-const imageAttachments = setupComposerImageAttachments({
+imageAttachments = setupComposerImageAttachments({
   input,
   attachButton,
   imageInput,
   previewContainer: imagePreviews,
   dropTarget: composerCard,
   onError: showError,
+  onBusyChange: (busy) => {
+    if (!sendButton) return;
+    sendButton.disabled = busy;
+    sendButton.setAttribute("aria-busy", String(busy));
+  },
+  onChange: () => mobileDrafts?.syncImages(),
+});
+mobileDrafts = setupMobileDraftRecovery({
+  clientType: remoteAuth.clientType,
+  getImages: () => imageAttachments.getImages(),
+  getTarget: () => target,
+  input,
+  setImages: (images) => imageAttachments.setImages(images),
+  onImagesOmitted: () => {
+    notifications.notify({
+      message: t("Some unsent images are too large to save for recovery."),
+      title: t("Some images will need to be selected again"),
+      type: "warning",
+    });
+  },
+  onRestored: () => {
+    notifications.notify({
+      type: "success",
+      title: t("Unsent draft restored on this device"),
+    });
+  },
+});
+mobileSendLater = setupMobileSendLater({
+  adapter,
+  clientType: remoteAuth.clientType,
+  composerRoot: composerCard,
+  drafts: mobileDrafts,
+  getTarget: () => target,
+  hasContent: () => Boolean(input.value.trim() || imageAttachments.getImages().length),
+  input,
+  onError: showError,
+  onQueued: () => {
+    notifications.notify({
+      message: t("It will wait for your confirmation after the connection returns."),
+      title: t("Encrypted draft saved for reconnect"),
+      type: "success",
+    });
+  },
+  onSend: () => sendComposerInput({ altKey: false }),
+  sendButton,
 });
 const slashMenu = setupComposerSlashMenu({
   input,
   container: skillSlashMenu,
   getCommands: () => commandCatalog.values(),
 });
+mobileDrafts
+  .restoreCurrent()
+  .then(() => mobileSendLater.restoreCurrent())
+  .then(() =>
+    consumeMobileShareTarget({
+      addImageFiles: imageAttachments.addFiles,
+      clientType: remoteAuth.clientType,
+      input,
+    }),
+  )
+  .then((sharedComposerContent) => {
+    if (sharedComposerContent.status === "imported") {
+      notifications.notify({
+        type: "success",
+        title: t("Shared content added to the composer"),
+      });
+    } else if (sharedComposerContent.status === "invalid") {
+      notifications.notify({
+        type: "warning",
+        title: t("Shared content expired or could not be read"),
+      });
+    } else if (sharedComposerContent.status === "partial") {
+      notifications.notify({
+        type: "warning",
+        title: t("Some shared images could not be added"),
+      });
+    }
+  })
+  .catch(() => {
+    notifications.notify({
+      type: "warning",
+      title: t("Shared content expired or could not be read"),
+    });
+  });
 setupCommandPalette({
   button: commandButton,
   palette: commandPalette,
@@ -369,7 +516,7 @@ setupCommandPalette({
       icon: "⚙️",
       label: "Settings",
       desc: "Open ZiCode Studio Desktop settings",
-      action: () => document.getElementById("settings-btn")?.click(),
+      action: () => settingsPanel?.openSettings("general"),
     },
     {
       icon: "?",
@@ -377,12 +524,14 @@ setupCommandPalette({
       desc: "Show composer shortcuts",
       action: () => runBuiltin("show_help"),
     },
+    ...(pluginShell?.getCommandPaletteEntries() ?? []),
   ],
   onError: showError,
 });
 const settingsPanel = setupSettingsPanel({
   data,
   control,
+  remoteAccessGateway,
   getWorkspaceId: () => target.workspaceId,
   configGateway: config,
   onModelConfigurationChanged: () => loadAvailableModels(),
@@ -391,8 +540,182 @@ const settingsPanel = setupSettingsPanel({
   onError: showError,
   notify: notifications.notify,
 });
+const helpCenter = setupHelpCenter();
+const sceneIndicator = setupSceneIndicator({
+  getTarget: () => target,
+  openSettings: () => settingsPanel?.openSettings("general"),
+});
+const artifactGateway = new ArtifactGateway({
+  fetchImpl: hostFetch,
+  location: window.location,
+});
+const financeWorkbench = setupFinanceWorkbench({
+  configGateway: config,
+  getTarget: () => target,
+  openConfiguration: () => settingsPanel?.openSettings("configuration"),
+  openFinanceApp: () => pluginShell?.activate("com.zicode.finance"),
+  artifactGateway,
+  notify: notifications.notify,
+});
+const pluginHostGateway = new PluginHostGateway({
+  fetchImpl: hostFetch,
+  location: window.location,
+});
+const pluginRegistry = createBuiltinPluginRegistry({
+  hostGateway: pluginHostGateway,
+});
+const pluginCapabilityGateway = new PluginCapabilityGateway({
+  fetchImpl: hostFetch,
+  location: window.location,
+});
+const pluginViewHost = setupPluginViewHost({
+  gateway: pluginHostGateway,
+  capabilityGateway: pluginCapabilityGateway,
+  getTarget: () => target,
+  notify: notifications.notify,
+  executeCommand: (commandId, args) => pluginShell?.executeCommand(commandId, args),
+});
+const notesGateway = new NotesGateway({
+  fetchImpl: hostFetch,
+  location: window.location,
+});
+const notesApp = setupNotesApp({
+  gateway: notesGateway,
+  getTarget: () => target,
+  notify: notifications.notify,
+  onUseInChat: (note) => {
+    pluginShell?.activate("core.chat");
+    const reference = `zicode-note://${note.notebookId}/${note.id}`;
+    const prompt = [
+      `请基于笔记“${note.title}”继续讨论。`,
+      `请先调用 notes_get，参数 notebookId=${note.notebookId}、noteId=${note.id}，不要依赖过期的聊天上下文。`,
+      `笔记引用：${reference}`,
+      "\n我希望继续：",
+    ].join("\n");
+    input.value = `${prompt}${input.value.trim() ? `\n${input.value.trim()}` : ""}`;
+    mobileDrafts?.sync();
+    input.focus();
+  },
+});
+const artifactApp = setupArtifactApp({
+  gateway: artifactGateway,
+  getTarget: () => target,
+  notify: notifications.notify,
+});
+const projectWorkspaceApp = setupProjectWorkspaceApp({
+  notesGateway,
+  artifactGateway,
+  dataGateway: data,
+  call: (operation, params, options) => config.call(operation, params, options),
+  getTarget: () => target,
+  openApp: (pluginId) => pluginShell?.activate(pluginId),
+  onUseContextPack: (notes, { compare = false } = {}) => {
+    pluginShell?.activate("core.chat");
+    const references = notes
+      .map((note) => `- ${note.title}: zicode-note://${note.notebookId}/${note.noteId}`)
+      .join("\n");
+    const instructions = notes
+      .map((note) => `notes_get(notebookId=${note.notebookId}, noteId=${note.noteId})`)
+      .join("、");
+    input.value = [
+      compare ? "请比较以下笔记，指出冲突、时间差异、来源差异和可验证结论。" : "请综合以下上下文包继续分析。",
+      `请先分别调用 ${instructions}，不要依赖过期聊天上下文。`,
+      references,
+      "",
+      input.value.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    mobileDrafts?.sync();
+    input.focus();
+  },
+  notify: notifications.notify,
+});
+const taskCenterApp = setupTaskCenterApp({
+  call: (operation, params, options) => config.call(operation, params, options),
+  runtime,
+  cancelRuntimeUi: (runtimeTarget) => extensionUi.cancelSession(runtimeTarget),
+  openApp: (pluginId) => pluginShell?.activate(pluginId),
+  notify: notifications.notify,
+});
+const automationApp = setupAutomationApp({
+  call: (operation, params, options) => config.call(operation, params, options),
+  getTarget: () => target,
+  openApp: (pluginId) => pluginShell?.activate(pluginId),
+  notify: notifications.notify,
+});
+pluginShell = setupPluginShell({
+    registry: pluginRegistry,
+    capabilityGateway: pluginCapabilityGateway,
+    commandGateway: pluginHostGateway,
+  getTarget: () => target,
+  openSettings: (tab = "general") => settingsPanel?.openSettings(tab),
+  openHelp: () => helpCenter?.open(),
+  settingsApp: settingsPanel,
+  helpApp: helpCenter,
+  notesApp,
+  financeApp: financeWorkbench,
+  artifactApp,
+  builtinApps: {
+    "com.zicode.projects": projectWorkspaceApp,
+    "com.zicode.tasks": taskCenterApp,
+    "com.zicode.automation": automationApp,
+  },
+  pluginViewHost,
+  openCommandPalette: () => commandButton?.click(),
+  openFinanceWorkbench: () => financeWorkbench?.openPanel(),
+  installDeveloperPlugin: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("select_and_install_developer_plugin")
+    : null,
+  selectSignedPlugin: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("select_signed_plugin_package")
+    : null,
+  installSignedPlugin: globalThis.__TAURI__?.core?.invoke
+    ? (packagePath, trustPublisher) =>
+        globalThis.__TAURI__.core.invoke("install_signed_plugin_package", {
+          packagePath,
+          trustPublisher,
+        })
+    : null,
+  rollbackSignedPlugin: globalThis.__TAURI__?.core?.invoke
+    ? (pluginId, version) =>
+        globalThis.__TAURI__.core.invoke("rollback_signed_plugin_package", {
+          pluginId,
+          version,
+        })
+    : null,
+  revokePublisher: globalThis.__TAURI__?.core?.invoke
+    ? (keyId) => globalThis.__TAURI__.core.invoke("revoke_plugin_publisher", { keyId })
+    : null,
+  notify: notifications.notify,
+});
+
+window.addEventListener("popstate", () => {
+  const navigation = resolveHistoryNavigation(target, window.location.pathname);
+  if (navigation.type === "switch_session") {
+    void switchSession(navigation.sessionId, { updateHistory: false }).catch(showError);
+  } else if (navigation.type === "reload") {
+    window.location.reload();
+  }
+});
+
+messagesElement.addEventListener("savechattonotes", async (event) => {
+  const button = event.target?.closest?.(".message")?.querySelector?.(".message-note-btn");
+  if (button) button.disabled = true;
+  try {
+    await notesApp?.captureChatExchange({
+      ...event.detail,
+      sessionId: target.sessionId,
+    });
+    pluginShell?.activate("com.zicode.notes");
+  } catch (error) {
+    showError(error);
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+});
 setupAppUpdater({ settingsPanel });
-setupNewSessionButton({ data, workspaceId: target.workspaceId, onError: showError });
+setupNewSessionButton({ data, workspaceId: target.workspaceId, onError: showError, fetchImpl: hostFetch });
 setupOpenFolderButton({ onError: showError });
 setupLanQr({ control });
 setupAppKeyboardShortcuts({
@@ -439,11 +762,6 @@ try {
     setupProjectHeader({ data, workspaceId: target.workspaceId }).catch((error) => {
       console.warn("[Native] Failed to load project header info:", error);
     }),
-    Promise.resolve(
-      setupHeaderOpenApp({ data, control, workspaceId: target.workspaceId, onError: showError }),
-    ).catch((error) => {
-      console.warn("[Native] Failed to set up app launcher:", error);
-    }),
     refreshLanQrButton().catch((error) => {
       console.warn("[Native] Failed to refresh LAN QR button:", error);
     }),
@@ -476,7 +794,7 @@ async function requestBootstrapTarget(currentRoute) {
     workspaceId: currentRoute.workspaceId,
     sessionId: currentRoute.sessionId,
   });
-  const response = await fetch(`/v2/bootstrap?${query}`);
+  const response = await hostFetch(`/v2/bootstrap?${query}`);
   if (!response.ok) {
     const error = new Error("This ZiCode Studio Desktop runtime is stopped or unavailable");
     error.status = response.status;
@@ -536,17 +854,21 @@ function setupSessionSidebar() {
       activeSearchQuery = query || "";
       updateSuperAgentActiveState(session);
       selectSession(session);
-      if (session?.id === target.sessionId) applyActiveSearchHighlight();
+      if (session?.id === target.sessionId && !revealHistoryForSearchIfNeeded()) {
+        applyActiveSearchHighlight();
+      }
     },
     onQueryChange: (query) => {
       activeSearchQuery = query || "";
-      applyActiveSearchHighlight({ scrollToFirst: false });
+      if (!revealHistoryForSearchIfNeeded()) {
+        applyActiveSearchHighlight({ scrollToFirst: false });
+      }
     },
     onError: showError,
   });
 }
 
-async function switchSession(sessionId) {
+async function switchSession(sessionId, { updateHistory = true } = {}) {
   if (!sessionId || sessionId === target.sessionId) return;
   const generation = ++navigationGeneration;
 
@@ -564,11 +886,16 @@ async function switchSession(sessionId) {
   if (generation !== navigationGeneration) return;
 
   await adoptTarget(nextTarget, { updateRoute: false });
-  history.pushState(
-    null,
-    "",
-    appRoutePath({ name: "session", workspaceId: target.workspaceId, sessionId: target.sessionId }),
-  );
+  if (updateHistory) {
+    history.pushState(
+      {
+        ...(history.state && typeof history.state === "object" ? history.state : {}),
+        [PLUGIN_HISTORY_STATE_KEY]: pluginShell?.getActivePluginId() || "core.chat",
+      },
+      "",
+      appRoutePath({ name: "session", workspaceId: target.workspaceId, sessionId: target.sessionId }),
+    );
+  }
   // Authoritative re-check: whatever the caller passed to
   // updateSuperAgentActiveState() before invoking switchSession() may be
   // stale or skipped entirely (new sessions, sa-view-session routing, etc).
@@ -610,7 +937,7 @@ async function openSessionInProject(session) {
     // LAN/mobile: no Tauri window mechanism — resolve the target project's
     // workspace id over HTTP and navigate the current tab to its session
     // route so the page re-bootstraps against that workspace.
-    await openSessionInProjectViaHost(session);
+    await openSessionInProjectViaHost(session, hostFetch);
     return;
   }
   await invoke("open_session_in_project", {
@@ -647,6 +974,7 @@ function insertTaskPrompt(task) {
   if (!task) return;
   const draft = input.value.trim();
   input.value = `${buildTaskComposerPrompt(task)}${draft ? `\n${draft}` : ""}`;
+  mobileDrafts?.sync();
   input.focus();
 }
 
@@ -675,8 +1003,9 @@ document.addEventListener("sa-dispatch", (event) => {
   if (!task) return;
   dispatchSuperAgentTaskNative({
     task,
-    resolveWorkspace: (projectPath) => resolveWorkspaceViaHost(projectPath),
-    spawnSession: (workspaceId) => spawnSessionViaHost(workspaceId),
+    resolveWorkspace: (projectPath) => resolveWorkspaceViaHost(projectPath, hostFetch),
+    spawnSession: (workspaceId) =>
+      spawnSessionViaHost(workspaceId, getSelectedSceneId(), hostFetch),
     sendPrompt: (dispatchTarget, message) =>
       runtime.request({ type: "prompt", message }, dispatchTarget, {
         idempotencyKey: randomId(),
@@ -742,14 +1071,24 @@ async function handleBackgroundRuntimeEvent(frame) {
     case "agent_start":
       sidebar?.setStreaming(sessionId, true);
       sidebar?.markUnread(sessionId);
+      if (pluginShell?.getActivePluginId() !== "core.chat") {
+        pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "warning" });
+      }
       break;
     case "agent_settled":
     case "agent_end":
       sidebar?.setStreaming(sessionId, false);
       sidebar?.markUnread(sessionId);
+      if (pluginShell?.getActivePluginId() !== "core.chat") {
+        pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "success" });
+      }
+      if (frame.event?.type === "agent_end") dispatchedInstances.delete(frame.target?.instanceId);
       break;
     case "message_end":
-      if (frame.event.message?.role === "assistant") sidebar?.markUnread(sessionId);
+      if (frame.event.message?.role === "assistant") {
+        sidebar?.markUnread(sessionId);
+        await recordDispatchedTaskUsage(frame);
+      }
       break;
     case "session_bound":
       await bindDispatchedChildSession(frame.target?.instanceId, frame.event?.sessionId);
@@ -763,38 +1102,39 @@ async function bindDispatchedChildSession(instanceId, boundSessionId) {
   if (!instanceId || !boundSessionId) return;
   const taskId = dispatchedInstances.get(instanceId);
   if (!taskId) return;
-  dispatchedInstances.delete(instanceId);
   await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
     markTaskChildSessionBound(task, { childSessionId: boundSessionId }),
   ).catch((error) => console.warn("[SuperAgent] failed to bind child session:", error));
 }
 
-function setupSidebarToggle() {
-  const sidebarEl = document.getElementById("sidebar");
-  const toggleBtn = document.getElementById("sidebar-toggle");
-  const overlay = document.getElementById("sidebar-overlay");
-  if (!sidebarEl || !toggleBtn) return;
-
-  const isMobile = () => window.innerWidth <= 768;
-
-  const setCollapsed = (collapsed) => {
-    sidebarEl.classList.toggle("collapsed", collapsed);
-    overlay?.classList.toggle("visible", !collapsed && isMobile());
-  };
-
-  // Auto-collapse on mobile so sidebar doesn't block content on first load
-  if (isMobile()) {
-    setCollapsed(true);
-  }
-
-  toggleBtn.addEventListener("click", () => {
-    setCollapsed(!sidebarEl.classList.contains("collapsed"));
+async function recordDispatchedTaskUsage(frame) {
+  const taskId = dispatchedInstances.get(frame.target?.instanceId);
+  const delta = Number(frame.event?.message?.usage?.cost?.total);
+  if (!taskId || !Number.isFinite(delta) || delta <= 0) return;
+  let exceeded = false;
+  let budget = null;
+  await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) => {
+    const totalCost = Number(task.totalCost || 0) + delta;
+    budget = Number(task.budget);
+    const next = { ...task, totalCost };
+    if (Number.isFinite(budget) && budget > 0 && totalCost >= budget) {
+      exceeded = true;
+      return markTaskFinished(next, {
+        status: "failed",
+        failReason: t("Task budget reached; the child run was stopped."),
+      });
+    }
+    return next;
   });
-  overlay?.addEventListener("click", () => setCollapsed(true));
-  overlay?.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    setCollapsed(true);
+  if (!exceeded) return;
+  await runtime.request({ type: "abort" }, frame.target).catch(() => {});
+  await extensionUi.cancelSession(frame.target).catch(() => {});
+  notifications.notify({
+    title: t("Task budget reached"),
+    message: `$${Number(budget).toFixed(2)}`,
+    type: "warning",
   });
+  pluginShell?.setActivityBadge("com.zicode.tasks", { count: 1, tone: "warning" });
 }
 
 function setupFileBrowser() {
@@ -802,6 +1142,16 @@ function setupFileBrowser() {
   const fileList = document.getElementById("file-list");
   const pathEl = document.getElementById("file-sidebar-path");
   if (!sidebar || !fileList || !pathEl) return;
+
+  // On the mobile shell the right file panel is an off-canvas drawer toggled
+  // from the activity bar; start it collapsed so it never covers the chat.
+  if (
+    window.matchMedia?.(
+      "(max-width: 768px), (max-height: 520px) and (pointer: coarse)",
+    )?.matches
+  ) {
+    sidebar.classList.add("collapsed");
+  }
 
   const upBtn = document.getElementById("file-sidebar-up");
   if (upBtn) upBtn.disabled = true; // disabled until we've navigated into a subdir
@@ -840,8 +1190,19 @@ function setupFileBrowser() {
 
 async function sendComposerInput({ altKey }) {
   const value = input.value;
+  await imageAttachments.whenIdle();
   const images = imageAttachments.getImages();
   if (!value.trim() && images.length === 0) return;
+  if (remoteAuth.clientType === "remote" && !mobileSendLater?.isConnected()) {
+    const queued = await mobileSendLater?.queueCurrent();
+    if (queued?.status !== "queued") {
+      throw new Error(
+        t("Could not save this draft for reconnect. Keep this page open and try again."),
+      );
+    }
+    input.focus();
+    return;
+  }
   const intent = resolveComposerInput(value, commandCatalog, {
     working: store.lifecycle === "working",
     altKey,
@@ -852,25 +1213,52 @@ async function sendComposerInput({ altKey }) {
     runBuiltin(intent.action);
     return;
   }
+  await enforceProjectBudget(value);
+  lastRetryableRequest = { value, images: [...images], altKey: Boolean(altKey) };
   input.value = "";
   input.scrollTop = 0;
   imageAttachments.clear();
   try {
     await runtime.request(intent.command, target, { idempotencyKey: randomId() });
+    await mobileDrafts?.clearAfterSubmit();
+    mobileSendLater?.sent();
   } catch (error) {
     input.value = value;
     imageAttachments.setImages(images);
+    mobileDrafts?.sync();
+    throw error;
+  }
+}
+
+async function enforceProjectBudget(prompt) {
+  let profile;
+  try {
+    profile = await projectWorkspaceApp.getProfile();
+  } catch {
+    profile = readProjectWorkspaceProfile({ target });
+  }
+  const budget = Number(profile.budget);
+  if (!Number.isFinite(budget) || budget <= 0) return;
+  const model = availableModels.find((candidate) => candidate.id === currentModelId);
+  const estimated = estimateRequestCost(model, {
+    inputTokens: Math.ceil(String(prompt || "").length / 4),
+    outputTokens: 2000,
+  });
+  const projected = sessionTotalCost + (estimated ?? 0);
+  if (sessionTotalCost >= budget || projected > budget) {
+    const error = new Error(
+      `${t("Session budget reached")} ($${budget.toFixed(2)}). ${t("Increase the project budget or start a new session.")}`,
+    );
+    error.code = "session_budget_exceeded";
     throw error;
   }
 }
 
 function runBuiltin(action) {
-  if (action === "open_settings") document.getElementById("settings-btn")?.click();
+  if (action === "open_settings") settingsPanel?.openSettings("general");
   else if (action === "open_tree") document.dispatchEvent(new CustomEvent("picot:open-tree"));
   else if (action === "show_help") {
-    messageRenderer.renderSystemMessage(
-      "Enter sends a prompt; while working Enter steers and Alt+Enter queues a follow-up. Use // for a literal slash.",
-    );
+    void helpCenter?.open();
   }
 }
 
@@ -890,6 +1278,7 @@ async function handleRuntimeEvent(event) {
         upsertActiveSessionFromUserMessage(event.message);
       } else if (event.message?.role === "assistant") {
         streamingElement = messageRenderer.renderAssistantMessage(event.message, true);
+        convNav.notifyStreamingStart();
       }
       break;
     case "message_update":
@@ -900,9 +1289,14 @@ async function handleRuntimeEvent(event) {
       }
       break;
     case "message_end":
-      if (event.message?.role === "assistant" && streamingElement) {
-        messageRenderer.updateStreamingMessage(streamingElement, event.message.content ?? []);
-        messageRenderer.finalizeStreamingMessage(streamingElement, event.message.usage ?? null);
+      if (event.message?.role === "assistant") {
+        if (streamingElement) {
+          messageRenderer.updateStreamingMessage(streamingElement, event.message.content ?? []);
+          messageRenderer.finalizeStreamingMessage(streamingElement, event.message.usage ?? null);
+        }
+        if (event.message.stopReason === "error" || event.message.errorMessage) {
+          messageRenderer.renderAssistantError(event.message);
+        }
         contextUsage.setUsage(event.message.usage ?? null, currentModelContextWindow);
         setSessionCost(sessionTotalCost + (event.message.usage?.cost?.total ?? 0));
         streamingElement = null;
@@ -964,7 +1358,8 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   const targetChanged =
     sessionChanged ||
     nextTarget.workspaceId !== previousTarget.workspaceId ||
-    nextTarget.instanceId !== previousTarget.instanceId;
+    nextTarget.instanceId !== previousTarget.instanceId ||
+    nextTarget.sceneId !== previousTarget.sceneId;
   if (!targetChanged) return;
   configGatewayTargetReady = false;
   if (updateRoute && sessionChanged) {
@@ -976,6 +1371,19 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
     );
   }
   target = nextTarget;
+  const migrateTemporaryDraft =
+    sessionChanged &&
+    previousTarget.workspaceId === nextTarget.workspaceId &&
+    previousTarget.sessionId?.startsWith("temporary-");
+  if (sessionChanged && !migrateTemporaryDraft) imageAttachments?.clear();
+  void mobileDrafts
+    ?.setTarget(target, { preserveInput: migrateTemporaryDraft })
+    .then(() => mobileSendLater?.setTarget())
+    .catch(() => {});
+  settingsPanel?.setTarget(target);
+  sceneIndicator?.setTarget(target);
+  financeWorkbench?.setTarget(target);
+  pluginShell?.setTarget(target);
   store = createSessionStore(target);
   renderQueuedMessages(queuedMessages, store.queue);
   todoMirrorPanel.clear();
@@ -985,24 +1393,78 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   await extensionUi.setForegroundSession(target.sessionId, { flush: false });
 }
 
-function renderHistory(messages) {
+function historyBatchSize() {
+  const constrained =
+    remoteAuth.clientType === "remote" || window.matchMedia?.(MOBILE_SHELL_QUERY)?.matches;
+  return constrained ? 60 : 120;
+}
+
+function revealEarlierHistory() {
+  if (!historyWindow?.revealPrevious()) return;
+  const previousScrollHeight = messagesElement.scrollHeight;
+  const previousScrollTop = messagesElement.scrollTop;
+  historyRevealCompleted = historyWindow.hiddenCount === 0;
+  renderHistory(currentHistoryMessages, { preserveScroll: true });
+
+  requestAnimationFrame(() => {
+    const addedHeight = Math.max(0, messagesElement.scrollHeight - previousScrollHeight);
+    messagesElement.scrollTop = previousScrollTop + addedHeight;
+    const focusTarget = messagesElement.querySelector(
+      ".history-window-load, .history-window-loaded",
+    );
+    focusTarget?.focus({ preventScroll: true });
+  });
+}
+
+function revealHistoryForSearchIfNeeded() {
+  if (!activeSearchQuery.trim() || !historyWindow?.hiddenCount) return false;
+  historyWindow.revealAll();
+  historyRevealCompleted = false;
+  renderHistory(currentHistoryMessages, { preserveScroll: true });
+  return true;
+}
+
+function renderHistory(messages, { preserveScroll = false } = {}) {
+  const source = Array.isArray(messages) ? messages : [];
+  const windowTargetKey = `${target.workspaceId}\u0000${target.sessionId}`;
+  const resetWindow = historyWindowTargetKey !== windowTargetKey;
+  if (!historyWindow || resetWindow) {
+    historyWindow = createHistoryWindow({ batchSize: historyBatchSize() });
+    historyWindowTargetKey = windowTargetKey;
+    historyRevealCompleted = false;
+  }
+  currentHistoryMessages = source;
+  historyWindow.setMessages(source, { reset: resetWindow });
+  if (activeSearchQuery.trim()) historyWindow.revealAll();
+
   messageRenderer.clear();
   toolRenderer.clear();
-  if (messages.length === 0) {
+  if (source.length === 0) {
     messageRenderer.renderWelcome();
+    sceneIndicator?.render();
     applyActiveSearchHighlight({ scrollToFirst: false });
     return;
   }
 
+  if (historyWindow.hiddenCount > 0) {
+    const notice = createHistoryWindowNotice({
+      hiddenCount: historyWindow.hiddenCount,
+      onReveal: revealEarlierHistory,
+    });
+    if (notice) messagesElement.appendChild(notice);
+  } else if (historyRevealCompleted) {
+    messagesElement.appendChild(createHistoryLoadedStatus());
+  }
+
   // Pre-index tool results by toolCallId for O(1) lookup
   const toolResults = new Map();
-  for (const message of messages) {
+  for (const message of source) {
     if (message.role === "toolResult") {
       toolResults.set(message.toolCallId, message);
     }
   }
 
-  for (const message of messages) {
+  for (const message of historyWindow.visibleMessages) {
     if (message.role === "user") messageRenderer.renderUserMessage(message, true);
     if (message.role === "assistant") {
       messageRenderer.renderAssistantMessage(message, false, true);
@@ -1022,10 +1484,13 @@ function renderHistory(messages) {
           }
         }
       }
+      if (message.stopReason === "error" || message.errorMessage) {
+        messageRenderer.renderAssistantError(message);
+      }
     }
   }
   const highlighted = applyActiveSearchHighlight();
-  if (highlighted === 0) messageRenderer.forceScrollToBottom();
+  if (highlighted === 0 && !preserveScroll) messageRenderer.forceScrollToBottom();
 }
 
 function applyActiveSearchHighlight({ scrollToFirst = true } = {}) {
@@ -1088,6 +1553,24 @@ function showError(error) {
   messageRenderer.renderError(error?.message || String(error));
 }
 
+messagesElement.addEventListener("openmodelsettings", () => {
+  settingsPanel?.openSettings("configuration");
+});
+
+messagesElement.addEventListener("retrylastrequest", () => {
+  if (!lastRetryableRequest || store.lifecycle === "working") {
+    notifications.notify({
+      type: "warning",
+      title: t("Request cannot be retried yet"),
+      message: store.lifecycle === "working" ? t("Wait for the current task to finish.") : "",
+    });
+    return;
+  }
+  input.value = lastRetryableRequest.value;
+  imageAttachments.setImages(lastRetryableRequest.images);
+  sendComposerInput({ altKey: lastRetryableRequest.altKey }).catch(showError);
+});
+
 // ── Composer model dropdown & thinking button (functions & event wiring) ────────
 
 function updateComposerModel(model) {
@@ -1103,30 +1586,56 @@ function updateComposerModel(model) {
 function updateComposerThinking(level) {
   currentThinkingLevel = level ?? "off";
   if (thinkingBtn) {
-    thinkingBtn.textContent = `Think ${currentThinkingLevel}`;
+    const translatedLevel = t(currentThinkingLevel);
+    thinkingBtn.textContent = `${t("Think")} ${translatedLevel}`;
     thinkingBtn.className = `thinking-tag${currentThinkingLevel === "off" ? " off" : ""}`;
+    thinkingBtn.title = t("Thinking effort controls reasoning depth. Click to cycle.");
     thinkingBtn.setAttribute(
       "aria-label",
-      `Thinking effort: ${currentThinkingLevel}. Click to cycle reasoning depth.`,
+      t("Thinking effort: {level}. Click to cycle reasoning depth.").replace(
+        "{level}",
+        translatedLevel,
+      ),
     );
   }
   // Sync settings panel radio group
   settingsPanel?.thinkingControl?.updateUI(level);
 }
 
-async function loadAvailableModels() {
-  try {
-    const result = await runtime.request({ type: "get_available_models" }, target);
-    const runtimeModels = result?.response?.data?.models ?? [];
-    availableModels = await applyConfiguredModelVisibility(runtimeModels);
-    if (!currentModelContextWindow) {
-      currentModelContextWindow = findModelContextWindow(currentModelId);
-      contextUsage.setContextWindowSize(currentModelContextWindow);
+window.addEventListener("zicode:locale-changed", () => {
+  updateComposerThinking(currentThinkingLevel);
+  sidebar?.render?.();
+});
+
+function loadAvailableModels() {
+  if (modelLoadPromise) return modelLoadPromise;
+  modelsLoading = true;
+  modelLoadError = "";
+  if (!modelDropdownMenu?.classList.contains("hidden")) renderModelDropdownMenu();
+  modelLoadPromise = (async () => {
+    try {
+      const result = await runtime.request({ type: "get_available_models" }, target);
+      const runtimeModels = result?.response?.data?.models ?? [];
+      availableModels = await applyConfiguredModelVisibility(runtimeModels);
+      if (!currentModelContextWindow) {
+        currentModelContextWindow = findModelContextWindow(currentModelId);
+        contextUsage.setContextWindowSize(currentModelContextWindow);
+      }
+    } catch (error) {
+      modelLoadError = error?.message || t("Models could not be loaded");
+      console.warn("[Native] Failed to load available models:", error);
+    } finally {
+      modelsLoading = false;
+      modelLoadPromise = null;
+      if (!modelDropdownMenu?.classList.contains("hidden")) {
+        renderModelDropdownMenu();
+        requestAnimationFrame(() =>
+          modelDropdownMenu.querySelector(".model-dropdown-search")?.focus(),
+        );
+      }
     }
-    renderModelDropdownMenu();
-  } catch (error) {
-    console.warn("[Native] Failed to load available models:", error);
-  }
+  })();
+  return modelLoadPromise;
 }
 
 async function applyConfiguredModelVisibility(models) {
@@ -1169,15 +1678,15 @@ function renderEmptyModelDropdown(container) {
 
   const title = document.createElement("div");
   title.className = "model-dropdown-empty-title";
-  title.textContent = "No models available";
+  title.textContent = t("No models available");
 
   const message = document.createElement("div");
-  message.textContent = "No API keys configured. Set a key in Settings → Configuration.";
+  message.textContent = t("No API keys configured. Set a key in Settings → Configuration.");
 
   const settingsButton = document.createElement("button");
   settingsButton.type = "button";
   settingsButton.className = "btn-primary model-dropdown-empty-action";
-  settingsButton.textContent = "Open Settings";
+  settingsButton.textContent = t("Open Settings");
   settingsButton.addEventListener("click", () => {
     closeModelDropdown();
     settingsPanel?.openSettings("configuration");
@@ -1187,7 +1696,36 @@ function renderEmptyModelDropdown(container) {
   container.appendChild(empty);
 }
 
-function buildModelDropdownItem(model) {
+function renderModelLoading(container) {
+  const loading = document.createElement("div");
+  loading.className = "model-dropdown-empty";
+  const title = document.createElement("div");
+  title.className = "model-dropdown-empty-title";
+  title.textContent = t("Loading models…");
+  const message = document.createElement("div");
+  message.textContent = t("Fetching models from configured channels.");
+  loading.append(title, message);
+  container.appendChild(loading);
+}
+
+function renderModelLoadError(container) {
+  const error = document.createElement("div");
+  error.className = "model-dropdown-empty";
+  const title = document.createElement("div");
+  title.className = "model-dropdown-empty-title";
+  title.textContent = t("Models could not be loaded");
+  const message = document.createElement("div");
+  message.textContent = modelLoadError;
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "btn-primary model-dropdown-empty-action";
+  retry.textContent = t("Retry");
+  retry.addEventListener("click", () => loadAvailableModels());
+  error.append(title, message, retry);
+  container.appendChild(error);
+}
+
+function buildModelDropdownItem(model, { lowestCostModelKey = null } = {}) {
   const item = document.createElement("button");
   item.type = "button";
   item.className = `model-dropdown-item${model.id === currentModelId ? " active" : ""}`;
@@ -1202,12 +1740,19 @@ function buildModelDropdownItem(model) {
     provider.textContent = model.provider;
     nameWrap.appendChild(provider);
   }
+  if (`${model.provider || ""}/${model.id}` === lowestCostModelKey) {
+    const recommendation = document.createElement("span");
+    recommendation.className = "model-dropdown-item-recommendation";
+    recommendation.textContent = t("Lowest cost");
+    nameWrap.appendChild(recommendation);
+  }
 
   const context = document.createElement("span");
   context.className = "model-dropdown-item-ctx";
-  context.textContent = model.contextWindow
+  const contextLabel = model.contextWindow
     ? `${(Number(model.contextWindow) / 1000).toFixed(0)}k`
     : "";
+  context.textContent = [contextLabel, formatModelPricing(model)].filter(Boolean).join(" · ");
 
   item.append(nameWrap, context);
   item.addEventListener("click", async () => {
@@ -1229,6 +1774,14 @@ function buildModelDropdownItem(model) {
 
 function renderModelDropdownItems(container, filter = "") {
   container.innerHTML = "";
+  if (modelsLoading && availableModels.length === 0) {
+    renderModelLoading(container);
+    return;
+  }
+  if (modelLoadError && availableModels.length === 0) {
+    renderModelLoadError(container);
+    return;
+  }
   if (availableModels.length === 0) {
     renderEmptyModelDropdown(container);
     return;
@@ -1242,13 +1795,19 @@ function renderModelDropdownItems(container, filter = "") {
   if (matchingModels.length === 0) {
     const empty = document.createElement("div");
     empty.className = "model-dropdown-empty";
-    empty.textContent = "No models match your search.";
+    empty.textContent = t("No models match your search.");
     container.appendChild(empty);
     return;
   }
 
+  const lowestCostModel = findLowestCostModel(matchingModels, {
+    minimumContextWindow: Math.max(currentModelContextWindow, 0),
+  });
+  const lowestCostModelKey = lowestCostModel
+    ? `${lowestCostModel.provider || ""}/${lowestCostModel.id}`
+    : null;
   for (const model of matchingModels) {
-    container.appendChild(buildModelDropdownItem(model));
+    container.appendChild(buildModelDropdownItem(model, { lowestCostModelKey }));
   }
 }
 
@@ -1258,7 +1817,7 @@ function renderModelDropdownMenu() {
 
   const search = document.createElement("input");
   search.className = "model-dropdown-search";
-  search.placeholder = "Search models…";
+  search.placeholder = t("Search models…");
   search.type = "text";
   modelDropdownMenu.appendChild(search);
 

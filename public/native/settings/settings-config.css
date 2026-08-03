@@ -119,6 +119,12 @@
   grid-column: 1 / -1;
 }
 
+@media (max-width: 720px) {
+  .provider-channel-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
 .scene-profile-select {
   width: min(240px, 45%);
 }
@@ -531,11 +537,31 @@
   color: #e53935;
 }
 
+.api-key-prefix-hint {
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
 @media (max-width: 920px) {
   .settings-config-meta {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-1-5);
+  }
+
+  .api-provider-toggle {
+    min-width: var(--space-10);
+    min-height: var(--space-10);
+    display: grid;
+    place-items: center;
+  }
+
+  .api-key-row-summary {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .settings-config-textarea {
@@ -579,79 +605,6 @@
   .api-key-row-summary {
     margin-left: 28px;
   }
-}
-
-/* ═══════════════════════════════════════════════════════
-   Config Editor Modal
-   ═══════════════════════════════════════════════════════ */
-
-.config-editor-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1100;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.config-editor-overlay.hidden {
-  display: none;
-}
-
-.config-editor-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--bg-frosted);
-  backdrop-filter: blur(var(--blur-heavy)) saturate(1.6);
-  -webkit-backdrop-filter: blur(var(--blur-heavy)) saturate(1.6);
-  border: 1px solid var(--border-hover);
-  border-radius: var(--radius-lg);
-  z-index: 1101;
-  width: min(680px, 92vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-lg), var(--shadow-inset);
-  animation: sheetIn 0.25s var(--ease);
-}
-
-.config-editor-modal.hidden {
-  display: none;
-}
-
-.config-editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: var(--space-5) var(--space-5) 0;
-  flex-shrink: 0;
-}
-
-.config-editor-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.config-editor-title-group h3 {
-  font-size: var(--font-size-md);
-}
-
-.config-editor-path {
-  font-size: var(--font-size-sm);
-  color: var(--text-dim);
-  word-break: break-all;
-}
-
-.config-editor-body {
-  flex: 1;
-  min-height: 0;
-  padding: var(--space-3) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .config-editor-textarea {
@@ -698,14 +651,6 @@
 
 .config-editor-error.hidden {
   display: none;
-}
-
-.config-editor-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: 0 var(--space-5) var(--space-5);
-  flex-shrink: 0;
 }
 
 .btn-primary,

@@ -1,3 +1,6 @@
+import { t } from "../../i18n.js";
+import { setupComposerImagePicker } from "./composer-image-picker.js";
+
 const MAX_IMAGE_DIMENSION = 2048;
 const VALID_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
@@ -50,6 +53,8 @@ export function setupComposerImageAttachments({
   dropTarget,
   processImageFile = defaultProcessImageFile,
   onError = console.error,
+  onBusyChange = () => {},
+  onChange = () => {},
 }) {
   if (!previewContainer) {
     return {
@@ -57,47 +62,76 @@ export function setupComposerImageAttachments({
       getImages: () => [],
       setImages() {},
       clear() {},
+      whenIdle: async () => {},
+      dispose() {},
     };
   }
 
   let pendingImages = [];
+  let pendingFileCount = 0;
+  let processing = Promise.resolve();
 
   function renderPreviews() {
     previewContainer.innerHTML = "";
-    previewContainer.classList.toggle("hidden", pendingImages.length === 0);
+    const busy = pendingFileCount > 0;
+    previewContainer.classList.toggle("hidden", pendingImages.length === 0 && !busy);
+    previewContainer.setAttribute("aria-busy", String(busy));
     pendingImages.forEach((image, index) => {
       const preview = document.createElement("div");
       preview.className = "image-preview";
 
       const thumbnail = document.createElement("img");
       thumbnail.src = `data:${image.mimeType};base64,${image.data}`;
-      thumbnail.alt = "Attached image preview";
+      thumbnail.alt = t("Image ready to send");
 
       const removeButton = document.createElement("button");
       removeButton.type = "button";
       removeButton.className = "image-preview-remove";
       removeButton.dataset.index = String(index);
+      removeButton.setAttribute("aria-label", t("Remove image"));
       removeButton.textContent = "✕";
       removeButton.addEventListener("click", () => {
         pendingImages.splice(index, 1);
         renderPreviews();
+        onChange();
       });
 
       preview.append(thumbnail, removeButton);
       previewContainer.appendChild(preview);
     });
+    if (busy) {
+      const status = document.createElement("div");
+      status.className = "image-preview-status";
+      status.setAttribute("role", "status");
+      status.textContent = t("Preparing image…");
+      previewContainer.append(status);
+    }
   }
 
-  async function addFiles(files) {
+  function addFiles(files) {
     const imageFiles = Array.from(files ?? []).filter((file) => file?.type?.startsWith("image/"));
-    for (const file of imageFiles) {
-      try {
-        pendingImages.push(await processImageFile(file));
-      } catch (error) {
-        onError(error);
-      }
-    }
+    if (imageFiles.length === 0) return processing;
+    pendingFileCount += imageFiles.length;
+    onBusyChange(true);
     renderPreviews();
+    const batch = processing.then(async () => {
+      for (const file of imageFiles) {
+        try {
+          pendingImages.push(await processImageFile(file));
+          onChange();
+        } catch (error) {
+          console.warn("[Composer] Image processing failed:", error);
+          onError(new Error(t("Could not add this image. Try a smaller PNG or JPEG.")));
+        } finally {
+          pendingFileCount -= 1;
+          renderPreviews();
+        }
+      }
+    });
+    processing = batch.finally(() => {
+      if (pendingFileCount === 0) onBusyChange(false);
+    });
+    return processing;
   }
 
   function getImages() {
@@ -107,18 +141,23 @@ export function setupComposerImageAttachments({
   function setImages(images) {
     pendingImages = Array.from(images ?? []).map((image) => ({ ...image }));
     renderPreviews();
+    onChange();
   }
 
   function clear() {
+    const changed = pendingImages.length > 0;
     pendingImages = [];
     renderPreviews();
+    if (changed) onChange();
   }
 
-  attachButton?.addEventListener("click", () => imageInput?.click());
-  imageInput?.addEventListener("change", () => {
-    addFiles(imageInput.files);
-    imageInput.value = "";
+  const picker = setupComposerImagePicker({
+    attachButton,
+    galleryInput: imageInput,
+    onFiles: addFiles,
   });
+  const onLocaleChanged = () => renderPreviews();
+  globalThis.window?.addEventListener?.("zicode:locale-changed", onLocaleChanged);
   dropTarget?.addEventListener("dragover", (event) => {
     event.preventDefault();
   });
@@ -135,5 +174,15 @@ export function setupComposerImageAttachments({
   });
   renderPreviews();
 
-  return { addFiles, getImages, setImages, clear };
+  return {
+    addFiles,
+    getImages,
+    setImages,
+    clear,
+    whenIdle: () => processing,
+    dispose() {
+      picker.dispose();
+      globalThis.window?.removeEventListener?.("zicode:locale-changed", onLocaleChanged);
+    },
+  };
 }

@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════ */
 
 .main {
-  --messages-top-inset: 52px;
+  --messages-top-inset: 0px;
   --messages-bottom-inset: 128px;
   flex: 1;
   display: flex;
@@ -17,7 +17,7 @@
 
 /* Header — translucent toolbar */
 .header {
-  display: flex;
+  display: none;
   justify-content: space-between;
   align-items: center;
   padding: var(--space-1) var(--space-3);
@@ -359,6 +359,15 @@
   font-size: var(--font-size-sm);
   color: var(--text-dim);
   margin-left: 4px;
+}
+
+.model-dropdown-item-recommendation {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-size: var(--font-size-sm);
 }
 
 /* Thinking tag — matches settings-value-btn style */

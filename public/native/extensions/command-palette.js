@@ -10,13 +10,14 @@ export function setupCommandPalette({
 
   const commandItems = () => (typeof commands === "function" ? commands() : commands) ?? [];
 
-  function close() {
+  function close({ restoreFocus = true } = {}) {
     palette.classList.add("hidden");
     overlay.classList.add("hidden");
+    if (restoreFocus) button.focus();
   }
 
   function runCommand(command) {
-    close();
+    close({ restoreFocus: false });
     try {
       const result = command.action?.();
       if (result && typeof result.catch === "function") result.catch(onError);
@@ -54,10 +55,24 @@ export function setupCommandPalette({
   button.addEventListener("click", open);
   overlay.addEventListener("click", close);
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !palette.classList.contains("hidden")) {
+    if (palette.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
       event.preventDefault();
       close();
-      button.focus();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = [...palette.querySelectorAll("button:not(:disabled), input, [href], [tabindex]")]
+      .filter((element) => element.getAttribute("tabindex") !== "-1");
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && (document.activeElement === first || !palette.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   });
 

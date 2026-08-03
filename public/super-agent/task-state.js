@@ -200,6 +200,50 @@ export function markTaskFinished(
   };
 }
 
+export function markTaskPaused(task, { now } = {}) {
+  const timestamp = now || new Date().toISOString();
+  const normalized = normalizeSuperAgentTask(task);
+  return {
+    ...normalized,
+    status: "paused",
+    events: [
+      ...normalized.events,
+      { at: timestamp, type: "paused", status: "paused", message: "Task paused by the user." },
+    ],
+  };
+}
+
+export function markTaskResumed(task, { now } = {}) {
+  const timestamp = now || new Date().toISOString();
+  const normalized = normalizeSuperAgentTask(task);
+  return {
+    ...normalized,
+    status: "pending",
+    result: { ...DEFAULT_RESULT },
+    failReason: null,
+    dispatch: {
+      ...normalized.dispatch,
+      childWorkspaceId: null,
+      childInstanceId: null,
+      childSessionId: null,
+      startedAt: null,
+      finishedAt: null,
+    },
+    events: [
+      ...normalized.events,
+      { at: timestamp, type: "resumed", status: "pending", message: "Task resumed and queued for dispatch." },
+    ],
+  };
+}
+
+export function markTaskCancelled(task, { now } = {}) {
+  return markTaskFinished(task, {
+    status: "cancelled",
+    failReason: "Task cancelled by the user.",
+    now,
+  });
+}
+
 export function buildProjectAgentPrompt(task) {
   const normalized = normalizeSuperAgentTask(task);
   const lines = [`Task ID: ${normalized.id}`, `Title: ${normalized.title || "(untitled)"}`];
@@ -255,6 +299,7 @@ function eventTypeForStatus(status) {
   if (status === "failed") return "failed";
   if (status === "needs_input") return "needs_input";
   if (status === "blocked") return "blocked";
+  if (status === "cancelled") return "cancelled";
   return "status_changed";
 }
 

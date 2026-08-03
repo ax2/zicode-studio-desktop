@@ -8,6 +8,8 @@ import {
   markTaskFinished,
   markTaskForDispatch,
   markTaskNeedsInput,
+  markTaskPaused,
+  markTaskResumed,
   normalizeSuperAgentTasks,
 } from "./task-state.js";
 
@@ -113,6 +115,29 @@ describe("super-agent task state", () => {
       type: "completed",
       status: "done",
     });
+  });
+
+  it("pauses and resumes through an auditable fresh dispatch", () => {
+    const paused = markTaskPaused(
+      {
+        id: "task-1",
+        status: "running",
+        dispatch: { childWorkspaceId: "w", childSessionId: "s", childInstanceId: "i" },
+      },
+      { now: "2026-07-10T12:03:00.000Z" },
+    );
+    expect(paused.status).toBe("paused");
+    expect(paused.events.at(-1).type).toBe("paused");
+
+    const resumed = markTaskResumed(paused, { now: "2026-07-10T12:04:00.000Z" });
+    expect(resumed.status).toBe("pending");
+    expect(resumed.dispatch).toMatchObject({
+      childWorkspaceId: null,
+      childSessionId: null,
+      childInstanceId: null,
+      startedAt: null,
+    });
+    expect(resumed.events.at(-1).type).toBe("resumed");
   });
 
   it("builds project and Super Agent prompts with task identity and reply routing", () => {

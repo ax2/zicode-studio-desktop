@@ -60,3 +60,11 @@ export function replaceTemporarySessionRoute(
   const path = appRoutePath({ name: "session", workspaceId, sessionId: formalSessionId });
   history.replaceState(null, "", path);
 }
+
+export function resolveHistoryNavigation(currentTarget, pathname) {
+  const route = parseAppRoute(pathname);
+  if (route.name !== "session") return { type: "none" };
+  if (route.workspaceId !== currentTarget?.workspaceId) return { type: "reload" };
+  if (route.sessionId === currentTarget?.sessionId) return { type: "none" };
+  return { type: "switch_session", sessionId: route.sessionId };
+}

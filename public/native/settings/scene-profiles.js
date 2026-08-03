@@ -7,23 +7,26 @@ import {
 const STORAGE_KEY = "pi-desktop:selected-scene";
 const COOKIE_KEY = "zicode-studio-scene";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 10;
-const FALLBACK_SCENES = [
+export const fallbackSceneProfiles = [
   {
     id: "programming",
     name: "Programming",
-    description: "Code, debugging, repositories, and technical research.",
+    description:
+      "Engineering workflows for coding, debugging, repository changes, and reproducible verification.",
     builtin: true,
   },
   {
     id: "finance",
     name: "Finance",
-    description: "Financial analysis with a read-only local tool policy.",
+    description:
+      "Evidence-led financial analysis with explicit assumptions and a read-only local tool policy.",
     builtin: true,
   },
   {
     id: "creation",
     name: "Creation",
-    description: "Writing, ideation, visual direction, and content production.",
+    description:
+      "Structured writing, ideation, visual direction, and iterative content production.",
     builtin: true,
   },
 ];
@@ -55,9 +58,11 @@ function persistSelectedScene(sceneId) {
   }
 }
 
-export function setupSceneProfiles() {
+export function setupSceneProfiles({ getTarget } = {}) {
   const select = document.getElementById("scene-profile-select");
   if (!select) return null;
+  const currentName = document.getElementById("scene-profile-current-name");
+  const currentId = document.getElementById("scene-profile-current-id");
   const description = document.getElementById("scene-profile-description");
   const editor = document.getElementById("scene-profile-editor");
   const newButton = document.getElementById("scene-profile-new");
@@ -71,7 +76,8 @@ export function setupSceneProfiles() {
   const promptInput = document.getElementById("scene-profile-prompt");
   const toolsInput = document.getElementById("scene-profile-tools");
   const invoke = globalThis.__TAURI__?.core?.invoke;
-  let profiles = FALLBACK_SCENES;
+  let profiles = fallbackSceneProfiles;
+  let activeSceneId = normalizeSceneId(getTarget?.()?.sceneId);
 
   function selectedProfile() {
     return profiles.find((profile) => profile.id === select.value) || profiles[0];
@@ -85,6 +91,12 @@ export function setupSceneProfiles() {
     persistSelectedScene(profile.id);
   }
 
+  function renderCurrentScene() {
+    const profile = profiles.find((entry) => entry.id === activeSceneId);
+    if (currentName) currentName.textContent = profile?.name || activeSceneId;
+    if (currentId) currentId.textContent = activeSceneId;
+  }
+
   function render() {
     const selected = getSelectedSceneId();
     select.replaceChildren();
@@ -96,6 +108,7 @@ export function setupSceneProfiles() {
     }
     select.value = profiles.some((profile) => profile.id === selected) ? selected : "programming";
     updateSelectionDetails();
+    renderCurrentScene();
   }
 
   async function load() {
@@ -103,7 +116,7 @@ export function setupSceneProfiles() {
       try {
         profiles = await invoke("list_scene_profiles");
       } catch {
-        profiles = FALLBACK_SCENES;
+        profiles = fallbackSceneProfiles;
       }
     }
     render();
@@ -171,5 +184,15 @@ export function setupSceneProfiles() {
   });
 
   void load();
-  return { load };
+  return {
+    load,
+    setTarget(nextTarget) {
+      activeSceneId = normalizeSceneId(nextTarget?.sceneId);
+      renderCurrentScene();
+    },
+  };
+}
+
+function normalizeSceneId(sceneId) {
+  return typeof sceneId === "string" && sceneId.trim() ? sceneId.trim() : "programming";
 }

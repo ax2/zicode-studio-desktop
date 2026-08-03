@@ -251,6 +251,14 @@
   .pkg-browse-list.pkg-browse-list {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .settings-extension-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 .pkg-browse-pagination {
@@ -391,5 +399,11 @@
 @media (max-width: 620px) {
   .pkg-browse-sort {
     max-width: min(200px, 100%);
+  }
+}
+
+@media (max-width: 720px) {
+  .pkg-browse-page-btn {
+    min-width: 40px;
   }
 }

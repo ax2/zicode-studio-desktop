@@ -5,6 +5,8 @@ function render() {
   document.body.innerHTML = `
     <select id="scene-profile-select"></select>
     <span id="scene-profile-description"></span>
+    <strong id="scene-profile-current-name"></strong>
+    <code id="scene-profile-current-id"></code>
     <button id="scene-profile-new"></button>
     <button id="scene-profile-delete" class="hidden"></button>
     <form id="scene-profile-editor" class="hidden">
@@ -31,7 +33,9 @@ afterEach(() => {
 describe("scene profile settings", () => {
   it("persists the selected built-in scene for new sessions", async () => {
     render();
-    setupSceneProfiles();
+    const profiles = setupSceneProfiles({
+      getTarget: () => ({ sceneId: "programming" }),
+    });
     const select = document.getElementById("scene-profile-select");
 
     select.value = "finance";
@@ -41,6 +45,13 @@ describe("scene profile settings", () => {
     expect(document.getElementById("scene-profile-description").textContent).toContain(
       "read-only",
     );
+    expect(document.getElementById("scene-profile-current-id").textContent).toBe(
+      "programming",
+    );
+
+    profiles.setTarget({ sceneId: "creation" });
+    expect(document.getElementById("scene-profile-current-name").textContent).toBe("Creation");
+    expect(select.value).toBe("finance");
   });
 
   it("saves a custom scene through the native host", async () => {

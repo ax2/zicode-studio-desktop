@@ -50,6 +50,7 @@ describe("HostRuntimeAdapter", () => {
     const events = [];
     gateway.subscribe((event) => events.push(event));
     adapter.connect();
+    expect(adapter.isConnected()).toBe(false);
     const socket = FakeWebSocket.instances[0];
     socket.open();
     expect(socket.sent[0]).toEqual({
@@ -59,6 +60,7 @@ describe("HostRuntimeAdapter", () => {
       clientId: "desktop-a",
     });
     socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    expect(adapter.isConnected()).toBe(true);
 
     const pending = gateway.request({ type: "prompt", message: "hello" }, target, {
       idempotencyKey: "intent-1",
@@ -135,6 +137,38 @@ describe("HostRuntimeAdapter", () => {
     }
   });
 
+  it("stops reconnecting and reports a revoked remote device", async () => {
+    vi.useFakeTimers();
+    try {
+      FakeWebSocket.instances.length = 0;
+      const adapter = new HostRuntimeAdapter({
+        url: "wss://host/v2/ws",
+        WebSocketImpl: FakeWebSocket,
+        clientType: "remote",
+        clientId: "phone",
+        deviceToken: "device-secret",
+        reconnectBaseDelayMs: 10,
+      });
+      const fatal = vi.fn();
+      adapter.setFatalErrorListener(fatal);
+      adapter.connect();
+      const socket = FakeWebSocket.instances[0];
+      socket.open();
+      socket.receive({
+        type: "error",
+        error: { code: "device_access_revoked", message: "Access revoked" },
+      });
+
+      expect(fatal).toHaveBeenCalledWith(
+        expect.objectContaining({ code: "device_access_revoked" }),
+      );
+      await vi.advanceTimersByTimeAsync(100);
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("restores target subscriptions before announcing a connected transport", () => {
     FakeWebSocket.instances.length = 0;
     const adapter = new HostRuntimeAdapter({
@@ -156,5 +190,64 @@ describe("HostRuntimeAdapter", () => {
 
     expect(socket.sent[1]).toMatchObject({ type: "runtime_subscribe", target });
     expect(socket.sent[2]).toEqual({ type: "listener_ready_probe" });
+  });
+
+  it("replaces a stale foreground connection and restores subscriptions exactly once", async () => {
+    vi.useFakeTimers();
+    try {
+      FakeWebSocket.instances.length = 0;
+      const adapter = new HostRuntimeAdapter({
+        url: "wss://host/v2/ws",
+        WebSocketImpl: FakeWebSocket,
+        clientType: "remote",
+        clientId: "phone",
+        deviceToken: "device-secret",
+        reconnectBaseDelayMs: 10,
+      });
+      const connectionStates = [];
+      adapter.setConnectionListener((connected) => connectionStates.push(connected));
+      adapter.connect();
+      const staleSocket = FakeWebSocket.instances[0];
+      staleSocket.open();
+      staleSocket.receive({ type: "hello_ack", protocolVersion: 2 });
+      adapter.subscribeTarget(target);
+
+      expect(adapter.reconnectNow()).toBe(true);
+      expect(staleSocket.readyState).toBe(3);
+      expect(connectionStates).toEqual([true, false]);
+      expect(FakeWebSocket.instances).toHaveLength(2);
+      expect(adapter.reconnectNow()).toBe(false);
+
+      const replacement = FakeWebSocket.instances[1];
+      replacement.open();
+      replacement.receive({ type: "hello_ack", protocolVersion: 2 });
+      expect(replacement.sent[1]).toMatchObject({ type: "runtime_subscribe", target });
+      expect(connectionStates).toEqual([true, false, true]);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not reconnect a remote device after fatal authorization rejection", () => {
+    FakeWebSocket.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "wss://host/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientType: "remote",
+      clientId: "phone",
+      deviceToken: "device-secret",
+    });
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({
+      type: "error",
+      error: { code: "device_access_revoked", message: "Access revoked" },
+    });
+
+    expect(adapter.reconnectNow()).toBe(false);
+    expect(FakeWebSocket.instances).toHaveLength(1);
   });
 });

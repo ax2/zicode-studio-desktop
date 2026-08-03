@@ -1,3 +1,5 @@
+import { t } from "../../i18n.js";
+
 const SEARCH_DEBOUNCE_MS = 300;
 const MAX_TITLE_RESULTS = 12;
 const MAX_RECENT_RESULTS = 12;
@@ -34,7 +36,7 @@ function normalizeQuery(query) {
 }
 
 function sessionTitle(session) {
-  return session?.name || session?.firstMessage || "Empty session";
+  return session?.name || session?.firstMessage || t("Empty session");
 }
 
 function sessionSearchText(session) {
@@ -73,7 +75,10 @@ export function setupSessionSearchDialog({
     return { open() {}, close() {} };
   }
 
-  triggerInput.placeholder = `Search... (${shortcutHintLabel()})`;
+  const updateTriggerPlaceholder = () => {
+    triggerInput.placeholder = `${t("Search...")} (${shortcutHintLabel()})`;
+  };
+  updateTriggerPlaceholder();
 
   let query = "";
   let messageMatches = [];
@@ -107,7 +112,10 @@ export function setupSessionSearchDialog({
     overlay.classList.add("hidden");
     dialog.classList.add("hidden");
     loadingMessages = false;
-    if (restoreFocus) triggerInput.focus();
+    if (restoreFocus) {
+      suppressOpenUntil = Date.now() + 250;
+      triggerInput.focus();
+    }
   }
 
   function selectSession(sessionId) {
@@ -159,7 +167,7 @@ export function setupSessionSearchDialog({
       : sessions.slice(0, MAX_RECENT_RESULTS);
 
     appendGroup(
-      normalized ? "Tasks" : "Recent tasks",
+      normalized ? t("Tasks") : t("Recent tasks"),
       titleMatches.map((session) =>
         resultButton({
           sessionId: session.id,
@@ -171,13 +179,16 @@ export function setupSessionSearchDialog({
     );
 
     appendGroup(
-      "Message matches",
+      t("Message matches"),
       messageMatches.map((result) =>
         resultButton({
           sessionId: result.sessionId,
           icon: "⌕",
-          title: result.sessionName || result.firstMessage || "Untitled",
-          meta: result.matches?.length > 1 ? `${result.matches.length} matches` : "Message match",
+          title: result.sessionName || result.firstMessage || t("Untitled"),
+          meta:
+            result.matches?.length > 1
+              ? `${result.matches.length} ${t("matches")}`
+              : t("Message match"),
           snippet: result.matches?.[0]?.snippet || "",
         }),
       ),
@@ -186,12 +197,12 @@ export function setupSessionSearchDialog({
     if (loadingMessages) {
       const loading = document.createElement("div");
       loading.className = "session-search-empty";
-      loading.textContent = "Searching messages…";
+      loading.textContent = t("Searching messages…");
       list.appendChild(loading);
     } else if (list.children.length === 0) {
       const empty = document.createElement("div");
       empty.className = "session-search-empty";
-      empty.textContent = normalized ? "No tasks or messages found" : "No saved tasks";
+      empty.textContent = normalized ? t("No tasks or messages found") : t("No saved tasks");
       list.appendChild(empty);
     }
 
@@ -269,7 +280,7 @@ export function setupSessionSearchDialog({
   triggerClear?.addEventListener("pointerdown", clearWithoutOpening);
   triggerClear?.addEventListener("mousedown", clearWithoutOpening);
   triggerClear?.addEventListener("click", clearWithoutOpening);
-  overlay.addEventListener("click", () => close());
+  overlay.addEventListener("click", () => close({ restoreFocus: true }));
   input.addEventListener("input", () => setQuery(input.value));
   document.addEventListener("keydown", (event) => {
     if (isSearchShortcut(event)) {
@@ -282,14 +293,30 @@ export function setupSessionSearchDialog({
       }
       return;
     }
-    if (dialog.classList.contains("hidden") || event.key !== "Escape") return;
-    event.preventDefault();
-    close();
+    if (dialog.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close({ restoreFocus: true });
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = [...dialog.querySelectorAll("button:not(:disabled), input, [href], [tabindex]")]
+      .filter((element) => element.getAttribute("tabindex") !== "-1");
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
-      close();
+      close({ restoreFocus: true });
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex(activeIndex + 1);
@@ -300,6 +327,10 @@ export function setupSessionSearchDialog({
       event.preventDefault();
       visibleRows()[activeIndex]?.click();
     }
+  });
+  globalThis.window?.addEventListener("zicode:locale-changed", () => {
+    updateTriggerPlaceholder();
+    if (!dialog.classList.contains("hidden")) render();
   });
 
   return { open, close };

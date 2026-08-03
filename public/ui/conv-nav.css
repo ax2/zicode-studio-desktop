@@ -191,22 +191,29 @@
 /* New-message badge */
 .conv-nav-new-badge {
   position: fixed;
-  bottom: calc(var(--messages-bottom-inset, 128px) + 12px);
-  right: 48px;
-  font-size: var(--font-size-sm);
-  color: white;
-  background: var(--accent);
-  padding: var(--space-0-5) var(--space-2);
-  border-radius: var(--radius-pill);
+  bottom: calc(var(--messages-bottom-inset, 128px) + var(--space-3));
+  right: var(--space-12);
   white-space: nowrap;
-  pointer-events: none;
   animation: badgePop 0.3s var(--spring);
-  box-shadow: 0 2px 8px var(--accent-glow);
+  box-shadow: var(--shadow-md);
   z-index: 31;
 }
 
 .conv-nav-new-badge.hidden {
   display: none;
+}
+
+.conv-nav-live-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 @keyframes badgePop {

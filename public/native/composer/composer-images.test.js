@@ -36,12 +36,14 @@ describe("composer image attachments", () => {
 
   it("opens the file picker from the attach button and tracks previews", async () => {
     const clickPicker = vi.spyOn(imageInput, "click").mockImplementation(() => {});
+    const onChange = vi.fn();
     const controller = setupComposerImageAttachments({
       input,
       attachButton,
       imageInput,
       previewContainer: previews,
       dropTarget,
+      onChange,
       processImageFile: async (file) => ({
         type: "image",
         data: `encoded-${file.name}`,
@@ -58,5 +60,44 @@ describe("composer image attachments", () => {
     ]);
     expect(previews.classList.contains("hidden")).toBe(false);
     expect(previews.querySelectorAll(".image-preview")).toHaveLength(1);
+    expect(onChange).toHaveBeenCalledOnce();
+    previews.querySelector(".image-preview-remove").click();
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(controller.getImages()).toEqual([]);
+    controller.dispose();
+  });
+
+  it("shows progress and keeps submission busy until a phone photo is ready", async () => {
+    let finishProcessing;
+    const onBusyChange = vi.fn();
+    const controller = setupComposerImageAttachments({
+      input,
+      attachButton,
+      imageInput,
+      previewContainer: previews,
+      dropTarget,
+      onBusyChange,
+      processImageFile: () =>
+        new Promise((resolve) => {
+          finishProcessing = resolve;
+        }),
+    });
+
+    const processing = controller.addFiles([
+      new File(["large-photo"], "camera.jpg", { type: "image/jpeg" }),
+    ]);
+    expect(previews.getAttribute("aria-busy")).toBe("true");
+    expect(previews.textContent).toMatch(/Preparing image|正在处理图片/);
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+
+    await Promise.resolve();
+    finishProcessing({ type: "image", data: "camera", mimeType: "image/jpeg" });
+    await processing;
+    await controller.whenIdle();
+
+    expect(controller.getImages()).toHaveLength(1);
+    expect(previews.getAttribute("aria-busy")).toBe("false");
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    controller.dispose();
   });
 });

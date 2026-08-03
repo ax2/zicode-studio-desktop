@@ -7,6 +7,7 @@
  */
 
 let overlay = null;
+let lastFocused = null;
 
 function getOrCreateOverlay() {
   if (overlay) return overlay;
@@ -38,6 +39,13 @@ function getOrCreateOverlay() {
     }
   });
 
+  // Keep keyboard focus inside the lightbox while it is open.
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab" || !overlay.classList.contains("open")) return;
+    e.preventDefault();
+    closeBtn.focus();
+  });
+
   // Close on Escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && overlay.classList.contains("open")) {
@@ -58,12 +66,17 @@ function openLightbox(src, alt) {
   // Force reflow so the transition fires
   void ov.offsetWidth;
   ov.classList.add("open");
+  lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  ov.querySelector(".image-lightbox-close").focus();
   document.body.style.overflow = "hidden";
 }
 
 function closeLightbox() {
   if (!overlay) return;
   overlay.classList.remove("open");
+  const restore = lastFocused;
+  lastFocused = null;
+  if (restore?.isConnected) restore.focus();
   document.body.style.overflow = "";
 }
 

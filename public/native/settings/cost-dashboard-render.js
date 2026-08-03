@@ -213,7 +213,12 @@ function renderSessionsPanel(target, sessions = []) {
     return;
   }
   target.innerHTML = `
-    <div class="cost-dash-sessions-table-wrap">
+    <div
+      class="cost-dash-sessions-table-wrap"
+      tabindex="0"
+      role="region"
+      aria-label="Sessions table"
+    >
       <table class="cost-dash-sessions-table">
         <thead>
           <tr>

@@ -1,3 +1,4 @@
+import { t } from "../../i18n.js";
 import { isSuperAgentProjectPath } from "../../super-agent/session.js";
 import { isSuperAgentEnabled } from "../../super-agent/settings.js";
 import { randomId } from "../utils/random-id.js";
@@ -233,8 +234,10 @@ export class SessionSidebar {
     this._loadSeq = 0;
     this._loadCommitted = 0;
     this.contextMenu = null;
+    this._contextMenuTrigger = null;
 
     document.addEventListener("click", () => this.closeContextMenu());
+    this.container.addEventListener("keydown", (event) => this.#handleSidebarKeydown(event));
   }
 
   // ── persistence ────────────────────────────────────────────────
@@ -540,6 +543,7 @@ export class SessionSidebar {
     }
     group.appendChild(sessionsDiv);
     this.container.insertBefore(group, this.container.firstChild);
+    this.#updateSidebarRovingTabindex();
   }
 
   #highlight(text, query) {
@@ -560,6 +564,7 @@ export class SessionSidebar {
           el.style.display = "";
         });
       this.container.querySelector(".search-results-group")?.remove();
+      this.#updateSidebarRovingTabindex();
       return;
     }
     this.container
@@ -574,6 +579,7 @@ export class SessionSidebar {
         });
         group.style.display = hasVisible ? "" : "none";
       });
+    this.#updateSidebarRovingTabindex();
   }
 
   #hydrateStatuses(sessions) {
@@ -593,14 +599,15 @@ export class SessionSidebar {
   #buildItem(session, { showArchiveButton = true } = {}) {
     const item = document.createElement("div");
     item.className = "session-item";
+    item.tabIndex = -1;
     item.dataset.sessionId = session.id;
     if (session.id === this.activeSessionId) item.classList.add("active");
     if (this.unread.has(session.id)) item.classList.add("unread");
     if (this.streaming.has(session.id)) item.classList.add("streaming", "mirror-live");
 
-    const title = session.name || session.firstMessage || "Empty session";
+    const title = session.name || session.firstMessage || t("Empty session");
     const isArchived = this.isArchived(session.id);
-    const archiveLabel = isArchived ? "Unarchive session" : "Archive session";
+    const archiveLabel = t(isArchived ? "Unarchive session" : "Archive session");
     const archiveBtn = showArchiveButton
       ? `<button class="session-archive-btn" title="${archiveLabel}" aria-label="${archiveLabel}">${ARCHIVE_ICON}</button>`
       : "";
@@ -623,6 +630,7 @@ export class SessionSidebar {
   #sectionHeader(className, innerHtml) {
     const header = document.createElement("div");
     header.className = `project-header ${className}`;
+    header.tabIndex = -1;
     header.innerHTML = innerHtml;
     return header;
   }
@@ -630,7 +638,7 @@ export class SessionSidebar {
   render() {
     this.container.innerHTML = "";
     if (this.sessions.length === 0) {
-      this.container.innerHTML = '<div class="session-loading">No saved sessions</div>';
+      this.container.innerHTML = `<div class="session-loading">${t("No saved sessions")}</div>`;
       return;
     }
 
@@ -663,7 +671,7 @@ export class SessionSidebar {
       archived.length === 0 &&
       regular.length === 0
     ) {
-      this.container.innerHTML = '<div class="session-loading">No saved sessions</div>';
+      this.container.innerHTML = `<div class="session-loading">${t("No saved sessions")}</div>`;
       return;
     }
 
@@ -674,7 +682,7 @@ export class SessionSidebar {
       group.appendChild(
         this.#sectionHeader(
           "favourites-header",
-          `<span class="fav-star">★</span> <span>Favourites</span> <span class="project-count">${favourites.length}</span>`,
+          `<span class="fav-star">★</span> <span>${t("Favourites")}</span> <span class="project-count">${favourites.length}</span>`,
         ),
       );
       const list = document.createElement("div");
@@ -701,9 +709,9 @@ export class SessionSidebar {
           <svg class="folder-closed-icon" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
           <svg class="folder-open-icon" xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 14l1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>
         </span>
-        <span>Archived</span>
+        <span>${t("Archived")}</span>
         <span class="project-count">${archived.length}</span>
-        <button class="archived-delete-all-btn" title="Delete all archived sessions" aria-label="Delete all archived sessions">${TRASH_ICON}</button>`,
+        <button class="archived-delete-all-btn" title="${t("Delete all archived sessions")}" aria-label="${t("Delete all archived sessions")}">${TRASH_ICON}</button>`,
       );
       const list = document.createElement("div");
       list.className = `project-sessions${this.archivedCollapsed ? " collapsed" : ""}`;
@@ -726,6 +734,7 @@ export class SessionSidebar {
     }
 
     if (this.searchQuery) this.applySearch();
+    this.#updateSidebarRovingTabindex();
   }
 
   // Group regular sessions by their originating project. The list arrives
@@ -737,7 +746,7 @@ export class SessionSidebar {
     group.appendChild(
       this.#sectionHeader(
         "super-agent-pinned-header",
-        '<span class="fav-star">★</span> <span>Agent Inbox</span> <span class="project-count">Pinned</span>',
+        `<span class="fav-star">★</span> <span>${t("Agent Inbox")}</span> <span class="project-count">${t("Pinned")}</span>`,
       ),
     );
 
@@ -780,8 +789,9 @@ export class SessionSidebar {
 
     const invoke = globalThis.__TAURI__?.core?.invoke ?? null;
     const canCreateSession = Boolean(invoke || (project.isCurrent && this.onCreateSession));
+    const newChatLabel = `${t("New chat in")} ${project.name}`;
     const newChatButtonHtml = canCreateSession
-      ? `<button class="project-new-chat-btn" title="New chat in ${escapeHtml(project.name)}" aria-label="New chat in ${escapeHtml(project.name)}">
+      ? `<button class="project-new-chat-btn" title="${escapeHtml(newChatLabel)}" aria-label="${escapeHtml(newChatLabel)}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>`
       : "";
@@ -907,18 +917,65 @@ export class SessionSidebar {
     this.closeContextMenu();
     const menu = document.createElement("div");
     menu.className = "session-context-menu";
+    menu.setAttribute("role", "menu");
 
+    const items = [];
     for (const entry of rows) {
       const row = document.createElement("div");
       row.className = "context-menu-item";
+      row.setAttribute("role", "menuitem");
+      row.tabIndex = -1;
       row.innerHTML = `<span class="context-menu-icon">${entry.icon}</span>${entry.label}`;
       row.addEventListener("click", (ev) => {
         ev.stopPropagation();
         this.closeContextMenu();
         entry.action();
       });
+      items.push(row);
       menu.appendChild(row);
     }
+
+    const activateItem = (item) => {
+      const index = items.indexOf(item);
+      const entry = rows[index];
+      if (!entry) return;
+      this.closeContextMenu();
+      entry.action();
+    };
+
+    menu.addEventListener("keydown", (event) => {
+      const current = items.indexOf(document.activeElement);
+      const count = items.length;
+      switch (event.key) {
+        case "ArrowDown":
+          event.preventDefault();
+          items[(current + 1) % count]?.focus();
+          break;
+        case "ArrowUp":
+          event.preventDefault();
+          items[(current - 1 + count) % count]?.focus();
+          break;
+        case "Home":
+          event.preventDefault();
+          items[0]?.focus();
+          break;
+        case "End":
+          event.preventDefault();
+          items.at(-1)?.focus();
+          break;
+        case "Escape":
+          event.preventDefault();
+          this.closeContextMenu();
+          break;
+        case "Enter":
+        case " ":
+          if (current >= 0) {
+            event.preventDefault();
+            activateItem(items[current]);
+          }
+          break;
+      }
+    });
 
     document.body.appendChild(menu);
     const rect = menu.getBoundingClientRect();
@@ -928,12 +985,90 @@ export class SessionSidebar {
     if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 8;
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
+    this._contextMenuTrigger =
+      event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     this.contextMenu = menu;
+    items[0]?.focus({ preventScroll: true });
   }
 
   closeContextMenu() {
+    const restore = this._contextMenuTrigger;
+    this._contextMenuTrigger = null;
+    if (this.contextMenu?.contains(document.activeElement) && restore?.isConnected) {
+      restore.focus();
+    }
     this.contextMenu?.remove();
     this.contextMenu = null;
+  }
+
+  // ── keyboard navigation (roving tabindex) ─────────────────────────
+  #isSidebarItemVisible(element) {
+    if (element.closest(".hidden")) return false;
+    if (element.closest(".project-sessions.collapsed")) return false;
+    const group = element.closest(
+      ".super-agent-pinned-group, .favourites-group, .project-group, .archived-group",
+    );
+    if (group && getComputedStyle(group).display === "none") return false;
+    return true;
+  }
+
+  #updateSidebarRovingTabindex() {
+    const items = [...this.container.querySelectorAll(".session-item, .project-header")];
+    const visible = items.filter((element) => this.#isSidebarItemVisible(element));
+    if (visible.length === 0) return;
+    const active = this.container.querySelector(
+      `.session-item[data-session-id="${cssEscape(this.activeSessionId)}"]`,
+    );
+    const anchor = active && visible.includes(active) ? active : visible[0];
+    for (const element of items) element.tabIndex = -1;
+    anchor.tabIndex = 0;
+  }
+
+  #focusSidebarItem(element) {
+    this.container.querySelectorAll(".session-item, .project-header").forEach((el) => {
+      el.tabIndex = -1;
+    });
+    element.tabIndex = 0;
+    element.focus();
+  }
+
+  #handleSidebarKeydown(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.matches(".session-item, .project-header")) {
+      return;
+    }
+    if (!this.container.contains(target)) return;
+    if (!["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "].includes(event.key)) return;
+
+    const scope = [...this.container.querySelectorAll(".session-item, .project-header")].filter(
+      (element) => this.#isSidebarItemVisible(element),
+    );
+    if (scope.length === 0) return;
+    const index = scope.indexOf(target);
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        this.#focusSidebarItem(scope[(index + 1) % scope.length]);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        this.#focusSidebarItem(scope[(index - 1 + scope.length) % scope.length]);
+        break;
+      case "Home":
+        event.preventDefault();
+        this.#focusSidebarItem(scope[0]);
+        break;
+      case "End":
+        event.preventDefault();
+        this.#focusSidebarItem(scope.at(-1));
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        target.click();
+        break;
+    }
   }
 
   // Rename only works for the active (foreground) session — set_session_name

@@ -181,7 +181,7 @@
 .cost-dash-activity-wrap {
   margin-top: 22px;
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 #cost-dash-activity-panel {
@@ -527,10 +527,54 @@
   color: var(--error);
 }
 
+@media (max-width: 720px) {
+  .cost-dash-activity-wrap {
+    overflow-x: auto;
+  }
+
+  .cost-dash-section-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cost-dash-tool-chart-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cost-dash-tool-chart-wrap {
+    align-self: center;
+  }
+
+  .cost-dash-model-legend-row,
+  .cost-dash-tool-legend-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cost-dash-model-legend-meta,
+  .cost-dash-tool-legend-values {
+    flex-wrap: wrap;
+    white-space: normal;
+    row-gap: var(--space-1);
+  }
+
+  .cost-dash-model-legend-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .cost-dash-subsection-head {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+  }
+}
+
 @media (max-width: 640px) {
   .cost-dash-topbar-actions {
     flex-wrap: wrap;
     gap: var(--space-2);
+  }
+  .cost-dash-activity-calendar {
+    min-width: 560px;
   }
   .cost-dash-range-chip {
     min-width: 0;

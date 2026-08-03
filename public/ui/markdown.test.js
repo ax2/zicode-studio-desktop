@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { renderMarkdown, renderStreamingMarkdown } from "./markdown.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { initCodeCopyDelegation, renderMarkdown, renderStreamingMarkdown } from "./markdown.js";
+
+afterEach(() => {
+  vi.useRealTimers();
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+});
 
 describe("renderStreamingMarkdown", () => {
   it("renders complete markdown identically to renderMarkdown", () => {
@@ -53,6 +58,83 @@ describe("renderStreamingMarkdown", () => {
 });
 
 describe("renderMarkdown", () => {
+  it("makes wide tables keyboard-scrollable and labeled", () => {
+    const template = document.createElement("template");
+    template.innerHTML = renderMarkdown("| Name | Value |\n| --- | --- |\n| Mobile | Ready |");
+    const wrapper = template.content.querySelector(".table-wrapper");
+
+    expect(wrapper.getAttribute("tabindex")).toBe("0");
+    expect(wrapper.getAttribute("role")).toBe("region");
+    expect(wrapper.getAttribute("aria-label")).toBe("Scrollable table");
+  });
+
+  it("renders an accessible code copy action", () => {
+    const template = document.createElement("template");
+    template.innerHTML = renderMarkdown("```js\nconst answer = 42;\n```");
+    const button = template.content.querySelector("[data-copy-code]");
+
+    expect(button.type).toBe("button");
+    expect(button.getAttribute("aria-label")).toBe("Copy code");
+    expect(template.content.querySelector(".code-copy-status").getAttribute("role")).toBe("status");
+  });
+
+  it("announces successful code copies and restores the action", async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const container = document.createElement("div");
+    container.innerHTML = renderMarkdown("```sh\necho mobile\n```");
+    initCodeCopyDelegation(container);
+
+    const button = container.querySelector("[data-copy-code]");
+    button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(writeText).toHaveBeenCalledWith("echo mobile");
+    expect(button.textContent).toBe("Copied");
+    expect(button.classList.contains("copied")).toBe(true);
+    expect(container.querySelector(".code-copy-status").textContent).toBe("Code copied");
+    vi.runAllTimers();
+    expect(button.textContent).toBe("Copy");
+    expect(button.disabled).toBe(false);
+  });
+
+  it("shows a friendly state when clipboard permission is denied", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new DOMException("Denied", "NotAllowedError")) },
+    });
+    const container = document.createElement("div");
+    container.innerHTML = renderMarkdown("```sh\necho private\n```");
+    initCodeCopyDelegation(container);
+
+    const button = container.querySelector("[data-copy-code]");
+    button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(button.textContent).toBe("Copy failed");
+    expect(button.classList.contains("failed")).toBe(true);
+    expect(container.querySelector(".code-copy-status").textContent).toContain(
+      "Check browser clipboard permission",
+    );
+    vi.runAllTimers();
+  });
+
+  it("loads inline images near the viewport and suppresses referrer metadata", () => {
+    const html = renderMarkdown("![Architecture](https://images.example.test/diagram.png)");
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const image = template.content.querySelector(".inline-image");
+
+    expect(image.getAttribute("loading")).toBe("lazy");
+    expect(image.getAttribute("decoding")).toBe("async");
+    expect(image.getAttribute("referrerpolicy")).toBe("no-referrer");
+    expect(image.alt).toBe("Architecture");
+  });
+
   it("renders fenced code blocks whose language contains a hyphen", () => {
     const html = renderMarkdown('```acceptance-report\n{"criteriaSatisfied": []}\n```');
 

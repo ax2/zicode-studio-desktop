@@ -108,7 +108,7 @@ export function renderMarkdown(text) {
       const block = codeBlocks[parseInt(codeMatch[1], 10)];
       const langLabel = block.lang || "code";
       html += `<div class="code-block-wrapper">`;
-      html += `<div class="code-block-header"><span>${escapeHtml(langLabel)}</span><button class="copy-btn" data-copy-code>Copy</button></div>`;
+      html += `<div class="code-block-header"><span class="code-language">${escapeHtml(langLabel)}</span><div class="code-copy-actions"><span class="code-copy-status" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="copy-btn" data-copy-code aria-label="Copy code" title="Copy code">Copy</button></div></div>`;
       html += `<pre><code>${escapeHtml(block.code)}</code></pre></div>`;
       continue;
     }
@@ -125,7 +125,7 @@ export function renderMarkdown(text) {
       // More robust: split between first and last pipe
       const headerRow = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
 
-      html += '<div class="table-wrapper"><table><thead><tr>';
+      html += '<div class="table-wrapper" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr>';
       headerRow.forEach((cell, idx) => {
         const align = alignments[idx] || "left";
         html += `<th style="text-align:${align}">${renderInline(cell.trim())}</th>`;
@@ -299,7 +299,10 @@ function renderInline(text) {
   });
 
   // Images (before links so ![...](...) isn't caught by link regex)
-  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="inline-image">');
+  text = text.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<img src="$2" alt="$1" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">',
+  );
 
   // Bold + italic
   text = text.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
@@ -348,18 +351,33 @@ function escapeHtml(text) {
  * inline onclick handlers or global functions.
  */
 export function initCodeCopyDelegation(container) {
-  container.addEventListener("click", (e) => {
+  container.addEventListener("click", async (e) => {
     const btn = e.target.closest("button[data-copy-code]");
-    if (!btn) return;
+    if (!btn || btn.disabled) return;
     const codeBlock = btn.closest(".code-block-wrapper")?.querySelector("code");
     if (!codeBlock) return;
-    navigator.clipboard.writeText(codeBlock.textContent).then(() => {
-      btn.textContent = "Copied!";
+    const status = btn.closest(".code-copy-actions")?.querySelector(".code-copy-status");
+    btn.disabled = true;
+    btn.textContent = "Copying…";
+    btn.classList.remove("copied", "failed");
+    if (status) status.textContent = "";
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(codeBlock.textContent);
+      btn.textContent = "Copied";
       btn.classList.add("copied");
-      setTimeout(() => {
-        btn.textContent = "Copy";
-        btn.classList.remove("copied");
-      }, 2000);
-    });
+      if (status) status.textContent = "Code copied";
+    } catch {
+      btn.textContent = "Copy failed";
+      btn.classList.add("failed");
+      if (status) status.textContent = "Unable to copy code. Check browser clipboard permission.";
+    }
+    const resetDelay = btn.classList.contains("failed") ? 5000 : 2400;
+    setTimeout(() => {
+      btn.textContent = "Copy";
+      btn.classList.remove("copied", "failed");
+      btn.disabled = false;
+      if (status) status.textContent = "";
+    }, resetDelay);
   });
 }

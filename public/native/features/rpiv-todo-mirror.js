@@ -1,5 +1,8 @@
+import { t } from "../../i18n.js";
+
 const TODO_TOOL_NAME = "todo";
 const TODO_WIDGET_KEY = "rpiv-todos";
+let panelSequence = 0;
 const EMPTY_STATE = Object.freeze({ tasks: Object.freeze([]), nextId: 1 });
 const STATUS_LABELS = {
   pending: "pending",
@@ -66,13 +69,17 @@ function cloneTodoState(details) {
 
 export class RpivTodoMirrorPanel {
   #element;
+  #listId = `rpiv-todo-list-${++panelSequence}`;
   #state = EMPTY_STATE;
+  #onLocaleChange = () => this.#render();
 
   constructor({ container }) {
     this.#element = document.createElement("section");
     this.#element.className = "rpiv-todo-panel hidden is-collapsed";
-    this.#element.setAttribute("aria-label", "Todos");
+    this.#element.setAttribute("role", "region");
+    this.#element.setAttribute("aria-label", t("Pi task progress"));
     container?.insertBefore(this.#element, container.querySelector("form"));
+    window.addEventListener("zicode:locale-changed", this.#onLocaleChange);
   }
 
   hydrateFromMessages(messages) {
@@ -95,12 +102,19 @@ export class RpivTodoMirrorPanel {
   }
 
   expand() {
-    this.#element.classList.add("is-hover-expanded");
+    this.#element.classList.add("is-expanded");
+    this.#syncExpandedState();
+  }
+
+  dispose() {
+    window.removeEventListener("zicode:locale-changed", this.#onLocaleChange);
+    this.#element.remove();
   }
 
   #render() {
     const visibleTasks = this.#state.tasks.filter((task) => task.status !== "deleted");
     if (visibleTasks.length === 0) {
+      this.#element.classList.remove("is-expanded");
       this.#element.classList.add("hidden");
       this.#element.replaceChildren();
       return;
@@ -112,7 +126,9 @@ export class RpivTodoMirrorPanel {
       (task) => task.status === "pending" || task.status === "in_progress",
     );
 
-    const header = document.createElement("div");
+    this.#element.setAttribute("aria-label", t("Pi task progress"));
+    const header = document.createElement("button");
+    header.type = "button";
     header.className = "rpiv-todo-panel__header";
     const titleGroup = document.createElement("div");
     titleGroup.className = "rpiv-todo-panel__titleGroup";
@@ -121,17 +137,25 @@ export class RpivTodoMirrorPanel {
     dot.textContent = hasActive ? "●" : "○";
     const title = document.createElement("span");
     title.className = "rpiv-todo-panel__title";
-    title.textContent = "Todos";
+    title.textContent = t("Tasks");
     titleGroup.append(dot, title);
     const summary = document.createElement("span");
     summary.className = "rpiv-todo-panel__summary";
     summary.textContent = `${completed}/${total}`;
-    summary.dataset.expandedText = `${completed}/${total} complete`;
-    header.append(titleGroup, summary);
+    const indicator = document.createElement("span");
+    indicator.className = "rpiv-todo-panel__indicator";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.textContent = "⌄";
+    header.append(titleGroup, summary, indicator);
+    header.addEventListener("click", () => {
+      this.#element.classList.toggle("is-expanded");
+      this.#syncExpandedState();
+    });
 
     const displayTasks = selectDisplayTasks(visibleTasks);
     const list = document.createElement("ol");
     list.className = "rpiv-todo-panel__list";
+    list.id = this.#listId;
     for (const task of displayTasks) {
       list.append(renderTask(task, shouldShowIds(visibleTasks)));
     }
@@ -139,13 +163,44 @@ export class RpivTodoMirrorPanel {
     if (visibleTasks.length > displayTasks.length) {
       const more = document.createElement("div");
       more.className = "rpiv-todo-panel__more";
-      more.textContent = `+${visibleTasks.length - displayTasks.length} more`;
+      more.textContent = t("More tasks: {count}").replace(
+        "{count}",
+        String(visibleTasks.length - displayTasks.length),
+      );
       children.push(more);
     }
 
     this.#element.classList.toggle("is-complete", !hasActive);
     this.#element.replaceChildren(...children);
     this.#element.classList.remove("hidden");
+    this.#syncExpandedState();
+  }
+
+  #syncExpandedState() {
+    const button = this.#element.querySelector(".rpiv-todo-panel__header");
+    if (!button) return;
+    const expanded = this.#element.classList.contains("is-expanded");
+    const completed = this.#state.tasks.filter((task) => task.status === "completed").length;
+    const total = this.#state.tasks.filter((task) => task.status !== "deleted").length;
+    const action = t(expanded ? "Hide task details" : "Show task details");
+    button.setAttribute("aria-expanded", String(expanded));
+    button.setAttribute("aria-controls", this.#listId);
+    button.setAttribute(
+      "aria-label",
+      t("{action}. {completed}/{total} complete")
+        .replace("{action}", action)
+        .replace("{completed}", String(completed))
+        .replace("{total}", String(total)),
+    );
+    button.title = action;
+    for (const detail of this.#element.querySelectorAll(
+      ".rpiv-todo-panel__list, .rpiv-todo-panel__more",
+    )) {
+      detail.setAttribute("aria-hidden", String(!expanded));
+      detail.toggleAttribute("inert", !expanded);
+    }
+    const indicator = button.querySelector(".rpiv-todo-panel__indicator");
+    if (indicator) indicator.textContent = expanded ? "⌃" : "⌄";
   }
 }
 
@@ -166,6 +221,7 @@ function renderTask(task, showId) {
 
   const glyph = document.createElement("span");
   glyph.className = "rpiv-todo-panel__glyph";
+  glyph.setAttribute("aria-hidden", "true");
   glyph.textContent = STATUS_GLYPHS[task.status] ?? "•";
 
   const text = document.createElement("span");
@@ -188,6 +244,8 @@ function renderTask(task, showId) {
     item.append(blocked);
   }
 
-  item.title = STATUS_LABELS[task.status] ?? task.status;
+  const status = t(STATUS_LABELS[task.status] ?? task.status);
+  item.title = status;
+  item.setAttribute("aria-label", `${task.subject}, ${status}`);
   return item;
 }

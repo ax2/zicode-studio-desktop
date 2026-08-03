@@ -64,3 +64,10 @@
   background: var(--bg-glass-active);
   transform: scale(1.1);
 }
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .image-lightbox-close {
+    width: var(--space-10);
+    height: var(--space-10);
+  }
+}

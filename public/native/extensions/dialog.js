@@ -78,7 +78,8 @@ export function showNativeDialog(
     dialog.appendChild(actions);
     container.replaceChildren(dialog);
     container.classList.remove("hidden");
-    input?.focus();
+    const lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    (input ?? dialog.querySelector("button"))?.focus();
 
     dismissSignal?.then(() => finish({ cancelled: true }));
     let timeout = null;
@@ -92,6 +93,23 @@ export function showNativeDialog(
         event.preventDefault();
         finish({ value: input.value });
       }
+      if (event.key !== "Tab") return;
+      const focusable = [
+        ...dialog.querySelectorAll("button:not([disabled]), input, textarea, [href], [tabindex]"),
+      ].filter((element) => element.getAttribute("tabindex") !== "-1");
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || !dialog.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", keyHandler);
     function finish(result) {
@@ -99,6 +117,7 @@ export function showNativeDialog(
       document.removeEventListener("keydown", keyHandler);
       container.replaceChildren();
       container.classList.add("hidden");
+      if (lastFocused?.isConnected) lastFocused.focus();
       resolve(result);
     }
   });

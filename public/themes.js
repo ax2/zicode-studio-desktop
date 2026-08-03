@@ -16,31 +16,37 @@ export const themes = {
   night: {
     name: { "zh-CN": "石墨深色", en: "Graphite Dark" },
     dark: true,
+    themeColor: "#212121",
     vars: {},
   },
   dawn: {
     name: { "zh-CN": "雾蓝深色", en: "Mist Blue Dark" },
     dark: true,
+    themeColor: "#1a1d26",
     vars: {},
   },
   midnight: {
     name: { "zh-CN": "纯黑深色", en: "Midnight Black" },
     dark: true,
+    themeColor: "#000000",
     vars: {},
   },
   clean: {
     name: { "zh-CN": "明亮白色", en: "Bright White" },
     dark: false,
+    themeColor: "#ffffff",
     vars: {},
   },
   terracotta: {
     name: { "zh-CN": "暖砂浅色", en: "Warm Sand" },
     dark: false,
+    themeColor: "#f4f1ec",
     vars: {},
   },
   sage: {
     name: { "zh-CN": "鼠尾草浅色", en: "Sage Light" },
     dark: false,
+    themeColor: "#f0f2ec",
     vars: {},
   },
 };
@@ -99,6 +105,9 @@ export function applyTheme(themeId) {
   const root = document.documentElement;
   if (!themes[themeId]) themeId = "clean";
   root.setAttribute("data-theme", themeId);
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", themes[themeId].themeColor);
   writeThemeCookie(themeId);
 }
 
