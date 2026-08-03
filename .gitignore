@@ -19,5 +19,7 @@ src-tauri/resources/portable-git/*
 !src-tauri/resources/portable-git/.gitkeep
 src-tauri/resources/webview2/*
 !src-tauri/resources/webview2/.gitkeep
+src-tauri/resources/bun/*
+!src-tauri/resources/bun/.gitkeep
 # Pi session exports
 pi-session-*.html
