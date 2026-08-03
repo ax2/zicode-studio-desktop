@@ -1,0 +1,121 @@
+.mobile-connection-status {
+  position: fixed;
+  top: max(var(--space-2), env(safe-area-inset-top, 0px));
+  left: 50%;
+  max-width: min(calc(100vw - var(--space-6)), 520px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-frosted);
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  z-index: 150;
+}
+
+.mobile-connection-status[hidden],
+.mobile-install-card[hidden] {
+  display: none;
+}
+
+.mobile-connection-message {
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-connection-retry {
+  min-height: var(--space-10);
+  flex: 0 0 auto;
+}
+
+.mobile-connection-status[data-state="offline"] {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+  color: var(--warning);
+}
+
+.mobile-connection-status[data-state="stalled"] {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  color: var(--text-primary);
+}
+
+.mobile-install-card {
+  position: fixed;
+  right: max(var(--space-3), env(safe-area-inset-right, 0px));
+  bottom: max(var(--space-3), env(safe-area-inset-bottom, 0px));
+  width: min(calc(100vw - var(--space-6)), 380px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-frosted);
+  box-shadow: var(--shadow-lg);
+  z-index: 150;
+}
+
+.mobile-install-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mobile-install-copy strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.mobile-install-copy span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.mobile-install-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .mobile-connection-status {
+    top: max(var(--space-2), env(safe-area-inset-top, 0px));
+    width: calc(100vw - var(--space-6));
+    text-align: left;
+  }
+
+  .mobile-install-card {
+    right: max(var(--space-2), env(safe-area-inset-right, 0px));
+    bottom: calc(var(--mobile-nav-height) + var(--space-2));
+    left: max(var(--space-2), env(safe-area-inset-left, 0px));
+    width: auto;
+  }
+
+  #protect-mobile-draft-storage {
+    min-height: var(--control-height-lg);
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-install-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mobile-install-actions {
+    flex-direction: row;
+  }
+
+  .mobile-install-actions .ui-button {
+    min-height: var(--space-10);
+    flex: 1;
+  }
+}
