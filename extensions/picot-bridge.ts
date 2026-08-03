@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { setupFinanceTools } from "./finance/extension";
 import { handlePicotConfig } from "./picot-config";
 import projectTrust from "./project-trust";
 
@@ -10,6 +11,7 @@ type ConfigRequest = {
 
 export default function picotBridge(pi: ExtensionAPI) {
   projectTrust(pi);
+  setupFinanceTools(pi);
 
   const scenePrompt = process.env.PI_DESKTOP_SCENE_PROMPT?.trim();
   if (scenePrompt) {

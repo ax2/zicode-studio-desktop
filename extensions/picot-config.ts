@@ -18,6 +18,20 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createAgentSession, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
+import { runBacktest, type BacktestInput } from "./finance/backtest";
+import { MarketDataStore, type MarketDataSnapshotInput } from "./finance/market-data";
+import { normalizeOhlcv, type NormalizeOhlcvInput } from "./finance/normalize";
+import { PaperTradingLedger } from "./finance/paper-trading";
+import {
+  QVerisClient,
+  readQVerisApiKey,
+  setQVerisRuntimeApiKey,
+} from "./finance/qveris-client";
+import { runScreening, type ScreeningInput } from "./finance/screener";
+import {
+  fetchQVerisModelCatalog,
+  QVERIS_MODEL_GATEWAY_BASE_URL,
+} from "./qveris-model-gateway";
 
 type ModelHealthStatus = "unknown" | "healthy" | "unhealthy";
 
@@ -61,7 +75,6 @@ const SUPPORTED_MODEL_APIS = new Set([
   "google-generative-ai",
 ]);
 const QVERIS_PROVIDER_ID = "qveris";
-const QVERIS_BASE_URL = "https://aigateway.qveris.ai";
 
 type CredentialStoreLike = {
   modify?: (
@@ -117,6 +130,8 @@ const MODELS_CONFIG_PATH = path.join(PI_AGENT_ROOT, "models.json");
 const CHAT_CONFIG_PATH = path.join(PI_AGENT_ROOT, "chat", "config.json");
 const AUTH_CONFIG_PATH = path.join(PI_AGENT_ROOT, "auth.json");
 const SUPER_AGENT_TASKS_PATH = path.join(PI_AGENT_ROOT, "super-agent", "tasks.json");
+const FINANCE_RESEARCH_PATH = path.join(PI_AGENT_ROOT, "finance", "research.json");
+const AUTOMATION_WORKSPACE_PATH = path.join(PI_AGENT_ROOT, "automation", "workflows.json");
 const PISTUDIO_INSTANCES_DIR = process.env.PI_DESKTOP_INSTANCE_DIR
   ? path.join(path.resolve(process.env.PI_DESKTOP_INSTANCE_DIR), "super-agent")
   : path.join(path.dirname(PI_AGENT_ROOT), "instances");
@@ -211,17 +226,24 @@ async function buildModelCatalog(registry: CatalogRegistry, preferences: ModelPr
       .map((model) => modelPreferenceKey(model.provider as string, model.id as string)),
   );
   const providerNames = Array.from(
-    new Set(allModels.map((model) => model.provider).filter(Boolean)),
+    new Set([
+      ...allModels.map((model) => model.provider).filter(Boolean),
+      QVERIS_PROVIDER_ID,
+    ]),
   ).sort() as string[];
 
   return {
     providers: providerNames.map((providerName) => {
       const status = registry.getProviderAuthStatus(providerName);
+      const stored = hasStoredApiKey(providerName);
       return {
         provider: providerName,
-        displayName: registry.getProviderDisplayName(providerName),
-        configured: Boolean(status.configured),
-        source: status.source,
+        displayName:
+          providerName === QVERIS_PROVIDER_ID
+            ? "QVeris Model Gateway"
+            : registry.getProviderDisplayName(providerName),
+        configured: Boolean(status.configured) || stored,
+        source: status.source || (stored ? "stored" : undefined),
         label: status.label,
         models: allModels
           .filter(
@@ -336,13 +358,14 @@ function readModelsDocument(): {
       ? (parsed.providers as Record<string, Record<string, unknown>>)
       : {};
   const qveris = providers[QVERIS_PROVIDER_ID] || {};
+  const qverisBaseUrl = asString(qveris.baseUrl) || QVERIS_MODEL_GATEWAY_BASE_URL;
   return {
     ...parsed,
     providers: {
       ...providers,
       [QVERIS_PROVIDER_ID]: {
         ...qveris,
-        baseUrl: QVERIS_BASE_URL,
+        baseUrl: qverisBaseUrl,
         api: asString(qveris.api) || "openai-completions",
         authHeader: qveris.authHeader !== false,
         models: Array.isArray(qveris.models) ? qveris.models : [],
@@ -362,8 +385,37 @@ function ensureBuiltInModelGateway(): void {
         providers?: Record<string, { baseUrl?: unknown }>;
       })
     : {};
-  if (stored.providers?.[QVERIS_PROVIDER_ID]?.baseUrl === QVERIS_BASE_URL) return;
+  if (asString(stored.providers?.[QVERIS_PROVIDER_ID]?.baseUrl)) {
+    return;
+  }
   writeModelsDocument(current);
+}
+
+async function syncQVerisModelCatalog(
+  registry?: CatalogRegistry,
+  apiKey = readQVerisApiKey(),
+): Promise<{ count: number; refreshed: boolean }> {
+  if (!apiKey) throw new Error("QVeris API Key is not configured for this scene");
+  const document = readModelsDocument();
+  const current = document.providers[QVERIS_PROVIDER_ID] || {};
+  const baseUrl = validateBaseUrl(current.baseUrl || QVERIS_MODEL_GATEWAY_BASE_URL);
+  const models = await fetchQVerisModelCatalog(apiKey, { baseUrl });
+  document.providers[QVERIS_PROVIDER_ID] = {
+    ...current,
+    baseUrl,
+    api: "openai-completions",
+    authHeader: true,
+    models,
+  };
+  writeModelsDocument(document);
+  return { count: models.length, refreshed: await refreshRegistry(registry) };
+}
+
+function hasStoredApiKey(provider: string): boolean {
+  const credential = readAuthConfig()[provider];
+  if (typeof credential === "string") return Boolean(credential.trim());
+  if (!credential || typeof credential !== "object" || Array.isArray(credential)) return false;
+  return Boolean(asString((credential as { key?: unknown }).key));
 }
 
 function validateBaseUrl(value: unknown): string {
@@ -436,6 +488,12 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function requireFinanceScene(capability: string): void {
+  if (process.env.PI_DESKTOP_SCENE_ID !== "finance") {
+    throw new Error(`Finance ${capability} is only available in a Finance scene`);
+  }
+}
+
 function readJsonFile(filePath: string): unknown {
   try {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -491,6 +549,50 @@ function writeAuthConfig(auth: Record<string, unknown>): void {
   }
 }
 
+export async function sealBrokerAuthConfig(
+  registry?: CatalogRegistry,
+): Promise<void> {
+  if (process.env.PI_DESKTOP_CREDENTIAL_BROKER !== "system" || !fs.existsSync(AUTH_CONFIG_PATH)) {
+    return;
+  }
+  const internals = registry as (CatalogRegistry & RegistryInternals) | undefined;
+  const auth = readAuthConfig();
+  const qveris = auth[QVERIS_PROVIDER_ID];
+  const qverisKey =
+    typeof qveris === "string"
+      ? qveris.trim()
+      : qveris && typeof qveris === "object" && !Array.isArray(qveris)
+        ? asString((qveris as { key?: unknown }).key)
+        : "";
+  if (qverisKey) setQVerisRuntimeApiKey(qverisKey);
+  // Keep the runtime able to resolve provider auth after the plaintext file is
+  // removed: mirror every provider credential into the live credential store
+  // when one exists. If no live store is available, leave the broker
+  // materialized file in place so availability and requests keep working.
+  let hydrated = false;
+  for (const [provider, credential] of Object.entries(auth)) {
+    const key =
+      typeof credential === "string"
+        ? credential.trim()
+        : credential && typeof credential === "object" && !Array.isArray(credential)
+          ? asString((credential as { key?: unknown }).key).trim()
+          : "";
+    if (!key) continue;
+    if (internals?.authStorage?.set) {
+      await internals.authStorage.set(provider, { type: "api_key", key });
+      hydrated = true;
+    } else if (internals?.runtime?.credentials?.modify) {
+      await internals.runtime.credentials.modify(provider, async () => ({
+        type: "api_key",
+        key,
+      }));
+      hydrated = true;
+    }
+  }
+  if (!hydrated) return;
+  fs.rmSync(AUTH_CONFIG_PATH, { force: true });
+}
+
 async function setStoredApiKey(
   registry: CatalogRegistry | undefined,
   provider: string,
@@ -536,7 +638,7 @@ async function removeStoredApiKey(
 export async function handlePicotConfig(
   op: string,
   params: Record<string, unknown>,
-  ctx: { modelRegistry?: CatalogRegistry },
+  ctx: { modelRegistry?: CatalogRegistry; cwd?: string },
 ): Promise<PicotConfigResult> {
   const registry = ctx.modelRegistry;
   const preferences = new ModelPreferencesStore();
@@ -548,6 +650,9 @@ export async function handlePicotConfig(
 
   try {
     ensureBuiltInModelGateway();
+    // The Rust broker materializes auth.json only long enough for Pi to load
+    // its live registry. Commands are available after that initialization.
+    await sealBrokerAuthConfig(registry);
     switch (op) {
       case "list_model_catalog": {
         const catalog = await buildModelCatalog(requireRegistry(), preferences);
@@ -592,7 +697,14 @@ export async function handlePicotConfig(
         if (!provider) throw new Error("provider is required");
         if (!apiKey) throw new Error("apiKey is required");
         await setStoredApiKey(registry, provider, apiKey);
+        if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(apiKey);
+        if (provider === QVERIS_PROVIDER_ID) {
+          const modelSync = await syncQVerisModelCatalog(registry, apiKey);
+          await sealBrokerAuthConfig(registry);
+          return { ok: true, data: { provider, modelSync } };
+        }
         if (registry) await registry.refresh();
+        await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider } };
       }
 
@@ -600,7 +712,9 @@ export async function handlePicotConfig(
         const provider = asString(params.provider);
         if (!provider) throw new Error("provider is required");
         await removeStoredApiKey(registry, provider);
+        if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(null);
         if (registry) await registry.refresh();
+        await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider } };
       }
 
@@ -613,8 +727,16 @@ export async function handlePicotConfig(
           authHeader: config.authHeader !== false,
           models: Array.isArray(config.models) ? config.models : [],
           builtIn: provider === QVERIS_PROVIDER_ID,
+          configured:
+            registry?.getProviderAuthStatus(provider)?.configured === true ||
+            hasStoredApiKey(provider),
         }));
         return { ok: true, data: { channels } };
+      }
+
+      case "sync_qveris_models": {
+        const modelSync = await syncQVerisModelCatalog(registry);
+        return { ok: true, data: { provider: QVERIS_PROVIDER_ID, modelSync } };
       }
 
       case "save_provider_channel": {
@@ -625,8 +747,18 @@ export async function handlePicotConfig(
         const baseUrl = validateBaseUrl(params.baseUrl);
         const api = asString(params.api) || "openai-completions";
         if (!SUPPORTED_MODEL_APIS.has(api)) throw new Error(`unsupported API type: ${api}`);
-        const models = normalizeChannelModels(params.models);
+        const builtInQVeris = originalProvider === QVERIS_PROVIDER_ID;
+        if (builtInQVeris && provider !== QVERIS_PROVIDER_ID) {
+          throw new Error("QVeris Model Gateway provider ID cannot be changed");
+        }
         const document = readModelsDocument();
+        const existing = document.providers[originalProvider] || {};
+        const models =
+          builtInQVeris && Array.isArray(params.models) && params.models.length === 0
+            ? Array.isArray(existing.models)
+              ? existing.models
+              : []
+            : normalizeChannelModels(params.models);
         if (originalProvider !== provider) delete document.providers[originalProvider];
         document.providers[provider] = {
           baseUrl,
@@ -636,9 +768,18 @@ export async function handlePicotConfig(
         };
         writeModelsDocument(document);
         const apiKey = asString(params.apiKey);
-        if (apiKey) await setStoredApiKey(registry, provider, apiKey);
+        if (apiKey) {
+          await setStoredApiKey(registry, provider, apiKey);
+          if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(apiKey);
+        }
         if (originalProvider !== provider) await removeStoredApiKey(registry, originalProvider);
+        if (builtInQVeris && (apiKey || readQVerisApiKey())) {
+          const modelSync = await syncQVerisModelCatalog(registry, apiKey || readQVerisApiKey());
+          await sealBrokerAuthConfig(registry);
+          return { ok: true, data: { provider, refreshed: modelSync.refreshed, modelSync } };
+        }
         const refreshed = await refreshRegistry(registry);
+        await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider, refreshed } };
       }
 
@@ -652,7 +793,262 @@ export async function handlePicotConfig(
         writeModelsDocument(document);
         await removeStoredApiKey(registry, provider);
         const refreshed = await refreshRegistry(registry);
+        await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider, refreshed } };
+      }
+
+      case "finance_status": {
+        const qveris = new QVerisClient().credentialStatus();
+        return {
+          ok: true,
+          data: {
+            sceneId: process.env.PI_DESKTOP_SCENE_ID || "programming",
+            qveris: { configured: qveris.configured },
+            tools: [
+              "qveris_discover",
+              "qveris_inspect",
+              "qveris_call",
+              "qveris_usage",
+              "finance_backtest",
+              "finance_normalize_ohlcv",
+              "finance_screen",
+              "finance_market_data",
+              "finance_paper_account",
+              "finance_paper_order",
+              "finance_paper_limit_order",
+            ],
+          },
+        };
+      }
+
+      case "finance_discover": {
+        if (process.env.PI_DESKTOP_SCENE_ID !== "finance") {
+          throw new Error("Finance data discovery is only available in a Finance scene");
+        }
+        const query = asString(params.query);
+        if (!query) throw new Error("query is required");
+        const limit = Math.max(1, Math.min(10, Math.trunc(asNumber(params.limit) ?? 8)));
+        const data = await new QVerisClient().discover({ query, limit, lang: "zh" });
+        return { ok: true, data };
+      }
+
+      case "finance_qveris_usage": {
+        requireFinanceScene("QVeris billing audit");
+        const client = new QVerisClient();
+        const limit = Math.max(1, Math.min(50, Math.trunc(asNumber(params.limit) ?? 10)));
+        const [usage, ledger] = await Promise.all([
+          client.usageAudit({ summary: true, limit }),
+          client.creditsLedger({ summary: true, limit }),
+        ]);
+        return { ok: true, data: { usage, ledger } };
+      }
+
+      case "finance_backtest": {
+        if (process.env.PI_DESKTOP_SCENE_ID !== "finance") {
+          throw new Error("Finance backtesting is only available in a Finance scene");
+        }
+        if (!params.input || typeof params.input !== "object" || Array.isArray(params.input)) {
+          throw new Error("input must be a backtest object");
+        }
+        return { ok: true, data: runBacktest(params.input as BacktestInput) };
+      }
+
+      case "finance_normalize_ohlcv": {
+        requireFinanceScene("OHLCV normalization");
+        if (!params.input || typeof params.input !== "object" || Array.isArray(params.input)) {
+          throw new Error("input must be an OHLCV normalization object");
+        }
+        return { ok: true, data: normalizeOhlcv(params.input as NormalizeOhlcvInput) };
+      }
+
+      case "finance_screen": {
+        requireFinanceScene("screening");
+        if (!params.input || typeof params.input !== "object" || Array.isArray(params.input)) {
+          throw new Error("input must be a screening object");
+        }
+        return { ok: true, data: runScreening(params.input as ScreeningInput) };
+      }
+
+      case "finance_market_data": {
+        requireFinanceScene("market data snapshots");
+        const store = new MarketDataStore();
+        const action = asString(params.action);
+        if (action === "save") {
+          if (!params.snapshot || typeof params.snapshot !== "object") {
+            throw new Error("snapshot is required");
+          }
+          return { ok: true, data: store.save(params.snapshot as MarketDataSnapshotInput) };
+        }
+        if (action === "latest") {
+          return {
+            ok: true,
+            data: store.latest({
+              kind: asString(params.kind) as MarketDataSnapshotInput["kind"],
+              symbol: asString(params.symbol) || undefined,
+              market: asString(params.market) || undefined,
+            }),
+          };
+        }
+        if (action === "list") {
+          return {
+            ok: true,
+            data: {
+              snapshots: store.list({
+                kind:
+                  (asString(params.kind) as MarketDataSnapshotInput["kind"]) || undefined,
+                symbol: asString(params.symbol) || undefined,
+                market: asString(params.market) || undefined,
+                limit: asNumber(params.limit),
+              }),
+            },
+          };
+        }
+        throw new Error("unsupported market data action");
+      }
+
+      case "finance_paper_accounts": {
+        requireFinanceScene("paper trading");
+        const ledger = new PaperTradingLedger();
+        const action = asString(params.action) || "list";
+        if (action === "list") return { ok: true, data: { accounts: ledger.listAccounts() } };
+        if (action === "get") {
+          return { ok: true, data: ledger.getAccount(asString(params.accountId)) };
+        }
+        if (action === "mark") {
+          if (!Array.isArray(params.quotes)) throw new Error("quotes must be an array");
+          return {
+            ok: true,
+            data: ledger.markToMarket({
+              accountId: asString(params.accountId),
+              quotes: params.quotes as Parameters<PaperTradingLedger["markToMarket"]>[0]["quotes"],
+              maxAgeMinutes: asNumber(params.maxAgeMinutes),
+            }),
+          };
+        }
+        if (action === "create") {
+          return {
+            ok: true,
+            data: ledger.createAccount({
+              name: asString(params.name),
+              baseCurrency: asString(params.baseCurrency) || undefined,
+              initialCash: asNumber(params.initialCash),
+            }),
+          };
+        }
+        throw new Error("unsupported paper account action");
+      }
+
+      case "finance_paper_order": {
+        requireFinanceScene("paper trading");
+        if (!params.input || typeof params.input !== "object" || Array.isArray(params.input)) {
+          throw new Error("input must be a paper order object");
+        }
+        return {
+          ok: true,
+          data: new PaperTradingLedger().executeMarketOrder(
+            params.input as Parameters<PaperTradingLedger["executeMarketOrder"]>[0],
+          ),
+        };
+      }
+
+      case "finance_paper_limit_order": {
+        requireFinanceScene("paper limit orders");
+        const ledger = new PaperTradingLedger();
+        const action = asString(params.action);
+        if (action === "place") {
+          return {
+            ok: true,
+            data: ledger.placeLimitOrder({
+              accountId: asString(params.accountId),
+              symbol: asString(params.symbol),
+              side: asString(params.side) as "buy" | "sell",
+              quantity: asNumber(params.quantity) as number,
+              limitPrice: asNumber(params.limitPrice) as number,
+              feeBps: asNumber(params.feeBps),
+              currency: asString(params.currency) || undefined,
+            }),
+          };
+        }
+        if (action === "cancel") {
+          return {
+            ok: true,
+            data: ledger.cancelOrder({
+              accountId: asString(params.accountId),
+              orderId: asString(params.orderId),
+            }),
+          };
+        }
+        if (action === "process") {
+          if (!Array.isArray(params.quotes)) throw new Error("quotes must be an array");
+          return {
+            ok: true,
+            data: ledger.processLimitOrders({
+              accountId: asString(params.accountId),
+              quotes:
+                params.quotes as Parameters<PaperTradingLedger["processLimitOrders"]>[0]["quotes"],
+            }),
+          };
+        }
+        throw new Error("unsupported paper limit-order action");
+      }
+
+      case "finance_research_workspace": {
+        requireFinanceScene("research workspace");
+        const action = asString(params.action) || "list";
+        const workspace = readFinanceResearchWorkspace();
+        if (action === "list") return { ok: true, data: workspace };
+        if (action === "upsert") {
+          const card = normalizeFinanceResearchCard(params.card);
+          const index = workspace.cards.findIndex((item) => item.id === card.id);
+          if (index >= 0) workspace.cards[index] = card;
+          else workspace.cards.unshift(card);
+          workspace.cards = workspace.cards.slice(0, 500);
+          writeFinanceResearchWorkspace(workspace);
+          return { ok: true, data: { card, workspace } };
+        }
+        if (action === "remove") {
+          const id = asString(params.id);
+          workspace.cards = workspace.cards.filter((item) => item.id !== id);
+          writeFinanceResearchWorkspace(workspace);
+          return { ok: true, data: workspace };
+        }
+        throw new Error("unsupported finance research action");
+      }
+
+      case "automation_workspace": {
+        const action = asString(params.action) || "list";
+        const workspace = readAutomationWorkspace();
+        if (action === "list") return { ok: true, data: workspace };
+        if (action === "upsert") {
+          const workflow = normalizeAutomationWorkflow(params.workflow);
+          const index = workspace.workflows.findIndex((item) => item.id === workflow.id);
+          if (index >= 0) workspace.workflows[index] = workflow;
+          else workspace.workflows.unshift(workflow);
+          workspace.workflows = workspace.workflows.slice(0, 200);
+          writeAutomationWorkspace(workspace);
+          return { ok: true, data: { workflow, workspace } };
+        }
+        if (action === "remove") {
+          const id = asString(params.id);
+          workspace.workflows = workspace.workflows.filter((item) => item.id !== id);
+          writeAutomationWorkspace(workspace);
+          return { ok: true, data: workspace };
+        }
+        if (action === "record_run") {
+          const id = asString(params.id);
+          const index = workspace.workflows.findIndex((item) => item.id === id);
+          if (index < 0) throw new Error("automation workflow was not found");
+          const current = workspace.workflows[index];
+          const run = normalizeAutomationRun(params.run);
+          current.history = [run, ...current.history].slice(0, 100);
+          current.lastRunAt = run.startedAt;
+          current.nextRunAt = asString(params.nextRunAt) || null;
+          current.approvalPending = params.approvalPending === true;
+          current.updatedAt = new Date().toISOString();
+          writeAutomationWorkspace(workspace);
+          return { ok: true, data: { workflow: current, workspace } };
+        }
+        throw new Error("unsupported automation action");
       }
 
       case "read_agent_config":
@@ -692,6 +1088,19 @@ export async function handlePicotConfig(
         return { ok: true, data: { path: CHAT_CONFIG_PATH } };
       }
 
+      case "read_project_profile": {
+        const profilePath = projectProfilePath(ctx.cwd);
+        const profile = readProjectProfile(profilePath);
+        return { ok: true, data: { profile, path: profilePath } };
+      }
+
+      case "write_project_profile": {
+        const profilePath = projectProfilePath(ctx.cwd);
+        const profile = normalizeProjectProfile(params.profile);
+        writeConfigFile(profilePath, JSON.stringify(profile, null, 2));
+        return { ok: true, data: { profile, path: profilePath } };
+      }
+
       case "read_super_agent_tasks": {
         const content = fs.existsSync(SUPER_AGENT_TASKS_PATH)
           ? fs.readFileSync(SUPER_AGENT_TASKS_PATH, "utf8")
@@ -729,6 +1138,208 @@ export async function handlePicotConfig(
     }
   } catch (e: unknown) {
     return { ok: false, error: errMessage(e) };
+  }
+}
+
+type ProjectProfile = {
+  version: 1;
+  instructions: string;
+  defaultScene: string;
+  budget: number | null;
+  updatedAt: string | null;
+};
+
+type FinanceResearchCard = {
+  id: string;
+  symbol: string;
+  title: string;
+  thesis: string;
+  bullCase: string;
+  bearCase: string;
+  invalidation: string;
+  sources: string[];
+  eventAt: string | null;
+  updatedAt: string;
+};
+
+type FinanceResearchWorkspace = { version: 1; cards: FinanceResearchCard[] };
+
+type AutomationRun = {
+  id: string;
+  status: string;
+  startedAt: string;
+  taskId: string | null;
+  message: string;
+};
+
+type AutomationWorkflow = {
+  id: string;
+  title: string;
+  prompt: string;
+  targetProject: string;
+  enabled: boolean;
+  schedule: "manual" | "interval" | "daily";
+  intervalMinutes: number | null;
+  dailyTime: string | null;
+  requireApproval: boolean;
+  maxCost: number | null;
+  maxRetries: number;
+  approvalPending: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  updatedAt: string;
+  history: AutomationRun[];
+};
+
+type AutomationWorkspace = { version: 1; workflows: AutomationWorkflow[] };
+
+function readAutomationWorkspace(): AutomationWorkspace {
+  if (!fs.existsSync(AUTOMATION_WORKSPACE_PATH)) return { version: 1, workflows: [] };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(AUTOMATION_WORKSPACE_PATH, "utf8")) as {
+      workflows?: unknown[];
+    };
+    return {
+      version: 1,
+      workflows: Array.isArray(parsed.workflows)
+        ? parsed.workflows.map((workflow) => normalizeAutomationWorkflow(workflow)).slice(0, 200)
+        : [],
+    };
+  } catch {
+    return { version: 1, workflows: [] };
+  }
+}
+
+function writeAutomationWorkspace(workspace: AutomationWorkspace): void {
+  writeConfigFile(AUTOMATION_WORKSPACE_PATH, JSON.stringify(workspace, null, 2));
+}
+
+function normalizeAutomationRun(value: unknown): AutomationRun {
+  const run = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    id: asString(run.id) || `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    status: asString(run.status) || "queued",
+    startedAt: asString(run.startedAt) || new Date().toISOString(),
+    taskId: asString(run.taskId) || null,
+    message: asString(run.message).slice(0, 2_000),
+  };
+}
+
+function normalizeAutomationWorkflow(value: unknown): AutomationWorkflow {
+  const workflow = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const scheduleValue = asString(workflow.schedule);
+  const schedule = scheduleValue === "interval" || scheduleValue === "daily" ? scheduleValue : "manual";
+  const interval = Number(workflow.intervalMinutes);
+  const history = Array.isArray(workflow.history)
+    ? workflow.history.map((run) => normalizeAutomationRun(run)).slice(0, 100)
+    : [];
+  return {
+    id: asString(workflow.id) || `automation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: asString(workflow.title).trim().slice(0, 200) || "Untitled automation",
+    prompt: asString(workflow.prompt).trim().slice(0, 50_000),
+    targetProject: asString(workflow.targetProject).trim().slice(0, 2_000),
+    enabled: workflow.enabled !== false,
+    schedule,
+    intervalMinutes:
+      schedule === "interval" && Number.isFinite(interval) ? Math.min(10_080, Math.max(5, interval)) : null,
+    dailyTime: schedule === "daily" ? asString(workflow.dailyTime).slice(0, 5) || "09:00" : null,
+    requireApproval: workflow.requireApproval !== false,
+    maxCost:
+      Number.isFinite(Number(workflow.maxCost)) && Number(workflow.maxCost) > 0
+        ? Math.min(10_000, Number(workflow.maxCost))
+        : null,
+    maxRetries: Number.isFinite(Number(workflow.maxRetries))
+      ? Math.min(10, Math.max(0, Math.floor(Number(workflow.maxRetries))))
+      : 2,
+    approvalPending: workflow.approvalPending === true,
+    lastRunAt: asString(workflow.lastRunAt) || null,
+    nextRunAt: asString(workflow.nextRunAt) || null,
+    updatedAt: asString(workflow.updatedAt) || new Date().toISOString(),
+    history,
+  };
+}
+
+function readFinanceResearchWorkspace(): FinanceResearchWorkspace {
+  if (!fs.existsSync(FINANCE_RESEARCH_PATH)) return { version: 1, cards: [] };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(FINANCE_RESEARCH_PATH, "utf8")) as { cards?: unknown[] };
+    return {
+      version: 1,
+      cards: Array.isArray(parsed.cards)
+        ? parsed.cards
+            .map((card) => {
+              const normalized = normalizeFinanceResearchCard(card);
+              const saved = card && typeof card === "object" ? (card as Record<string, unknown>) : {};
+              normalized.updatedAt = asString(saved.updatedAt) || normalized.updatedAt;
+              return normalized;
+            })
+            .slice(0, 500)
+        : [],
+    };
+  } catch {
+    return { version: 1, cards: [] };
+  }
+}
+
+function writeFinanceResearchWorkspace(workspace: FinanceResearchWorkspace): void {
+  writeConfigFile(FINANCE_RESEARCH_PATH, JSON.stringify(workspace, null, 2));
+}
+
+function normalizeFinanceResearchCard(value: unknown): FinanceResearchCard {
+  const card = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const symbol = asString(card.symbol).trim().toUpperCase().slice(0, 32);
+  if (!symbol) throw new Error("research card symbol is required");
+  const sourceValues = Array.isArray(card.sources)
+    ? card.sources
+    : asString(card.sources).split(/\r?\n|,/);
+  const sources = sourceValues
+    .map((source) => asString(source).trim())
+    .filter(Boolean)
+    .slice(0, 30)
+    .map((source) => source.slice(0, 500));
+  const eventAtValue = asString(card.eventAt).trim();
+  return {
+    id: asString(card.id) || `research-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    symbol,
+    title: (asString(card.title).trim() || symbol).slice(0, 200),
+    thesis: asString(card.thesis).trim().slice(0, 20_000),
+    bullCase: asString(card.bullCase).trim().slice(0, 20_000),
+    bearCase: asString(card.bearCase).trim().slice(0, 20_000),
+    invalidation: asString(card.invalidation).trim().slice(0, 20_000),
+    sources,
+    eventAt: eventAtValue || null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function projectProfilePath(cwd: string | undefined): string {
+  const root = typeof cwd === "string" && cwd.trim() ? path.resolve(cwd) : process.cwd();
+  return path.join(root, ".zicode", "project.json");
+}
+
+function normalizeProjectProfile(value: unknown): ProjectProfile {
+  const candidate = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const budgetValue = Number(candidate.budget);
+  return {
+    version: 1,
+    instructions: asString(candidate.instructions).slice(0, 50_000),
+    defaultScene: asString(candidate.defaultScene) || "programming",
+    budget: Number.isFinite(budgetValue) && budgetValue > 0 ? budgetValue : null,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function readProjectProfile(profilePath: string): ProjectProfile {
+  if (!fs.existsSync(profilePath)) {
+    return { version: 1, instructions: "", defaultScene: "programming", budget: null, updatedAt: null };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(profilePath, "utf8")) as Record<string, unknown>;
+    const profile = normalizeProjectProfile(parsed);
+    profile.updatedAt = typeof parsed.updatedAt === "string" ? parsed.updatedAt : null;
+    return profile;
+  } catch {
+    return { version: 1, instructions: "", defaultScene: "programming", budget: null, updatedAt: null };
   }
 }
 

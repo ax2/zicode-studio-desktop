@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "id": "com.zicode.example-view",
+  "name": "View Demo",
+  "displayName": "界面示例",
+  "description": "A self-contained Developer plugin that demonstrates isolated sidebar and main views.",
+  "version": "1.0.0",
+  "publisher": "zicode-examples",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "activationEvents": [
+    "onView:example.sidebar",
+    "onView:example.main",
+    "onCapability:example.echo",
+    "onCommand:example.echoCommand"
+  ],
+  "runtime": {
+    "worker": "worker.js"
+  },
+  "contributes": {
+    "activities": [
+      {
+        "id": "example",
+        "title": "View Demo",
+        "order": 900
+      }
+    ],
+    "views": [
+      {
+        "id": "example.sidebar",
+        "activity": "example",
+        "location": "sidebar",
+        "title": "Demo controls",
+        "entry": "views/sidebar.html",
+        "order": 100
+      },
+      {
+        "id": "example.main",
+        "activity": "example",
+        "location": "main",
+        "title": "View Demo",
+        "entry": "views/main.html",
+        "order": 100
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "example.echo",
+        "title": "Echo text from the isolated Worker",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 2000
+            }
+          },
+          "required": ["text"],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "commands": [
+      {
+        "id": "example.echoCommand",
+        "title": "Run isolated echo command"
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": []
+  }
+}
