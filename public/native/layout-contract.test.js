@@ -334,7 +334,7 @@ describe("desktop three-region layout contract", () => {
 
   it("keeps mobile connection, install, and startup failure surfaces narrow-screen safe", () => {
     expect(mobileExperienceCss).toMatch(
-      /@media \(max-width: 768px\), \(max-height: 520px\) and \(pointer: coarse\)[\s\S]*?\.mobile-connection-status\s*\{[\s\S]*?width:\s*calc\(100vw - var\(--space-6\)\)/,
+      /@media \(max-width: 768px\), \(max-height: 520px\) and \(pointer: coarse\)[\s\S]*?\.mobile-connection-status\s*\{[\s\S]*?width:\s*12px[\s\S]*?height:\s*12px/,
     );
     expect(mobileExperienceCss).toMatch(
       /@media \(max-width: 420px\)[\s\S]*?\.mobile-install-card\s*\{[\s\S]*?flex-direction:\s*column/,

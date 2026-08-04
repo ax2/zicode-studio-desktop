@@ -1,26 +1,33 @@
 .mobile-connection-status {
   position: fixed;
   top: max(var(--space-2), env(safe-area-inset-top, 0px));
-  left: 50%;
-  max-width: min(calc(100vw - var(--space-6)), 520px);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  transform: translateX(-50%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-frosted);
-  box-shadow: var(--shadow-md);
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  text-align: center;
+  left: calc(var(--space-2) + var(--space-12) + var(--space-2));
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 2px solid var(--bg-solid);
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 45%, transparent);
   z-index: 150;
 }
 
 .mobile-connection-status[hidden],
 .mobile-install-card[hidden] {
   display: none;
+}
+
+.mobile-connection-status .mobile-connection-message,
+.mobile-connection-status .mobile-connection-retry {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .mobile-connection-message {
@@ -33,19 +40,33 @@
   flex: 0 0 auto;
 }
 
-.mobile-connection-status[data-state="offline"] {
-  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
-  color: var(--warning);
+.mobile-connection-status[data-state="connected"] {
+  background: var(--success);
+}
+
+.mobile-connection-status[data-state="offline"],
+.mobile-connection-status[data-state="reconnecting"] {
+  background: var(--warning);
+}
+
+.mobile-connection-status[data-state="reconnecting"] {
+  animation: mobileConnectionPulse 1.2s ease-in-out infinite;
 }
 
 .mobile-connection-status[data-state="stalled"] {
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
-  color: var(--text-primary);
+  background: var(--danger);
 }
 
-.mobile-connection-status[data-state="connected"] {
-  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
-  color: var(--success);
+@keyframes mobileConnectionPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-connection-status[data-state="reconnecting"] {
+    animation: none;
+  }
 }
 
 .mobile-install-card {
@@ -93,8 +114,9 @@
 @media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
   .mobile-connection-status {
     top: max(var(--space-2), env(safe-area-inset-top, 0px));
-    width: calc(100vw - var(--space-6));
-    text-align: left;
+    left: calc(var(--space-2) + var(--space-12) + var(--space-2));
+    width: 12px;
+    height: 12px;
   }
 
   .mobile-install-card {

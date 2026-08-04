@@ -1188,7 +1188,7 @@ function setupFileBrowser() {
   });
 }
 
-async function sendComposerInput({ altKey }) {
+async function sendComposerInput({ altKey, retried = false } = {}) {
   const value = input.value;
   await imageAttachments.whenIdle();
   const images = imageAttachments.getImages();
@@ -1223,6 +1223,29 @@ async function sendComposerInput({ altKey }) {
     await mobileDrafts?.clearAfterSubmit();
     mobileSendLater?.sent();
   } catch (error) {
+    const staleInstance =
+      !retried &&
+      (error?.code === "unknown_instance" ||
+        String(error?.message || error).includes("UnknownInstance"));
+    if (staleInstance) {
+      try {
+        // The bound runtime instance died (e.g. the host restarted while this
+        // client was connected). Re-resolve the session's live instance and
+        // retry the send once instead of failing with UnknownInstance.
+        const nextTarget = await loadBootstrapTarget({
+          name: "session",
+          workspaceId: target.workspaceId,
+          sessionId: target.sessionId,
+        });
+        await adoptTarget(nextTarget, { updateRoute: false });
+        await runtime.request(intent.command, target, { idempotencyKey: randomId() });
+        await mobileDrafts?.clearAfterSubmit();
+        mobileSendLater?.sent();
+        return;
+      } catch {
+        // Fall through to the normal error path below.
+      }
+    }
     input.value = value;
     imageAttachments.setImages(images);
     mobileDrafts?.sync();
