@@ -11,6 +11,14 @@
   color: var(--text-secondary);
 }
 
+.remote-device-status.is-online {
+  color: var(--success);
+}
+
+.remote-device-status.is-offline {
+  color: var(--text-dim);
+}
+
 .remote-access-on-badge {
   color: var(--success);
 }

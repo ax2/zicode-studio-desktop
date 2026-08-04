@@ -143,8 +143,9 @@ export function setupMobileExperience({
     clearReconnectTimer();
     reconnectEscalated = false;
     retryConnectionButton.hidden = true;
-    connection.hidden = true;
-    connection.removeAttribute("data-state");
+    connection.hidden = false;
+    connection.dataset.state = "connected";
+    connectionMessage.textContent = t("Connected to your ZiCode desktop");
   }
 
   function dismissed() {

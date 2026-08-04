@@ -4,6 +4,7 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
   const root = document.getElementById("settings-remote-access");
   if (!root) return null;
 
+  const ONLINE_DEVICE_WINDOW_SECONDS = 90;
   let devices = [];
   let status = { configuredEnabled: false, running: false, restartRequired: false, urls: [] };
   let loading = false;
@@ -18,10 +19,17 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     }).format(new Date(seconds * 1000));
   }
 
-  function statusBadge(device) {
+  function statusBadge(device, now = Date.now()) {
     const badge = document.createElement("span");
-    badge.className = `ui-badge remote-device-status ${device.revokedAt ? "is-revoked" : "is-active"}`;
-    badge.textContent = t(device.revokedAt ? "Revoked" : "Paired");
+    const revoked = Boolean(device.revokedAt);
+    const online =
+      !revoked &&
+      Number(device.lastSeenAt) > 0 &&
+      now / 1000 - Number(device.lastSeenAt) < ONLINE_DEVICE_WINDOW_SECONDS;
+    badge.className = `ui-badge remote-device-status ${
+      revoked ? "is-revoked" : online ? "is-online" : "is-offline"
+    }`;
+    badge.textContent = t(revoked ? "Revoked" : online ? "Online" : "Offline");
     return badge;
   }
 
@@ -253,5 +261,10 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
 
   render();
   window.addEventListener("zicode:locale-changed", render);
+  const refreshWhenVisible = () => {
+    if (document.visibilityState === "visible") void load();
+  };
+  window.addEventListener("focus", refreshWhenVisible);
+  document.addEventListener("visibilitychange", refreshWhenVisible);
   return { load };
 }

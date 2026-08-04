@@ -48,7 +48,9 @@ describe("mobile experience", () => {
     window.dispatchEvent(new Event("online"));
     expect(adapter.reconnectNow).toHaveBeenCalledOnce();
     adapter.emit(true);
-    expect(status.hidden).toBe(true);
+    expect(status.hidden).toBe(false);
+    expect(status.dataset.state).toBe("connected");
+    expect(status.textContent).toMatch(/Connected to your ZiCode|已连接到/);
     view.dispose();
   });
 

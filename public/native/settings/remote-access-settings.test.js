@@ -98,4 +98,36 @@ describe("remote access settings", () => {
     await vi.waitFor(() => expect(gateway.setEnabled).toHaveBeenCalledWith(false));
     expect(document.body.textContent).toContain(t("Restart required"));
   });
+
+  it("marks recently active devices online and stale ones offline", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const gateway = {
+      getStatus: vi.fn(async () => ({ configuredEnabled: true, running: true })),
+      listDevices: vi.fn(async () => [
+        {
+          deviceId: "fresh",
+          deviceName: "Fresh phone",
+          pairedAt: now - 60_000,
+          lastSeenAt: now - 10,
+          revokedAt: null,
+        },
+        {
+          deviceId: "stale",
+          deviceName: "Stale phone",
+          pairedAt: now - 60_000,
+          lastSeenAt: now - 3_600,
+          revokedAt: null,
+        },
+      ]),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+    const badges = [...document.querySelectorAll(".remote-device-status")];
+    expect(badges.map((badge) => badge.textContent.trim())).toEqual([
+      t("Online"),
+      t("Offline"),
+    ]);
+    expect(badges[0].classList.contains("is-online")).toBe(true);
+    expect(badges[1].classList.contains("is-offline")).toBe(true);
+  });
 });

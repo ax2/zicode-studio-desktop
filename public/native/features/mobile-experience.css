@@ -43,6 +43,11 @@
   color: var(--text-primary);
 }
 
+.mobile-connection-status[data-state="connected"] {
+  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
+  color: var(--success);
+}
+
 .mobile-install-card {
   position: fixed;
   right: max(var(--space-3), env(safe-area-inset-right, 0px));
