@@ -796,6 +796,27 @@ async function requestBootstrapTarget(currentRoute) {
   });
   const response = await hostFetch(`/v2/bootstrap?${query}`);
   if (!response.ok) {
+    // A stale route (e.g. a session created by a previous runtime that no
+    // longer exists) makes every operation fail. Self-heal by falling back to
+    // the most recent session in the workspace instead of leaving the client
+    // stuck on a "runtime stopped or unavailable" error.
+    if (response.status === 404) {
+      try {
+        const list = await hostFetch(`/v2/sessions?workspaceId=${currentRoute.workspaceId}`)
+          .then((sessionsResponse) => (sessionsResponse.ok ? sessionsResponse.json() : null))
+          .catch(() => null);
+        const latest = list?.sessions?.[0];
+        if (latest?.id && latest.id !== currentRoute.sessionId) {
+          return requestBootstrapTarget({
+            name: "session",
+            workspaceId: currentRoute.workspaceId,
+            sessionId: latest.id,
+          });
+        }
+      } catch {
+        // Fall through to the generic error below.
+      }
+    }
     const error = new Error("This ZiCode Studio Desktop runtime is stopped or unavailable");
     error.status = response.status;
     throw error;
