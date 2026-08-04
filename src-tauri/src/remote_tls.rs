@@ -226,12 +226,11 @@ pub fn private_lan_addresses(addresses: impl IntoIterator<Item = IpAddr>) -> Vec
     // numeric sort would advertise 169.254.x.x before the real LAN IP, so the
     // phone could never reach the advertised URL. Link-local stays as a
     // last-resort fallback when no private address exists.
-    let (mut lan, mut link_local): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|address| {
-        match address {
+    let (mut lan, mut link_local): (Vec<_>, Vec<_>) =
+        candidates.into_iter().partition(|address| match address {
             IpAddr::V4(address) => !address.is_link_local(),
             IpAddr::V6(address) => !address.is_unicast_link_local(),
-        }
-    });
+        });
     lan.append(&mut link_local);
     lan
 }
@@ -239,9 +238,7 @@ pub fn private_lan_addresses(addresses: impl IntoIterator<Item = IpAddr>) -> Vec
 pub fn discover_private_lan_addresses() -> Result<Vec<IpAddr>, String> {
     let interfaces = local_ip_address::list_afinet_netifas()
         .map_err(|error| format!("Cannot inspect local network interfaces: {error}"))?;
-    let mut addresses = private_lan_addresses(
-        interfaces.into_iter().map(|(_, address)| address),
-    );
+    let mut addresses = private_lan_addresses(interfaces.into_iter().map(|(_, address)| address));
     // When several private adapters exist (Ethernet + Wi-Fi, VPN, WSL...), put
     // the interface the OS uses for the default route first so the advertised
     // LAN URL is actually reachable from the phone.
