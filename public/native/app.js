@@ -856,8 +856,13 @@ async function requestBootstrapTarget(currentRoute) {
         // Fall through to the generic error below.
       }
     }
-    const error = new Error("This ZiCode Studio Desktop runtime is stopped or unavailable");
+    const error = new Error(
+      response.status === 503
+        ? "ZiCode Studio Desktop is offline. Open it on your computer and retry."
+        : "This ZiCode Studio Desktop runtime is stopped or unavailable",
+    );
     error.status = response.status;
+    if (response.status === 503) error.code = "desktop_offline";
     throw error;
   }
   return response.json();

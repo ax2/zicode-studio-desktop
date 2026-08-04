@@ -103,9 +103,12 @@ export class HostRuntimeAdapter {
       }
       if (
         this.#clientType === "remote" &&
-        ["unauthorized_device", "device_access_revoked", "remote_auth_required"].includes(
-          frame?.error?.code,
-        )
+        [
+          "unauthorized_device",
+          "device_access_revoked",
+          "remote_auth_required",
+          "desktop_offline",
+        ].includes(frame?.error?.code)
       ) {
         this.#shouldReconnect = false;
         this.#clearReconnectTimer();
@@ -113,6 +116,8 @@ export class HostRuntimeAdapter {
         error.code =
           frame.error.code === "device_access_revoked"
             ? "device_access_revoked"
+            : frame.error.code === "desktop_offline"
+              ? "desktop_offline"
             : "device_pairing_required";
         for (const listener of this.#fatalErrorListeners) listener(error);
         this.#receive(frame);

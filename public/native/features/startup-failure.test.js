@@ -36,4 +36,16 @@ describe("startup failure", () => {
       "此设备的访问权限已被撤销",
     );
   });
+
+  it("explains that the desktop is offline and how to recover", () => {
+    setLocale("zh-CN");
+    document.body.innerHTML = '<div class="app-layout">Chat</div>';
+
+    renderStartupFailure({ code: "desktop_offline" }, { documentRef: document });
+
+    const text = document.querySelector("[data-startup-failure]").textContent;
+    expect(text).toContain("桌面离线");
+    expect(text).toContain("无法连接到你的 ZiCode 桌面");
+    expect(text).toContain("稍等几秒后重试");
+  });
 });

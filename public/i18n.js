@@ -254,6 +254,12 @@ const zhCN = {
   "Confirm revoke access for {device}": "确认撤销 {device} 的访问权限",
   "Could not load paired devices.": "无法加载已配对设备。",
   "The local Host is unavailable.": "本地 Host 不可用。",
+  "The desktop is offline": "桌面离线",
+  "ZiCode Studio Desktop is not reachable right now.": "当前无法连接到你的 ZiCode 桌面。",
+  "Open ZiCode Studio Desktop on your computer, wait a few seconds, then retry.":
+    "请在电脑上打开 ZiCode Studio Desktop，稍等几秒后重试。",
+  "ZiCode Studio Desktop is offline. Open it on your computer and retry.":
+    "ZiCode Studio Desktop 当前离线。请在电脑上打开它，然后重试。",
   "Remote access controls are unavailable.": "远程访问控制当前不可用。",
   "ZiCode could not start": "ZiCode 无法启动",
   "The local Host is unavailable or the session route could not be opened.":

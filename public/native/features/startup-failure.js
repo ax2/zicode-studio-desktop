@@ -82,6 +82,13 @@ function startupFailureCopy(code) {
       guidance: "Wait one minute, then generate a fresh mobile link from the trusted desktop app.",
     };
   }
+  if (code === "desktop_offline") {
+    return {
+      title: "The desktop is offline",
+      message: "ZiCode Studio Desktop is not reachable right now.",
+      guidance: "Open ZiCode Studio Desktop on your computer, wait a few seconds, then retry.",
+    };
+  }
   return {
     title: "ZiCode could not start",
     message: "The local Host is unavailable or the session route could not be opened.",

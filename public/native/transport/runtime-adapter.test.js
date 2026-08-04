@@ -169,6 +169,38 @@ describe("HostRuntimeAdapter", () => {
     }
   });
 
+  it("reports a remote desktop that went offline with a clear code", async () => {
+    vi.useFakeTimers();
+    try {
+      FakeWebSocket.instances.length = 0;
+      const adapter = new HostRuntimeAdapter({
+        url: "wss://host/v2/ws",
+        WebSocketImpl: FakeWebSocket,
+        clientType: "remote",
+        clientId: "phone",
+        deviceToken: "device-secret",
+        reconnectBaseDelayMs: 10,
+      });
+      const fatal = vi.fn();
+      adapter.setFatalErrorListener(fatal);
+      adapter.connect();
+      const socket = FakeWebSocket.instances[0];
+      socket.open();
+      socket.receive({
+        type: "error",
+        error: { code: "desktop_offline", message: "ZiCode Studio Desktop is offline" },
+      });
+
+      expect(fatal).toHaveBeenCalledWith(
+        expect.objectContaining({ code: "desktop_offline" }),
+      );
+      await vi.advanceTimersByTimeAsync(100);
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("restores target subscriptions before announcing a connected transport", () => {
     FakeWebSocket.instances.length = 0;
     const adapter = new HostRuntimeAdapter({
