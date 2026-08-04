@@ -24,6 +24,13 @@ export class RemoteAccessGateway {
     return this.#request("set_remote_access_enabled", { enabled: Boolean(enabled) });
   }
 
+  setPublic(publicUrl, publicEnrollmentUrl = "") {
+    return this.#request("set_remote_access_public", {
+      publicUrl: publicUrl || "",
+      publicEnrollmentUrl: publicEnrollmentUrl || "",
+    });
+  }
+
   async listDevices() {
     const frame = await this.#request("list_devices");
     return Array.isArray(frame?.devices) ? frame.devices : [];

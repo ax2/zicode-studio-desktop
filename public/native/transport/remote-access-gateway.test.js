@@ -70,6 +70,29 @@ describe("RemoteAccessGateway", () => {
     await expect(update).resolves.toMatchObject({ configuredEnabled: true });
   });
 
+  it("saves the optional public tunnel addresses", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const gateway = new RemoteAccessGateway(adapter);
+    const update = gateway.setPublic(
+      "https://www.zicode.com:39010",
+      "http://www.zicode.com:39011",
+    );
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({
+      operation: "set_remote_access_public",
+      publicUrl: "https://www.zicode.com:39010",
+      publicEnrollmentUrl: "http://www.zicode.com:39011",
+    });
+    adapter.receive({
+      type: "auth_response",
+      requestId: sent.requestId,
+      restartRequired: true,
+      publicUrl: "https://www.zicode.com:39010",
+      publicEnrollmentUrl: "http://www.zicode.com:39011",
+    });
+    await expect(update).resolves.toMatchObject({ restartRequired: true });
+  });
+
   it("rejects pending requests after disconnect", async () => {
     const adapter = createInMemoryRuntimeAdapter();
     const gateway = new RemoteAccessGateway(adapter);

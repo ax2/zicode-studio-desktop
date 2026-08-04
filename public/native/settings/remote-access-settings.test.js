@@ -99,6 +99,39 @@ describe("remote access settings", () => {
     expect(document.body.textContent).toContain(t("Restart required"));
   });
 
+  it("prefills and saves the optional public tunnel addresses", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        urls: ["https://www.zicode.com:39010"],
+        enrollmentUrls: ["http://www.zicode.com:39011"],
+        publicUrl: "https://www.zicode.com:39010",
+        publicEnrollmentUrl: "http://www.zicode.com:39011",
+        caFingerprint: "AA:BB",
+      })),
+      listDevices: vi.fn(async () => []),
+      setPublic: vi.fn(async () => ({ restartRequired: true })),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const inputs = document.querySelectorAll(".remote-access-public input");
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0].value).toBe("https://www.zicode.com:39010");
+    expect(inputs[1].value).toBe("http://www.zicode.com:39011");
+
+    inputs[0].value = "https://studio.zicode.com";
+    const save = document.querySelector(".remote-access-public-save button");
+    save.click();
+    await vi.waitFor(() =>
+      expect(gateway.setPublic).toHaveBeenCalledWith(
+        "https://studio.zicode.com",
+        "http://www.zicode.com:39011",
+      ),
+    );
+  });
+
   it("marks recently active devices online and stale ones offline", async () => {
     const now = Math.floor(Date.now() / 1000);
     const gateway = {

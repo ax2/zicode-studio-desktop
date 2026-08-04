@@ -203,6 +203,87 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     }
     overview.append(titleRow, description, readiness);
 
+    const publicSection = document.createElement("section");
+    publicSection.className = "settings-section remote-access-public";
+    const publicTitle = document.createElement("h3");
+    publicTitle.className = "settings-section-title";
+    publicTitle.textContent = t("Public internet access");
+    const publicHelp = document.createElement("p");
+    publicHelp.className = "settings-help";
+    publicHelp.textContent = t("Leave empty to disable public access.");
+
+    const publicFields = document.createElement("div");
+    publicFields.className = "remote-access-public-fields";
+    const httpsInput = document.createElement("input");
+    httpsInput.type = "url";
+    httpsInput.spellcheck = false;
+    httpsInput.autocomplete = "off";
+    httpsInput.value = status.publicUrl || "";
+    httpsInput.placeholder = "https://www.zicode.com:39010";
+    const httpsRow = document.createElement("label");
+    httpsRow.className = "settings-field";
+    const httpsLabel = document.createElement("span");
+    httpsLabel.textContent = t("Public HTTPS address");
+    httpsRow.append(httpsLabel, httpsInput);
+
+    const enrollmentInput = document.createElement("input");
+    enrollmentInput.type = "url";
+    enrollmentInput.spellcheck = false;
+    enrollmentInput.autocomplete = "off";
+    enrollmentInput.value = status.publicEnrollmentUrl || "";
+    enrollmentInput.placeholder = "http://www.zicode.com:39011";
+    const enrollmentRow = document.createElement("label");
+    enrollmentRow.className = "settings-field";
+    const enrollmentLabel = document.createElement("span");
+    enrollmentLabel.textContent = t("Public certificate setup address");
+    enrollmentRow.append(enrollmentLabel, enrollmentInput);
+    publicFields.append(httpsRow, enrollmentRow);
+
+    const publicSaveRow = document.createElement("div");
+    publicSaveRow.className = "remote-access-public-save";
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.className = "ui-button ui-button--secondary ui-button--sm";
+    saveButton.textContent = t("Save");
+    const saveStatus = document.createElement("span");
+    saveStatus.className = "settings-help";
+    saveStatus.setAttribute("role", "status");
+    const restartHint = document.createElement("small");
+    restartHint.className = "settings-help";
+    restartHint.textContent = t("Public tunnel addresses take effect after restart.");
+    saveButton.addEventListener("click", async () => {
+      if (updating) return;
+      updating = true;
+      saveButton.disabled = true;
+      saveStatus.textContent = "";
+      const httpsUrl = httpsInput.value.trim();
+      const enrollmentUrl = enrollmentInput.value.trim();
+      if (httpsUrl && !/^https?:\/\//.test(httpsUrl)) {
+        saveStatus.textContent = t("Invalid public address");
+        updating = false;
+        saveButton.disabled = false;
+        return;
+      }
+      if (enrollmentUrl && !/^https?:\/\//.test(enrollmentUrl)) {
+        saveStatus.textContent = t("Invalid public address");
+        updating = false;
+        saveButton.disabled = false;
+        return;
+      }
+      try {
+        await gateway.setPublic(httpsUrl, enrollmentUrl);
+        saveStatus.textContent = t("Saved");
+        await load();
+      } catch (error) {
+        saveStatus.textContent = `${t("Invalid public address")}: ${error?.message || ""}`;
+      } finally {
+        updating = false;
+        saveButton.disabled = false;
+      }
+    });
+    publicSaveRow.append(saveButton, saveStatus, restartHint);
+    publicSection.append(publicTitle, publicHelp, publicFields, publicSaveRow);
+
     const deviceSection = document.createElement("section");
     deviceSection.className = "settings-section";
     const deviceTitleRow = document.createElement("div");
@@ -239,7 +320,7 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
       list.append(...devices.map(deviceRow));
     }
     deviceSection.append(deviceTitleRow, help, list);
-    body.append(overview, deviceSection);
+    body.append(overview, publicSection, deviceSection);
     root.append(body);
   }
 

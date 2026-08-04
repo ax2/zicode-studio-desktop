@@ -223,6 +223,13 @@ const zhCN = {
   "Phone trust setup": "手机信任设置",
   "CA fingerprint": "CA 指纹",
   "Open certificate setup": "打开证书设置",
+  "Public internet access": "公网访问",
+  "Public HTTPS address": "公网 HTTPS 地址",
+  "Public certificate setup address": "公网证书安装地址",
+  "Leave empty to disable public access.": "留空表示不启用公网访问。",
+  "Public tunnel addresses take effect after restart.": "公网隧道地址在重启后生效。",
+  "Saved": "已保存",
+  "Invalid public address": "公网地址无效",
   "Restart ZiCode Studio to apply this remote access change.":
     "请重启 ZiCode Studio 以应用远程访问更改。",
   "Only this computer can connect while secure mobile access is off.":
