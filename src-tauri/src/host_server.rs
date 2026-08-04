@@ -14,8 +14,8 @@ use crate::runtime_coordinator::{RuntimeStatus, RuntimeTarget};
 use axum::body::Body;
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, Query};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Json, Request, State};
+use axum::extract::{Path, Query};
 #[cfg(debug_assertions)]
 use axum::http::header::{CACHE_CONTROL, PRAGMA};
 #[cfg(debug_assertions)]
@@ -672,7 +672,9 @@ async fn model_gateway_proxy(
     } else {
         body
     };
-    let mut request = reqwest::Client::new().request(method, &target).body(payload);
+    let mut request = reqwest::Client::new()
+        .request(method, &target)
+        .body(payload);
     for name in ["authorization", "content-type"] {
         if let Some(value) = headers.get(name) {
             request = request.header(name, value);
@@ -686,7 +688,11 @@ async fn model_gateway_proxy(
     };
     let status = upstream.status();
     let mut builder = Response::builder().status(status);
-    if let Some(value) = upstream.headers().get("content-type").and_then(|value| value.to_str().ok()) {
+    if let Some(value) = upstream
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+    {
         builder = builder.header("content-type", value);
     }
     builder
@@ -3356,11 +3362,11 @@ mod tests {
         messages_from_entries_response, public_remote_path, remote_http_authorized,
         rewrite_developer_roles, websocket_origin_allowed, HostServer,
     };
-    use axum::body::Bytes;
     use crate::metadata_store::MetadataStore;
     use crate::native_pi_manager::NativePiManager;
     use crate::remote_auth::RemoteAuth;
     use crate::runtime_coordinator::RuntimeTarget;
+    use axum::body::Bytes;
     use futures_util::{SinkExt, StreamExt};
     use serde_json::{json, Value};
     use std::collections::HashSet;
