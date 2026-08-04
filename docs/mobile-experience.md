@@ -1704,3 +1704,18 @@ E2EE 不开云同步"的产品红线。详细设计见
 
 遗留：设置面板"经服务器"开关 UI 尚未实现（当前经 `config.json` 配置）；端到端
 加密属 M3；中继设备注册鉴权与配额属 M4 加固。
+
+第一百零九轮：M1 公网部署完成并验证（2026-08-04）。步骤与结果：
+
+1. 用户添加 DNS A 记录 `relay.zicode.com → 39.98.116.129`；
+2. 服务器部署：`scripts/relay/deploy-relay.sh`（独立构建中继 crate，避免在服务器
+   拉取 Tauri 工具链）→ systemd `zicode-relay`（127.0.0.1:9760）→ nginx
+   反代 → certbot 签发并部署 `relay.zicode.com` 的 Let's Encrypt 证书；
+3. 桌面配置切换为公网中继：`relayUrl=wss://relay.zicode.com`、
+   `publicUrl=https://relay.zicode.com/d/dev-ax2-01`，重启后 Agent 注册成功
+   （`/relay/status` 显示 `desktops:["dev-ax2-01"]`）；
+4. 公网验证（Windows 经互联网）：应用页 200 + cookie → 配对换取设备令牌 →
+   带令牌 sessions 200 → `wss://relay.zicode.com/v2/ws` 经完整链路返回
+   `hello_ack`；证书为公网受信 CA，**手机无需再安装自定义根证书**；
+5. 待办：手机真机验收（手机打开 `https://relay.zicode.com/d/dev-ax2-01/app/`，
+   桌面端生成会话二维码扫码配对）；设置面板"经服务器"开关 UI。
