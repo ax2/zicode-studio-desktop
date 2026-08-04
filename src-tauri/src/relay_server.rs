@@ -320,10 +320,34 @@ async fn mobile_loop(state: Arc<Mutex<RelayState>>, device_id: String, socket: W
 async fn device_http(
     State(state): State<Arc<Mutex<RelayState>>>,
     Path((device_id, path)): Path<(String, String)>,
+    uri: axum::http::Uri,
     method: Method,
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
+    // The mobile app only understands root-relative session routes
+    // (`/app/workspaces/...`). A device-scoped URL (`/d/<device>/app/...`) is
+    // the pairing bootstrap: set the device cookie and redirect to the clean
+    // root path so route parsing, asset loading, and the PWA manifest work.
+    if path == "app" || path.starts_with("app/") {
+        let redirect_path = format!("/{path}");
+        let location = match uri.query() {
+            Some(query) => format!("{redirect_path}?{query}"),
+            None => redirect_path,
+        };
+        let cookie = format!(
+            "{COOKIE_NAME}={device_id}; Path=/; HttpOnly; SameSite=Lax; Max-Age={COOKIE_MAX_AGE}"
+        );
+        let mut response = Response::builder()
+            .status(StatusCode::FOUND)
+            .header(header::LOCATION, location)
+            .body(Body::empty())
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        if let Ok(value) = HeaderValue::from_str(&cookie) {
+            response.headers_mut().insert(header::SET_COOKIE, value);
+        }
+        return response;
+    }
     let forwarded_path = if path.is_empty() {
         "/".to_string()
     } else {
@@ -427,7 +451,30 @@ async fn proxy_to_desktop(
     }
     match tokio::time::timeout(HTTP_PROXY_TIMEOUT, response_rx).await {
         Ok(Ok(response)) => {
+            let is_html = response.headers.iter().any(|(name, value)| {
+                name.eq_ignore_ascii_case("content-type") && value.contains("text/html")
+            });
             let mut builder = Response::builder().status(response.status);
+            let mut body_bytes = base64::engine::general_purpose::STANDARD
+                .decode(&response.body)
+                .unwrap_or_default();
+            if is_html {
+                // The PWA manifest link is root-relative (`manifest.json`),
+                // which the browser fetches without the device cookie and the
+                // relay cannot route. Point it at the device-scoped path.
+                if let Ok(html) = String::from_utf8(body_bytes.clone()) {
+                    body_bytes = html
+                        .replace(
+                            r#"href="manifest.json""#,
+                            &format!(r#"href="/d/{device_id}/manifest.json""#),
+                        )
+                        .into_bytes();
+                }
+            } else if path.ends_with("manifest.json") {
+                if let Some(rewritten) = rewrite_manifest(&body_bytes, device_id) {
+                    body_bytes = rewritten;
+                }
+            }
             for (name, value) in response.headers {
                 if name.eq_ignore_ascii_case("content-length") {
                     continue;
@@ -436,9 +483,6 @@ async fn proxy_to_desktop(
                     builder = builder.header(name, value);
                 }
             }
-            let body_bytes = base64::engine::general_purpose::STANDARD
-                .decode(&response.body)
-                .unwrap_or_default();
             builder
                 .body(Body::from(body_bytes))
                 .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
@@ -452,6 +496,22 @@ async fn proxy_to_desktop(
             (StatusCode::GATEWAY_TIMEOUT, "desktop_timeout").into_response()
         }
     }
+}
+
+/// Make the PWA manifest device-scoped when served through the relay: the
+/// desktop's manifest uses root-absolute `start_url`/`scope`/`id`, which would
+/// launch the installed app at the relay root (400). Rewrite them to the
+/// device page path so "Add to Home Screen" works in relay mode. Returns
+/// `None` when the body is not the JSON manifest.
+fn rewrite_manifest(body: &[u8], device_id: &str) -> Option<Vec<u8>> {
+    let mut manifest: serde_json::Value = serde_json::from_slice(body).ok()?;
+    let base = format!("/d/{device_id}/app/");
+    for key in ["start_url", "scope", "id"] {
+        if manifest.get_mut(key).is_some() {
+            manifest[key] = serde_json::Value::String(base.clone());
+        }
+    }
+    serde_json::to_vec(&manifest).ok()
 }
 
 fn device_from_cookie(headers: &HeaderMap) -> Option<String> {
@@ -658,5 +718,53 @@ mod tests {
             matches!(closed, Some(Ok(ClientMessage::Close(_)))),
             "relay should close the mobile socket after desktop_offline"
         );
+    }
+
+    #[test]
+    fn rewrites_manifest_urls_to_the_device_scope() {
+        let manifest = br#"{"name":"ZiCode","start_url":"/","scope":"/","id":"/","icons":[{"src":"icons/favicon.svg"}]}"#;
+        let rewritten = rewrite_manifest(manifest, "dev-ax2-01").unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&rewritten).unwrap();
+        assert_eq!(value["start_url"], "/d/dev-ax2-01/app/");
+        assert_eq!(value["scope"], "/d/dev-ax2-01/app/");
+        assert_eq!(value["id"], "/d/dev-ax2-01/app/");
+        assert_eq!(value["name"], "ZiCode");
+
+        // Non-JSON bodies (e.g. the SPA fallback HTML) are left untouched.
+        assert!(rewrite_manifest(b"<html></html>", "dev").is_none());
+    }
+
+    #[tokio::test]
+    async fn redirects_device_scoped_app_urls_to_root_paths_with_a_cookie() {
+        let base = spawn_relay().await;
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+        let response = client
+            .get(format!(
+                "http://{base}/d/dev-1/app/workspaces/w/sessions/s?pairingToken=x"
+            ))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FOUND);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::LOCATION)
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/app/workspaces/w/sessions/s?pairingToken=x"
+        );
+        assert!(response
+            .headers()
+            .get(header::SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("device=dev-1"));
     }
 }
