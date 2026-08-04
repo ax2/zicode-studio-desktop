@@ -16,6 +16,8 @@ mod plugin_package;
 mod plugin_registry;
 mod plugin_worker;
 mod process_command;
+mod relay_client;
+mod relay_protocol;
 mod remote_access_config;
 mod remote_auth;
 mod remote_enrollment;

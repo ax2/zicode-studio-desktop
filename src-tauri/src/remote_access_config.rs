@@ -21,6 +21,15 @@ pub struct RemoteAccessConfig {
     /// there when they are not on the same LAN.
     #[serde(default)]
     pub public_enrollment_url: Option<String>,
+    /// Productized remote access: the desktop dials out to a rendezvous relay
+    /// and the mobile reaches it through the same relay. The relay never
+    /// stores content; the desktop remains the authentication authority.
+    #[serde(default)]
+    pub relay_enabled: bool,
+    #[serde(default)]
+    pub relay_url: Option<String>,
+    #[serde(default)]
+    pub relay_device_id: Option<String>,
 }
 
 impl Default for RemoteAccessConfig {
@@ -30,6 +39,9 @@ impl Default for RemoteAccessConfig {
             enabled: false,
             public_url: None,
             public_enrollment_url: None,
+            relay_enabled: false,
+            relay_url: None,
+            relay_device_id: None,
         }
     }
 }
@@ -61,6 +73,34 @@ pub fn update_public(
     Ok(config)
 }
 
+/// Persist the relay (server rendezvous) settings. Enabling relay access
+/// requires a relay URL; the device id is auto-generated on first enable.
+pub fn update_relay(
+    relay_enabled: bool,
+    relay_url: Option<String>,
+    relay_device_id: Option<String>,
+) -> Result<RemoteAccessConfig, String> {
+    let relay_url = normalize_ws_url(relay_url)?;
+    let relay_device_id = relay_device_id
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    if relay_enabled && relay_url.is_none() {
+        return Err("relay_url is required when relay access is enabled".to_string());
+    }
+    let mut config = load()?;
+    config.relay_enabled = relay_enabled;
+    config.relay_url = relay_url;
+    if relay_enabled {
+        config.relay_device_id = Some(
+            relay_device_id.unwrap_or_else(|| format!("dev-{}", uuid::Uuid::new_v4().simple())),
+        );
+    } else {
+        config.relay_device_id = relay_device_id;
+    }
+    save_at(&config_path()?, &config)?;
+    Ok(config)
+}
+
 fn normalize_url(value: Option<String>) -> Result<Option<String>, String> {
     let Some(value) = value else { return Ok(None) };
     let value = value.trim().to_string();
@@ -72,6 +112,21 @@ fn normalize_url(value: Option<String>) -> Result<Option<String>, String> {
     }
     if value.contains(' ') || value.contains('#') {
         return Err("Public addresses must not contain spaces or fragments".to_string());
+    }
+    Ok(Some(value))
+}
+
+fn normalize_ws_url(value: Option<String>) -> Result<Option<String>, String> {
+    let Some(value) = value else { return Ok(None) };
+    let value = value.trim().to_string();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    if !value.starts_with("wss://") && !value.starts_with("ws://") {
+        return Err("Relay URLs must start with ws:// or wss://".to_string());
+    }
+    if value.contains(' ') {
+        return Err("Relay URLs must not contain spaces".to_string());
     }
     Ok(Some(value))
 }
@@ -143,7 +198,7 @@ fn save_at(path: &Path, config: &RemoteAccessConfig) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{load_at, normalize_url, save_at, RemoteAccessConfig};
+    use super::{load_at, normalize_url, normalize_ws_url, save_at, RemoteAccessConfig};
     use std::fs;
 
     #[test]
@@ -192,6 +247,9 @@ mod tests {
             enabled: true,
             public_url: Some("https://www.zicode.com:39010".into()),
             public_enrollment_url: Some("http://www.zicode.com:39011".into()),
+            relay_enabled: false,
+            relay_url: None,
+            relay_device_id: None,
         };
         save_at(&path, &with_public).unwrap();
 
@@ -219,5 +277,35 @@ mod tests {
         assert!(normalize_url(Some("www.zicode.com".into())).is_err());
         assert!(normalize_url(Some("https://a b.com".into())).is_err());
         assert!(normalize_url(Some("https://x.com/#frag".into())).is_err());
+    }
+
+    #[test]
+    fn serializes_relay_settings_and_validates_ws_urls() {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-remote-config-relay-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let path = root.join("remote-access/config.json");
+
+        let with_relay = RemoteAccessConfig {
+            version: 1,
+            enabled: true,
+            public_url: Some("https://relay.zicode.com/d/dev-1".into()),
+            public_enrollment_url: None,
+            relay_enabled: true,
+            relay_url: Some("wss://relay.zicode.com/relay".into()),
+            relay_device_id: Some("dev-1".into()),
+        };
+        save_at(&path, &with_relay).unwrap();
+        assert_eq!(load_at(&path).unwrap(), with_relay);
+        fs::remove_dir_all(root).unwrap();
+
+        assert_eq!(
+            normalize_ws_url(Some("ws://127.0.0.1:9900/relay".into())).unwrap(),
+            Some("ws://127.0.0.1:9900/relay".into())
+        );
+        assert_eq!(normalize_ws_url(Some("".into())).unwrap(), None);
+        assert!(normalize_ws_url(Some("https://x.com".into())).is_err());
+        assert!(normalize_ws_url(Some("ws://a b".into())).is_err());
     }
 }

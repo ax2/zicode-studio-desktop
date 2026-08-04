@@ -9,7 +9,9 @@ use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunch
 use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
 use crate::plugin_package::SignedPluginPreview;
 use crate::plugin_registry::PluginRegistry;
+use crate::relay_client::{page_origin_of, RelayAgentConfig};
 use crate::remote_auth::{PairingError, RemoteAuth};
+use crate::remote_tls::PreparedRemoteTlsListener;
 use crate::runtime_coordinator::{RuntimeStatus, RuntimeTarget};
 use axum::body::Body;
 use axum::body::Bytes;
@@ -89,6 +91,7 @@ pub struct HostServer {
     lan_shutdown: Option<axum_server::Handle<SocketAddr>>,
     enrollment_shutdown: Option<oneshot::Sender<()>>,
     public_shutdown: Option<axum_server::Handle<SocketAddr>>,
+    relay_shutdown: Option<oneshot::Sender<()>>,
     state: Arc<HostState>,
 }
 
@@ -158,6 +161,16 @@ impl HostServer {
         if let Some(prepared) = &prepared_remote {
             allowed_origins.extend(prepared.urls.iter().cloned());
         }
+        let remote_access_config = crate::remote_access_config::load().unwrap_or_default();
+        if remote_access_config.relay_enabled {
+            if let Some(origin) = remote_access_config
+                .public_url
+                .as_deref()
+                .and_then(page_origin_of)
+            {
+                allowed_origins.insert(origin);
+            }
+        }
         #[cfg(test)]
         let plugin_root = static_dir
             .parent()
@@ -183,6 +196,7 @@ impl HostServer {
                 ca_fingerprint: prepared.ca_fingerprint.clone(),
             })
             .unwrap_or_default();
+        let relay_shutdown = prepare_relay_agent(prepared_remote.as_ref())?;
         let state = Arc::new(HostState {
             router: Mutex::new(HostRouter::new()),
             runtimes,
@@ -391,6 +405,7 @@ impl HostServer {
             lan_shutdown,
             enrollment_shutdown,
             public_shutdown,
+            relay_shutdown,
             state,
         })
     }
@@ -488,6 +503,9 @@ impl HostServer {
         if let Some(handle) = self.public_shutdown.take() {
             handle.graceful_shutdown(Some(Duration::from_secs(5)));
         }
+        if let Some(shutdown) = self.relay_shutdown.take() {
+            let _ = shutdown.send(());
+        }
     }
 }
 
@@ -558,6 +576,9 @@ impl Drop for HostServer {
         if let Some(handle) = self.public_shutdown.take() {
             handle.graceful_shutdown(Some(Duration::from_secs(5)));
         }
+        if let Some(shutdown) = self.relay_shutdown.take() {
+            let _ = shutdown.send(());
+        }
     }
 }
 
@@ -585,6 +606,53 @@ fn configured_remote_access_enabled() -> Result<bool, String> {
 #[cfg(not(test))]
 fn configured_remote_access_enabled() -> Result<bool, String> {
     Ok(crate::remote_access_config::load()?.enabled)
+}
+
+fn prepare_relay_agent(
+    prepared: Option<&PreparedRemoteTlsListener>,
+) -> Result<Option<oneshot::Sender<()>>, String> {
+    let Some(prepared) = prepared else {
+        return Ok(None);
+    };
+    let config = crate::remote_access_config::load()
+        .map_err(|message| format!("Cannot load remote access settings: {message}"))?;
+    if !config.relay_enabled {
+        return Ok(None);
+    }
+    let relay_url = config
+        .relay_url
+        .ok_or("relay_url is required when relay access is enabled")?;
+    let device_id = config
+        .relay_device_id
+        .ok_or("relay_device_id is required when relay access is enabled")?;
+    let gateway_origin = prepared
+        .public_listener
+        .as_ref()
+        .map(|listener| {
+            listener
+                .local_addr()
+                .map(|address| format!("https://127.0.0.1:{}", address.port()))
+        })
+        .transpose()
+        .map_err(|error| format!("Cannot read the public gateway address: {error}"))?
+        .ok_or("A public gateway must be enabled before relay access (set publicUrl)")?;
+    let page_origin = config
+        .public_url
+        .as_deref()
+        .and_then(page_origin_of)
+        .ok_or("publicUrl must be a valid https URL when relay access is enabled")?;
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+    tokio::spawn(crate::relay_client::run(
+        RelayAgentConfig {
+            relay_url,
+            device_id,
+            gateway_origin,
+            page_origin: page_origin.clone(),
+        },
+        shutdown_rx,
+    ));
+    log::info!("[relay-agent] relay access enabled for {page_origin}");
+    Ok(Some(shutdown_tx))
 }
 
 fn public_remote_path(path: &str) -> bool {
@@ -2477,6 +2545,9 @@ async fn dispatch(
                     "caFingerprint": state.remote_access.ca_fingerprint,
                     "publicUrl": config.public_url,
                     "publicEnrollmentUrl": config.public_enrollment_url,
+                    "relayEnabled": config.relay_enabled,
+                    "relayUrl": config.relay_url,
+                    "relayDeviceId": config.relay_device_id,
                 }))
             }
             Some("set_remote_access_enabled") => {
@@ -2497,6 +2568,9 @@ async fn dispatch(
                     "caFingerprint": state.remote_access.ca_fingerprint,
                     "publicUrl": config.public_url,
                     "publicEnrollmentUrl": config.public_enrollment_url,
+                    "relayEnabled": config.relay_enabled,
+                    "relayUrl": config.relay_url,
+                    "relayDeviceId": config.relay_device_id,
                 }))
             }
             Some("set_remote_access_public") => {
@@ -2522,6 +2596,44 @@ async fn dispatch(
                     "caFingerprint": state.remote_access.ca_fingerprint,
                     "publicUrl": config.public_url,
                     "publicEnrollmentUrl": config.public_enrollment_url,
+                    "relayEnabled": config.relay_enabled,
+                    "relayUrl": config.relay_url,
+                    "relayDeviceId": config.relay_device_id,
+                }))
+            }
+            Some("set_remote_access_relay") => {
+                let relay_enabled = frame
+                    .get("relayEnabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                let relay_url = frame
+                    .get("relayUrl")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let relay_device_id = frame
+                    .get("relayDeviceId")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let config = crate::remote_access_config::update_relay(
+                    relay_enabled,
+                    relay_url,
+                    relay_device_id,
+                )
+                .map_err(|message| ("invalid_relay_setting", message))?;
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "configuredEnabled": config.enabled,
+                    "running": state.remote_access.running,
+                    "restartRequired": true,
+                    "urls": state.remote_access.urls,
+                    "enrollmentUrls": state.remote_access.enrollment_urls,
+                    "caFingerprint": state.remote_access.ca_fingerprint,
+                    "publicUrl": config.public_url,
+                    "publicEnrollmentUrl": config.public_enrollment_url,
+                    "relayEnabled": config.relay_enabled,
+                    "relayUrl": config.relay_url,
+                    "relayDeviceId": config.relay_device_id,
                 }))
             }
             Some("revoke_device") => {
