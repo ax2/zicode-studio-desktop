@@ -253,6 +253,17 @@ async fn mobile_loop(state: Arc<Mutex<RelayState>>, device_id: String, socket: W
         state.desktops.get(&device_id).cloned()
     };
     let Some(desktop_tx) = desktop_tx else {
+        let _ = sink
+            .send(Message::Text(
+                serde_json::json!({
+                    "type": "error",
+                    "code": "desktop_offline",
+                    "message": "ZiCode Studio Desktop is offline",
+                })
+                .to_string()
+                .into(),
+            ))
+            .await;
         let _ = sink.send(Message::Close(None)).await;
         return;
     };
@@ -631,5 +642,21 @@ mod tests {
         assert_eq!(echoed, "desktop says hello");
         desktop_task.await.unwrap();
         mobile.close(None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn signals_desktop_offline_when_no_desktop_is_registered() {
+        let base = spawn_relay().await;
+        let mut mobile = connect_mobile_ws(&base, "ghost-desktop").await;
+        let first = next_text(&mut mobile).await;
+        assert!(
+            first.contains("desktop_offline"),
+            "expected a desktop_offline frame, got: {first}"
+        );
+        let closed = mobile.next().await;
+        assert!(
+            matches!(closed, Some(Ok(ClientMessage::Close(_)))),
+            "relay should close the mobile socket after desktop_offline"
+        );
     }
 }
