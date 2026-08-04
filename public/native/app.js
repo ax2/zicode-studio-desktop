@@ -232,6 +232,23 @@ const adapter = new HostRuntimeAdapter({
 });
 const mobileExperience = setupMobileExperience({ adapter, clientType: remoteAuth.clientType });
 adapter.setFatalErrorListener((error) => renderStartupFailure(error));
+adapter.setConnectionListener((connected) => {
+  // After the host restarts, the bound runtime instance is gone. Re-resolve
+  // the session's live instance as soon as the connection comes back so the
+  // client never sends into a dead runtime — no manual refresh needed.
+  if (!connected || !target?.sessionId || target.sessionId.startsWith("temporary-")) return;
+  void loadBootstrapTarget({
+    name: "session",
+    workspaceId: target.workspaceId,
+    sessionId: target.sessionId,
+  })
+    .then((nextTarget) => {
+      if (nextTarget.instanceId !== target.instanceId) {
+        target = { ...target, instanceId: nextTarget.instanceId };
+      }
+    })
+    .catch(() => {});
+});
 const runtime = new RuntimeGateway(adapter);
 const data = new HostDataGateway(adapter, { fetchImpl: hostFetch });
 const control = new HostControlGateway(adapter);
@@ -726,7 +743,7 @@ setupAppKeyboardShortcuts({
 convNav.mount();
 
 try {
-  const bootstrappedTarget = await loadBootstrapTarget(route);
+  const bootstrappedTarget = await withTransientRetry(() => loadBootstrapTarget(route));
   await adoptTarget(bootstrappedTarget, { updateRoute: false });
   if (route.sessionId.startsWith("temporary-") && target.sessionId !== route.sessionId) {
     replaceTemporarySessionRoute(history, route.workspaceId, route.sessionId, target.sessionId);
@@ -787,6 +804,28 @@ async function loadBootstrapTarget(currentRoute) {
     requestTarget: requestBootstrapTarget,
     spawnTemporarySession: spawnSessionViaHost,
   });
+}
+
+/** Retry transient bootstrap/connection failures so the client self-heals
+ *  without a manual page refresh. Permanent client errors (4xx other than
+ *  retryable 408/429) fail fast. */
+async function withTransientRetry(resolve, { attempts = 3, baseDelayMs = 800 } = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await resolve();
+    } catch (error) {
+      lastError = error;
+      const status = error?.status;
+      if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+        throw error;
+      }
+      if (attempt < attempts) {
+        await new Promise((done) => setTimeout(done, baseDelayMs * attempt));
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function requestBootstrapTarget(currentRoute) {

@@ -1643,3 +1643,14 @@ latest_reminder。验证 keyring（应用内读取凭据）正常、QVeris API �
 仅允许 loopback 调用，将 `developer` 角色改写为 `system` 后转发到 QVeris；场景
 models.json 的 QVeris baseUrl 指向该代理（桌面与移动共用同一 Host 运行时，一并修复）。
 端到端验证代理返回 200，新增 Rust 单元测试；提交 c475353 / 07a8380。
+
+第一百零五轮：移动端免手动刷新自愈机制。此前手机在 Host 重启/会话失效后需要手动刷新
+才能恢复；现已实现四层自动恢复：
+
+1. 启动 bootstrap 404（会话已不存在）自动回退到工作区最近会话（4416b41）；
+2. 启动 bootstrap 瞬时失败（5xx/网络）自动重试 3 次（指数延迟）；
+3. WSS 重连后自动重新解析当前会话的存活实例并更新 target（Host 重启后无需刷新）；
+4. 发送遇 UnknownInstance 自动重绑并重试一次（0cba214）。
+
+配合模型网关代理（developer→system），真机在会话切换、Host 重启、模型请求三个环节
+均可自动恢复，不再需要手动刷新。
