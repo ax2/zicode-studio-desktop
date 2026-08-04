@@ -1633,3 +1633,13 @@ LAN 可达），已提交（40c7cb1）。
 （视觉隐藏 + aria-live），并支持 prefers-reduced-motion。另实现发送时的
 UnknownInstance 自动恢复：若请求因运行时实例失效失败（`unknown_instance`），自动重新
 bootstrap 当前会话以绑定存活实例并重试一次，避免 Host 重启后手机端一直失败。
+
+第一百零四轮：定位并根治"模型请求失败/模型没有返回可用的响应"（桌面与移动端同时
+失败，证明是共享运行时问题）。会话记录显示 QVeris 返回 400：
+`messages[0].role: unknown variant developer`——Pi 0.83 以 OpenAI 新版 `developer`
+角色发送系统消息，而 aigateway.qveris.ai 只接受 system/user/assistant/tool/
+latest_reminder。验证 keyring（应用内读取凭据）正常、QVeris API 与模型（deepseek-v4-flash
+/ glm-5.2）直连均正常后，新增 Host 侧**本地模型网关代理**：`/v2/model-gateway/*`
+仅允许 loopback 调用，将 `developer` 角色改写为 `system` 后转发到 QVeris；场景
+models.json 的 QVeris baseUrl 指向该代理（桌面与移动共用同一 Host 运行时，一并修复）。
+端到端验证代理返回 200，新增 Rust 单元测试；提交 c475353 / 07a8380。
