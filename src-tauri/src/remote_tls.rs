@@ -17,6 +17,11 @@ const PREFERRED_LAN_PORT_BASE: u16 = 57_652;
 const PREFERRED_LAN_PORT_COUNT: u16 = 16;
 const PREFERRED_ENROLLMENT_PORT_BASE: u16 = 57_668;
 const PREFERRED_ENROLLMENT_PORT_COUNT: u16 = 16;
+// Dedicated gateway for tunneled public access (frp/ngrok-style). It is only
+// bound when the user configured a public URL, and host_server serves it with
+// strict device authentication so a public tunnel can never bypass pairing.
+const PREFERRED_PUBLIC_PORT_BASE: u16 = 57_682;
+const PREFERRED_PUBLIC_PORT_COUNT: u16 = 16;
 
 #[derive(Debug, Clone)]
 pub struct RemoteCaMaterial {
@@ -36,6 +41,7 @@ pub struct RemoteTlsIdentity {
 pub struct PreparedRemoteTlsListener {
     pub listener: TcpListener,
     pub enrollment_listener: TcpListener,
+    pub public_listener: Option<TcpListener>,
     pub tls_config: axum_server::tls_rustls::RustlsConfig,
     pub urls: Vec<String>,
     pub enrollment_urls: Vec<String>,
@@ -46,15 +52,29 @@ pub struct PreparedRemoteTlsListener {
 pub async fn prepare_lan_listener() -> Result<PreparedRemoteTlsListener, String> {
     let addresses = discover_private_lan_addresses()?;
     let ca = load_or_create_ca()?;
-    prepare_lan_listener_with_ca(ca, addresses).await
+    let config = crate::remote_access_config::load().unwrap_or_default();
+    prepare_lan_listener_with_ca(
+        ca,
+        addresses,
+        config.public_url,
+        config.public_enrollment_url,
+    )
+    .await
 }
 
 async fn prepare_lan_listener_with_ca(
     ca: RemoteCaMaterial,
     addresses: Vec<IpAddr>,
+    public_url: Option<String>,
+    public_enrollment_url: Option<String>,
 ) -> Result<PreparedRemoteTlsListener, String> {
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-    let identity = issue_server_identity(&ca, addresses.iter().copied())?;
+    let dns_names = public_url
+        .as_deref()
+        .and_then(url_hostname)
+        .into_iter()
+        .collect::<Vec<_>>();
+    let identity = issue_server_identity_with_dns(&ca, addresses.iter().copied(), dns_names)?;
     let listener = bind_listener_range(PREFERRED_LAN_PORT_BASE, PREFERRED_LAN_PORT_COUNT)?;
     let port = listener
         .local_addr()
@@ -75,19 +95,35 @@ async fn prepare_lan_listener_with_ca(
         .map_err(|error| format!("Cannot read the mobile setup listener address: {error}"))?
         .port();
     let advertised = advertisable_lan_addresses(&identity.lan_addresses);
-    let urls = advertised
+    let mut urls = advertised
         .iter()
         .filter(|address| address.is_ipv4())
         .map(|address| format!("https://{address}:{port}"))
         .collect::<Vec<_>>();
-    let enrollment_urls = advertised
+    let has_public_url = public_url.is_some();
+    if let Some(url) = public_url {
+        urls.insert(0, url);
+    }
+    let mut enrollment_urls: Vec<String> = advertised
         .iter()
         .filter(|address| address.is_ipv4())
         .map(|address| format!("http://{address}:{enrollment_port}"))
         .collect();
+    if let Some(url) = public_enrollment_url {
+        enrollment_urls.insert(0, url);
+    }
+    let public_listener = if has_public_url {
+        Some(bind_listener_range(
+            PREFERRED_PUBLIC_PORT_BASE,
+            PREFERRED_PUBLIC_PORT_COUNT,
+        )?)
+    } else {
+        None
+    };
     Ok(PreparedRemoteTlsListener {
         listener,
         enrollment_listener,
+        public_listener,
         tls_config,
         urls,
         enrollment_urls,
@@ -171,6 +207,17 @@ pub fn issue_server_identity(
     ca: &RemoteCaMaterial,
     addresses: impl IntoIterator<Item = IpAddr>,
 ) -> Result<RemoteTlsIdentity, String> {
+    issue_server_identity_with_dns(ca, addresses, std::iter::empty::<String>())
+}
+
+/// Issue the per-launch server certificate. `dns_names` covers public tunnel
+/// hostnames/IPs so a phone connecting through frp sees a certificate that
+/// matches the URL it typed, with no hostname warning.
+pub fn issue_server_identity_with_dns(
+    ca: &RemoteCaMaterial,
+    addresses: impl IntoIterator<Item = IpAddr>,
+    dns_names: impl IntoIterator<Item = String>,
+) -> Result<RemoteTlsIdentity, String> {
     let lan_addresses = private_lan_addresses(addresses);
     if lan_addresses.is_empty() {
         return Err("No private LAN address is available for secure mobile access".to_string());
@@ -181,6 +228,7 @@ pub fn issue_server_identity(
         "127.0.0.1".to_string(),
     ];
     subject_alt_names.extend(lan_addresses.iter().map(ToString::to_string));
+    subject_alt_names.extend(dns_names);
     let mut params = CertificateParams::new(subject_alt_names)
         .map_err(|error| format!("Cannot create mobile TLS parameters: {error}"))?;
     params
@@ -210,6 +258,19 @@ pub fn issue_server_identity(
         ca_fingerprint: certificate_fingerprint(&ca.certificate_pem)?,
         lan_addresses,
     })
+}
+
+/// Extract the bare host (or IP) from an `https://host:port/path` public URL.
+fn url_hostname(url: &str) -> Option<String> {
+    let without_scheme = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))?;
+    let authority = without_scheme.split(['/', '?', '#']).next()?;
+    let host = authority.split(':').next()?;
+    if host.is_empty() || host.chars().any(char::is_whitespace) {
+        return None;
+    }
+    Some(host.to_string())
 }
 
 pub fn private_lan_addresses(addresses: impl IntoIterator<Item = IpAddr>) -> Vec<IpAddr> {
@@ -356,8 +417,8 @@ fn bind_listener_range(port_base: u16, port_count: u16) -> Result<TcpListener, S
 mod tests {
     use super::{
         advertisable_lan_addresses, certificate_fingerprint, generate_ca, issue_server_identity,
-        prepare_lan_listener_with_ca, private_lan_addresses, reconcile_ca_material,
-        validate_ca_material, write_text_atomic,
+        issue_server_identity_with_dns, prepare_lan_listener_with_ca, private_lan_addresses,
+        reconcile_ca_material, url_hostname, validate_ca_material, write_text_atomic,
     };
     use std::fs;
     use std::net::IpAddr;
@@ -484,6 +545,81 @@ mod tests {
     }
 
     #[test]
+    fn includes_public_tunnel_hostnames_in_the_issued_certificate() {
+        use x509_parser::prelude::*;
+
+        let ca = generate_ca().unwrap();
+        let identity = issue_server_identity_with_dns(
+            &ca,
+            ["192.168.1.20".parse::<IpAddr>().unwrap()],
+            ["www.zicode.com".to_string()],
+        )
+        .unwrap();
+        let pems = ::pem::parse_many(&identity.certificate_chain_pem).unwrap();
+        let (_, certificate) = X509Certificate::from_der(pems[0].contents()).unwrap();
+        let san = certificate
+            .subject_alternative_name()
+            .expect("server certificate must carry a subject alternative name")
+            .expect("SAN extension is present");
+        let names = san
+            .value
+            .general_names
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        assert!(
+            names.iter().any(|name| name.contains("www.zicode.com")),
+            "certificate SANs did not include www.zicode.com: {names:?}"
+        );
+    }
+
+    #[test]
+    fn extracts_bare_hostnames_from_public_urls() {
+        assert_eq!(
+            url_hostname("https://www.zicode.com:39010/app/"),
+            Some("www.zicode.com".to_string())
+        );
+        assert_eq!(
+            url_hostname("http://www.zicode.com:39011"),
+            Some("www.zicode.com".to_string())
+        );
+        assert_eq!(
+            url_hostname("https://39.98.116.129:39010"),
+            Some("39.98.116.129".to_string())
+        );
+        assert_eq!(url_hostname("not a url"), None);
+        assert_eq!(url_hostname(""), None);
+    }
+
+    #[tokio::test]
+    async fn binds_a_public_gateway_listener_only_when_a_public_url_is_configured() {
+        let ca = generate_ca().unwrap();
+        let lan = prepare_lan_listener_with_ca(
+            ca.clone(),
+            vec!["192.168.1.20".parse().unwrap()],
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(lan.public_listener.is_none());
+        assert!(lan.urls[0].starts_with("https://192.168.1.20:"));
+        assert!(!lan.urls[0].contains("www.zicode.com"));
+
+        let public = prepare_lan_listener_with_ca(
+            ca,
+            vec!["192.168.1.20".parse().unwrap()],
+            Some("https://www.zicode.com:39010".to_string()),
+            Some("http://www.zicode.com:39011".to_string()),
+        )
+        .await
+        .unwrap();
+        assert!(public.public_listener.is_some());
+        assert_eq!(public.urls[0], "https://www.zicode.com:39010");
+        assert_eq!(public.enrollment_urls[0], "http://www.zicode.com:39011");
+    }
+
+    #[test]
     fn fails_closed_when_only_half_of_the_ca_material_remains() {
         assert!(reconcile_ca_material(Some("certificate".into()), None)
             .unwrap_err()
@@ -514,10 +650,14 @@ mod tests {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
         let ca = generate_ca().unwrap();
-        let prepared =
-            prepare_lan_listener_with_ca(ca.clone(), vec!["192.168.1.20".parse().unwrap()])
-                .await
-                .unwrap();
+        let prepared = prepare_lan_listener_with_ca(
+            ca.clone(),
+            vec!["192.168.1.20".parse().unwrap()],
+            None,
+            None,
+        )
+        .await
+        .unwrap();
         let port = prepared.listener.local_addr().unwrap().port();
         let listener = tokio::net::TcpListener::from_std(prepared.listener).unwrap();
         let acceptor = tokio_rustls::TlsAcceptor::from(prepared.tls_config.get_inner());

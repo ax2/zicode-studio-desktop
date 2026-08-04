@@ -61,3 +61,6 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[dev-dependencies]
+x509-parser = "0.16"

@@ -32,7 +32,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -88,6 +88,7 @@ pub struct HostServer {
     shutdown: Option<oneshot::Sender<()>>,
     lan_shutdown: Option<axum_server::Handle<SocketAddr>>,
     enrollment_shutdown: Option<oneshot::Sender<()>>,
+    public_shutdown: Option<axum_server::Handle<SocketAddr>>,
     state: Arc<HostState>,
 }
 
@@ -211,9 +212,8 @@ impl HostServer {
                 HeaderValue::from_static("no-cache"),
             ))
             .service(static_service);
-        let app = Router::new()
+        let base = Router::new()
             .route("/health", get(health))
-            .route("/v2/ws", get(websocket_upgrade))
             .route("/v2/bootstrap", get(bootstrap_target))
             .route("/v2/sessions", get(list_all_sessions_http))
             .route("/v2/plugins", get(list_plugins))
@@ -261,17 +261,48 @@ impl HostServer {
             .route("/v2/model-gateway/{*path}", any(model_gateway_proxy))
             .route("/v2/new-session", post(new_session))
             .route("/v2/resolve-workspace", post(resolve_workspace))
-            .fallback_service(static_service)
+            .fallback_service(static_service);
+
+        let app = base
+            .clone()
+            .route("/v2/ws", get(websocket_upgrade))
             .layer(middleware::from_fn_with_state(
                 state.clone(),
                 authorize_remote_http,
             ))
             .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_BYTES))
             .with_state(state.clone());
-        let (lan_shutdown, enrollment_shutdown) = if let Some(prepared) = prepared_remote {
+
+        // The public gateway is served with strict device authentication: it
+        // never trusts the loopback peer (a frp tunnel arrives from 127.0.0.1)
+        // and it hides desktop-only endpoints (pairing issuance, the local
+        // model gateway). Public mobile clients must pair like LAN clients.
+        let public_app = if prepared_remote
+            .as_ref()
+            .and_then(|prepared| prepared.public_listener.as_ref())
+            .is_some()
+        {
+            Some(
+                base.route("/v2/ws", get(websocket_upgrade_public))
+                    .layer(middleware::from_fn_with_state(
+                        state.clone(),
+                        authorize_public_http,
+                    ))
+                    .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_BYTES))
+                    .with_state(state.clone()),
+            )
+        } else {
+            None
+        };
+
+        let (lan_shutdown, enrollment_shutdown, public_shutdown) = if let Some(prepared) =
+            prepared_remote
+        {
             let handle = axum_server::Handle::new();
             let server_handle = handle.clone();
             let lan_app = app.clone();
+            let tls_config = prepared.tls_config.clone();
+            let public_listener = prepared.public_listener;
             let enrollment_listener =
                 tokio::net::TcpListener::from_std(prepared.enrollment_listener)
                     .map_err(|error| format!("Cannot start mobile setup listener: {error}"))?;
@@ -291,14 +322,13 @@ impl HostServer {
                 }
             });
             tokio::spawn(async move {
-                let server =
-                    match axum_server::from_tcp_rustls(prepared.listener, prepared.tls_config) {
-                        Ok(server) => server,
-                        Err(error) => {
-                            log::error!("[picot-host] cannot start secure mobile server: {error}");
-                            return;
-                        }
-                    };
+                let server = match axum_server::from_tcp_rustls(prepared.listener, tls_config) {
+                    Ok(server) => server,
+                    Err(error) => {
+                        log::error!("[picot-host] cannot start secure mobile server: {error}");
+                        return;
+                    }
+                };
                 if let Err(error) = server
                     .handle(server_handle)
                     .serve(lan_app.into_make_service_with_connect_info::<SocketAddr>())
@@ -307,9 +337,39 @@ impl HostServer {
                     log::error!("[picot-host] secure mobile server stopped unexpectedly: {error}");
                 }
             });
-            (Some(handle), Some(enrollment_tx))
+            let public_shutdown = match (public_listener, public_app) {
+                (Some(listener), Some(public_app)) => {
+                    let handle = axum_server::Handle::new();
+                    let server_handle = handle.clone();
+                    let public_tls_config = prepared.tls_config.clone();
+                    tokio::spawn(async move {
+                        let server = match axum_server::from_tcp_rustls(listener, public_tls_config)
+                        {
+                            Ok(server) => server,
+                            Err(error) => {
+                                log::error!(
+                                    "[picot-host] cannot start public mobile server: {error}"
+                                );
+                                return;
+                            }
+                        };
+                        if let Err(error) = server
+                            .handle(server_handle)
+                            .serve(public_app.into_make_service_with_connect_info::<SocketAddr>())
+                            .await
+                        {
+                            log::error!(
+                                "[picot-host] public mobile server stopped unexpectedly: {error}"
+                            );
+                        }
+                    });
+                    Some(handle)
+                }
+                _ => None,
+            };
+            (Some(handle), Some(enrollment_tx), public_shutdown)
         } else {
-            (None, None)
+            (None, None, None)
         };
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         tokio::spawn(async move {
@@ -330,6 +390,7 @@ impl HostServer {
             shutdown: Some(shutdown_tx),
             lan_shutdown,
             enrollment_shutdown,
+            public_shutdown,
             state,
         })
     }
@@ -424,6 +485,9 @@ impl HostServer {
         if let Some(shutdown) = self.enrollment_shutdown.take() {
             let _ = shutdown.send(());
         }
+        if let Some(handle) = self.public_shutdown.take() {
+            handle.graceful_shutdown(Some(Duration::from_secs(5)));
+        }
     }
 }
 
@@ -491,6 +555,9 @@ impl Drop for HostServer {
         if let Some(shutdown) = self.enrollment_shutdown.take() {
             let _ = shutdown.send(());
         }
+        if let Some(handle) = self.public_shutdown.take() {
+            handle.graceful_shutdown(Some(Duration::from_secs(5)));
+        }
     }
 }
 
@@ -550,6 +617,10 @@ fn remote_http_authorized(
     if peer_ip.is_loopback() {
         return true;
     }
+    http_bearer_authorized(auth, headers)
+}
+
+fn http_bearer_authorized(auth: &Arc<Mutex<RemoteAuth>>, headers: &HeaderMap) -> bool {
     let Some(token) = headers
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
@@ -573,6 +644,26 @@ async fn authorize_remote_http(
     if public_remote_path(request.uri().path())
         || remote_http_authorized(&state.auth, peer.ip(), request.headers())
     {
+        return next.run(request).await;
+    }
+    api_error(StatusCode::UNAUTHORIZED, "device_auth_required").into_response()
+}
+
+/// Strict authentication for the public tunnel gateway. Unlike the LAN
+/// server, a loopback peer is never trusted: every tunneled connection looks
+/// like 127.0.0.1 to the desktop, so requests must present a valid device
+/// token. Desktop-only endpoints (pairing issuance and the local model
+/// gateway) are hidden entirely.
+async fn authorize_public_http(
+    State(state): State<Arc<HostState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let path = request.uri().path();
+    if path == "/v2/lan-qr" || path.starts_with("/v2/model-gateway/") {
+        return api_error(StatusCode::FORBIDDEN, "desktop_only").into_response();
+    }
+    if public_remote_path(path) || http_bearer_authorized(&state.auth, request.headers()) {
         return next.run(request).await;
     }
     api_error(StatusCode::UNAUTHORIZED, "device_auth_required").into_response()
@@ -1846,7 +1937,26 @@ async fn websocket_upgrade(
     }
     websocket
         .max_message_size(MAX_WS_MESSAGE_BYTES)
-        .on_upgrade(move |socket| handle_websocket(socket, state, peer.ip()))
+        .on_upgrade(move |socket| handle_websocket(socket, state, peer.ip(), false))
+}
+
+/// WebSocket upgrade for the public tunnel gateway. Tunneled connections
+/// arrive from the loopback address, so the normal loopback exemption would
+/// let unauthenticated clients in; here a remote device token is always
+/// required.
+async fn websocket_upgrade_public(
+    State(state): State<Arc<HostState>>,
+    headers: axum::http::HeaderMap,
+    websocket: WebSocketUpgrade,
+) -> Response {
+    if !websocket_origin_allowed_strict(&headers, &state.allowed_origins) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    websocket
+        .max_message_size(MAX_WS_MESSAGE_BYTES)
+        .on_upgrade(move |socket| {
+            handle_websocket(socket, state, IpAddr::V4(Ipv4Addr::LOCALHOST), true)
+        })
 }
 
 fn websocket_origin_allowed(
@@ -1863,7 +1973,19 @@ fn websocket_origin_allowed(
     }
 }
 
-async fn handle_websocket(mut socket: WebSocket, state: Arc<HostState>, peer_ip: IpAddr) {
+fn websocket_origin_allowed_strict(headers: &HeaderMap, allowed_origins: &HashSet<String>) -> bool {
+    headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|origin| origin.to_str().ok())
+        .is_some_and(|origin| allowed_origins.contains(origin))
+}
+
+async fn handle_websocket(
+    mut socket: WebSocket,
+    state: Arc<HostState>,
+    peer_ip: IpAddr,
+    require_remote_auth: bool,
+) {
     let Some(Ok(Message::Text(first))) = socket.next().await else {
         return;
     };
@@ -1896,7 +2018,7 @@ async fn handle_websocket(mut socket: WebSocket, state: Arc<HostState>, peer_ip:
                 .map(str::to_owned)
         })
         .flatten();
-    if !peer_ip.is_loopback() && client_type != Some("remote") {
+    if (!peer_ip.is_loopback() || require_remote_auth) && client_type != Some("remote") {
         let _ = send_error(
             &mut socket,
             None,
@@ -2353,6 +2475,8 @@ async fn dispatch(
                     "urls": state.remote_access.urls,
                     "enrollmentUrls": state.remote_access.enrollment_urls,
                     "caFingerprint": state.remote_access.ca_fingerprint,
+                    "publicUrl": config.public_url,
+                    "publicEnrollmentUrl": config.public_enrollment_url,
                 }))
             }
             Some("set_remote_access_enabled") => {
@@ -2360,7 +2484,7 @@ async fn dispatch(
                     "invalid_remote_access_setting",
                     "enabled must be a boolean".into(),
                 ))?;
-                crate::remote_access_config::set_enabled(enabled)
+                let config = crate::remote_access_config::set_enabled(enabled)
                     .map_err(|message| ("remote_access_config_failed", message))?;
                 Ok(json!({
                     "type": "auth_response",
@@ -2371,6 +2495,33 @@ async fn dispatch(
                     "urls": state.remote_access.urls,
                     "enrollmentUrls": state.remote_access.enrollment_urls,
                     "caFingerprint": state.remote_access.ca_fingerprint,
+                    "publicUrl": config.public_url,
+                    "publicEnrollmentUrl": config.public_enrollment_url,
+                }))
+            }
+            Some("set_remote_access_public") => {
+                let public_url = frame
+                    .get("publicUrl")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let public_enrollment_url = frame
+                    .get("publicEnrollmentUrl")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let config =
+                    crate::remote_access_config::update_public(public_url, public_enrollment_url)
+                        .map_err(|message| ("invalid_public_access_setting", message))?;
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "configuredEnabled": config.enabled,
+                    "running": state.remote_access.running,
+                    "restartRequired": true,
+                    "urls": state.remote_access.urls,
+                    "enrollmentUrls": state.remote_access.enrollment_urls,
+                    "caFingerprint": state.remote_access.ca_fingerprint,
+                    "publicUrl": config.public_url,
+                    "publicEnrollmentUrl": config.public_enrollment_url,
                 }))
             }
             Some("revoke_device") => {
