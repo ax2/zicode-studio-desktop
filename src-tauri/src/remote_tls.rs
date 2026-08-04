@@ -214,24 +214,45 @@ pub fn issue_server_identity(
 }
 
 pub fn private_lan_addresses(addresses: impl IntoIterator<Item = IpAddr>) -> Vec<IpAddr> {
-    let mut addresses = addresses
+    let mut candidates = addresses
         .into_iter()
         .filter(|address| match address {
             IpAddr::V4(address) => address.is_private() || address.is_link_local(),
             IpAddr::V6(address) => address.is_unique_local() || address.is_unicast_link_local(),
         })
         .collect::<Vec<_>>();
-    addresses.sort();
-    addresses.dedup();
-    addresses
+    candidates.sort();
+    candidates.dedup();
+    // Prefer routable private addresses over APIPA/link-local ones: a plain
+    // numeric sort would advertise 169.254.x.x before the real LAN IP, so the
+    // phone could never reach the advertised URL. Link-local stays as a
+    // last-resort fallback when no private address exists.
+    let (mut lan, mut link_local): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|address| {
+        match address {
+            IpAddr::V4(address) => !address.is_link_local(),
+            IpAddr::V6(address) => !address.is_unicast_link_local(),
+        }
+    });
+    lan.append(&mut link_local);
+    lan
 }
 
 pub fn discover_private_lan_addresses() -> Result<Vec<IpAddr>, String> {
     let interfaces = local_ip_address::list_afinet_netifas()
         .map_err(|error| format!("Cannot inspect local network interfaces: {error}"))?;
-    Ok(private_lan_addresses(
+    let mut addresses = private_lan_addresses(
         interfaces.into_iter().map(|(_, address)| address),
-    ))
+    );
+    // When several private adapters exist (Ethernet + Wi-Fi, VPN, WSL...), put
+    // the interface the OS uses for the default route first so the advertised
+    // LAN URL is actually reachable from the phone.
+    if let Ok(primary) = local_ip_address::local_ip() {
+        if let Some(index) = addresses.iter().position(|address| *address == primary) {
+            let primary = addresses.remove(index);
+            addresses.insert(0, primary);
+        }
+    }
+    Ok(addresses)
 }
 
 pub fn certificate_fingerprint(certificate_pem: &str) -> Result<String, String> {
@@ -370,6 +391,31 @@ mod tests {
             "::1".parse().unwrap(),
         ])
         .is_empty());
+    }
+
+    #[test]
+    fn prefers_routable_private_addresses_over_link_local_for_advertising() {
+        let addresses = private_lan_addresses([
+            "169.254.2.255".parse::<IpAddr>().unwrap(),
+            "192.168.5.80".parse::<IpAddr>().unwrap(),
+            "fe80::1".parse::<IpAddr>().unwrap(),
+            "10.0.0.5".parse::<IpAddr>().unwrap(),
+        ]);
+        assert_eq!(
+            addresses,
+            vec![
+                "10.0.0.5".parse::<IpAddr>().unwrap(),
+                "192.168.5.80".parse::<IpAddr>().unwrap(),
+                "169.254.2.255".parse::<IpAddr>().unwrap(),
+                "fe80::1".parse::<IpAddr>().unwrap(),
+            ]
+        );
+    }
+
+    #[test]
+    fn keeps_link_local_addresses_as_a_fallback_only() {
+        let addresses = private_lan_addresses(["169.254.2.255".parse::<IpAddr>().unwrap()]);
+        assert_eq!(addresses, vec!["169.254.2.255".parse::<IpAddr>().unwrap()]);
     }
 
     #[test]
