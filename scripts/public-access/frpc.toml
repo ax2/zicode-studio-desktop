@@ -1,0 +1,25 @@
+# Optional frpc config (alternative to the SSH reverse tunnel).
+# Requires frps auth token + transport TLS, and a Defender exclusion for the
+# folder holding frpc.exe. Local ports mirror the desktop public gateway:
+#   57682 -> 39010 (HTTPS app, strict device auth)
+#   57668 -> 39011 (certificate setup page)
+serverAddr = "www.zicode.com"
+serverPort = 7000
+
+# transport.tls.enable = true
+# auth.method = "token"
+# auth.token = "change-me-to-match-frps"
+
+[[proxies]]
+name = "zicode-studio-public"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 57682
+remotePort = 39010
+
+[[proxies]]
+name = "zicode-studio-enrollment"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 57668
+remotePort = 39011
