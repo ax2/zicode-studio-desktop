@@ -1719,3 +1719,23 @@ E2EE 不开云同步"的产品红线。详细设计见
    `hello_ack`；证书为公网受信 CA，**手机无需再安装自定义根证书**；
 5. 待办：手机真机验收（手机打开 `https://relay.zicode.com/d/dev-ax2-01/app/`，
    桌面端生成会话二维码扫码配对）；设置面板"经服务器"开关 UI。
+
+第一百一十轮：修复"加载会话时提示 ZiCode 无法启动"并改进离线提示（2026-08-04）。
+诊断与处置：
+
+1. 复现分析：无头 Chrome 的 `--virtual-time-budget` 会在动态模块加载完成前到期并
+   取消 pending import，误报 `startup_failed`（属测试伪影，已排除）；真实场景下
+   该报错对应**桌面端应用未在运行**——中继对未注册桌面返回 503（HTTP）或直接关闭
+   WebSocket，移动端此前把它渲染成误导性的"本地 Host 不可用"通用错误；
+2. 修复：
+   - 中继（`relay_server.rs`）：移动端连到未注册桌面时，先发送
+     `{"type":"error","code":"desktop_offline",...}` 再关闭；
+   - 移动端（`runtime-adapter.js`）：把 `desktop_offline` 识别为致命错误；
+   - 启动失败页（`startup-failure.js` + i18n）：新增"桌面离线"文案——
+     "请在电脑上打开 ZiCode Studio Desktop，稍等几秒后重试"；
+   - bootstrap 503（`app.js`）：内联错误改为"ZiCode Studio Desktop 当前离线"；
+3. 验证：幽灵设备经中继收到 `desktop_offline` 帧；真实设备 `hello_ack` 正常；
+   完整会话链路（bootstrap → hello → runtime_snapshot 返回真实消息）经公网中继
+   通过；Rust 118 测试、前端全量测试全绿；
+4. 部署：服务器中继增量重编译并 `systemctl restart zicode-relay`；前端静态文件
+   由桌面即时提供，无需重启桌面。
