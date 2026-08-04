@@ -1654,3 +1654,26 @@ models.json 的 QVeris baseUrl 指向该代理（桌面与移动共用同一 Hos
 
 配合模型网关代理（developer→system），真机在会话切换、Host 重启、模型请求三个环节
 均可自动恢复，不再需要手动刷新。
+
+第一百零六轮：移动端公网访问（2026-08-04）。目标：手机不在同一局域网也能访问。方案与
+落地见 [公网访问方案](public-access-frp.md)，要点如下：
+
+1. 拓扑：阿里云 www.zicode.com（39.98.116.129，已运行 frps 0.62.1）作为公网入口；
+   Windows 桌面通过隧道把严格认证的公网网关（57682）与证书设置页（57668）暴露到
+   服务器的 39010/39011。
+2. 安全设计：直接转发 LAN HTTPS（57652）会让公网流量在桌面看来是 127.0.0.1，从而
+   绕过设备认证（`remote_http_authorized` 对回环放行）。因此新增**严格认证公网监听器**
+   （57682）：除公开路径外一律要求设备令牌、拒绝 `/v2/lan-qr`（配对签发）与
+   `/v2/model-gateway/*`（本地模型代理），WebSocket 强制 `clientType=remote` + 令牌，
+   公网客户端与局域网客户端一样必须扫码配对。
+3. 证书：`RemoteAccessConfig` 新增 `publicUrl`/`publicEnrollmentUrl`，签发叶证书时把
+   公网主机名加入 SAN；设置面板新增公网地址输入与保存（重启生效）。
+4. 隧道机制：frp 官方二进制与本机构建均被 Windows Defender 判为
+   `PUA:Win32/FRProxy` 拦截，且无管理员权限加白名单；改为复用已有 root 免密 SSH 反向
+   隧道（`GatewayPorts clientspecified` + `-R 0.0.0.0:39010:127.0.0.1:57682`、
+   `-R 0.0.0.0:39011:127.0.0.1:57668`），启动文件夹自启 + 断线自动重连。
+5. 验证：openssl 以手机同款 CA 校验 `www.zicode.com` 主机名通过；严格网关
+   `/health`=200、`/v2/sessions` 无令牌=401、`/v2/lan-qr`=403；服务器侧经隧道
+   `https://127.0.0.1:39010/health`=200、`http://127.0.0.1:39011/`=200。
+6. 遗留：阿里云安全组需放行入站 TCP 39010/39011（ufw 已放行 39000-40000）；放行后
+   进行手机公网真机验收，手机访问 `https://www.zicode.com:39010`。
