@@ -66,12 +66,6 @@ async fn prepare_lan_listener_with_ca(
     )
     .await
     .map_err(|error| format!("Cannot configure secure mobile TLS: {error}"))?;
-    let urls = identity
-        .lan_addresses
-        .iter()
-        .filter(|address| address.is_ipv4())
-        .map(|address| format!("https://{address}:{port}"))
-        .collect::<Vec<_>>();
     let enrollment_listener = bind_listener_range(
         PREFERRED_ENROLLMENT_PORT_BASE,
         PREFERRED_ENROLLMENT_PORT_COUNT,
@@ -80,8 +74,13 @@ async fn prepare_lan_listener_with_ca(
         .local_addr()
         .map_err(|error| format!("Cannot read the mobile setup listener address: {error}"))?
         .port();
-    let enrollment_urls = identity
-        .lan_addresses
+    let advertised = advertisable_lan_addresses(&identity.lan_addresses);
+    let urls = advertised
+        .iter()
+        .filter(|address| address.is_ipv4())
+        .map(|address| format!("https://{address}:{port}"))
+        .collect::<Vec<_>>();
+    let enrollment_urls = advertised
         .iter()
         .filter(|address| address.is_ipv4())
         .map(|address| format!("http://{address}:{enrollment_port}"))
@@ -255,6 +254,25 @@ pub fn discover_private_lan_addresses() -> Result<Vec<IpAddr>, String> {
     Ok(addresses)
 }
 
+/// Addresses suitable for advertising to the phone. APIPA/link-local addresses
+/// are never reachable from a phone, so they are dropped whenever at least one
+/// routable private address exists; otherwise they remain as a last resort.
+pub fn advertisable_lan_addresses(addresses: &[IpAddr]) -> Vec<IpAddr> {
+    let routable = addresses
+        .iter()
+        .filter(|address| match address {
+            IpAddr::V4(address) => !address.is_link_local(),
+            IpAddr::V6(address) => !address.is_unicast_link_local(),
+        })
+        .copied()
+        .collect::<Vec<_>>();
+    if routable.is_empty() {
+        addresses.to_vec()
+    } else {
+        routable
+    }
+}
+
 pub fn certificate_fingerprint(certificate_pem: &str) -> Result<String, String> {
     let certificate = pem::parse(certificate_pem)
         .map_err(|error| format!("Cannot parse mobile CA certificate: {error}"))?;
@@ -329,8 +347,9 @@ fn bind_listener_range(port_base: u16, port_count: u16) -> Result<TcpListener, S
 #[cfg(test)]
 mod tests {
     use super::{
-        certificate_fingerprint, generate_ca, issue_server_identity, prepare_lan_listener_with_ca,
-        private_lan_addresses, reconcile_ca_material, validate_ca_material, write_text_atomic,
+        advertisable_lan_addresses, certificate_fingerprint, generate_ca, issue_server_identity,
+        prepare_lan_listener_with_ca, private_lan_addresses, reconcile_ca_material,
+        validate_ca_material, write_text_atomic,
     };
     use std::fs;
     use std::net::IpAddr;
@@ -416,6 +435,32 @@ mod tests {
     fn keeps_link_local_addresses_as_a_fallback_only() {
         let addresses = private_lan_addresses(["169.254.2.255".parse::<IpAddr>().unwrap()]);
         assert_eq!(addresses, vec!["169.254.2.255".parse::<IpAddr>().unwrap()]);
+    }
+
+    #[test]
+    fn drops_link_local_addresses_from_the_advertised_list_when_private_ones_exist() {
+        let addresses = advertisable_lan_addresses(&[
+            "172.16.8.185".parse::<IpAddr>().unwrap(),
+            "169.254.2.255".parse::<IpAddr>().unwrap(),
+            "192.168.3.171".parse::<IpAddr>().unwrap(),
+            "fe80::1".parse::<IpAddr>().unwrap(),
+        ]);
+        assert_eq!(
+            addresses,
+            vec![
+                "172.16.8.185".parse::<IpAddr>().unwrap(),
+                "192.168.3.171".parse::<IpAddr>().unwrap(),
+            ]
+        );
+    }
+
+    #[test]
+    fn keeps_link_local_addresses_when_no_private_address_is_available() {
+        let addresses = advertisable_lan_addresses(&[
+            "169.254.2.255".parse::<IpAddr>().unwrap(),
+            "fe80::1".parse::<IpAddr>().unwrap(),
+        ]);
+        assert_eq!(addresses.len(), 2);
     }
 
     #[test]

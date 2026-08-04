@@ -1573,3 +1573,25 @@ config-editor-modal 断言、保留 textarea 断言；修复移除过程中误�
 `.command-palette` 共享选择器（max-height:520px 断点）。本轮自动验证为 122 个测试
 文件、623 个前端测试通过；Biome、设计规范、Tauri 权限、Windows 子进程策略、MkDocs
 strict 和补丁空白检查通过；Rust 门禁保持 104 通过/1 忽略。
+
+第一百零一轮：真机联合调试（2026-08-04，OPPO PHY110 / Android 16 / Chrome 150）。
+打通完整链路：桌面端 `tauri dev` 运行 Host（57652/57668），手机 USB 调试经 ADB
+连接，Chrome 通过 `adb forward tcp:9222 localabstract:chrome_devtools_remote`
+暴露 CDP，Playwright 附加后可直接驱动真机页面（视口 360×696@3x，物理 1080×2376）。
+
+真机驱动中发现并修复一个真实 bug：`/health` 公布的 lanUrl 为 169.254.2.255（链路
+本地地址，手机不可达）。根因：`private_lan_addresses` 对私有+链路本地地址统一数值
+排序，169.254.x.x 数值小于 192.168.x.x 而排最前。修复：私有地址优先、链路本地兜底，
+并把默认路由接口（`local_ip()`）置顶；新增 2 个 Rust 排序测试，8 项 remote_tls 测试
+通过。修复后手机直连 `https://172.16.8.185:57652/health` 返回 200（防火墙未拦、
+LAN 可达），已提交（40c7cb1）。
+
+真机首个布局验证（未配对启动失败面）：卡片 328×285 垂直居中、重试按钮 48px 高、
+零横向溢出、零控制台错误；截图 temp/zicode-realdevice-01.png。配对链接由内部受信任
+端点生成（一次性 pairingToken，5 分钟有效），本机回环 57620 验证可用。设备配对与
+完整应用 UI（对话、合成器、软键盘、断网横幅）验证待设备重新连接后继续。
+
+应反馈进一步优化桌面端"安全访问地址"列表：`advertisable_lan_addresses` 过滤链路本地
+地址（169.254.x.x / fe80::），仅在无任何可路由私有地址时才保留为兜底；`urls` 与
+`enrollment_urls` 只公布可路由地址（证书 SAN 仍覆盖全部地址，不影响 TLS 校验）。
+新增 2 个 Rust 过滤测试（10 项 remote_tls 测试通过），应用重编译后 `/health` 正常。
