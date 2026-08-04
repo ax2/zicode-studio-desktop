@@ -1739,3 +1739,28 @@ E2EE 不开云同步"的产品红线。详细设计见
    通过；Rust 118 测试、前端全量测试全绿；
 4. 部署：服务器中继增量重编译并 `systemctl restart zicode-relay`；前端静态文件
    由桌面即时提供，无需重启桌面。
+
+第一百一十一轮：修复 relay 模式路由解析与 PWA manifest 400（2026-08-04）。
+
+根因：
+
+1. 移动端 `app.js` 强制要求会话路由（`parseAppRoute` 只认 `/app/workspaces/...`），
+   而 relay 模式的 URL 带 `/d/<device>/` 前缀，解析为 not_found → 直接抛错 →
+   "ZiCode 无法启动/本地 Host 不可用"（用户打开裸地址 `/d/.../app/` 即命中）；
+2. `/manifest.json` 400：index.html 的 `<base href="/">` 使 manifest 请求解析到
+   根路径，而浏览器取 manifest 不带设备 cookie，中继无法路由。
+
+修复（中继已重部署，前端即时生效）：
+
+1. 中继 `device_http`：`/d/<device>/app/{path}` → 302 重定向到根路径
+   `/app/{path}`（保留 pairingToken 查询串）并设置设备 cookie，路由解析与资源
+   加载恢复正常；非 app 路径（如 `manifest.json`）继续代理；
+2. 中继在代理 HTML 时把 `<link rel="manifest" href="manifest.json">` 改写为
+   `/d/<device>/manifest.json`，manifest JSON 的 `start_url/scope/id` 改写为
+   `/d/<device>/app/`（"添加到主屏幕"可正确启动）；
+3. 前端 `bootstrap-entry.js` 处理裸地址：远程客户端已配对 → 自动跳转最近会话；
+   未配对 → 配对提示页；桌面离线 → "桌面离线"提示页；
+4. 保留 index.html 的 `<base href="/">`（根相对资源 + cookie 路由）。
+
+验证：302 重定向 + cookie 保存 → 带 cookie 加载应用页 200 → 配对换令牌 →
+bootstrap 200；manifest 200 且 URL 为设备作用域；Rust 118 测试与前端全量通过。
