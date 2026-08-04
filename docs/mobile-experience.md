@@ -1595,3 +1595,19 @@ LAN 可达），已提交（40c7cb1）。
 地址（169.254.x.x / fe80::），仅在无任何可路由私有地址时才保留为兜底；`urls` 与
 `enrollment_urls` 只公布可路由地址（证书 SAN 仍覆盖全部地址，不影响 TLS 校验）。
 新增 2 个 Rust 过滤测试（10 项 remote_tls 测试通过），应用重编译后 `/health` 正常。
+
+第一百零二轮：真机配对与完整应用验证（2026-08-04）。定位并解决配对失败的根因：配对
+链接必须携带会话路由（app.js 模块级守卫 `parseAppRoute` 要求 `route.name ===
+"session"`，否则在 resolveRemoteAuth 之前抛错）；内部端点 `POST /v2/new-session`
+创建临时会话后生成的带路由配对链接成功完成配对——手机获得 `picot-remote-device-token`
+并自动将临时会话迁移为正式会话（temporary-* → 019fcb12…）。完整应用真机验证（360×696
+@3x，OPPO PHY110 / Android 16 / Chrome 150）：
+
+- 页面零横向溢出，全部控件 ≥40px（模型按钮 94×40、侧栏开关 48×48、活动栏 60px）；
+- 模型菜单 326×168 在视口内、空态"打开设置"按钮 40px；侧栏抽屉开合正常（310px 宽、
+  overlay 关闭）；命令面板 344 宽、13 项每条 48px；
+- 发现并记录真实平台阻塞：**HTTPS 正常但 WSS 报 `ERR_CERT_AUTHORITY_INVALID`**——
+  用户 CA 被 Chrome 用于 HTTPS 页面（fetch /v2/ws 返回 405 证明 TLS 通过）却不信任
+  WebSocket 连接，应用显示"已断开"。手机 Wi-Fi 无外网（公共 wss/https 均失败）不影响
+  局域网内应用访问。待办：确认普通 Chrome（无 CDP）下同样失败后，评估系统 CA 安装、
+  WSS 回退通道或文档化限制。
