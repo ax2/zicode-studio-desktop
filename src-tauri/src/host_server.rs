@@ -12,17 +12,18 @@ use crate::plugin_registry::PluginRegistry;
 use crate::remote_auth::{PairingError, RemoteAuth};
 use crate::runtime_coordinator::{RuntimeStatus, RuntimeTarget};
 use axum::body::Body;
+use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::Query;
+use axum::extract::{Path, Query};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Json, Request, State};
 #[cfg(debug_assertions)]
 use axum::http::header::{CACHE_CONTROL, PRAGMA};
 #[cfg(debug_assertions)]
 use axum::http::HeaderValue;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, Method, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{any, get, post};
 use axum::Router;
 use base64::Engine;
 use futures_util::StreamExt;
@@ -43,6 +44,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 const MAX_HTTP_BODY_BYTES: usize = 2 * 1024 * 1024;
+const QVERIS_GATEWAY_TARGET: &str = "https://aigateway.qveris.ai/v1";
 const MAX_ATTACHMENT_HTTP_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_BACKUP_HTTP_BODY_BYTES: usize = 70 * 1024 * 1024;
 const MAX_WS_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
@@ -256,6 +258,7 @@ impl HostServer {
             .route("/v2/auth/exchange", post(exchange_pairing))
             .route("/v2/auth/ca.pem", get(download_remote_ca))
             .route("/v2/lan-qr", get(lan_qr))
+            .route("/v2/model-gateway/{*path}", any(model_gateway_proxy))
             .route("/v2/new-session", post(new_session))
             .route("/v2/resolve-workspace", post(resolve_workspace))
             .fallback_service(static_service)
@@ -646,6 +649,63 @@ fn qr_data_url(url: &str) -> Result<String, (StatusCode, Json<Value>)> {
         "data:image/svg+xml;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(svg.as_bytes())
     ))
+}
+
+/// Local model gateway proxy. Pi (running on this machine) sends OpenAI-style
+/// requests that may use the `developer` role, which the QVeris gateway
+/// rejects (it only accepts system/user/assistant/tool/latest_reminder). The
+/// proxy normalizes `developer` to `system` and forwards to QVeris, so chat
+/// works for both the desktop and mobile clients that share this runtime.
+async fn model_gateway_proxy(
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    method: Method,
+    Path(path): Path<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !peer.ip().is_loopback() {
+        return api_error(StatusCode::FORBIDDEN, "loopback_only").into_response();
+    }
+    let target = format!("{QVERIS_GATEWAY_TARGET}/{path}");
+    let payload = if method == Method::POST {
+        rewrite_developer_roles(&body).unwrap_or(body)
+    } else {
+        body
+    };
+    let mut request = reqwest::Client::new().request(method, &target).body(payload);
+    for name in ["authorization", "content-type"] {
+        if let Some(value) = headers.get(name) {
+            request = request.header(name, value);
+        }
+    }
+    let upstream = match request.send().await {
+        Ok(response) => response,
+        Err(_) => {
+            return api_error(StatusCode::BAD_GATEWAY, "model_gateway_unreachable").into_response();
+        }
+    };
+    let status = upstream.status();
+    let mut builder = Response::builder().status(status);
+    if let Some(value) = upstream.headers().get("content-type").and_then(|value| value.to_str().ok()) {
+        builder = builder.header("content-type", value);
+    }
+    builder
+        .body(Body::from_stream(upstream.bytes_stream()))
+        .unwrap_or_else(|_| {
+            api_error(StatusCode::INTERNAL_SERVER_ERROR, "model_gateway_stream").into_response()
+        })
+}
+
+fn rewrite_developer_roles(body: &Bytes) -> Result<Bytes, serde_json::Error> {
+    let mut value: Value = serde_json::from_slice(body)?;
+    if let Some(messages) = value.get_mut("messages").and_then(Value::as_array_mut) {
+        for message in messages {
+            if message.get("role").and_then(Value::as_str) == Some("developer") {
+                message["role"] = Value::String("system".to_owned());
+            }
+        }
+    }
+    Ok(Bytes::from(serde_json::to_vec(&value)?))
 }
 
 #[derive(Deserialize)]
@@ -3294,20 +3354,37 @@ mod tests {
     use super::{
         extension_ui_requires_owner, html_to_markdown, is_public_ip, lan_qr_issuer_allowed,
         messages_from_entries_response, public_remote_path, remote_http_authorized,
-        websocket_origin_allowed, HostServer,
+        rewrite_developer_roles, websocket_origin_allowed, HostServer,
     };
+    use axum::body::Bytes;
     use crate::metadata_store::MetadataStore;
     use crate::native_pi_manager::NativePiManager;
     use crate::remote_auth::RemoteAuth;
     use crate::runtime_coordinator::RuntimeTarget;
     use futures_util::{SinkExt, StreamExt};
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::collections::HashSet;
     use std::fs;
     use std::net::{IpAddr, Ipv4Addr};
     use std::path::Path;
     use std::sync::{Arc, Mutex};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn rewrites_developer_roles_to_system_before_forwarding() {
+        let body = Bytes::from(
+            r#"{"model":"deepseek-v4-flash","messages":[{"role":"developer","content":"x"},{"role":"user","content":"hi"}]}"#,
+        );
+        let rewritten = rewrite_developer_roles(&body).unwrap();
+        let value: Value = serde_json::from_slice(&rewritten).unwrap();
+        let roles: Vec<&str> = value["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|message| message["role"].as_str().unwrap())
+            .collect();
+        assert_eq!(roles, vec!["system", "user"]);
+    }
 
     async fn remove_temp_dir_when_released(path: &Path) {
         let mut last_error = None;
