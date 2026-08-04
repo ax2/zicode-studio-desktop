@@ -216,7 +216,11 @@ pub fn private_lan_addresses(addresses: impl IntoIterator<Item = IpAddr>) -> Vec
     let mut candidates = addresses
         .into_iter()
         .filter(|address| match address {
-            IpAddr::V4(address) => address.is_private() || address.is_link_local(),
+            // RFC1918 + CGNAT (100.64/10, used by Tailscale and carrier NAT)
+            // plus link-local as a last resort.
+            IpAddr::V4(address) => {
+                address.is_private() || is_shared_ipv4(address) || address.is_link_local()
+            }
             IpAddr::V6(address) => address.is_unique_local() || address.is_unicast_link_local(),
         })
         .collect::<Vec<_>>();
@@ -233,6 +237,13 @@ pub fn private_lan_addresses(addresses: impl IntoIterator<Item = IpAddr>) -> Vec
         });
     lan.append(&mut link_local);
     lan
+}
+
+fn is_shared_ipv4(address: &std::net::Ipv4Addr) -> bool {
+    // 100.64.0.0/10 (RFC 6598 shared address space, used by Tailscale and
+    // carrier-grade NAT). std's is_shared() is unstable on this toolchain.
+    let octets = address.octets();
+    octets[0] == 100 && octets[1] >= 64 && octets[1] <= 127
 }
 
 pub fn discover_private_lan_addresses() -> Result<Vec<IpAddr>, String> {
@@ -458,6 +469,18 @@ mod tests {
             "fe80::1".parse::<IpAddr>().unwrap(),
         ]);
         assert_eq!(addresses.len(), 2);
+    }
+
+    #[test]
+    fn includes_cgnat_tailscale_addresses_in_private_lan_discovery() {
+        let addresses = private_lan_addresses([
+            "100.64.0.1".parse::<IpAddr>().unwrap(),
+            "100.127.255.254".parse::<IpAddr>().unwrap(),
+            "192.168.1.20".parse::<IpAddr>().unwrap(),
+        ]);
+        assert!(addresses.contains(&"100.64.0.1".parse::<IpAddr>().unwrap()));
+        assert!(addresses.contains(&"100.127.255.254".parse::<IpAddr>().unwrap()));
+        assert!(addresses.contains(&"192.168.1.20".parse::<IpAddr>().unwrap()));
     }
 
     #[test]
