@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Self-contained multi-scene AI desktop workspace powered by Pi and Tauri"
 authors = ["Alex Xiang and contributors"]
 edition = "2021"
+default-run = "zicode-studio-desktop"
 
 [[bin]]
 name = "zicode-studio-desktop"
