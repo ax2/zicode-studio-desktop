@@ -1685,3 +1685,22 @@ E2EE 不开云同步"的产品红线。详细设计见
 [服务器会合架构方案](remote-access-server-architecture.md)，决策记录见
 [ADR 0006](adr/0006-server-rendezvous-relay-architecture.md)。本轮仅产出设计文档，
 无代码变更。
+
+第一百零八轮：M1 服务器会合中继实施并本地闭环验证（2026-08-04）。交付内容：
+
+1. 中继服务 `zicode-relay`（Rust，`src-tauri/src/relay_server.rs` + `bin/relay.rs`）：
+   桌面注册（`/relay/desktop`）、移动 WS 桥（`/v2/ws`）、应用页与 cookie 路由
+   （`/d/<deviceId>/...`）、HTTP 代理、`/relay/status`；无状态、不落盘；
+2. 桌面 Agent（`src-tauri/src/relay_client.rs`）：出站连接中继，把 HTTP 与 WS
+   桥接到本地严格网关（57682），网关仍执行设备认证（无回环豁免、远程必需令牌），
+   Agent 是纯传输管道；
+3. 协议帧（`relay_protocol.rs`）+ 配置字段（`relayEnabled/relayUrl/relayDeviceId`）
+   + 状态接口；移动端 Web 前端零改动（根路径 + cookie 路由）；
+4. 本地闭环验证：应用页经中继 200 → 配对换取设备令牌 → 带令牌 API 200 →
+   无令牌 401 → WS 经中继完成 `hello_ack`；Rust 118 项测试通过（新增协议
+   round-trip、HTTP 代理、WS 桥接）；
+5. 部署脚本 `scripts/relay/deploy-relay.sh`：服务器构建 + systemd + nginx +
+   certbot；**待用户步骤：阿里云 DNS 添加 `relay.zicode.com` A 记录后即可上线**。
+
+遗留：设置面板"经服务器"开关 UI 尚未实现（当前经 `config.json` 配置）；端到端
+加密属 M3；中继设备注册鉴权与配额属 M4 加固。

@@ -1,6 +1,6 @@
 # ZiCode 移动端公网接入：服务器会合架构（细化方案）
 
-版本：v0.1（草案） · 日期：2026-08-04 · 状态：待实施立项
+版本：v0.2 · 日期：2026-08-04 · 状态：M1 已实现并完成本地闭环验证，待部署到公网
 
 本文把"桌面端与移动端都主动连接服务器"的产品化方案细化为可落地架构。核心结论：
 服务器只做**会合与转发**，不托管、不落盘、不解密内容；桌面始终是数据的唯一权威。
@@ -196,10 +196,44 @@
 
 ### M1 最小闭环（目标：验证全链路，1-2 周）
 
-- 服务器：rendezvous（WSS）+ frps 转发 + 真实证书 + 备案启动；
-- 桌面：内置 Agent 出站连接 + "经服务器"开关；
-- 移动：WebView 壳连服务器（走中转，无 E2EE，文档明示）；
+- 服务器：rendezvous（WSS）+ 转发 + 真实证书 + 备案启动；
+- 桌面：内置 Agent 出站连接 + "经服务器"配置；
+- 移动：现有 Web 前端经中继访问（走中转，无 E2EE，文档明示）；
 - 验收：公网/异地手机扫码配对 → 收发消息 → 撤销生效。
+
+**M1 实施状态（2026-08-04）**：
+
+- 中继服务已实现：`src-tauri/src/relay_server.rs` + `zicode-relay` 二进制，
+  提供 `/relay/desktop`（桌面注册）、`/v2/ws`（移动端 WS 桥）、
+  `/d/<deviceId>/...`（应用页 + cookie 路由）、任意路径 HTTP 代理、
+  `/relay/status`（在线状态）；
+- 桌面 Agent 已实现：`src-tauri/src/relay_client.rs`，出站连接中继、
+  按需把 HTTP 请求与 WS 会话桥接到本地严格网关（57682），网关仍是认证权威；
+- 协议帧：`src-tauri/src/relay_protocol.rs`（JSON，serde tag）；
+- 配置字段：`relayEnabled` / `relayUrl` / `relayDeviceId`（写
+  `%LOCALAPPDATA%\zicode\remote-access\config.json`），状态接口暴露；
+- 本地闭环验证通过：应用页 200 + cookie → 配对换取设备令牌 →
+  带令牌 `/v2/sessions`=200、`/v2/bootstrap` 返回 RuntimeTarget →
+  无令牌 401 → WS 经中继与严格网关完成 `hello_ack`；
+- 部署脚本：`scripts/relay/deploy-relay.sh`（服务器端构建 + systemd + nginx +
+  certbot）。**前置用户步骤：在阿里云 DNS 添加 `relay.zicode.com` A 记录指向
+  服务器公网 IP**，随后运行脚本即可上线；服务器 80/443 已在安全组放行。
+
+### M1 桌面端配置示例
+
+```json
+{
+  "version": 1,
+  "enabled": true,
+  "publicUrl": "https://relay.zicode.com/d/dev-xxxxxxxx",
+  "relayEnabled": true,
+  "relayUrl": "wss://relay.zicode.com",
+  "relayDeviceId": "dev-xxxxxxxx"
+}
+```
+
+`publicUrl` 同时承担三件事：二维码/设置页展示的入口地址、证书 SAN 的公网主机名、
+严格网关 WebSocket 的 Origin 白名单来源。`relayDeviceId` 启用时自动生成。
 
 ### M2 P2P 直连
 
