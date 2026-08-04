@@ -4,7 +4,7 @@
    ═══════════════════════════════════════════════════════ */
 
 .main {
-  --messages-top-inset: 0px;
+  --messages-top-inset: 52px;
   --messages-bottom-inset: 128px;
   flex: 1;
   display: flex;
@@ -17,7 +17,7 @@
 
 /* Header — translucent toolbar */
 .header {
-  display: none;
+  display: flex;
   justify-content: space-between;
   align-items: center;
   padding: var(--space-1) var(--space-3);
