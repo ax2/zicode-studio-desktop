@@ -55,6 +55,7 @@ nav:
   - 移动端体验: mobile-experience.md
   - 移动端真机验收清单: mobile-real-device-acceptance.md
   - 移动端公网访问方案: public-access-frp.md
+  - 移动端公网接入架构（服务器会合）: remote-access-server-architecture.md
   - 本地发布验证: release-validation-2026-08-01.md
   - Windows 打包: windows-packaging.md
   - 实施计划: implementation-plan.md
