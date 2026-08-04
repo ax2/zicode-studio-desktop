@@ -57,8 +57,9 @@ function startupFailureCopy(code) {
   if (code === "device_pairing_required") {
     return {
       title: "This device is not paired",
-      message: "ZiCode refused the remote connection before opening a workspace.",
-      guidance: "Generate a new mobile link from the trusted desktop app, then open it on this device.",
+      message: "This browser is not paired with your ZiCode desktop yet.",
+      guidance:
+        "On your computer, open the target conversation in ZiCode, click the mobile QR icon next to the title, then scan the QR with this device — or click \"Open link\" in that window to pair this browser directly. Each link works once and expires in 5 minutes.",
     };
   }
   if (code === "device_access_revoked") {

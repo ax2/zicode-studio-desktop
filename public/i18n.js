@@ -193,10 +193,10 @@ const zhCN = {
   "Refresh QR code": "刷新二维码",
   "Open Link": "打开链接",
   "This device is not paired": "此设备尚未配对",
-  "ZiCode refused the remote connection before opening a workspace.":
-    "ZiCode 已在打开工作区前拒绝远程连接。",
-  "Generate a new mobile link from the trusted desktop app, then open it on this device.":
-    "请在受信任的桌面应用中生成新的移动端链接，然后在此设备上打开。",
+  "This browser is not paired with your ZiCode desktop yet.":
+    "此浏览器还没有与你的 ZiCode 桌面配对。",
+  "On your computer, open the target conversation in ZiCode, click the mobile QR icon next to the title, then scan the QR with this device — or click \"Open link\" in that window to pair this browser directly. Each link works once and expires in 5 minutes.":
+    "请在电脑上的 ZiCode 中打开目标会话，点击标题旁的「在手机上打开」图标：手机用户用摄像头扫描二维码；同一台电脑可直接点击弹窗中的「打开链接」完成配对。每个链接只能用一次，5 分钟内有效。",
   "Access to this device was revoked": "此设备的访问权限已被撤销",
   "ZiCode closed the remote connection and stopped reconnecting.":
     "ZiCode 已关闭远程连接并停止重连。",
