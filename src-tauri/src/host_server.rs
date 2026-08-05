@@ -825,6 +825,21 @@ async fn model_gateway_proxy(
     if !peer.ip().is_loopback() {
         return api_error(StatusCode::FORBIDDEN, "loopback_only").into_response();
     }
+    let auth_preview = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| {
+            if value.len() > 16 {
+                format!("{}… ({} chars)", &value[..16], value.len())
+            } else {
+                value.to_string()
+            }
+        })
+        .unwrap_or_else(|| "<none>".to_string());
+    log::info!(
+        "[model-gateway] {method} /{path} auth={auth_preview} body={} bytes",
+        body.len()
+    );
     let target = format!("{QVERIS_GATEWAY_TARGET}/{path}");
     let payload = if method == Method::POST {
         rewrite_developer_roles(&body).unwrap_or(body)
@@ -846,16 +861,28 @@ async fn model_gateway_proxy(
         }
     };
     let status = upstream.status();
-    let mut builder = Response::builder().status(status);
-    if let Some(value) = upstream
+    let content_type = upstream
         .headers()
         .get("content-type")
         .and_then(|value| value.to_str().ok())
-    {
+        .map(str::to_owned);
+    let upstream_bytes = match upstream.bytes().await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return api_error(StatusCode::BAD_GATEWAY, "model_gateway_unreachable").into_response();
+        }
+    };
+    let preview = String::from_utf8_lossy(&upstream_bytes[..upstream_bytes.len().min(200)]);
+    log::info!(
+        "[model-gateway] upstream {status} body={preview} ({} bytes)",
+        upstream_bytes.len()
+    );
+    let mut builder = Response::builder().status(status);
+    if let Some(value) = content_type {
         builder = builder.header("content-type", value);
     }
     builder
-        .body(Body::from_stream(upstream.bytes_stream()))
+        .body(Body::from(upstream_bytes))
         .unwrap_or_else(|_| {
             api_error(StatusCode::INTERNAL_SERVER_ERROR, "model_gateway_stream").into_response()
         })

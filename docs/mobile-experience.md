@@ -1764,3 +1764,20 @@ E2EE 不开云同步"的产品红线。详细设计见
 
 验证：302 重定向 + cookie 保存 → 带 cookie 加载应用页 200 → 配对换令牌 →
 bootstrap 200；manifest 200 且 URL 为设备作用域；Rust 118 测试与前端全量通过。
+
+第一百一十二轮：模型请求稳定性调试（2026-08-05）。用户反馈"模型请求失败"且程序
+感觉不稳定，本地浏览器实测与处置：
+
+1. 复现：在桌面窗口（WebView2 CDP 驱动）发送消息，初现"请检查当前场景的模型渠道"
+   通用错误卡；诊断后确认为**旧应用实例的场景配置过期**（运行超过一天的实例未感知
+   当天 10:24 更新的 `scenes/*/agent/settings.json`），模型代理与密钥本身健康；
+2. 验证（新实例 + 有效密钥 sk-C585XI…）：桌面连续 5 条消息全部返回完整回复；
+   中继移动路径（wss://relay.zicode.com → Agent → 桌面网关）订阅 runtime 后发送
+   prompt，22 条事件流无错误；模型代理日志全部 `upstream 200 OK`（deepseek-v4-flash
+   流式）；应用日志当日零 ERROR/WARN/panic；
+3. 改进：`model_gateway_proxy` 增加请求/响应诊断日志（记录 Pi 发出的 Authorization
+   前缀与 QVeris 返回状态/响应体前 200 字节），以后"模型请求失败"可直接在桌面日志
+   定位，而不是只看到通用错误卡；
+4. 结论：当前模型链路（桌面 + 中继移动端 + QVeris 网关）稳定；如再次出现失败，
+   先查 `%LOCALAPPDATA%\zicode\logs\ZiCode Studio Desktop.log` 中 `[model-gateway]`
+   条目。
