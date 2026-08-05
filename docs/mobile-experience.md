@@ -1982,3 +1982,20 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
    **secret 不落库不入仓**。
 
 遗留：中继按设备字节量配额、监控告警、M2 P2P 直连、二维码扫码验收。
+
+第一百二十一轮：release 构建验证（2026-08-05）。真机连接已断开，转本地调试；
+对 M3/M4 合入后的代码执行 `bun run build`（NSIS 打包）并冒烟：
+
+1. 产物：`target/release/zicode-studio-desktop.exe`（36,561,920 B）与
+   `bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`
+   （345,503,653 B），SHA-256 见
+   `docs/release-validation-2026-08-05.md`；
+2. 冒烟：release EXE 独立启动正常，本地网关 `/health` 200（pi 0.83.0、
+   协议 v2），中继注册 `dev-ax2-01`，启动日志无 ERROR/WARN/panic；
+3. 链路：公网中继路径 bootstrap 200 → hello_ack → 订阅成功零错误；桌面
+   WebView 发消息 → `[model-gateway] upstream 200 OK` → 回复渲染；
+4. 说明：安装包未做 Authenticode 签名（对外分发前需受控流水线签名）；桌面
+   快捷方式仍指向 debug 路径，生产建议改用 release。
+
+遗留：中继按设备字节量配额与监控告警、M2 P2P 直连、二维码扫码验收、安装包
+签名流水线。
