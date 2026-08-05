@@ -7,6 +7,10 @@
 #   3. The repository is reachable from GitHub (or pass an existing repo dir)
 #
 # Usage: ./deploy-relay.sh [repo-dir-or-git-url]
+#
+# Optional M4 settings (set in the deploy environment):
+#   ZICODE_RELAY_REGISTRATION_TOKEN=<secret>   require desktop registrations
+#   ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=<bytes> per-device daily byte cap
 set -euo pipefail
 
 SOURCE="${1:-https://github.com/ax2/zicode-studio-desktop.git}"
@@ -71,7 +75,14 @@ echo "==> installing binary"
 install -m 0755 target/release/zicode-relay /usr/local/bin/zicode-relay
 
 echo "==> writing systemd unit"
-cat > /etc/systemd/system/zicode-relay.service <<'EOF'
+ENV_LINES=""
+if [ -n "${ZICODE_RELAY_REGISTRATION_TOKEN:-}" ]; then
+  ENV_LINES+="Environment=ZICODE_RELAY_REGISTRATION_TOKEN=${ZICODE_RELAY_REGISTRATION_TOKEN}"$'\n'
+fi
+if [ -n "${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE:-}" ]; then
+  ENV_LINES+="Environment=ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE}"$'\n'
+fi
+cat > /etc/systemd/system/zicode-relay.service <<EOF
 [Unit]
 Description=ZiCode rendezvous relay
 After=network.target
@@ -80,12 +91,15 @@ After=network.target
 ExecStart=/usr/local/bin/zicode-relay 127.0.0.1:9760
 Restart=always
 RestartSec=5
+${ENV_LINES}
 
 [Install]
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
 systemctl enable --now zicode-relay
+
+echo "==> relay deployed with registration auth: $([ -n "$ZICODE_RELAY_REGISTRATION_TOKEN" ] && echo on || echo off), daily byte quota: ${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE:-off}"
 
 echo "==> writing nginx site"
 cat > "/etc/nginx/sites-available/${DOMAIN}.conf" <<EOF
