@@ -49,6 +49,10 @@ pub struct RelayState {
     registration_attempts: HashMap<IpAddr, VecDeque<u64>>,
     pub registration_max_per_window: usize,
     pub session_cap_per_device: usize,
+    /// Per-device relayed byte accounting (in memory, resets on restart).
+    usage: HashMap<String, DeviceUsage>,
+    /// Optional per-device byte cap; `None` means unlimited.
+    pub byte_quota_per_device: Option<u64>,
 }
 
 impl Default for RelayState {
@@ -62,8 +66,17 @@ impl Default for RelayState {
             registration_attempts: HashMap::new(),
             registration_max_per_window: REGISTRATION_MAX_PER_WINDOW,
             session_cap_per_device: SESSION_CAP_PER_DEVICE,
+            usage: HashMap::new(),
+            byte_quota_per_device: None,
         }
     }
+}
+
+/// Cumulative relayed bytes for one desktop device (both directions).
+#[derive(Clone, Debug, Default)]
+pub struct DeviceUsage {
+    pub bytes: u64,
+    pub updated_at: u64,
 }
 
 struct Session {
@@ -86,6 +99,25 @@ fn valid_device_id(device_id: &str) -> bool {
         })
 }
 
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+/// Add `bytes` to the device's cumulative relayed usage. Returns `true` when
+/// the device is still within its configured byte quota (or none is set).
+fn record_usage(state: &mut RelayState, device_id: &str, bytes: u64) -> bool {
+    let usage = state.usage.entry(device_id.to_string()).or_default();
+    usage.bytes = usage.bytes.saturating_add(bytes);
+    usage.updated_at = unix_now();
+    match state.byte_quota_per_device {
+        Some(quota) => usage.bytes <= quota,
+        None => true,
+    }
+}
+
 pub fn relay_router(state: Arc<Mutex<RelayState>>) -> Router {
     Router::new()
         .route("/health", get(health))
@@ -102,13 +134,19 @@ async fn health() -> StatusCode {
 }
 
 async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
-    let (desktops, sessions) = {
+    let (desktops, sessions, usage) = {
         let state = state.lock().expect("relay state poisoned");
         let mut desktops = state.desktops.keys().cloned().collect::<Vec<_>>();
         desktops.sort();
         let mut sessions = state.sessions.keys().cloned().collect::<Vec<_>>();
         sessions.sort();
-        (desktops, sessions)
+        let mut usage = state
+            .usage
+            .iter()
+            .map(|(device_id, usage)| (device_id.clone(), usage.bytes))
+            .collect::<Vec<_>>();
+        usage.sort();
+        (desktops, sessions, usage)
     };
     Response::builder()
         .status(StatusCode::OK)
@@ -117,6 +155,7 @@ async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
             serde_json::json!({
                 "desktops": desktops,
                 "sessions": sessions,
+                "usage": usage,
             })
             .to_string(),
         ))
@@ -343,13 +382,16 @@ async fn mobile_ws(
 }
 
 async fn mobile_loop(state: Arc<Mutex<RelayState>>, device_id: String, socket: WebSocket) {
-    let (mut sink, mut stream) = socket.split();
+    let (sink, mut stream) = socket.split();
+    let sink = Arc::new(tokio::sync::Mutex::new(sink));
     let desktop_tx = {
         let state = state.lock().expect("relay state poisoned");
         state.desktops.get(&device_id).cloned()
     };
     let Some(desktop_tx) = desktop_tx else {
         let _ = sink
+            .lock()
+            .await
             .send(Message::Text(
                 serde_json::json!({
                     "type": "error",
@@ -360,7 +402,7 @@ async fn mobile_loop(state: Arc<Mutex<RelayState>>, device_id: String, socket: W
                 .into(),
             ))
             .await;
-        let _ = sink.send(Message::Close(None)).await;
+        let _ = sink.lock().await.send(Message::Close(None)).await;
         return;
     };
     let sid = format!("s-{}", uuid::Uuid::new_v4().simple());
@@ -382,28 +424,90 @@ async fn mobile_loop(state: Arc<Mutex<RelayState>>, device_id: String, socket: W
         close_session(&state, &sid, None);
         return;
     }
+    let writer_state = state.clone();
+    let writer_device = device_id.clone();
+    let writer_sink = sink.clone();
     let writer = tokio::spawn(async move {
         while let Some(message) = mobile_rx.recv().await {
-            if sink.send(message).await.is_err() {
+            let bytes = match &message {
+                Message::Text(text) => text.len() as u64,
+                Message::Binary(bytes) => bytes.len() as u64,
+                _ => 0,
+            };
+            let under_quota = {
+                let mut state = writer_state.lock().expect("relay state poisoned");
+                record_usage(&mut state, &writer_device, bytes)
+            };
+            if !under_quota {
+                let _ = writer_sink
+                    .lock()
+                    .await
+                    .send(Message::Text(
+                        serde_json::json!({
+                            "type": "error",
+                            "code": "device_quota_exceeded",
+                            "message": "Device byte quota exceeded",
+                        })
+                        .to_string()
+                        .into(),
+                    ))
+                    .await;
+                break;
+            }
+            if writer_sink.lock().await.send(message).await.is_err() {
                 break;
             }
         }
     });
     while let Some(Ok(message)) = stream.next().await {
-        let frame = match message {
-            Message::Text(text) => RelayFrame::WsFrame {
-                sid: sid.clone(),
-                payload: text.to_string(),
-                binary: false,
-            },
-            Message::Binary(bytes) => RelayFrame::WsFrame {
-                sid: sid.clone(),
-                payload: base64::engine::general_purpose::STANDARD.encode(&bytes),
-                binary: true,
-            },
+        let (frame, bytes) = match message {
+            Message::Text(text) => {
+                let text = text.to_string();
+                let bytes = text.len() as u64;
+                (
+                    RelayFrame::WsFrame {
+                        sid: sid.clone(),
+                        payload: text,
+                        binary: false,
+                    },
+                    bytes,
+                )
+            }
+            Message::Binary(bytes) => {
+                let bytes_len = bytes.len() as u64;
+                (
+                    RelayFrame::WsFrame {
+                        sid: sid.clone(),
+                        payload: base64::engine::general_purpose::STANDARD.encode(&bytes),
+                        binary: true,
+                    },
+                    bytes_len,
+                )
+            }
             Message::Close(_) => break,
             _ => continue,
         };
+        let under_quota = {
+            let mut state = state.lock().expect("relay state poisoned");
+            record_usage(&mut state, &device_id, bytes)
+        };
+        if !under_quota {
+            let _ = sink
+                .lock()
+                .await
+                .send(Message::Text(
+                    serde_json::json!({
+                        "type": "error",
+                        "code": "device_quota_exceeded",
+                        "message": "Device byte quota exceeded",
+                    })
+                    .to_string()
+                    .into(),
+                ))
+                .await;
+            let _ = sink.lock().await.send(Message::Close(None)).await;
+            break;
+        }
         if desktop_tx.send(frame).is_err() {
             break;
         }
@@ -537,6 +641,18 @@ async fn proxy_to_desktop(
         headers: forwarded_headers,
         body: base64::engine::general_purpose::STANDARD.encode(body),
     };
+    let under_quota = {
+        let mut state = state.lock().expect("relay state poisoned");
+        record_usage(&mut state, device_id, body.len() as u64)
+    };
+    if !under_quota {
+        state
+            .lock()
+            .expect("relay state poisoned")
+            .http_pending
+            .remove(&rid);
+        return (StatusCode::TOO_MANY_REQUESTS, "device byte quota exceeded").into_response();
+    }
     if desktop_tx.send(frame).is_err() {
         state
             .lock()
@@ -578,6 +694,14 @@ async fn proxy_to_desktop(
                 if let Ok(value) = HeaderValue::from_str(&value) {
                     builder = builder.header(name, value);
                 }
+            }
+            let under_quota = {
+                let mut state = state.lock().expect("relay state poisoned");
+                record_usage(&mut state, device_id, body_bytes.len() as u64)
+            };
+            if !under_quota {
+                return (StatusCode::TOO_MANY_REQUESTS, "device byte quota exceeded")
+                    .into_response();
             }
             builder
                 .body(Body::from(body_bytes))
@@ -648,18 +772,20 @@ mod tests {
     use tokio_tungstenite::MaybeTlsStream;
 
     async fn spawn_relay() -> std::net::SocketAddr {
-        spawn_relay_with(None, None).await
+        spawn_relay_with(None, None, None).await
     }
 
     async fn spawn_relay_with(
         registration_token: Option<&str>,
         session_cap: Option<usize>,
+        byte_quota: Option<u64>,
     ) -> std::net::SocketAddr {
         let mut relay_state = RelayState::default();
         relay_state.registration_token = registration_token.map(str::to_owned);
         if let Some(cap) = session_cap {
             relay_state.session_cap_per_device = cap;
         }
+        relay_state.byte_quota_per_device = byte_quota;
         let state = Arc::new(Mutex::new(relay_state));
         let app = relay_router(state);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -926,7 +1052,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_registrations_without_a_configured_token() {
-        let base = spawn_relay_with(Some("s3cret"), None).await;
+        let base = spawn_relay_with(Some("s3cret"), None, None).await;
 
         let without = register_desktop_expect_rejected(&base, "dev-no-token", None).await;
         assert!(without.contains("token rejected"));
@@ -982,7 +1108,7 @@ mod tests {
 
     #[tokio::test]
     async fn caps_concurrent_mobile_sessions_per_device() {
-        let base = spawn_relay_with(None, Some(2)).await;
+        let base = spawn_relay_with(None, Some(2), None).await;
         let _desktop = register_desktop(&base, "dev-cap").await;
         let _first = connect_mobile_ws(&base, "dev-cap").await;
         let _second = connect_mobile_ws(&base, "dev-cap").await;
@@ -993,5 +1119,95 @@ mod tests {
             HeaderValue::from_str("device=dev-cap").unwrap(),
         );
         assert!(tokio_tungstenite::connect_async(request).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn enforces_http_byte_quota_and_exposes_usage() {
+        let base = spawn_relay_with(None, None, Some(1)).await;
+        let mut desktop = register_desktop(&base, "dev-quota-http").await;
+        let relay_task = tokio::spawn(async move {
+            loop {
+                let frame = RelayFrame::parse(&next_text(&mut desktop).await).unwrap();
+                if let RelayFrame::Http { rid, path, .. } = frame {
+                    desktop
+                        .send(ClientMessage::Text(
+                            RelayFrame::HttpResp {
+                                rid,
+                                status: 200,
+                                headers: vec![("content-type".into(), "text/plain".into())],
+                                body: base64::engine::general_purpose::STANDARD
+                                    .encode(format!("ok:{path}")),
+                            }
+                            .to_json(),
+                        ))
+                        .await
+                        .unwrap();
+                }
+            }
+        });
+
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let response = client
+            .get(format!("http://{base}/v2/bootstrap?name=session"))
+            .header(header::COOKIE, "device=dev-quota-http")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        let status: serde_json::Value = client
+            .get(format!("http://{base}/relay/status"))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let usage = status["usage"].as_array().unwrap();
+        assert!(
+            usage
+                .iter()
+                .any(|entry| entry[0] == "dev-quota-http" && entry[1].as_u64().unwrap_or(0) > 0),
+            "usage should include the device's relayed bytes"
+        );
+        relay_task.abort();
+    }
+
+    #[tokio::test]
+    async fn enforces_websocket_byte_quota() {
+        let base = spawn_relay_with(None, None, Some(20)).await;
+        let mut desktop = register_desktop(&base, "dev-quota-ws").await;
+        let desktop_task = tokio::spawn(async move {
+            loop {
+                let frame = RelayFrame::parse(&next_text(&mut desktop).await).unwrap();
+                if let RelayFrame::WsFrame {
+                    sid,
+                    payload,
+                    binary,
+                } = frame
+                {
+                    desktop
+                        .send(ClientMessage::Text(
+                            RelayFrame::WsFrame {
+                                sid,
+                                payload,
+                                binary,
+                            }
+                            .to_json(),
+                        ))
+                        .await
+                        .unwrap();
+                }
+            }
+        });
+
+        let mut mobile = connect_mobile_ws(&base, "dev-quota-ws").await;
+        mobile
+            .send(ClientMessage::Text("x".repeat(64).into()))
+            .await
+            .unwrap();
+        let reply = next_text(&mut mobile).await;
+        assert!(reply.contains("device_quota_exceeded"));
+        desktop_task.abort();
     }
 }
