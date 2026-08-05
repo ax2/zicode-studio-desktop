@@ -269,6 +269,10 @@
 - STUN/TURN 注入（第 136 轮）：桌面配置 `relayIceServers`（WebRTC
   `iceServers` 形状）经 `GET /v2/remote-config` 下发手机；`deploy-coturn.sh`
   输出桌面端配置位置说明；
+- TURN 凭据自动派生（第 145 轮）：桌面配置 `relayTurnUrl`/`relayTurnRealm`/
+  `relayTurnSecret` 后，`/v2/remote-config` 每次为手机自动签发 1 小时有效的
+  RFC 5389 auth-secret 凭据（HMAC-SHA1 + 无填充 base64，含 STUN 孪生条目），
+  不再需要手动粘贴静态凭据；
 - 互操作验证（第 141 轮）：`#[ignore]` 测试用真实浏览器（headless Chrome
   运行手机端 `P2pTransport` offerer）经本地信令桥直连桌面 webrtc-rs
   answerer，DataChannel ping/pong 往返通过——手机浏览器与桌面引擎的直接

@@ -2361,6 +2361,23 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 3. 结论：拿到真实 Authenticode 证书后，按脚本说明传入 PFX 即可完成签名，
    无需再调试流水线。
 
+第一百四十五轮：桌面端自动派生短期 TURN 凭据（2026-08-06）。消除部署中的
+手动凭据步骤：
+
+1. `remote_access_config.rs` 新增 `relayTurnUrl`/`relayTurnRealm`/
+   `relayTurnSecret`（缺省省略不落盘）；`derive_turn_credential` 实现
+   RFC 5389 auth-secret 方案（HMAC-SHA1 + 无填充 base64）；
+   `build_remote_ice_servers` 在配置完整时自动附加 STUN 孪生条目与**每次
+   请求全新签发的 1 小时有效 TURN 凭据**；
+2. `GET /v2/remote-config` 改用 `build_remote_ice_servers`，静态
+   `relayIceServers` 仍可回退；
+3. `deploy-coturn.sh` 输出改为推荐 `relayTurn*` 配置（并保留静态示例）；
+4. 验证：Rust 135 项全绿（新增 HMAC 已知向量、自动派生形状与 1 小时过期
+   断言、配置持久化/省略用例）；clippy `-D warnings` 零告警。
+
+遗留：服务器部署新版中继 + coturn + 监控（runbook 已更新）；真机二维码扫码；
+安装包签名（脚本已验证，待证书）。
+
 第一百三十九轮：P2P 有界重试与部署手册（2026-08-05）。收尾两项：
 
 1. `HostRuntimeAdapter` 的 P2P 失败改为有界自动重试（默认每 60 秒、最多
