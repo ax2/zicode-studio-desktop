@@ -2216,3 +2216,25 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 
 遗留：网关 `p2p_*` 帧路由与数据面切换；coturn 部署后公网打洞验收；服务器部署
 新版中继；二维码扫码验收、安装包签名流水线。
+
+第一百三十三轮：网关 P2P 接线（桌面侧数据面完成，第 133 轮）。把第 132 轮的
+桌面引擎接入 `/v2/ws`，M2 数据面在桌面侧闭环：
+
+1. `handle_websocket` 增加 P2P 会话状态：拦截
+   `p2p_offer`/`p2p_ice`/`p2p_close` 信令帧 → 首次 `p2p_offer` 创建
+   `P2pAnswerer`（桌面 answerer），回发 `p2p_answer`/`p2p_ice`；DataChannel
+   消息经 mpsc 重新进入运行时管线；
+2. 重构：原 WS 入站处理块提取为 `process_runtime_frame`（WS 与 DataChannel
+   共用路由/派发/订阅逻辑）；`send_runtime_frame` 按 P2P 连接状态选数据面
+   （已连接走 DataChannel，否则 WS）；运行时事件同样按数据面回发；
+3. 验证：网关级回环测试——真实 WebRTC offerer（模拟手机）经 WS 发送
+   `p2p_offer`，信令往返后 DataChannel 打开；`runtime_subscribe` 请求经 DC
+   到达主机并返回 `runtime_subscribed`（经 DC）；订阅后 `runtime_event` 也
+   经 DC 送达（1.15s）；
+4. 门禁：`check-rust.sh` 全绿——check all-targets、131 项主 crate 测试
+   （含桌面引擎回环 + 网关管线两条）、clippy `-D warnings`、fmt；移除
+   `p2p.rs` 的 `allow(dead_code)`（已接线）。
+
+遗留：移动端应用层数据面切换（P2P 连接后把 runtime 帧走 DataChannel、
+失败回退 WS）；coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、
+安装包签名流水线。
