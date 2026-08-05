@@ -10,6 +10,7 @@ mod host_server;
 mod metadata_store;
 mod native_pi_manager;
 mod notes_vault;
+mod p2p;
 mod pi_launch;
 mod pi_rpc_bridge;
 mod plugin_capabilities;

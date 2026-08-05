@@ -126,10 +126,9 @@ pub fn relay_status_base(relay_url: &str) -> Option<String> {
     let base = relay_url.trim_end_matches('/');
     if let Some(rest) = base.strip_prefix("wss://") {
         Some(format!("https://{rest}"))
-    } else if let Some(rest) = base.strip_prefix("ws://") {
-        Some(format!("http://{rest}"))
     } else {
-        None
+        base.strip_prefix("ws://")
+            .map(|rest| format!("http://{rest}"))
     }
 }
 
@@ -543,7 +542,7 @@ async fn session_task(
                         match responder.decrypt(&ciphertext) {
                             Ok(plaintext) => {
                                 let plaintext = String::from_utf8_lossy(&plaintext).into_owned();
-                                if sink.send(WsMessage::Text(plaintext.into())).await.is_err() {
+                                if sink.send(WsMessage::Text(plaintext)).await.is_err() {
                                     break;
                                 }
                             }
@@ -632,11 +631,7 @@ async fn execute_http(
     match request.send().await {
         Ok(response) => {
             let status = response.status().as_u16();
-            log::info!(
-                "[relay-agent] {method} {path} -> {status}",
-                method = method,
-                path = path
-            );
+            log::info!("[relay-agent] {method} {path} -> {status}");
             let response_headers: Vec<(String, String)> = response
                 .headers()
                 .iter()

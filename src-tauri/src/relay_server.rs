@@ -972,12 +972,12 @@ mod tests {
         session_cap: Option<usize>,
         byte_quota: Option<u64>,
     ) -> std::net::SocketAddr {
-        let mut relay_state = RelayState::default();
-        relay_state.registration_token = registration_token.map(str::to_owned);
-        if let Some(cap) = session_cap {
-            relay_state.session_cap_per_device = cap;
-        }
-        relay_state.byte_quota_per_device = byte_quota;
+        let relay_state = RelayState {
+            registration_token: registration_token.map(str::to_owned),
+            session_cap_per_device: session_cap.unwrap_or(SESSION_CAP_PER_DEVICE),
+            byte_quota_per_device: byte_quota,
+            ..Default::default()
+        };
         let state = Arc::new(Mutex::new(relay_state));
         let app = relay_router(state);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -997,9 +997,11 @@ mod tests {
         data_dir: Option<&FsPath>,
         byte_quota: Option<u64>,
     ) -> std::net::SocketAddr {
-        let mut relay_state = RelayState::default();
-        relay_state.byte_quota_per_device = byte_quota;
-        relay_state.data_dir = data_dir.map(FsPath::to_path_buf);
+        let relay_state = RelayState {
+            byte_quota_per_device: byte_quota,
+            data_dir: data_dir.map(FsPath::to_path_buf),
+            ..Default::default()
+        };
         let state = Arc::new(Mutex::new(relay_state));
         let app = relay_router(state);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1307,8 +1309,10 @@ mod tests {
 
     #[tokio::test]
     async fn rate_limits_registrations_per_source_ip() {
-        let mut relay_state = RelayState::default();
-        relay_state.registration_max_per_window = 3;
+        let relay_state = RelayState {
+            registration_max_per_window: 3,
+            ..Default::default()
+        };
         let state = Arc::new(Mutex::new(relay_state));
         let app = relay_router(state);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1426,7 +1430,7 @@ mod tests {
 
         let mut mobile = connect_mobile_ws(&base, "dev-quota-ws").await;
         mobile
-            .send(ClientMessage::Text("x".repeat(64).into()))
+            .send(ClientMessage::Text("x".repeat(64)))
             .await
             .unwrap();
         let reply = next_text(&mut mobile).await;
@@ -1436,8 +1440,10 @@ mod tests {
 
     #[test]
     fn resets_usage_at_the_start_of_a_new_day() {
-        let mut state = RelayState::default();
-        state.byte_quota_per_device = Some(500);
+        let mut state = RelayState {
+            byte_quota_per_device: Some(500),
+            ..Default::default()
+        };
         let now = unix_now();
         let yesterday = now - 86400;
         state.usage.insert(
@@ -1459,8 +1465,10 @@ mod tests {
     #[test]
     fn persists_and_reloads_daily_usage_across_restarts() {
         let dir = temp_dir_for_test();
-        let mut state = RelayState::default();
-        state.byte_quota_per_device = Some(100);
+        let mut state = RelayState {
+            byte_quota_per_device: Some(100),
+            ..Default::default()
+        };
         let now = unix_now();
         record_usage_at(&mut state, "dev-a", 40, now);
         record_usage_at(&mut state, "dev-b", 60, now);
@@ -1474,21 +1482,23 @@ mod tests {
         assert_eq!(loaded["dev-a"], 40);
         assert_eq!(loaded["dev-b"], 60);
 
-        let mut fresh = RelayState::default();
-        fresh.byte_quota_per_device = Some(100);
-        fresh.usage = loaded
-            .into_iter()
-            .map(|(device_id, bytes)| {
-                (
-                    device_id.clone(),
-                    DeviceUsage {
-                        bytes,
-                        updated_at: 0,
-                        day: loaded_day,
-                    },
-                )
-            })
-            .collect();
+        let mut fresh = RelayState {
+            byte_quota_per_device: Some(100),
+            usage: loaded
+                .into_iter()
+                .map(|(device_id, bytes)| {
+                    (
+                        device_id.clone(),
+                        DeviceUsage {
+                            bytes,
+                            updated_at: 0,
+                            day: loaded_day,
+                        },
+                    )
+                })
+                .collect(),
+            ..Default::default()
+        };
         assert!(record_usage_at(&mut fresh, "dev-a", 1, now));
         assert!(!record_usage_at(&mut fresh, "dev-a", 100, now));
         std::fs::remove_dir_all(&dir).unwrap();

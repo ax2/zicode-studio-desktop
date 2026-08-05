@@ -59,6 +59,8 @@ wasmtime = { version = "36.0.2", default-features = false, features = ["cranelif
 wasmtime-wasi = { version = "36.0.2", default-features = false, features = ["preview1"] }
 snow = "0.9"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
+bytes = "1"
+webrtc = "0.13"
 
 [profile.dev]
 incremental = true
