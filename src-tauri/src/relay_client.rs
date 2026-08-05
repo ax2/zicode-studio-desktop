@@ -91,6 +91,9 @@ pub struct RelayAgentConfig {
     pub status: RelayAgentStatus,
     /// M3 E2EE identity; `None` keeps the M1 transparent bridge.
     pub e2ee_identity: Option<crate::e2ee::E2eeIdentityRef>,
+    /// M4 registration secret for the rendezvous relay (must match the
+    /// server's `ZICODE_RELAY_REGISTRATION_TOKEN` when configured).
+    pub registration_token: Option<String>,
 }
 
 /// Live state of the desktop relay agent, shared with the Host so the
@@ -181,6 +184,7 @@ async fn run_once(config: &RelayAgentConfig) -> Result<(), String> {
             RelayFrame::Hello {
                 device_id: config.device_id.clone(),
                 kind: "desktop".into(),
+                registration_token: config.registration_token.clone(),
             }
             .to_json(),
         ))
@@ -274,6 +278,10 @@ async fn run_once(config: &RelayAgentConfig) -> Result<(), String> {
                             handle.handle.abort();
                         }
                         log::warn!("[relay-agent] session {sid} failed: {error}");
+                    }
+                    RelayFrame::RegistrationRejected { reason } => {
+                        log::error!("[relay-agent] relay registration rejected: {reason}");
+                        return Err(format!("relay registration rejected: {reason}"));
                     }
                     RelayFrame::Hello { .. }
                     | RelayFrame::Welcome { .. }

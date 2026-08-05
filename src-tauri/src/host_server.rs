@@ -9,9 +9,7 @@ use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunch
 use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
 use crate::plugin_package::SignedPluginPreview;
 use crate::plugin_registry::PluginRegistry;
-use crate::relay_client::{
-    page_origin_of, RelayAgentConfig, RelayAgentState, RelayAgentStatus,
-};
+use crate::relay_client::{page_origin_of, RelayAgentConfig, RelayAgentState, RelayAgentStatus};
 use crate::remote_auth::{PairingError, RemoteAuth};
 use crate::remote_tls::PreparedRemoteTlsListener;
 use crate::runtime_coordinator::{RuntimeStatus, RuntimeTarget};
@@ -669,6 +667,7 @@ fn prepare_relay_agent(
             page_origin: page_origin.clone(),
             status,
             e2ee_identity,
+            registration_token: config.relay_registration_token.clone(),
         },
         shutdown_rx,
     ));
@@ -848,7 +847,12 @@ async fn lan_qr(
     // 之后每次中继会话都执行 Noise_XK 握手（服务器无法替换桌面身份）。
     if let Some(identity) = state.remote_access.e2ee_identity.as_ref() {
         url.push_str("&ek=");
-        url.push_str(&identity.public_key_base64().replace('+', "%2B").replace('/', "%2F"));
+        url.push_str(
+            &identity
+                .public_key_base64()
+                .replace('+', "%2B")
+                .replace('/', "%2F"),
+        );
     }
     let data_url = qr_data_url(&url)?;
     Ok(Json(json!({

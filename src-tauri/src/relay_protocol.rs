@@ -8,9 +8,21 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RelayFrame {
     /// Desktop agent -> relay: register the desktop as reachable.
-    Hello { device_id: String, kind: String },
+    Hello {
+        device_id: String,
+        kind: String,
+        /// Optional shared registration secret (M4). The relay rejects the
+        /// registration when it is configured with a token and this does not
+        /// match. `None` keeps the pre-M4 open mode for development relays.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        registration_token: Option<String>,
+    },
     /// Relay -> desktop agent: registration acknowledged.
     Welcome { device_id: String },
+    /// Relay -> desktop agent: registration refused (bad token, malformed
+    /// device id, or rate limited). The desktop should stop retrying until
+    /// its configuration is fixed.
+    RegistrationRejected { reason: String },
     /// Relay -> desktop agent: a mobile wants a WebSocket session.
     SessionOpen { sid: String },
     /// Desktop agent -> relay: local gateway WebSocket is ready.
@@ -65,9 +77,13 @@ mod tests {
             RelayFrame::Hello {
                 device_id: "dev-1".into(),
                 kind: "desktop".into(),
+                registration_token: None,
             },
             RelayFrame::Welcome {
                 device_id: "dev-1".into(),
+            },
+            RelayFrame::RegistrationRejected {
+                reason: "bad token".into(),
             },
             RelayFrame::SessionOpen { sid: "s-1".into() },
             RelayFrame::SessionReady { sid: "s-1".into() },

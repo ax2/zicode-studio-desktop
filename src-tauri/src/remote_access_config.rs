@@ -30,6 +30,11 @@ pub struct RemoteAccessConfig {
     pub relay_url: Option<String>,
     #[serde(default)]
     pub relay_device_id: Option<String>,
+    /// M4: shared secret for the rendezvous relay's desktop registration.
+    /// Must match the server's `ZICODE_RELAY_REGISTRATION_TOKEN`. `None`
+    /// keeps compatibility with open (development) relays.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_registration_token: Option<String>,
 }
 
 impl Default for RemoteAccessConfig {
@@ -42,6 +47,7 @@ impl Default for RemoteAccessConfig {
             relay_enabled: false,
             relay_url: None,
             relay_device_id: None,
+            relay_registration_token: None,
         }
     }
 }
@@ -250,6 +256,7 @@ mod tests {
             relay_enabled: false,
             relay_url: None,
             relay_device_id: None,
+            relay_registration_token: None,
         };
         save_at(&path, &with_public).unwrap();
 
@@ -295,6 +302,7 @@ mod tests {
             relay_enabled: true,
             relay_url: Some("wss://relay.zicode.com/relay".into()),
             relay_device_id: Some("dev-1".into()),
+            relay_registration_token: Some("s3cret".into()),
         };
         save_at(&path, &with_relay).unwrap();
         assert_eq!(load_at(&path).unwrap(), with_relay);
@@ -307,5 +315,31 @@ mod tests {
         assert_eq!(normalize_ws_url(Some("".into())).unwrap(), None);
         assert!(normalize_ws_url(Some("https://x.com".into())).is_err());
         assert!(normalize_ws_url(Some("ws://a b".into())).is_err());
+    }
+
+    #[test]
+    fn persists_the_relay_registration_token_but_omits_it_when_absent() {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-remote-config-reg-token-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let path = root.join("remote-access/config.json");
+
+        let with_token = RemoteAccessConfig {
+            relay_enabled: true,
+            relay_registration_token: Some("s3cret".into()),
+            ..RemoteAccessConfig::default()
+        };
+        save_at(&path, &with_token).unwrap();
+        assert_eq!(load_at(&path).unwrap(), with_token);
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(raw.contains("relayRegistrationToken"));
+
+        let without = RemoteAccessConfig::default();
+        save_at(&path, &without).unwrap();
+        assert_eq!(load_at(&path).unwrap(), without);
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("relayRegistrationToken"));
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

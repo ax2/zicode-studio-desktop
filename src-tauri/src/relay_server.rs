@@ -12,14 +12,15 @@
 
 use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, State};
+use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::Router;
 use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
@@ -30,13 +31,39 @@ const MAX_RELAY_FRAME_BYTES: usize = 20 * 1024 * 1024;
 const HTTP_PROXY_TIMEOUT: Duration = Duration::from_secs(90);
 const COOKIE_NAME: &str = "device";
 const COOKIE_MAX_AGE: &str = "31536000";
+const REGISTRATION_WINDOW_SECONDS: u64 = 60;
+const REGISTRATION_MAX_PER_WINDOW: usize = 10;
+const SESSION_CAP_PER_DEVICE: usize = 16;
+const MAX_DEVICE_ID_LENGTH: usize = 128;
 
-#[derive(Default)]
 pub struct RelayState {
     desktops: HashMap<String, mpsc::UnboundedSender<RelayFrame>>,
     sessions: HashMap<String, Session>,
     http_pending: HashMap<u64, oneshot::Sender<HttpResponseData>>,
     next_rid: u64,
+    /// M4: expected registration secret. `None` keeps the pre-M4 open mode
+    /// (development only); when set, `/relay/desktop` registrations must
+    /// present the matching token.
+    pub registration_token: Option<String>,
+    /// Per-source-IP registration attempt timestamps for rate limiting.
+    registration_attempts: HashMap<IpAddr, VecDeque<u64>>,
+    pub registration_max_per_window: usize,
+    pub session_cap_per_device: usize,
+}
+
+impl Default for RelayState {
+    fn default() -> Self {
+        Self {
+            desktops: HashMap::new(),
+            sessions: HashMap::new(),
+            http_pending: HashMap::new(),
+            next_rid: 0,
+            registration_token: None,
+            registration_attempts: HashMap::new(),
+            registration_max_per_window: REGISTRATION_MAX_PER_WINDOW,
+            session_cap_per_device: SESSION_CAP_PER_DEVICE,
+        }
+    }
 }
 
 struct Session {
@@ -49,6 +76,14 @@ struct HttpResponseData {
     status: u16,
     headers: Vec<(String, String)>,
     body: String,
+}
+
+fn valid_device_id(device_id: &str) -> bool {
+    !device_id.is_empty()
+        && device_id.len() <= MAX_DEVICE_ID_LENGTH
+        && device_id.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '-' || character == '_'
+        })
 }
 
 pub fn relay_router(state: Arc<Mutex<RelayState>>) -> Router {
@@ -88,26 +123,71 @@ async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
-async fn desktop_ws(State(state): State<Arc<Mutex<RelayState>>>, ws: WebSocketUpgrade) -> Response {
+async fn desktop_ws(
+    State(state): State<Arc<Mutex<RelayState>>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    ws: WebSocketUpgrade,
+) -> Response {
     ws.max_message_size(MAX_RELAY_FRAME_BYTES)
-        .on_upgrade(move |socket| desktop_loop(state, socket))
+        .on_upgrade(move |socket| desktop_loop(state, socket, peer.ip()))
 }
 
-async fn desktop_loop(state: Arc<Mutex<RelayState>>, socket: WebSocket) {
+async fn desktop_loop(state: Arc<Mutex<RelayState>>, socket: WebSocket, peer_ip: IpAddr) {
     let (mut sink, mut stream) = socket.split();
-    let mut device_id = None;
+    let mut hello = None;
     while let Some(Ok(message)) = stream.next().await {
         let text = match message {
             Message::Text(text) => text.to_string(),
             Message::Close(_) => return,
             _ => continue,
         };
-        if let Ok(RelayFrame::Hello { device_id: id, .. }) = RelayFrame::parse(&text) {
-            device_id = Some(id);
+        if let Ok(RelayFrame::Hello {
+            device_id,
+            registration_token,
+            ..
+        }) = RelayFrame::parse(&text)
+        {
+            hello = Some((device_id, registration_token));
             break;
         }
     }
-    let Some(device_id) = device_id else { return };
+    let Some((device_id, registration_token)) = hello else {
+        return;
+    };
+
+    let rejection = {
+        let mut state = state.lock().expect("relay state poisoned");
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or_default();
+        let max_per_window = state.registration_max_per_window;
+        let attempts = state.registration_attempts.entry(peer_ip).or_default();
+        attempts.retain(|attempt| *attempt + REGISTRATION_WINDOW_SECONDS >= now);
+        let rate_limited = attempts.len() >= max_per_window;
+        attempts.push_back(now);
+        if rate_limited {
+            Some("registration rate limited".to_string())
+        } else if !valid_device_id(&device_id) {
+            Some("invalid device id".to_string())
+        } else if let Some(expected) = state.registration_token.as_deref() {
+            if registration_token.as_deref() != Some(expected) {
+                Some("registration token rejected".to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    if let Some(reason) = rejection {
+        let _ = sink
+            .send(Message::Text(
+                RelayFrame::RegistrationRejected { reason }.to_json().into(),
+            ))
+            .await;
+        return;
+    }
 
     let (frame_tx, mut frame_rx) = mpsc::unbounded_channel::<RelayFrame>();
     {
@@ -242,6 +322,22 @@ async fn mobile_ws(
     let Some(device_id) = device_from_cookie(&headers) else {
         return (StatusCode::BAD_REQUEST, "device cookie required").into_response();
     };
+    let over_session_cap = {
+        let state = state.lock().expect("relay state poisoned");
+        state
+            .sessions
+            .values()
+            .filter(|session| session.device_id == device_id)
+            .count()
+            >= state.session_cap_per_device
+    };
+    if over_session_cap {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            "device session limit reached",
+        )
+            .into_response();
+    }
     ws.max_message_size(MAX_RELAY_FRAME_BYTES)
         .on_upgrade(move |socket| mobile_loop(state, device_id, socket))
 }
@@ -552,12 +648,29 @@ mod tests {
     use tokio_tungstenite::MaybeTlsStream;
 
     async fn spawn_relay() -> std::net::SocketAddr {
-        let state = Arc::new(Mutex::new(RelayState::default()));
+        spawn_relay_with(None, None).await
+    }
+
+    async fn spawn_relay_with(
+        registration_token: Option<&str>,
+        session_cap: Option<usize>,
+    ) -> std::net::SocketAddr {
+        let mut relay_state = RelayState::default();
+        relay_state.registration_token = registration_token.map(str::to_owned);
+        if let Some(cap) = session_cap {
+            relay_state.session_cap_per_device = cap;
+        }
+        let state = Arc::new(Mutex::new(relay_state));
         let app = relay_router(state);
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
         tokio::spawn(async move {
-            axum::serve(listener, app).await.unwrap();
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .await
+            .unwrap();
         });
         address
     }
@@ -590,6 +703,7 @@ mod tests {
                 RelayFrame::Hello {
                     device_id: device_id.into(),
                     kind: "desktop".into(),
+                    registration_token: None,
                 }
                 .to_json(),
             ))
@@ -598,6 +712,48 @@ mod tests {
         let welcome = next_text(&mut socket).await;
         assert!(welcome.contains("\"type\":\"welcome\""));
         socket
+    }
+
+    async fn register_desktop_with_token(
+        base: &std::net::SocketAddr,
+        device_id: &str,
+        registration_token: Option<&str>,
+    ) -> tokio_tungstenite::WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>> {
+        let mut socket = connect_ws(&format!("ws://{base}/relay/desktop")).await;
+        socket
+            .send(ClientMessage::Text(
+                RelayFrame::Hello {
+                    device_id: device_id.into(),
+                    kind: "desktop".into(),
+                    registration_token: registration_token.map(str::to_owned),
+                }
+                .to_json(),
+            ))
+            .await
+            .unwrap();
+        let response = next_text(&mut socket).await;
+        assert!(response.contains("\"type\":\"welcome\""));
+        socket
+    }
+
+    async fn register_desktop_expect_rejected(
+        base: &std::net::SocketAddr,
+        device_id: &str,
+        registration_token: Option<&str>,
+    ) -> String {
+        let mut socket = connect_ws(&format!("ws://{base}/relay/desktop")).await;
+        socket
+            .send(ClientMessage::Text(
+                RelayFrame::Hello {
+                    device_id: device_id.into(),
+                    kind: "desktop".into(),
+                    registration_token: registration_token.map(str::to_owned),
+                }
+                .to_json(),
+            ))
+            .await
+            .unwrap();
+        next_text(&mut socket).await
     }
 
     async fn connect_mobile_ws(
@@ -766,5 +922,76 @@ mod tests {
             .to_str()
             .unwrap()
             .contains("device=dev-1"));
+    }
+
+    #[tokio::test]
+    async fn rejects_registrations_without_a_configured_token() {
+        let base = spawn_relay_with(Some("s3cret"), None).await;
+
+        let without = register_desktop_expect_rejected(&base, "dev-no-token", None).await;
+        assert!(without.contains("token rejected"));
+        let wrong = register_desktop_expect_rejected(&base, "dev-wrong", Some("nope")).await;
+        assert!(wrong.contains("token rejected"));
+
+        let _accepted = register_desktop_with_token(&base, "dev-ok", Some("s3cret")).await;
+    }
+
+    #[tokio::test]
+    async fn accepts_open_registration_when_no_token_is_configured() {
+        let base = spawn_relay().await;
+        let _desktop = register_desktop(&base, "dev-open").await;
+    }
+
+    #[tokio::test]
+    async fn rejects_malformed_device_ids() {
+        let base = spawn_relay().await;
+
+        let spaced = register_desktop_expect_rejected(&base, "bad id!", None).await;
+        assert!(spaced.contains("invalid device id"));
+        let empty = register_desktop_expect_rejected(&base, "", None).await;
+        assert!(empty.contains("invalid device id"));
+        let too_long =
+            register_desktop_expect_rejected(&base, &"d".repeat(MAX_DEVICE_ID_LENGTH + 1), None)
+                .await;
+        assert!(too_long.contains("invalid device id"));
+    }
+
+    #[tokio::test]
+    async fn rate_limits_registrations_per_source_ip() {
+        let mut relay_state = RelayState::default();
+        relay_state.registration_max_per_window = 3;
+        let state = Arc::new(Mutex::new(relay_state));
+        let app = relay_router(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+
+        for index in 0..3 {
+            let _desktop = register_desktop(&base, &format!("dev-rate-{index}")).await;
+        }
+        let response = register_desktop_expect_rejected(&base, "dev-rate-limited", None).await;
+        assert!(response.contains("rate limited"));
+    }
+
+    #[tokio::test]
+    async fn caps_concurrent_mobile_sessions_per_device() {
+        let base = spawn_relay_with(None, Some(2)).await;
+        let _desktop = register_desktop(&base, "dev-cap").await;
+        let _first = connect_mobile_ws(&base, "dev-cap").await;
+        let _second = connect_mobile_ws(&base, "dev-cap").await;
+
+        let mut request = format!("ws://{base}/v2/ws").into_client_request().unwrap();
+        request.headers_mut().insert(
+            header::COOKIE,
+            HeaderValue::from_str("device=dev-cap").unwrap(),
+        );
+        assert!(tokio_tungstenite::connect_async(request).await.is_err());
     }
 }
