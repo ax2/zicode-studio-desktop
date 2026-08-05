@@ -2276,6 +2276,22 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 扫码；安装包签名（脚本就绪，待证书）；release 重建建议在部署前执行（当前
 安装包为第 135 轮产物，落后 iceServers 注入一轮）。
 
+第一百三十八轮：release 第五次重建（含 STUN/TURN iceServers 注入，第 138
+轮）。让生产安装包与 main 完全同步：
+
+1. `bun run build` 重建：EXE 41,072,128 B（SHA-256 `EFC47CB4…`）、安装包
+   346,696,913 B（`01459423…`）、内置中继 1,801,728 B（`2742DF2C…`，
+   未变），完整哈希见 `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录与产物一致，`public/native/app.js` 含
+   `p2pEnabled` 与 `v2/remote-config` 拉取；从安装目录启动：网关 `/health`
+   200（pi 0.83.0、协议 v2）、公网中继注册 `dev-ax2-01`、日志无
+   ERROR/WARN/panic；
+3. 说明：当前安装包已包含第 126–136 轮全部生产功能（中继配额/持久化/监控、
+   用量历史 UI、M2 P2P 全链路、STUN/TURN 注入）；桌面快捷方式指向安装目录。
+
+遗留：服务器部署新版中继 + coturn + 监控；真机二维码扫码；安装包签名
+（脚本就绪，待证书）。
+
 第一百三十六轮：STUN/TURN iceServers 配置注入（第 136 轮）。补齐 M2 跨 NAT
 的最后一环——手机目前拿不到打洞服务器配置：
 

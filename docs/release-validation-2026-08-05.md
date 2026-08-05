@@ -9,8 +9,8 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 41,063,936 B | `83A2AE7EE5D5AC6819CDE3CC62C87E5DB6AE464715D339C1B91563BB71A0EDEE` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,712,888 B | `A0F6988EFA8B1037E6CA58B7159B38EF829565A767D74F29B0A19BDDBC3408AF` |
+| `target/release/zicode-studio-desktop.exe` | 41,072,128 B | `EFC47CB43B861CD588D26355D87E3B57239E78B0D440E8D08EFCFA0937D780C0` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,696,913 B | `014594231911527EE3B68818EAF2CAC53A9DA773689B6F55AA124EB866EAA843` |
 | `target/release/zicode-relay.exe`（内置中继） | 1,801,728 B | `2742DF2C132825F3B0EB0B022E5A5C3D4E8F6567462E22608CE8826D5E29F67B` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
@@ -72,6 +72,15 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、公网中继注册
     `dev-ax2-01`、启动后日志无 ERROR/WARN/panic；
   - 桌面快捷方式继续指向安装目录 release 版。
+
+## 第五次重建（2026-08-05，含 STUN/TURN iceServers 注入）
+
+- 在上一版基础上合入第 136 轮：`relayIceServers` 配置字段与
+  `GET /v2/remote-config` 端点、手机端启动时拉取并注入 WebRTC ICE 候选；
+- 验证：`/S` 静默重装后安装目录与产物一致（EXE 同尺寸、中继同哈希），
+  `public/native/app.js` 含 `p2pEnabled` 与 `v2/remote-config` 拉取；
+  从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2）、公网中继注册
+  `dev-ax2-01`、日志无 ERROR/WARN/panic；桌面快捷方式继续指向安装目录。
 
 ## 第四次重建（2026-08-05，含 M2 P2P 全链路）
 
