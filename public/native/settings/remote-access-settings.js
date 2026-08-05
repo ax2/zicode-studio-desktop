@@ -352,6 +352,16 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
       deviceIdRow.append(deviceIdLabel, deviceIdValue);
       relayFields.append(deviceIdRow);
     }
+    if (status.e2eeFingerprint) {
+      const e2eeRow = document.createElement("div");
+      e2eeRow.className = "remote-access-relay-device";
+      const e2eeLabel = document.createElement("span");
+      e2eeLabel.textContent = t("E2EE identity");
+      const e2eeValue = document.createElement("code");
+      e2eeValue.textContent = status.e2eeFingerprint;
+      e2eeRow.append(e2eeLabel, e2eeValue);
+      relayFields.append(e2eeRow);
+    }
 
     const relaySaveRow = document.createElement("div");
     relaySaveRow.className = "remote-access-relay-save";

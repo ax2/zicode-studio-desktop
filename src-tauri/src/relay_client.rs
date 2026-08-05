@@ -89,6 +89,8 @@ pub struct RelayAgentConfig {
     pub page_origin: String,
     /// Shared live connection state for the settings/status surface.
     pub status: RelayAgentStatus,
+    /// M3 E2EE identity; `None` keeps the M1 transparent bridge.
+    pub e2ee_identity: Option<crate::e2ee::E2eeIdentityRef>,
 }
 
 /// Live state of the desktop relay agent, shared with the Host so the
@@ -119,6 +121,13 @@ pub fn page_origin_of(url: &str) -> Option<String> {
 struct SessionHandle {
     tx: mpsc::UnboundedSender<WsMessage>,
     handle: tokio::task::JoinHandle<()>,
+}
+
+/// 会话桥接模式：M1 透明转发，或 Noise_XK 握手/密文转发。
+enum SessionMode {
+    Transparent,
+    Handshake(crate::e2ee::E2eeResponder),
+    Encrypted(crate::e2ee::E2eeResponder),
 }
 
 pub async fn run(config: RelayAgentConfig, mut shutdown: oneshot::Receiver<()>) {
@@ -343,22 +352,170 @@ async fn session_task(
     };
     let _ = outgoing.send(RelayFrame::SessionReady { sid: sid.clone() });
     let (mut sink, mut stream) = local_ws.split();
+
+    // 首帧决定会话模式：`e2ee_handshake` 进入 Noise_XK 密文桥接，其余保持
+    // M1 透明转发。握手期间本地网关保持静默，直到手机把加密后的 hello 发来。
+    let mut mode = match local_rx.recv().await {
+        Some(message) => match &message {
+            WsMessage::Text(text) => match crate::e2ee::parse_handshake_frame(text) {
+                Some(handshake) => {
+                    let Some(identity) = config.e2ee_identity.clone() else {
+                        let _ = outgoing.send(RelayFrame::SessionError {
+                            sid,
+                            error: "E2EE is not enabled on this desktop".to_string(),
+                        });
+                        return;
+                    };
+                    let mut responder = match crate::e2ee::E2eeResponder::new(&identity) {
+                        Ok(responder) => responder,
+                        Err(error) => {
+                            let _ = outgoing.send(RelayFrame::SessionError {
+                                sid,
+                                error: format!("e2ee: {error}"),
+                            });
+                            return;
+                        }
+                    };
+                    match responder.accept(&handshake) {
+                        Ok(Some(response)) => {
+                            let _ = outgoing.send(RelayFrame::WsFrame {
+                                sid: sid.clone(),
+                                payload: crate::e2ee::handshake_frame(&response),
+                                binary: false,
+                            });
+                            SessionMode::Handshake(responder)
+                        }
+                        Ok(None) => SessionMode::Encrypted(responder),
+                        Err(error) => {
+                            let _ = outgoing.send(RelayFrame::SessionError {
+                                sid,
+                                error: format!("e2ee: {error}"),
+                            });
+                            return;
+                        }
+                    }
+                }
+                None => {
+                    // M1：首帧（hello）原样转发给本地网关。
+                    if sink.send(message).await.is_err() {
+                        return;
+                    }
+                    SessionMode::Transparent
+                }
+            },
+            _ => {
+                if sink.send(message).await.is_err() {
+                    return;
+                }
+                SessionMode::Transparent
+            }
+        },
+        None => return,
+    };
+
     loop {
         tokio::select! {
             incoming = local_rx.recv() => {
                 let Some(message) = incoming else { break };
-                if sink.send(message).await.is_err() {
-                    break;
+                match mode {
+                    SessionMode::Transparent => {
+                        if sink.send(message).await.is_err() {
+                            break;
+                        }
+                    }
+                    SessionMode::Handshake(ref mut responder) => {
+                        let WsMessage::Text(text) = message else { break };
+                        let Some(handshake) = crate::e2ee::parse_handshake_frame(&text) else {
+                            let _ = outgoing.send(RelayFrame::SessionError {
+                                sid: sid.clone(),
+                                error: "e2ee: expected a handshake message".to_string(),
+                            });
+                            break;
+                        };
+                        match responder.accept(&handshake) {
+                            Ok(Some(response)) => {
+                                let _ = outgoing.send(RelayFrame::WsFrame {
+                                    sid: sid.clone(),
+                                    payload: crate::e2ee::handshake_frame(&response),
+                                    binary: false,
+                                });
+                            }
+                            Ok(None) => {
+                                let responder = match std::mem::replace(
+                                    &mut mode,
+                                    SessionMode::Transparent,
+                                ) {
+                                    SessionMode::Handshake(responder) => responder,
+                                    _ => unreachable!("mode was just matched as Handshake"),
+                                };
+                                mode = SessionMode::Encrypted(responder);
+                            }
+                            Err(error) => {
+                                let _ = outgoing.send(RelayFrame::SessionError {
+                                    sid: sid.clone(),
+                                    error: format!("e2ee: {error}"),
+                                });
+                                break;
+                            }
+                        }
+                    }
+                    SessionMode::Encrypted(ref mut responder) => {
+                        let WsMessage::Text(text) = message else { break };
+                        let Some(ciphertext) = crate::e2ee::parse_e2ee_frame(&text) else {
+                            let _ = outgoing.send(RelayFrame::SessionError {
+                                sid: sid.clone(),
+                                error: "e2ee: expected an encrypted frame".to_string(),
+                            });
+                            break;
+                        };
+                        match responder.decrypt(&ciphertext) {
+                            Ok(plaintext) => {
+                                let plaintext = String::from_utf8_lossy(&plaintext).into_owned();
+                                if sink.send(WsMessage::Text(plaintext.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Err(error) => {
+                                let _ = outgoing.send(RelayFrame::SessionError {
+                                    sid: sid.clone(),
+                                    error: format!("e2ee: {error}"),
+                                });
+                                break;
+                            }
+                        }
+                    }
                 }
             }
             message = stream.next() => {
                 match message {
                     Some(Ok(WsMessage::Text(text))) => {
-                        let _ = outgoing.send(RelayFrame::WsFrame {
-                            sid: sid.clone(),
-                            payload: text,
-                            binary: false,
-                        });
+                        match mode {
+                            SessionMode::Transparent | SessionMode::Handshake(_) => {
+                                let _ = outgoing.send(RelayFrame::WsFrame {
+                                    sid: sid.clone(),
+                                    payload: text,
+                                    binary: false,
+                                });
+                            }
+                            SessionMode::Encrypted(ref mut responder) => {
+                                match responder.encrypt(text.as_bytes()) {
+                                    Ok(ciphertext) => {
+                                        let _ = outgoing.send(RelayFrame::WsFrame {
+                                            sid: sid.clone(),
+                                            payload: crate::e2ee::e2ee_frame(&ciphertext),
+                                            binary: false,
+                                        });
+                                    }
+                                    Err(error) => {
+                                        let _ = outgoing.send(RelayFrame::SessionError {
+                                            sid: sid.clone(),
+                                            error: format!("e2ee: {error}"),
+                                        });
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                     Some(Ok(WsMessage::Binary(bytes))) => {
                         let _ = outgoing.send(RelayFrame::WsFrame {

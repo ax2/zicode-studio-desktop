@@ -69,6 +69,7 @@ struct RemoteAccessRuntime {
     ca_certificate_pem: String,
     ca_fingerprint: String,
     relay_status: RelayAgentStatus,
+    e2ee_identity: Option<crate::e2ee::E2eeIdentityRef>,
 }
 
 struct HostState {
@@ -190,6 +191,15 @@ impl HostServer {
         let capability_broker = CapabilityBroker::new(plugin_root)
             .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?;
         let relay_status: RelayAgentStatus = Arc::new(Mutex::new(RelayAgentState::default()));
+        let e2ee_identity = match crate::e2ee::E2eeIdentity::load_or_create() {
+            Ok(identity) => Some(Arc::new(identity)),
+            Err(error) => {
+                log::warn!(
+                    "[e2ee] E2EE identity unavailable; relay sessions stay in M1 mode: {error}"
+                );
+                None
+            }
+        };
         let remote_access = prepared_remote
             .as_ref()
             .map(|prepared| RemoteAccessRuntime {
@@ -199,9 +209,11 @@ impl HostServer {
                 ca_certificate_pem: prepared.ca_certificate_pem.clone(),
                 ca_fingerprint: prepared.ca_fingerprint.clone(),
                 relay_status: relay_status.clone(),
+                e2ee_identity: e2ee_identity.clone(),
             })
             .unwrap_or_default();
-        let relay_shutdown = prepare_relay_agent(prepared_remote.as_ref(), relay_status)?;
+        let relay_shutdown =
+            prepare_relay_agent(prepared_remote.as_ref(), relay_status, e2ee_identity)?;
         let state = Arc::new(HostState {
             router: Mutex::new(HostRouter::new()),
             runtimes,
@@ -616,6 +628,7 @@ fn configured_remote_access_enabled() -> Result<bool, String> {
 fn prepare_relay_agent(
     prepared: Option<&PreparedRemoteTlsListener>,
     status: RelayAgentStatus,
+    e2ee_identity: Option<crate::e2ee::E2eeIdentityRef>,
 ) -> Result<Option<oneshot::Sender<()>>, String> {
     let Some(prepared) = prepared else {
         return Ok(None);
@@ -655,6 +668,7 @@ fn prepare_relay_agent(
             gateway_origin,
             page_origin: page_origin.clone(),
             status,
+            e2ee_identity,
         },
         shutdown_rx,
     ));
@@ -698,6 +712,16 @@ fn remote_access_status_payload(
         "relayConnected": relay.connected,
         "relayConnectedAt": relay.connected_at,
         "relayLastError": relay.last_error,
+        "e2eePublicKey": state
+            .remote_access
+            .e2ee_identity
+            .as_ref()
+            .map(|identity| identity.public_key_base64()),
+        "e2eeFingerprint": state
+            .remote_access
+            .e2ee_identity
+            .as_ref()
+            .map(|identity| identity.fingerprint()),
     })
 }
 

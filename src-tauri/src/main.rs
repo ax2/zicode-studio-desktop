@@ -3,6 +3,7 @@
 mod app_paths;
 mod artifact_store;
 mod credential_broker;
+mod e2ee;
 mod host_data;
 mod host_router;
 mod host_server;

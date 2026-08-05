@@ -57,6 +57,8 @@ tower-http = { version = "0.6", features = ["fs", "set-header"] }
 keyring = { version = "4.1.5", features = ["v1"] }
 wasmtime = { version = "36.0.2", default-features = false, features = ["cranelift", "runtime", "std", "wat"] }
 wasmtime-wasi = { version = "36.0.2", default-features = false, features = ["preview1"] }
+snow = "0.9"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
 
 [profile.dev]
 incremental = true

@@ -234,6 +234,7 @@ const zhCN = {
     "桌面与手机都主动连接会合服务器，本机无需开放入站端口或隧道；在安全移动访问开启时生效。",
   "Relay server address": "中继服务器地址",
   "Device ID": "设备 ID",
+  "E2EE identity": "端到端加密身份",
   "Relay connected": "中继已连接",
   "Relay connecting…": "中继连接中…",
   "Relay disconnected": "中继未连接",
