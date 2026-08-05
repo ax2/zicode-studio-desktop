@@ -2259,6 +2259,23 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 遗留：coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、安装包
 签名流水线。
 
+第一百三十七轮：部署易用性收尾（2026-08-05）。把服务器/签名两个外部事项的
+前置工具补齐：
+
+1. `deploy-coturn.sh` 现在会用 openssl 从 auth-secret 派生 1 小时有效的
+   短期 TURN 凭据，直接打印可粘贴到桌面 `remote-access/config.json` 的
+   `relayIceServers` JSON 与 `turnutils_uclient` 验证命令（凭据不落库）；
+2. 新增 `scripts/sign-release.ps1`：Windows Authenticode 签名流水线
+   （signtool，SHA-256 + RFC3161 时间戳，PFX 密码走环境变量
+   `ZICODE_SIGN_PASSWORD`，证书与密码不入仓）——拿到签名证书即可执行；
+3. 帮助文档（中/英）新增"直连（P2P）与中继"说明：同局域网或可打洞网络自动
+   直连、失败回退中继、`relayIceServers` 配置路径；
+4. 验证：bash 与 PowerShell 语法检查通过；帮助中心测试 4 项通过。
+
+遗留：服务器部署新版中继 + coturn + 监控（凭据与配置说明已就绪）；真机二维码
+扫码；安装包签名（脚本就绪，待证书）；release 重建建议在部署前执行（当前
+安装包为第 135 轮产物，落后 iceServers 注入一轮）。
+
 第一百三十六轮：STUN/TURN iceServers 配置注入（第 136 轮）。补齐 M2 跨 NAT
 的最后一环——手机目前拿不到打洞服务器配置：
 

@@ -63,10 +63,13 @@ echo "==> coturn deployed: realm=${REALM}, external-ip=${EXTERNAL_IP}, auth-secr
 if [ "$GENERATED" = "1" ]; then
   echo "    generated TURN secret (store securely, keep out of the repo): ${TURN_SECRET}"
 fi
-echo "    iceServers for the desktop config:"
-echo "      [{urls:'stun:${REALM}:3478'},{urls:'turn:${REALM}:3478?transport=udp',username:'<unix-ts>:<name>',credential:'<hmac>'}]"
-echo "    paste that array into <data_root>/remote-access/config.json as"
-echo "      \"relayIceServers\": [...]"
-echo "    (the desktop serves it to the phone via GET /v2/remote-config;"
-echo "     TURN credentials should be short-lived, derived from the secret)"
-echo "    verify: turnutils_uclient -u '<unix-ts>:<name>' -w '<hmac>' ${REALM}"
+if command -v openssl >/dev/null 2>&1; then
+  TURN_USER="$(date -u -d '+1 hour' +%s):zicode-desktop"
+  TURN_CRED="$(printf '%s' "$TURN_USER" | openssl dgst -sha1 -hmac "$TURN_SECRET" -binary | base64 | tr -d '=')"
+  echo "    ready-to-paste relayIceServers for <data_root>/remote-access/config.json (valid ~1h):"
+  echo "      [{\"urls\":[\"stun:${REALM}:3478\"]},{\"urls\":[\"turn:${REALM}:3478?transport=udp\"],\"username\":\"${TURN_USER}\",\"credential\":\"${TURN_CRED}\"}]"
+  echo "    the desktop serves it to the phone via GET /v2/remote-config;"
+  echo "    verify: turnutils_uclient -u '${TURN_USER}' -w '${TURN_CRED}' ${REALM}"
+else
+  echo "    (openssl not found: derive short-lived TURN credentials manually from the auth-secret)"
+fi

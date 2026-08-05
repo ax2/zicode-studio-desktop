@@ -276,6 +276,16 @@ sheet and restores focus to **Attach image** instead of leaving the current chat
 large image, wait for **Preparing image** to disappear and for the preview to appear; Send becomes
 available automatically when the photo is ready.
 
+## Direct connection (P2P) and relay
+
+The current mobile client automatically negotiates an end-to-end WebRTC connection (P2P) with the
+desktop: on the same LAN or across hole-punchable NAT, chat traffic flows directly between the two
+devices instead of through the relay; when hole punching fails it silently falls back to the relay
+channel with no manual switching. The relay still carries pairing signaling and the fallback path,
+and it never sees the desktop's session content. If your server runs STUN/TURN (coturn), paste the
+`relayIceServers` array printed by the deployment script into the desktop's
+`remote-access/config.json` so the phone receives public hole-punching candidates.
+
 ## Security guidance
 
 - Enable remote access only on a network you control or trust.
