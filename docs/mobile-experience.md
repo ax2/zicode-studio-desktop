@@ -2171,3 +2171,25 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 
 遗留：服务器部署新版中继后设置面板显示真实流量与历史；多节点、M2 P2P 直连、
 二维码扫码验收、安装包签名流水线。
+
+第一百三十一轮：M2 P2P 信令协议与移动端传输模块第一步（2026-08-05）。把
+未启动的 M2 P2P 直连从零推进到可落地状态：
+
+1. 信令协议：复用现有认证后的运行时 WebSocket 会话传输
+   `p2p_offer` / `p2p_answer` / `p2p_ice` / `p2p_close` 帧（中继保持纯
+   传输、桌面仍为认证权威；有序通道保证 offer 先于候选到达）；
+2. `public/native/transport/p2p.js`：移动端 WebRTC DataChannel 传输模块
+   ——手机为 offerer、桌面为 answerer；trickle ICE（本地候选在远端描述
+   就绪前缓冲、远端候选在 offer 前到达也缓冲）；可配置 STUN/TURN
+   iceServers；协商超时（默认 15s）上报 `failed` 供调用方回退 M1 中继帧；
+   DataChannel 由 DTLS 加密，桌面即对端，无需额外应用层加密（与 M3
+   服务器不可信场景不同）；
+3. 验证：11 项单测全绿（offer/answer、候选缓冲与冲刷、超时失败、发送
+   守卫、关闭、帧类型识别）；并用 headless Chrome 真实 `RTCPeerConnection`
+   完成两端协商与 DataChannel ping/pong 回环，`P2P LOOPBACK: PASS`；
+4. 服务器：`scripts/relay/deploy-coturn.sh` 一键部署 coturn（auth-secret
+   长时凭据，桌面派生短期 TURN 凭据经信令通道下发给手机，secret 不落库）。
+
+遗留：桌面侧 WebRTC 对端（webrtc-rs）与网关 `p2p_*` 帧路由、应用层 P2P/M1
+切换、coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码验收、安装包
+签名流水线。

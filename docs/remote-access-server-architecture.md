@@ -242,6 +242,25 @@
 - coturn + SDP/ICE 协商；P2P 成功则不占中转带宽；
 - 验收：打洞成功率、中转流量占比报表。
 
+**M2 实施状态（2026-08-05，信令协议与移动端传输模块第一步）**：
+
+- 信令协议：复用现有认证后的运行时 WebSocket 会话传输
+  `p2p_offer` / `p2p_answer` / `p2p_ice` / `p2p_close` 帧（中继保持纯
+  传输、桌面仍为认证权威；有序通道保证 offer 先于候选到达）；
+- 移动端 `public/native/transport/p2p.js`：WebRTC DataChannel 传输模块
+  （手机为 offerer、桌面为 answerer），支持 trickle ICE（本地候选在远端
+  描述就绪前缓冲）、可配置 STUN/TURN、协商超时后上报 `failed` 供调用方
+  回退 M1 中继帧；DataChannel 由 DTLS 加密，桌面即对端，无需额外应用层
+  加密；
+- 验证：11 项单测全绿（协商、候选缓冲/冲刷、超时、发送、关闭），并在
+  headless Chrome 用真实 `RTCPeerConnection` 完成 offer/answer/ICE 协商
+  与 DataChannel ping/pong 回环（PASS）；
+- 服务器：`scripts/relay/deploy-coturn.sh` 一键部署 coturn（auth-secret
+  长时凭据机制，桌面派生短期 TURN 凭据经信令通道下发给手机，secret 不落
+  库不入仓）；
+- 待办：桌面侧 WebRTC 对端（webrtc-rs）与网关 `p2p_*` 帧路由、应用层在
+  P2P 与 M1 帧之间切换、coturn 部署后公网打洞验收。
+
 ### M3 端到端加密
 
 - 数据面加密（WebRTC DTLS 或 Noise）；服务器零知识；
