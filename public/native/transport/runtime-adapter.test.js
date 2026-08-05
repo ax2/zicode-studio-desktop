@@ -1,4 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  bytesToBase64,
+  e2eeFrame,
+  generateX25519KeyPair,
+  handshakeFrame,
+  NoiseXkResponder,
+  parseE2eeFrame,
+  parseHandshakeFrame,
+  utf8Bytes,
+} from "./e2ee.js";
 import { HostRuntimeAdapter } from "./runtime-adapter.js";
 import { RuntimeGateway } from "./runtime-gateway.js";
 
@@ -191,9 +201,7 @@ describe("HostRuntimeAdapter", () => {
         error: { code: "desktop_offline", message: "ZiCode Studio Desktop is offline" },
       });
 
-      expect(fatal).toHaveBeenCalledWith(
-        expect.objectContaining({ code: "desktop_offline" }),
-      );
+      expect(fatal).toHaveBeenCalledWith(expect.objectContaining({ code: "desktop_offline" }));
       await vi.advanceTimersByTimeAsync(100);
       expect(FakeWebSocket.instances).toHaveLength(1);
     } finally {
@@ -281,5 +289,71 @@ describe("HostRuntimeAdapter", () => {
 
     expect(adapter.reconnectNow()).toBe(false);
     expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it("performs the E2EE handshake and exchanges encrypted frames", async () => {
+    FakeWebSocket.instances.length = 0;
+    const desktopKey = generateX25519KeyPair();
+    const adapter = new HostRuntimeAdapter({
+      url: "wss://host/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientType: "remote",
+      clientId: "phone",
+      deviceToken: "device-secret",
+      e2eePublicKey: bytesToBase64(desktopKey.publicKey),
+    });
+    const gateway = new RuntimeGateway(adapter);
+    const events = [];
+    gateway.subscribe((event) => events.push(event));
+    adapter.connect();
+
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+
+    // 第一帧必须是 e2ee_handshake，而不是明文 hello。
+    const firstFrame = JSON.stringify(socket.sent[0]);
+    expect(socket.sent[0].type).toBe("e2ee_handshake");
+    const responder = new NoiseXkResponder(desktopKey);
+    const second = responder.accept(parseHandshakeFrame(firstFrame));
+    socket.receive(JSON.parse(handshakeFrame(second)));
+
+    // 第三帧仍是握手；随后 adapter 立即发送加密 hello（中继按序转发）。
+    const thirdFrame = JSON.stringify(socket.sent[1]);
+    expect(socket.sent[1].type).toBe("e2ee_handshake");
+    responder.finish(parseHandshakeFrame(thirdFrame));
+
+    const helloFrame = JSON.stringify(socket.sent[2]);
+    expect(socket.sent[2].type).toBe("e2ee_frame");
+    const helloPlaintext = new TextDecoder().decode(responder.decrypt(parseE2eeFrame(helloFrame)));
+    expect(JSON.parse(helloPlaintext)).toMatchObject({
+      type: "hello",
+      clientType: "remote",
+      deviceToken: "device-secret",
+    });
+
+    // 桌面回包也是密文。
+    socket.receive(
+      JSON.parse(
+        e2eeFrame(
+          responder.encrypt(utf8Bytes(JSON.stringify({ type: "hello_ack", protocolVersion: 2 }))),
+        ),
+      ),
+    );
+    await vi.waitFor(() => expect(adapter.isConnected()).toBe(true));
+
+    // 会话消息双向都走密文帧。
+    adapter.subscribeTarget(target);
+    const subscribeFrame = JSON.stringify(socket.sent.at(-1));
+    const subscribePlaintext = new TextDecoder().decode(
+      responder.decrypt(parseE2eeFrame(subscribeFrame)),
+    );
+    expect(JSON.parse(subscribePlaintext)).toMatchObject({ type: "runtime_subscribe" });
+
+    socket.receive(
+      JSON.parse(
+        e2eeFrame(responder.encrypt(utf8Bytes(JSON.stringify({ type: "runtime_event" })))),
+      ),
+    );
+    await vi.waitFor(() => expect(events).toContainEqual({ type: "runtime_event" }));
   });
 });

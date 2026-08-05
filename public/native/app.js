@@ -33,7 +33,11 @@ import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
 import { setupMobileExperience } from "./features/mobile-experience.js";
 import { setupMobileSendLater } from "./features/mobile-send-later.js";
 import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
-import { createAuthenticatedHostFetch, resolveRemoteAuth } from "./features/remote-auth.js";
+import {
+  createAuthenticatedHostFetch,
+  remoteE2eePublicKey,
+  resolveRemoteAuth,
+} from "./features/remote-auth.js";
 import {
   isRpivTodoCommandNotify,
   isRpivTodoWidgetRequest,
@@ -41,12 +45,12 @@ import {
 } from "./features/rpiv-todo-mirror.js";
 import { setupSceneIndicator } from "./features/scene-indicator.js";
 import { renderStartupFailure } from "./features/startup-failure.js";
-import { createNotificationCenter } from "./notifications/notification-center.js";
 import {
   estimateRequestCost,
   findLowestCostModel,
   formatModelPricing,
 } from "./models/model-routing.js";
+import { createNotificationCenter } from "./notifications/notification-center.js";
 import { setupArtifactApp } from "./plugins/artifact-app.js";
 import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { setupAutomationApp } from "./plugins/automation-app.js";
@@ -79,8 +83,8 @@ import {
   signalConfigGatewayReady,
 } from "./transport/config-gateway-readiness.js";
 import { HostControlGateway } from "./transport/control-gateway.js";
-import { RemoteAccessGateway } from "./transport/remote-access-gateway.js";
 import { HostDataGateway } from "./transport/data-gateway.js";
+import { RemoteAccessGateway } from "./transport/remote-access-gateway.js";
 import { HostRuntimeAdapter, resolveHostWebSocketUrl } from "./transport/runtime-adapter.js";
 import { RuntimeGateway } from "./transport/runtime-gateway.js";
 import { setupAppKeyboardShortcuts } from "./utils/keyboard-shortcuts.js";
@@ -229,6 +233,7 @@ const adapter = new HostRuntimeAdapter({
   clientId: `${remoteAuth.clientType}-${randomId()}`,
   clientType: remoteAuth.clientType,
   deviceToken: remoteAuth.deviceToken,
+  e2eePublicKey: remoteAuth.clientType === "remote" ? remoteE2eePublicKey() : undefined,
 });
 const mobileExperience = setupMobileExperience({ adapter, clientType: remoteAuth.clientType });
 adapter.setFatalErrorListener((error) => renderStartupFailure(error));
@@ -635,7 +640,9 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
       .map((note) => `notes_get(notebookId=${note.notebookId}, noteId=${note.noteId})`)
       .join("、");
     input.value = [
-      compare ? "请比较以下笔记，指出冲突、时间差异、来源差异和可验证结论。" : "请综合以下上下文包继续分析。",
+      compare
+        ? "请比较以下笔记，指出冲突、时间差异、来源差异和可验证结论。"
+        : "请综合以下上下文包继续分析。",
       `请先分别调用 ${instructions}，不要依赖过期聊天上下文。`,
       references,
       "",
@@ -662,9 +669,9 @@ const automationApp = setupAutomationApp({
   notify: notifications.notify,
 });
 pluginShell = setupPluginShell({
-    registry: pluginRegistry,
-    capabilityGateway: pluginCapabilityGateway,
-    commandGateway: pluginHostGateway,
+  registry: pluginRegistry,
+  capabilityGateway: pluginCapabilityGateway,
+  commandGateway: pluginHostGateway,
   getTarget: () => target,
   openSettings: (tab = "general") => settingsPanel?.openSettings(tab),
   openHelp: () => helpCenter?.open(),
@@ -732,7 +739,12 @@ messagesElement.addEventListener("savechattonotes", async (event) => {
   }
 });
 setupAppUpdater({ settingsPanel });
-setupNewSessionButton({ data, workspaceId: target.workspaceId, onError: showError, fetchImpl: hostFetch });
+setupNewSessionButton({
+  data,
+  workspaceId: target.workspaceId,
+  onError: showError,
+  fetchImpl: hostFetch,
+});
 setupOpenFolderButton({ onError: showError });
 setupLanQr({ control });
 setupAppKeyboardShortcuts({
@@ -958,7 +970,11 @@ async function switchSession(sessionId, { updateHistory = true } = {}) {
         [PLUGIN_HISTORY_STATE_KEY]: pluginShell?.getActivePluginId() || "core.chat",
       },
       "",
-      appRoutePath({ name: "session", workspaceId: target.workspaceId, sessionId: target.sessionId }),
+      appRoutePath({
+        name: "session",
+        workspaceId: target.workspaceId,
+        sessionId: target.sessionId,
+      }),
     );
   }
   // Authoritative re-check: whatever the caller passed to
@@ -1211,9 +1227,7 @@ function setupFileBrowser() {
   // On the mobile shell the right file panel is an off-canvas drawer toggled
   // from the activity bar; start it collapsed so it never covers the chat.
   if (
-    window.matchMedia?.(
-      "(max-width: 768px), (max-height: 520px) and (pointer: coarse)",
-    )?.matches
+    window.matchMedia?.("(max-width: 768px), (max-height: 520px) and (pointer: coarse)")?.matches
   ) {
     sidebar.classList.add("collapsed");
   }

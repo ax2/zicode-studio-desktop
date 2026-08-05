@@ -3,6 +3,8 @@ import { randomId } from "../utils/random-id.js";
 const DEVICE_ID_KEY = "picot-remote-device-id";
 const DEVICE_TOKEN_KEY = "picot-remote-device-token";
 const PAIRING_QUERY_KEY = "pairingToken";
+const E2EE_KEY_QUERY_KEY = "ek";
+const E2EE_KEY_STORAGE = "picot-remote-e2ee-key";
 
 function remoteAuthError(code, message) {
   const error = new Error(message);
@@ -32,6 +34,26 @@ export function remoteDeviceName(navigatorRef = globalThis.navigator) {
   return typeof platform === "string" && platform.trim() ? platform.trim() : "Mobile device";
 }
 
+/**
+ * 手机在配对链接/二维码中带外获得桌面 E2EE 静态公钥（base64，32 字节），
+ * 与设备令牌一起持久化固定。之后每次连接中继都以此公钥执行 Noise_XK
+ * 握手，防止被中继中间人替换桌面身份。
+ */
+export function remoteE2eePublicKey(storage = globalThis.localStorage) {
+  return storage.getItem(E2EE_KEY_STORAGE) || "";
+}
+
+function storePinnedE2eeKey(storage, value) {
+  if (!value) return;
+  try {
+    const decoded = atob(value);
+    if (decoded.length !== 32) return;
+    storage.setItem(E2EE_KEY_STORAGE, value);
+  } catch {
+    // 非法 base64 视为未携带公钥，保持 M1。
+  }
+}
+
 export async function resolveRemoteAuth({
   location = globalThis.location,
   history = globalThis.history,
@@ -41,9 +63,14 @@ export async function resolveRemoteAuth({
 } = {}) {
   const url = new URL(location.href);
   const pairingToken = url.searchParams.get(PAIRING_QUERY_KEY);
-  if (pairingToken) {
+  const e2eeKey = url.searchParams.get(E2EE_KEY_QUERY_KEY);
+  if (pairingToken || e2eeKey) {
     url.searchParams.delete(PAIRING_QUERY_KEY);
+    url.searchParams.delete(E2EE_KEY_QUERY_KEY);
     history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    if (e2eeKey) storePinnedE2eeKey(storage, e2eeKey);
+  }
+  if (pairingToken) {
     const response = await fetchImpl("/v2/auth/exchange", {
       method: "POST",
       headers: { "content-type": "application/json" },

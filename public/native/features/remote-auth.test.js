@@ -4,6 +4,7 @@ import {
   isLoopbackHost,
   remoteDeviceId,
   remoteDeviceName,
+  remoteE2eePublicKey,
   resolveRemoteAuth,
 } from "./remote-auth.js";
 
@@ -95,6 +96,48 @@ describe("remote auth", () => {
       }),
     ).rejects.toMatchObject({ code: "pairing_rejected" });
     expect(replaceState).toHaveBeenCalledWith(null, "", "/app/workspaces/a/sessions/b#hash");
+  });
+
+  it("pins the desktop E2EE public key from the pairing link", async () => {
+    const localStorage = storage();
+    const e2eeKey = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index)));
+    const replaceState = vi.fn();
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ deviceToken: "picot-device-token" }),
+    }));
+
+    await resolveRemoteAuth({
+      location: {
+        href: `http://192.168.1.10:9000/app/?pairingToken=pair-1&ek=${encodeURIComponent(e2eeKey)}`,
+      },
+      history: { replaceState },
+      storage: localStorage,
+      fetchImpl,
+    });
+
+    expect(remoteE2eePublicKey(localStorage)).toBe(e2eeKey);
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/app/");
+  });
+
+  it("ignores a malformed E2EE public key from the pairing link", async () => {
+    const localStorage = storage();
+    const replaceState = vi.fn();
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ deviceToken: "picot-device-token" }),
+    }));
+
+    await resolveRemoteAuth({
+      location: {
+        href: "http://192.168.1.10:9000/app/?pairingToken=pair-2&ek=AAEC",
+      },
+      history: { replaceState },
+      storage: localStorage,
+      fetchImpl,
+    });
+
+    expect(remoteE2eePublicKey(localStorage)).toBe("");
   });
 
   it("shows a distinct error after too many pairing attempts", async () => {

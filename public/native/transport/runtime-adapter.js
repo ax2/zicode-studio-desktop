@@ -1,3 +1,12 @@
+import {
+  base64ToBytes,
+  e2eeFrame,
+  handshakeFrame,
+  NoiseXkInitiator,
+  parseE2eeFrame,
+  parseHandshakeFrame,
+} from "./e2ee.js";
+
 export function resolveHostWebSocketUrl(env = globalThis.window || globalThis) {
   const location = env?.location || globalThis.location;
   const protocol = location?.protocol === "https:" ? "wss:" : "ws:";
@@ -8,6 +17,7 @@ export class HostRuntimeAdapter {
   #WebSocketImpl;
   #clientId;
   #clientType;
+  #e2eePublicKey;
   #connected = false;
   #connectionListeners = new Set();
   #deviceToken;
@@ -21,6 +31,7 @@ export class HostRuntimeAdapter {
   #reconnectTimer = null;
   #shouldReconnect = false;
   #subscriptions = new Map();
+  #e2ee = null;
   #url;
   #socket = null;
 
@@ -30,6 +41,7 @@ export class HostRuntimeAdapter {
     clientId,
     clientType = "desktop",
     deviceToken,
+    e2eePublicKey,
     reconnectBaseDelayMs = 250,
     reconnectMaxDelayMs = 5000,
   }) {
@@ -40,6 +52,7 @@ export class HostRuntimeAdapter {
     this.#clientId = clientId;
     this.#clientType = clientType;
     this.#deviceToken = deviceToken;
+    this.#e2eePublicKey = e2eePublicKey;
     this.#reconnectBaseDelayMs = reconnectBaseDelayMs;
     this.#reconnectMaxDelayMs = reconnectMaxDelayMs;
   }
@@ -63,25 +76,50 @@ export class HostRuntimeAdapter {
     this.#shouldReconnect = true;
     this.#clearReconnectTimer();
     if (this.#socket && this.#socket.readyState < 2) return;
+    this.#e2ee = null;
     const socket = new this.#WebSocketImpl(this.#url);
     this.#socket = socket;
     socket.onopen = () => {
-      socket.send(
-        JSON.stringify({
-          type: "hello",
-          protocolVersion: 2,
-          clientType: this.#clientType,
-          clientId: this.#clientId,
-          ...(this.#clientType === "remote" && this.#deviceToken
-            ? { deviceToken: this.#deviceToken }
-            : {}),
-        }),
-      );
+      if (this.#clientType === "remote" && this.#e2eePublicKey) {
+        this.#e2ee = { initiator: new NoiseXkInitiator(base64ToBytes(this.#e2eePublicKey)) };
+        socket.send(handshakeFrame(this.#e2ee.initiator.begin()));
+        return;
+      }
+      this.#sendHello();
     };
     socket.onmessage = ({ data }) => {
+      const text = String(data);
+      if (this.#e2ee && !this.#e2ee.initiator.isReady()) {
+        const handshake = parseHandshakeFrame(text);
+        if (!handshake) {
+          socket.close();
+          return;
+        }
+        const response = this.#e2ee.initiator.advance(handshake);
+        if (response) socket.send(handshakeFrame(response));
+        if (!this.#e2ee.initiator.isReady()) return;
+        this.#e2ee.ready = true;
+        this.#sendHello();
+        for (const target of this.#subscriptions.values()) this.#sendSubscription(target);
+        return;
+      }
+      let plaintext = text;
+      if (this.#e2ee?.ready) {
+        const payload = parseE2eeFrame(text);
+        if (!payload) {
+          socket.close();
+          return;
+        }
+        try {
+          plaintext = new TextDecoder().decode(this.#e2ee.initiator.decrypt(payload));
+        } catch {
+          socket.close();
+          return;
+        }
+      }
       let frame;
       try {
-        frame = JSON.parse(data);
+        frame = JSON.parse(plaintext);
       } catch {
         this.#receive({
           type: "error",
@@ -118,7 +156,7 @@ export class HostRuntimeAdapter {
             ? "device_access_revoked"
             : frame.error.code === "desktop_offline"
               ? "desktop_offline"
-            : "device_pairing_required";
+              : "device_pairing_required";
         for (const listener of this.#fatalErrorListeners) listener(error);
         this.#receive(frame);
         socket.close();
@@ -176,7 +214,7 @@ export class HostRuntimeAdapter {
       this.#scheduleReconnect();
       throw new Error("ZiCode Studio Desktop Host runtime is disconnected");
     }
-    this.#socket.send(JSON.stringify(frame));
+    this.#sendText(JSON.stringify(frame));
   }
 
   subscribeTarget(target) {
@@ -188,13 +226,37 @@ export class HostRuntimeAdapter {
 
   #sendSubscription(target) {
     if (!this.#isSocketOpen()) return;
-    this.#socket.send(
+    this.#sendText(
       JSON.stringify({
         type: "runtime_subscribe",
         requestId: `subscribe-${this.#nextSubscriptionId++}`,
         target,
       }),
     );
+  }
+
+  #sendHello() {
+    if (!this.#isSocketOpen()) return;
+    this.#sendText(
+      JSON.stringify({
+        type: "hello",
+        protocolVersion: 2,
+        clientType: this.#clientType,
+        clientId: this.#clientId,
+        ...(this.#clientType === "remote" && this.#deviceToken
+          ? { deviceToken: this.#deviceToken }
+          : {}),
+      }),
+    );
+  }
+
+  #sendText(text) {
+    if (!this.#isSocketOpen()) return;
+    if (this.#e2ee?.ready) {
+      this.#socket.send(e2eeFrame(this.#e2ee.initiator.encrypt(new TextEncoder().encode(text))));
+      return;
+    }
+    this.#socket.send(text);
   }
 
   #isSocketOpen() {

@@ -843,7 +843,13 @@ async fn lan_qr(
         .lock()
         .map_err(|_| api_error(StatusCode::SERVICE_UNAVAILABLE, "auth_unavailable"))?
         .create_pairing(now_seconds());
-    let url = format!("{origin}{path}?pairingToken={}", pairing.token);
+    let mut url = format!("{origin}{path}?pairingToken={}", pairing.token);
+    // 配对链接带外携带桌面 E2EE 静态公钥，手机扫码/打开链接时固定该公钥，
+    // 之后每次中继会话都执行 Noise_XK 握手（服务器无法替换桌面身份）。
+    if let Some(identity) = state.remote_access.e2ee_identity.as_ref() {
+        url.push_str("&ek=");
+        url.push_str(&identity.public_key_base64().replace('+', "%2B").replace('/', "%2F"));
+    }
     let data_url = qr_data_url(&url)?;
     Ok(Json(json!({
         "kind": "session",
