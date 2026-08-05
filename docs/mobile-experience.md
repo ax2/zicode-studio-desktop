@@ -2258,3 +2258,21 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 
 遗留：coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、安装包
 签名流水线。
+
+第一百三十五轮：release 第四次重建（含 M2 P2P 全链路，第 135 轮）。让生产
+安装包包含第 131–134 轮的 M2 代码：
+
+1. `bun run build` 重建：EXE 41,063,936 B（SHA-256 `83A2AE7E…`，webrtc
+   使主程序增大约 4.5 MB）、安装包 346,712,888 B（`A0F6988E…`）、内置中继
+   1,801,728 B（`2742DF2C…`，未变），完整哈希见
+   `docs/release-validation-2026-08-05.md`；
+2. 验证：release 模式编译通过（LTO + codegen-units=1 下 webrtc 正常）；
+   `/S` 静默重装后安装目录与产物一致，`public/` 含 `p2p.js`、
+   `runtime-adapter.js`（`p2pEnabled`）与 `app.js` 远程启用标记；从安装目录
+   启动：网关 `/health` 200（pi 0.83.0、协议 v2）、公网中继注册
+   `dev-ax2-01`、启动日志无 ERROR/WARN/panic；
+3. 说明：M2 在局域网/可打洞网络下自动直连（host 候选即可），不依赖
+   coturn；跨 NAT 打洞需部署 `deploy-coturn.sh` 并配置 STUN/TURN 后验收。
+
+遗留：coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、安装包
+签名流水线。

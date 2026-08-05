@@ -9,8 +9,8 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 36,590,592 B | `935F7498AE248E1E37C2EDE6BF6FB6E38CE45092A692C75A6C731C2AB03F128A` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 345,541,619 B | `C3CA240A1301099555CCF57AAB8354081D1AC9517721341ECE0A67C24FB0EB42` |
+| `target/release/zicode-studio-desktop.exe` | 41,063,936 B | `83A2AE7EE5D5AC6819CDE3CC62C87E5DB6AE464715D339C1B91563BB71A0EDEE` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,712,888 B | `A0F6988EFA8B1037E6CA58B7159B38EF829565A767D74F29B0A19BDDBC3408AF` |
 | `target/release/zicode-relay.exe`（内置中继） | 1,801,728 B | `2742DF2C132825F3B0EB0B022E5A5C3D4E8F6567462E22608CE8826D5E29F67B` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
@@ -68,6 +68,21 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - `/S` 静默安装后安装目录与 release 产物一致（EXE 同尺寸、中继同哈希；
     standalone EXE 会被 Tauri 在打包后打上 "bundle type" PE 补丁，因此不做
     逐字节比对），`public/` 含设置面板历史 UI 与中英文键；
+  - 从安装目录独立启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、公网中继注册
+    `dev-ax2-01`、启动后日志无 ERROR/WARN/panic；
+  - 桌面快捷方式继续指向安装目录 release 版。
+
+## 第四次重建（2026-08-05，含 M2 P2P 全链路）
+
+- 在上一版基础上合入 M2：移动端 WebRTC 传输模块（第 131 轮）、桌面引擎
+  webrtc-rs 0.13（第 132 轮）、网关 `/v2/ws` P2P 接线（第 133 轮）、移动端
+  数据面切换（第 134 轮）；主程序因 webrtc 增大至 41,063,936 B；
+- 验证：
+  - release 模式编译通过（LTO + codegen-units=1，含 webrtc）；
+  - `/S` 静默安装后安装目录与构建产物一致（EXE 同尺寸、中继同哈希），
+    `public/` 含 `p2p.js`、`runtime-adapter.js`（`p2pEnabled`）与
+    `app.js`（远程客户端启用标记）以及设置面板用量历史 UI；
   - 从安装目录独立启动：网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、公网中继注册
     `dev-ax2-01`、启动后日志无 ERROR/WARN/panic；
