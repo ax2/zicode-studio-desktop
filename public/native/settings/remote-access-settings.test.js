@@ -9,9 +9,7 @@ describe("remote access settings", () => {
 
   it("explains that encrypted LAN transport remains off", () => {
     setupRemoteAccessSettings({ gateway: { listDevices: vi.fn() } });
-    expect(document.getElementById("settings-remote-access").textContent).toContain(
-      "HTTPS/WSS",
-    );
+    expect(document.getElementById("settings-remote-access").textContent).toContain("HTTPS/WSS");
   });
 
   it("renders paired and revoked devices", async () => {
@@ -132,6 +130,109 @@ describe("remote access settings", () => {
     );
   });
 
+  it("prefills and toggles the server relay switch", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: true,
+        relayUrl: "wss://relay.zicode.com",
+        relayDeviceId: "dev-ax2-01",
+      })),
+      listDevices: vi.fn(async () => []),
+      setRelay: vi.fn(async () => ({ restartRequired: true })),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const section = document.querySelector(".remote-access-relay");
+    expect(section.querySelector("input").value).toBe("wss://relay.zicode.com");
+    expect(section.textContent).toContain("dev-ax2-01");
+    const relayToggle = section.querySelector('[role="switch"]');
+    expect(relayToggle.getAttribute("aria-checked")).toBe("true");
+
+    relayToggle.click();
+    await vi.waitFor(() =>
+      expect(gateway.setRelay).toHaveBeenCalledWith(false, "wss://relay.zicode.com"),
+    );
+  });
+
+  it("saves an edited relay address with the save button", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: false,
+        relayUrl: "",
+      })),
+      listDevices: vi.fn(async () => []),
+      setRelay: vi.fn(async () => ({ restartRequired: true })),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const section = document.querySelector(".remote-access-relay");
+    const input = section.querySelector("input");
+    input.value = "wss://relay.example.com";
+    section.querySelector(".remote-access-relay-save button").click();
+    await vi.waitFor(() =>
+      expect(gateway.setRelay).toHaveBeenCalledWith(false, "wss://relay.example.com"),
+    );
+  });
+
+  it("blocks enabling relay without a public HTTPS address", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        relayEnabled: false,
+        relayUrl: "",
+      })),
+      listDevices: vi.fn(async () => []),
+      setRelay: vi.fn(),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const section = document.querySelector(".remote-access-relay");
+    const input = section.querySelector("input");
+    input.value = "wss://relay.zicode.com";
+    section.querySelector('[role="switch"]').click();
+    await vi.waitFor(() =>
+      expect(section.querySelector('[role="status"]').textContent).toContain("HTTPS"),
+    );
+    expect(gateway.setRelay).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-websocket relay address", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: false,
+        relayUrl: "",
+      })),
+      listDevices: vi.fn(async () => []),
+      setRelay: vi.fn(),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const section = document.querySelector(".remote-access-relay");
+    const input = section.querySelector("input");
+    input.value = "https://relay.zicode.com";
+    section.querySelector('[role="switch"]').click();
+    await vi.waitFor(() =>
+      expect(section.querySelector('[role="status"]').textContent).toContain(
+        t("Invalid relay address"),
+      ),
+    );
+    expect(gateway.setRelay).not.toHaveBeenCalled();
+  });
+
   it("marks recently active devices online and stale ones offline", async () => {
     const now = Math.floor(Date.now() / 1000);
     const gateway = {
@@ -156,10 +257,7 @@ describe("remote access settings", () => {
     const settings = setupRemoteAccessSettings({ gateway });
     await settings.load();
     const badges = [...document.querySelectorAll(".remote-device-status")];
-    expect(badges.map((badge) => badge.textContent.trim())).toEqual([
-      t("Online"),
-      t("Offline"),
-    ]);
+    expect(badges.map((badge) => badge.textContent.trim())).toEqual([t("Online"), t("Offline")]);
     expect(badges[0].classList.contains("is-online")).toBe(true);
     expect(badges[1].classList.contains("is-offline")).toBe(true);
   });

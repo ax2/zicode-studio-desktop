@@ -169,8 +169,7 @@ const zhCN = {
   "Install ZiCode on this phone": "将 ZiCode 安装到此手机",
   "In Safari, tap Share, then Add to Home Screen.":
     "在 Safari 中轻点“分享”，然后选择“添加到主屏幕”。",
-  "Open ZiCode like an app and keep it one tap away.":
-    "像应用一样打开 ZiCode，轻点一下即可进入。",
+  "Open ZiCode like an app and keep it one tap away.": "像应用一样打开 ZiCode，轻点一下即可进入。",
   Install: "安装",
   "Got it": "知道了",
   "Not now": "暂不",
@@ -188,14 +187,13 @@ const zhCN = {
   "Already trusted this computer? Scan to pair and open the current chat.":
     "已信任这台电脑？扫描二维码配对并打开当前对话。",
   "One-time link expires in {time}": "一次性链接将在 {time} 后过期",
-  "This QR code expired. Refresh to create a new one.":
-    "此二维码已过期，请刷新生成新的二维码。",
+  "This QR code expired. Refresh to create a new one.": "此二维码已过期，请刷新生成新的二维码。",
   "Refresh QR code": "刷新二维码",
   "Open Link": "打开链接",
   "This device is not paired": "此设备尚未配对",
   "This browser is not paired with your ZiCode desktop yet.":
     "此浏览器还没有与你的 ZiCode 桌面配对。",
-  "On your computer, open the target conversation in ZiCode, click the mobile QR icon next to the title, then scan the QR with this device — or click \"Open link\" in that window to pair this browser directly. Each link works once and expires in 5 minutes.":
+  'On your computer, open the target conversation in ZiCode, click the mobile QR icon next to the title, then scan the QR with this device — or click "Open link" in that window to pair this browser directly. Each link works once and expires in 5 minutes.':
     "请在电脑上的 ZiCode 中打开目标会话，点击标题旁的「在手机上打开」图标：手机用户用摄像头扫描二维码；同一台电脑可直接点击弹窗中的「打开链接」完成配对。每个链接只能用一次，5 分钟内有效。",
   "Access to this device was revoked": "此设备的访问权限已被撤销",
   "ZiCode closed the remote connection and stopped reconnecting.":
@@ -228,8 +226,20 @@ const zhCN = {
   "Public certificate setup address": "公网证书安装地址",
   "Leave empty to disable public access.": "留空表示不启用公网访问。",
   "Public tunnel addresses take effect after restart.": "公网隧道地址在重启后生效。",
-  "Saved": "已保存",
+  Saved: "已保存",
   "Invalid public address": "公网地址无效",
+  "Relay access": "经服务器访问",
+  "Route remote access through the server relay": "经服务器中继远程访问",
+  "Desktop and phone both dial the rendezvous server, so this computer needs no inbound ports or tunnels. Applies when secure mobile access is on.":
+    "桌面与手机都主动连接会合服务器，本机无需开放入站端口或隧道；在安全移动访问开启时生效。",
+  "Relay server address": "中继服务器地址",
+  "Device ID": "设备 ID",
+  "Relay changes take effect after restart.": "中继更改在重启后生效。",
+  "Relay server address is required when relay access is enabled.":
+    "启用经服务器访问时，必须填写中继服务器地址。",
+  "Invalid relay address": "中继地址无效",
+  "Set the public HTTPS address first; relay access requires it.":
+    "请先填写公网 HTTPS 地址；经服务器访问依赖该地址。",
   "Restart ZiCode Studio to apply this remote access change.":
     "请重启 ZiCode Studio 以应用远程访问更改。",
   "Only this computer can connect while secure mobile access is off.":
@@ -476,8 +486,7 @@ const zhCN = {
     "部分未发送图片过大，无法保存用于恢复。",
   "Ready to send": "可以发送",
   "Saved for reconnect": "已保存，等待重连",
-  "Connection restored. Review the draft, then send it.":
-    "连接已恢复。请检查草稿，然后确认发送。",
+  "Connection restored. Review the draft, then send it.": "连接已恢复。请检查草稿，然后确认发送。",
   "The encrypted draft is saved on this device and will not send automatically.":
     "加密草稿已保存在此设备上，不会自动发送。",
   "Send now": "立即发送",
@@ -498,8 +507,7 @@ const zhCN = {
     "请切换成本更低的模型、新建会话以减少上下文，或为 QVeris 充值。",
   "Model authentication failed": "模型身份验证失败",
   "The model gateway rejected the configured credential.": "模型网关拒绝了当前配置的凭据。",
-  "Update the API key in the current scene and try again.":
-    "请更新当前场景的 API Key 后重试。",
+  "Update the API key in the current scene and try again.": "请更新当前场景的 API Key 后重试。",
   "The model service is busy": "模型服务繁忙",
   "The request was rate limited by the model gateway.": "模型网关限制了本次请求频率。",
   "Wait a moment, then try again or choose another model.": "请稍后重试，或选择其他模型。",
@@ -732,8 +740,7 @@ const zhCN = {
   Mobile: "移动端",
   "Task completion alerts": "任务完成提醒",
   "Protect local drafts": "保护本地草稿",
-  "Ask the browser not to evict encrypted drafts automatically":
-    "请求浏览器不要自动回收加密草稿",
+  "Ask the browser not to evict encrypted drafts automatically": "请求浏览器不要自动回收加密草稿",
   "Protect drafts": "保护草稿",
   "Requesting…": "正在请求…",
   Protected: "已保护",

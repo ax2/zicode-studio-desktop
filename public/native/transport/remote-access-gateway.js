@@ -31,6 +31,13 @@ export class RemoteAccessGateway {
     });
   }
 
+  setRelay(relayEnabled, relayUrl = "") {
+    return this.#request("set_remote_access_relay", {
+      relayEnabled: Boolean(relayEnabled),
+      relayUrl: relayUrl || "",
+    });
+  }
+
   async listDevices() {
     const frame = await this.#request("list_devices");
     return Array.isArray(frame?.devices) ? frame.devices : [];

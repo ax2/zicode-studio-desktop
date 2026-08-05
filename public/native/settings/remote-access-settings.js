@@ -7,6 +7,7 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
   const ONLINE_DEVICE_WINDOW_SECONDS = 90;
   let devices = [];
   let status = { configuredEnabled: false, running: false, restartRequired: false, urls: [] };
+  let relayError = "";
   let loading = false;
   let updating = false;
 
@@ -131,7 +132,9 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     titleControls.className = "remote-access-title-controls";
     const badge = document.createElement("span");
     badge.className = `ui-badge ${status.running ? "remote-access-on-badge" : "remote-access-off-badge"}`;
-    badge.textContent = t(status.restartRequired ? "Restart required" : status.running ? "On" : "Off");
+    badge.textContent = t(
+      status.restartRequired ? "Restart required" : status.running ? "On" : "Off",
+    );
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = `settings-toggle${status.configuredEnabled ? " on" : ""}`;
@@ -284,6 +287,107 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     publicSaveRow.append(saveButton, saveStatus, restartHint);
     publicSection.append(publicTitle, publicHelp, publicFields, publicSaveRow);
 
+    const relaySection = document.createElement("section");
+    relaySection.className = "settings-section remote-access-relay";
+    const relayTitleRow = document.createElement("div");
+    relayTitleRow.className = "settings-section-title remote-access-title-row";
+    const relayTitle = document.createElement("span");
+    relayTitle.textContent = t("Relay access");
+    const relayBadge = document.createElement("span");
+    relayBadge.className = `ui-badge ${status.relayEnabled ? "remote-access-on-badge" : "remote-access-off-badge"}`;
+    relayBadge.textContent = t(status.relayEnabled ? "On" : "Off");
+    const relayToggle = document.createElement("button");
+    relayToggle.type = "button";
+    relayToggle.className = `settings-toggle${status.relayEnabled ? " on" : ""}`;
+    relayToggle.setAttribute("role", "switch");
+    relayToggle.setAttribute("aria-checked", String(Boolean(status.relayEnabled)));
+    relayToggle.setAttribute("aria-label", t("Route remote access through the server relay"));
+    relayToggle.disabled = updating || !gateway;
+    relayTitleRow.append(relayTitle, relayBadge, relayToggle);
+    const relayHelp = document.createElement("p");
+    relayHelp.className = "settings-help";
+    relayHelp.textContent = t(
+      "Desktop and phone both dial the rendezvous server, so this computer needs no inbound ports or tunnels. Applies when secure mobile access is on.",
+    );
+
+    const relayFields = document.createElement("div");
+    relayFields.className = "remote-access-relay-fields";
+    const relayUrlInput = document.createElement("input");
+    relayUrlInput.type = "url";
+    relayUrlInput.spellcheck = false;
+    relayUrlInput.autocomplete = "off";
+    relayUrlInput.value = status.relayUrl || "";
+    relayUrlInput.placeholder = "wss://relay.zicode.com";
+    const relayUrlRow = document.createElement("label");
+    relayUrlRow.className = "settings-field";
+    const relayUrlLabel = document.createElement("span");
+    relayUrlLabel.textContent = t("Relay server address");
+    relayUrlRow.append(relayUrlLabel, relayUrlInput);
+    relayFields.append(relayUrlRow);
+
+    if (status.relayDeviceId) {
+      const deviceIdRow = document.createElement("div");
+      deviceIdRow.className = "remote-access-relay-device";
+      const deviceIdLabel = document.createElement("span");
+      deviceIdLabel.textContent = t("Device ID");
+      const deviceIdValue = document.createElement("code");
+      deviceIdValue.textContent = status.relayDeviceId;
+      deviceIdRow.append(deviceIdLabel, deviceIdValue);
+      relayFields.append(deviceIdRow);
+    }
+
+    const relaySaveRow = document.createElement("div");
+    relaySaveRow.className = "remote-access-relay-save";
+    const relaySave = document.createElement("button");
+    relaySave.type = "button";
+    relaySave.className = "ui-button ui-button--secondary ui-button--sm";
+    relaySave.textContent = t("Save");
+    const relayStatus = document.createElement("span");
+    relayStatus.className = "settings-help";
+    relayStatus.setAttribute("role", "status");
+    relayStatus.textContent = relayError;
+    const relayRestartHint = document.createElement("small");
+    relayRestartHint.className = "settings-help";
+    relayRestartHint.textContent = t("Relay changes take effect after restart.");
+    relaySaveRow.append(relaySave, relayStatus, relayRestartHint);
+    relayFields.append(relaySaveRow);
+    relaySection.append(relayTitleRow, relayHelp, relayFields);
+
+    const saveRelay = async (enabled) => {
+      if (updating) return;
+      const relayUrl = relayUrlInput.value.trim();
+      if (enabled && !relayUrl) {
+        relayStatus.textContent = t(
+          "Relay server address is required when relay access is enabled.",
+        );
+        return;
+      }
+      if (relayUrl && !/^wss?:\/\//.test(relayUrl)) {
+        relayStatus.textContent = t("Invalid relay address");
+        return;
+      }
+      if (enabled && !status.publicUrl) {
+        relayStatus.textContent = t(
+          "Set the public HTTPS address first; relay access requires it.",
+        );
+        return;
+      }
+      relayError = "";
+      updating = true;
+      render();
+      try {
+        status = await gateway.setRelay(enabled, relayUrl);
+        updating = false;
+        render();
+      } catch (error) {
+        relayError = `${t("Invalid relay address")}: ${error?.message || ""}`;
+        updating = false;
+        render();
+      }
+    };
+    relayToggle.addEventListener("click", () => void saveRelay(!status.relayEnabled));
+    relaySave.addEventListener("click", () => void saveRelay(status.relayEnabled));
+
     const deviceSection = document.createElement("section");
     deviceSection.className = "settings-section";
     const deviceTitleRow = document.createElement("div");
@@ -320,7 +424,7 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
       list.append(...devices.map(deviceRow));
     }
     deviceSection.append(deviceTitleRow, help, list);
-    body.append(overview, publicSection, deviceSection);
+    body.append(overview, publicSection, relaySection, deviceSection);
     root.append(body);
   }
 

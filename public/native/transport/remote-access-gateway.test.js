@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createInMemoryRuntimeAdapter } from "./runtime-gateway.js";
 import { RemoteAccessGateway } from "./remote-access-gateway.js";
+import { createInMemoryRuntimeAdapter } from "./runtime-gateway.js";
 
 describe("RemoteAccessGateway", () => {
   it("lists paired devices through a local-only auth request", async () => {
@@ -73,10 +73,7 @@ describe("RemoteAccessGateway", () => {
   it("saves the optional public tunnel addresses", async () => {
     const adapter = createInMemoryRuntimeAdapter();
     const gateway = new RemoteAccessGateway(adapter);
-    const update = gateway.setPublic(
-      "https://www.zicode.com:39010",
-      "http://www.zicode.com:39011",
-    );
+    const update = gateway.setPublic("https://www.zicode.com:39010", "http://www.zicode.com:39011");
     const sent = adapter.takeSent();
     expect(sent).toMatchObject({
       operation: "set_remote_access_public",
@@ -91,6 +88,26 @@ describe("RemoteAccessGateway", () => {
       publicEnrollmentUrl: "http://www.zicode.com:39011",
     });
     await expect(update).resolves.toMatchObject({ restartRequired: true });
+  });
+
+  it("saves the server relay switch and address", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const gateway = new RemoteAccessGateway(adapter);
+    const update = gateway.setRelay(true, "wss://relay.zicode.com");
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({
+      operation: "set_remote_access_relay",
+      relayEnabled: true,
+      relayUrl: "wss://relay.zicode.com",
+    });
+    adapter.receive({
+      type: "auth_response",
+      requestId: sent.requestId,
+      restartRequired: true,
+      relayEnabled: true,
+      relayUrl: "wss://relay.zicode.com",
+    });
+    await expect(update).resolves.toMatchObject({ relayEnabled: true });
   });
 
   it("rejects pending requests after disconnect", async () => {
