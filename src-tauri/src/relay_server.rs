@@ -77,6 +77,9 @@ impl Default for RelayState {
 pub struct DeviceUsage {
     pub bytes: u64,
     pub updated_at: u64,
+    /// Day (unix seconds / 86400) the `bytes` counter belongs to. Counters
+    /// reset when the day changes, so the quota is per device per day.
+    pub day: u64,
 }
 
 struct Session {
@@ -106,16 +109,29 @@ fn unix_now() -> u64 {
         .unwrap_or_default()
 }
 
+fn day_of(now_secs: u64) -> u64 {
+    now_secs / 86400
+}
+
 /// Add `bytes` to the device's cumulative relayed usage. Returns `true` when
 /// the device is still within its configured byte quota (or none is set).
-fn record_usage(state: &mut RelayState, device_id: &str, bytes: u64) -> bool {
+fn record_usage_at(state: &mut RelayState, device_id: &str, bytes: u64, now: u64) -> bool {
     let usage = state.usage.entry(device_id.to_string()).or_default();
+    let day = day_of(now);
+    if usage.day != day {
+        usage.bytes = 0;
+        usage.day = day;
+    }
     usage.bytes = usage.bytes.saturating_add(bytes);
-    usage.updated_at = unix_now();
+    usage.updated_at = now;
     match state.byte_quota_per_device {
         Some(quota) => usage.bytes <= quota,
         None => true,
     }
+}
+
+fn record_usage(state: &mut RelayState, device_id: &str, bytes: u64) -> bool {
+    record_usage_at(state, device_id, bytes, unix_now())
 }
 
 pub fn relay_router(state: Arc<Mutex<RelayState>>) -> Router {
@@ -134,19 +150,23 @@ async fn health() -> StatusCode {
 }
 
 async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
-    let (desktops, sessions, usage) = {
+    let (desktops, sessions, usage, usage_day) = {
         let state = state.lock().expect("relay state poisoned");
         let mut desktops = state.desktops.keys().cloned().collect::<Vec<_>>();
         desktops.sort();
         let mut sessions = state.sessions.keys().cloned().collect::<Vec<_>>();
         sessions.sort();
+        let today = day_of(unix_now());
         let mut usage = state
             .usage
             .iter()
-            .map(|(device_id, usage)| (device_id.clone(), usage.bytes))
+            .map(|(device_id, usage)| {
+                let bytes = if usage.day == today { usage.bytes } else { 0 };
+                (device_id.clone(), bytes)
+            })
             .collect::<Vec<_>>();
         usage.sort();
-        (desktops, sessions, usage)
+        (desktops, sessions, usage, today)
     };
     Response::builder()
         .status(StatusCode::OK)
@@ -156,6 +176,7 @@ async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
                 "desktops": desktops,
                 "sessions": sessions,
                 "usage": usage,
+                "usageDay": usage_day,
             })
             .to_string(),
         ))
@@ -1209,5 +1230,27 @@ mod tests {
         let reply = next_text(&mut mobile).await;
         assert!(reply.contains("device_quota_exceeded"));
         desktop_task.abort();
+    }
+
+    #[test]
+    fn resets_usage_at_the_start_of_a_new_day() {
+        let mut state = RelayState::default();
+        state.byte_quota_per_device = Some(500);
+        let now = unix_now();
+        let yesterday = now - 86400;
+        state.usage.insert(
+            "dev-day".into(),
+            DeviceUsage {
+                bytes: 1000,
+                updated_at: yesterday,
+                day: day_of(yesterday),
+            },
+        );
+
+        // Yesterday's counter alone would exceed the quota; the new day
+        // resets it before adding.
+        assert!(record_usage_at(&mut state, "dev-day", 1, now));
+        assert_eq!(state.usage["dev-day"].bytes, 1);
+        assert_eq!(state.usage["dev-day"].day, day_of(now));
     }
 }

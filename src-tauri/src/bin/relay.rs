@@ -8,9 +8,9 @@
 //! desktop registrations to present the same token. Without it the relay runs
 //! in the pre-M4 open mode (development only).
 //!
-//! Optional per-device byte cap: set `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE` to a
-//! byte count; devices relaying more than this (both directions) are refused
-//! with 429 / closed.
+//! Optional per-device daily byte cap: set `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE`
+//! to a byte count; devices relaying more than this per day (both directions)
+//! are refused with 429 / closed. Counters reset at the start of each day.
 
 #[path = "../relay_protocol.rs"]
 mod relay_protocol;
