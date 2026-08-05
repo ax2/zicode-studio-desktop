@@ -9,8 +9,8 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 41,072,128 B | `E77DF8FC37DAFD6884A36F936C9A40B5686410959E348BF14E73BA3E6E3BA074` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,748,782 B | `D6EAA50C3577338D47CDC0FD9E283C0134706A51E7D6F9A9AB3C055CF4A69D7C` |
+| `target/release/zicode-studio-desktop.exe` | 41,097,728 B | `BB2512387B686100A455C49725A70A1255314706CDB1C2AF5ED2E3411597B3D9` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,742,087 B | `12EDF8881B41841F57146FB83D75509DCEE50BC189BEFCFE8922ADAF6CD42A99` |
 | `target/release/zicode-relay.exe`（内置中继） | 1,801,728 B | `2742DF2C132825F3B0EB0B022E5A5C3D4E8F6567462E22608CE8826D5E29F67B` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
@@ -81,6 +81,17 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   `public/native/app.js` 含 `p2pEnabled` 与 `v2/remote-config` 拉取；
   从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2）、公网中继注册
   `dev-ax2-01`、日志无 ERROR/WARN/panic；桌面快捷方式继续指向安装目录。
+
+## 第七次重建（2026-08-06，含自动 TURN 凭据与设置 UI）
+
+- 在上一版基础上合入第 145/146 轮：桌面端自动派生短期 TURN 凭据
+  （`relayTurnUrl/Realm/Secret` + RFC 5389 HMAC）与设置面板
+  "TURN 中继（可选）"配置 UI；
+- 验证：`/S` 静默重装后安装目录与产物一致（EXE 同尺寸、中继同哈希），
+  `public/native/settings/remote-access-settings.js` 含
+  `TURN relay (optional)`；从安装目录启动：网关 `/health` 200（pi 0.83.0、
+  协议 v2）、公网中继注册 `dev-ax2-01`、日志无 ERROR/WARN/panic；桌面
+  快捷方式继续指向安装目录。
 
 ## 第六次重建（2026-08-05，含 P2P 有界重试）
 
