@@ -138,7 +138,8 @@ cd public && bun test        # 前端全量测试
 
 1. **手机真机验收**：重新连接 ADB（当前离线）后，完整走一遍公网路径——手机打开
    `https://relay.zicode.com/d/dev-ax2-01/app/` → 桌面生成会话二维码扫码配对 →
-   聊天/刷新/离线重连。
+   聊天/刷新/离线重连。✅ 已于第一百一十八轮在 OPPO PHY110 真机通过（加载/
+   配对/WS/E2EE/模型回复全链路，详见 mobile-experience.md）。
 2. **推送 Git**：✅ 已于第一百一十三轮完成（origin/main 同步，含交接文档）。
 3. **设置面板"经服务器"开关 UI**：✅ 已于第一百一十三轮实现（gateway
    `setRelay()` + 面板区块 + i18n + 测试，详见 `docs/mobile-experience.md`）。

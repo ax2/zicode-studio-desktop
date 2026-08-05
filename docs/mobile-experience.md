@@ -1921,3 +1921,26 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 5. 遗留：应用内 WS 连接未闭环（待干净窗口用 debug 标记定位顶层 await 卡点，
    若为远程客户端通用缺陷则修产品代码）；OPPO PHY110 USB 调试未识别；
    M2 P2P 直连未启动。
+
+第一百一十八轮：OPPO PHY110 真机公网验收通过（2026-08-05）。用户确认实际
+接入设备为 OPPO PHY110（Android 16，USB 调试），上一轮误用局域网内开启无线
+调试的 Pad10-Pro 平板（其浏览器环境导致应用内 WS 未闭环）。本轮在 OPPO 上
+完成全链路验收：
+
+1. 公网入口：手机 Chrome 打开 `https://relay.zicode.com/d/dev-ax2-01/app/`
+   → 302 → 应用正确渲染"此设备尚未配对"页（公网路由 + cookie 正常）；
+2. 配对：打开含 `ek` 的配对链接 → `POST /v2/auth/exchange` 经中继返回 200
+   （`[pairing]` 日志：token 前缀 + `device-fb10cc8d-…`）→ 桌面创建设备
+   `device-fb10cc8d-fe34-4621-a1dd-8b1419069a4a`；
+3. 连接与 E2EE：手机应用 WS 经中继建立会话（`/relay/status` 显示
+   `s-481f92b8…` / `s-657f14db…`），桌面日志无 e2ee 会话错误——手机固定了
+   配对链接中的桌面公钥并完成 Noise_XK 握手，数据面全程密文；
+4. 聊天闭环：手机端发送 `hello_from_oppo` → 桌面 `[model-gateway]`
+   `POST /chat/completions` → `upstream 200 OK`（09:06:51→55 UTC），手机
+   界面收到回复（界面含该消息与回复片段，会话历史正常加载）；
+5. 截图存档：`docs/images/mobile-acceptance-2026-08-05/oppo-public-chat.png`。
+
+结论：M1 公网路径（加载/配对/认证/聊天）与 M3 端到端加密链路在 OPPO 真机上
+全部通过；上一轮平板遗留的"应用内 WS 未闭环"确认为该平板浏览器/环境问题，
+非产品缺陷。遗留：二维码扫码（本轮为直接打开链接，未用摄像头扫码）；撤销后
+5 秒断连；M2 P2P 直连未启动。

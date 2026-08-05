@@ -64,3 +64,4 @@
 | 日期 | 设备/系统 | 执行人 | 结果 | 备注 |
 |------|-----------|--------|------|------|
 | 2026-08-05 | Pad10-Pro / Android 11（WiFi ADB） | 自动化 + 人工 | 部分通过 | 公网入口加载 ✅、配对 ✅、真机浏览器 WebSocket ✅（中继会话出现）、应用内 WS 会话 ❌（app.js 顶层 await 卡点待复现）；浏览器需为 Chromium 内核（Firefox 68 过旧、barebones 交换卡住）；详见 mobile-experience.md 第 117 轮 |
+| 2026-08-05 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化 + 人工 | 通过 | 公网入口加载 ✅、配对 ✅（`[pairing]` 200）、WS 会话 ✅（中继 sessions）、E2EE 握手 ✅（无会话错误）、模型回复 ✅（`[model-gateway] upstream 200 OK`）；截图 docs/images/mobile-acceptance-2026-08-05/oppo-public-chat.png；详见第 118 轮 |
