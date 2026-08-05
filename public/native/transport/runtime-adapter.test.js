@@ -524,18 +524,59 @@ describe("HostRuntimeAdapter", () => {
     socket.receive({ type: "hello_ack", protocolVersion: 2 });
     const transport = FakeP2pTransport.instances[0];
 
-    transport.emitFailed();
-    adapter.send({ type: "runtime_request", requestId: "r1" });
-    expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r1" });
-
+    // A send failure while the channel reports connected falls back to WS
+    // and marks the channel unusable.
     transport.emitConnected();
     transport.sendResult = false;
     adapter.send({ type: "runtime_request", requestId: "r2" });
     expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r2" });
     expect(adapter.isP2pConnected()).toBe(false);
+
+    // A failed connection also keeps the WebSocket data path.
+    transport.emitConnected();
+    transport.emitFailed();
+    adapter.send({ type: "runtime_request", requestId: "r1" });
+    expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r1" });
+    adapter.disconnect();
+  });
+
+  it("retries P2P after a failure with bounded attempts", () => {
+    vi.useFakeTimers();
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+      p2pRetryDelayMs: 60_000,
+      p2pMaxAttempts: 2,
+    });
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    expect(FakeP2pTransport.instances).toHaveLength(1);
+
+    FakeP2pTransport.instances[0].emitFailed();
+    vi.advanceTimersByTime(60_000);
+    expect(FakeP2pTransport.instances).toHaveLength(2);
+    expect(socket.sent.at(-1)).toEqual({ type: "p2p_offer", sdp: "offer-sdp" });
+
+    FakeP2pTransport.instances[1].emitFailed();
+    vi.advanceTimersByTime(60_000);
+    expect(FakeP2pTransport.instances).toHaveLength(3);
+
+    FakeP2pTransport.instances[2].emitFailed();
+    vi.advanceTimersByTime(120_000);
+    expect(FakeP2pTransport.instances).toHaveLength(3);
   });
 
   it("disables P2P when an old gateway rejects the offer", () => {
+    vi.useFakeTimers();
     FakeWebSocket.instances.length = 0;
     FakeP2pTransport.instances.length = 0;
     const adapter = new HostRuntimeAdapter({
@@ -559,6 +600,8 @@ describe("HostRuntimeAdapter", () => {
       type: "error",
       error: { code: "unsupported_runtime_request", message: "unsupported" },
     });
+    vi.advanceTimersByTime(120_000);
+    expect(FakeP2pTransport.instances).toHaveLength(1);
     adapter.send({ type: "runtime_request", requestId: "r1" });
     expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r1" });
     expect(events).toHaveLength(0);

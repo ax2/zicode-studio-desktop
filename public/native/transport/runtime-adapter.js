@@ -42,6 +42,10 @@ export class HostRuntimeAdapter {
   #p2p = null;
   #p2pConnected = false;
   #p2pUnavailable = false;
+  #p2pRetryDelayMs = 60_000;
+  #p2pMaxAttempts = 5;
+  #p2pAttempts = 0;
+  #p2pRetryTimer = null;
 
   constructor({
     url,
@@ -56,6 +60,8 @@ export class HostRuntimeAdapter {
     iceServers = [],
     P2pTransportImpl = P2pTransport,
     RTCPeerConnectionImpl = globalThis.RTCPeerConnection,
+    p2pRetryDelayMs = 60_000,
+    p2pMaxAttempts = 5,
   }) {
     if (!url || !clientId) throw new Error("HostRuntimeAdapter requires url and clientId");
     if (!WebSocketImpl) throw new Error("WebSocket is unavailable");
@@ -71,6 +77,8 @@ export class HostRuntimeAdapter {
     this.#iceServers = iceServers;
     this.#P2pTransportImpl = P2pTransportImpl;
     this.#RTCPeerConnectionImpl = RTCPeerConnectionImpl;
+    this.#p2pRetryDelayMs = p2pRetryDelayMs;
+    this.#p2pMaxAttempts = p2pMaxAttempts;
   }
 
   setReceiver(listener) {
@@ -151,6 +159,8 @@ export class HostRuntimeAdapter {
         }
         this.#connected = true;
         this.#reconnectAttempts = 0;
+        this.#p2pAttempts = 0;
+        this.#clearP2pRetryTimer();
         for (const target of this.#subscriptions.values()) this.#sendSubscription(target);
         for (const listener of this.#connectionListeners) listener(true);
         for (const resolve of this.#readyWaiters.splice(0)) resolve();
@@ -308,7 +318,12 @@ export class HostRuntimeAdapter {
         onData: (data) => this.#receiveP2pData(data),
         onState: (state) => {
           this.#p2pConnected = state === P2P_STATE.CONNECTED;
-          if (state === P2P_STATE.FAILED || state === P2P_STATE.CLOSED) {
+          if (state === P2P_STATE.CONNECTED) {
+            this.#p2pAttempts = 0;
+          } else if (state === P2P_STATE.FAILED) {
+            this.#p2pConnected = false;
+            this.#scheduleP2pRetry();
+          } else if (state === P2P_STATE.CLOSED) {
             this.#p2pConnected = false;
           }
         },
@@ -349,6 +364,7 @@ export class HostRuntimeAdapter {
       this.#p2pUnavailable = true;
       this.#p2p = null;
       this.#p2pConnected = false;
+      this.#clearP2pRetryTimer();
       return true;
     }
     return false;
@@ -375,6 +391,7 @@ export class HostRuntimeAdapter {
   }
 
   #teardownP2p() {
+    this.#clearP2pRetryTimer();
     if (this.#p2p) {
       try {
         this.#p2p.close();
@@ -384,6 +401,36 @@ export class HostRuntimeAdapter {
     }
     this.#p2p = null;
     this.#p2pConnected = false;
+  }
+
+  /**
+   * Re-attempt P2P after a failure (for example the phone moved to the same
+   * LAN) with a bounded number of tries. A rejected offer disables P2P for
+   * the session, so this never hammers an old gateway.
+   */
+  #scheduleP2pRetry() {
+    if (this.#p2pUnavailable || !this.#connected || this.#p2pRetryTimer) return;
+    this.#p2pAttempts += 1;
+    if (this.#p2pAttempts > this.#p2pMaxAttempts) return;
+    if (this.#p2p) {
+      try {
+        this.#p2p.close();
+      } catch {
+        // already closed
+      }
+      this.#p2p = null;
+    }
+    this.#p2pRetryTimer = globalThis.setTimeout(() => {
+      this.#p2pRetryTimer = null;
+      this.#startP2p();
+    }, this.#p2pRetryDelayMs);
+  }
+
+  #clearP2pRetryTimer() {
+    if (this.#p2pRetryTimer) {
+      globalThis.clearTimeout(this.#p2pRetryTimer);
+      this.#p2pRetryTimer = null;
+    }
   }
 
   #scheduleReconnect() {
