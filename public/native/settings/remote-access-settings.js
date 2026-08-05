@@ -309,6 +309,23 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     relayHelp.textContent = t(
       "Desktop and phone both dial the rendezvous server, so this computer needs no inbound ports or tunnels. Applies when secure mobile access is on.",
     );
+    const relayLive = document.createElement("p");
+    relayLive.className = "settings-help remote-access-relay-live";
+    relayLive.setAttribute("role", "status");
+    if (status.relayEnabled) {
+      if (status.relayConnected) {
+        relayLive.dataset.relayState = "connected";
+        const connectedAt = status.relayConnectedAt
+          ? ` · ${formatTime(status.relayConnectedAt)}`
+          : "";
+        relayLive.textContent = `${t("Relay connected")}${connectedAt}`;
+      } else {
+        relayLive.dataset.relayState = "disconnected";
+        relayLive.textContent = status.relayLastError
+          ? `${t("Relay disconnected")}: ${status.relayLastError}`
+          : t("Relay connecting…");
+      }
+    }
 
     const relayFields = document.createElement("div");
     relayFields.className = "remote-access-relay-fields";
@@ -351,7 +368,7 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     relayRestartHint.textContent = t("Relay changes take effect after restart.");
     relaySaveRow.append(relaySave, relayStatus, relayRestartHint);
     relayFields.append(relaySaveRow);
-    relaySection.append(relayTitleRow, relayHelp, relayFields);
+    relaySection.append(relayTitleRow, relayHelp, relayLive, relayFields);
 
     const saveRelay = async (enabled) => {
       if (updating) return;

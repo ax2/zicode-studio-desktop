@@ -201,7 +201,9 @@ describe("remote access settings", () => {
     input.value = "wss://relay.zicode.com";
     section.querySelector('[role="switch"]').click();
     await vi.waitFor(() =>
-      expect(section.querySelector('[role="status"]').textContent).toContain("HTTPS"),
+      expect(
+        section.querySelector('.remote-access-relay-save [role="status"]').textContent,
+      ).toContain("HTTPS"),
     );
     expect(gateway.setRelay).not.toHaveBeenCalled();
   });
@@ -226,11 +228,54 @@ describe("remote access settings", () => {
     input.value = "https://relay.zicode.com";
     section.querySelector('[role="switch"]').click();
     await vi.waitFor(() =>
-      expect(section.querySelector('[role="status"]').textContent).toContain(
-        t("Invalid relay address"),
-      ),
+      expect(
+        section.querySelector('.remote-access-relay-save [role="status"]').textContent,
+      ).toContain(t("Invalid relay address")),
     );
     expect(gateway.setRelay).not.toHaveBeenCalled();
+  });
+
+  it("shows the live relay connection state", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: true,
+        relayUrl: "wss://relay.zicode.com",
+        relayConnected: true,
+        relayConnectedAt: 1_700_000_000,
+      })),
+      listDevices: vi.fn(async () => []),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const live = document.querySelector(".remote-access-relay-live");
+    expect(live.dataset.relayState).toBe("connected");
+    expect(live.textContent).toContain(t("Relay connected"));
+  });
+
+  it("surfaces the relay failure reason when disconnected", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: true,
+        relayUrl: "wss://relay.zicode.com",
+        relayConnected: false,
+        relayLastError: "connection refused",
+      })),
+      listDevices: vi.fn(async () => []),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const live = document.querySelector(".remote-access-relay-live");
+    expect(live.dataset.relayState).toBe("disconnected");
+    expect(live.textContent).toContain(t("Relay disconnected"));
+    expect(live.textContent).toContain("connection refused");
   });
 
   it("marks recently active devices online and stale ones offline", async () => {

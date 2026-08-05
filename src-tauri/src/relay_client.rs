@@ -13,7 +13,7 @@ use rustls::{ClientConfig, DigitallySignedStruct, SignatureScheme};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::{header, HeaderValue};
@@ -87,7 +87,20 @@ pub struct RelayAgentConfig {
     pub gateway_origin: String,
     /// Public page origin the mobile uses, e.g. `https://relay.zicode.com`.
     pub page_origin: String,
+    /// Shared live connection state for the settings/status surface.
+    pub status: RelayAgentStatus,
 }
+
+/// Live state of the desktop relay agent, shared with the Host so the
+/// settings panel can show whether the rendezvous connection is really up.
+#[derive(Debug, Clone, Default)]
+pub struct RelayAgentState {
+    pub connected: bool,
+    pub connected_at: Option<u64>,
+    pub last_error: Option<String>,
+}
+
+pub type RelayAgentStatus = Arc<Mutex<RelayAgentState>>;
 
 /// Extract the scheme+host origin from a page URL so WebSocket Origin checks
 /// (which never include a path) match the published address.
@@ -111,12 +124,19 @@ struct SessionHandle {
 pub async fn run(config: RelayAgentConfig, mut shutdown: oneshot::Receiver<()>) {
     let mut backoff_seconds = 1u64;
     loop {
+        if let Ok(mut state) = config.status.lock() {
+            state.connected = false;
+        }
         let attempt = run_once(&config);
         tokio::select! {
             _ = &mut shutdown => return,
             outcome = attempt => {
                 if let Err(error) = outcome {
                     log::error!("[relay-agent] relay connection ended: {error}");
+                    if let Ok(mut state) = config.status.lock() {
+                        state.connected = false;
+                        state.last_error = Some(error);
+                    }
                 }
             }
         }
@@ -137,6 +157,16 @@ async fn run_once(config: &RelayAgentConfig) -> Result<(), String> {
     let (mut relay_ws, _) = tokio_tungstenite::connect_async(request)
         .await
         .map_err(|error| error.to_string())?;
+    if let Ok(mut state) = config.status.lock() {
+        state.connected = true;
+        state.connected_at = Some(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|duration| duration.as_secs())
+                .unwrap_or_default(),
+        );
+        state.last_error = None;
+    }
     relay_ws
         .send(WsMessage::Text(
             RelayFrame::Hello {
@@ -403,7 +433,15 @@ async fn execute_http(
 
 #[cfg(test)]
 mod tests {
-    use super::page_origin_of;
+    use super::{page_origin_of, RelayAgentState};
+
+    #[test]
+    fn relay_agent_state_starts_disconnected_without_error() {
+        let state = RelayAgentState::default();
+        assert!(!state.connected);
+        assert_eq!(state.connected_at, None);
+        assert_eq!(state.last_error, None);
+    }
 
     #[test]
     fn extracts_origin_without_a_path() {

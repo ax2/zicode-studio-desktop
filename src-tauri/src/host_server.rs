@@ -9,7 +9,9 @@ use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunch
 use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
 use crate::plugin_package::SignedPluginPreview;
 use crate::plugin_registry::PluginRegistry;
-use crate::relay_client::{page_origin_of, RelayAgentConfig};
+use crate::relay_client::{
+    page_origin_of, RelayAgentConfig, RelayAgentState, RelayAgentStatus,
+};
 use crate::remote_auth::{PairingError, RemoteAuth};
 use crate::remote_tls::PreparedRemoteTlsListener;
 use crate::runtime_coordinator::{RuntimeStatus, RuntimeTarget};
@@ -66,6 +68,7 @@ struct RemoteAccessRuntime {
     enrollment_urls: Vec<String>,
     ca_certificate_pem: String,
     ca_fingerprint: String,
+    relay_status: RelayAgentStatus,
 }
 
 struct HostState {
@@ -186,6 +189,7 @@ impl HostServer {
             .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?;
         let capability_broker = CapabilityBroker::new(plugin_root)
             .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?;
+        let relay_status: RelayAgentStatus = Arc::new(Mutex::new(RelayAgentState::default()));
         let remote_access = prepared_remote
             .as_ref()
             .map(|prepared| RemoteAccessRuntime {
@@ -194,9 +198,10 @@ impl HostServer {
                 enrollment_urls: prepared.enrollment_urls.clone(),
                 ca_certificate_pem: prepared.ca_certificate_pem.clone(),
                 ca_fingerprint: prepared.ca_fingerprint.clone(),
+                relay_status: relay_status.clone(),
             })
             .unwrap_or_default();
-        let relay_shutdown = prepare_relay_agent(prepared_remote.as_ref())?;
+        let relay_shutdown = prepare_relay_agent(prepared_remote.as_ref(), relay_status)?;
         let state = Arc::new(HostState {
             router: Mutex::new(HostRouter::new()),
             runtimes,
@@ -610,6 +615,7 @@ fn configured_remote_access_enabled() -> Result<bool, String> {
 
 fn prepare_relay_agent(
     prepared: Option<&PreparedRemoteTlsListener>,
+    status: RelayAgentStatus,
 ) -> Result<Option<oneshot::Sender<()>>, String> {
     let Some(prepared) = prepared else {
         return Ok(None);
@@ -648,6 +654,7 @@ fn prepare_relay_agent(
             device_id,
             gateway_origin,
             page_origin: page_origin.clone(),
+            status,
         },
         shutdown_rx,
     ));
@@ -660,6 +667,38 @@ fn public_remote_path(path: &str) -> bool {
         path,
         "/health" | "/v2/ws" | "/v2/auth/exchange" | "/v2/auth/ca.pem"
     ) || !path.starts_with("/v2/")
+}
+
+fn remote_access_status_payload(
+    state: &HostState,
+    config: &crate::remote_access_config::RemoteAccessConfig,
+    restart_required: bool,
+    request_id: &str,
+) -> serde_json::Value {
+    let relay = state
+        .remote_access
+        .relay_status
+        .lock()
+        .map(|status| status.clone())
+        .unwrap_or_default();
+    json!({
+        "type": "auth_response",
+        "requestId": request_id,
+        "configuredEnabled": config.enabled,
+        "running": state.remote_access.running,
+        "restartRequired": restart_required,
+        "urls": state.remote_access.urls,
+        "enrollmentUrls": state.remote_access.enrollment_urls,
+        "caFingerprint": state.remote_access.ca_fingerprint,
+        "publicUrl": config.public_url,
+        "publicEnrollmentUrl": config.public_enrollment_url,
+        "relayEnabled": config.relay_enabled,
+        "relayUrl": config.relay_url,
+        "relayDeviceId": config.relay_device_id,
+        "relayConnected": relay.connected,
+        "relayConnectedAt": relay.connected_at,
+        "relayLastError": relay.last_error,
+    })
 }
 
 async fn download_remote_ca(State(state): State<Arc<HostState>>) -> Response {
@@ -2561,21 +2600,12 @@ async fn dispatch(
             Some("remote_access_status") => {
                 let config = crate::remote_access_config::load()
                     .map_err(|message| ("remote_access_config_failed", message))?;
-                Ok(json!({
-                    "type": "auth_response",
-                    "requestId": request_id,
-                    "configuredEnabled": config.enabled,
-                    "running": state.remote_access.running,
-                    "restartRequired": config.enabled != state.remote_access.running,
-                    "urls": state.remote_access.urls,
-                    "enrollmentUrls": state.remote_access.enrollment_urls,
-                    "caFingerprint": state.remote_access.ca_fingerprint,
-                    "publicUrl": config.public_url,
-                    "publicEnrollmentUrl": config.public_enrollment_url,
-                    "relayEnabled": config.relay_enabled,
-                    "relayUrl": config.relay_url,
-                    "relayDeviceId": config.relay_device_id,
-                }))
+                Ok(remote_access_status_payload(
+                    state,
+                    &config,
+                    config.enabled != state.remote_access.running,
+                    &request_id,
+                ))
             }
             Some("set_remote_access_enabled") => {
                 let enabled = frame.get("enabled").and_then(Value::as_bool).ok_or((
@@ -2584,21 +2614,12 @@ async fn dispatch(
                 ))?;
                 let config = crate::remote_access_config::set_enabled(enabled)
                     .map_err(|message| ("remote_access_config_failed", message))?;
-                Ok(json!({
-                    "type": "auth_response",
-                    "requestId": request_id,
-                    "configuredEnabled": enabled,
-                    "running": state.remote_access.running,
-                    "restartRequired": enabled != state.remote_access.running,
-                    "urls": state.remote_access.urls,
-                    "enrollmentUrls": state.remote_access.enrollment_urls,
-                    "caFingerprint": state.remote_access.ca_fingerprint,
-                    "publicUrl": config.public_url,
-                    "publicEnrollmentUrl": config.public_enrollment_url,
-                    "relayEnabled": config.relay_enabled,
-                    "relayUrl": config.relay_url,
-                    "relayDeviceId": config.relay_device_id,
-                }))
+                Ok(remote_access_status_payload(
+                    state,
+                    &config,
+                    enabled != state.remote_access.running,
+                    &request_id,
+                ))
             }
             Some("set_remote_access_public") => {
                 let public_url = frame
@@ -2612,21 +2633,12 @@ async fn dispatch(
                 let config =
                     crate::remote_access_config::update_public(public_url, public_enrollment_url)
                         .map_err(|message| ("invalid_public_access_setting", message))?;
-                Ok(json!({
-                    "type": "auth_response",
-                    "requestId": request_id,
-                    "configuredEnabled": config.enabled,
-                    "running": state.remote_access.running,
-                    "restartRequired": true,
-                    "urls": state.remote_access.urls,
-                    "enrollmentUrls": state.remote_access.enrollment_urls,
-                    "caFingerprint": state.remote_access.ca_fingerprint,
-                    "publicUrl": config.public_url,
-                    "publicEnrollmentUrl": config.public_enrollment_url,
-                    "relayEnabled": config.relay_enabled,
-                    "relayUrl": config.relay_url,
-                    "relayDeviceId": config.relay_device_id,
-                }))
+                Ok(remote_access_status_payload(
+                    state,
+                    &config,
+                    true,
+                    &request_id,
+                ))
             }
             Some("set_remote_access_relay") => {
                 let relay_enabled = frame
@@ -2647,21 +2659,12 @@ async fn dispatch(
                     relay_device_id,
                 )
                 .map_err(|message| ("invalid_relay_setting", message))?;
-                Ok(json!({
-                    "type": "auth_response",
-                    "requestId": request_id,
-                    "configuredEnabled": config.enabled,
-                    "running": state.remote_access.running,
-                    "restartRequired": true,
-                    "urls": state.remote_access.urls,
-                    "enrollmentUrls": state.remote_access.enrollment_urls,
-                    "caFingerprint": state.remote_access.ca_fingerprint,
-                    "publicUrl": config.public_url,
-                    "publicEnrollmentUrl": config.public_enrollment_url,
-                    "relayEnabled": config.relay_enabled,
-                    "relayUrl": config.relay_url,
-                    "relayDeviceId": config.relay_device_id,
-                }))
+                Ok(remote_access_status_payload(
+                    state,
+                    &config,
+                    true,
+                    &request_id,
+                ))
             }
             Some("revoke_device") => {
                 let device_id = frame

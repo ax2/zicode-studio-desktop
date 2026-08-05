@@ -87,6 +87,10 @@
   gap: var(--space-3);
 }
 
+.remote-access-relay-live[data-relay-state="connected"] {
+  color: var(--success);
+}
+
 .remote-device-list {
   display: grid;
   gap: var(--space-3);
