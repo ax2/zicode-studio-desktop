@@ -38,6 +38,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 #[cfg(debug_assertions)]
 use tower::ServiceBuilder;
@@ -2202,6 +2203,91 @@ fn websocket_origin_allowed_strict(headers: &HeaderMap, allowed_origins: &HashSe
         .is_some_and(|origin| allowed_origins.contains(origin))
 }
 
+/// Send one runtime frame to the session: over the P2P DataChannel when a
+/// P2P connection is live, otherwise over the WebSocket. Signaling frames
+/// (`p2p_*`) always stay on the WebSocket.
+async fn send_runtime_frame(
+    socket: &mut WebSocket,
+    p2p: &Option<Arc<crate::p2p::P2pAnswerer>>,
+    value: &Value,
+) -> bool {
+    let text = value.to_string();
+    if let Some(answerer) = p2p {
+        if answerer.is_connected() {
+            return answerer.send(text.into_bytes()).await.is_ok();
+        }
+    }
+    socket.send(Message::Text(text.into())).await.is_ok()
+}
+
+/// Route one inbound runtime frame (from the WebSocket or a P2P DataChannel)
+/// through the host router and send the response back over the active data
+/// sink. Returns `Err(())` when the sink is gone.
+async fn process_runtime_frame(
+    state: &Arc<HostState>,
+    client_id: &str,
+    subscriptions: &mut HashSet<RuntimeTarget>,
+    frame: Value,
+    socket: &mut WebSocket,
+    p2p: &Option<Arc<crate::p2p::P2pAnswerer>>,
+) -> Result<(), ()> {
+    let request_id = frame
+        .get("requestId")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let routed = state
+        .router
+        .lock()
+        .map_err(|_| ("router_unavailable", "Host router unavailable".to_string()))
+        .and_then(|router| {
+            router
+                .route(client_id, &frame)
+                .map_err(|error| (error.code, error.message))
+        });
+    let mut after_response = Vec::new();
+    let response = match routed {
+        Ok(RoutedAction::Subscribe {
+            request_id, target, ..
+        }) => match serde_json::from_value::<RuntimeTarget>(target) {
+            Ok(target) => {
+                subscriptions.insert(target.clone());
+                let owns_session = state
+                    .session_owners
+                    .lock()
+                    .map(|mut owners| {
+                        owners
+                            .entry(target.clone())
+                            .or_insert_with(|| client_id.to_string())
+                            == client_id
+                    })
+                    .unwrap_or(false);
+                if owns_session {
+                    if let Ok(pending) = state.runtimes.pending_extension_ui(&target) {
+                        after_response.extend(pending.into_iter().map(runtime_event_frame));
+                    }
+                }
+                Ok(json!({ "type": "runtime_subscribed", "requestId": request_id }))
+            }
+            Err(_) => Err(("invalid_target", "Runtime target is invalid".into())),
+        },
+        Ok(action) => dispatch(action, state).await,
+        Err((code, message)) => Err((code, message)),
+    };
+    let outgoing = match response {
+        Ok(value) => value,
+        Err((code, message)) => structured_error(request_id.as_deref(), code, &message),
+    };
+    if !send_runtime_frame(socket, p2p, &outgoing).await {
+        return Err(());
+    }
+    for replay in after_response {
+        if !send_runtime_frame(socket, p2p, &replay).await {
+            return Err(());
+        }
+    }
+    Ok(())
+}
+
 async fn handle_websocket(
     mut socket: WebSocket,
     state: Arc<HostState>,
@@ -2295,6 +2381,11 @@ async fn handle_websocket(
     let mut subscriptions = HashSet::new();
     let mut remote_auth_check = tokio::time::interval(Duration::from_secs(5));
     remote_auth_check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    // M2 P2P session state: the answerer peer, its outbound signaling frames,
+    // and DataChannel messages (routed back into the runtime pipeline).
+    let mut p2p_answerer: Option<Arc<crate::p2p::P2pAnswerer>> = None;
+    let mut p2p_signals: Option<mpsc::UnboundedReceiver<Value>> = None;
+    let mut p2p_inbound: Option<mpsc::UnboundedReceiver<Value>> = None;
     loop {
         tokio::select! {
             _ = remote_auth_check.tick(), if remote_device_token.is_some() => {
@@ -2326,55 +2417,88 @@ async fn handle_websocket(
                         continue;
                     }
                 };
-                let request_id = frame
-                    .get("requestId")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned);
-                let routed = state
-                    .router
-                    .lock()
-                    .map_err(|_| ("router_unavailable", "Host router unavailable".to_string()))
-                    .and_then(|router| {
-                        router
-                            .route(&client_id, &frame)
-                            .map_err(|error| (error.code, error.message))
-                    });
-                let mut after_response = Vec::new();
-                let response = match routed {
-                    Ok(RoutedAction::Subscribe { request_id, target, .. }) => {
-                        match serde_json::from_value::<RuntimeTarget>(target) {
-                            Ok(target) => {
-                                subscriptions.insert(target.clone());
-                                let owns_session = state
-                                    .session_owners
-                                    .lock()
-                                    .map(|mut owners| {
-                                        owners.entry(target.clone()).or_insert_with(|| client_id.clone()) == &client_id
-                                    })
-                                    .unwrap_or(false);
-                                if owns_session {
-                                    if let Ok(pending) = state.runtimes.pending_extension_ui(&target) {
-                                        after_response.extend(pending.into_iter().map(runtime_event_frame));
+                if crate::p2p::is_p2p_signal(&frame) {
+                    if frame.get("type").and_then(Value::as_str) == Some("p2p_offer") {
+                        match crate::p2p::P2pAnswerer::new() {
+                            Ok((answerer, handle)) => {
+                                let answerer = Arc::new(answerer);
+                                let (inbound_tx, inbound_rx) = mpsc::unbounded_channel();
+                                let mut messages = handle.messages;
+                                tokio::spawn(async move {
+                                    while let Some(bytes) = messages.recv().await {
+                                        if let Ok(frame) = serde_json::from_slice::<Value>(&bytes) {
+                                            if inbound_tx.send(frame).is_err() {
+                                                break;
+                                            }
+                                        }
                                     }
+                                });
+                                p2p_answerer = Some(answerer.clone());
+                                p2p_signals = Some(handle.signals);
+                                p2p_inbound = Some(inbound_rx);
+                                if let Err(error) = answerer.handle_signal(frame).await {
+                                    let _ = send_error(&mut socket, None, "p2p_signal_failed", &error)
+                                        .await;
                                 }
-                                Ok(json!({ "type": "runtime_subscribed", "requestId": request_id }))
                             }
-                            Err(_) => Err(("invalid_target", "Runtime target is invalid".into())),
+                            Err(error) => {
+                                let _ =
+                                    send_error(&mut socket, None, "p2p_unavailable", &error).await;
+                            }
+                        }
+                    } else if let Some(answerer) = &p2p_answerer {
+                        if let Err(error) = answerer.handle_signal(frame).await {
+                            let _ =
+                                send_error(&mut socket, None, "p2p_signal_failed", &error).await;
                         }
                     }
-                    Ok(action) => dispatch(action, &state).await,
-                    Err((code, message)) => Err((code, message)),
-                };
-                let outgoing = match response {
-                    Ok(value) => value,
-                    Err((code, message)) => structured_error(request_id.as_deref(), code, &message),
-                };
-                if socket.send(Message::Text(outgoing.to_string().into())).await.is_err() {
+                    continue;
+                }
+                if process_runtime_frame(
+                    &state,
+                    &client_id,
+                    &mut subscriptions,
+                    frame,
+                    &mut socket,
+                    &p2p_answerer,
+                )
+                .await
+                .is_err()
+                {
                     break;
                 }
-                for replay in after_response {
-                    if socket.send(Message::Text(replay.to_string().into())).await.is_err() {
-                        return;
+            }
+            signal = async {
+                match p2p_signals.as_mut() {
+                    Some(receiver) => receiver.recv().await,
+                    None => futures_util::future::pending().await,
+                }
+            } => {
+                if let Some(signal) = signal {
+                    if socket.send(Message::Text(signal.to_string().into())).await.is_err() {
+                        break;
+                    }
+                }
+            }
+            message = async {
+                match p2p_inbound.as_mut() {
+                    Some(receiver) => receiver.recv().await,
+                    None => futures_util::future::pending().await,
+                }
+            } => {
+                if let Some(frame) = message {
+                    if process_runtime_frame(
+                        &state,
+                        &client_id,
+                        &mut subscriptions,
+                        frame,
+                        &mut socket,
+                        &p2p_answerer,
+                    )
+                    .await
+                    .is_err()
+                    {
+                        break;
                     }
                 }
             }
@@ -2392,7 +2516,7 @@ async fn handle_websocket(
                             if !is_owner { continue; }
                         }
                         let outgoing = runtime_event_frame(event);
-                        if socket.send(Message::Text(outgoing.to_string().into())).await.is_err() {
+                        if !send_runtime_frame(&mut socket, &p2p_answerer, &outgoing).await {
                             break;
                         }
                     }
@@ -2403,7 +2527,7 @@ async fn handle_websocket(
                             "event_sequence_gap",
                             "Runtime events were missed; request a snapshot",
                         );
-                        if socket.send(Message::Text(outgoing.to_string().into())).await.is_err() {
+                        if !send_runtime_frame(&mut socket, &p2p_answerer, &outgoing).await {
                             break;
                         }
                     }
@@ -3761,7 +3885,8 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use std::path::Path;
     use std::sync::{Arc, Mutex};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use tokio::sync::mpsc;
 
     #[test]
     fn rewrites_developer_roles_to_system_before_forwarding() {
@@ -4672,6 +4797,185 @@ mod tests {
         assert_eq!(event["type"], "runtime_event");
         assert_eq!(event["target"]["sessionId"], "session-a");
         assert_eq!(event["sequence"], 1);
+
+        drop(socket);
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn routes_p2p_data_channel_frames_through_the_runtime_pipeline() {
+        use bytes::Bytes;
+        use tokio_tungstenite::tungstenite::Message as ClientMessage;
+        use webrtc::data_channel::data_channel_message::DataChannelMessage;
+        use webrtc::data_channel::data_channel_state::RTCDataChannelState;
+        use webrtc::peer_connection::configuration::RTCConfiguration;
+        use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-p2p-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let runtimes = NativePiManager::new(32);
+        let target = RuntimeTarget::new("workspace-a", "session-a", "instance-a");
+        let mut fake = runtimes.register_in_memory(target.clone()).unwrap();
+        let host = HostServer::start(public, runtimes, auth).await.unwrap();
+        let ws_url = host.origin().replace("http://", "ws://") + "/v2/ws";
+        let (mut socket, _) = tokio_tungstenite::connect_async(ws_url).await.unwrap();
+        socket
+            .send(ClientMessage::Text(
+                json!({
+                    "type": "hello",
+                    "protocolVersion": 2,
+                    "clientType": "desktop",
+                    "clientId": "p2p-desktop"
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+        socket.next().await.unwrap().unwrap();
+
+        // Offerer peer (simulates the phone) with real WebRTC.
+        let api = crate::p2p::build_api().unwrap();
+        let offerer = Arc::new(
+            api.new_peer_connection(RTCConfiguration {
+                ..Default::default()
+            })
+            .await
+            .unwrap(),
+        );
+        let dc = offerer
+            .create_data_channel("zicode-p2p", None)
+            .await
+            .unwrap();
+        let (offerer_msg_tx, mut offerer_msg_rx) = mpsc::unbounded_channel::<String>();
+        dc.on_message(Box::new(move |message: DataChannelMessage| {
+            let offerer_msg_tx = offerer_msg_tx.clone();
+            Box::pin(async move {
+                if let Ok(text) = String::from_utf8(message.data.to_vec()) {
+                    let _ = offerer_msg_tx.send(text);
+                }
+            })
+        }));
+        let (offerer_ice_tx, mut offerer_ice_rx) = mpsc::unbounded_channel::<Value>();
+        offerer.on_ice_candidate(Box::new(move |candidate| {
+            let offerer_ice_tx = offerer_ice_tx.clone();
+            Box::pin(async move {
+                if let Some(candidate) = candidate {
+                    if let Ok(init) = candidate.to_json() {
+                        let _ =
+                            offerer_ice_tx.send(json!({ "type": "p2p_ice", "candidate": init }));
+                    }
+                }
+            })
+        }));
+
+        let offer = offerer.create_offer(None).await.unwrap();
+        offerer.set_local_description(offer.clone()).await.unwrap();
+        socket
+            .send(ClientMessage::Text(
+                json!({ "type": "p2p_offer", "sdp": offer.sdp }).to_string(),
+            ))
+            .await
+            .unwrap();
+
+        // Exchange signals through the gateway until the DataChannel opens.
+        let mut remote_candidates = Vec::new();
+        let connected = tokio::time::timeout(Duration::from_secs(15), async {
+            loop {
+                tokio::select! {
+                    incoming = socket.next() => {
+                        let Some(Ok(ClientMessage::Text(text))) = incoming else {
+                            panic!("gateway WebSocket closed during negotiation");
+                        };
+                        let frame: Value = serde_json::from_str(&text).unwrap();
+                        match frame.get("type").and_then(Value::as_str).unwrap_or_default() {
+                            "p2p_answer" => {
+                                let sdp = frame.get("sdp").and_then(Value::as_str).unwrap();
+                                let description =
+                                    RTCSessionDescription::answer(sdp.to_string()).unwrap();
+                                offerer.set_remote_description(description).await.unwrap();
+                                for candidate in remote_candidates.drain(..) {
+                                    let init = crate::p2p::candidate_to_init(&candidate).unwrap();
+                                    let _ = offerer.add_ice_candidate(init).await;
+                                }
+                            }
+                            "p2p_ice" => {
+                                let candidate = frame.get("candidate").cloned().unwrap();
+                                if offerer.remote_description().await.is_some() {
+                                    let init = crate::p2p::candidate_to_init(&candidate).unwrap();
+                                    let _ = offerer.add_ice_candidate(init).await;
+                                } else {
+                                    remote_candidates.push(candidate);
+                                }
+                            }
+                            other => panic!("unexpected gateway frame during negotiation: {other}"),
+                        }
+                    }
+                    candidate = offerer_ice_rx.recv() => {
+                        if let Some(candidate) = candidate {
+                            socket
+                                .send(ClientMessage::Text(candidate.to_string()))
+                                .await
+                                .unwrap();
+                        }
+                    }
+                    _ = tokio::time::sleep(Duration::from_millis(50)) => {}
+                }
+                if dc.ready_state() == RTCDataChannelState::Open {
+                    break;
+                }
+            }
+        })
+        .await;
+        assert!(
+            connected.is_ok(),
+            "P2P connection through the gateway did not open"
+        );
+
+        // Runtime requests over the DataChannel reach the host router and the
+        // response comes back over the DataChannel.
+        dc.send(&Bytes::from_static(
+            br#"{"type":"runtime_subscribe","requestId":"p2p-sub-1","target":{"workspaceId":"workspace-a","sessionId":"session-a","instanceId":"instance-a"}}"#,
+        ))
+        .await
+        .unwrap();
+        let response = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Some(text) = offerer_msg_rx.recv().await {
+                    break text;
+                }
+            }
+        })
+        .await
+        .expect("no runtime response over the DataChannel");
+        let response: Value = serde_json::from_str(&response).unwrap();
+        assert_eq!(response["type"], "runtime_subscribed");
+        assert_eq!(response["requestId"], "p2p-sub-1");
+
+        // Subscribed runtime events also flow over the DataChannel.
+        fake.write_frame(json!({ "type": "agent_start" }))
+            .await
+            .unwrap();
+        let event = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Some(text) = offerer_msg_rx.recv().await {
+                    break text;
+                }
+            }
+        })
+        .await
+        .expect("no runtime event over the DataChannel");
+        let event: Value = serde_json::from_str(&event).unwrap();
+        assert_eq!(event["type"], "runtime_event");
+        assert_eq!(event["target"]["sessionId"], "session-a");
 
         drop(socket);
         host.stop();

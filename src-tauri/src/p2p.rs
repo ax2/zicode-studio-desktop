@@ -7,11 +7,6 @@
 //! the phone would otherwise send over the relay. DTLS encrypts the channel
 //! in transit; the desktop itself is the peer, so no extra app-layer
 //! encryption is needed on this path.
-//!
-//! The gateway `/v2/ws` routing hook that feeds these signals and drains the
-//! data channel is the next integration step; until then the module is only
-//! exercised by its in-process loopback test.
-#![allow(dead_code)]
 
 use bytes::Bytes;
 use serde_json::{json, Value};
@@ -35,6 +30,15 @@ use webrtc::peer_connection::RTCPeerConnection;
 pub struct P2pAnswererHandle {
     pub signals: mpsc::UnboundedReceiver<Value>,
     pub messages: mpsc::UnboundedReceiver<Vec<u8>>,
+}
+
+/// True when the frame is one of the M2 signaling frames the gateway routes
+/// to the desktop P2P answerer instead of the runtime pipeline.
+pub fn is_p2p_signal(frame: &Value) -> bool {
+    matches!(
+        frame.get("type").and_then(Value::as_str),
+        Some("p2p_offer" | "p2p_answer" | "p2p_ice" | "p2p_close")
+    )
 }
 
 pub struct P2pAnswerer {
@@ -263,7 +267,7 @@ impl P2pAnswerer {
     }
 }
 
-fn candidate_to_init(
+pub(crate) fn candidate_to_init(
     candidate: &Value,
 ) -> Result<webrtc::ice_transport::ice_candidate::RTCIceCandidateInit, String> {
     let candidate_str = candidate
