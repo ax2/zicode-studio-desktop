@@ -2045,3 +2045,21 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 
 验证记录见 `docs/release-validation-2026-08-05.md`。遗留：按日/月的持久化
 统计与监控告警、M2 P2P 直连、二维码扫码验收、安装包签名流水线。
+
+第一百二十五轮：设置面板展示今日中继流量（2026-08-05）。把配额系统的
+可观测性闭环到用户侧：
+
+1. 中继客户端新增 `relay_status_base`（wss/ws → https/http）与
+   `parse_relay_usage`（解析 `/relay/status` 的 `usage` 数组）；
+2. host 启动时若启用了中继，后台每 30 秒拉取公网 `/relay/status`，把本设备
+   当日中继字节写入 Agent 状态；失败容忍（不可达时保持未知）；
+3. `remote_access_status` 新增 `relayUsageBytes`；设置面板中继区块展示
+   "今日中继流量"（B/KB/MB/GB 自适应），zh-CN 新增 1 键；
+4. 验证：Rust 127 项（新增 URL 转换、用量解析测试）；前端 647 项（含用量
+   渲染断言）；release 二次构建 + `/S` 重装后实测状态接口返回
+   `relayUsageBytes`（当前为 null，待服务器中继部署新版后自动填充）；
+   安装包 SHA-256 已更新。
+
+遗留：服务器侧部署新版中继（注册令牌 + 每日配额 + usage 上报）后，设置面板
+即可看到真实流量；按日/月持久化统计与监控告警、M2 P2P 直连、二维码扫码验收、
+安装包签名流水线。

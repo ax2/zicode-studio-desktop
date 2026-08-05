@@ -9,8 +9,8 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 36,561,920 B | `AD227827661D826480B3E3D8E1F47D85C4A83023D3B25EE9A14CBA1880A7A2F9` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 345,503,653 B | `458472A870F9AC23D78A280B4D1941DB0B93AD1F4A15255D418227F130115236` |
+| `target/release/zicode-studio-desktop.exe` | 36,581,376 B | `701E8AE9C13F7C562EE78221D3737F49E9FE6193A6429A53F330AD9D6978083C` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 345,499,005 B | `280D69929DAFE6A9B5717264097F41FDDB1497C8631DC722671BC1CFAA6DFD2D` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
 Authenticode 签名，对外分发前仍需受控发布流水线配置代码签名证书。
@@ -46,3 +46,11 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   ERROR/WARN/panic；
 - 桌面启动器 `启动 ZiCode Studio Desktop.cmd` 已由 `target/debug` 切换为
   安装目录 release 版。
+
+## 二次构建（2026-08-05，含中继用量轮询）
+
+- 在上一版基础上合入中继用量轮询与 `relayUsageBytes` 状态字段后重新构建并
+  `/S` 重装；从安装目录启动冒烟通过（网关 `/health` 200、中继注册
+  `dev-ax2-01`、日志无错误）；
+- 状态接口实测返回 `relayUsageBytes`（当前为 `null`，待服务器中继部署新版
+  上报 `usage` 后自动填充）；SHA-256 已更新为上表。
