@@ -1812,3 +1812,26 @@ bootstrap 200；manifest 200 且 URL 为设备作用域；Rust 118 测试与前�
 遗留：M2 P2P 直连 / M3 端到端加密未启动；手机真机验收待 ADB 接入后执行（手机
 打开 `https://relay.zicode.com/d/dev-ax2-01/app/` → 桌面生成会话二维码扫码配对
 → 聊天/刷新/离线重连）。
+
+第一百一十四轮：设置面板新增中继实时连接状态（2026-08-05）。此前"经服务器"区块
+只回显配置（`relayEnabled/relayUrl/relayDeviceId`），用户看不出 Agent 是否真的
+连上会合服务器；本轮把 Agent 生命周期状态接进设置面板：
+
+1. Rust（`src-tauri/src/relay_client.rs` + `host_server.rs`）：
+   - 新增 `RelayAgentState`（`connected` / `connected_at` / `last_error`），
+     由 `RelayAgentConfig` 携带共享状态；`run_once` 连上中继后置
+     `connected=true` 并记录时间，断线/重连时置回 `false` 并记录原因；
+   - `host_server` 把状态 Arc 传入 Agent，`RemoteAccessRuntime` 持有引用；
+     四处重复的远程访问状态响应统一为 `remote_access_status_payload` helper，
+     新增 `relayConnected` / `relayConnectedAt` / `relayLastError` 字段；
+2. 前端（`public/native/settings/remote-access-settings.js`）：中继区块新增
+   实时状态行（`role="status"`）：连接中显示"中继已连接 · 时间"，未连接显示
+   原因（来自 `relayLastError`）或"中继连接中…"；zh-CN 新增 3 个键；连接态
+   用 `--success` 着色；面板在窗口聚焦/可见时自动刷新（复用现有 load）；
+3. 测试与验证：Rust 119 项通过（新增状态默认值用例）；前端全量 637 项通过
+   （新增连接/断线两个用例）；Biome 通过；重建 debug 版并重启（PID 75188），
+   经 WebView2 CDP 实测设置面板显示"中继已连接 · 2026年8月5日 12:10"，与
+   Agent 连接时间一致；`/relay/status` 仍显示 `desktops:["dev-ax2-01"]`。
+
+遗留：M2 P2P 直连 / M3 端到端加密未启动（架构文档第 6/12 节的 E2EE 选型
+WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
