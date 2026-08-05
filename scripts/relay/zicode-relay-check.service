@@ -1,0 +1,11 @@
+[Unit]
+Description=ZiCode rendezvous relay health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check-relay.sh --json
+# Optional failure alert webhook. Set by install-check.sh when
+# ZICODE_RELAY_ALERT_URL is provided.
+Environment=ZICODE_RELAY_ALERT_URL=
