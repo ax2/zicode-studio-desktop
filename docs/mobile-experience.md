@@ -2136,3 +2136,20 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 
 遗留：服务器部署新版中继后设置面板显示真实流量；多节点、M2 P2P 直连、二维码
 扫码验收、安装包签名流水线。
+
+第一百二十九轮：设置面板展示近 7 日中继用量历史（2026-08-05）。把服务器侧
+已就绪的按日归档（`usageHistory`）接到桌面客户端，流量可见性闭环：
+
+1. `relay_client.rs` 新增 `DailyRelayUsage` 与 `parse_relay_usage_history`：
+   解析 `/relay/status` 的 `usageHistory`
+   （`[{"day":D,"devices":{"<deviceId>":bytes}}, ...]`），只保留本设备条目
+   并按天升序；`RelayAgentState` 新增 `usage_history` 字段；
+2. host 每 30 秒轮询改为单次请求同时解析今日用量与历史，
+   `remote_access_status` 新增 `relayUsageHistory`（`[{day,bytes}]`）；
+3. 设置面板中继区块新增"近 7 日中继流量"卡片：最新在前、日期 + 自适应字节数
+   （B/KB/MB/GB），中英文键与 CSS 样式补齐；旧版中继返回无该字段时优雅隐藏；
+4. 验证：Rust 主 crate 128 项全绿（新增历史解析用例）；前端 648 项全绿（新增
+   历史渲染断言）；Biome lint（仅既有 2 条无关警告）与设计规范检查通过。
+
+遗留：服务器部署新版中继（含 `usageHistory`）后设置面板自动显示真实流量与
+历史；多节点、M2 P2P 直连、二维码扫码验收、安装包签名流水线。
