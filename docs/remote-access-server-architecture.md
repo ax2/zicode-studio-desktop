@@ -290,14 +290,20 @@
 - 协议：`Hello` 帧新增可选 `registration_token`；新增
   `RegistrationRejected { reason }` 帧，桌面 Agent 收到后记录明确错误并
   停止重连（设置面板中继状态会显示原因）；
-- 验证：Rust 新增 5 项中继测试（无/错令牌拒绝、正确令牌接受、畸形设备 ID
-  拒绝、注册限流、会话上限）+ 协议/配置测试；本地闭环实测无令牌/错令牌被拒、
-  正确令牌 `welcome`；
+- 按设备字节流量配额（第二轮）：中继按设备累计双向中继字节（WS 帧 + HTTP
+  代理请求/响应），配置 `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE` 后超限设备
+  的 HTTP 代理返回 429、WS 会话收到 `device_quota_exceeded` 并关闭；
+  `/relay/status` 返回 `usage`（设备 → 累计字节，内存态、重启清零）；
+- 验证：Rust 新增 7 项中继测试（无/错令牌拒绝、正确令牌接受、畸形设备 ID
+  拒绝、注册限流、会话上限、HTTP 字节配额 + 状态用量、WS 字节配额）+
+  协议/配置测试；本地闭环实测无令牌/错令牌被拒、正确令牌 `welcome`、HTTP
+  超限 429、WS 收到 `device_quota_exceeded`、状态用量正确；
 - 部署步骤（生产启用）：服务器 systemd 单元加
   `Environment=ZICODE_RELAY_REGISTRATION_TOKEN=<secret>` 并重启
-  `zicode-relay`；桌面 `config.json` 加 `"relayRegistrationToken":
-  "<同一 secret>"` 后重启桌面。**secret 不得写入文档/仓库**；
-- 待办：中继 HTTP/WS 流量配额（按设备字节量）、监控告警、多节点。
+  `zicode-relay`；可选再加 `Environment=ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=
+  <字节数>`；桌面 `config.json` 加 `"relayRegistrationToken": "<同一
+  secret>"` 后重启桌面。**secret 不得写入文档/仓库**；
+- 待办：按时间窗（日/月）的用量统计与监控告警、多节点。
 
 ## 13. 与现有代码的复用清单
 
