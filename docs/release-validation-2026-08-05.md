@@ -9,8 +9,9 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 36,581,376 B | `701E8AE9C13F7C562EE78221D3737F49E9FE6193A6429A53F330AD9D6978083C` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 345,499,005 B | `280D69929DAFE6A9B5717264097F41FDDB1497C8631DC722671BC1CFAA6DFD2D` |
+| `target/release/zicode-studio-desktop.exe` | 36,590,592 B | `935F7498AE248E1E37C2EDE6BF6FB6E38CE45092A692C75A6C731C2AB03F128A` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 345,541,619 B | `C3CA240A1301099555CCF57AAB8354081D1AC9517721341ECE0A67C24FB0EB42` |
+| `target/release/zicode-relay.exe`（内置中继） | 1,801,728 B | `2742DF2C132825F3B0EB0B022E5A5C3D4E8F6567462E22608CE8826D5E29F67B` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
 Authenticode 签名，对外分发前仍需受控发布流水线配置代码签名证书。
@@ -54,3 +55,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   `dev-ax2-01`、日志无错误）；
 - 状态接口实测返回 `relayUsageBytes`（当前为 `null`，待服务器中继部署新版
   上报 `usage` 后自动填充）；SHA-256 已更新为上表。
+
+## 第三次重建（2026-08-05，含用量持久化与近 7 日历史 UI）
+
+- 在上一版基础上合入：中继按日用量持久化（`ZICODE_RELAY_DATA_DIR`、
+  30 天归档、`/relay/status` 返回 `usageHistory`，第 127 轮）、监控告警脚本
+  （第 128 轮，脚本不入安装包）、设置面板近 7 日中继用量历史（第 129 轮）；
+- 验证：
+  - 内置 `zicode-relay.exe` 实测：注册鉴权 on、每日字节配额 1,000,000、
+    `usage persistence: on`，`/relay/status` 返回
+    `usage/usageDay/usageHistory` 四字段；
+  - `/S` 静默安装后安装目录与 release 产物一致（EXE 同尺寸、中继同哈希；
+    standalone EXE 会被 Tauri 在打包后打上 "bundle type" PE 补丁，因此不做
+    逐字节比对），`public/` 含设置面板历史 UI 与中英文键；
+  - 从安装目录独立启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、公网中继注册
+    `dev-ax2-01`、启动后日志无 ERROR/WARN/panic；
+  - 桌面快捷方式继续指向安装目录 release 版。
