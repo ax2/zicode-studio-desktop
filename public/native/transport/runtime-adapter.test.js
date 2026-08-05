@@ -447,6 +447,37 @@ describe("HostRuntimeAdapter", () => {
     expect(FakeP2pTransport.instances[0].iceServers).toEqual(iceServers);
   });
 
+  it("notifies P2P state listeners on connect and failure", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    const states = [];
+    const remove = adapter.setP2pListener((connected) => states.push(connected));
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    const transport = FakeP2pTransport.instances[0];
+
+    transport.emitConnected();
+    expect(states).toContain(true);
+    transport.emitFailed();
+    expect(states).toContain(false);
+    remove();
+    const countBefore = states.length;
+    transport.emitConnected();
+    expect(states.length).toBe(countBefore);
+    adapter.disconnect();
+  });
+
   it("routes p2p signaling frames to the transport without reaching the app", () => {
     FakeWebSocket.instances.length = 0;
     FakeP2pTransport.instances.length = 0;

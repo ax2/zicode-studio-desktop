@@ -14,6 +14,7 @@ const zhCN = {
   Online: "在线",
   Offline: "离线",
   "Connected to your ZiCode desktop": "已连接到你电脑上的 ZiCode",
+  "Direct connection": "直连",
   Connecting: "连接中",
   "Connecting...": "连接中…",
   Disconnected: "已断开",

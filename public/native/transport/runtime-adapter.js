@@ -46,6 +46,7 @@ export class HostRuntimeAdapter {
   #p2pMaxAttempts = 5;
   #p2pAttempts = 0;
   #p2pRetryTimer = null;
+  #p2pListeners = new Set();
 
   constructor({
     url,
@@ -94,6 +95,11 @@ export class HostRuntimeAdapter {
   setFatalErrorListener(listener) {
     this.#fatalErrorListeners.add(listener);
     return () => this.#fatalErrorListeners.delete(listener);
+  }
+
+  setP2pListener(listener) {
+    this.#p2pListeners.add(listener);
+    return () => this.#p2pListeners.delete(listener);
   }
 
   connect() {
@@ -252,6 +258,7 @@ export class HostRuntimeAdapter {
       if (this.#p2p.send(JSON.stringify(frame))) return;
       // The data channel went away; fall back to the WebSocket for this frame.
       this.#p2pConnected = false;
+      this.#emitP2pState();
     }
     this.#sendText(JSON.stringify(frame));
   }
@@ -326,6 +333,7 @@ export class HostRuntimeAdapter {
           } else if (state === P2P_STATE.CLOSED) {
             this.#p2pConnected = false;
           }
+          this.#emitP2pState();
         },
         iceServers: this.#iceServers,
         RTCPeerConnectionImpl: this.#RTCPeerConnectionImpl,
@@ -364,6 +372,7 @@ export class HostRuntimeAdapter {
       this.#p2pUnavailable = true;
       this.#p2p = null;
       this.#p2pConnected = false;
+      this.#emitP2pState();
       this.#clearP2pRetryTimer();
       return true;
     }
@@ -401,6 +410,7 @@ export class HostRuntimeAdapter {
     }
     this.#p2p = null;
     this.#p2pConnected = false;
+    this.#emitP2pState();
   }
 
   /**
@@ -431,6 +441,10 @@ export class HostRuntimeAdapter {
       globalThis.clearTimeout(this.#p2pRetryTimer);
       this.#p2pRetryTimer = null;
     }
+  }
+
+  #emitP2pState() {
+    for (const listener of this.#p2pListeners) listener(this.#p2pConnected);
   }
 
   #scheduleReconnect() {

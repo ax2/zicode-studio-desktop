@@ -63,6 +63,7 @@ export function setupMobileExperience({
   let installReturnFocus = null;
   let reconnectEscalated = false;
   let reconnectTimer = null;
+  let p2pConnected = adapter?.isP2pConnected?.() ?? false;
 
   const connection = documentRef.createElement("div");
   connection.className = "mobile-connection-status";
@@ -71,12 +72,15 @@ export function setupMobileExperience({
   connectionMessage.className = "mobile-connection-message";
   connectionMessage.setAttribute("role", "status");
   connectionMessage.setAttribute("aria-live", "polite");
+  const connectionMode = documentRef.createElement("span");
+  connectionMode.className = "mobile-connection-mode";
+  connectionMode.hidden = true;
   const retryConnectionButton = documentRef.createElement("button");
   retryConnectionButton.type = "button";
   retryConnectionButton.className =
     "ui-button ui-button--ghost ui-button--sm mobile-connection-retry";
   retryConnectionButton.hidden = true;
-  connection.append(connectionMessage, retryConnectionButton);
+  connection.append(connectionMessage, connectionMode, retryConnectionButton);
 
   const install = documentRef.createElement("aside");
   install.className = "mobile-install-card";
@@ -120,6 +124,7 @@ export function setupMobileExperience({
     retryConnectionButton.textContent = t("Retry");
     if (!navigatorRef.onLine) {
       clearReconnectTimer();
+      connectionMode.hidden = true;
       connectionMessage.textContent = t(
         "Network unavailable. ZiCode will reconnect automatically.",
       );
@@ -129,6 +134,7 @@ export function setupMobileExperience({
       return;
     }
     if (!connected) {
+      connectionMode.hidden = true;
       connectionMessage.textContent = t(
         reconnectEscalated
           ? "Connecting is taking longer than expected. Check the desktop app, then try again."
@@ -146,6 +152,8 @@ export function setupMobileExperience({
     connection.hidden = false;
     connection.dataset.state = "connected";
     connectionMessage.textContent = t("Connected to your ZiCode desktop");
+    connectionMode.hidden = !p2pConnected;
+    connectionMode.textContent = t("Direct connection");
   }
 
   function dismissed() {
@@ -250,6 +258,10 @@ export function setupMobileExperience({
     connected = value;
     renderConnection();
   });
+  const removeP2pListener = adapter?.setP2pListener?.((value) => {
+    p2pConnected = Boolean(value);
+    renderConnection();
+  });
 
   windowRef.addEventListener("online", onOnline);
   windowRef.addEventListener("offline", onOffline);
@@ -274,6 +286,7 @@ export function setupMobileExperience({
       serviceWorker?.dispose();
       startRouteTracking?.dispose();
       removeConnectionListener?.();
+      removeP2pListener?.();
       windowRef.removeEventListener("online", onOnline);
       windowRef.removeEventListener("offline", onOffline);
       windowRef.removeEventListener("pageshow", onPageShow);

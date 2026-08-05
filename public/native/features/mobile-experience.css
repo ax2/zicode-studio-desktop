@@ -35,6 +35,15 @@
   flex: 1;
 }
 
+.mobile-connection-mode {
+  flex: 0 0 auto;
+  color: var(--success);
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+}
+
 .mobile-connection-retry {
   min-height: var(--space-10);
   flex: 0 0 auto;

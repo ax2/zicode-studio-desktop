@@ -22,6 +22,34 @@ function makeAdapter() {
   };
 }
 
+function makeP2pAdapter() {
+  let connectionListener;
+  let p2pListener;
+  const adapter = {
+    reconnectNow: vi.fn(),
+    isP2pConnected: vi.fn(() => false),
+    emit(value) {
+      connectionListener?.(value);
+    },
+    emitP2p(value) {
+      p2pListener?.(value);
+    },
+    setConnectionListener(next) {
+      connectionListener = next;
+      return () => {
+        connectionListener = undefined;
+      };
+    },
+    setP2pListener(next) {
+      p2pListener = next;
+      return () => {
+        p2pListener = undefined;
+      };
+    },
+  };
+  return adapter;
+}
+
 describe("mobile experience", () => {
   beforeEach(() => {
     document.body.replaceChildren();
@@ -51,6 +79,31 @@ describe("mobile experience", () => {
     expect(status.hidden).toBe(false);
     expect(status.dataset.state).toBe("connected");
     expect(status.textContent).toMatch(/Connected to your ZiCode|已连接到/);
+    view.dispose();
+  });
+
+  it("shows the direct-connection badge only while P2P is active", () => {
+    const adapter = makeP2pAdapter();
+    const view = setupMobileExperience({
+      adapter,
+      clientType: "remote",
+      navigatorRef: { onLine: true },
+      windowRef: window,
+    });
+    const status = document.querySelector(".mobile-connection-status");
+    const mode = document.querySelector(".mobile-connection-mode");
+    expect(mode.hidden).toBe(true);
+
+    adapter.emit(true); // WebSocket connected
+    expect(status.dataset.state).toBe("connected");
+    expect(mode.hidden).toBe(true);
+
+    adapter.emitP2p(true);
+    expect(mode.hidden).toBe(false);
+    expect(mode.textContent).toMatch(/Direct connection|直连/);
+
+    adapter.emitP2p(false);
+    expect(mode.hidden).toBe(true);
     view.dispose();
   });
 
