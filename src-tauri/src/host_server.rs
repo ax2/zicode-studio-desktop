@@ -3051,6 +3051,12 @@ async fn exchange_pairing(
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     Json(request): Json<PairingExchangeRequest>,
 ) -> Result<Json<PairingExchangeResponse>, (StatusCode, Json<Value>)> {
+    log::info!(
+        "[pairing] exchange attempt token={} device={} peer={}",
+        &request.pairing_token[..request.pairing_token.len().min(12)],
+        &request.device_id,
+        peer.ip()
+    );
     let token = state
         .auth
         .lock()

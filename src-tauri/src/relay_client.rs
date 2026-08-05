@@ -543,8 +543,9 @@ async fn execute_http(
     body: &str,
 ) -> RelayFrame {
     let url = format!("{}{}", config.gateway_origin, path);
-    let method = reqwest::Method::from_bytes(method.as_bytes()).unwrap_or(reqwest::Method::GET);
-    let mut request = client.request(method, &url);
+    let method_verb =
+        reqwest::Method::from_bytes(method.as_bytes()).unwrap_or(reqwest::Method::GET);
+    let mut request = client.request(method_verb, &url);
     for (name, value) in headers {
         if let Ok(value) = HeaderValue::from_str(value) {
             request = request.header(name.as_str(), value);
@@ -559,6 +560,11 @@ async fn execute_http(
     match request.send().await {
         Ok(response) => {
             let status = response.status().as_u16();
+            log::info!(
+                "[relay-agent] {method} {path} -> {status}",
+                method = method,
+                path = path
+            );
             let response_headers: Vec<(String, String)> = response
                 .headers()
                 .iter()
@@ -578,13 +584,16 @@ async fn execute_http(
                 body: base64::engine::general_purpose::STANDARD.encode(bytes),
             }
         }
-        Err(error) => RelayFrame::HttpResp {
-            rid,
-            status: 502,
-            headers: vec![("content-type".to_string(), "text/plain".to_string())],
-            body: base64::engine::general_purpose::STANDARD
-                .encode(format!("relay_agent_upstream_error: {error}")),
-        },
+        Err(error) => {
+            log::warn!("[relay-agent] {method} {path} -> upstream error: {error}");
+            RelayFrame::HttpResp {
+                rid,
+                status: 502,
+                headers: vec![("content-type".to_string(), "text/plain".to_string())],
+                body: base64::engine::general_purpose::STANDARD
+                    .encode(format!("relay_agent_upstream_error: {error}")),
+            }
+        }
     }
 }
 
