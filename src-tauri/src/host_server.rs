@@ -758,6 +758,8 @@ fn remote_access_status_payload(
         "relayEnabled": config.relay_enabled,
         "relayUrl": config.relay_url,
         "relayDeviceId": config.relay_device_id,
+        "relayTurnUrl": config.relay_turn_url,
+        "relayTurnRealm": config.relay_turn_realm,
         "relayConnected": relay.connected,
         "relayConnectedAt": relay.connected_at,
         "relayLastError": relay.last_error,
@@ -2882,6 +2884,32 @@ async fn dispatch(
                     relay_enabled,
                     relay_url,
                     relay_device_id,
+                )
+                .map_err(|message| ("invalid_relay_setting", message))?;
+                Ok(remote_access_status_payload(
+                    state,
+                    &config,
+                    true,
+                    &request_id,
+                ))
+            }
+            Some("set_remote_access_turn") => {
+                let relay_turn_url = frame
+                    .get("relayTurnUrl")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let relay_turn_realm = frame
+                    .get("relayTurnRealm")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let relay_turn_secret = frame
+                    .get("relayTurnSecret")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+                let config = crate::remote_access_config::update_relay_turn(
+                    relay_turn_url,
+                    relay_turn_realm,
+                    relay_turn_secret,
                 )
                 .map_err(|message| ("invalid_relay_setting", message))?;
                 Ok(remote_access_status_payload(

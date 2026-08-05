@@ -408,8 +408,81 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
       relayFields.append(e2eeRow);
     }
 
+    const turnHeading = document.createElement("strong");
+    turnHeading.textContent = t("TURN relay (optional)");
+    const turnHelp = document.createElement("p");
+    turnHelp.className = "settings-help";
+    turnHelp.textContent = t(
+      "STUN/TURN servers let the phone punch through NAT for direct P2P. The desktop auto-derives short-lived TURN credentials.",
+    );
+    const turnUrlInput = document.createElement("input");
+    turnUrlInput.type = "url";
+    turnUrlInput.spellcheck = false;
+    turnUrlInput.autocomplete = "off";
+    turnUrlInput.value = status.relayTurnUrl || "";
+    turnUrlInput.placeholder = "turn:turn.remote.zicode.com:3478?transport=udp";
+    const turnUrlRow = document.createElement("label");
+    turnUrlRow.className = "settings-field";
+    const turnUrlLabel = document.createElement("span");
+    turnUrlLabel.textContent = t("TURN server address");
+    turnUrlRow.append(turnUrlLabel, turnUrlInput);
+    const turnRealmInput = document.createElement("input");
+    turnRealmInput.type = "text";
+    turnRealmInput.spellcheck = false;
+    turnRealmInput.autocomplete = "off";
+    turnRealmInput.value = status.relayTurnRealm || "";
+    turnRealmInput.placeholder = "turn.remote.zicode.com";
+    const turnRealmRow = document.createElement("label");
+    turnRealmRow.className = "settings-field";
+    const turnRealmLabel = document.createElement("span");
+    turnRealmLabel.textContent = t("TURN realm");
+    turnRealmRow.append(turnRealmLabel, turnRealmInput);
+    const turnSecretInput = document.createElement("input");
+    turnSecretInput.type = "password";
+    turnSecretInput.spellcheck = false;
+    turnSecretInput.autocomplete = "off";
+    turnSecretInput.value = "";
+    turnSecretInput.placeholder = "••••••••••••";
+    const turnSecretRow = document.createElement("label");
+    turnSecretRow.className = "settings-field";
+    const turnSecretLabel = document.createElement("span");
+    turnSecretLabel.textContent = t("TURN secret");
+    turnSecretRow.append(turnSecretLabel, turnSecretInput);
+    const turnSaveRow = document.createElement("div");
+    turnSaveRow.className = "remote-access-relay-save remote-access-relay-turn-save";
+    const turnSave = document.createElement("button");
+    turnSave.type = "button";
+    turnSave.className = "ui-button ui-button--secondary ui-button--sm";
+    turnSave.textContent = t("Save");
+    const turnStatus = document.createElement("span");
+    turnStatus.className = "settings-help";
+    turnStatus.setAttribute("role", "status");
+    turnSave.addEventListener("click", async () => {
+      if (updating) return;
+      updating = true;
+      turnSave.disabled = true;
+      turnStatus.textContent = "";
+      try {
+        await gateway.updateRelayTurn(
+          turnUrlInput.value.trim(),
+          turnRealmInput.value.trim(),
+          turnSecretInput.value.trim(),
+        );
+        turnStatus.textContent = t("Saved");
+        turnSecretInput.value = "";
+        await load();
+      } catch (error) {
+        turnStatus.textContent = `${t("Save failed")}: ${error?.message || ""}`;
+      } finally {
+        updating = false;
+        turnSave.disabled = false;
+      }
+    });
+    turnSaveRow.append(turnSave, turnStatus);
+    relayFields.append(turnHeading, turnHelp, turnUrlRow, turnRealmRow, turnSecretRow, turnSaveRow);
+
     const relaySaveRow = document.createElement("div");
-    relaySaveRow.className = "remote-access-relay-save";
+    relaySaveRow.className = "remote-access-relay-save remote-access-relay-config-save";
     const relaySave = document.createElement("button");
     relaySave.type = "button";
     relaySave.className = "ui-button ui-button--secondary ui-button--sm";

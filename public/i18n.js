@@ -240,6 +240,13 @@ const zhCN = {
   "Relay disconnected": "中继未连接",
   "Relay traffic today": "今日中继流量",
   "Relay traffic history": "近 7 日中继流量",
+  "TURN relay (optional)": "TURN 中继（可选）",
+  "TURN server address": "TURN 服务器地址",
+  "TURN realm": "TURN 域名（realm）",
+  "TURN secret": "TURN 密钥",
+  "STUN/TURN servers let the phone punch through NAT for direct P2P. The desktop auto-derives short-lived TURN credentials.":
+    "STUN/TURN 服务器让手机可以穿透 NAT 建立直连；桌面端会自动签发短期 TURN 凭据。",
+  "Save failed": "保存失败",
   "Relay changes take effect after restart.": "中继更改在重启后生效。",
   "Relay server address is required when relay access is enabled.":
     "启用经服务器访问时，必须填写中继服务器地址。",

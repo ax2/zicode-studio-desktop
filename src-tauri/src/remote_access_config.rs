@@ -187,6 +187,41 @@ pub fn update_relay(
     Ok(config)
 }
 
+/// Persist the optional coturn long-term credential settings used to
+/// auto-derive short-lived TURN credentials for remote clients. Empty strings
+/// clear the corresponding value.
+pub fn update_relay_turn(
+    relay_turn_url: Option<String>,
+    relay_turn_realm: Option<String>,
+    relay_turn_secret: Option<String>,
+) -> Result<RemoteAccessConfig, String> {
+    let mut config = load()?;
+    apply_relay_turn(
+        &mut config,
+        relay_turn_url,
+        relay_turn_realm,
+        relay_turn_secret,
+    );
+    save_at(&config_path()?, &config)?;
+    Ok(config)
+}
+
+fn apply_relay_turn(
+    config: &mut RemoteAccessConfig,
+    relay_turn_url: Option<String>,
+    relay_turn_realm: Option<String>,
+    relay_turn_secret: Option<String>,
+) {
+    let normalize = |value: Option<String>| {
+        value
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    };
+    config.relay_turn_url = normalize(relay_turn_url);
+    config.relay_turn_realm = normalize(relay_turn_realm);
+    config.relay_turn_secret = normalize(relay_turn_secret);
+}
+
 fn normalize_url(value: Option<String>) -> Result<Option<String>, String> {
     let Some(value) = value else { return Ok(None) };
     let value = value.trim().to_string();
@@ -285,8 +320,8 @@ fn save_at(path: &Path, config: &RemoteAccessConfig) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_remote_ice_servers, derive_turn_credential, load_at, normalize_url, normalize_ws_url,
-        save_at, unix_now_secs, RemoteAccessConfig,
+        apply_relay_turn, build_remote_ice_servers, derive_turn_credential, load_at, normalize_url,
+        normalize_ws_url, save_at, unix_now_secs, RemoteAccessConfig,
     };
     use std::fs;
 
@@ -540,5 +575,30 @@ mod tests {
         let raw = std::fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("relayTurnSecret"));
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn applies_and_clears_relay_turn_settings() {
+        let mut config = RemoteAccessConfig::default();
+        apply_relay_turn(
+            &mut config,
+            Some(" turn:turn.remote.zicode.com:3478?transport=udp ".into()),
+            Some("  turn.remote.zicode.com  ".into()),
+            Some("north".into()),
+        );
+        assert_eq!(
+            config.relay_turn_url.as_deref(),
+            Some("turn:turn.remote.zicode.com:3478?transport=udp")
+        );
+        assert_eq!(
+            config.relay_turn_realm.as_deref(),
+            Some("turn.remote.zicode.com")
+        );
+        assert_eq!(config.relay_turn_secret.as_deref(), Some("north"));
+
+        apply_relay_turn(&mut config, Some("".into()), None, Some("  ".into()));
+        assert_eq!(config.relay_turn_url, None);
+        assert_eq!(config.relay_turn_realm, None);
+        assert_eq!(config.relay_turn_secret, None);
     }
 }

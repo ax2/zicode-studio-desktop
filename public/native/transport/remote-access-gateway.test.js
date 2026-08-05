@@ -110,6 +110,29 @@ describe("RemoteAccessGateway", () => {
     await expect(update).resolves.toMatchObject({ relayEnabled: true });
   });
 
+  it("saves optional TURN credential settings without echoing the secret", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const gateway = new RemoteAccessGateway(adapter);
+    const update = gateway.updateRelayTurn(
+      "turn:turn.remote.zicode.com:3478?transport=udp",
+      "turn.remote.zicode.com",
+      "north",
+    );
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({
+      operation: "set_remote_access_turn",
+      relayTurnUrl: "turn:turn.remote.zicode.com:3478?transport=udp",
+      relayTurnRealm: "turn.remote.zicode.com",
+      relayTurnSecret: "north",
+    });
+    adapter.receive({
+      type: "auth_response",
+      requestId: sent.requestId,
+      restartRequired: true,
+    });
+    await expect(update).resolves.toMatchObject({ restartRequired: true });
+  });
+
   it("rejects pending requests after disconnect", async () => {
     const adapter = createInMemoryRuntimeAdapter();
     const gateway = new RemoteAccessGateway(adapter);

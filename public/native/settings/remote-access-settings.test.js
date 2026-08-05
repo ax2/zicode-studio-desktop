@@ -176,7 +176,7 @@ describe("remote access settings", () => {
     const section = document.querySelector(".remote-access-relay");
     const input = section.querySelector("input");
     input.value = "wss://relay.example.com";
-    section.querySelector(".remote-access-relay-save button").click();
+    section.querySelector(".remote-access-relay-config-save button").click();
     await vi.waitFor(() =>
       expect(gateway.setRelay).toHaveBeenCalledWith(false, "wss://relay.example.com"),
     );
@@ -202,10 +202,52 @@ describe("remote access settings", () => {
     section.querySelector('[role="switch"]').click();
     await vi.waitFor(() =>
       expect(
-        section.querySelector('.remote-access-relay-save [role="status"]').textContent,
+        section.querySelector('.remote-access-relay-config-save [role="status"]').textContent,
       ).toContain("HTTPS"),
     );
     expect(gateway.setRelay).not.toHaveBeenCalled();
+  });
+
+  it("prefills and saves optional TURN settings", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: true,
+        relayUrl: "wss://relay.zicode.com",
+        relayTurnUrl: "turn:turn.remote.zicode.com:3478?transport=udp",
+        relayTurnRealm: "turn.remote.zicode.com",
+      })),
+      listDevices: vi.fn(async () => []),
+      updateRelayTurn: vi.fn(async () => ({})),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const section = document.querySelector(".remote-access-relay");
+    expect(section.textContent).toContain(t("TURN relay (optional)"));
+    const inputs = section.querySelectorAll("input");
+    const urlInput = [...inputs].find((input) => input.type === "url" && input.value.includes("turn:"));
+    const realmInput = [...inputs].find((input) => input.placeholder === "turn.remote.zicode.com");
+    const secretInput = section.querySelector('input[type="password"]');
+    expect(urlInput.value).toBe("turn:turn.remote.zicode.com:3478?transport=udp");
+    expect(realmInput.value).toBe("turn.remote.zicode.com");
+    expect(secretInput.value).toBe("");
+
+    const turnSave = section.querySelector(".remote-access-relay-turn-save button");
+    urlInput.value = "turn:turn2.remote.zicode.com:3478?transport=udp";
+    realmInput.value = "turn2.remote.zicode.com";
+    secretInput.value = "north";
+    turnSave.click();
+    await vi.waitFor(() =>
+      expect(gateway.updateRelayTurn).toHaveBeenCalledWith(
+        "turn:turn2.remote.zicode.com:3478?transport=udp",
+        "turn2.remote.zicode.com",
+        "north",
+      ),
+    );
+    expect(secretInput.value).toBe("");
   });
 
   it("rejects a non-websocket relay address", async () => {
@@ -229,7 +271,7 @@ describe("remote access settings", () => {
     section.querySelector('[role="switch"]').click();
     await vi.waitFor(() =>
       expect(
-        section.querySelector('.remote-access-relay-save [role="status"]').textContent,
+        section.querySelector('.remote-access-relay-config-save [role="status"]').textContent,
       ).toContain(t("Invalid relay address")),
     );
     expect(gateway.setRelay).not.toHaveBeenCalled();

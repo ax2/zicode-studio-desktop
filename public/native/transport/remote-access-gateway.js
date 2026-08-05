@@ -38,6 +38,14 @@ export class RemoteAccessGateway {
     });
   }
 
+  updateRelayTurn(relayTurnUrl = "", relayTurnRealm = "", relayTurnSecret = "") {
+    return this.#request("set_remote_access_turn", {
+      relayTurnUrl: relayTurnUrl || "",
+      relayTurnRealm: relayTurnRealm || "",
+      relayTurnSecret: relayTurnSecret || "",
+    });
+  }
+
   async listDevices() {
     const frame = await this.#request("list_devices");
     return Array.isArray(frame?.devices) ? frame.devices : [];
