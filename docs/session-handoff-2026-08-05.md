@@ -48,6 +48,10 @@
 
 ## 4. 当前运行状态（2026-08-05 11:1x 实测）
 
+（第一百一十三轮后更新：桌面实例已重建重启，新 PID 18912，CDP 9226 需在启动
+前临时设置 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`；main 已推送并与 origin
+同步；设置面板"经服务器"开关 UI 已实现并通过测试。）
+
 - 桌面实例：`target\debug\zicode-studio-desktop.exe`，PID 33728（10:49 启动），
   监听 127.0.0.1:57620（本地）、0.0.0.0:57652（LAN HTTPS）、57668（证书引导 HTTP）、
   57682（公网严格网关）。窗口可见，**关窗即退出**。
@@ -134,9 +138,9 @@ cd public && bun test        # 前端全量测试
 1. **手机真机验收**：重新连接 ADB（当前离线）后，完整走一遍公网路径——手机打开
    `https://relay.zicode.com/d/dev-ax2-01/app/` → 桌面生成会话二维码扫码配对 →
    聊天/刷新/离线重连。
-2. **推送 Git**：当前 main 分支 ahead of origin/main **41 个提交**（均为会合方案以来
-   的工作，未推送）。origin 为 `https://github.com/ax2/zicode-studio-desktop.git`。
-3. **设置面板"经服务器"开关 UI**：尚未实现，目前靠 `config.json` 手改。
+2. **推送 Git**：✅ 已于第一百一十三轮完成（origin/main 同步，含交接文档）。
+3. **设置面板"经服务器"开关 UI**：✅ 已于第一百一十三轮实现（gateway
+   `setRelay()` + 面板区块 + i18n + 测试，详见 `docs/mobile-experience.md`）。
 4. **M2/M3**：P2P 直连 + 端到端加密（尚未启动）。
 5. **服务器部署自动化**：当前服务器是 scp + 手动构建；`deploy-relay.sh` 的 GitHub
    克隆构建路径未实测。

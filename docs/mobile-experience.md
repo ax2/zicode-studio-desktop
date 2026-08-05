@@ -1781,3 +1781,34 @@ bootstrap 200；manifest 200 且 URL 为设备作用域；Rust 118 测试与前�
 4. 结论：当前模型链路（桌面 + 中继移动端 + QVeris 网关）稳定；如再次出现失败，
    先查 `%LOCALAPPDATA%\zicode\logs\ZiCode Studio Desktop.log` 中 `[model-gateway]`
    条目。
+
+第一百一十三轮：公网路径复验 + 推送 Git + 设置面板"经服务器"开关 UI
+（2026-08-05，延续交接文档待办）。三项进展：
+
+1. 公网路径复验（手机真机验收的前置检查）：手机 ADB 仍离线（`adb devices` 无
+   设备），真机扫码配对待设备接入后执行；先用 `relay-chat-test.py` 经公网中继
+   完整走通移动路径：`/v2/bootstrap` 200 → WS `hello_ack` → `runtime_subscribe`
+   订阅成功 → 发送 prompt → 43 条事件流零错误；桌面日志 `[model-gateway]` 对应
+   `upstream 200 OK`（deepseek-v4-flash 流式）。中继 `/relay/status` 显示
+   `desktops:["dev-ax2-01"]` 在线。
+2. 推送 Git：main 与 origin/main 同步（origin 推进 42 个提交，含新交接文档）。
+   首次推送遇 GitHub SSL 中断（`SSL_ERROR_SYSCALL`，`ls-remote`/网页正常），
+   设置 `http.postBuffer=524288000`、`http.lowSpeedLimit/lowSpeedTime` 并改用
+   HTTP/1.1 后推送成功。
+3. 设置面板"经服务器"开关 UI（此前只能手改 `config.json`）：
+   - `RemoteAccessGateway` 新增 `setRelay()`（对应后端已有
+     `set_remote_access_relay` 命令）；
+   - 面板新增"经服务器访问"区块：`role=switch` 开关（回显
+     `relayEnabled`）、中继服务器地址输入（回显 `relayUrl`）、设备 ID 展示
+     （`relayDeviceId`）、保存按钮；前端校验 ws/wss 前缀、启用必须填地址、
+     启用前必须先配置公网 HTTPS 地址（后端 `prepare_relay_agent` 依赖
+     `publicUrl`），错误就地提示不丢输入；
+   - i18n（zh-CN）新增 9 个键；新增 gateway 1 个用例 + 面板 4 个用例；
+     全量前端测试 635 项通过，Biome 通过；
+   - 重建 debug 版并重启桌面实例（新 PID 18912），经 WebView2 CDP 实测设置
+     面板：中继区块存在、开关为开、地址预填 `wss://relay.zicode.com`、设备
+     ID `dev-ax2-01`、中文文案正常。
+
+遗留：M2 P2P 直连 / M3 端到端加密未启动；手机真机验收待 ADB 接入后执行（手机
+打开 `https://relay.zicode.com/d/dev-ax2-01/app/` → 桌面生成会话二维码扫码配对
+→ 聊天/刷新/离线重连）。
