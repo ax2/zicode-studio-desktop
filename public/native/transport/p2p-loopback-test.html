@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ZiCode P2P Loopback</title>
+  </head>
+  <body>
+    <pre id="result">running</pre>
+    <script type="module">
+      import { P2P_STATE, P2pTransport } from "./p2p.js";
+
+      const result = document.getElementById("result");
+      const NEGOTIATION_TIMEOUT_MS = 20_000;
+      let finished = false;
+
+      function fail(reason) {
+        if (finished) return;
+        finished = true;
+        result.textContent = `FAIL: ${reason}`;
+        document.title = "FAIL";
+      }
+
+      function pass() {
+        if (finished) return;
+        finished = true;
+        result.textContent = "P2P LOOPBACK PASS";
+        document.title = "PASS";
+      }
+
+      const answerer = new P2pTransport({
+        signal: (frame) => offerer.handleSignal(frame),
+        onData: (data) => {
+          if (data === "ping") {
+            if (!offerer.send("pong")) fail("offerer could not send pong");
+          } else if (data === "pong") {
+            pass();
+          }
+        },
+        onState: (state) => {
+          if (state === P2P_STATE.FAILED) fail("answerer failed");
+        },
+        negotiationTimeoutMs: NEGOTIATION_TIMEOUT_MS,
+      });
+      const offerer = new P2pTransport({
+        signal: (frame) => answerer.handleSignal(frame),
+        onData: (data) => {
+          if (data === "pong") pass();
+        },
+        onState: (state) => {
+          if (state === P2P_STATE.CONNECTED) {
+            if (!offerer.send("ping")) fail("offerer could not send ping");
+          } else if (state === P2P_STATE.FAILED) {
+            fail("offerer failed");
+          }
+        },
+        negotiationTimeoutMs: NEGOTIATION_TIMEOUT_MS,
+      });
+
+      offerer.start();
+      globalThis.setTimeout(() => fail("timeout"), NEGOTIATION_TIMEOUT_MS + 5_000);
+    </script>
+  </body>
+</html>
