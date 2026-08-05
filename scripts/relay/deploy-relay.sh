@@ -11,6 +11,8 @@
 # Optional M4 settings (set in the deploy environment):
 #   ZICODE_RELAY_REGISTRATION_TOKEN=<secret>   require desktop registrations
 #   ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=<bytes> per-device daily byte cap
+#   ZICODE_RELAY_DATA_DIR=<dir>                usage persistence dir (default:
+#                                              /var/lib/zicode-relay)
 set -euo pipefail
 
 SOURCE="${1:-https://github.com/ax2/zicode-studio-desktop.git}"
@@ -82,6 +84,7 @@ fi
 if [ -n "${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE:-}" ]; then
   ENV_LINES+="Environment=ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE}"$'\n'
 fi
+ENV_LINES+="Environment=ZICODE_RELAY_DATA_DIR=${ZICODE_RELAY_DATA_DIR:-/var/lib/zicode-relay}"$'\n'
 cat > /etc/systemd/system/zicode-relay.service <<EOF
 [Unit]
 Description=ZiCode rendezvous relay
@@ -89,6 +92,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/zicode-relay 127.0.0.1:9760
+StateDirectory=zicode-relay
 Restart=always
 RestartSec=5
 ${ENV_LINES}
@@ -99,7 +103,7 @@ EOF
 systemctl daemon-reload
 systemctl enable --now zicode-relay
 
-echo "==> relay deployed with registration auth: $([ -n "$ZICODE_RELAY_REGISTRATION_TOKEN" ] && echo on || echo off), daily byte quota: ${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE:-off}"
+echo "==> relay deployed with registration auth: $([ -n "$ZICODE_RELAY_REGISTRATION_TOKEN" ] && echo on || echo off), daily byte quota: ${ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE:-off}, usage persistence: ${ZICODE_RELAY_DATA_DIR:-/var/lib/zicode-relay}"
 
 echo "==> writing nginx site"
 cat > "/etc/nginx/sites-available/${DOMAIN}.conf" <<EOF

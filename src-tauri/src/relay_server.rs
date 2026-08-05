@@ -21,6 +21,7 @@ use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
 use std::collections::{HashMap, VecDeque};
 use std::net::{IpAddr, SocketAddr};
+use std::path::{Path as FsPath, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
@@ -35,6 +36,12 @@ const REGISTRATION_WINDOW_SECONDS: u64 = 60;
 const REGISTRATION_MAX_PER_WINDOW: usize = 10;
 const SESSION_CAP_PER_DEVICE: usize = 16;
 const MAX_DEVICE_ID_LENGTH: usize = 128;
+/// How often the relay flushes in-memory usage to disk when persistence is
+/// enabled (`ZICODE_RELAY_DATA_DIR`). Worst-case restart loss is one interval.
+pub const USAGE_SAVE_INTERVAL_SECONDS: u64 = 10;
+/// Daily usage snapshots are retained as `usage-<day>.json` archives.
+const USAGE_HISTORY_RETENTION_DAYS: u64 = 30;
+const USAGE_FILE_NAME: &str = "usage.json";
 
 pub struct RelayState {
     desktops: HashMap<String, mpsc::UnboundedSender<RelayFrame>>,
@@ -53,6 +60,9 @@ pub struct RelayState {
     usage: HashMap<String, DeviceUsage>,
     /// Optional per-device byte cap; `None` means unlimited.
     pub byte_quota_per_device: Option<u64>,
+    /// Optional directory for persistent per-day usage snapshots. `None`
+    /// keeps usage in memory only (tests / ephemeral dev relays).
+    pub data_dir: Option<PathBuf>,
 }
 
 impl Default for RelayState {
@@ -68,6 +78,7 @@ impl Default for RelayState {
             session_cap_per_device: SESSION_CAP_PER_DEVICE,
             usage: HashMap::new(),
             byte_quota_per_device: None,
+            data_dir: None,
         }
     }
 }
@@ -113,6 +124,156 @@ fn day_of(now_secs: u64) -> u64 {
     now_secs / 86400
 }
 
+/// Copy of the current-day usage counters for persistence.
+pub fn current_usage_snapshot(state: &RelayState) -> (u64, HashMap<String, u64>) {
+    let today = day_of(unix_now());
+    let usage = state
+        .usage
+        .iter()
+        .filter(|(_, usage)| usage.day == today)
+        .map(|(device_id, usage)| (device_id.clone(), usage.bytes))
+        .collect();
+    (today, usage)
+}
+
+fn usage_file_path(data_dir: &FsPath) -> PathBuf {
+    data_dir.join(USAGE_FILE_NAME)
+}
+
+fn usage_archive_path(data_dir: &FsPath, day: u64) -> PathBuf {
+    data_dir.join(format!("usage-{day}.json"))
+}
+
+fn read_usage_file(path: &FsPath) -> Option<(u64, HashMap<String, u64>)> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let day = value.get("day")?.as_u64()?;
+    let devices = value
+        .get("devices")
+        .and_then(|devices| devices.as_object())
+        .map(|map| {
+            map.iter()
+                .filter_map(|(device_id, bytes)| {
+                    bytes.as_u64().map(|bytes| (device_id.clone(), bytes))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Some((day, devices))
+}
+
+/// Load today's persisted usage from `<data_dir>/usage.json`. When the file
+/// belongs to an earlier day it is archived as `usage-<day>.json` (retaining
+/// the last `USAGE_HISTORY_RETENTION_DAYS` days) and today's counter starts
+/// empty, so a server restart never bypasses the daily quota.
+pub fn load_usage(data_dir: &FsPath) -> (u64, HashMap<String, u64>) {
+    let path = usage_file_path(data_dir);
+    let (stored_day, devices) = read_usage_file(&path).unwrap_or_default();
+    let today = day_of(unix_now());
+    if stored_day != 0 && stored_day != today {
+        let _ = std::fs::rename(&path, usage_archive_path(data_dir, stored_day));
+        prune_usage_archives(data_dir, today);
+    }
+    if stored_day == today {
+        (today, devices)
+    } else {
+        (today, HashMap::new())
+    }
+}
+
+/// Persist a usage snapshot atomically. If the existing snapshot belongs to a
+/// previous day it is archived first, giving the relay per-day history that
+/// survives restarts and day rollovers.
+pub fn save_usage(
+    data_dir: &FsPath,
+    today: u64,
+    devices: &HashMap<String, u64>,
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(data_dir)?;
+    let path = usage_file_path(data_dir);
+    if let Some((old_day, _)) = read_usage_file(&path) {
+        if old_day != today {
+            let _ = std::fs::rename(&path, usage_archive_path(data_dir, old_day));
+        }
+    }
+    prune_usage_archives(data_dir, today);
+    let mut map = serde_json::Map::new();
+    for (device_id, bytes) in devices {
+        map.insert(device_id.clone(), serde_json::Value::from(*bytes));
+    }
+    let payload = serde_json::json!({ "day": today, "devices": map });
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_vec_pretty(&payload)?)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(())
+}
+
+fn prune_usage_archives(data_dir: &FsPath, today: u64) {
+    let Ok(entries) = std::fs::read_dir(data_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        let Some(day) = name
+            .strip_prefix("usage-")
+            .and_then(|rest| rest.strip_suffix(".json"))
+            .and_then(|rest| rest.parse::<u64>().ok())
+        else {
+            continue;
+        };
+        if today.saturating_sub(day) > USAGE_HISTORY_RETENTION_DAYS {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// Read archived per-day usage snapshots (newest first, up to `limit` days)
+/// for monitoring. The live current day is reported separately as `usage`.
+pub fn load_usage_history(data_dir: &FsPath, limit: usize) -> Vec<(u64, HashMap<String, u64>)> {
+    let mut history = Vec::new();
+    let Ok(entries) = std::fs::read_dir(data_dir) else {
+        return history;
+    };
+    for entry in entries.flatten() {
+        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+            continue;
+        };
+        let Some(day) = name
+            .strip_prefix("usage-")
+            .and_then(|rest| rest.strip_suffix(".json"))
+            .and_then(|rest| rest.parse::<u64>().ok())
+        else {
+            continue;
+        };
+        if let Some((_, devices)) = read_usage_file(&entry.path()) {
+            history.push((day, devices));
+        }
+    }
+    history.sort_by(|a, b| b.0.cmp(&a.0));
+    history.truncate(limit);
+    history
+}
+
+/// Restore persisted current-day usage into a fresh relay state so a restart
+/// keeps the quota counter (and the history) intact.
+pub fn restore_usage(state: &mut RelayState, today: u64, devices: HashMap<String, u64>) {
+    state.usage = devices
+        .into_iter()
+        .map(|(device_id, bytes)| {
+            (
+                device_id.clone(),
+                DeviceUsage {
+                    bytes,
+                    updated_at: 0,
+                    day: today,
+                },
+            )
+        })
+        .collect();
+}
+
 /// Add `bytes` to the device's cumulative relayed usage. Returns `true` when
 /// the device is still within its configured byte quota (or none is set).
 fn record_usage_at(state: &mut RelayState, device_id: &str, bytes: u64, now: u64) -> bool {
@@ -150,7 +311,7 @@ async fn health() -> StatusCode {
 }
 
 async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
-    let (desktops, sessions, usage, usage_day) = {
+    let (desktops, sessions, usage, usage_day, usage_history) = {
         let state = state.lock().expect("relay state poisoned");
         let mut desktops = state.desktops.keys().cloned().collect::<Vec<_>>();
         desktops.sort();
@@ -166,8 +327,17 @@ async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
             })
             .collect::<Vec<_>>();
         usage.sort();
-        (desktops, sessions, usage, today)
+        let usage_history = state
+            .data_dir
+            .as_deref()
+            .map(|data_dir| load_usage_history(data_dir, USAGE_HISTORY_RETENTION_DAYS as usize))
+            .unwrap_or_default();
+        (desktops, sessions, usage, today, usage_history)
     };
+    let usage_history = usage_history
+        .into_iter()
+        .map(|(day, devices)| serde_json::json!({ "day": day, "devices": devices }))
+        .collect::<Vec<_>>();
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json")
@@ -177,6 +347,7 @@ async fn relay_status(State(state): State<Arc<Mutex<RelayState>>>) -> Response {
                 "sessions": sessions,
                 "usage": usage,
                 "usageDay": usage_day,
+                "usageHistory": usage_history,
             })
             .to_string(),
         ))
@@ -822,6 +993,37 @@ mod tests {
         address
     }
 
+    async fn spawn_relay_with_data_dir(
+        data_dir: Option<&FsPath>,
+        byte_quota: Option<u64>,
+    ) -> std::net::SocketAddr {
+        let mut relay_state = RelayState::default();
+        relay_state.byte_quota_per_device = byte_quota;
+        relay_state.data_dir = data_dir.map(FsPath::to_path_buf);
+        let state = Arc::new(Mutex::new(relay_state));
+        let app = relay_router(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            )
+            .await
+            .unwrap();
+        });
+        address
+    }
+
+    fn temp_dir_for_test() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "zicode-relay-usage-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
     async fn connect_ws(
         url: &str,
     ) -> tokio_tungstenite::WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>> {
@@ -1252,5 +1454,108 @@ mod tests {
         assert!(record_usage_at(&mut state, "dev-day", 1, now));
         assert_eq!(state.usage["dev-day"].bytes, 1);
         assert_eq!(state.usage["dev-day"].day, day_of(now));
+    }
+
+    #[test]
+    fn persists_and_reloads_daily_usage_across_restarts() {
+        let dir = temp_dir_for_test();
+        let mut state = RelayState::default();
+        state.byte_quota_per_device = Some(100);
+        let now = unix_now();
+        record_usage_at(&mut state, "dev-a", 40, now);
+        record_usage_at(&mut state, "dev-b", 60, now);
+        let (today, devices) = current_usage_snapshot(&state);
+        save_usage(&dir, today, &devices).unwrap();
+        drop(state);
+
+        // Fresh process: the quota must survive the restart.
+        let (loaded_day, loaded) = load_usage(&dir);
+        assert_eq!(loaded_day, today);
+        assert_eq!(loaded["dev-a"], 40);
+        assert_eq!(loaded["dev-b"], 60);
+
+        let mut fresh = RelayState::default();
+        fresh.byte_quota_per_device = Some(100);
+        fresh.usage = loaded
+            .into_iter()
+            .map(|(device_id, bytes)| {
+                (
+                    device_id.clone(),
+                    DeviceUsage {
+                        bytes,
+                        updated_at: 0,
+                        day: loaded_day,
+                    },
+                )
+            })
+            .collect();
+        assert!(record_usage_at(&mut fresh, "dev-a", 1, now));
+        assert!(!record_usage_at(&mut fresh, "dev-a", 100, now));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn archives_previous_day_usage_and_exposes_history() {
+        let dir = temp_dir_for_test();
+        let yesterday = day_of(unix_now()) - 1;
+        let mut old = HashMap::new();
+        old.insert("dev-old".to_string(), 777u64);
+        save_usage(&dir, yesterday, &old).unwrap();
+
+        let (today, loaded) = load_usage(&dir);
+        assert_eq!(today, day_of(unix_now()));
+        assert!(loaded.is_empty(), "new day must start from zero");
+        assert!(usage_archive_path(&dir, yesterday).exists());
+
+        let history = load_usage_history(&dir, 30);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].0, yesterday);
+        assert_eq!(history[0].1["dev-old"], 777);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn prunes_usage_archives_older_than_retention() {
+        let dir = temp_dir_for_test();
+        let today = day_of(unix_now());
+        for day in (today - 45)..today {
+            let mut devices = HashMap::new();
+            devices.insert("dev".to_string(), 1u64);
+            save_usage(&dir, day, &devices).unwrap();
+        }
+
+        let (_, loaded) = load_usage(&dir);
+        assert!(loaded.is_empty());
+        let history = load_usage_history(&dir, 100);
+        assert_eq!(history.len(), 30, "only the last 30 days are retained");
+        assert_eq!(history.first().unwrap().0, today - 1);
+        assert_eq!(history.last().unwrap().0, today - 30);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn status_reports_persisted_usage_history() {
+        let dir = temp_dir_for_test();
+        let yesterday = day_of(unix_now()) - 1;
+        let mut old = HashMap::new();
+        old.insert("dev-history".to_string(), 42u64);
+        save_usage(&dir, yesterday, &old).unwrap();
+        let _ = load_usage(&dir); // archive yesterday's snapshot
+
+        let base = spawn_relay_with_data_dir(Some(&dir), None).await;
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let status: serde_json::Value = client
+            .get(format!("http://{base}/relay/status"))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let history = status["usageHistory"].as_array().unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0]["day"].as_u64().unwrap(), yesterday);
+        assert_eq!(history[0]["devices"]["dev-history"].as_u64().unwrap(), 42);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
