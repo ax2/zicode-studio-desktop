@@ -1891,3 +1891,33 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 测试：Rust 124 项；前端 647 项（新增 e2ee 向量/帧测试、adapter E2EE 握手
 测试、remote-auth 公钥固定测试）；Biome 通过。遗留：手机真机扫码配对验收
 （ADB 接入）；M2 P2P 直连未启动。
+
+第一百一十七轮：公网真机验收（2026-08-05，Pad10-Pro 真机）。本轮目标是补上
+长期挂起的"手机真机验收公网路径"。过程与结论：
+
+1. 设备与浏览器：实际接入的是 Android 11 平板 Pad10-Pro（WiFi ADB
+   `172.16.8.20:5555`；USB 未枚举出 OPPO）。预装 barebones 浏览器（系统
+   WebView 内核）能跑应用但配对交换卡住；下载的 Firefox 为 68.11.0（2019
+   年版本，不支持可选链 `?.`，应用 ES 模块直接解析失败）；改装 Bromite 108
+   （Chromium 内核）后应用正常执行。
+2. 验收结果：
+   - ✅ 公网入口：真机打开 `https://relay.zicode.com/d/dev-ax2-01/app/` →
+     302 → 应用页面正常（未配对提示渲染正确）；
+   - ✅ 配对链路：真机打开含 `ek` 的配对链接 → `POST /v2/auth/exchange`
+     经中继到达桌面返回 200 → 桌面创建设备 `device-6ddda040-…`（新
+     `[pairing]` 诊断日志证实）；应用随即以该令牌启动；
+   - ✅ 真机浏览器 WebSocket：诊断页从真机 `wss://relay.zicode.com/v2/ws`
+     建立连接，中继出现会话 `s-b64a3502…`（cookie 与升级均正常，说明
+     E2EE 握手所需的基础连接在真机浏览器可用）；
+   - ❌ 应用内 WS 会话：应用壳显示"连接中…"但中继无会话——`app.js` 在真机
+     上未执行到 `adapter.connect()`（临时 debug 标记未触发），疑似顶层
+     `await` 卡住；测试期间平板为共享设备，被会议应用/锁屏多次干扰，未拿到
+     干净复现窗口。
+3. 排查工具沉淀（已提交）：`[relay-agent]` HTTP 代理请求日志（method +
+   path + 上游状态码）与 `[pairing]` 配对交换日志（token 前 12 字符 +
+   deviceId + peer，避免泄露）；以后模型/配对类问题可直接在桌面日志定位。
+4. 环境备忘：该平板可用的现代浏览器为 Bromite 108；该 ROM 的 `am` 不支持
+   `-n/-p`，打开链接需走系统选择器（辅助脚本 `zicode-frpc/open-url.ps1`）。
+5. 遗留：应用内 WS 连接未闭环（待干净窗口用 debug 标记定位顶层 await 卡点，
+   若为远程客户端通用缺陷则修产品代码）；OPPO PHY110 USB 调试未识别；
+   M2 P2P 直连未启动。

@@ -63,4 +63,4 @@
 
 | 日期 | 设备/系统 | 执行人 | 结果 | 备注 |
 |------|-----------|--------|------|------|
-|      |           |        |      |      |
+| 2026-08-05 | Pad10-Pro / Android 11（WiFi ADB） | 自动化 + 人工 | 部分通过 | 公网入口加载 ✅、配对 ✅、真机浏览器 WebSocket ✅（中继会话出现）、应用内 WS 会话 ❌（app.js 顶层 await 卡点待复现）；浏览器需为 Chromium 内核（Firefox 68 过旧、barebones 交换卡住）；详见 mobile-experience.md 第 117 轮 |
