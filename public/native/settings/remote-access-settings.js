@@ -20,6 +20,19 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     }).format(new Date(seconds * 1000));
   }
 
+  function formatBytes(bytes) {
+    const value = Number(bytes);
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let unit = 0;
+    let size = value;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${unit === 0 || size >= 100 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`;
+  }
+
   function statusBadge(device, now = Date.now()) {
     const badge = document.createElement("span");
     const revoked = Boolean(device.revokedAt);
@@ -326,6 +339,12 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
           : t("Relay connecting…");
       }
     }
+    const relayUsage = document.createElement("p");
+    relayUsage.className = "settings-help remote-access-relay-usage";
+    relayUsage.textContent =
+      status.relayUsageBytes == null
+        ? ""
+        : `${t("Relay traffic today")}: ${formatBytes(status.relayUsageBytes)}`;
 
     const relayFields = document.createElement("div");
     relayFields.className = "remote-access-relay-fields";
@@ -378,7 +397,7 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     relayRestartHint.textContent = t("Relay changes take effect after restart.");
     relaySaveRow.append(relaySave, relayStatus, relayRestartHint);
     relayFields.append(relaySaveRow);
-    relaySection.append(relayTitleRow, relayHelp, relayLive, relayFields);
+    relaySection.append(relayTitleRow, relayHelp, relayLive, relayUsage, relayFields);
 
     const saveRelay = async (enabled) => {
       if (updating) return;

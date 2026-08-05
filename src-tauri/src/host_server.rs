@@ -210,6 +210,46 @@ impl HostServer {
                 e2ee_identity: e2ee_identity.clone(),
             })
             .unwrap_or_default();
+        // Poll the relay's public status endpoint so the settings panel can
+        // show this device's current-day relayed bytes next to the daily
+        // quota. Failure-tolerant: usage stays unknown when unreachable.
+        if remote_access_config.relay_enabled {
+            if let (Some(relay_url), Some(relay_device_id)) = (
+                remote_access_config.relay_url.clone(),
+                remote_access_config.relay_device_id.clone(),
+            ) {
+                let poll_status = relay_status.clone();
+                tokio::spawn(async move {
+                    let client = reqwest::Client::builder()
+                        .no_proxy()
+                        .timeout(Duration::from_secs(10))
+                        .build()
+                        .unwrap_or_default();
+                    loop {
+                        let bytes = match crate::relay_client::relay_status_base(&relay_url) {
+                            Some(base) => {
+                                let url = format!("{base}/relay/status");
+                                match client.get(&url).send().await {
+                                    Ok(response) => match response.text().await {
+                                        Ok(body) => crate::relay_client::parse_relay_usage(
+                                            &body,
+                                            &relay_device_id,
+                                        ),
+                                        Err(_) => None,
+                                    },
+                                    Err(_) => None,
+                                }
+                            }
+                            None => None,
+                        };
+                        if let Ok(mut status) = poll_status.lock() {
+                            status.usage_bytes = bytes;
+                        }
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                    }
+                });
+            }
+        }
         let relay_shutdown =
             prepare_relay_agent(prepared_remote.as_ref(), relay_status, e2ee_identity)?;
         let state = Arc::new(HostState {
@@ -711,6 +751,7 @@ fn remote_access_status_payload(
         "relayConnected": relay.connected,
         "relayConnectedAt": relay.connected_at,
         "relayLastError": relay.last_error,
+        "relayUsageBytes": relay.usage_bytes,
         "e2eePublicKey": state
             .remote_access
             .e2ee_identity

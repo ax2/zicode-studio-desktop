@@ -245,6 +245,7 @@ describe("remote access settings", () => {
         relayUrl: "wss://relay.zicode.com",
         relayConnected: true,
         relayConnectedAt: 1_700_000_000,
+        relayUsageBytes: 2_621_440,
         e2eeFingerprint: "aa:bb:cc",
       })),
       listDevices: vi.fn(async () => []),
@@ -255,6 +256,9 @@ describe("remote access settings", () => {
     const live = document.querySelector(".remote-access-relay-live");
     expect(live.dataset.relayState).toBe("connected");
     expect(live.textContent).toContain(t("Relay connected"));
+    expect(document.querySelector(".remote-access-relay-usage").textContent).toContain(
+      t("Relay traffic today"),
+    );
     expect(document.querySelector(".remote-access-relay").textContent).toContain("aa:bb:cc");
   });
 

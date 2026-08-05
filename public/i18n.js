@@ -238,6 +238,7 @@ const zhCN = {
   "Relay connected": "中继已连接",
   "Relay connecting…": "中继连接中…",
   "Relay disconnected": "中继未连接",
+  "Relay traffic today": "今日中继流量",
   "Relay changes take effect after restart.": "中继更改在重启后生效。",
   "Relay server address is required when relay access is enabled.":
     "启用经服务器访问时，必须填写中继服务器地址。",

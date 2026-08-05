@@ -103,9 +103,39 @@ pub struct RelayAgentState {
     pub connected: bool,
     pub connected_at: Option<u64>,
     pub last_error: Option<String>,
+    /// Current day's relayed bytes for this device, polled from the relay's
+    /// public `/relay/status` endpoint. `None` when unknown.
+    pub usage_bytes: Option<u64>,
 }
 
 pub type RelayAgentStatus = Arc<Mutex<RelayAgentState>>;
+
+/// Convert a relay WebSocket URL to the HTTP(S) base used for `/relay/status`,
+/// e.g. `wss://relay.zicode.com` -> `https://relay.zicode.com`.
+pub fn relay_status_base(relay_url: &str) -> Option<String> {
+    let base = relay_url.trim_end_matches('/');
+    if let Some(rest) = base.strip_prefix("wss://") {
+        Some(format!("https://{rest}"))
+    } else if let Some(rest) = base.strip_prefix("ws://") {
+        Some(format!("http://{rest}"))
+    } else {
+        None
+    }
+}
+
+/// Extract a device's current-day relayed bytes from a `/relay/status`
+/// response body. The endpoint reports `usage` as `[[deviceId, bytes], ...]`.
+pub fn parse_relay_usage(status_body: &str, device_id: &str) -> Option<u64> {
+    let value: serde_json::Value = serde_json::from_str(status_body).ok()?;
+    let usage = value.get("usage")?.as_array()?;
+    for entry in usage {
+        let entry = entry.as_array()?;
+        if entry.first()?.as_str()? == device_id {
+            return entry.get(1)?.as_u64();
+        }
+    }
+    None
+}
 
 /// Extract the scheme+host origin from a page URL so WebSocket Origin checks
 /// (which never include a path) match the published address.
@@ -607,7 +637,7 @@ async fn execute_http(
 
 #[cfg(test)]
 mod tests {
-    use super::{page_origin_of, RelayAgentState};
+    use super::{page_origin_of, parse_relay_usage, relay_status_base, RelayAgentState};
 
     #[test]
     fn relay_agent_state_starts_disconnected_without_error() {
@@ -628,5 +658,32 @@ mod tests {
             Some("https://relay.zicode.com:8443".to_string())
         );
         assert_eq!(page_origin_of("not a url"), None);
+    }
+
+    #[test]
+    fn converts_relay_websocket_urls_to_http_status_bases() {
+        assert_eq!(
+            relay_status_base("wss://relay.zicode.com"),
+            Some("https://relay.zicode.com".to_string())
+        );
+        assert_eq!(
+            relay_status_base("wss://relay.zicode.com/"),
+            Some("https://relay.zicode.com".to_string())
+        );
+        assert_eq!(
+            relay_status_base("ws://127.0.0.1:9900"),
+            Some("http://127.0.0.1:9900".to_string())
+        );
+        assert_eq!(relay_status_base("https://relay.zicode.com"), None);
+    }
+
+    #[test]
+    fn parses_a_device_usage_from_the_status_body() {
+        let body = r#"{"desktops":["dev-a","dev-b"],"sessions":[],"usage":[["dev-a",123],["dev-b",456]],"usageDay":20670}"#;
+        assert_eq!(parse_relay_usage(body, "dev-b"), Some(456));
+        assert_eq!(parse_relay_usage(body, "dev-a"), Some(123));
+        assert_eq!(parse_relay_usage(body, "dev-missing"), None);
+        assert_eq!(parse_relay_usage("not json", "dev-a"), None);
+        assert_eq!(parse_relay_usage(r#"{"usage":"oops"}"#, "dev-a"), None);
     }
 }
