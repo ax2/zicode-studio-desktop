@@ -442,4 +442,180 @@ mod tests {
         let _ = offerer.close().await;
         signal_task.abort();
     }
+
+    /// End-to-end M2 interop: a real browser (the phone's WebRTC stack) must
+    /// connect to the desktop's webrtc-rs answerer and round-trip a message
+    /// over the DataChannel. Signaling runs over a local WebSocket bridge.
+    /// Ignored by default because it needs headless Chrome/Edge installed;
+    /// run with `cargo test -- --ignored browser_offerer`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[ignore = "requires headless Chrome or Edge on the build machine"]
+    async fn browser_offerer_interops_with_the_desktop_answerer() {
+        use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+        use axum::extract::State as AxState;
+        use axum::response::Html;
+        use axum::routing::{any, get};
+        use axum::Router;
+        use futures_util::{SinkExt, StreamExt};
+        use std::path::Path;
+        use std::process::Command;
+        use tower_http::services::ServeDir;
+
+        const PAGE: &str = r#"<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><title>interop</title></head>
+<body><pre id="result">running</pre>
+<script type="module">
+import { P2P_STATE, P2pTransport } from "/native/transport/p2p.js";
+const result = document.getElementById("result");
+let transport = null;
+let finished = false;
+function fail(reason) { if (finished) return; finished = true; result.textContent = "P2P INTEROP FAIL: " + reason; document.title = "FAIL"; }
+function pass() { if (finished) return; finished = true; result.textContent = "P2P INTEROP PASS"; document.title = "PASS"; }
+const ws = new WebSocket("ws://" + location.host + "/signal");
+ws.onopen = () => {
+  transport = new P2pTransport({
+    signal: (frame) => ws.send(JSON.stringify(frame)),
+    onData: (data) => { if (data === "pong") pass(); else fail("unexpected data: " + data); },
+    onState: (state) => {
+      if (state === P2P_STATE.CONNECTED) {
+        setTimeout(() => { if (!transport.send("ping")) fail("send failed"); }, 0);
+      } else if (state === P2P_STATE.FAILED) {
+        fail("offerer failed");
+      }
+    },
+    negotiationTimeoutMs: 45000,
+  });
+  transport.start();
+};
+ws.onmessage = (event) => { try { transport?.handleSignal(JSON.parse(event.data)); } catch { fail("bad signal"); } };
+ws.onerror = () => fail("websocket error");
+setTimeout(() => fail("timeout"), 45000);
+</script></body></html>"#;
+
+        #[derive(Clone)]
+        struct InteropState {
+            ws_out: Arc<Mutex<Option<mpsc::UnboundedSender<Value>>>>,
+            inbound: mpsc::UnboundedSender<Value>,
+        }
+
+        async fn signal_ws(
+            AxState(state): AxState<InteropState>,
+            ws: WebSocketUpgrade,
+        ) -> axum::response::Response {
+            ws.on_upgrade(move |socket: WebSocket| async move {
+                let (mut sink, mut stream) = socket.split();
+                let (tx, mut rx) = mpsc::unbounded_channel::<Value>();
+                if let Ok(mut guard) = state.ws_out.lock() {
+                    *guard = Some(tx.clone());
+                }
+                let outbound = tokio::spawn(async move {
+                    while let Some(frame) = rx.recv().await {
+                        if sink
+                            .send(Message::Text(frame.to_string().into()))
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                });
+                while let Some(Ok(message)) = stream.next().await {
+                    if let Message::Text(text) = message {
+                        if let Ok(frame) = serde_json::from_str::<Value>(&text) {
+                            let _ = state.inbound.send(frame);
+                        }
+                    }
+                }
+                outbound.abort();
+            })
+        }
+
+        let (answerer, mut answerer_handle) = P2pAnswerer::new().expect("create answerer");
+        let answerer = Arc::new(answerer);
+        let (inbound_tx, mut inbound_rx) = mpsc::unbounded_channel::<Value>();
+        let ws_out: Arc<Mutex<Option<mpsc::UnboundedSender<Value>>>> = Arc::new(Mutex::new(None));
+
+        let inbound_answerer = answerer.clone();
+        let inbound_task = tokio::spawn(async move {
+            while let Some(frame) = inbound_rx.recv().await {
+                let _ = inbound_answerer.handle_signal(frame).await;
+            }
+        });
+        // Answer DataChannel messages: the browser's "ping" returns "pong".
+        let message_answerer = answerer.clone();
+        let message_task = tokio::spawn(async move {
+            while let Some(bytes) = answerer_handle.messages.recv().await {
+                let reply = if bytes == b"ping" {
+                    b"pong".to_vec()
+                } else {
+                    bytes
+                };
+                let _ = message_answerer.send(reply).await;
+            }
+        });
+        let ws_out_for_signals = ws_out.clone();
+        let signal_task = tokio::spawn(async move {
+            while let Some(frame) = answerer_handle.signals.recv().await {
+                if let Some(tx) = ws_out_for_signals
+                    .lock()
+                    .ok()
+                    .and_then(|guard| guard.clone())
+                {
+                    let _ = tx.send(frame);
+                }
+            }
+        });
+
+        let public_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../public");
+        let app = Router::new()
+            .route(
+                "/p2p-interop-test.html",
+                get(|| async { Html(PAGE.to_string()) }),
+            )
+            .route("/signal", any(signal_ws))
+            .fallback_service(ServeDir::new(public_dir))
+            .with_state(InteropState {
+                ws_out,
+                inbound: inbound_tx,
+            });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, app.into_make_service())
+                .await
+                .unwrap();
+        });
+
+        let chrome = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        ]
+        .into_iter()
+        .find(|path| Path::new(path).is_file())
+        .expect("headless Chrome or Edge not found");
+        let url = format!("http://{address}/p2p-interop-test.html");
+        let output = Command::new(chrome)
+            .args([
+                "--headless=new",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--disable-extensions",
+                "--virtual-time-budget=60000",
+                "--dump-dom",
+                &url,
+            ])
+            .output()
+            .expect("failed to run headless Chrome");
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        assert!(
+            stdout.contains("P2P INTEROP PASS"),
+            "browser-to-desktop WebRTC interop failed:\n{stdout}"
+        );
+
+        inbound_task.abort();
+        message_task.abort();
+        signal_task.abort();
+        answerer.close().await;
+    }
 }

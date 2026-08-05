@@ -2306,6 +2306,25 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 遗留：服务器部署新版中继 + coturn + 监控（见 `docs/deployment-runbook.md`）；
 真机二维码扫码；安装包签名（脚本就绪，待证书）。
 
+第一百四十一轮：浏览器↔webrtc-rs 互操作测试（第 141 轮）。补齐 M2 本地
+可验证的最后一环——手机浏览器与桌面引擎的直接互操作：
+
+1. `p2p.rs` 新增 `#[ignore]` 测试（需本机 headless Chrome/Edge）：
+   axum 起本地信令桥（WS）并托管内联测试页，页面用真实浏览器 WebRTC 运行
+   `P2pTransport`（offerer），通过信令桥连上桌面 webrtc-rs `P2pAnswerer`；
+   DataChannel 打开后浏览器发送 `ping`、桌面应答 `pong`，页面把
+   `P2P INTEROP PASS` 写入 DOM，测试用 headless Chrome `--dump-dom`
+   断言结果；
+2. 验证：`cargo test p2p::tests::browser_offerer_interops_with_the_desktop_answerer
+   -- --ignored` 通过（1.07s）；`check-rust.sh` 全绿（132 通过、2 忽略
+   [Astro 下载 + 本测试]、clippy `-D warnings` 零告警）；
+3. 至此 M2 的四层验证全部就位：浏览器↔浏览器（131）、webrtc-rs↔webrtc-rs
+   （132）、网关管线（133）、**浏览器↔webrtc-rs（本轮）**——除真实 NAT
+   打洞与真机外，M2 每一段链路都有真实 WebRTC 证据。
+
+遗留：coturn 部署后公网打洞验收；服务器部署新版中继 + 监控；真机二维码扫码；
+安装包签名（脚本就绪，待证书）。
+
 第一百三十九轮：P2P 有界重试与部署手册（2026-08-05）。收尾两项：
 
 1. `HostRuntimeAdapter` 的 P2P 失败改为有界自动重试（默认每 60 秒、最多

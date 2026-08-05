@@ -269,6 +269,10 @@
 - STUN/TURN 注入（第 136 轮）：桌面配置 `relayIceServers`（WebRTC
   `iceServers` 形状）经 `GET /v2/remote-config` 下发手机；`deploy-coturn.sh`
   输出桌面端配置位置说明；
+- 互操作验证（第 141 轮）：`#[ignore]` 测试用真实浏览器（headless Chrome
+  运行手机端 `P2pTransport` offerer）经本地信令桥直连桌面 webrtc-rs
+  answerer，DataChannel ping/pong 往返通过——手机浏览器与桌面引擎的直接
+  互操作已有真实 WebRTC 证据；
 - 服务器：`scripts/relay/deploy-coturn.sh` 一键部署 coturn（auth-secret
   长时凭据机制，桌面派生短期 TURN 凭据经信令通道下发给手机，secret 不落
   库不入仓）；
