@@ -1,4 +1,7 @@
+use base64::Engine;
+use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
+use sha1::Sha1;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -41,6 +44,16 @@ pub struct RemoteAccessConfig {
     /// auth-secret. `None` (or `[]`) keeps host-only candidates.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relay_ice_servers: Option<Vec<serde_json::Value>>,
+    /// M2: coturn long-term credential settings. When all three are set, the
+    /// desktop derives fresh short-lived TURN credentials (RFC 5389
+    /// auth-secret scheme) for every `/v2/remote-config` request, so the
+    /// phone never receives a long-lived static credential.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_turn_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_turn_realm: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_turn_secret: Option<String>,
 }
 
 impl Default for RemoteAccessConfig {
@@ -55,8 +68,68 @@ impl Default for RemoteAccessConfig {
             relay_device_id: None,
             relay_registration_token: None,
             relay_ice_servers: None,
+            relay_turn_url: None,
+            relay_turn_realm: None,
+            relay_turn_secret: None,
         }
     }
+}
+
+/// Derive a coturn long-term credential (auth-secret REST scheme):
+/// `username` is used verbatim (callers prefix an expiry timestamp), and the
+/// credential is unpadded base64 of HMAC-SHA1(secret, username).
+pub fn derive_turn_credential(secret: &str, username: &str) -> Result<String, String> {
+    let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(secret.as_bytes())
+        .map_err(|error| format!("invalid turn secret: {error}"))?;
+    mac.update(username.as_bytes());
+    let digest = mac.finalize().into_bytes();
+    Ok(base64::engine::general_purpose::STANDARD
+        .encode(digest)
+        .trim_end_matches('=')
+        .to_string())
+}
+
+fn unix_now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+fn stun_url_from_turn(turn_url: &str) -> Option<String> {
+    let rest = turn_url.strip_prefix("turn:")?;
+    let host_port = rest.split(['?', '#']).next()?;
+    if host_port.is_empty() {
+        None
+    } else {
+        Some(format!("stun:{host_port}"))
+    }
+}
+
+/// Assemble the WebRTC `iceServers` handed to the phone: the statically
+/// configured servers plus, when the coturn secret is configured, a freshly
+/// derived short-lived TURN entry (and its STUN twin) valid for one hour.
+pub fn build_remote_ice_servers(config: &RemoteAccessConfig) -> Vec<serde_json::Value> {
+    let mut servers = config.relay_ice_servers.clone().unwrap_or_default();
+    if let (Some(url), Some(_realm), Some(secret)) = (
+        config.relay_turn_url.as_deref(),
+        config.relay_turn_realm.as_deref(),
+        config.relay_turn_secret.as_deref(),
+    ) {
+        let expiry = unix_now_secs() + 3600;
+        let username = format!("{expiry}:zicode-desktop");
+        if let Ok(credential) = derive_turn_credential(secret, &username) {
+            if let Some(stun) = stun_url_from_turn(url) {
+                servers.push(serde_json::json!({ "urls": [stun] }));
+            }
+            servers.push(serde_json::json!({
+                "urls": [url],
+                "username": username,
+                "credential": credential,
+            }));
+        }
+    }
+    servers
 }
 
 pub fn load() -> Result<RemoteAccessConfig, String> {
@@ -211,7 +284,10 @@ fn save_at(path: &Path, config: &RemoteAccessConfig) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{load_at, normalize_url, normalize_ws_url, save_at, RemoteAccessConfig};
+    use super::{
+        build_remote_ice_servers, derive_turn_credential, load_at, normalize_url, normalize_ws_url,
+        save_at, unix_now_secs, RemoteAccessConfig,
+    };
     use std::fs;
 
     #[test]
@@ -265,6 +341,9 @@ mod tests {
             relay_device_id: None,
             relay_registration_token: None,
             relay_ice_servers: None,
+            relay_turn_url: None,
+            relay_turn_realm: None,
+            relay_turn_secret: None,
         };
         save_at(&path, &with_public).unwrap();
 
@@ -312,6 +391,9 @@ mod tests {
             relay_device_id: Some("dev-1".into()),
             relay_registration_token: Some("s3cret".into()),
             relay_ice_servers: None,
+            relay_turn_url: None,
+            relay_turn_realm: None,
+            relay_turn_secret: None,
         };
         save_at(&path, &with_relay).unwrap();
         assert_eq!(load_at(&path).unwrap(), with_relay);
@@ -379,6 +461,84 @@ mod tests {
         save_at(&path, &without).unwrap();
         let raw = std::fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("relayIceServers"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn derives_coturn_long_term_credentials_with_the_known_vector() {
+        // RFC 5389 auth-secret example used by coturn's REST API docs.
+        assert_eq!(
+            derive_turn_credential("north", "1234567890:user").unwrap(),
+            "yqWhSUayifUHn5H27OXq5rL3//A"
+        );
+    }
+
+    #[test]
+    fn builds_ice_servers_with_auto_derived_turn_credentials() {
+        let config = RemoteAccessConfig {
+            relay_ice_servers: Some(vec![
+                serde_json::json!({ "urls": ["stun:public.example.com:3478"] }),
+            ]),
+            relay_turn_url: Some("turn:turn.remote.zicode.com:3478?transport=udp".into()),
+            relay_turn_realm: Some("turn.remote.zicode.com".into()),
+            relay_turn_secret: Some("north".into()),
+            ..Default::default()
+        };
+        let servers = build_remote_ice_servers(&config);
+        assert_eq!(servers.len(), 3);
+        assert_eq!(servers[0]["urls"][0], "stun:public.example.com:3478");
+        assert_eq!(servers[1]["urls"][0], "stun:turn.remote.zicode.com:3478");
+        let turn = &servers[2];
+        assert_eq!(
+            turn["urls"][0],
+            "turn:turn.remote.zicode.com:3478?transport=udp"
+        );
+        let username = turn["username"].as_str().unwrap();
+        let (expiry, name) = username.split_once(':').unwrap();
+        assert_eq!(name, "zicode-desktop");
+        let now = unix_now_secs();
+        let expiry: u64 = expiry.parse().unwrap();
+        assert!(
+            (expiry - now).abs_diff(3600) < 10,
+            "credential should expire in ~1h"
+        );
+        assert_eq!(
+            derive_turn_credential("north", username).unwrap(),
+            turn["credential"].as_str().unwrap()
+        );
+
+        // Without the secret no TURN entry is injected.
+        let no_secret = RemoteAccessConfig {
+            relay_turn_url: Some("turn:turn.remote.zicode.com:3478".into()),
+            relay_turn_realm: Some("turn.remote.zicode.com".into()),
+            relay_turn_secret: None,
+            ..Default::default()
+        };
+        let servers = build_remote_ice_servers(&no_secret);
+        assert!(servers.is_empty());
+    }
+
+    #[test]
+    fn persists_turn_settings_and_omits_them_when_absent() {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-remote-config-turn-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let path = root.join("remote-access/config.json");
+
+        let with_turn = RemoteAccessConfig {
+            relay_turn_url: Some("turn:turn.remote.zicode.com:3478".into()),
+            relay_turn_realm: Some("turn.remote.zicode.com".into()),
+            relay_turn_secret: Some("north".into()),
+            ..Default::default()
+        };
+        save_at(&path, &with_turn).unwrap();
+        assert_eq!(load_at(&path).unwrap(), with_turn);
+
+        let without = RemoteAccessConfig::default();
+        save_at(&path, &without).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("relayTurnSecret"));
         std::fs::remove_dir_all(root).unwrap();
     }
 }

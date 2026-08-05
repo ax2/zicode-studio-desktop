@@ -66,9 +66,14 @@ fi
 if command -v openssl >/dev/null 2>&1; then
   TURN_USER="$(date -u -d '+1 hour' +%s):zicode-desktop"
   TURN_CRED="$(printf '%s' "$TURN_USER" | openssl dgst -sha1 -hmac "$TURN_SECRET" -binary | base64 | tr -d '=')"
-  echo "    ready-to-paste relayIceServers for <data_root>/remote-access/config.json (valid ~1h):"
+  echo "    recommended desktop config (<data_root>/remote-access/config.json) -"
+  echo "    the desktop auto-derives fresh 1h credentials on every phone fetch:"
+  echo "      \"relayTurnUrl\": \"turn:${REALM}:3478?transport=udp\","
+  echo "      \"relayTurnRealm\": \"${REALM}\","
+  echo "      \"relayTurnSecret\": \"${TURN_SECRET}\""
+  echo "    alternative: paste a static 1h relayIceServers entry (valid now):"
   echo "      [{\"urls\":[\"stun:${REALM}:3478\"]},{\"urls\":[\"turn:${REALM}:3478?transport=udp\"],\"username\":\"${TURN_USER}\",\"credential\":\"${TURN_CRED}\"}]"
-  echo "    the desktop serves it to the phone via GET /v2/remote-config;"
+  echo "    the desktop serves iceServers to the phone via GET /v2/remote-config;"
   echo "    verify: turnutils_uclient -u '${TURN_USER}' -w '${TURN_CRED}' ${REALM}"
 else
   echo "    (openssl not found: derive short-lived TURN credentials manually from the auth-secret)"

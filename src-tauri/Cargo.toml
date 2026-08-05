@@ -39,6 +39,8 @@ tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 percent-encoding = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 sha2 = "0.10"
+sha1 = "0.10"
+hmac = "0.12"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 base64 = "0.22"

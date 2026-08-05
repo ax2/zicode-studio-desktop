@@ -2081,7 +2081,7 @@ async fn remote_config() -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let config = crate::remote_access_config::load()
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "remote_config_failed"))?;
     Ok(Json(json!({
-        "iceServers": config.relay_ice_servers.unwrap_or_default(),
+        "iceServers": crate::remote_access_config::build_remote_ice_servers(&config),
     })))
 }
 
