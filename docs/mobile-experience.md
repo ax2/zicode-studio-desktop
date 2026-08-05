@@ -2238,3 +2238,23 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 遗留：移动端应用层数据面切换（P2P 连接后把 runtime 帧走 DataChannel、
 失败回退 WS）；coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、
 安装包签名流水线。
+
+第一百三十四轮：移动端应用层数据面切换（M2 代码收口，第 134 轮）。手机
+App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回退 WebSocket：
+
+1. `HostRuntimeAdapter` 新增可选 P2P：`hello_ack` 后作为 offerer 发起
+   WebRTC 协商（信令 `p2p_offer`/`p2p_answer`/`p2p_ice` 经既有认证 WS
+   传输，E2EE 密文不变）；`p2p_*` 入站帧喂给传输层、不进入应用层；
+   DataChannel 消息解析后进入同一 `#receive` 管线；
+2. 数据面切换：P2P 已连接时 `send()` 走 DataChannel，发送失败或
+   FAILED/CLOSED 立即回退 WS；旧桌面（不支持 P2P）对 `p2p_offer` 返回
+   `unsupported_runtime_request` 时本会话禁用 P2P、静默保持 WS 路径
+   （不再重试）；`app.js` 对远程客户端默认启用；
+3. 验证：前端 664 项全绿（新增 5 项——hello 后发起 offer、p2p 帧路由不
+   泄漏到应用层、连接后帧/事件走 DC、失败与发送失败回退 WS、旧网关拒绝后
+   禁用）；Biome 通过；
+4. 至此 M2 代码闭环：移动端模块（131）+ 桌面引擎（132）+ 网关接线（133）
+   + 数据面切换（本轮），仅剩 coturn 部署后的公网打洞验收（需服务器）。
+
+遗留：coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、安装包
+签名流水线。

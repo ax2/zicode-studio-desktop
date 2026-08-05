@@ -263,10 +263,13 @@
   DataChannel 消息与运行时事件按数据面（P2P/WS）双向路由；网关级回环测试
   通过——真实 WebRTC 经 WS 信令建连后，runtime 请求/响应/事件全部经
   DataChannel 流动；
+- 移动端数据面切换（第 134 轮）：`HostRuntimeAdapter` 在 `hello_ack` 后
+  作为 offerer 协商 P2P；连接后 runtime 帧/事件走 DataChannel，失败或旧
+  网关拒绝时静默回退 WebSocket；远程客户端默认启用；
 - 服务器：`scripts/relay/deploy-coturn.sh` 一键部署 coturn（auth-secret
   长时凭据机制，桌面派生短期 TURN 凭据经信令通道下发给手机，secret 不落
   库不入仓）；
-- 待办：移动端应用层在 P2P 与 M1 帧之间切换、coturn 部署后公网打洞验收。
+- 待办：coturn 部署后公网打洞验收（M2 代码已闭环）。
 
 ### M3 端到端加密
 
