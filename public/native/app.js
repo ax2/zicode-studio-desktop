@@ -234,6 +234,7 @@ const adapter = new HostRuntimeAdapter({
   clientType: remoteAuth.clientType,
   deviceToken: remoteAuth.deviceToken,
   e2eePublicKey: remoteAuth.clientType === "remote" ? remoteE2eePublicKey() : undefined,
+  p2pEnabled: remoteAuth.clientType === "remote",
 });
 const mobileExperience = setupMobileExperience({ adapter, clientType: remoteAuth.clientType });
 adapter.setFatalErrorListener((error) => renderStartupFailure(error));

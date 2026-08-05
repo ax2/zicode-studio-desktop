@@ -42,6 +42,50 @@ class FakeWebSocket {
   }
 }
 
+class FakeP2pTransport {
+  static instances = [];
+
+  constructor({ signal, onData, onState }) {
+    this.signal = signal;
+    this.onData = onData;
+    this.onState = onState;
+    this.handled = [];
+    this.sentData = [];
+    this.sendResult = true;
+    this.closed = false;
+    FakeP2pTransport.instances.push(this);
+  }
+
+  start() {
+    this.signal({ type: "p2p_offer", sdp: "offer-sdp" });
+  }
+
+  handleSignal(frame) {
+    this.handled.push(frame);
+  }
+
+  send(data) {
+    this.sentData.push(data);
+    return this.sendResult;
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emitConnected() {
+    this.onState("connected");
+  }
+
+  emitFailed() {
+    this.onState("failed");
+  }
+
+  emitData(text) {
+    this.onData(text);
+  }
+}
+
 const target = {
   workspaceId: "workspace-a",
   sessionId: "session-a",
@@ -355,5 +399,149 @@ describe("HostRuntimeAdapter", () => {
       ),
     );
     await vi.waitFor(() => expect(events).toContainEqual({ type: "runtime_event" }));
+  });
+
+  it("negotiates P2P after hello_ack and sends the offer over the WebSocket", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+
+    expect(FakeP2pTransport.instances).toHaveLength(1);
+    const transport = FakeP2pTransport.instances[0];
+    expect(socket.sent.at(-1)).toEqual({ type: "p2p_offer", sdp: "offer-sdp" });
+    expect(transport.closed).toBe(false);
+  });
+
+  it("routes p2p signaling frames to the transport without reaching the app", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    const events = [];
+    adapter.setReceiver((frame) => events.push(frame));
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    const transport = FakeP2pTransport.instances[0];
+
+    socket.receive({ type: "p2p_answer", sdp: "answer-sdp" });
+    socket.receive({ type: "p2p_ice", candidate: { candidate: "cand" } });
+    expect(transport.handled).toHaveLength(2);
+    expect(events).toHaveLength(0);
+  });
+
+  it("switches runtime frames and events to the DataChannel once connected", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    const events = [];
+    adapter.setReceiver((frame) => events.push(frame));
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    const transport = FakeP2pTransport.instances[0];
+    transport.emitConnected();
+    expect(adapter.isP2pConnected()).toBe(true);
+
+    const before = socket.sent.length;
+    adapter.send({ type: "runtime_request", requestId: "r1" });
+    expect(socket.sent.length).toBe(before);
+    expect(transport.sentData.at(-1)).toBe(
+      JSON.stringify({ type: "runtime_request", requestId: "r1" }),
+    );
+
+    transport.emitData(JSON.stringify({ type: "runtime_response", requestId: "r1" }));
+    expect(events).toContainEqual({ type: "runtime_response", requestId: "r1" });
+  });
+
+  it("falls back to the WebSocket when the P2P channel is unavailable", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    const transport = FakeP2pTransport.instances[0];
+
+    transport.emitFailed();
+    adapter.send({ type: "runtime_request", requestId: "r1" });
+    expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r1" });
+
+    transport.emitConnected();
+    transport.sendResult = false;
+    adapter.send({ type: "runtime_request", requestId: "r2" });
+    expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r2" });
+    expect(adapter.isP2pConnected()).toBe(false);
+  });
+
+  it("disables P2P when an old gateway rejects the offer", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    const events = [];
+    adapter.setReceiver((frame) => events.push(frame));
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    expect(FakeP2pTransport.instances).toHaveLength(1);
+
+    socket.receive({
+      type: "error",
+      error: { code: "unsupported_runtime_request", message: "unsupported" },
+    });
+    adapter.send({ type: "runtime_request", requestId: "r1" });
+    expect(socket.sent.at(-1)).toEqual({ type: "runtime_request", requestId: "r1" });
+    expect(events).toHaveLength(0);
+
+    // A reconnect does not re-attempt P2P on this session.
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+    expect(FakeP2pTransport.instances).toHaveLength(1);
   });
 });
