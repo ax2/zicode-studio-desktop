@@ -2063,3 +2063,29 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 遗留：服务器侧部署新版中继（注册令牌 + 每日配额 + usage 上报）后，设置面板
 即可看到真实流量；按日/月持久化统计与监控告警、M2 P2P 直连、二维码扫码验收、
 安装包签名流水线。
+
+第一百二十六轮：中继部署与监控脚本（2026-08-05）。把 M4 生产部署与运维闭环
+到仓库内脚本：
+
+1. `scripts/relay/deploy-relay.sh`：服务器（root）一键部署脚本，新增可选
+   环境变量 `ZICODE_RELAY_REGISTRATION_TOKEN`（注册鉴权口令）与
+   `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE`（每设备每日字节配额），自动写入
+   systemd 单元 Environment 行；部署结束打印鉴权/配额开关状态。其余流程不变：
+   浅克隆/复制 relay 三文件为独立 crate → release 构建 → 安装
+   `/usr/local/bin/zicode-relay` → nginx 反代（WS 升级、120s 读超时）→
+   certbot 自动签发证书；
+2. `scripts/relay/check-relay.sh`：cron/告警友好的健康检查，退出码
+   0=健康（`relay ok, desktop online`）、1=降级（期望桌面离线）、
+   2=不可达（HTTP 失败或状态体异常）；可传状态 URL 与期望设备 ID，默认
+   公网 `relay.zicode.com` + `dev-ax2-01`；健康时额外打印会话数与用量摘要；
+3. 配套 Windows 包装 `run-check.ps1`（透传参数并回显 bash 真实退出码），
+   便于本地/CI 复验；
+4. 验证：本地中继（127.0.0.1:9901，测试令牌）注册 `dev-check` 后实测三条
+   路径——健康 `EXIT=0`、期望设备未注册 `EXIT=1`、端口不可达 `EXIT=2`；
+   部署脚本 bash 语法检查通过。
+
+生产启用步骤（不落库）：服务器上以 root 运行
+`ZICODE_RELAY_REGISTRATION_TOKEN=<secret> ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=<字节数> ./deploy-relay.sh`，
+配好 DNS A 记录与安全组 80/443 即可。遗留：服务器部署新版中继后设置面板显示
+真实流量；按日/月持久化统计与监控告警、M2 P2P 直连、二维码扫码验收、安装包
+签名流水线。
