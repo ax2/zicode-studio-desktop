@@ -41,13 +41,13 @@ curl https://relay.zicode.com/relay/status
 ```
 
 脚本会：安装 coturn → 写入 `/etc/turnserver.conf`（auth-secret 长时凭据、
-relay 端口区间）→ 启用服务 → **打印 1 小时有效的 `relayIceServers` JSON**。
-**推荐**：把脚本打印的 `relayTurnUrl` / `relayTurnRealm` /
-`relayTurnSecret` 填入桌面端 `remote-access/config.json` 后重启桌面——桌面
-会在每次手机请求 `GET /v2/remote-config` 时自动派生**全新的 1 小时有效**
-TURN 凭据（RFC 5389 auth-secret 方案），无需手动粘贴静态凭据。也可以
-回退到静态 `relayIceServers`（脚本同样会打印一份 1 小时有效的示例）。
-secret 只存在于服务器 `/etc/turnserver.conf` 与桌面配置，不入仓。
+relay 端口区间）→ 启用服务 → 打印 `relayTurnUrl` / `relayTurnRealm` /
+`relayTurnSecret`（以及备选的静态 `relayIceServers` 示例）。
+**推荐**：在桌面 **设置 → 远程访问 → TURN 中继（可选）** 填入三个字段并
+保存后重启桌面——桌面会在每次手机请求 `GET /v2/remote-config` 时自动派生
+**全新的 1 小时有效** TURN 凭据（RFC 5389 auth-secret 方案），无需手动
+粘贴静态凭据或手改 config.json。secret 只存在于服务器
+`/etc/turnserver.conf` 与桌面配置（经设置面板保存），不入仓。
 
 验证：`turnutils_uclient`（脚本会打印示例命令）。
 

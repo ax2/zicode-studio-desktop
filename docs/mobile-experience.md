@@ -2378,6 +2378,21 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 遗留：服务器部署新版中继 + coturn + 监控（runbook 已更新）；真机二维码扫码；
 安装包签名（脚本已验证，待证书）。
 
+第一百四十六轮：设置面板可视化配置 TURN（2026-08-06）。把第 145 轮的自动
+派生凭据接进 UI，部署不再需要手改 config.json：
+
+1. `update_relay_turn`（含纯函数 `apply_relay_turn` 规范化/清空）与
+   `set_remote_access_turn` 命令分发；状态载荷新增
+   `relayTurnUrl`/`relayTurnRealm`（**secret 不回传**）；
+2. 设置面板中继区块新增"TURN 中继（可选）"：URL/域名/密钥三个字段 +
+   保存（密钥为 password 输入、保存后清空不回显），中英文键补齐；
+3. `RemoteAccessGateway.updateRelayTurn` 走既有认证命令通道；
+4. 验证：Rust 136 项全绿（新增 apply/clear 规范化用例）；前端 668 项全绿
+   （新增设置面板 TURN 预填/保存与网关命令断言）；Biome 通过。
+
+遗留：服务器部署新版中继 + coturn + 监控；真机二维码扫码；安装包签名
+（脚本已验证，待证书）。
+
 第一百三十九轮：P2P 有界重试与部署手册（2026-08-05）。收尾两项：
 
 1. `HostRuntimeAdapter` 的 P2P 失败改为有界自动重试（默认每 60 秒、最多
