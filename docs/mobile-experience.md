@@ -2292,6 +2292,20 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 遗留：服务器部署新版中继 + coturn + 监控；真机二维码扫码；安装包签名
 （脚本就绪，待证书）。
 
+第一百四十轮：release 第六次重建（含 P2P 有界重试，第 140 轮）。让生产
+安装包与 main 同步：
+
+1. `bun run build` 重建：EXE 41,072,128 B（SHA-256 `E77DF8FC…`）、安装包
+   346,748,782 B（`D6EAA50C…`）、内置中继 1,801,728 B（`2742DF2C…`，
+   未变），完整哈希见 `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录与产物一致，`runtime-adapter.js` 含 P2P
+   重试逻辑；从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2）、
+   公网中继注册 `dev-ax2-01`、日志无 ERROR/WARN/panic；
+3. 说明：安装包已包含第 126–139 轮全部功能。
+
+遗留：服务器部署新版中继 + coturn + 监控（见 `docs/deployment-runbook.md`）；
+真机二维码扫码；安装包签名（脚本就绪，待证书）。
+
 第一百三十九轮：P2P 有界重试与部署手册（2026-08-05）。收尾两项：
 
 1. `HostRuntimeAdapter` 的 P2P 失败改为有界自动重试（默认每 60 秒、最多
