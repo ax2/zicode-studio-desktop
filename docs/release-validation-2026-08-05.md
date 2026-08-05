@@ -31,6 +31,18 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
 ## 说明
 
 - 本次验证使用 `target/release/zicode-studio-desktop.exe` 作为当前运行实例；
-  桌面快捷方式目前仍指向 `target/debug`，生产使用建议改为 release 路径。
-- 安装包结构（Pi、Portable Git、WebView2、Bun、前端、扩展）与 08-01 一致，
-  本轮未单独执行安装器安装，仅在构建后校验文件哈希与独立启动。
+  桌面启动器已改为指向已安装的 release 路径。
+
+## 安装器验证（2026-08-05 补充）
+
+- 以 `/S` 静默运行 `ZiCode Studio Desktop_0.1.0_x64-setup.exe`，安装成功；
+- 安装目录：`%LOCALAPPDATA%\ZiCode Studio Desktop\`，包含
+  `zicode-studio-desktop.exe`（36,561,920 B，与构建产物一致）、
+  `zicode-relay.exe`、`e2ee_key.exe`、`uninstall.exe`，以及
+  `pi`（0.83.0）、`portable-git`、`webview2`、`bun`、`public`、
+  `extensions` 资源；
+- 从安装目录独立启动冒烟：进程正常、WebView2 加载、本地网关 `/health`
+  200（pi 0.83.0、协议 v2）、中继注册 `dev-ax2-01`、日志无
+  ERROR/WARN/panic；
+- 桌面启动器 `启动 ZiCode Studio Desktop.cmd` 已由 `target/debug` 切换为
+  安装目录 release 版。

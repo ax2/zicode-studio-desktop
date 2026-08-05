@@ -2030,3 +2030,18 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 
 遗留：按日/月的持久化统计与监控告警、M2 P2P 直连、二维码扫码验收、安装包
 签名流水线。
+
+第一百二十四轮：NSIS 安装器安装验证 + 启动器切 release（2026-08-05）。补齐
+上一轮发布验证未覆盖的"安装器安装"环节：
+
+1. `/S` 静默安装 `ZiCode Studio Desktop_0.1.0_x64-setup.exe` 成功，安装到
+   `%LOCALAPPDATA%\ZiCode Studio Desktop\`（含主程序、zicode-relay、
+   e2ee_key、uninstall 与 pi/portable-git/webview2/bun/public/extensions
+   资源）；
+2. 从安装目录独立启动冒烟通过：网关 `/health` 200（pi 0.83.0、协议 v2）、
+   中继注册 `dev-ax2-01`、WebView 加载、日志无错误；
+3. 桌面启动器 `启动 ZiCode Studio Desktop.cmd` 已从 `target/debug` 切换为
+   安装目录 release 版（生产不再跑 debug 构建）。
+
+验证记录见 `docs/release-validation-2026-08-05.md`。遗留：按日/月的持久化
+统计与监控告警、M2 P2P 直连、二维码扫码验收、安装包签名流水线。
