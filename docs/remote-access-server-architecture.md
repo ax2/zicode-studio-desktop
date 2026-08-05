@@ -278,6 +278,27 @@
 - 多节点、配额、监控告警、隐私政策与资质落地、双端签名发布；
 - 验收：压测（并发/带宽）、安全审计报告、合规文档齐备。
 
+**M4 实施状态（2026-08-05，中继注册鉴权与配额第一步完成）**：
+
+- `/relay/desktop` 注册增加鉴权：中继配置 `ZICODE_RELAY_REGISTRATION_TOKEN`
+  后，桌面 Agent 注册必须携带相同令牌（桌面配置
+  `relayRegistrationToken`），否则返回 `registration_rejected` 并断开；
+  未配置令牌时保持开放模式（开发用，兼容旧部署）；
+- 配额与防护：注册按源 IP 限流（默认 10 次/60 秒）、设备 ID 格式校验
+  （非空、≤128、字母数字与 `-_`）、每设备并发移动会话上限（默认 16，
+  超限返回 429）；
+- 协议：`Hello` 帧新增可选 `registration_token`；新增
+  `RegistrationRejected { reason }` 帧，桌面 Agent 收到后记录明确错误并
+  停止重连（设置面板中继状态会显示原因）；
+- 验证：Rust 新增 5 项中继测试（无/错令牌拒绝、正确令牌接受、畸形设备 ID
+  拒绝、注册限流、会话上限）+ 协议/配置测试；本地闭环实测无令牌/错令牌被拒、
+  正确令牌 `welcome`；
+- 部署步骤（生产启用）：服务器 systemd 单元加
+  `Environment=ZICODE_RELAY_REGISTRATION_TOKEN=<secret>` 并重启
+  `zicode-relay`；桌面 `config.json` 加 `"relayRegistrationToken":
+  "<同一 secret>"` 后重启桌面。**secret 不得写入文档/仓库**；
+- 待办：中继 HTTP/WS 流量配额（按设备字节量）、监控告警、多节点。
+
 ## 13. 与现有代码的复用清单
 
 - `RemoteAuth`：配对令牌、设备令牌、撤销、限流（`src-tauri/src/remote_auth.rs`）；
