@@ -2113,3 +2113,26 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 遗留：服务器部署新版中继（注册令牌 + 每日配额 + 用量持久化）后，设置面板
 即可显示真实流量；监控告警接入 cron（`check-relay.sh` 已就绪）；M2 P2P
 直连、二维码扫码验收、安装包签名流水线。
+
+第一百二十八轮：中继监控告警闭环（2026-08-05）。把上一轮就绪的健康检查升级为
+可直接上线的监控/告警方案：
+
+1. `check-relay.sh` 新增 `--json`：输出单行 JSON 结果（`ok`/`exit`/`reason`/
+   `at`/`statusUrl`/`expectedDesktop` + `summary`，其中 summary 含
+   desktops/sessions/usage/usageDay/usageHistoryDays），便于 cron、systemd
+   与告警网关消费；`--alert-url <url>` 或环境变量 `ZICODE_RELAY_ALERT_URL`
+   配置后，检查失败（退出码 1/2）时 POST 一条 JSON 告警（尽力而为，不影响
+   退出码）；python 探测顺序 python3 → python，Windows 下失效别名也能正确
+   解析摘要；
+2. 新增 systemd 单元 `zicode-relay-check.service`（oneshot）与
+   `zicode-relay-check.timer`（每 5 分钟、开机 2 分钟后、Persistent 补跑）；
+   `install-check.sh` 服务器端一键安装，可选 `ZICODE_RELAY_ALERT_URL` 写入
+   Environment；
+3. 验证：三个脚本 bash 语法通过；本地闭环——健康 `EXIT=0`（ok:true、
+   summary 含 desktops/usageDay）、降级 `EXIT=1` 且告警 POST 收到
+   `"reason":"desktop_offline"`、不可达 `EXIT=2` 且告警 POST 收到
+   `"reason":"unreachable"`、健康路径不告警（捕获恰 2 条）；公网中继默认
+   调用 `EXIT=0`（relay ok, desktop online: dev-ax2-01）。
+
+遗留：服务器部署新版中继后设置面板显示真实流量；多节点、M2 P2P 直连、二维码
+扫码验收、安装包签名流水线。

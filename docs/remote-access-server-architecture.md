@@ -312,8 +312,10 @@
  （`deploy-relay.sh` 默认写入，配合 systemd `StateDirectory=zicode-relay`）；
  桌面 `config.json` 加 `"relayRegistrationToken": "<同一 secret>"` 后重启
  桌面。**secret 不得写入文档/仓库**；
-- 待办：监控告警（`check-relay.sh` 已提供健康检查退出码，可接入 cron/
-  告警）、多节点、M2 P2P 直连。
+  - 监控告警：`scripts/relay/check-relay.sh --json` 输出机器可读结果，
+    失败时经 `--alert-url`/`ZICODE_RELAY_ALERT_URL` POST JSON 告警；
+    `scripts/relay/install-check.sh` 安装 systemd timer（每 5 分钟）。
+  - 待办：多节点、M2 P2P 直连。
 
 ## 13. 与现有代码的复用清单
 
