@@ -255,11 +255,15 @@
 - 验证：11 项单测全绿（协商、候选缓冲/冲刷、超时、发送、关闭），并在
   headless Chrome 用真实 `RTCPeerConnection` 完成 offer/answer/ICE 协商
   与 DataChannel ping/pong 回环（PASS）；
+- 桌面侧（第 132 轮）：`src-tauri/src/p2p.rs` 以 webrtc-rs 0.13 实现
+  answerer 对端（与手机 offerer 对应），进程内真实两端回环测试通过
+  （offer/answer/ICE + DataChannel 双向消息）；已修复 DTLS CryptoProvider
+  初始化与通道句柄保存；网关 `/v2/ws` 的 `p2p_*` 帧路由为下一步；
 - 服务器：`scripts/relay/deploy-coturn.sh` 一键部署 coturn（auth-secret
   长时凭据机制，桌面派生短期 TURN 凭据经信令通道下发给手机，secret 不落
   库不入仓）；
-- 待办：桌面侧 WebRTC 对端（webrtc-rs）与网关 `p2p_*` 帧路由、应用层在
-  P2P 与 M1 帧之间切换、coturn 部署后公网打洞验收。
+- 待办：网关 `p2p_*` 帧路由、应用层在 P2P 与 M1 帧之间切换、coturn 部署后
+  公网打洞验收。
 
 ### M3 端到端加密
 

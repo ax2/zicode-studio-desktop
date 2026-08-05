@@ -2193,3 +2193,26 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 遗留：桌面侧 WebRTC 对端（webrtc-rs）与网关 `p2p_*` 帧路由、应用层 P2P/M1
 切换、coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码验收、安装包
 签名流水线。
+
+第一百三十二轮：桌面侧 WebRTC 对端（webrtc-rs，第 132 轮）。完成 M2 数据面
+的桌面引擎：
+
+1. 新增 `src-tauri/src/p2p.rs`：`P2pAnswerer`（answerer 角色，与手机
+   offerer 对应），处理 `p2p_offer`/`p2p_ice`/`p2p_close`，输出
+   `p2p_answer`/`p2p_ice` 帧经信号通道回发；DataChannel 消息经
+   `P2pAnswererHandle` 交给宿主进入运行时请求管线；显式安装 rustls
+   CryptoProvider（webrtc DTLS 与 tauri 的 aws-lc-rs/ring 特性并存时需要）；
+2. 依赖：新增 `webrtc 0.13`（+`bytes 1`），41 个新 crate；`cargo check`
+   全目标通过；
+3. 验证：进程内回环测试——真实 webrtc-rs 两端（桌面 answerer + 模拟手机
+   offerer）经 host candidate 完成 offer/answer/ICE 协商、DataChannel 打开、
+   ping/pong 双向往返（0.08s）；期间发现并修复 DTLS CryptoProvider panic
+   与 `on_data_channel` 未保存通道句柄两个问题；
+4. 门禁：`check-rust.sh` 全绿——check all-targets、130 项主 crate 测试
+   （含新回环）、clippy `-D warnings`（顺带修复第 125/127 轮引入的
+   field-reassign/manual-map/useless-conversion 等风格告警）、fmt 通过；
+5. 状态：桌面引擎就绪但尚未接入网关 `/v2/ws`（模块标记
+   `allow(dead_code)`）；下一步为网关 `p2p_*` 帧路由 + 应用层 P2P/M1 切换。
+
+遗留：网关 `p2p_*` 帧路由与数据面切换；coturn 部署后公网打洞验收；服务器部署
+新版中继；二维码扫码验收、安装包签名流水线。
