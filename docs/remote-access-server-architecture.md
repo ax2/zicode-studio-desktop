@@ -291,13 +291,16 @@
   `RegistrationRejected { reason }` 帧，桌面 Agent 收到后记录明确错误并
   停止重连（设置面板中继状态会显示原因）；
 - 按设备字节流量配额（第二轮）：中继按设备累计双向中继字节（WS 帧 + HTTP
-  代理请求/响应），配置 `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE` 后超限设备
-  的 HTTP 代理返回 429、WS 会话收到 `device_quota_exceeded` 并关闭；
-  `/relay/status` 返回 `usage`（设备 → 累计字节，内存态、重启清零）；
-- 验证：Rust 新增 7 项中继测试（无/错令牌拒绝、正确令牌接受、畸形设备 ID
+  代理请求/响应），按**天窗口**统计（跨天自动清零），配置
+  `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE`（每设备每日字节数）后超限设备的
+  HTTP 代理返回 429、WS 会话收到 `device_quota_exceeded` 并关闭；
+  `/relay/status` 返回 `usage`（设备 → 当日累计字节）与 `usageDay`
+  （当天窗口标识）；用量为内存态，重启清零；
+- 验证：Rust 新增 8 项中继测试（无/错令牌拒绝、正确令牌接受、畸形设备 ID
   拒绝、注册限流、会话上限、HTTP 字节配额 + 状态用量、WS 字节配额）+
-  协议/配置测试；本地闭环实测无令牌/错令牌被拒、正确令牌 `welcome`、HTTP
-  超限 429、WS 收到 `device_quota_exceeded`、状态用量正确；
+  协议/配置测试，另含跨天重置用例；本地闭环实测无令牌/错令牌被拒、正确
+  令牌 `welcome`、HTTP 超限 429、WS 收到 `device_quota_exceeded`、状态用量
+  与 `usageDay` 正确；
 - 部署步骤（生产启用）：服务器 systemd 单元加
   `Environment=ZICODE_RELAY_REGISTRATION_TOKEN=<secret>` 并重启
   `zicode-relay`；可选再加 `Environment=ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=
