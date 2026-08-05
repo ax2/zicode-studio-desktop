@@ -226,24 +226,32 @@ impl HostServer {
                         .build()
                         .unwrap_or_default();
                     loop {
-                        let bytes = match crate::relay_client::relay_status_base(&relay_url) {
-                            Some(base) => {
-                                let url = format!("{base}/relay/status");
-                                match client.get(&url).send().await {
-                                    Ok(response) => match response.text().await {
-                                        Ok(body) => crate::relay_client::parse_relay_usage(
-                                            &body,
-                                            &relay_device_id,
-                                        ),
-                                        Err(_) => None,
-                                    },
-                                    Err(_) => None,
+                        let (bytes, history) =
+                            match crate::relay_client::relay_status_base(&relay_url) {
+                                Some(base) => {
+                                    let url = format!("{base}/relay/status");
+                                    match client.get(&url).send().await {
+                                        Ok(response) => match response.text().await {
+                                            Ok(body) => (
+                                                crate::relay_client::parse_relay_usage(
+                                                    &body,
+                                                    &relay_device_id,
+                                                ),
+                                                crate::relay_client::parse_relay_usage_history(
+                                                    &body,
+                                                    &relay_device_id,
+                                                ),
+                                            ),
+                                            Err(_) => (None, Vec::new()),
+                                        },
+                                        Err(_) => (None, Vec::new()),
+                                    }
                                 }
-                            }
-                            None => None,
-                        };
+                                None => (None, Vec::new()),
+                            };
                         if let Ok(mut status) = poll_status.lock() {
                             status.usage_bytes = bytes;
+                            status.usage_history = history;
                         }
                         tokio::time::sleep(Duration::from_secs(30)).await;
                     }
@@ -752,6 +760,11 @@ fn remote_access_status_payload(
         "relayConnectedAt": relay.connected_at,
         "relayLastError": relay.last_error,
         "relayUsageBytes": relay.usage_bytes,
+        "relayUsageHistory": relay
+            .usage_history
+            .iter()
+            .map(|entry| json!({ "day": entry.day, "bytes": entry.bytes }))
+            .collect::<Vec<_>>(),
         "e2eePublicKey": state
             .remote_access
             .e2ee_identity

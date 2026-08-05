@@ -91,6 +91,37 @@
   color: var(--success);
 }
 
+.remote-access-relay-history {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.remote-access-relay-history ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.remote-access-relay-history li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.remote-access-relay-history span {
+  color: var(--text-dim);
+}
+
 .remote-device-list {
   display: grid;
   gap: var(--space-3);

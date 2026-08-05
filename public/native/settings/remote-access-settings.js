@@ -346,6 +346,32 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
         ? ""
         : `${t("Relay traffic today")}: ${formatBytes(status.relayUsageBytes)}`;
 
+    const relayHistory = document.createElement("div");
+    relayHistory.className = "remote-access-relay-history";
+    const history = Array.isArray(status.relayUsageHistory)
+      ? status.relayUsageHistory.filter((entry) => Number.isFinite(Number(entry?.day)))
+      : [];
+    const recentHistory = history.slice(-7).reverse();
+    if (recentHistory.length > 0) {
+      const historyTitle = document.createElement("strong");
+      historyTitle.textContent = t("Relay traffic history");
+      const historyList = document.createElement("ul");
+      historyList.setAttribute("aria-label", t("Relay traffic history"));
+      for (const entry of recentHistory) {
+        const row = document.createElement("li");
+        const when = document.createElement("span");
+        when.textContent = new Intl.DateTimeFormat(getLocale(), {
+          month: "short",
+          day: "numeric",
+        }).format(new Date(Number(entry.day) * 86_400_000));
+        const amount = document.createElement("strong");
+        amount.textContent = formatBytes(entry.bytes);
+        row.append(when, amount);
+        historyList.append(row);
+      }
+      relayHistory.append(historyTitle, historyList);
+    }
+
     const relayFields = document.createElement("div");
     relayFields.className = "remote-access-relay-fields";
     const relayUrlInput = document.createElement("input");
@@ -397,7 +423,14 @@ export function setupRemoteAccessSettings({ gateway } = {}) {
     relayRestartHint.textContent = t("Relay changes take effect after restart.");
     relaySaveRow.append(relaySave, relayStatus, relayRestartHint);
     relayFields.append(relaySaveRow);
-    relaySection.append(relayTitleRow, relayHelp, relayLive, relayUsage, relayFields);
+    relaySection.append(
+      relayTitleRow,
+      relayHelp,
+      relayLive,
+      relayUsage,
+      relayHistory,
+      relayFields,
+    );
 
     const saveRelay = async (enabled) => {
       if (updating) return;

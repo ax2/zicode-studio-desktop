@@ -262,6 +262,36 @@ describe("remote access settings", () => {
     expect(document.querySelector(".remote-access-relay").textContent).toContain("aa:bb:cc");
   });
 
+  it("shows the last seven days of relayed usage history", async () => {
+    const gateway = {
+      getStatus: vi.fn(async () => ({
+        configuredEnabled: true,
+        running: true,
+        publicUrl: "https://relay.zicode.com/d/dev-ax2-01",
+        relayEnabled: true,
+        relayUrl: "wss://relay.zicode.com",
+        relayConnected: true,
+        relayUsageHistory: [
+          { day: 20664, bytes: 100 },
+          { day: 20665, bytes: 2048 },
+          { day: 20666, bytes: 3_145_728 },
+        ],
+      })),
+      listDevices: vi.fn(async () => []),
+    };
+    const settings = setupRemoteAccessSettings({ gateway });
+    await settings.load();
+
+    const history = document.querySelector(".remote-access-relay-history");
+    expect(history).not.toBeNull();
+    expect(history.textContent).toContain(t("Relay traffic history"));
+    const rows = history.querySelectorAll("li");
+    expect(rows).toHaveLength(3);
+    expect(rows[0].textContent).toContain("MB");
+    expect(rows[0].textContent).toContain("3");
+    expect(rows[2].textContent).toContain("100");
+  });
+
   it("surfaces the relay failure reason when disconnected", async () => {
     const gateway = {
       getStatus: vi.fn(async () => ({

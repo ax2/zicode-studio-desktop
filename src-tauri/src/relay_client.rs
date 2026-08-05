@@ -106,9 +106,19 @@ pub struct RelayAgentState {
     /// Current day's relayed bytes for this device, polled from the relay's
     /// public `/relay/status` endpoint. `None` when unknown.
     pub usage_bytes: Option<u64>,
+    /// Archived per-day relayed bytes for this device (oldest first), polled
+    /// from the same endpoint. Empty when unknown or not yet archived.
+    pub usage_history: Vec<DailyRelayUsage>,
 }
 
 pub type RelayAgentStatus = Arc<Mutex<RelayAgentState>>;
+
+/// One archived day of relayed bytes for a device (`usageHistory` entries).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DailyRelayUsage {
+    pub day: u64,
+    pub bytes: u64,
+}
 
 /// Convert a relay WebSocket URL to the HTTP(S) base used for `/relay/status`,
 /// e.g. `wss://relay.zicode.com` -> `https://relay.zicode.com`.
@@ -135,6 +145,30 @@ pub fn parse_relay_usage(status_body: &str, device_id: &str) -> Option<u64> {
         }
     }
     None
+}
+
+/// Extract a device's archived per-day relayed bytes from a `/relay/status`
+/// response body. The endpoint reports `usageHistory` as
+/// `[{"day":D,"devices":{"<deviceId>":bytes}}, ...]` (newest first); this
+/// returns only days where the device appears, sorted oldest first. Missing
+/// or malformed fields yield an empty list (the poller stays tolerant).
+pub fn parse_relay_usage_history(status_body: &str, device_id: &str) -> Vec<DailyRelayUsage> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(status_body) else {
+        return Vec::new();
+    };
+    let Some(history) = value.get("usageHistory").and_then(|entry| entry.as_array()) else {
+        return Vec::new();
+    };
+    let mut entries: Vec<DailyRelayUsage> = history
+        .iter()
+        .filter_map(|entry| {
+            let day = entry.get("day")?.as_u64()?;
+            let bytes = entry.get("devices")?.get(device_id)?.as_u64()?;
+            Some(DailyRelayUsage { day, bytes })
+        })
+        .collect();
+    entries.sort_by_key(|entry| entry.day);
+    entries
 }
 
 /// Extract the scheme+host origin from a page URL so WebSocket Origin checks
@@ -637,7 +671,10 @@ async fn execute_http(
 
 #[cfg(test)]
 mod tests {
-    use super::{page_origin_of, parse_relay_usage, relay_status_base, RelayAgentState};
+    use super::{
+        page_origin_of, parse_relay_usage, parse_relay_usage_history, relay_status_base,
+        DailyRelayUsage, RelayAgentState,
+    };
 
     #[test]
     fn relay_agent_state_starts_disconnected_without_error() {
@@ -685,5 +722,33 @@ mod tests {
         assert_eq!(parse_relay_usage(body, "dev-missing"), None);
         assert_eq!(parse_relay_usage("not json", "dev-a"), None);
         assert_eq!(parse_relay_usage(r#"{"usage":"oops"}"#, "dev-a"), None);
+    }
+
+    #[test]
+    fn parses_archived_daily_usage_history_for_a_device() {
+        let body = r#"{
+            "usageHistory": [
+                {"day": 20669, "devices": {"dev-a": 300, "dev-b": 9}},
+                {"day": 20668, "devices": {"dev-a": 100}}
+            ]
+        }"#;
+        let history = parse_relay_usage_history(body, "dev-a");
+        assert_eq!(
+            history,
+            vec![
+                DailyRelayUsage {
+                    day: 20668,
+                    bytes: 100
+                },
+                DailyRelayUsage {
+                    day: 20669,
+                    bytes: 300
+                },
+            ]
+        );
+        assert!(parse_relay_usage_history(body, "dev-missing").is_empty());
+        assert!(parse_relay_usage_history("not json", "dev-a").is_empty());
+        assert!(parse_relay_usage_history(r#"{"usageHistory":"oops"}"#, "dev-a").is_empty());
+        assert!(parse_relay_usage_history(r#"{"desktops":[]}"#, "dev-a").is_empty());
     }
 }
