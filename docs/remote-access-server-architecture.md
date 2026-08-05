@@ -261,9 +261,17 @@
 - 状态接口新增 `e2eePublicKey` / `e2eeFingerprint`，设置面板展示身份指纹；
 - 测试：Rust 124 项通过（新增身份派生、错误静态密钥拒绝、双向加解密、
   帧封装 5 项）；
-- 待办（M3.2）：手机侧 JS Noise 发起方（Web Crypto 或纯 JS 实现）、配对链接/
-  二维码携带桌面公钥让手机固定、经公网中继的加密会话端到端验收（抓包确认
-  服务器仅见密文）。
+- 待办（M3.2，2026-08-05 已完成）：手机侧纯 JS 同步 Noise_XK 发起方
+  （`public/native/transport/e2ee.js`：自实现 X25519 / ChaCha20-Poly1305 /
+  SHA-256 / HKDF，全部通过 RFC 7748/8439/5869 向量与 snow 官方 cacophony
+  向量逐字节对照）；配对链接/二维码经 `/v2/lan-qr` 携带桌面 E2EE 静态公钥
+  （`ek` 参数），手机 `remote-auth.js` 配对时固定该公钥；移动端
+  `HostRuntimeAdapter` 在连接中继时先完成 Noise_XK 握手，之后数据面全部
+  走 `e2ee_frame` 密文；
+- M3 验收（2026-08-05）：JS 发起方经公网中继对真实桌面（Rust 响应方）完成
+  三段握手，加密 hello → 网关鉴权 → hello_ack、runtime_subscribe 均解密成功，
+  零错误；上行帧全部为 `e2ee_handshake`/`e2ee_frame`，中继只见密文
+  （零知识核验 PASS）。剩余：手机真机扫码配对验收（ADB 接入后）。
 
 ### M4 规模化与合规上线
 

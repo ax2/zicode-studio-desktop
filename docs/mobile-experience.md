@@ -1863,3 +1863,31 @@ WebRTC vs Noise 待立项决策）；手机真机验收待 ADB 接入。
 遗留（M3.2）：手机侧 JS Noise 发起方、配对链接/二维码携带桌面公钥供手机
 固定、经公网中继的加密会话端到端验收（抓包确认服务器仅见密文）；M2 P2P 直连
 未启动；手机真机验收待 ADB 接入。
+
+第一百一十六轮：M3.2 手机侧端到端加密完成并经公网验收（2026-08-05）。交付：
+
+1. `public/native/transport/e2ee.js`：纯 JS 同步实现
+   Noise_XK_25519_ChaChaPoly_SHA256 发起方与响应方，包含自实现的
+   X25519（RFC 7748）、ChaCha20-Poly1305（RFC 8439）、SHA-256（NIST 向量）、
+   HKDF（RFC 5869）；除官方向量外，还用 snow 0.9.6 自带的 cacophony 向量
+   做逐字节对照（三段握手消息、握手哈希、双向传输密文全部一致）；
+2. 配对链路：`/v2/lan-qr` 会话链接新增 `ek=<桌面 E2EE 静态公钥 base64>`
+   （对 `+`/`/` 做 URL 转义）；`remote-auth.js` 配对时解析 `ek` 并持久化固定
+   （非法 base64/长度不符则忽略，保持 M1 兼容）；`app.js` 把固定公钥传给
+   `HostRuntimeAdapter`；
+3. 移动端传输：`HostRuntimeAdapter` 在远程客户端带固定公钥时，先发
+   `e2ee_handshake` 完成三段握手，再发加密 hello；此后收发全部走
+   `e2ee_frame` 密文帧；无固定公钥的客户端保持 M1 明文 hello；
+4. 公网验收（`zicode-frpc/e2ee-chat-test.mjs`，本地脚本不入库）：JS 发起方
+   经 `wss://relay.zicode.com` 对真实桌面完成握手 → 加密 hello 通过网关鉴权
+   返回 hello_ack → runtime_subscribe 订阅成功 → runtime_request 派发，
+   全部解密成功、零错误；上行帧仅 `e2ee_handshake`×2 + `e2ee_frame`×3，
+   中继零知识核验 PASS；
+5. 说明：本轮验证的模型回复流未到达（M1 对照同样如此），原因是桌面 13:42
+   重启后测试脚本引用的旧实例已过期，与 E2EE 无关；加密链路的握手/鉴权/
+   订阅/派发均已闭环。桌面新增 `zicode-e2ee-key` 小工具（打印 E2EE 公钥与
+   指纹，供调试/验收）。
+
+测试：Rust 124 项；前端 647 项（新增 e2ee 向量/帧测试、adapter E2EE 握手
+测试、remote-auth 公钥固定测试）；Biome 通过。遗留：手机真机扫码配对验收
+（ADB 接入）；M2 P2P 直连未启动。
