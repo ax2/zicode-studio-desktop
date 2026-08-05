@@ -228,6 +228,18 @@ const hostFetch = createAuthenticatedHostFetch({
   fetchImpl: window.fetch.bind(window),
 });
 
+let iceServers = [];
+try {
+  const configResponse = await hostFetch("/v2/remote-config");
+  if (configResponse.ok) {
+    const remoteConfig = await configResponse.json();
+    if (Array.isArray(remoteConfig.iceServers)) iceServers = remoteConfig.iceServers;
+  }
+} catch {
+  // Without STUN/TURN the P2P transport still works for host candidates
+  // (same LAN); otherwise it falls back to the WebSocket data path.
+}
+
 const adapter = new HostRuntimeAdapter({
   url: resolveHostWebSocketUrl(window),
   clientId: `${remoteAuth.clientType}-${randomId()}`,
@@ -235,6 +247,7 @@ const adapter = new HostRuntimeAdapter({
   deviceToken: remoteAuth.deviceToken,
   e2eePublicKey: remoteAuth.clientType === "remote" ? remoteE2eePublicKey() : undefined,
   p2pEnabled: remoteAuth.clientType === "remote",
+  iceServers,
 });
 const mobileExperience = setupMobileExperience({ adapter, clientType: remoteAuth.clientType });
 adapter.setFatalErrorListener((error) => renderStartupFailure(error));

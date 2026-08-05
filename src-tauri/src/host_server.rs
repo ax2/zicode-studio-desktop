@@ -293,6 +293,7 @@ impl HostServer {
         let base = Router::new()
             .route("/health", get(health))
             .route("/v2/bootstrap", get(bootstrap_target))
+            .route("/v2/remote-config", get(remote_config))
             .route("/v2/sessions", get(list_all_sessions_http))
             .route("/v2/plugins", get(list_plugins))
             .route("/v2/plugins/enablement", post(set_plugin_enablement))
@@ -2070,6 +2071,18 @@ async fn bootstrap_target(
         .spawn(target.clone(), launch)
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_spawn_failed"))?;
     Ok(Json(target))
+}
+
+/// M2: remote client configuration served to the authenticated phone (or the
+/// desktop UI). Today this carries the WebRTC `iceServers` (STUN/TURN) so P2P
+/// can cross NAT once the coturn deployment is configured; the array is empty
+/// when no servers are set.
+async fn remote_config() -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let config = crate::remote_access_config::load()
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "remote_config_failed"))?;
+    Ok(Json(json!({
+        "iceServers": config.relay_ice_servers.unwrap_or_default(),
+    })))
 }
 
 #[derive(Deserialize)]
@@ -4978,6 +4991,38 @@ mod tests {
         assert_eq!(event["target"]["sessionId"], "session-a");
 
         drop(socket);
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn serves_remote_config_with_an_ice_servers_array() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-config-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let runtimes = NativePiManager::new(32);
+        let host = HostServer::start(public, runtimes, auth).await.unwrap();
+
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let response = client
+            .get(format!("{}/v2/remote-config", host.origin()))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let body: Value = response.json().await.unwrap();
+        assert!(
+            body["iceServers"].is_array(),
+            "remote-config must always expose an iceServers array"
+        );
+
         host.stop();
         remove_temp_dir_when_released(&temp).await;
     }

@@ -45,10 +45,11 @@ class FakeWebSocket {
 class FakeP2pTransport {
   static instances = [];
 
-  constructor({ signal, onData, onState }) {
+  constructor({ signal, onData, onState, iceServers = [] }) {
     this.signal = signal;
     this.onData = onData;
     this.onState = onState;
+    this.iceServers = iceServers;
     this.handled = [];
     this.sentData = [];
     this.sendResult = true;
@@ -422,6 +423,28 @@ describe("HostRuntimeAdapter", () => {
     const transport = FakeP2pTransport.instances[0];
     expect(socket.sent.at(-1)).toEqual({ type: "p2p_offer", sdp: "offer-sdp" });
     expect(transport.closed).toBe(false);
+  });
+
+  it("passes STUN/TURN ice servers to the P2P transport", () => {
+    FakeWebSocket.instances.length = 0;
+    FakeP2pTransport.instances.length = 0;
+    const iceServers = [{ urls: ["stun:turn.example.com:3478"] }];
+    const adapter = new HostRuntimeAdapter({
+      url: "ws://127.0.0.1:9000/v2/ws",
+      WebSocketImpl: FakeWebSocket,
+      clientId: "phone-a",
+      clientType: "remote",
+      deviceToken: "token-a",
+      p2pEnabled: true,
+      iceServers,
+      P2pTransportImpl: FakeP2pTransport,
+    });
+    adapter.connect();
+    const socket = FakeWebSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "hello_ack", protocolVersion: 2 });
+
+    expect(FakeP2pTransport.instances[0].iceServers).toEqual(iceServers);
   });
 
   it("routes p2p signaling frames to the transport without reaching the app", () => {

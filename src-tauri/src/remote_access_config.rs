@@ -35,6 +35,12 @@ pub struct RemoteAccessConfig {
     /// keeps compatibility with open (development) relays.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relay_registration_token: Option<String>,
+    /// M2: WebRTC ICE servers (STUN/TURN) handed to the phone so P2P can
+    /// cross NAT. Opaque JSON array matching the browser `iceServers` shape;
+    /// TURN credentials should be short-lived when derived from the coturn
+    /// auth-secret. `None` (or `[]`) keeps host-only candidates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_ice_servers: Option<Vec<serde_json::Value>>,
 }
 
 impl Default for RemoteAccessConfig {
@@ -48,6 +54,7 @@ impl Default for RemoteAccessConfig {
             relay_url: None,
             relay_device_id: None,
             relay_registration_token: None,
+            relay_ice_servers: None,
         }
     }
 }
@@ -257,6 +264,7 @@ mod tests {
             relay_url: None,
             relay_device_id: None,
             relay_registration_token: None,
+            relay_ice_servers: None,
         };
         save_at(&path, &with_public).unwrap();
 
@@ -303,6 +311,7 @@ mod tests {
             relay_url: Some("wss://relay.zicode.com/relay".into()),
             relay_device_id: Some("dev-1".into()),
             relay_registration_token: Some("s3cret".into()),
+            relay_ice_servers: None,
         };
         save_at(&path, &with_relay).unwrap();
         assert_eq!(load_at(&path).unwrap(), with_relay);
@@ -340,6 +349,36 @@ mod tests {
         assert_eq!(load_at(&path).unwrap(), without);
         let raw = std::fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("relayRegistrationToken"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn persists_relay_ice_servers_and_omits_them_when_absent() {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-remote-config-ice-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let path = root.join("remote-access/config.json");
+
+        let with_ice = RemoteAccessConfig {
+            relay_enabled: true,
+            relay_ice_servers: Some(vec![
+                serde_json::json!({ "urls": ["stun:turn.remote.zicode.com:3478"] }),
+                serde_json::json!({
+                    "urls": ["turn:turn.remote.zicode.com:3478?transport=udp"],
+                    "username": "1750000000:dev-1",
+                    "credential": "hmac-placeholder",
+                }),
+            ]),
+            ..Default::default()
+        };
+        save_at(&path, &with_ice).unwrap();
+        assert_eq!(load_at(&path).unwrap(), with_ice);
+
+        let without = RemoteAccessConfig::default();
+        save_at(&path, &without).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("relayIceServers"));
         std::fs::remove_dir_all(root).unwrap();
     }
 }

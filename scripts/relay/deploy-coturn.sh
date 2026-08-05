@@ -65,4 +65,8 @@ if [ "$GENERATED" = "1" ]; then
 fi
 echo "    iceServers for the desktop config:"
 echo "      [{urls:'stun:${REALM}:3478'},{urls:'turn:${REALM}:3478?transport=udp',username:'<unix-ts>:<name>',credential:'<hmac>'}]"
+echo "    paste that array into <data_root>/remote-access/config.json as"
+echo "      \"relayIceServers\": [...]"
+echo "    (the desktop serves it to the phone via GET /v2/remote-config;"
+echo "     TURN credentials should be short-lived, derived from the secret)"
 echo "    verify: turnutils_uclient -u '<unix-ts>:<name>' -w '<hmac>' ${REALM}"
