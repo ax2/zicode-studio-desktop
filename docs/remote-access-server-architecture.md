@@ -294,19 +294,26 @@
   代理请求/响应），按**天窗口**统计（跨天自动清零），配置
   `ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE`（每设备每日字节数）后超限设备的
   HTTP 代理返回 429、WS 会话收到 `device_quota_exceeded` 并关闭；
-  `/relay/status` 返回 `usage`（设备 → 当日累计字节）与 `usageDay`
-  （当天窗口标识）；用量为内存态，重启清零；
+ `/relay/status` 返回 `usage`（设备 → 当日累计字节）与 `usageDay`
+ （当天窗口标识）；用量默认内存态，配置 `ZICODE_RELAY_DATA_DIR` 后按日
+ 持久化：每 10 秒快照 `usage.json`，跨天自动归档为 `usage-<day>.json`
+ （保留近 30 天），`/relay/status` 另返回 `usageHistory`（近 30 天按日
+ 归档），重启不再清零当日配额；
 - 验证：Rust 新增 8 项中继测试（无/错令牌拒绝、正确令牌接受、畸形设备 ID
   拒绝、注册限流、会话上限、HTTP 字节配额 + 状态用量、WS 字节配额）+
   协议/配置测试，另含跨天重置用例；本地闭环实测无令牌/错令牌被拒、正确
   令牌 `welcome`、HTTP 超限 429、WS 收到 `device_quota_exceeded`、状态用量
   与 `usageDay` 正确；
 - 部署步骤（生产启用）：服务器 systemd 单元加
-  `Environment=ZICODE_RELAY_REGISTRATION_TOKEN=<secret>` 并重启
-  `zicode-relay`；可选再加 `Environment=ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=
-  <字节数>`；桌面 `config.json` 加 `"relayRegistrationToken": "<同一
-  secret>"` 后重启桌面。**secret 不得写入文档/仓库**；
-- 待办：按时间窗（日/月）的用量统计与监控告警、多节点。
+ `Environment=ZICODE_RELAY_REGISTRATION_TOKEN=<secret>` 并重启
+ `zicode-relay`；可选再加
+ `Environment=ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=<字节数>` 与
+ `Environment=ZICODE_RELAY_DATA_DIR=/var/lib/zicode-relay`
+ （`deploy-relay.sh` 默认写入，配合 systemd `StateDirectory=zicode-relay`）；
+ 桌面 `config.json` 加 `"relayRegistrationToken": "<同一 secret>"` 后重启
+ 桌面。**secret 不得写入文档/仓库**；
+- 待办：监控告警（`check-relay.sh` 已提供健康检查退出码，可接入 cron/
+  告警）、多节点、M2 P2P 直连。
 
 ## 13. 与现有代码的复用清单
 
