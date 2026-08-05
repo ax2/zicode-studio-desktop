@@ -2259,6 +2259,24 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 遗留：coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、安装包
 签名流水线。
 
+第一百三十六轮：STUN/TURN iceServers 配置注入（第 136 轮）。补齐 M2 跨 NAT
+的最后一环——手机目前拿不到打洞服务器配置：
+
+1. `remote_access_config.rs` 新增可选 `relayIceServers`（WebRTC
+   `iceServers` 形状的 JSON 数组，`skip_serializing_if` 缺省不落盘）；
+2. host 新增 `GET /v2/remote-config`（复用 `/v2/*` 设备鉴权），返回
+   `{"iceServers": [...]}`；未配置时为 `[]`；
+3. `app.js` 启动时经认证 fetch `/v2/remote-config`，把 iceServers 传入
+   `HostRuntimeAdapter` → `P2pTransport`（STUN/TURN 候选参与打洞）；拉取
+   失败保持 host-only 候选，P2P 失败仍回退 WS；
+4. `deploy-coturn.sh` 输出增加桌面端 `relayIceServers` 配置位置说明
+   （`<data_root>/remote-access/config.json`）；
+5. 验证：Rust 132 项全绿（新增配置持久化/省略 + remote-config 端点用例）；
+   前端 665 项全绿（新增 iceServers 传递断言）；Biome 通过。
+
+遗留：coturn 部署后公网打洞验收；服务器部署新版中继；二维码扫码、安装包
+签名流水线。
+
 第一百三十五轮：release 第四次重建（含 M2 P2P 全链路，第 135 轮）。让生产
 安装包包含第 131–134 轮的 M2 代码：
 

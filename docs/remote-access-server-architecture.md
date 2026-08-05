@@ -266,6 +266,9 @@
 - 移动端数据面切换（第 134 轮）：`HostRuntimeAdapter` 在 `hello_ack` 后
   作为 offerer 协商 P2P；连接后 runtime 帧/事件走 DataChannel，失败或旧
   网关拒绝时静默回退 WebSocket；远程客户端默认启用；
+- STUN/TURN 注入（第 136 轮）：桌面配置 `relayIceServers`（WebRTC
+  `iceServers` 形状）经 `GET /v2/remote-config` 下发手机；`deploy-coturn.sh`
+  输出桌面端配置位置说明；
 - 服务器：`scripts/relay/deploy-coturn.sh` 一键部署 coturn（auth-secret
   长时凭据机制，桌面派生短期 TURN 凭据经信令通道下发给手机，secret 不落
   库不入仓）；
