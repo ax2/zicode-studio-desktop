@@ -2348,6 +2348,19 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 2. 说明：GitHub 从本机不可达（直连与本地代理 7890/7891/1080 均失败），
    第 142 轮提交与本文档推送待网络恢复。
 
+第一百四十四轮：安装包签名流水线自测（2026-08-06）。把"签名"这个外部项的
+前置风险清零：
+
+1. `scripts/sign-release.ps1` 修复绝对路径 bug（`Join-Path` 二次拼接导致
+   传入绝对路径时报文件缺失）；
+2. 用自签名 CodeSigning 证书对 release EXE 与安装包的**副本**实测：
+   signtool SHA-256 签名 + RFC3161 时间戳（DigiCert）均应用成功、
+   `signtool verify /v` 显示时间戳已由 DigiCert 链验证；`verify` 报
+   "不受信任根"是自签名证书的预期行为（真实 CA 证书即消除），流水线机制
+   本身已端到端验证；
+3. 结论：拿到真实 Authenticode 证书后，按脚本说明传入 PFX 即可完成签名，
+   无需再调试流水线。
+
 第一百三十九轮：P2P 有界重试与部署手册（2026-08-05）。收尾两项：
 
 1. `HostRuntimeAdapter` 的 P2P 失败改为有界自动重试（默认每 60 秒、最多

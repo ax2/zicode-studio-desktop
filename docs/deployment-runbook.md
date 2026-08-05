@@ -89,5 +89,7 @@ ZICODE_RELAY_ALERT_URL=https://hooks.example.com/zicode \
 
 - `bun run build` 生成安装包；`scripts/sign-release.ps1`（signtool，
   证书经参数传入，密码走 `ZICODE_SIGN_PASSWORD`）签名 EXE 与安装包；
+- 签名流水线已于 2026-08-06 用自签名证书端到端自测通过（SHA-256 +
+  RFC3161 DigiCert 时间戳；"不受信任根"仅为自签名证书的预期提示）；
 - 对外分发前完成 Authenticode 签名（证书未就绪时先以本地哈希与安装验证
   记录为准）。

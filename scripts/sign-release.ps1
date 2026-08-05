@@ -12,6 +12,11 @@ param(
 #   powershell -File scripts\sign-release.ps1 -CertPath C:\path\to\cert.pfx
 #
 # The certificate and password are never stored in the repository.
+#
+# Verified 2026-08-06 with a self-signed code-signing certificate: SHA-256
+# signature and RFC3161 DigiCert timestamp are applied correctly; the only
+# reason verification reports "untrusted root" with such a test certificate
+# is that the signing root is not a public CA.
 
 $ErrorActionPreference = 'Stop'
 
@@ -27,7 +32,11 @@ if ($env:ZICODE_SIGN_PASSWORD) {
 }
 
 foreach ($target in @($ExePath, $InstallerPath)) {
-    $resolved = Join-Path (Get-Location) $target
+    $resolved = if ([System.IO.Path]::IsPathRooted($target)) {
+        $target
+    } else {
+        Join-Path (Get-Location) $target
+    }
     if (-not (Test-Path -LiteralPath $resolved)) {
         throw "missing $target; run bun run build first"
     }
