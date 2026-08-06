@@ -1210,7 +1210,14 @@ export function setupNotesApp({
         (name) => !tags.includes(name) && (!needle || name.toLowerCase().includes(needle)),
       );
       const candidate = String(query).trim().replace(/^#/, "");
-      if (candidate && !tags.includes(candidate) && !pool.includes(candidate)) {
+      // Only offer to create a brand-new tag when the typed value matches no
+      // existing suggestion; otherwise partial prefixes would pollute the list.
+      if (
+        candidate &&
+        pool.length === 0 &&
+        !tags.includes(candidate) &&
+        !pool.includes(candidate)
+      ) {
         pool.unshift(candidate);
       }
       suggestions.replaceChildren();
@@ -1224,7 +1231,7 @@ export function setupNotesApp({
         option.className = "notes-tag-suggestion";
         option.append(element("span", "notes-tag-chip-icon", tagIcon(name)));
         option.append(element("span", "", name));
-        option.addEventListener("mousedown", (event) => event.preventDefault());
+        option.addEventListener("pointerdown", (event) => event.preventDefault());
         option.addEventListener("click", () => addTag(name));
         suggestions.append(option);
       }
@@ -1351,14 +1358,27 @@ export function setupNotesApp({
     }
   }
 
+  function hideTagSuggestionsOutside(target) {
+    for (const editor of document.querySelectorAll(".notes-tag-editor")) {
+      const suggestions = editor.querySelector(".notes-tag-suggestions");
+      if (!suggestions || suggestions.hidden) continue;
+      if (!editor.contains(target)) suggestions.hidden = true;
+    }
+  }
+
   const onPointerDown = (event) => hideEmojiPickers(event.target);
+  const onTagPointerDown = (event) => hideTagSuggestionsOutside(event.target);
   const onPickerEscape = (event) => {
-    if (event.key === "Escape") {
-      for (const picker of document.querySelectorAll(".notes-emoji-picker")) picker.hidden = true;
+    if (event.key !== "Escape") return;
+    for (const picker of document.querySelectorAll(".notes-emoji-picker")) picker.hidden = true;
+    for (const editor of document.querySelectorAll(".notes-tag-editor")) {
+      const suggestions = editor.querySelector(".notes-tag-suggestions");
+      if (suggestions) suggestions.hidden = true;
     }
   };
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("pointerdown", onPointerDown);
+  document.addEventListener("pointerdown", onTagPointerDown);
   document.addEventListener("keydown", onPickerEscape);
 
   return {
@@ -1374,6 +1394,7 @@ export function setupNotesApp({
       clearTimeout(autosaveTimer);
       document.removeEventListener("keydown", handleKeydown);
       document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerdown", onTagPointerDown);
       document.removeEventListener("keydown", onPickerEscape);
     },
   };

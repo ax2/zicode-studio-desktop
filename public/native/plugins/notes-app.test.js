@@ -379,6 +379,61 @@ describe("Notes application", () => {
     expect(document.querySelector("[data-notes-tags]").value).toContain("plugin");
   });
 
+  it("hides tag suggestions when clicking outside the editor", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-tag-input")).toBeTruthy());
+
+    const input = document.querySelector(".notes-tag-input");
+    input.focus();
+    input.dispatchEvent(new Event("focus", { bubbles: true }));
+    await vi.waitFor(() =>
+      expect(document.querySelector(".notes-tag-suggestions").hidden).toBe(false),
+    );
+    document
+      .querySelector(".notes-title-input")
+      .dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
+    expect(document.querySelector(".notes-tag-suggestions").hidden).toBe(true);
+  });
+
+  it("does not offer partial prefixes as new tags but creates brand-new ones", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-tag-input")).toBeTruthy());
+
+    const input = document.querySelector(".notes-tag-input");
+    input.value = "i";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const partialSuggestions = [...document.querySelectorAll(".notes-tag-suggestion")].map(
+      (s) => s.querySelector("span:last-child")?.textContent.trim(),
+    );
+    expect(partialSuggestions).not.toContain("i");
+    expect(partialSuggestions).toContain("inbox");
+
+    input.value = "brandnew";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const newTag = [...document.querySelectorAll(".notes-tag-suggestion")].find(
+      (s) => s.querySelector("span:last-child")?.textContent.includes("brandnew"),
+    );
+    expect(newTag).toBeTruthy();
+    newTag.click();
+    expect(document.querySelector("[data-notes-tags]").value).toContain("brandnew");
+  });
+
   it("brings only the selected text into Chat from the editor", async () => {
     setLocale("en");
     const gateway = createGateway();
