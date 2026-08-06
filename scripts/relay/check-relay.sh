@@ -30,7 +30,7 @@ elif python --version >/dev/null 2>&1; then
   PYTHON_BIN="python"
 fi
 
-STATUS_URL="${1:-https://relay.zicode.com/relay/status}"
+STATUS_URL=""
 EXPECTED_DESKTOP="dev-ax2-01"
 JSON=0
 ALERT_URL="${ZICODE_RELAY_ALERT_URL:-}"
@@ -62,6 +62,8 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+: "${STATUS_URL:=https://relay.zicode.com/relay/status}"
 
 exit_code=0
 reason="ok"

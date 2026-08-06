@@ -2591,6 +2591,33 @@ NAT 打洞（需 coturn）；键盘/无障碍（人工）；服务器部署新�
 遗留：M2 跨 NAT 打洞（需 coturn）；TalkBack 走查（人工）；服务器部署新版
 中继 + coturn + 监控（provision 一键就绪）；安装包签名。
 
+第一百六十七轮：生产服务器部署完成（2026-08-06）。在阿里云（39.98.116.129，
+root/Ubuntu）完成新版中继、coturn 与监控部署：
+
+1. **部署方式**：本地源码直传服务器（私有仓库无法从服务器 clone）→
+   `deploy-relay.sh` 以 `RUSTUP_DIST_SERVER=https://rsproxy.cn` 绕过
+   static.rust-lang.org 不可达，cargo `-j1` 规避 1.7GB 内存限制；
+   修复脚本只 `enable --now` 不重启的问题（手动 `systemctl restart` 后
+   新二进制生效）；
+2. **生效验证**：`/relay/status` 返回 `usage`/`usageDay`/`usageHistory`；
+   桌面带注册令牌重新注册（`relayConnected:true`）；实测一次模型链路产生
+   2,918,410 字节中继流量并写入
+   `/var/lib/zicode-relay/usage.json`（持久化生效）；桌面
+   `remote_access_status` 返回 `relayUsageBytes=2918410`——**设置面板
+   "今日中继流量"显示真实数值**；`/v2/remote-config` 自动派生 1 小时 TURN
+   凭据（STUN 孪生 + HMAC credential）；
+3. **coturn + 监控**：coturn active（realm=turn.remote.zicode.com，
+   auth-secret），`zicode-relay-check.timer` 每 5 分钟运行；
+4. **部署中发现并修复**：`check-relay.sh --json` 不带 URL 时把 `--json`
+   当作状态 URL 的 bug（`STATUS_URL` 在参数解析前初始化）；修复后服务器
+   端 `--json` 正常返回真实用量；
+5. **secret 处理**：注册令牌（48 位随机 hex）与 TURN secret 仅存于服务器
+   systemd 单元与桌面 `remote-access/config.json`，不入仓。
+
+遗留：**阿里云安全组需放行 UDP/TCP 3478 与 UDP/TCP 49152-65535**
+（当前 TCP 3478 公网不可达）；随后真机跨网络（非 LAN）重连可验证 M2 跨
+NAT 打洞；TalkBack 走查（人工）；安装包签名。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
