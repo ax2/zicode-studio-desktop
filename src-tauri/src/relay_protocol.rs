@@ -55,6 +55,10 @@ pub enum RelayFrame {
         headers: Vec<(String, String)>,
         body: String,
     },
+    /// Either side: application-level heartbeat. The relay replies so the
+    /// desktop can detect half-open connections and reconnect instead of
+    /// silently going offline.
+    KeepAlive,
 }
 
 impl RelayFrame {
@@ -110,6 +114,7 @@ mod tests {
                 headers: vec![],
                 body: "e30=".into(),
             },
+            RelayFrame::KeepAlive,
         ];
         for frame in frames {
             let json = frame.to_json();

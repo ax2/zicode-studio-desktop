@@ -19,6 +19,14 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::{header, HeaderValue};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 
+/// The desktop sends an application-level keepalive at this interval so the
+/// relay sees activity and half-open connections are detected.
+const KEEPALIVE_INTERVAL_SECONDS: u64 = 30;
+/// When no frame arrives from the relay within this window, the connection is
+/// considered half-open (the relay may have silently reaped it) and the
+/// desktop reconnects instead of staying registered-but-unreachable.
+const KEEPALIVE_TIMEOUT_SECONDS: u64 = 120;
+
 #[derive(Debug)]
 struct AcceptAnyCertificate;
 
@@ -263,11 +271,23 @@ async fn run_once(config: &RelayAgentConfig) -> Result<(), String> {
         .build()
         .map_err(|error| error.to_string())?;
     let (mut sink, mut stream) = relay_ws.split();
+    let mut heartbeat = tokio::time::interval(Duration::from_secs(KEEPALIVE_INTERVAL_SECONDS));
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
     loop {
         tokio::select! {
-            message = stream.next() => {
-                let Some(Ok(message)) = message else { break };
+            message = tokio::time::timeout(
+                Duration::from_secs(KEEPALIVE_TIMEOUT_SECONDS),
+                stream.next(),
+            ) => {
+                let timed_out = message.is_err();
+                let message = message.ok().flatten();
+                let Some(Ok(message)) = message else {
+                    if timed_out {
+                        log::warn!("[relay-agent] relay keepalive timeout; reconnecting");
+                    }
+                    break;
+                };
                 let text = match message {
                     WsMessage::Text(text) => text,
                     WsMessage::Close(_) => break,
@@ -349,8 +369,12 @@ async fn run_once(config: &RelayAgentConfig) -> Result<(), String> {
                     RelayFrame::Hello { .. }
                     | RelayFrame::Welcome { .. }
                     | RelayFrame::SessionReady { .. }
-                    | RelayFrame::HttpResp { .. } => {}
+                    | RelayFrame::HttpResp { .. }
+                    | RelayFrame::KeepAlive => {}
                 }
+            }
+            _ = heartbeat.tick() => {
+                let _ = outgoing_tx.send(RelayFrame::KeepAlive);
             }
             frame = outgoing_rx.recv() => {
                 let Some(frame) = frame else { break };

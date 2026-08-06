@@ -522,6 +522,9 @@ async fn desktop_loop(state: Arc<Mutex<RelayState>>, socket: WebSocket, peer_ip:
             RelayFrame::SessionClose { sid } => {
                 close_session(&state, &sid, None);
             }
+            RelayFrame::KeepAlive => {
+                let _ = frame_tx.send(RelayFrame::KeepAlive);
+            }
             _ => {}
         }
     }
@@ -1209,6 +1212,18 @@ mod tests {
         assert_eq!(echoed, "desktop says hello");
         desktop_task.await.unwrap();
         mobile.close(None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn desktop_keepalive_is_answered_by_the_relay() {
+        let base = spawn_relay().await;
+        let mut desktop = register_desktop(&base, "dev-keep").await;
+        desktop
+            .send(ClientMessage::Text(RelayFrame::KeepAlive.to_json()))
+            .await
+            .unwrap();
+        let reply = next_text(&mut desktop).await;
+        assert_eq!(RelayFrame::parse(&reply).unwrap(), RelayFrame::KeepAlive);
     }
 
     #[tokio::test]
