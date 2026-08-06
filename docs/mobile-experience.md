@@ -2539,6 +2539,18 @@ NAT 打洞（需 coturn）；键盘/无障碍（人工）；服务器部署新�
 遗留：二维码摄像头扫码（待人工扫码）；M2 跨 NAT 打洞（需 coturn）；键盘/
 无障碍（人工）；服务器部署新版中继 + coturn + 监控；安装包签名。
 
+第一百五十九轮：真机软键盘行为验证（2026-08-06）：
+
+1. Chrome 前台会话页聚焦消息输入框（CDP `focus` + `adb input touchscreen
+   tap` 唤起软键盘，`mInputShown=true`）；
+2. 结果：`visualViewport.height=394`（键盘遮挡后可见区）、Composer 底边
+   599 ≤ 可见区上界 696（`aboveKeyboard: true`）——**Composer 保持在软键盘
+   上沿**；`scrollW==clientW==360` 无横向溢出；
+3. 底部导航收起行为已有单测覆盖（本轮未单独断言）。
+
+遗留：二维码摄像头扫码（待人工扫码）；M2 跨 NAT 打洞（需 coturn）；无障碍
+（人工）；服务器部署新版中继 + coturn + 监控；安装包签名。
+
 第一百四十七轮：release 第七次重建（含自动 TURN 凭据与设置 UI，第 147 轮）。
 让生产安装包与 main 同步：
 

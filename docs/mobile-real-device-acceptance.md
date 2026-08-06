@@ -71,6 +71,7 @@
 | 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 日志 | 通过 | 公网中继全链路 ✅（配对 200、bootstrap、WS 会话）、M2 直连 ✅（"直连"徽标显示，DataChannel 打开）、模型往返 ✅（`[model-gateway] upstream 200`、回复渲染）；详见第 154 轮 |
 | 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 中继状态 | 通过 | 后台保活/前台恢复 ✅（Chrome 切后台 18s 中继会话保持，回前台 `connected`+"直连"徽标可见）；详见第 155 轮 |
 | 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 中继状态 | 通过 | 进程回收后冷启动恢复 ✅（force-stop Chrome → 重启会话自动恢复，新中继会话 + `connected` + "直连"徽标）；详见第 156 轮 |
+| 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 输入法状态 | 通过 | 软键盘行为 ✅（唤起键盘后 Composer 保持在其上沿，`visualViewport` 校验，无横向溢出）；详见第 159 轮 |
 
 ## 本地验证补充（2026-08-05，第 126–141 轮）
 
