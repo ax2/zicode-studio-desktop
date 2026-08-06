@@ -18,9 +18,7 @@ use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Json, Request, State};
 use axum::extract::{Path, Query};
-#[cfg(debug_assertions)]
 use axum::http::header::{CACHE_CONTROL, PRAGMA};
-#[cfg(debug_assertions)]
 use axum::http::HeaderValue;
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::middleware::{self, Next};
@@ -40,10 +38,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-#[cfg(debug_assertions)]
 use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
-#[cfg(debug_assertions)]
 use tower_http::set_header::SetResponseHeaderLayer;
 
 const MAX_HTTP_BODY_BYTES: usize = 2 * 1024 * 1024;
@@ -279,7 +275,10 @@ impl HostServer {
         });
         let index = static_dir.join("index.html");
         let static_service = ServeDir::new(static_dir).fallback(ServeFile::new(index));
-        #[cfg(debug_assertions)]
+        // Release builds must revalidate static assets too: without Cache-Control,
+        // WebView2 and mobile browsers fall back to heuristic caching and keep
+        // serving the previous build's JS/CSS after an update. Revalidation is
+        // cheap against a local server and guarantees users see the current UI.
         let static_service = ServiceBuilder::new()
             .layer(SetResponseHeaderLayer::overriding(
                 CACHE_CONTROL,
