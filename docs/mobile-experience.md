@@ -2479,6 +2479,30 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
 自检通过）；服务器部署新版中继 + coturn + 监控；安装包签名（脚本已验证，
 待证书）。
 
+第一百五十四轮：OPPO 真机端到端验收通过（2026-08-06）。设备重连后完成
+核心链路真机验收：
+
+1. **根因确认**：此前手机 WS 未建立，是因为 lan-qr 返回的是裸设备地址
+   （`/d/<device>/`），应用无法 bootstrap 而停在启动失败页；改用完整会话
+   URL（`/app/workspaces/<w>/sessions/<s>?pairingToken=…&ek=…`）后，
+   配对、bootstrap、WS 会话全部成功；
+2. **真机结果（Chrome，CDP 驱动 + 桌面日志佐证）**：
+   - 配对交换 200（新设备 device-ee6b1a16-…）；
+   - 中继 WS 会话建立（`/relay/status` sessions 非空）；
+   - **M2 直连**：手机连接状态条显示"直连"徽标（isP2pConnected=true，
+     DataChannel 已打开，桌面 webrtc-rs 收到候选并完成协商）；
+   - **模型往返**：手机发送"真机直连测试…"→ 桌面
+     `[model-gateway] upstream 200 OK`（deepseek-v4-flash）→ 助手回复
+     在手机渲染；
+3. 工具调用与历史会话正常显示；桌面日志仅 webrtc_ice 对不可用地址的
+   良性 UDP 绑定警告（不影响连接）；
+4. 说明：URL 中 `&` 会被 adb 远程 shell 拆分，传参需整体加引号；完整
+   会话 URL 是手机验收的必需路径。
+
+遗留：二维码摄像头扫码（仍为直接打开链接）；M2 跨 NAT 打洞（需 coturn）；
+后台保活/键盘/无障碍清单项（真机人工）；服务器部署新版中继 + coturn +
+监控；安装包签名。
+
 第一百四十七轮：release 第七次重建（含自动 TURN 凭据与设置 UI，第 147 轮）。
 让生产安装包与 main 同步：
 

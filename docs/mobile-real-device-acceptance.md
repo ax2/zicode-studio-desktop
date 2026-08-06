@@ -68,6 +68,7 @@
 | 2026-08-05 | Pad10-Pro / Android 11（WiFi ADB） | 自动化 + 人工 | 部分通过 | 公网入口加载 ✅、配对 ✅、真机浏览器 WebSocket ✅（中继会话出现）、应用内 WS 会话 ❌（app.js 顶层 await 卡点待复现）；浏览器需为 Chromium 内核（Firefox 68 过旧、barebones 交换卡住）；详见 mobile-experience.md 第 117 轮 |
 | 2026-08-05 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化 + 人工 | 通过 | 公网入口加载 ✅、配对 ✅（`[pairing]` 200）、WS 会话 ✅（中继 sessions）、E2EE 握手 ✅（无会话错误）、模型回复 ✅（`[model-gateway] upstream 200 OK`）；截图 docs/images/mobile-acceptance-2026-08-05/oppo-public-chat.png；详见第 118 轮 |
 | 2026-08-05 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化 + 人工 | 通过 | 桌面重启自愈 ✅（会话自动恢复）、撤销设备 ✅（~1.8s 断开、界面提示"访问已被撤销"并停止重连）；详见第 119 轮 |
+| 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 日志 | 通过 | 公网中继全链路 ✅（配对 200、bootstrap、WS 会话）、M2 直连 ✅（"直连"徽标显示，DataChannel 打开）、模型往返 ✅（`[model-gateway] upstream 200`、回复渲染）；详见第 154 轮 |
 
 ## 本地验证补充（2026-08-05，第 126–141 轮）
 
@@ -91,6 +92,7 @@
   无 usage/usageDay/usageHistory）——M4 鉴权、配额、持久化与监控告警尚未
   在生产生效；coturn（M2 打洞）未部署；需在阿里云执行部署手册；
 - **真机复验**：二维码摄像头扫码流程、M2 同局域网直连与跨 NAT 打洞、后台
-  保活/系统回收、键盘/无障碍等清单条目仍需 Android/iOS 真机；
+  保活/系统回收、键盘/无障碍等清单条目仍需 Android/iOS 真机（2026-08-06
+  已通过：公网中继全链路、M2 同局域网直连与"直连"徽标、模型往返）；
 - **安装包签名**：Authenticode 证书未就绪（`scripts/sign-release.ps1`
   已就绪）。
