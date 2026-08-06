@@ -312,6 +312,7 @@ impl HostServer {
             .route("/v2/notes/changes", get(list_note_changes))
             .route("/v2/notes/notebooks", post(create_notebook))
             .route("/v2/notes/notebooks/update", post(update_notebook))
+            .route("/v2/notes/move", post(move_note))
             .route("/v2/notes/note", get(get_note))
             .route("/v2/notes/create", post(create_note))
             .route("/v2/notes/save", post(save_note))
@@ -1154,6 +1155,8 @@ struct CreateNotebookRequest {
     title: String,
     #[serde(default)]
     icon: Option<String>,
+    #[serde(default)]
+    parent_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1202,6 +1205,16 @@ struct DeleteNoteRequest {
     scene_id: String,
     notebook_id: String,
     note_id: String,
+    expected_version: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MoveNoteRequest {
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+    target_notebook_id: String,
     expected_version: String,
 }
 
@@ -1430,7 +1443,7 @@ async fn create_notebook(
         .notes
         .lock()
         .map_err(|_| notes_unavailable())?
-        .create_notebook(&request.title, request.icon)
+        .create_notebook(&request.title, request.icon, request.parent_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
 }
@@ -1522,6 +1535,25 @@ async fn delete_note(
         )
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "deleted": true, "noteId": request.note_id })))
+}
+
+async fn move_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<MoveNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let note = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .move_note(
+            &request.notebook_id,
+            &request.note_id,
+            &request.target_notebook_id,
+            &request.expected_version,
+        )
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "note": note })))
 }
 
 async fn capture_note(

@@ -788,7 +788,7 @@ mod tests {
         let root = root();
         let registry = PluginRegistry::open(root.clone()).unwrap();
         let vault = crate::notes_vault::NotesVault::new(root.clone()).unwrap();
-        let notebook = vault.create_notebook("Agent notes", None).unwrap();
+        let notebook = vault.create_notebook("Agent notes", None, None).unwrap();
         let mut broker = CapabilityBroker::new(root.clone()).unwrap();
 
         let created = broker

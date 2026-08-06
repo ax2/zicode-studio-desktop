@@ -116,6 +116,7 @@ export function setupNotesApp({
   let focusTitleOnNextRender = false;
   let autosaveTimer = null;
   const expandedNotebookIds = new Set();
+  const expandedNavSections = new Set();
   let editingNotebookId = null;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
@@ -208,7 +209,7 @@ export function setupNotesApp({
     return true;
   }
 
-  async function createNotebook(title, icon) {
+  async function createNotebook(title, icon, parentId = null) {
     const normalized = title.trim();
     if (!normalized) return;
     loading = true;
@@ -218,9 +219,11 @@ export function setupNotesApp({
       const response = await gateway.createNotebook(sceneId(), {
         title: normalized,
         icon: icon?.trim() || DEFAULT_NOTEBOOK_ICON,
+        parentId,
       });
       selectedNotebookId = response.notebook.id;
       expandedNotebookIds.add(response.notebook.id);
+      if (parentId) expandedNotebookIds.add(parentId);
       mode = "library";
       await load({ preserveSelection: false });
     } catch (createError) {
@@ -593,26 +596,33 @@ export function setupNotesApp({
     });
     navigation.append(search, actions);
 
-    const notebookSection = navSection(t("Notebooks"), true);
+    const notebookSection = makeNavSection(t("Notebooks"), true);
     const allNotebooks = navButton(
       t("All notes"),
       !selectedNotebookId && !sourceOnly && !selectedTag,
       () => void applyFilter({}),
     );
     notebookSection.body.append(allNotebooks);
+    const childrenByParent = new Map();
     for (const notebook of snapshot.notebooks) {
-      notebookSection.body.append(buildNotebookBranch(notebook));
+      const key = notebook.parentId ?? null;
+      const siblings = childrenByParent.get(key) ?? [];
+      siblings.push(notebook);
+      childrenByParent.set(key, siblings);
+    }
+    for (const notebook of childrenByParent.get(null) ?? []) {
+      notebookSection.body.append(buildNotebookBranch(notebook, childrenByParent));
     }
     navigation.append(notebookSection.root);
 
-    const quickSection = navSection(t("Quick access"));
+    const quickSection = makeNavSection(t("Quick access"));
     quickSection.body.append(
       navButton(t("Web clips"), sourceOnly, () => void applyFilter({ sourceOnly: true })),
     );
     navigation.append(quickSection.root);
 
     if (snapshot.tags.length) {
-      const tagSection = navSection(t("Tags"));
+      const tagSection = makeNavSection(t("Tags"), false, Boolean(selectedTag));
       for (const tag of snapshot.tags) {
         tagSection.body.append(
           navButton(tag, selectedTag === tag, () => void applyFilter({ tag }), null, tagIcon(tag)),
@@ -621,7 +631,7 @@ export function setupNotesApp({
       navigation.append(tagSection.root);
     }
 
-    const dataSection = navSection(t("Data management"));
+    const dataSection = makeNavSection(t("Data management"));
     dataSection.body.append(
       navButton(t("Import Markdown"), false, () => void importMarkdown()),
       navButton(t("Export readable backup"), false, () => void exportBackup()),
@@ -633,7 +643,19 @@ export function setupNotesApp({
 
   }
 
-  function buildNotebookBranch(notebook) {
+  function makeNavSection(title, defaultExpanded = false, forceExpanded = false) {
+    const section = navSection(
+      title,
+      forceExpanded || defaultExpanded || expandedNavSections.has(title),
+    );
+    section.root.querySelector("summary")?.addEventListener("toggle", () => {
+      if (section.root.open) expandedNavSections.add(title);
+      else expandedNavSections.delete(title);
+    });
+    return section;
+  }
+
+  function buildNotebookBranch(notebook, childrenByParent) {
     const notes = snapshot.notes.filter((note) => note.notebookId === notebook.id);
     const branch = document.createElement("details");
     branch.className = "notes-notebook-branch";
@@ -649,8 +671,16 @@ export function setupNotesApp({
     branch.addEventListener("toggle", () => {
       if (branch.open) expandedNotebookIds.add(notebook.id);
       else expandedNotebookIds.delete(notebook.id);
+      folderGlyph.textContent = branch.open ? "📂" : "📁";
     });
 
+    const folderGlyph = element("span", "notes-folder-glyph", branch.open ? "📂" : "📁");
+    const iconBadge = notebook.icon
+      ? element("span", "notes-notebook-icon-badge", notebook.icon)
+      : null;
+    const folderIcon = element("span", "notes-notebook-icon");
+    folderIcon.append(folderGlyph);
+    if (iconBadge) folderIcon.append(iconBadge);
     const summary = document.createElement("summary");
     summary.className = "notes-notebook-summary";
     summary.classList.toggle(
@@ -658,7 +688,7 @@ export function setupNotesApp({
       selectedNotebookId === notebook.id && !sourceOnly && !selectedTag,
     );
     summary.append(
-      element("span", "notes-notebook-icon", notebook.icon || DEFAULT_NOTEBOOK_ICON),
+      folderIcon,
       element("span", "notes-notebook-title", notebook.title),
       element("small", "", String(notebook.noteCount ?? notes.length)),
       buildNotebookActions(notebook),
@@ -672,6 +702,31 @@ export function setupNotesApp({
       }
       summary.classList.add("active");
     });
+    summary.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      summary.classList.add("drag-over");
+    });
+    summary.addEventListener("dragleave", () => {
+      summary.classList.remove("drag-over");
+    });
+    summary.addEventListener("drop", (event) => {
+      event.preventDefault();
+      summary.classList.remove("drag-over");
+      let payload = null;
+      try {
+        payload = JSON.parse(event.dataTransfer.getData("text/plain") || "{}");
+      } catch {
+        payload = null;
+      }
+      if (
+        payload?.noteId &&
+        payload?.notebookId &&
+        payload.notebookId !== notebook.id
+      ) {
+        void moveNoteTo(payload.notebookId, payload.noteId, notebook.id);
+      }
+    });
 
     const children = element("div", "notes-notebook-children");
     if (loading && snapshot.notes.length === 0) {
@@ -680,6 +735,9 @@ export function setupNotesApp({
       children.append(message(t("No notes found")));
     } else {
       for (const note of notes) children.append(buildNoteTreeItem(note));
+    }
+    for (const child of childrenByParent.get(notebook.id) ?? []) {
+      children.append(buildNotebookBranch(child, childrenByParent));
     }
     branch.append(summary);
     if (editingNotebookId === notebook.id) {
@@ -748,7 +806,9 @@ export function setupNotesApp({
     icon.input.addEventListener("focus", () => {
       iconPicker.hidden = false;
     });
-    icon.wrapper.append(iconPicker);
+    const iconBox = element("div", "notes-icon-box");
+    iconBox.append(icon.input, iconPicker);
+    icon.wrapper.append(iconBox);
     const title = labeledInput(t("Notebook name"), "title", notebook.title);
     title.input.value = notebook.title;
     title.input.required = true;
@@ -792,6 +852,14 @@ export function setupNotesApp({
     item.type = "button";
     item.className = "notes-list-item notes-tree-note";
     item.classList.toggle("active", selectedNote?.id === note.id);
+    item.draggable = true;
+    item.addEventListener("dragstart", (event) => {
+      event.dataTransfer.setData(
+        "text/plain",
+        JSON.stringify({ noteId: note.id, notebookId: note.notebookId }),
+      );
+      event.dataTransfer.effectAllowed = "move";
+    });
     const title = element("strong", "", note.title);
     const metadata = element(
       "span",
@@ -804,6 +872,35 @@ export function setupNotesApp({
     item.append(main);
     item.addEventListener("click", () => void selectNote(note));
     return item;
+  }
+
+  async function moveNoteTo(sourceNotebookId, noteId, targetNotebookId) {
+    if (!(await canDeactivateEditor())) return;
+    const summary = snapshot.notes.find(
+      (candidate) => candidate.id === noteId && candidate.notebookId === sourceNotebookId,
+    );
+    if (!summary) return;
+    loading = true;
+    error = null;
+    draw();
+    try {
+      await gateway.moveNote(sceneId(), {
+        notebookId: sourceNotebookId,
+        noteId,
+        targetNotebookId,
+        expectedVersion: summary.version,
+      });
+      if (selectedNote?.id === noteId) {
+        selectedNote = null;
+        dirty = false;
+      }
+      await load({ preserveSelection: false });
+      notify(t("Note moved"));
+    } catch (moveError) {
+      error = moveError;
+      loading = false;
+      draw();
+    }
   }
 
   function drawContent() {
@@ -892,15 +989,33 @@ export function setupNotesApp({
     icon.input.addEventListener("focus", () => {
       iconPicker.hidden = false;
     });
-    icon.wrapper.append(iconPicker);
+    const iconBox = element("div", "notes-icon-box");
+    iconBox.append(icon.input, iconPicker);
+    icon.wrapper.append(iconBox);
+    const parent = document.createElement("label");
+    parent.textContent = t("Parent notebook");
+    const parentSelect = document.createElement("select");
+    parentSelect.name = "parentId";
+    const topLevel = document.createElement("option");
+    topLevel.value = "";
+    topLevel.textContent = t("Top level");
+    parentSelect.append(topLevel);
+    for (const candidate of snapshot.notebooks) {
+      const option = document.createElement("option");
+      option.value = candidate.id;
+      option.textContent = candidate.title;
+      option.selected = candidate.id === selectedNotebookId;
+      parentSelect.append(option);
+    }
+    parent.append(parentSelect);
     const actions = formActions(t("Create notebook"), () => {
       mode = "library";
       drawContent();
     });
-    form.append(input.wrapper, icon.wrapper, actions);
+    form.append(input.wrapper, icon.wrapper, parent, actions);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      void createNotebook(input.input.value, icon.input.value);
+      void createNotebook(input.input.value, icon.input.value, parentSelect.value || null);
     });
     section.append(form);
     queueMicrotask(() => input.input.focus());
@@ -1163,7 +1278,7 @@ export function setupNotesApp({
     container.append(element("span", "notes-tag-input-icon", TAG_ICON_FALLBACK), chips);
     const input = document.createElement("input");
     input.className = "notes-tag-input";
-    input.placeholder = "";
+    input.placeholder = t("Add tag");
     input.setAttribute("aria-label", t("Add tag"));
     input.setAttribute("autocomplete", "off");
     container.append(input);
@@ -1430,7 +1545,7 @@ function navButton(label, active, action, count = null, icon = null) {
   control.classList.toggle("active", active);
   control.setAttribute("aria-pressed", String(active));
   if (icon) control.append(element("span", "notes-nav-item-icon", icon));
-  control.append(element("span", "", label));
+  control.append(element("span", "notes-nav-item-label", label));
   if (count !== null) control.append(element("small", "", String(count)));
   control.addEventListener("click", action);
   return control;

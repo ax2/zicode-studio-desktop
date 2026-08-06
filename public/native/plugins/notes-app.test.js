@@ -311,8 +311,9 @@ describe("Notes application", () => {
     });
     render(gateway);
     await vi.waitFor(() =>
-      expect(document.querySelector(".notes-notebook-icon")?.textContent).toBe("🚀"),
+      expect(document.querySelector(".notes-notebook-icon-badge")?.textContent).toBe("🚀"),
     );
+    expect(document.querySelector(".notes-folder-glyph")?.textContent).toMatch(/^[📁📂]$/u);
     expect(document.querySelector(".notes-note-icon")?.textContent).toBe("⭐");
   });
 
@@ -534,5 +535,87 @@ describe("Notes application", () => {
     ).toContain("Roadmap");
     document.querySelector(".notes-results-list .notes-result-item").click();
     await vi.waitFor(() => expect(document.querySelector("[data-notes-title]")).toBeTruthy());
+  });
+
+  it("keeps the tag section expanded after selecting a tag", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-nav-section")).toBeTruthy());
+    const findSection = () =>
+      [...document.querySelectorAll(".notes-nav-section")].find((s) =>
+        s.querySelector("summary")?.textContent.includes("Tags"),
+      );
+    findSection().querySelector("summary").click();
+    expect(findSection().open).toBe(true);
+    const tagBtn = [...findSection().querySelectorAll(".notes-nav-item")].find((b) =>
+      b.textContent.includes("plugin"),
+    );
+    tagBtn.click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-results")).toBeTruthy());
+    expect(findSection().open).toBe(true);
+  });
+
+  it("renders nested notebooks and moves a note between them by drag", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    gateway.list.mockResolvedValue({
+      snapshot: {
+        notebooks: [
+          { id: "book-1", title: "Product", noteCount: 1 },
+          { id: "book-2", title: "Research", noteCount: 1, parentId: "book-1" },
+        ],
+        notes: [
+          NOTE,
+          { ...NOTE, id: "note-2", notebookId: "book-2", title: "Interview notes" },
+        ],
+        tags: [],
+      },
+    });
+    gateway.moveNote = vi.fn(async () => ({ note: { ...NOTE, notebookId: "book-2" } }));
+    render(gateway);
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".notes-notebook-branch")).toHaveLength(2),
+    );
+
+    const note = [...document.querySelectorAll(".notes-tree-note")].find((el) =>
+      el.textContent.includes("Roadmap"),
+    );
+    expect(note.draggable).toBe(true);
+    const target = [...document.querySelectorAll(".notes-notebook-summary")].find((el) =>
+      el.textContent.includes("Research"),
+    );
+    const start = new Event("dragstart", { bubbles: true });
+    start.dataTransfer = { setData: vi.fn(), effectAllowed: "" };
+    note.dispatchEvent(start);
+    expect(start.dataTransfer.setData).toHaveBeenCalledWith(
+      "text/plain",
+      JSON.stringify({ noteId: "note-1", notebookId: "book-1" }),
+    );
+
+    const drop = new Event("drop", { bubbles: true, cancelable: true });
+    drop.dataTransfer = {
+      getData: () => JSON.stringify({ noteId: "note-1", notebookId: "book-1" }),
+    };
+    target.dispatchEvent(drop);
+    await vi.waitFor(() => expect(gateway.moveNote).toHaveBeenCalledOnce());
+    expect(gateway.moveNote.mock.calls[0][1]).toMatchObject({
+      noteId: "note-1",
+      targetNotebookId: "book-2",
+    });
+  });
+
+  it("offers a parent notebook and an icon picker when creating a notebook", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-nav-section")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "New notebook")
+      .click();
+    expect(document.querySelector('select[name="parentId"]')).toBeTruthy();
+    expect(document.querySelector('select[name="parentId"] option').textContent).toBe("Top level");
+    document.querySelector('input[name="icon"]').click();
+    expect(document.querySelector(".notes-emoji-picker").hidden).toBe(false);
   });
 });

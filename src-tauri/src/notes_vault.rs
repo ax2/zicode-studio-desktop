@@ -32,6 +32,8 @@ pub struct NotebookDescriptor {
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub note_count: usize,
@@ -471,9 +473,13 @@ impl NotesVault {
         &self,
         title: &str,
         icon: Option<String>,
+        parent_id: Option<String>,
     ) -> Result<NotebookDescriptor, NotesError> {
         let title = validate_title(title)?;
         let icon = validate_icon(icon)?;
+        if let Some(parent) = &parent_id {
+            self.read_notebook(parent)?;
+        }
         if self.list_notebooks()?.len() >= MAX_NOTEBOOKS {
             return Err(NotesError::new(
                 "quota_exceeded",
@@ -486,6 +492,7 @@ impl NotesVault {
             id: id.clone(),
             title,
             icon,
+            parent_id,
             created_at: now.clone(),
             updated_at: now,
             note_count: 0,
@@ -514,6 +521,7 @@ impl NotesVault {
             id: notebook.id.clone(),
             title: notebook.title.clone(),
             icon: notebook.icon.clone(),
+            parent_id: notebook.parent_id.clone(),
             created_at: notebook.created_at.clone(),
             updated_at: notebook.updated_at.clone(),
         };
@@ -617,6 +625,55 @@ impl NotesVault {
         let written = self.write_note(&document, Some(expected_version))?;
         self.touch_notebook(&notebook_id)?;
         self.append_change("updated", &written.summary, Some(&written.summary.version))?;
+        Ok(written)
+    }
+
+    pub fn move_note(
+        &self,
+        notebook_id: &str,
+        note_id: &str,
+        target_notebook_id: &str,
+        expected_version: &str,
+    ) -> Result<NoteDocument, NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let note_id = validate_opaque_id(note_id)?;
+        let target_notebook_id = validate_opaque_id(target_notebook_id)?;
+        if notebook_id == target_notebook_id {
+            return Err(NotesError::new(
+                "invalid_parameters",
+                "The note is already in that notebook",
+            ));
+        }
+        let existing = self.get_note(&notebook_id, &note_id)?;
+        if expected_version.is_empty() || existing.summary.version != expected_version {
+            return Err(NotesError::new(
+                "version_conflict",
+                "The note changed after it was opened",
+            ));
+        }
+        self.read_notebook(&target_notebook_id)?;
+        let mut moved = existing;
+        moved.summary.notebook_id = target_notebook_id.clone();
+        moved.summary.updated_at = now_iso();
+        moved.summary.version = String::new();
+        let target_path = self.note_path(&target_notebook_id, &note_id)?;
+        if target_path.exists() {
+            return Err(NotesError::new(
+                "conflict",
+                "A note with this ID already exists in the target notebook",
+            ));
+        }
+        let bytes = serialize_note(&moved)?;
+        atomic_write(&target_path, &bytes)?;
+        let source_path = self.note_path(&notebook_id, &note_id)?;
+        fs::remove_file(&source_path).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot remove the note from its source")
+        })?;
+        let mut written = moved;
+        written.summary.version = version_for(&bytes);
+        self.touch_notebook(&target_notebook_id)?;
+        self.touch_notebook(&notebook_id)?;
+        self.append_change("moved", &written.summary, Some(&written.summary.version))?;
         Ok(written)
     }
 
@@ -859,7 +916,7 @@ impl NotesVault {
             decoded_attachments.push((attachment.note_id, attachment_id, bytes));
         }
 
-        let notebook = self.create_notebook(&imported_title, None)?;
+        let notebook = self.create_notebook(&imported_title, None, None)?;
         let import_result = (|| {
             for document in export.notes {
                 let imported = NoteDocument {
@@ -1106,6 +1163,7 @@ impl NotesVault {
             id: metadata.id,
             title: metadata.title,
             icon: metadata.icon,
+            parent_id: metadata.parent_id,
             created_at: metadata.created_at,
             updated_at: metadata.updated_at,
             note_count: 0,
@@ -1120,6 +1178,7 @@ impl NotesVault {
             id: notebook.id,
             title: notebook.title,
             icon: notebook.icon,
+            parent_id: notebook.parent_id,
             created_at: notebook.created_at,
             updated_at: notebook.updated_at,
         };
@@ -1379,6 +1438,8 @@ struct VaultMetadata {
     title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    parent_id: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -1403,6 +1464,7 @@ fn create_astro_vault(root: &Path, descriptor: &NotebookDescriptor) -> Result<()
         id: descriptor.id.clone(),
         title: descriptor.title.clone(),
         icon: descriptor.icon.clone(),
+        parent_id: descriptor.parent_id.clone(),
         created_at: descriptor.created_at.clone(),
         updated_at: descriptor.updated_at.clone(),
     };
@@ -2009,7 +2071,9 @@ mod tests {
         let root = root();
         let plugin_root = root.join("plugins");
         let vault = NotesVault::new(plugin_root).unwrap();
-        let notebook = vault.create_notebook("Research", Some("🚀".into())).unwrap();
+        let notebook = vault
+            .create_notebook("Research", Some("🚀".into()), None)
+            .unwrap();
         assert_eq!(notebook.icon.as_deref(), Some("🚀"));
         let note = vault
             .create_note(
@@ -2071,7 +2135,7 @@ mod tests {
     fn publishes_a_notebook_as_a_static_astro_site() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Publish test", None).unwrap();
+        let notebook = vault.create_notebook("Publish test", None, None).unwrap();
         vault
             .create_note(
                 &notebook.id,
@@ -2098,7 +2162,7 @@ mod tests {
     fn enforces_optimistic_versions_and_preserves_source_metadata() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Clips", None).unwrap();
+        let notebook = vault.create_notebook("Clips", None, None).unwrap();
         let original = vault
             .create_note(
                 &notebook.id,
@@ -2157,7 +2221,7 @@ mod tests {
     fn stores_safe_attachments_and_round_trips_readable_backups() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Portable", None).unwrap();
+        let notebook = vault.create_notebook("Portable", None, None).unwrap();
         let note = vault
             .create_note(
                 &notebook.id,
@@ -2217,7 +2281,7 @@ mod tests {
     fn imports_markdown_and_rebuilds_an_index_with_corruption_diagnostics() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Recovery", None).unwrap();
+        let notebook = vault.create_notebook("Recovery", None, None).unwrap();
         let imported = vault
             .import_markdown(
                 &notebook.id,
@@ -2251,7 +2315,7 @@ mod tests {
     fn derives_links_backlinks_and_tag_similarity_from_readable_markdown() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Knowledge", None).unwrap();
+        let notebook = vault.create_notebook("Knowledge", None, None).unwrap();
         let target = vault
             .create_note(
                 &notebook.id,
@@ -2302,7 +2366,7 @@ mod tests {
     fn emits_incremental_changes_and_delete_tombstones() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Sync", None).unwrap();
+        let notebook = vault.create_notebook("Sync", None, None).unwrap();
         let created = vault
             .create_note(&notebook.id, "Draft", "one", vec![], None, None)
             .unwrap();
@@ -2339,6 +2403,32 @@ mod tests {
                 .unwrap()
                 .reset_required
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn supports_nested_notebooks_and_moves_notes_between_them() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let parent = vault.create_notebook("Parent", None, None).unwrap();
+        let child = vault
+            .create_notebook("Child", Some("📂".into()), Some(parent.id.clone()))
+            .unwrap();
+        assert_eq!(child.parent_id.as_deref(), Some(parent.id.as_str()));
+        let note = vault
+            .create_note(&parent.id, "Draft", "body", vec![], None, None)
+            .unwrap();
+        let moved = vault
+            .move_note(
+                &parent.id,
+                &note.summary.id,
+                &child.id,
+                &note.summary.version,
+            )
+            .unwrap();
+        assert_eq!(moved.summary.notebook_id, child.id);
+        assert!(vault.get_note(&child.id, &note.summary.id).is_ok());
+        assert!(vault.get_note(&parent.id, &note.summary.id).is_err());
         let _ = fs::remove_dir_all(root);
     }
 

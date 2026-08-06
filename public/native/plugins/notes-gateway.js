@@ -48,8 +48,8 @@ export class NotesGateway {
     return this.#request(url);
   }
 
-  createNotebook(sceneId, { title, icon } = {}) {
-    return this.#post("/v2/notes/notebooks", { sceneId, title, icon });
+  createNotebook(sceneId, { title, icon, parentId } = {}) {
+    return this.#post("/v2/notes/notebooks", { sceneId, title, icon, parentId });
   }
 
   updateNotebook(sceneId, { notebookId, title, icon } = {}) {
@@ -91,6 +91,16 @@ export class NotesGateway {
       notebookId: note.notebookId,
       noteId: note.id,
       expectedVersion: note.version,
+    });
+  }
+
+  moveNote(sceneId, { notebookId, noteId, targetNotebookId, expectedVersion } = {}) {
+    return this.#post("/v2/notes/move", {
+      sceneId,
+      notebookId,
+      noteId,
+      targetNotebookId,
+      expectedVersion,
     });
   }
 

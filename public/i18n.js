@@ -688,6 +688,9 @@ const zhCN = {
   "No web clips yet. Capture a public page to collect it here.":
     "还没有网页剪藏。采集一个公开网页后会出现在这里。",
   "Show all notes": "显示全部笔记",
+  "Parent notebook": "上级笔记本",
+  "Top level": "顶级",
+  "Note moved": "笔记已移动",
   Delete: "删除",
   "Note title": "笔记标题",
   "Tags separated by commas": "标签，以逗号分隔",
