@@ -58,6 +58,14 @@
   scrollbar-width: thin;
 }
 
+/* Chromium 151 regressed implicit <details> content hiding: a closed
+   <details> still renders (and overlaps) its non-summary children. Enforce
+   the collapse explicitly so accordion/tree sections never bleed into the
+   content below them. */
+details:not([open]) > :not(summary) {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;
