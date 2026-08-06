@@ -9,7 +9,7 @@ M3 E2EE + M4 配额/持久化）、coturn（M2 打洞）与监控告警。所有
 - DNS：`relay.zicode.com` 与 `turn.remote.zicode.com` 的 A 记录都指向本服务器
   公网 IP；
 - 阿里云安全组放行：TCP 80/443（中继/证书）、UDP+TCP 3478（STUN/TURN）、
-  UDP/TCP 49152–65535（TURN 中继区间）；
+  UDP 49160–49167（TURN 中继端口，具体端口集合）；
 - 服务器为 Debian/Ubuntu 且有 root；仓库可从 GitHub 拉取。
 
 ## 1. 部署中继（M1/M3/M4 + 按日用量持久化）
@@ -56,8 +56,12 @@ curl https://relay.zicode.com/relay/status
 ```
 
 脚本会：安装 coturn → 写入 `/etc/turnserver.conf`（auth-secret 长时凭据、
-relay 端口区间）→ 启用服务 → 打印 `relayTurnUrl` / `relayTurnRealm` /
+relay 端口，默认 49160–49167 具体端口集）→ 启用服务 → 打印
+`relayTurnUrl` / `relayTurnRealm` /
 `relayTurnSecret`（以及备选的静态 `relayIceServers` 示例）。
+**云安全组必须放行以下具体端口**：TCP 3478、UDP 3478（STUN/TURN 监听）
+与 UDP 49160–49167（coturn 转发中继端口）；只放行这 8 个具体 UDP 端口，
+不需要大范围放行。
 **推荐**：在桌面 **设置 → 远程访问 → TURN 中继（可选）** 填入三个字段并
 保存后重启桌面——桌面会在每次手机请求 `GET /v2/remote-config` 时自动派生
 **全新的 1 小时有效** TURN 凭据（RFC 5389 auth-secret 方案），无需手动

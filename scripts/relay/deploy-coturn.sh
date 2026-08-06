@@ -3,15 +3,17 @@
 #
 # Run on the server as root (Debian/Ubuntu). Prerequisites:
 #   1. DNS A record: turn.remote.zicode.com -> this server's public IP
-#   2. Cloud security group opens UDP/TCP 3478 and the TURN relay range
-#      (default 49152-65535) so hole punching and relay candidates work
+#   2. Cloud security group opens TCP/UDP 3478 (STUN/TURN listener) and the
+#      TURN relay ports (default 49160-49167, a small explicit set) so hole
+#      punching and relay candidates work
 #
 # Usage: ./deploy-coturn.sh
 # Optional settings (set in the deploy environment):
 #   ZICODE_TURN_REALM=<domain>   default turn.remote.zicode.com
 #   ZICODE_TURN_SECRET=<secret>  long-term credential secret; generated and
 #                                printed once when omitted
-#   ZICODE_TURN_RELAY_MIN_PORT / ZICODE_TURN_RELAY_MAX_PORT
+#   ZICODE_TURN_RELAY_MIN_PORT / ZICODE_TURN_RELAY_MAX_PORT  (default
+#   49160 / 49167; open every port in between in the security group)
 #
 # Credentials use coturn's long-term mechanism with auth-secret: the desktop
 # derives short-lived TURN credentials (username=`<unix-ts>:<name>`,
@@ -22,8 +24,8 @@ set -euo pipefail
 
 REALM="${ZICODE_TURN_REALM:-turn.remote.zicode.com}"
 TURN_SECRET="${ZICODE_TURN_SECRET:-}"
-RELAY_MIN_PORT="${ZICODE_TURN_RELAY_MIN_PORT:-49152}"
-RELAY_MAX_PORT="${ZICODE_TURN_RELAY_MAX_PORT:-65535}"
+RELAY_MIN_PORT="${ZICODE_TURN_RELAY_MIN_PORT:-49160}"
+RELAY_MAX_PORT="${ZICODE_TURN_RELAY_MAX_PORT:-49167}"
 
 if ! command -v apt-get >/dev/null 2>&1; then
   echo "error: this script targets Debian/Ubuntu (apt-get)" >&2
@@ -75,6 +77,7 @@ if command -v openssl >/dev/null 2>&1; then
   echo "      [{\"urls\":[\"stun:${REALM}:3478\"]},{\"urls\":[\"turn:${REALM}:3478?transport=udp\"],\"username\":\"${TURN_USER}\",\"credential\":\"${TURN_CRED}\"}]"
   echo "    the desktop serves iceServers to the phone via GET /v2/remote-config;"
   echo "    verify: turnutils_uclient -u '${TURN_USER}' -w '${TURN_CRED}' ${REALM}"
+  echo "    security group: TCP 3478, UDP 3478, UDP ${RELAY_MIN_PORT}-${RELAY_MAX_PORT}"
 else
   echo "    (openssl not found: derive short-lived TURN credentials manually from the auth-secret)"
 fi

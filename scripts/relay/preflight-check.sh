@@ -67,7 +67,7 @@ echo "--- Ports (bind check, inbound must also be open in the cloud security gro
 for port in 80 443; do
   check "local bind port ${port} free" "$(ss -lnt 2>/dev/null | awk '{print $4}' | grep -q ":$port$" && echo fail || echo ok)"
 done
-echo "  [NOTE] cloud security group must open: TCP 80/443, UDP+TCP 3478, UDP/TCP 49152-65535"
+echo "  [NOTE] cloud security group must open: TCP 80/443, TCP 3478, UDP 3478, UDP 49160-49167"
 
 if [ "$FAILED" -eq 0 ]; then
   echo "==> pre-flight PASSED; proceed with deploy-relay.sh"
