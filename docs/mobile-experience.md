@@ -2432,6 +2432,21 @@ App 现在会在 P2P 连接后自动把 runtime 帧走 DataChannel，失败回�
    标记为 blocked；
 3. 任何一项输入到位（服务器访问/真机/证书，或新指令）即恢复推进。
 
+第一百五十一轮：OPPO 真机验收（部分完成，第 151 轮）。真机接入后恢复推进：
+
+1. ADB 确认 OPPO PHY110（a5a16229）USB 连接正常；桌面网关
+   `/v2/lan-qr` 生成新会话配对链接（含 pairingToken + E2EE 公钥）；
+2. 手机打开配对链接后：应用资源经中继正常加载（`GET /native/...` 全 200），
+   **配对交换成功**（桌面日志 `[pairing] exchange attempt token=picot_pair_a
+   device=device-fb10cc8d-… peer=127.0.0.1`、`POST /v2/auth/exchange ->
+   200`、`GET /v2/sessions -> 200`）；
+3. 中断：移动端 WS 会话尚未在中继出现时，手机 USB 连接掉线（adb 与系统
+   PnP 均无设备），等待重插后继续：WS 会话建立、E2EE 握手、模型往返、
+   M2 直连"徽标"验证；
+4. 说明：手机自带浏览器（heytap KKWebView）可加载应用并完成配对交换；
+   Chrome 的 `am start -n` 组件名在当前系统不可用（exit 127），但 URL
+   经默认解析器仍被打开并完成交换。
+
 第一百四十七轮：release 第七次重建（含自动 TURN 凭据与设置 UI，第 147 轮）。
 让生产安装包与 main 同步：
 
