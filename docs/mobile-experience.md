@@ -2551,6 +2551,18 @@ NAT 打洞（需 coturn）；键盘/无障碍（人工）；服务器部署新�
 遗留：二维码摄像头扫码（待人工扫码）；M2 跨 NAT 打洞（需 coturn）；无障碍
 （人工）；服务器部署新版中继 + coturn + 监控；安装包签名。
 
+第一百六十轮：真机系统字体放大验证（2026-08-06）：
+
+1. `adb shell settings put system font_scale 1.5` 放大系统字体后刷新会话页
+   （CDP `location.reload()`）；
+2. 结果：`scrollW==clientW==bodyScrollW==360` **无横向溢出**、Composer 在
+   视口内可见、连接状态 `connected`；验证后恢复 `font_scale=1.0`；
+3. 覆盖"动态字体（系统字体放大）下无截断/挤压"清单项（1.5x 为较严格档位；
+   TalkBack 朗读仍需人工走查）。
+
+遗留：二维码摄像头扫码（待人工扫码）；M2 跨 NAT 打洞（需 coturn）；无障碍
+朗读（人工）；服务器部署新版中继 + coturn + 监控；安装包签名。
+
 第一百四十七轮：release 第七次重建（含自动 TURN 凭据与设置 UI，第 147 轮）。
 让生产安装包与 main 同步：
 
