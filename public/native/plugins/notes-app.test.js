@@ -183,11 +183,10 @@ describe("Notes application", () => {
     });
   });
 
-  it("blocks navigation away from a dirty editor when discard is declined", async () => {
+  it("auto-saves a dirty editor before navigating away", async () => {
     setLocale("en");
     const gateway = createGateway();
-    const confirmDiscard = vi.fn(() => false);
-    const app = render(gateway, { confirmDiscard });
+    const app = render(gateway);
     await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
     document.querySelector(".notes-list-item").click();
     await vi.waitFor(() => expect(document.querySelector("[data-notes-title]")).toBeTruthy());
@@ -196,8 +195,9 @@ describe("Notes application", () => {
     title.value = "Changed";
     title.dispatchEvent(new Event("input", { bubbles: true }));
 
-    expect(app.canDeactivate()).toBe(false);
-    expect(confirmDiscard).toHaveBeenCalledWith("Discard unsaved note changes?");
+    await app.canDeactivate();
+    expect(gateway.save).toHaveBeenCalledOnce();
+    expect(gateway.save.mock.calls[0][1]).toMatchObject({ title: "Changed" });
   });
 
   it("uploads a bounded attachment and inserts its portable Markdown link", async () => {
@@ -222,6 +222,7 @@ describe("Notes application", () => {
       .find((control) => control.textContent === "Attach")
       .click();
     await vi.waitFor(() => expect(gateway.uploadAttachment).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(gateway.save).toHaveBeenCalledOnce());
 
     expect(gateway.uploadAttachment.mock.calls[0][2]).toMatchObject({
       fileName: "proof.txt",
@@ -229,7 +230,6 @@ describe("Notes application", () => {
       dataBase64: "aGVsbG8=",
     });
     expect(document.querySelector("[data-notes-content]").value).toContain("/attachments/note-1/");
-    expect(document.querySelector("[data-notes-save]").disabled).toBe(false);
     [...document.querySelectorAll("button")]
       .find((control) => control.textContent === "Preview")
       .click();
@@ -293,7 +293,10 @@ describe("Notes application", () => {
       }),
     );
     document.querySelector(".notes-use-in-chat").click();
-    expect(onUseInChat).toHaveBeenCalledWith(expect.objectContaining({ id: "chat-note" }));
+    expect(onUseInChat).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "chat-note" }),
+      "",
+    );
   });
 
   it("shows notebook and note icons in the navigation tree", async () => {
@@ -374,5 +377,87 @@ describe("Notes application", () => {
     suggestion.click();
     expect(document.querySelector("[data-notes-tags]").value).toContain("idea");
     expect(document.querySelector("[data-notes-tags]").value).toContain("plugin");
+  });
+
+  it("brings only the selected text into Chat from the editor", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const onUseInChat = vi.fn();
+    render(gateway, { onUseInChat });
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
+    await vi.waitFor(() => expect(document.querySelector("[data-notes-content]")).toBeTruthy());
+
+    const textarea = document.querySelector("[data-notes-content]");
+    textarea.value = "# Plan\n\nSafe content\n\nMore";
+    textarea.selectionStart = textarea.value.indexOf("Safe");
+    textarea.selectionEnd = textarea.value.indexOf("Safe") + "Safe content".length;
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Discuss in Chat")
+      .click();
+    expect(onUseInChat).toHaveBeenCalledOnce();
+    expect(onUseInChat.mock.calls[0][1]).toBe("Safe content");
+  });
+
+  it("confirms note deletion with a two-step button", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    gateway.delete = vi.fn(async () => ({ deleted: true }));
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-delete")).toBeTruthy());
+
+    const del = document.querySelector(".notes-delete");
+    del.click();
+    expect(gateway.delete).not.toHaveBeenCalled();
+    expect(del.getAttribute("aria-label")).toBe("Confirm delete");
+    del.click();
+    await vi.waitFor(() => expect(gateway.delete).toHaveBeenCalledOnce());
+  });
+
+  it("opens a grouped emoji picker and applies the chosen icon", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+
+    document.querySelector(".notes-icon-picker-btn").click();
+    expect(document.querySelector(".notes-emoji-picker").hidden).toBe(false);
+    expect(document.querySelectorAll(".notes-emoji-tab").length).toBeGreaterThan(3);
+    [...document.querySelectorAll(".notes-emoji-cell")]
+      .find((cell) => cell.textContent === "😀")
+      ?.click();
+    expect(document.querySelector("[data-notes-icon]").value).toBe("😀");
+  });
+
+  it("auto-saves tag additions before navigating away", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const app = render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-tag-input")).toBeTruthy());
+
+    const tagInput = document.querySelector(".notes-tag-input");
+    tagInput.value = "idea";
+    tagInput.dispatchEvent(new Event("input", { bubbles: true }));
+    tagInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(document.querySelector("[data-notes-tags]").value).toContain("idea");
+
+    await app.canDeactivate();
+    expect(gateway.save.mock.calls.at(-1)[1].tags).toEqual(
+      expect.arrayContaining(["plugin", "idea"]),
+    );
   });
 });

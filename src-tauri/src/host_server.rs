@@ -1615,6 +1615,10 @@ async fn read_note_attachment(
     Response::builder()
         .status(StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, mime_type)
+        .header(
+            axum::http::header::CONTENT_DISPOSITION,
+            format!("inline; filename=\"{}\"", query.attachment_id),
+        )
         .header(axum::http::header::CACHE_CONTROL, "private, max-age=300")
         .header("x-content-type-options", "nosniff")
         .header("content-security-policy", "default-src 'none'; sandbox")

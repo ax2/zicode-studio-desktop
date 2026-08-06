@@ -20,6 +20,42 @@ const BUILTIN_TAGS = [
 ];
 const TAG_ICON_FALLBACK = "🏷️";
 const TAG_ICONS = new Map(BUILTIN_TAGS);
+const AUTOSAVE_DELAY_MS = 2500;
+
+const EMOJI_GROUPS = [
+  [
+    "表情",
+    ["😀","😁","😂","🤣","😊","😇","🙂","😉","😍","🥰","😘","😜","🤪","😎","🤓","🥳","😏","😒","😞","😔","😢","😭","😤","😡","🤯","😳","🥺","😱","🤔","🤗","🤫","🤭","😴","🤤","😷","🤒","🤕","🤑","🤠","👻","💀","👽","🤖","🎃"],
+  ],
+  [
+    "手势",
+    ["👍","👎","👌","✌️","🤞","🤟","🤘","🤙","👈","👉","👆","👇","☝️","✋","🤚","🖐️","🖖","👋","🤝","💪","👏","🙌","👐","🤲","🙏","💅","🤳"],
+  ],
+  [
+    "动物",
+    ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐴","🦄","🐝","🦋","🐌","🐞","🐜","🐢","🐍","🦎","🐙","🦑","🦀","🐳","🐬","🐟","🐠","🦈","🐊"],
+  ],
+  [
+    "食物",
+    ["🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🥑","🥦","🥬","🥒","🌽","🥕","🥔","🍠","🥐","🥯","🍞","🥖","🧀","🥚","🍳","🥓","🥩","🍗","🍖","🌭","🍔","🍟","🍕","🥪","🌮","🌯","🍜","🍝","🍣","🍤","🍚","🍙","🍦","🍨","🍰","🎂","🍫","🍬","🍭","🍿","☕","🍵","🧃","🥤","🍺","🍻","🥂","🍷"],
+  ],
+  [
+    "活动",
+    ["⚽","🏀","🏈","⚾","🎾","🏐","🏓","🏸","⛳","🏹","🎣","🥊","🥋","🎽","⛸️","🥌","🛷","🎿","🏂","🏋️","🤸","🤺","🏇","🧘","🏄","🏊","🚣","🧗","🚵","🚴","🏆","🥇","🥈","🥉","🏅","🎫","🎭","🎨","🎬","🎤","🎧","🎼","🎹","🥁","🎷","🎺","🎸","🎻","🎲","🎯","🎳","🎮","🎰","🧩"],
+  ],
+  [
+    "旅行",
+    ["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🚚","🚛","🚜","🛵","🏍️","🚲","🛴","🚨","🚡","🚠","🚟","🚃","🚋","🚞","🚝","🚄","🚅","🚈","🚂","🚆","🚇","🚊","🚉","✈️","🛫","🛬","🛩️","💺","🛰️","🚀","🛸","🚁","🛶","⛵","🚤","🛥️","🛳️","⛴️","🚢","⚓","🗺️","🗿","🗼","🏰","🏯","🏟️","🎡","🎢","🎠","⛲","⛱️","🏖️","🏝️","🏜️","🌋","⛰️","🏔️","🗻","🏕️","🏠","🏡","🏘️","🏭","🏢","🏬","🏥","🏦","🏨","🏪","🏫","🏩","💒","🏛️","⛪","🕌","🕍","🛕"],
+  ],
+  [
+    "物品",
+    ["⌚","📱","💻","⌨️","🖥️","🖨️","🖱️","📷","📸","📹","🎥","📞","☎️","📟","📠","📺","📻","🎙️","🎚️","🎛️","🧭","⏱️","⏲️","⏰","🕰️","⌛","⏳","📡","🔋","🔌","💡","🔦","🕯️","💸","💵","💴","💶","💷","💰","💳","💎","⚖️","🧰","🔧","🔨","⚒️","🛠️","⛏️","🔩","⚙️","🧱","⛓️","🧲","🔪","🗡️","⚔️","🛡️","🔮","🔭","🔬","💊","💉","🩹","🩺","🌡️","🧻","🧹","🧺","🧽","🧼","🛁","🛏️","🛋️","🪑","🚪","🧳","🛒","🎁","🎈","🎏","🎀","🎊","🎉","🎎","🏮","🎐","🧧","✉️","📩","📨","📧","💌","📥","📤","📦","🏷️","📜","📃","📄","📑","🧾","📊","📈","📉","🗒️","🗓️","📆","📅","🗑️","📇","🗃️","🗳️","📁","📂","🗂️","📰","📓","📔","📒","📕","📗","📘","📙","📚","📖","🔖","🔗","📎","📏","📌","📍","✂️","🖊️","🖋️","✒️","🖌️","🖍️","📝","✏️","🔍","🔎","🔏","🔐","🔒","🔓"],
+  ],
+  [
+    "符号",
+    ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","💕","💞","💓","💗","💖","💘","💝","☮️","☯️","✡️","☸️","🕉️","☪️","✝️","☦️","🛐","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓","⛎","♠️","♣️","♥️","♦️","🔴","🟠","🟡","🟢","🔵","🟣","🟤","⚫","⚪","✅","❎","⭕","❌","❗","❓","💯","💢","💬","💭","💤","⭐","🌟","✨","⚡","🔥","💧","☀️","🌈","☁️","⛈️","🌧️","❄️","⛄","🌙","🌍","🌎","🌏","🌊","🌌","🪐","💠","🌐","🎵","🎶","🔔","🔕","📢","📣","🛑","🚫","♻️","🆗","🆕","🆙","🆒","🔝","🔚","🔙","🔛","🔜","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚","🕛"],
+  ],
+];
 
 const ICONS = {
   edit: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 2.5l2 2-7 7-2.8.8.8-2.8 7-7z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
@@ -56,8 +92,6 @@ export function setupNotesApp({
   gateway,
   getTarget = () => null,
   notify = () => {},
-  confirmDiscard = (message) => globalThis.confirm?.(message) ?? false,
-  confirmDelete = (message) => globalThis.confirm?.(message) ?? false,
   confirmPublish = (message) => globalThis.confirm?.(message) ?? false,
   chooseFile = defaultChooseFile,
   downloadFile = defaultDownloadFile,
@@ -80,6 +114,8 @@ export function setupNotesApp({
   let sourceOnly = false;
   let searchTimer = null;
   let focusTitleOnNextRender = false;
+  let autosaveTimer = null;
+  let tagEditorCollapsed = false;
   const expandedNotebookIds = new Set();
   let editingNotebookId = null;
 
@@ -135,8 +171,19 @@ export function setupNotesApp({
     }
   }
 
+  async function applyFilter({ tag = null, sourceOnly: clipOnly = false } = {}) {
+    if (!(await canDeactivateEditor())) return;
+    selectedNotebookId = null;
+    selectedTag = tag;
+    sourceOnly = clipOnly;
+    selectedNote = null;
+    dirty = false;
+    editingNotebookId = null;
+    await load({ preserveSelection: false });
+  }
+
   async function selectNote(summary) {
-    if (!canDeactivateEditor()) return;
+    if (!(await canDeactivateEditor())) return;
     loading = true;
     error = null;
     drawContent();
@@ -156,9 +203,10 @@ export function setupNotesApp({
     }
   }
 
-  function canDeactivateEditor() {
-    if (!dirty) return true;
-    return confirmDiscard(t("Discard unsaved note changes?"));
+  async function canDeactivateEditor() {
+    if (!dirty || !selectedNote || !content) return true;
+    await saveEditor();
+    return true;
   }
 
   async function createNotebook(title, icon) {
@@ -184,7 +232,7 @@ export function setupNotesApp({
   }
 
   async function newNote() {
-    if (!canDeactivateEditor()) return;
+    if (!(await canDeactivateEditor())) return;
     const notebookId = selectedNotebookId ?? snapshot.notebooks[0]?.id;
     if (!notebookId) {
       mode = "new-notebook";
@@ -273,8 +321,8 @@ export function setupNotesApp({
     return response.note;
   }
 
-  function startCapture() {
-    if (!canDeactivateEditor()) return;
+  async function startCapture() {
+    if (!(await canDeactivateEditor())) return;
     if (!selectedNotebookId && snapshot.notebooks.length === 0) {
       mode = "new-notebook";
     } else {
@@ -286,6 +334,7 @@ export function setupNotesApp({
 
   async function saveEditor() {
     if (!selectedNote || !content) return;
+    clearTimeout(autosaveTimer);
     const title = content.querySelector("[data-notes-title]")?.value ?? "";
     const icon = content.querySelector("[data-notes-icon]")?.value ?? "";
     const body = content.querySelector("[data-notes-content]")?.value ?? selectedNote.content;
@@ -314,7 +363,6 @@ export function setupNotesApp({
 
   async function deleteSelectedNote() {
     if (!selectedNote) return;
-    if (!confirmDelete(`${t("Delete note")} “${selectedNote.title}”?`)) return;
     loading = true;
     draw();
     try {
@@ -384,6 +432,7 @@ export function setupNotesApp({
         "end",
       );
       markDirty();
+      void saveEditor();
       notify(t("Attachment added"));
     } catch (attachmentError) {
       error = attachmentError;
@@ -549,12 +598,7 @@ export function setupNotesApp({
     const allNotebooks = navButton(
       t("All notes"),
       !selectedNotebookId && !sourceOnly && !selectedTag,
-      () => {
-        selectedNotebookId = null;
-        selectedTag = null;
-        sourceOnly = false;
-        void load();
-      },
+      () => void applyFilter({}),
     );
     notebookSection.body.append(allNotebooks);
     for (const notebook of snapshot.notebooks) {
@@ -564,12 +608,7 @@ export function setupNotesApp({
 
     const quickSection = navSection(t("Quick access"));
     quickSection.body.append(
-      navButton(t("Web clips"), sourceOnly, () => {
-        selectedNotebookId = null;
-        selectedTag = null;
-        sourceOnly = true;
-        void load();
-      }),
+      navButton(t("Web clips"), sourceOnly, () => void applyFilter({ sourceOnly: true })),
     );
     navigation.append(quickSection.root);
 
@@ -577,12 +616,7 @@ export function setupNotesApp({
       const tagSection = navSection(t("Tags"));
       for (const tag of snapshot.tags) {
         tagSection.body.append(
-          navButton(`#${tag}`, selectedTag === tag, () => {
-            selectedNotebookId = null;
-            selectedTag = tag;
-            sourceOnly = false;
-            void load();
-          }),
+          navButton(tag, selectedTag === tag, () => void applyFilter({ tag }), null, tagIcon(tag)),
         );
       }
       navigation.append(tagSection.root);
@@ -702,6 +736,18 @@ export function setupNotesApp({
     const icon = labeledInput(t("Icon"), "icon", DEFAULT_NOTEBOOK_ICON);
     icon.input.value = notebook.icon || DEFAULT_NOTEBOOK_ICON;
     icon.input.maxLength = 8;
+    const iconPicker = buildEmojiPicker({
+      onPick: (emoji) => {
+        icon.input.value = emoji;
+        icon.input.focus();
+      },
+    });
+    icon.wrapper.append(
+      iconPickerButton(() => {
+        iconPicker.hidden = !iconPicker.hidden;
+      }),
+      iconPicker,
+    );
     const title = labeledInput(t("Notebook name"), "title", notebook.title);
     title.input.value = notebook.title;
     title.input.required = true;
@@ -904,17 +950,47 @@ export function setupNotesApp({
     );
     save.dataset.notesSave = "";
     save.disabled = !dirty;
+    let deleteArmed = false;
+    let deleteArmTimer = null;
+    const del = toolbarButton(
+      t("Delete"),
+      ICONS.trash,
+      "notes-delete",
+      () => {
+        if (!deleteArmed) {
+          deleteArmed = true;
+          del.classList.add("notes-delete-armed");
+          const label = del.querySelector(".notes-btn-label");
+          if (label) label.textContent = t("Confirm delete");
+          del.setAttribute("aria-label", t("Confirm delete"));
+          clearTimeout(deleteArmTimer);
+          deleteArmTimer = setTimeout(resetDelete, 3000);
+          return;
+        }
+        resetDelete();
+        void deleteSelectedNote();
+      },
+      "ui-button--danger",
+    );
+    function resetDelete() {
+      deleteArmed = false;
+      clearTimeout(deleteArmTimer);
+      del.classList.remove("notes-delete-armed");
+      const label = del.querySelector(".notes-btn-label");
+      if (label) label.textContent = t("Delete");
+      del.setAttribute("aria-label", t("Delete"));
+    }
     right.append(
       toolbarButton(
         t("Discuss in Chat"),
         ICONS.chat,
         "notes-use-in-chat",
-        () => onUseInChat?.(structuredClone(selectedNote)),
+        () => onUseInChat?.(structuredClone(selectedNote), currentSelection()),
         "ui-button--secondary",
       ),
       toolbarButton(t("Attach"), ICONS.attach, "notes-attach", () => void attachFile(), "ui-button--ghost"),
       save,
-      toolbarButton(t("Delete"), ICONS.trash, "notes-delete", () => void deleteSelectedNote(), "ui-button--danger"),
+      del,
     );
     toolbar.append(left, right);
 
@@ -927,6 +1003,28 @@ export function setupNotesApp({
     icon.maxLength = 8;
     icon.setAttribute("aria-label", t("Icon"));
     icon.dataset.notesIcon = "";
+    const iconPicker = buildEmojiPicker({
+      onPick: (emoji) => {
+        icon.value = emoji;
+        markDirty();
+      },
+    });
+    const iconBox = element("div", "notes-icon-box");
+    iconBox.append(
+      icon,
+      iconPickerButton(() => {
+        iconPicker.hidden = !iconPicker.hidden;
+      }),
+      iconPicker,
+    );
+    icon.addEventListener("focus", () => {
+      iconPicker.hidden = false;
+    });
+    icon.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        iconPicker.hidden = true;
+      }, 160);
+    });
     const title = document.createElement("input");
     title.className = "notes-title-input";
     title.value = selectedNote.title;
@@ -941,7 +1039,7 @@ export function setupNotesApp({
         content?.querySelector("[data-notes-content]")?.focus();
       }
     });
-    titleRow.append(icon, title);
+    titleRow.append(iconBox, title);
     const tagEditor = buildTagEditor(selectedNote.tags);
 
     wrapper.append(toolbar, titleRow, tagEditor);
@@ -994,6 +1092,21 @@ export function setupNotesApp({
     dirty = true;
     const save = content?.querySelector("[data-notes-save]");
     if (save) save.disabled = false;
+    scheduleAutosave();
+  }
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => void saveEditor(), AUTOSAVE_DELAY_MS);
+  }
+
+  function currentSelection() {
+    const textarea = content?.querySelector("[data-notes-content]");
+    if (textarea && typeof textarea.selectionStart === "number") {
+      return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd).trim();
+    }
+    const selection = globalThis.getSelection?.();
+    return (selection?.toString() || "").trim();
   }
 
   function buildTagEditor(initialTags) {
@@ -1002,12 +1115,18 @@ export function setupNotesApp({
     const hidden = document.createElement("input");
     hidden.type = "hidden";
     hidden.dataset.notesTags = "";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "notes-tag-toggle";
     const chips = element("div", "notes-tag-chips");
+    const inputRow = element("div", "notes-tag-input-row");
+    inputRow.append(element("span", "notes-tag-input-icon", TAG_ICON_FALLBACK));
     const input = document.createElement("input");
     input.className = "notes-tag-input";
-    input.placeholder = t("Add tag");
+    input.placeholder = "";
     input.setAttribute("aria-label", t("Add tag"));
     input.setAttribute("autocomplete", "off");
+    inputRow.append(input);
     const suggestions = element("div", "notes-tag-suggestions");
     suggestions.hidden = true;
     suggestions.setAttribute("role", "listbox");
@@ -1019,6 +1138,12 @@ export function setupNotesApp({
     }
 
     function renderChips() {
+      const toggleLabel = toggle.querySelector(".notes-tag-toggle-label");
+      const chevron = toggle.querySelector(".notes-tag-toggle-chevron");
+      if (toggleLabel) toggleLabel.textContent = `${t("Tags")}${tags.length ? ` · ${tags.length}` : ""}`;
+      if (chevron) chevron.textContent = tagEditorCollapsed ? "▸" : "▾";
+      toggle.setAttribute("aria-expanded", String(!tagEditorCollapsed));
+      chips.hidden = tagEditorCollapsed;
       chips.replaceChildren();
       for (const tag of tags) {
         const chip = element("span", "notes-tag-chip");
@@ -1105,12 +1230,47 @@ export function setupNotesApp({
       }, 120);
     });
 
-    container.append(chips, input, suggestions, hidden);
+    toggle.append(
+      element("span", "notes-tag-toggle-icon", TAG_ICON_FALLBACK),
+      element("span", "notes-tag-toggle-label"),
+      element("span", "notes-tag-toggle-chevron", "▾"),
+    );
+    toggle.addEventListener("click", () => {
+      tagEditorCollapsed = !tagEditorCollapsed;
+      renderChips();
+    });
+    container.append(toggle, chips, inputRow, suggestions, hidden);
     renderChips();
     return container;
   }
 
   function emptyLibrary() {
+    if (sourceOnly) {
+      const section = panel(
+        t("Web clips"),
+        t("No web clips yet. Capture a public page to collect it here."),
+      );
+      const actions = element("div", "notes-empty-actions");
+      actions.append(
+        button(t("Capture URL"), "", startCapture, "ui-button--primary"),
+        button(t("Show all notes"), "", () => void applyFilter({}), "ui-button--ghost"),
+      );
+      section.append(actions);
+      return section;
+    }
+    if (selectedTag) {
+      const section = panel(
+        `${t("Tag")} #${selectedTag}`,
+        t("No notes match this tag yet."),
+      );
+      const actions = element("div", "notes-empty-actions");
+      actions.append(
+        button(t("New note"), "", () => void newNote(), "ui-button--primary"),
+        button(t("Show all notes"), "", () => void applyFilter({}), "ui-button--ghost"),
+      );
+      section.append(actions);
+      return section;
+    }
     const section = panel(
       snapshot.notebooks.length ? t("No note selected") : t("Your local Notes library"),
       snapshot.notebooks.length
@@ -1171,6 +1331,7 @@ export function setupNotesApp({
     canDeactivate: canDeactivateEditor,
     destroy() {
       clearTimeout(searchTimer);
+      clearTimeout(autosaveTimer);
       document.removeEventListener("keydown", handleKeydown);
     },
   };
@@ -1199,12 +1360,13 @@ function navSection(title, expanded = false) {
   return { root, body };
 }
 
-function navButton(label, active, action, count = null) {
+function navButton(label, active, action, count = null, icon = null) {
   const control = document.createElement("button");
   control.type = "button";
   control.className = "notes-nav-item";
   control.classList.toggle("active", active);
   control.setAttribute("aria-pressed", String(active));
+  if (icon) control.append(element("span", "notes-nav-item-icon", icon));
   control.append(element("span", "", label));
   if (count !== null) control.append(element("small", "", String(count)));
   control.addEventListener("click", action);
@@ -1232,6 +1394,61 @@ function toolbarButton(label, iconMarkup, className, action, variant = "ui-butto
   const text = element("span", "notes-btn-label", label);
   control.append(icon, text);
   control.addEventListener("click", action);
+  return control;
+}
+
+function buildEmojiPicker({ onPick = () => {}, label = t("Choose an icon") } = {}) {
+  const popover = element("div", "notes-emoji-picker");
+  popover.hidden = true;
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-label", label);
+  const tabs = element("div", "notes-emoji-tabs");
+  const grid = element("div", "notes-emoji-grid");
+  let activeGroup = 0;
+
+  function render(groupIndex) {
+    activeGroup = groupIndex;
+    tabs.replaceChildren();
+    grid.replaceChildren();
+    EMOJI_GROUPS.forEach(([name], index) => {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = `notes-emoji-tab${index === activeGroup ? " active" : ""}`;
+      tab.textContent = name;
+      tab.setAttribute("aria-pressed", String(index === activeGroup));
+      tab.addEventListener("click", () => render(index));
+      tabs.append(tab);
+    });
+    for (const emoji of EMOJI_GROUPS[groupIndex][1]) {
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "notes-emoji-cell";
+      cell.textContent = emoji;
+      cell.setAttribute("aria-label", emoji);
+      cell.addEventListener("click", () => {
+        onPick(emoji);
+        popover.hidden = true;
+      });
+      grid.append(cell);
+    }
+  }
+
+  render(activeGroup);
+  popover.append(tabs, grid);
+  return popover;
+}
+
+function iconPickerButton(onClick) {
+  const control = document.createElement("button");
+  control.type = "button";
+  control.className = "notes-icon-picker-btn";
+  control.title = t("Choose an icon");
+  control.setAttribute("aria-label", t("Choose an icon"));
+  control.textContent = "▦";
+  control.addEventListener("click", (event) => {
+    event.preventDefault();
+    onClick();
+  });
   return control;
 }
 
@@ -1381,6 +1598,24 @@ function rewriteAttachmentUrls(container, gateway, activeSceneId, note) {
     if (!/^[0-9a-f-]{36}\.(png|jpg|gif|webp|pdf|txt|md|csv|json)$/.test(attachmentId)) {
       continue;
     }
-    target.setAttribute(attribute, gateway.attachmentUrl(activeSceneId, note, attachmentId));
+    const url = gateway.attachmentUrl(activeSceneId, note, attachmentId);
+    if (attribute === "href") {
+      target.setAttribute("href", url);
+      target.setAttribute("target", "_blank");
+      target.setAttribute("rel", "noreferrer");
+    } else {
+      target.setAttribute("src", url);
+      // If the image cannot load (e.g. attachment auth unavailable on mobile),
+      // degrade to an explicit open-in-new-tab link instead of a broken image.
+      target.addEventListener("error", () => {
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.className = "notes-attachment-fallback";
+        link.textContent = target.getAttribute("alt") || "Open attachment";
+        target.replaceWith(link);
+      });
+    }
   }
 }

@@ -91,6 +91,15 @@
   }
 }
 
+/* When the session sidebar drawer is expanded on mobile, the floating
+   connection status dot and the direct-connection badge below it are covered
+   by the drawer and redundant; hide them until the drawer closes again. */
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  body:has(#sidebar:not(.collapsed)) .mobile-connection-status {
+    display: none !important;
+  }
+}
+
 .mobile-install-card {
   position: fixed;
   right: max(var(--space-3), env(safe-area-inset-right, 0px));

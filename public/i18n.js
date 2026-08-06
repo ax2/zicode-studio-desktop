@@ -681,6 +681,13 @@ const zhCN = {
   "Notebook saved": "笔记本已保存",
   "Add tag": "添加标签",
   "Remove tag": "移除标签",
+  Tag: "标签",
+  "Choose an icon": "选择图标",
+  "Confirm delete": "确认删除",
+  "No notes match this tag yet.": "该标签下还没有笔记。",
+  "No web clips yet. Capture a public page to collect it here.":
+    "还没有网页剪藏。采集一个公开网页后会出现在这里。",
+  "Show all notes": "显示全部笔记",
   Delete: "删除",
   "Note title": "笔记标题",
   "Tags separated by commas": "标签，以逗号分隔",

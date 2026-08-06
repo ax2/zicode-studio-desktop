@@ -619,15 +619,26 @@ const notesApp = setupNotesApp({
   gateway: notesGateway,
   getTarget: () => target,
   notify: notifications.notify,
-  onUseInChat: (note) => {
+  onUseInChat: (note, selection = "") => {
     pluginShell?.activate("core.chat");
-    const reference = `zicode-note://${note.notebookId}/${note.id}`;
-    const prompt = [
-      `请基于笔记“${note.title}”继续讨论。`,
-      `请先调用 notes_get，参数 notebookId=${note.notebookId}、noteId=${note.id}，不要依赖过期的聊天上下文。`,
-      `笔记引用：${reference}`,
-      "\n我希望继续：",
-    ].join("\n");
+    let prompt;
+    if (selection) {
+      prompt = [
+        `请基于笔记“${note.title}”中的以下选中文字继续讨论，只围绕这段文字，不要依赖过期上下文：`,
+        "",
+        selection,
+        "",
+        "我希望继续：",
+      ].join("\n");
+    } else {
+      const reference = `zicode-note://${note.notebookId}/${note.id}`;
+      prompt = [
+        `请基于笔记“${note.title}”继续讨论。`,
+        `请先调用 notes_get，参数 notebookId=${note.notebookId}、noteId=${note.id}，不要依赖过期的聊天上下文。`,
+        `笔记引用：${reference}`,
+        "\n我希望继续：",
+      ].join("\n");
+    }
     input.value = `${prompt}${input.value.trim() ? `\n${input.value.trim()}` : ""}`;
     mobileDrafts?.sync();
     input.focus();
