@@ -2009,23 +2009,31 @@ mod tests {
         let root = root();
         let plugin_root = root.join("plugins");
         let vault = NotesVault::new(plugin_root).unwrap();
-        let notebook = vault.create_notebook("Research", None).unwrap();
+        let notebook = vault.create_notebook("Research", Some("🚀".into())).unwrap();
+        assert_eq!(notebook.icon.as_deref(), Some("🚀"));
         let note = vault
             .create_note(
                 &notebook.id,
                 "Roadmap",
                 "# Roadmap\n\nCapability broker.",
                 vec!["plugin".into(), "roadmap".into()],
-                None,
+                Some("⭐".into()),
                 None,
             )
             .unwrap();
+        assert_eq!(note.summary.icon.as_deref(), Some("⭐"));
+        let round_trip = vault
+            .get_note(&notebook.id, &note.summary.id)
+            .expect("icon survives a Markdown round trip");
+        assert_eq!(round_trip.summary.icon.as_deref(), Some("⭐"));
         let markdown = root
             .join("plugin-data/com.zicode.notes/vaults")
             .join(&notebook.id)
             .join("src/content/notes")
             .join(format!("{}.md", note.summary.id));
         assert!(markdown.is_file());
+        let frontmatter = fs::read_to_string(&markdown).unwrap();
+        assert!(frontmatter.contains("icon: \"⭐\""));
         assert!(markdown
             .parent()
             .unwrap()
