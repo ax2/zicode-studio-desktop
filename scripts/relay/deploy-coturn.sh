@@ -61,6 +61,17 @@ EOF
 
 systemctl enable --now coturn
 
+# Open the exact ports in ufw if the host firewall is active (the cloud
+# security group must still allow the same ports for public traffic).
+if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
+  ufw allow 3478/tcp >/dev/null
+  ufw allow 3478/udp >/dev/null
+  ufw allow "${RELAY_MIN_PORT}:${RELAY_MAX_PORT}/udp" >/dev/null
+  echo "    ufw opened: TCP 3478, UDP 3478, UDP ${RELAY_MIN_PORT}-${RELAY_MAX_PORT}"
+else
+  echo "    ufw not active: only the cloud security group needs the ports"
+fi
+
 echo "==> coturn deployed: realm=${REALM}, external-ip=${EXTERNAL_IP}, auth-secret enabled, relay ports ${RELAY_MIN_PORT}-${RELAY_MAX_PORT}"
 if [ "$GENERATED" = "1" ]; then
   echo "    generated TURN secret (store securely, keep out of the repo): ${TURN_SECRET}"

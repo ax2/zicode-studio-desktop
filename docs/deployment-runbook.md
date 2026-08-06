@@ -57,6 +57,7 @@ curl https://relay.zicode.com/relay/status
 
 脚本会：安装 coturn → 写入 `/etc/turnserver.conf`（auth-secret 长时凭据、
 relay 端口，默认 49160–49167 具体端口集）→ 启用服务 → 打印
+（若 ufw 激活则自动放行 TCP 3478、UDP 3478、UDP 49160–49167）→ 打印
 `relayTurnUrl` / `relayTurnRealm` /
 `relayTurnSecret`（以及备选的静态 `relayIceServers` 示例）。
 **云安全组必须放行以下具体端口**：TCP 3478、UDP 3478（STUN/TURN 监听）
@@ -68,7 +69,10 @@ relay 端口，默认 49160–49167 具体端口集）→ 启用服务 → 打�
 粘贴静态凭据或手改 config.json。secret 只存在于服务器
 `/etc/turnserver.conf` 与桌面配置（经设置面板保存），不入仓。
 
-验证：`turnutils_uclient`（脚本会打印示例命令）。
+验证：`turnutils_uclient`（脚本会打印示例命令），或直接运行
+`./scripts/relay/verify-turn-public.sh` 从服务器对公网地址做 TURN 分配 +
+中继数据回环验证（需 root，读取 `/etc/turnserver.conf` 的 auth-secret；
+短时重复运行会占满 8 个中继端口，等分配过期或重启 coturn 后再测）。
 
 ## 3. 监控告警
 
