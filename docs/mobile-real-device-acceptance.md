@@ -73,6 +73,7 @@
 | 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 中继状态 | 通过 | 进程回收后冷启动恢复 ✅（force-stop Chrome → 重启会话自动恢复，新中继会话 + `connected` + "直连"徽标）；详见第 156 轮 |
 | 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 输入法状态 | 通过 | 软键盘行为 ✅（唤起键盘后 Composer 保持在其上沿，`visualViewport` 校验，无横向溢出）；详见第 159 轮 |
 | 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 系统设置 | 通过 | 系统字体放大 1.5x ✅（刷新后无横向溢出、Composer 可见、连接正常，验证后恢复 1.0）；详见第 160 轮 |
+| 2026-08-06 | OPPO PHY110 / Android 16（USB ADB，Chrome） | 自动化（CDP）+ 系统设置 | 通过 | 横屏布局 ✅（752×264 无横向溢出、Composer 可见、`connected` + "直连"徽标，验证后恢复竖屏）；详见第 161 轮 |
 
 ## 本地验证补充（2026-08-05，第 126–141 轮）
 
