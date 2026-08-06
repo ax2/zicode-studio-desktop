@@ -2578,6 +2578,19 @@ NAT 打洞（需 coturn）；键盘/无障碍（人工）；服务器部署新�
 遗留：M2 跨 NAT 打洞（需 coturn）；TalkBack 朗读（人工）；服务器部署新版
 中继 + coturn + 监控；安装包签名。
 
+第一百六十六轮：部署一键化与 TalkBack 走查指引（2026-08-06）：
+
+1. `scripts/relay/provision.sh`：一条命令完成服务器全量部署
+   （preflight → deploy-relay → deploy-coturn → install-check），
+   结束打印桌面端 `relayTurn*` 配置提示；bash 语法通过；
+2. `mobile-real-device-acceptance.md` 增加 TalkBack 走查指引
+   （开启方式、聚焦顺序、预期播报、交互验证、问题反馈项），供真机人工
+   执行；
+3. runbook 同步 provision 一键用法。
+
+遗留：M2 跨 NAT 打洞（需 coturn）；TalkBack 走查（人工）；服务器部署新版
+中继 + coturn + 监控（provision 一键就绪）；安装包签名。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
