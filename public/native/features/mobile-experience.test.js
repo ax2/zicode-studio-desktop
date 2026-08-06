@@ -100,7 +100,8 @@ describe("mobile experience", () => {
 
     adapter.emitP2p(true);
     expect(mode.hidden).toBe(false);
-    expect(mode.textContent).toMatch(/Direct connection|直连/);
+    expect(mode.getAttribute("aria-label")).toMatch(/Direct connection|直连/);
+    expect(mode.querySelector("svg")).not.toBeNull();
 
     adapter.emitP2p(false);
     expect(mode.hidden).toBe(true);

@@ -36,12 +36,25 @@
 }
 
 .mobile-connection-mode {
-  flex: 0 0 auto;
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--success);
-  font-size: var(--font-size-xs);
   border: 1px solid var(--success);
   border-radius: var(--radius-pill);
-  padding: 0 var(--space-2);
+  background: var(--bg-solid);
+}
+
+.mobile-connection-mode svg {
+  width: 9px;
+  height: 9px;
+  fill: currentColor;
 }
 
 .mobile-connection-retry {

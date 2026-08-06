@@ -75,6 +75,15 @@ export function setupMobileExperience({
   const connectionMode = documentRef.createElement("span");
   connectionMode.className = "mobile-connection-mode";
   connectionMode.hidden = true;
+  connectionMode.setAttribute("role", "img");
+  connectionMode.setAttribute("aria-label", t("Direct connection"));
+  const modeIcon = documentRef.createElementNS("http://www.w3.org/2000/svg", "svg");
+  modeIcon.setAttribute("viewBox", "0 0 24 24");
+  modeIcon.setAttribute("aria-hidden", "true");
+  const modePath = documentRef.createElementNS("http://www.w3.org/2000/svg", "path");
+  modePath.setAttribute("d", "M13 2 3 14h7l-1 8 10-12h-7l1-8z");
+  modeIcon.append(modePath);
+  connectionMode.append(modeIcon);
   const retryConnectionButton = documentRef.createElement("button");
   retryConnectionButton.type = "button";
   retryConnectionButton.className =
@@ -153,7 +162,7 @@ export function setupMobileExperience({
     connection.dataset.state = "connected";
     connectionMessage.textContent = t("Connected to your ZiCode desktop");
     connectionMode.hidden = !p2pConnected;
-    connectionMode.textContent = t("Direct connection");
+    connectionMode.setAttribute("aria-label", t("Direct connection"));
   }
 
   function dismissed() {
