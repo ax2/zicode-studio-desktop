@@ -9,8 +9,8 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 41,099,776 B | `6BB09A6996B3EFAEE5768761004EF68B03306E7FDDE029B9456F19C529C8CD49` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,724,906 B | `0A35F51F58C7D45C108621B148B96EA20A3ECF117A0DA2E2E122E265A437F2EC` |
+| `target/release/zicode-studio-desktop.exe` | 41,099,776 B | `96A305BF0BF5F095068228FCF1BFF13BF2D86D961B33EAA1505560D48BDE53D5` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,693,739 B | `5F0B101BBB9CEC2905F136DB59788E008D0252C7BB4360B9F64313A2EBC8F91F` |
 | `target/release/zicode-relay.exe`（内置中继） | 1,801,728 B | `2742DF2C132825F3B0EB0B022E5A5C3D4E8F6567462E22608CE8826D5E29F67B` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
@@ -81,6 +81,15 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   `public/native/app.js` 含 `p2pEnabled` 与 `v2/remote-config` 拉取；
   从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2）、公网中继注册
   `dev-ax2-01`、日志无 ERROR/WARN/panic；桌面快捷方式继续指向安装目录。
+
+## 第十次重建（2026-08-06，含直连徽标图标化）
+
+- 在上一版基础上合入第 162 轮：左上角连接状态圆点下方的"直连"徽标改为
+  **闪电图标**（14px 圆角、固定尺寸不换行，`aria-label` 保留语义）；
+- 验证：`/S` 静默重装后安装目录与产物一致（EXE 同尺寸、中继同哈希），
+  `mobile-experience.js` 含 SVG 图标徽标；从安装目录启动：网关 `/health`
+  200（pi 0.83.0、协议 v2）、公网中继注册 `dev-ax2-01`、日志无
+  ERROR/WARN/panic；桌面快捷方式继续指向安装目录。
 
 ## 第九次重建（2026-08-06，含中继半开连接自愈）
 
