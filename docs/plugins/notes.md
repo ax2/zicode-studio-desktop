@@ -24,7 +24,8 @@ plugin-data/com.zicode.notes/vaults/<vault-id>/
 同源桌面 Host 提供：
 
 - `GET /v2/notes`：列出笔记本、标签和笔记摘要，支持笔记本、标签、正文查询和网页剪藏过滤；
-- `POST /v2/notes/notebooks`：创建 Vault 和 Astro 兼容骨架；
+- `POST /v2/notes/notebooks`：创建 Vault 和 Astro 兼容骨架（可带 `icon`）；
+- `POST /v2/notes/notebooks/update`：更新笔记本标题与 `icon`；
 - `GET /v2/notes/note`：读取完整 Markdown 笔记；
 - `POST /v2/notes/create`、`/save`、`/delete`：创建、带版本保存和带版本删除；
 - `POST /v2/notes/capture`：受控抓取公开 HTTP(S) 页面。
@@ -35,6 +36,16 @@ plugin-data/com.zicode.notes/vaults/<vault-id>/
 - `POST /v2/notes/rebuild`：从 Markdown 重建 `.zicode/index.json` 并返回诊断。
 
 所有接口都要求 Notes 在当前 Scene 启用并拥有 `storage.plugin` 权限。网页采集还要求 `network.fetch`。
+
+## 图标（Icon）
+
+- 笔记图标存于 Markdown frontmatter `icon` 字段（1–8 个可见字符，通常是
+  单个 emoji），由 `serialize_note`/`read_note_file` 读写；网页采集的笔记
+  自动带 `icon: 🌐`；
+- 笔记本图标存于 `.zicode/vault.json` 的 `icon` 字段，经
+  `POST /v2/notes/notebooks/update` 修改；
+- Astro `content.config.ts` schema 同步声明 `icon: z.string().optional()`，
+  发布时 frontmatter 校验不会拒绝带 icon 的笔记。
 
 ## 网页采集边界
 

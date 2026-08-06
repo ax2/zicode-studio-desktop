@@ -312,6 +312,7 @@ impl HostServer {
             .route("/v2/notes/knowledge", get(list_note_knowledge))
             .route("/v2/notes/changes", get(list_note_changes))
             .route("/v2/notes/notebooks", post(create_notebook))
+            .route("/v2/notes/notebooks/update", post(update_notebook))
             .route("/v2/notes/note", get(get_note))
             .route("/v2/notes/create", post(create_note))
             .route("/v2/notes/save", post(save_note))
@@ -1152,6 +1153,19 @@ fn default_note_changes_limit() -> usize {
 struct CreateNotebookRequest {
     scene_id: String,
     title: String,
+    #[serde(default)]
+    icon: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateNotebookRequest {
+    scene_id: String,
+    notebook_id: String,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    icon: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1164,6 +1178,8 @@ struct CreateNoteRequest {
     content: String,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default)]
+    icon: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1176,6 +1192,8 @@ struct SaveNoteRequest {
     content: String,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default)]
+    icon: Option<String>,
     expected_version: String,
 }
 
@@ -1413,7 +1431,21 @@ async fn create_notebook(
         .notes
         .lock()
         .map_err(|_| notes_unavailable())?
-        .create_notebook(&request.title)
+        .create_notebook(&request.title, request.icon)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "notebook": notebook })))
+}
+
+async fn update_notebook(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<UpdateNotebookRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notebook = state
+        .notes
+        .lock()
+        .map_err(|_| notes_unavailable())?
+        .update_notebook(&request.notebook_id, request.title, request.icon)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
 }
@@ -1446,6 +1478,7 @@ async fn create_note(
             &request.title,
             &request.content,
             request.tags,
+            request.icon,
             None,
         )
         .map_err(notes_api_error)?;
@@ -1467,6 +1500,7 @@ async fn save_note(
             &request.title,
             &request.content,
             request.tags,
+            request.icon,
             &request.expected_version,
         )
         .map_err(notes_api_error)?;
@@ -1527,6 +1561,7 @@ async fn capture_note(
             title,
             &captured.markdown,
             tags,
+            Some("🌐".to_string()),
             Some(NoteSource {
                 url: captured.final_url,
                 captured_at: now_iso(),

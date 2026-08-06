@@ -392,7 +392,7 @@ impl CapabilityBroker {
             .unwrap_or_default();
         let note = self
             .notes
-            .create_note(notebook_id, title, content, tags, None)
+            .create_note(notebook_id, title, content, tags, None, None)
             .map_err(notes_capability_error)?;
         Ok(json!({ "note": note }))
     }
@@ -788,7 +788,7 @@ mod tests {
         let root = root();
         let registry = PluginRegistry::open(root.clone()).unwrap();
         let vault = crate::notes_vault::NotesVault::new(root.clone()).unwrap();
-        let notebook = vault.create_notebook("Agent notes").unwrap();
+        let notebook = vault.create_notebook("Agent notes", None).unwrap();
         let mut broker = CapabilityBroker::new(root.clone()).unwrap();
 
         let created = broker

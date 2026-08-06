@@ -87,7 +87,7 @@ describe("Notes application", () => {
     );
 
     expect(gateway.get).toHaveBeenCalledWith("programming", "book-1", "note-1");
-    expect(document.querySelector("[data-notes-content]").value).toContain("Safe content");
+    expect(document.querySelector(".notes-preview").textContent).toContain("Safe content");
     expect(document.querySelector(".notes-editor-tabs").getAttribute("aria-label")).toBe(
       "Note view",
     );
@@ -95,11 +95,18 @@ describe("Notes application", () => {
       "Note actions",
     );
     expect(document.querySelector('[data-notes-mode="edit"]').getAttribute("aria-pressed")).toBe(
-      "true",
+      "false",
     );
     expect(
       document.querySelector('[data-notes-mode="preview"]').getAttribute("aria-pressed"),
-    ).toBe("false");
+    ).toBe("true");
+
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
+    await vi.waitFor(() =>
+      expect(document.querySelector("[data-notes-content]").value).toContain("Safe content"),
+    );
   });
 
   it("groups every note beneath its owning notebook", async () => {
@@ -147,6 +154,10 @@ describe("Notes application", () => {
     render(gateway);
     await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
     document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
     await vi.waitFor(() => expect(document.querySelector("[data-notes-content]")).toBeTruthy());
 
     const textarea = document.querySelector("[data-notes-content]");
@@ -201,6 +212,10 @@ describe("Notes application", () => {
     render(gateway, { chooseFile: vi.fn(async () => file) });
     await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
     document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
     await vi.waitFor(() => expect(document.querySelector("[data-notes-content]")).toBeTruthy());
 
     [...document.querySelectorAll("button")]
@@ -279,5 +294,85 @@ describe("Notes application", () => {
     );
     document.querySelector(".notes-use-in-chat").click();
     expect(onUseInChat).toHaveBeenCalledWith(expect.objectContaining({ id: "chat-note" }));
+  });
+
+  it("shows notebook and note icons in the navigation tree", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    gateway.list.mockResolvedValue({
+      snapshot: {
+        notebooks: [{ id: "book-1", title: "Product", icon: "🚀", noteCount: 1 }],
+        notes: [{ ...NOTE, icon: "⭐" }],
+        tags: [],
+      },
+    });
+    render(gateway);
+    await vi.waitFor(() =>
+      expect(document.querySelector(".notes-notebook-icon")?.textContent).toBe("🚀"),
+    );
+    expect(document.querySelector(".notes-note-icon")?.textContent).toBe("⭐");
+  });
+
+  it("creates a note in the owning notebook from the inline action", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    gateway.create.mockResolvedValue({ note: { ...NOTE, id: "new-1" } });
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-notebook-new-note").click();
+    await vi.waitFor(() => expect(gateway.create).toHaveBeenCalledOnce());
+    expect(gateway.create.mock.calls[0][1]).toBe("book-1");
+  });
+
+  it("edits notebook icon and title from the inline form", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    gateway.updateNotebook = vi.fn(async () => ({
+      notebook: { id: "book-1", title: "Product", icon: "📦" },
+    }));
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-notebook-summary")).toBeTruthy());
+    document.querySelector(".notes-notebook-edit").click();
+    expect(document.querySelector(".notes-notebook-edit-form")).toBeTruthy();
+    const iconInput = document.querySelector('.notes-notebook-edit-form input[name="icon"]');
+    iconInput.value = "📦";
+    iconInput.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector('.notes-notebook-edit-form button[type="submit"]').click();
+    await vi.waitFor(() => expect(gateway.updateNotebook).toHaveBeenCalledOnce());
+    expect(gateway.updateNotebook.mock.calls[0][1]).toMatchObject({
+      notebookId: "book-1",
+      title: "Product",
+      icon: "📦",
+    });
+  });
+
+  it("quick-adds built-in and existing tags with icons", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-list-item")).toBeTruthy());
+    document.querySelector(".notes-list-item").click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
+    [...document.querySelectorAll("button")]
+      .find((control) => control.textContent === "Edit")
+      .click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-tag-input")).toBeTruthy());
+
+    expect(
+      [...document.querySelectorAll(".notes-tag-chip")].some((chip) =>
+        chip.textContent.includes("plugin"),
+      ),
+    ).toBe(true);
+
+    const tagInput = document.querySelector(".notes-tag-input");
+    tagInput.value = "idea";
+    tagInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const suggestion = [...document.querySelectorAll(".notes-tag-suggestion")].find((item) =>
+      item.textContent.includes("idea"),
+    );
+    expect(suggestion.textContent).toContain("💡");
+    suggestion.click();
+    expect(document.querySelector("[data-notes-tags]").value).toContain("idea");
+    expect(document.querySelector("[data-notes-tags]").value).toContain("plugin");
   });
 });

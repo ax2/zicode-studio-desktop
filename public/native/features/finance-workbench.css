@@ -46,7 +46,9 @@
 }
 
 .finance-plugin-main {
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  /* Keep the first interactive row clear of the absolutely positioned app
+     header (same clearance as the Notes plugin main view). */
+  padding: var(--space-12) var(--space-6) var(--space-6);
 }
 
 .finance-plugin-section {

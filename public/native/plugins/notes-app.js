@@ -2,6 +2,55 @@ import { t } from "../../i18n.js";
 import { renderMarkdown } from "../../ui/markdown.js";
 
 const NOTES_PLUGIN_ID = "com.zicode.notes";
+const DEFAULT_NOTEBOOK_ICON = "📓";
+const DEFAULT_NOTE_ICON = "📝";
+const BUILTIN_TAGS = [
+  ["inbox", "📥"],
+  ["idea", "💡"],
+  ["todo", "✅"],
+  ["important", "⭐"],
+  ["chat", "💬"],
+  ["captured", "🌐"],
+  ["web-clip", "🌐"],
+  ["project", "🚀"],
+  ["question", "❓"],
+  ["reference", "📚"],
+  ["meeting", "🗓️"],
+  ["reading", "📖"],
+];
+const TAG_ICON_FALLBACK = "🏷️";
+const TAG_ICONS = new Map(BUILTIN_TAGS);
+
+const ICONS = {
+  edit: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11.5 2.5l2 2-7 7-2.8.8.8-2.8 7-7z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  preview:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  chat: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h10a1 1 0 0 1 1 1V10a1 1 0 0 1-1 1H8l-3.5 2.5V11H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  attach:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.5 4.5v6a1.75 1.75 0 0 0 3.5 0v-6.5a3 3 0 0 0-6 0v7a4.2 4.2 0 0 0 8.4 0V5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  save: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8l2.5 2.5V13a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 13V9h5v4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  trash:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.5M4.5 4.5l.7 8.2a1 1 0 0 0 1 .8h3.6a1 1 0 0 0 1-.8l.7-8.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  plus: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  globe:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 8h11M8 2.5c1.8 1.6 2.7 3.4 2.7 5.5S9.8 11.9 8 13.5C6.2 11.9 5.3 10.1 5.3 8S6.2 4.1 8 2.5z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  pencil:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.8l2.4 2.4-6.6 6.6-3 .6.6-3 6.6-6.6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  close:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+};
+
+function tagIcon(name) {
+  return TAG_ICONS.get(String(name).trim().toLowerCase()) ?? TAG_ICON_FALLBACK;
+}
+
+function builtinTagNames() {
+  return BUILTIN_TAGS.map(([name]) => name);
+}
+
+function allTagSuggestions(existingTags) {
+  return [...new Set([...(existingTags || []), ...builtinTagNames()])];
+}
 
 export function setupNotesApp({
   gateway,
@@ -30,7 +79,9 @@ export function setupNotesApp({
   let selectedTag = null;
   let sourceOnly = false;
   let searchTimer = null;
+  let focusTitleOnNextRender = false;
   const expandedNotebookIds = new Set();
+  let editingNotebookId = null;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
 
@@ -95,7 +146,7 @@ export function setupNotesApp({
       selectedNotebookId = response.note.notebookId;
       expandedNotebookIds.add(response.note.notebookId);
       dirty = false;
-      preview = false;
+      preview = true;
       mode = "library";
     } catch (loadError) {
       error = loadError;
@@ -110,14 +161,17 @@ export function setupNotesApp({
     return confirmDiscard(t("Discard unsaved note changes?"));
   }
 
-  async function createNotebook(title) {
+  async function createNotebook(title, icon) {
     const normalized = title.trim();
     if (!normalized) return;
     loading = true;
     error = null;
     draw();
     try {
-      const response = await gateway.createNotebook(sceneId(), normalized);
+      const response = await gateway.createNotebook(sceneId(), {
+        title: normalized,
+        icon: icon?.trim() || DEFAULT_NOTEBOOK_ICON,
+      });
       selectedNotebookId = response.notebook.id;
       expandedNotebookIds.add(response.notebook.id);
       mode = "library";
@@ -145,12 +199,14 @@ export function setupNotesApp({
         title: t("Untitled note"),
         content: "",
         tags: [],
+        icon: DEFAULT_NOTE_ICON,
       });
       selectedNote = response.note;
       selectedNotebookId = notebookId;
       expandedNotebookIds.add(notebookId);
       dirty = false;
       preview = false;
+      focusTitleOnNextRender = true;
       mode = "library";
       await load();
     } catch (createError) {
@@ -168,7 +224,9 @@ export function setupNotesApp({
       snapshot.notebooks.find((candidate) => candidate.title === t("Conversation Notes")) ||
       snapshot.notebooks[0];
     if (!notebook) {
-      const created = await gateway.createNotebook(sceneId(), t("Conversation Notes"));
+      const created = await gateway.createNotebook(sceneId(), {
+        title: t("Conversation Notes"),
+      });
       notebook = created.notebook;
     }
     const normalizedQuestion = String(question).trim();
@@ -229,6 +287,7 @@ export function setupNotesApp({
   async function saveEditor() {
     if (!selectedNote || !content) return;
     const title = content.querySelector("[data-notes-title]")?.value ?? "";
+    const icon = content.querySelector("[data-notes-icon]")?.value ?? "";
     const body = content.querySelector("[data-notes-content]")?.value ?? selectedNote.content;
     const tags = parseTags(content.querySelector("[data-notes-tags]")?.value ?? "");
     const save = content.querySelector("[data-notes-save]");
@@ -237,6 +296,7 @@ export function setupNotesApp({
       const response = await gateway.save(sceneId(), {
         ...selectedNote,
         title,
+        icon: icon.trim() || DEFAULT_NOTE_ICON,
         content: body,
         tags,
       });
@@ -274,6 +334,7 @@ export function setupNotesApp({
     const url = form.elements.url.value.trim();
     const title = form.elements.title.value.trim();
     const notebookId = form.elements.notebookId.value;
+    const tags = parseTags(form.querySelector("[data-notes-tags]")?.value ?? "");
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
     error = null;
@@ -282,6 +343,7 @@ export function setupNotesApp({
       const response = await gateway.capture(sceneId(), notebookId, {
         url,
         title: title || undefined,
+        tags,
       });
       selectedNotebookId = response.note.notebookId;
       if (response.duplicate) notify(t("This page is already in your notes"));
@@ -349,7 +411,7 @@ export function setupNotesApp({
       );
       selectedNote = response.note;
       dirty = false;
-      preview = false;
+      preview = true;
       await load();
       notify(t("Markdown imported"));
     } catch (importError) {
@@ -465,12 +527,10 @@ export function setupNotesApp({
     navigation.replaceChildren();
     const actions = element("div", "notes-nav-actions");
     actions.append(
-      button(t("New note"), "notes-new-note", () => void newNote(), "ui-button--primary"),
-      button(t("Capture URL"), "notes-capture", startCapture, "ui-button--secondary"),
       button(t("New notebook"), "notes-new-notebook", () => {
         mode = "new-notebook";
         drawContent();
-      }),
+      }, "ui-button--secondary"),
     );
     const search = document.createElement("input");
     search.type = "search";
@@ -483,7 +543,7 @@ export function setupNotesApp({
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => void load({ preserveSelection: true }), 180);
     });
-    navigation.append(actions, search);
+    navigation.append(search, actions);
 
     const notebookSection = navSection(t("Notebooks"), true);
     const allNotebooks = navButton(
@@ -504,12 +564,6 @@ export function setupNotesApp({
 
     const quickSection = navSection(t("Quick access"));
     quickSection.body.append(
-      navButton(t("Recent"), false, () => {
-        selectedNotebookId = null;
-        selectedTag = null;
-        sourceOnly = false;
-        void load();
-      }),
       navButton(t("Web clips"), sourceOnly, () => {
         selectedNotebookId = null;
         selectedTag = null;
@@ -571,9 +625,10 @@ export function setupNotesApp({
       selectedNotebookId === notebook.id && !sourceOnly && !selectedTag,
     );
     summary.append(
-      element("span", "notes-notebook-icon", "▱"),
+      element("span", "notes-notebook-icon", notebook.icon || DEFAULT_NOTEBOOK_ICON),
       element("span", "notes-notebook-title", notebook.title),
       element("small", "", String(notebook.noteCount ?? notes.length)),
+      buildNotebookActions(notebook),
     );
     summary.addEventListener("click", () => {
       selectedNotebookId = notebook.id;
@@ -593,8 +648,96 @@ export function setupNotesApp({
     } else {
       for (const note of notes) children.append(buildNoteTreeItem(note));
     }
-    branch.append(summary, children);
+    branch.append(summary);
+    if (editingNotebookId === notebook.id) {
+      branch.append(notebookEditForm(notebook));
+    }
+    branch.append(children);
     return branch;
+  }
+
+  function buildNotebookActions(notebook) {
+    const actions = element("span", "notes-notebook-actions");
+    actions.setAttribute("role", "group");
+    actions.setAttribute("aria-label", t("Notebook actions"));
+    actions.append(
+      iconActionButton(t("New note in this notebook"), ICONS.plus, "notes-notebook-new-note", () => {
+        selectedNotebookId = notebook.id;
+        void newNote();
+      }),
+      iconActionButton(
+        t("Capture URL into this notebook"),
+        ICONS.globe,
+        "notes-notebook-capture",
+        () => {
+          selectedNotebookId = notebook.id;
+          startCapture();
+        },
+      ),
+      iconActionButton(t("Edit notebook"), ICONS.pencil, "notes-notebook-edit", () => {
+        editingNotebookId = editingNotebookId === notebook.id ? null : notebook.id;
+        drawNavigation();
+      }),
+    );
+    return actions;
+  }
+
+  function iconActionButton(label, iconMarkup, className, action) {
+    const control = document.createElement("button");
+    control.type = "button";
+    control.className = `notes-icon-action ${className}`.trim();
+    control.title = label;
+    control.setAttribute("aria-label", label);
+    control.innerHTML = iconMarkup;
+    control.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      action();
+    });
+    return control;
+  }
+
+  function notebookEditForm(notebook) {
+    const form = element("form", "notes-notebook-edit-form");
+    const icon = labeledInput(t("Icon"), "icon", DEFAULT_NOTEBOOK_ICON);
+    icon.input.value = notebook.icon || DEFAULT_NOTEBOOK_ICON;
+    icon.input.maxLength = 8;
+    const title = labeledInput(t("Notebook name"), "title", notebook.title);
+    title.input.value = notebook.title;
+    title.input.required = true;
+    const actions = formActions(t("Save notebook"), () => {
+      editingNotebookId = null;
+      drawNavigation();
+    });
+    form.append(icon.wrapper, title.wrapper, actions);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void updateNotebook(notebook.id, title.input.value, icon.input.value);
+    });
+    queueMicrotask(() => icon.input.focus());
+    return form;
+  }
+
+  async function updateNotebook(notebookId, title, icon) {
+    const normalizedTitle = String(title).trim();
+    if (!normalizedTitle) return;
+    loading = true;
+    error = null;
+    draw();
+    try {
+      await gateway.updateNotebook(sceneId(), {
+        notebookId,
+        title: normalizedTitle,
+        icon: String(icon).trim() || DEFAULT_NOTEBOOK_ICON,
+      });
+      editingNotebookId = null;
+      await load({ preserveSelection: true });
+      notify(t("Notebook saved"));
+    } catch (updateError) {
+      error = updateError;
+      loading = false;
+      draw();
+    }
   }
 
   function buildNoteTreeItem(note) {
@@ -608,7 +751,10 @@ export function setupNotesApp({
       "",
       `${formatDate(note.updatedAt)}${note.source ? ` · ${t("Web clip")}` : ""}`,
     );
-    item.append(title, metadata);
+    const main = element("span", "notes-list-item-main");
+    main.append(title, metadata);
+    if (note.icon) item.append(element("span", "notes-note-icon", note.icon));
+    item.append(main);
     item.addEventListener("click", () => void selectNote(note));
     return item;
   }
@@ -649,14 +795,16 @@ export function setupNotesApp({
     form.className = "notes-form";
     const input = labeledInput(t("Notebook name"), "title", t("My Notes"));
     input.input.required = true;
+    const icon = labeledInput(t("Icon"), "icon", DEFAULT_NOTEBOOK_ICON);
+    icon.input.maxLength = 8;
     const actions = formActions(t("Create notebook"), () => {
       mode = "library";
       drawContent();
     });
-    form.append(input.wrapper, actions);
+    form.append(input.wrapper, icon.wrapper, actions);
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      void createNotebook(input.input.value);
+      void createNotebook(input.input.value, icon.input.value);
     });
     section.append(form);
     queueMicrotask(() => input.input.focus());
@@ -675,6 +823,7 @@ export function setupNotesApp({
     const url = labeledInput(t("Page URL"), "url", "https://example.com/article", "url");
     url.input.required = true;
     const title = labeledInput(t("Title override (optional)"), "title", "");
+    const tags = buildTagEditor([]);
     const notebook = document.createElement("label");
     notebook.textContent = t("Notebook");
     const select = document.createElement("select");
@@ -692,6 +841,7 @@ export function setupNotesApp({
     form.append(
       url.wrapper,
       title.wrapper,
+      tags,
       notebook,
       formError,
       formActions(t("Capture"), () => {
@@ -715,10 +865,12 @@ export function setupNotesApp({
     const left = element("div", "notes-editor-tabs");
     left.setAttribute("role", "group");
     left.setAttribute("aria-label", t("Note view"));
-    const edit = button(
+    const edit = toolbarButton(
       t("Edit"),
-      "",
+      ICONS.edit,
+      "notes-edit-tab",
       () => {
+        syncDraftFromEditor();
         preview = false;
         drawContent();
       },
@@ -726,9 +878,10 @@ export function setupNotesApp({
     );
     edit.setAttribute("aria-pressed", String(!preview));
     edit.dataset.notesMode = "edit";
-    const previewButton = button(
+    const previewButton = toolbarButton(
       t("Preview"),
-      "",
+      ICONS.preview,
+      "notes-preview-tab",
       () => {
         syncDraftFromEditor();
         preview = true;
@@ -742,40 +895,60 @@ export function setupNotesApp({
     const right = element("div", "notes-editor-actions");
     right.setAttribute("role", "group");
     right.setAttribute("aria-label", t("Note actions"));
-    const save = button(t("Save"), "notes-save", () => void saveEditor(), "ui-button--primary");
+    const save = toolbarButton(
+      t("Save"),
+      ICONS.save,
+      "notes-save",
+      () => void saveEditor(),
+      "ui-button--primary",
+    );
     save.dataset.notesSave = "";
     save.disabled = !dirty;
     right.append(
-      button(
+      toolbarButton(
         t("Discuss in Chat"),
+        ICONS.chat,
         "notes-use-in-chat",
         () => onUseInChat?.(structuredClone(selectedNote)),
         "ui-button--secondary",
       ),
-      button(t("Attach"), "notes-attach", () => void attachFile(), "ui-button--ghost"),
+      toolbarButton(t("Attach"), ICONS.attach, "notes-attach", () => void attachFile(), "ui-button--ghost"),
       save,
-      button(t("Delete"), "notes-delete", () => void deleteSelectedNote(), "ui-button--danger"),
+      toolbarButton(t("Delete"), ICONS.trash, "notes-delete", () => void deleteSelectedNote(), "ui-button--danger"),
     );
     toolbar.append(left, right);
 
     if (error) wrapper.append(errorBanner(error));
+    const titleRow = element("div", "notes-title-row");
+    const icon = document.createElement("input");
+    icon.className = "notes-icon-input";
+    icon.value = selectedNote.icon || DEFAULT_NOTE_ICON;
+    icon.placeholder = DEFAULT_NOTE_ICON;
+    icon.maxLength = 8;
+    icon.setAttribute("aria-label", t("Icon"));
+    icon.dataset.notesIcon = "";
     const title = document.createElement("input");
     title.className = "notes-title-input";
     title.value = selectedNote.title;
     title.placeholder = t("Note title");
     title.setAttribute("aria-label", t("Note title"));
     title.dataset.notesTitle = "";
-    const tags = document.createElement("input");
-    tags.className = "notes-tags-input";
-    tags.value = selectedNote.tags.join(", ");
-    tags.placeholder = t("Tags separated by commas");
-    tags.setAttribute("aria-label", t("Tags separated by commas"));
-    tags.dataset.notesTags = "";
-    for (const input of [title, tags]) {
+    for (const input of [icon, title]) {
       input.addEventListener("input", markDirty);
     }
+    title.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !preview) {
+        content?.querySelector("[data-notes-content]")?.focus();
+      }
+    });
+    titleRow.append(icon, title);
+    const tagEditor = buildTagEditor(selectedNote.tags);
 
-    wrapper.append(toolbar, title, tags);
+    wrapper.append(toolbar, titleRow, tagEditor);
+    if (focusTitleOnNextRender) {
+      focusTitleOnNextRender = false;
+      queueMicrotask(() => title.focus());
+    }
     if (selectedNote.source) {
       const source = element("p", "notes-source");
       source.append(`${t("Source")}: `);
@@ -808,9 +981,11 @@ export function setupNotesApp({
   function syncDraftFromEditor() {
     if (!selectedNote || !content) return;
     const title = content.querySelector("[data-notes-title]");
+    const icon = content.querySelector("[data-notes-icon]");
     const tags = content.querySelector("[data-notes-tags]");
     const body = content.querySelector("[data-notes-content]");
     if (title) selectedNote.title = title.value;
+    if (icon) selectedNote.icon = icon.value.trim();
     if (tags) selectedNote.tags = parseTags(tags.value);
     if (body) selectedNote.content = body.value;
   }
@@ -819,6 +994,120 @@ export function setupNotesApp({
     dirty = true;
     const save = content?.querySelector("[data-notes-save]");
     if (save) save.disabled = false;
+  }
+
+  function buildTagEditor(initialTags) {
+    const tags = [...initialTags];
+    const container = element("div", "notes-tag-editor");
+    const hidden = document.createElement("input");
+    hidden.type = "hidden";
+    hidden.dataset.notesTags = "";
+    const chips = element("div", "notes-tag-chips");
+    const input = document.createElement("input");
+    input.className = "notes-tag-input";
+    input.placeholder = t("Add tag");
+    input.setAttribute("aria-label", t("Add tag"));
+    input.setAttribute("autocomplete", "off");
+    const suggestions = element("div", "notes-tag-suggestions");
+    suggestions.hidden = true;
+    suggestions.setAttribute("role", "listbox");
+    suggestions.setAttribute("aria-label", t("Add tag"));
+
+    function sync() {
+      hidden.value = tags.join(", ");
+      markDirty();
+    }
+
+    function renderChips() {
+      chips.replaceChildren();
+      for (const tag of tags) {
+        const chip = element("span", "notes-tag-chip");
+        chip.dataset.tagChip = tag;
+        chip.append(element("span", "notes-tag-chip-icon", tagIcon(tag)));
+        chip.append(element("span", "notes-tag-chip-name", tag));
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "notes-tag-chip-remove";
+        remove.title = t("Remove tag");
+        remove.setAttribute("aria-label", `${t("Remove tag")} ${tag}`);
+        remove.innerHTML = ICONS.close;
+        remove.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const index = tags.indexOf(tag);
+          if (index >= 0) tags.splice(index, 1);
+          sync();
+          renderChips();
+          renderSuggestions(input.value);
+        });
+        chip.append(remove);
+        chips.append(chip);
+      }
+      hidden.value = tags.join(", ");
+    }
+
+    function renderSuggestions(query) {
+      const needle = String(query).trim().toLowerCase();
+      const pool = allTagSuggestions(snapshot.tags).filter(
+        (name) => !tags.includes(name) && (!needle || name.toLowerCase().includes(needle)),
+      );
+      const candidate = String(query).trim().replace(/^#/, "");
+      if (candidate && !tags.includes(candidate) && !pool.includes(candidate)) {
+        pool.unshift(candidate);
+      }
+      suggestions.replaceChildren();
+      if (pool.length === 0) {
+        suggestions.hidden = true;
+        return;
+      }
+      for (const name of pool.slice(0, 8)) {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "notes-tag-suggestion";
+        option.append(element("span", "notes-tag-chip-icon", tagIcon(name)));
+        option.append(element("span", "", name));
+        option.addEventListener("mousedown", (event) => event.preventDefault());
+        option.addEventListener("click", () => addTag(name));
+        suggestions.append(option);
+      }
+      suggestions.hidden = false;
+    }
+
+    function addTag(value) {
+      const name = String(value).trim().replace(/^#/, "");
+      if (!name || tags.includes(name)) return;
+      tags.push(name);
+      input.value = "";
+      sync();
+      renderChips();
+      renderSuggestions("");
+      input.focus();
+    }
+
+    input.addEventListener("focus", () => renderSuggestions(input.value));
+    input.addEventListener("input", () => renderSuggestions(input.value));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === ",") {
+        event.preventDefault();
+        if (input.value.trim()) addTag(input.value);
+      } else if (event.key === "Backspace" && !input.value && tags.length) {
+        tags.pop();
+        sync();
+        renderChips();
+        renderSuggestions("");
+      } else if (event.key === "Escape") {
+        suggestions.hidden = true;
+        input.blur();
+      }
+    });
+    input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        suggestions.hidden = true;
+      }, 120);
+    });
+
+    container.append(chips, input, suggestions, hidden);
+    renderChips();
+    return container;
   }
 
   function emptyLibrary() {
@@ -927,6 +1216,21 @@ function button(label, className, action, variant = "ui-button--ghost") {
   control.type = "button";
   control.className = `ui-button ui-button--sm ${variant} ${className}`.trim();
   control.textContent = label;
+  control.addEventListener("click", action);
+  return control;
+}
+
+function toolbarButton(label, iconMarkup, className, action, variant = "ui-button--ghost") {
+  const control = document.createElement("button");
+  control.type = "button";
+  control.className = `ui-button ui-button--sm ${variant} ${className}`.trim();
+  control.title = label;
+  control.setAttribute("aria-label", label);
+  const icon = document.createElement("span");
+  icon.className = "notes-btn-icon";
+  icon.innerHTML = iconMarkup;
+  const text = element("span", "notes-btn-label", label);
+  control.append(icon, text);
   control.addEventListener("click", action);
   return control;
 }

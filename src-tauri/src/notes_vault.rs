@@ -17,6 +17,7 @@ const MAX_NOTE_BYTES: usize = 1024 * 1024;
 const MAX_NOTES: usize = 2_000;
 const MAX_NOTEBOOKS: usize = 200;
 const MAX_TITLE_CHARS: usize = 200;
+const MAX_ICON_CHARS: usize = 8;
 const MAX_TAGS: usize = 20;
 const MAX_TAG_CHARS: usize = 64;
 const MAX_ATTACHMENT_BYTES: usize = 5 * 1024 * 1024;
@@ -29,6 +30,8 @@ const RETAINED_CHANGE_RECORDS: usize = 10_000;
 pub struct NotebookDescriptor {
     pub id: String,
     pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub note_count: usize,
@@ -52,6 +55,8 @@ pub struct NoteSummary {
     pub id: String,
     pub notebook_id: String,
     pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
@@ -462,8 +467,13 @@ impl NotesVault {
         })
     }
 
-    pub fn create_notebook(&self, title: &str) -> Result<NotebookDescriptor, NotesError> {
+    pub fn create_notebook(
+        &self,
+        title: &str,
+        icon: Option<String>,
+    ) -> Result<NotebookDescriptor, NotesError> {
         let title = validate_title(title)?;
+        let icon = validate_icon(icon)?;
         if self.list_notebooks()?.len() >= MAX_NOTEBOOKS {
             return Err(NotesError::new(
                 "quota_exceeded",
@@ -475,6 +485,7 @@ impl NotesVault {
         let descriptor = NotebookDescriptor {
             id: id.clone(),
             title,
+            icon,
             created_at: now.clone(),
             updated_at: now,
             note_count: 0,
@@ -484,12 +495,45 @@ impl NotesVault {
         Ok(descriptor)
     }
 
+    pub fn update_notebook(
+        &self,
+        notebook_id: &str,
+        title: Option<String>,
+        icon: Option<String>,
+    ) -> Result<NotebookDescriptor, NotesError> {
+        let mut notebook = self.read_notebook(notebook_id)?;
+        if let Some(title) = title {
+            notebook.title = validate_title(&title)?;
+        }
+        if let Some(icon) = icon {
+            notebook.icon = validate_icon(Some(icon))?;
+        }
+        notebook.updated_at = now_iso();
+        let metadata = VaultMetadata {
+            schema_version: VAULT_SCHEMA_VERSION,
+            id: notebook.id.clone(),
+            title: notebook.title.clone(),
+            icon: notebook.icon.clone(),
+            created_at: notebook.created_at.clone(),
+            updated_at: notebook.updated_at.clone(),
+        };
+        atomic_json_write(
+            &self
+                .vault_root(notebook_id)?
+                .join(".zicode")
+                .join("vault.json"),
+            &metadata,
+        )?;
+        Ok(notebook)
+    }
+
     pub fn create_note(
         &self,
         notebook_id: &str,
         title: &str,
         content: &str,
         tags: Vec<String>,
+        icon: Option<String>,
         source: Option<NoteSource>,
     ) -> Result<NoteDocument, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
@@ -497,6 +541,7 @@ impl NotesVault {
         let title = validate_title(title)?;
         validate_content(content)?;
         let tags = normalize_tags(tags)?;
+        let icon = validate_icon(icon)?;
         if let Some(source) = &source {
             validate_source(source)?;
         }
@@ -506,6 +551,7 @@ impl NotesVault {
             id: id.clone(),
             notebook_id: notebook_id.clone(),
             title,
+            icon,
             created_at: now.clone(),
             updated_at: now,
             tags,
@@ -536,6 +582,7 @@ impl NotesVault {
         title: &str,
         content: &str,
         tags: Vec<String>,
+        icon: Option<String>,
         expected_version: &str,
     ) -> Result<NoteDocument, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
@@ -552,6 +599,10 @@ impl NotesVault {
                 id: note_id,
                 notebook_id: notebook_id.clone(),
                 title: validate_title(title)?,
+                icon: match icon {
+                    Some(icon) => validate_icon(Some(icon))?,
+                    None => existing.summary.icon.clone(),
+                },
                 created_at: existing.summary.created_at,
                 updated_at: now_iso(),
                 tags: normalize_tags(tags)?,
@@ -808,7 +859,7 @@ impl NotesVault {
             decoded_attachments.push((attachment.note_id, attachment_id, bytes));
         }
 
-        let notebook = self.create_notebook(&imported_title)?;
+        let notebook = self.create_notebook(&imported_title, None)?;
         let import_result = (|| {
             for document in export.notes {
                 let imported = NoteDocument {
@@ -816,6 +867,7 @@ impl NotesVault {
                         id: document.summary.id,
                         notebook_id: notebook.id.clone(),
                         title: document.summary.title,
+                        icon: validate_icon(document.summary.icon)?,
                         created_at: document.summary.created_at,
                         updated_at: document.summary.updated_at,
                         tags: normalize_tags(document.summary.tags)?,
@@ -867,7 +919,7 @@ impl NotesVault {
         } else {
             (title_from_file_name(file_name), normalized, Vec::new())
         };
-        self.create_note(notebook_id, &title, &content, tags, None)
+        self.create_note(notebook_id, &title, &content, tags, None, None)
     }
 
     pub fn rebuild_index(&self, notebook_id: &str) -> Result<VaultRebuildReport, NotesError> {
@@ -1053,6 +1105,7 @@ impl NotesVault {
         Ok(NotebookDescriptor {
             id: metadata.id,
             title: metadata.title,
+            icon: metadata.icon,
             created_at: metadata.created_at,
             updated_at: metadata.updated_at,
             note_count: 0,
@@ -1066,6 +1119,7 @@ impl NotesVault {
             schema_version: VAULT_SCHEMA_VERSION,
             id: notebook.id,
             title: notebook.title,
+            icon: notebook.icon,
             created_at: notebook.created_at,
             updated_at: notebook.updated_at,
         };
@@ -1323,6 +1377,8 @@ struct VaultMetadata {
     schema_version: u32,
     id: String,
     title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -1346,6 +1402,7 @@ fn create_astro_vault(root: &Path, descriptor: &NotebookDescriptor) -> Result<()
         schema_version: VAULT_SCHEMA_VERSION,
         id: descriptor.id.clone(),
         title: descriptor.title.clone(),
+        icon: descriptor.icon.clone(),
         created_at: descriptor.created_at.clone(),
         updated_at: descriptor.updated_at.clone(),
     };
@@ -1390,6 +1447,7 @@ const notes = defineCollection({
   schema: z.object({
     id: z.string(),
     title: z.string(),
+    icon: z.string().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
     tags: z.array(z.string()).default([]),
@@ -1501,6 +1559,9 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
         serde_json::to_string(&document.summary.tags)
             .map_err(|_| NotesError::new("serialization_failed", "Cannot encode note tags"))?,
     ));
+    if let Some(icon) = &document.summary.icon {
+        output.push_str(&format!("icon: {}\n", yaml_string(icon)));
+    }
     if let Some(source) = &document.summary.source {
         output.push_str("source:\n");
         output.push_str(&format!("  url: {}\n", yaml_string(&source.url)));
@@ -1581,6 +1642,7 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             id,
             notebook_id: notebook_id.to_string(),
             title: required_frontmatter_string(frontmatter, "title")?,
+            icon: optional_frontmatter_string(frontmatter, "icon"),
             created_at: required_frontmatter_string(frontmatter, "createdAt")?,
             updated_at: required_frontmatter_string(frontmatter, "updatedAt")?,
             tags,
@@ -1673,6 +1735,23 @@ fn validate_title(value: &str) -> Result<String, NotesError> {
         ));
     }
     Ok(title.to_string())
+}
+
+fn validate_icon(value: Option<String>) -> Result<Option<String>, NotesError> {
+    let Some(icon) = value else {
+        return Ok(None);
+    };
+    let icon = icon.trim();
+    if icon.is_empty() {
+        return Ok(None);
+    }
+    if icon.chars().count() > MAX_ICON_CHARS || icon.chars().any(char::is_control) {
+        return Err(NotesError::new(
+            "invalid_parameters",
+            "Icon must contain 1 to 8 visible characters",
+        ));
+    }
+    Ok(Some(icon.to_string()))
 }
 
 fn title_from_file_name(file_name: &str) -> String {
@@ -1930,13 +2009,14 @@ mod tests {
         let root = root();
         let plugin_root = root.join("plugins");
         let vault = NotesVault::new(plugin_root).unwrap();
-        let notebook = vault.create_notebook("Research").unwrap();
+        let notebook = vault.create_notebook("Research", None).unwrap();
         let note = vault
             .create_note(
                 &notebook.id,
                 "Roadmap",
                 "# Roadmap\n\nCapability broker.",
                 vec!["plugin".into(), "roadmap".into()],
+                None,
                 None,
             )
             .unwrap();
@@ -1983,13 +2063,14 @@ mod tests {
     fn publishes_a_notebook_as_a_static_astro_site() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Publish test").unwrap();
+        let notebook = vault.create_notebook("Publish test", None).unwrap();
         vault
             .create_note(
                 &notebook.id,
                 "Hello",
                 "# Built\n\nThis page was generated by Astro.",
                 vec!["publish".into()],
+                None,
                 None,
             )
             .unwrap();
@@ -2009,13 +2090,14 @@ mod tests {
     fn enforces_optimistic_versions_and_preserves_source_metadata() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Clips").unwrap();
+        let notebook = vault.create_notebook("Clips", None).unwrap();
         let original = vault
             .create_note(
                 &notebook.id,
                 "Example",
                 "Captured body",
                 vec!["clip".into()],
+                None,
                 Some(NoteSource {
                     url: "https://example.com/article".into(),
                     captured_at: "2026-07-31T00:00:00Z".into(),
@@ -2032,6 +2114,7 @@ mod tests {
                 "Example edited",
                 "Captured body\n\nComment",
                 vec!["clip".into()],
+                None,
                 &original.summary.version,
             )
             .unwrap();
@@ -2047,6 +2130,7 @@ mod tests {
                     "Stale",
                     "Overwrite",
                     vec![],
+                    None,
                     &original.summary.version,
                 )
                 .unwrap_err()
@@ -2065,13 +2149,14 @@ mod tests {
     fn stores_safe_attachments_and_round_trips_readable_backups() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Portable").unwrap();
+        let notebook = vault.create_notebook("Portable", None).unwrap();
         let note = vault
             .create_note(
                 &notebook.id,
                 "With image",
                 "Attachment below.",
                 vec![],
+                None,
                 None,
             )
             .unwrap();
@@ -2124,7 +2209,7 @@ mod tests {
     fn imports_markdown_and_rebuilds_an_index_with_corruption_diagnostics() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Recovery").unwrap();
+        let notebook = vault.create_notebook("Recovery", None).unwrap();
         let imported = vault
             .import_markdown(
                 &notebook.id,
@@ -2158,13 +2243,14 @@ mod tests {
     fn derives_links_backlinks_and_tag_similarity_from_readable_markdown() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Knowledge").unwrap();
+        let notebook = vault.create_notebook("Knowledge", None).unwrap();
         let target = vault
             .create_note(
                 &notebook.id,
                 "Architecture",
                 "Host and runtime boundaries.",
                 vec!["design".into(), "runtime".into()],
+                None,
                 None,
             )
             .unwrap();
@@ -2178,6 +2264,7 @@ mod tests {
                 ),
                 vec!["design".into(), "decision".into()],
                 None,
+                None,
             )
             .unwrap();
         vault
@@ -2186,6 +2273,7 @@ mod tests {
                 "Architecture",
                 "A conflicting architecture proposal.",
                 vec![],
+                None,
                 None,
             )
             .unwrap();
@@ -2206,9 +2294,9 @@ mod tests {
     fn emits_incremental_changes_and_delete_tombstones() {
         let root = root();
         let vault = NotesVault::new(root.join("plugins")).unwrap();
-        let notebook = vault.create_notebook("Sync").unwrap();
+        let notebook = vault.create_notebook("Sync", None).unwrap();
         let created = vault
-            .create_note(&notebook.id, "Draft", "one", vec![], None)
+            .create_note(&notebook.id, "Draft", "one", vec![], None, None)
             .unwrap();
         let first = vault.changes(None, 1).unwrap();
         assert_eq!(first.changes[0].operation, "created");
@@ -2219,6 +2307,7 @@ mod tests {
                 "Draft",
                 "two",
                 vec![],
+                None,
                 &created.summary.version,
             )
             .unwrap();
