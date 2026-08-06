@@ -9,8 +9,8 @@
 
 | 文件 | 大小 | SHA-256 |
 | --- | --- | --- |
-| `target/release/zicode-studio-desktop.exe` | 41,097,728 B | `D9F4671E312784C00E66AB6317B0E10542776413586851D59B7229871821813E` |
-| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,703,730 B | `8D498431177267CC8BA5C2233089CBCFFA7DC33084D7A309B224E33553751634` |
+| `target/release/zicode-studio-desktop.exe` | 41,099,776 B | `6BB09A6996B3EFAEE5768761004EF68B03306E7FDDE029B9456F19C529C8CD49` |
+| `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe` | 346,724,906 B | `0A35F51F58C7D45C108621B148B96EA20A3ECF117A0DA2E2E122E265A437F2EC` |
 | `target/release/zicode-relay.exe`（内置中继） | 1,801,728 B | `2742DF2C132825F3B0EB0B022E5A5C3D4E8F6567462E22608CE8826D5E29F67B` |
 
 未生成 ZIP（按项目约定保留完整可运行目录与 EXE/安装包）；安装包未做
@@ -79,6 +79,14 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   `GET /v2/remote-config` 端点、手机端启动时拉取并注入 WebRTC ICE 候选；
 - 验证：`/S` 静默重装后安装目录与产物一致（EXE 同尺寸、中继同哈希），
   `public/native/app.js` 含 `p2pEnabled` 与 `v2/remote-config` 拉取；
+  从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2）、公网中继注册
+  `dev-ax2-01`、日志无 ERROR/WARN/panic；桌面快捷方式继续指向安装目录。
+
+## 第九次重建（2026-08-06，含中继半开连接自愈）
+
+- 在上一版基础上合入第 152 轮：`KeepAlive` 心跳（桌面 30s 发送、120s 读超时
+  重连）与中继应答，修复桌面↔中继半开连接导致桌面静默离线的问题；
+- 验证：`/S` 静默重装后安装目录与产物一致（EXE 同尺寸、中继同哈希）；
   从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2）、公网中继注册
   `dev-ax2-01`、日志无 ERROR/WARN/panic；桌面快捷方式继续指向安装目录。
 
