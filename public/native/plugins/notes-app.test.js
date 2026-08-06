@@ -431,6 +431,9 @@ describe("Notes application", () => {
     document.querySelector("[data-notes-icon]").click();
     expect(document.querySelector(".notes-emoji-picker").hidden).toBe(false);
     expect(document.querySelectorAll(".notes-emoji-tab").length).toBeGreaterThan(3);
+    document.querySelectorAll(".notes-emoji-tab")[1].click();
+    expect(document.querySelector(".notes-emoji-picker").hidden).toBe(false);
+    document.querySelectorAll(".notes-emoji-tab")[0].click();
     [...document.querySelectorAll(".notes-emoji-cell")]
       .find((cell) => cell.textContent === "😀")
       ?.click();
@@ -459,5 +462,22 @@ describe("Notes application", () => {
     expect(gateway.save.mock.calls.at(-1)[1].tags).toEqual(
       expect.arrayContaining(["plugin", "idea"]),
     );
+  });
+
+  it("shows a tag-filtered note list in the content area", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-nav-item")).toBeTruthy());
+    const tagBtn = [...document.querySelectorAll(".notes-nav-item")].find((b) =>
+      b.textContent.includes("plugin"),
+    );
+    tagBtn.click();
+    await vi.waitFor(() => expect(document.querySelector(".notes-results")).toBeTruthy());
+    expect(
+      document.querySelector(".notes-results-list .notes-result-item")?.textContent,
+    ).toContain("Roadmap");
+    document.querySelector(".notes-results-list .notes-result-item").click();
+    await vi.waitFor(() => expect(document.querySelector("[data-notes-title]")).toBeTruthy());
   });
 });

@@ -53,7 +53,7 @@ const EMOJI_GROUPS = [
   ],
   [
     "符号",
-    ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","💕","💞","💓","💗","💖","💘","💝","☮️","☯️","✡️","☸️","🕉️","☪️","✝️","☦️","🛐","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓","⛎","♠️","♣️","♥️","♦️","🔴","🟠","🟡","🟢","🔵","🟣","🟤","⚫","⚪","✅","❎","⭕","❌","❗","❓","💯","💢","💬","💭","💤","⭐","🌟","✨","⚡","🔥","💧","☀️","🌈","☁️","⛈️","🌧️","❄️","⛄","🌙","🌍","🌎","🌏","🌊","🌌","🪐","💠","🌐","🎵","🎶","🔔","🔕","📢","📣","🛑","🚫","♻️","🆗","🆕","🆙","🆒","🔝","🔚","🔙","🔛","🔜","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚","🕛"],
+    ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","💕","💞","💓","💗","💖","💘","💝","🔴","🟠","🟡","🟢","🔵","🟣","🟤","⚫","⚪","🟥","🟧","🟨","🟩","🟦","🟪","🟫","⬛","⬜","🔺","🔻","🔸","🔹","🔶","🔷","♦️","♠️","♣️","♥️","☮️","☯️","✡️","☸️","🕉️","☪️","✝️","☦️","🛐","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓","⛎","✅","❎","⭕","❌","❗","❓","💯","💢","💬","💭","💤","⭐","🌟","✨","⚡","🔥","💧","☀️","🌈","☁️","⛈️","🌧️","❄️","⛄","🌙","🌍","🌎","🌏","🌊","🌌","🪐","💠","🌐","🎵","🎶","🔔","🔕","📢","📣","🛑","🚫","♻️","🆗","🆕","🆙","🆒","🔝","🔚","🔙","🔛","🔜","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚","🕛"],
   ],
 ];
 
@@ -748,11 +748,6 @@ export function setupNotesApp({
     icon.input.addEventListener("focus", () => {
       iconPicker.hidden = false;
     });
-    icon.input.addEventListener("blur", () => {
-      window.setTimeout(() => {
-        iconPicker.hidden = true;
-      }, 160);
-    });
     icon.wrapper.append(iconPicker);
     const title = labeledInput(t("Notebook name"), "title", notebook.title);
     title.input.value = notebook.title;
@@ -831,11 +826,46 @@ export function setupNotesApp({
       content.append(noteEditor());
       return;
     }
+    if (selectedTag || sourceOnly) {
+      if (snapshot.notes.length > 0) {
+        content.append(filterResultsView());
+        return;
+      }
+    }
     if (error) {
       content.append(errorCard(error, () => void load()));
       return;
     }
     content.append(emptyLibrary());
+  }
+
+  function filterResultsView() {
+    const section = element("section", "notes-results");
+    const heading = element(
+      "h1",
+      "notes-results-title",
+      selectedTag ? `${t("Tag")} #${selectedTag}` : t("Web clips"),
+    );
+    const meta = element("div", "notes-results-meta");
+    meta.append(element("span", "", `${snapshot.notes.length} ${t("notes")}`));
+    meta.append(
+      button(t("Show all notes"), "", () => void applyFilter({}), "ui-button--ghost"),
+    );
+    const list = element("div", "notes-results-list");
+    for (const note of snapshot.notes) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "notes-result-item";
+      if (note.icon) item.append(element("span", "notes-result-icon", note.icon));
+      const main = element("span", "notes-result-main");
+      main.append(element("strong", "", note.title));
+      main.append(element("span", "", formatDate(note.updatedAt)));
+      item.append(main);
+      item.addEventListener("click", () => void selectNote(note));
+      list.append(item);
+    }
+    section.append(heading, meta, list);
+    return section;
   }
 
   function notebookForm() {
@@ -861,11 +891,6 @@ export function setupNotesApp({
     });
     icon.input.addEventListener("focus", () => {
       iconPicker.hidden = false;
-    });
-    icon.input.addEventListener("blur", () => {
-      window.setTimeout(() => {
-        iconPicker.hidden = true;
-      }, 160);
     });
     icon.wrapper.append(iconPicker);
     const actions = formActions(t("Create notebook"), () => {
@@ -1043,11 +1068,6 @@ export function setupNotesApp({
     });
     icon.addEventListener("click", () => {
       iconPicker.hidden = false;
-    });
-    icon.addEventListener("blur", () => {
-      window.setTimeout(() => {
-        iconPicker.hidden = true;
-      }, 160);
     });
     const title = document.createElement("input");
     title.className = "notes-title-input";
@@ -1323,7 +1343,23 @@ export function setupNotesApp({
     }
   }
 
+  function hideEmojiPickers(target) {
+    for (const picker of document.querySelectorAll(".notes-emoji-picker")) {
+      if (picker.hidden) continue;
+      const anchor = picker.closest(".notes-icon-box") || picker.parentElement;
+      if (!picker.contains(target) && !anchor?.contains(target)) picker.hidden = true;
+    }
+  }
+
+  const onPointerDown = (event) => hideEmojiPickers(event.target);
+  const onPickerEscape = (event) => {
+    if (event.key === "Escape") {
+      for (const picker of document.querySelectorAll(".notes-emoji-picker")) picker.hidden = true;
+    }
+  };
   document.addEventListener("keydown", handleKeydown);
+  document.addEventListener("pointerdown", onPointerDown);
+  document.addEventListener("keydown", onPickerEscape);
 
   return {
     renderNavigation,
@@ -1337,6 +1373,8 @@ export function setupNotesApp({
       clearTimeout(searchTimer);
       clearTimeout(autosaveTimer);
       document.removeEventListener("keydown", handleKeydown);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onPickerEscape);
     },
   };
 }
