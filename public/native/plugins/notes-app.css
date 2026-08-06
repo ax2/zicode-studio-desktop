@@ -275,6 +275,97 @@
   font-size: var(--font-size-md);
 }
 
+.notes-drag-handle {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: grab;
+  opacity: 0;
+}
+
+.notes-tree-note:hover .notes-drag-handle,
+.notes-tree-note:focus-visible .notes-drag-handle,
+.notes-result-item:hover .notes-drag-handle {
+  opacity: 1;
+}
+
+.notes-move-btn {
+  flex: 0 0 auto;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.notes-tree-note:hover .notes-move-btn,
+.notes-tree-note:focus-visible .notes-move-btn,
+.notes-result-item:hover .notes-move-btn,
+.notes-result-item:focus-visible .notes-move-btn {
+  opacity: 1;
+}
+
+.notes-move-btn:hover {
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+
+.notes-move-popover {
+  position: fixed;
+  z-index: 120;
+  width: min(280px, calc(100vw - var(--space-8)));
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-solid);
+  box-shadow: var(--shadow-lg);
+}
+
+.notes-move-popover-title {
+  display: block;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-move-popover-list {
+  display: grid;
+  gap: var(--space-0-5);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notes-move-popover-item {
+  width: 100%;
+  min-height: var(--control-height-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-move-popover-item:hover {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
 .notes-tree-note::before {
   content: "";
   position: absolute;
@@ -962,6 +1053,10 @@
   }
 
   .notes-notebook-actions {
+    opacity: 1;
+  }
+
+  .notes-move-btn {
     opacity: 1;
   }
 

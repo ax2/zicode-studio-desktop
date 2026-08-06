@@ -691,6 +691,8 @@ const zhCN = {
   "Parent notebook": "上级笔记本",
   "Top level": "顶级",
   "Note moved": "笔记已移动",
+  "Move to notebook": "移动到笔记本",
+  "No other notebooks": "没有其他笔记本",
   Delete: "删除",
   "Note title": "笔记标题",
   "Tags separated by commas": "标签，以逗号分隔",

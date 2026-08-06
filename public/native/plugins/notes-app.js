@@ -118,6 +118,7 @@ export function setupNotesApp({
   const expandedNotebookIds = new Set();
   const expandedNavSections = new Set();
   let editingNotebookId = null;
+  let movePopoverCleanup = null;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
 
@@ -848,8 +849,9 @@ export function setupNotesApp({
   }
 
   function buildNoteTreeItem(note) {
-    const item = document.createElement("button");
-    item.type = "button";
+    const item = document.createElement("div");
+    item.role = "button";
+    item.tabIndex = 0;
     item.className = "notes-list-item notes-tree-note";
     item.classList.toggle("active", selectedNote?.id === note.id);
     item.draggable = true;
@@ -870,8 +872,73 @@ export function setupNotesApp({
     main.append(title, metadata);
     if (note.icon) item.append(element("span", "notes-note-icon", note.icon));
     item.append(main);
+    const handle = element("span", "notes-drag-handle", "⠿");
+    handle.setAttribute("aria-hidden", "true");
+    item.append(handle);
+    const moveButton = document.createElement("button");
+    moveButton.type = "button";
+    moveButton.className = "notes-move-btn";
+    moveButton.title = t("Move to notebook");
+    moveButton.setAttribute("aria-label", t("Move to notebook"));
+    moveButton.textContent = "⇄";
+    moveButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMovePopover(moveButton, note);
+    });
+    item.append(moveButton);
     item.addEventListener("click", () => void selectNote(note));
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        void selectNote(note);
+      }
+    });
     return item;
+  }
+
+  function openMovePopover(anchor, note) {
+    closeMovePopover();
+    const popover = element("div", "notes-move-popover");
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-label", t("Move to notebook"));
+    popover.append(
+      element("strong", "notes-move-popover-title", `${t("Move to notebook")} · ${note.title}`),
+    );
+    const list = element("div", "notes-move-popover-list");
+    for (const notebook of snapshot.notebooks) {
+      if (notebook.id === note.notebookId) continue;
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "notes-move-popover-item";
+      option.append(
+        element("span", "notes-nav-item-icon", notebook.icon || DEFAULT_NOTEBOOK_ICON),
+      );
+      option.append(element("span", "notes-nav-item-label", notebook.title));
+      option.addEventListener("click", () => {
+        closeMovePopover();
+        void moveNoteTo(note.notebookId, note.id, notebook.id);
+      });
+      list.append(option);
+    }
+    if (!list.children.length) list.append(message(t("No other notebooks")));
+    popover.append(list);
+    document.body.append(popover);
+    const rect = anchor.getBoundingClientRect();
+    popover.style.top = `${Math.round(rect.bottom + 4)}px`;
+    popover.style.left = `${Math.max(8, Math.round(rect.left))}px`;
+    const onPointerDown = (event) => {
+      if (!popover.contains(event.target) && !anchor.contains(event.target)) closeMovePopover();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    movePopoverCleanup = () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      popover.remove();
+      movePopoverCleanup = null;
+    };
+  }
+
+  function closeMovePopover() {
+    if (movePopoverCleanup) movePopoverCleanup();
   }
 
   async function moveNoteTo(sourceNotebookId, noteId, targetNotebookId) {
@@ -950,15 +1017,41 @@ export function setupNotesApp({
     );
     const list = element("div", "notes-results-list");
     for (const note of snapshot.notes) {
-      const item = document.createElement("button");
-      item.type = "button";
+      const item = document.createElement("div");
+      item.role = "button";
+      item.tabIndex = 0;
       item.className = "notes-result-item";
+      item.draggable = true;
+      item.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData(
+          "text/plain",
+          JSON.stringify({ noteId: note.id, notebookId: note.notebookId }),
+        );
+        event.dataTransfer.effectAllowed = "move";
+      });
       if (note.icon) item.append(element("span", "notes-result-icon", note.icon));
       const main = element("span", "notes-result-main");
       main.append(element("strong", "", note.title));
       main.append(element("span", "", formatDate(note.updatedAt)));
       item.append(main);
+      const moveButton = document.createElement("button");
+      moveButton.type = "button";
+      moveButton.className = "notes-move-btn";
+      moveButton.title = t("Move to notebook");
+      moveButton.setAttribute("aria-label", t("Move to notebook"));
+      moveButton.textContent = "⇄";
+      moveButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openMovePopover(moveButton, note);
+      });
+      item.append(moveButton);
       item.addEventListener("click", () => void selectNote(note));
+      item.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          void selectNote(note);
+        }
+      });
       list.append(item);
     }
     section.append(heading, meta, list);
@@ -1507,6 +1600,7 @@ export function setupNotesApp({
     destroy() {
       clearTimeout(searchTimer);
       clearTimeout(autosaveTimer);
+      closeMovePopover();
       document.removeEventListener("keydown", handleKeydown);
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("pointerdown", onTagPointerDown);

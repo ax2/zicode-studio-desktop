@@ -618,4 +618,33 @@ describe("Notes application", () => {
     document.querySelector('input[name="icon"]').click();
     expect(document.querySelector(".notes-emoji-picker").hidden).toBe(false);
   });
+
+  it("moves a note to another notebook from the fallback move button", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    gateway.moveNote = vi.fn(async () => ({ note: { ...NOTE, notebookId: "book-2" } }));
+    gateway.list.mockResolvedValue({
+      snapshot: {
+        notebooks: [
+          { id: "book-1", title: "Product", noteCount: 1 },
+          { id: "book-2", title: "Research", noteCount: 0 },
+        ],
+        notes: [NOTE],
+        tags: [],
+      },
+    });
+    render(gateway);
+    await vi.waitFor(() => expect(document.querySelector(".notes-tree-note")).toBeTruthy());
+    document.querySelector(".notes-move-btn").click();
+    expect(document.querySelector(".notes-move-popover")).toBeTruthy();
+    const research = [...document.querySelectorAll(".notes-move-popover-item")].find((b) =>
+      b.textContent.includes("Research"),
+    );
+    research.click();
+    await vi.waitFor(() => expect(gateway.moveNote).toHaveBeenCalledOnce());
+    expect(gateway.moveNote.mock.calls[0][1]).toMatchObject({
+      noteId: "note-1",
+      targetNotebookId: "book-2",
+    });
+  });
 });
