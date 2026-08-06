@@ -20,6 +20,12 @@ ZICODE_RELAY_BYTE_QUOTA_PER_DEVICE=<每日字节配额> \
 ./scripts/relay/deploy-relay.sh
 ```
 
+部署前先跑环境自检（DNS、工具链、磁盘、端口绑定，逐项 PASS/FAIL）：
+
+```bash
+./scripts/relay/preflight-check.sh
+```
+
 脚本自动：构建独立 relay crate → 安装 `/usr/local/bin/zicode-relay` →
 systemd（注册令牌 + 配额 + `ZICODE_RELAY_DATA_DIR` 持久化 +
 `StateDirectory`）→ nginx 反代 → certbot 证书。
