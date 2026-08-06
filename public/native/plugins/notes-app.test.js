@@ -428,7 +428,7 @@ describe("Notes application", () => {
     document.querySelector(".notes-list-item").click();
     await vi.waitFor(() => expect(document.querySelector(".notes-preview")).toBeTruthy());
 
-    document.querySelector(".notes-icon-picker-btn").click();
+    document.querySelector("[data-notes-icon]").click();
     expect(document.querySelector(".notes-emoji-picker").hidden).toBe(false);
     expect(document.querySelectorAll(".notes-emoji-tab").length).toBeGreaterThan(3);
     [...document.querySelectorAll(".notes-emoji-cell")]

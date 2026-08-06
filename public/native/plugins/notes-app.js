@@ -115,7 +115,6 @@ export function setupNotesApp({
   let searchTimer = null;
   let focusTitleOnNextRender = false;
   let autosaveTimer = null;
-  let tagEditorCollapsed = false;
   const expandedNotebookIds = new Set();
   let editingNotebookId = null;
 
@@ -736,18 +735,25 @@ export function setupNotesApp({
     const icon = labeledInput(t("Icon"), "icon", DEFAULT_NOTEBOOK_ICON);
     icon.input.value = notebook.icon || DEFAULT_NOTEBOOK_ICON;
     icon.input.maxLength = 8;
+    icon.input.title = t("Choose an icon");
     const iconPicker = buildEmojiPicker({
       onPick: (emoji) => {
         icon.input.value = emoji;
         icon.input.focus();
       },
     });
-    icon.wrapper.append(
-      iconPickerButton(() => {
-        iconPicker.hidden = !iconPicker.hidden;
-      }),
-      iconPicker,
-    );
+    icon.input.addEventListener("click", () => {
+      iconPicker.hidden = false;
+    });
+    icon.input.addEventListener("focus", () => {
+      iconPicker.hidden = false;
+    });
+    icon.input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        iconPicker.hidden = true;
+      }, 160);
+    });
+    icon.wrapper.append(iconPicker);
     const title = labeledInput(t("Notebook name"), "title", notebook.title);
     title.input.value = notebook.title;
     title.input.required = true;
@@ -843,6 +849,25 @@ export function setupNotesApp({
     input.input.required = true;
     const icon = labeledInput(t("Icon"), "icon", DEFAULT_NOTEBOOK_ICON);
     icon.input.maxLength = 8;
+    icon.input.title = t("Choose an icon");
+    const iconPicker = buildEmojiPicker({
+      onPick: (emoji) => {
+        icon.input.value = emoji;
+        icon.input.focus();
+      },
+    });
+    icon.input.addEventListener("click", () => {
+      iconPicker.hidden = false;
+    });
+    icon.input.addEventListener("focus", () => {
+      iconPicker.hidden = false;
+    });
+    icon.input.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        iconPicker.hidden = true;
+      }, 160);
+    });
+    icon.wrapper.append(iconPicker);
     const actions = formActions(t("Create notebook"), () => {
       mode = "library";
       drawContent();
@@ -1002,22 +1027,21 @@ export function setupNotesApp({
     icon.placeholder = DEFAULT_NOTE_ICON;
     icon.maxLength = 8;
     icon.setAttribute("aria-label", t("Icon"));
+    icon.title = t("Choose an icon");
     icon.dataset.notesIcon = "";
     const iconPicker = buildEmojiPicker({
       onPick: (emoji) => {
         icon.value = emoji;
+        selectedNote.icon = emoji;
         markDirty();
       },
     });
     const iconBox = element("div", "notes-icon-box");
-    iconBox.append(
-      icon,
-      iconPickerButton(() => {
-        iconPicker.hidden = !iconPicker.hidden;
-      }),
-      iconPicker,
-    );
+    iconBox.append(icon, iconPicker);
     icon.addEventListener("focus", () => {
+      iconPicker.hidden = false;
+    });
+    icon.addEventListener("click", () => {
       iconPicker.hidden = false;
     });
     icon.addEventListener("blur", () => {
@@ -1115,22 +1139,19 @@ export function setupNotesApp({
     const hidden = document.createElement("input");
     hidden.type = "hidden";
     hidden.dataset.notesTags = "";
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "notes-tag-toggle";
     const chips = element("div", "notes-tag-chips");
-    const inputRow = element("div", "notes-tag-input-row");
-    inputRow.append(element("span", "notes-tag-input-icon", TAG_ICON_FALLBACK));
+    container.append(element("span", "notes-tag-input-icon", TAG_ICON_FALLBACK), chips);
     const input = document.createElement("input");
     input.className = "notes-tag-input";
     input.placeholder = "";
     input.setAttribute("aria-label", t("Add tag"));
     input.setAttribute("autocomplete", "off");
-    inputRow.append(input);
+    container.append(input);
     const suggestions = element("div", "notes-tag-suggestions");
     suggestions.hidden = true;
     suggestions.setAttribute("role", "listbox");
     suggestions.setAttribute("aria-label", t("Add tag"));
+    container.append(suggestions, hidden);
 
     function sync() {
       hidden.value = tags.join(", ");
@@ -1138,12 +1159,6 @@ export function setupNotesApp({
     }
 
     function renderChips() {
-      const toggleLabel = toggle.querySelector(".notes-tag-toggle-label");
-      const chevron = toggle.querySelector(".notes-tag-toggle-chevron");
-      if (toggleLabel) toggleLabel.textContent = `${t("Tags")}${tags.length ? ` · ${tags.length}` : ""}`;
-      if (chevron) chevron.textContent = tagEditorCollapsed ? "▸" : "▾";
-      toggle.setAttribute("aria-expanded", String(!tagEditorCollapsed));
-      chips.hidden = tagEditorCollapsed;
       chips.replaceChildren();
       for (const tag of tags) {
         const chip = element("span", "notes-tag-chip");
@@ -1162,7 +1177,6 @@ export function setupNotesApp({
           if (index >= 0) tags.splice(index, 1);
           sync();
           renderChips();
-          renderSuggestions(input.value);
         });
         chip.append(remove);
         chips.append(chip);
@@ -1204,7 +1218,7 @@ export function setupNotesApp({
       input.value = "";
       sync();
       renderChips();
-      renderSuggestions("");
+      suggestions.hidden = true;
       input.focus();
     }
 
@@ -1218,7 +1232,7 @@ export function setupNotesApp({
         tags.pop();
         sync();
         renderChips();
-        renderSuggestions("");
+        suggestions.hidden = true;
       } else if (event.key === "Escape") {
         suggestions.hidden = true;
         input.blur();
@@ -1230,16 +1244,6 @@ export function setupNotesApp({
       }, 120);
     });
 
-    toggle.append(
-      element("span", "notes-tag-toggle-icon", TAG_ICON_FALLBACK),
-      element("span", "notes-tag-toggle-label"),
-      element("span", "notes-tag-toggle-chevron", "▾"),
-    );
-    toggle.addEventListener("click", () => {
-      tagEditorCollapsed = !tagEditorCollapsed;
-      renderChips();
-    });
-    container.append(toggle, chips, inputRow, suggestions, hidden);
     renderChips();
     return container;
   }
@@ -1436,20 +1440,6 @@ function buildEmojiPicker({ onPick = () => {}, label = t("Choose an icon") } = {
   render(activeGroup);
   popover.append(tabs, grid);
   return popover;
-}
-
-function iconPickerButton(onClick) {
-  const control = document.createElement("button");
-  control.type = "button";
-  control.className = "notes-icon-picker-btn";
-  control.title = t("Choose an icon");
-  control.setAttribute("aria-label", t("Choose an icon"));
-  control.textContent = "▦";
-  control.addEventListener("click", (event) => {
-    event.preventDefault();
-    onClick();
-  });
-  return control;
 }
 
 function panel(title, description) {

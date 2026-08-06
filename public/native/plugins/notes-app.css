@@ -388,16 +388,23 @@
 }
 
 .notes-icon-input {
-  width: 56px;
+  width: auto;
+  min-width: var(--space-8);
+  max-width: 72px;
   flex: 0 0 auto;
-  min-height: var(--control-height-md);
-  padding: 0 var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-glass);
+  min-height: var(--space-8);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-primary);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-2xl);
   text-align: center;
+  cursor: pointer;
+}
+
+.notes-icon-input:hover {
+  background: var(--accent-subtle);
 }
 
 .notes-icon-box {
@@ -406,24 +413,6 @@
   flex: 0 0 auto;
   align-items: center;
   gap: var(--space-1);
-}
-
-.notes-icon-picker-btn {
-  width: var(--control-height-md);
-  height: var(--control-height-md);
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-glass);
-  color: var(--text-dim);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.notes-icon-picker-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
 }
 
 .notes-emoji-picker {
@@ -441,10 +430,9 @@
 
 .notes-emoji-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
   margin-bottom: var(--space-2);
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 .notes-emoji-tab {
@@ -498,34 +486,22 @@
 
 .notes-tag-editor {
   position: relative;
-  margin: var(--space-1) 0 var(--space-3);
-}
-
-.notes-tag-toggle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.notes-tag-toggle:hover {
-  color: var(--text-primary);
-}
-
-.notes-tag-toggle-chevron {
-  font-size: var(--font-size-xs);
+  flex-wrap: nowrap;
+  gap: var(--space-1-5);
+  min-height: var(--control-height-md);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  margin: var(--space-1) 0 var(--space-3);
 }
 
 .notes-tag-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--space-1);
-  margin-bottom: var(--space-1);
+  flex: 0 0 auto;
 }
 
 .notes-tag-chip {
@@ -568,20 +544,16 @@
   height: 10px;
 }
 
-.notes-tag-input-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
-}
-
 .notes-tag-input-icon {
   color: var(--text-dim);
   font-size: var(--font-size-sm);
+  flex: 0 0 auto;
 }
 
 .notes-tag-input {
-  width: 100%;
+  width: 96px;
+  min-width: 96px;
+  flex: 0 0 auto;
   min-height: var(--control-height-sm);
   padding: 0 var(--space-2);
   border: 1px dashed var(--border);
@@ -925,10 +897,6 @@
     gap: var(--space-1);
   }
 
-  .notes-icon-input {
-    width: 48px;
-  }
-
   .notes-emoji-picker {
     width: min(320px, calc(100vw - var(--space-4)));
   }
@@ -936,10 +904,6 @@
   .notes-emoji-grid {
     grid-template-columns: repeat(6, 1fr);
     max-height: 40dvh;
-  }
-
-  .notes-tag-toggle {
-    min-height: var(--space-10);
   }
 
   .notes-title-input {
