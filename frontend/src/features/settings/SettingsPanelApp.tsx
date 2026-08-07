@@ -9,6 +9,8 @@ import type { ConfigStore } from "./configStore";
 import { CostDashboardTab } from "./CostDashboardTab";
 import type { CostDashboardStore } from "./costDashboardStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
+import { PackageBrowseTab } from "./PackageBrowseTab";
+import type { PackageBrowseStore } from "./packageBrowseStore";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
 import type { SettingsStore } from "./store";
@@ -17,6 +19,7 @@ export interface SettingsController {
   configStore: ConfigStore;
   remoteAccessStore: RemoteAccessStore;
   costDashboardStore: CostDashboardStore;
+  packageBrowseStore: PackageBrowseStore;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -129,7 +132,7 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "extensions" ? " active" : ""}`}
         data-settings-panel="extensions"
       >
-        <ExtensionsTab />
+        <PackageBrowseTab store={controller.packageBrowseStore} />
       </div>
       <div
         className={`settings-tab${activeTab === "usage" ? " active" : ""}`}
@@ -458,66 +461,6 @@ function GeneralTab({ store }: { store: SettingsStore }) {
             aria-checked="false"
           ></button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ExtensionsTab() {
-  return (
-    <div className="settings-body">
-      <div className="settings-section">
-        <div className="settings-section-title">Browse Community Packages</div>
-        <p className="settings-help">
-          Discover extensions, skills, themes, and prompts from the Pi ecosystem. Install with
-          one click.
-        </p>
-        <div className="pkg-browse-filters">
-          <input
-            type="text"
-            id="pkg-browse-search"
-            className="pkg-browse-search"
-            placeholder="Search packages..."
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <div className="pkg-browse-pills" id="pkg-browse-pills">
-            <button type="button" className="pkg-browse-pill active" data-pkg-type="all">
-              All
-            </button>
-            <button type="button" className="pkg-browse-pill" data-pkg-type="extension">
-              Extensions
-            </button>
-            <button type="button" className="pkg-browse-pill" data-pkg-type="skill">
-              Skills
-            </button>
-            <button type="button" className="pkg-browse-pill" data-pkg-type="theme">
-              Themes
-            </button>
-            <button type="button" className="pkg-browse-pill" data-pkg-type="prompt">
-              Prompts
-            </button>
-          </div>
-          <label className="pkg-browse-installed-toggle">
-            <input type="checkbox" id="pkg-browse-installed-only" />
-            <span>Installed only</span>
-          </label>
-          <select
-            id="pkg-browse-sort"
-            className="pkg-browse-sort"
-            aria-label="Sort packages"
-          >
-            <option value="downloads">Most downloads</option>
-            <option value="name">Name (A–Z)</option>
-            <option value="updated">Recently updated</option>
-          </select>
-          <span className="pkg-browse-count" id="pkg-browse-count"></span>
-        </div>
-        <div
-          className="settings-extension-list pkg-browse-list"
-          id="pkg-browse-list"
-        ></div>
-        <div className="pkg-browse-pagination" id="pkg-browse-pagination" hidden></div>
       </div>
     </div>
   );

@@ -6,6 +6,10 @@ import { createCostDashboardStore, type CostDashboardData } from "./costDashboar
 import type { SettingsTabKey } from "./logic";
 import { createRemoteAccessStore, type RemoteAccessGateway } from "./remoteAccessStore";
 import {
+  createPackageBrowseStore,
+  type HostControlGatewayLike,
+} from "./packageBrowseStore";
+import {
   SettingsApp,
   SettingsContent,
   SettingsNav,
@@ -14,10 +18,6 @@ import {
 import { createSettingsStore, type SettingsStore } from "./store";
 
 export interface SettingsSubModules {
-  setupPackageBrowse?: (
-    control: unknown,
-    options: { notify: (message: unknown) => void },
-  ) => { load: () => Promise<void> } | null;
   setupSettingsToggles?: () => void;
   setupThinkingEffortControl?: (options: {
     runtime: unknown;
@@ -77,13 +77,18 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     (options.remoteAccessGateway as RemoteAccessGateway | null | undefined) ?? null,
   );
   const costDashboardStore = createCostDashboardStore();
+  const packageBrowseStore = createPackageBrowseStore({
+    control: (options.control as HostControlGatewayLike | null | undefined) ?? null,
+    notify: options.notify as
+      | ((message: { type: string; title: string; message: string; detail?: string }) => void)
+      | undefined,
+  });
 
   const rootElement = document.getElementById("settings-root");
   let panelRoot: Root | null = null;
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
   let embeddedActive = false;
-  let packageBrowse: { load: () => Promise<void> } | null = null;
   let sceneProfiles: { load: () => Promise<void>; setTarget: (target: unknown) => void } | null =
     null;
   let thinkingEffort: { updateUI: (level: string) => void } | null = null;
@@ -92,11 +97,9 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     configStore,
     remoteAccessStore,
     costDashboardStore,
+    packageBrowseStore,
     wireVanilla() {
       sceneProfiles = modules.setupSceneProfiles?.({ getTarget }) ?? null;
-      packageBrowse =
-        modules.setupPackageBrowse?.(options.control, { notify: options.notify ?? (() => {}) }) ??
-        null;
       modules.setupSettingsToggles?.();
       thinkingEffort =
         options.runtime && modules.setupThinkingEffortControl
@@ -117,7 +120,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
             .load(options.data as CostDashboardData, options.getWorkspaceId);
         }
       } else if (tab === "extensions") {
-        if (packageBrowse?.load) void packageBrowse.load();
+        void packageBrowseStore.getState().load();
       } else if (tab === "configuration") {
         void configStore.getState().loadAll();
       } else if (tab === "remote-access") {

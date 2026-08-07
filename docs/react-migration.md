@@ -88,6 +88,9 @@ bun run test          # vitest（public/** + frontend/src/**）
   965 行整体 React 化：统计卡、365 日活动热力图、Chart.js 模型/项目/
   工具图、会话表、范围切换；删除 vanilla cost-dashboard.js 与
   cost-dashboard-render.js）
-- [ ] 后续按依赖度迁移：设置剩余子面板（扩展/package-browse）
-  → 笔记（最大，建议最后）→ 聊天主界面
+- [x] 设置 → 扩展 tab（第 188 轮：package-browse 394 行整体 React 化：
+  目录分页抓取、类型/搜索/已安装过滤、排序、安装/卸载、外链；
+  删除 vanilla package-browse.js）
+- [x] **设置模块全部 React 化完成**（第 184-188 轮）
+- [ ] 后续按依赖度迁移：笔记（最大，建议最后）→ 聊天主界面
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

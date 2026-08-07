@@ -8,6 +8,7 @@ import {
 } from "./logic";
 import { createConfigStore } from "./configStore";
 import { createCostDashboardStore } from "./costDashboardStore";
+import { createPackageBrowseStore } from "./packageBrowseStore";
 import { createRemoteAccessStore } from "./remoteAccessStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
@@ -20,6 +21,7 @@ function controllerStub(): SettingsController {
     }),
     remoteAccessStore: createRemoteAccessStore(null),
     costDashboardStore: createCostDashboardStore(),
+    packageBrowseStore: createPackageBrowseStore({ control: null }),
     loadForTab: vi.fn(),
     wireVanilla: vi.fn(),
     reloadVisibleConfiguration: vi.fn(),
