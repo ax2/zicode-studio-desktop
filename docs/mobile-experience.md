@@ -3028,6 +3028,32 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 真机复验移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞
 真机验证（TURN 路径已通）。
 
+第一百八十五轮：设置 → 配置 tab 迁移为 React（2026-08-07）。设置面板
+中最大的剩余 vanilla 子模块（settings-config.js，986 行 + 上下文约
+1070 行）整体 React 化：
+
+1. `frontend/src/features/settings/configStore.ts`（Zustand）：API keys
+   面板（list_model_catalog、搜索/显示全部、折叠状态记忆、健康检查、
+   模型可见性、行内密钥编辑器）、provider 通道（list/save/remove +
+   系统凭据存取 + 重命名凭据迁移 + QVeris 自动同步）、内联 agent-config
+   与 models.json 编辑器（读写、JSON 校验、示例插入、文档外链）；
+   `ConfigTab.tsx` 提供全部 React 组件（类名沿用 settings-config.css）；
+2. **架构**：configStore 由设置工厂创建一次、浮层与嵌入式内容共享；
+   控制器 `loadForTab("configuration")` 改为调用 store 的 `loadAll()`，
+   `setTarget` 同步场景上下文；`settings-config.js` 删除、桥接不再注入；
+   settings-config.css 保留供 React 复用类名；
+3. **实测**：桌面真实 WebView2（CDP）——配置 tab 以 React 渲染：38 个
+   provider 行（真实网关数据）、25 个模型行、QVeris 通道行、agent-config
+   与 models.json 内容及路径正确显示、API key 行内编辑器/通道编辑器可
+   开可取消、六 tab 往返后状态保持、资源清单已不含 settings-config.js、
+   **全程零异常**；
+4. **回归**：696 个测试全过（684 + 12 个新配置 store/组件测试）、
+   typecheck、Biome 零警告、`build:react` 产物 116.5kb。
+
+遗留：继续迁移设置剩余子面板（远程访问 → 用量/扩展）→ 笔记 → 聊天；
+真机复验移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞
+真机验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

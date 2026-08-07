@@ -1,6 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
+import { createConfigStore, type ConfigGatewayLike } from "./configStore";
 import type { SettingsTabKey } from "./logic";
 import {
   SettingsApp,
@@ -11,17 +12,6 @@ import {
 import { createSettingsStore, type SettingsStore } from "./store";
 
 export interface SettingsSubModules {
-  setupSettingsConfig?: (options: {
-    configGateway: unknown;
-    onModelConfigurationChanged?: unknown;
-    getTarget: () => unknown;
-  }) => {
-    loadApiKeysPanel: (options?: { preserveUi?: boolean }) => Promise<void>;
-    loadProviderChannels: () => Promise<void>;
-    loadInlineConfigEditor: () => Promise<void>;
-    loadInlineModelsEditor: () => Promise<void>;
-    setTarget: (target: unknown) => void;
-  } | null;
   setupRemoteAccessSettings?: (options: { gateway?: unknown }) => { load: () => Promise<void> } | null;
   setupPackageBrowse?: (
     control: unknown,
@@ -68,18 +58,24 @@ export interface SettingsPanelHandle {
   setTarget(target: unknown): void;
 }
 
-interface ConfigHandle {
-  loadApiKeysPanel: (options?: { preserveUi?: boolean }) => Promise<void>;
-  loadProviderChannels: () => Promise<void>;
-  loadInlineConfigEditor: () => Promise<void>;
-  loadInlineModelsEditor: () => Promise<void>;
-  setTarget: (target: unknown) => void;
-}
-
 export function setupSettingsPanel(options: SettingsPanelOptions = {}): SettingsPanelHandle {
   const modules = options.modules ?? {};
   const getTarget = options.getTarget ?? (() => null);
   const store: SettingsStore = createSettingsStore();
+  const configStore = createConfigStore({
+    configGateway:
+      (options.configGateway as ConfigGatewayLike | undefined) ??
+      ({
+        call: async () => ({ ok: false, error: "Configuration gateway unavailable." }),
+      } as ConfigGatewayLike),
+    getTarget: getTarget as () => { sceneId?: string } | null,
+    onModelConfigurationChanged: options.onModelConfigurationChanged as
+      | (() => void | Promise<void>)
+      | undefined,
+    invoke: (globalThis as {
+      __TAURI__?: { core?: { invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown> } };
+    }).__TAURI__?.core?.invoke,
+  });
 
   const rootElement = document.getElementById("settings-root");
   let panelRoot: Root | null = null;
@@ -88,7 +84,6 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   let embeddedActive = false;
   let usageLoaded = false;
 
-  let config: ConfigHandle | null = null;
   let remoteAccess: { load: () => Promise<void> } | null = null;
   let packageBrowse: { load: () => Promise<void> } | null = null;
   let sceneProfiles: { load: () => Promise<void>; setTarget: (target: unknown) => void } | null =
@@ -96,16 +91,9 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   let thinkingEffort: { updateUI: (level: string) => void } | null = null;
 
   const controller: SettingsController = {
+    configStore,
     wireVanilla() {
       sceneProfiles = modules.setupSceneProfiles?.({ getTarget }) ?? null;
-      config =
-        options.configGateway && modules.setupSettingsConfig
-          ? modules.setupSettingsConfig({
-              configGateway: options.configGateway,
-              onModelConfigurationChanged: options.onModelConfigurationChanged,
-              getTarget,
-            })
-          : null;
       remoteAccess =
         modules.setupRemoteAccessSettings?.({ gateway: options.remoteAccessGateway }) ?? null;
       packageBrowse =
@@ -135,12 +123,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       } else if (tab === "extensions") {
         if (packageBrowse?.load) void packageBrowse.load();
       } else if (tab === "configuration") {
-        if (config) {
-          void config.loadApiKeysPanel();
-          void config.loadProviderChannels();
-          void config.loadInlineConfigEditor();
-          void config.loadInlineModelsEditor();
-        }
+        void configStore.getState().loadAll();
       } else if (tab === "remote-access") {
         if (remoteAccess?.load) void remoteAccess.load();
       }
@@ -153,7 +136,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     },
     setTarget(target) {
       sceneProfiles?.setTarget?.(target);
-      config?.setTarget?.(target);
+      configStore.getState().setTarget(target as { sceneId?: string } | null);
       controller.reloadVisibleConfiguration();
     },
   };

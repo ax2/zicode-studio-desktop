@@ -4,10 +4,13 @@ import { getLocale, setLocale, supportedLocales } from "../../../../public/i18n.
 // @ts-expect-error plain JS module without type declarations (public/themes.js)
 import { applyTheme, getCurrentTheme, themes } from "../../../../public/themes.js";
 import { t } from "../../shared/i18n";
+import { ConfigTab } from "./ConfigTab";
+import type { ConfigStore } from "./configStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
 import type { SettingsStore } from "./store";
 
 export interface SettingsController {
+  configStore: ConfigStore;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -132,7 +135,7 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "configuration" ? " active" : ""}`}
         data-settings-panel="configuration"
       >
-        <ConfigurationTab />
+        <ConfigTab store={controller.configStore} />
       </div>
       <div
         className={`settings-tab${activeTab === "remote-access" ? " active" : ""}`}
@@ -516,200 +519,6 @@ function UsageTab() {
   return (
     <div className="settings-usage-embed">
       <cost-dashboard id="settings-cost-dashboard" defer-load embedded />
-    </div>
-  );
-}
-
-function ConfigurationTab() {
-  return (
-    <div className="settings-body">
-      <div className="settings-scene-context configuration-scene-context">
-        <span className="settings-scene-context-label">Editing current scene</span>
-        <strong id="configuration-scene-name">Programming</strong>
-        <code id="configuration-scene-id">programming</code>
-        <span className="settings-scene-context-note">
-          Credentials and model channels below belong only to this session scene.
-        </span>
-      </div>
-      <div className="settings-section">
-        <div className="settings-section-title">{t("Authentication")}</div>
-        <p className="settings-help">
-          Keys are stored in the operating system credential vault. Scene configuration contains
-          only non-sensitive references; secrets are never written to models.json or
-          documentation.
-        </p>
-        <div className="settings-api-keys" id="settings-api-keys"></div>
-      </div>
-      <div className="settings-section" id="settings-auth-section" style={{ display: "none" }}>
-        <div className="settings-section-title">Protection</div>
-        <div className="settings-row">
-          <span className="settings-label">Require login</span>
-          <button type="button" className="settings-toggle" id="toggle-auth"></button>
-        </div>
-      </div>
-      <div className="settings-section">
-        <div className="settings-section-title settings-section-title-row">
-          <span>Custom model channels</span>
-          <button type="button" className="ui-button ui-button--secondary" id="provider-channel-add">
-            {t("Add channel")}
-          </button>
-        </div>
-        <p className="settings-help">
-          Configure an OpenAI-, Anthropic-, or Google-compatible endpoint for this scene.
-          Credentials are stored separately from <code>models.json</code>.
-        </p>
-        <div className="provider-channel-list" id="provider-channel-list"></div>
-        <form className="provider-channel-editor hidden" id="provider-channel-editor">
-          <input id="provider-channel-original-id" type="hidden" />
-          <label>
-            <span>{t("Channel ID")}</span>
-            <input
-              className="ui-input"
-              id="provider-channel-id"
-              required
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
-              placeholder="team-proxy"
-            />
-          </label>
-          <label className="provider-channel-wide">
-            <span>Base URL</span>
-            <input
-              className="ui-input"
-              id="provider-channel-base-url"
-              required
-              type="url"
-              placeholder="https://models.example.com/v1"
-            />
-          </label>
-          <label>
-            <span>API protocol</span>
-            <select className="ui-input" id="provider-channel-api">
-              <option value="openai-completions">OpenAI Chat Completions</option>
-              <option value="openai-responses">OpenAI Responses</option>
-              <option value="anthropic-messages">Anthropic Messages</option>
-              <option value="google-generative-ai">Google Generative AI</option>
-            </select>
-          </label>
-          <label>
-            <span>API key</span>
-            <input
-              className="ui-input"
-              id="provider-channel-api-key"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Leave blank to keep current key"
-            />
-          </label>
-          <label className="provider-channel-wide">
-            <span>Models (one ID per line)</span>
-            <textarea
-              className="ui-textarea"
-              id="provider-channel-models"
-              required
-              rows={4}
-              placeholder={"gpt-5.2\ngpt-5.2-codex"}
-            ></textarea>
-          </label>
-          <div
-            className="settings-save-status hidden provider-channel-wide"
-            id="provider-channel-status"
-            aria-live="polite"
-            role="status"
-          ></div>
-          <div className="settings-config-actions provider-channel-wide">
-            <button
-              type="button"
-              className="ui-button ui-button--secondary"
-              id="provider-channel-cancel"
-            >
-              {t("Cancel")}
-            </button>
-            <button
-              type="submit"
-              className="ui-button ui-button--primary"
-              id="provider-channel-save"
-            >
-              {t("Save channel")}
-            </button>
-          </div>
-        </form>
-      </div>
-      <div className="settings-section">
-        <div className="settings-section-title">{t("Agent")}</div>
-        <div className="settings-config-meta">
-          <span className="settings-label">Agent config file</span>
-          <span className="settings-static-value" id="inline-config-path"></span>
-        </div>
-        <textarea
-          className="ui-textarea config-editor-textarea settings-config-textarea"
-          id="inline-config-textarea"
-          spellCheck={false}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-        ></textarea>
-        <div className="settings-config-actions">
-          <div
-            className="config-editor-error settings-save-status hidden"
-            id="inline-config-error"
-            aria-live="polite"
-            role="status"
-          ></div>
-          <div className="settings-config-button-group">
-            <button type="button" className="ui-button ui-button--primary" id="inline-config-save">
-              {t("Save")}
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="settings-section">
-        <div className="settings-section-title">Advanced provider JSON</div>
-        <p className="settings-help">
-          Edit <code>zicode/agent/models.json</code> to add custom providers (Ollama, vLLM, LM
-          Studio, OpenAI-compatible proxies, OpenRouter routing overrides, etc). See the{" "}
-          <a href="#models-docs" id="models-config-docs-link">
-            models.json docs
-          </a>{" "}
-          for the full schema. Changes are picked up immediately — no restart needed.
-        </p>
-        <div className="settings-config-meta">
-          <span className="settings-label">Providers file</span>
-          <span className="settings-static-value" id="inline-models-path"></span>
-        </div>
-        <textarea
-          className="ui-textarea config-editor-textarea settings-config-textarea"
-          id="inline-models-textarea"
-          spellCheck={false}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          placeholder='{ "providers": { ... } }'
-        ></textarea>
-        <div className="settings-config-actions">
-          <div
-            className="config-editor-error settings-save-status hidden"
-            id="inline-models-error"
-            aria-live="polite"
-            role="status"
-          ></div>
-          <div className="settings-config-button-group">
-            <button
-              type="button"
-              className="ui-button ui-button--secondary"
-              id="inline-models-insert-example"
-            >
-              Insert example
-            </button>
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              id="inline-models-save"
-            >
-              {t("Save")}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

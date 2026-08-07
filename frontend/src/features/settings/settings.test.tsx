@@ -6,11 +6,16 @@ import {
   settingsHashForTab,
   tabFromSettingsHash,
 } from "./logic";
+import { createConfigStore } from "./configStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
 
 function controllerStub(): SettingsController {
   return {
+    configStore: createConfigStore({
+      configGateway: { call: async () => ({ ok: false, error: "unavailable" }) },
+      confirmImpl: () => false,
+    }),
     loadForTab: vi.fn(),
     wireVanilla: vi.fn(),
     reloadVisibleConfiguration: vi.fn(),
@@ -142,7 +147,6 @@ describe("settings React panel", () => {
       "settings-cost-dashboard",
       "settings-api-keys",
       "provider-channel-list",
-      "provider-channel-editor",
       "inline-config-textarea",
       "inline-models-textarea",
       "settings-remote-access",

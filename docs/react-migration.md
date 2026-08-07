@@ -78,6 +78,9 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 设置（第 184 轮：面板外壳、导航、通用 tab、外观/版本、hash 路由、
   嵌入式渲染；配置/远程访问/用量/扩展子面板保持 vanilla，由 React 外壳
   在每次挂载时重新接线，后续逐个迁移为纯 React）
-- [ ] 后续按依赖度迁移：设置剩余子面板（配置 → 远程访问 → 用量/扩展）
+- [x] 设置 → 配置 tab（第 185 轮：API keys 面板、provider 通道 CRUD、
+  内联 agent-config/models 编辑器全部 React 化，删除 vanilla
+  settings-config.js）
+- [ ] 后续按依赖度迁移：设置剩余子面板（远程访问 → 用量/扩展）
   → 笔记（最大，建议最后）→ 聊天主界面
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
