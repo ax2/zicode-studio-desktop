@@ -3,7 +3,8 @@ export type { ModelDropdownFeed, ModelDropdownSnapshot, ModelLike } from "./mode
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createElement } from "react";
-import { ComposerApp } from "./ComposerApp";
+import { create } from "zustand";
+import { ComposerApp, type ComposerStore } from "./ComposerApp";
 
 export interface ComposerElements {
   input: HTMLTextAreaElement;
@@ -24,19 +25,36 @@ export interface ComposerElements {
   thinkingBtn: HTMLButtonElement;
 }
 
-export function setupComposer(): ComposerElements | null {
+export interface ComposerSubmitOptions {
+  altKey: boolean;
+}
+
+export interface ComposerHandle extends ComposerElements {
+  setQueue(queue: { steering?: string[]; followUp?: string[] }): void;
+  dispose(): void;
+}
+
+export function setupComposer(
+  options: { onSubmit?: (submit: ComposerSubmitOptions) => void } = {},
+): ComposerHandle | null {
   const rootElement = document.getElementById("composer-root");
   if (!rootElement) return null;
+  const store = create<ComposerStore>()((set) => ({
+    queue: {},
+    setQueue: (queue) => set({ queue }),
+  }));
   let root: Root | null = null;
   flushSync(() => {
     root = createRoot(rootElement);
-    root.render(createElement(ComposerApp));
+    root.render(
+      createElement(ComposerApp, { store, onSubmit: options.onSubmit }),
+    );
   });
   const required = <T,>(element: T | null): T => {
     if (!element) throw new Error("composer element missing");
     return element;
   };
-  return {
+  const elements: ComposerElements = {
     input: required(document.getElementById("message-input") as HTMLTextAreaElement | null),
     form: required(document.getElementById("chat-form") as HTMLFormElement | null),
     abortButton: required(document.getElementById("abort-btn") as HTMLButtonElement | null),
@@ -57,5 +75,12 @@ export function setupComposer(): ComposerElements | null {
     ),
     modelDropdownMenu: required(document.getElementById("model-dropdown-menu") as HTMLElement | null),
     thinkingBtn: required(document.getElementById("thinking-btn") as HTMLButtonElement | null),
+  };
+  return {
+    ...elements,
+    setQueue: (queue) => store.getState().setQueue(queue),
+    dispose: () => {
+      root?.unmount();
+    },
   };
 }

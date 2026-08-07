@@ -117,6 +117,15 @@ bun run test          # vitest（public/** + frontend/src/**）
   保留）并返回元素引用；app.js 元素引用改为从 setupComposer 获取，
   斜杠/提交/图片/排队等 vanilla 子模块按 ID 挂进 React 容器继续工作；
   顺带修复 RpivTodoMirrorPanel 对 input-area 直接子节点的依赖）
-- [ ] 后续按依赖度迁移：聊天 Composer 子模块逐个 React 化 →
+- [x] 聊天 Composer 提交处理与排队消息（第 194 轮：`ComposerApp.tsx`
+  改为有状态组件，Zustand ComposerStore（queue + setQueue），提交处理
+  内嵌（Enter/Shift+Enter/IME 守卫/altKey 透传），排队消息列表由 React
+  渲染；`setupComposer({ onSubmit })` 返回 ComposerHandle（setQueue/
+  dispose）；app.js 删除 composer-submit/queued-messages 导入与渲染
+  调用；删除 vanilla composer-submit.js / queued-messages.js 及旧测试；
+  原 slash-menu 与提交处理的交互测试改写为 React 集成测试）
+- [ ] 后续按依赖度迁移：聊天 Composer 剩余子模块（斜杠菜单
+  composer-slash-menu.js、图片附件 composer-images.js / composer-image-picker.js）
+  React 化 →
   会话侧栏，随后移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

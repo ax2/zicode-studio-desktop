@@ -3249,6 +3249,34 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 移除手写 DOM 桥接；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第一百九十四轮：聊天 Composer 提交处理与排队消息迁移为 React（2026-08-07）。
+
+1. `ComposerApp.tsx` 改为有状态组件：新增 Zustand `ComposerStore`
+   （queue + setQueue），提交处理整体内嵌（Enter 提交、Shift+Enter 换行、
+   IME composition 守卫与复位定时器、altKey 透传），排队消息列表直接由
+   React 渲染（`queued-msg` 行，Steering/Follow-up 标签，空队列自动
+   hidden）；`setupComposer(options)` 接受 `{ onSubmit }`，返回
+   `ComposerHandle`（setQueue/dispose）；
+2. app.js 删除 `setupComposerSubmitHandling`/`renderQueuedMessages` 导入，
+   `setupComposer({ onSubmit })` 传回调，三处排队渲染调用改为
+   `composer?.setQueue(store.queue)`；删除 vanilla
+   composer-submit.js / queued-messages.js 及其测试；
+3. 测试：composer.test.tsx 新增 Enter 提交与 IME 守卫、排队消息渲染/隐藏、
+   斜杠菜单拦截 Enter（提交处理迁入 React 后，把原 slash-menu 与
+   composer-submit 的交互测试改写为 React 集成测试，jsdom 无
+   scrollIntoView 需 stub）；
+4. **实测**：桌面真实 WebView2（CDP）——应用正常启动、composer 以
+   React 渲染（根下 queued-messages + chat-form 两节点、全部元素 ID
+   在位、排队容器默认 hidden）、斜杠菜单输入 "/" 后打开并列出 20 个
+   技能项、空输入 Enter 不发消息不抛异常、**全程零异常**；未触发真实
+   消息发送；
+5. **回归**：668 个测试全过（673 − 8 旧 + 3 新）、typecheck、Biome
+   零警告、`build:react` 产物 composer.js 已重建并同步安装目录。
+
+遗留：Composer 剩余子模块（斜杠菜单/图片附件）React 化 → 会话侧栏 →
+移除手写 DOM 桥接；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

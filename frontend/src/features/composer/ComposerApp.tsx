@@ -1,8 +1,73 @@
-export function ComposerApp() {
+import { useRef } from "react";
+import type { StoreApi, UseBoundStore } from "zustand";
+
+export interface QueuedMessages {
+  steering?: string[];
+  followUp?: string[];
+}
+
+export interface ComposerStore {
+  queue: QueuedMessages;
+  setQueue(queue: QueuedMessages): void;
+}
+
+export type ComposerStoreHook = UseBoundStore<StoreApi<ComposerStore>>;
+
+export function ComposerApp({
+  store,
+  onSubmit,
+}: {
+  store: ComposerStoreHook;
+  onSubmit?: (options: { altKey: boolean }) => void;
+}) {
+  const queue = store((state) => state.queue);
+  const composingRef = useRef(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCompositionReset = () => {
+    if (resetTimer.current !== null) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
+  };
+
+  const isImeComposing = (event?: React.KeyboardEvent) =>
+    Boolean(
+      (event as React.KeyboardEvent & { isComposing?: boolean; keyCode?: number })
+        ?.isComposing ||
+        (event as React.KeyboardEvent & { keyCode?: number })?.keyCode === 229 ||
+        composingRef.current,
+    );
+
+  const queueItems = [
+    ...(queue.steering ?? [])
+      .map((message) => String(message ?? "").trim())
+      .filter(Boolean)
+      .map((message) => ({ label: "Steering", message })),
+    ...(queue.followUp ?? [])
+      .map((message) => String(message ?? "").trim())
+      .filter(Boolean)
+      .map((message) => ({ label: "Follow-up", message })),
+  ];
+
   return (
     <>
-      <div className="queued-messages hidden" id="queued-messages"></div>
-      <form id="chat-form">
+      <div className={`queued-messages${queueItems.length ? "" : " hidden"}`} id="queued-messages">
+        {queueItems.map((item) => (
+          <div key={`${item.label}-${item.message}`} className="queued-msg">
+            <span className="queued-msg-label">{item.label}</span>
+            <span className="queued-msg-text">{item.message}</span>
+          </div>
+        ))}
+      </div>
+      <form
+        id="chat-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (isImeComposing()) return;
+          onSubmit?.({ altKey: false });
+        }}
+      >
         <div className="composer-card" id="composer-card">
           <div className="skill-slash-menu hidden" id="skill-slash-menu"></div>
           <div className="image-previews hidden" id="image-previews"></div>
@@ -11,6 +76,23 @@ export function ComposerApp() {
             placeholder="Type a message, or use / to call a skill…"
             autoComplete="off"
             rows={2}
+            onCompositionStart={() => {
+              clearCompositionReset();
+              composingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              clearCompositionReset();
+              resetTimer.current = setTimeout(() => {
+                composingRef.current = false;
+                resetTimer.current = null;
+              }, 0);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey) return;
+              if (isImeComposing(event)) return;
+              event.preventDefault();
+              onSubmit?.({ altKey: event.altKey });
+            }}
           ></textarea>
           <div className="composer-toolbar">
             <div className="composer-toolbar-left">

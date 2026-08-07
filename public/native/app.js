@@ -18,8 +18,6 @@ import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js"
 import { ToolCardRenderer } from "../ui/tool-card.js";
 import { setupComposerImageAttachments } from "./composer/composer-images.js";
 import { setupComposerSlashMenu } from "./composer/composer-slash-menu.js";
-import { setupComposerSubmitHandling } from "./composer/composer-submit.js";
-import { renderQueuedMessages } from "./composer/queued-messages.js";
 import { buildCommandCatalog, resolveComposerInput } from "./composer/slash-commands.js";
 import { setupCommandPalette } from "./extensions/command-palette.js";
 import { showNativeDialog } from "./extensions/dialog.js";
@@ -133,6 +131,11 @@ setupMessagesInsets({
 });
 const messageRenderer = new MessageRenderer(messagesElement);
 const toolRenderer = new ToolCardRenderer(messagesElement);
+const composer = setupComposer({
+  onSubmit: ({ altKey }) => {
+    sendComposerInput({ altKey }).catch(showError);
+  },
+});
 const {
   input,
   form,
@@ -380,7 +383,7 @@ const hydrateFromSnapshot = async (snapshot) => {
   mobileExperience?.setTaskRunning(target, store.lifecycle === "working");
   renderHistory(snapshot.state.messages ?? []);
   todoMirrorPanel.hydrateFromMessages(snapshot.state.messages ?? []);
-  renderQueuedMessages(queuedMessages, store.queue);
+  composer?.setQueue(store.queue);
   convNav.rebuild();
   const pi = snapshot.state.pi ?? {};
   setStatus(pi.isStreaming ? "Working…" : "Connected");
@@ -412,7 +415,7 @@ runtime.subscribe((frame) => {
     hydrateSnapshot().catch(showError);
     return;
   }
-  if (previous.queue !== store.queue) renderQueuedMessages(queuedMessages, store.queue);
+  if (previous.queue !== store.queue) composer?.setQueue(store.queue);
   handleRuntimeEvent(frame.event).catch(showError);
 });
 setupConfigGatewayConnectionListener({
@@ -430,13 +433,6 @@ adapter.connect();
 setupSessionSidebar();
 sidebar?.load().catch(showError);
 setupSidebarToggle();
-setupComposerSubmitHandling({
-  input,
-  form,
-  onSubmit: ({ altKey }) => {
-    sendComposerInput({ altKey }).catch(showError);
-  },
-});
 abortButton?.addEventListener("click", abortCurrentRun);
 messagesElement.addEventListener("messagefork", async (event) => {
   const { entryId } = event.detail;
@@ -1549,7 +1545,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   financeWorkbench?.setTarget(target);
   pluginShell?.setTarget(target);
   store = createSessionStore(target);
-  renderQueuedMessages(queuedMessages, store.queue);
+  composer?.setQueue(store.queue);
   todoMirrorPanel.clear();
   streamingElement = null;
   adapter.subscribeTarget(target);
