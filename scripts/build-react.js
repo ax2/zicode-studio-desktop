@@ -55,6 +55,10 @@ async function run() {
         root,
         "frontend/src/features/rpivTodoMirror/index.ts",
       ),
+      "header-open-app": path.join(
+        root,
+        "frontend/src/features/headerOpenApp/index.ts",
+      ),
     },
     outdir,
     bundle: true,

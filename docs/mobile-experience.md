@@ -3505,6 +3505,25 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零三轮：头部"在应用中打开"控件迁移为 React（2026-08-07）。
+
+1. `headerOpenAppLogic.ts`（vscode/cursor/webstorm/zed/terminal/ghostty/
+   finder 图标与字母徽标映射）+ `HeaderOpenApp` 组件（拆分按钮、logo
+   渲染、应用菜单与选中态）+ `setupHeaderOpenApp` 保留旧契约（拉取工作
+   区信息与已装应用、选择持久化到 localStorage、openInApp 调用、
+   document 点击关闭菜单、隐藏/标题/aria 同步）；
+2. 原 2 条测试保留并经桥接全部通过（VS Code 打开工作区、菜单选择）；
+3. header-open-app.js 变 re-export 桥接，删除 126 行 vanilla 实现；
+4. **实测**：桌面真实 WebView2（CDP）——bundle 导入正常、应用启动
+   **零异常**；该控件当前未接入 app.js/index.html（独立遗留模块），
+   渲染/交互由单测覆盖；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 header-open-app.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（移动端体验/工作区 UI/扩展类等）逐个收尾后
+移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

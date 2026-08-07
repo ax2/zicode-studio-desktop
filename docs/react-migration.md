@@ -198,4 +198,11 @@ bun run test          # vitest（public/** + frontend/src/**）
   applyToolResult/setState/clear/expand/dispose）；原 6 条 DOM 测试保留
   经桥接通过（补充 dispose 测试卫生、语言变更断言改异步等待 React
   提交）；rpiv-todo-mirror.js 变 re-export 桥接）
+- [x] 头部"在应用中打开"控件（第 203 轮：header-open-app.js 126 行整体
+  React 化——`headerOpenAppLogic.ts`（应用图标/字母徽标映射）+
+  `HeaderOpenApp` 组件（拆分按钮、logo、应用菜单）+ `setupHeaderOpenApp`
+  保留旧契约（工作区信息+已装应用拉取、选择持久化、openInApp 调用、
+  document 点击关菜单）；原 2 条测试保留经桥接通过；header-open-app.js
+  变 re-export 桥接；注：该控件当前未接入 app.js/index.html，为独立
+  遗留模块）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
