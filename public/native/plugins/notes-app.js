@@ -119,6 +119,7 @@ export function setupNotesApp({
   const expandedNavSections = new Set();
   let editingNotebookId = null;
   let movePopoverCleanup = null;
+  let dragSession = null;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
 
@@ -703,31 +704,6 @@ export function setupNotesApp({
       }
       summary.classList.add("active");
     });
-    summary.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      summary.classList.add("drag-over");
-    });
-    summary.addEventListener("dragleave", () => {
-      summary.classList.remove("drag-over");
-    });
-    summary.addEventListener("drop", (event) => {
-      event.preventDefault();
-      summary.classList.remove("drag-over");
-      let payload = null;
-      try {
-        payload = JSON.parse(event.dataTransfer.getData("text/plain") || "{}");
-      } catch {
-        payload = null;
-      }
-      if (
-        payload?.noteId &&
-        payload?.notebookId &&
-        payload.notebookId !== notebook.id
-      ) {
-        void moveNoteTo(payload.notebookId, payload.noteId, notebook.id);
-      }
-    });
 
     const children = element("div", "notes-notebook-children");
     if (loading && snapshot.notes.length === 0) {
@@ -854,14 +830,8 @@ export function setupNotesApp({
     item.tabIndex = 0;
     item.className = "notes-list-item notes-tree-note";
     item.classList.toggle("active", selectedNote?.id === note.id);
-    item.draggable = true;
-    item.addEventListener("dragstart", (event) => {
-      event.dataTransfer.setData(
-        "text/plain",
-        JSON.stringify({ noteId: note.id, notebookId: note.notebookId }),
-      );
-      event.dataTransfer.effectAllowed = "move";
-    });
+    item.draggable = false;
+    item.addEventListener("dragstart", (event) => event.preventDefault());
     const title = element("strong", "", note.title);
     const metadata = element(
       "span",
@@ -887,6 +857,10 @@ export function setupNotesApp({
     });
     item.append(moveButton);
     item.addEventListener("click", () => void selectNote(note));
+    item.addEventListener("pointerdown", (event) => {
+      if (event.target.closest?.(".notes-move-btn")) return;
+      beginPointerDrag(note, event);
+    });
     item.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
@@ -939,6 +913,84 @@ export function setupNotesApp({
 
   function closeMovePopover() {
     if (movePopoverCleanup) movePopoverCleanup();
+  }
+
+  function beginPointerDrag(note, event) {
+    if (dragSession || event.button !== 0) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    dragSession = {
+      noteId: note.id,
+      notebookId: note.notebookId,
+      startX,
+      startY,
+      active: false,
+      ghost: null,
+      targetId: null,
+    };
+    const onMove = (moveEvent) => {
+      const session = dragSession;
+      if (!session) return;
+      const dx = moveEvent.clientX - session.startX;
+      const dy = moveEvent.clientY - session.startY;
+      if (!session.active) {
+        if (Math.hypot(dx, dy) < 6) return;
+        session.active = true;
+        session.ghost = buildDragGhost(note);
+        document.body.append(session.ghost);
+        document.body.classList.add("notes-dragging");
+      }
+      session.ghost.style.transform = `translate(${Math.round(moveEvent.clientX + 10)}px, ${Math.round(moveEvent.clientY + 10)}px)`;
+      const targetId = dropTargetIdAt(moveEvent.clientX, moveEvent.clientY);
+      if (targetId !== session.targetId) {
+        session.targetId = targetId;
+        highlightDropTarget(targetId);
+      }
+    };
+    const onUp = (upEvent) => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      const session = dragSession;
+      dragSession = null;
+      document.body.classList.remove("notes-dragging");
+      if (session?.ghost) session.ghost.remove();
+      const targetId = session?.active
+        ? dropTargetIdAt(upEvent.clientX, upEvent.clientY)
+        : null;
+      highlightDropTarget(null);
+      if (targetId && session && targetId !== session.notebookId) {
+        void moveNoteTo(session.notebookId, session.noteId, targetId);
+      }
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+    event.preventDefault();
+  }
+
+  function buildDragGhost(note) {
+    const ghost = element("div", "notes-drag-ghost");
+    if (note.icon) ghost.append(element("span", "notes-note-icon", note.icon));
+    const main = element("span", "notes-list-item-main");
+    main.append(element("strong", "", note.title));
+    main.append(element("span", "", formatDate(note.updatedAt)));
+    ghost.append(main);
+    return ghost;
+  }
+
+  function dropTargetIdAt(x, y) {
+    const target = document.elementFromPoint(x, y);
+    const summary = target?.closest?.(".notes-notebook-summary");
+    const branch = summary?.closest?.(".notes-notebook-branch");
+    return branch?.dataset?.notebookId ?? null;
+  }
+
+  function highlightDropTarget(targetId) {
+    for (const summary of navigation?.querySelectorAll(".notes-notebook-summary") || []) {
+      const branch = summary.closest(".notes-notebook-branch");
+      summary.classList.toggle("drop-target", branch?.dataset?.notebookId === targetId);
+    }
   }
 
   async function moveNoteTo(sourceNotebookId, noteId, targetNotebookId) {
@@ -1021,14 +1073,8 @@ export function setupNotesApp({
       item.role = "button";
       item.tabIndex = 0;
       item.className = "notes-result-item";
-      item.draggable = true;
-      item.addEventListener("dragstart", (event) => {
-        event.dataTransfer.setData(
-          "text/plain",
-          JSON.stringify({ noteId: note.id, notebookId: note.notebookId }),
-        );
-        event.dataTransfer.effectAllowed = "move";
-      });
+      item.draggable = false;
+      item.addEventListener("dragstart", (event) => event.preventDefault());
       if (note.icon) item.append(element("span", "notes-result-icon", note.icon));
       const main = element("span", "notes-result-main");
       main.append(element("strong", "", note.title));
@@ -1046,6 +1092,10 @@ export function setupNotesApp({
       });
       item.append(moveButton);
       item.addEventListener("click", () => void selectNote(note));
+      item.addEventListener("pointerdown", (event) => {
+        if (event.target.closest?.(".notes-move-btn")) return;
+        beginPointerDrag(note, event);
+      });
       item.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();

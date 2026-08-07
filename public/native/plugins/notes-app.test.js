@@ -556,7 +556,7 @@ describe("Notes application", () => {
     expect(findSection().open).toBe(true);
   });
 
-  it("renders nested notebooks and moves a note between them by drag", async () => {
+  it("renders nested notebooks and shows a live drag ghost while dragging", async () => {
     setLocale("en");
     const gateway = createGateway();
     gateway.list.mockResolvedValue({
@@ -581,28 +581,28 @@ describe("Notes application", () => {
     const note = [...document.querySelectorAll(".notes-tree-note")].find((el) =>
       el.textContent.includes("Roadmap"),
     );
-    expect(note.draggable).toBe(true);
+    expect(note.draggable).toBe(false);
     const target = [...document.querySelectorAll(".notes-notebook-summary")].find((el) =>
       el.textContent.includes("Research"),
     );
-    const start = new Event("dragstart", { bubbles: true });
-    start.dataTransfer = { setData: vi.fn(), effectAllowed: "" };
-    note.dispatchEvent(start);
-    expect(start.dataTransfer.setData).toHaveBeenCalledWith(
-      "text/plain",
-      JSON.stringify({ noteId: "note-1", notebookId: "book-1" }),
-    );
-
-    const drop = new Event("drop", { bubbles: true, cancelable: true });
-    drop.dataTransfer = {
-      getData: () => JSON.stringify({ noteId: "note-1", notebookId: "book-1" }),
-    };
-    target.dispatchEvent(drop);
+    const originalFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => target;
+    const pointer = (type, x, y) =>
+      new MouseEvent(type, { bubbles: true, button: 0, clientX: x, clientY: y });
+    note.dispatchEvent(pointer("pointerdown", 10, 10));
+    document.dispatchEvent(pointer("pointermove", 60, 60));
+    expect(document.body.classList.contains("notes-dragging")).toBe(true);
+    expect(document.querySelector(".notes-drag-ghost")).toBeTruthy();
+    expect(target.classList.contains("drop-target")).toBe(true);
+    document.dispatchEvent(pointer("pointerup", 120, 120));
     await vi.waitFor(() => expect(gateway.moveNote).toHaveBeenCalledOnce());
     expect(gateway.moveNote.mock.calls[0][1]).toMatchObject({
       noteId: "note-1",
       targetNotebookId: "book-2",
     });
+    expect(document.body.classList.contains("notes-dragging")).toBe(false);
+    expect(document.querySelector(".notes-drag-ghost")).toBeNull();
+    document.elementFromPoint = originalFromPoint;
   });
 
   it("offers a parent notebook and an icon picker when creating a notebook", async () => {
