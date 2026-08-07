@@ -47,14 +47,13 @@ import { setupSceneIndicator } from "./features/scene-indicator.js";
 import { renderStartupFailure } from "./features/startup-failure.js";
 import {
   estimateRequestCost,
-  findLowestCostModel,
-  formatModelPricing,
 } from "./models/model-routing.js";
 import { createNotificationCenter } from "./notifications/notification-center.js";
 import { setupArtifactApp } from "./plugins/artifact-app.js";
 import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { setupAutomationApp } from "./plugins/automation-app.js";
 import { setupNotesApp } from "./plugins/notes-app.js";
+import { createModelDropdownFeed } from "./react/composer.js";
 import { NotesGateway } from "./plugins/notes-gateway.js";
 import { PluginCapabilityGateway } from "./plugins/plugin-capability-gateway.js";
 import { PluginHostGateway } from "./plugins/plugin-host-gateway.js";
@@ -167,6 +166,41 @@ let availableModels = [];
 let modelsLoading = false;
 let modelLoadError = "";
 let modelLoadPromise = null;
+const modelDropdownFeed = createModelDropdownFeed(
+  /** @type {HTMLElement} */ (modelDropdownMenu),
+  () => ({
+    models: availableModels,
+    loading: modelsLoading,
+    error: modelLoadError,
+    currentModelId,
+    currentContextWindow: currentModelContextWindow,
+  }),
+  {
+    onSelect: async (model) => {
+      closeModelDropdown();
+      try {
+        await runtime.request(
+          { type: "set_model", provider: model.provider, modelId: model.id },
+          target,
+          { idempotencyKey: randomId() },
+        );
+        updateComposerModel(model);
+      } catch (error) {
+        showError(error);
+      }
+    },
+    onOpenSettings: () => {
+      closeModelDropdown();
+      settingsPanel?.openSettings("configuration");
+    },
+    onRetry: () => {
+      loadAvailableModels();
+    },
+    onClose: () => {
+      closeModelDropdown();
+    },
+  },
+);
 let target = provisionalTargetFromRoute(route);
 let configGatewayTargetReady = false;
 let store = createSessionStore(target);
@@ -1738,7 +1772,7 @@ function loadAvailableModels() {
   if (modelLoadPromise) return modelLoadPromise;
   modelsLoading = true;
   modelLoadError = "";
-  if (!modelDropdownMenu?.classList.contains("hidden")) renderModelDropdownMenu();
+  if (!modelDropdownMenu?.classList.contains("hidden")) modelDropdownFeed.render();
   modelLoadPromise = (async () => {
     try {
       const result = await runtime.request({ type: "get_available_models" }, target);
@@ -1755,10 +1789,8 @@ function loadAvailableModels() {
       modelsLoading = false;
       modelLoadPromise = null;
       if (!modelDropdownMenu?.classList.contains("hidden")) {
-        renderModelDropdownMenu();
-        requestAnimationFrame(() =>
-          modelDropdownMenu.querySelector(".model-dropdown-search")?.focus(),
-        );
+        modelDropdownFeed.render();
+        requestAnimationFrame(() => modelDropdownFeed.focusSearch());
       }
     }
   })();
@@ -1795,180 +1827,9 @@ function formatModelName(model) {
   return raw.replace(/^claude-/, "").replace(/-\d{8}$/, "");
 }
 
-function getModelSearchText(model) {
-  return [model.name, model.id, model.provider].filter(Boolean).join(" ").toLowerCase();
-}
-
-function renderEmptyModelDropdown(container) {
-  const empty = document.createElement("div");
-  empty.className = "model-dropdown-empty";
-
-  const title = document.createElement("div");
-  title.className = "model-dropdown-empty-title";
-  title.textContent = t("No models available");
-
-  const message = document.createElement("div");
-  message.textContent = t("No API keys configured. Set a key in Settings → Configuration.");
-
-  const settingsButton = document.createElement("button");
-  settingsButton.type = "button";
-  settingsButton.className = "btn-primary model-dropdown-empty-action";
-  settingsButton.textContent = t("Open Settings");
-  settingsButton.addEventListener("click", () => {
-    closeModelDropdown();
-    settingsPanel?.openSettings("configuration");
-  });
-
-  empty.append(title, message, settingsButton);
-  container.appendChild(empty);
-}
-
-function renderModelLoading(container) {
-  const loading = document.createElement("div");
-  loading.className = "model-dropdown-empty";
-  const title = document.createElement("div");
-  title.className = "model-dropdown-empty-title";
-  title.textContent = t("Loading models…");
-  const message = document.createElement("div");
-  message.textContent = t("Fetching models from configured channels.");
-  loading.append(title, message);
-  container.appendChild(loading);
-}
-
-function renderModelLoadError(container) {
-  const error = document.createElement("div");
-  error.className = "model-dropdown-empty";
-  const title = document.createElement("div");
-  title.className = "model-dropdown-empty-title";
-  title.textContent = t("Models could not be loaded");
-  const message = document.createElement("div");
-  message.textContent = modelLoadError;
-  const retry = document.createElement("button");
-  retry.type = "button";
-  retry.className = "btn-primary model-dropdown-empty-action";
-  retry.textContent = t("Retry");
-  retry.addEventListener("click", () => loadAvailableModels());
-  error.append(title, message, retry);
-  container.appendChild(error);
-}
-
-function buildModelDropdownItem(model, { lowestCostModelKey = null } = {}) {
-  const item = document.createElement("button");
-  item.type = "button";
-  item.className = `model-dropdown-item${model.id === currentModelId ? " active" : ""}`;
-
-  const nameWrap = document.createElement("span");
-  nameWrap.className = "model-dropdown-item-name";
-  nameWrap.textContent = formatModelName(model);
-
-  if (model.provider && model.provider !== "anthropic") {
-    const provider = document.createElement("span");
-    provider.className = "model-dropdown-item-provider";
-    provider.textContent = model.provider;
-    nameWrap.appendChild(provider);
-  }
-  if (`${model.provider || ""}/${model.id}` === lowestCostModelKey) {
-    const recommendation = document.createElement("span");
-    recommendation.className = "model-dropdown-item-recommendation";
-    recommendation.textContent = t("Lowest cost");
-    nameWrap.appendChild(recommendation);
-  }
-
-  const context = document.createElement("span");
-  context.className = "model-dropdown-item-ctx";
-  const contextLabel = model.contextWindow
-    ? `${(Number(model.contextWindow) / 1000).toFixed(0)}k`
-    : "";
-  context.textContent = [contextLabel, formatModelPricing(model)].filter(Boolean).join(" · ");
-
-  item.append(nameWrap, context);
-  item.addEventListener("click", async () => {
-    closeModelDropdown();
-    try {
-      await runtime.request(
-        { type: "set_model", provider: model.provider, modelId: model.id },
-        target,
-        { idempotencyKey: randomId() },
-      );
-      updateComposerModel(model);
-    } catch (error) {
-      showError(error);
-    }
-  });
-
-  return item;
-}
-
-function renderModelDropdownItems(container, filter = "") {
-  container.innerHTML = "";
-  if (modelsLoading && availableModels.length === 0) {
-    renderModelLoading(container);
-    return;
-  }
-  if (modelLoadError && availableModels.length === 0) {
-    renderModelLoadError(container);
-    return;
-  }
-  if (availableModels.length === 0) {
-    renderEmptyModelDropdown(container);
-    return;
-  }
-
-  const query = filter.trim().toLowerCase();
-  const matchingModels = query
-    ? availableModels.filter((model) => getModelSearchText(model).includes(query))
-    : availableModels;
-
-  if (matchingModels.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "model-dropdown-empty";
-    empty.textContent = t("No models match your search.");
-    container.appendChild(empty);
-    return;
-  }
-
-  const lowestCostModel = findLowestCostModel(matchingModels, {
-    minimumContextWindow: Math.max(currentModelContextWindow, 0),
-  });
-  const lowestCostModelKey = lowestCostModel
-    ? `${lowestCostModel.provider || ""}/${lowestCostModel.id}`
-    : null;
-  for (const model of matchingModels) {
-    container.appendChild(buildModelDropdownItem(model, { lowestCostModelKey }));
-  }
-}
-
-function renderModelDropdownMenu() {
-  if (!modelDropdownMenu) return;
-  modelDropdownMenu.innerHTML = "";
-
-  const search = document.createElement("input");
-  search.className = "model-dropdown-search";
-  search.placeholder = t("Search models…");
-  search.type = "text";
-  modelDropdownMenu.appendChild(search);
-
-  const itemsContainer = document.createElement("div");
-  itemsContainer.className = "model-dropdown-items";
-  modelDropdownMenu.appendChild(itemsContainer);
-
-  renderModelDropdownItems(itemsContainer);
-
-  search.addEventListener("input", () => renderModelDropdownItems(itemsContainer, search.value));
-  search.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeModelDropdown();
-      event.stopPropagation();
-    }
-    if (event.key === "Enter") {
-      itemsContainer.querySelector(".model-dropdown-item")?.click();
-    }
-  });
-}
-
 function openModelDropdown() {
   if (!modelDropdownMenu) return;
-  renderModelDropdownMenu();
+  modelDropdownFeed.render();
   modelDropdownMenu.classList.remove("hidden");
   modelDropdown?.classList.add("open");
   modelDropdownBtn?.setAttribute("aria-expanded", "true");

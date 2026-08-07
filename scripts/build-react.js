@@ -34,6 +34,7 @@ async function run() {
       settings: path.join(root, "frontend/src/features/settings/index.ts"),
       notes: path.join(root, "frontend/src/features/notes/index.ts"),
       chat: path.join(root, "frontend/src/features/chat/index.ts"),
+      composer: path.join(root, "frontend/src/features/composer/index.ts"),
     },
     outdir,
     bundle: true,

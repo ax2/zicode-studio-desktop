@@ -3204,6 +3204,27 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 遗留：迁移聊天 Composer → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端
 消息；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十二轮：聊天 Composer 模型下拉迁移为 React（2026-08-07）。
+
+1. `frontend/src/features/composer/modelDropdown.tsx`：模型下拉菜单
+   （搜索框 + 模型列表 + provider 徽标 + 上下文窗口/定价 + 最低成本
+   推荐 + 空态/加载/错误三态），`createModelDropdownFeed` 以
+   `getState` 快照 + 回调（onSelect/onOpenSettings/onRetry/onClose）
+   接入 app.js；app.js 保留 availableModels/开合/隐藏类逻辑，删除约
+   200 行 vanilla 渲染函数，模型选择仍走原 runtime `set_model` 链路；
+2. **低风险切分**：模型下拉是 Composer 中唯一自包含的纯渲染块
+   （菜单不参与消息发送），先行迁移；输入/斜杠/图片/排队仍为 vanilla，
+   待 app.js 元素引用时序调整后整体接管；
+3. **实测**：桌面真实 WebView2（CDP）——模型下拉以 React 渲染：真实
+   25 个模型（provider 徽标、上下文/定价、激活项含"成本最低"徽标）、
+   搜索 "deepseek" 过滤到 5 项、Escape 关闭、**全程零异常**；
+4. **回归**：671 个测试全过（667 + 4 新）、typecheck、Biome 零警告、
+   `build:react` 产物 composer.js 约 41kb。
+
+遗留：迁移 Composer 输入/斜杠/图片/排队（需重排 app.js 元素引用）→
+会话侧栏 → 移除手写 DOM 桥接；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

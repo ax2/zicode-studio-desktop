@@ -106,5 +106,11 @@ bun run test          # vitest（public/** + frontend/src/**）
   交错渲染、流式更新/收尾、thinking 块、用量、复制/存笔记/分享/分叉、
   模型错误卡、搜索高亮、历史折叠通知；`MessageRenderer`/`ToolCardRenderer`
   类契约原样保留，app.js 仅两处直接 append 改为 feed 调用）
-- [ ] 后续按依赖度迁移：聊天 Composer → 会话侧栏，随后移除手写 DOM 桥接
+- [x] 聊天 Composer 模型下拉（第 192 轮：app.js 内约 200 行的模型下拉
+  渲染（列表/搜索/空态/加载/错误/最低成本推荐）整体迁入
+  `frontend/src/features/composer/modelDropdown.tsx` 的 React 组件 +
+  feed（flushSync 渲染 + `getState` 快照 + 选择/设置/重试/关闭回调）；
+  app.js 保留数据与开合逻辑，删除 vanilla 渲染函数）
+- [ ] 后续按依赖度迁移：聊天 Composer 输入/斜杠/图片/排队 → 会话侧栏，
+  随后移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
