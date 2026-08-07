@@ -233,4 +233,13 @@ bun run test          # vitest（public/** + frontend/src/**）
   一致）+ `showNativeDialog` 保留 Promise 契约（初始聚焦、Escape 取消、
   Ctrl/Cmd+Enter 提交、Tab 焦点环、超时与 dismissSignal、关闭后焦点
   恢复）；原 5 条测试保留经桥接通过；dialog.js 变 re-export 桥接）
+- [x] 聊天内联扩展提示（第 208 轮：inline-extension-prompt.js 312 行
+  整体 React 化——`inlineExtensionPromptLogic.ts`（请求识别：select
+  编号选项/input 多选提示/自定义回答、正文选项解析、type-something 与
+  自定义回答判定）+ `InlineExtensionPromptCard` 组件（头部徽标/标题、
+  select 选项+悬停预览+type-something 自定义面板、多选复选框+自定义
+  输入、input 输入框、Cancel/Submit/Back、answered 状态与 stale 点击
+  防护）+ `showInlineExtensionPrompt` 保留 Promise 契约（welcome 移除、
+  时间线滚动、dismissSignal 取消、自定义回答队列自动应答）；原 6 条
+  测试保留经桥接通过；inline-extension-prompt.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

@@ -75,6 +75,10 @@ async function run() {
         root,
         "frontend/src/features/dialog/index.ts",
       ),
+      "inline-extension-prompt": path.join(
+        root,
+        "frontend/src/features/inlineExtensionPrompt/index.ts",
+      ),
     },
     outdir,
     bundle: true,

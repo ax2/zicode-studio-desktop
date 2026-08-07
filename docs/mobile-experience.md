@@ -3616,6 +3616,32 @@ inline-extension-prompt/extension-ui-host 等）逐个收尾后移除手写 DOM
 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百零八轮：聊天内联扩展提示迁移为 React（2026-08-07）。
+
+1. `inlineExtensionPromptLogic.ts`（select 编号选项请求识别、input
+   多选提示/自定义回答识别、正文编号选项解析、type-something 判定）+
+   `InlineExtensionPromptCard` 组件（头部徽标与标题、select 选项按钮
+   +悬停/聚焦预览面板+type-something 自定义输入面板（Back 局部取消）、
+   多选复选框+自定义回答输入、input 输入框、Cancel/Submit、answered
+   状态（禁用控件+状态行+settle 幂等防护 stale 点击））+ 
+   `showInlineExtensionPrompt` 保留 Promise 契约（welcome 移除、时间线
+   滚动、dismissSignal 取消、自定义回答入队并自动应答后续输入请求）；
+2. 原 6 条测试保留并经桥接全部通过（请求识别、select 选项+预览解析、
+   多选返回编号文本、type-something 局部取消与自动应答、dismiss 标记
+   answered+stale 点击 no-op、无关输入返回 null）；
+3. inline-extension-prompt.js 变 re-export 桥接，删除 312 行 vanilla
+   实现；
+4. **实测**：桌面真实 WebView2（CDP）——直接调用 showInlineExtensionPrompt
+   在真实聊天时间线渲染卡片（2 个选项、Design 徽标），点击选项返回
+   原始值 `{"value":"1. Dense — Compact layout"}`、卡片标记 answered、
+   **全程零异常**；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 inline-extension-prompt.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（plugin-manager-view/extension-ui-host 等）
+逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查
+（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
