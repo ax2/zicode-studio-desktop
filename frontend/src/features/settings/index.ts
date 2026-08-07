@@ -9,6 +9,7 @@ import {
   createPackageBrowseStore,
   type HostControlGatewayLike,
 } from "./packageBrowseStore";
+import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import {
   SettingsApp,
   SettingsContent,
@@ -16,18 +17,6 @@ import {
   type SettingsController,
 } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
-
-export interface SettingsSubModules {
-  setupSettingsToggles?: () => void;
-  setupThinkingEffortControl?: (options: {
-    runtime: unknown;
-    getTarget: () => unknown;
-    onError?: (error: unknown) => void;
-  }) => { updateUI: (level: string) => void } | undefined;
-  setupSceneProfiles?: (options: {
-    getTarget: () => unknown;
-  }) => { load: () => Promise<void>; setTarget: (target: unknown) => void } | null;
-}
 
 export interface SettingsPanelOptions {
   data?: unknown;
@@ -40,7 +29,6 @@ export interface SettingsPanelOptions {
   getTarget?: () => unknown;
   onError?: (error: unknown) => void;
   notify?: (message: unknown) => void;
-  modules?: SettingsSubModules;
 }
 
 export interface SettingsPanelHandle {
@@ -56,7 +44,6 @@ export interface SettingsPanelHandle {
 }
 
 export function setupSettingsPanel(options: SettingsPanelOptions = {}): SettingsPanelHandle {
-  const modules = options.modules ?? {};
   const getTarget = options.getTarget ?? (() => null);
   const store: SettingsStore = createSettingsStore();
   const configStore = createConfigStore({
@@ -83,36 +70,39 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       | ((message: { type: string; title: string; message: string; detail?: string }) => void)
       | undefined,
   });
+  const widgetsStore = createSettingsWidgetsStore({
+    runtime: options.runtime as
+      | {
+          request(
+            operation: { type: string; level: string },
+            target: unknown,
+            options?: { idempotencyKey?: string },
+          ): Promise<unknown>;
+        }
+      | undefined,
+    getTarget: getTarget as () => { sceneId?: string } | null,
+    invoke: (globalThis as {
+      __TAURI__?: { core?: { invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown> } };
+    }).__TAURI__?.core?.invoke,
+    onError: options.onError,
+  });
 
   const rootElement = document.getElementById("settings-root");
   let panelRoot: Root | null = null;
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
   let embeddedActive = false;
-  let sceneProfiles: { load: () => Promise<void>; setTarget: (target: unknown) => void } | null =
-    null;
-  let thinkingEffort: { updateUI: (level: string) => void } | null = null;
 
   const controller: SettingsController = {
     configStore,
     remoteAccessStore,
     costDashboardStore,
     packageBrowseStore,
-    wireVanilla() {
-      sceneProfiles = modules.setupSceneProfiles?.({ getTarget }) ?? null;
-      modules.setupSettingsToggles?.();
-      thinkingEffort =
-        options.runtime && modules.setupThinkingEffortControl
-          ? (modules.setupThinkingEffortControl({
-              runtime: options.runtime,
-              getTarget,
-              onError: options.onError,
-            }) ?? null)
-          : null;
-    },
+    widgetsStore,
+    wireVanilla() {},
     loadForTab(tab) {
       if (tab === "general") {
-        if (sceneProfiles?.load) void sceneProfiles.load();
+        void widgetsStore.getState().loadSceneProfiles();
       } else if (tab === "usage") {
         if (options.data && options.getWorkspaceId) {
           void costDashboardStore
@@ -134,7 +124,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       controller.loadForTab("configuration");
     },
     setTarget(target) {
-      sceneProfiles?.setTarget?.(target);
+      widgetsStore.getState().setTarget(target as { sceneId?: string } | null);
       configStore.getState().setTarget(target as { sceneId?: string } | null);
       controller.reloadVisibleConfiguration();
     },
@@ -211,7 +201,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     },
     thinkingControl: {
       updateUI(level: string) {
-        thinkingEffort?.updateUI?.(level);
+        widgetsStore.getState().updateThinkingUI(level);
       },
     },
     setTarget(target) {
@@ -228,3 +218,9 @@ export {
   settingsHashForTab,
   tabFromSettingsHash,
 } from "./logic";
+export {
+  fallbackSceneProfiles,
+  getSelectedSceneId,
+  normalizeSceneId,
+  persistSelectedScene,
+} from "./sceneProfiles";

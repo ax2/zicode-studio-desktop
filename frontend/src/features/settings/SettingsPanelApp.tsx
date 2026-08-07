@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 // @ts-expect-error plain JS module without type declarations (public/i18n.js)
 import { getLocale, setLocale, supportedLocales } from "../../../../public/i18n.js";
 // @ts-expect-error plain JS module without type declarations (public/themes.js)
@@ -13,6 +13,7 @@ import { PackageBrowseTab } from "./PackageBrowseTab";
 import type { PackageBrowseStore } from "./packageBrowseStore";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
+import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 import type { SettingsStore } from "./store";
 
 export interface SettingsController {
@@ -20,6 +21,7 @@ export interface SettingsController {
   remoteAccessStore: RemoteAccessStore;
   costDashboardStore: CostDashboardStore;
   packageBrowseStore: PackageBrowseStore;
+  widgetsStore: SettingsWidgetsStore;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -126,7 +128,7 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "general" ? " active" : ""}`}
         data-settings-panel="general"
       >
-        <GeneralTab store={store} />
+        <GeneralTab store={store} widgets={controller.widgetsStore} />
       </div>
       <div
         className={`settings-tab${activeTab === "extensions" ? " active" : ""}`}
@@ -144,7 +146,7 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "configuration" ? " active" : ""}`}
         data-settings-panel="configuration"
       >
-        <ConfigTab store={controller.configStore} />
+        <ConfigTab store={controller.configStore} widgets={controller.widgetsStore} />
       </div>
       <div
         className={`settings-tab${activeTab === "remote-access" ? " active" : ""}`}
@@ -211,9 +213,275 @@ function AppearancePreferences() {
   );
 }
 
-function GeneralTab({ store }: { store: SettingsStore }) {
+function SettingsToggle({
+  id,
+  enabled,
+  onChange,
+  ariaLabel,
+}: {
+  id: string;
+  enabled: boolean;
+  onChange(): void;
+  ariaLabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      id={id}
+      className={`settings-toggle${enabled ? " on" : ""}`}
+      role="switch"
+      aria-checked={enabled}
+      aria-label={ariaLabel}
+      onClick={onChange}
+    ></button>
+  );
+}
+
+function ThinkingEffortControl({
+  widgets,
+  level,
+}: {
+  widgets: SettingsWidgetsStore;
+  level: string;
+}) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const markerRef = useRef<HTMLSpanElement | null>(null);
+  const levels = ["off", "minimal", "low", "medium", "high"];
+  useEffect(() => {
+    const track = trackRef.current;
+    const marker = markerRef.current;
+    const active = track?.querySelector<HTMLButtonElement>('[aria-checked="true"]');
+    if (track && marker && active) {
+      const thumbOffset = active.offsetLeft + (active.offsetWidth - marker.offsetWidth) / 2;
+      marker.style.left = `${thumbOffset}px`;
+      marker.dataset.level = level;
+    }
+  }, [level]);
+  return (
+    <div
+      className="thinking-effort"
+      id="thinking-effort"
+      role="radiogroup"
+      aria-label={t("Thinking effort")}
+      onKeyDown={(event) => {
+        const index = levels.indexOf(level);
+        let nextIndex = index;
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+          event.preventDefault();
+          nextIndex = (index + 1) % levels.length;
+        } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+          event.preventDefault();
+          nextIndex = (index - 1 + levels.length) % levels.length;
+        } else {
+          return;
+        }
+        void widgets.getState().setThinkingLevel(levels[nextIndex]);
+      }}
+    >
+      <div className="thinking-effort-ends">
+        <span>{t("Faster")}</span>
+        <span className="thinking-effort-name" id="thinking-effort-name">
+          {t(level)}
+        </span>
+        <span>{t("Smarter")}</span>
+      </div>
+      <div className="thinking-effort-track" id="thinking-effort-steps" ref={trackRef}>
+        <span
+          className="thinking-effort-thumb"
+          id="thinking-effort-marker"
+          aria-hidden="true"
+          ref={markerRef}
+        ></span>
+        {levels.map((lvl) => (
+          // biome-ignore lint/a11y/useSemanticElements: button-based radio pattern for the thinking effort control
+          <button
+            key={lvl}
+            type="button"
+            className="thinking-effort-dot"
+            data-level={lvl}
+            role="radio"
+            aria-checked={level === lvl}
+            aria-label={lvl}
+            title={lvl}
+            onClick={() => void widgets.getState().setThinkingLevel(lvl)}
+          ></button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
+  const profiles = widgets((state) => state.sceneProfiles);
+  const selectedId = widgets((state) => state.sceneSelectedId);
+  const currentId = widgets((state) => state.sceneCurrentId);
+  const editorOpen = widgets((state) => state.sceneEditorOpen);
+  const form = widgets((state) => state.sceneForm);
+  const status = widgets((state) => state.sceneStatus);
+  const saving = widgets((state) => state.sceneSaving);
+  const setForm = widgets((state) => state.setSceneForm);
+  useEffect(() => {
+    void widgets.getState().loadSceneProfiles();
+  }, [widgets]);
+  const selected = profiles.find((profile) => profile.id === selectedId) || profiles[0];
+  const current = profiles.find((profile) => profile.id === currentId);
+  return (
+    <div className="settings-section" id="scene-profile-section">
+      <div className="settings-section-title">{t("New session scene")}</div>
+      <div className="settings-scene-context">
+        <span className="settings-scene-context-label">{t("Current session")}</span>
+        <strong id="scene-profile-current-name">{current?.name || currentId}</strong>
+        <code id="scene-profile-current-id">{currentId}</code>
+      </div>
+      <p className="settings-help">
+        Each scene has isolated model channels, credentials, extensions, and sessions. The
+        selection applies when you create the next session.
+      </p>
+      <div className="settings-row">
+        <span className="settings-label settings-label-stack">
+          <span className="settings-label-main">{t("Scene for the next session")}</span>
+          <span className="settings-label-sub" id="scene-profile-description">
+            {selected?.description || ""}
+          </span>
+        </span>
+        <select
+          className="ui-input scene-profile-select"
+          id="scene-profile-select"
+          value={selectedId}
+          onChange={(event) => widgets.getState().setSceneSelected(event.target.value)}
+        >
+          {profiles.map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="scene-profile-actions">
+        <button
+          type="button"
+          className="ui-button ui-button--secondary"
+          id="scene-profile-new"
+          onClick={() => widgets.getState().openSceneEditor()}
+        >
+          {t("New custom scene")}
+        </button>
+        <button
+          type="button"
+          className={`ui-button ui-button--secondary danger${selected?.builtin !== false ? " hidden" : ""}`}
+          id="scene-profile-delete"
+          onClick={() => void widgets.getState().deleteSceneProfile()}
+        >
+          {t("Delete selected")}
+        </button>
+      </div>
+      {editorOpen ? (
+        <form
+          className="scene-profile-editor"
+          id="scene-profile-editor"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void widgets.getState().saveSceneProfile();
+          }}
+        >
+          <label>
+            <span>{t("Scene ID")}</span>
+            <input
+              className="ui-input"
+              id="scene-profile-id"
+              required
+              pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
+              placeholder="research"
+              value={form.id}
+              onChange={(event) => setForm({ id: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>{t("Name")}</span>
+            <input
+              className="ui-input"
+              id="scene-profile-name"
+              required
+              maxLength={80}
+              placeholder="Research"
+              value={form.name}
+              onChange={(event) => setForm({ name: event.target.value })}
+            />
+          </label>
+          <label className="scene-profile-wide">
+            <span>{t("Description")}</span>
+            <input
+              className="ui-input"
+              id="scene-profile-description-input"
+              maxLength={300}
+              value={form.description}
+              onChange={(event) => setForm({ description: event.target.value })}
+            />
+          </label>
+          <label className="scene-profile-wide">
+            <span>{t("Scene system instructions")}</span>
+            <textarea
+              className="ui-textarea"
+              id="scene-profile-prompt"
+              rows={5}
+              value={form.systemPrompt}
+              onChange={(event) => setForm({ systemPrompt: event.target.value })}
+            ></textarea>
+          </label>
+          <label className="scene-profile-wide">
+            <span>{t("Allowed tools (comma-separated; blank allows all)")}</span>
+            <input
+              className="ui-input"
+              id="scene-profile-tools"
+              placeholder="read, grep, find"
+              value={form.allowedTools}
+              onChange={(event) => setForm({ allowedTools: event.target.value })}
+            />
+          </label>
+          <div
+            className={`settings-save-status scene-profile-wide${status ? "" : " hidden"}`}
+            id="scene-profile-status"
+            aria-live="polite"
+            role="status"
+            data-tone={status?.tone}
+          >
+            {status?.message || ""}
+          </div>
+          <div className="settings-config-actions scene-profile-wide">
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              id="scene-profile-cancel"
+              onClick={() => widgets.getState().closeSceneEditor()}
+            >
+              {t("Cancel")}
+            </button>
+            <button
+              type="submit"
+              className="ui-button ui-button--primary"
+              id="scene-profile-save"
+              disabled={saving}
+            >
+              {saving ? "Saving…" : t("Save scene")}
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+export function GeneralTab({
+  store,
+  widgets,
+}: {
+  store: SettingsStore;
+  widgets: SettingsWidgetsStore;
+}) {
   const piVersion = store((state) => state.piVersion);
   const appVersion = store((state) => state.appVersion);
+  const toggles = widgets((state) => state.toggles);
+  const thinkingLevel = widgets((state) => state.thinkingLevel);
   return (
     <div className="settings-body">
       <AppearancePreferences />
@@ -221,51 +489,26 @@ function GeneralTab({ store }: { store: SettingsStore }) {
         <div className="settings-section-title">{t("Agent")}</div>
         <div className="settings-row" id="setting-auto-compact">
           <span className="settings-label">{t("Auto-compaction")}</span>
-          <button type="button" className="settings-toggle" id="toggle-auto-compact"></button>
+          <SettingsToggle
+            id="toggle-auto-compact"
+            enabled={Boolean(toggles["auto-compact"])}
+            onChange={() => widgets.getState().toggle("auto-compact")}
+          />
         </div>
         <div className="settings-row" id="setting-thinking">
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Thinking effort")}</span>
             <span className="settings-label-sub">{t("Reasoning depth")}</span>
           </span>
-          <div
-            className="thinking-effort"
-            id="thinking-effort"
-            role="radiogroup"
-            aria-label={t("Thinking effort")}
-          >
-            <div className="thinking-effort-ends">
-              <span>{t("Faster")}</span>
-              <span className="thinking-effort-name" id="thinking-effort-name">
-                {t("off")}
-              </span>
-              <span>{t("Smarter")}</span>
-            </div>
-            <div className="thinking-effort-track" id="thinking-effort-steps">
-              <span
-                className="thinking-effort-thumb"
-                id="thinking-effort-marker"
-                aria-hidden="true"
-              ></span>
-              {(["off", "minimal", "low", "medium", "high"] as const).map((level, index) => (
-                // biome-ignore lint/a11y/useSemanticElements: button-based radio pattern required by the vanilla thinking-effort control
-                <button
-                  key={level}
-                  type="button"
-                  className="thinking-effort-dot"
-                  data-level={level}
-                  role="radio"
-                  aria-checked={index === 0 ? "true" : "false"}
-                  aria-label={level}
-                  title={level}
-                ></button>
-              ))}
-            </div>
-          </div>
+          <ThinkingEffortControl widgets={widgets} level={thinkingLevel} />
         </div>
         <div className="settings-row">
           <span className="settings-label">{t("Show thinking")}</span>
-          <button type="button" className="settings-toggle on" id="toggle-show-thinking"></button>
+          <SettingsToggle
+            id="toggle-show-thinking"
+            enabled={Boolean(toggles["show-thinking"])}
+            onChange={() => widgets.getState().toggle("show-thinking")}
+          />
         </div>
       </div>
       <div className="settings-section hidden" id="mobile-task-notification-section">
@@ -314,105 +557,7 @@ function GeneralTab({ store }: { store: SettingsStore }) {
           aria-live="polite"
         ></p>
       </div>
-      <div className="settings-section" id="scene-profile-section">
-        <div className="settings-section-title">{t("New session scene")}</div>
-        <div className="settings-scene-context">
-          <span className="settings-scene-context-label">{t("Current session")}</span>
-          <strong id="scene-profile-current-name">Programming</strong>
-          <code id="scene-profile-current-id">programming</code>
-        </div>
-        <p className="settings-help">
-          Each scene has isolated model channels, credentials, extensions, and sessions. The
-          selection applies when you create the next session.
-        </p>
-        <div className="settings-row">
-          <span className="settings-label settings-label-stack">
-            <span className="settings-label-main">{t("Scene for the next session")}</span>
-            <span className="settings-label-sub" id="scene-profile-description"></span>
-          </span>
-          <select className="ui-input scene-profile-select" id="scene-profile-select"></select>
-        </div>
-        <div className="scene-profile-actions">
-          <button
-            type="button"
-            className="ui-button ui-button--secondary"
-            id="scene-profile-new"
-          >
-            {t("New custom scene")}
-          </button>
-          <button
-            type="button"
-            className="ui-button ui-button--secondary danger hidden"
-            id="scene-profile-delete"
-          >
-            {t("Delete selected")}
-          </button>
-        </div>
-        <form className="scene-profile-editor hidden" id="scene-profile-editor">
-          <label>
-            <span>{t("Scene ID")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-id"
-              required
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
-              placeholder="research"
-            />
-          </label>
-          <label>
-            <span>{t("Name")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-name"
-              required
-              maxLength={80}
-              placeholder="Research"
-            />
-          </label>
-          <label className="scene-profile-wide">
-            <span>{t("Description")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-description-input"
-              maxLength={300}
-            />
-          </label>
-          <label className="scene-profile-wide">
-            <span>{t("Scene system instructions")}</span>
-            <textarea
-              className="ui-textarea"
-              id="scene-profile-prompt"
-              rows={5}
-            ></textarea>
-          </label>
-          <label className="scene-profile-wide">
-            <span>{t("Allowed tools (comma-separated; blank allows all)")}</span>
-            <input className="ui-input" id="scene-profile-tools" placeholder="read, grep, find" />
-          </label>
-          <div
-            className="settings-save-status hidden scene-profile-wide"
-            id="scene-profile-status"
-            aria-live="polite"
-            role="status"
-          ></div>
-          <div className="settings-config-actions scene-profile-wide">
-            <button
-              type="button"
-              className="ui-button ui-button--secondary"
-              id="scene-profile-cancel"
-            >
-              {t("Cancel")}
-            </button>
-            <button
-              type="submit"
-              className="ui-button ui-button--primary"
-              id="scene-profile-save"
-            >
-              {t("Save scene")}
-            </button>
-          </div>
-        </form>
-      </div>
+      <SceneProfilesSection widgets={widgets} />
       <div className="settings-section" id="setting-updater-section">
         <div className="settings-section-title">{t("Updates")}</div>
         <div className="settings-row" id="setting-pi-version">
@@ -452,14 +597,12 @@ function GeneralTab({ store }: { store: SettingsStore }) {
             <span className="settings-label-main">{t("Beta updates")}</span>
             <span className="settings-label-sub">{t("Receive prerelease desktop builds")}</span>
           </span>
-          <button
-            type="button"
-            className="settings-toggle"
+          <SettingsToggle
             id="toggle-beta-updates"
-            role="switch"
-            aria-label={t("Receive prerelease desktop builds")}
-            aria-checked="false"
-          ></button>
+            enabled={Boolean(toggles["beta-updates"])}
+            ariaLabel={t("Receive prerelease desktop builds")}
+            onChange={() => widgets.getState().toggle("beta-updates")}
+          />
         </div>
       </div>
     </div>

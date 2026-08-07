@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
-// @ts-expect-error plain JS module without type declarations
-import { fallbackSceneProfiles } from "../../../../public/native/settings/scene-profiles.js";
+import { fallbackSceneProfiles } from "./sceneProfiles";
 
 export interface ConfigModel {
   id: string;

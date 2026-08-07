@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ConfigTab } from "./ConfigTab";
 import { createConfigStore, type ConfigGatewayLike, type ConfigGatewayResult } from "./configStore";
+import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 
 function makeGateway(overrides: Record<string, unknown> = {}): {
   gateway: ConfigGatewayLike;
@@ -197,7 +198,7 @@ describe("settings config React tab", () => {
     await store.getState().loadChannels();
     await store.getState().loadConfigEditor();
     await store.getState().loadModelsEditor();
-    render(<ConfigTab store={store} />);
+    render(<ConfigTab store={store} widgets={createSettingsWidgetsStore()} />);
     expect(screen.getByText("OpenAI")).toBeTruthy();
     expect(screen.getByText("team-proxy")).toBeTruthy();
     expect(document.getElementById("inline-config-textarea")).toBeTruthy();

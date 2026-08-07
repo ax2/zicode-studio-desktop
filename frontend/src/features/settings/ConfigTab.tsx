@@ -5,12 +5,20 @@ import type {
   ConfigStore,
   ProviderChannel,
 } from "./configStore";
+import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 
-export function ConfigTab({ store }: { store: ConfigStore }) {
+export function ConfigTab({
+  store,
+  widgets,
+}: {
+  store: ConfigStore;
+  widgets: SettingsWidgetsStore;
+}) {
   const sceneId = store((state) => state.sceneId);
   const sceneName = store((state) => state.sceneName);
   const configEditor = store((state) => state.configEditor);
   const modelsEditor = store((state) => state.modelsEditor);
+  const authEnabled = widgets((state) => state.toggles.auth);
   return (
     <div className="settings-body">
       <div className="settings-scene-context configuration-scene-context">
@@ -36,7 +44,14 @@ export function ConfigTab({ store }: { store: ConfigStore }) {
         <div className="settings-section-title">Protection</div>
         <div className="settings-row">
           <span className="settings-label">Require login</span>
-          <button type="button" className="settings-toggle" id="toggle-auth"></button>
+          <button
+            type="button"
+            className={`settings-toggle${authEnabled ? " on" : ""}`}
+            id="toggle-auth"
+            role="switch"
+            aria-checked={Boolean(authEnabled)}
+            onClick={() => widgets.getState().toggle("auth")}
+          ></button>
         </div>
       </div>
       <div className="settings-section">

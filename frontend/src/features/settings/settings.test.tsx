@@ -10,6 +10,7 @@ import { createConfigStore } from "./configStore";
 import { createCostDashboardStore } from "./costDashboardStore";
 import { createPackageBrowseStore } from "./packageBrowseStore";
 import { createRemoteAccessStore } from "./remoteAccessStore";
+import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
 
@@ -22,6 +23,7 @@ function controllerStub(): SettingsController {
     remoteAccessStore: createRemoteAccessStore(null),
     costDashboardStore: createCostDashboardStore(),
     packageBrowseStore: createPackageBrowseStore({ control: null }),
+    widgetsStore: createSettingsWidgetsStore(),
     loadForTab: vi.fn(),
     wireVanilla: vi.fn(),
     reloadVisibleConfiguration: vi.fn(),
@@ -143,7 +145,6 @@ describe("settings React panel", () => {
       "toggle-mobile-task-notifications",
       "mobile-draft-storage-row",
       "scene-profile-select",
-      "scene-profile-editor",
       "setting-pi-version-value",
       "setting-app-version-value",
       "btn-check-updates",

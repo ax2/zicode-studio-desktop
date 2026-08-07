@@ -3122,6 +3122,33 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 （TURN 路径已通）。
 
+第一百八十九轮：设置通用小部件 React 化，设置模块 100% React
+（2026-08-07）。
+
+1. `settingsWidgetsStore.ts`（Zustand）+ GeneralTab/ConfigTab 改造：
+   四个开关（auto-compact/show-thinking/auth/beta-updates）持久化到
+   localStorage 并同步 body.dataset 与更新通道事件；思考强度控件
+   （5 档 radio + 名称 + 滑块定位，点击/键盘切换，经 runtime
+   `set_thinking_level`，`thinkingControl.updateUI` 契约保留）；场景
+   档案（内置 + invoke 读写自定义场景、选择持久化到 cookie/localStorage、
+   编辑器表单与状态提示）；
+2. **清理**：`settings-toggles.js`（89 行）、`thinking-effort-control.js`
+   （79 行）、`scene-profiles.js`（185 行）、`settings-save-status.js`
+   （37 行）及其 14 个旧测试删除；`scene-profiles.js` 保留为 React
+   bundle 再导出 shim（workspace-actions / scene-indicator 仍引用其
+   `getSelectedSceneId` / `fallbackSceneProfiles`）；桥接不再注入任何
+   vanilla 模块；
+3. **实测**：桌面真实 WebView2（CDP）——通用 tab 以 React 渲染：开关
+   往返后 body.dataset 同步、思考强度选中档联动名称与滑块位置（high →
+   较高/155px）、场景选择 3 档 + 当前场景 + 描述、场景编辑器可开；
+   资源清单已不含 settings-toggles.js / thinking-effort-control.js /
+   settings-save-status.js、**全程零异常**；
+4. **回归**：698 个测试全过（705 − 14 旧 + 7 新）、typecheck、
+   Biome 零警告。
+
+遗留：按路线图迁移笔记（最大）→ 聊天主界面；真机复验移动端设置；
+TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
