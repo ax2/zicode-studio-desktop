@@ -132,7 +132,16 @@ bun run test          # vitest（public/** + frontend/src/**）
   getCommands 并返回操作 React 状态的 {close, update, openAll}；
   composer-slash-menu.js 变 re-export 桥接；顺带修复 app.js 重复调用
   setupComposer() 的 round 193 遗留）
-- [ ] 后续按依赖度迁移：聊天 Composer 图片附件（composer-images.js /
-  composer-image-picker.js）React 化 →
-  会话侧栏，随后移除手写 DOM 桥接
+- [x] 聊天 Composer 图片附件与移动端选择器（第 196 轮：`imageLogic.ts`
+  （defaultProcessImageFile/filterImageFiles）+ ComposerStore 扩展
+  images/imageKeys/imageBusy/imagePickerOpen/pickerActions；`ComposerApp`
+  以 React 渲染图片预览（缩略图/删除/busy 状态）与移动端底部选择面板
+  （createPortal 到 body、焦点管理、Escape/Tab 处理、i18n 随
+  zicode:locale-changed 刷新）；`setupComposerImageAttachments` 变薄桥接
+  （store 单一数据源 + onChange 订阅 + 粘贴/拖放/选择器接线），
+  `setupComposerImagePicker` 由 React 状态驱动（移动/桌面分流、历史层、
+  相机/相册 input）；composer-images.js / composer-image-picker.js 变
+  re-export 桥接；vendor.ts 补 `createPortal` 再导出）
+- [ ] 后续按依赖度迁移：会话侧栏（session-sidebar.js）→
+  移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

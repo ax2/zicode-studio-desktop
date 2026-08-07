@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupComposer, setupComposerSlashMenu } from "./index";
+import {
+  setupComposer,
+  setupComposerImageAttachments,
+  setupComposerImagePicker,
+  setupComposerSlashMenu,
+} from "./index";
 import type { SlashCommand } from "./slashMenu";
+import type { ImageItem } from "./imageLogic";
 
 function mountComposer() {
   const root = document.createElement("div");
@@ -40,6 +46,7 @@ function pressKey(input: HTMLTextAreaElement, key: string) {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  delete (window as { matchMedia?: unknown }).matchMedia;
 });
 
 describe("composer React shell", () => {
@@ -220,6 +227,192 @@ describe("composer React shell", () => {
     expect(handle.input.value).toBe("/");
     expect(document.getElementById("skill-slash-menu")?.classList.contains("hidden")).toBe(false);
     expect(document.querySelectorAll(".skill-slash-option").length).toBe(1);
+    handle.dispose();
+  });
+
+  it("renders image previews from the feed and removes them", async () => {
+    const handle = mountComposer();
+    if (!handle) throw new Error("composer mount failed");
+    const onChange = vi.fn();
+    const controller = setupComposerImageAttachments({
+      input: handle.input,
+      attachButton: handle.attachButton,
+      imageInput: handle.imageInput,
+      previewContainer: handle.imagePreviews,
+      dropTarget: handle.composerCard,
+      onChange,
+      processImageFile: async (file) => ({
+        type: "image",
+        data: `encoded-${file.name}`,
+        mimeType: "image/png",
+      }),
+    });
+
+    await controller.addFiles([
+      new File(["fake"], "screen.png", { type: "image/png" }),
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const previews = document.getElementById("image-previews");
+    expect(previews?.classList.contains("hidden")).toBe(false);
+    expect(previews?.querySelectorAll(".image-preview").length).toBe(1);
+    expect(previews?.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/png;base64,encoded-screen.png",
+    );
+    expect(controller.getImages()).toEqual([
+      { type: "image", data: "encoded-screen.png", mimeType: "image/png" },
+    ]);
+    expect(onChange).toHaveBeenCalledOnce();
+
+    previews
+      ?.querySelector<HTMLButtonElement>(".image-preview-remove")
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(previews?.classList.contains("hidden")).toBe(true);
+    expect(controller.getImages()).toEqual([]);
+    expect(onChange).toHaveBeenCalledTimes(2);
+    controller.dispose();
+    handle.dispose();
+  });
+
+  it("shows busy status until image processing finishes", async () => {
+    const handle = mountComposer();
+    if (!handle) throw new Error("composer mount failed");
+    let finishProcessing: (image: ImageItem) => void = () => {};
+    const onBusyChange = vi.fn();
+    const controller = setupComposerImageAttachments({
+      input: handle.input,
+      attachButton: handle.attachButton,
+      imageInput: handle.imageInput,
+      previewContainer: handle.imagePreviews,
+      dropTarget: handle.composerCard,
+      onBusyChange,
+      processImageFile: () =>
+        new Promise((resolve) => {
+          finishProcessing = resolve;
+        }),
+    });
+
+    const processing = controller.addFiles([
+      new File(["large-photo"], "camera.jpg", { type: "image/jpeg" }),
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const previews = document.getElementById("image-previews");
+    expect(previews?.getAttribute("aria-busy")).toBe("true");
+    expect(previews?.textContent).toMatch(/Preparing image|正在处理图片/);
+    expect(onBusyChange).toHaveBeenLastCalledWith(true);
+
+    finishProcessing({ type: "image", data: "camera", mimeType: "image/jpeg" });
+    await processing;
+    await controller.whenIdle();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(previews?.getAttribute("aria-busy")).toBe("false");
+    expect(controller.getImages()).toHaveLength(1);
+    expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    controller.dispose();
+    handle.dispose();
+  });
+
+  it("opens the mobile picker sheet and forwards photo files", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as never;
+    const handle = mountComposer();
+    if (!handle) throw new Error("composer mount failed");
+    const galleryClick = vi
+      .spyOn(handle.imageInput, "click")
+      .mockImplementation(() => {});
+    const onFiles = vi.fn();
+    const picker = setupComposerImagePicker({
+      attachButton: handle.attachButton,
+      galleryInput: handle.imageInput,
+      onFiles,
+    });
+
+    handle.attachButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const sheet = document.querySelector(".composer-image-picker");
+    expect(sheet).not.toBeNull();
+    expect(sheet?.textContent).toMatch(/Take photo|拍照/);
+    expect(document.querySelector('input[capture="environment"]')).not.toBeNull();
+
+    sheet
+      ?.querySelector<HTMLButtonElement>(
+        ".composer-image-picker-actions button:last-child",
+      )
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(galleryClick).toHaveBeenCalledOnce();
+    expect(document.querySelector(".composer-image-picker")).toBeNull();
+
+    const photo = new File(["photo"], "camera.jpg", { type: "image/jpeg" });
+    Object.defineProperty(handle.imageInput, "files", {
+      configurable: true,
+      value: [photo],
+    });
+    handle.imageInput.dispatchEvent(new Event("change"));
+    expect(onFiles).toHaveBeenCalledOnce();
+    expect(handle.imageInput.value).toBe("");
+
+    picker.dispose();
+    handle.dispose();
+  });
+
+  it("keeps the direct file picker behavior on desktop", () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as never;
+    const handle = mountComposer();
+    if (!handle) throw new Error("composer mount failed");
+    const galleryClick = vi
+      .spyOn(handle.imageInput, "click")
+      .mockImplementation(() => {});
+    const picker = setupComposerImagePicker({
+      attachButton: handle.attachButton,
+      galleryInput: handle.imageInput,
+    });
+
+    handle.attachButton.click();
+
+    expect(galleryClick).toHaveBeenCalledOnce();
+    expect(document.querySelector(".composer-image-picker")).toBeNull();
+    picker.dispose();
+    handle.dispose();
+  });
+
+  it("closes the mobile picker sheet with Escape", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as never;
+    const handle = mountComposer();
+    if (!handle) throw new Error("composer mount failed");
+    const picker = setupComposerImagePicker({
+      attachButton: handle.attachButton,
+      galleryInput: handle.imageInput,
+    });
+
+    handle.attachButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".composer-image-picker")).not.toBeNull();
+
+    document
+      .querySelector(".composer-image-picker")
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".composer-image-picker")).toBeNull();
+    picker.dispose();
     handle.dispose();
   });
 });

@@ -1,5 +1,8 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { StoreApi, UseBoundStore } from "zustand";
+import { t } from "../../shared/i18n";
+import type { ImageItem } from "./imageLogic";
 import {
   activeSlashQuery,
   computeSlashMatches,
@@ -23,12 +26,39 @@ export interface ComposerStore {
   setSlash(patch: Partial<SlashMenuState>): void;
   getCommands: () => SlashCommand[];
   setGetCommands(getCommands: () => SlashCommand[]): void;
+  images: ImageItem[];
+  imageKeys: string[];
+  setImages(images: ImageItem[]): void;
+  addImage(image: ImageItem): void;
+  removeImageAt(index: number): void;
+  imageBusy: number;
+  setImageBusy(count: number): void;
+  imagePickerOpen: boolean;
+  setImagePickerOpen(open: boolean): void;
+  pickerActions: {
+    close(): void;
+    chooseCamera(): void;
+    chooseGallery(): void;
+  } | null;
+  setPickerActions(
+    actions: ComposerStore["pickerActions"],
+  ): void;
 }
 
 export type ComposerStoreHook = UseBoundStore<StoreApi<ComposerStore>>;
 
 function clampSelectedIndex(index: number, length: number): number {
   return Math.min(index, Math.max(length - 1, 0));
+}
+
+function useLocaleVersion(): number {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const handler = () => setVersion((value) => value + 1);
+    window.addEventListener("zicode:locale-changed", handler);
+    return () => window.removeEventListener("zicode:locale-changed", handler);
+  }, []);
+  return version;
 }
 
 export function ComposerApp({
@@ -40,9 +70,17 @@ export function ComposerApp({
 }) {
   const queue = store((state) => state.queue);
   const slash = store((state) => state.slash);
+  const images = store((state) => state.images);
+  const imageKeys = store((state) => state.imageKeys);
+  const imageBusy = store((state) => state.imageBusy);
+  const imagePickerOpen = store((state) => state.imagePickerOpen);
+  useLocaleVersion();
   const composingRef = useRef(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const cameraButtonRef = useRef<HTMLButtonElement | null>(null);
+  const galleryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const clearCompositionReset = () => {
     if (resetTimer.current !== null) {
@@ -102,6 +140,36 @@ export function ComposerApp({
     input.dispatchEvent(new Event("input", { bubbles: true }));
     input.focus();
     state.setSlash(EMPTY_SLASH_STATE);
+  };
+
+  useEffect(() => {
+    if (!imagePickerOpen) return;
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    cameraButtonRef.current?.focus({ preventScroll: true });
+  }, [imagePickerOpen]);
+
+  const onPickerKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      store.getState().pickerActions?.close();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = [
+      closeButtonRef.current,
+      cameraButtonRef.current,
+      galleryButtonRef.current,
+    ].filter((element) => element !== null) as HTMLButtonElement[];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
   return (
@@ -170,7 +238,36 @@ export function ComposerApp({
               ))
             )}
           </div>
-          <div className="image-previews hidden" id="image-previews"></div>
+          <div
+            className={`image-previews${images.length === 0 && imageBusy === 0 ? " hidden" : ""}`}
+            id="image-previews"
+            aria-busy={imageBusy > 0}
+          >
+            {images.map((image, index) => (
+              <div
+                className="image-preview"
+                key={imageKeys[index]}
+              >
+                <img
+                  src={`data:${image.mimeType};base64,${image.data}`}
+                  alt={t("Image ready to send")}
+                />
+                <button
+                  type="button"
+                  className="image-preview-remove"
+                  aria-label={t("Remove image")}
+                  onClick={() => store.getState().removeImageAt(index)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {imageBusy > 0 && (
+              <div className="image-preview-status" role="status">
+                {t("Preparing image…")}
+              </div>
+            )}
+          </div>
           <textarea
             ref={inputRef}
             id="message-input"
@@ -246,6 +343,8 @@ export function ComposerApp({
                 id="attach-btn"
                 title="Attach image"
                 aria-label="Attach image"
+                aria-haspopup="dialog"
+                aria-expanded={imagePickerOpen}
                 tabIndex={-1}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -328,6 +427,56 @@ export function ComposerApp({
           </div>
         </div>
       </form>
+      {imagePickerOpen &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              className="composer-image-picker-backdrop"
+              aria-label={t("Close photo options")}
+              onClick={() => store.getState().pickerActions?.close()}
+            />
+            <section
+              className="composer-image-picker"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="composer-image-picker-title"
+              onKeyDown={onPickerKeyDown}
+            >
+              <header>
+                <strong id="composer-image-picker-title">{t("Add a photo")}</strong>
+                <button
+                  type="button"
+                  ref={closeButtonRef}
+                  className="ui-icon-button ui-icon-button--ghost composer-image-picker-close"
+                  aria-label={t("Close photo options")}
+                  onClick={() => store.getState().pickerActions?.close()}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="composer-image-picker-actions">
+                <button
+                  type="button"
+                  ref={cameraButtonRef}
+                  className="ui-button ui-button--secondary"
+                  onClick={() => store.getState().pickerActions?.chooseCamera()}
+                >
+                  {t("Take photo")}
+                </button>
+                <button
+                  type="button"
+                  ref={galleryButtonRef}
+                  className="ui-button ui-button--secondary"
+                  onClick={() => store.getState().pickerActions?.chooseGallery()}
+                >
+                  {t("Choose from photos")}
+                </button>
+              </div>
+            </section>
+          </>,
+          document.body,
+        )}
     </>
   );
 }

@@ -3307,6 +3307,38 @@ M2 跨 NAT 打洞真机验证。
 React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端；TalkBack
 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十六轮：聊天 Composer 图片附件与移动端选择器迁移为 React
+（2026-08-07）。
+
+1. `imageLogic.ts`（defaultProcessImageFile / filterImageFiles）+
+   ComposerStore 扩展 images/imageKeys/imageBusy/imagePickerOpen/
+   pickerActions；`ComposerApp` 以 React 渲染图片预览（缩略图、删除
+   按钮、正在处理状态、hidden/aria-busy）与移动端底部选择面板
+   （createPortal 到 body、打开时收起软键盘并聚焦相机按钮、Escape/
+   Tab 焦点环、文案随 `zicode:locale-changed` 刷新）；
+2. `setupComposerImageAttachments` 变薄桥接：store 为图片单一数据源
+   （addFiles 异步处理后 addImage、订阅 images 变化触发 onChange、
+   粘贴/拖放/选择器接线、dispose 清理），`setupComposerImagePicker`
+   由 React 状态驱动（matchMedia 移动/桌面分流、移动历史层、相机/
+   相册 input 转发文件）；composer-images.js / composer-image-picker.js
+   变 re-export 桥接，删除 vanilla 实现与旧 DOM 测试；
+3. **踩坑**：vendor.ts 的 react-dom 再导出缺 `createPortal`，新增后
+   composer 功能才可挂载（否则 app.js 启动失败显示"本地 Host 不可用"
+   假象，需 CDP 动态 import 抓真实 SyntaxError）；`defaultProcessImageFile`
+   需经 composer feature 再导出，桥接才能引用；
+4. **实测**：桌面真实 WebView2（CDP）——粘贴 1×1 PNG 后预览以 React
+   渲染（正确的 base64 缩略图、aria-busy=false、删除按钮在位），点删除
+   后隐藏；模拟移动端视口点击附件按钮，底部面板以 React 渲染（"添加
+   照片/拍照/从相册选择"中文文案 + capture 相机输入），Escape 关闭；
+   **全程零异常**；未触发真实消息发送；
+5. **回归**：675 个测试全过（− 7 旧图片/选择器测试 + 2 逻辑 +
+   5 React 交互）、typecheck、Biome 零警告、`build:react` 产物
+   composer.js 约 90kb 已同步安装目录。
+
+遗留：会话侧栏（session-sidebar.js）React 化 → 移除手写 DOM 桥接；
+真机复验移动端；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机
+验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

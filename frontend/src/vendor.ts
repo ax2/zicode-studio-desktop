@@ -32,6 +32,6 @@ export {
   useActionState,
 } from "react";
 export { default } from "react";
-export { flushSync } from "react-dom";
+export { flushSync, createPortal } from "react-dom";
 export { createRoot } from "react-dom/client";
 export { Fragment, jsx, jsxs } from "react/jsx-runtime";
