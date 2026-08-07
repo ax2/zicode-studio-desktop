@@ -1578,9 +1578,9 @@ function renderHistory(messages, { preserveScroll = false } = {}) {
       hiddenCount: historyWindow.hiddenCount,
       onReveal: revealEarlierHistory,
     });
-    if (notice) messagesElement.appendChild(notice);
+    if (notice) messageRenderer.appendNoticeElement(notice);
   } else if (historyRevealCompleted) {
-    messagesElement.appendChild(createHistoryLoadedStatus());
+    messageRenderer.appendNoticeElement(createHistoryLoadedStatus());
   }
 
   // Pre-index tool results by toolCallId for O(1) lookup

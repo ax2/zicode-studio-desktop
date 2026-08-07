@@ -3176,6 +3176,34 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 遗留：按路线图迁移聊天主界面（最后）；真机复验移动端笔记；TalkBack
 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十一轮：聊天消息渲染迁移为 React（2026-08-07）。核心消息管道
+的第一块：
+
+1. `frontend/src/features/chat/`：chatLogic（模型错误分类/流式内容拆分/
+   转写清理/工具参数与结果格式化）、chatFeedStore（ChatFeed 类：单一
+   有序列表承载消息 + 工具卡片，流式更新/收尾/自动展开防抖/滚动追踪，
+   `useSyncExternalStore` 保证订阅时序）、ChatMessageList（欢迎页、用户/
+   助手消息、thinking 块、用量、复制/存笔记/分享/分叉按钮、系统/错误/
+   模型错误卡、工具卡片含 diff 与输出复制、历史折叠通知挂载）、index
+   （`MessageRenderer` / `ToolCardRenderer` 类契约原样导出）；
+2. **集成**：public/ui/message-renderer.js 与 tool-card.js 改为 React
+   bundle 再导出桥接，app.js 除两处历史通知直接 append 改为
+   `appendNoticeElement` 外零改动；消息与工具卡片在同一 feed 中按调用
+   顺序交错，保持与 vanilla 一致的渲染顺序；
+3. **踩坑**：React 挂载后 passive effect 订阅晚于 feed 首次 flushSync
+   提交，会漏掉紧随其后的更新——改用 `useSyncExternalStore`（commit 期
+   即订阅）；Markdown/通知挂载改用 `useLayoutEffect` 保证同步提交后
+   立即可查询；
+4. **实测**：桌面真实 WebView2（CDP）——应用正常启动、聊天欢迎页以
+   React 渲染；选择真实会话后历史完整渲染：1 条用户消息、2 条助手消息
+   （含 thinking 块与 $0.0007 用量）、1 个 bash 工具卡片、2 个复制按钮、
+   欢迎页正确移除、**全程零异常**；未触发真实模型调用；
+5. **回归**：667 个测试全过（687 − 28 旧消息/工具渲染测试 + 8 新）、
+   typecheck、Biome 零警告、`build:react` 产物 chat.js 约 102kb。
+
+遗留：迁移聊天 Composer → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端
+消息；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

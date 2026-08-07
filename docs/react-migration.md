@@ -101,5 +101,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   emoji 图标选择、标签、Markdown 编辑/预览、自动保存、附件、捕获/
   导入导出/备份/重建/Astro 发布、移动弹层；删除 vanilla notes-app.js
   与 22 个旧测试）
-- [ ] 后续按依赖度迁移：聊天主界面（最后），随后移除手写 DOM 桥接
+- [x] 聊天消息渲染（第 191 轮：message-renderer.js 780 行 +
+  tool-card.js 456 行合并为一个 React feed——消息/工具卡片按调用顺序
+  交错渲染、流式更新/收尾、thinking 块、用量、复制/存笔记/分享/分叉、
+  模型错误卡、搜索高亮、历史折叠通知；`MessageRenderer`/`ToolCardRenderer`
+  类契约原样保留，app.js 仅两处直接 append 改为 feed 调用）
+- [ ] 后续按依赖度迁移：聊天 Composer → 会话侧栏，随后移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
