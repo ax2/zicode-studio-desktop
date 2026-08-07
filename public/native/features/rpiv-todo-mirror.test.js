@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setLocale } from "../../i18n.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setLocale, t } from "../../i18n.js";
 import {
   isRpivTodoCommandNotify,
   isRpivTodoDetails,
@@ -75,6 +75,7 @@ describe("rpiv todo mirror", () => {
     expect(element.textContent).toContain("0/1");
     expect(element.textContent).toContain("Build panel");
     expect(element.textContent).not.toContain("Deleted");
+    panel.dispose();
   });
 
   it("renders a touch and keyboard operable collapsed control", () => {
@@ -112,9 +113,10 @@ describe("rpiv todo mirror", () => {
     toggle.click();
     expect(element.classList.contains("is-expanded")).toBe(false);
     expect(element.querySelector(".rpiv-todo-panel__list").textContent).toContain("Build panel");
+    panel.dispose();
   });
 
-  it("updates labels when the application language changes", () => {
+  it("updates labels when the application language changes", async () => {
     document.body.innerHTML = '<div class="input-area"><form></form></div>';
     const panel = new RpivTodoMirrorPanel({ container: document.querySelector(".input-area") });
     panel.applyToolResult({
@@ -127,10 +129,14 @@ describe("rpiv todo mirror", () => {
     setLocale("zh-CN");
 
     const element = document.querySelector(".rpiv-todo-panel");
-    expect(element.getAttribute("aria-label")).toBe("Pi 任务进度");
+    await vi.waitFor(() =>
+      expect(element.getAttribute("aria-label")).toBe("Pi 任务进度"),
+    );
     expect(element.querySelector(".rpiv-todo-panel__title").textContent).toBe("任务");
-    expect(element.querySelector(".rpiv-todo-panel__header").getAttribute("aria-label")).toContain(
-      "展开任务详情",
+    await vi.waitFor(() =>
+      expect(
+        element.querySelector(".rpiv-todo-panel__header").getAttribute("aria-label"),
+      ).toContain("展开任务详情"),
     );
     expect(element.querySelector(".rpiv-todo-panel__task").title).toBe("进行中");
 

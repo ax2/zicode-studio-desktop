@@ -51,6 +51,10 @@ async function run() {
         root,
         "frontend/src/features/pluginShell/index.ts",
       ),
+      "rpiv-todo-mirror": path.join(
+        root,
+        "frontend/src/features/rpivTodoMirror/index.ts",
+      ),
     },
     outdir,
     bundle: true,

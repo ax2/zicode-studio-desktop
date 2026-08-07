@@ -3481,6 +3481,30 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 工作区 UI/扩展类等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验
 移动端；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零二轮：Pi 任务进度镜像面板迁移为 React（2026-08-07）。
+
+1. `rpivTodoLogic.ts` 纯逻辑（isRpivTodoDetails/isRpivTodoWidgetRequest/
+   isRpivTodoCommandNotify/replayRpivTodoFromMessages/shouldShowIds/
+   selectDisplayTasks/状态字形与标签）+ `RpivTodoMirrorApp` 组件（任务
+   列表、折叠头部与 aria-expanded/aria-controls/aria-label、完成计数、
+   更多行、inert 折叠、语言实时切换）+ `RpivTodoMirrorPanel` 类保留旧
+   契约（hydrateFromMessages/applyToolResult/setState/clear/expand/
+   dispose），store 变更 flushSync 同步提交；
+2. 原 6 条 DOM 测试保留并经桥接全部通过（挂载型测试补 dispose 消除
+   遗留 React root 跨测试干扰；语言变更断言改为 vi.waitFor 等待 React
+   异步提交——`translateDocument` 只同步翻译精确 key，插值 aria-label
+   需等 React 重渲染）；
+3. rpiv-todo-mirror.js 变 re-export 桥接，删除 221 行 vanilla 实现；
+4. **实测**：桌面真实 WebView2（CDP）——面板元素以 React 渲染在位
+   （无任务时隐藏）、bundle 导出齐全、composer 正常、**全程零异常**；
+   任务渲染/折叠/语言切换由单测覆盖；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 rpiv-todo-mirror.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（移动端体验/工作区 UI/扩展类等）逐个收尾后
+移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

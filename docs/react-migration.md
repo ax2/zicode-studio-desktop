@@ -191,4 +191,11 @@ bun run test          # vitest（public/** + frontend/src/**）
   冻结，导致 bundle 渲染文本不跟随应用语言（测试 setLocale 后不同步、
   生产运行切换语言漏更新）——`t()` 改为每次读取持久化 cookie，一处修复
   所有 bundle 并支持运行时语言切换）
+- [x] Pi 任务进度镜像面板（第 202 轮：rpiv-todo-mirror.js 221 行整体
+  React 化——`rpivTodoLogic.ts` 纯逻辑（快照判定/回放/任务筛选/状态
+  字形）+ `RpivTodoMirrorApp` 组件（任务列表/折叠头/计数/更多行/语言
+  实时切换）+ `RpivTodoMirrorPanel` 类保留旧契约（hydrateFromMessages/
+  applyToolResult/setState/clear/expand/dispose）；原 6 条 DOM 测试保留
+  经桥接通过（补充 dispose 测试卫生、语言变更断言改异步等待 React
+  提交）；rpiv-todo-mirror.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
