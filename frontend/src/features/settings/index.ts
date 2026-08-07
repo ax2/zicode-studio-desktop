@@ -2,6 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createConfigStore, type ConfigGatewayLike } from "./configStore";
+import { createCostDashboardStore, type CostDashboardData } from "./costDashboardStore";
 import type { SettingsTabKey } from "./logic";
 import { createRemoteAccessStore, type RemoteAccessGateway } from "./remoteAccessStore";
 import {
@@ -17,10 +18,6 @@ export interface SettingsSubModules {
     control: unknown,
     options: { notify: (message: unknown) => void },
   ) => { load: () => Promise<void> } | null;
-  loadCostDashboard?: (
-    element: HTMLElement | null,
-    options: { data?: unknown; getWorkspaceId?: () => string | undefined },
-  ) => void;
   setupSettingsToggles?: () => void;
   setupThinkingEffortControl?: (options: {
     runtime: unknown;
@@ -79,14 +76,13 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   const remoteAccessStore = createRemoteAccessStore(
     (options.remoteAccessGateway as RemoteAccessGateway | null | undefined) ?? null,
   );
+  const costDashboardStore = createCostDashboardStore();
 
   const rootElement = document.getElementById("settings-root");
   let panelRoot: Root | null = null;
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
   let embeddedActive = false;
-  let usageLoaded = false;
-
   let packageBrowse: { load: () => Promise<void> } | null = null;
   let sceneProfiles: { load: () => Promise<void>; setTarget: (target: unknown) => void } | null =
     null;
@@ -95,6 +91,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   const controller: SettingsController = {
     configStore,
     remoteAccessStore,
+    costDashboardStore,
     wireVanilla() {
       sceneProfiles = modules.setupSceneProfiles?.({ getTarget }) ?? null;
       packageBrowse =
@@ -114,12 +111,10 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       if (tab === "general") {
         if (sceneProfiles?.load) void sceneProfiles.load();
       } else if (tab === "usage") {
-        if (!usageLoaded && modules.loadCostDashboard) {
-          usageLoaded = true;
-          modules.loadCostDashboard(document.getElementById("settings-cost-dashboard"), {
-            data: options.data,
-            getWorkspaceId: options.getWorkspaceId,
-          });
+        if (options.data && options.getWorkspaceId) {
+          void costDashboardStore
+            .getState()
+            .load(options.data as CostDashboardData, options.getWorkspaceId);
         }
       } else if (tab === "extensions") {
         if (packageBrowse?.load) void packageBrowse.load();

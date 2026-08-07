@@ -7,6 +7,7 @@ import {
   tabFromSettingsHash,
 } from "./logic";
 import { createConfigStore } from "./configStore";
+import { createCostDashboardStore } from "./costDashboardStore";
 import { createRemoteAccessStore } from "./remoteAccessStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
@@ -18,6 +19,7 @@ function controllerStub(): SettingsController {
       confirmImpl: () => false,
     }),
     remoteAccessStore: createRemoteAccessStore(null),
+    costDashboardStore: createCostDashboardStore(),
     loadForTab: vi.fn(),
     wireVanilla: vi.fn(),
     reloadVisibleConfiguration: vi.fn(),
@@ -146,7 +148,6 @@ describe("settings React panel", () => {
       "toggle-beta-updates",
       "pkg-browse-search",
       "pkg-browse-list",
-      "settings-cost-dashboard",
       "settings-api-keys",
       "provider-channel-list",
       "inline-config-textarea",

@@ -4,7 +4,6 @@
 // dashboard, toggles, thinking effort, scene profiles) are kept as-is and
 // wired by the React factory after the panel DOM is mounted.
 import { setupSettingsPanel as setupReactSettingsPanel } from "../react/settings.js";
-import { loadCostDashboard } from "./cost-dashboard.js";
 import { setupPackageBrowse } from "./package-browse.js";
 import { setupSceneProfiles } from "./scene-profiles.js";
 import { setupSettingsToggles } from "./settings-toggles.js";
@@ -15,7 +14,6 @@ export function setupSettingsPanel(options = {}) {
     ...options,
     modules: {
       setupPackageBrowse,
-      loadCostDashboard,
       setupSettingsToggles,
       setupThinkingEffortControl,
       setupSceneProfiles,

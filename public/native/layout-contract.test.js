@@ -37,7 +37,7 @@ const costDashboardCss = readFileSync(
   "utf8",
 );
 const costDashboardRender = readFileSync(
-  join(process.cwd(), "public/native/settings/cost-dashboard-render.js"),
+  join(process.cwd(), "frontend/src/features/settings/CostDashboardTab.tsx"),
   "utf8",
 );
 const markdownCss = readFileSync(join(process.cwd(), "public/ui/markdown.css"), "utf8");
@@ -281,7 +281,7 @@ describe("desktop three-region layout contract", () => {
     expect(costDashboardCss).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.cost-dash-activity-calendar\s*\{\s*min-width:\s*560px/,
     );
-    expect(costDashboardRender).toContain('class="cost-dash-sessions-table-wrap"');
+    expect(costDashboardRender).toContain('className="cost-dash-sessions-table-wrap"');
     expect(costDashboardRender).toContain('role="region"');
     expect(costDashboardRender).toContain('aria-label="Sessions table"');
   });

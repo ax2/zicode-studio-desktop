@@ -6,6 +6,8 @@ import { applyTheme, getCurrentTheme, themes } from "../../../../public/themes.j
 import { t } from "../../shared/i18n";
 import { ConfigTab } from "./ConfigTab";
 import type { ConfigStore } from "./configStore";
+import { CostDashboardTab } from "./CostDashboardTab";
+import type { CostDashboardStore } from "./costDashboardStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
@@ -14,6 +16,7 @@ import type { SettingsStore } from "./store";
 export interface SettingsController {
   configStore: ConfigStore;
   remoteAccessStore: RemoteAccessStore;
+  costDashboardStore: CostDashboardStore;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -132,7 +135,7 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "usage" ? " active" : ""}`}
         data-settings-panel="usage"
       >
-        <UsageTab />
+        <CostDashboardTab store={controller.costDashboardStore} />
       </div>
       <div
         className={`settings-tab${activeTab === "configuration" ? " active" : ""}`}
@@ -516,14 +519,6 @@ function ExtensionsTab() {
         ></div>
         <div className="pkg-browse-pagination" id="pkg-browse-pagination" hidden></div>
       </div>
-    </div>
-  );
-}
-
-function UsageTab() {
-  return (
-    <div className="settings-usage-embed">
-      <cost-dashboard id="settings-cost-dashboard" defer-load embedded />
     </div>
   );
 }

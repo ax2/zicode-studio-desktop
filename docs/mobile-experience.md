@@ -3076,6 +3076,29 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机
 验证（TURN 路径已通）。
 
+第一百八十七轮：设置 → 用量 tab 迁移为 React（2026-08-07）。
+
+1. `costDashboardLogic.ts`（纯函数：范围过滤/聚合、模型/项目/工具排行、
+   概览指标与连续天数、365 日活动热力图数据、Chart.js 配置辅助）+
+   `costDashboardStore.ts`（Zustand：原始 dashboard 保留、按范围重新
+   适配、localStorage 记忆）+ `CostDashboardTab.tsx`（13 张统计卡、
+   活动日历、模型堆叠柱状图、项目/工具环形图（canvas + Chart.js，
+   缺失时 conic-gradient 降级）、会话表、范围快捷切换）；
+2. **清理**：`cost-dashboard.js`（276 行）+ `cost-dashboard-render.js`
+   （689 行）删除；`cost-dashboard` 自定义元素容器移除；layout-contract
+   的会话表可访问性断言改验 React 源码；cost-dashboard.css 保留；
+3. **实测**：桌面真实 WebView2（CDP）——用量 tab 以 React 渲染：真实
+   数据 13 张统计卡（$0.25/8 会话/95.6 万 tokens）、374 个活动格、
+   三个 Chart.js canvas 全部挂载、8 行会话；范围切到 7d 后统计与会话
+   行即时重算；资源清单已不含 cost-dashboard.js / cost-dashboard-render.js、
+   **全程零异常**；
+4. **回归**：700 个测试全过（691 + 9 个新用量逻辑/store/组件测试）、
+   typecheck、Biome 零警告、`build:react` 产物 137.4kb。
+
+遗留：继续迁移设置剩余子面板（扩展/package-browse）→ 笔记 → 聊天；
+真机复验移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞
+真机验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
