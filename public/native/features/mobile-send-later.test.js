@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupMobileSendLater } from "./mobile-send-later.js";
+import { setupMobileSendLater } from "../react/mobile-send-later.js";
 
 function adapterHarness() {
   const listeners = new Set();

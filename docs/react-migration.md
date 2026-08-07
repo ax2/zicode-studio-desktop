@@ -344,3 +344,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   MutationObserver、badge、live-status、焦点、高亮、锁定与缩放编排
   留在控制器）；原 8 条测试保留经构建产物通过 + 新增 3 条 React 测试；
   conv-nav.js 删除、导入指向 react 产物）
+- [x] 移动端"稍后发送"横幅（第 220 轮：mobile-send-later.js 168 行
+  React 化——`MobileSendLaterBanner` 组件（aria-live aside：标题/消息/
+  "立即发送"/"保留为草稿"按钮、hidden 随 active、按钮随 connected/busy
+  禁用）+ `setupMobileSendLater` 保留旧契约（dispose/isConnected/
+  queueCurrent/restoreCurrent/sent/setTarget，断线队列、连接恢复、
+  locale 重渲染、发送按钮标签同步）；原 3 条测试保留经构建产物通过 +
+  新增 2 条 React 测试；旧文件删除、导入指向 react 产物）

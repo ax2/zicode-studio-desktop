@@ -3902,6 +3902,27 @@ M2 跨 NAT 打洞真机验证。
 决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百二十轮：移动端"稍后发送"横幅迁移为 React（2026-08-08）。
+
+1. `MobileSendLaterBanner` 组件：.mobile-send-later aria-live aside
+   （标题/消息文案、"立即发送"主按钮、"保留为草稿"幽灵按钮），hidden
+   随 active、按钮禁用随 connected/busy、aria-busy 同步；
+2. `setupMobileSendLater` 保留旧契约：dispose / isConnected /
+   queueCurrent / restoreCurrent / sent / setTarget；断线队列标记、
+   连接恢复提示、locale 重渲染、发送按钮 title/aria-label 同步等
+   编排留在控制器，横幅内容由 React 渲染（根挂独立 wrapper）；
+3. mobile-send-later.js 删除，app.js 与测试导入直接指向
+   react/mobile-send-later.js；
+4. 原 3 条测试保留并经构建产物全部通过（离线不自动发送、恢复后需点击、
+   孤儿标记清理与桌面 inert）；新增 React 测试 2 条；
+5. **验证**：typecheck、Biome 零警告、全量 694 测试全绿（+2）；运行中
+   桌面实例伺服 app.js 与 mobile-send-later.js SHA256 MATCH。
+
+遗留：mobile-task-notifications 仍以 vanilla 改 React 设置行（待并入
+settings store 的一轮）；剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块
+（按第 212 轮范围决策保留）；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

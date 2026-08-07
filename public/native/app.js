@@ -28,7 +28,7 @@ import { setupHelpCenter } from "./react/help.js";
 import { refreshLanQrButton, setupLanQr } from "./react/lan-qr.js";
 import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
 import { setupMobileExperience } from "./react/mobile-experience.js";
-import { setupMobileSendLater } from "./features/mobile-send-later.js";
+import { setupMobileSendLater } from "./react/mobile-send-later.js";
 import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
 import {
   createAuthenticatedHostFetch,

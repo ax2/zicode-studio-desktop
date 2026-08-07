@@ -115,6 +115,10 @@ async function run() {
         root,
         "frontend/src/features/convNav/index.ts",
       ),
+      "mobile-send-later": path.join(
+        root,
+        "frontend/src/features/mobileSendLater/index.ts",
+      ),
     },
     outdir,
     bundle: true,

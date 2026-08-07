@@ -1,6 +1,30 @@
-import { t } from "../../i18n.js";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
+import { createElement } from "react";
+import { t } from "../../shared/i18n";
+import { MobileSendLaterBanner } from "./MobileSendLaterApp";
 
-function inertController() {
+interface SendLaterDrafts {
+  clearQueued(): Promise<unknown>;
+  markQueued(): Promise<{ status: string; queuedAt?: number }>;
+  readQueued(): Promise<unknown>;
+}
+
+interface SendLaterAdapter {
+  isConnected?(): boolean;
+  setConnectionListener?(listener: (connected: boolean) => void): () => void;
+}
+
+export interface MobileSendLaterHandle {
+  dispose(): void;
+  isConnected(): boolean;
+  queueCurrent(): Promise<{ status: string; queuedAt?: number }>;
+  restoreCurrent(): Promise<{ status: string; queuedAt?: number }>;
+  sent(): void;
+  setTarget(): Promise<{ status: string; queuedAt?: number }>;
+}
+
+function inertController(): MobileSendLaterHandle {
   return {
     dispose() {},
     isConnected: () => true,
@@ -25,7 +49,21 @@ export function setupMobileSendLater({
   sendButton,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
-} = {}) {
+}: {
+  adapter?: SendLaterAdapter;
+  clientType?: string;
+  composerRoot?: HTMLElement | null;
+  drafts?: SendLaterDrafts;
+  getTarget?: () => { workspaceId?: string; sessionId?: string } | undefined;
+  hasContent?: () => boolean;
+  input?: HTMLElement | null;
+  onError?: (error: unknown) => void;
+  onQueued?: () => void;
+  onSend?: () => Promise<unknown>;
+  sendButton?: HTMLElement | null;
+  documentRef?: Document;
+  windowRef?: Window;
+} = {}): MobileSendLaterHandle {
   if (
     clientType !== "remote" ||
     !composerRoot ||
@@ -36,52 +74,39 @@ export function setupMobileSendLater({
     return inertController();
   }
 
+  const draftsApi = drafts;
+  const getTargetRef = getTarget;
+  const hasContentRef = hasContent;
+  const onSendRef = onSend;
+
   let active = false;
   let busy = false;
   let connected = Boolean(adapter?.isConnected?.());
   let disposed = false;
   let generation = 0;
 
-  const banner = documentRef.createElement("aside");
-  banner.className = "mobile-send-later";
-  banner.hidden = true;
-  banner.setAttribute("aria-live", "polite");
+  const wrapper = documentRef.createElement("div");
+  wrapper.dataset.mobileSendLaterRoot = "";
+  composerRoot.parentElement?.insertBefore(wrapper, composerRoot);
+  const root: Root = createRoot(wrapper);
 
-  const copy = documentRef.createElement("div");
-  copy.className = "mobile-send-later-copy";
-  const title = documentRef.createElement("strong");
-  const message = documentRef.createElement("span");
-  copy.append(title, message);
-
-  const actions = documentRef.createElement("div");
-  actions.className = "mobile-send-later-actions";
-  const sendNow = documentRef.createElement("button");
-  sendNow.type = "button";
-  sendNow.className = "ui-button ui-button--primary ui-button--sm";
-  const keepDraft = documentRef.createElement("button");
-  keepDraft.type = "button";
-  keepDraft.className = "ui-button ui-button--ghost ui-button--sm";
-  actions.append(sendNow, keepDraft);
-  banner.append(copy, actions);
-  composerRoot.parentElement?.insertBefore(banner, composerRoot);
-
-  function targetKey(value = getTarget()) {
+  function targetKey(value = getTargetRef()) {
     return JSON.stringify([value?.workspaceId || "", value?.sessionId || ""]);
   }
 
   function render() {
-    banner.hidden = !active;
-    title.textContent = t(connected ? "Ready to send" : "Saved for reconnect");
-    message.textContent = t(
-      connected
-        ? "Connection restored. Review the draft, then send it."
-        : "The encrypted draft is saved on this device and will not send automatically.",
-    );
-    sendNow.textContent = t("Send now");
-    sendNow.disabled = busy || !connected;
-    sendNow.setAttribute("aria-busy", String(busy));
-    keepDraft.textContent = t("Keep as draft");
-    keepDraft.disabled = busy;
+    if (disposed) return;
+    flushSync(() => {
+      root.render(
+        createElement(MobileSendLaterBanner, {
+          active,
+          connected,
+          busy,
+          onSendNow: () => void sendQueued(),
+          onKeepDraft: () => void keepAsDraft(),
+        }),
+      );
+    });
     if (sendButton) {
       const label = t(connected ? "Send message" : "Save draft for reconnect");
       sendButton.title = label;
@@ -93,7 +118,7 @@ export function setupMobileSendLater({
     if (disposed) return { status: "ignored" };
     const expectedGeneration = ++generation;
     const expectedTarget = targetKey();
-    const queued = await drafts.readQueued();
+    const queued = await draftsApi.readQueued();
     if (
       disposed ||
       expectedGeneration !== generation ||
@@ -101,21 +126,23 @@ export function setupMobileSendLater({
     ) {
       return { status: "skipped" };
     }
-    if (queued && typeof hasContent === "function" && !hasContent()) {
-      await drafts.clearQueued();
+    if (queued && typeof hasContentRef === "function" && !hasContentRef()) {
+      await draftsApi.clearQueued();
       active = false;
       render();
       return { status: "empty" };
     }
     active = Boolean(queued);
     render();
-    return active ? { queuedAt: queued.queuedAt, status: "restored" } : { status: "empty" };
+    return active
+      ? { queuedAt: (queued as { queuedAt?: number })?.queuedAt, status: "restored" }
+      : { status: "empty" };
   }
 
   async function queueCurrent() {
     if (disposed) return { status: "ignored" };
     const wasActive = active;
-    const result = await drafts.markQueued();
+    const result = await draftsApi.markQueued();
     if (result?.status !== "queued") return result;
     active = true;
     render();
@@ -124,7 +151,7 @@ export function setupMobileSendLater({
   }
 
   async function keepAsDraft() {
-    await drafts.clearQueued();
+    await draftsApi.clearQueued();
     active = false;
     render();
     input?.focus();
@@ -135,7 +162,7 @@ export function setupMobileSendLater({
     busy = true;
     render();
     try {
-      await onSend();
+      await onSendRef();
     } catch (error) {
       onError(error);
     } finally {
@@ -162,8 +189,6 @@ export function setupMobileSendLater({
   });
   const onLocaleChanged = () => render();
   windowRef.addEventListener("zicode:locale-changed", onLocaleChanged);
-  sendNow.addEventListener("click", sendQueued);
-  keepDraft.addEventListener("click", keepAsDraft);
   render();
 
   return {
@@ -173,7 +198,8 @@ export function setupMobileSendLater({
       generation += 1;
       removeConnectionListener?.();
       windowRef.removeEventListener("zicode:locale-changed", onLocaleChanged);
-      banner.remove();
+      root.unmount();
+      wrapper.remove();
     },
     isConnected: () => connected,
     queueCurrent,
