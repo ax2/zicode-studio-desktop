@@ -223,7 +223,14 @@ bun run test          # vitest（public/** + frontend/src/**）
   + `MobileExperienceApp` 组件（连接状态横幅：离线/重连/停滞/已连接 +
    P2P 直连徽标 + 重试按钮；安装卡片：标题/提示/安装/稍后）+ 
    `setupMobileExperience` 保留全部编排（连接/P2P 监听、重连升级定时器、
-   前后台与 BFCache 恢复、beforeinstallprompt/appinstalled、安装推迟
-   策略、子模块接线：任务通知/Service Worker/存储持久化/启动路由）；
-   原 12 条测试保留经桥接通过；mobile-experience.js 变 re-export 桥接）
+  前后台与 BFCache 恢复、beforeinstallprompt/appinstalled、安装推迟
+  策略、子模块接线：任务通知/Service Worker/存储持久化/启动路由）；
+  原 12 条测试保留经桥接通过；mobile-experience.js 变 re-export 桥接）
+- [x] 原生扩展对话框（第 207 轮：dialog.js 191 行整体 React 化
+  ——`dialogLogic.ts`（标题/头部徽标/正文/预览块解析、编号选项解析、
+  默认标题）+ `NativeDialogApp` 组件（select 选项列表+预览/confirm 确认
+  /input-editor 输入，标题/消息/选项/输入与操作按钮，DOM 结构与 vanilla
+  一致）+ `showNativeDialog` 保留 Promise 契约（初始聚焦、Escape 取消、
+  Ctrl/Cmd+Enter 提交、Tab 焦点环、超时与 dismissSignal、关闭后焦点
+  恢复）；原 5 条测试保留经桥接通过；dialog.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

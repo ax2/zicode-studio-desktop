@@ -71,6 +71,10 @@ async function run() {
         root,
         "frontend/src/features/mobileExperience/index.ts",
       ),
+      dialog: path.join(
+        root,
+        "frontend/src/features/dialog/index.ts",
+      ),
     },
     outdir,
     bundle: true,

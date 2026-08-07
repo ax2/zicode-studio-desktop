@@ -3593,6 +3593,29 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百零七轮：原生扩展对话框迁移为 React（2026-08-07）。
+
+1. `dialogLogic.ts`（标题/头部徽标/正文/预览块解析、编号选项解析为
+   编号+标签+描述、confirm/editor/input 默认标题）+ `NativeDialogApp`
+   组件（select 选项列表与预览面板、confirm 消息、input/editor 输入
+   框、No/Yes/Submit/Save/Cancel 操作按钮，DOM 类名与结构保持 vanilla
+   一致）+ `showNativeDialog` 保留 Promise 契约（初始聚焦到输入框或
+   首按钮、Escape 取消、Ctrl/Cmd+Enter 提交、Tab 焦点环、超时与
+   dismissSignal 取消、关闭后焦点恢复）；
+2. 原 5 条测试保留并经桥接全部通过（预览解析、编号选项解析、多行正文、
+   确认框聚焦与焦点恢复、Tab 焦点陷阱）；
+3. dialog.js 变 re-export 桥接，删除 191 行 vanilla 实现；
+4. **实测**：桌面真实 WebView2（CDP）——直接调用 showNativeDialog 渲染
+   确认对话框（标题/消息/Yes/No），点击 Yes 返回 `{"confirmed":true}`、
+   容器复位隐藏、**全程零异常**；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 dialog.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（工作区与扩展类：plugin-manager-view/
+inline-extension-prompt/extension-ui-host 等）逐个收尾后移除手写 DOM
+桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
