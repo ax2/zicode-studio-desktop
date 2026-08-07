@@ -218,4 +218,12 @@ bun run test          # vitest（public/** + frontend/src/**）
   旧契约（open/close/定时刷新/Escape 与 Tab 焦点环/locale 重渲染）+
   `refreshLanQrButton`（回环检查 + /health）；原 5 条测试保留经桥接
   通过；lan-qr.js 变 re-export 桥接）
+- [x] 移动端体验（第 206 轮：mobile-experience.js 290 行整体 React 化
+  ——`mobileExperienceLogic.ts`（isIosDevice/canUseRemotePwa/isStandalone）
+  + `MobileExperienceApp` 组件（连接状态横幅：离线/重连/停滞/已连接 +
+   P2P 直连徽标 + 重试按钮；安装卡片：标题/提示/安装/稍后）+ 
+   `setupMobileExperience` 保留全部编排（连接/P2P 监听、重连升级定时器、
+   前后台与 BFCache 恢复、beforeinstallprompt/appinstalled、安装推迟
+   策略、子模块接线：任务通知/Service Worker/存储持久化/启动路由）；
+   原 12 条测试保留经桥接通过；mobile-experience.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

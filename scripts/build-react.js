@@ -67,6 +67,10 @@ async function run() {
         root,
         "frontend/src/features/lanQr/index.ts",
       ),
+      "mobile-experience": path.join(
+        root,
+        "frontend/src/features/mobileExperience/index.ts",
+      ),
     },
     outdir,
     bundle: true,

@@ -3568,6 +3568,31 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零六轮：移动端体验迁移为 React（2026-08-07）。
+
+1. `mobileExperienceLogic.ts`（isIosDevice/canUseRemotePwa/isStandalone）
+   + `MobileExperienceApp` 组件（连接状态横幅：离线/重新连接/连接停滞/
+   已连接四种状态、P2P 直连徽标（SVG 闪电）、重试按钮；安装卡片：
+   "安装 ZiCode"标题、iOS 添加到主屏幕或 Android 提示、安装/稍后按钮）
+   + `setupMobileExperience` 保留全部编排（连接/P2P 监听、8s 重连升级
+   定时器、前后台可见性与 BFCache 恢复、beforeinstallprompt/appinstalled
+   处理、安装推迟策略与焦点恢复、子模块接线：后台任务通知/Service
+   Worker/存储持久化/启动路由跟踪）；
+2. 原 12 条测试保留并经桥接全部通过（离线/重连/已连接状态、P2P 徽标、
+   前台恢复、重连升级与手动重试、Android 安装提示与 iOS 引导、7 天
+   冷却、焦点恢复、Service Worker 注册与更新检查、桌面客户端 no-op、
+   生命周期事件转发）；
+3. mobile-experience.js 变 re-export 桥接，删除 290 行 vanilla 实现；
+4. **实测**：桌面真实 WebView2（CDP）——桌面作为 Host 时该模块按
+   clientType 规则返回 null（横幅/安装卡不出现，符合预期）、bundle
+   导入正常、**全程零异常**；remote 端行为由单测覆盖；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 mobile-experience.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（工作区与扩展类等）逐个收尾后移除手写 DOM
+桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
