@@ -7,10 +7,13 @@ import { t } from "../../shared/i18n";
 import { ConfigTab } from "./ConfigTab";
 import type { ConfigStore } from "./configStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
+import { RemoteAccessTab } from "./RemoteAccessTab";
+import type { RemoteAccessStore } from "./remoteAccessStore";
 import type { SettingsStore } from "./store";
 
 export interface SettingsController {
   configStore: ConfigStore;
+  remoteAccessStore: RemoteAccessStore;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -141,7 +144,9 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "remote-access" ? " active" : ""}`}
         data-settings-panel="remote-access"
       >
-        <div id="settings-remote-access"></div>
+        <div id="settings-remote-access">
+          <RemoteAccessTab store={controller.remoteAccessStore} />
+        </div>
       </div>
       <chat-settings-panel
         className={`settings-tab${activeTab === "chat" ? " active" : ""}`}

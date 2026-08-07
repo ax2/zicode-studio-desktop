@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createConfigStore, type ConfigGatewayLike } from "./configStore";
 import type { SettingsTabKey } from "./logic";
+import { createRemoteAccessStore, type RemoteAccessGateway } from "./remoteAccessStore";
 import {
   SettingsApp,
   SettingsContent,
@@ -12,7 +13,6 @@ import {
 import { createSettingsStore, type SettingsStore } from "./store";
 
 export interface SettingsSubModules {
-  setupRemoteAccessSettings?: (options: { gateway?: unknown }) => { load: () => Promise<void> } | null;
   setupPackageBrowse?: (
     control: unknown,
     options: { notify: (message: unknown) => void },
@@ -76,6 +76,9 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       __TAURI__?: { core?: { invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown> } };
     }).__TAURI__?.core?.invoke,
   });
+  const remoteAccessStore = createRemoteAccessStore(
+    (options.remoteAccessGateway as RemoteAccessGateway | null | undefined) ?? null,
+  );
 
   const rootElement = document.getElementById("settings-root");
   let panelRoot: Root | null = null;
@@ -84,7 +87,6 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   let embeddedActive = false;
   let usageLoaded = false;
 
-  let remoteAccess: { load: () => Promise<void> } | null = null;
   let packageBrowse: { load: () => Promise<void> } | null = null;
   let sceneProfiles: { load: () => Promise<void>; setTarget: (target: unknown) => void } | null =
     null;
@@ -92,10 +94,9 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
 
   const controller: SettingsController = {
     configStore,
+    remoteAccessStore,
     wireVanilla() {
       sceneProfiles = modules.setupSceneProfiles?.({ getTarget }) ?? null;
-      remoteAccess =
-        modules.setupRemoteAccessSettings?.({ gateway: options.remoteAccessGateway }) ?? null;
       packageBrowse =
         modules.setupPackageBrowse?.(options.control, { notify: options.notify ?? (() => {}) }) ??
         null;
@@ -125,7 +126,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       } else if (tab === "configuration") {
         void configStore.getState().loadAll();
       } else if (tab === "remote-access") {
-        if (remoteAccess?.load) void remoteAccess.load();
+        void remoteAccessStore.getState().load();
       }
     },
     reloadVisibleConfiguration() {

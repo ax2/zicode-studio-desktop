@@ -7,6 +7,7 @@ import {
   tabFromSettingsHash,
 } from "./logic";
 import { createConfigStore } from "./configStore";
+import { createRemoteAccessStore } from "./remoteAccessStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
 
@@ -16,6 +17,7 @@ function controllerStub(): SettingsController {
       configGateway: { call: async () => ({ ok: false, error: "unavailable" }) },
       confirmImpl: () => false,
     }),
+    remoteAccessStore: createRemoteAccessStore(null),
     loadForTab: vi.fn(),
     wireVanilla: vi.fn(),
     reloadVisibleConfiguration: vi.fn(),

@@ -6,7 +6,6 @@
 import { setupSettingsPanel as setupReactSettingsPanel } from "../react/settings.js";
 import { loadCostDashboard } from "./cost-dashboard.js";
 import { setupPackageBrowse } from "./package-browse.js";
-import { setupRemoteAccessSettings } from "./remote-access-settings.js";
 import { setupSceneProfiles } from "./scene-profiles.js";
 import { setupSettingsToggles } from "./settings-toggles.js";
 import { setupThinkingEffortControl } from "./thinking-effort-control.js";
@@ -15,7 +14,6 @@ export function setupSettingsPanel(options = {}) {
   return setupReactSettingsPanel({
     ...options,
     modules: {
-      setupRemoteAccessSettings,
       setupPackageBrowse,
       loadCostDashboard,
       setupSettingsToggles,

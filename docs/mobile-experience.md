@@ -3054,6 +3054,28 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 真机复验移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞
 真机验证（TURN 路径已通）。
 
+第一百八十六轮：设置 → 远程访问 tab 迁移为 React（2026-08-07）。
+
+1. `remoteAccessStore.ts`（Zustand）+ `RemoteAccessTab.tsx`：secure
+   mobile access 开关与就绪地址/CA 指纹、公网 HTTPS/证书地址保存、
+   中继开关与实时连接状态/流量/7 日历史/TURN 配置/设备 ID/E2EE 指纹、
+   配对设备列表与两步确认撤销（5 秒复位计时器），行为与 vanilla
+   逐项对齐；网关方法（getStatus/listDevices/setEnabled/setPublic/
+   setRelay/updateRelayTurn/revokeDevice）由设置工厂注入；
+2. **清理**：`remote-access-settings.js`（581 行）及其 14 个旧测试删除，
+   桥接不再注入；remote-access-settings.css 保留供 React 复用；
+3. **实测**：桌面真实 WebView2（CDP）——远程访问 tab 以 React 渲染：
+   中继已连接（`dev-ax2-01`）、今日流量 0 B、12 台真实配对设备、
+   公网/中继/TURN 输入回填正确；secure mobile access 开关真实往返
+   （关闭后徽标变为"需要重启"，随后恢复）；资源清单已不含
+   remote-access-settings.js、**全程零异常**；
+4. **回归**：691 个测试全过（696 − 14 旧 + 9 新）、typecheck、
+   Biome 零警告、`build:react` 产物 126.9kb。
+
+遗留：继续迁移设置剩余子面板（用量/扩展）→ 笔记 → 聊天；真机复验
+移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机
+验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
