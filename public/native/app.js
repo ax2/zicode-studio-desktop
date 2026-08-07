@@ -11,7 +11,7 @@ import {
 } from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
 import { applyTheme, getCurrentTheme } from "../themes.js";
-import { ConvNav } from "../ui/conv-nav.js";
+import { ConvNav } from "./react/conv-nav.js";
 import { setupMessagesInsets } from "../ui/layout-insets.js";
 import { MessageRenderer } from "../ui/message-renderer.js";
 import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js";

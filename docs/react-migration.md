@@ -335,3 +335,12 @@ bun run test          # vitest（public/** + frontend/src/**）
   react/settings.js 导入；原 2 条测试保留经构建产物通过 + 新增 2 条
   store 测试；调试中揪出并修复 Tauri 全局读取路径 bug（误把
   globalThis 当 __TAURI__ 本体，改为 globalThis.__TAURI__?.updater?.check）
+- [x] 对话导航轨道（第 219 轮：ui/conv-nav.js 334 行 React 化——
+  `convNavLogic.ts`（tooltip 预览/gaussianWidth/scrollBehavior/
+  MAX_NAV_HEIGHT）+ `ConvNavTrack`/`ConvNavTooltip` 组件（每轮一个圆点
+  按钮：active 态、aria-label、悬停 --nav-w 高斯波、点击跳转；提示
+  q/a 内容与分隔线）+ `ConvNav` 类保留全部契约（mount/rebuild/
+  notifyNewMessage/notifyStreamingStart/destroy；滚动测量、
+  MutationObserver、badge、live-status、焦点、高亮、锁定与缩放编排
+  留在控制器）；原 8 条测试保留经构建产物通过 + 新增 3 条 React 测试；
+  conv-nav.js 删除、导入指向 react 产物）

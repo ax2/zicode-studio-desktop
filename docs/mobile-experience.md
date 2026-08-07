@@ -3880,6 +3880,28 @@ M2 跨 NAT 打洞真机验证。
 决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百一十九轮：对话导航轨道迁移为 React（2026-08-08）。
+
+1. `convNavLogic.ts`（tooltipUserPreview / tooltipAssistantPreview /
+   gaussianWidth / scrollBehavior / MAX_NAV_HEIGHT 纯逻辑）+
+   `ConvNavTrack` 组件（每轮一个 .conv-nav-dot 按钮：active 态、
+   t("Jump to conversation") aria-label、悬停 --nav-w 高斯波宽、点击
+   跳转）+ `ConvNavTooltip` 组件（q/a 内容与分隔线显示）；
+2. `ConvNav` 类保留全部旧契约：mount / rebuild / notifyNewMessage /
+   notifyStreamingStart / destroy；滚动测量、MutationObserver、
+   badge 显隐、live-status 播报、焦点管理、跳转高亮、800ms 锁定、
+   轨道缩放等编排仍留在控制器，React 只拥有圆点与提示内容两个视图；
+3. conv-nav.js 删除，app.js 与测试导入直接指向 react/conv-nav.js；
+4. 原 8 条测试保留并经构建产物全部通过（重渲染后点跳转、badge 揭示/
+   回底/焦点、streaming 揭示、reduced-motion、长跳 instant、locale
+   重刷标签）；新增 React 测试 3 条；
+5. **验证**：typecheck、Biome 零警告、全量 692 测试全绿（+3）；运行中
+   桌面实例伺服 app.js 与 conv-nav.js SHA256 MATCH。
+
+遗留：剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块（按第 212 轮范围
+决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

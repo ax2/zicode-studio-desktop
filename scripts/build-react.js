@@ -111,6 +111,10 @@ async function run() {
         root,
         "frontend/src/features/contextUsage/index.ts",
       ),
+      "conv-nav": path.join(
+        root,
+        "frontend/src/features/convNav/index.ts",
+      ),
     },
     outdir,
     bundle: true,

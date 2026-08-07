@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConvNav } from "./conv-nav.js";
+import { ConvNav } from "../native/react/conv-nav.js";
 
 function setupDom() {
   document.body.innerHTML = `
