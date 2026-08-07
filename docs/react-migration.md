@@ -72,6 +72,7 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 基座（构建管线、vendor、import map、类型、测试、i18n 覆盖）
 - [x] 试点：自动化中心（`com.zicode.automation`）
 - [x] 任务中心（`com.zicode.tasks`）
-- [ ] 后续按依赖度迁移：产物 → 项目工作台 → 设置 → 帮助中心 →
-  笔记（最大，建议最后）→ 聊天主界面
+- [x] 产物（`com.zicode.artifacts`）
+- [ ] 后续按依赖度迁移：项目工作台 → 设置 → 帮助中心 → 笔记
+  （最大，建议最后）→ 聊天主界面
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

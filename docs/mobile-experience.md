@@ -2929,6 +2929,26 @@ NAT 打洞真机验证（TURN 路径已通）。
 移动端 UI；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机
 验证（TURN 路径已通）。
 
+第一百八十一轮：产物模块迁移为 React（2026-08-07）。沿用既定模式：
+
+1. `frontend/src/features/artifacts/`：logic（类型/来源标签、日期/大小
+   格式化、markdown/JSON 展示、安全文件名）、Zustand store（场景内
+   加载、选中、删除（版本校验 + 确认）、导出、搜索/类型/来源过滤，
+   带请求序列防陈旧响应）、组件（导航：搜索 + 类型/来源过滤 + 最近
+   列表；主面板：文档头/元数据/内容/来源追溯）、`setupArtifactApp`
+   兼容工厂；gateway 保持原生（数据访问层）；
+2. `artifact-app.js` 改为薄桥接；构建入口 artifacts；产物
+   `public/native/react/artifacts.js`；
+3. **实测**：桌面真实 WebView2（CDP）验证产物插件以 React 渲染
+   （搜索、过滤、最近列表、主面板空态"产物"、中文文案、无 console
+   错误、应用正常启动）；
+4. **回归**：686 个测试全过（含 3 个新产物 React 测试）、typecheck、
+   Biome/设计检查通过。
+
+遗留：按手册继续迁移项目工作台/设置/帮助/笔记/聊天；真机复验移动端
+UI；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
+（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
