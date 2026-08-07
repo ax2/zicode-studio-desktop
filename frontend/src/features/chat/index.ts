@@ -14,13 +14,17 @@ import {
   type AssistantMessageLike,
   type MessageHandle,
   type UserMessageLike,
+  type WelcomeScene,
 } from "./chatFeedStore";
 
 export class MessageRenderer {
   private feed: ChatFeed;
 
-  constructor(container: HTMLElement) {
-    this.feed = feedFor(container);
+  constructor(
+    container: HTMLElement,
+    options: { onOpenSceneSettings?: () => void } = {},
+  ) {
+    this.feed = feedFor(container, options);
   }
 
   clear() {
@@ -37,6 +41,10 @@ export class MessageRenderer {
 
   renderWelcome({ workspacePath }: { workspacePath?: string } = {}) {
     this.feed.renderWelcome(workspacePath);
+  }
+
+  setWelcomeScene(scene: WelcomeScene | null) {
+    this.feed.setWelcomeScene(scene);
   }
 
   renderUserMessage(

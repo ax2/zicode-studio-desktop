@@ -23,6 +23,12 @@ export interface UsageLike {
   cost?: { total?: number };
 }
 
+export interface WelcomeScene {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface UserMessageLike {
   content?: string | ContentBlock[];
   images?: Array<{ data?: string; mimeType?: string }>;
@@ -40,7 +46,12 @@ export interface AssistantMessageLike {
 }
 
 export type ChatFeedItem =
-  | { kind: "welcome"; seq: number; workspacePath?: string }
+  | {
+      kind: "welcome";
+      seq: number;
+      workspacePath?: string;
+      scene: WelcomeScene | null;
+    }
   | {
       kind: "user";
       seq: number;
@@ -98,11 +109,18 @@ export class ChatFeed {
   private expandTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private isNearBottom = true;
 
-  constructor(container: HTMLElement) {
+  constructor(
+    container: HTMLElement,
+    options: { onOpenSceneSettings?: () => void } = {},
+  ) {
     this.container = container;
     this.root = createRoot(container);
     this.root.render(
-      createElement(ChatMessageList, { store: this.store, container }),
+      createElement(ChatMessageList, {
+        store: this.store,
+        container,
+        onOpenSceneSettings: options.onOpenSceneSettings,
+      }),
     );
     initCodeCopyDelegation(container);
     initImageLightbox(container);
@@ -141,9 +159,26 @@ export class ChatFeed {
     this.setItems(this.store.getState().items.filter((item) => item.kind !== "tool"));
   }
 
-  renderWelcome(workspacePath?: string) {
-    const item: ChatFeedItem = { kind: "welcome", seq: this.nextSeq(), workspacePath };
+  renderWelcome(
+    workspacePath?: string,
+    scene: WelcomeScene | null = null,
+  ) {
+    const item: ChatFeedItem = {
+      kind: "welcome",
+      seq: this.nextSeq(),
+      workspacePath,
+      scene,
+    };
     this.setItems([item]);
+  }
+
+  setWelcomeScene(scene: WelcomeScene | null) {
+    const items = this.store.getState().items;
+    this.setItems(
+      items.map((item) =>
+        item.kind === "welcome" ? { ...item, scene } : item,
+      ),
+    );
   }
 
   renderUserMessage(
@@ -547,10 +582,13 @@ export class ChatFeed {
 
 const feeds = new WeakMap<HTMLElement, ChatFeed>();
 
-export function feedFor(container: HTMLElement): ChatFeed {
+export function feedFor(
+  container: HTMLElement,
+  options?: { onOpenSceneSettings?: () => void },
+): ChatFeed {
   let feed = feeds.get(container);
   if (!feed) {
-    feed = new ChatFeed(container);
+    feed = new ChatFeed(container, options);
     feeds.set(container, feed);
   }
   return feed;

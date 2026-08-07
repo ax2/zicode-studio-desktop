@@ -269,4 +269,15 @@ bun run test          # vitest（public/** + frontend/src/**）
   （open/close/runCommand、Escape 恢复焦点、Tab 焦点环、overlay 关闭）；
   原 4 条测试保留经桥接通过 + 新增 4 条 React 测试；两文件变 re-export
   桥接）
+- [x] 场景指示器 + 项目头部 pills（第 212 轮：scene-indicator.js 70 行与
+  project-header.js 41 行整体 React 化——`sceneIndicatorLogic.ts`
+  （resolveActiveProfile/toWelcomeScene）+ `SceneIndicatorApp`（点/前缀/
+  名称强标签）+ `setupSceneIndicator` 保留旧契约（load/render/setTarget、
+  invoke 拉取场景、locale 监听、点击开设置并滚动）；欢迎卡场景数据收进
+  ChatFeed（welcome item 携带 scene、`setWelcomeScene`/
+  `onOpenSceneSettings` 经 MessageRenderer 注入，去掉 vanilla 直改 React
+  DOM 的耦合；无回调时保留旧 DOM 契约供原测试）；`PillText` 组件 +
+  `setupProjectHeader` 保留异步契约（路径/git 分支 pill、hidden 态、
+  data.workspaceInfo）；原 3 条测试保留经桥接通过 + 新增 5 条 React/feed
+  测试；两文件变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

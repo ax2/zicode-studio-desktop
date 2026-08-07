@@ -13,6 +13,7 @@ import type {
   UserMessageLike,
   AssistantMessageLike,
   UsageLike,
+  WelcomeScene,
 } from "./chatFeedStore";
 
 type ChatStore = {
@@ -31,15 +32,23 @@ function useChatStore(store: ChatStore): ChatFeedItem[] {
 export function ChatMessageList({
   store,
   container,
+  onOpenSceneSettings,
 }: {
   store: ChatStore;
   container: HTMLElement;
+  onOpenSceneSettings?: () => void;
 }) {
   const items = useChatStore(store);
   return (
     <>
       {items.map((item) => (
-        <ChatItem key={item.seq} item={item} container={container} items={items} />
+        <ChatItem
+          key={item.seq}
+          item={item}
+          container={container}
+          items={items}
+          onOpenSceneSettings={onOpenSceneSettings}
+        />
       ))}
     </>
   );
@@ -49,14 +58,23 @@ function ChatItem({
   item,
   container,
   items,
+  onOpenSceneSettings,
 }: {
   item: ChatFeedItem;
   container: HTMLElement;
   items: ChatFeedItem[];
+  onOpenSceneSettings?: () => void;
 }) {
   switch (item.kind) {
     case "welcome":
-      return <WelcomeItem key={item.seq} workspacePath={item.workspacePath} />;
+      return (
+        <WelcomeItem
+          key={item.seq}
+          workspacePath={item.workspacePath}
+          scene={item.scene}
+          onOpenSceneSettings={onOpenSceneSettings}
+        />
+      );
     case "user":
       return <UserMessage key={item.seq} item={item} container={container} />;
     case "assistant":
@@ -100,7 +118,20 @@ function Markdown({ html }: { html: string }) {
   return <div ref={ref} />;
 }
 
-const WelcomeItem = memo(function WelcomeItem({ workspacePath }: { workspacePath?: string }) {
+const WelcomeItem = memo(function WelcomeItem({
+  workspacePath,
+  scene,
+  onOpenSceneSettings,
+}: {
+  workspacePath?: string;
+  scene: WelcomeScene | null;
+  onOpenSceneSettings?: () => void;
+}) {
+  const sceneId = scene?.id ?? "programming";
+  const sceneName = scene ? t(scene.name) : "Programming";
+  const sceneDescription = scene
+    ? t(scene.description)
+    : "Engineering workflows for coding, debugging, repository changes, and reproducible verification.";
   return (
     <div className="welcome">
       <div className="welcome-icon">
@@ -115,15 +146,18 @@ const WelcomeItem = memo(function WelcomeItem({ workspacePath }: { workspacePath
           Current workspace: <code>{workspacePath}</code>
         </p>
       ) : null}
-      <button className="welcome-scene" type="button" data-scene="programming" title={t("Open scene settings")}>
+      <button
+        className="welcome-scene"
+        type="button"
+        data-scene={sceneId}
+        title={t("Open scene settings")}
+        onClick={onOpenSceneSettings}
+      >
         <span className="welcome-scene-dot" aria-hidden="true"></span>
         <span className="welcome-scene-copy">
           <span className="welcome-scene-kicker">Current scene</span>
-          <strong data-scene-name>Programming</strong>
-          <span data-scene-description>
-            Engineering workflows for coding, debugging, repository changes, and reproducible
-            verification.
-          </span>
+          <strong data-scene-name>{sceneName}</strong>
+          <span data-scene-description>{sceneDescription}</span>
         </span>
       </button>
       {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}

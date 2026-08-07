@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanChatTranscript,
   describeModelError,
@@ -62,6 +62,39 @@ describe("chat feed renderers", () => {
     expect(container.querySelector(".welcome")).toBeNull();
     expect(container.querySelector(".message-content")?.textContent).toContain("Hello");
     expect(container.querySelector(".message-copy-btn")).toBeTruthy();
+  });
+
+  it("updates the welcome scene card from the scene indicator feed", async () => {
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    renderer.renderWelcome();
+    await flush();
+    expect(container.querySelector(".welcome-scene")?.getAttribute("data-scene")).toBe(
+      "programming",
+    );
+    renderer.setWelcomeScene({
+      id: "finance",
+      name: "Finance",
+      description: "Evidence-led financial analysis.",
+    });
+    await flush();
+    expect(container.querySelector(".welcome-scene")?.getAttribute("data-scene")).toBe(
+      "finance",
+    );
+    expect(container.querySelector("[data-scene-name]")?.textContent).toBe("金融");
+    expect(container.querySelector("[data-scene-description]")?.textContent).toContain(
+      "Evidence",
+    );
+  });
+
+  it("opens scene settings from the welcome scene card", async () => {
+    const container = makeContainer();
+    const onOpenSceneSettings = vi.fn();
+    const renderer = new MessageRenderer(container, { onOpenSceneSettings });
+    renderer.renderWelcome();
+    await flush();
+    (container.querySelector(".welcome-scene") as HTMLElement | null)?.click();
+    expect(onOpenSceneSettings).toHaveBeenCalledTimes(1);
   });
 
   it("streams and finalizes an assistant message", async () => {

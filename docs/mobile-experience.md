@@ -3722,6 +3722,33 @@ M2 跨 NAT 打洞真机验证。
 host 等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack
 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百一十二轮：场景指示器与项目头部 pills 迁移为 React（2026-08-07）。
+
+1. `sceneIndicatorLogic.ts`（resolveActiveProfile / toWelcomeScene）+
+   `SceneIndicatorApp`（.scene-indicator-dot / prefix / #scene-indicator-
+   name）+ `setupSceneIndicator` 保留旧契约：load（invoke
+   list_scene_profiles）/ render / setTarget、zicode:locale-changed 重
+   渲染、点击开设置并滚动到 #scene-profile-section；
+2. 欢迎卡场景数据收进 React ChatFeed：welcome item 携带 scene、
+   `setWelcomeScene` 原地更新、`onOpenSceneSettings` 经 MessageRenderer
+   注入 WelcomeItem（点击开场景设置）；app.js 以 onWelcomeScene 回调把
+   场景推给 feed，去掉 vanilla 直接改 React DOM 的耦合；无回调时保留旧
+   DOM 契约（供原测试）；
+3. `projectHeader`：`PillText` 组件 + `setupProjectHeader` 保留异步契约
+   （data.workspaceInfo → 路径 pill / git 分支 pill、title、hidden 态）；
+4. 原 3 条测试保留并经桥接全部通过；新增 React/feed 测试 5 条
+   （scene-indicator 2、project-header 1、chat welcome scene 2）；
+5. **验证**：typecheck、Biome 零警告、686 个测试全过（+5）；运行中桌面
+   实例伺服 6 个文件（两桥接 + 两新 bundle + chat.js + app.js）SHA256
+   与仓库产物全部 MATCH；CDP 交互复核仍受本机安全策略限制，以伺服内容
+   校验兜底；
+6. `build:react` 产物 scene-indicator.js / project-header.js / chat.js
+   与 app.js 接线已同步安装目录。
+
+遗留：剩余 vanilla DOM 模块（plugin-view-host iframe 宿主等）逐个评估后
+移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

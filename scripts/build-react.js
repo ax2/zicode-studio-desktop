@@ -95,6 +95,14 @@ async function run() {
         root,
         "frontend/src/features/commandPalette/index.ts",
       ),
+      "scene-indicator": path.join(
+        root,
+        "frontend/src/features/sceneIndicator/index.ts",
+      ),
+      "project-header": path.join(
+        root,
+        "frontend/src/features/projectHeader/index.ts",
+      ),
     },
     outdir,
     bundle: true,

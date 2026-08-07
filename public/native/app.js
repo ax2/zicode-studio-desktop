@@ -129,7 +129,19 @@ setupMessagesInsets({
   header: document.querySelector(".header"),
   inputArea: document.querySelector(".input-area"),
 });
-const messageRenderer = new MessageRenderer(messagesElement);
+
+function showSceneSettings() {
+  settingsPanel?.openSettings("general");
+  requestAnimationFrame(() => {
+    document
+      .getElementById("scene-profile-section")
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+}
+
+const messageRenderer = new MessageRenderer(messagesElement, {
+  onOpenSceneSettings: showSceneSettings,
+});
 const toolRenderer = new ToolCardRenderer(messagesElement);
 const composer = setupComposer({
   onSubmit: ({ altKey }) => {
@@ -612,7 +624,8 @@ const settingsPanel = setupSettingsPanel({
 const helpCenter = setupHelpCenter();
 const sceneIndicator = setupSceneIndicator({
   getTarget: () => target,
-  openSettings: () => settingsPanel?.openSettings("general"),
+  openSettings: showSceneSettings,
+  onWelcomeScene: (profile) => messageRenderer.setWelcomeScene(profile),
 });
 const artifactGateway = new ArtifactGateway({
   fetchImpl: hostFetch,
