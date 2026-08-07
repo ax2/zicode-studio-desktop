@@ -23,7 +23,6 @@ import { setupCommandPalette } from "./react/command-palette.js";
 import { showNativeDialog } from "./react/dialog.js";
 import { ExtensionUiHost } from "./extensions/extension-ui-host.js";
 import { showInlineExtensionPrompt } from "./react/inline-extension-prompt.js";
-import { setupAppUpdater } from "./features/app-updater.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
 import { setupHelpCenter } from "./react/help.js";
 import { refreshLanQrButton, setupLanQr } from "./react/lan-qr.js";
@@ -71,7 +70,7 @@ import { createSessionSelectionHandler } from "./session/session-navigation.js";
 import { setupSessionSearchDialog } from "./react/session-search-dialog.js";
 import { SessionSidebar } from "./react/session-sidebar.js";
 import { createSessionStore, reduceSessionState } from "./session/session-store.js";
-import { setupSettingsPanel } from "./react/settings.js";
+import { setupAppUpdater, setupSettingsPanel } from "./react/settings.js";
 import { resolveBootstrapTarget } from "./transport/bootstrap-target.js";
 import { ConfigGateway } from "./transport/config-gateway.js";
 import {

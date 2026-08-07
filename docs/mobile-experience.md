@@ -3855,6 +3855,31 @@ M2 跨 NAT 打洞真机验证。
 决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百一十八轮：应用更新器收进 React 设置（2026-08-08）。
+
+1. 发现 #setting-update-status / #btn-check-updates / #toggle-beta-updates
+   已由 React 设置面板渲染，vanilla app-updater.js 在直接改 React DOM——
+   与欢迎卡场景同类耦合，收编进 settings 特性；
+2. `settings/updaterStore.ts`（zustand store）：configure / checkNow /
+   installUpdate / 下载进度 / 静默定时 / 频道切换全部移入，设置面板
+   GeneralTab 更新行改为从 store 渲染（状态文本、按钮文案与 disabled、
+   data-mode、aria-busy、beta 行随 enabled 隐藏）；顺带修掉生产环境
+   "未配置更新却显示可点 Check now" 的潜在不一致；
+3. `setupAppUpdater` 保留旧契约：enabled 模式接线侧栏更新按钮、原始
+   DOM 同步、静默检查与 6 小时定时；disabled 模式只写未配置状态、
+   不触发检查（与 vanilla 一致）；app.js 改从 react/settings.js 导入；
+4. **踩坑**：隔离测试发现 Tauri 全局读取路径 bug——代码误把
+   globalThis 当作 __TAURI__ 本体，导致 updater.check 永远 undefined、
+   更新检查形同虚设；改为 globalThis.__TAURI__?.updater?.check 后修复
+   （该 bug 同时影响旧 vanilla 版本的 enabled 模式，属既有缺陷）；
+5. 验证：typecheck、Biome 零警告、全量 689 测试全绿（+2 store 测试）；
+   原 2 条 app-updater 测试经构建产物通过；运行实例伺服 app.js 与
+   settings.js SHA256 MATCH，产物含 setupAppUpdater。
+
+遗留：剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块（按第 212 轮范围
+决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

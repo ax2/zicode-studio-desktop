@@ -325,3 +325,13 @@ bun run test          # vitest（public/** + frontend/src/**）
   关闭）；保留 #token-usage/#context-viz/#context-bar/#context-legend id
   契约；原 2 条测试保留经桥接通过 + 新增 2 条 React 测试；旧文件与
   ui/context-viz.js 删除）
+- [x] 应用更新器收进 React 设置（第 218 轮：app-updater.js 154 行删除
+  ——状态机移入 `settings/updaterStore.ts`（zustand store：configure/
+  checkNow/installUpdate/下载进度/静默定时/频道切换），设置面板更新行
+  改为从 store 渲染（status/button/disabled/data-mode/aria-busy，beta
+  行随 enabled 隐藏），消除 vanilla 直改 React DOM 的最后一处耦合；
+  `setupAppUpdater` 保留旧契约（enabled 模式接线侧栏按钮、原始 DOM
+  同步、静默检查；disabled 模式不触发检查），app.js 改从
+  react/settings.js 导入；原 2 条测试保留经构建产物通过 + 新增 2 条
+  store 测试；调试中揪出并修复 Tauri 全局读取路径 bug（误把
+  globalThis 当 __TAURI__ 本体，改为 globalThis.__TAURI__?.updater?.check）

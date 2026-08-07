@@ -15,6 +15,7 @@ import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
 import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 import type { SettingsStore } from "./store";
+import { useAppUpdaterStore } from "./updaterStore";
 
 export interface SettingsController {
   configStore: ConfigStore;
@@ -482,6 +483,7 @@ export function GeneralTab({
   const appVersion = store((state) => state.appVersion);
   const toggles = widgets((state) => state.toggles);
   const thinkingLevel = widgets((state) => state.thinkingLevel);
+  const updater = useAppUpdaterStore();
   return (
     <div className="settings-body">
       <AppearancePreferences />
@@ -581,18 +583,28 @@ export function GeneralTab({
               role="status"
               aria-live="polite"
             >
-              {t("Click to check")}
+              {updater.status || t("Click to check")}
             </span>
             <button
               type="button"
               className="ui-button ui-button--secondary settings-value-btn"
               id="btn-check-updates"
+              disabled={updater.disabled}
+              data-mode={updater.canInstall ? "install" : "check"}
+              aria-busy={updater.disabled ? "true" : "false"}
+              onClick={() => {
+                if (updater.canInstall) {
+                  void updater.installUpdate();
+                } else {
+                  void updater.checkNow();
+                }
+              }}
             >
-              {t("Check now")}
+              {updater.button || t("Check now")}
             </button>
           </span>
         </div>
-        <div className="settings-row">
+        <div className={`settings-row${updater.enabled ? "" : " hidden"}`}>
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Beta updates")}</span>
             <span className="settings-label-sub">{t("Receive prerelease desktop builds")}</span>

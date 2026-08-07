@@ -17,6 +17,7 @@ import {
   type SettingsController,
 } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
+import { CHECK_INTERVAL_MS, useAppUpdaterStore } from "./updaterStore";
 
 export interface SettingsPanelOptions {
   data?: unknown;
@@ -207,6 +208,77 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     setTarget(target) {
       controller.setTarget(target);
     },
+  };
+}
+
+export interface AppUpdaterHandle {
+  checkNow(options?: { silent?: boolean }): Promise<unknown>;
+  installUpdate(): Promise<void>;
+}
+
+export function setupAppUpdater({
+  logger = console,
+  enabled = false,
+  settingsPanel: _settingsPanel = null,
+}: {
+  logger?: { warn?: (..._args: unknown[]) => void };
+  enabled?: boolean;
+  settingsPanel?: { openSettings?: (tab?: string) => void } | null;
+} = {}): AppUpdaterHandle {
+  useAppUpdaterStore.getState().configure(enabled, logger);
+
+  const statusEl = document.getElementById("setting-update-status");
+  const checkBtn = document.getElementById(
+    "btn-check-updates",
+  ) as HTMLButtonElement | null;
+  const sidebarBtn = document.getElementById(
+    "sidebar-update-btn",
+  ) as HTMLButtonElement | null;
+
+  function syncDom() {
+    const state = useAppUpdaterStore.getState();
+    if (statusEl) statusEl.textContent = state.status || "Click to check";
+    if (checkBtn) {
+      checkBtn.textContent = state.button || "Check now";
+      checkBtn.disabled = state.disabled;
+      checkBtn.dataset.mode = state.canInstall ? "install" : "check";
+      checkBtn.setAttribute("aria-disabled", state.disabled ? "true" : "false");
+      checkBtn.setAttribute("aria-busy", state.disabled ? "true" : "false");
+    }
+    if (sidebarBtn) sidebarBtn.classList.toggle("hidden", !state.sidebarVisible);
+  }
+
+  useAppUpdaterStore.subscribe(syncDom);
+  syncDom();
+
+  if (enabled) {
+    sidebarBtn?.addEventListener("click", () => {
+      void useAppUpdaterStore.getState().installUpdate();
+    });
+
+    let silentTimer: ReturnType<typeof setInterval> | null = null;
+    function scheduleSilentChecks() {
+      if (silentTimer) clearInterval(silentTimer);
+      silentTimer = setInterval(() => {
+        const state = useAppUpdaterStore.getState();
+        if (Date.now() - state.lastCheckMs >= CHECK_INTERVAL_MS) {
+          void state.checkNow({ silent: true });
+        }
+      }, CHECK_INTERVAL_MS);
+    }
+
+    window.addEventListener("picot-update-channel-changed", () => {
+      useAppUpdaterStore.getState().showIdle();
+      void useAppUpdaterStore.getState().checkNow({ silent: true });
+    });
+
+    scheduleSilentChecks();
+    void useAppUpdaterStore.getState().checkNow({ silent: true });
+  }
+
+  return {
+    checkNow: (options) => useAppUpdaterStore.getState().checkNow(options),
+    installUpdate: () => useAppUpdaterStore.getState().installUpdate(),
   };
 }
 

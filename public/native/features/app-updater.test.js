@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupAppUpdater } from "./app-updater.js";
+import { setupAppUpdater } from "../react/settings.js";
 
 function renderUpdaterDom() {
   document.body.innerHTML = `
