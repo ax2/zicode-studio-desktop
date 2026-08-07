@@ -2887,6 +2887,30 @@ NAT 打洞真机验证（TURN 路径已通）。
 遗留：真机复验移动端 UI；TalkBack 走查（人工）；安装包签名；M2 跨
 NAT 打洞真机验证（TURN 路径已通）。
 
+第一百七十九轮：前端 React 化基座与首个试点（2026-08-07）。按新目标
+"逐步改造成 React、采用最优方案避免二次返工"推进：
+
+1. **技术基座**：React 19 + TypeScript(strict) + Zustand 5 + esbuild
+   （产物构建，因 Vite CLI 在本机 rolldown/复制问题上不可靠）+ vitest
+   （含 @testing-library/react）；`frontend/` 目录、tsconfig、
+   `scripts/build-react.js` 双段构建（vendor 含 React / feature 外部化
+   React），`index.html` 增加 import map 映射共享 vendor；
+2. **试点模块**：自动化中心整体迁移为 React（logic/store/组件 + 测试），
+   `automation-app.js` 改为薄桥接；产物写入 `public/native/react/`，
+   部署模型不变（Tauri 内嵌 + 宿主 + 中继直出）；
+3. **踩坑记录**：a) Vite 8 为 rolldown 内核在 bun 下挂死，Vite CLI
+   生产构建因 outDir 在 publicDir 内递归复制生成数千万级目录（已清理，
+   长路径删除）；b) esbuild 对 CJS 的 `export *` 在压缩后会丢导出，vendor
+   须显式具名再导出并含 default；c) i18n 覆盖测试扩展到 `frontend/src`；
+4. **实测**：桌面真实 WebView2（CDP）验证 import map + vendor 加载、
+   自动化插件以 React 渲染（导航/主面板/表单、中文文案、无 console
+   错误、应用正常启动）；
+5. **回归**：686 个测试全过（含 4 个 React 组件测试）、typecheck、
+   Biome/设计检查通过；迁移手册 `docs/react-migration.md` 已建立。
+
+遗留：按手册迁移更多模块；真机复验移动端 UI；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
