@@ -242,4 +242,13 @@ bun run test          # vitest（public/** + frontend/src/**）
   防护）+ `showInlineExtensionPrompt` 保留 Promise 契约（welcome 移除、
   时间线滚动、dismissSignal 取消、自定义回答队列自动应答）；原 6 条
   测试保留经桥接通过；inline-extension-prompt.js 变 re-export 桥接）
+- [x] 插件管理器视图（第 209 轮：plugin-manager-view.js 313 行整体
+  React 化——`pluginManagerLogic.ts`（按 origin/启用过滤、过滤定义）+
+  `PluginManagerViewApp` 组件（hero/场景、安装本地/签名包/刷新操作、
+  5 个过滤 tab、插件卡（图标/名称/来源/描述、启用开关、卸载、回滚、
+  吊销、场景权限开关）、诊断面板）+ `renderPluginManagerView` 保留旧
+  契约（confirm 注入、onFilterChange、registry 回调）；挂载进独立
+  wrapper 避免 plugin-shell 清容器后 React 无法卸载（修复 32 个
+  NotFoundError）；原 8 条测试保留经桥接通过；plugin-manager-view.js
+  变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

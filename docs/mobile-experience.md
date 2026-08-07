@@ -3642,6 +3642,36 @@ M2 跨 NAT 打洞真机验证。
 逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查
 （人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零九轮：插件管理器视图迁移为 React（2026-08-07）。
+
+1. `pluginManagerLogic.ts`（按 origin/启用状态过滤、installed/builtIn/
+   disabled/developer/signed 过滤定义）+ `PluginManagerViewApp` 组件
+   （hero 与场景行、安装本地插件/安装签名包/刷新操作（带 busy 态）、
+   5 个过滤 tab（aria-selected/data-plugin-filter）、插件卡（图标注入、
+   名称/来源徽标/ID/描述、启用开关（core 禁用）、开发者/签名插件卸载
+   （confirm）、签名插件回滚与发布者吊销（confirm）、场景权限开关）、
+   被拒开发者包诊断面板）+ `renderPluginManagerView` 保留旧契约
+   （installDeveloperPlugin/selectSignedPlugin/installSignedPlugin/
+   rollbackSignedPlugin/revokePublisher/confirmUninstall/confirmPublisher/
+   onFilterChange）；
+2. **踩坑**：React 根直接建在 pluginMain 上时，plugin-shell 的
+   replaceChildren 清空容器后再挂载，旧根 unmount 因节点已不存在抛
+   NotFoundError（全量跑出 32 个未处理错误）——改为挂进独立 wrapper
+   （wrapper 被整体摘除但子节点仍在，unmount 安全），修复后零未处理
+   错误；
+3. 原 8 条测试保留并经桥接全部通过（过滤、过滤器恢复、本地安装+
+   场景刷新、签名包发布者确认、刷新+卸载确认、拒绝卸载、回滚/吊销、
+   界面语言）；
+4. **实测**：桌面真实 WebView2（CDP）——点击"管理插件"活动：React
+   渲染"插件管理"标题、**7 张插件卡**、5 个过滤 tab、"场景:
+   programming"、**全程零异常**；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 plugin-manager-view.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（extension-ui-host 等）逐个收尾后移除手写 DOM
+桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

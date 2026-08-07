@@ -79,6 +79,10 @@ async function run() {
         root,
         "frontend/src/features/inlineExtensionPrompt/index.ts",
       ),
+      "plugin-manager-view": path.join(
+        root,
+        "frontend/src/features/pluginManagerView/index.ts",
+      ),
     },
     outdir,
     bundle: true,
