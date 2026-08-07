@@ -97,6 +97,26 @@ describe("chat feed renderers", () => {
     expect(onOpenSceneSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("renders history window notices and loaded status from the feed", async () => {
+    const container = makeContainer();
+    const onRevealHistory = vi.fn();
+    const renderer = new MessageRenderer(container, { onRevealHistory });
+    renderer.appendHistoryWindowNotice(10);
+    renderer.appendHistoryLoadedStatus();
+    await flush();
+
+    const notice = container.querySelector(".history-window-notice");
+    expect(notice?.getAttribute("aria-label")).toMatch(/Earlier|更早/);
+    expect(notice?.textContent).toMatch(/folded|收起/);
+    (container.querySelector(".history-window-load") as HTMLElement | null)?.click();
+    expect(onRevealHistory).toHaveBeenCalledTimes(1);
+
+    const status = container.querySelector("p.history-window-loaded");
+    expect(status?.getAttribute("role")).toBe("status");
+    expect(status?.getAttribute("tabindex")).toBe("-1");
+    expect(status?.textContent).toMatch(/loaded|加载/);
+  });
+
   it("streams and finalizes an assistant message", async () => {
     const container = makeContainer();
     const renderer = new MessageRenderer(container);

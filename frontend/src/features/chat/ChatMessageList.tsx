@@ -1,6 +1,10 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown, renderStreamingMarkdown, renderUserMarkdown } from "../../../../public/ui/markdown.js";
+import {
+  HistoryLoadedStatus,
+  HistoryWindowNotice,
+} from "../historyWindow/HistoryWindowNotices";
 import { t } from "../../shared/i18n";
 import {
   describeModelError,
@@ -33,10 +37,12 @@ export function ChatMessageList({
   store,
   container,
   onOpenSceneSettings,
+  onRevealHistory,
 }: {
   store: ChatStore;
   container: HTMLElement;
   onOpenSceneSettings?: () => void;
+  onRevealHistory?: () => void;
 }) {
   const items = useChatStore(store);
   return (
@@ -48,6 +54,7 @@ export function ChatMessageList({
           container={container}
           items={items}
           onOpenSceneSettings={onOpenSceneSettings}
+          onRevealHistory={onRevealHistory}
         />
       ))}
     </>
@@ -59,11 +66,13 @@ function ChatItem({
   container,
   items,
   onOpenSceneSettings,
+  onRevealHistory,
 }: {
   item: ChatFeedItem;
   container: HTMLElement;
   items: ChatFeedItem[];
   onOpenSceneSettings?: () => void;
+  onRevealHistory?: () => void;
 }) {
   switch (item.kind) {
     case "welcome":
@@ -95,6 +104,12 @@ function ChatItem({
           <NoticeMount element={item.element} />
         </div>
       );
+    case "history-window":
+      return (
+        <HistoryWindowNotice key={item.seq} onReveal={onRevealHistory} />
+      );
+    case "history-loaded":
+      return <HistoryLoadedStatus key={item.seq} />;
     case "tool":
       return <ToolCard key={item.seq} item={item} />;
   }

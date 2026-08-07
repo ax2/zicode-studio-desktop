@@ -285,4 +285,14 @@ bun run test          # vitest（public/** + frontend/src/**）
   与生命周期）与 `extension-ui-host.js`（170 行纯编排）保持 vanilla——
   React 迁移只针对 DOM 渲染部分，iframe 沙箱宿主与编排层不属于 UI 渲染，
   强制 React 化只会增加间接层
+- [x] 历史窗口通知收进 React feed（第 213 轮：history-window.js 86 行
+  整体 React 化——`historyWindowLogic.ts`（createHistoryWindow 纯逻辑：
+  批次窗口/逐轮展开/搜索全量揭示）+ `HistoryWindowNotices`（history-window
+  aside+加载按钮、history-loaded 状态）+ ChatFeed 新增
+  appendHistoryWindowNotice/appendHistoryLoadedStatus 类型化条目与
+  onRevealHistory 注入，app.js 改用 feed 方法，去掉外部 DOM 元素塞入
+  feed 的最后一条路径；`createHistoryWindowNotice`/`createHistoryLoadedStatus`
+  保留为 React 渲染的兼容工厂（根建在元素自身，节点移动后事件不失效）；
+  原 5 条测试保留经桥接通过 + 新增 1 条 feed 测试；history-window.js 变
+  re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

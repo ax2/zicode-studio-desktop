@@ -22,7 +22,10 @@ export class MessageRenderer {
 
   constructor(
     container: HTMLElement,
-    options: { onOpenSceneSettings?: () => void } = {},
+    options: {
+      onOpenSceneSettings?: () => void;
+      onRevealHistory?: () => void;
+    } = {},
   ) {
     this.feed = feedFor(container, options);
   }
@@ -89,6 +92,14 @@ export class MessageRenderer {
 
   appendNoticeElement(element: HTMLElement, className = "") {
     this.feed.appendNoticeElement(element, className);
+  }
+
+  appendHistoryWindowNotice(hiddenCount: number) {
+    this.feed.appendHistoryWindowNotice(hiddenCount);
+  }
+
+  appendHistoryLoadedStatus() {
+    this.feed.appendHistoryLoadedStatus();
   }
 
   scrollToBottom() {

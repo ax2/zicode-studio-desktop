@@ -76,6 +76,8 @@ export type ChatFeedItem =
   | { kind: "system" | "error"; seq: number; text: string }
   | { kind: "assistant-error"; seq: number; message: AssistantMessageLike }
   | { kind: "notice"; seq: number; element: HTMLElement | null; className: string }
+  | { kind: "history-window"; seq: number; hiddenCount: number }
+  | { kind: "history-loaded"; seq: number }
   | {
       kind: "tool";
       seq: number;
@@ -111,7 +113,10 @@ export class ChatFeed {
 
   constructor(
     container: HTMLElement,
-    options: { onOpenSceneSettings?: () => void } = {},
+    options: {
+      onOpenSceneSettings?: () => void;
+      onRevealHistory?: () => void;
+    } = {},
   ) {
     this.container = container;
     this.root = createRoot(container);
@@ -120,6 +125,7 @@ export class ChatFeed {
         store: this.store,
         container,
         onOpenSceneSettings: options.onOpenSceneSettings,
+        onRevealHistory: options.onRevealHistory,
       }),
     );
     initCodeCopyDelegation(container);
@@ -301,6 +307,19 @@ export class ChatFeed {
   appendNoticeElement(element: HTMLElement, className = "") {
     const items = this.store.getState().items;
     this.setItems([...items, { kind: "notice", seq: this.nextSeq(), element, className }]);
+  }
+
+  appendHistoryWindowNotice(hiddenCount: number) {
+    const items = this.store.getState().items;
+    this.setItems([
+      ...items,
+      { kind: "history-window", seq: this.nextSeq(), hiddenCount },
+    ]);
+  }
+
+  appendHistoryLoadedStatus() {
+    const items = this.store.getState().items;
+    this.setItems([...items, { kind: "history-loaded", seq: this.nextSeq() }]);
   }
 
   private toolItem(toolExecution: {
@@ -584,7 +603,10 @@ const feeds = new WeakMap<HTMLElement, ChatFeed>();
 
 export function feedFor(
   container: HTMLElement,
-  options?: { onOpenSceneSettings?: () => void },
+  options?: {
+    onOpenSceneSettings?: () => void;
+    onRevealHistory?: () => void;
+  },
 ): ChatFeed {
   let feed = feeds.get(container);
   if (!feed) {

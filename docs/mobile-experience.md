@@ -3749,6 +3749,29 @@ host 等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移�
 移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百一十三轮：历史窗口通知收进 React feed（2026-08-07）。
+
+1. `historyWindowLogic.ts`（createHistoryWindow 纯逻辑：批次窗口/逐轮
+   展开/搜索全量揭示，原逻辑原样搬入 TS）+ `HistoryWindowNotices` 组件
+   （history-window aside + "加载更早消息"按钮、history-loaded 状态 p）；
+2. ChatFeed 新增类型化条目 appendHistoryWindowNotice /
+   appendHistoryLoadedStatus，onRevealHistory 经 MessageRenderer 注入；
+   app.js 的 renderHistory 改用 feed 方法，去掉了"外部 vanilla DOM 元素
+   塞进 React feed"的最后一条路径；
+3. `createHistoryWindowNotice` / `createHistoryLoadedStatus` 保留为
+   React 渲染的兼容工厂——根直接建在 aside/p 元素自身，避免节点被移动
+   出根容器后事件委托失效（首版宿主包装方案导致旧测试点击不触发，已修）；
+4. 原 5 条测试保留并经桥接全部通过（4 条纯逻辑 + 1 条无障碍 DOM）；
+   新增 chat feed 测试 1 条（通知渲染/按钮回调/状态语义）；
+5. **验证**：typecheck、Biome 零警告、687 个测试全过（+1）；运行中桌面
+   实例伺服 4 个文件（history-window 桥接 + 新 bundle + chat.js +
+   app.js）SHA256 与仓库产物全部 MATCH；
+6. `build:react` 产物与 app.js 接线已同步安装目录。
+
+遗留：剩余 vanilla DOM 模块（plugin-view-host iframe 宿主等）逐个评估后
+移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

@@ -103,6 +103,10 @@ async function run() {
         root,
         "frontend/src/features/projectHeader/index.ts",
       ),
+      "history-window": path.join(
+        root,
+        "frontend/src/features/historyWindow/index.ts",
+      ),
     },
     outdir,
     bundle: true,

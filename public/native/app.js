@@ -65,9 +65,7 @@ import {
 } from "./plugins/project-workspace-app.js";
 import { setupTaskCenterApp } from "./plugins/task-center-app.js";
 import {
-  createHistoryLoadedStatus,
   createHistoryWindow,
-  createHistoryWindowNotice,
 } from "./session/history-window.js";
 import { createSessionSelectionHandler } from "./session/session-navigation.js";
 import { setupSessionSearchDialog } from "./session/session-search-dialog.js";
@@ -141,6 +139,7 @@ function showSceneSettings() {
 
 const messageRenderer = new MessageRenderer(messagesElement, {
   onOpenSceneSettings: showSceneSettings,
+  onRevealHistory: revealEarlierHistory,
 });
 const toolRenderer = new ToolCardRenderer(messagesElement);
 const composer = setupComposer({
@@ -1620,13 +1619,9 @@ function renderHistory(messages, { preserveScroll = false } = {}) {
   }
 
   if (historyWindow.hiddenCount > 0) {
-    const notice = createHistoryWindowNotice({
-      hiddenCount: historyWindow.hiddenCount,
-      onReveal: revealEarlierHistory,
-    });
-    if (notice) messageRenderer.appendNoticeElement(notice);
+    messageRenderer.appendHistoryWindowNotice(historyWindow.hiddenCount);
   } else if (historyRevealCompleted) {
-    messageRenderer.appendNoticeElement(createHistoryLoadedStatus());
+    messageRenderer.appendHistoryLoadedStatus();
   }
 
   // Pre-index tool results by toolCallId for O(1) lookup
