@@ -3812,6 +3812,25 @@ host 等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移�
 决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百一十六轮：最终清理第三步——死代码清扫（2026-08-08）。
+
+1. 删除 session-tree.js + session-tree.test.js：SessionTreeController
+   全仓无生产引用（rg 兜底确认），是早期会话树功能的遗留死代码；
+2. index.html 再清两处被 React 取代的静态内容：#session-list 内的
+   session-loading 占位（SessionSidebar 挂载即替换）、#scene-indicator
+   按钮内部 spans（SceneIndicatorApp 挂载即渲染）；文件侧栏/输入区等
+   其余静态块经核对均仍在用，保留；
+3. 连带修正：setupSceneIndicator 原在挂载前检查 #scene-indicator-name
+   存在性，静态元素删除后该检查会使控制器直接返回 null——改为只要求
+   #scene-indicator 容器，名称由 React 渲染（id 不变）；
+4. 验证：typecheck、Biome、全量 685 测试全绿（687→685）；运行中桌面
+   实例伺服 index.html 与 scene-indicator.js SHA256 MATCH，服务端确认
+   session-loading 已消失。
+
+遗留：剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块（按第 212 轮范围
+决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

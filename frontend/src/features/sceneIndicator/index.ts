@@ -46,8 +46,7 @@ export function setupSceneIndicator({
   onWelcomeScene?: ((scene: WelcomeScene) => void) | null;
 } = {}): SceneIndicatorControl | null {
   const indicator = document.getElementById("scene-indicator");
-  const indicatorName = document.getElementById("scene-indicator-name");
-  if (!indicator || !indicatorName) return null;
+  if (!indicator) return null;
 
   const indicatorEl = indicator;
 

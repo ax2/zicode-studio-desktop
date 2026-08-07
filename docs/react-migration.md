@@ -309,3 +309,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   plugin-shell.js（815 行真实编排模块）保留并仅改其 plugin-manager-view
   导入；全仓无残留引用，687 测试全绿；剩余 vanilla 文件均为非 UI 逻辑/
   编排/宿主模块，按第 212 轮范围决策保留
+- [x] 最终清理第三步（第 216 轮）：死代码清扫——删除 session-tree.js
+  （SessionTreeController 仅测试引用、无生产消费者，随测试一并移除）；
+  index.html 再清两处被 React 取代的静态内容（#session-list 内
+  session-loading、#scene-indicator 按钮内部 spans）；连带修正
+  setupSceneIndicator 挂载前对 #scene-indicator-name 的存在性检查
+  （静态元素删除后改为只要求容器，名称由 React 渲染）；全量 685 测试
+  全绿（687→685，随 session-tree 测试删除）
