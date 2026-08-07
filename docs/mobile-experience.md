@@ -3339,6 +3339,34 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 真机复验移动端；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机
 验证。
 
+第一百九十七轮：会话侧栏迁移为 React（2026-08-07）。
+
+1. `sessionSidebarLogic.ts` 纯逻辑（localStorage 存取/会话缓存/按项目
+   分组/working/unread 状态判定/formatSessionTime/搜索高亮）+ Zustand
+   SidebarStore（sessions/favourites/archived/折叠/搜索/右键菜单/
+   重命名/删除确认状态）+ `SessionSidebarApp` React 组件（收藏、当前
+   项目、其他项目、归档、Agent Inbox 固定分组；搜索结果与标题过滤；
+   重命名输入；右键菜单与键盘导航；删除全部归档确认；roving tabindex；
+   菜单与覆盖层经 portal 渲染）+ `SessionSidebar` 类保留旧公开契约
+   （load/upsertSession/setActive/markUnread/markRead/setStreaming/
+   clearStreaming/toggleFavourite/toggleArchived/archiveProject/
+   deleteAllArchived/setSearchQuery/render/dispose）；
+2. **同步 DOM 契约**：store 变更统一经 flushSync 提交，类方法调用后
+   DOM 立即可查，原 25 条 session-sidebar 测试（渲染/重试/缓存/upsert/
+   分组/收藏/归档/Agent Inbox/删除确认/流式与未读/右键菜单/roving
+   tabindex/键盘导航）原样保留并全部通过；
+3. session-sidebar.js 变 re-export 桥接（93kb 产物），删除 1031 行
+   vanilla 实现；
+4. **实测**：桌面真实 WebView2（CDP）——真实会话数据以 React 渲染
+   （8 个会话项、1 个项目组、归档组 4 条、标题/项目名正确）、右键
+   会话打开 context menu（role=menu，Favourite/Archive 两项）、Escape
+   关闭、**全程零异常**；
+5. **回归**：675 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 session-sidebar.js 约 93kb 已同步安装目录。
+
+遗留：剩余 vanilla 模块逐个收尾后移除手写 DOM 桥接与旧文件；真机复验
+移动端；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

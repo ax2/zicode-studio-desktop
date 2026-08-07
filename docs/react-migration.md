@@ -142,6 +142,15 @@ bun run test          # vitest（public/** + frontend/src/**）
   `setupComposerImagePicker` 由 React 状态驱动（移动/桌面分流、历史层、
   相机/相册 input）；composer-images.js / composer-image-picker.js 变
   re-export 桥接；vendor.ts 补 `createPortal` 再导出）
-- [ ] 后续按依赖度迁移：会话侧栏（session-sidebar.js）→
-  移除手写 DOM 桥接
+- [x] 会话侧栏（第 197 轮：session-sidebar.js 1031 行整体 React 化——
+  `sessionSidebarLogic.ts` 纯逻辑（storage/缓存/分组/状态判定/
+  formatSessionTime/高亮）+ Zustand SidebarStore + `SessionSidebarApp`
+  React 组件（收藏/当前项目/其他项目/归档/Agent Inbox 固定分组、搜索
+  结果与过滤、重命名输入、右键菜单、删除确认、roving tabindex 与键盘
+  导航、portal 渲染菜单/覆盖层）+ `SessionSidebar` 类保留旧公开契约
+  （load/upsertSession/setActive/markUnread/markRead/setStreaming/
+  clearStreaming/toggleFavourite/toggleArchived/archiveProject/
+  deleteAllArchived/setSearchQuery/render/dispose），store 变更经
+  flushSync 同步提交，原 25 条 DOM 测试原样保留并全部通过；
+  session-sidebar.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

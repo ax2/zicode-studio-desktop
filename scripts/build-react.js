@@ -35,6 +35,10 @@ async function run() {
       notes: path.join(root, "frontend/src/features/notes/index.ts"),
       chat: path.join(root, "frontend/src/features/chat/index.ts"),
       composer: path.join(root, "frontend/src/features/composer/index.ts"),
+      "session-sidebar": path.join(
+        root,
+        "frontend/src/features/sessionSidebar/index.ts",
+      ),
     },
     outdir,
     bundle: true,
