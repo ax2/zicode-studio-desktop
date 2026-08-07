@@ -119,6 +119,10 @@ async function run() {
         root,
         "frontend/src/features/mobileSendLater/index.ts",
       ),
+      "mobile-task-notifications": path.join(
+        root,
+        "frontend/src/features/mobileExperience/taskNotifications.ts",
+      ),
     },
     outdir,
     bundle: true,

@@ -3923,6 +3923,35 @@ settings store 的一轮）；剩余 vanilla 文件均为非 UI 逻辑/编排/�
 （按第 212 轮范围决策保留）；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百二十一轮：移动端任务通知设置并入 React settings（2026-08-08）。
+
+1. `settings/taskNotificationsStore.ts`：全局单例 zustand store（通过
+   globalThis 键共享，settings.js 与 mobile-experience.js 两个 bundle
+   使用同一实例）——hidden / enabled / requesting / supported /
+   permission / statusKey + configure / refresh / setEnabled（请求
+   通知权限并持久化）；
+2. 设置面板 GeneralTab 移动任务行改为从 store 渲染：section 随 hidden
+   显隐、toggle 的 on 类/aria-checked/disabled/aria-busy/onClick、
+   状态文案（t(statusKey)），消除 vanilla 直接改 React 设置行的耦合；
+3. `setupMobileTaskNotifications` 保留契约：handleRuntimeEvent /
+   setTaskRunning / isEnabled / setEnabled / dispose，通知触发逻辑
+   （service worker / Notification API、序列去重、可见性守卫）留在
+   控制器；desktop 客户端仍返回 null；旧 DOM 同步仅作为测试环境的
+   兼容路径（生产由 React 渲染，控制器不再重复接线）；
+4. mobile-task-notifications.js 删除，新增 react/mobile-task-
+   notifications.js 产物，两个测试文件导入指向产物；
+5. 原 6 条测试保留并经构建产物全部通过（权限流程、隐藏态通知、乱序
+   去重、可见守卫、桌面隐藏）；新增 store 测试 2 条；全量 696 测试
+   全绿（+2）；
+6. **验证**：typecheck、Biome 零警告；运行中桌面实例伺服
+   mobile-experience.js / settings.js / mobile-task-notifications.js
+   SHA256 全部 MATCH。
+
+遗留：mobile-storage-persistence（草稿存储行）仍以 vanilla 改 React
+设置行（下轮候选）；剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块
+（按第 212 轮范围决策保留）；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

@@ -18,8 +18,7 @@ import { setupMobileStartRouteTracking } from "../../../../public/native/feature
 import { createInstallPromptPolicy, setupMobileServiceWorker } from "../../../../public/native/features/mobile-pwa-lifecycle.js";
 // @ts-expect-error plain JS module without type declarations (public/native/)
 import { setupMobileStoragePersistence } from "../../../../public/native/features/mobile-storage-persistence.js";
-// @ts-expect-error plain JS module without type declarations (public/native/)
-import { setupMobileTaskNotifications } from "../../../../public/native/features/mobile-task-notifications.js";
+import { setupMobileTaskNotifications } from "./taskNotifications";
 
 const DEFAULT_RECONNECT_ESCALATION_MS = 8_000;
 
@@ -71,7 +70,14 @@ export function setupMobileExperience({
     documentRef,
     windowRef,
     navigatorRef,
-    notificationApi: (windowRef as unknown as { Notification: unknown }).Notification,
+    notificationApi: (
+      windowRef as unknown as {
+        Notification?: {
+          permission?: string;
+          requestPermission?: () => Promise<string>;
+        };
+      }
+    ).Notification,
     storage,
   });
   const installPolicy = createInstallPromptPolicy({ storage, now });

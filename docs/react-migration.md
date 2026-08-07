@@ -351,3 +351,14 @@ bun run test          # vitest（public/** + frontend/src/**）
   queueCurrent/restoreCurrent/sent/setTarget，断线队列、连接恢复、
   locale 重渲染、发送按钮标签同步）；原 3 条测试保留经构建产物通过 +
   新增 2 条 React 测试；旧文件删除、导入指向 react 产物）
+- [x] 移动端任务通知设置并入 React（第 221 轮：mobile-task-notifications.js
+  176 行删除——UI 状态移入 `settings/taskNotificationsStore.ts`
+  （全局单例 zustand store，跨 settings/mobile-experience 两个 bundle
+  共享同一实例：hidden/enabled/requesting/supported/permission/statusKey
+  + configure/refresh/setEnabled 权限流程），设置面板 GeneralTab 移动
+  任务行改为从 store 渲染（section 显隐、toggle on/aria-checked/disabled/
+  aria-busy/onClick、状态文案），消除 vanilla 改 React 设置行的耦合；
+  `setupMobileTaskNotifications` 控制器保留契约（handleRuntimeEvent/
+  setTaskRunning/isEnabled/setEnabled/dispose + 通知触发逻辑），
+  desktop 仍返回 null；原 6 条测试保留经构建产物通过 + 新增 2 条 store
+  测试；旧文件删除、测试导入指向 react 产物）

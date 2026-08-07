@@ -4,7 +4,7 @@ import {
   MOBILE_INSTALL_POSTPONE_MS,
   MOBILE_INSTALL_POSTPONED_KEY,
 } from "./mobile-pwa-lifecycle.js";
-import { MOBILE_TASK_NOTIFICATIONS_KEY } from "./mobile-task-notifications.js";
+import { MOBILE_TASK_NOTIFICATIONS_KEY } from "../react/mobile-task-notifications.js";
 
 function makeAdapter() {
   let listener;

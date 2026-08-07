@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MOBILE_TASK_NOTIFICATIONS_KEY,
   setupMobileTaskNotifications,
-} from "./mobile-task-notifications.js";
+} from "../react/mobile-task-notifications.js";
 
 function mount() {
   document.body.innerHTML = `

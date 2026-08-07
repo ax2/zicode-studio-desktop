@@ -15,6 +15,7 @@ import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
 import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 import type { SettingsStore } from "./store";
+import { useTaskNotificationsState } from "./taskNotificationsStore";
 import { useAppUpdaterStore } from "./updaterStore";
 
 export interface SettingsController {
@@ -484,6 +485,7 @@ export function GeneralTab({
   const toggles = widgets((state) => state.toggles);
   const thinkingLevel = widgets((state) => state.thinkingLevel);
   const updater = useAppUpdaterStore();
+  const taskNotifications = useTaskNotificationsState();
   return (
     <div className="settings-body">
       <AppearancePreferences />
@@ -513,7 +515,10 @@ export function GeneralTab({
           />
         </div>
       </div>
-      <div className="settings-section hidden" id="mobile-task-notification-section">
+      <div
+        className={`settings-section${taskNotifications.hidden ? " hidden" : ""}`}
+        id="mobile-task-notification-section"
+      >
         <div className="settings-section-title">{t("Mobile")}</div>
         <div className="settings-row">
           <span className="settings-label settings-label-stack">
@@ -524,11 +529,20 @@ export function GeneralTab({
           </span>
           <button
             type="button"
-            className="settings-toggle"
+            className={`settings-toggle${taskNotifications.enabled ? " on" : ""}`}
             id="toggle-mobile-task-notifications"
             role="switch"
-            aria-checked="false"
+            aria-checked={taskNotifications.enabled}
+            disabled={
+              taskNotifications.requesting ||
+              !taskNotifications.supported ||
+              taskNotifications.permission === "denied"
+            }
+            aria-busy={taskNotifications.requesting}
             aria-label={t("Task completion alerts")}
+            onClick={() =>
+              void taskNotifications.setEnabled(!taskNotifications.enabled)
+            }
           ></button>
         </div>
         <p
@@ -536,7 +550,9 @@ export function GeneralTab({
           id="mobile-task-notification-status"
           role="status"
           aria-live="polite"
-        ></p>
+        >
+          {t(taskNotifications.statusKey)}
+        </p>
         <div className="settings-row hidden" id="mobile-draft-storage-row">
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Protect local drafts")}</span>
