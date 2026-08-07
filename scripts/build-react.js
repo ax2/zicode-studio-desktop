@@ -87,6 +87,14 @@ async function run() {
         root,
         "frontend/src/features/startupFailure/index.ts",
       ),
+      "notification-center": path.join(
+        root,
+        "frontend/src/features/notificationCenter/index.ts",
+      ),
+      "command-palette": path.join(
+        root,
+        "frontend/src/features/commandPalette/index.ts",
+      ),
     },
     outdir,
     bundle: true,

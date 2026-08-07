@@ -3696,6 +3696,32 @@ M2 跨 NAT 打洞真机验证。
 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百一十一轮：通知中心与命令面板迁移为 React（2026-08-07）。
+
+1. `notificationCenterLogic.ts`（normalizeNotification）+
+   `NotificationStackApp` 组件（.native-notification-stack aria-live=
+   polite 栈、error→role=alert、标题/消息/详情、关闭按钮、自动消失）+
+   `createNotificationCenter` 保留旧契约：挂独立 wrapper、store 驱动
+   （useSyncExternalStore）、notify 返回 {element, dismiss}、duration
+   定时 + flushSync 同步提交；
+2. `commandPaletteLogic.ts`（PaletteCommand / resolveCommands）+
+   `CommandPaletteApp`（.command-item 图标/标签/描述/disabled）+
+   `setupCommandPalette` 保留旧契约：open/close/runCommand、Escape 恢复
+   焦点、Tab 焦点环、overlay 点击关闭、flushSync 渲染；
+3. 原 4 条测试保留并经桥接全部通过（通知渲染/关闭/自动消失；命令打开/
+   执行/焦点环/Escape）；新增 frontend React 测试 4 条；
+4. **验证**：typecheck、Biome 零警告、681 个测试全过（+4）；运行中桌面
+   实例伺服 4 个文件（两桥接 + 两 bundle）SHA256 与仓库产物全部 MATCH；
+   注：本轮 WebView2 交互式 CDP 复核被本机安全策略阻断（remote-allow-
+   origins 与浏览器自动化参数被拦截），改以伺服内容校验 + 真实构建产物
+   测试兜底；
+5. `build:react` 产物 notification-center.js / command-palette.js 已同步
+   安装目录。
+
+遗留：剩余 vanilla DOM 模块（scene-indicator/project-header/plugin-view-
+host 等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack
+走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

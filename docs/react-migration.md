@@ -258,4 +258,15 @@ bun run test          # vitest（public/** + frontend/src/**）
   unmount 旧根再移除 wrapper、body inert、wrapper 挂载、返回
   [data-startup-failure]）；原 3 条测试保留经桥接通过；startup-failure.js
   变 re-export 桥接）
+- [x] 通知中心 + 命令面板（第 211 轮：notification-center.js 64 行与
+  command-palette.js 73 行整体 React 化——`notificationCenterLogic.ts`
+  （normalizeNotification）+ `NotificationStackApp`（native-notification-
+  stack aria-live 栈、error→role=alert 卡片、关闭按钮、自动消失）+
+  `createNotificationCenter` 保留旧契约（{notify} 返回 {element,dismiss}、
+  duration 定时、flushSync 同步提交）；`commandPaletteLogic.ts`
+  （PaletteCommand/resolveCommands）+ `CommandPaletteApp`（command-item
+  图标/标签/描述/disabled）+ `setupCommandPalette` 保留旧契约
+  （open/close/runCommand、Escape 恢复焦点、Tab 焦点环、overlay 关闭）；
+  原 4 条测试保留经桥接通过 + 新增 4 条 React 测试；两文件变 re-export
+  桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
