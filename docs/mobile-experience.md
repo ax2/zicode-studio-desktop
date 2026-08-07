@@ -2949,6 +2949,29 @@ NAT 打洞真机验证（TURN 路径已通）。
 UI；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 （TURN 路径已通）。
 
+第一百八十二轮：项目工作台迁移为 React（2026-08-07）。沿用既定模式：
+
+1. `frontend/src/features/projects/`：logic（项目标识/档案读写/统计/
+   搜索匹配）、Zustand store（多网关并行加载 notes/artifacts/knowledge/
+   sessions/files + 后端档案、视图切换、上下文保存（后端优先，本地
+   localStorage 兜底）、项目搜索）、组件（5 视图导航、概览统计卡、
+   项目上下文表单、知识关联/相似/冲突、搜索、最近活动）、
+   `setupProjectWorkspaceApp` 兼容工厂（含 `getProfile`）；
+2. `project-workspace-app.js` 改为薄桥接；
+3. **踩坑**：桥接最初只导出 `setupProjectWorkspaceApp`，但 app.js 还
+   静态导入 `readProjectWorkspaceProfile`，导致整个前端启动失败
+   （"本地 Host 不可用"假象）；补齐导出后恢复正常——教训：桥接必须
+   保留旧模块的完整公开导出面；
+4. **实测**：桌面真实 WebView2（CDP）验证项目插件以 React 渲染
+   （5 个导航项、概览 5 项统计、中文文案、无 console 错误、应用正常
+   启动）；
+5. **回归**：686 个测试全过（含 4 个新项目工作台 React 测试）、
+   typecheck、Biome/设计检查通过。
+
+遗留：按手册继续迁移设置/帮助/笔记/聊天；真机复验移动端 UI；
+TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
+（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

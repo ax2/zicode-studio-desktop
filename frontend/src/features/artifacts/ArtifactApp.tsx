@@ -165,7 +165,7 @@ export function ArtifactMain({ store }: { store: ArtifactStore }) {
           )}
         />
       ) : (
-        <ArtifactDocument
+        <ArtifactDocumentView
           selected={selected}
           exportSelected={exportSelected}
           deleteSelected={deleteSelected}
@@ -175,7 +175,7 @@ export function ArtifactMain({ store }: { store: ArtifactStore }) {
   );
 }
 
-function ArtifactDocument({
+function ArtifactDocumentView({
   selected,
   exportSelected,
   deleteSelected,
