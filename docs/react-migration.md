@@ -172,4 +172,13 @@ bun run test          # vitest（public/** + frontend/src/**）
   openPanel/loadStatus/destroy），gateway 调用与产物归档不变；
   finance-workbench.js 变 re-export 桥接；静态 `#finance-workbench`
   面板暂留死代码待收尾阶段清理）
+- [x] 插件外壳活动栏 + 移动端 More 菜单（第 200 轮：`pluginShellStore.ts`
+  + `PluginActivityBarApp.tsx`（品牌/插件活动/系统项/徽标/More 菜单与
+  焦点环/19 个图标集），`setupPluginActivityBar` 工厂挂载 React root 并
+  提供 commit/getBar；plugin-shell.js 控制器保留全部编排（activate/
+  表面切换/历史/移动菜单开关/徽标/注册表订阅），renderActivities/
+  updateActivitySelection/移动菜单开关改为 store 提交，DOM 契约
+  （data-plugin-id/data-mobile-activity-more 等）原样保留；删除
+  buildActivityBar/activityButton/mobileActivityMenuButton 三个 vanilla
+  构建器）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

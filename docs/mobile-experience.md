@@ -3423,6 +3423,36 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 模块逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack
 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百轮：插件外壳活动栏与移动端 More 菜单迁移为 React（2026-08-07）。
+
+1. `pluginShellStore.ts`（activities/systemItems/secondaryItems/
+   activePluginId/mobileOpen/secondarySelected/moreLabel）+ 
+   `PluginActivityBarApp.tsx`（品牌、插件活动与系统项按钮、徽标
+   （9+ 截断）、More 菜单与网格、焦点环所需 DOM 契约、19 个 SVG 图标
+   集）；`setupPluginActivityBar` 工厂把 React root 挂进活动栏宿主并
+   提供 commit/getBar/destroy；
+2. plugin-shell.js 控制器保留全部编排（activate/表面 inert 切换/
+   popstate 历史/移动菜单开关与历史层/徽标增减/注册表订阅/命令路由），
+   renderActivities/updateActivitySelection/移动菜单开关改为 React
+   store 提交（flushSync 同步提交，DOM 立即可查）；删除 vanilla
+   buildActivityBar/activityButton/mobileActivityMenuButton 三个构建器
+   （约 130 行），活动栏 DOM 契约（data-plugin-id、data-mobile-
+   activity-more、aria-current/expanded 等）原样保留；
+3. **实测**：桌面真实 WebView2（CDP）——活动栏以 React 渲染（12 个
+   活动按钮：聊天/项目/任务/笔记/自动化/金融/产物 + 文件/命令/插件
+   管理/设置/帮助，聊天默认 aria-current=page）、点击笔记活动激活
+   插件视图（侧栏与主视图渲染、按钮选中态切换）、点击聊天恢复默认
+   表面、**全程零异常**；
+4. **回归**：677 个测试全过（20 条插件外壳测试原样保留并全部通过：
+   活动/徽标/移动 More 面板/焦点陷阱/历史/断点/插件管理/命令路由/
+   设置帮助）、typecheck、Biome 零警告、`build:react` 产物
+   plugin-shell.js 已同步安装目录。
+
+遗留：插件外壳侧栏/主视图外壳内容（标题/手风琴/hero/overview/manager
+委托）下一轮 React 化；剩余 vanilla 模块（移动端体验/工作区 UI 等）
+逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查
+（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

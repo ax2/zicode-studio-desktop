@@ -47,6 +47,10 @@ async function run() {
         root,
         "frontend/src/features/financeWorkbench/index.ts",
       ),
+      "plugin-shell": path.join(
+        root,
+        "frontend/src/features/pluginShell/index.ts",
+      ),
     },
     outdir,
     bundle: true,

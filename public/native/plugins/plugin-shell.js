@@ -3,6 +3,7 @@ import { MOBILE_SHELL_QUERY } from "../../ui/sidebar-toggle.js";
 import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
 import { renderPluginManagerView } from "./plugin-manager-view.js";
 import { createBuiltinPluginRegistry } from "./plugin-registry.js";
+import { setupPluginActivityBar } from "../react/plugin-shell.js";
 
 const CHAT_PLUGIN_ID = "core.chat";
 const MANAGER_VIEW_ID = "core.pluginManager";
@@ -88,18 +89,35 @@ export function setupPluginShell({
     surfaceStates.delete(element);
   }
 
-  const activityBar = buildActivityBar();
-  const activities = activityBar.querySelector("[data-plugin-activities]");
-  const systemActivities = activityBar.querySelector("[data-system-activities]");
-  const mobileMoreButton = activityBar.querySelector("[data-mobile-activity-more]");
-  const mobileActivityBackdrop = activityBar.querySelector("[data-mobile-activity-backdrop]");
-  const mobileActivityMenu = activityBar.querySelector("[data-mobile-activity-menu]");
-  const mobileActivityMenuTitle = activityBar.querySelector("[data-mobile-activity-menu-title]");
-  const mobileActivityMenuGrid = activityBar.querySelector("[data-mobile-activity-menu-grid]");
-  const mobileActivityMenuClose = activityBar.querySelector("[data-mobile-activity-menu-close]");
+  const activityBarHost = document.createElement("div");
+  activityBarHost.className = "plugin-activity-bar-host";
+  const activityBarApi = setupPluginActivityBar({
+    container: activityBarHost,
+    handlers: {
+      onActivate: (item) => activateFromNavigation(item.id),
+      onSystemActivate: (item) => {
+        if (item.onClick) item.onClick();
+        else activateFromNavigation(item.id);
+      },
+      onMoreClick: () => {
+        if (mobileActivityMenu.hidden) openMobileActivityMenu();
+        else closeMobileActivityMenu({ restoreFocus: true });
+      },
+      onBackdropClick: () => closeMobileActivityMenu({ restoreFocus: true }),
+      onMenuClose: () => closeMobileActivityMenu({ restoreFocus: true }),
+      onMenuItemClick: (item) => {
+        closeMobileActivityMenu({ discardHistory: true });
+        if (item.onClick) item.onClick();
+        else activateFromNavigation(item.id);
+      },
+    },
+  });
+  const activityBar = activityBarApi.getBar();
+  const mobileMoreButton = activityBar?.querySelector("[data-mobile-activity-more]") ?? null;
+  const mobileActivityMenu = activityBar?.querySelector("[data-mobile-activity-menu]") ?? null;
   const pluginSidebar = buildPluginSidebar();
   const pluginMain = buildPluginMain();
-  appLayout.insertBefore(activityBar, sidebar);
+  appLayout.insertBefore(activityBarHost, sidebar);
   sidebar.append(pluginSidebar);
   main.append(pluginMain);
 
@@ -141,18 +159,14 @@ export function setupPluginShell({
     discardHistory = false,
   } = {}) {
     if (!mobileActivityMenu || mobileActivityMenu.hidden) return;
-    mobileActivityMenu.hidden = true;
-    mobileActivityBackdrop.hidden = true;
-    mobileMoreButton.setAttribute("aria-expanded", "false");
+    activityBarApi.commit({ mobileOpen: false });
     if (!fromHistory) mobileMenuHistory?.leave({ replace: discardHistory });
     if (restoreFocus) mobileMoreButton.focus({ preventScroll: true });
   }
 
   function openMobileActivityMenu() {
     if (!mobileActivityMenu) return;
-    mobileActivityMenu.hidden = false;
-    mobileActivityBackdrop.hidden = false;
-    mobileMoreButton.setAttribute("aria-expanded", "true");
+    activityBarApi.commit({ mobileOpen: true });
     mobileMenuHistory?.enter();
     mobileActivityMenu.querySelector("button:not([disabled])")?.focus({ preventScroll: true });
   }
@@ -163,16 +177,9 @@ export function setupPluginShell({
     onBack: () => closeMobileActivityMenu({ restoreFocus: true, fromHistory: true }),
   });
 
-  mobileMoreButton?.addEventListener("click", () => {
-    if (mobileActivityMenu.hidden) openMobileActivityMenu();
-    else closeMobileActivityMenu({ restoreFocus: true });
-  });
-  mobileActivityMenuClose?.addEventListener("click", () =>
-    closeMobileActivityMenu({ restoreFocus: true }),
-  );
-  mobileActivityBackdrop?.addEventListener("click", () =>
-    closeMobileActivityMenu({ restoreFocus: true }),
-  );
+  // More/backdrop/close/menu-item clicks are wired through the React activity
+  // bar handlers; only the focus trap and Escape need a native listener on the
+  // (stable) menu element.
   mobileActivityMenu?.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -257,21 +264,13 @@ export function setupPluginShell({
   }
 
   function renderActivities() {
-    activityBar.setAttribute("aria-label", t("Applications"));
-    mobileActivityBackdrop.setAttribute("aria-label", t("Close"));
-    activities.replaceChildren();
     const visiblePlugins = registry.list().filter((plugin) => plugin.enabled && plugin.hasActivity !== false);
-    for (const plugin of visiblePlugins) {
-      activities.append(
-        activityButton({
-          id: plugin.id,
-          label: t(plugin.name),
-          icon: plugin.icon,
-          badge: activityBadges.get(plugin.id),
-          onClick: () => activateFromNavigation(plugin.id),
-        }),
-      );
-    }
+    const activitiesItems = visiblePlugins.map((plugin) => ({
+      id: plugin.id,
+      label: t(plugin.name),
+      icon: plugin.icon,
+      badge: activityBadges.get(plugin.id) ?? null,
+    }));
     const systemItems = [
       {
         id: "core.files",
@@ -314,37 +313,20 @@ export function setupPluginShell({
         system: true,
       },
     ];
-    systemActivities.replaceChildren(...systemItems.map(activityButton));
-    renderMobileActivityMenu(visiblePlugins, systemItems);
-  }
-
-  function renderMobileActivityMenu(plugins, systemItems) {
-    if (!mobileActivityMenuGrid) return;
-    mobileMoreButton.setAttribute("aria-label", t("More"));
-    mobileMoreButton.title = t("More");
-    mobileMoreButton.querySelector(".plugin-activity-tooltip").textContent = t("More");
-    mobileActivityMenuTitle.textContent = t("All applications");
-    mobileActivityMenuClose.setAttribute("aria-label", t("Close"));
-    mobileActivityMenuGrid.replaceChildren();
-    const secondaryPlugins = plugins.filter(
+    const secondaryPlugins = visiblePlugins.filter(
       (plugin) => !MOBILE_PRIMARY_ACTIVITY_IDS.has(plugin.id),
     );
     const secondarySystemItems = systemItems.filter((item) => item.id !== "core.files");
-    for (const item of [...secondaryPlugins, ...secondarySystemItems]) {
-      const id = item.id;
-      const label = item.label ?? t(item.name);
-      const control = mobileActivityMenuButton({
-        id,
-        label,
-        icon: item.icon,
-        onClick: () => {
-          closeMobileActivityMenu({ discardHistory: true });
-          if ("onClick" in item) item.onClick();
-          else activateFromNavigation(id);
-        },
-      });
-      mobileActivityMenuGrid.append(control);
-    }
+    const secondaryItems = [
+      ...secondaryPlugins.map((plugin) => ({
+        id: plugin.id,
+        label: t(plugin.name),
+        icon: plugin.icon,
+        onClick: () => activateFromNavigation(plugin.id),
+      })),
+      ...secondarySystemItems,
+    ];
+    activityBarApi.commit({ activities: activitiesItems, systemItems, secondaryItems });
   }
 
   function activateFromNavigation(pluginId) {
@@ -653,7 +635,8 @@ export function setupPluginShell({
       globalThis.removeEventListener?.("popstate", handlePluginPopState);
       mobileShellMedia?.removeEventListener?.("change", handleMobileShellChange);
       mobileMenuHistory?.dispose();
-      activityBar.remove();
+      activityBarApi.destroy();
+      activityBarHost.remove();
       pluginSidebar.remove();
       pluginMain.remove();
       for (const element of [...chatSidebarElements, ...chatMainElements])
@@ -666,39 +649,33 @@ export function setupPluginShell({
   function updateActivitySelection(pluginId) {
     const mobile =
       globalThis.matchMedia?.(MOBILE_SHELL_QUERY)?.matches ?? globalThis.innerWidth <= 768;
-    for (const button of activityBar.querySelectorAll("[data-plugin-id]")) {
-      const selected = button.dataset.pluginId === pluginId;
-      button.classList.toggle("active", selected);
-      if (selected) button.setAttribute("aria-current", "page");
-      else button.removeAttribute("aria-current");
-      if (selected && mobile) {
-        const reduceMotion =
-          globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-        button.scrollIntoView?.({
+    let secondarySelected = false;
+    let selectedSecondaryLabel = "";
+    for (const item of activityBarApi.getState().secondaryItems) {
+      if (item.id === pluginId) {
+        secondarySelected = true;
+        selectedSecondaryLabel = item.label;
+      }
+    }
+    const moreLabel = secondarySelected
+      ? `${t("More")}: ${selectedSecondaryLabel}`
+      : t("More");
+    activityBarApi.commit({
+      activePluginId: pluginId,
+      secondarySelected,
+      moreLabel,
+    });
+    if (mobile) {
+      const reduceMotion =
+        globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+      activityBar
+        ?.querySelector(`[data-plugin-id="${escapeSelector(pluginId)}"]`)
+        ?.scrollIntoView?.({
           behavior: reduceMotion ? "instant" : "smooth",
           block: "nearest",
           inline: "center",
         });
-      }
     }
-    let secondarySelected = false;
-    let selectedSecondaryLabel = "";
-    for (const button of activityBar.querySelectorAll("[data-mobile-plugin-id]")) {
-      const selected = button.dataset.mobilePluginId === pluginId;
-      button.classList.toggle("active", selected);
-      if (selected) button.setAttribute("aria-current", "page");
-      else button.removeAttribute("aria-current");
-      if (selected) selectedSecondaryLabel = button.getAttribute("aria-label") || "";
-      secondarySelected ||= selected;
-    }
-    mobileMoreButton.classList.toggle("active", secondarySelected);
-    if (secondarySelected) mobileMoreButton.setAttribute("aria-current", "page");
-    else mobileMoreButton.removeAttribute("aria-current");
-    const moreLabel = secondarySelected
-      ? `${t("More")}: ${selectedSecondaryLabel}`
-      : t("More");
-    mobileMoreButton.setAttribute("aria-label", moreLabel);
-    mobileMoreButton.title = moreLabel;
   }
 
   function setPreviewStatus(commandId) {
@@ -786,74 +763,6 @@ export function setupPluginShell({
   }
 }
 
-function buildActivityBar() {
-  const bar = document.createElement("nav");
-  bar.className = "plugin-activity-bar";
-  bar.setAttribute("aria-label", t("Applications"));
-  const brand = document.createElement("div");
-  brand.className = "plugin-activity-brand";
-  const logo = document.createElement("img");
-  logo.src = "icons/zicode-mark.svg";
-  logo.alt = "";
-  brand.append(logo);
-  const activities = document.createElement("div");
-  activities.className = "plugin-activity-list";
-  activities.dataset.pluginActivities = "";
-  const spacer = document.createElement("div");
-  spacer.className = "plugin-activity-spacer";
-  const system = document.createElement("div");
-  system.className = "plugin-activity-list plugin-activity-list--system";
-  system.dataset.systemActivities = "";
-  const more = activityButton({
-    id: "core.more",
-    label: t("More"),
-    icon: "more",
-    onClick: () => {},
-    system: true,
-  });
-  more.classList.add("plugin-mobile-activity-more");
-  more.dataset.mobileActivityMore = "";
-  more.removeAttribute("data-plugin-id");
-  more.setAttribute("aria-haspopup", "dialog");
-  more.setAttribute("aria-expanded", "false");
-  more.setAttribute("aria-controls", "mobile-activity-menu");
-
-  const backdrop = document.createElement("button");
-  backdrop.type = "button";
-  backdrop.className = "plugin-mobile-activity-backdrop";
-  backdrop.dataset.mobileActivityBackdrop = "";
-  backdrop.setAttribute("aria-label", t("Close"));
-  backdrop.hidden = true;
-
-  const menu = document.createElement("section");
-  menu.id = "mobile-activity-menu";
-  menu.className = "plugin-mobile-activity-menu";
-  menu.dataset.mobileActivityMenu = "";
-  menu.setAttribute("role", "dialog");
-  menu.setAttribute("aria-modal", "true");
-  menu.setAttribute("aria-labelledby", "mobile-activity-menu-title");
-  menu.hidden = true;
-  const menuHeader = document.createElement("header");
-  menuHeader.className = "plugin-mobile-activity-menu-header";
-  const menuTitle = document.createElement("strong");
-  menuTitle.id = "mobile-activity-menu-title";
-  menuTitle.dataset.mobileActivityMenuTitle = "";
-  menuTitle.textContent = t("All applications");
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "icon-btn plugin-mobile-activity-menu-close";
-  close.dataset.mobileActivityMenuClose = "";
-  close.setAttribute("aria-label", t("Close"));
-  close.append(iconSvg("close"));
-  menuHeader.append(menuTitle, close);
-  const grid = document.createElement("div");
-  grid.className = "plugin-mobile-activity-menu-grid";
-  grid.dataset.mobileActivityMenuGrid = "";
-  menu.append(menuHeader, grid);
-  bar.append(brand, activities, spacer, system, more, backdrop, menu);
-  return bar;
-}
-
 function buildPluginSidebar() {
   const surface = document.createElement("div");
   surface.className = "plugin-sidebar-surface plugin-surface-hidden";
@@ -866,40 +775,6 @@ function buildPluginMain() {
   surface.className = "plugin-main-view plugin-surface-hidden";
   surface.tabIndex = -1;
   return surface;
-}
-
-function activityButton({ id, label, icon, onClick, system = false, badge = null }) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `plugin-activity-button${system ? " plugin-activity-button--system" : ""}`;
-  button.dataset.pluginId = id;
-  button.title = label;
-  button.setAttribute("aria-label", label);
-  button.append(iconSvg(icon));
-  const tooltip = document.createElement("span");
-  tooltip.className = "plugin-activity-tooltip";
-  tooltip.textContent = label;
-  button.append(tooltip);
-  if (badge?.count > 0) {
-    const indicator = document.createElement("span");
-    indicator.className = `plugin-activity-badge tone-${badge.tone || "info"}`;
-    indicator.textContent = badge.count > 9 ? "9+" : String(badge.count);
-    indicator.setAttribute("aria-label", `${badge.count} ${t("background updates")}`);
-    button.append(indicator);
-  }
-  button.addEventListener("click", onClick);
-  return button;
-}
-
-function mobileActivityMenuButton({ id, label, icon, onClick }) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "plugin-mobile-activity-menu-item";
-  button.dataset.mobilePluginId = id;
-  button.setAttribute("aria-label", label);
-  button.append(iconSvg(icon), elementText("span", label));
-  button.addEventListener("click", onClick);
-  return button;
 }
 
 function elementText(tagName, text) {
