@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { findLatestAssistantUsage, setupContextUsage } from "./context-usage.js";
+import { findLatestAssistantUsage, setupContextUsage } from "../react/context-usage.js";
 
 function renderFixture() {
   document.body.innerHTML = `

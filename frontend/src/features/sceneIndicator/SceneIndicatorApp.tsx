@@ -3,10 +3,8 @@ import type { SceneProfile } from "../settings/sceneProfiles";
 
 export function SceneIndicatorApp({
   profile,
-  onOpenSettings,
 }: {
   profile: SceneProfile;
-  onOpenSettings: () => void;
 }) {
   return (
     <>

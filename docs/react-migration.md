@@ -316,3 +316,12 @@ bun run test          # vitest（public/** + frontend/src/**）
   setupSceneIndicator 挂载前对 #scene-indicator-name 的存在性检查
   （静态元素删除后改为只要求容器，名称由 React 渲染）；全量 685 测试
   全绿（687→685，随 session-tree 测试删除）
+- [x] 上下文用量胶囊与弹层（第 217 轮：context-usage.js 100 行 +
+  ui/context-viz.js 88 行整体 React 化——`contextUsageLogic.ts`
+  （formatTokens/usageTotal/findLatestAssistantUsage/normalizeUsage/
+  computeContextViz）+ `TokenUsagePill`/`ContextVizApp` 组件（pill 文本、
+  context-bar 分段、legend、used/total）+ `setupContextUsage` 保留旧契约
+  （setUsage/setContextWindowSize/clear/usage 读写、点击切换与外部点击
+  关闭）；保留 #token-usage/#context-viz/#context-bar/#context-legend id
+  契约；原 2 条测试保留经桥接通过 + 新增 2 条 React 测试；旧文件与
+  ui/context-viz.js 删除）

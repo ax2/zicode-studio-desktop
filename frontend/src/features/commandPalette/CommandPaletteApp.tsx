@@ -11,8 +11,9 @@ export function CommandPaletteApp({
     <>
       {commands.map((command, index) => (
         <button
-          key={index}
           type="button"
+          // biome-ignore lint/suspicious/noArrayIndexKey: command catalog has no stable ids
+          key={index}
           className="command-item"
           disabled={Boolean(command.disabled)}
           onClick={() => onRun(command)}

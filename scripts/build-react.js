@@ -107,6 +107,10 @@ async function run() {
         root,
         "frontend/src/features/historyWindow/index.ts",
       ),
+      "context-usage": path.join(
+        root,
+        "frontend/src/features/contextUsage/index.ts",
+      ),
     },
     outdir,
     bundle: true,

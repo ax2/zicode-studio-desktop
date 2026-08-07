@@ -3831,6 +3831,30 @@ M2 跨 NAT 打洞真机验证。
 决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百一十七轮：上下文用量胶囊与弹层迁移为 React（2026-08-08）。
+
+1. `contextUsageLogic.ts`（formatTokens / usageTotal /
+   findLatestAssistantUsage / normalizeUsage / computeContextViz 纯逻辑）
+   + `TokenUsagePill` / `ContextVizApp` 组件（pill 百分比/用量文本、
+   context-bar 分段宽度与 title、legend 条目、used/total 页脚）；
+2. `setupContextUsage` 保留旧契约：setUsage / setContextWindowSize /
+   clear / usage 与 contextWindowSize 读取、点击切换弹层、外部点击关闭；
+   保留 #token-usage / #context-viz / #context-bar / #context-legend /
+   #context-viz-used / #context-viz-total id 契约（React 渲染补齐 id，
+   首版遗漏 legend/bar id 导致测试按 id 查询失败，已修）；
+3. context-usage.js 与 ui/context-viz.js（唯一消费者即前者）删除，导入
+   直接指向 react/context-usage.js；app.js 引用同步改写；
+4. 原 2 条测试保留并经构建产物通过；新增 React 测试 2 条（pill/弹层
+   同步、逻辑助手）；
+5. **验证**：typecheck、Biome 零警告（顺带修掉 scene-indicator 未用参数
+   与 command-palette 数组索引 key 两处警告）、全量 687 测试全绿；
+   运行中桌面实例伺服 app.js 与 context-usage/command-palette/
+   scene-indicator 产物 SHA256 全部 MATCH。
+
+遗留：剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块（按第 212 轮范围
+决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

@@ -91,7 +91,7 @@ import {
   replaceTemporarySessionRoute,
   resolveHistoryNavigation,
 } from "./utils/router.js";
-import { findLatestAssistantUsage, setupContextUsage } from "./workspace/context-usage.js";
+import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usage.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupProjectHeader } from "./react/project-header.js";
 import {

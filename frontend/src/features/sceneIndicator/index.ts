@@ -91,7 +91,6 @@ export function setupSceneIndicator({
       root.render(
         createElement(SceneIndicatorApp, {
           profile,
-          onOpenSettings: showSceneSettings,
         }),
       );
     });
