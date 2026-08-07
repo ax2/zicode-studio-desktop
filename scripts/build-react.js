@@ -59,6 +59,10 @@ async function run() {
         root,
         "frontend/src/features/headerOpenApp/index.ts",
       ),
+      "file-browser": path.join(
+        root,
+        "frontend/src/features/fileBrowser/index.ts",
+      ),
     },
     outdir,
     bundle: true,

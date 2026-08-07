@@ -205,4 +205,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   document 点击关菜单）；原 2 条测试保留经桥接通过；header-open-app.js
   变 re-export 桥接；注：该控件当前未接入 app.js/index.html，为独立
   遗留模块）
+- [x] 原生文件浏览器（第 204 轮：file-browser.js 197 行整体 React 化
+  ——`fileBrowserLogic.ts`（按扩展名/类型映射 emoji 图标、字节格式化）+
+  `FileBrowserApp` 组件（加载/错误/空态/文件列表，目录行点击进入）+
+  `NativeFileBrowser` 类保留旧契约（load 带乱序响应守卫、getParentPath、
+  currentPath、路径面包屑与 onPathChange）；原 4 条测试保留经桥接通过；
+  file-browser.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

@@ -3524,6 +3524,27 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零四轮：原生文件浏览器迁移为 React（2026-08-07）。
+
+1. `fileBrowserLogic.ts`（按扩展名/类型映射 emoji 图标——代码/数据/文档/
+   样式/图片/视频/音频/归档/语言/Shell/锁与环境变量，字节格式化 B/KB/
+   MB/GB）+ `FileBrowserApp` 组件（加载/错误/空态/文件列表，目录行点击
+   进入下一级）+ `NativeFileBrowser` 类保留旧契约（load 带乱序响应守卫
+   （慢响应不覆盖新目录）、getParentPath、currentPath、路径面包屑
+   textContent/title 与 onPathChange 回调）；
+2. 原 4 条测试保留并经桥接全部通过（列出条目、进入目录与父路径计算、
+   乱序响应守卫、错误消息）；
+3. file-browser.js 变 re-export 桥接，删除 197 行 vanilla 实现；
+4. **实测**：桌面真实 WebView2（CDP）——点击"文件"活动打开右侧面板：
+   文件列表以 React 渲染 **132 个真实工作区条目**（📁 .agents、
+   .anaconda、.android 等，路径面包屑 "/"）、**全程零异常**；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 file-browser.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（移动端体验/lan-qr/工作区与扩展类等）逐个收尾
+后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
