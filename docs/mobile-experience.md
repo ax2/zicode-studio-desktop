@@ -2993,6 +2993,41 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 （GitHub 网络持续 SSL 超时）；真机复验移动端 UI；TalkBack 走查
 （人工）；安装包签名；M2 跨 NAT 打洞真机验证（TURN 路径已通）。
 
+第一百八十四轮：设置面板外壳迁移为 React（2026-08-07）。设置是最大的
+单一模块（16 个文件约 4500 行，深度绑定 index.html 静态 DOM），本轮
+先迁移外壳并保持子面板行为，避免一次性重写：
+
+1. **结构**：index.html 的 796 行静态设置标记整体移除，只留
+   `#settings-root`；`frontend/src/features/settings/` 提供 React 外壳
+   （overlay/panel、6 tab 导航、通用 tab、主题/语言/版本、hash 路由
+   `#/settings/<tab>`、嵌入式 `renderNavigation/renderContent/deactivate`、
+   命令与快捷键同款 `openSettings` 契约）；`settings-panel.js` 改为薄桥接，
+   vanilla 子面板（scene-profiles/thinking/toggles/config/remote-access/
+   package-browse/cost-dashboard）以模块注入方式由 React 工厂接线；
+2. **关键架构决策（避免返工）**：插件外壳每次激活都会
+   `replaceChildren` 侧边栏/主区，React 根直接挂在容器上会因节点被外部
+   清空而 `removeChild` 崩溃；改为每个 React 根挂在独立 wrapper 中、
+   每次挂载重建；同时所有 vanilla 会改写的容器（如 `#settings-api-keys`）
+   React 一律渲染为空，且每次 SettingsContent 挂载都重新执行
+   `wireVanilla()`（按 ID 重新绑定），切换嵌入/浮层后功能不丢失；
+3. **踩坑**：共享 vendor 最初未导出 `flushSync`，设置 bundle 加载即抛
+   "react-dom does not provide an export named 'flushSync'"，导致 app.js
+   启动失败（"本地 Host 不可用"假象）；补 `export { flushSync }` 后正常；
+   导航项点击不再走 openHandler 委托（改为 `navigateTab`），避免
+   plugin-shell 在每次切 tab 时重复重建侧边栏；
+4. **实测**：桌面真实 WebView2（CDP）完整走查——启动正常、设置以 React
+   渲染（6 个导航项中文文案、主题 6 项/语言 2 项、场景配置 3 项、
+   Pi 版本 0.83.0/桌面 v0.1.0 加载成功）、六个 tab 全部可切换（配置
+   加载 40 个 API key 节点、远程访问渲染、扩展/用量容器在位）、hash
+   刷新恢复 `#/settings/configuration`、返回对话按钮回到 chat、
+   **全程零 console/异常**；
+5. **回归**：684 个测试全过（685 − 11 个旧设置面板测试 + 10 个新 React
+   测试）、typecheck、Biome 零警告、`build:react` 产物 93.5kb。
+
+遗留：继续迁移设置子面板（配置 → 远程访问 → 用量/扩展）→ 笔记 → 聊天；
+真机复验移动端设置；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞
+真机验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

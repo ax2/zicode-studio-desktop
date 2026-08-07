@@ -31,6 +31,7 @@ async function run() {
       artifacts: path.join(root, "frontend/src/features/artifacts/index.ts"),
       projects: path.join(root, "frontend/src/features/projects/index.ts"),
       help: path.join(root, "frontend/src/features/help/index.ts"),
+      settings: path.join(root, "frontend/src/features/settings/index.ts"),
     },
     outdir,
     bundle: true,

@@ -160,7 +160,7 @@ describe("desktop three-region layout contract", () => {
     expect(index).not.toContain('id="settings-btn"');
     expect(index).not.toContain('id="help-btn"');
     expect(index).not.toContain('class="mode-toggle"');
-    expect(index).toContain('id="settings-panel"');
+    expect(index).toContain('id="settings-root"');
     expect(index).toContain('id="help-center"');
   });
 

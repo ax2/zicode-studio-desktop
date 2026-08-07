@@ -1,0 +1,248 @@
+import { createElement, type ReactNode } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
+import type { SettingsTabKey } from "./logic";
+import {
+  SettingsApp,
+  SettingsContent,
+  SettingsNav,
+  type SettingsController,
+} from "./SettingsPanelApp";
+import { createSettingsStore, type SettingsStore } from "./store";
+
+export interface SettingsSubModules {
+  setupSettingsConfig?: (options: {
+    configGateway: unknown;
+    onModelConfigurationChanged?: unknown;
+    getTarget: () => unknown;
+  }) => {
+    loadApiKeysPanel: (options?: { preserveUi?: boolean }) => Promise<void>;
+    loadProviderChannels: () => Promise<void>;
+    loadInlineConfigEditor: () => Promise<void>;
+    loadInlineModelsEditor: () => Promise<void>;
+    setTarget: (target: unknown) => void;
+  } | null;
+  setupRemoteAccessSettings?: (options: { gateway?: unknown }) => { load: () => Promise<void> } | null;
+  setupPackageBrowse?: (
+    control: unknown,
+    options: { notify: (message: unknown) => void },
+  ) => { load: () => Promise<void> } | null;
+  loadCostDashboard?: (
+    element: HTMLElement | null,
+    options: { data?: unknown; getWorkspaceId?: () => string | undefined },
+  ) => void;
+  setupSettingsToggles?: () => void;
+  setupThinkingEffortControl?: (options: {
+    runtime: unknown;
+    getTarget: () => unknown;
+    onError?: (error: unknown) => void;
+  }) => { updateUI: (level: string) => void } | undefined;
+  setupSceneProfiles?: (options: {
+    getTarget: () => unknown;
+  }) => { load: () => Promise<void>; setTarget: (target: unknown) => void } | null;
+}
+
+export interface SettingsPanelOptions {
+  data?: unknown;
+  getWorkspaceId?: () => string | undefined;
+  control?: unknown;
+  remoteAccessGateway?: unknown;
+  configGateway?: unknown;
+  onModelConfigurationChanged?: unknown;
+  runtime?: unknown;
+  getTarget?: () => unknown;
+  onError?: (error: unknown) => void;
+  notify?: (message: unknown) => void;
+  modules?: SettingsSubModules;
+}
+
+export interface SettingsPanelHandle {
+  openSettings(tabKey?: string, opts?: { updateHash?: boolean }): void;
+  closeSettings(opts?: { clearHash?: boolean }): void;
+  getActiveTab(): SettingsTabKey;
+  setOpenHandler(handler: ((tab: SettingsTabKey | null) => void) | null): void;
+  renderNavigation(container: HTMLElement | null | undefined): void;
+  renderContent(container: HTMLElement | null | undefined): void;
+  deactivate(): void;
+  thinkingControl: { updateUI(level: string): void };
+  setTarget(target: unknown): void;
+}
+
+interface ConfigHandle {
+  loadApiKeysPanel: (options?: { preserveUi?: boolean }) => Promise<void>;
+  loadProviderChannels: () => Promise<void>;
+  loadInlineConfigEditor: () => Promise<void>;
+  loadInlineModelsEditor: () => Promise<void>;
+  setTarget: (target: unknown) => void;
+}
+
+export function setupSettingsPanel(options: SettingsPanelOptions = {}): SettingsPanelHandle {
+  const modules = options.modules ?? {};
+  const getTarget = options.getTarget ?? (() => null);
+  const store: SettingsStore = createSettingsStore();
+
+  const rootElement = document.getElementById("settings-root");
+  let panelRoot: Root | null = null;
+  let navRoot: Root | null = null;
+  let contentRoot: Root | null = null;
+  let embeddedActive = false;
+  let usageLoaded = false;
+
+  let config: ConfigHandle | null = null;
+  let remoteAccess: { load: () => Promise<void> } | null = null;
+  let packageBrowse: { load: () => Promise<void> } | null = null;
+  let sceneProfiles: { load: () => Promise<void>; setTarget: (target: unknown) => void } | null =
+    null;
+  let thinkingEffort: { updateUI: (level: string) => void } | null = null;
+
+  const controller: SettingsController = {
+    wireVanilla() {
+      sceneProfiles = modules.setupSceneProfiles?.({ getTarget }) ?? null;
+      config =
+        options.configGateway && modules.setupSettingsConfig
+          ? modules.setupSettingsConfig({
+              configGateway: options.configGateway,
+              onModelConfigurationChanged: options.onModelConfigurationChanged,
+              getTarget,
+            })
+          : null;
+      remoteAccess =
+        modules.setupRemoteAccessSettings?.({ gateway: options.remoteAccessGateway }) ?? null;
+      packageBrowse =
+        modules.setupPackageBrowse?.(options.control, { notify: options.notify ?? (() => {}) }) ??
+        null;
+      modules.setupSettingsToggles?.();
+      thinkingEffort =
+        options.runtime && modules.setupThinkingEffortControl
+          ? (modules.setupThinkingEffortControl({
+              runtime: options.runtime,
+              getTarget,
+              onError: options.onError,
+            }) ?? null)
+          : null;
+    },
+    loadForTab(tab) {
+      if (tab === "general") {
+        if (sceneProfiles?.load) void sceneProfiles.load();
+      } else if (tab === "usage") {
+        if (!usageLoaded && modules.loadCostDashboard) {
+          usageLoaded = true;
+          modules.loadCostDashboard(document.getElementById("settings-cost-dashboard"), {
+            data: options.data,
+            getWorkspaceId: options.getWorkspaceId,
+          });
+        }
+      } else if (tab === "extensions") {
+        if (packageBrowse?.load) void packageBrowse.load();
+      } else if (tab === "configuration") {
+        if (config) {
+          void config.loadApiKeysPanel();
+          void config.loadProviderChannels();
+          void config.loadInlineConfigEditor();
+          void config.loadInlineModelsEditor();
+        }
+      } else if (tab === "remote-access") {
+        if (remoteAccess?.load) void remoteAccess.load();
+      }
+    },
+    reloadVisibleConfiguration() {
+      const state = store.getState();
+      if (state.activeTab !== "configuration") return;
+      if (!embeddedActive && !state.open) return;
+      controller.loadForTab("configuration");
+    },
+    setTarget(target) {
+      sceneProfiles?.setTarget?.(target);
+      config?.setTarget?.(target);
+      controller.reloadVisibleConfiguration();
+    },
+  };
+
+  if (rootElement) {
+    panelRoot = createRoot(rootElement);
+    flushSync(() => {
+      panelRoot?.render(createElement(SettingsApp, { store, controller }));
+    });
+  }
+
+  store.getState().restoreFromHash();
+
+  // plugin-shell clears and rebuilds the sidebar/main containers on every
+  // activation (replaceChildren). Mount each React tree inside a wrapper so a
+  // cleared container never leaves React's root referencing destroyed nodes.
+  function mountNavRoot(container: HTMLElement, element: ReactNode) {
+    if (navRoot) {
+      navRoot.unmount();
+      navRoot = null;
+    }
+    container.querySelector('[data-settings-root="nav"]')?.remove();
+    const wrapper = document.createElement("div");
+    wrapper.dataset.settingsRoot = "nav";
+    container.append(wrapper);
+    navRoot = createRoot(wrapper);
+    navRoot.render(element);
+  }
+
+  function mountContentRoot(container: HTMLElement, element: ReactNode) {
+    if (contentRoot) {
+      contentRoot.unmount();
+      contentRoot = null;
+    }
+    container.querySelector('[data-settings-root="content"]')?.remove();
+    const wrapper = document.createElement("div");
+    wrapper.dataset.settingsRoot = "content";
+    container.append(wrapper);
+    contentRoot = createRoot(wrapper);
+    contentRoot.render(element);
+  }
+
+  return {
+    openSettings: (tabKey = "general", opts) => store.getState().openSettings(tabKey, opts),
+    closeSettings: (opts) => store.getState().closeSettings(opts),
+    getActiveTab: () => store.getState().activeTab,
+    setOpenHandler(handler) {
+      store.getState().setOpenHandler(handler);
+    },
+    renderNavigation(container) {
+      if (!container) return;
+      embeddedActive = true;
+      store.getState().setEmbedded(true);
+      store.getState().hide();
+      mountNavRoot(container, createElement(SettingsNav, { store }));
+    },
+    renderContent(container) {
+      if (!container) return;
+      embeddedActive = true;
+      store.getState().setEmbedded(true);
+      store.getState().hide();
+      mountContentRoot(container, createElement(SettingsContent, { store, controller }));
+      controller.loadForTab(store.getState().activeTab);
+      void store.getState().loadVersions();
+    },
+    deactivate() {
+      embeddedActive = false;
+      store.getState().setEmbedded(false);
+      navRoot?.unmount();
+      navRoot = null;
+      contentRoot?.unmount();
+      contentRoot = null;
+    },
+    thinkingControl: {
+      updateUI(level: string) {
+        thinkingEffort?.updateUI?.(level);
+      },
+    },
+    setTarget(target) {
+      controller.setTarget(target);
+    },
+  };
+}
+
+export { createSettingsStore } from "./store";
+export {
+  SETTINGS_TABS,
+  isSettingsHash,
+  normalizeSettingsTabKey,
+  settingsHashForTab,
+  tabFromSettingsHash,
+} from "./logic";
