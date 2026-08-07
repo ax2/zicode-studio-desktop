@@ -211,4 +211,11 @@ bun run test          # vitest（public/** + frontend/src/**）
   `NativeFileBrowser` 类保留旧契约（load 带乱序响应守卫、getParentPath、
   currentPath、路径面包屑与 onPathChange）；原 4 条测试保留经桥接通过；
   file-browser.js 变 re-export 桥接）
+- [x] LAN 二维码模态框（第 205 轮：lan-qr.js 214 行整体 React 化
+  ——`lanQrLogic.ts`（过期倒计时文案/CA 指纹分组/提示与 alt key）+ 
+  `LanQrModalApp` 组件（回环模态框、会话/证书设置双 tab、加载/错误态、
+  二维码图、提示/地址/元数据、刷新/打开链接按钮）+ `setupLanQr` 保留
+  旧契约（open/close/定时刷新/Escape 与 Tab 焦点环/locale 重渲染）+
+  `refreshLanQrButton`（回环检查 + /health）；原 5 条测试保留经桥接
+  通过；lan-qr.js 变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

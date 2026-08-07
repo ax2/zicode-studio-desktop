@@ -63,6 +63,10 @@ async function run() {
         root,
         "frontend/src/features/fileBrowser/index.ts",
       ),
+      "lan-qr": path.join(
+        root,
+        "frontend/src/features/lanQr/index.ts",
+      ),
     },
     outdir,
     bundle: true,

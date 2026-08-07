@@ -3545,6 +3545,29 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零五轮：LAN 二维码模态框迁移为 React（2026-08-07）。
+
+1. `lanQrLogic.ts`（一次性链接过期倒计时文案、CA 指纹 8 段分组、
+   提示/图片 alt 的 i18n key）+ `LanQrModalApp` 组件（模态框内容：
+   "Open on Mobile" 头部与关闭按钮、会话/证书设置双 tab、加载/错误态、
+   二维码图、提示/地址/元数据（倒计时或指纹）、刷新与打开链接按钮）+
+   `setupLanQr` 保留旧契约（打开/关闭/背景与关闭按钮/Escape 与 Tab
+   焦点环/1s 过期定时器/locale 重渲染）与 `refreshLanQrButton`
+   （isLoopbackHost 检查 + /health 拉取 lanUrl 决定按钮显隐）；
+2. 原 5 条测试保留并经桥接全部通过（当前会话二维码+外部打开、Tab
+   焦点陷阱、证书设置指纹、过期后刷新、远程浏览器隐藏按钮）；
+3. lan-qr.js 变 re-export 桥接，删除 214 行 vanilla 实现；i18n 补
+   "Open link" key；
+4. **实测**：桌面真实 WebView2（CDP）——二维码按钮在桌面回环地址
+   下显示、点击打开模态框、**真实 SVG 二维码**（base64 data URL）
+   渲染、双 tab 在位、中文提示、**全程零异常**；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 lan-qr.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（移动端体验/工作区与扩展类等）逐个收尾后移除
+手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

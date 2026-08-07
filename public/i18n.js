@@ -190,8 +190,9 @@ const zhCN = {
     "已信任这台电脑？扫描二维码配对并打开当前对话。",
   "One-time link expires in {time}": "一次性链接将在 {time} 后过期",
   "This QR code expired. Refresh to create a new one.": "此二维码已过期，请刷新生成新的二维码。",
-  "Refresh QR code": "刷新二维码",
-  "Open Link": "打开链接",
+"Refresh QR code": "刷新二维码",
+"Open link": "打开链接",
+"Open Link": "打开链接",
   "This device is not paired": "此设备尚未配对",
   "This browser is not paired with your ZiCode desktop yet.":
     "此浏览器还没有与你的 ZiCode 桌面配对。",
