@@ -27,6 +27,7 @@ async function run() {
   await build({
     entryPoints: {
       automation: path.join(root, "frontend/src/features/automation/index.ts"),
+      tasks: path.join(root, "frontend/src/features/tasks/index.ts"),
     },
     outdir,
     bundle: true,

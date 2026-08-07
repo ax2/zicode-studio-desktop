@@ -2911,6 +2911,24 @@ NAT 打洞真机验证（TURN 路径已通）。
 遗留：按手册迁移更多模块；真机复验移动端 UI；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证（TURN 路径已通）。
 
+第一百八十轮：任务中心迁移为 React（2026-08-07）。沿用第 179 轮验证过
+的模式：
+
+1. `frontend/src/features/tasks/`：logic（过滤器/状态标签/统计/格式）、
+   Zustand store（load/write/update/pause/cancel、3 秒轮询、子运行时
+   中止）、组件（导航过滤、主面板、汇总卡、任务卡）、`setupTaskCenterApp`
+   兼容工厂；复用 `super-agent/task-state.js` 纯函数；
+2. `task-center-app.js` 改为薄桥接；`scripts/build-react.js` 增加 tasks
+   入口；产物 `public/native/react/tasks.js`；
+3. **实测**：桌面真实 WebView2（CDP）验证任务插件以 React 渲染（7 个
+   过滤项、汇总卡、主面板、中文文案、无 console 错误、应用正常启动）；
+4. **回归**：686 个测试全过（含 3 个新任务中心 React 测试）、typecheck、
+   Biome/设计检查通过。
+
+遗留：按手册继续迁移产物/项目工作台/设置/帮助/笔记/聊天；真机复验
+移动端 UI；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机
+验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
