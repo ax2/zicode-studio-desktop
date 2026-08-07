@@ -280,4 +280,9 @@ bun run test          # vitest（public/** + frontend/src/**）
   `setupProjectHeader` 保留异步契约（路径/git 分支 pill、hidden 态、
   data.workspaceInfo）；原 3 条测试保留经桥接通过 + 新增 5 条 React/feed
   测试；两文件变 re-export 桥接）
+- [x] 范围决策（第 212 轮评估）：`plugin-view-host.js`（330 行 iframe/
+  对象宿主，DOM 面仅空态/加载/错误壳，核心是 postMessage 路由、能力调用
+  与生命周期）与 `extension-ui-host.js`（170 行纯编排）保持 vanilla——
+  React 迁移只针对 DOM 渲染部分，iframe 沙箱宿主与编排层不属于 UI 渲染，
+  强制 React 化只会增加间接层
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
