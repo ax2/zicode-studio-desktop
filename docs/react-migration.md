@@ -96,5 +96,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   全部 React 化，删除 vanilla settings-toggles.js / thinking-effort-control.js
   / scene-profiles.js / settings-save-status.js；scene-profiles 保留
   React bundle 再导出 shim 供 workspace-actions / scene-indicator）
-- [ ] 后续按依赖度迁移：笔记（最大，建议最后）→ 聊天主界面
+- [x] 笔记模块（第 190 轮：notes-app.js 1829 行整体 React 化——
+  notesLogic/notesStore/NotesApp/工厂四件套：嵌套笔记本树、笔记拖拽、
+  emoji 图标选择、标签、Markdown 编辑/预览、自动保存、附件、捕获/
+  导入导出/备份/重建/Astro 发布、移动弹层；删除 vanilla notes-app.js
+  与 22 个旧测试）
+- [ ] 后续按依赖度迁移：聊天主界面（最后），随后移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

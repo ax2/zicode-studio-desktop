@@ -3149,6 +3149,33 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 遗留：按路线图迁移笔记（最大）→ 聊天主界面；真机复验移动端设置；
 TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十轮：笔记模块整体迁移为 React（2026-08-07）。最大单体
+模块（notes-app.js 1829 行 + 600 行旧测试）一次迁完：
+
+1. `frontend/src/features/notes/`：notesLogic（emoji 分组/图标/标签/
+   日期/标题/树构建等纯函数）、notesStore（Zustand 完整状态机：
+   快照加载、选择/过滤/搜索防抖、新建/编辑/自动保存/删除、捕获/导入/
+   导出/备份/重建/Astro 发布、拖拽移动、移动弹层）、NotesApp（导航树
+   + 笔记列表 + 编辑器 + 各类表单与空态）、index（兼容工厂，保留
+   renderNavigation/renderContent/setTarget/newNote/startCapture/
+   captureChatExchange/canDeactivate/destroy 契约）；
+2. **关键交互保留**：指针拖拽（ghost + drop 高亮 + 实时移动）、emoji
+   选择器（8 组分类、点击图标即选）、标签建议/快捷键、Markdown 预览
+   （ref innerHTML + 附件 URL 重写）、编辑器自动保存与 Ctrl+S；
+   笔记导航挂独立 wrapper 根，免疫 plugin-shell 的 replaceChildren；
+3. **踩坑**：桥接最初只把 React 头追加在旧文件前面，旧 1829 行
+   `setupNotesApp` 重复声明导致 app.js 启动失败；重写为纯桥接后恢复；
+4. **实测**：桌面真实 WebView2（CDP）——笔记插件以 React 渲染：真实
+   数据 2 个笔记本/2 篇笔记树、编辑器打开真实笔记（标题/😎 图标/4 标签/
+   635 字正文）、编辑/预览切换、emoji 选择器开合与选 🚀、新建笔记
+   "无标题笔记"、移动弹层列出目标笔记本、搜索触发、资源清单已不含
+   旧 notes-app 逻辑、**全程零异常**；
+5. **回归**：687 个测试全过（698 − 22 旧 + 11 新）、typecheck、
+   Biome 零警告、`build:react` 产物 notes.js 约 131kb。
+
+遗留：按路线图迁移聊天主界面（最后）；真机复验移动端笔记；TalkBack
+走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

@@ -1,0 +1,721 @@
+import { create } from "zustand";
+import { t } from "../../shared/i18n";
+import {
+  AUTOSAVE_DELAY_MS,
+  conversationNoteTitle,
+  DEFAULT_NOTEBOOK_ICON,
+  DEFAULT_NOTE_ICON,
+  parseTags,
+  safeFileName,
+  type Note,
+  type NotesMode,
+  type NotesSnapshot,
+  type NoteSummary,
+  type Notebook,
+} from "./notesLogic";
+
+export interface NotesGatewayLike {
+  list(sceneId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
+  get(sceneId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
+  createNotebook(sceneId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
+  updateNotebook(sceneId: string, params: { notebookId: string; title: string; icon: string }): Promise<unknown>;
+  create(sceneId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
+  save(sceneId: string, note: Note): Promise<{ note: Note }>;
+  delete(sceneId: string, note: NoteSummary): Promise<unknown>;
+  moveNote(sceneId: string, params: { notebookId: string; noteId: string; targetNotebookId: string; expectedVersion?: number }): Promise<unknown>;
+  capture(sceneId: string, notebookId: string, params: { url: string; title?: string; tags?: string[] }): Promise<{ note: Note; duplicate?: boolean }>;
+  uploadAttachment(sceneId: string, note: Note, params: { fileName: string; mimeType: string; dataBase64: string }): Promise<{ attachment: { markdown: string } }>;
+  attachmentUrl(sceneId: string, note: Note, attachmentId: string): string;
+  importMarkdown(sceneId: string, notebookId: string, fileName: string, markdown: string): Promise<{ note: Note }>;
+  exportBackup(sceneId: string, notebookId: string): Promise<{ backup: unknown }>;
+  importBackup(sceneId: string, backup: unknown): Promise<{ notebook: Notebook }>;
+  rebuild(sceneId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
+}
+
+export interface NotesStoreOptions {
+  gateway: NotesGatewayLike;
+  getTarget?: () => { sceneId?: string } | null;
+  notify?: (message: string) => void;
+  confirmPublish?: (message: string) => boolean;
+  chooseFile?: (accept: string) => Promise<File | null>;
+  downloadFile?: (fileName: string, content: string, type: string) => void;
+  onUseInChat?: (note: Note, selection: string) => void;
+  fileToBase64?: (file: File) => Promise<string>;
+  invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
+  renderMarkdown?: (markdown: string) => string;
+}
+
+interface NotesState {
+  snapshot: NotesSnapshot;
+  selectedNotebookId: string | null;
+  selectedNote: Note | null;
+  loading: boolean;
+  error: Error | null;
+  mode: NotesMode;
+  dirty: boolean;
+  preview: boolean;
+  query: string;
+  selectedTag: string | null;
+  sourceOnly: boolean;
+  focusTitleOnNextRender: boolean;
+  editingNotebookId: string | null;
+  moveNote: NoteSummary | null;
+  dragTargetId: string | null;
+  expandedNotebookIds: Set<string>;
+  expandedNavSections: Set<string>;
+  draftTitle: string;
+  draftIcon: string;
+  draftContent: string;
+  draftTags: string[];
+  deleteArmed: boolean;
+  saveDisabled: boolean;
+  load(options?: { preserveSelection?: boolean }): Promise<void>;
+  applyFilter(options?: { tag?: string | null; sourceOnly?: boolean }): Promise<void>;
+  selectNote(summary: NoteSummary): Promise<void>;
+  selectNotebook(id: string): void;
+  discussInChat(note: Note, selection: string): void;
+  attachmentUrl(note: Note, attachmentId: string): string;
+  newNote(): Promise<void>;
+  startCapture(): Promise<void>;
+  captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<Note>;
+  createNotebook(title: string, icon: string, parentId?: string | null): Promise<void>;
+  updateNotebook(notebookId: string, title: string, icon: string): Promise<void>;
+  deleteSelectedNote(): Promise<void>;
+  saveEditor(): Promise<void>;
+  markDirty(): void;
+  scheduleAutosave(): void;
+  cancelAutosave(): void;
+  setQuery(query: string): void;
+  setMode(mode: NotesMode): void;
+  setEditingNotebook(id: string | null): void;
+  setDraft(patch: { title?: string; icon?: string; content?: string; tags?: string[] }): void;
+  setPreview(preview: boolean): void;
+  syncDraftFromNote(): void;
+  toggleNotebookExpanded(id: string): void;
+  toggleNavSection(title: string): void;
+  openMovePopover(note: NoteSummary): void;
+  closeMovePopover(): void;
+  moveNoteTo(sourceNotebookId: string, noteId: string, targetNotebookId: string): Promise<void>;
+  setDragTarget(id: string | null): void;
+  attachFile(): Promise<void>;
+  importMarkdown(): Promise<void>;
+  exportBackup(): Promise<void>;
+  importBackup(): Promise<void>;
+  rebuildIndex(): Promise<void>;
+  publishAstro(): Promise<void>;
+  captureUrl(input: { url: string; title: string; notebookId: string; tags: string[] }): Promise<void>;
+  setTarget(): Promise<void>;
+  resetDeleteArmed(): void;
+  setDeleteArmed(): void;
+  destroy(): void;
+}
+
+export function createNotesStore(options: NotesStoreOptions) {
+  const gateway = options.gateway;
+  const getTarget = options.getTarget ?? (() => null);
+  const notify = options.notify ?? (() => {});
+  const confirmPublish = options.confirmPublish ?? ((message: string) => globalThis.confirm(message) ?? false);
+  const chooseFile = options.chooseFile ?? (async () => null);
+  const downloadFile = options.downloadFile ?? (() => {});
+  const onUseInChat = options.onUseInChat;
+  const fileToBase64 = options.fileToBase64 ?? (async () => "");
+  const invoke = options.invoke;
+  const sceneId = () => getTarget()?.sceneId ?? "programming";
+
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const store = create<NotesState>()((set, get) => ({
+    snapshot: { notebooks: [], notes: [], tags: [] },
+    selectedNotebookId: null,
+    selectedNote: null,
+    loading: false,
+    error: null,
+    mode: "library",
+    dirty: false,
+    preview: false,
+    query: "",
+    selectedTag: null,
+    sourceOnly: false,
+    focusTitleOnNextRender: false,
+    editingNotebookId: null,
+    moveNote: null,
+    dragTargetId: null,
+    expandedNotebookIds: new Set(),
+    expandedNavSections: new Set(),
+    draftTitle: "",
+    draftIcon: "",
+    draftContent: "",
+    draftTags: [],
+    deleteArmed: false,
+    saveDisabled: true,
+
+    async load({ preserveSelection = true } = {}) {
+      const state = get();
+      set({ loading: true, error: null });
+      try {
+        const response = await gateway.list(sceneId(), {
+          notebookId: null,
+          query: state.query,
+          tag: state.selectedTag,
+          sourceOnly: state.sourceOnly,
+        });
+        const snapshot = response.snapshot ?? { notebooks: [], notes: [], tags: [] };
+        let selectedNotebookId = state.selectedNotebookId;
+        if (selectedNotebookId && !snapshot.notebooks.some((n) => n.id === selectedNotebookId)) {
+          selectedNotebookId = null;
+        }
+        let selectedNote = state.selectedNote;
+        const selectedNoteId = state.selectedNote?.id;
+        if (!(preserveSelection && selectedNote && snapshot.notes.some((n) => n.id === selectedNoteId))) {
+          if (!state.dirty) selectedNote = null;
+        }
+        set({ snapshot, selectedNotebookId, selectedNote });
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async applyFilter({ tag = null, sourceOnly: clipOnly = false } = {}) {
+      await get().saveEditor();
+      set({
+        selectedNotebookId: null,
+        selectedTag: tag,
+        sourceOnly: clipOnly,
+        selectedNote: null,
+        dirty: false,
+        editingNotebookId: null,
+      });
+      await get().load({ preserveSelection: false });
+    },
+
+    async selectNote(summary) {
+      await get().saveEditor();
+      set({ loading: true, error: null });
+      try {
+        const response = await gateway.get(sceneId(), summary.notebookId, summary.id);
+        const note = response.note;
+        set({
+          selectedNote: note,
+          selectedNotebookId: note.notebookId,
+          dirty: false,
+          preview: true,
+          mode: "library",
+        });
+        const expanded = new Set(get().expandedNotebookIds);
+        expanded.add(note.notebookId);
+        set({ expandedNotebookIds: expanded });
+        get().syncDraftFromNote();
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    selectNotebook(id) {
+      set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false });
+    },
+
+    discussInChat(note, selection) {
+      onUseInChat?.(note, selection);
+    },
+
+    attachmentUrl(note, attachmentId) {
+      return gateway.attachmentUrl(sceneId(), note, attachmentId);
+    },
+
+    async newNote() {
+      await get().saveEditor();
+      const notebookId = get().selectedNotebookId ?? get().snapshot.notebooks[0]?.id;
+      if (!notebookId) {
+        set({ mode: "new-notebook" });
+        return;
+      }
+      set({ loading: true, error: null });
+      try {
+        const response = await gateway.create(sceneId(), notebookId, {
+          title: t("Untitled note"),
+          content: "",
+          tags: [],
+          icon: DEFAULT_NOTE_ICON,
+        });
+        set({
+          selectedNote: response.note,
+          selectedNotebookId: notebookId,
+          dirty: false,
+          preview: false,
+          focusTitleOnNextRender: true,
+          mode: "library",
+        });
+        const expanded = new Set(get().expandedNotebookIds);
+        expanded.add(notebookId);
+        set({ expandedNotebookIds: expanded });
+        get().syncDraftFromNote();
+        await get().load();
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    async startCapture() {
+      await get().saveEditor();
+      if (!get().selectedNotebookId && get().snapshot.notebooks.length === 0) {
+        set({ mode: "new-notebook" });
+      } else {
+        set({
+          selectedNotebookId: get().selectedNotebookId ?? get().snapshot.notebooks[0]?.id ?? null,
+          mode: "capture",
+        });
+      }
+    },
+
+    async captureChatExchange({ question = "", answer = "", sessionId = "" }) {
+      const normalizedAnswer = String(answer).trim();
+      if (!normalizedAnswer) throw new Error(t("There is no assistant response to save"));
+      if (get().snapshot.notebooks.length === 0) await get().load({ preserveSelection: false });
+      let notebook =
+        get().snapshot.notebooks.find((candidate) => candidate.title === t("Conversation Notes")) ||
+        get().snapshot.notebooks[0];
+      if (!notebook) {
+        const created = await gateway.createNotebook(sceneId(), {
+          title: t("Conversation Notes"),
+        });
+        notebook = created.notebook;
+      }
+      const normalizedQuestion = String(question).trim();
+      const title = conversationNoteTitle(normalizedQuestion || normalizedAnswer);
+      const provenance = [
+        `> ${t("Captured from Chat")}`,
+        sessionId ? `> ${t("Session")}: \`${sessionId}\`` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const body = [
+        provenance,
+        normalizedQuestion ? `## ${t("Question")}\n\n${normalizedQuestion}` : "",
+        `## ${t("Answer")}\n\n${normalizedAnswer}`,
+        `---\n${t("Continue this knowledge in Chat with the Discuss in Chat action.")}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      const response = await gateway.create(sceneId(), notebook.id, {
+        title,
+        content: body,
+        tags: ["chat", "captured"],
+      });
+      const state = get();
+      const expanded = new Set(state.expandedNotebookIds);
+      expanded.add(notebook.id);
+      set({
+        selectedNotebookId: notebook.id,
+        selectedNote: response.note,
+        mode: "library",
+        dirty: false,
+        preview: true,
+        expandedNotebookIds: expanded,
+        snapshot: {
+          ...state.snapshot,
+          notebooks: state.snapshot.notebooks.some((candidate) => candidate.id === notebook.id)
+            ? state.snapshot.notebooks.map((candidate) =>
+                candidate.id === notebook.id
+                  ? { ...candidate, noteCount: Number(candidate.noteCount || 0) + 1 }
+                  : candidate,
+              )
+            : [{ ...notebook, noteCount: 1 }, ...state.snapshot.notebooks],
+          notes: [response.note, ...state.snapshot.notes.filter((n) => n.id !== response.note.id)],
+          tags: [...new Set([...(state.snapshot.tags || []), "chat", "captured"])],
+        },
+      });
+      get().syncDraftFromNote();
+      notify(t("Conversation saved to Notes"));
+      return response.note;
+    },
+
+    async createNotebook(title, icon, parentId = null) {
+      const normalized = title.trim();
+      if (!normalized) return;
+      set({ loading: true, error: null });
+      try {
+        const response = await gateway.createNotebook(sceneId(), {
+          title: normalized,
+          icon: icon?.trim() || DEFAULT_NOTEBOOK_ICON,
+          parentId,
+        });
+        const expanded = new Set(get().expandedNotebookIds);
+        expanded.add(response.notebook.id);
+        if (parentId) expanded.add(parentId);
+        set({
+          selectedNotebookId: response.notebook.id,
+          expandedNotebookIds: expanded,
+          mode: "library",
+        });
+        await get().load({ preserveSelection: false });
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    async updateNotebook(notebookId, title, icon) {
+      const normalizedTitle = String(title).trim();
+      if (!normalizedTitle) return;
+      set({ loading: true, error: null });
+      try {
+        await gateway.updateNotebook(sceneId(), {
+          notebookId,
+          title: normalizedTitle,
+          icon: String(icon).trim() || DEFAULT_NOTEBOOK_ICON,
+        });
+        set({ editingNotebookId: null });
+        await get().load({ preserveSelection: true });
+        notify(t("Notebook saved"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    async deleteSelectedNote() {
+      const note = get().selectedNote;
+      if (!note) return;
+      set({ loading: true });
+      try {
+        await gateway.delete(sceneId(), note);
+        set({ selectedNote: null, dirty: false });
+        await get().load({ preserveSelection: false });
+        notify(t("Note deleted"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    async saveEditor() {
+      const note = get().selectedNote;
+      if (!note) return;
+      if (autosaveTimer) {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+      }
+      const draft = get();
+      const tags = parseTags(draft.draftTags.join(", "));
+      set({ saveDisabled: true });
+      try {
+        const response = await gateway.save(sceneId(), {
+          ...note,
+          title: draft.draftTitle,
+          icon: draft.draftIcon.trim() || DEFAULT_NOTE_ICON,
+          content: draft.draftContent,
+          tags,
+        });
+        set({ selectedNote: response.note, dirty: false });
+        notify(t("Note saved"));
+        await get().load();
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      } finally {
+        set({ saveDisabled: false });
+      }
+    },
+
+    markDirty() {
+      set({ dirty: true, saveDisabled: false });
+      get().scheduleAutosave();
+    },
+
+    scheduleAutosave() {
+      if (autosaveTimer) clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => void get().saveEditor(), AUTOSAVE_DELAY_MS);
+    },
+
+    cancelAutosave() {
+      if (autosaveTimer) {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+      }
+    },
+
+    setQuery(query) {
+      set({ query });
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => void get().load({ preserveSelection: true }), 180);
+    },
+
+    setMode(mode) {
+      set({ mode });
+    },
+
+    setEditingNotebook(editingNotebookId) {
+      set({ editingNotebookId });
+    },
+
+    setDraft(patch) {
+      set({
+        draftTitle: patch.title ?? get().draftTitle,
+        draftIcon: patch.icon ?? get().draftIcon,
+        draftContent: patch.content ?? get().draftContent,
+        draftTags: patch.tags ?? get().draftTags,
+      });
+      get().markDirty();
+    },
+
+    setPreview(preview) {
+      get().syncDraftFromNote();
+      set({ preview });
+    },
+
+    syncDraftFromNote() {
+      const note = get().selectedNote;
+      if (!note) return;
+      set({
+        draftTitle: note.title,
+        draftIcon: note.icon || DEFAULT_NOTE_ICON,
+        draftContent: note.content,
+        draftTags: [...(note.tags || [])],
+      });
+    },
+
+    toggleNotebookExpanded(id) {
+      const expanded = new Set(get().expandedNotebookIds);
+      if (expanded.has(id)) expanded.delete(id);
+      else expanded.add(id);
+      set({ expandedNotebookIds: expanded });
+    },
+
+    toggleNavSection(title) {
+      const sections = new Set(get().expandedNavSections);
+      if (sections.has(title)) sections.delete(title);
+      else sections.add(title);
+      set({ expandedNavSections: sections });
+    },
+
+    openMovePopover(note) {
+      set({ moveNote: note });
+    },
+
+    closeMovePopover() {
+      set({ moveNote: null });
+    },
+
+    async moveNoteTo(sourceNotebookId, noteId, targetNotebookId) {
+      await get().saveEditor();
+      const summary = get().snapshot.notes.find(
+        (candidate) => candidate.id === noteId && candidate.notebookId === sourceNotebookId,
+      );
+      if (!summary) return;
+      set({ loading: true, error: null });
+      try {
+        await gateway.moveNote(sceneId(), {
+          notebookId: sourceNotebookId,
+          noteId,
+          targetNotebookId,
+          expectedVersion: summary.version,
+        });
+        if (get().selectedNote?.id === noteId) {
+          set({ selectedNote: null, dirty: false });
+        }
+        await get().load({ preserveSelection: false });
+        notify(t("Note moved"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    setDragTarget(dragTargetId) {
+      set({ dragTargetId });
+    },
+
+    async attachFile() {
+      const note = get().selectedNote;
+      if (!note) return;
+      try {
+        const file = await chooseFile(".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.md,.csv,.json");
+        if (!file) return;
+        if (!file.size || file.size > 5 * 1024 * 1024) {
+          throw new Error(t("Attachments must contain 1 byte to 5 MiB"));
+        }
+        const response = await gateway.uploadAttachment(sceneId(), note, {
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          dataBase64: await fileToBase64(file),
+        });
+        if (get().preview) set({ preview: false });
+        const current = get().draftContent;
+        const separator = current && !current.endsWith("\n") ? "\n\n" : "";
+        get().setDraft({
+          content: `${current}${separator}${response.attachment.markdown}\n`,
+        });
+        void get().saveEditor();
+        notify(t("Attachment added"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      }
+    },
+
+    async importMarkdown() {
+      const notebookId = get().selectedNotebookId;
+      if (!notebookId) {
+        set({ mode: "new-notebook" });
+        return;
+      }
+      try {
+        const file = await chooseFile(".md,.markdown");
+        if (!file) return;
+        if (!file.size || file.size > 1024 * 1024) {
+          throw new Error(t("Markdown import exceeds the 1 MiB limit"));
+        }
+        const response = await gateway.importMarkdown(
+          sceneId(),
+          notebookId,
+          file.name,
+          await file.text(),
+        );
+        set({ selectedNote: response.note, dirty: false, preview: true });
+        get().syncDraftFromNote();
+        await get().load();
+        notify(t("Markdown imported"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      }
+    },
+
+    async exportBackup() {
+      const notebook = get().snapshot.notebooks.find(
+        (candidate) => candidate.id === get().selectedNotebookId,
+      );
+      if (!notebook) {
+        notify(t("Select a notebook first"));
+        return;
+      }
+      try {
+        const response = await gateway.exportBackup(sceneId(), notebook.id);
+        downloadFile(
+          `${safeFileName(notebook.title)}.zicode-notes.json`,
+          JSON.stringify(response.backup, null, 2),
+          "application/json",
+        );
+        notify(t("Readable backup exported"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      }
+    },
+
+    async importBackup() {
+      try {
+        const file = await chooseFile(".json");
+        if (!file) return;
+        if (!file.size || file.size > 70 * 1024 * 1024) {
+          throw new Error(t("Notes backup exceeds the 70 MiB limit"));
+        }
+        const backup = JSON.parse(await file.text());
+        const response = await gateway.importBackup(sceneId(), backup);
+        set({ selectedNotebookId: response.notebook.id, selectedNote: null, dirty: false });
+        await get().load({ preserveSelection: false });
+        notify(t("Notes backup imported"));
+      } catch (error) {
+        set({
+          error:
+            error instanceof SyntaxError
+              ? new Error(t("Notes backup is not valid JSON"))
+              : error instanceof Error
+                ? error
+                : new Error(String(error)),
+        });
+      }
+    },
+
+    async rebuildIndex() {
+      const notebookId = get().selectedNotebookId;
+      if (!notebookId) {
+        notify(t("Select a notebook first"));
+        return;
+      }
+      try {
+        const response = await gateway.rebuild(sceneId(), notebookId);
+        const report = response.report;
+        await get().load();
+        notify(
+          `${t("Vault check complete")}: ${report.validNotes} ${t("valid notes")}, ${
+            report.invalidFiles.length
+          } ${t("invalid files")}`,
+        );
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      }
+    },
+
+    async publishAstro() {
+      if (!get().selectedNotebookId) {
+        notify(t("Select a notebook first"));
+        return;
+      }
+      const notebook = get().snapshot.notebooks.find(
+        (candidate) => candidate.id === get().selectedNotebookId,
+      );
+      if (!notebook) return;
+      if (
+        !confirmPublish(
+          t("Build this notebook as a local Astro site? Dependencies may be downloaded."),
+        )
+      ) {
+        return;
+      }
+      if (!invoke) {
+        set({ error: new Error(t("Astro publishing is available in the desktop application.")) });
+        return;
+      }
+      set({ loading: true, error: null });
+      try {
+        const report = (await invoke("publish_notes_notebook", {
+          notebookId: notebook.id,
+        })) as { noteCount: number };
+        notify(`${t("Astro site built")}: ${report.noteCount} ${t("notes")} · dist/`);
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async captureUrl({ url, title, notebookId, tags }) {
+      const normalizedUrl = String(url).trim();
+      if (!normalizedUrl) return;
+      set({ error: null });
+      try {
+        const response = await gateway.capture(sceneId(), notebookId, {
+          url: normalizedUrl,
+          title: title || undefined,
+          tags,
+        });
+        set({ selectedNotebookId: response.note.notebookId });
+        if (response.duplicate) notify(t("This page is already in your notes"));
+        await get().selectNote(response.note);
+        await get().load();
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      }
+    },
+
+    async setTarget() {
+      set({ selectedNote: null, dirty: false });
+      await get().load({ preserveSelection: false });
+    },
+
+    resetDeleteArmed() {
+      set({ deleteArmed: false });
+    },
+
+    setDeleteArmed() {
+      set({ deleteArmed: true });
+    },
+
+    destroy() {
+      if (searchTimer) clearTimeout(searchTimer);
+      if (autosaveTimer) clearTimeout(autosaveTimer);
+    },
+  }));
+
+  return store;
+}
+
+export type NotesStore = ReturnType<typeof createNotesStore>;
