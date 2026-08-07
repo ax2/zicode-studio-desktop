@@ -78,7 +78,7 @@ export class RpivTodoMirrorPanel {
     this.#element.className = "rpiv-todo-panel hidden is-collapsed";
     this.#element.setAttribute("role", "region");
     this.#element.setAttribute("aria-label", t("Pi task progress"));
-    container?.insertBefore(this.#element, container.querySelector("form"));
+    container?.insertBefore(this.#element, container.firstChild);
     window.addEventListener("zicode:locale-changed", this.#onLocaleChange);
   }
 

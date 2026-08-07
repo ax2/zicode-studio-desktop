@@ -111,6 +111,12 @@ bun run test          # vitest（public/** + frontend/src/**）
   `frontend/src/features/composer/modelDropdown.tsx` 的 React 组件 +
   feed（flushSync 渲染 + `getState` 快照 + 选择/设置/重试/关闭回调）；
   app.js 保留数据与开合逻辑，删除 vanilla 渲染函数）
-- [ ] 后续按依赖度迁移：聊天 Composer 输入/斜杠/图片/排队 → 会话侧栏，
-  随后移除手写 DOM 桥接
+- [x] 聊天 Composer 外壳（第 193 轮：index.html 约 220 行静态 composer
+  DOM 整体移除，`setupComposer()` 以 React 渲染外壳（输入框/工具栏/
+  发送/中止/思考标签/模型下拉/斜杠菜单/图片预览/排队消息容器，全部 ID
+  保留）并返回元素引用；app.js 元素引用改为从 setupComposer 获取，
+  斜杠/提交/图片/排队等 vanilla 子模块按 ID 挂进 React 容器继续工作；
+  顺带修复 RpivTodoMirrorPanel 对 input-area 直接子节点的依赖）
+- [ ] 后续按依赖度迁移：聊天 Composer 子模块逐个 React 化 →
+  会话侧栏，随后移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

@@ -3225,6 +3225,30 @@ TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十三轮：聊天 Composer 外壳迁移为 React（2026-08-07）。
+
+1. index.html 约 220 行静态 composer DOM（input-area/form/composer-card/
+   queued-messages/工具栏）整体移除，只留 `#composer-root`；
+   `setupComposer()` 以 flushSync 渲染 React 外壳（`ComposerApp.tsx`，
+   输入框、发送/中止/附件/命令/麦克风、思考标签、模型下拉、斜杠菜单/
+   图片预览/排队消息容器，全部元素 ID 保留）并返回元素引用；
+2. app.js 的 composer 元素引用（约 20 个 getElementById）改为从
+   `setupComposer()` 解构；vanilla 子模块（提交/斜杠菜单/图片附件/
+   排队消息）与模型下拉 feed 按 ID 挂进 React 容器，行为不变；
+3. **踩坑**：`RpivTodoMirrorPanel` 把进度面板插到
+   `container.querySelector("form")` 前，要求 form 是 input-area 的
+   直接子节点；React 外壳把 form 放进 #composer-root 后该假设失效，
+   启动即抛 insertBefore 错误——改为插到容器首位，保持原位置语义；
+4. **实测**：桌面真实 WebView2（CDP）——应用正常启动、composer 以
+   React 渲染（卡片/输入框/工具栏/思考标签"思考关闭"）、斜杠菜单输入
+   "/" 后打开并列出 20 个技能项、模型下拉 25 项、输入框可聚焦、
+   任务进度面板在位、**全程零异常**；未触发真实消息发送；
+5. **回归**：673 个测试全过（671 + 2 新）、typecheck、Biome 零警告。
+
+遗留：Composer 子模块（提交/斜杠/图片/排队）逐个 React 化 → 会话侧栏 →
+移除手写 DOM 桥接；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

@@ -54,6 +54,7 @@ import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { setupAutomationApp } from "./plugins/automation-app.js";
 import { setupNotesApp } from "./plugins/notes-app.js";
 import { createModelDropdownFeed } from "./react/composer.js";
+import { setupComposer } from "./react/composer.js";
 import { NotesGateway } from "./plugins/notes-gateway.js";
 import { PluginCapabilityGateway } from "./plugins/plugin-capability-gateway.js";
 import { PluginHostGateway } from "./plugins/plugin-host-gateway.js";
@@ -132,32 +133,34 @@ setupMessagesInsets({
 });
 const messageRenderer = new MessageRenderer(messagesElement);
 const toolRenderer = new ToolCardRenderer(messagesElement);
-const input = document.getElementById("message-input");
-const form = document.getElementById("chat-form");
-const abortButton = document.getElementById("abort-btn");
-const sendButton = document.getElementById("send-btn");
+const {
+  input,
+  form,
+  abortButton,
+  sendButton,
+  composerCard,
+  commandButton,
+  attachButton,
+  imageInput,
+  imagePreviews,
+  skillSlashMenu,
+  queuedMessages,
+  modelDropdown,
+  modelDropdownBtn,
+  modelDropdownLabel,
+  modelDropdownMenu,
+  thinkingBtn,
+} = setupComposer() ?? {};
 const statusText = document.getElementById("status-text");
 const statusIndicator = document.getElementById("status-indicator");
-const composerCard = document.getElementById("composer-card");
-const commandButton = document.getElementById("command-btn");
 const commandPalette = document.getElementById("command-palette");
 const commandPaletteOverlay = document.getElementById("command-palette-overlay");
 const commandList = document.getElementById("command-list");
-const attachButton = document.getElementById("attach-btn");
-const imageInput = document.getElementById("image-input");
-const imagePreviews = document.getElementById("image-previews");
-const skillSlashMenu = document.getElementById("skill-slash-menu");
-const queuedMessages = document.getElementById("queued-messages");
 const todoMirrorPanel = new RpivTodoMirrorPanel({
   container: document.querySelector(".input-area"),
 });
 
 // ── Composer model dropdown & thinking button ─────────────────────────────────
-const modelDropdown = document.getElementById("model-dropdown");
-const modelDropdownBtn = document.getElementById("model-dropdown-btn");
-const modelDropdownLabel = document.getElementById("model-dropdown-label");
-const modelDropdownMenu = document.getElementById("model-dropdown-menu");
-const thinkingBtn = document.getElementById("thinking-btn");
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high"];
 let currentThinkingLevel = "off";
 let currentModelId = null;
