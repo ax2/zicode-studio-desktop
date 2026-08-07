@@ -1,13 +1,41 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupComposer } from "./index";
-// @ts-expect-error plain JS module without type declarations (public/native/composer/composer-slash-menu.js)
-import { setupComposerSlashMenu } from "../../../../public/native/composer/composer-slash-menu.js";
+import { setupComposer, setupComposerSlashMenu } from "./index";
+import type { SlashCommand } from "./slashMenu";
 
 function mountComposer() {
   const root = document.createElement("div");
   root.id = "composer-root";
   document.body.append(root);
   return setupComposer();
+}
+
+function mountComposerWithSlashMenu(commands: SlashCommand[] = []) {
+  const root = document.createElement("div");
+  root.id = "composer-root";
+  document.body.append(root);
+  const onSubmit = vi.fn();
+  const handle = setupComposer({ onSubmit });
+  if (!handle) throw new Error("composer mount failed");
+  setupComposerSlashMenu({
+    input: handle.input,
+    container: handle.skillSlashMenu,
+    commandButton: handle.commandButton,
+    getCommands: () => commands,
+  });
+  return { handle, onSubmit };
+}
+
+async function typeSlash(input: HTMLTextAreaElement, value: string) {
+  input.value = value;
+  input.setSelectionRange(value.length, value.length);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function pressKey(input: HTMLTextAreaElement, key: string) {
+  input.dispatchEvent(
+    new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+  );
 }
 
 afterEach(() => {
@@ -94,34 +122,104 @@ describe("composer React shell", () => {
   });
 
   it("lets an open slash menu select a command instead of submitting", async () => {
-    HTMLElement.prototype.scrollIntoView = vi.fn();
-    const root = document.createElement("div");
-    root.id = "composer-root";
-    document.body.append(root);
-    const onSubmit = vi.fn();
-    const handle = setupComposer({ onSubmit });
-    expect(handle).toBeTruthy();
-    if (!handle) throw new Error("composer mount failed");
-    const controller = setupComposerSlashMenu({
-      input: handle.input,
-      container: handle.skillSlashMenu,
-      getCommands: () => [
-        { name: "skill:btw", description: "Append message", type: "skill" },
-      ],
-    });
+    const { handle, onSubmit } = mountComposerWithSlashMenu([
+      { name: "skill:btw", description: "Append message", type: "skill" },
+    ]);
 
-    handle.input.value = "/bt";
-    handle.input.setSelectionRange(handle.input.value.length, handle.input.value.length);
-    await controller.update();
-    const event = new KeyboardEvent("keydown", {
-      key: "Enter",
-      cancelable: true,
-      bubbles: true,
-    });
-    handle.input.dispatchEvent(event);
+    await typeSlash(handle.input, "/bt");
+    pressKey(handle.input, "Enter");
 
     expect(handle.input.value).toBe("/skill:btw ");
     expect(onSubmit).not.toHaveBeenCalled();
+    handle.dispose();
+  });
+
+  it("opens the slash menu on a slash query and lists skill commands only", async () => {
+    const { handle } = mountComposerWithSlashMenu([
+      { name: "settings", description: "Open settings", type: "builtin" },
+      { name: "review", description: "Review files", type: "extension" },
+      { name: "skill:research", description: "Investigate sources", type: "skill", scope: "user" },
+    ]);
+
+    await typeSlash(handle.input, "/");
+
+    const menu = document.getElementById("skill-slash-menu");
+    expect(menu?.classList.contains("hidden")).toBe(false);
+    expect(menu?.querySelectorAll(".skill-slash-option").length).toBe(1);
+    expect(menu?.textContent).toContain("Skills");
+    expect(menu?.textContent).toContain("Research");
+    expect(menu?.textContent).not.toContain("Settings");
+    expect(menu?.textContent).not.toContain("Review");
+    expect(handle.input.getAttribute("aria-activedescendant")).toBe("skill-slash-option-0");
+    handle.dispose();
+  });
+
+  it("filters skills while typing a slash query", async () => {
+    const { handle } = mountComposerWithSlashMenu([
+      { name: "skill:code-review", description: "Review a diff", type: "skill", scope: "project" },
+      { name: "skill:research", description: "Investigate sources", type: "skill", scope: "user" },
+    ]);
+
+    await typeSlash(handle.input, "/res");
+
+    const menu = document.getElementById("skill-slash-menu");
+    expect(menu?.classList.contains("hidden")).toBe(false);
+    expect(menu?.querySelectorAll(".skill-slash-option").length).toBe(1);
+    expect(menu?.textContent).toContain("Research");
+    expect(menu?.textContent).toContain("Personal");
+    expect(menu?.textContent).not.toContain("Code Review");
+    handle.dispose();
+  });
+
+  it("navigates with arrow keys and selects with Tab", async () => {
+    const { handle, onSubmit } = mountComposerWithSlashMenu([
+      { name: "skill:alpha", description: "First", type: "skill" },
+      { name: "skill:bravo", description: "Second", type: "skill" },
+    ]);
+
+    await typeSlash(handle.input, "/");
+    pressKey(handle.input, "ArrowDown");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      document
+        .getElementById("skill-slash-option-1")
+        ?.classList.contains("selected"),
+    ).toBe(true);
+
+    pressKey(handle.input, "Tab");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(handle.input.value).toBe("/skill:bravo ");
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(document.getElementById("skill-slash-menu")?.classList.contains("hidden")).toBe(true);
+    handle.dispose();
+  });
+
+  it("closes the slash menu with Escape without touching the input", async () => {
+    const { handle } = mountComposerWithSlashMenu([
+      { name: "skill:research", description: "Investigate sources", type: "skill" },
+    ]);
+
+    await typeSlash(handle.input, "/res");
+    expect(document.getElementById("skill-slash-menu")?.classList.contains("hidden")).toBe(false);
+    pressKey(handle.input, "Escape");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(handle.input.value).toBe("/res");
+    expect(document.getElementById("skill-slash-menu")?.classList.contains("hidden")).toBe(true);
+    expect(handle.input.getAttribute("aria-activedescendant")).toBeNull();
+    handle.dispose();
+  });
+
+  it("opens the menu from the command button when the input is empty", async () => {
+    const { handle } = mountComposerWithSlashMenu([
+      { name: "skill:research", description: "Investigate sources", type: "skill" },
+    ]);
+
+    handle.commandButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(handle.input.value).toBe("/");
+    expect(document.getElementById("skill-slash-menu")?.classList.contains("hidden")).toBe(false);
+    expect(document.querySelectorAll(".skill-slash-option").length).toBe(1);
     handle.dispose();
   });
 });

@@ -1,5 +1,15 @@
 import { useRef } from "react";
 import type { StoreApi, UseBoundStore } from "zustand";
+import {
+  activeSlashQuery,
+  computeSlashMatches,
+  EMPTY_SLASH_STATE,
+  scopeLabel,
+  titleCaseCommandName,
+  typeLabel,
+  type SlashCommand,
+  type SlashMenuState,
+} from "./slashMenu";
 
 export interface QueuedMessages {
   steering?: string[];
@@ -9,9 +19,17 @@ export interface QueuedMessages {
 export interface ComposerStore {
   queue: QueuedMessages;
   setQueue(queue: QueuedMessages): void;
+  slash: SlashMenuState;
+  setSlash(patch: Partial<SlashMenuState>): void;
+  getCommands: () => SlashCommand[];
+  setGetCommands(getCommands: () => SlashCommand[]): void;
 }
 
 export type ComposerStoreHook = UseBoundStore<StoreApi<ComposerStore>>;
+
+function clampSelectedIndex(index: number, length: number): number {
+  return Math.min(index, Math.max(length - 1, 0));
+}
 
 export function ComposerApp({
   store,
@@ -21,8 +39,10 @@ export function ComposerApp({
   onSubmit?: (options: { altKey: boolean }) => void;
 }) {
   const queue = store((state) => state.queue);
+  const slash = store((state) => state.slash);
   const composingRef = useRef(false);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const clearCompositionReset = () => {
     if (resetTimer.current !== null) {
@@ -50,6 +70,40 @@ export function ComposerApp({
       .map((message) => ({ label: "Follow-up", message })),
   ];
 
+  const updateSlashFromInput = (input: HTMLTextAreaElement) => {
+    const state = store.getState();
+    const computed = computeSlashMatches(input, state.getCommands());
+    if (!computed) {
+      state.setSlash(EMPTY_SLASH_STATE);
+      return;
+    }
+    state.setSlash({
+      open: true,
+      query: computed.query,
+      matches: computed.matches,
+      selectedIndex: clampSelectedIndex(
+        state.slash.selectedIndex,
+        computed.matches.length,
+      ),
+    });
+  };
+
+  const selectSlashCommand = (
+    index: number,
+    input: HTMLTextAreaElement,
+  ) => {
+    const state = store.getState();
+    const command = state.slash.matches[index];
+    const active = activeSlashQuery(input);
+    if (!command?.command || !active) return;
+    const suffix = input.value.slice(active.end);
+    input.value = `${command.command} ${suffix}`;
+    input.setSelectionRange(command.command.length + 1, command.command.length + 1);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.focus();
+    state.setSlash(EMPTY_SLASH_STATE);
+  };
+
   return (
     <>
       <div className={`queued-messages${queueItems.length ? "" : " hidden"}`} id="queued-messages">
@@ -69,13 +123,67 @@ export function ComposerApp({
         }}
       >
         <div className="composer-card" id="composer-card">
-          <div className="skill-slash-menu hidden" id="skill-slash-menu"></div>
+          <div
+            className={`skill-slash-menu${slash.open ? "" : " hidden"}`}
+            id="skill-slash-menu"
+            role="listbox"
+            aria-label="Skill slash commands"
+          >
+            <div className="skill-slash-heading">Skills</div>
+            {slash.matches.length === 0 ? (
+              <div className="skill-slash-empty">No matching skills</div>
+            ) : (
+              slash.matches.map((command, index) => (
+                <button
+                  type="button"
+                  key={command.command}
+                  id={`skill-slash-option-${index}`}
+                  className={`skill-slash-option${index === slash.selectedIndex ? " selected" : ""}`}
+                  role="option"
+                  aria-selected={index === slash.selectedIndex}
+                  onMouseEnter={() =>
+                    store.getState().setSlash({ selectedIndex: index })
+                  }
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    if (inputRef.current) {
+                      selectSlashCommand(index, inputRef.current);
+                    }
+                  }}
+                >
+                  <span className="skill-slash-icon">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4l8-4.6Z" />
+                      <path d="m4.3 7.6 7.7 4.5 7.7-4.5M12 12.1v8.7M8 5.1l8 4.6" />
+                    </svg>
+                  </span>
+                  <span className="skill-slash-name">
+                    {titleCaseCommandName(command.name)}
+                  </span>
+                  <span className="skill-slash-description">
+                    {command.description || typeLabel(command)}
+                  </span>
+                  <span className="skill-slash-scope">
+                    {scopeLabel(command.scope)}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
           <div className="image-previews hidden" id="image-previews"></div>
           <textarea
+            ref={inputRef}
             id="message-input"
             placeholder="Type a message, or use / to call a skill…"
             autoComplete="off"
             rows={2}
+            aria-autocomplete="list"
+            aria-controls="skill-slash-menu"
+            aria-activedescendant={
+              slash.open && slash.matches.length > 0
+                ? `skill-slash-option-${slash.selectedIndex}`
+                : undefined
+            }
             onCompositionStart={() => {
               clearCompositionReset();
               composingRef.current = true;
@@ -87,9 +195,45 @@ export function ComposerApp({
                 resetTimer.current = null;
               }, 0);
             }}
+            onInput={(event) => {
+              updateSlashFromInput(event.currentTarget);
+            }}
+            onClick={(event) => {
+              updateSlashFromInput(event.currentTarget);
+            }}
+            onBlur={() => {
+              queueMicrotask(() => store.getState().setSlash(EMPTY_SLASH_STATE));
+            }}
             onKeyDown={(event) => {
-              if (event.key !== "Enter" || event.shiftKey) return;
               if (isImeComposing(event)) return;
+              const input = event.currentTarget;
+              const state = store.getState();
+              if (event.key === "Escape" && (state.slash.open || activeSlashQuery(input))) {
+                event.preventDefault();
+                state.setSlash(EMPTY_SLASH_STATE);
+                return;
+              }
+              if (state.slash.open) {
+                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                  event.preventDefault();
+                  if (state.slash.matches.length === 0) return;
+                  const delta = event.key === "ArrowDown" ? 1 : -1;
+                  const next =
+                    (state.slash.selectedIndex + delta + state.slash.matches.length) %
+                    state.slash.matches.length;
+                  state.setSlash({ selectedIndex: next });
+                  return;
+                }
+                if (
+                  (event.key === "Enter" || event.key === "Tab") &&
+                  state.slash.matches.length > 0
+                ) {
+                  event.preventDefault();
+                  selectSlashCommand(state.slash.selectedIndex, input);
+                  return;
+                }
+              }
+              if (event.key !== "Enter" || event.shiftKey) return;
               event.preventDefault();
               onSubmit?.({ altKey: event.altKey });
             }}

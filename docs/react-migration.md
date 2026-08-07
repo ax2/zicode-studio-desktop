@@ -124,8 +124,15 @@ bun run test          # vitest（public/** + frontend/src/**）
   dispose）；app.js 删除 composer-submit/queued-messages 导入与渲染
   调用；删除 vanilla composer-submit.js / queued-messages.js 及旧测试；
   原 slash-menu 与提交处理的交互测试改写为 React 集成测试）
-- [ ] 后续按依赖度迁移：聊天 Composer 剩余子模块（斜杠菜单
-  composer-slash-menu.js、图片附件 composer-images.js / composer-image-picker.js）
-  React 化 →
+- [x] 聊天 Composer 斜杠菜单（第 195 轮：`slashMenu.ts` 纯逻辑 +
+  ComposerStore 扩展 slash 状态（open/query/matches/selectedIndex/
+  getCommands），`ComposerApp` 以 React 渲染菜单 listbox 并统一处理
+  onInput/onClick/onKeyDown/onBlur（打开/过滤/方向键/Enter/Tab 选择/
+  Escape 关闭，ARIA 完整）；`setupComposerSlashMenu` 变薄桥接注入
+  getCommands 并返回操作 React 状态的 {close, update, openAll}；
+  composer-slash-menu.js 变 re-export 桥接；顺带修复 app.js 重复调用
+  setupComposer() 的 round 193 遗留）
+- [ ] 后续按依赖度迁移：聊天 Composer 图片附件（composer-images.js /
+  composer-image-picker.js）React 化 →
   会话侧栏，随后移除手写 DOM 桥接
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

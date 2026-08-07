@@ -3277,6 +3277,36 @@ M2 跨 NAT 打洞真机验证。
 移除手写 DOM 桥接；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第一百九十五轮：聊天 Composer 斜杠菜单迁移为 React（2026-08-07）。
+
+1. `frontend/src/features/composer/slashMenu.ts` 纯逻辑（
+   titleCaseCommandName / activeSlashQuery / normalizeCommands /
+   commandMatches / computeSlashMatches），Zustand ComposerStore 扩展
+   slash 状态（open/query/matches/selectedIndex）与 getCommands；
+   `ComposerApp` 直接以 React 渲染菜单 listbox（Skills 标题、选项图标/
+   名称/描述/scope、空态），输入框 onInput/onClick/onKeyDown/onBlur
+   统一处理打开/过滤/方向键/Enter/Tab 选择/Escape 关闭，ARIA
+   （aria-autocomplete/controls/activedescendant）完整；
+2. `setupComposerSlashMenu` 改为薄桥接：把 getCommands 注入 store，
+   返回 {close, update, openAll} 直接操作 React 状态；commandButton
+   参数保留可选契约（真实 app 中该按钮由命令面板持有，行为不变）；
+   composer-slash-menu.js 变 re-export 桥接，删除 vanilla 实现与旧
+   DOM 测试；
+3. **顺带清理**：app.js 中 `setupComposer()` 被调用两次（round 193
+   遗留，第二个调用会重复创建 store/root）——改为从首个 handle 解构
+   元素引用，消除重复挂载；
+4. **实测**：桌面真实 WebView2（CDP）——输入 "/" 菜单以 React 渲染并
+   列出 20 个技能项、"/res" 过滤到 7 项、方向键+Enter 选中真实技能
+   命令并写入输入框（不触发提交）、Escape 关闭并保留输入、命令按钮仍
+   打开命令面板（13 项）、**全程零异常**；未触发真实消息发送；
+5. **回归**：675 个测试全过（668 − 4 旧斜杠菜单测试 + 6 逻辑 +
+   5 React 交互）、typecheck、Biome 零警告、`build:react` 产物
+   composer.js 约 82kb 已同步安装目录。
+
+遗留：Composer 图片附件（composer-images.js / composer-image-picker.js）
+React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端；TalkBack
+走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

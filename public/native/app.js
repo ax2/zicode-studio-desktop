@@ -153,7 +153,7 @@ const {
   modelDropdownLabel,
   modelDropdownMenu,
   thinkingBtn,
-} = setupComposer() ?? {};
+} = composer ?? {};
 const statusText = document.getElementById("status-text");
 const statusIndicator = document.getElementById("status-indicator");
 const commandPalette = document.getElementById("command-palette");
