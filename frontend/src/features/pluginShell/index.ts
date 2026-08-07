@@ -2,6 +2,12 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createElement } from "react";
 import { PluginActivityBarApp } from "./PluginActivityBarApp";
+import { PluginSidebarShell, type PluginAccordion } from "./PluginSidebarShellApp";
+import {
+  createMainShellStore,
+  PluginMainShellBridge,
+  type PluginMainShellStoreHook,
+} from "./PluginMainShellApp";
 import {
   createPluginShellBarStore,
   type PluginActivityItem,
@@ -12,6 +18,7 @@ export type {
   PluginActivityItem,
   PluginShellBarStore,
 } from "./pluginShellStore";
+export type { PluginAccordion } from "./PluginSidebarShellApp";
 
 export interface PluginActivityBarHandlers {
   onActivate(item: PluginActivityItem): void;
@@ -61,6 +68,84 @@ export function setupPluginActivityBar({
     getBar: () => container.querySelector(".plugin-activity-bar"),
     destroy() {
       root?.unmount();
+    },
+  };
+}
+
+export interface PluginSidebarShellProps {
+  title: string;
+  accordions: PluginAccordion[];
+}
+
+export interface PluginMainShellProps {
+  plugin: { id: string; name: string; description: string; origin: string };
+  target: { sceneId?: string; sceneName?: string } | null;
+  previewStatus: string;
+  onOpenWorkbench(): void;
+  onOpenConfiguration(): void;
+}
+
+export interface PluginShellSurfacesApi {
+  mountSidebar(container: HTMLElement, props: PluginSidebarShellProps): void;
+  mountMain(container: HTMLElement, props: PluginMainShellProps): void;
+  setPreviewStatus(text: string): void;
+  destroy(): void;
+}
+
+export function setupPluginShellSurfaces(): PluginShellSurfacesApi {
+  let sidebarRoot: Root | null = null;
+  let mainRoot: Root | null = null;
+  let mainStore: PluginMainShellStoreHook | null = null;
+
+  const unmountSidebar = () => {
+    sidebarRoot?.unmount();
+    sidebarRoot = null;
+  };
+  const unmountMain = () => {
+    mainRoot?.unmount();
+    mainRoot = null;
+    mainStore = null;
+  };
+
+  return {
+    mountSidebar(container, props) {
+      unmountSidebar();
+      const root = createRoot(container);
+      sidebarRoot = root;
+      flushSync(() => {
+        root.render(
+          createElement(PluginSidebarShell, {
+            title: props.title,
+            accordions: props.accordions,
+          }),
+        );
+      });
+    },
+    mountMain(container, props) {
+      unmountMain();
+      const store = createMainShellStore(props.previewStatus);
+      mainStore = store;
+      const root = createRoot(container);
+      mainRoot = root;
+      flushSync(() => {
+        root.render(
+          createElement(PluginMainShellBridge, {
+            store,
+            plugin: props.plugin,
+            target: props.target,
+            onOpenWorkbench: props.onOpenWorkbench,
+            onOpenConfiguration: props.onOpenConfiguration,
+          }),
+        );
+      });
+    },
+    setPreviewStatus(text) {
+      mainStore?.getState().setPreviewStatus(text);
+      flushSync(() => {});
+    },
+    destroy() {
+      unmountSidebar();
+      unmountMain();
     },
   };
 }

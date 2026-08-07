@@ -161,6 +161,7 @@ const zhCN = {
   "Loading…": "加载中…",
   "Loading...": "加载中…",
   Unavailable: "不可用",
+  Unknown: "未知",
   Retry: "重试",
   "Network unavailable. ZiCode will reconnect automatically.":
     "网络不可用，ZiCode 将在网络恢复后自动重连。",
@@ -1043,7 +1044,13 @@ export function getLocale() {
 }
 
 export function t(source) {
-  return dictionaries[activeLocale]?.[normalizeSource(source)] ?? source;
+  // Every React feature bundle embeds its own copy of this module, so the
+  // module-level `activeLocale` would freeze each bundle to the locale that
+  // existed when it loaded. Read the persisted locale on every call instead so
+  // bundled copies follow the app's current language (including runtime
+  // switches and tests that setLocale after the bundle loaded).
+  const locale = readLocaleCookie();
+  return dictionaries[locale]?.[normalizeSource(source)] ?? source;
 }
 
 function translateTextNode(node) {

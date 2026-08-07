@@ -3,7 +3,10 @@ import { MOBILE_SHELL_QUERY } from "../../ui/sidebar-toggle.js";
 import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
 import { renderPluginManagerView } from "./plugin-manager-view.js";
 import { createBuiltinPluginRegistry } from "./plugin-registry.js";
-import { setupPluginActivityBar } from "../react/plugin-shell.js";
+import {
+  setupPluginActivityBar,
+  setupPluginShellSurfaces,
+} from "../react/plugin-shell.js";
 
 const CHAT_PLUGIN_ID = "core.chat";
 const MANAGER_VIEW_ID = "core.pluginManager";
@@ -112,6 +115,7 @@ export function setupPluginShell({
       },
     },
   });
+  const shellSurfaces = setupPluginShellSurfaces();
   const activityBar = activityBarApi.getBar();
   const mobileMoreButton = activityBar?.querySelector("[data-mobile-activity-more]") ?? null;
   const mobileActivityMenu = activityBar?.querySelector("[data-mobile-activity-menu]") ?? null;
@@ -344,15 +348,48 @@ export function setupPluginShell({
   function renderSidebar(pluginId) {
     pluginSidebar.replaceChildren();
     const plugin = registry.get(pluginId);
-    const title = document.createElement("div");
-    title.className = "plugin-sidebar-title";
-    title.textContent =
+    const title =
       pluginId === SETTINGS_VIEW_ID
         ? t("Settings")
         : pluginId === HELP_VIEW_ID
           ? t("Help")
           : t(plugin?.name ?? "Plugins");
-    pluginSidebar.append(title);
+    const accordions = [];
+    if (pluginId === MANAGER_VIEW_ID) {
+      accordions.push(
+        {
+          title: t("Plugin manager"),
+          items: [
+            ["Installed", "installed"],
+            ["Built-in", "builtIn"],
+            ["Disabled", "disabled"],
+            ["Developer", "developer"],
+          ].map(([label, filter]) => ({
+            label: t(label),
+            action: () => pluginMain.querySelector(`[data-plugin-filter="${filter}"]`)?.click(),
+          })),
+          expanded: true,
+        },
+        {
+          title: t("Platform"),
+          description: t("Manifest v1 · Host API v1 planning contract"),
+        },
+      );
+    } else {
+      for (const [index, view] of (plugin?.sidebarViews ?? []).entries()) {
+        accordions.push({
+          title: t(view.title),
+          description: t(view.description),
+          items: view.items,
+          action: view.action,
+          expanded: index === 0,
+        });
+      }
+    }
+    const sidebarShellWrapper = document.createElement("div");
+    sidebarShellWrapper.dataset.pluginShellSidebar = "";
+    pluginSidebar.append(sidebarShellWrapper);
+    shellSurfaces.mountSidebar(sidebarShellWrapper, { title, accordions });
 
     if (pluginId === SETTINGS_VIEW_ID) {
       settingsApp?.renderNavigation?.(pluginSidebar);
@@ -370,40 +407,6 @@ export function setupPluginShell({
     if ((plugin?.origin === "developer" || plugin?.origin === "signed") && pluginViewHost) {
       pluginViewHost.renderNavigation(pluginSidebar, plugin);
       return;
-    }
-    if (pluginId === MANAGER_VIEW_ID) {
-      pluginSidebar.append(
-        accordionView({
-          title: t("Plugin manager"),
-          items: [
-            ["Installed", "installed"],
-            ["Built-in", "builtIn"],
-            ["Disabled", "disabled"],
-            ["Developer", "developer"],
-          ].map(([label, filter]) => ({
-            label: t(label),
-            action: () => pluginMain.querySelector(`[data-plugin-filter="${filter}"]`)?.click(),
-          })),
-          expanded: true,
-        }),
-        accordionView({
-          title: t("Platform"),
-          description: t("Manifest v1 · Host API v1 planning contract"),
-        }),
-      );
-      return;
-    }
-
-    for (const [index, view] of (plugin?.sidebarViews ?? []).entries()) {
-      pluginSidebar.append(
-        accordionView({
-          title: t(view.title),
-          description: t(view.description),
-          items: view.items,
-          action: view.action,
-          expanded: index === 0,
-        }),
-      );
     }
   }
 
@@ -452,17 +455,25 @@ export function setupPluginShell({
       return;
     }
     if (!plugin) return;
-    const hero = document.createElement("section");
-    hero.className = "plugin-main-hero";
-    const kicker = document.createElement("span");
-    kicker.className = "plugin-main-kicker";
-    kicker.textContent = t(plugin.origin === "developer" ? "Developer plugin" : "Built-in plugin");
-    const title = document.createElement("h1");
-    title.textContent = t(plugin.name);
-    const description = document.createElement("p");
-    description.textContent = t(plugin.description);
-    hero.append(kicker, title, description);
-    pluginMain.append(hero, pluginOverview(plugin));
+    const financeTarget = getTarget?.() ?? null;
+    const mainShellWrapper = document.createElement("div");
+    mainShellWrapper.dataset.pluginShellMain = "";
+    pluginMain.append(mainShellWrapper);
+    shellSurfaces.mountMain(mainShellWrapper, {
+      plugin: {
+        id: plugin.id,
+        name: plugin.name,
+        description: plugin.description,
+        origin: plugin.origin,
+      },
+      target: financeTarget,
+      previewStatus:
+        plugin.id === "com.zicode.finance" && financeTarget?.sceneId !== "finance"
+          ? t("Open a Finance scene to use the existing workbench.")
+          : t("This area is ready for plugin data and actions."),
+      onOpenWorkbench: () => executeCommand("finance.openWorkbench"),
+      onOpenConfiguration: () => executeCommand("finance.configuration"),
+    });
   }
 
   async function executeCommand(commandId, args = {}) {
@@ -636,6 +647,7 @@ export function setupPluginShell({
       mobileShellMedia?.removeEventListener?.("change", handleMobileShellChange);
       mobileMenuHistory?.dispose();
       activityBarApi.destroy();
+      shellSurfaces.destroy();
       activityBarHost.remove();
       pluginSidebar.remove();
       pluginMain.remove();
@@ -679,8 +691,7 @@ export function setupPluginShell({
   }
 
   function setPreviewStatus(commandId) {
-    const status = pluginMain.querySelector("[data-plugin-preview-status]");
-    if (status) status.textContent = `${t(commandLabel(commandId))} ${t("command dispatched")}`;
+    shellSurfaces.setPreviewStatus(`${t(commandLabel(commandId))} ${t("command dispatched")}`);
   }
 
   function openSettingsSurface(tab = "general") {
@@ -698,69 +709,6 @@ export function setupPluginShell({
     }
     openHelp(pageId);
   }
-
-  function pluginOverview(plugin) {
-    const grid = document.createElement("div");
-    grid.className = "plugin-overview-grid";
-    const target = getTarget?.();
-    const cards =
-      plugin.id === "com.zicode.notes"
-        ? [
-            ["Local Markdown", "Readable files remain the source of truth."],
-            ["Web capture", "URL content becomes sourced Markdown without saving credentials."],
-            ["Astro vault", "Content Collections prepare local publishing and future clients."],
-          ]
-        : plugin.id === "com.zicode.finance"
-          ? [
-              ["Current scene", target?.sceneName || target?.sceneId || "Unknown"],
-              ["Deterministic engine", "Existing screening, backtests, and ledgers are preserved."],
-              ["Workbench", "The current Finance Workbench remains available."],
-            ]
-          : [
-              ["Unified library", "Reports, charts, files, and source metadata in one place."],
-              ["Resource handles", "Large artifacts stay outside conversation payloads."],
-              ["Exports", "Plugins contribute exports through audited commands."],
-            ];
-    for (const [title, description] of cards) {
-      const card = document.createElement("article");
-      card.className = "ui-card plugin-overview-card";
-      const heading = document.createElement("strong");
-      heading.textContent = t(title);
-      const detail = document.createElement("p");
-      detail.textContent = t(description);
-      card.append(heading, detail);
-      grid.append(card);
-    }
-    const status = document.createElement("p");
-    status.className = "plugin-preview-status";
-    status.dataset.pluginPreviewStatus = "";
-    status.setAttribute("aria-live", "polite");
-    status.textContent =
-      plugin.id === "com.zicode.finance" && target?.sceneId !== "finance"
-        ? t("Open a Finance scene to use the existing workbench.")
-        : t("This area is ready for plugin data and actions.");
-    const wrapper = document.createElement("div");
-    wrapper.append(grid);
-    if (plugin.id === "com.zicode.finance") {
-      const actions = document.createElement("div");
-      actions.className = "plugin-main-actions";
-      const openWorkbench = document.createElement("button");
-      openWorkbench.type = "button";
-      openWorkbench.className = "ui-button ui-button--primary";
-      openWorkbench.textContent = t("Open existing Finance Workbench");
-      openWorkbench.disabled = target?.sceneId !== "finance";
-      openWorkbench.addEventListener("click", () => executeCommand("finance.openWorkbench"));
-      const configuration = document.createElement("button");
-      configuration.type = "button";
-      configuration.className = "ui-button ui-button--secondary";
-      configuration.textContent = t("Open configuration");
-      configuration.addEventListener("click", () => executeCommand("finance.configuration"));
-      actions.append(openWorkbench, configuration);
-      wrapper.append(actions);
-    }
-    wrapper.append(status);
-    return wrapper;
-  }
 }
 
 function buildPluginSidebar() {
@@ -775,64 +723,6 @@ function buildPluginMain() {
   surface.className = "plugin-main-view plugin-surface-hidden";
   surface.tabIndex = -1;
   return surface;
-}
-
-function elementText(tagName, text) {
-  const element = document.createElement(tagName);
-  element.textContent = text;
-  return element;
-}
-
-function accordionView({ title, description, items, action, expanded = false }) {
-  const section = document.createElement("section");
-  section.className = "plugin-sidebar-view";
-  const body = document.createElement("div");
-  body.className = "plugin-sidebar-view-body";
-  body.hidden = !expanded;
-  const header = document.createElement("button");
-  header.type = "button";
-  header.className = "plugin-sidebar-view-header";
-  header.setAttribute("aria-expanded", String(expanded));
-  header.append(iconSvg("chevron"));
-  const label = document.createElement("span");
-  label.textContent = title;
-  header.append(label);
-  header.addEventListener("click", () => {
-    const nextExpanded = header.getAttribute("aria-expanded") !== "true";
-    header.setAttribute("aria-expanded", String(nextExpanded));
-    body.hidden = !nextExpanded;
-  });
-  if (description) {
-    const empty = document.createElement("p");
-    empty.className = "plugin-sidebar-empty";
-    empty.textContent = description;
-    body.append(empty);
-  }
-  if (items?.length) {
-    const list = document.createElement("ul");
-    list.className = "plugin-sidebar-items";
-    for (const item of items) {
-      const row = document.createElement("li");
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = typeof item === "string" ? item : item.label;
-      if (typeof item !== "string" && typeof item.action === "function") {
-        button.addEventListener("click", item.action);
-      }
-      row.append(button);
-      list.append(row);
-    }
-    body.append(list);
-  }
-  if (action) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ui-button ui-button--sm ui-button--ghost plugin-sidebar-action";
-    button.textContent = action;
-    body.append(button);
-  }
-  section.append(header, body);
-  return section;
 }
 
 function commandLabel(commandId) {

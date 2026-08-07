@@ -181,4 +181,14 @@ bun run test          # vitest（public/** + frontend/src/**）
   （data-plugin-id/data-mobile-activity-more 等）原样保留；删除
   buildActivityBar/activityButton/mobileActivityMenuButton 三个 vanilla
   构建器）
+- [x] 插件外壳侧栏/主视图外壳内容（第 201 轮：`PluginSidebarShell`
+  （标题 + 手风琴：插件管理器过滤快捷项/平台说明/插件 sidebarViews）
+  + `PluginMainShell`（hero/overview 卡片/预览状态/金融操作按钮），
+  `setupPluginShellSurfaces` 工厂；renderSidebar/renderMain 改为 React
+  挂载 + 原委托（settings/help/application/pluginViewHost/manager）不变；
+  删除 accordionView/pluginOverview/elementText 三个 vanilla 构建器；
+  顺带架构修复：React bundle 内嵌 i18n 副本的 activeLocale 在模块加载时
+  冻结，导致 bundle 渲染文本不跟随应用语言（测试 setLocale 后不同步、
+  生产运行切换语言漏更新）——`t()` 改为每次读取持久化 cookie，一处修复
+  所有 bundle 并支持运行时语言切换）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

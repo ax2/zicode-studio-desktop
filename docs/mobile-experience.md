@@ -3453,6 +3453,34 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查
 （人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百零一轮：插件外壳侧栏与主视图外壳内容迁移为 React（2026-08-07）。
+
+1. `PluginSidebarShell`（插件侧栏标题 + 手风琴：插件管理器过滤快捷项
+   （已安装/内置/已禁用/开发者）、平台说明、插件 sidebarViews 手风琴）
+   + `PluginMainShell`（hero/kicker、overview 卡片（笔记/金融/通用）、
+   预览状态、金融工作台与配置操作按钮）；`setupPluginShellSurfaces`
+   工厂提供 mountSidebar/mountMain/setPreviewStatus；
+2. plugin-shell.js 的 renderSidebar/renderMain 改为 React 挂载（标题与
+   外壳内容进 React wrapper，设置/帮助/应用/插件视图宿主/插件管理器的
+   委托逻辑不变）；setPreviewStatus 走 React store；删除 vanilla
+   accordionView/pluginOverview/elementText 三个构建器（约 170 行）；
+3. **架构修复**：每个 React feature bundle 内嵌独立的 i18n 副本，
+   `activeLocale` 在模块加载时从 cookie 读取一次后冻结——测试里先加载
+   bundle 再 setLocale 会不同步，生产环境运行时切换语言时 React 渲染
+   文本也不更新。改为 `t()` 每次调用读取持久化 cookie，一处修复所有
+   bundle（含运行时语言切换），并补 "Unknown" 翻译 key；
+4. **实测**：桌面真实 WebView2（CDP）——点击插件管理器：侧栏以 React
+   渲染标题"插件"+ 2 个手风琴（"插件管理"含四个过滤项、"平台"含
+   Manifest 说明，中文标签）、主视图渲染 7 张插件管理卡、手风琴可
+   折叠；点击笔记：标题/导航/主视图正常；**全程零异常**；
+5. **回归**：677 个测试全过（20 条插件外壳测试原样保留并全部通过，
+   含侧栏/主视图外壳的 en 语言断言——动态 i18n 修复后通过）、typecheck、
+   Biome 零警告、`build:react` 产物已同步安装目录。
+
+遗留：插件外壳外壳主体已全部 React 化；剩余 vanilla 模块（移动端体验/
+工作区 UI/扩展类等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验
+移动端；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
