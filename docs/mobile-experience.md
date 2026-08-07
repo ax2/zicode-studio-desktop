@@ -3772,6 +3772,26 @@ host 等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移�
 移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百一十四轮：最终清理第一步——index.html 死静态代码移除（2026-08-07）。
+
+1. 移除 `#finance-workbench` 整块（约 393 行）：该静态 aside 是 vanilla
+   时代的旧 UI，React FinanceWorkbench 经 plugin-shell 容器渲染，无任何
+   运行时引用（app.js 仅 import setupFinanceWorkbench 函数）；
+2. 移除 `#lan-qr-modal` 内部静态内容（约 110 行）：React LanQrModalApp
+   createRoot 挂进该容器并整体替换，保留容器本身及 role="dialog"、
+   aria-modal、aria-label 属性；
+3. 移除 `#messages` 静态欢迎区（约 32 行）：ChatFeed 挂载后由 React
+   WelcomeItem 渲染欢迎卡与场景按钮，静态 welcome/welcome-scene 已死；
+4. 校验：删除前后 div/aside 配平差值与原始一致（成对移除，无新不平衡）；
+   layout-contract 46 条 + i18n-coverage 等全部通过，全量 687 测试全绿；
+5. **验证**：运行中桌面实例伺服 index.html SHA256 与仓库一致，服务端
+   内容确认 finance-workbench/welcome-scene 已消失、lan-qr-modal 容器
+   保留。
+
+遗留：剩余 vanilla DOM 模块（plugin-view-host iframe 宿主等）逐个评估后
+移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
+安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

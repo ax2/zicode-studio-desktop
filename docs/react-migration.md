@@ -295,4 +295,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   保留为 React 渲染的兼容工厂（根建在元素自身，节点移动后事件不失效）；
   原 5 条测试保留经桥接通过 + 新增 1 条 feed 测试；history-window.js 变
   re-export 桥接）
+- [x] 最终清理第一步（第 214 轮）：index.html 移除 529 行死静态代码——
+  #finance-workbench 整块（约 393 行，React 插件容器接管）、#lan-qr-modal
+  内部静态内容（约 110 行，React 模态框接管，保留容器与 role/aria 属性）、
+  #messages 静态欢迎区（约 32 行，ChatFeed 渲染欢迎卡）；删除前后
+  div/aside 配平差值与原始一致（49/49 成对移除），布局契约测试 46 条
+  原样通过，687 测试全绿
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
