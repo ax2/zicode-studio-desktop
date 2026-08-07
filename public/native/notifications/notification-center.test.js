@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { createNotificationCenter } from "./notification-center.js";
+import { createNotificationCenter } from "../react/notification-center.js";
 
 describe("notification center", () => {
   test("renders dismissible error notifications", () => {

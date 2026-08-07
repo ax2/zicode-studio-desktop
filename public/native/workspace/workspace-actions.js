@@ -4,7 +4,7 @@
  * the native folder picker, which spawns a dedicated window + pi runtime for
  * the chosen directory.
  */
-import { getSelectedSceneId } from "../settings/scene-profiles.js";
+import { getSelectedSceneId } from "../react/settings.js";
 
 
 /**

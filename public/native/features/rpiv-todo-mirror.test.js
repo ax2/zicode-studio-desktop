@@ -6,7 +6,7 @@ import {
   isRpivTodoWidgetRequest,
   RpivTodoMirrorPanel,
   replayRpivTodoFromMessages,
-} from "./rpiv-todo-mirror.js";
+} from "../react/rpiv-todo-mirror.js";
 
 describe("rpiv todo mirror", () => {
   beforeEach(() => {

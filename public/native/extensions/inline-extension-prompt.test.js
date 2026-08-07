@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isInlineAskUserQuestionRequest,
   showInlineExtensionPrompt,
-} from "./inline-extension-prompt.js";
+} from "../react/inline-extension-prompt.js";
 
 describe("inline extension prompt", () => {
   it("recognizes rpiv ask-user-question fallback select requests", () => {

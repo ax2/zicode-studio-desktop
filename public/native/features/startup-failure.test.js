@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
-import { renderStartupFailure } from "./startup-failure.js";
+import { renderStartupFailure } from "../react/startup-failure.js";
 
 describe("startup failure", () => {
   it("renders a localized pairing block and retries explicitly", () => {

@@ -1,6 +1,6 @@
 import { JSDOM } from "jsdom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupCommandPalette } from "./command-palette.js";
+import { setupCommandPalette } from "../react/command-palette.js";
 
 describe("command palette", () => {
   let dom;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
-import { renderPluginManagerView } from "./plugin-manager-view.js";
+import { renderPluginManagerView } from "../react/plugin-manager-view.js";
 
 const BUILTIN = {
   id: "core.chat",

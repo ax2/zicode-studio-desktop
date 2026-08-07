@@ -16,19 +16,19 @@ import { setupMessagesInsets } from "../ui/layout-insets.js";
 import { MessageRenderer } from "../ui/message-renderer.js";
 import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js";
 import { ToolCardRenderer } from "../ui/tool-card.js";
-import { setupComposerImageAttachments } from "./composer/composer-images.js";
-import { setupComposerSlashMenu } from "./composer/composer-slash-menu.js";
+import { setupComposerImageAttachments } from "./react/composer.js";
+import { setupComposerSlashMenu } from "./react/composer.js";
 import { buildCommandCatalog, resolveComposerInput } from "./composer/slash-commands.js";
-import { setupCommandPalette } from "./extensions/command-palette.js";
-import { showNativeDialog } from "./extensions/dialog.js";
+import { setupCommandPalette } from "./react/command-palette.js";
+import { showNativeDialog } from "./react/dialog.js";
 import { ExtensionUiHost } from "./extensions/extension-ui-host.js";
-import { showInlineExtensionPrompt } from "./extensions/inline-extension-prompt.js";
+import { showInlineExtensionPrompt } from "./react/inline-extension-prompt.js";
 import { setupAppUpdater } from "./features/app-updater.js";
-import { setupFinanceWorkbench } from "./features/finance-workbench.js";
-import { setupHelpCenter } from "./features/help-center.js";
-import { refreshLanQrButton, setupLanQr } from "./features/lan-qr.js";
+import { setupFinanceWorkbench } from "./react/finance-workbench.js";
+import { setupHelpCenter } from "./react/help.js";
+import { refreshLanQrButton, setupLanQr } from "./react/lan-qr.js";
 import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
-import { setupMobileExperience } from "./features/mobile-experience.js";
+import { setupMobileExperience } from "./react/mobile-experience.js";
 import { setupMobileSendLater } from "./features/mobile-send-later.js";
 import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
 import {
@@ -40,17 +40,17 @@ import {
   isRpivTodoCommandNotify,
   isRpivTodoWidgetRequest,
   RpivTodoMirrorPanel,
-} from "./features/rpiv-todo-mirror.js";
-import { setupSceneIndicator } from "./features/scene-indicator.js";
-import { renderStartupFailure } from "./features/startup-failure.js";
+} from "./react/rpiv-todo-mirror.js";
+import { setupSceneIndicator } from "./react/scene-indicator.js";
+import { renderStartupFailure } from "./react/startup-failure.js";
 import {
   estimateRequestCost,
 } from "./models/model-routing.js";
-import { createNotificationCenter } from "./notifications/notification-center.js";
-import { setupArtifactApp } from "./plugins/artifact-app.js";
+import { createNotificationCenter } from "./react/notification-center.js";
+import { setupArtifactApp } from "./react/artifacts.js";
 import { ArtifactGateway } from "./plugins/artifact-gateway.js";
-import { setupAutomationApp } from "./plugins/automation-app.js";
-import { setupNotesApp } from "./plugins/notes-app.js";
+import { setupAutomationApp } from "./react/automation.js";
+import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
 import { setupComposer } from "./react/composer.js";
 import { NotesGateway } from "./plugins/notes-gateway.js";
@@ -62,16 +62,16 @@ import { setupPluginViewHost } from "./plugins/plugin-view-host.js";
 import {
   readProjectWorkspaceProfile,
   setupProjectWorkspaceApp,
-} from "./plugins/project-workspace-app.js";
-import { setupTaskCenterApp } from "./plugins/task-center-app.js";
+} from "./react/projects.js";
+import { setupTaskCenterApp } from "./react/tasks.js";
 import {
   createHistoryWindow,
-} from "./session/history-window.js";
+} from "./react/history-window.js";
 import { createSessionSelectionHandler } from "./session/session-navigation.js";
-import { setupSessionSearchDialog } from "./session/session-search-dialog.js";
-import { SessionSidebar } from "./session/session-sidebar.js";
+import { setupSessionSearchDialog } from "./react/session-search-dialog.js";
+import { SessionSidebar } from "./react/session-sidebar.js";
 import { createSessionStore, reduceSessionState } from "./session/session-store.js";
-import { setupSettingsPanel } from "./settings/settings-panel.js";
+import { setupSettingsPanel } from "./react/settings.js";
 import { resolveBootstrapTarget } from "./transport/bootstrap-target.js";
 import { ConfigGateway } from "./transport/config-gateway.js";
 import {
@@ -92,8 +92,8 @@ import {
   resolveHistoryNavigation,
 } from "./utils/router.js";
 import { findLatestAssistantUsage, setupContextUsage } from "./workspace/context-usage.js";
-import { NativeFileBrowser } from "./workspace/file-browser.js";
-import { setupProjectHeader } from "./workspace/project-header.js";
+import { NativeFileBrowser } from "./react/file-browser.js";
+import { setupProjectHeader } from "./react/project-header.js";
 import {
   createSessionViaHost,
   openSessionInProjectViaHost,

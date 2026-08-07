@@ -47,7 +47,7 @@ describe("LAN QR modal", () => {
   it("creates a fresh current-chat QR and opens it through the native control gateway", async () => {
     const control = { openExternal: vi.fn().mockResolvedValue(undefined) };
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    const { setupLanQr } = await import("./lan-qr.js");
+const { setupLanQr } = await import("../react/lan-qr.js");
     setupLanQr({ control });
 
     document.getElementById("lan-qr-btn").click();
@@ -65,7 +65,7 @@ describe("LAN QR modal", () => {
   });
 
   it("traps Tab inside the modal while open and ignores hidden actions", async () => {
-    const { setupLanQr } = await import("./lan-qr.js");
+const { setupLanQr } = await import("../react/lan-qr.js");
     setupLanQr();
     document.getElementById("lan-qr-btn").click();
     const modal = document.getElementById("lan-qr-modal");
@@ -87,7 +87,7 @@ describe("LAN QR modal", () => {
   });
 
   it("switches to a non-expiring certificate setup QR with the trusted fingerprint", async () => {
-    const { setupLanQr } = await import("./lan-qr.js");
+const { setupLanQr } = await import("../react/lan-qr.js");
     setupLanQr();
     document.getElementById("lan-qr-btn").click();
     await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
@@ -114,7 +114,7 @@ describe("LAN QR modal", () => {
         expiresAt: Math.floor(Date.now() / 1000) - 1,
       }),
     }));
-    const { setupLanQr } = await import("./lan-qr.js");
+const { setupLanQr } = await import("../react/lan-qr.js");
     setupLanQr();
     document.getElementById("lan-qr-btn").click();
     await vi.waitFor(() => {
@@ -127,7 +127,7 @@ describe("LAN QR modal", () => {
 
   it("never exposes the desktop pairing button to a remote browser", async () => {
     const fetchImpl = vi.fn();
-    const { refreshLanQrButton } = await import("./lan-qr.js");
+const { refreshLanQrButton } = await import("../react/lan-qr.js");
     await refreshLanQrButton({
       locationRef: { hostname: "192.168.1.42" },
       fetchImpl,

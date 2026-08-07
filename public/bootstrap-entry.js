@@ -1,7 +1,7 @@
 import { initializeI18n } from "./i18n.js";
 import { restoreMobileStartRoute } from "./native/features/mobile-start-route.js";
 import { resolveRemoteAuth } from "./native/features/remote-auth.js";
-import { renderStartupFailure } from "./native/features/startup-failure.js";
+import { renderStartupFailure } from "./native/react/startup-failure.js";
 import { parseAppRoute } from "./native/utils/router.js";
 
 function isSecureRemoteHost() {

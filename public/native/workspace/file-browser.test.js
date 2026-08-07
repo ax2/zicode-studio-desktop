@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { NativeFileBrowser } from "./file-browser.js";
+import { NativeFileBrowser } from "../react/file-browser.js";
 
 function deferred() {
   let resolve;

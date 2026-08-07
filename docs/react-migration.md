@@ -301,4 +301,11 @@ bun run test          # vitest（public/** + frontend/src/**）
   #messages 静态欢迎区（约 32 行，ChatFeed 渲染欢迎卡）；删除前后
   div/aside 配平差值与原始一致（49/49 成对移除），布局契约测试 46 条
   原样通过，687 测试全绿
-- [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
+- [x] 最终清理第二步（第 215 轮）：移除全部手写 DOM 桥接——28 个纯
+  re-export 桥接文件删除（composer-* 3、extensions 3、features 7、
+  notifications 1、plugins 6、session 3、settings 2、workspace 3）；
+  app.js / bootstrap-entry / plugin-shell / workspace-actions 与 17 个
+  测试文件的导入全部改为直接指向 public/native/react/*.js 产物；
+  plugin-shell.js（815 行真实编排模块）保留并仅改其 plugin-manager-view
+  导入；全仓无残留引用，687 测试全绿；剩余 vanilla 文件均为非 UI 逻辑/
+  编排/宿主模块，按第 212 轮范围决策保留

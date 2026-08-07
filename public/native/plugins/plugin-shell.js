@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 import { MOBILE_SHELL_QUERY } from "../../ui/sidebar-toggle.js";
 import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
-import { renderPluginManagerView } from "./plugin-manager-view.js";
+import { renderPluginManagerView } from "../react/plugin-manager-view.js";
 import { createBuiltinPluginRegistry } from "./plugin-registry.js";
 import {
   setupPluginActivityBar,

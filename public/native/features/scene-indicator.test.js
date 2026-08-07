@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupSceneIndicator } from "./scene-indicator.js";
+import { setupSceneIndicator } from "../react/scene-indicator.js";
 
 function render() {
   document.body.innerHTML = `

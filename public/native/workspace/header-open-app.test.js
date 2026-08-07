@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupHeaderOpenApp } from "./header-open-app.js";
+import { setupHeaderOpenApp } from "../react/header-open-app.js";
 
 function renderControl() {
   document.body.innerHTML = `

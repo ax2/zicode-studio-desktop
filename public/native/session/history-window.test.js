@@ -3,7 +3,7 @@ import {
   createHistoryLoadedStatus,
   createHistoryWindow,
   createHistoryWindowNotice,
-} from "./history-window.js";
+} from "../react/history-window.js";
 
 function messages(count) {
   return Array.from({ length: count }, (_, index) => ({

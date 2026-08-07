@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupProjectHeader } from "./project-header.js";
+import { setupProjectHeader } from "../react/project-header.js";
 
 describe("project header", () => {
   afterEach(() => {

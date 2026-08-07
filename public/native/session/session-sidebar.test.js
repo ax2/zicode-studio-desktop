@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../i18n.js";
 import { setSuperAgentEnabled } from "../../super-agent/settings.js";
-import { formatSessionTime, SessionSidebar } from "./session-sidebar.js";
+import { formatSessionTime, SessionSidebar } from "../react/session-sidebar.js";
 
 function makeSidebar(sessions, overrides = {}) {
   const container = document.createElement("div");

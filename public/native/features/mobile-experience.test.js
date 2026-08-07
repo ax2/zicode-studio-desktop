@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { canUseRemotePwa, isIosDevice, setupMobileExperience } from "./mobile-experience.js";
+import { canUseRemotePwa, isIosDevice, setupMobileExperience } from "../react/mobile-experience.js";
 import {
   MOBILE_INSTALL_POSTPONE_MS,
   MOBILE_INSTALL_POSTPONED_KEY,

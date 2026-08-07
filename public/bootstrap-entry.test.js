@@ -13,7 +13,7 @@ describe("bootstrap entry", () => {
     vi.doMock("./native/features/mobile-start-route.js", () => ({
       restoreMobileStartRoute: () => false,
     }));
-    vi.doMock("./native/features/startup-failure.js", () => ({
+  vi.doMock("./native/react/startup-failure.js", () => ({
       renderStartupFailure: renderFailure,
     }));
     vi.doMock("./i18n.js", () => ({ initializeI18n }));
@@ -35,7 +35,7 @@ describe("bootstrap entry", () => {
     vi.doMock("./native/features/mobile-start-route.js", () => ({
       restoreMobileStartRoute: () => true,
     }));
-    vi.doMock("./native/features/startup-failure.js", () => ({
+  vi.doMock("./native/react/startup-failure.js", () => ({
       renderStartupFailure: renderFailure,
     }));
     vi.doMock("./i18n.js", () => ({ initializeI18n }));
@@ -62,7 +62,7 @@ describe("bootstrap entry", () => {
     vi.doMock("./native/features/mobile-start-route.js", () => ({
       restoreMobileStartRoute: () => false,
     }));
-    vi.doMock("./native/features/startup-failure.js", () => ({
+  vi.doMock("./native/react/startup-failure.js", () => ({
       renderStartupFailure: renderFailure,
     }));
     vi.doMock("./i18n.js", () => ({ initializeI18n: vi.fn() }));
@@ -94,7 +94,7 @@ describe("bootstrap entry", () => {
     vi.doMock("./native/features/mobile-start-route.js", () => ({
       restoreMobileStartRoute: () => false,
     }));
-    vi.doMock("./native/features/startup-failure.js", () => ({
+  vi.doMock("./native/react/startup-failure.js", () => ({
       renderStartupFailure: renderFailure,
     }));
     vi.doMock("./i18n.js", () => ({ initializeI18n: vi.fn() }));

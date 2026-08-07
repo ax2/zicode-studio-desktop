@@ -3792,6 +3792,26 @@ host 等）逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移�
 移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百一十五轮：最终清理第二步——移除全部手写 DOM 桥接（2026-08-08）。
+
+1. 删除 28 个纯 re-export 桥接文件（composer-* 3、extensions 3、features
+   7、notifications 1、plugins 6、session 3、settings 2、workspace 3）；
+2. 导入改写：app.js 25 处、bootstrap-entry 1 处、plugin-shell 1 处
+   （renderPluginManagerView）、workspace-actions 1 处（getSelectedSceneId）、
+   17 个测试文件（含 lan-qr 动态 import 5 处、bootstrap-entry.test 4 处
+   mock），全部直接指向 public/native/react/*.js 产物；plugin-shell.js
+   是 815 行真实编排模块，保留并只改其 plugin-manager-view 导入；
+3. composer-image-picker.js 无任何引用者，随桥接一并删除；
+4. 验证：全仓无残留引用（rg 兜底）、biome 零警告、全量 687 测试全绿
+   （17 个受影响测试文件 112 条先行通过）；运行中桌面实例伺服
+   app.js/bootstrap-entry 与 28 个 react 产物 SHA256 全部 MATCH；
+   注：安装目录里残留的桥接副本已无任何引用（app.js 直连 react 产物），
+   受本机安全策略限制未逐文件删除，属无害残留。
+
+遗留：剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块（按第 212 轮范围
+决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
