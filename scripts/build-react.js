@@ -83,6 +83,10 @@ async function run() {
         root,
         "frontend/src/features/pluginManagerView/index.ts",
       ),
+      "startup-failure": path.join(
+        root,
+        "frontend/src/features/startupFailure/index.ts",
+      ),
     },
     outdir,
     bundle: true,

@@ -3672,6 +3672,30 @@ M2 跨 NAT 打洞真机验证。
 桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百一十轮：启动失败界面迁移为 React（2026-08-07）。
+
+1. `startupFailureLogic.ts`（startupFailureCopy 错误码文案：
+   device_pairing_required / device_access_revoked / pairing_rejected|
+   failed / pairing_rate_limited / desktop_offline / 通用）+
+   `StartupFailureApp` 组件（main[data-startup-failure]、
+   role="alertdialog"、aria-modal、标题/消息/指引/重试按钮、Tab 键锁定
+   到重试、t() 本地化）；
+2. `renderStartupFailure` 保留旧契约：先 unmount 旧根再移除 wrapper
+   （避免 React 卸载已移除节点）、body 加 startup-failed、其余子节点
+   inert + aria-hidden、wrapper 挂载后移除 inert/aria-hidden、
+   flushSync 同步渲染；startup-failure.js 变 re-export 桥接；
+3. 原 3 条测试保留并经桥接全部通过（配对/离线文案、Tab 焦点锁定、
+   inert 语义）；
+4. **实测**：桌面真实 WebView2（CDP 9222）——`dataCode:
+   "desktop_offline"`、`role:"alertdialog"`、中文标题"!桌面离线"与
+   文案正确、**全程零异常**；
+5. **回归**：677 个测试全过、typecheck、Biome 零警告、`build:react`
+   产物 startup-failure.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（extension-ui-host 等）逐个收尾后移除手写 DOM
+桥接与旧文件；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

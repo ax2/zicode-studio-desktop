@@ -251,4 +251,11 @@ bun run test          # vitest（public/** + frontend/src/**）
   wrapper 避免 plugin-shell 清容器后 React 无法卸载（修复 32 个
   NotFoundError）；原 8 条测试保留经桥接通过；plugin-manager-view.js
   变 re-export 桥接）
+- [x] 启动失败界面（第 210 轮：startup-failure.js 96 行整体 React 化
+  ——`startupFailureLogic.ts`（错误码文案：配对/撤销/限流/桌面离线/通用）
+  + `StartupFailureApp` 组件（role=alertdialog/标题/消息/指引/重试按钮/
+  Tab 焦点锁定、t() 本地化）+ `renderStartupFailure` 保留旧契约（先
+  unmount 旧根再移除 wrapper、body inert、wrapper 挂载、返回
+  [data-startup-failure]）；原 3 条测试保留经桥接通过；startup-failure.js
+  变 re-export 桥接）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
