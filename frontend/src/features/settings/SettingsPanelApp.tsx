@@ -14,6 +14,7 @@ import type { PackageBrowseStore } from "./packageBrowseStore";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
 import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
+import { useStoragePersistenceState } from "./storagePersistenceStore";
 import type { SettingsStore } from "./store";
 import { useTaskNotificationsState } from "./taskNotificationsStore";
 import { useAppUpdaterStore } from "./updaterStore";
@@ -486,6 +487,7 @@ export function GeneralTab({
   const thinkingLevel = widgets((state) => state.thinkingLevel);
   const updater = useAppUpdaterStore();
   const taskNotifications = useTaskNotificationsState();
+  const storagePersistence = useStoragePersistenceState();
   return (
     <div className="settings-body">
       <AppearancePreferences />
@@ -553,7 +555,10 @@ export function GeneralTab({
         >
           {t(taskNotifications.statusKey)}
         </p>
-        <div className="settings-row hidden" id="mobile-draft-storage-row">
+        <div
+          className={`settings-row${storagePersistence.hidden ? " hidden" : ""}`}
+          id="mobile-draft-storage-row"
+        >
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Protect local drafts")}</span>
             <span className="settings-label-sub">
@@ -564,8 +569,13 @@ export function GeneralTab({
             type="button"
             className="ui-button ui-button--secondary"
             id="protect-mobile-draft-storage"
+            disabled={storagePersistence.buttonDisabled}
+            aria-busy={storagePersistence.requesting}
+            onClick={() =>
+              void storagePersistence.requestProtection()
+            }
           >
-            {t("Protect drafts")}
+            {t(storagePersistence.buttonKey)}
           </button>
         </div>
         <p
@@ -573,7 +583,9 @@ export function GeneralTab({
           id="mobile-draft-storage-status"
           role="status"
           aria-live="polite"
-        ></p>
+        >
+          {storagePersistence.statusText}
+        </p>
       </div>
       <SceneProfilesSection widgets={widgets} />
       <div className="settings-section" id="setting-updater-section">

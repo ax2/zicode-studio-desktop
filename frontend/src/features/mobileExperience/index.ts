@@ -16,8 +16,7 @@ import {
 import { setupMobileStartRouteTracking } from "../../../../public/native/features/mobile-start-route.js";
 // @ts-expect-error plain JS module without type declarations (public/native/)
 import { createInstallPromptPolicy, setupMobileServiceWorker } from "../../../../public/native/features/mobile-pwa-lifecycle.js";
-// @ts-expect-error plain JS module without type declarations (public/native/)
-import { setupMobileStoragePersistence } from "../../../../public/native/features/mobile-storage-persistence.js";
+import { setupMobileStoragePersistence } from "./storagePersistence";
 import { setupMobileTaskNotifications } from "./taskNotifications";
 
 const DEFAULT_RECONNECT_ESCALATION_MS = 8_000;

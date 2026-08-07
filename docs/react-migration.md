@@ -362,3 +362,14 @@ bun run test          # vitest（public/** + frontend/src/**）
   setTaskRunning/isEnabled/setEnabled/dispose + 通知触发逻辑），
   desktop 仍返回 null；原 6 条测试保留经构建产物通过 + 新增 2 条 store
   测试；旧文件删除、测试导入指向 react 产物）
+- [x] 移动端草稿存储保护设置并入 React（第 222 轮：
+  mobile-storage-persistence.js 135 行删除——UI 状态移入
+  `settings/storagePersistenceStore.ts`（全局单例 zustand store：
+  hidden/state/requesting/supported/estimate/buttonKey/buttonDisabled/
+  statusText + configure/refresh/requestProtection，estimate 显式状态
+  字段），设置面板草稿存储行改为从 store 渲染（行显隐、按钮文案/禁用/
+  aria-busy/onClick、状态文案），消除最后一处 vanilla 改 React 设置行
+  耦合；`setupMobileStoragePersistence` 控制器保留契约（refresh/
+  requestProtection/dispose + visibilitychange/locale 监听），desktop
+  返回 null；原 5 条测试保留经构建产物通过 + 新增 2 条 store 测试；
+  旧文件删除、测试导入指向 react 产物）

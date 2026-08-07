@@ -123,6 +123,10 @@ async function run() {
         root,
         "frontend/src/features/mobileExperience/taskNotifications.ts",
       ),
+      "mobile-storage-persistence": path.join(
+        root,
+        "frontend/src/features/mobileExperience/storagePersistence.ts",
+      ),
     },
     outdir,
     bundle: true,

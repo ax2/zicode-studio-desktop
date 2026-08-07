@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupMobileStoragePersistence } from "./mobile-storage-persistence.js";
+import { setupMobileStoragePersistence } from "../react/mobile-storage-persistence.js";
 
 function renderDom() {
   document.body.innerHTML = `

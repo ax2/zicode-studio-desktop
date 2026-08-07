@@ -3952,6 +3952,32 @@ settings store 的一轮）；剩余 vanilla 文件均为非 UI 逻辑/编排/�
 （按第 212 轮范围决策保留）；真机复验移动端；TalkBack 走查（人工）；
 安装包签名；M2 跨 NAT 打洞真机验证。
 
+第二百二十二轮：移动端草稿存储保护设置并入 React settings（2026-08-08）。
+
+1. `settings/storagePersistenceStore.ts`：全局单例 zustand store——
+   hidden / state（checking|available|protected|denied|unsupported|error）/
+   requesting / supported / estimate（显式状态字段，不用强转 hack）/
+   buttonKey / buttonDisabled / statusText + configure / compute /
+   refresh / requestProtection（StorageManager persisted/persist/estimate
+   流程）；
+2. 设置面板 GeneralTab 草稿存储行改为从 store 渲染：行显隐、按钮文案/
+   禁用/aria-busy/onClick、状态文案（t(statusText)），消除最后一处
+   vanilla 直接改 React 设置行的耦合；
+3. `setupMobileStoragePersistence` 保留契约：refresh / requestProtection /
+   dispose，visibilitychange 回显刷新与 locale 重算留在控制器；desktop
+   返回 null；旧 DOM 同步仅作为测试环境的兼容路径；
+4. mobile-storage-persistence.js 删除，新增 react/mobile-storage-
+   persistence.js 产物，测试导入指向产物；
+5. 原 5 条测试保留并经构建产物全部通过（桌面隐藏、已保护、点击请求、
+   拒绝、不支持）；新增 store 测试 2 条；全量 698 测试全绿（+2）；
+6. **验证**：typecheck、Biome 零警告；运行中桌面实例伺服
+   mobile-experience.js / settings.js / mobile-storage-persistence.js
+   SHA256 全部 MATCH。
+
+遗留：剩余 vanilla 文件均为非 UI 逻辑/编排/宿主模块（按第 212 轮范围
+决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
+M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

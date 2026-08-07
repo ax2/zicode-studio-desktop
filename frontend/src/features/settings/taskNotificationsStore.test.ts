@@ -5,10 +5,13 @@ import {
 } from "./taskNotificationsStore";
 
 function fakeNotification(permission = "default") {
+  let current = permission;
   return {
-    permission,
-    requestPermission: vi.fn(async function requestPermission() {
-      this.permission = "granted";
+    get permission() {
+      return current;
+    },
+    requestPermission: vi.fn(async () => {
+      current = "granted";
       return "granted";
     }),
   };
