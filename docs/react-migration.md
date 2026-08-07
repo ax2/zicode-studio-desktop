@@ -153,4 +153,14 @@ bun run test          # vitest（public/** + frontend/src/**）
   deleteAllArchived/setSearchQuery/render/dispose），store 变更经
   flushSync 同步提交，原 25 条 DOM 测试原样保留并全部通过；
   session-sidebar.js 变 re-export 桥接）
+- [x] 会话搜索对话框（第 198 轮：session-search-dialog.js 307 行整体
+  React 化——`sessionSearchDialogLogic.ts` 纯逻辑（Ctrl+K 判定/归一化/
+  标题与消息行构建/高亮复用）+ Zustand store + `SessionSearchDialogApp`
+  React 组件（overlay+dialog+受控输入+分组结果+空/加载态+方向键/Enter/
+  Escape+Tab 焦点环），`setupSessionSearchDialog` 保留旧契约（open/
+  close、trigger 接线、文档级 Ctrl+K/Escape、防抖全文搜索、
+  locale-changed）；index.html 移除静态 overlay/dialog 改挂
+  `#session-search-dialog-root`；session-search-dialog.js 变 re-export
+  桥接；踩坑：受控输入用 onChange 对合成 input 事件不触发（真实输入
+  也受影响）改 onInput；对话框直接渲染进 React root 而非 portal）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

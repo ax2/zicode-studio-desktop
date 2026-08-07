@@ -3367,6 +3367,32 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 遗留：剩余 vanilla 模块逐个收尾后移除手写 DOM 桥接与旧文件；真机复验
 移动端；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十八轮：会话搜索对话框迁移为 React（2026-08-07）。
+
+1. `sessionSearchDialogLogic.ts` 纯逻辑（isSearchShortcut/
+   shortcutHintLabel/normalizeQuery/标题与消息行构建/高亮复用）+ Zustand
+   store（open/query/messageMatches/loading/activeIndex）+
+   `SessionSearchDialogApp` React 组件（overlay + dialog + 受控输入 +
+   任务/最近任务与消息匹配分组 + 空/加载态 + 方向键/Enter/Escape +
+   Tab 焦点环 + overlay 点击关闭）；`setupSessionSearchDialog` 保留旧
+   契约（open/close、trigger 输入接线、文档级 Ctrl+K/Escape、
+   300ms 防抖全文搜索、locale-changed 占位符刷新）；
+2. index.html 移除静态 overlay/dialog，改挂 `#session-search-dialog-root`
+   （对话框 fixed 定位，DOM 位置无关）；session-search-dialog.js 变
+   re-export 桥接，删除 307 行 vanilla 实现；
+3. **踩坑**：React 受控输入的 onChange 对合成 `input` 事件不触发
+   （真实输入同样受影响，CDP 实测输入过滤失效）——改回原生 `onInput`
+   事件；对话框直接渲染进 React root 而非 portal，保证事件委托可达；
+4. **实测**：桌面真实 WebView2（CDP）——Ctrl+K 打开对话框（8 条最近
+   任务、中文分组标题）、输入"精达"实时过滤（任务组 + 消息匹配组、
+   <mark> 高亮、匹配数徽标）、Escape 关闭、**全程零异常**；
+5. **回归**：677 个测试全过（675 − 7 旧 + 9 新）、typecheck、Biome
+   零警告、`build:react` 产物 session-search-dialog.js 已同步安装目录。
+
+遗留：剩余 vanilla 模块（插件外壳/财务工作台/移动端体验/工作区 UI 等）
+逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查
+（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

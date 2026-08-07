@@ -39,6 +39,10 @@ async function run() {
         root,
         "frontend/src/features/sessionSidebar/index.ts",
       ),
+      "session-search-dialog": path.join(
+        root,
+        "frontend/src/features/sessionSearchDialog/index.ts",
+      ),
     },
     outdir,
     bundle: true,
