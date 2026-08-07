@@ -74,6 +74,7 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 任务中心（`com.zicode.tasks`）
 - [x] 产物（`com.zicode.artifacts`）
 - [x] 项目工作台（`com.zicode.projects`）
-- [ ] 后续按依赖度迁移：设置 → 帮助中心 → 笔记（最大，建议最后）→
-  聊天主界面
+- [x] 帮助中心（`com.zicode.help`）
+- [ ] 后续按依赖度迁移：设置（大模块，建议单独大轮次）→ 笔记
+  （最大，建议最后）→ 聊天主界面
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件

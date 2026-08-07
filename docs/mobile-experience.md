@@ -2972,6 +2972,27 @@ UI；TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验�
 TalkBack 走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证
 （TURN 路径已通）。
 
+第一百八十三轮：帮助中心迁移为 React（2026-08-07）。沿用既定模式：
+
+1. `frontend/src/features/help/`：logic（帮助索引/搜索匹配/阅读时长/
+   section 图标/语言归一）、Zustand store（manifest/文章加载、搜索、
+   语言失效重载、错误态）、组件（导航树 + 搜索、文章渲染 + 本页目录，
+   Markdown 复用 `renderMarkdown`，DOM 挂载用 ref 内设 innerHTML）、
+   `setupHelpCenter` 兼容工厂；`help-center.js` 改为薄桥接；
+2. **迁移中修正的旧逻辑缺陷**：原 `matchCount` 把 section 数量计入
+   命中数，导致搜索无结果时永远显示不了"没有匹配的帮助内容"空态；
+   React 版改为只统计命中的页面数（与旧版意图一致）并补测试；
+3. **实测**：桌面真实 WebView2（CDP）验证帮助中心以 React 渲染
+   （9 个文档分组、14 个导航链接、文章与"本页目录"正常、中文文案、
+   无 console 错误；资源加载确认 `react/vendor.js` + `react/help.js`
+   + 桥接均被 WebView2 拉取）；
+4. **回归**：685 个测试全过（686 − 4 个旧帮助 DOM 测试 + 3 个新
+   React 测试）、typecheck、Biome 零警告、`build:react` 产物 22.5kb。
+
+遗留：继续迁移设置（建议单独大轮次）/笔记/聊天；重试推送 main 上游
+（GitHub 网络持续 SSL 超时）；真机复验移动端 UI；TalkBack 走查
+（人工）；安装包签名；M2 跨 NAT 打洞真机验证（TURN 路径已通）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
