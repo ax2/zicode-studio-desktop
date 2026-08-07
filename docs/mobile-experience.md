@@ -3978,6 +3978,32 @@ settings store 的一轮）；剩余 vanilla 文件均为非 UI 逻辑/编排/�
 决策保留）；真机复验移动端；TalkBack 走查（人工）；安装包签名；
 M2 跨 NAT 打洞真机验证。
 
+第二百二十三轮：迁移完成审计与收尾（2026-08-08）。
+
+1. 补删最后两个漏网桥接：ui/message-renderer.js 与 ui/tool-card.js
+   （第 215 轮清单只覆盖 public/native/，这两处在 public/ui/）——
+   app.js 改为直连 react/chat.js 导入 MessageRenderer/ToolCardRenderer；
+2. 全量盘点剩余 vanilla 文件并分类留档：
+   - web 组件：chat-settings-panel / sa-chat-header / super-agent-*
+     （独立自定义元素架构，React 设置内嵌 chat-settings-panel 属
+     deliberate 集成边界）；
+   - 壳编排：app.js / plugin-shell / plugin-view-host / sidebar-toggle /
+     layout-insets / resizable-panel / keyboard-shortcuts / router；
+   - React 工具助手：markdown / image-lightbox / themes / i18n；
+   - 独立页面：offline / packages/install-status；
+   - 纯逻辑：transport / gateways / model-routing / session-store /
+     session-navigation / workspace-actions / remote-auth / mobile-*
+     逻辑 / extension-ui-host / composer/slash-commands / super-agent
+     逻辑 / service-worker；
+3. 上述分类全部落在第 212 轮范围决策（非 UI 保持 vanilla）内；
+4. 验证：全仓无残留桥接引用、typecheck、Biome、全量 698 测试全绿。
+
+React 迁移主线状态：28 个 DOM 渲染模块全部 React 化（26 个 react/
+产物 bundle），手写 DOM 桥接与死代码清零，跨层耦合（欢迎卡场景、
+app-updater、任务通知、草稿存储）全部收归 React store；剩余 vanilla
+均为上列非 UI 分类。外部事项：真机复验移动端、TalkBack 走查（人工）、
+安装包签名、M2 跨 NAT 打洞验证、服务器部署新版中继+coturn+监控。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

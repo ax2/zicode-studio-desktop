@@ -373,3 +373,15 @@ bun run test          # vitest（public/** + frontend/src/**）
   requestProtection/dispose + visibilitychange/locale 监听），desktop
   返回 null；原 5 条测试保留经构建产物通过 + 新增 2 条 store 测试；
   旧文件删除、测试导入指向 react 产物）
+- [x] 迁移完成审计（第 223 轮）：补删最后两个漏网桥接
+  （ui/message-renderer.js、ui/tool-card.js → app.js 直连 react/chat.js）；
+  全量盘点剩余 vanilla 文件并分类：web 组件（chat-settings-panel /
+  sa-chat-header / super-agent-*，独立组件架构）、壳编排（app.js /
+  plugin-shell / plugin-view-host / sidebar-toggle / layout-insets /
+  resizable-panel / keyboard-shortcuts / router）、React 工具助手
+  （markdown / image-lightbox / themes / i18n）、独立页面（offline /
+  install-status）、纯逻辑（transport / gateways / model-routing /
+  session-* / workspace-actions / remote-auth / mobile-* /
+  extension-ui-host / slash-commands / super-agent 逻辑）——均按第 212
+  轮范围决策保持 vanilla；React 迁移主线完成：28 个 DOM 渲染模块全部
+  React 化、手写 DOM 桥接与死代码清零、698 测试全绿
