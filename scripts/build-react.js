@@ -43,6 +43,10 @@ async function run() {
         root,
         "frontend/src/features/sessionSearchDialog/index.ts",
       ),
+      "finance-workbench": path.join(
+        root,
+        "frontend/src/features/financeWorkbench/index.ts",
+      ),
     },
     outdir,
     bundle: true,

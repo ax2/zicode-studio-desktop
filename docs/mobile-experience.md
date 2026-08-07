@@ -3393,6 +3393,36 @@ React 化 → 会话侧栏 → 移除手写 DOM 桥接；真机复验移动端�
 逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack 走查
 （人工）；安装包签名；M2 跨 NAT 打洞真机验证。
 
+第一百九十九轮：财务工作台迁移为 React（2026-08-07）。
+
+1. `financeWorkbenchLogic.ts`（percent/number/shortTimestamp/回测与选股
+   与快照样本数据/视图定义）+ Zustand store（activeViewId/sceneId/
+   status/usage/discovery/snapshots/backtest/screening/research/
+   paperAccounts/paperOrder/paperLimit/paperMark/busy）+ `FinanceNavApp`
+   （数据/分析/研究/账户四组导航，非金融场景禁用）与 `FinanceContentApp`
+   （场景守卫 + 概览/发现/快照/回测/选股/研究/模拟交易 7 个视图的表单
+   与结果渲染，JSON 表单组件、指标网格、研究卡片、纸面账户、限价单、
+   持仓标记）；
+2. `setupFinanceWorkbench` 保留旧插件契约（renderNavigation/
+   renderContent/setTarget/selectView/openPanel/loadStatus/destroy），
+   每次渲染挂载独立 React root；gateway 调用、产物归档（回测/选股/
+   快照）与通知语义不变；finance-workbench.js 变 re-export 桥接，删除
+   884 行 vanilla 实现；静态 `#finance-workbench` 面板暂留死代码待
+   桥接移除阶段清理；
+3. **实测**：桌面真实 WebView2（CDP）——点击活动栏"金融"激活应用：
+   插件侧栏渲染 4 组 7 个导航项（数据概览/数据能力发现/市场数据快照/
+   策略回测/多因子选股器/研究工作区/模拟交易，中文标签）、主视图按
+   非金融场景渲染场景守卫（"金融工作台需要金融场景…"）、**全程零异常**；
+4. **回归**：677 个测试全过（− 5 旧 finance DOM 测试 + 5 新 React
+   测试：场景守卫/导航切换、状态加载、发现+回测+产物归档、选股 XSS
+   安全+纸面账户+用量、快照归档失败保留结果）、typecheck、Biome 零
+   警告、`build:react` 产物 finance-workbench.js 约 92kb 已同步安装
+   目录；i18n 补 "Upcoming event" key。
+
+遗留：插件外壳（plugin-shell.js）/移动端体验/工作区 UI 等剩余 vanilla
+模块逐个收尾后移除手写 DOM 桥接与旧文件；真机复验移动端；TalkBack
+走查（人工）；安装包签名；M2 跨 NAT 打洞真机验证。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

@@ -163,4 +163,13 @@ bun run test          # vitest（public/** + frontend/src/**）
   `#session-search-dialog-root`；session-search-dialog.js 变 re-export
   桥接；踩坑：受控输入用 onChange 对合成 input 事件不触发（真实输入
   也受影响）改 onInput；对话框直接渲染进 React root 而非 portal）
+- [x] 财务工作台（第 199 轮：finance-workbench.js 884 行整体 React 化
+  ——`financeWorkbenchLogic.ts`（percent/number/样本数据/视图定义）+
+  Zustand store（activeViewId/sceneId/status/各视图结果/busy）+
+  `FinanceNavApp`/`FinanceContentApp`（场景守卫、7 个视图的表单与结果
+  渲染、JSON 表单组件、指标网格、研究卡片、纸面账户）；`setupFinanceWorkbench`
+  保留旧插件契约（renderNavigation/renderContent/setTarget/selectView/
+  openPanel/loadStatus/destroy），gateway 调用与产物归档不变；
+  finance-workbench.js 变 re-export 桥接；静态 `#finance-workbench`
+  面板暂留死代码待收尾阶段清理）
 - [ ] 迁移完所有模块后，可移除手写 DOM 桥接与旧文件
