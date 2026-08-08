@@ -394,8 +394,9 @@
   display: block;
 }
 
-/* Hide thinking blocks when toggled off */
-body.hide-thinking .thinking-block {
+/* Hide thinking blocks when "Show thinking" is toggled off. The settings
+   store exposes the switch as body[data-show-thinking], not a class. */
+body[data-show-thinking="off"] .thinking-block {
   display: none !important;
 }
 

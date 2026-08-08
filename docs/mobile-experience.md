@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百九十二轮：“显示思考过程”开关失效修复（2026-08-09）。
+
+1. 根因：设置面板“显示思考过程”开关经 `applyToggleEffect` 写入
+   `body[data-show-thinking="on"/"off"]`，但 message-renderer.css 的隐藏
+   规则用的是 `body.hide-thinking .thinking-block`（类名）——两者不匹配，
+   全库无任何代码添加 `hide-thinking` 类，开关从未生效；
+2. 修复：CSS 选择器改为 `body[data-show-thinking="off"] .thinking-block`
+   （与设置机制一致）；新增布局契约断言防止回归；
+3. 验证：前端 738 项全绿（+1）、Biome/设计检查通过；生产版 CDP 实测
+   `data-show-thinking="off"` 时 3 个思考块 display:none、可见数为 0，
+   开关状态保持用户原值（off）。
+
 第二百九十一轮：release 第二十次重建（含第 290 轮 Biome 清零，2026-08-09）。
 
 1. 让生产安装包包含第 290 轮修复；`bun run build` 重建 EXE

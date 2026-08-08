@@ -532,3 +532,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    0 错误 0 警告
 - [x] release 第二十次重建（第 291 轮）：EXE 41,320,960 B / 安装包
    346,854,474 B，含第 290 轮修复，静默重装验证通过
+- [x] 显示思考过程开关修复（第 292 轮）：CSS 从错误的 body.hide-thinking
+   类改为 body[data-show-thinking="off"]，开关首次真正隐藏思考块 + 布局
+   契约断言；前端 738 测试全绿

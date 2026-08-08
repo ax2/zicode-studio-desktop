@@ -626,6 +626,12 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("hides thinking blocks through the show-thinking switch dataset", () => {
+    expect(messageRendererCss).toMatch(
+      /body\[data-show-thinking="off"\]\s*\.thinking-block\s*\{[\s\S]*?display:\s*none\s*!important/,
+    );
+  });
+
   it("keeps the send-later banner and welcome scene narrow-screen safe", () => {
     expect(mobileCss).toMatch(
       /@media \(max-width: 768px\), \(max-height: 520px\) and \(pointer: coarse\)[\s\S]*?\.mobile-send-later\s*\{[\s\S]*?align-items:\s*stretch[\s\S]*?flex-direction:\s*column/,
