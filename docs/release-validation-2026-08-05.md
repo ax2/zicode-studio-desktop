@@ -351,3 +351,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
+
+## 第二十二次重建（2026-08-09，含第 294 轮自动压缩上下文接入运行时）
+
+- 合入第 294 轮：settingsWidgetsStore 新增 `setAutoCompaction` 发送
+  `set_auto_compaction` 运行时消息，toggle 时立即发送；app.js
+  `adoptTarget` 在新会话启动时应用持久化偏好；操作类型放宽；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `F8C97357F641864C9A8C115E01B17066CF1B206281CE54A1563C21BFD8A081ED`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,859,247 B，SHA-256
+    `554A5578B2ED9220CB92911AF3490DBEB4C1AD0FCBC730E7E5246255AFB8E147`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+    ERROR/WARN/panic。

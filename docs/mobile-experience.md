@@ -4568,6 +4568,17 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百九十五轮：release 第二十二次重建（含第 294 轮，2026-08-09）。
+
+1. 让生产安装包包含第 294 轮（自动压缩上下文接入运行时）；
+   `bun run build` 重建 EXE 41,320,960 B（SHA-256 `F8C97357…`）与
+   安装包 346,859,247 B（`554A5578…`），完整哈希见
+   `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录 297 个文件与仓库 public 一致；从安装
+   目录启动：`/health` 200（pi 0.83.0、协议 v2、
+   `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+   ERROR/WARN/panic。
+
 第二百九十四轮：“自动压缩上下文”开关接入运行时（2026-08-09）。
 
 1. 根因：`set_auto_compaction` 只存在于 runtime-gateway 允许列表，前端

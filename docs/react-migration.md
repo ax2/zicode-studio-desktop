@@ -540,3 +540,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 自动压缩上下文开关接入运行时（第 294 轮）：store 新增
    setAutoCompaction 发送 set_auto_compaction 消息 + 会话启动应用持久化
    值；前端 740 测试全绿
+- [x] release 第二十二次重建（第 295 轮）：EXE 41,320,960 B / 安装包
+   346,859,247 B，含第 294 轮修复，静默重装验证通过
