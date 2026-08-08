@@ -130,6 +130,7 @@ describe("PluginViewHost", () => {
     await vi.waitFor(() =>
       expect(capabilityGateway.invoke).toHaveBeenCalledWith(
         "programming",
+        "",
         "com.example.view",
         "example.echo",
         { value: 1 },

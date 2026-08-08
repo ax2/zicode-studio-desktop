@@ -186,6 +186,7 @@ export function setupPluginViewHost({
         // stale frontend Registry snapshot rejecting a newly reloaded Worker.
         const response = await capabilityGateway.invoke(
           getTarget()?.sceneId ?? "programming",
+          getTarget()?.workspaceId ?? "",
           instance.plugin.id,
           capabilityId,
           request.params?.input ?? {},

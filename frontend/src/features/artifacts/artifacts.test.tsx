@@ -42,7 +42,7 @@ function createGateway() {
 function renderStore(gateway: ReturnType<typeof createGateway>, options: Record<string, unknown> = {}) {
   const store = createArtifactStore({
     gateway,
-    getTarget: () => ({ sceneId: "finance" }),
+    getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
     ...options,
   });
   render(
@@ -72,7 +72,7 @@ describe("artifacts React app", () => {
         "Deterministic backtest",
       ),
     );
-    expect(gateway.get).toHaveBeenCalledWith("finance", "artifact-1");
+    expect(gateway.get).toHaveBeenCalledWith("finance", "ws-finance", "artifact-1");
     expect(document.querySelector(".artifacts-content")?.textContent).toContain("totalReturn");
     expect(document.querySelector(".artifacts-provenance")?.textContent).toContain(
       "finance.backtest.local",
@@ -102,6 +102,7 @@ describe("artifacts React app", () => {
     await waitFor(() => expect(gateway.delete).toHaveBeenCalledOnce());
     expect(gateway.delete).toHaveBeenCalledWith(
       "finance",
+      "ws-finance",
       expect.objectContaining({ id: "artifact-1", version: "sha256:version" }),
     );
     store.getState().destroy();
@@ -120,6 +121,7 @@ describe("artifacts React app", () => {
     await waitFor(() => expect(gateway.list).toHaveBeenCalledTimes(2));
     expect(gateway.list.mock.calls[1]).toEqual([
       "finance",
+      "ws-finance",
       { query: "backtest", kind: "", pluginId: "" },
     ]);
     store.getState().destroy();

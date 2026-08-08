@@ -4119,6 +4119,31 @@ P2 再做）完成 P1 UI 层：
    后重启，CDP 实测：快捷按钮渲染并可切到笔记、笔记侧栏项目头部
    "📂ax2"、插件壳项目行同源、几何检查无重叠无横向溢出。
 
+第二百三十四轮：项目贯穿 P2 实施（workspaceId 数据归属 + 一次性迁移，
+2026-08-08）。数据层按"项目 = workspace"落库，笔记/产物从此以项目为
+顶层容器：
+
+1. notes_vault：笔记本目录从 `vaults/<notebook>` 改为
+   `vaults/<workspaceId>/<notebook>`；`NotesVault::scoped(workspaceId)`
+   返回工作区视图，`migrate_legacy` 把升级前遗留的裸笔记本目录一次性
+   归入首个访问它的工作区（`.migrated-workspace` 标记幂等）；变化日志
+   按工作区隔离；`NotebookDescriptor` 增加 `workspaceId`；
+2. artifact_store：产物按 `items/<workspaceId>/` 目录归属，描述符增加
+   `workspaceId`（迁移时回写旧描述符），`scoped` + `migrate_legacy`
+   与笔记同构；
+3. 网关：/v2/notes*、/v2/artifacts* 全部请求新增必填 workspaceId，
+   sceneId 继续承担授权维度；插件能力（notes.search/get/create）随
+   CapabilityInvocation 携带 workspaceId，能力搜索目录按工作区收敛，
+   notes.get/create 走 scoped 视图；
+4. 前端：notes/artifacts gateway 与 store 双键传参（getTarget 提供
+   workspaceId），projects 聚合、finance 产物写入同步适配；
+5. 验证：Rust 163 测试全绿（+2 迁移/隔离用例）、前端 703 全绿、
+   typecheck/Biome 通过；debug 版实测迁移（2 笔记本移入
+   f70e093f…/，标记写入、笔记内容完好）、跨工作区隔离（另一 workspace
+   0 笔记本/0 产物）、notes.search 能力返回迁移后笔记；release 重建
+   （EXE 41,734,656 B，SHA-256 `F7160211…`，安装包 347,178,731 B）
+   `/S` 静默重装后生产版验证笔记加载正常。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

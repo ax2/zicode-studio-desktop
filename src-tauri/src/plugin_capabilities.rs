@@ -38,6 +38,7 @@ impl CapabilityError {
 pub struct CapabilityInvocation {
     pub caller: String,
     pub scene_id: String,
+    pub workspace_id: String,
     pub plugin_id: String,
     pub capability_id: String,
     pub tool_call_id: Option<String>,
@@ -225,10 +226,14 @@ impl CapabilityBroker {
     ) -> Result<Value, CapabilityError> {
         match (capability.plugin_id.as_str(), capability.id.as_str()) {
             ("com.zicode.notes", "notes.search") => {
-                self.search_notes(&invocation.scene_id, &invocation.input)
+                self.search_notes(&invocation.workspace_id, &invocation.input)
             }
-            ("com.zicode.notes", "notes.get") => self.get_note(&invocation.input),
-            ("com.zicode.notes", "notes.create") => self.create_note(&invocation.input),
+            ("com.zicode.notes", "notes.get") => {
+                self.get_note(&invocation.workspace_id, &invocation.input)
+            }
+            ("com.zicode.notes", "notes.create") => {
+                self.create_note(&invocation.workspace_id, &invocation.input)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
     }
@@ -351,7 +356,7 @@ impl CapabilityBroker {
         })
     }
 
-    fn get_note(&self, input: &Value) -> Result<Value, CapabilityError> {
+    fn get_note(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
         let notebook_id = input
             .get("notebookId")
             .and_then(Value::as_str)
@@ -362,12 +367,14 @@ impl CapabilityBroker {
             .unwrap_or_default();
         let note = self
             .notes
+            .scoped(workspace_id)
+            .map_err(notes_capability_error)?
             .get_note(notebook_id, note_id)
             .map_err(notes_capability_error)?;
         Ok(json!({ "note": note }))
     }
 
-    fn create_note(&self, input: &Value) -> Result<Value, CapabilityError> {
+    fn create_note(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
         let notebook_id = input
             .get("notebookId")
             .and_then(Value::as_str)
@@ -392,12 +399,20 @@ impl CapabilityBroker {
             .unwrap_or_default();
         let note = self
             .notes
+            .scoped(workspace_id)
+            .map_err(notes_capability_error)?
             .create_note(notebook_id, title, content, tags, None, None)
             .map_err(notes_capability_error)?;
         Ok(json!({ "note": note }))
     }
 
-    fn search_notes(&self, _scene_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+    fn search_notes(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        if workspace_id.trim().is_empty() {
+            return Err(CapabilityError::new(
+                "invalid_parameters",
+                "workspaceId is required for notes search",
+            ));
+        }
         let query = input
             .get("query")
             .and_then(Value::as_str)
@@ -409,7 +424,11 @@ impl CapabilityBroker {
             .and_then(Value::as_u64)
             .unwrap_or(20)
             .clamp(1, 50) as usize;
-        let notes_root = self.data_root.join("com.zicode.notes").join("vaults");
+        let notes_root = self
+            .data_root
+            .join("com.zicode.notes")
+            .join("vaults")
+            .join(workspace_id);
         fs::create_dir_all(&notes_root).map_err(|_| {
             CapabilityError::new("storage_unavailable", "Notes storage unavailable")
         })?;
@@ -704,10 +723,12 @@ mod tests {
         let root = root();
         let registry = PluginRegistry::open(root.clone()).unwrap();
         let notebook_id = "11111111-1111-4111-8111-111111111111";
+        let workspace_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
         let notes = root
             .parent()
             .unwrap()
             .join("plugin-data/com.zicode.notes/vaults")
+            .join(workspace_id)
             .join(notebook_id)
             .join("src/content/notes");
         fs::create_dir_all(&notes).unwrap();
@@ -723,6 +744,7 @@ mod tests {
                 CapabilityInvocation {
                     caller: "chat".into(),
                     scene_id: "programming".into(),
+                    workspace_id: workspace_id.into(),
                     plugin_id: "com.zicode.notes".into(),
                     capability_id: "notes.search".into(),
                     tool_call_id: None,
@@ -755,6 +777,7 @@ mod tests {
             CapabilityInvocation {
                 caller: "pi".into(),
                 scene_id: "programming".into(),
+                workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
                 plugin_id: "com.zicode.notes".into(),
                 capability_id: "notes.search".into(),
                 tool_call_id: None,
@@ -766,6 +789,7 @@ mod tests {
         let invoke = |query: &str| CapabilityInvocation {
             caller: "pi".into(),
             scene_id: "programming".into(),
+            workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
             plugin_id: "com.zicode.notes".into(),
             capability_id: "notes.search".into(),
             tool_call_id: Some("call-1".into()),
@@ -788,7 +812,9 @@ mod tests {
         let root = root();
         let registry = PluginRegistry::open(root.clone()).unwrap();
         let vault = crate::notes_vault::NotesVault::new(root.clone()).unwrap();
-        let notebook = vault.create_notebook("Agent notes", None, None).unwrap();
+        let workspace_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        let scoped = vault.scoped(workspace_id).unwrap();
+        let notebook = scoped.create_notebook("Agent notes", None, None).unwrap();
         let mut broker = CapabilityBroker::new(root.clone()).unwrap();
 
         let created = broker
@@ -797,6 +823,7 @@ mod tests {
                 CapabilityInvocation {
                     caller: "pi".into(),
                     scene_id: "programming".into(),
+                    workspace_id: workspace_id.into(),
                     plugin_id: "com.zicode.notes".into(),
                     capability_id: "notes.create".into(),
                     tool_call_id: Some("create-1".into()),
@@ -818,6 +845,7 @@ mod tests {
                 CapabilityInvocation {
                     caller: "pi".into(),
                     scene_id: "programming".into(),
+                    workspace_id: workspace_id.into(),
                     plugin_id: "com.zicode.notes".into(),
                     capability_id: "notes.get".into(),
                     tool_call_id: None,

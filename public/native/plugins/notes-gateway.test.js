@@ -11,13 +11,13 @@ describe("NotesGateway", () => {
       fetchImpl,
       location: { origin: "http://127.0.0.1:57620" },
     });
-    await gateway.list("programming", {
+    await gateway.list("programming", "workspace-1", {
       notebookId: "book-1",
       query: "roadmap",
       sourceOnly: true,
     });
     expect(fetchImpl.mock.calls[0][0].toString()).toBe(
-      "http://127.0.0.1:57620/v2/notes?sceneId=programming&notebookId=book-1&query=roadmap&sourceOnly=true",
+      "http://127.0.0.1:57620/v2/notes?sceneId=programming&workspaceId=workspace-1&notebookId=book-1&query=roadmap&sourceOnly=true",
     );
   });
 
@@ -27,9 +27,9 @@ describe("NotesGateway", () => {
       fetchImpl,
       location: { origin: "http://127.0.0.1:57620" },
     });
-    await gateway.knowledge("programming");
+    await gateway.knowledge("programming", "workspace-1");
     expect(fetchImpl.mock.calls[0][0].toString()).toBe(
-      "http://127.0.0.1:57620/v2/notes/knowledge?sceneId=programming",
+      "http://127.0.0.1:57620/v2/notes/knowledge?sceneId=programming&workspaceId=workspace-1",
     );
   });
 
@@ -39,9 +39,9 @@ describe("NotesGateway", () => {
       fetchImpl,
       location: { origin: "http://127.0.0.1:57620" },
     });
-    await gateway.changes("programming", { cursor: "cursor-1", limit: 25 });
+    await gateway.changes("programming", "workspace-1", { cursor: "cursor-1", limit: 25 });
     expect(fetchImpl.mock.calls[0][0].toString()).toBe(
-      "http://127.0.0.1:57620/v2/notes/changes?sceneId=programming&limit=25&cursor=cursor-1",
+      "http://127.0.0.1:57620/v2/notes/changes?sceneId=programming&workspaceId=workspace-1&limit=25&cursor=cursor-1",
     );
   });
 
@@ -59,8 +59,8 @@ describe("NotesGateway", () => {
       tags: ["plugin"],
       version: "sha256:version",
     };
-    await gateway.save("programming", note);
-    await gateway.delete("programming", note);
+    await gateway.save("programming", "workspace-1", note);
+    await gateway.delete("programming", "workspace-1", note);
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).expectedVersion).toBe("sha256:version");
     expect(JSON.parse(fetchImpl.mock.calls[1][1].body).expectedVersion).toBe("sha256:version");
   });
@@ -73,14 +73,14 @@ describe("NotesGateway", () => {
     });
     const note = { id: "note-1", notebookId: "book-1" };
 
-    await gateway.uploadAttachment("programming", note, {
+    await gateway.uploadAttachment("programming", "workspace-1", note, {
       fileName: "proof.txt",
       mimeType: "text/plain",
       dataBase64: "aGVsbG8=",
     });
-    await gateway.exportBackup("programming", "book-1");
-    await gateway.importBackup("programming", { schemaVersion: 1 });
-    await gateway.rebuild("programming", "book-1");
+    await gateway.exportBackup("programming", "workspace-1", "book-1");
+    await gateway.importBackup("programming", "workspace-1", { schemaVersion: 1 });
+    await gateway.rebuild("programming", "workspace-1", "book-1");
 
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toMatchObject({
       sceneId: "programming",
@@ -89,11 +89,11 @@ describe("NotesGateway", () => {
       fileName: "proof.txt",
     });
     expect(fetchImpl.mock.calls[1][0].toString()).toContain(
-      "/v2/notes/export?sceneId=programming&notebookId=book-1",
+      "/v2/notes/export?sceneId=programming&workspaceId=workspace-1&notebookId=book-1",
     );
     expect(JSON.parse(fetchImpl.mock.calls[2][1].body).backup.schemaVersion).toBe(1);
     expect(JSON.parse(fetchImpl.mock.calls[3][1].body).notebookId).toBe("book-1");
-    expect(gateway.attachmentUrl("programming", note, "asset.txt")).toContain(
+    expect(gateway.attachmentUrl("programming", "workspace-1", note, "asset.txt")).toContain(
       "attachmentId=asset.txt",
     );
   });

@@ -24,10 +24,10 @@ export class PluginCapabilityGateway {
     return this.#request(url);
   }
 
-  invoke(sceneId, pluginId, capabilityId, input = {}) {
+  invoke(sceneId, workspaceId, pluginId, capabilityId, input = {}) {
     return this.#request(this.#url("/v2/plugin-capabilities/invoke"), {
       method: "POST",
-      body: JSON.stringify({ sceneId, pluginId, capabilityId, input }),
+      body: JSON.stringify({ sceneId, workspaceId, pluginId, capabilityId, input }),
     });
   }
 

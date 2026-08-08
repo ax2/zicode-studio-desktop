@@ -13,12 +13,12 @@ import {
 } from "./logic";
 
 export interface NotesGatewayLike {
-  list?: (sceneId: string) => Promise<unknown>;
-  knowledge?: (sceneId: string) => Promise<unknown>;
+  list?: (sceneId: string, workspaceId: string) => Promise<unknown>;
+  knowledge?: (sceneId: string, workspaceId: string) => Promise<unknown>;
 }
 
 export interface ArtifactGatewayLike {
-  list?: (sceneId: string) => Promise<unknown>;
+  list?: (sceneId: string, workspaceId: string) => Promise<unknown>;
 }
 
 export interface DataGatewayLike {
@@ -73,6 +73,7 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
   const onUseContextPack = options.onUseContextPack ?? (() => {});
 
   const sceneId = () => getTarget()?.sceneId || "programming";
+  const workspaceId = () => getTarget()?.workspaceId || "";
 
   return create<ProjectWorkspaceState>()((set, get) => ({
     target: getTarget(),
@@ -118,12 +119,19 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
       if (get().loading) return;
       set({ loading: true, error: null });
       const activeSceneId = sceneId();
+      const activeWorkspaceId = workspaceId();
       const target = get().target;
       try {
         const [notes, artifacts, knowledge, loadedProfile, sessions, files] = await Promise.all([
-          notesGateway?.list?.(activeSceneId).catch((reason) => ({ error: reason })),
-          artifactGateway?.list?.(activeSceneId).catch((reason) => ({ error: reason })),
-          notesGateway?.knowledge?.(activeSceneId).catch((reason) => ({ error: reason })),
+          notesGateway
+            ?.list?.(activeSceneId, activeWorkspaceId)
+            .catch((reason) => ({ error: reason })),
+          artifactGateway
+            ?.list?.(activeSceneId, activeWorkspaceId)
+            .catch((reason) => ({ error: reason })),
+          notesGateway
+            ?.knowledge?.(activeSceneId, activeWorkspaceId)
+            .catch((reason) => ({ error: reason })),
           get()
             .loadProfile()
             .catch((reason) => ({ error: reason })),

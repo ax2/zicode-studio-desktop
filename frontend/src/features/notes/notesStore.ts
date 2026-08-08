@@ -41,26 +41,26 @@ function writeRecentNoteIds(ids: string[]): void {
 }
 
 export interface NotesGatewayLike {
-  list(sceneId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
-  get(sceneId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
-  createNotebook(sceneId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
-  updateNotebook(sceneId: string, params: { notebookId: string; title: string; icon: string }): Promise<unknown>;
-  create(sceneId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
-  save(sceneId: string, note: Note): Promise<{ note: Note }>;
-  delete(sceneId: string, note: NoteSummary): Promise<unknown>;
-  moveNote(sceneId: string, params: { notebookId: string; noteId: string; targetNotebookId: string; expectedVersion?: number }): Promise<unknown>;
-  capture(sceneId: string, notebookId: string, params: { url: string; title?: string; tags?: string[] }): Promise<{ note: Note; duplicate?: boolean }>;
-  uploadAttachment(sceneId: string, note: Note, params: { fileName: string; mimeType: string; dataBase64: string }): Promise<{ attachment: { markdown: string } }>;
-  attachmentUrl(sceneId: string, note: Note, attachmentId: string): string;
-  importMarkdown(sceneId: string, notebookId: string, fileName: string, markdown: string): Promise<{ note: Note }>;
-  exportBackup(sceneId: string, notebookId: string): Promise<{ backup: unknown }>;
-  importBackup(sceneId: string, backup: unknown): Promise<{ notebook: Notebook }>;
-  rebuild(sceneId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
+  list(sceneId: string, workspaceId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
+  get(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
+  createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
+  updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string }): Promise<unknown>;
+  create(sceneId: string, workspaceId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
+  save(sceneId: string, workspaceId: string, note: Note): Promise<{ note: Note }>;
+  delete(sceneId: string, workspaceId: string, note: NoteSummary): Promise<unknown>;
+  moveNote(sceneId: string, workspaceId: string, params: { notebookId: string; noteId: string; targetNotebookId: string; expectedVersion?: number }): Promise<unknown>;
+  capture(sceneId: string, workspaceId: string, notebookId: string, params: { url: string; title?: string; tags?: string[] }): Promise<{ note: Note; duplicate?: boolean }>;
+  uploadAttachment(sceneId: string, workspaceId: string, note: Note, params: { fileName: string; mimeType: string; dataBase64: string }): Promise<{ attachment: { markdown: string } }>;
+  attachmentUrl(sceneId: string, workspaceId: string, note: Note, attachmentId: string): string;
+  importMarkdown(sceneId: string, workspaceId: string, notebookId: string, fileName: string, markdown: string): Promise<{ note: Note }>;
+  exportBackup(sceneId: string, workspaceId: string, notebookId: string): Promise<{ backup: unknown }>;
+  importBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebook: Notebook }>;
+  rebuild(sceneId: string, workspaceId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
 }
 
 export interface NotesStoreOptions {
   gateway: NotesGatewayLike;
-  getTarget?: () => { sceneId?: string } | null;
+  getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
   getProject?: () => ProjectInfo | null;
   notify?: (message: string) => void;
   confirmPublish?: (message: string) => boolean;
@@ -157,6 +157,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   const fileToBase64 = options.fileToBase64 ?? (async () => "");
   const invoke = options.invoke;
   const sceneId = () => getTarget()?.sceneId ?? "programming";
+  const workspaceId = () => getTarget()?.workspaceId ?? "";
 
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -192,7 +193,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       const state = get();
       set({ loading: true, error: null });
       try {
-        const response = await gateway.list(sceneId(), {
+        const response = await gateway.list(sceneId(), workspaceId(), {
           notebookId: null,
           query: state.query,
           tag: state.selectedTag,
@@ -233,7 +234,12 @@ export function createNotesStore(options: NotesStoreOptions) {
       await get().saveEditor();
       set({ loading: true, error: null });
       try {
-        const response = await gateway.get(sceneId(), summary.notebookId, summary.id);
+        const response = await gateway.get(
+          sceneId(),
+          workspaceId(),
+          summary.notebookId,
+          summary.id,
+        );
         const note = response.note;
         set({
           selectedNote: note,
@@ -267,7 +273,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     attachmentUrl(note, attachmentId) {
-      return gateway.attachmentUrl(sceneId(), note, attachmentId);
+      return gateway.attachmentUrl(sceneId(), workspaceId(), note, attachmentId);
     },
 
     async newNote() {
@@ -279,7 +285,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
       set({ loading: true, error: null });
       try {
-        const response = await gateway.create(sceneId(), notebookId, {
+        const response = await gateway.create(sceneId(), workspaceId(), notebookId, {
           title: t("Untitled note"),
           content: "",
           tags: [],
@@ -323,7 +329,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         get().snapshot.notebooks.find((candidate) => candidate.title === t("Conversation Notes")) ||
         get().snapshot.notebooks[0];
       if (!notebook) {
-        const created = await gateway.createNotebook(sceneId(), {
+        const created = await gateway.createNotebook(sceneId(), workspaceId(), {
           title: t("Conversation Notes"),
         });
         notebook = created.notebook;
@@ -344,7 +350,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       ]
         .filter(Boolean)
         .join("\n\n");
-      const response = await gateway.create(sceneId(), notebook.id, {
+      const response = await gateway.create(sceneId(), workspaceId(), notebook.id, {
         title,
         content: body,
         tags: ["chat", "captured"],
@@ -382,7 +388,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (!normalized) return;
       set({ loading: true, error: null });
       try {
-        const response = await gateway.createNotebook(sceneId(), {
+        const response = await gateway.createNotebook(sceneId(), workspaceId(), {
           title: normalized,
           icon: icon?.trim() || DEFAULT_NOTEBOOK_ICON,
           parentId,
@@ -406,7 +412,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (!normalizedTitle) return;
       set({ loading: true, error: null });
       try {
-        await gateway.updateNotebook(sceneId(), {
+        await gateway.updateNotebook(sceneId(), workspaceId(), {
           notebookId,
           title: normalizedTitle,
           icon: String(icon).trim() || DEFAULT_NOTEBOOK_ICON,
@@ -424,7 +430,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (!note) return;
       set({ loading: true });
       try {
-        await gateway.delete(sceneId(), note);
+        await gateway.delete(sceneId(), workspaceId(), note);
         set({ selectedNote: null, dirty: false });
         await get().load({ preserveSelection: false });
         notify(t("Note deleted"));
@@ -444,7 +450,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       const tags = parseTags(draft.draftTags.join(", "));
       set({ saveDisabled: true });
       try {
-        const response = await gateway.save(sceneId(), {
+        const response = await gateway.save(sceneId(), workspaceId(), {
           ...note,
           title: draft.draftTitle,
           icon: draft.draftIcon.trim() || DEFAULT_NOTE_ICON,
@@ -551,7 +557,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (!summary) return;
       set({ loading: true, error: null });
       try {
-        await gateway.moveNote(sceneId(), {
+        await gateway.moveNote(sceneId(), workspaceId(), {
           notebookId: sourceNotebookId,
           noteId,
           targetNotebookId,
@@ -580,7 +586,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         if (!file.size || file.size > 5 * 1024 * 1024) {
           throw new Error(t("Attachments must contain 1 byte to 5 MiB"));
         }
-        const response = await gateway.uploadAttachment(sceneId(), note, {
+        const response = await gateway.uploadAttachment(sceneId(), workspaceId(), note, {
           fileName: file.name,
           mimeType: file.type || "application/octet-stream",
           dataBase64: await fileToBase64(file),
@@ -612,6 +618,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         }
         const response = await gateway.importMarkdown(
           sceneId(),
+          workspaceId(),
           notebookId,
           file.name,
           await file.text(),
@@ -634,7 +641,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         return;
       }
       try {
-        const response = await gateway.exportBackup(sceneId(), notebook.id);
+        const response = await gateway.exportBackup(sceneId(), workspaceId(), notebook.id);
         downloadFile(
           `${safeFileName(notebook.title)}.zicode-notes.json`,
           JSON.stringify(response.backup, null, 2),
@@ -654,7 +661,7 @@ export function createNotesStore(options: NotesStoreOptions) {
           throw new Error(t("Notes backup exceeds the 70 MiB limit"));
         }
         const backup = JSON.parse(await file.text());
-        const response = await gateway.importBackup(sceneId(), backup);
+        const response = await gateway.importBackup(sceneId(), workspaceId(), backup);
         set({ selectedNotebookId: response.notebook.id, selectedNote: null, dirty: false });
         await get().load({ preserveSelection: false });
         notify(t("Notes backup imported"));
@@ -677,7 +684,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         return;
       }
       try {
-        const response = await gateway.rebuild(sceneId(), notebookId);
+        const response = await gateway.rebuild(sceneId(), workspaceId(), notebookId);
         const report = response.report;
         await get().load();
         notify(
@@ -728,7 +735,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (!normalizedUrl) return;
       set({ error: null });
       try {
-        const response = await gateway.capture(sceneId(), notebookId, {
+        const response = await gateway.capture(sceneId(), workspaceId(), notebookId, {
           url: normalizedUrl,
           title: title || undefined,
           tags,

@@ -21,11 +21,15 @@ export interface FinanceWorkbenchOptions {
       options?: { timeoutMs?: number },
     ): Promise<FinanceResponse>;
   };
-  getTarget?(): { sceneId?: string } | null;
+  getTarget?(): { sceneId?: string; workspaceId?: string } | null;
   openConfiguration?(): void;
   openFinanceApp?(): void;
   artifactGateway?: {
-    create(sceneId: string, artifact: Record<string, unknown>): Promise<unknown>;
+    create(
+      sceneId: string,
+      workspaceId: string,
+      artifact: Record<string, unknown>,
+    ): Promise<unknown>;
   } | null;
   notify?(notification: Record<string, unknown>): void;
 }
@@ -101,11 +105,15 @@ export function setupFinanceWorkbench({
   async function recordArtifact(artifact: Record<string, unknown>) {
     if (!artifactGateway) return;
     try {
-      await artifactGateway.create(getTarget?.()?.sceneId ?? "finance", {
-        pluginId: "com.zicode.finance",
-        mimeType: "application/json",
-        ...artifact,
-      });
+      await artifactGateway.create(
+        getTarget?.()?.sceneId ?? "finance",
+        getTarget?.()?.workspaceId ?? "",
+        {
+          pluginId: "com.zicode.finance",
+          mimeType: "application/json",
+          ...artifact,
+        },
+      );
       notify({ message: t("Added to Artifacts"), type: "success" });
     } catch {
       notify({ message: t("Result was shown but could not be added to Artifacts"), type: "warning" });

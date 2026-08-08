@@ -18,6 +18,8 @@ const MAX_SUMMARY_CHARS: usize = 1_000;
 pub struct ArtifactDescriptor {
     pub id: String,
     pub handle: String,
+    #[serde(default)]
+    pub workspace_id: String,
     pub scene_id: String,
     pub plugin_id: String,
     pub kind: String,
@@ -47,8 +49,17 @@ pub struct ArtifactSnapshot {
     pub plugins: Vec<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactMigrationReport {
+    pub claimed_workspace_id: String,
+    pub moved_artifacts: usize,
+    pub skipped: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct ArtifactDraft {
+    pub workspace_id: String,
     pub scene_id: String,
     pub plugin_id: String,
     pub kind: String,
@@ -77,6 +88,7 @@ impl ArtifactError {
 #[derive(Clone)]
 pub struct ArtifactStore {
     root: PathBuf,
+    workspace_id: Option<String>,
 }
 
 impl ArtifactStore {
@@ -88,7 +100,110 @@ impl ArtifactStore {
             .join(ARTIFACT_PLUGIN_ID);
         fs::create_dir_all(root.join("items"))
             .map_err(|error| format!("Cannot create Artifacts data directory: {error}"))?;
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            workspace_id: None,
+        })
+    }
+
+    /// Return a workspace-scoped view over `items/<workspaceId>/`.
+    ///
+    /// The first scoped access claims legacy artifact files that predate
+    /// workspace attribution (one-time migration guarded by a marker file).
+    pub fn scoped(&self, workspace_id: &str) -> Result<ArtifactStore, ArtifactError> {
+        let workspace_id = validate_workspace_id(workspace_id)?;
+        let items = self.root.join("items");
+        fs::create_dir_all(items.join(&workspace_id)).map_err(|_| {
+            ArtifactError::new("storage_unavailable", "Cannot create artifact directory")
+        })?;
+        self.migrate_legacy(&workspace_id)?;
+        Ok(ArtifactStore {
+            root: self.root.clone(),
+            workspace_id: Some(workspace_id),
+        })
+    }
+
+    /// One-time migration: move legacy artifact files (created before project
+    /// attribution) under the first workspace that accesses them.
+    pub fn migrate_legacy(&self, workspace_id: &str) -> Result<ArtifactMigrationReport, ArtifactError> {
+        let workspace_id = validate_workspace_id(workspace_id)?;
+        let items = self.root.join("items");
+        if !items.exists() {
+            return Ok(ArtifactMigrationReport {
+                claimed_workspace_id: workspace_id,
+                moved_artifacts: 0,
+                skipped: true,
+            });
+        }
+        let marker = items.join(".migrated-workspace");
+        if marker.exists() {
+            return Ok(ArtifactMigrationReport {
+                claimed_workspace_id: workspace_id,
+                moved_artifacts: 0,
+                skipped: true,
+            });
+        }
+        let workspace_dir = items.join(&workspace_id);
+        fs::create_dir_all(&workspace_dir).map_err(|_| {
+            ArtifactError::new("storage_unavailable", "Cannot create artifact directory")
+        })?;
+        let mut moved_artifacts = 0usize;
+        for entry in fs::read_dir(&items)
+            .map_err(|_| ArtifactError::new("storage_unavailable", "Cannot read artifacts"))?
+            .flatten()
+        {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_file() || file_type.is_symlink() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                continue;
+            };
+            if name.starts_with('.') {
+                continue;
+            }
+            let destination = workspace_dir.join(&name);
+            if destination.exists() {
+                continue;
+            }
+            fs::rename(entry.path(), &destination).map_err(|_| {
+                ArtifactError::new("storage_unavailable", "Cannot migrate legacy artifact")
+            })?;
+            // Stamp the claimed workspace into migrated descriptors so the
+            // metadata itself records project attribution going forward.
+            if name.ends_with(".json") && !name.ends_with(".content.json") {
+                if let Ok(bytes) = fs::read(&destination) {
+                    if let Ok(mut descriptor) =
+                        serde_json::from_slice::<ArtifactDescriptor>(&bytes)
+                    {
+                        if descriptor.workspace_id.is_empty() {
+                            descriptor.workspace_id = workspace_id.clone();
+                            if let Ok(updated) = serde_json::to_vec_pretty(&descriptor) {
+                                let _ = atomic_write(&destination, &updated);
+                            }
+                        }
+                    }
+                }
+            }
+            moved_artifacts += 1;
+        }
+        fs::write(&marker, &workspace_id).map_err(|_| {
+            ArtifactError::new("storage_unavailable", "Cannot finalize artifact migration")
+        })?;
+        Ok(ArtifactMigrationReport {
+            claimed_workspace_id: workspace_id,
+            moved_artifacts,
+            skipped: false,
+        })
+    }
+
+    fn items_dir(&self) -> PathBuf {
+        match &self.workspace_id {
+            Some(workspace_id) => self.root.join("items").join(workspace_id),
+            None => self.root.join("items"),
+        }
     }
 
     pub fn list(
@@ -116,7 +231,7 @@ impl ArtifactStore {
         let mut artifacts = Vec::new();
         let mut kinds = std::collections::BTreeSet::new();
         let mut plugins = std::collections::BTreeSet::new();
-        for entry in fs::read_dir(self.root.join("items"))
+        for entry in fs::read_dir(self.items_dir())
             .map_err(|_| ArtifactError::new("storage_unavailable", "Cannot read artifacts"))?
             .flatten()
             .take(MAX_ARTIFACTS * 2 + 1)
@@ -208,6 +323,7 @@ impl ArtifactStore {
         let descriptor = ArtifactDescriptor {
             id: id.clone(),
             handle: format!("artifact:{id}"),
+            workspace_id: validate_workspace_id(&draft.workspace_id)?,
             scene_id,
             plugin_id,
             kind,
@@ -289,17 +405,22 @@ impl ArtifactStore {
 
     fn metadata_path(&self, artifact_id: &str) -> Result<PathBuf, ArtifactError> {
         Ok(self
-            .root
-            .join("items")
+            .items_dir()
             .join(format!("{}.json", validate_artifact_id(artifact_id)?)))
     }
 
     fn content_path(&self, artifact_id: &str) -> Result<PathBuf, ArtifactError> {
-        Ok(self.root.join("items").join(format!(
+        Ok(self.items_dir().join(format!(
             "{}.content.json",
             validate_artifact_id(artifact_id)?
         )))
     }
+}
+
+fn validate_workspace_id(value: &str) -> Result<String, ArtifactError> {
+    Uuid::parse_str(value)
+        .map(|id| id.to_string())
+        .map_err(|_| ArtifactError::new("invalid_parameters", "Invalid workspace ID"))
 }
 
 fn validate_artifact_id(value: &str) -> Result<String, ArtifactError> {
@@ -414,8 +535,11 @@ mod tests {
                 .as_nanos()
         ));
         let store = ArtifactStore::new(root.join("plugins")).unwrap();
-        let created = store
+        let workspace_id = "11111111-1111-4111-8111-111111111111";
+        let scoped = store.scoped(workspace_id).unwrap();
+        let created = scoped
             .create(ArtifactDraft {
+                workspace_id: workspace_id.into(),
                 scene_id: "finance".into(),
                 plugin_id: "com.zicode.finance".into(),
                 kind: "report".into(),
@@ -427,7 +551,8 @@ mod tests {
             })
             .unwrap();
         assert!(created.descriptor.handle.starts_with("artifact:"));
-        let listed = store
+        assert_eq!(created.descriptor.workspace_id, workspace_id);
+        let listed = scoped
             .list(
                 "finance",
                 Some("report"),
@@ -437,26 +562,78 @@ mod tests {
             .unwrap();
         assert_eq!(listed.artifacts.len(), 1);
         assert_eq!(
-            store
+            scoped
                 .get("finance", &created.descriptor.id)
                 .unwrap()
                 .content["metrics"]["totalReturn"],
             0.12
         );
         assert_eq!(
-            store
+            scoped
                 .delete("finance", &created.descriptor.id, "stale")
                 .unwrap_err()
                 .code,
             "version_conflict"
         );
-        store
+        scoped
             .delete(
                 "finance",
                 &created.descriptor.id,
                 &created.descriptor.version,
             )
             .unwrap();
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_flat_items_are_claimed_by_the_first_scoped_workspace() {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-artifacts-migrate-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let store = ArtifactStore::new(root.join("plugins")).unwrap();
+        let items = root
+            .join("plugin-data")
+            .join("com.zicode.artifacts")
+            .join("items");
+        fs::create_dir_all(&items).unwrap();
+        fs::write(
+            items.join("legacy-id.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "id": "legacy-id",
+                "handle": "artifact:legacy-id",
+                "workspaceId": "",
+                "sceneId": "finance",
+                "pluginId": "com.zicode.finance",
+                "kind": "report",
+                "title": "Legacy",
+                "summary": "",
+                "createdAt": "2026-01-01T00:00:00Z",
+                "mimeType": "application/json",
+                "size": 1,
+                "version": "sha256:test",
+                "provenance": {}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let workspace_id = "22222222-2222-4222-8222-222222222222";
+        let report = store.migrate_legacy(workspace_id).unwrap();
+        assert_eq!(report.moved_artifacts, 1);
+        assert!(items.join(workspace_id).join("legacy-id.json").is_file());
+        assert!(!items.join("legacy-id.json").exists());
+        // Idempotent: a second call skips without moving anything.
+        let again = store.migrate_legacy(workspace_id).unwrap();
+        assert!(again.skipped);
+        // Stamped descriptor carries the claimed workspace.
+        let migrated: serde_json::Value = serde_json::from_slice(
+            &fs::read(items.join(workspace_id).join("legacy-id.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(migrated["workspaceId"], workspace_id);
         let _ = fs::remove_dir_all(root);
     }
 }

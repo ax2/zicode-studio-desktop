@@ -405,3 +405,7 @@ bun run test          # vitest（public/** + frontend/src/**）
   app.js 维护 `currentProjectInfo`（adoptTarget 切 workspace 时经
   workspaceInfo 解析并同步 notes/plugin-shell）；typecheck + 703 测试
   全绿，CDP 实测无重叠无溢出
+- [x] 项目贯穿 P2（第 234 轮）：notes/artifacts 网关与 store 全面双键
+  （sceneId + workspaceId，getTarget 提供 workspaceId），projects 聚合
+  与 finance 产物写入同步适配；Rust 后端 workspace 目录归属 + 迁移 +
+  能力作用域，前端 703 + Rust 163 测试全绿

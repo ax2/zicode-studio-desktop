@@ -637,7 +637,8 @@ export function setupPluginShell({
         return Promise.reject(new Error("Plugin capability gateway is unavailable"));
       }
       const sceneId = getTarget()?.sceneId ?? "programming";
-      return capabilityGateway.invoke(sceneId, pluginId, capabilityId, input);
+      const workspaceId = getTarget()?.workspaceId ?? "";
+      return capabilityGateway.invoke(sceneId, workspaceId, pluginId, capabilityId, input);
     },
     executeCommand,
     setActivityBadge,

@@ -11,15 +11,16 @@ import {
 export interface ArtifactGatewayLike {
   list(
     sceneId: string,
+    workspaceId: string,
     filters: { query?: string; kind?: string; pluginId?: string },
   ): Promise<{ snapshot?: { artifacts?: ArtifactDescriptor[]; kinds?: string[]; plugins?: string[] } }>;
-  get(sceneId: string, artifactId: string): Promise<{ artifact?: ArtifactDocument }>;
-  delete(sceneId: string, artifact: ArtifactDescriptor): Promise<unknown>;
+  get(sceneId: string, workspaceId: string, artifactId: string): Promise<{ artifact?: ArtifactDocument }>;
+  delete(sceneId: string, workspaceId: string, artifact: ArtifactDescriptor): Promise<unknown>;
 }
 
 export interface ArtifactAppOptions {
   gateway: ArtifactGatewayLike;
-  getTarget?: () => { sceneId?: string } | null;
+  getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
   notify?: (message: string) => void;
   confirmDelete?: (message: string) => boolean;
   downloadFile?: (fileName: string, content: string, type: string) => void;
@@ -59,6 +60,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
   let requestSequence = 0;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
+  const workspaceId = () => getTarget()?.workspaceId ?? "";
 
   return create<ArtifactState>()((set, get) => ({
     snapshot: { ...EMPTY_ARTIFACT_SNAPSHOT },
@@ -82,14 +84,21 @@ export function createArtifactStore(options: ArtifactAppOptions) {
     async load({ preserveSelection = true } = {}) {
       const requestId = ++requestSequence;
       const activeSceneId = sceneId();
+      const activeWorkspaceId = workspaceId();
       set({ loading: true, error: null });
       try {
-        const response = await gateway.list(activeSceneId, {
+        const response = await gateway.list(activeSceneId, activeWorkspaceId, {
           query: get().query,
           kind: get().kind,
           pluginId: get().pluginId,
         });
-        if (requestId !== requestSequence || activeSceneId !== sceneId()) return;
+        if (
+          requestId !== requestSequence ||
+          activeSceneId !== sceneId() ||
+          activeWorkspaceId !== workspaceId()
+        ) {
+          return;
+        }
         const snapshot = {
           artifacts: response.snapshot?.artifacts ?? [],
           kinds: response.snapshot?.kinds ?? [],
@@ -117,7 +126,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
       const requestId = ++requestSequence;
       set({ loading: true, error: null });
       try {
-        const response = await gateway.get(sceneId(), descriptor.id);
+        const response = await gateway.get(sceneId(), workspaceId(), descriptor.id);
         if (requestId !== requestSequence) return;
         set({ selected: response.artifact ?? null });
       } catch (loadError) {
@@ -134,7 +143,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
       if (!selected || !confirmDelete(`${t("Delete artifact")} “${selected.title}”?`)) return;
       set({ loading: true, error: null });
       try {
-        await gateway.delete(sceneId(), selected);
+        await gateway.delete(sceneId(), workspaceId(), selected);
         const deletedTitle = selected.title;
         set({ selected: null });
         await get().load({ preserveSelection: false });

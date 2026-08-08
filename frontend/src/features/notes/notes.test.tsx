@@ -57,7 +57,7 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
 function storeWithGateway(overrides: Partial<NotesGatewayLike> = {}) {
   return createNotesStore({
     gateway: gatewayStub(overrides),
-    getTarget: () => ({ sceneId: "programming" }),
+    getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
     notify: vi.fn(),
   });
 }
@@ -128,7 +128,7 @@ describe("notes store", () => {
   });
 
   it("saves the editor draft through the gateway", async () => {
-    const save = vi.fn(async (_sceneId: string, note: Note) => ({
+    const save = vi.fn(async (_sceneId: string, _workspaceId: string, note: Note) => ({
       note: { ...note, id: "note-1" },
     }));
     const store = storeWithGateway({ save });
@@ -158,6 +158,7 @@ describe("notes store", () => {
     await store.getState().moveNoteTo("book-1", "note-1", "book-2");
     expect(moveNote).toHaveBeenCalledWith(
       "programming",
+      "ws-1",
       expect.objectContaining({ targetNotebookId: "book-2" }),
     );
   });

@@ -16,25 +16,28 @@ export class ArtifactGateway {
     this.#timeoutMs = timeoutMs;
   }
 
-  list(sceneId, filters = {}) {
+  list(sceneId, workspaceId, filters = {}) {
     const url = this.#url("/v2/artifacts");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     if (filters.kind) url.searchParams.set("kind", filters.kind);
     if (filters.pluginId) url.searchParams.set("pluginId", filters.pluginId);
     if (filters.query) url.searchParams.set("query", filters.query);
     return this.#request(url);
   }
 
-  get(sceneId, artifactId) {
+  get(sceneId, workspaceId, artifactId) {
     const url = this.#url("/v2/artifacts/item");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     url.searchParams.set("artifactId", artifactId);
     return this.#request(url);
   }
 
-  create(sceneId, artifact) {
+  create(sceneId, workspaceId, artifact) {
     return this.#post("/v2/artifacts/create", {
       sceneId,
+      workspaceId,
       pluginId: artifact.pluginId,
       kind: artifact.kind,
       title: artifact.title,
@@ -45,9 +48,10 @@ export class ArtifactGateway {
     });
   }
 
-  delete(sceneId, artifact) {
+  delete(sceneId, workspaceId, artifact) {
     return this.#post("/v2/artifacts/delete", {
       sceneId,
+      workspaceId,
       artifactId: artifact.id,
       expectedVersion: artifact.version,
     });

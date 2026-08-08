@@ -1086,6 +1086,7 @@ struct PluginViewQuery {
 #[serde(rename_all = "camelCase")]
 struct CapabilityInvokeRequest {
     scene_id: String,
+    workspace_id: String,
     plugin_id: String,
     capability_id: String,
     #[serde(default)]
@@ -1115,6 +1116,7 @@ struct PluginToolInvokeRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NotesQuery {
+    workspace_id: String,
     scene_id: String,
     #[serde(default)]
     notebook_id: Option<String>,
@@ -1129,6 +1131,7 @@ struct NotesQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NoteQuery {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     note_id: String,
@@ -1137,6 +1140,7 @@ struct NoteQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct NotesChangesQuery {
+    workspace_id: String,
     scene_id: String,
     #[serde(default)]
     cursor: Option<String>,
@@ -1151,6 +1155,7 @@ fn default_note_changes_limit() -> usize {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateNotebookRequest {
+    workspace_id: String,
     scene_id: String,
     title: String,
     #[serde(default)]
@@ -1162,6 +1167,7 @@ struct CreateNotebookRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateNotebookRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     #[serde(default)]
@@ -1173,6 +1179,7 @@ struct UpdateNotebookRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateNoteRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     title: String,
@@ -1187,6 +1194,7 @@ struct CreateNoteRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SaveNoteRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     note_id: String,
@@ -1202,6 +1210,7 @@ struct SaveNoteRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DeleteNoteRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     note_id: String,
@@ -1211,6 +1220,7 @@ struct DeleteNoteRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MoveNoteRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     note_id: String,
@@ -1221,6 +1231,7 @@ struct MoveNoteRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CaptureNoteRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     url: String,
@@ -1233,6 +1244,7 @@ struct CaptureNoteRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AttachmentRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     note_id: String,
@@ -1245,6 +1257,7 @@ struct AttachmentRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AttachmentQuery {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     note_id: String,
@@ -1254,6 +1267,7 @@ struct AttachmentQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ImportMarkdownRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
     file_name: String,
@@ -1263,6 +1277,7 @@ struct ImportMarkdownRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportNotesQuery {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
 }
@@ -1270,6 +1285,7 @@ struct ExportNotesQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ImportBackupRequest {
+    workspace_id: String,
     scene_id: String,
     backup: VaultExport,
 }
@@ -1277,6 +1293,7 @@ struct ImportBackupRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RebuildNotesRequest {
+    workspace_id: String,
     scene_id: String,
     notebook_id: String,
 }
@@ -1284,6 +1301,7 @@ struct RebuildNotesRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ArtifactsQuery {
+    workspace_id: String,
     scene_id: String,
     #[serde(default)]
     kind: Option<String>,
@@ -1296,6 +1314,7 @@ struct ArtifactsQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ArtifactQuery {
+    workspace_id: String,
     scene_id: String,
     artifact_id: String,
 }
@@ -1303,6 +1322,7 @@ struct ArtifactQuery {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateArtifactRequest {
+    workspace_id: String,
     scene_id: String,
     plugin_id: String,
     kind: String,
@@ -1319,6 +1339,7 @@ struct CreateArtifactRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DeleteArtifactRequest {
+    workspace_id: String,
     scene_id: String,
     artifact_id: String,
     expected_version: String,
@@ -1372,15 +1393,9 @@ async fn list_notes(
     Query(query): Query<NotesQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
-    let snapshot = state
-        .notes
-        .lock()
-        .map_err(|_| {
-            notes_api_error(NotesError {
-                code: "storage_unavailable",
-                message: "Notes vault is unavailable".into(),
-            })
-        })?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
+    let snapshot = scoped
         .list(
             query.notebook_id.as_deref(),
             query.query.as_deref(),
@@ -1398,15 +1413,9 @@ async fn list_note_knowledge(
     Query(query): Query<NotesQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
-    let snapshot = state
-        .notes
-        .lock()
-        .map_err(|_| {
-            notes_api_error(NotesError {
-                code: "storage_unavailable",
-                message: "Notes vault is unavailable".into(),
-            })
-        })?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
+    let snapshot = scoped
         .knowledge()
         .map_err(notes_api_error)?;
     Ok(Json(json!({
@@ -1421,10 +1430,9 @@ async fn list_note_changes(
     Query(query): Query<NotesChangesQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
-    let snapshot = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
+    let snapshot = scoped
         .changes(query.cursor.as_deref(), query.limit)
         .map_err(notes_api_error)?;
     Ok(Json(json!({
@@ -1439,10 +1447,11 @@ async fn create_notebook(
     Json(request): Json<CreateNotebookRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let notebook = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let notebook = scoped
         .create_notebook(&request.title, request.icon, request.parent_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
@@ -1453,10 +1462,11 @@ async fn update_notebook(
     Json(request): Json<UpdateNotebookRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let notebook = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let notebook = scoped
         .update_notebook(&request.notebook_id, request.title, request.icon)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
@@ -1467,10 +1477,9 @@ async fn get_note(
     Query(query): Query<NoteQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
-    let note = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
+    let note = scoped
         .get_note(&query.notebook_id, &query.note_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "note": note })))
@@ -1481,10 +1490,11 @@ async fn create_note(
     Json(request): Json<CreateNoteRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let note = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let note = scoped
         .create_note(
             &request.notebook_id,
             &request.title,
@@ -1502,10 +1512,11 @@ async fn save_note(
     Json(request): Json<SaveNoteRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let note = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let note = scoped
         .save_note(
             &request.notebook_id,
             &request.note_id,
@@ -1524,10 +1535,11 @@ async fn delete_note(
     Json(request): Json<DeleteNoteRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    scoped
         .delete_note(
             &request.notebook_id,
             &request.note_id,
@@ -1542,10 +1554,11 @@ async fn move_note(
     Json(request): Json<MoveNoteRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let note = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let note = scoped
         .move_note(
             &request.notebook_id,
             &request.note_id,
@@ -1567,7 +1580,10 @@ async fn capture_note(
         .map_err(notes_api_error)?;
     let hash = content_hash(&captured.markdown);
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
-    if let Some(existing) = notes
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    if let Some(existing) = scoped
         .find_source_duplicate(&hash)
         .map_err(notes_api_error)?
     {
@@ -1586,7 +1602,7 @@ async fn capture_note(
     if !tags.iter().any(|tag| tag == "web-clip") {
         tags.push("web-clip".into());
     }
-    let note = notes
+    let note = scoped
         .create_note(
             &request.notebook_id,
             title,
@@ -1618,10 +1634,11 @@ async fn upload_note_attachment(
                 "Attachment data is not valid base64",
             ))
         })?;
-    let attachment = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let attachment = scoped
         .store_attachment(
             &request.notebook_id,
             &request.note_id,
@@ -1638,10 +1655,11 @@ async fn read_note_attachment(
     Query(query): Query<AttachmentQuery>,
 ) -> Result<Response, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
-    let (bytes, mime_type) = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&query.workspace_id)
+        .map_err(notes_api_error)?;
+    let (bytes, mime_type) = scoped
         .read_attachment(&query.notebook_id, &query.note_id, &query.attachment_id)
         .map_err(notes_api_error)?;
     Response::builder()
@@ -1663,10 +1681,11 @@ async fn import_markdown_note(
     Json(request): Json<ImportMarkdownRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let note = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let note = scoped
         .import_markdown(&request.notebook_id, &request.file_name, &request.markdown)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "note": note })))
@@ -1677,10 +1696,11 @@ async fn export_notes_backup(
     Query(query): Query<ExportNotesQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
-    let backup = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&query.workspace_id)
+        .map_err(notes_api_error)?;
+    let backup = scoped
         .export_notebook(&query.notebook_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "backup": backup })))
@@ -1691,10 +1711,11 @@ async fn import_notes_backup(
     Json(request): Json<ImportBackupRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let notebook = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let notebook = scoped
         .import_export(request.backup)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
@@ -1705,10 +1726,11 @@ async fn rebuild_notes_index(
     Json(request): Json<RebuildNotesRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let report = state
-        .notes
-        .lock()
-        .map_err(|_| notes_unavailable())?
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let report = scoped
         .rebuild_index(&request.notebook_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "report": report })))
@@ -1719,10 +1741,11 @@ async fn list_artifacts(
     Query(query): Query<ArtifactsQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &query.scene_id, None)?;
-    let snapshot = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?
+    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let scoped = artifacts
+        .scoped(&query.workspace_id)
+        .map_err(artifacts_api_error)?;
+    let snapshot = scoped
         .list(
             &query.scene_id,
             query.kind.as_deref(),
@@ -1742,10 +1765,11 @@ async fn get_artifact(
     Query(query): Query<ArtifactQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &query.scene_id, None)?;
-    let artifact = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?
+    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let scoped = artifacts
+        .scoped(&query.workspace_id)
+        .map_err(artifacts_api_error)?;
+    let artifact = scoped
         .get(&query.scene_id, &query.artifact_id)
         .map_err(artifacts_api_error)?;
     Ok(Json(json!({ "artifact": artifact })))
@@ -1756,11 +1780,13 @@ async fn create_artifact(
     Json(request): Json<CreateArtifactRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &request.scene_id, Some(&request.plugin_id))?;
-    let artifact = state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?
+    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let scoped = artifacts
+        .scoped(&request.workspace_id)
+        .map_err(artifacts_api_error)?;
+    let artifact = scoped
         .create(ArtifactDraft {
+            workspace_id: request.workspace_id,
             scene_id: request.scene_id,
             plugin_id: request.plugin_id,
             kind: request.kind,
@@ -1779,10 +1805,11 @@ async fn delete_artifact(
     Json(request): Json<DeleteArtifactRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &request.scene_id, None)?;
-    state
-        .artifacts
-        .lock()
-        .map_err(|_| artifacts_unavailable())?
+    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let scoped = artifacts
+        .scoped(&request.workspace_id)
+        .map_err(artifacts_api_error)?;
+    scoped
         .delete(
             &request.scene_id,
             &request.artifact_id,
@@ -1829,6 +1856,7 @@ async fn invoke_plugin_capability(
             CapabilityInvocation {
                 caller: "chat".into(),
                 scene_id: request.scene_id,
+                workspace_id: request.workspace_id,
                 plugin_id: request.plugin_id,
                 capability_id: request.capability_id,
                 tool_call_id: None,
@@ -1971,6 +1999,7 @@ async fn invoke_plugin_tool(
             CapabilityInvocation {
                 caller: "pi".into(),
                 scene_id: record.target.scene_id.clone(),
+                workspace_id: record.target.workspace_id.clone(),
                 plugin_id: tool.plugin_id,
                 capability_id: tool.capability,
                 tool_call_id: Some(request.tool_call_id),
@@ -4414,10 +4443,15 @@ mod tests {
             .await
             .unwrap();
         let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let workspace_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
         let notebook: serde_json::Value = client
             .post(format!("{}/v2/notes/notebooks", host.origin()))
-            .json(&json!({ "sceneId": "programming", "title": "Product Notes" }))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "title": "Product Notes"
+            }))
             .send()
             .await
             .unwrap()
@@ -4427,6 +4461,7 @@ mod tests {
         let notebook_id = notebook["notebook"]["id"].as_str().unwrap();
         assert!(temp
             .join("plugin-data/com.zicode.notes/vaults")
+            .join(workspace_id)
             .join(notebook_id)
             .join("astro.config.mjs")
             .is_file());
@@ -4434,6 +4469,7 @@ mod tests {
         let created: serde_json::Value = client
             .post(format!("{}/v2/notes/create", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "notebookId": notebook_id,
                 "title": "P5 roadmap",
@@ -4451,7 +4487,7 @@ mod tests {
 
         let searched: serde_json::Value = client
             .get(format!(
-                "{}/v2/notes?sceneId=programming&query=capability%20broker",
+                "{}/v2/notes?workspaceId={workspace_id}&sceneId=programming&query=capability%20broker",
                 host.origin()
             ))
             .send()
@@ -4465,6 +4501,7 @@ mod tests {
         let saved: serde_json::Value = client
             .post(format!("{}/v2/notes/save", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "notebookId": notebook_id,
                 "noteId": note_id,
@@ -4484,6 +4521,7 @@ mod tests {
         let uploaded: serde_json::Value = client
             .post(format!("{}/v2/notes/attachments", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "notebookId": notebook_id,
                 "noteId": note_id,
@@ -4500,7 +4538,7 @@ mod tests {
         let attachment_id = uploaded["attachment"]["id"].as_str().unwrap();
         let attachment_response = client
             .get(format!(
-                "{}/v2/notes/attachment?sceneId=programming&notebookId={notebook_id}&noteId={note_id}&attachmentId={attachment_id}",
+                "{}/v2/notes/attachment?workspaceId={workspace_id}&sceneId=programming&notebookId={notebook_id}&noteId={note_id}&attachmentId={attachment_id}",
                 host.origin()
             ))
             .send()
@@ -4514,7 +4552,7 @@ mod tests {
 
         let exported: serde_json::Value = client
             .get(format!(
-                "{}/v2/notes/export?sceneId=programming&notebookId={notebook_id}",
+                "{}/v2/notes/export?workspaceId={workspace_id}&sceneId=programming&notebookId={notebook_id}",
                 host.origin()
             ))
             .send()
@@ -4531,6 +4569,7 @@ mod tests {
         let imported: serde_json::Value = client
             .post(format!("{}/v2/notes/import-backup", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "backup": exported["backup"].clone()
             }))
@@ -4545,6 +4584,7 @@ mod tests {
         let rebuilt: serde_json::Value = client
             .post(format!("{}/v2/notes/rebuild", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "notebookId": notebook_id
             }))
@@ -4559,6 +4599,7 @@ mod tests {
         let conflict = client
             .post(format!("{}/v2/notes/save", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "notebookId": notebook_id,
                 "noteId": note_id,
@@ -4576,6 +4617,7 @@ mod tests {
 
         let markdown_path = temp
             .join("plugin-data/com.zicode.notes/vaults")
+            .join(workspace_id)
             .join(notebook_id)
             .join("src/content/notes")
             .join(format!("{note_id}.md"));
@@ -4586,6 +4628,7 @@ mod tests {
         let private_capture = client
             .post(format!("{}/v2/notes/capture", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "programming",
                 "notebookId": notebook_id,
                 "url": "http://127.0.0.1/private"
@@ -4615,10 +4658,12 @@ mod tests {
             .await
             .unwrap();
         let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let workspace_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
         let created: serde_json::Value = client
             .post(format!("{}/v2/artifacts/create", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "finance",
                 "pluginId": "com.zicode.finance",
                 "kind": "report",
@@ -4642,12 +4687,13 @@ mod tests {
         assert!(!handle.contains(&temp.to_string_lossy().to_string()));
         assert!(temp
             .join("plugin-data/com.zicode.artifacts/items")
+            .join(workspace_id)
             .join(format!("{artifact_id}.json"))
             .is_file());
 
         let listed: serde_json::Value = client
             .get(format!(
-                "{}/v2/artifacts?sceneId=finance&kind=report&pluginId=com.zicode.finance&query=backtest",
+                "{}/v2/artifacts?workspaceId={workspace_id}&sceneId=finance&kind=report&pluginId=com.zicode.finance&query=backtest",
                 host.origin()
             ))
             .send()
@@ -4660,7 +4706,7 @@ mod tests {
 
         let read: serde_json::Value = client
             .get(format!(
-                "{}/v2/artifacts/item?sceneId=finance&artifactId={artifact_id}",
+                "{}/v2/artifacts/item?workspaceId={workspace_id}&sceneId=finance&artifactId={artifact_id}",
                 host.origin()
             ))
             .send()
@@ -4674,6 +4720,7 @@ mod tests {
         let stale = client
             .post(format!("{}/v2/artifacts/delete", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "finance",
                 "artifactId": artifact_id,
                 "expectedVersion": "sha256:stale"
@@ -4686,6 +4733,7 @@ mod tests {
         let deleted = client
             .post(format!("{}/v2/artifacts/delete", host.origin()))
             .json(&json!({
+                "workspaceId": workspace_id,
                 "sceneId": "finance",
                 "artifactId": artifact_id,
                 "expectedVersion": version
@@ -4710,8 +4758,10 @@ mod tests {
         fs::create_dir_all(&public).unwrap();
         fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
         let vault_id = "11111111-1111-4111-8111-111111111111";
+        let workspace_id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
         let note_root = temp
             .join("plugin-data/com.zicode.notes/vaults")
+            .join(workspace_id)
             .join(vault_id)
             .join("src/content/notes");
         fs::create_dir_all(&note_root).unwrap();
@@ -4744,6 +4794,7 @@ mod tests {
             .post(format!("{}/v2/plugin-capabilities/invoke", host.origin()))
             .json(&json!({
                 "sceneId": "programming",
+                "workspaceId": workspace_id,
                 "pluginId": "com.zicode.notes",
                 "capabilityId": "notes.search",
                 "input": { "query": "authoritative" }

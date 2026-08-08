@@ -111,3 +111,22 @@ P1 交付内容：
 验证：typecheck / Biome / 703 测试全绿；安装目录同步重启后 CDP 实测
 快捷按钮、项目头部、项目行均渲染且无重叠无溢出。P2（workspaceId 数据
 归属 + 迁移）与 P3（项目工作台联动、统一搜索、移动端适配）未启动。
+
+## 10. 实施记录（2026-08-08，第 234 轮）：P2 数据模型
+
+按 5.2 中期方案落地（vault 根按 workspace 建，scene 保持正交授权维度）：
+
+1. notes_vault：`vaults/<workspaceId>/<notebook>` 目录归属；
+   `NotesVault::scoped(workspaceId)` 工作区视图 +
+   `migrate_legacy` 一次性迁移（首个访问的工作区认领遗留目录，标记
+   幂等）；变化日志按工作区隔离；`NotebookDescriptor.workspaceId`；
+2. artifact_store：`items/<workspaceId>/` 目录归属 + 描述符
+   `workspaceId`（迁移回写）；`scoped`/`migrate_legacy` 同构；
+3. 网关双键：/v2/notes*、/v2/artifacts* 必填 workspaceId；插件能力
+   CapabilityInvocation 携带 workspaceId，notes.search/get/create
+   全部工作区收敛；
+4. 前端 gateway/store 双键传参（notes/artifacts/projects/finance）。
+
+验证：Rust 163 + 前端 703 测试全绿；debug 实测迁移与跨工作区隔离；
+release 重建（EXE 41,734,656 B，SHA-256 `F7160211…`）静默重装后生产版
+笔记加载正常。P3（项目工作台联动、统一搜索、移动端适配）未启动。

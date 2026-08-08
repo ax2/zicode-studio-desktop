@@ -16,9 +16,10 @@ export class NotesGateway {
     this.#timeoutMs = timeoutMs;
   }
 
-  list(sceneId, filters = {}) {
+  list(sceneId, workspaceId, filters = {}) {
     const url = this.#url("/v2/notes");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     if (filters.notebookId) url.searchParams.set("notebookId", filters.notebookId);
     if (filters.query) url.searchParams.set("query", filters.query);
     if (filters.tag) url.searchParams.set("tag", filters.tag);
@@ -26,44 +27,55 @@ export class NotesGateway {
     return this.#request(url);
   }
 
-  get(sceneId, notebookId, noteId) {
+  get(sceneId, workspaceId, notebookId, noteId) {
     const url = this.#url("/v2/notes/note");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     url.searchParams.set("notebookId", notebookId);
     url.searchParams.set("noteId", noteId);
     return this.#request(url);
   }
 
-  knowledge(sceneId) {
+  knowledge(sceneId, workspaceId) {
     const url = this.#url("/v2/notes/knowledge");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     return this.#request(url);
   }
 
-  changes(sceneId, { cursor, limit = 100 } = {}) {
+  changes(sceneId, workspaceId, { cursor, limit = 100 } = {}) {
     const url = this.#url("/v2/notes/changes");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     url.searchParams.set("limit", String(limit));
     if (cursor) url.searchParams.set("cursor", cursor);
     return this.#request(url);
   }
 
-  createNotebook(sceneId, { title, icon, parentId } = {}) {
-    return this.#post("/v2/notes/notebooks", { sceneId, title, icon, parentId });
+  createNotebook(sceneId, workspaceId, { title, icon, parentId } = {}) {
+    return this.#post("/v2/notes/notebooks", {
+      sceneId,
+      workspaceId,
+      title,
+      icon,
+      parentId,
+    });
   }
 
-  updateNotebook(sceneId, { notebookId, title, icon } = {}) {
+  updateNotebook(sceneId, workspaceId, { notebookId, title, icon } = {}) {
     return this.#post("/v2/notes/notebooks/update", {
       sceneId,
+      workspaceId,
       notebookId,
       title,
       icon,
     });
   }
 
-  create(sceneId, notebookId, { title, content = "", tags = [], icon }) {
+  create(sceneId, workspaceId, notebookId, { title, content = "", tags = [], icon }) {
     return this.#post("/v2/notes/create", {
       sceneId,
+      workspaceId,
       notebookId,
       title,
       content,
@@ -72,9 +84,10 @@ export class NotesGateway {
     });
   }
 
-  save(sceneId, note) {
+  save(sceneId, workspaceId, note) {
     return this.#post("/v2/notes/save", {
       sceneId,
+      workspaceId,
       notebookId: note.notebookId,
       noteId: note.id,
       title: note.title,
@@ -85,18 +98,24 @@ export class NotesGateway {
     });
   }
 
-  delete(sceneId, note) {
+  delete(sceneId, workspaceId, note) {
     return this.#post("/v2/notes/delete", {
       sceneId,
+      workspaceId,
       notebookId: note.notebookId,
       noteId: note.id,
       expectedVersion: note.version,
     });
   }
 
-  moveNote(sceneId, { notebookId, noteId, targetNotebookId, expectedVersion } = {}) {
+  moveNote(
+    sceneId,
+    workspaceId,
+    { notebookId, noteId, targetNotebookId, expectedVersion } = {},
+  ) {
     return this.#post("/v2/notes/move", {
       sceneId,
+      workspaceId,
       notebookId,
       noteId,
       targetNotebookId,
@@ -104,9 +123,10 @@ export class NotesGateway {
     });
   }
 
-  capture(sceneId, notebookId, { url, title, tags = [] }) {
+  capture(sceneId, workspaceId, notebookId, { url, title, tags = [] }) {
     return this.#post("/v2/notes/capture", {
       sceneId,
+      workspaceId,
       notebookId,
       url,
       title,
@@ -114,9 +134,10 @@ export class NotesGateway {
     });
   }
 
-  uploadAttachment(sceneId, note, { fileName, mimeType, dataBase64 }) {
+  uploadAttachment(sceneId, workspaceId, note, { fileName, mimeType, dataBase64 }) {
     return this.#post("/v2/notes/attachments", {
       sceneId,
+      workspaceId,
       notebookId: note.notebookId,
       noteId: note.id,
       fileName,
@@ -125,37 +146,48 @@ export class NotesGateway {
     });
   }
 
-  attachmentUrl(sceneId, note, attachmentId) {
+  attachmentUrl(sceneId, workspaceId, note, attachmentId) {
     const url = this.#url("/v2/notes/attachment");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     url.searchParams.set("notebookId", note.notebookId);
     url.searchParams.set("noteId", note.id);
     url.searchParams.set("attachmentId", attachmentId);
     return url.toString();
   }
 
-  importMarkdown(sceneId, notebookId, fileName, markdown) {
+  importMarkdown(sceneId, workspaceId, notebookId, fileName, markdown) {
     return this.#post("/v2/notes/import-markdown", {
       sceneId,
+      workspaceId,
       notebookId,
       fileName,
       markdown,
     });
   }
 
-  exportBackup(sceneId, notebookId) {
+  exportBackup(sceneId, workspaceId, notebookId) {
     const url = this.#url("/v2/notes/export");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
     url.searchParams.set("notebookId", notebookId);
     return this.#request(url);
   }
 
-  importBackup(sceneId, backup) {
-    return this.#post("/v2/notes/import-backup", { sceneId, backup });
+  importBackup(sceneId, workspaceId, backup) {
+    return this.#post("/v2/notes/import-backup", {
+      sceneId,
+      workspaceId,
+      backup,
+    });
   }
 
-  rebuild(sceneId, notebookId) {
-    return this.#post("/v2/notes/rebuild", { sceneId, notebookId });
+  rebuild(sceneId, workspaceId, notebookId) {
+    return this.#post("/v2/notes/rebuild", {
+      sceneId,
+      workspaceId,
+      notebookId,
+    });
   }
 
   #post(path, body) {

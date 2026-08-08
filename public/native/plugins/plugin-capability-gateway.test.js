@@ -26,12 +26,17 @@ describe("PluginCapabilityGateway", () => {
       fetchImpl,
       location: { origin: "http://127.0.0.1:57620" },
     });
-    const response = await gateway.invoke("programming", "com.zicode.notes", "notes.search", {
-      query: "roadmap",
-    });
+    const response = await gateway.invoke(
+      "programming",
+      "workspace-1",
+      "com.zicode.notes",
+      "notes.search",
+      { query: "roadmap" },
+    );
     expect(response.result).toEqual({ matches: [] });
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
       sceneId: "programming",
+      workspaceId: "workspace-1",
       pluginId: "com.zicode.notes",
       capabilityId: "notes.search",
       input: { query: "roadmap" },

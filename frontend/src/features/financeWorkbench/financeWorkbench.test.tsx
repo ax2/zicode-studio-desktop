@@ -114,7 +114,11 @@ describe("finance workbench", () => {
     });
     const artifactGateway = {
       create: vi.fn(
-        async (_sceneId: string, _artifact: Record<string, unknown>) => ({
+        async (
+          _sceneId: string,
+          _workspaceId: string,
+          _artifact: Record<string, unknown>,
+        ) => ({
           artifact: {},
         }),
       ),
@@ -146,6 +150,7 @@ describe("finance workbench", () => {
     await vi.waitFor(() => expect(artifactGateway.create).toHaveBeenCalledOnce());
     expect(artifactGateway.create).toHaveBeenCalledWith(
       "finance",
+      "",
       expect.objectContaining({
         pluginId: "com.zicode.finance",
         kind: "report",
@@ -212,7 +217,11 @@ describe("finance workbench", () => {
     });
     const artifactGateway = {
       create: vi.fn(
-        async (_sceneId: string, _artifact: Record<string, unknown>) => ({
+        async (
+          _sceneId: string,
+          _workspaceId: string,
+          _artifact: Record<string, unknown>,
+        ) => ({
           artifact: {},
         }),
       ),
@@ -232,7 +241,7 @@ describe("finance workbench", () => {
     await vi.waitFor(() => expect(content.textContent).toContain("75.00%"));
     expect(content.querySelector('img')).toBeNull();
     await vi.waitFor(() => expect(artifactGateway.create).toHaveBeenCalledOnce());
-    expect(artifactGateway.create.mock.calls[0][1]).toMatchObject({
+    expect(artifactGateway.create.mock.calls[0][2]).toMatchObject({
       kind: "report",
       provenance: { engine: "finance.screen.local", deterministic: true },
     });
@@ -299,7 +308,7 @@ describe("finance workbench", () => {
     });
     submitForm(content, "snapshots");
     await vi.waitFor(() => expect(artifactGateway.create).toHaveBeenCalledOnce());
-    expect(artifactGateway.create.mock.calls[0][1]).toMatchObject({
+    expect(artifactGateway.create.mock.calls[0][2]).toMatchObject({
       kind: "dataset",
       provenance: {
         engine: "finance.market-data",

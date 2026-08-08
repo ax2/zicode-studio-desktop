@@ -29,6 +29,8 @@ const RETAINED_CHANGE_RECORDS: usize = 10_000;
 #[serde(rename_all = "camelCase")]
 pub struct NotebookDescriptor {
     pub id: String,
+    #[serde(default)]
+    pub workspace_id: String,
     pub title: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
@@ -191,6 +193,14 @@ pub struct VaultRebuildReport {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NotesMigrationReport {
+    pub claimed_workspace_id: String,
+    pub moved_notebooks: usize,
+    pub skipped: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AstroPublishReport {
     pub notebook_id: String,
     pub note_count: usize,
@@ -223,6 +233,7 @@ impl NotesError {
 #[derive(Clone)]
 pub struct NotesVault {
     root: PathBuf,
+    workspace_id: Option<String>,
 }
 
 impl NotesVault {
@@ -234,7 +245,109 @@ impl NotesVault {
             .join(NOTES_PLUGIN_ID);
         fs::create_dir_all(root.join("vaults"))
             .map_err(|error| format!("Cannot create Notes data directory: {error}"))?;
-        Ok(Self { root })
+        Ok(Self {
+            root,
+            workspace_id: None,
+        })
+    }
+
+    /// Return a workspace-scoped view over `vaults/<workspaceId>/`.
+    ///
+    /// The first scoped access claims legacy vault directories that predate
+    /// workspace attribution (one-time migration guarded by a marker file).
+    pub fn scoped(&self, workspace_id: &str) -> Result<NotesVault, NotesError> {
+        let workspace_id = validate_opaque_id(workspace_id)?;
+        let vaults = self.root.join("vaults");
+        fs::create_dir_all(vaults.join(&workspace_id))
+            .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
+        self.migrate_legacy(&workspace_id)?;
+        Ok(NotesVault {
+            root: self.root.clone(),
+            workspace_id: Some(workspace_id),
+        })
+    }
+
+    /// One-time migration: move legacy notebook directories (created before
+    /// project attribution) under the first workspace that accesses them.
+    ///
+    /// A marker file makes the claim idempotent across restarts. Directories
+    /// that already live under a workspace (or a marker that names a different
+    /// workspace) are left untouched.
+    pub fn migrate_legacy(&self, workspace_id: &str) -> Result<NotesMigrationReport, NotesError> {
+        let workspace_id = validate_opaque_id(workspace_id)?;
+        let vaults = self.root.join("vaults");
+        if !vaults.exists() {
+            return Ok(NotesMigrationReport {
+                claimed_workspace_id: workspace_id,
+                moved_notebooks: 0,
+                skipped: true,
+            });
+        }
+        let marker = vaults.join(".migrated-workspace");
+        if marker.exists() {
+            return Ok(NotesMigrationReport {
+                claimed_workspace_id: workspace_id,
+                moved_notebooks: 0,
+                skipped: true,
+            });
+        }
+        let workspace_dir = vaults.join(&workspace_id);
+        fs::create_dir_all(&workspace_dir)
+            .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
+        let mut moved_notebooks = 0usize;
+        for entry in fs::read_dir(&vaults)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot read notebooks"))?
+            .flatten()
+        {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_dir() || file_type.is_symlink() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                continue;
+            };
+            if name.starts_with('.') || name == workspace_id {
+                continue;
+            }
+            if validate_opaque_id(&name).is_err() {
+                continue;
+            }
+            let destination = workspace_dir.join(&name);
+            if destination.exists() {
+                continue;
+            }
+            fs::rename(entry.path(), &destination).map_err(|_| {
+                NotesError::new("storage_unavailable", "Cannot migrate legacy notebook")
+            })?;
+            moved_notebooks += 1;
+        }
+        fs::write(&marker, &workspace_id)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot finalize notes migration"))?;
+        Ok(NotesMigrationReport {
+            claimed_workspace_id: workspace_id,
+            moved_notebooks,
+            skipped: false,
+        })
+    }
+
+    fn vaults_dir(&self) -> PathBuf {
+        match &self.workspace_id {
+            Some(workspace_id) => self.root.join("vaults").join(workspace_id),
+            None => self.root.join("vaults"),
+        }
+    }
+
+    fn change_log_path(&self) -> PathBuf {
+        match &self.workspace_id {
+            Some(workspace_id) => self
+                .root
+                .join("vaults")
+                .join(workspace_id)
+                .join("changes.jsonl"),
+            None => self.root.join("changes.jsonl"),
+        }
     }
 
     pub fn list(
@@ -427,7 +540,7 @@ impl NotesVault {
         cursor: Option<&str>,
         limit: usize,
     ) -> Result<NotesChangeSnapshot, NotesError> {
-        let path = self.root.join("changes.jsonl");
+        let path = self.change_log_path();
         if !path.exists() {
             return Ok(NotesChangeSnapshot {
                 changes: Vec::new(),
@@ -490,6 +603,7 @@ impl NotesVault {
         let now = now_iso();
         let descriptor = NotebookDescriptor {
             id: id.clone(),
+            workspace_id: self.workspace_id.clone().unwrap_or_default(),
             title,
             icon,
             parent_id,
@@ -1116,7 +1230,7 @@ impl NotesVault {
     }
 
     fn list_notebooks(&self) -> Result<Vec<NotebookDescriptor>, NotesError> {
-        let vaults = self.root.join("vaults");
+        let vaults = self.vaults_dir();
         fs::create_dir_all(&vaults)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
         let entries = fs::read_dir(vaults)
@@ -1161,6 +1275,7 @@ impl NotesVault {
         }
         Ok(NotebookDescriptor {
             id: metadata.id,
+            workspace_id: self.workspace_id.clone().unwrap_or_default(),
             title: metadata.title,
             icon: metadata.icon,
             parent_id: metadata.parent_id,
@@ -1248,9 +1363,12 @@ impl NotesVault {
         summary: &NoteSummary,
         version: Option<&str>,
     ) -> Result<(), NotesError> {
-        fs::create_dir_all(&self.root)
+        let path = self.change_log_path();
+        let parent = path
+            .parent()
+            .ok_or_else(|| NotesError::new("storage_unavailable", "Cannot create note change log"))?;
+        fs::create_dir_all(parent)
             .map_err(|_| NotesError::new("storage_unavailable", "Cannot create note change log"))?;
-        let path = self.root.join("changes.jsonl");
         compact_change_log(&path, MAX_CHANGE_LOG_BYTES, RETAINED_CHANGE_RECORDS)?;
         let change = NoteChange {
             cursor: Uuid::new_v4().to_string(),
@@ -1273,7 +1391,7 @@ impl NotesVault {
 
     fn vault_root(&self, notebook_id: &str) -> Result<PathBuf, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
-        Ok(self.root.join("vaults").join(notebook_id))
+        Ok(self.vaults_dir().join(notebook_id))
     }
 
     fn note_path(&self, notebook_id: &str, note_id: &str) -> Result<PathBuf, NotesError> {
@@ -2429,6 +2547,49 @@ mod tests {
         assert_eq!(moved.summary.notebook_id, child.id);
         assert!(vault.get_note(&child.id, &note.summary.id).is_ok());
         assert!(vault.get_note(&parent.id, &note.summary.id).is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn scoped_vaults_isolate_workspaces_and_claim_legacy_notebooks_once() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let workspace_a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let workspace_b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        let scoped_a = vault.scoped(workspace_a).unwrap();
+        let scoped_b = vault.scoped(workspace_b).unwrap();
+        let notebook_a = scoped_a.create_notebook("Project A", None, None).unwrap();
+        let notebook_b = scoped_b.create_notebook("Project B", None, None).unwrap();
+        assert_eq!(notebook_a.workspace_id, workspace_a);
+        assert_eq!(notebook_b.workspace_id, workspace_b);
+        assert_eq!(scoped_a.list(None, None, None, false).unwrap().notebooks.len(), 1);
+        assert_eq!(scoped_b.list(None, None, None, false).unwrap().notebooks.len(), 1);
+        // Legacy bare vault dirs are claimed by the first scoped workspace.
+        let legacy_root = std::env::temp_dir().join(format!("zicode-notes-legacy-{}", Uuid::new_v4()));
+        let legacy = NotesVault::new(legacy_root.join("plugins")).unwrap();
+        let legacy_id = Uuid::new_v4().to_string();
+        fs::create_dir_all(
+            legacy_root
+                .join("plugin-data")
+                .join("com.zicode.notes")
+                .join("vaults")
+                .join(&legacy_id),
+        )
+        .unwrap();
+        let report = legacy.migrate_legacy(workspace_a).unwrap();
+        assert_eq!(report.moved_notebooks, 1);
+        assert!(
+            legacy_root
+                .join("plugin-data")
+                .join("com.zicode.notes")
+                .join("vaults")
+                .join(workspace_a)
+                .join(&legacy_id)
+                .is_dir()
+        );
+        let again = legacy.migrate_legacy(workspace_a).unwrap();
+        assert!(again.skipped);
+        let _ = fs::remove_dir_all(legacy_root);
         let _ = fs::remove_dir_all(root);
     }
 
