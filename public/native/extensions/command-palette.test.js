@@ -69,9 +69,11 @@ describe("command palette", () => {
     items.at(-1).dispatchEvent(
       new dom.window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
     );
-    expect(document.activeElement).toBe(items[0]);
+    // The search input is the first focusable element; Tab from the last
+    // command wraps back to it.
+    expect(document.activeElement).toBe(list.querySelector(".command-palette-search"));
 
-    items[0].dispatchEvent(
+    list.querySelector(".command-palette-search").dispatchEvent(
       new dom.window.KeyboardEvent("keydown", {
         key: "Tab",
         shiftKey: true,

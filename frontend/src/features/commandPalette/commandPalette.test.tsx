@@ -64,4 +64,41 @@ describe("command palette (React)", () => {
     expect(palette.classList.contains("hidden")).toBe(true);
     expect(document.activeElement).toBe(button);
   });
+
+  it("filters commands as the user types and runs the selected one with Enter", () => {
+    const { button, palette, overlay, list } = mount();
+    const openNotes = vi.fn();
+    const openTasks = vi.fn();
+    setupCommandPalette({
+      button,
+      palette,
+      overlay,
+      list,
+      commands: [
+        { label: "Notes", desc: "Open notes", action: openNotes },
+        { label: "Tasks", desc: "Open tasks", action: openTasks },
+      ],
+    });
+
+    button.click();
+    expect(list.querySelectorAll(".command-item")).toHaveLength(2);
+
+    const input = list.querySelector(".command-palette-search") as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, "task");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(list.querySelectorAll(".command-item")).toHaveLength(1);
+    expect(list.textContent).toContain("Tasks");
+    expect(list.textContent).not.toContain("Notes");
+
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(openTasks).toHaveBeenCalledTimes(1);
+    expect(openNotes).not.toHaveBeenCalled();
+  });
 });

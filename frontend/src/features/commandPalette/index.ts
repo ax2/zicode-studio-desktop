@@ -64,6 +64,8 @@ export function setupCommandPalette({
   }
 
   function open() {
+    panel.classList.remove("hidden");
+    backdrop.classList.remove("hidden");
     flushSync(() => {
       root.render(
         createElement(CommandPaletteApp, {
@@ -72,13 +74,7 @@ export function setupCommandPalette({
         }),
       );
     });
-    panel.classList.remove("hidden");
-    backdrop.classList.remove("hidden");
-    (
-      container.querySelector(".command-item:not(:disabled)") as
-        | HTMLElement
-        | null
-    )?.focus();
+    (container.querySelector(".command-palette-search") as HTMLElement | null)?.focus();
   }
 
   trigger.addEventListener("click", open);

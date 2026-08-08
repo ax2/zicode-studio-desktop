@@ -154,6 +154,29 @@ describe("notes store", () => {
     expect(JSON.parse(content)).toMatchObject({ schemaVersion: 1 });
   });
 
+  it("imports a readable backup through the file picker", async () => {
+    const importBackup = vi.fn(async () => ({ notebook: { id: "book-1", title: "Imported" } }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ importBackup }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      chooseFile: vi.fn(
+        async () =>
+          ({
+            size: 128,
+            text: async () =>
+              JSON.stringify({ schemaVersion: 1, notebook: { title: "Imported" } }),
+          }) as unknown as File,
+      ),
+    });
+    await store.getState().load();
+    await store.getState().importBackup();
+    expect(importBackup).toHaveBeenCalledOnce();
+    expect(store.getState().selectedNotebookId).toBe("book-1");
+    const backupArg = (importBackup.mock.calls[0] as unknown[])[2];
+    expect(backupArg).toMatchObject({ schemaVersion: 1 });
+  });
+
   it("creates a new note and marks it for editing", async () => {
     const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-1", title: "Untitled note" } }));
     const store = storeWithGateway({ create });

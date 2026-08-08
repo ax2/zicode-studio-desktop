@@ -59,6 +59,21 @@
   padding: var(--space-1-5);
 }
 
+.command-palette-search {
+  margin: var(--space-2) var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.command-palette-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .command-item {
   display: flex;
   width: 100%;
@@ -79,6 +94,18 @@
 .command-item:focus-visible {
   background: var(--bg-glass-hover);
   outline: none;
+}
+
+.command-item.selected {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
+.command-empty {
+  padding: var(--space-4);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  text-align: center;
 }
 
 .command-item:active {

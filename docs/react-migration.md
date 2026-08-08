@@ -428,3 +428,6 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 笔记数据管理默认实现（第 240 轮）：notesStore 补齐真实
   defaultDownloadFile/defaultChooseFile，修复导出/导入/附件的桌面端
   空操作；导出端到端验证下载有效备份文件
+- [x] 命令面板搜索（第 241 轮）：搜索输入 + 即时过滤 + 方向键/Enter
+  导航 + 选中高亮 + 空态；修正"先显示再聚焦"顺序；空操作默认值全
+  前端扫描确认干净，补导入备份单测；前端 713 测试全绿

@@ -100,6 +100,8 @@ const zhCN = {
   "Open workspace": "打开工作区",
   "Open workspace in app": "在应用中打开工作区",
   "Open in app": "在应用中打开",
+  "Filter commands": "过滤命令",
+  "No matching commands": "无匹配命令",
   "Choose app": "选择应用",
   "Choose app to open workspace": "选择用于打开工作区的应用",
   Files: "文件",
