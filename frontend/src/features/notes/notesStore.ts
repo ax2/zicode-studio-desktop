@@ -40,6 +40,47 @@ function writeRecentNoteIds(ids: string[]): void {
   }
 }
 
+function defaultDownloadFile(fileName: string, content: string, type: string): void {
+  if (typeof URL.createObjectURL !== "function") return;
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.hidden = true;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function defaultChooseFile(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.style.display = "none";
+    let settled = false;
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      input.remove();
+      window.removeEventListener("focus", onWindowFocus);
+      resolve(file);
+    };
+    const onWindowFocus = () => {
+      // Native file dialogs are modal: regaining focus without a change
+      // event means the user cancelled the picker.
+      setTimeout(() => finish(input.files?.[0] ?? null), 0);
+    };
+    input.addEventListener("change", () => finish(input.files?.[0] ?? null), {
+      once: true,
+    });
+    window.addEventListener("focus", onWindowFocus);
+    document.body.append(input);
+    input.click();
+  });
+}
+
 export interface NotesGatewayLike {
   list(sceneId: string, workspaceId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
   get(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
@@ -154,8 +195,8 @@ export function createNotesStore(options: NotesStoreOptions) {
   const getTarget = options.getTarget ?? (() => null);
   const notify = options.notify ?? (() => {});
   const confirmPublish = options.confirmPublish ?? ((message: string) => globalThis.confirm(message) ?? false);
-  const chooseFile = options.chooseFile ?? (async () => null);
-  const downloadFile = options.downloadFile ?? (() => {});
+  const chooseFile = options.chooseFile ?? defaultChooseFile;
+  const downloadFile = options.downloadFile ?? defaultDownloadFile;
   const onUseInChat = options.onUseInChat;
   const fileToBase64 = options.fileToBase64 ?? (async () => "");
   const invoke = options.invoke;

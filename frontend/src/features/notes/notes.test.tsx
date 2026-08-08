@@ -135,6 +135,25 @@ describe("notes store", () => {
     expect(store.getState().recentNotes.map((note) => note.id)).toContain("note-1");
   });
 
+  it("exports a readable backup through the download hook", async () => {
+    const downloadFile = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub({
+        exportBackup: vi.fn(async () => ({ backup: { schemaVersion: 1 } })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    await store.getState().load();
+    store.getState().selectNotebook("book-1");
+    await store.getState().exportBackup();
+    expect(downloadFile).toHaveBeenCalledOnce();
+    const [fileName, content] = downloadFile.mock.calls[0];
+    expect(fileName).toBe("Projects.zicode-notes.json");
+    expect(JSON.parse(content)).toMatchObject({ schemaVersion: 1 });
+  });
+
   it("creates a new note and marks it for editing", async () => {
     const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-1", title: "Untitled note" } }));
     const store = storeWithGateway({ create });

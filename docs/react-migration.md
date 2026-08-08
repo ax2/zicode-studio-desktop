@@ -425,3 +425,6 @@ bun run test          # vitest（public/** + frontend/src/**）
   build-react 外部化，React 包与原生端共用同一语言状态；修复语言切换
   时原生 MutationObserver 用旧 locale 回译导致的"cookie=en 仍显示
   中文"；vitest 别名 + ambient 类型声明
+- [x] 笔记数据管理默认实现（第 240 轮）：notesStore 补齐真实
+  defaultDownloadFile/defaultChooseFile，修复导出/导入/附件的桌面端
+  空操作；导出端到端验证下载有效备份文件

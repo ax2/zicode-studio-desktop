@@ -4227,6 +4227,19 @@ P2 再做）完成 P1 UI 层：
    （Chat/Projects/Tasks/Notes）全部随语言一致切换，无回译；
    前端 710 测试全绿、typecheck/Biome 通过。
 
+第二百四十轮：修复笔记数据管理空操作（导出/导入/附件，2026-08-08）。
+
+1. 根因：notesStore 的 downloadFile 默认是空函数、chooseFile 默认
+   返回 null，且 app.js 未注入实现——"导出可读备份/导入备份/导入
+   Markdown/添加附件"在桌面端全部静默无效果（仍弹成功提示）；
+2. 修复：补充真实默认实现——defaultDownloadFile（Blob + a[download]，
+   已验证 WebView2 可落盘）、defaultChooseFile（隐藏 input[type=file]
+   选择器 + 窗口焦点监听识别取消）；外部可注入覆盖不变；
+3. 验证：生产版 CDP 真实鼠标点击"导出可读备份"→
+   QVeris.zicode-notes.json 下载完成（schemaVersion 1、5 条笔记内容
+   正确）；新增导出回归测试（download hook 收到正确文件名与 JSON）；
+   前端 711 测试全绿、typecheck/Biome 通过。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
