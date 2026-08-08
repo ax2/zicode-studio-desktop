@@ -23,6 +23,8 @@ const zhCN = {
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",
   "Keyboard shortcuts": "键盘快捷键",
   "Focus input": "聚焦输入框",
+  "Quick actions": "快捷入口",
+  "Start a new conversation": "开始新对话",
   Abort: "中止",
   "Retry request": "重试请求",
   "Request cannot be retried yet": "暂时无法重试请求",

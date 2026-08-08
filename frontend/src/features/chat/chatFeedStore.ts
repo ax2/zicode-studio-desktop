@@ -116,6 +116,7 @@ export class ChatFeed {
     options: {
       onOpenSceneSettings?: () => void;
       onRevealHistory?: () => void;
+      openApp?: (pluginId: string) => void;
     } = {},
   ) {
     this.container = container;
@@ -126,6 +127,7 @@ export class ChatFeed {
         container,
         onOpenSceneSettings: options.onOpenSceneSettings,
         onRevealHistory: options.onRevealHistory,
+        openApp: options.openApp,
       }),
     );
     initCodeCopyDelegation(container);
@@ -606,6 +608,7 @@ export function feedFor(
   options?: {
     onOpenSceneSettings?: () => void;
     onRevealHistory?: () => void;
+    openApp?: (pluginId: string) => void;
   },
 ): ChatFeed {
   let feed = feeds.get(container);

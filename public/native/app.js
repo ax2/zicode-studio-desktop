@@ -138,6 +138,7 @@ function showSceneSettings() {
 const messageRenderer = new MessageRenderer(messagesElement, {
   onOpenSceneSettings: showSceneSettings,
   onRevealHistory: revealEarlierHistory,
+  openApp: (pluginId) => pluginShell?.activate(pluginId),
 });
 const toolRenderer = new ToolCardRenderer(messagesElement);
 const composer = setupComposer({

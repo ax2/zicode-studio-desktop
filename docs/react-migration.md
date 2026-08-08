@@ -478,3 +478,12 @@ bun run test          # vitest（public/** + frontend/src/**）
    安装包 346,819,246 B，含第 264–267 轮修复，静默重装验证通过
 - [x] 插件侧栏 fallback items（第 269 轮）：字符串 items 规范化
    为 {label}，消除空白按钮与 React key 警告 + 回归测试
+- [x] PWA share_target 作用域（第 270 轮）：relay 重写 manifest 时把
+   share_target.action 一并改为设备作用域路径，service-worker 同时
+   匹配 /share-target 与 /d/{device}/app/share-target + 两侧测试
+- [x] 桌面宽窗口空间利用（第 271 轮）：桌面欢迎页垂直居中 + 快捷入口
+   （开始新对话/项目/笔记/任务/自动化，openApp 逐层透传）+ 消息列
+   留白封顶 96px（--chat-gutter-max）+ 默认窗口 1440×900；移动端
+   欢迎页保持紧凑；前端 731 测试全绿
+- [x] release 第十二次重建（第 272 轮）：EXE 41,316,864 B / 安装包
+   346,872,608 B，含第 270–271 轮修复，静默重装验证通过

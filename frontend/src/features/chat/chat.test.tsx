@@ -103,6 +103,27 @@ describe("chat feed renderers", () => {
     expect(onOpenSceneSettings).toHaveBeenCalledTimes(1);
   });
 
+  it("offers desktop quick actions that open apps or focus the composer", async () => {
+    const container = makeContainer();
+    const input = document.createElement("textarea");
+    input.id = "message-input";
+    document.body.append(input);
+    const focusSpy = vi.spyOn(input, "focus");
+    const openApp = vi.fn();
+    const renderer = new MessageRenderer(container, { openApp });
+    renderer.renderWelcome();
+    await flush();
+
+    const actions = container.querySelectorAll(".welcome-quick-action");
+    expect(actions.length).toBeGreaterThanOrEqual(5);
+
+    (container.querySelector('[data-quick-action="com.zicode.notes"]') as HTMLElement | null)?.click();
+    expect(openApp).toHaveBeenCalledWith("com.zicode.notes");
+
+    (container.querySelector('[data-quick-action="new-chat"]') as HTMLElement | null)?.click();
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
   it("renders history window notices and loaded status from the feed", async () => {
     const container = makeContainer();
     const onRevealHistory = vi.fn();

@@ -38,11 +38,13 @@ export function ChatMessageList({
   container,
   onOpenSceneSettings,
   onRevealHistory,
+  openApp,
 }: {
   store: ChatStore;
   container: HTMLElement;
   onOpenSceneSettings?: () => void;
   onRevealHistory?: () => void;
+  openApp?: (pluginId: string) => void;
 }) {
   const items = useChatStore(store);
   return (
@@ -55,6 +57,7 @@ export function ChatMessageList({
           items={items}
           onOpenSceneSettings={onOpenSceneSettings}
           onRevealHistory={onRevealHistory}
+          openApp={openApp}
         />
       ))}
     </>
@@ -67,12 +70,14 @@ function ChatItem({
   items,
   onOpenSceneSettings,
   onRevealHistory,
+  openApp,
 }: {
   item: ChatFeedItem;
   container: HTMLElement;
   items: ChatFeedItem[];
   onOpenSceneSettings?: () => void;
   onRevealHistory?: () => void;
+  openApp?: (pluginId: string) => void;
 }) {
   switch (item.kind) {
     case "welcome":
@@ -82,6 +87,7 @@ function ChatItem({
           workspacePath={item.workspacePath}
           scene={item.scene}
           onOpenSceneSettings={onOpenSceneSettings}
+          openApp={openApp}
         />
       );
     case "user":
@@ -137,16 +143,24 @@ const WelcomeItem = memo(function WelcomeItem({
   workspacePath,
   scene,
   onOpenSceneSettings,
+  openApp,
 }: {
   workspacePath?: string;
   scene: WelcomeScene | null;
   onOpenSceneSettings?: () => void;
+  openApp?: (pluginId: string) => void;
 }) {
   const sceneId = scene?.id ?? "programming";
   const sceneName = scene ? t(scene.name) : "Programming";
   const sceneDescription = scene
     ? t(scene.description)
     : "Engineering workflows for coding, debugging, repository changes, and reproducible verification.";
+  const quickActions: Array<{ pluginId: string; label: string; icon: string }> = [
+    { pluginId: "com.zicode.projects", label: t("Projects"), icon: "📁" },
+    { pluginId: "com.zicode.notes", label: t("Notes"), icon: "📝" },
+    { pluginId: "com.zicode.tasks", label: t("Tasks"), icon: "✅" },
+    { pluginId: "com.zicode.automation", label: t("Automation"), icon: "⚙️" },
+  ];
   return (
     <div className="welcome">
       <div className="welcome-icon">
@@ -175,6 +189,36 @@ const WelcomeItem = memo(function WelcomeItem({
           <span data-scene-description>{sceneDescription}</span>
         </span>
       </button>
+      {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of app shortcuts kept as a plain div like the shortcuts-hint row */}
+      <div className="welcome-quick-actions" role="group" aria-label={t("Quick actions")}>
+        <button
+          type="button"
+          className="welcome-quick-action"
+          data-quick-action="new-chat"
+          onClick={() => {
+            document.getElementById("message-input")?.focus();
+          }}
+        >
+          <span className="welcome-quick-action-icon" aria-hidden="true">
+            ✨
+          </span>
+          <span>{t("Start a new conversation")}</span>
+        </button>
+        {quickActions.map((action) => (
+          <button
+            key={action.pluginId}
+            type="button"
+            className="welcome-quick-action"
+            data-quick-action={action.pluginId}
+            onClick={() => openApp?.(action.pluginId)}
+          >
+            <span className="welcome-quick-action-icon" aria-hidden="true">
+              {action.icon}
+            </span>
+            <span>{action.label}</span>
+          </button>
+        ))}
+      </div>
       {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
       <div className="shortcuts-hint" role="group" aria-label="Keyboard shortcuts">
         <span>

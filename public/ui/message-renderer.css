@@ -21,6 +21,10 @@
   animation: fadeIn 0.5s var(--ease);
 }
 
+.welcome-quick-actions {
+  display: none;
+}
+
 .welcome-icon {
   font-size: var(--font-size-2xl);
   opacity: 1;
@@ -63,6 +67,76 @@
   font: inherit;
   line-height: calc(var(--control-height-xs) - 2px);
   box-shadow: inset 0 -1px 0 var(--border);
+}
+
+/* Desktop welcome: the mobile page centers a small welcome card in a phone
+   viewport, which leaves most of a large desktop window blank. On desktop,
+   center the welcome in the space between the header and composer, scale the
+   icon/type up, and offer quick actions that route into the app areas. */
+@media (min-width: 769px) {
+  .welcome {
+    width: min(760px, 100%);
+    margin: auto 0;
+    padding: var(--space-6) 0;
+    align-self: center;
+  }
+
+  .tau-icon-welcome {
+    width: 84px;
+    height: 84px;
+  }
+
+  .welcome p {
+    font-size: var(--font-size-xl);
+  }
+
+  .welcome .hint {
+    font-size: var(--font-size-md);
+  }
+
+  .welcome-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+  }
+
+  .welcome-quick-action {
+    display: flex;
+    min-width: 0;
+    min-height: 88px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1-5);
+    padding: var(--space-2) var(--space-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-glass);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      border-color var(--duration) var(--ease),
+      background var(--duration) var(--ease),
+      color var(--duration) var(--ease),
+      transform var(--duration) var(--ease);
+  }
+
+  .welcome-quick-action:hover,
+  .welcome-quick-action:focus-visible {
+    border-color: var(--border-hover);
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+  }
+
+  .welcome-quick-action-icon {
+    font-size: var(--font-size-2xl);
+    line-height: 1;
+  }
 }
 
 .message {

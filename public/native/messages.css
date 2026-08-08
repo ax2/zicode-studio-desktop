@@ -9,13 +9,13 @@
   overscroll-behavior: contain;
   padding-top: var(--messages-top-inset);
   padding-bottom: var(--messages-bottom-inset);
-  padding-left: max(
-    var(--space-6),
-    calc((100% - var(--chat-content-max-width)) / 2)
+  padding-left: min(
+    max(var(--space-6), calc((100% - var(--chat-content-max-width)) / 2)),
+    var(--chat-gutter-max)
   );
-  padding-right: max(
-    var(--space-6),
-    calc((100% - var(--chat-content-max-width)) / 2)
+  padding-right: min(
+    max(var(--space-6), calc((100% - var(--chat-content-max-width)) / 2)),
+    var(--chat-gutter-max)
   );
   display: flex;
   flex-direction: column;

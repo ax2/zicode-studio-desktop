@@ -4568,6 +4568,58 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百七十二轮：release 第十二次重建（含第 270–271 轮，2026-08-08）。
+
+1. 让生产安装包包含第 270 轮（公网 PWA share_target 作用域）与第 271 轮
+   （桌面宽窗口空间利用）的 Rust/前端改动；`bun run build` 重建 EXE
+   41,316,864 B（SHA-256 `4ECBBF78…`）与安装包 346,872,608 B
+   （`6FEB2328…`），完整哈希见 `docs/release-validation-2026-08-05.md`；
+2. 验证：EXE 内嵌 public 与仓库逐文件哈希一致；`/S` 静默重装后安装目录
+   297 个文件与仓库 public 一致；从安装目录启动：`/health` 200（pi
+   0.83.0、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、
+   新实例默认窗口 1440×900（CDP 实测）、欢迎页垂直居中并显示 5 个快捷
+   入口、最大化 2048×1210 时消息列留白封顶 96px；日志无 ERROR/WARN/panic；
+3. 说明：默认窗口尺寸从 1300×860 提升到 1440×900（新窗口生效，已有
+   窗口保持用户调整过的尺寸）。
+
+第二百七十一轮：桌面版空间利用与空态优化（2026-08-08）。
+
+1. 根因：桌面版复用移动端的空会话欢迎页（小图标 + 两行文案 + 场景卡），
+   在 1300+ 宽的桌面窗口里只占顶部一小块，标题与底部输入框之间留出
+   600px+ 空白；同时消息列固定 960px 起、宽窗口按分档加宽后两侧仍各有
+   上百 px 留白，整体观感像"把移动端页面放进大窗口"；
+2. 修复：
+   - 桌面（≥769px）欢迎页垂直居中，图标 84px、标题字号提升，新增
+     "快捷入口"卡片行：开始新对话（聚焦输入框）、项目、笔记、任务、
+     自动化（经 `openApp` → plugin-shell `activate` 直达各应用）；
+     MessageRenderer/ChatFeed/ChatMessageList 逐层透传 `openApp`；
+     移动端保持原紧凑欢迎页（快捷入口 display:none）；
+   - 新增 `--chat-gutter-max: 96px`，messages/input-area/rpiv-todo-panel
+     的对称留白封顶 96px，最大化窗口内容列不再被两侧大空白挤窄；
+   - 新建工作区窗口默认尺寸 1300×860 → 1440×900（`main.rs`
+     `open_native_workspace_window`）；
+3. 验证：前端 731 项全绿（新增快捷入口点击/聚焦用例、service-worker
+   设备作用域路由用例、布局契约用例）、typecheck 通过、Rust 165 项全绿；
+   CDP 实测：1440×900 窗口欢迎页居中（x=502、y=169，w=760）、快捷入口
+   5 个可见可点（笔记→切到笔记应用、新对话→聚焦输入框）；最大化
+   2048×1210 时 messages padding=96px、欢迎页垂直居中于头部与输入框之间。
+
+第二百七十轮：公网 PWA share_target 作用域修复（2026-08-08）。
+
+1. 根因：relay 重写 PWA manifest 时只改 `start_url`/`scope`/`id`，未改
+   `share_target.action`；Web Share Target 规范要求 action 必须位于
+   scope 内，否则 Chrome 报 `"property 'action' ignored, should be
+   within scope of manifest"`，公网 PWA 的"分享到 ZiCode"注册失败；
+2. 修复：`rewrite_manifest` 把 `share_target.action` 重写为
+   `/d/{device_id}/app/share-target`（位于重写后的 scope
+   `/d/{device_id}/app/` 内）；service-worker fetch 处理器同时匹配
+   LAN 模式 `/share-target` 与设备作用域路径
+   `/d/{device}/app/share-target`（正则
+   `/^\/d\/[^/]+\/app\/share-target$/`），保证两种部署形态的分享入口
+   都由同一处理器消费；
+3. 验证：Rust 新增含 share_target 的 manifest 重写断言；前端新增
+   设备作用域 POST 路由用例；Rust 165 项、前端 731 项全绿。
+
 第二百六十九轮：插件侧栏 fallback 字符串 items 修复（2026-08-08）。
 
 1. 根因：`PluginSidebarShellApp` 的 `Accordion` 期望

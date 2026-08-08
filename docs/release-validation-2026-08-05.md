@@ -169,3 +169,30 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `--app-content-max-width=1200px`（1300 窗口）、设置视图点击
     Files 切回 Chat 并打开文件面板（round 266 行为）；日志无
     ERROR/WARN/panic。
+
+## 第十二次重建（2026-08-08，含第 270–271 轮修复）
+
+- 合入第 270 轮：relay 重写 PWA manifest 时把 `share_target.action`
+  重写为设备作用域路径 `/d/{device}/app/share-target`，service-worker
+  fetch 处理器同时匹配 LAN `/share-target` 与设备作用域路径；
+- 合入第 271 轮：桌面宽窗口空间利用——桌面欢迎页垂直居中并新增快捷入口
+  （开始新对话/项目/笔记/任务/自动化）、消息列/输入框/任务镜像面板留白
+  封顶 96px（`--chat-gutter-max`）、新建工作区窗口默认 1440×900；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,316,864 B，
+    SHA-256 `4ECBBF7896912055115F76D0C37D9A9B9008B4060B08BFC69D1F2A9C373398BD`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,872,608 B，SHA-256
+    `6FEB2328513CCD1D5DCCFCC20937BC84EED894082CD37533C5522DAB6282CC3B`
+- 验证：
+  - 打包进 EXE 的 public 资源与仓库逐文件哈希一致（安装目录 297 个
+    文件全部 match，含 i18n.js、style-theme.css、messages.css、
+    composer.css、react/chat.js、message-renderer.css）；
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.83.0、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、公网
+    中继注册 `dev-ax2-01`；
+  - CDP 实测新实例：默认窗口 1440×900（`Browser.getWindowForTarget`
+    bounds 1441×901）；空会话欢迎页垂直居中（1440 窗口 x=502、y=169、
+    w=760），5 个快捷入口可见且可点（笔记→切到笔记应用、开始新对话→
+    聚焦输入框）；最大化 2048×1210 时 messages padding=96px（留白
+    封顶生效）、欢迎页居中于头部与输入框之间；日志无 ERROR/WARN/panic。

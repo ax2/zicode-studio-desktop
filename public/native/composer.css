@@ -7,13 +7,13 @@
 .input-area {
   padding-top: var(--space-4);
   padding-bottom: var(--space-4);
-  padding-left: max(
-    var(--space-4),
-    calc((100% - var(--chat-content-max-width)) / 2)
+  padding-left: min(
+    max(var(--space-4), calc((100% - var(--chat-content-max-width)) / 2)),
+    var(--chat-gutter-max)
   );
-  padding-right: max(
-    var(--space-4),
-    calc((100% - var(--chat-content-max-width)) / 2)
+  padding-right: min(
+    max(var(--space-4), calc((100% - var(--chat-content-max-width)) / 2)),
+    var(--chat-gutter-max)
   );
   background: var(--bg-solid);
   border-top: none;

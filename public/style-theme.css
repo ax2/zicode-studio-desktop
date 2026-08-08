@@ -51,6 +51,10 @@
      gutters on both sides. */
   --chat-content-max-width: 960px;
   --app-content-max-width: 1120px;
+  /* Desktop keeps readability caps, but on very wide windows the symmetric
+     gutters grow large and leave most of the window blank. Cap the gutter so
+     chat/app content claims more of the desktop surface. */
+  --chat-gutter-max: 96px;
 
   /* Motion */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);

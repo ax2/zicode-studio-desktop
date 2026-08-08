@@ -589,10 +589,13 @@ describe("desktop three-region layout contract", () => {
       /--chat-content-max-width:\s*960px/,
     );
     expect(messagesCss).toMatch(
-      /\.messages\s*\{[\s\S]*?padding-left:\s*max\([\s\S]*?var\(--chat-content-max-width\)[\s\S]*?padding-right:\s*max\([\s\S]*?var\(--chat-content-max-width\)/,
+      /\.messages\s*\{[\s\S]*?padding-left:\s*min\(\s*max\([\s\S]*?var\(--chat-content-max-width\)[\s\S]*?var\(--chat-gutter-max\)[\s\S]*?padding-right:\s*min\(\s*max\([\s\S]*?var\(--chat-content-max-width\)[\s\S]*?var\(--chat-gutter-max\)/,
     );
     expect(composerCss).toMatch(
-      /\.input-area\s*\{[\s\S]*?padding-left:\s*max\([\s\S]*?var\(--chat-content-max-width\)/,
+      /\.input-area\s*\{[\s\S]*?padding-left:\s*min\(\s*max\([\s\S]*?var\(--chat-content-max-width\)[\s\S]*?var\(--chat-gutter-max\)/,
+    );
+    expect(themeCss).toMatch(
+      /--chat-gutter-max:\s*96px/,
     );
     expect(themeCss).toMatch(
       /@media \(min-width: 1536px\)[\s\S]*?--chat-content-max-width:\s*1280px/,
@@ -608,6 +611,18 @@ describe("desktop three-region layout contract", () => {
     );
     expect(workspaceAppCss).toMatch(
       /\.project-workspace-main\s*\{[\s\S]*?max-width:\s*var\(--app-content-max-width\)/,
+    );
+  });
+
+  it("keeps the welcome screen compact on mobile and space-filling on desktop", () => {
+    expect(messageRendererCss).toMatch(
+      /\.welcome-quick-actions\s*\{\s*display:\s*none;/,
+    );
+    expect(messageRendererCss).toMatch(
+      /@media \(min-width: 769px\)[\s\S]*?\.welcome\s*\{[\s\S]*?margin:\s*auto\s+0[\s\S]*?\.welcome-quick-actions\s*\{[\s\S]*?display:\s*grid/,
+    );
+    expect(messageRendererCss).toMatch(
+      /\.welcome-quick-action-icon\s*\{[\s\S]*?font-size:\s*var\(--font-size-2xl\)/,
     );
   });
 
