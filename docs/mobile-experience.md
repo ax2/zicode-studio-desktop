@@ -4540,6 +4540,20 @@ P2 再做）完成 P1 UI 层：
    打开（135 个文件）；前端 723 全绿、typecheck/Biome 通过；安装
    目录已同步。
 
+第二百六十七轮：PWA 分享入口 service-worker 链路本地验证（2026-08-08）。
+
+1. 背景：Web Share Target 的消费端（mobile-share-target /
+   mobile-share-inbox）已有测试，但 service-worker 侧（multipart
+   表单解析、图片收集、landing HTML 注入 sessionStorage、fetch
+   路由）无测试覆盖；补齐 `service-worker.test.js` 4 个用例，用
+   vm 沙箱加载 service-worker.js 验证：标题/正文/URL 解析进
+   landing payload、空分享标记 invalid、POST /share-target 导航
+   路由到分享处理器、非 navigate 静态请求不受影响；
+2. 说明：真机是否暴露 PWA 分享目标仍需 Android/iOS 系统验证
+   （清单遗留项），本测试覆盖本地可验证的 service-worker 处理
+   链路；
+3. 验证：前端 727 全绿（新增 4 例）、typecheck/Biome 通过。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

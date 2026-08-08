@@ -472,3 +472,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    被 header 覆盖
 - [x] Files 入口跨应用可达（第 266 轮）：非 Chat 视图点击 Files 先
    切回 Chat 再打开文件面板 + 回归测试
+- [x] PWA 分享入口 service-worker 测试（第 267 轮）：multipart
+   解析、landing 注入、fetch 路由 4 例 vm 沙箱测试
