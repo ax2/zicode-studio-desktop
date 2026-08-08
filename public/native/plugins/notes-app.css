@@ -42,6 +42,7 @@
 }
 
 .notes-nav-item,
+.notes-nav-button,
 .notes-list-item {
   width: 100%;
   min-height: var(--control-height-sm);
@@ -59,8 +60,10 @@
 }
 
 .notes-nav-item:hover,
+.notes-nav-button:hover,
 .notes-list-item:hover,
 .notes-nav-item.active,
+.notes-nav-button.active,
 .notes-list-item.active {
   background: var(--accent-subtle);
   color: var(--text-primary);

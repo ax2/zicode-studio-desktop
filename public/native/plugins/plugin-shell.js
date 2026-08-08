@@ -348,6 +348,11 @@ export function setupPluginShell({
   function renderSidebar(pluginId) {
     pluginSidebar.replaceChildren();
     const plugin = registry.get(pluginId);
+    const application = applicationViews.get(pluginId);
+    const hasOwnNavigation =
+      pluginId === SETTINGS_VIEW_ID ||
+      pluginId === HELP_VIEW_ID ||
+      (application && typeof application.renderNavigation === "function");
     const title =
       pluginId === SETTINGS_VIEW_ID
         ? t("Settings")
@@ -375,7 +380,7 @@ export function setupPluginShell({
           description: t("Manifest v1 · Host API v1 planning contract"),
         },
       );
-    } else {
+    } else if (!hasOwnNavigation) {
       for (const [index, view] of (plugin?.sidebarViews ?? []).entries()) {
         accordions.push({
           title: t(view.title),
@@ -399,7 +404,6 @@ export function setupPluginShell({
       helpApp?.renderNavigation?.(pluginSidebar);
       return;
     }
-    const application = applicationViews.get(pluginId);
     if (application) {
       application.renderNavigation?.(pluginSidebar);
       return;
