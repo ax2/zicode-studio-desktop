@@ -95,8 +95,11 @@ describe("settings widgets React render", () => {
     const { widgets } = renderGeneral();
     expect(document.getElementById("toggle-auto-compact")).toBeTruthy();
     expect(document.getElementById("toggle-show-thinking")?.classList.contains("on")).toBe(true);
+    expect(document.getElementById("toggle-auto-compact")?.getAttribute("aria-label")).toBeTruthy();
+    expect(document.getElementById("toggle-show-thinking")?.getAttribute("aria-label")).toBeTruthy();
     expect(document.querySelectorAll(".thinking-effort-dot").length).toBe(5);
     expect(document.getElementById("scene-profile-select")).toBeTruthy();
+    expect(document.getElementById("scene-profile-select")?.getAttribute("aria-label")).toBeTruthy();
     await waitFor(() =>
       expect(
         (document.getElementById("scene-profile-select") as HTMLSelectElement | null)?.options

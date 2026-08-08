@@ -355,6 +355,7 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
         <select
           className="ui-input scene-profile-select"
           id="scene-profile-select"
+          aria-label={t("Scene for the next session")}
           value={selectedId}
           onChange={(event) => widgets.getState().setSceneSelected(event.target.value)}
         >
@@ -503,6 +504,7 @@ export function GeneralTab({
           <SettingsToggle
             id="toggle-auto-compact"
             enabled={Boolean(toggles["auto-compact"])}
+            ariaLabel={t("Auto-compaction")}
             onChange={() => widgets.getState().toggle("auto-compact")}
           />
         </div>
@@ -518,6 +520,7 @@ export function GeneralTab({
           <SettingsToggle
             id="toggle-show-thinking"
             enabled={Boolean(toggles["show-thinking"])}
+            ariaLabel={t("Show thinking")}
             onChange={() => widgets.getState().toggle("show-thinking")}
           />
         </div>
