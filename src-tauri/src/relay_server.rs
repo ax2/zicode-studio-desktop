@@ -916,8 +916,11 @@ async fn proxy_to_desktop(
 /// Make the PWA manifest device-scoped when served through the relay: the
 /// desktop's manifest uses root-absolute `start_url`/`scope`/`id`, which would
 /// launch the installed app at the relay root (400). Rewrite them to the
-/// device page path so "Add to Home Screen" works in relay mode. Returns
-/// `None` when the body is not the JSON manifest.
+/// device page path so "Add to Home Screen" works in relay mode. The Web Share
+/// Target action must stay within the rewritten scope, or Chrome ignores the
+/// share target ("property 'action' ignored, should be within scope of
+/// manifest"), so `share_target.action` is scoped too. Returns `None` when the
+/// body is not the JSON manifest.
 fn rewrite_manifest(body: &[u8], device_id: &str) -> Option<Vec<u8>> {
     let mut manifest: serde_json::Value = serde_json::from_slice(body).ok()?;
     let base = format!("/d/{device_id}/app/");
@@ -925,6 +928,14 @@ fn rewrite_manifest(body: &[u8], device_id: &str) -> Option<Vec<u8>> {
         if manifest.get_mut(key).is_some() {
             manifest[key] = serde_json::Value::String(base.clone());
         }
+    }
+    if let Some(action) = manifest
+        .get_mut("share_target")
+        .and_then(|target| target.get_mut("action"))
+    {
+        *action = serde_json::Value::String(format!(
+            "/d/{device_id}/app/share-target"
+        ));
     }
     serde_json::to_vec(&manifest).ok()
 }
@@ -1251,6 +1262,25 @@ mod tests {
         assert_eq!(value["scope"], "/d/dev-ax2-01/app/");
         assert_eq!(value["id"], "/d/dev-ax2-01/app/");
         assert_eq!(value["name"], "ZiCode");
+
+        // share_target.action must stay inside the rewritten scope, otherwise
+        // Chrome ignores the share target registration.
+        let manifest_with_share = br#"{"name":"ZiCode","start_url":"/","scope":"/","id":"/","share_target":{"action":"/share-target","method":"POST","enctype":"multipart/form-data","params":{"title":"title","text":"text","url":"url"}}}"#;
+        let rewritten_with_share = rewrite_manifest(manifest_with_share, "dev-ax2-01").unwrap();
+        let value_with_share: serde_json::Value =
+            serde_json::from_slice(&rewritten_with_share).unwrap();
+        assert_eq!(
+            value_with_share["share_target"]["action"],
+            "/d/dev-ax2-01/app/share-target"
+        );
+        assert_eq!(
+            value_with_share["share_target"]["params"]["text"],
+            "text"
+        );
+        assert_eq!(
+            value_with_share["scope"].as_str().unwrap(),
+            "/d/dev-ax2-01/app/"
+        );
 
         // Non-JSON bodies (e.g. the SPA fallback HTML) are left untouched.
         assert!(rewrite_manifest(b"<html></html>", "dev").is_none());

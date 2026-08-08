@@ -131,6 +131,25 @@ describe("mobile Web Share Target service worker", () => {
     expect(typeof capture.response?.then).toBe("function");
   });
 
+  it("routes device-scoped POST share-target paths in relay mode", () => {
+    const { listeners } = loadServiceWorkerSandbox();
+    const capture = respondWithCapture(listeners);
+    const request = {
+      url: "https://relay.zicode.com/d/dev-ax2-01/app/share-target",
+      method: "POST",
+      mode: "navigate",
+    };
+    const form = new FormData();
+    form.set("text", "relay share");
+    request.formData = async () => form;
+    capture.event.request = request;
+
+    capture.fetchListener(capture.event);
+
+    expect(capture.response).toBeTruthy();
+    expect(typeof capture.response?.then).toBe("function");
+  });
+
   it("leaves non-navigate static requests untouched", () => {
     const { listeners } = loadServiceWorkerSandbox();
     const capture = respondWithCapture(listeners);

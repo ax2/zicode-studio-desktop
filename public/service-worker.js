@@ -2,6 +2,10 @@ const CACHE_NAME = "zicode-mobile-shell-v4";
 const OFFLINE_URL = "/offline.html";
 const OFFLINE_ASSETS = [OFFLINE_URL, "/offline.js", "/offline-entry.js"];
 const SHARE_TARGET_PATH = "/share-target";
+// In relay mode the manifest's share_target.action is rewritten into the
+// device scope (/d/{device}/app/share-target); the service worker serves the
+// same scope, so its fetch handler must recognize both path shapes.
+const DEVICE_SHARE_TARGET_PATH = /^\/d\/[^/]+\/app\/share-target$/;
 const SHARE_TARGET_STORAGE_KEY = "zicode-mobile-share-target";
 const SHARE_INBOX_DB = "zicode-mobile-share-inbox-v1";
 const SHARE_INBOX_STORE = "shares";
@@ -216,7 +220,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (
     url.origin === self.location.origin &&
-    url.pathname === SHARE_TARGET_PATH &&
+    (url.pathname === SHARE_TARGET_PATH || DEVICE_SHARE_TARGET_PATH.test(url.pathname)) &&
     event.request.method === "POST" &&
     event.request.mode === "navigate"
   ) {
