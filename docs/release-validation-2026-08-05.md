@@ -196,3 +196,22 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     w=760），5 个快捷入口可见且可点（笔记→切到笔记应用、开始新对话→
     聚焦输入框）；最大化 2048×1210 时 messages padding=96px（留白
     封顶生效）、欢迎页居中于头部与输入框之间；日志无 ERROR/WARN/panic。
+
+## 第十三次重建（2026-08-08，含第 273 轮插件应用 React 根失效修复）
+
+- 合入第 273 轮：项目/任务/自动化/产物/金融五个插件应用接入共享挂载
+  辅助（wrapper + 每次激活重建 React 根，`display: contents` 布局透明），
+  plugin-shell `renderMain` 重置共享容器 className，消除切换应用后
+  视图变空、`removeChild` 异常与 finance 类污染；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `2D55978FAB523CF1CD989E8057BBBB467876C54F7723F02451C67D471F446BE0`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,828,957 B，SHA-256
+    `C7608238A1513DFA98D09DEE33C53859DC8B6A3716066CF50B480ABC6264CA35`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、默认窗口 1440×900；
+  - CDP 两轮全应用切换（24 单元格）：0 空视图、0 finance 类污染、
+    0 异常、0 控制台错误；日志无 ERROR/WARN/panic。

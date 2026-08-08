@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百七十四轮：release 第十三次重建（含第 273 轮，2026-08-08）。
+
+1. 让生产安装包包含第 273 轮（插件应用 React 根失效修复）；
+   `bun run build` 重建 EXE 41,320,960 B（SHA-256 `2D55978F…`）与
+   安装包 346,828,957 B（`C7608238…`），完整哈希见
+   `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录 297 个文件与仓库 public 一致；从安装
+   目录启动：`/health` 200（pi 0.83.0、协议 v2、
+   `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、默认窗口
+   1440×900；CDP 两轮全应用切换 24 单元格 0 空视图、0 finance 类污染、
+   0 异常、0 控制台错误；日志无 ERROR/WARN/panic。
+
 第二百七十三轮：插件应用 React 根失效修复（切换应用后视图变空/异常，2026-08-08）。
 
 1. 根因：plugin-shell 每次激活都会先 `replaceChildren()` 清空共享的

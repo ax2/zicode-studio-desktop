@@ -491,3 +491,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    接入共享挂载辅助（wrapper + 重建根，display:contents），修复切换
    应用后视图变空、removeChild 异常与 finance 类污染；前端 734 测试
    全绿，CDP 两轮全应用切换 0 异常
+- [x] release 第十三次重建（第 274 轮）：EXE 41,320,960 B / 安装包
+   346,828,957 B，含第 273 轮修复，静默重装验证通过
