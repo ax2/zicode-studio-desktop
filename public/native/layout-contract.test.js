@@ -742,9 +742,18 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
-  it("floats the right side panel over the main column on narrow desktops", () => {
+  it("floats the right side panel over the main column at every width", () => {
     expect(globalStyleCss).toMatch(
-      /@media \(max-width: 920px\)[\s\S]*?\.app-side-panel\s*\{[\s\S]*?position:\s*absolute[\s\S]*?right:\s*0[\s\S]*?bottom:\s*0/,
+      /\.app-side-panel\s*\{[\s\S]*?position:\s*absolute[\s\S]*?right:\s*0[\s\S]*?bottom:\s*0/,
+    );
+    expect(globalStyleCss).toMatch(
+      /\.app-side-panel\.collapsed\s*\{[\s\S]*?transform:\s*translateX\(100%\)/,
+    );
+  });
+
+  it("keeps the plugin activity bar full-height so system actions pin to the bottom", () => {
+    expect(pluginShellCss).toMatch(
+      /\.plugin-activity-bar\s*\{[\s\S]*?height:\s*100%/,
     );
   });
 

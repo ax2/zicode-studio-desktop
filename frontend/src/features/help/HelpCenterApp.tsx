@@ -297,7 +297,9 @@ export function createHelpCenterApp(options: HelpCenterOptions): HelpCenterAppAp
   const store = createHelpStore(options);
   let openHandler: ((pageId: string | null) => void) | null = null;
   let navRoot: Root | null = null;
+  let navWrapper: HTMLElement | null = null;
   let contentRoot: Root | null = null;
+  let contentWrapper: HTMLElement | null = null;
   return {
     setOpenHandler(handler) {
       openHandler = typeof handler === "function" ? handler : null;
@@ -320,15 +322,31 @@ export function createHelpCenterApp(options: HelpCenterOptions): HelpCenterAppAp
       return store.getState().loadPage(pageId);
     },
     renderNavigation(container) {
-      navRoot ??= createRoot(container);
-      navRoot.render(<HelpNav store={store} />);
+      if (!container) return;
+      let root = navRoot;
+      if (!root || !navWrapper || !container.contains(navWrapper)) {
+        navWrapper = document.createElement("div");
+        navWrapper.dataset.helpCenterNav = "";
+        container.append(navWrapper);
+        root = createRoot(navWrapper);
+        navRoot = root;
+      }
+      root.render(<HelpNav store={store} />);
       void store.getState().loadManifest().catch((reason) => {
         store.setState({ error: reason instanceof Error ? reason.message : String(reason) });
       });
     },
     renderContent(container) {
-      contentRoot ??= createRoot(container);
-      contentRoot.render(<HelpMain store={store} />);
+      if (!container) return;
+      let root = contentRoot;
+      if (!root || !contentWrapper || !container.contains(contentWrapper)) {
+        contentWrapper = document.createElement("div");
+        contentWrapper.dataset.helpCenterRoot = "";
+        container.append(contentWrapper);
+        root = createRoot(contentWrapper);
+        contentRoot = root;
+      }
+      root.render(<HelpMain store={store} />);
       if (!store.getState().article) {
         void store
           .getState()

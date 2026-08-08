@@ -130,10 +130,20 @@ body {
   flex-direction: column;
   overflow: hidden;
   transition:
-    margin-right 0.3s var(--ease),
+    transform 0.3s var(--ease),
     opacity 0.3s var(--ease);
   z-index: 100;
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  box-shadow: var(--shadow-lg);
+}
+
+.app-side-panel.collapsed {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .app-side-panel.is-resizable {
@@ -186,25 +196,6 @@ body.is-resizing-side-panel {
 
 .file-sidebar {
   display: flex;
-}
-
-.file-sidebar.collapsed {
-  margin-right: calc(var(--panel-width) * -1);
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* Below ~920px the right side panel floats over the main column instead of
-   squeezing it to an unusable width (measured 177px at 769px with a 320px
-   panel open). The panel itself is still off-canvas while collapsed. */
-@media (max-width: 920px) {
-  .app-side-panel {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    box-shadow: var(--shadow-lg);
-  }
 }
 
 .file-sidebar-header {

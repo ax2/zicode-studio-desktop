@@ -13,6 +13,7 @@
   /* biome-ignore lint/suspicious/noDuplicateProperties: 100vh is a fallback for browsers without dvh support */
   height: 100dvh;
   position: relative;
+  overflow: hidden;
 }
 
 .icon-btn {

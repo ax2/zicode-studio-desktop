@@ -385,3 +385,8 @@ bun run test          # vitest（public/** + frontend/src/**）
   extension-ui-host / slash-commands / super-agent 逻辑）——均按第 212
   轮范围决策保持 vanilla；React 迁移主线完成：28 个 DOM 渲染模块全部
   React 化、手写 DOM 桥接与死代码清零、698 测试全绿
+- [x] UI 布局修复走查（第 224 轮）：对话区空隙（.app-side-panel 在列
+  布局里 in-flow 占高）→ 右侧栏绝对定位右轨 + 折叠离屏；活动栏全高
+  沉底；help 独立 wrapper 挂载修复空白；主题 select 受控值同步；
+  body 横向溢出裁剪；任务中心核实为诚实空态；CDP 实测 9+ 视图全高
+  零异常，698 测试全绿

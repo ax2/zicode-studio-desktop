@@ -4,6 +4,7 @@
 .plugin-activity-bar {
   width: calc(var(--control-height-lg) + var(--space-3));
   min-width: calc(var(--control-height-lg) + var(--space-3));
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;

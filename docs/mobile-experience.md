@@ -4004,6 +4004,34 @@ app-updater、任务通知、草稿存储）全部收归 React store；剩余 va
 均为上列非 UI 分类。外部事项：真机复验移动端、TalkBack 走查（人工）、
 安装包签名、M2 跨 NAT 打洞验证、服务器部署新版中继+coturn+监控。
 
+第二百二十四轮：UI 布局问题整体走查与修复（2026-08-08）。
+
+1. 对话区"输入与历史之间留大空隙"：根因 `.app-side-panel`（file-sidebar
+   / super-agent-runtime）在 `.main` 列布局里是 in-flow flex 项，`flex:
+   0 0 320px` 在列方向变成 320px 高度，把 `#messages` 挤到 540px 高、
+   留下约 178px 空隙——右侧栏改为 `position:absolute; right:0; bottom:0`
+   的右轨，折叠改为 `transform: translateX(100%)` 离屏（替换原 margin
+   负值技巧），消息区恢复全高；顺带发现并修复折叠面板离屏造成的 body
+   横向溢出（`.app-layout { overflow:hidden }`）；
+2. 最左图标栏未沉底：`.plugin-activity-bar` 宿主全高但 NAV 自身只有
+   内容高（593/860）——补 `height:100%`，配合已有的
+   `.plugin-activity-spacer{flex:1}` 使设置/帮助系统组贴底；
+3. help 空白：helpApp 的 renderContent/renderNavigation 直接在
+   pluginMain 上 createRoot，被 plugin-shell 的 replaceChildren 破坏
+   （round 209 已知 NotFoundError 问题类别）——改为独立 wrapper 挂载 +
+   容器校验（wrapper 被摘除则重建），实测 help 正常渲染帮助文章；
+4. 主题下拉：受控 select 的 value 取 getCurrentTheme() 只在渲染时计算，
+   切换后不更新 → 用 useState 同步选择值（applyTheme 后立即 setState），
+   并给 select 加 `color-scheme: light dark` 保证原生弹出框对比度；
+5. 任务中心"显示空"：CDP 核实 runtime 返回 ok+空列表，属诚实空态
+   （Agent Inbox 无 Super Agent 任务），非缺陷；
+6. 笔记右上遮挡：根因同为右侧栏 in-flow 占用底部 320px，修复后笔记
+   视图全高、顶部内容清除标题栏（padding-top 48px）后无遮挡；
+7. **验证**：CDP 实测 chat/projects/tasks/notes/automation/finance/
+   artifacts/settings/help/pluginManager 全部视图全高渲染、无横向溢出、
+   零异常；主题切换 select 值实时同步；全量 698 测试全绿（layout-
+   contract 新增右侧栏绝对定位与活动栏全高两条断言）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

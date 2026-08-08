@@ -177,6 +177,7 @@ function AppearancePreferences() {
   void localeTick;
   const currentTheme = getCurrentTheme();
   const locale = getLocale();
+  const [themeId, setThemeId] = useState(currentTheme);
   return (
     <div className="settings-section">
       <div className="settings-section-title">{t("Appearance")}</div>
@@ -185,8 +186,11 @@ function AppearancePreferences() {
         <select
           className="ui-select settings-preference-select"
           id="theme-select"
-          value={currentTheme}
-          onChange={(event) => applyTheme(event.target.value)}
+          value={themeId}
+          onChange={(event) => {
+            applyTheme(event.target.value);
+            setThemeId(event.target.value);
+          }}
         >
           {Object.entries(themes as Record<string, { name: Record<string, string> }>).map(
             ([id, theme]) => (
