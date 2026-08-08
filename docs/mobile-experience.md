@@ -4568,6 +4568,17 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百八十五轮：release 第十八次重建（含第 284 轮，2026-08-09）。
+
+1. 让生产安装包包含第 284 轮（设计 CSS 门禁清零）；
+   `bun run build` 重建 EXE 41,320,960 B（SHA-256 `E11AADE4…`）与
+   安装包 346,864,649 B（`0B5A7839…`），完整哈希见
+   `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录 297 个文件与仓库 public 一致；从安装
+   目录启动：`/health` 200（pi 0.83.0、协议 v2、
+   `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+   ERROR/WARN/panic。
+
 第二百八十四轮：设计 CSS 检查遗留项清零（2026-08-09）。
 
 1. 背景：`bun scripts/check-design-css.mjs`（设计契约门禁）此前一直

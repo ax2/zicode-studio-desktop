@@ -284,3 +284,19 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
   - CDP 实测输入框聚焦→Ctrl+Shift+P→Escape→焦点回到输入框；日志无
     ERROR/WARN/panic。
+
+## 第十八次重建（2026-08-09，含第 284 轮设计 CSS 门禁清零）
+
+- 合入第 284 轮：`session-sidebar.css` 字面量 `font-size: 12px` 改为
+  设计令牌 `var(--font-size-sm)`，`check-design-css` 门禁首次全绿；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `E11AADE4404C7246AF0ABD098525AD3AF550DC6A0ABBACA63D13AE6F69D16819`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,864,649 B，SHA-256
+    `0B5A7839422CF5338ACB6C34BAF9BF50E055F66CA5BA5C80F25A9EB7D758053A`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+    ERROR/WARN/panic。

@@ -513,3 +513,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    346,856,567 B，含第 282 轮修复，静默重装验证通过
 - [x] 设计 CSS 检查清零（第 284 轮）：session-sidebar 字面量 12px 改
    设计令牌，check-design-css 门禁首次全绿
+- [x] release 第十八次重建（第 285 轮）：EXE 41,320,960 B / 安装包
+   346,864,649 B，含第 284 轮修复，静默重装验证通过
