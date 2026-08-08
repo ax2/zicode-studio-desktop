@@ -141,7 +141,10 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "usage" ? " active" : ""}`}
         data-settings-panel="usage"
       >
-        <CostDashboardTab store={controller.costDashboardStore} />
+        <CostDashboardTab
+          store={controller.costDashboardStore}
+          onRetry={() => controller.loadForTab("usage")}
+        />
       </div>
       <div
         className={`settings-tab${activeTab === "configuration" ? " active" : ""}`}

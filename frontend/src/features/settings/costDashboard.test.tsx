@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { setLocale } from "../../shared/i18n";
 import { CostDashboardTab } from "./CostDashboardTab";
 import {
   adaptDashboardToInfobarPayload,
@@ -142,16 +143,20 @@ describe("cost dashboard store + React tab", () => {
     expect(before).toBe("30d");
   });
 
-  it("renders a load error state", async () => {
+  it("renders a load error state with a retry action", async () => {
+    setLocale("en");
     const data = {
       costDashboard: vi.fn(async () => {
         throw new Error("boom");
       }),
     };
     const store = createCostDashboardStore();
-    render(<CostDashboardTab store={store} />);
+    const onRetry = vi.fn();
+    render(<CostDashboardTab store={store} onRetry={onRetry} />);
     await store.getState().load(data, () => "workspace-1");
     await waitFor(() => expect(document.querySelector(".cost-dash-error")).toBeTruthy());
     expect(document.querySelector(".cost-dash-error")?.textContent).toContain("boom");
+    screen.getByRole("button", { name: "Retry" }).click();
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

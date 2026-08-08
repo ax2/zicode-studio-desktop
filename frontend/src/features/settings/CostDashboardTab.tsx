@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { t } from "../../shared/i18n";
 import {
   buildActivityMonthLabels,
   buildModelSummary,
@@ -26,7 +27,13 @@ function getChartConstructor(): ChartConstructor | null {
   return typeof chart === "function" ? chart : null;
 }
 
-export function CostDashboardTab({ store }: { store: CostDashboardStore }) {
+export function CostDashboardTab({
+  store,
+  onRetry,
+}: {
+  store: CostDashboardStore;
+  onRetry?: () => void;
+}) {
   const status = store((state) => state.status);
   const error = store((state) => state.error);
   const range = store((state) => state.range);
@@ -54,6 +61,11 @@ export function CostDashboardTab({ store }: { store: CostDashboardStore }) {
         <p className="cost-dash-empty-state cost-dash-error">
           {error || "Failed to load usage data"}
         </p>
+        {onRetry ? (
+          <button type="button" className="ui-button ui-button--secondary" onClick={onRetry}>
+            {t("Retry")}
+          </button>
+        ) : null}
       </div>
     );
   }
