@@ -444,3 +444,6 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 快捷键冲突修复（第 246 轮）：命令面板改为 Ctrl+Shift+P，
   Ctrl+K 回归会话搜索独占，消除双浮层冲突；会话管理（收藏/归档/
   重命名/删除）全流程生产版实测通过
+- [x] 模型错误分类补全（第 248 轮）：describeModelError 新增
+  context-length 分类（上下文超长提示新建会话/压缩上下文）+ 2 条测试；
+  快速切换应用压力测试无泄漏/错误

@@ -54,6 +54,20 @@ export function describeModelError(message: { errorMessage?: string; error?: str
     };
   }
 
+  if (
+    /context[_ -]?(?:length|window|size).*(?:exceed|too (?:long|large)|full)|prompt is too long|maximum context/i.test(
+      raw,
+    )
+  ) {
+    return {
+      kind: "context-length",
+      title: t("Conversation is too long for this model"),
+      summary: t("The request exceeded the model's context window."),
+      suggestion: t("Start a new conversation or compact the context, then try again."),
+      metrics: [],
+    };
+  }
+
   return {
     kind: "generic",
     title: t("Model request failed"),

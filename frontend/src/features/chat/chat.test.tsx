@@ -29,6 +29,12 @@ describe("chat logic", () => {
     expect(describeModelError({ error: "insufficient_user_quota" }).kind).toBe("quota");
     expect(describeModelError({ error: "401 unauthorized" }).kind).toBe("authentication");
     expect(describeModelError({ error: "429 too many requests" }).kind).toBe("rate-limit");
+    expect(
+      describeModelError({ error: "maximum context length exceeded" }).kind,
+    ).toBe("context-length");
+    expect(describeModelError({ errorMessage: "prompt is too long" }).kind).toBe(
+      "context-length",
+    );
     expect(describeModelError({ error: "boom" }).kind).toBe("generic");
   });
 
