@@ -334,3 +334,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
+
+## 第二十一次重建（2026-08-09，含第 292 轮显示思考过程开关修复）
+
+- 合入第 292 轮：message-renderer.css 的思考块隐藏规则从
+  `body.hide-thinking`（无代码设置）改为 `body[data-show-thinking="off"]`
+  （设置面板实际写入的机制），开关首次真正生效；新增布局契约断言；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `A9E5C17B45E113DB8B48ABE11F438803A88CC7B254B824785A02E1277D767CBE`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,833,530 B，SHA-256
+    `7241E77C928A9471962927F80CAE981B4108E52FD7A8CC6F7D6B7D22CEB18B7A`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+    ERROR/WARN/panic。

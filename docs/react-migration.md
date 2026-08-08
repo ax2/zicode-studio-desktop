@@ -535,3 +535,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 显示思考过程开关修复（第 292 轮）：CSS 从错误的 body.hide-thinking
    类改为 body[data-show-thinking="off"]，开关首次真正隐藏思考块 + 布局
    契约断言；前端 738 测试全绿
+- [x] release 第二十一次重建（第 293 轮）：EXE 41,320,960 B / 安装包
+   346,833,530 B，含第 292 轮修复，静默重装验证通过
