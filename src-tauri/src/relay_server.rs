@@ -933,9 +933,7 @@ fn rewrite_manifest(body: &[u8], device_id: &str) -> Option<Vec<u8>> {
         .get_mut("share_target")
         .and_then(|target| target.get_mut("action"))
     {
-        *action = serde_json::Value::String(format!(
-            "/d/{device_id}/app/share-target"
-        ));
+        *action = serde_json::Value::String(format!("/d/{device_id}/app/share-target"));
     }
     serde_json::to_vec(&manifest).ok()
 }
@@ -1273,10 +1271,7 @@ mod tests {
             value_with_share["share_target"]["action"],
             "/d/dev-ax2-01/app/share-target"
         );
-        assert_eq!(
-            value_with_share["share_target"]["params"]["text"],
-            "text"
-        );
+        assert_eq!(value_with_share["share_target"]["params"]["text"], "text");
         assert_eq!(
             value_with_share["scope"].as_str().unwrap(),
             "/d/dev-ax2-01/app/"

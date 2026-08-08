@@ -522,3 +522,6 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 服务器基础设施实证（第 287 轮）：公网 STUN binding 成功响应
    （turn.remote.zicode.com:3478）、coturn active、中继 5 分钟健康检查
    计时器与每日用量持久化确认
+- [x] Rust 质量门禁全绿（第 288 轮）：save_note 参数 lint 允许 + cargo
+   fmt 全量格式化，check-rust.sh（clippy -D warnings + fmt）首次全绿，
+   Rust 165 测试通过

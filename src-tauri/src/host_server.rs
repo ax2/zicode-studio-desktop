@@ -1424,9 +1424,7 @@ async fn list_note_knowledge(
     ensure_notes_authorized(&state, &query.scene_id, false)?;
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
     let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
-    let snapshot = scoped
-        .knowledge()
-        .map_err(notes_api_error)?;
+    let snapshot = scoped.knowledge().map_err(notes_api_error)?;
     Ok(Json(json!({
         "schemaVersion": 1,
         "sceneId": query.scene_id,
@@ -1493,7 +1491,9 @@ async fn delete_notebook(
     scoped
         .delete_notebook(&request.notebook_id)
         .map_err(notes_api_error)?;
-    Ok(Json(json!({ "deleted": true, "notebookId": request.notebook_id })))
+    Ok(Json(
+        json!({ "deleted": true, "notebookId": request.notebook_id }),
+    ))
 }
 
 async fn get_note(
@@ -1680,9 +1680,7 @@ async fn read_note_attachment(
 ) -> Result<Response, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
-    let scoped = notes
-        .scoped(&query.workspace_id)
-        .map_err(notes_api_error)?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
     let (bytes, mime_type) = scoped
         .read_attachment(&query.notebook_id, &query.note_id, &query.attachment_id)
         .map_err(notes_api_error)?;
@@ -1721,9 +1719,7 @@ async fn export_notes_backup(
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_notes_authorized(&state, &query.scene_id, false)?;
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
-    let scoped = notes
-        .scoped(&query.workspace_id)
-        .map_err(notes_api_error)?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
     let backup = scoped
         .export_notebook(&query.notebook_id)
         .map_err(notes_api_error)?;
@@ -1765,7 +1761,10 @@ async fn list_artifacts(
     Query(query): Query<ArtifactsQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &query.scene_id, None)?;
-    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let artifacts = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?;
     let scoped = artifacts
         .scoped(&query.workspace_id)
         .map_err(artifacts_api_error)?;
@@ -1789,7 +1788,10 @@ async fn get_artifact(
     Query(query): Query<ArtifactQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &query.scene_id, None)?;
-    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let artifacts = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?;
     let scoped = artifacts
         .scoped(&query.workspace_id)
         .map_err(artifacts_api_error)?;
@@ -1804,7 +1806,10 @@ async fn create_artifact(
     Json(request): Json<CreateArtifactRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &request.scene_id, Some(&request.plugin_id))?;
-    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let artifacts = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?;
     let scoped = artifacts
         .scoped(&request.workspace_id)
         .map_err(artifacts_api_error)?;
@@ -1829,7 +1834,10 @@ async fn delete_artifact(
     Json(request): Json<DeleteArtifactRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_artifacts_authorized(&state, &request.scene_id, None)?;
-    let artifacts = state.artifacts.lock().map_err(|_| artifacts_unavailable())?;
+    let artifacts = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?;
     let scoped = artifacts
         .scoped(&request.workspace_id)
         .map_err(artifacts_api_error)?;

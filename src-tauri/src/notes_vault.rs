@@ -323,8 +323,9 @@ impl NotesVault {
             })?;
             moved_notebooks += 1;
         }
-        fs::write(&marker, &workspace_id)
-            .map_err(|_| NotesError::new("storage_unavailable", "Cannot finalize notes migration"))?;
+        fs::write(&marker, &workspace_id).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot finalize notes migration")
+        })?;
         Ok(NotesMigrationReport {
             claimed_workspace_id: workspace_id,
             moved_notebooks,
@@ -658,9 +659,8 @@ impl NotesVault {
                 "Notebook does not exist",
             ));
         }
-        fs::remove_dir_all(&root).map_err(|_| {
-            NotesError::new("storage_unavailable", "Cannot delete notebook")
-        })
+        fs::remove_dir_all(&root)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot delete notebook"))
     }
 
     pub fn create_note(
@@ -711,6 +711,11 @@ impl NotesVault {
         read_note_file(&path, &notebook_id)
     }
 
+    // Each parameter is a distinct field of the note document (identity,
+    // content, metadata and optimistic-concurrency version); grouping them
+    // into a struct would hide the expected_version invariant, so keep the
+    // explicit signature.
+    #[allow(clippy::too_many_arguments)]
     pub fn save_note(
         &self,
         notebook_id: &str,
@@ -795,7 +800,10 @@ impl NotesVault {
         atomic_write(&target_path, &bytes)?;
         let source_path = self.note_path(&notebook_id, &note_id)?;
         fs::remove_file(&source_path).map_err(|_| {
-            NotesError::new("storage_unavailable", "Cannot remove the note from its source")
+            NotesError::new(
+                "storage_unavailable",
+                "Cannot remove the note from its source",
+            )
         })?;
         let mut written = moved;
         written.summary.version = version_for(&bytes);
@@ -1378,9 +1386,9 @@ impl NotesVault {
         version: Option<&str>,
     ) -> Result<(), NotesError> {
         let path = self.change_log_path();
-        let parent = path
-            .parent()
-            .ok_or_else(|| NotesError::new("storage_unavailable", "Cannot create note change log"))?;
+        let parent = path.parent().ok_or_else(|| {
+            NotesError::new("storage_unavailable", "Cannot create note change log")
+        })?;
         fs::create_dir_all(parent)
             .map_err(|_| NotesError::new("storage_unavailable", "Cannot create note change log"))?;
         compact_change_log(&path, MAX_CHANGE_LOG_BYTES, RETAINED_CHANGE_RECORDS)?;
@@ -2576,10 +2584,25 @@ mod tests {
         let notebook_b = scoped_b.create_notebook("Project B", None, None).unwrap();
         assert_eq!(notebook_a.workspace_id, workspace_a);
         assert_eq!(notebook_b.workspace_id, workspace_b);
-        assert_eq!(scoped_a.list(None, None, None, false).unwrap().notebooks.len(), 1);
-        assert_eq!(scoped_b.list(None, None, None, false).unwrap().notebooks.len(), 1);
+        assert_eq!(
+            scoped_a
+                .list(None, None, None, false)
+                .unwrap()
+                .notebooks
+                .len(),
+            1
+        );
+        assert_eq!(
+            scoped_b
+                .list(None, None, None, false)
+                .unwrap()
+                .notebooks
+                .len(),
+            1
+        );
         // Legacy bare vault dirs are claimed by the first scoped workspace.
-        let legacy_root = std::env::temp_dir().join(format!("zicode-notes-legacy-{}", Uuid::new_v4()));
+        let legacy_root =
+            std::env::temp_dir().join(format!("zicode-notes-legacy-{}", Uuid::new_v4()));
         let legacy = NotesVault::new(legacy_root.join("plugins")).unwrap();
         let legacy_id = Uuid::new_v4().to_string();
         fs::create_dir_all(
@@ -2592,15 +2615,13 @@ mod tests {
         .unwrap();
         let report = legacy.migrate_legacy(workspace_a).unwrap();
         assert_eq!(report.moved_notebooks, 1);
-        assert!(
-            legacy_root
-                .join("plugin-data")
-                .join("com.zicode.notes")
-                .join("vaults")
-                .join(workspace_a)
-                .join(&legacy_id)
-                .is_dir()
-        );
+        assert!(legacy_root
+            .join("plugin-data")
+            .join("com.zicode.notes")
+            .join("vaults")
+            .join(workspace_a)
+            .join(&legacy_id)
+            .is_dir());
         let again = legacy.migrate_legacy(workspace_a).unwrap();
         assert!(again.skipped);
         let _ = fs::remove_dir_all(legacy_root);
@@ -2620,10 +2641,27 @@ mod tests {
 
         scoped_a.delete_notebook(&notebook_a.id).unwrap();
 
-        assert_eq!(scoped_a.list(None, None, None, false).unwrap().notebooks.len(), 0);
-        assert_eq!(scoped_b.list(None, None, None, false).unwrap().notebooks.len(), 1);
+        assert_eq!(
+            scoped_a
+                .list(None, None, None, false)
+                .unwrap()
+                .notebooks
+                .len(),
+            0
+        );
+        assert_eq!(
+            scoped_b
+                .list(None, None, None, false)
+                .unwrap()
+                .notebooks
+                .len(),
+            1
+        );
         assert!(scoped_a.get_note(&notebook_a.id, "x").is_err());
-        assert_eq!(notebook_b.id, scoped_b.list(None, None, None, false).unwrap().notebooks[0].id);
+        assert_eq!(
+            notebook_b.id,
+            scoped_b.list(None, None, None, false).unwrap().notebooks[0].id
+        );
         let _ = fs::remove_dir_all(root);
     }
 

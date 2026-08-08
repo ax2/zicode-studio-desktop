@@ -125,7 +125,10 @@ impl ArtifactStore {
 
     /// One-time migration: move legacy artifact files (created before project
     /// attribution) under the first workspace that accesses them.
-    pub fn migrate_legacy(&self, workspace_id: &str) -> Result<ArtifactMigrationReport, ArtifactError> {
+    pub fn migrate_legacy(
+        &self,
+        workspace_id: &str,
+    ) -> Result<ArtifactMigrationReport, ArtifactError> {
         let workspace_id = validate_workspace_id(workspace_id)?;
         let items = self.root.join("items");
         if !items.exists() {
@@ -175,8 +178,7 @@ impl ArtifactStore {
             // metadata itself records project attribution going forward.
             if name.ends_with(".json") && !name.ends_with(".content.json") {
                 if let Ok(bytes) = fs::read(&destination) {
-                    if let Ok(mut descriptor) =
-                        serde_json::from_slice::<ArtifactDescriptor>(&bytes)
+                    if let Ok(mut descriptor) = serde_json::from_slice::<ArtifactDescriptor>(&bytes)
                     {
                         if descriptor.workspace_id.is_empty() {
                             descriptor.workspace_id = workspace_id.clone();

@@ -4568,6 +4568,20 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百八十八轮：Rust 质量门禁恢复全绿（2026-08-09）。
+
+1. 背景：`scripts/check-rust.sh`（cargo clippy -D warnings + cargo fmt
+   --check）此前为红灯——`notes_vault::save_note` 7 个参数触发
+   `clippy::too_many_arguments`（warnings as errors），且多文件存在
+   fmt 漂移；
+2. 修复：为 `save_note` 加 `#[allow(clippy::too_many_arguments)]`（每个
+   参数均为笔记文档的独立字段，且 expected_version 不变量需显式呈现，
+   不并入结构体）；运行 `cargo fmt` 消除 4 个文件（artifact_store/
+   host_server/notes_vault/relay_server）的格式漂移——均为纯格式改动，
+   relay_server 逻辑与已部署生产中继一致；
+3. 验证：`check-rust.sh` 全绿（clippy 0 警告、fmt 无漂移）；Rust 165
+   项测试全绿。
+
 第二百八十七轮：服务器基础设施实证（STUN 可达 + 监控计时器，2026-08-09）。
 
 1. 背景：round 279 已验证 TURN 配置与 remote-config 派生凭据；本轮补
