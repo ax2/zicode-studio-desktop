@@ -565,3 +565,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    笔记的附件；Rust 169 项全绿
 - [x] 笔记搜索标题高亮（第 303 轮）：highlightSegments 纯函数 +
    HighlightedText 组件复用于树行/结果行，前端 752 测试全绿
+- [x] 笔记预览目录大纲（第 304 轮）：buildHeadingOutline 分配标题 id +
+   Outline 粘性侧栏（桌面两栏/移动单列），前端 754 测试全绿

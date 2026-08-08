@@ -147,6 +147,37 @@ export interface HighlightSegment {
   match: boolean;
 }
 
+export interface OutlineEntry {
+  id: string;
+  level: number;
+  text: string;
+}
+
+/**
+ * Assign stable ids to h1-h3 headings inside a rendered preview and return
+ * the heading outline. Duplicate headings get unique ids via an occurrence
+ * suffix.
+ */
+export function buildHeadingOutline(root: ParentNode): OutlineEntry[] {
+  const headings = Array.from(
+    root.querySelectorAll("h1, h2, h3"),
+  ) as HTMLElement[];
+  const seen = new Map<string, number>();
+  return headings.map((heading) => {
+    const raw = (heading.textContent ?? "").trim();
+    const base = raw
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 60) || "heading";
+    const occurrence = seen.get(base) ?? 0;
+    seen.set(base, occurrence + 1);
+    const id = occurrence === 0 ? base : `${base}-${occurrence + 1}`;
+    heading.id = id;
+    return { id, level: Number(heading.tagName.slice(1)), text: raw };
+  });
+}
+
 /** Split `text` into highlighted/normal segments for a case-insensitive query. */
 export function highlightSegments(text: string, query: string): HighlightSegment[] {
   const needle = String(query ?? "").trim().toLowerCase();

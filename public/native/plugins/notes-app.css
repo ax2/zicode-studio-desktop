@@ -1031,6 +1031,69 @@
 }
 
 /* Professional Markdown rendering in the Notes preview */
+.notes-preview-wrap {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.notes-outline {
+  position: sticky;
+  top: var(--space-12);
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  padding: var(--space-2) 0 var(--space-2) var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+.notes-outline h2 {
+  margin-bottom: var(--space-2);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.notes-outline ol {
+  display: grid;
+  gap: var(--space-0-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes-outline button {
+  display: block;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-outline button:hover {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
+.notes-outline-level-2 button {
+  padding-left: var(--space-5);
+}
+
+.notes-outline-level-3 button {
+  padding-left: var(--space-8);
+}
+
 .notes-preview {
   color: var(--text-primary);
   line-height: 1.7;
@@ -1233,6 +1296,7 @@ body.notes-dragging .notes-result-item {
 .notes-preview {
   flex: 1;
   min-height: 420px;
+  min-width: 0;
   padding: var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1278,6 +1342,18 @@ body.notes-dragging .notes-result-item {
   .notes-trash-item .notes-trash-restore,
   .notes-trash-item .notes-trash-purge {
     flex: 1;
+  }
+
+  .notes-preview-wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .notes-outline {
+    position: static;
+    max-height: none;
+    padding: var(--space-3) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
   }
 
   .notes-source {

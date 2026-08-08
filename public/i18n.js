@@ -805,6 +805,7 @@ const zhCN = {
   "Empty trash": "清空回收站",
   "Confirm empty trash": "确认清空回收站",
   "Trash emptied": "回收站已清空",
+  Outline: "目录",
   "Select a notebook first": "请先选择一个笔记本",
   "Vault check complete": "Vault 检查完成",
   "valid notes": "篇有效笔记",

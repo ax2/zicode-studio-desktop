@@ -374,6 +374,23 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；CDP 实测输入"笔记"
     后 5 条笔记标题全部高亮、无溢出、无控制台错误；前端 752 项测试全绿。
 
+## 第二十八次重建（2026-08-09，含第 304 轮笔记预览目录大纲）
+
+- 合入：buildHeadingOutline 标题 id 分配 + Outline 粘性侧栏（桌面两栏/
+  移动单列、点击平滑滚动）；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,423,360 B，
+    SHA-256 `CFE52F3F0D69A56CA688EA574DD3AD35E987A307237796630C67775B6EAB1192`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,856,443 B，SHA-256
+    `95CE3A3D5479A3696EFCE46EF7EC42CF537A753A08C413527B2B01729ACB5961`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；CDP 实测长笔记
+    预览大纲列出 3 个 h2、标题 id 稳定、点击无错误、无溢出；前端 754
+    项测试全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

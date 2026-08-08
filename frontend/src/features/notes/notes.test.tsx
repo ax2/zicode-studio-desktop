@@ -4,6 +4,7 @@ import { t } from "../../shared/i18n";
 import {
   allTagSuggestions,
   buildChildrenByParent,
+  buildHeadingOutline,
   conversationNoteTitle,
   formatDate,
   highlightSegments,
@@ -118,6 +119,19 @@ describe("notes logic", () => {
     expect(highlightSegments("Roadmap", "")).toEqual([{ text: "Roadmap", match: false }]);
     expect(highlightSegments("Roadmap", "xyz")).toEqual([{ text: "Roadmap", match: false }]);
     expect(highlightSegments("", "road")).toEqual([{ text: "", match: false }]);
+  });
+
+  it("builds a heading outline with stable ids", () => {
+    const root = document.createElement("div");
+    root.innerHTML =
+      "<h1>Intro</h1><p>x</p><h2>Setup</h2><h2>Setup</h2><h3>Deep</h3><h4>Ignored</h4>";
+    expect(buildHeadingOutline(root)).toEqual([
+      { id: "intro", level: 1, text: "Intro" },
+      { id: "setup", level: 2, text: "Setup" },
+      { id: "setup-2", level: 2, text: "Setup" },
+      { id: "deep", level: 3, text: "Deep" },
+    ]);
+    expect(root.querySelector("h4")?.id).toBe("");
   });
 
   it("builds the notebook tree and tag suggestions", () => {
@@ -668,6 +682,26 @@ describe("notes React components", () => {
     store.getState().setPreview(true);
     render(<NotesContent store={store} />);
     expect(document.querySelector(".notes-preview")).toBeTruthy();
+  });
+
+  it("renders a clickable heading outline in preview mode", async () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      const store = storeWithGateway();
+      await store.getState().load();
+      await store.getState().selectNote(SNAPSHOT.notes[0]);
+      const { container } = render(<NotesContent store={store} />);
+      await waitFor(() =>
+        expect(container.querySelector(".notes-outline")).toBeTruthy(),
+      );
+      expect(container.querySelector(".notes-outline button")?.textContent).toBe("Plan");
+      (container.querySelector(".notes-outline button") as HTMLButtonElement).click();
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   it("closes the move-to-notebook popover with Escape", async () => {

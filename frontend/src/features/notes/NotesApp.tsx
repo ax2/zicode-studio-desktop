@@ -5,6 +5,7 @@ import { t } from "../../shared/i18n";
 import {
   allTagSuggestions,
   buildChildrenByParent,
+  buildHeadingOutline,
   DEFAULT_NOTEBOOK_ICON,
   DEFAULT_NOTE_ICON,
   EMOJI_GROUPS,
@@ -14,6 +15,7 @@ import {
   tagIcon,
   highlightSegments,
   type Note,
+  type OutlineEntry,
   type NoteSummary,
   type Notebook,
   type TrashEntry,
@@ -1258,11 +1260,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [outline, setOutline] = useState<OutlineEntry[]>([]);
 
   useEffect(() => {
     if (preview && previewRef.current) {
       previewRef.current.innerHTML = renderMarkdown(draftContent);
       rewriteAttachmentUrls(previewRef.current, store);
+      setOutline(buildHeadingOutline(previewRef.current));
     }
   }, [preview, draftContent, store]);
 
@@ -1414,7 +1418,30 @@ function NoteEditor({ store }: { store: NotesStore }) {
         </p>
       ) : null}
       {preview ? (
-        <article ref={previewRef} className="notes-preview markdown-body" />
+        <div className="notes-preview-wrap">
+          <article ref={previewRef} className="notes-preview markdown-body" />
+          {outline.length > 0 ? (
+            <nav className="notes-outline" aria-label={t("Outline")}>
+              <h2>{t("Outline")}</h2>
+              <ol>
+                {outline.map((entry) => (
+                  <li key={entry.id} className={`notes-outline-level-${entry.level}`}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document
+                          .getElementById(entry.id)
+                          ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+                      }
+                    >
+                      {entry.text}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          ) : null}
+        </div>
       ) : (
         <textarea
           ref={contentRef}
