@@ -300,3 +300,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
+
+## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
+
+- 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`
+  （artifact_store/host_server/notes_vault/relay_server 纯格式改动），
+  `check-rust.sh` 首次全绿；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `3EBD3D2B04F415F6026EAF72D097736E7B43C91CA4FDF7977F75B91FE595D7E6`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,838,285 B，SHA-256
+    `6EFB40A52D0949CAD7268160837CDA2BDE3B3AC9DDD470C5A701BE03AFAE4D27`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+    ERROR/WARN/panic。

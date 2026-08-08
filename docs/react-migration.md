@@ -525,3 +525,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] Rust 质量门禁全绿（第 288 轮）：save_note 参数 lint 允许 + cargo
    fmt 全量格式化，check-rust.sh（clippy -D warnings + fmt）首次全绿，
    Rust 165 测试通过
+- [x] release 第十九次重建（第 289 轮）：EXE 41,320,960 B / 安装包
+   346,838,285 B，含第 288 轮修复，静默重装验证通过
