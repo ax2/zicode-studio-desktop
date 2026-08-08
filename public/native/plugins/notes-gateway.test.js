@@ -97,4 +97,18 @@ describe("NotesGateway", () => {
       "attachmentId=asset.txt",
     );
   });
+
+  it("deletes a notebook through the workspace-scoped API", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ deleted: true }) }));
+    const gateway = new NotesGateway({
+      fetchImpl,
+      location: { origin: "http://127.0.0.1:57620" },
+    });
+    await gateway.deleteNotebook("programming", "workspace-1", "book-1");
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      sceneId: "programming",
+      workspaceId: "workspace-1",
+      notebookId: "book-1",
+    });
+  });
 });

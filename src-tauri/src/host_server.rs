@@ -312,6 +312,7 @@ impl HostServer {
             .route("/v2/notes/changes", get(list_note_changes))
             .route("/v2/notes/notebooks", post(create_notebook))
             .route("/v2/notes/notebooks/update", post(update_notebook))
+            .route("/v2/notes/notebooks/delete", post(delete_notebook))
             .route("/v2/notes/move", post(move_note))
             .route("/v2/notes/note", get(get_note))
             .route("/v2/notes/create", post(create_note))
@@ -1178,6 +1179,14 @@ struct UpdateNotebookRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DeleteNotebookRequest {
+    workspace_id: String,
+    scene_id: String,
+    notebook_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CreateNoteRequest {
     workspace_id: String,
     scene_id: String,
@@ -1470,6 +1479,21 @@ async fn update_notebook(
         .update_notebook(&request.notebook_id, request.title, request.icon)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
+}
+
+async fn delete_notebook(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<DeleteNotebookRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    scoped
+        .delete_notebook(&request.notebook_id)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "deleted": true, "notebookId": request.notebook_id })))
 }
 
 async fn get_note(
@@ -4637,6 +4661,68 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(private_capture.status(), reqwest::StatusCode::FORBIDDEN);
+
+        host.stop();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn deletes_a_notebook_through_the_host_api() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("zicode-host-notebook-delete-{nonce}"));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(32), auth)
+            .await
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let workspace_id = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+        let created: serde_json::Value = client
+            .post(format!("{}/v2/notes/notebooks", host.origin()))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "title": "Temp notebook"
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let notebook_id = created["notebook"]["id"].as_str().unwrap();
+
+        let deleted = client
+            .post(format!("{}/v2/notes/notebooks/delete", host.origin()))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "notebookId": notebook_id
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), reqwest::StatusCode::OK);
+
+        let listed: serde_json::Value = client
+            .get(format!(
+                "{}/v2/notes?workspaceId={workspace_id}&sceneId=programming",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(listed["snapshot"]["notebooks"].as_array().unwrap().len(), 0);
 
         host.stop();
         remove_temp_dir_when_released(&temp).await;

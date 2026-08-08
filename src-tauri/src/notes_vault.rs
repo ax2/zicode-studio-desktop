@@ -649,6 +649,20 @@ impl NotesVault {
         Ok(notebook)
     }
 
+    pub fn delete_notebook(&self, notebook_id: &str) -> Result<(), NotesError> {
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let root = self.vault_root(&notebook_id)?;
+        if !root.exists() {
+            return Err(NotesError::new(
+                "notebook_not_found",
+                "Notebook does not exist",
+            ));
+        }
+        fs::remove_dir_all(&root).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot delete notebook")
+        })
+    }
+
     pub fn create_note(
         &self,
         notebook_id: &str,
@@ -2590,6 +2604,26 @@ mod tests {
         let again = legacy.migrate_legacy(workspace_a).unwrap();
         assert!(again.skipped);
         let _ = fs::remove_dir_all(legacy_root);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn deletes_a_notebook_within_its_workspace_scope() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let workspace_a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let workspace_b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        let scoped_a = vault.scoped(workspace_a).unwrap();
+        let scoped_b = vault.scoped(workspace_b).unwrap();
+        let notebook_a = scoped_a.create_notebook("To delete", None, None).unwrap();
+        let notebook_b = scoped_b.create_notebook("Keep me", None, None).unwrap();
+
+        scoped_a.delete_notebook(&notebook_a.id).unwrap();
+
+        assert_eq!(scoped_a.list(None, None, None, false).unwrap().notebooks.len(), 0);
+        assert_eq!(scoped_b.list(None, None, None, false).unwrap().notebooks.len(), 1);
+        assert!(scoped_a.get_note(&notebook_a.id, "x").is_err());
+        assert_eq!(notebook_b.id, scoped_b.list(None, None, None, false).unwrap().notebooks[0].id);
         let _ = fs::remove_dir_all(root);
     }
 

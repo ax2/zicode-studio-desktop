@@ -39,6 +39,7 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
     get: vi.fn(async () => ({ note: NOTE })),
     createNotebook: vi.fn(async () => ({ notebook: { id: "book-9", title: "New" } })),
     updateNotebook: vi.fn(async () => ({})),
+    deleteNotebook: vi.fn(async () => ({})),
     create: vi.fn(async () => ({ note: { ...NOTE, id: "note-9", title: "Untitled note" } })),
     save: vi.fn(async () => ({ note: { ...NOTE, title: "Updated" } })),
     delete: vi.fn(async () => ({})),
@@ -198,6 +199,34 @@ describe("notes store", () => {
     await store.getState().newNote();
     expect(store.getState().selectedNote?.title).toBe("Untitled note");
     expect(store.getState().dirty).toBe(false);
+  });
+
+  it("deletes a notebook after confirmation and reloads", async () => {
+    const deleteNotebook = vi.fn(async () => ({ deleted: true }));
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub({ deleteNotebook }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+      confirmDelete: () => true,
+    });
+    await store.getState().load();
+    await store.getState().deleteNotebook("book-1");
+    expect(deleteNotebook).toHaveBeenCalledWith("programming", "ws-1", "book-1");
+    expect(notify).toHaveBeenCalledWith("笔记本已删除");
+  });
+
+  it("skips deletion when the confirmation is declined", async () => {
+    const deleteNotebook = vi.fn(async () => ({ deleted: true }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ deleteNotebook }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      confirmDelete: () => false,
+    });
+    await store.getState().load();
+    await store.getState().deleteNotebook("book-1");
+    expect(deleteNotebook).not.toHaveBeenCalled();
   });
 
   it("saves the editor draft through the gateway", async () => {

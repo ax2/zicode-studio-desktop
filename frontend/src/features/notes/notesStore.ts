@@ -86,6 +86,7 @@ export interface NotesGatewayLike {
   get(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
   createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
   updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string }): Promise<unknown>;
+  deleteNotebook(sceneId: string, workspaceId: string, notebookId: string): Promise<unknown>;
   create(sceneId: string, workspaceId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
   save(sceneId: string, workspaceId: string, note: Note): Promise<{ note: Note }>;
   delete(sceneId: string, workspaceId: string, note: NoteSummary): Promise<unknown>;
@@ -105,6 +106,7 @@ export interface NotesStoreOptions {
   getProject?: () => ProjectInfo | null;
   notify?: (message: string) => void;
   confirmPublish?: (message: string) => boolean;
+  confirmDelete?: (message: string) => boolean;
   chooseFile?: (accept: string) => Promise<File | null>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   onUseInChat?: (note: Note, selection: string) => void;
@@ -159,6 +161,7 @@ interface NotesState {
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<Note>;
   createNotebook(title: string, icon: string, parentId?: string | null): Promise<void>;
+  deleteNotebook(notebookId: string): Promise<void>;
   updateNotebook(notebookId: string, title: string, icon: string): Promise<void>;
   deleteSelectedNote(): Promise<void>;
   saveEditor(): Promise<void>;
@@ -196,6 +199,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   const getTarget = options.getTarget ?? (() => null);
   const notify = options.notify ?? (() => {});
   const confirmPublish = options.confirmPublish ?? ((message: string) => globalThis.confirm(message) ?? false);
+  const confirmDelete = options.confirmDelete ?? ((message: string) => globalThis.confirm(message) ?? false);
   const chooseFile = options.chooseFile ?? defaultChooseFile;
   const downloadFile = options.downloadFile ?? defaultDownloadFile;
   const onUseInChat = options.onUseInChat;
@@ -481,6 +485,39 @@ export function createNotesStore(options: NotesStoreOptions) {
           mode: "library",
         });
         await get().load({ preserveSelection: false });
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    async deleteNotebook(notebookId) {
+      const notebook = get().snapshot.notebooks.find(
+        (candidate) => candidate.id === notebookId,
+      );
+      if (!notebook) return;
+      const children = get().snapshot.notebooks.filter(
+        (candidate) => candidate.parentId === notebookId,
+      );
+      const notesInNotebook = get().snapshot.notes.filter(
+        (note) => note.notebookId === notebookId,
+      ).length;
+      const parts = [notebook.title];
+      if (children.length > 0) parts.push(`${children.length} ${t("sub-notebooks")}`);
+      if (notesInNotebook > 0) parts.push(`${notesInNotebook} ${t("notes")}`);
+      const scope = parts.join(" · ");
+      const message =
+        children.length === 0 && notesInNotebook === 0
+          ? `${t("Delete notebook")} “${notebook.title}”?`
+          : `${t("Delete notebook")} “${scope}”? ${t(
+              "Child notebooks and notes will also be deleted.",
+            )}`;
+      if (!confirmDelete(message)) return;
+      set({ loading: true, error: null });
+      try {
+        await gateway.deleteNotebook(sceneId(), workspaceId(), notebookId);
+        set({ selectedNotebookId: null, selectedNote: null });
+        await get().load({ preserveSelection: false });
+        notify(t("Notebook deleted"));
       } catch (error) {
         set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
       }

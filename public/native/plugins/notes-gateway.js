@@ -72,6 +72,14 @@ export class NotesGateway {
     });
   }
 
+  deleteNotebook(sceneId, workspaceId, notebookId) {
+    return this.#post("/v2/notes/notebooks/delete", {
+      sceneId,
+      workspaceId,
+      notebookId,
+    });
+  }
+
   create(sceneId, workspaceId, notebookId, { title, content = "", tags = [], icon }) {
     return this.#post("/v2/notes/create", {
       sceneId,

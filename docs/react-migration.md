@@ -459,3 +459,6 @@ bun run test          # vitest（public/** + frontend/src/**）
   事件接线，点击打开项目工作台；回归测试 + 生产版实测
 - [x] 插件壳项目行跳转（第 261 轮）：plugin-sidebar-project 按钮化 +
   中英 title + 测试；设置等应用点击项目行打开项目工作台
+- [x] 笔记本删除（第 263 轮）：NotesVault.delete_notebook + /v2 API +
+   store 二次确认（级联提示）+ UI 删除图标 + Rust/前端测试；release
+   重建并验证

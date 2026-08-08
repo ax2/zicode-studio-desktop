@@ -230,6 +230,12 @@ function NotebookActions({ store, notebook }: { store: NotesStore; notebook: Not
           )
         }
       />
+      <IconAction
+        label={t("Delete notebook")}
+        icon={ICONS.trash}
+        className="notes-notebook-delete"
+        onClick={() => void store.getState().deleteNotebook(notebook.id)}
+      />
     </span>
   );
 }
