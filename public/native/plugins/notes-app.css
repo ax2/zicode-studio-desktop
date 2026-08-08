@@ -488,6 +488,9 @@
 .notes-main {
   /* The desktop app header is absolutely positioned over the main view;
      keep the first interactive row clear of it. Mobile overrides below. */
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: var(--space-12) var(--space-6) var(--space-6);
 }
 
@@ -561,7 +564,7 @@
 
 .notes-state-panel {
   width: min(var(--app-content-max-width), 100%);
-  margin: var(--space-6) auto;
+  margin: auto;
   padding: var(--space-6);
 }
 
@@ -685,6 +688,7 @@
 
 .notes-editor {
   width: min(var(--app-content-max-width), 100%);
+  flex: 1;
   min-height: 100%;
   margin: 0 auto;
   display: flex;

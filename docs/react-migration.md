@@ -548,5 +548,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    346,844,660 B，含第 296 轮修复，静默重装验证通过
 - [x] 笔记桌面宽屏空状态 + 侧栏收起（第 298 轮）：state/results 面板改
    `min(var(--app-content-max-width), 100%)`，空库改双栏
-   （hero + 快速开始），`expandedNavSections` Set → Map 使分区可收起；
-   前端 742 测试全绿
+   （hero + 快速开始）并填满视口垂直居中，编辑器随窗口拉伸，
+   `expandedNavSections` Set → Map 使分区可收起；前端 742 测试全绿
