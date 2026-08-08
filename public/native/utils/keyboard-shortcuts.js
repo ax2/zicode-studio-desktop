@@ -35,7 +35,10 @@ export function setupAppKeyboardShortcuts({
 
     const meta = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
-    if (meta && (key === "k" || (key === "p" && event.shiftKey))) {
+    // Ctrl/Cmd+K is owned by the session search dialog (its trigger advertises
+    // the shortcut); the command palette is reachable via Ctrl/Cmd+Shift+P so
+    // the two overlays never fight over one keystroke.
+    if (meta && key === "p" && event.shiftKey) {
       event.preventDefault();
       openCommandPalette?.();
       return;

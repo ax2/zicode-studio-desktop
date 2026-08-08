@@ -65,7 +65,7 @@ describe("app keyboard shortcuts", () => {
     expect(abort).not.toHaveBeenCalled();
   });
 
-  it("opens the command palette with Ctrl+K and Ctrl+Shift+P", () => {
+  it("opens the command palette with Ctrl+Shift+P but not bare Ctrl+K", () => {
     const openCommandPalette = vi.fn();
     setupAppKeyboardShortcuts({
       input,
@@ -81,10 +81,10 @@ describe("app keyboard shortcuts", () => {
       new KeyboardEvent("keydown", { key: "P", ctrlKey: true, shiftKey: true, cancelable: true }),
     );
 
-    expect(openCommandPalette).toHaveBeenCalledTimes(2);
+    expect(openCommandPalette).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the palette even while the composer textarea is focused", () => {
+  it("opens the palette via Ctrl+Shift+P even while the composer textarea is focused", () => {
     const openCommandPalette = vi.fn();
     input.focus();
     setupAppKeyboardShortcuts({
@@ -95,7 +95,7 @@ describe("app keyboard shortcuts", () => {
     });
 
     document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, cancelable: true }),
+      new KeyboardEvent("keydown", { key: "P", ctrlKey: true, shiftKey: true, cancelable: true }),
     );
 
     expect(openCommandPalette).toHaveBeenCalledTimes(1);
