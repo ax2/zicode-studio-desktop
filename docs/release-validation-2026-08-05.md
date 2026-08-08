@@ -358,6 +358,22 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     1 条→恢复→附件字节一致；临时数据全部清理，QVeris 5 条与测试
     笔记本数据完好；Rust 169 项（145+19+5）、前端 749 项测试全绿。
 
+## 第二十七次重建（2026-08-09，含第 303 轮笔记搜索标题高亮）
+
+- 合入：highlightSegments + HighlightedText，笔记树/筛选结果标题对查询
+  词高亮；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,423,360 B，
+    SHA-256 `24DDA0E524939C8C3018EC43B65233C71EFDF0D4EF4F6E988544D58EDE48B0EC`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,895,008 B，SHA-256
+    `0AF4EBC7930397A1AA08DCA2F31301363192875F4462483305BCA19A81717A5C`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；CDP 实测输入"笔记"
+    后 5 条笔记标题全部高亮、无溢出、无控制台错误；前端 752 项测试全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

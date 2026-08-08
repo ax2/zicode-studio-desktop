@@ -142,6 +142,33 @@ export function formatDate(value: unknown): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+export interface HighlightSegment {
+  text: string;
+  match: boolean;
+}
+
+/** Split `text` into highlighted/normal segments for a case-insensitive query. */
+export function highlightSegments(text: string, query: string): HighlightSegment[] {
+  const needle = String(query ?? "").trim().toLowerCase();
+  if (!needle || !text) return [{ text, match: false }];
+  const haystack = text.toLowerCase();
+  const segments: HighlightSegment[] = [];
+  let index = 0;
+  while (index < text.length) {
+    const hit = haystack.indexOf(needle, index);
+    if (hit === -1) {
+      segments.push({ text: text.slice(index), match: false });
+      break;
+    }
+    if (hit > index) {
+      segments.push({ text: text.slice(index, hit), match: false });
+    }
+    segments.push({ text: text.slice(hit, hit + needle.length), match: true });
+    index = hit + needle.length;
+  }
+  return segments;
+}
+
 export function conversationNoteTitle(value: string): string {
   const line = String(value)
     .split(/\r?\n/)

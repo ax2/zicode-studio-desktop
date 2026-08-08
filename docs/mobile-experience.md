@@ -4568,6 +4568,20 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百零三轮：笔记搜索结果标题高亮 + release 第二十七次重建（2026-08-09）。
+
+1. 实现：设计文档 P2 项——搜索框输入时，笔记树与筛选结果列表中的标题
+   对查询词做大小写不敏感的分段高亮（`<mark class="notes-search-hit">`）；
+   `notesLogic.highlightSegments` 纯函数输出 匹配/普通 分段，NotesApp 新增
+   HighlightedText 组件复用于树行与结果行；CSS 使用设计令牌（accent
+   底色/圆角/间距）；
+2. 验证：前端 752 项全绿（新增分段函数、树标题高亮、结果列表高亮用例）；
+   typecheck/Biome/设计检查通过；release 第二十七次重建（EXE 41,423,360 B
+   / 安装包 346,895,008 B，哈希见
+   `docs/release-validation-2026-08-05.md`）静默重装后生产版 CDP 实测：
+   输入"笔记" → 5 条笔记标题全部高亮命中、无横向溢出、无控制台错误；
+   数据未改动（QVeris 5 条）。
+
 第三百零二轮：可读备份包含回收站条目 + 附件读取修复 + release 第二十六
 次重建（2026-08-09）。
 

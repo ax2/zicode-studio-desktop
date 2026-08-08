@@ -563,3 +563,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 备份包含回收站（第 302 轮）：VaultExport 增 trashedNotes（向后
    兼容），导入写入新 Vault 回收站；read_attachment 允许活动/回收站
    笔记的附件；Rust 169 项全绿
+- [x] 笔记搜索标题高亮（第 303 轮）：highlightSegments 纯函数 +
+   HighlightedText 组件复用于树行/结果行，前端 752 测试全绿

@@ -6,6 +6,7 @@ import {
   buildChildrenByParent,
   conversationNoteTitle,
   formatDate,
+  highlightSegments,
   parseTags,
   safeFileName,
   tagIcon,
@@ -104,6 +105,21 @@ describe("notes logic", () => {
     expect(tagIcon("custom")).toBe("🏷️");
   });
 
+  it("splits text into highlighted segments case-insensitively", () => {
+    expect(highlightSegments("Roadmap", "road")).toEqual([
+      { text: "Road", match: true },
+      { text: "map", match: false },
+    ]);
+    expect(highlightSegments("Roadmap", "ma")).toEqual([
+      { text: "Road", match: false },
+      { text: "ma", match: true },
+      { text: "p", match: false },
+    ]);
+    expect(highlightSegments("Roadmap", "")).toEqual([{ text: "Roadmap", match: false }]);
+    expect(highlightSegments("Roadmap", "xyz")).toEqual([{ text: "Roadmap", match: false }]);
+    expect(highlightSegments("", "road")).toEqual([{ text: "", match: false }]);
+  });
+
   it("builds the notebook tree and tag suggestions", () => {
     const map = buildChildrenByParent(SNAPSHOT.notebooks);
     expect(map.get(null)?.map((n) => n.id)).toEqual(["book-1"]);
@@ -124,6 +140,36 @@ describe("notes store", () => {
     header.click();
     window.removeEventListener("zicode:open-project", listener);
     expect(dispatched).toEqual(["zicode:open-project"]);
+  });
+
+  it("highlights the search query inside note titles", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    store.getState().setQuery("road");
+    const { container } = render(<NotesNav store={store} />);
+    expect(store.getState().query).toBe("road");
+    expect((container.querySelector(".notes-search-input") as HTMLInputElement).value).toBe("road");
+    expect(container.textContent).toContain("Roadmap");
+    expect(container.querySelector(".notes-list-item strong")?.textContent).toBe("Roadmap");
+    await waitFor(() =>
+      expect(container.querySelector("mark.notes-search-hit")).toBeTruthy(),
+    );
+    const marks = [...container.querySelectorAll("mark.notes-search-hit")];
+    expect(marks.some((mark) => mark.textContent === "Road")).toBe(true);
+    store.getState().setQuery("");
+  });
+
+  it("highlights query matches in filtered results", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    store.getState().setQuery("road");
+    await store.getState().applyFilter({ tag: "idea" });
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector("mark.notes-search-hit")).toBeTruthy(),
+    );
+    expect(container.querySelector(".notes-results-title")?.textContent).toContain("idea");
+    store.getState().setQuery("");
   });
 
   it("carries the selected editor text into the chat", async () => {

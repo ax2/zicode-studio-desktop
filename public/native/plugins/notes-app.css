@@ -485,6 +485,13 @@
   padding: var(--space-2);
 }
 
+.notes-search-hit {
+  padding: 0 var(--space-0-5);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--accent-subtle) 70%, transparent);
+  color: var(--accent-text);
+}
+
 .notes-main {
   /* The desktop app header is absolutely positioned over the main view;
      keep the first interactive row clear of it. Mobile overrides below. */

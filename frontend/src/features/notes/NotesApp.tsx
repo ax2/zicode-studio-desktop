@@ -12,6 +12,7 @@ import {
   ICONS,
   TAG_ICON_FALLBACK,
   tagIcon,
+  highlightSegments,
   type Note,
   type NoteSummary,
   type Notebook,
@@ -25,6 +26,25 @@ function Icon({ svg }: { svg: string }) {
     if (ref.current) ref.current.innerHTML = svg;
   }, [svg]);
   return <span ref={ref} aria-hidden="true" />;
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const segments = highlightSegments(text, query);
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.match ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: segments are non-reordered title slices
+          <mark key={index} className="notes-search-hit">
+            {segment.text}
+          </mark>
+        ) : (
+          // biome-ignore lint/suspicious/noArrayIndexKey: segments are non-reordered title slices
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 export function NotesNav({ store }: { store: NotesStore }) {
@@ -495,6 +515,7 @@ function NavAction({ label, onClick }: { label: string; onClick(): void }) {
 
 function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary }) {
   const selectedNote = store((state) => state.selectedNote);
+  const query = store((state) => state.query);
   const selectNote = store((state) => state.selectNote);
   const openMovePopover = store((state) => state.openMovePopover);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
@@ -573,7 +594,9 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
     >
       {note.icon ? <span className="notes-note-icon">{note.icon}</span> : null}
       <span className="notes-list-item-main">
-        <strong>{note.title}</strong>
+        <strong>
+          <HighlightedText text={note.title} query={query} />
+        </strong>
         <span>
           {formatDate(note.updatedAt)}
           {note.source ? ` · ${t("Web clip")}` : ""}
@@ -969,6 +992,7 @@ function TagEditor({
 function FilterResultsView({ store }: { store: NotesStore }) {
   const snapshot = store((state) => state.snapshot);
   const selectedTag = store((state) => state.selectedTag);
+  const query = store((state) => state.query);
   const applyFilter = store((state) => state.applyFilter);
   const selectNote = store((state) => state.selectNote);
   return (
@@ -1002,7 +1026,9 @@ function FilterResultsView({ store }: { store: NotesStore }) {
           >
             {note.icon ? <span className="notes-result-icon">{note.icon}</span> : null}
             <span className="notes-result-main">
-              <strong>{note.title}</strong>
+              <strong>
+                <HighlightedText text={note.title} query={query} />
+              </strong>
               <span>{formatDate(note.updatedAt)}</span>
             </span>
           </div>
