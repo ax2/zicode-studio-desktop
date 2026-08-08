@@ -368,3 +368,19 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
+
+## 第二十三次重建（2026-08-09，含第 296 轮命令面板系统命令本地化）
+
+- 合入第 296 轮：5 条系统命令 label/desc 全部经 t() 本地化，补 8 个
+  zh-CN 翻译键，命令面板中文过滤恢复正常；新增布局契约断言；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `7404BA5881305D87808939D73956E7058413AE09CE803D7F8F38E43F6F79EA69`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,844,660 B，SHA-256
+    `81FC73917817FFF0AB56928F8344081D0FAF9FC01176391143E26334D0D35D62`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+    ERROR/WARN/panic。
