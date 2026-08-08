@@ -332,8 +332,11 @@
   }
 
   .plugin-main-view {
-    padding: calc(var(--space-12) + env(safe-area-inset-top, 0px)) var(--space-3)
-      var(--space-5);
+    padding: calc(
+        var(--space-12) + var(--space-4) + var(--space-1) +
+          env(safe-area-inset-top, 0px)
+      )
+      var(--space-3) var(--space-5);
   }
 
   /* Mobile input baseline: desktop controls are intentionally compact, but
@@ -369,7 +372,10 @@
 
   body[data-active-plugin="core.settings"] .plugin-main-view,
   body[data-active-plugin="core.help"] .plugin-main-view {
-    padding-top: calc(var(--space-12) + env(safe-area-inset-top, 0px));
+    padding-top: calc(
+      var(--space-12) + var(--space-4) + var(--space-1) +
+        env(safe-area-inset-top, 0px)
+    );
   }
 
   body[data-active-plugin="core.settings"] .settings-content {

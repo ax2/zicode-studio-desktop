@@ -47,6 +47,7 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     container.querySelector('[data-notes-root="content"]')?.remove();
     const wrapper = document.createElement("div");
     wrapper.dataset.notesRoot = "content";
+    wrapper.className = "notes-main";
     container.append(wrapper);
     contentRoot = createRoot(wrapper);
     contentRoot.render(element);

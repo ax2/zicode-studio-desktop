@@ -1141,6 +1141,7 @@ body.notes-dragging .notes-result-item {
 
 @media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
   .notes-main {
+    padding-top: 0;
     padding-right: var(--space-3);
     padding-left: var(--space-3);
   }

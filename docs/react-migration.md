@@ -467,3 +467,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    --app-content-max-width，宽屏不再留大片两侧空白
 - [x] 笔记选中文字带入对话（第 264 轮）：textarea 选区实时同步 +
    点击时实时读取 + 用例覆盖
+- [x] 笔记/移动端顶部避让（第 265 轮）：notes 内容挂 notes-main 类、
+   移动端 plugin-main-view 顶部 padding 提至 68px，修复各应用顶部
+   被 header 覆盖

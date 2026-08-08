@@ -4511,6 +4511,22 @@ P2 再做）完成 P1 UI 层：
    底部导航不受影响；前端 722 全绿、Rust 165 全绿、typecheck 与
    Biome 通过；安装目录资源已同步。
 
+第二百六十五轮：笔记/移动端顶部避让修复（2026-08-08）。
+
+1. 根因：`.notes-main` 的 48px 顶部 padding 是桌面 header 避让规则，
+   但 React 侧 `mountContentRoot` 的 wrapper 未挂该类，笔记工具栏在
+   桌面端被绝对定位 header 覆盖（elementFromPoint 命中 header）；
+   移动端 `.plugin-main-view` 顶部 padding 48px 低于 64px 高的移动
+   header，任务/项目/自动化/笔记等应用顶部均被遮 16px；
+2. 修复：notes 内容 wrapper 挂 `notes-main` 类（桌面 20+48=68px
+   避让）；移动端 `.plugin-main-view` 顶部 padding 提高为
+   `space-12 + space-4 + space-1 + safe-area`（68px），settings/help
+   同步；移动端 `.notes-main` 顶部归零避免双重叠加；
+3. 验证：CDP 桌面笔记工具栏 y=68（header 底 39）不被覆盖；移动
+   390px 下笔记/任务/项目/自动化首元素 y=68、产物 y=112，均低于
+   header 底 64；前端 722 全绿、typecheck/Biome 通过；安装目录已
+   同步。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
