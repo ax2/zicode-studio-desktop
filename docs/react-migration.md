@@ -474,3 +474,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    切回 Chat 再打开文件面板 + 回归测试
 - [x] PWA 分享入口 service-worker 测试（第 267 轮）：multipart
    解析、landing 注入、fetch 路由 4 例 vm 沙箱测试
+- [x] release 第十一次重建（第 268 轮）：EXE 41,316,864 B /
+   安装包 346,819,246 B，含第 264–267 轮修复，静默重装验证通过

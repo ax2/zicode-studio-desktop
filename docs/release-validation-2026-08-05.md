@@ -143,3 +143,29 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、公网中继注册
     `dev-ax2-01`、启动后日志无 ERROR/WARN/panic；
   - 桌面快捷方式继续指向安装目录 release 版。
+
+## 第十一次重建（2026-08-08，含第 264–267 轮前端修复）
+
+- 合入第 264–267 轮前端修复：桌面宽窗口内容列分档放宽（
+  `--chat-content-max-width` 960→1120→1280→1440px、应用视图
+  `--app-content-max-width` 1120→1200→1280→1360px）、笔记"带入
+  对话"选中文字、桌面/移动端插件视图顶部避让（notes-main 类 +
+  mobile plugin-main-view 68px padding）、Files 入口跨应用可达、
+  service-worker Web Share Target 处理测试；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,316,864 B，
+    SHA-256 `3DD8A158BEDD3C41BE29DC9D511AF286CA1F4D8240B9BAB57587557A7EC7D9B6`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,819,246 B，SHA-256
+    `08980794FE889FF17D39D1B4327C1D6714EC237F74B1B910F9261531BDEA1479`
+- 验证：
+  - 打包进 EXE 的 public 资源与仓库逐文件哈希一致（style-theme.css、
+    messages.css、composer.css、plugin-shell.js、notes-app.css、
+    mobile.css 全部 match）；
+  - `/S` 静默重装后安装目录与仓库 public 一致；从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - CDP 实测新实例：`--chat-content-max-width=1120px`、
+    `--app-content-max-width=1200px`（1300 窗口）、设置视图点击
+    Files 切回 Chat 并打开文件面板（round 266 行为）；日志无
+    ERROR/WARN/panic。
