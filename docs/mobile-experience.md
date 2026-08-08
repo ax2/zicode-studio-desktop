@@ -4211,6 +4211,22 @@ P2 再做）完成 P1 UI 层：
 3. 验证：前端 710 测试全绿、typecheck/Biome 通过；安装目录同步后
    生产版 CDP 实测 Ctrl+K 打开命令面板（13 条命令）。
 
+第二百三十九轮：修复语言切换不一致（i18n 单一实例化，2026-08-08）。
+
+1. 根因：每个 React 功能包把 public/i18n.js 各自打包一份（模块状态
+   独立）；设置里切换语言只更新设置包的 activeLocale 并写 cookie，
+   原生 i18n 的 MutationObserver 仍用旧 activeLocale 把 React 新渲染的
+   英文文本回译成中文，导致"cookie=en 但设置导航/章节仍是中文"；
+2. 修复：i18n 与 themes 加入 index.html import map（/i18n.js、
+   /themes.js），build-react 外部化这两个模块，React 包与原生端共享
+   同一个模块实例；shared/i18n.ts 与设置面板改用 "i18n"/"themes" 裸
+   说明符；vitest 配置别名；新增 ambient 类型声明；
+3. 验证：生产版 CDP 实测 中文→英文→中文 往返，设置导航
+   （General/Extensions/…↔通用/扩展/…）、章节标题（Appearance↔外观）、
+   笔记导航（Notebooks/Quick access/Tags/Data management）、活动栏
+   （Chat/Projects/Tasks/Notes）全部随语言一致切换，无回译；
+   前端 710 测试全绿、typecheck/Biome 通过。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

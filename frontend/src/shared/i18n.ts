@@ -1,4 +1,8 @@
 // Re-export the app's existing i18n so React modules share one locale pipeline
 // instead of introducing a second translation system.
-// @ts-expect-error plain JS module without type declarations (public/i18n.js)
-export { t, getLocale, setLocale } from "../../../public/i18n.js";
+//
+// The "i18n" bare specifier resolves through the index.html import map to the
+// same /i18n.js module the native app uses, so every React bundle shares ONE
+// locale instance (a bundled copy would freeze each bundle to its own locale
+// state and fight the native MutationObserver during runtime switches).
+export { t, getLocale, setLocale } from "i18n";

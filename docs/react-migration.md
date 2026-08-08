@@ -421,3 +421,7 @@ bun run test          # vitest（public/** + frontend/src/**）
   模拟实测双向拖拽成功并还原数据
 - [x] 命令面板快捷键（第 238 轮）：Ctrl/Cmd+K 与 Ctrl/Cmd+Shift+P 打开
   命令面板，命令面板纳入 overlayOwnsEscape；前端 710 测试全绿
+- [x] i18n 单一实例化（第 239 轮）：i18n/themes 经 import map 共享，
+  build-react 外部化，React 包与原生端共用同一语言状态；修复语言切换
+  时原生 MutationObserver 用旧 locale 回译导致的"cookie=en 仍显示
+  中文"；vitest 别名 + ambient 类型声明

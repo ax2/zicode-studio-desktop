@@ -11,7 +11,14 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const outdir = path.join(root, "public", "native", "react");
-const reactExternal = ["react", "react-dom", "react-dom/client", "react/jsx-runtime"];
+const sharedExternal = [
+  "react",
+  "react-dom",
+  "react-dom/client",
+  "react/jsx-runtime",
+  "i18n",
+  "themes",
+];
 
 async function run() {
   await build({
@@ -133,7 +140,7 @@ async function run() {
     format: "esm",
     target: "es2022",
     jsx: "automatic",
-    external: reactExternal,
+    external: sharedExternal,
     minify: true,
     logLevel: "info",
   });

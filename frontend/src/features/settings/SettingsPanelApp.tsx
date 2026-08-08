@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-// @ts-expect-error plain JS module without type declarations (public/i18n.js)
-import { getLocale, setLocale, supportedLocales } from "../../../../public/i18n.js";
-// @ts-expect-error plain JS module without type declarations (public/themes.js)
-import { applyTheme, getCurrentTheme, themes } from "../../../../public/themes.js";
+import { getLocale, setLocale, supportedLocales } from "i18n";
+import { applyTheme, getCurrentTheme, themes } from "themes";
 import { t } from "../../shared/i18n";
 import { ConfigTab } from "./ConfigTab";
 import type { ConfigStore } from "./configStore";
