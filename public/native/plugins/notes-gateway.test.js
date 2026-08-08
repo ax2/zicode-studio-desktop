@@ -140,5 +140,12 @@ describe("NotesGateway", () => {
     await gateway.purgeTrash("programming", "workspace-1", "book-1", "note-1");
     expect(fetchImpl.mock.calls[3][0].toString()).toContain("/v2/notes/trash/purge");
     expect(JSON.parse(fetchImpl.mock.calls[3][1].body).noteId).toBe("note-1");
+
+    await gateway.emptyTrash("programming", "workspace-1");
+    expect(fetchImpl.mock.calls[4][0].toString()).toContain("/v2/notes/trash/empty");
+    expect(JSON.parse(fetchImpl.mock.calls[4][1].body)).toEqual({
+      sceneId: "programming",
+      workspaceId: "workspace-1",
+    });
   });
 });

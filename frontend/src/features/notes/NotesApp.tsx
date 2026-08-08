@@ -1108,8 +1108,10 @@ function TrashView({ store }: { store: NotesStore }) {
   const trash = store((state) => state.trash);
   const trashLoading = store((state) => state.trashLoading);
   const trashError = store((state) => state.trashError);
+  const snapshot = store((state) => state.snapshot);
   const setMode = store((state) => state.setMode);
   const [purgeArmedId, setPurgeArmedId] = useState<string | null>(null);
+  const [emptyArmed, setEmptyArmed] = useState(false);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const purge = (entry: TrashEntry) => {
@@ -1124,13 +1126,42 @@ function TrashView({ store }: { store: NotesStore }) {
     void store.getState().purgeFromTrash(entry);
   };
 
+  const empty = () => {
+    if (!emptyArmed) {
+      setEmptyArmed(true);
+      if (armTimer.current) clearTimeout(armTimer.current);
+      armTimer.current = setTimeout(() => {
+        setEmptyArmed(false);
+        setPurgeArmedId(null);
+      }, 3000);
+      return;
+    }
+    if (armTimer.current) clearTimeout(armTimer.current);
+    setEmptyArmed(false);
+    void store.getState().emptyTrash();
+  };
+
   return (
     <section className="notes-state-panel notes-trash-panel ui-card">
       <div className="notes-trash-header">
         <h1>{t("Trash")}</h1>
-        <button type="button" className="ui-button ui-button--ghost" onClick={() => setMode("library")}>
-          {t("All notes")}
-        </button>
+        <div className="notes-trash-actions">
+          {trash.length > 0 ? (
+            <button
+              type="button"
+              className={`ui-button ui-button--danger ui-button--sm notes-trash-empty${
+                emptyArmed ? " notes-delete-armed" : ""
+              }`}
+              disabled={trashLoading}
+              onClick={empty}
+            >
+              {emptyArmed ? t("Confirm empty trash") : t("Empty trash")}
+            </button>
+          ) : null}
+          <button type="button" className="ui-button ui-button--ghost" onClick={() => setMode("library")}>
+            {t("All notes")}
+          </button>
+        </div>
       </div>
       {trashError ? (
         <div className="notes-error-banner" role="alert">
@@ -1150,6 +1181,8 @@ function TrashView({ store }: { store: NotesStore }) {
             <span className="notes-list-item-main">
               <strong>{entry.note.title}</strong>
               <span>
+                {snapshot.notebooks.find((notebook) => notebook.id === entry.notebookId)?.title ?? ""}
+                {snapshot.notebooks.some((notebook) => notebook.id === entry.notebookId) ? " · " : ""}
                 {t("Deleted")} {formatDate(entry.deletedAt)}
               </span>
             </span>

@@ -321,6 +321,7 @@ impl HostServer {
             .route("/v2/notes/trash", get(list_trash))
             .route("/v2/notes/trash/restore", post(restore_trashed_note))
             .route("/v2/notes/trash/purge", post(purge_trashed_note))
+            .route("/v2/notes/trash/empty", post(empty_trash))
             .route("/v2/notes/capture", post(capture_note))
             .route(
                 "/v2/notes/attachments",
@@ -1170,6 +1171,15 @@ struct TrashNoteRequest {
     note_id: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EmptyTrashRequest {
+    workspace_id: String,
+    scene_id: String,
+    #[serde(default)]
+    notebook_id: Option<String>,
+}
+
 fn default_note_changes_limit() -> usize {
     100
 }
@@ -1515,6 +1525,21 @@ async fn purge_trashed_note(
         .purge_note(&request.notebook_id, &request.note_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "purged": true, "noteId": request.note_id })))
+}
+
+async fn empty_trash(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<EmptyTrashRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let emptied = scoped
+        .empty_trash(request.notebook_id.as_deref())
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "emptied": emptied })))
 }
 
 async fn create_notebook(

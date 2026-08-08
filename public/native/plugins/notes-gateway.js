@@ -157,6 +157,14 @@ export class NotesGateway {
     });
   }
 
+  emptyTrash(sceneId, workspaceId, notebookId) {
+    return this.#post("/v2/notes/trash/empty", {
+      sceneId,
+      workspaceId,
+      notebookId,
+    });
+  }
+
   capture(sceneId, workspaceId, notebookId, { url, title, tags = [] }) {
     return this.#post("/v2/notes/capture", {
       sceneId,

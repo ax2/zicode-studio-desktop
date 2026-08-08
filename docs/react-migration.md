@@ -557,3 +557,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    restoreFromTrash/purgeFromTrash（删除后自动刷新计数），UI 新增
    "回收站 (N)"入口与回收站视图（恢复/彻底删除二次确认/空状态）；
    前端 747 测试全绿
+- [x] 回收站补强 + 快捷键（第 301 轮）：emptyTrash 清空回收站、行内显示
+   来源笔记本名、树导航退出回收站；Ctrl+N 新建 / Ctrl+Shift+T 打开
+   回收站；前端 749 测试全绿

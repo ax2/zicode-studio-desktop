@@ -18,6 +18,8 @@ Open the Command Palette with `Ctrl+Shift+P` (or the command button next to the 
 ## Notes
 
 - `Ctrl+S` saves the current note while the notes editor is focused.
+- `Ctrl+N` creates a new note.
+- `Ctrl+Shift+T` opens the trash.
 
 ## Navigation
 

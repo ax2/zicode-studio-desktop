@@ -102,6 +102,7 @@ export interface NotesGatewayLike {
   listTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ trash?: TrashEntry[] }>;
   restoreTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
   purgeTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<unknown>;
+  emptyTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ emptied: number }>;
 }
 
 export interface NotesStoreOptions {
@@ -174,6 +175,7 @@ interface NotesState {
   loadTrash(): Promise<void>;
   restoreFromTrash(entry: TrashEntry): Promise<void>;
   purgeFromTrash(entry: TrashEntry): Promise<void>;
+  emptyTrash(): Promise<void>;
   saveEditor(): Promise<void>;
   markDirty(): void;
   scheduleAutosave(): void;
@@ -291,6 +293,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         selectedNote: null,
         dirty: false,
         editingNotebookId: null,
+        mode: "library",
       });
       await get().load({ preserveSelection: false });
     },
@@ -361,7 +364,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     selectNotebook(id) {
-      set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false });
+      set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false, mode: "library" });
     },
 
     discussInChat(note, selection) {
@@ -601,6 +604,19 @@ export function createNotesStore(options: NotesStoreOptions) {
         await gateway.purgeTrash(sceneId(), workspaceId(), entry.notebookId, entry.note.id);
         await get().loadTrash();
         notify(t("Note permanently deleted"));
+      } catch (error) {
+        set({ trashError: error instanceof Error ? error.message : String(error) });
+      } finally {
+        set({ trashLoading: false });
+      }
+    },
+
+    async emptyTrash() {
+      set({ trashLoading: true, trashError: null });
+      try {
+        await gateway.emptyTrash(sceneId(), workspaceId());
+        await get().loadTrash();
+        notify(t("Trash emptied"));
       } catch (error) {
         set({ trashError: error instanceof Error ? error.message : String(error) });
       } finally {

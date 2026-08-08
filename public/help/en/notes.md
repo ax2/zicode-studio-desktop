@@ -22,7 +22,7 @@ Choose **New note** to edit a title, tags, and Markdown content. Use **Preview**
 
 ## Attachments
 
-Choose **Attach** in the editor to add PNG, JPEG, GIF, WebP, PDF, text, Markdown, CSV, or JSON files. Each file is limited to 5 MiB; executables and active formats such as SVG are rejected. Attachments live under `public/attachments/` in the current vault, and the editor inserts an Astro-compatible Markdown link. Deleting a note also deletes its attachment directory.
+Choose **Attach** in the editor to add PNG, JPEG, GIF, WebP, PDF, text, Markdown, CSV, or JSON files. Each file is limited to 5 MiB; executables and active formats such as SVG are rejected. Attachments live under `public/attachments/` in the current vault, and the editor inserts an Astro-compatible Markdown link. Deleting a note moves the note and its attachment directory to the trash; only a permanent purge removes the attachments.
 
 ## Capture a web page
 
@@ -34,12 +34,19 @@ When the plugin is enabled and the active scene grants `pi.tools.register`, Pi c
 
 ## Import, backup, and recovery
 
-The **Data management** section provides four operations:
+The **Data management** section provides five operations:
 
 - **Import Markdown** copies ordinary Markdown or a Frontmatter document into a new note;
 - **Export readable backup** creates a `.zicode-notes.json` file containing notes, source metadata, and attachments;
 - **Import backup** validates the schema, IDs, file types, sizes, and references before creating an independent imported vault;
 - **Check and rebuild Vault** rescans Markdown into `.zicode/index.json` and reports damaged files or orphan attachment directories without deleting source files.
+- **Trash** lists deleted notes and lets you restore a single note, purge it permanently, or empty the trash in one step.
+
+## Trash
+
+Deleting a note is not immediate: the note moves into its notebook's trash, which shows the icon, title, source notebook, and deletion time. **Restore** returns the note and its attachments to the original notebook; **Delete permanently** requires a second confirmation and cannot be undone, as does **Empty trash**. Trash is isolated per workspace.
+
+Shortcuts: `Ctrl+N` creates a new note, `Ctrl+Shift+T` opens the trash, and `Ctrl+S` saves the current note.
 
 ## Data location
 

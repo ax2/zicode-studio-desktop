@@ -54,13 +54,24 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
   }
 
   const handleKeydown = (event: KeyboardEvent) => {
-    if (
-      document.body.dataset.activePlugin === "com.zicode.notes" &&
-      (event.ctrlKey || event.metaKey) &&
-      event.key.toLowerCase() === "s"
-    ) {
+    if (document.body.dataset.activePlugin !== "com.zicode.notes") return;
+    const meta = event.ctrlKey || event.metaKey;
+    if (!meta) return;
+    const key = event.key.toLowerCase();
+    if (key === "s") {
       event.preventDefault();
       void store.getState().saveEditor();
+      return;
+    }
+    if (!event.shiftKey && key === "n") {
+      event.preventDefault();
+      void store.getState().newNote();
+      return;
+    }
+    if (event.shiftKey && key === "t") {
+      event.preventDefault();
+      void store.getState().loadTrash();
+      store.getState().setMode("trash");
     }
   };
   document.addEventListener("keydown", handleKeydown);

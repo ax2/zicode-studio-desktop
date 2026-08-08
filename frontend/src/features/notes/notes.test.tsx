@@ -11,6 +11,7 @@ import {
   tagIcon,
 } from "./notesLogic";
 import { NotesContent, NotesNav } from "./NotesApp";
+import { setupNotesApp } from "./index";
 import { createNotesStore, type NotesGatewayLike } from "./notesStore";
 import type { Note, NotesSnapshot } from "./notesLogic";
 
@@ -74,6 +75,7 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
     listTrash: vi.fn(async () => ({ trash: [] })),
     restoreTrash: vi.fn(async () => ({ note: NOTE })),
     purgeTrash: vi.fn(async () => ({})),
+    emptyTrash: vi.fn(async () => ({ emptied: 0 })),
     ...overrides,
   };
 }
@@ -330,6 +332,15 @@ describe("notes store", () => {
     expect(purgeTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1");
   });
 
+  it("empties the trash through the store", async () => {
+    const listTrash = vi.fn(async () => ({ trash: [] }));
+    const emptyTrash = vi.fn(async () => ({ emptied: 2 }));
+    const store = storeWithGateway({ listTrash, emptyTrash });
+    await store.getState().emptyTrash();
+    expect(emptyTrash).toHaveBeenCalledWith("programming", "ws-1");
+    expect(listTrash).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the trash view with restore and purge actions", async () => {
     const listTrash = vi.fn(async () => ({
       trash: [
@@ -341,6 +352,7 @@ describe("notes store", () => {
       ],
     }));
     const store = storeWithGateway({ listTrash });
+    await store.getState().load();
     await store.getState().loadTrash();
     store.getState().setMode("trash");
     const { container } = render(<NotesContent store={store} />);
@@ -349,6 +361,16 @@ describe("notes store", () => {
     expect(container.textContent).toContain("Roadmap");
     expect(container.querySelector(".notes-trash-restore")).toBeTruthy();
     expect(container.querySelector(".notes-trash-purge")).toBeTruthy();
+    expect(container.textContent).toContain("Projects");
+    const emptyBtn = container.querySelector(".notes-trash-empty") as HTMLButtonElement;
+    expect(emptyBtn).toBeTruthy();
+    expect(emptyBtn.textContent).toContain(t("Empty trash"));
+    emptyBtn.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-trash-empty")?.textContent).toContain(
+        t("Confirm empty trash"),
+      ),
+    );
   });
 
   it("shows the empty trash state", async () => {
@@ -357,6 +379,60 @@ describe("notes store", () => {
     store.getState().setMode("trash");
     const { container } = render(<NotesContent store={store} />);
     expect(container.textContent).toContain(t("Trash is empty"));
+  });
+
+  it("handles Ctrl+N, Ctrl+Shift+T, and Ctrl+S notes shortcuts", async () => {
+    const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-9", title: "Untitled note" } }));
+    const save = vi.fn(async () => ({ note: { ...NOTE, title: "Untitled note" } }));
+    const app = setupNotesApp({
+      gateway: gatewayStub({ create, save }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "n", ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+    expect(create).toHaveBeenCalledTimes(1);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "t",
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(content.querySelector(".notes-trash-panel")).toBeTruthy());
+
+    const allNotes = [...nav.querySelectorAll(".notes-nav-button")].find((button) =>
+      (button.textContent ?? "").includes(t("All notes")),
+    ) as HTMLButtonElement;
+    allNotes.click();
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+    const notebookBranch = [...nav.querySelectorAll(".notes-notebook-branch")].find((branch) =>
+      (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Projects"),
+    );
+    (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(save).toHaveBeenCalled();
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
   });
 
   it("loads the snapshot and selects a note into drafts", async () => {

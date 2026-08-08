@@ -949,6 +949,18 @@ impl NotesVault {
         Ok(())
     }
 
+    /// Permanently delete every trashed note (optionally scoped to one
+    /// notebook) and return how many entries were removed.
+    pub fn empty_trash(&self, notebook_id: Option<&str>) -> Result<usize, NotesError> {
+        let entries = self.list_trash(notebook_id)?;
+        let mut purged = 0usize;
+        for entry in &entries {
+            self.purge_note(&entry.notebook_id, &entry.note.id)?;
+            purged += 1;
+        }
+        Ok(purged)
+    }
+
     fn trash_path(&self, notebook_id: &str, note_id: &str) -> Result<PathBuf, NotesError> {
         Ok(self
             .vault_root(notebook_id)?
@@ -2865,6 +2877,37 @@ mod tests {
             .unwrap();
         assert_eq!(scoped_a.list_trash(None).unwrap().len(), 1);
         assert!(scoped_b.list_trash(None).unwrap().is_empty());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn empty_trash_purges_every_trashed_note() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Research", None, None).unwrap();
+        let first = vault
+            .create_note(&notebook.id, "First", "Body one", vec![], None, None)
+            .unwrap();
+        let second = vault
+            .create_note(&notebook.id, "Second", "Body two", vec![], None, None)
+            .unwrap();
+        vault
+            .delete_note(&notebook.id, &first.summary.id, &first.summary.version)
+            .unwrap();
+        vault
+            .delete_note(&notebook.id, &second.summary.id, &second.summary.version)
+            .unwrap();
+        assert_eq!(vault.list_trash(None).unwrap().len(), 2);
+
+        assert_eq!(vault.empty_trash(None).unwrap(), 2);
+        assert!(vault.list_trash(None).unwrap().is_empty());
+        assert_eq!(
+            vault
+                .restore_note(&notebook.id, &first.summary.id)
+                .unwrap_err()
+                .code,
+            "trash_empty"
+        );
         let _ = fs::remove_dir_all(root);
     }
 
