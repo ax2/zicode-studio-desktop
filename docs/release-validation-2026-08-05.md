@@ -317,3 +317,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
+
+## 第二十次重建（2026-08-09，含第 290 轮 Biome 全量清零）
+
+- 合入第 290 轮：i18n 重复键、死 CSS 规则、未用导入、index.html 缺
+  闭合 `</div>`、未用解构变量全部修复，`biome lint .` 447 文件首次
+  0 错误 0 警告；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `F76C9EDF42D3F5C831924232A334390DCABB8FD27BB1B7DC5969C58BE3FD9EEF`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,854,474 B，SHA-256
+    `EC16B2E9957434A9D63C5BE59C382198B93C3F98D970B05C34E0D5DCD79B7EC3`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
+    ERROR/WARN/panic。

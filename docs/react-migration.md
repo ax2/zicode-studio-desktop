@@ -530,3 +530,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] Biome 全量清零（第 290 轮）：i18n 重复键/死 CSS 规则/未用导入/
    index.html 缺闭合 div/未用解构全部修复，biome lint 447 文件首次
    0 错误 0 警告
+- [x] release 第二十次重建（第 291 轮）：EXE 41,320,960 B / 安装包
+   346,854,474 B，含第 290 轮修复，静默重装验证通过
