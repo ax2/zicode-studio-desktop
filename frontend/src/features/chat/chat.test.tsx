@@ -134,6 +134,20 @@ describe("chat feed renderers", () => {
     expect(container.querySelector(".message-copy-btn")).toBeTruthy();
   });
 
+  it("renders the organize-to-note action and dispatches its request", async () => {
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    renderer.renderAssistantMessage({ id: "a1", content: "Summary" }, false);
+    await flush();
+
+    const button = container.querySelector(".message-organize-btn") as HTMLElement | null;
+    expect(button).toBeTruthy();
+    const listener = vi.fn();
+    container.addEventListener("organizechattonotes", listener);
+    button?.click();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it("renders system, error, and model error messages", async () => {
     const container = makeContainer();
     const renderer = new MessageRenderer(container);

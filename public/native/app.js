@@ -222,6 +222,7 @@ let store = createSessionStore(target);
 let navigationGeneration = 0;
 let commandCatalog = buildCommandCatalog({});
 let streamingElement = null;
+let pendingOrganizeNote = null;
 let sidebar = null;
 let pluginShell = null;
 let activeSearchQuery = "";
@@ -801,6 +802,48 @@ messagesElement.addEventListener("savechattonotes", async (event) => {
     });
     pluginShell?.activate("com.zicode.notes");
   } catch (error) {
+    showError(error);
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+});
+
+messagesElement.addEventListener("organizechattonotes", async (event) => {
+  const button = event.target?.closest?.(".message")?.querySelector?.(".message-organize-btn");
+  if (button) button.disabled = true;
+  try {
+    if (pendingOrganizeNote) return;
+    const skillResponse = await fetch("/skills/conversation-note/SKILL.md", {
+      cache: "no-store",
+    });
+    if (!skillResponse.ok) {
+      throw new Error(t("The conversation-note skill could not be loaded"));
+    }
+    const skillText = await skillResponse.text();
+    const transcript = buildConversationTranscript(currentHistoryMessages);
+    if (!transcript.trim()) {
+      throw new Error(t("There is no conversation to organize"));
+    }
+    const firstUserMessage =
+      [...currentHistoryMessages].reverse().find((message) => message.role === "user")
+        ?.content ?? "";
+    const prompt = [
+      t("Organize conversation into note"),
+      t("Use the conversation-note skill below and output only the note body in Markdown."),
+      "",
+      `===== SKILL =====\n${skillText}`,
+      `===== CONVERSATION =====\n${transcript}`,
+    ].join("\n\n");
+    pendingOrganizeNote = {
+      question: fullMessageText(firstUserMessage),
+    };
+    await runtime.request(
+      { type: "prompt", message: prompt },
+      target,
+      { idempotencyKey: randomId() },
+    );
+  } catch (error) {
+    pendingOrganizeNote = null;
     showError(error);
   } finally {
     if (button?.isConnected) button.disabled = false;
@@ -1471,6 +1514,23 @@ async function handleRuntimeEvent(event) {
         setSessionCost(sessionTotalCost + (event.message.usage?.cost?.total ?? 0));
         streamingElement = null;
         convNav.notifyNewMessage();
+        if (pendingOrganizeNote) {
+          const pending = pendingOrganizeNote;
+          pendingOrganizeNote = null;
+          const answer = fullMessageText(event.message?.content ?? []);
+          if (answer.trim()) {
+            try {
+              await notesApp?.captureChatExchange({
+                question: pending.question,
+                answer,
+                sessionId: target.sessionId,
+              });
+              pluginShell?.activate("com.zicode.notes");
+            } catch (error) {
+              showError(error);
+            }
+          }
+        }
       }
       break;
     case "tool_execution_start":
@@ -1687,6 +1747,30 @@ function textFromMessageContent(content) {
         : "";
   const trimmed = text.trim();
   return trimmed ? trimmed.slice(0, 120) : null;
+}
+
+function fullMessageText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((block) => block?.type === "text")
+      .map((block) => block.text ?? "")
+      .join("\n");
+  }
+  return "";
+}
+
+function buildConversationTranscript(messages) {
+  const lines = [];
+  for (const message of [...(messages ?? [])].slice(-60)) {
+    const text = fullMessageText(message?.content ?? "").trim();
+    if (!text) continue;
+    const role =
+      message.role === "user" ? "User" : message.role === "assistant" ? "Assistant" : null;
+    if (!role) continue;
+    lines.push(`${role}: ${text.slice(0, 3000)}`);
+  }
+  return lines.join("\n\n");
 }
 
 function setStatus(text) {

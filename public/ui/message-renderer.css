@@ -342,6 +342,7 @@ body.hide-thinking .thinking-block {
 
 .message-copy-btn,
 .message-note-btn,
+.message-organize-btn,
 .message-share-btn {
   opacity: 0.45;
   background: none;
@@ -358,6 +359,7 @@ body.hide-thinking .thinking-block {
 
 .message-copy-btn:hover,
 .message-note-btn:hover,
+.message-organize-btn:hover,
 .message-share-btn:hover {
   opacity: 1;
   color: var(--text-primary);
@@ -365,6 +367,7 @@ body.hide-thinking .thinking-block {
 
 .message-copy-btn:active,
 .message-note-btn:active,
+.message-organize-btn:active,
 .message-share-btn:active {
   transform: scale(0.9);
 }
