@@ -505,3 +505,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    346,820,935 B，含第 277 轮优化，静默重装验证通过
 - [x] 设置页 a11y 标签（第 280 轮）：自动压缩/显示思考两个 switch 补
    aria-label，场景下拉补 aria-label + 回归断言；9 视图 a11y 扫描 0 问题
+- [x] release 第十六次重建（第 281 轮）：EXE 41,320,960 B / 安装包
+   346,803,897 B，含第 280 轮修复，静默重装验证通过

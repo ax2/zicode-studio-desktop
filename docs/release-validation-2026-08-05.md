@@ -250,3 +250,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
   - CDP 实测扩展目录加载 6.4s 内就绪（并行优化前 20–40 秒），分页
     “1–50 of 5234” 正常；日志无 ERROR/WARN/panic。
+
+## 第十六次重建（2026-08-09，含第 280 轮设置页 a11y 标签）
+
+- 合入第 280 轮：设置页“自动压缩上下文/显示思考过程”两个 switch 补
+  `aria-label`，“下次会话场景”下拉补 `aria-label`；新增回归断言；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `ED50BDFD96F3F719EF71CE860C6D17DA5C5D87854614BDECD355530F4E17A9FD`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,803,897 B，SHA-256
+    `1D1A9F18B39E2C84D9675711047E79F80667CE5AEF62D9921A3E48930DC0543B`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - CDP 实测设置页开关读屏名与场景下拉 aria-label 生效；9 视图 a11y
+    扫描 0 问题；日志无 ERROR/WARN/panic。
