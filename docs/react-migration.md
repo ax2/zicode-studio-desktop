@@ -537,3 +537,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    契约断言；前端 738 测试全绿
 - [x] release 第二十一次重建（第 293 轮）：EXE 41,320,960 B / 安装包
    346,833,530 B，含第 292 轮修复，静默重装验证通过
+- [x] 自动压缩上下文开关接入运行时（第 294 轮）：store 新增
+   setAutoCompaction 发送 set_auto_compaction 消息 + 会话启动应用持久化
+   值；前端 740 测试全绿

@@ -52,6 +52,37 @@ describe("settings widgets store", () => {
     expect(store.getState().thinkingLevel).toBe("low");
   });
 
+  it("sends the auto-compaction preference to the session runtime", async () => {
+    const request = vi.fn(async () => ({}));
+    const store = createSettingsWidgetsStore({
+      runtime: { request },
+      getTarget: () => ({ sceneId: "programming" }),
+      randomId: () => "id-auto",
+    });
+    await store.getState().setAutoCompaction(true);
+    expect(request).toHaveBeenCalledWith(
+      { type: "set_auto_compaction", enabled: true },
+      { sceneId: "programming" },
+      { idempotencyKey: "id-auto" },
+    );
+  });
+
+  it("wires the auto-compaction toggle to the runtime send", async () => {
+    localStorage.clear();
+    const request = vi.fn(async () => ({}));
+    const store = createSettingsWidgetsStore({
+      runtime: { request },
+      getTarget: () => ({ sceneId: "programming" }),
+    });
+    act(() => store.getState().toggle("auto-compact"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "set_auto_compaction", enabled: true }),
+      { sceneId: "programming" },
+      expect.anything(),
+    );
+  });
+
   it("loads scene profiles and selects the persisted scene", async () => {
     const store = createSettingsWidgetsStore({
       invoke: vi.fn(async () => [

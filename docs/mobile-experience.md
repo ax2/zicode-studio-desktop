@@ -4568,6 +4568,25 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百九十四轮：“自动压缩上下文”开关接入运行时（2026-08-09）。
+
+1. 根因：`set_auto_compaction` 只存在于 runtime-gateway 允许列表，前端
+   没有任何发送方——设置面板“自动压缩上下文”开关仅写 localStorage 与
+   body dataset，Pi 运行时收不到该偏好，开关无效；
+2. 修复：
+   - settingsWidgetsStore 新增 `setAutoCompaction(enabled)`（与
+     setThinkingLevel 同构：`runtime.request({type:"set_auto_compaction",
+     enabled}, target, {idempotencyKey})`），toggle("auto-compact") 时
+     立即发送；
+   - app.js `adoptTarget`（会话启动/切换）读取持久化
+     `picot-settings-auto-compact`，对新建会话运行时发送
+     `set_auto_compaction:true`（best-effort）；
+   - `SettingsWidgetsOptions.runtime.request` 操作类型放宽为
+     `{type, level?, enabled?}`；
+3. 验证：前端 740 项全绿（+2：直发形状 + toggle 接线回归）；typecheck/
+   Biome 通过；生产版 CDP 实测开关往返正常（on→off→on 恢复原值）、
+   0 异常。
+
 第二百九十三轮：release 第二十一次重建（含第 292 轮，2026-08-09）。
 
 1. 让生产安装包包含第 292 轮（显示思考过程开关修复）；

@@ -1630,6 +1630,21 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
     );
   }
   target = nextTarget;
+  // Apply the persisted auto-compaction preference to the freshly adopted
+  // session runtime (the toggle also sends it live on change).
+  try {
+    if (localStorage.getItem("picot-settings-auto-compact") === "true") {
+      void runtime
+        .request(
+          { type: "set_auto_compaction", enabled: true },
+          target,
+          { idempotencyKey: randomId() },
+        )
+        .catch(showError);
+    }
+  } catch {
+    // Preference application is best-effort; storage may be unavailable.
+  }
   const migrateTemporaryDraft =
     sessionChanged &&
     previousTarget.workspaceId === nextTarget.workspaceId &&

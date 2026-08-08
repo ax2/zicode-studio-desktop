@@ -13,7 +13,7 @@ export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high"];
 export interface SettingsWidgetsOptions {
   runtime?: {
     request(
-      operation: { type: string; level: string },
+      operation: { type: string; level?: string; enabled?: boolean },
       target: unknown,
       options?: { idempotencyKey?: string },
     ): Promise<unknown>;
@@ -46,6 +46,7 @@ interface SettingsWidgetsState {
   toggle(key: string): void;
   updateThinkingUI(level: string): void;
   setThinkingLevel(level: string): Promise<void>;
+  setAutoCompaction(enabled: boolean): Promise<void>;
   loadSceneProfiles(): Promise<void>;
   setSceneSelected(id: string): void;
   setTarget(target: { sceneId?: string } | null): void;
@@ -119,6 +120,23 @@ export function createSettingsWidgetsStore(options: SettingsWidgetsOptions = {})
       }
       applyToggleEffect(key, enabled);
       set({ toggles: { ...get().toggles, [key]: enabled } });
+      if (key === "auto-compact") {
+        void get().setAutoCompaction(enabled);
+      }
+    },
+
+    async setAutoCompaction(enabled) {
+      const target = getTarget();
+      if (!target) return;
+      try {
+        await options.runtime?.request(
+          { type: "set_auto_compaction", enabled },
+          target,
+          { idempotencyKey: randomId() },
+        );
+      } catch (error) {
+        onError(error);
+      }
     },
 
     updateThinkingUI(level) {
