@@ -530,10 +530,18 @@ export function createConfigStore(options: ConfigStoreOptions) {
         });
         return;
       }
+      let cleanupWarning = "";
       if (form.originalProvider && form.originalProvider !== provider) {
-        await deleteSystemCredential(form.originalProvider).catch(() => {});
+        await deleteSystemCredential(form.originalProvider).catch(() => {
+          cleanupWarning = t("The previous credential could not be removed.");
+        });
       }
-      set({ channelEditor: null, channelSaving: false, channelError: null, channelEditorError: null });
+      set({
+        channelEditor: null,
+        channelSaving: false,
+        channelError: cleanupWarning,
+        channelEditorError: null,
+      });
       await refreshEverything();
     },
 

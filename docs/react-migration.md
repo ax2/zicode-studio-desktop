@@ -450,3 +450,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 会话侧栏 i18n（第 249 轮）：Show more/Show less/Failed to load
   sessions 接入 t() 并补中文；运行面审计（日志/二维码/中继状态）无
   缺陷
+- [x] 静默错误路径审计（第 252 轮）：空 catch 逐项复核均为 best-effort；
+  模型渠道旧凭据清理失败补"无法移除旧凭据"警告

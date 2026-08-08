@@ -155,6 +155,7 @@ const zhCN = {
   "Show more": "显示更多",
   "Show less": "显示更少",
   "Failed to load sessions.": "无法加载会话。",
+  "The previous credential could not be removed.": "无法移除旧凭据。",
   "Context usage": "上下文用量",
   "Context Window": "上下文窗口",
   "Conversation navigator": "对话导航",
