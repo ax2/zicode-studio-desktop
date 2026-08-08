@@ -498,3 +498,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    删除全流程；前端 735 测试全绿
 - [x] release 第十四次重建（第 276 轮）：EXE 41,320,960 B / 安装包
    346,829,217 B，含第 275 轮修复，静默重装验证通过
+- [x] 社区包目录并行加载（第 277 轮）：fetchCatalog 首页取 totalPages 后
+   并行拉取剩余页（Promise.all 保持页序），加载从 20–40 秒降到 265ms；
+   前端 736 测试全绿

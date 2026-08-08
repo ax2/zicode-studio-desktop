@@ -116,19 +116,32 @@ interface PackageBrowseState {
 
 async function fetchCatalog(fetchImpl: typeof fetch): Promise<BrowsePackage[]> {
   const pageSize = 250;
-  const all: BrowsePackage[] = [];
-  let apiPage = 1;
-  let totalPages = 1;
-  do {
-    const res = await fetchImpl(
-      `${PKG_API_BASE}/packages?page=${apiPage}&pageSize=${pageSize}`,
-    );
-    if (!res.ok) throw new Error(`Registry returned ${res.status}`);
-    const data = (await res.json()) as { packages?: BrowsePackage[]; totalPages?: number };
-    if (Array.isArray(data?.packages)) all.push(...data.packages);
-    totalPages = Number(data?.totalPages) || 1;
-    apiPage += 1;
-  } while (apiPage <= totalPages);
+  // The catalog is paginated (5234+ packages at 250/page ≈ 21 pages). Fetching
+  // every page sequentially keeps the browser stuck on "Loading packages…" for
+  // 20–40s, so read the page count from the first response, then fetch the
+  // remaining pages in parallel while preserving page order.
+  const first = await fetchImpl(`${PKG_API_BASE}/packages?page=1&pageSize=${pageSize}`);
+  if (!first.ok) throw new Error(`Registry returned ${first.status}`);
+  const firstData = (await first.json()) as {
+    packages?: BrowsePackage[];
+    totalPages?: number;
+  };
+  const all: BrowsePackage[] = Array.isArray(firstData.packages)
+    ? [...firstData.packages]
+    : [];
+  const totalPages = Number(firstData.totalPages) || 1;
+  const remaining = await Promise.all(
+    Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) =>
+      fetchImpl(`${PKG_API_BASE}/packages?page=${index + 2}&pageSize=${pageSize}`).then(
+        async (res) => {
+          if (!res.ok) throw new Error(`Registry returned ${res.status}`);
+          const data = (await res.json()) as { packages?: BrowsePackage[] };
+          return Array.isArray(data.packages) ? data.packages : [];
+        },
+      ),
+    ),
+  );
+  for (const batch of remaining) all.push(...batch);
   return all;
 }
 

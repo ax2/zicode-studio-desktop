@@ -93,6 +93,37 @@ describe("package browse store + React tab", () => {
     expect(document.querySelector(".pkg-browse-count")?.textContent).toContain("of 3");
   });
 
+  it("loads a multi-page catalog in parallel and preserves page order", async () => {
+    const pages: Record<number, BrowsePackage[]> = {
+      1: [PACKAGES[0]],
+      2: [PACKAGES[1]],
+      3: [PACKAGES[2]],
+    };
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const page = Number(/page=(\d+)/.exec(String(input))?.[1] ?? 1);
+      return {
+        ok: true,
+        json: async () => ({ packages: pages[page] ?? [], totalPages: 3 }),
+      };
+    });
+    const store = createPackageBrowseStore({
+      control: null,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    await store.getState().load();
+
+    expect(store.getState().packages.map((pkg) => pkg.name)).toEqual([
+      "zebra-tool",
+      "alpha-skill",
+      "mid-theme",
+    ]);
+    const requestedPages = fetchImpl.mock.calls.map((call) =>
+      Number(/page=(\d+)/.exec(String(call[0]))?.[1]),
+    );
+    expect(requestedPages).toEqual(expect.arrayContaining([1, 2, 3]));
+  });
+
   it("filters by type pill and search input", async () => {
     const store = createPackageBrowseStore({ control: null, fetchImpl: fetchStub() });
     render(<PackageBrowseTab store={store} />);
