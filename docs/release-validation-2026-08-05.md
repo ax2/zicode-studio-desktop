@@ -232,3 +232,21 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、默认窗口 1440×900；
   - CDP 实测移动弹层 Escape 关闭生效、应用快速切换 0 异常；日志无
     ERROR/WARN/panic。
+
+## 第十五次重建（2026-08-09，含第 277 轮社区包目录并行加载）
+
+- 合入第 277 轮：`fetchCatalog` 首页取 `totalPages` 后并行拉取剩余页
+  （`Promise.all` 保持页序），社区包目录加载从串行 21 页（20–40 秒）
+  降至亚秒级；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `87B2ADE997A1915AB426B42C81FC1BAD1DD2E46D00388555B769D8908E9A8E63`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,820,935 B，SHA-256
+    `85ED4D59A81F7157D2EB72BE18158E77E71E0F8EE7B2DDD5D751EE71A272001C`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - CDP 实测扩展目录加载 6.4s 内就绪（并行优化前 20–40 秒），分页
+    “1–50 of 5234” 正常；日志无 ERROR/WARN/panic。
