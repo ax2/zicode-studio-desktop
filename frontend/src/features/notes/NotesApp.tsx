@@ -150,7 +150,7 @@ function NotebookBranch({
   const children = childrenByParent.get(notebook.id) ?? [];
   return (
     <details
-      className="notes-notebook-branch"
+      className={`notes-notebook-branch${dragTargetId === notebook.id ? " drop-target" : ""}`}
       data-notebook-id={notebook.id}
       open={expanded}
     >
@@ -601,8 +601,7 @@ function buildDragGhost(note: NoteSummary): HTMLElement {
 
 function dropTargetIdAt(x: number, y: number): string | null {
   const target = document.elementFromPoint(x, y);
-  const summary = target?.closest?.(".notes-notebook-summary");
-  const branch = summary?.closest?.(".notes-notebook-branch");
+  const branch = target?.closest?.(".notes-notebook-branch");
   return (branch as HTMLElement | null)?.dataset?.notebookId ?? null;
 }
 

@@ -169,6 +169,13 @@
   color: var(--text-primary);
 }
 
+.notes-notebook-branch.drop-target .notes-notebook-summary {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
 .notes-drag-ghost {
   position: fixed;
   top: 0;
