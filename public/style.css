@@ -194,6 +194,13 @@ body.is-resizing-side-panel {
   margin-left: 2px;
 }
 
+/* The file browser panel only lives in the chat surface; hide its header
+   toggle while a plugin view owns the main area so it does not look
+   clickable-but-inert. */
+body[data-active-plugin]:not([data-active-plugin="core.chat"]) #file-sidebar-toggle {
+  display: none;
+}
+
 .file-sidebar {
   display: flex;
 }

@@ -385,8 +385,31 @@ function EmojiPicker({
 function QuickAccessSection({ store }: { store: NotesStore }) {
   const sourceOnly = store((state) => state.sourceOnly);
   const applyFilter = store((state) => state.applyFilter);
+  const recentNoteIds = store((state) => state.recentNoteIds);
+  const snapshot = store((state) => state.snapshot);
+  const recentNotes = recentNoteIds
+    .map((id) => snapshot.notes.find((note) => note.id === id))
+    .filter((note): note is NoteSummary => Boolean(note));
   return (
     <NavSection title={t("Quick access")} store={store}>
+      {recentNotes.length > 0 ? (
+        <>
+          {recentNotes.map((note) => (
+            <button
+              key={note.id}
+              type="button"
+              className="notes-nav-button"
+              onClick={() => void store.getState().selectNote(note)}
+            >
+              <span className="notes-nav-item-icon">
+                {note.icon || DEFAULT_NOTE_ICON}
+              </span>
+              <span className="notes-nav-item-label">{note.title}</span>
+            </button>
+          ))}
+          <div className="notes-nav-quick-separator" />
+        </>
+      ) : null}
       <button
         type="button"
         className={`notes-nav-button${sourceOnly ? " active" : ""}`}

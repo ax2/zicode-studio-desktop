@@ -14,6 +14,32 @@ import {
   type Notebook,
 } from "./notesLogic";
 
+const RECENT_NOTES_KEY = "zicode-notes-recent";
+const RECENT_NOTES_LIMIT = 8;
+
+function readRecentNoteIds(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_NOTES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((id) => typeof id === "string").slice(0, RECENT_NOTES_LIMIT)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentNoteIds(ids: string[]): void {
+  try {
+    localStorage.setItem(
+      RECENT_NOTES_KEY,
+      JSON.stringify(ids.slice(0, RECENT_NOTES_LIMIT)),
+    );
+  } catch {
+    // Storage may be unavailable; recent-notes is a convenience only.
+  }
+}
+
 export interface NotesGatewayLike {
   list(sceneId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
   get(sceneId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
@@ -59,6 +85,7 @@ interface NotesState {
   sourceOnly: boolean;
   focusTitleOnNextRender: boolean;
   editingNotebookId: string | null;
+  recentNoteIds: string[];
   moveNote: NoteSummary | null;
   dragTargetId: string | null;
   expandedNotebookIds: Set<string>;
@@ -139,6 +166,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     sourceOnly: false,
     focusTitleOnNextRender: false,
     editingNotebookId: null,
+    recentNoteIds: readRecentNoteIds(),
     moveNote: null,
     dragTargetId: null,
     expandedNotebookIds: new Set(),
@@ -203,7 +231,12 @@ export function createNotesStore(options: NotesStoreOptions) {
           dirty: false,
           preview: true,
           mode: "library",
+          recentNoteIds: [
+            note.id,
+            ...get().recentNoteIds.filter((id) => id !== note.id),
+          ].slice(0, RECENT_NOTES_LIMIT),
         });
+        writeRecentNoteIds(get().recentNoteIds);
         const expanded = new Set(get().expandedNotebookIds);
         expanded.add(note.notebookId);
         set({ expandedNotebookIds: expanded });
