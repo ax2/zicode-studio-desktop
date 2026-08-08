@@ -519,3 +519,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    缺 round 270 的 share_target.action 重写；本机验证可构建后上传源码
    到服务器重建并替换（保留 systemd 令牌），manifest action 已重写为
    设备作用域、桌面在线、可回滚
+- [x] 服务器基础设施实证（第 287 轮）：公网 STUN binding 成功响应
+   （turn.remote.zicode.com:3478）、coturn active、中继 5 分钟健康检查
+   计时器与每日用量持久化确认

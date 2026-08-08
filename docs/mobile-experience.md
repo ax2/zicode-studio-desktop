@@ -4568,6 +4568,23 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百八十七轮：服务器基础设施实证（STUN 可达 + 监控计时器，2026-08-09）。
+
+1. 背景：round 279 已验证 TURN 配置与 remote-config 派生凭据；本轮补
+   服务器侧实证；
+2. 验证结果：
+   - coturn/turnserver 服务 active，UDP 3478 监听；从公网向
+     `turn.remote.zicode.com:3478`（39.98.116.129）发送 STUN binding
+     请求，收到 92 字节 type 0x0001 成功响应——公网 STUN/TURN 路径
+     连通，M2 打洞基础设施端到端就绪；
+   - 监控：`zicode-relay-check.timer` 每 5 分钟执行
+     `/usr/local/bin/check-relay.sh --json`（中继健康检查）；中继
+     `/var/lib/zicode-relay` 每日用量文件（usage-20671/20672.json +
+     usage.json）正常持久化；告警 webhook 未配置（可选）；
+3. 说明：中继（round 286 已更新）、coturn/STUN、监控三件套均在生产
+   生效；剩余外部项收敛为真机跨 NAT 打洞验收、二维码扫码、TalkBack、
+   签名与自动更新发布。
+
 第二百八十六轮：公网中继线上更新（补齐 round 270 manifest 修复，2026-08-09）。
 
 1. 背景：round 279 验证过公网中继是新版（含 usage 统计），但本轮实测
