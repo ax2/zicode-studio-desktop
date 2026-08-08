@@ -215,15 +215,8 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
     },
 
-  selectNotebook(id) {
-    const expanded = new Set(get().expandedNotebookIds);
-    expanded.add(id);
-    set({
-      selectedNotebookId: id,
-      selectedTag: null,
-      sourceOnly: false,
-      expandedNotebookIds: expanded,
-    });
+    selectNotebook(id) {
+      set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false });
     },
 
     discussInChat(note, selection) {
@@ -453,7 +446,9 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     setEditingNotebook(editingNotebookId) {
-      set({ editingNotebookId });
+      const expanded = new Set(get().expandedNotebookIds);
+      if (editingNotebookId) expanded.add(editingNotebookId);
+      set({ editingNotebookId, expandedNotebookIds: expanded });
     },
 
     setDraft(patch) {

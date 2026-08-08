@@ -86,7 +86,7 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
-  it("lets a selected notebook collapse without the controlled-details fight", async () => {
+  it("expands and collapses a notebook from its summary without a toggle fight", async () => {
     const store = storeWithGateway();
     await store.getState().load();
     const { container } = render(<NotesNav store={store} />);
@@ -103,10 +103,7 @@ describe("notes store", () => {
     summary.click();
     await waitFor(() => expect(branch.open).toBe(true));
 
-    // Simulate the user closing the details natively; React must accept the
-    // close instead of forcing the notebook back open.
-    branch.open = false;
-    branch.dispatchEvent(new Event("toggle"));
+    summary.click();
     await waitFor(() => expect(branch.open).toBe(false));
     expect(branch.open).toBe(false);
   });

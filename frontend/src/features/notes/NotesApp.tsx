@@ -73,8 +73,17 @@ function NavSection({
   );
   const toggle = store((state) => state.toggleNavSection);
   return (
-    <details className="notes-nav-section" open={expanded} onToggle={() => toggle(title)}>
-      <summary className="notes-nav-section-title">{title}</summary>
+    <details className="notes-nav-section" open={expanded}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: section toggle pattern preserved from the vanilla nav */}
+      <summary
+        className="notes-nav-section-title"
+        onClick={(event) => {
+          event.preventDefault();
+          toggle(title);
+        }}
+      >
+        {title}
+      </summary>
       <div className="notes-nav-section-body">{children}</div>
     </details>
   );
@@ -123,7 +132,6 @@ function NotebookBranch({
     state.expandedNotebookIds.has(notebook.id) ||
     Boolean(query || selectedTag || sourceOnly),
   );
-  const toggleExpanded = store((state) => state.toggleNotebookExpanded);
   const editingNotebookId = store((state) => state.editingNotebookId);
   const dragTargetId = store((state) => state.dragTargetId);
   const notes = snapshot.notes.filter((note) => note.notebookId === notebook.id);
@@ -133,17 +141,17 @@ function NotebookBranch({
       className="notes-notebook-branch"
       data-notebook-id={notebook.id}
       open={expanded}
-      onToggle={(event) => {
-        const nativeOpen = (event.currentTarget as HTMLDetailsElement).open;
-        if (nativeOpen !== expanded) toggleExpanded(notebook.id, nativeOpen);
-      }}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: notebook selection pattern preserved from the vanilla tree */}
       <summary
         className={`notes-notebook-summary${
           selectedNotebookId === notebook.id && !sourceOnly && !selectedTag ? " active" : ""
         }${dragTargetId === notebook.id ? " drop-target" : ""}`}
-        onClick={() => store.getState().selectNotebook(notebook.id)}
+        onClick={(event) => {
+          event.preventDefault();
+          store.getState().toggleNotebookExpanded(notebook.id, !expanded);
+          store.getState().selectNotebook(notebook.id);
+        }}
       >
         <span className="notes-notebook-icon">
           <span className="notes-folder-glyph">{expanded ? "📂" : "📁"}</span>
