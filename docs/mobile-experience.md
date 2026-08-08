@@ -4568,6 +4568,17 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百八十三轮：release 第十七次重建（含第 282 轮，2026-08-09）。
+
+1. 让生产安装包包含第 282 轮（命令面板焦点恢复）；
+   `bun run build` 重建 EXE 41,320,960 B（SHA-256 `937F7D56…`）与
+   安装包 346,856,567 B（`B4F9964F…`），完整哈希见
+   `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录 297 个文件与仓库 public 一致；从安装
+   目录启动：`/health` 200（pi 0.83.0、协议 v2、
+   `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；CDP 实测输入框聚焦
+   →Ctrl+Shift+P→Escape→焦点回到输入框；日志无 ERROR/WARN/panic。
+
 第二百八十二轮：命令面板关闭后焦点恢复优化（2026-08-09）。
 
 1. 根因：命令面板 `close()` 无条件把焦点还给命令按钮；当用户用

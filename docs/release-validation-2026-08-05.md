@@ -267,3 +267,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
   - CDP 实测设置页开关读屏名与场景下拉 aria-label 生效；9 视图 a11y
     扫描 0 问题；日志无 ERROR/WARN/panic。
+
+## 第十七次重建（2026-08-09，含第 282 轮命令面板焦点恢复）
+
+- 合入第 282 轮：命令面板 `open()` 记录先前焦点（排除 body/html），
+  `close()` 恢复原位否则回退命令按钮；新增回归测试；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `937F7D560218F56EF4B7BE19455AAFCB925F44E5011E73B1990FF721CB4407B6`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,856,567 B，SHA-256
+    `B4F9964FF9736993549DB55D74CC04EFEF5C047C007E2648E27A644AE79E8EFC`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - CDP 实测输入框聚焦→Ctrl+Shift+P→Escape→焦点回到输入框；日志无
+    ERROR/WARN/panic。
