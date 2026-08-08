@@ -14,6 +14,26 @@ import { NotesContent, NotesNav } from "./NotesApp";
 import { createNotesStore, type NotesGatewayLike } from "./notesStore";
 import type { Note, NotesSnapshot } from "./notesLogic";
 
+// jsdom has no PointerEvent yet; the notes tree drag is pointer-driven, so
+// provide a minimal MouseEvent subclass with the pointer fields the handlers
+// read. Kept local to this test file.
+if (typeof PointerEvent === "undefined") {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerId: number;
+    pointerType: string;
+    isPrimary: boolean;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+      this.pointerType = init.pointerType ?? "";
+      this.isPrimary = init.isPrimary ?? false;
+    }
+  }
+  const polyfill = PointerEventPolyfill as unknown as typeof PointerEvent;
+  (globalThis as unknown as Record<string, unknown>).PointerEvent = polyfill;
+  (window as unknown as Record<string, unknown>).PointerEvent = polyfill;
+}
+
 const NOTE: Note = {
   id: "note-1",
   notebookId: "book-1",
@@ -178,6 +198,108 @@ describe("notes store", () => {
     await waitFor(() => expect(section.open).toBe(false));
     summary.click();
     await waitFor(() => expect(section.open).toBe(true));
+  });
+
+  it("drags a note to another notebook with a live ghost and drop highlight", async () => {
+    const moveNote = vi.fn(
+      async (
+        _sceneId: string,
+        _workspaceId: string,
+        _payload: {
+          notebookId: string;
+          noteId: string;
+          targetNotebookId: string;
+          expectedVersion?: number;
+        },
+      ) => ({}),
+    );
+    const store = storeWithGateway({ moveNote });
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-list-item.notes-tree-note")).toBeTruthy(),
+    );
+
+    const note = container.querySelector(
+      ".notes-list-item.notes-tree-note",
+    ) as HTMLElement;
+    const targetBranch = [...container.querySelectorAll(".notes-notebook-branch")].find(
+      (branch) =>
+        (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Journal"),
+    ) as HTMLDetailsElement;
+    expect(targetBranch).toBeTruthy();
+
+    // jsdom has no layout engine, so hit-testing returns nothing; route every
+    // probe to the target notebook branch to exercise the drop pipeline.
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = (() => targetBranch) as unknown as typeof document.elementFromPoint;
+    try {
+      note.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          clientX: 10,
+          clientY: 10,
+          button: 0,
+          buttons: 1,
+          pointerId: 1,
+          pointerType: "mouse",
+          isPrimary: true,
+        }),
+      );
+      document.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          clientX: 30,
+          clientY: 10,
+          button: 0,
+          buttons: 1,
+          pointerId: 1,
+          pointerType: "mouse",
+          isPrimary: true,
+        }),
+      );
+      await waitFor(() =>
+        expect(document.body.classList.contains("notes-dragging")).toBe(true),
+      );
+      expect(document.querySelector(".notes-drag-ghost")).toBeTruthy();
+      expect(targetBranch.classList.contains("drop-target")).toBe(true);
+
+      document.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          clientX: 30,
+          clientY: 10,
+          button: 0,
+          buttons: 0,
+          pointerId: 1,
+          pointerType: "mouse",
+          isPrimary: true,
+        }),
+      );
+      await waitFor(() => expect(moveNote).toHaveBeenCalled());
+      const payload = moveNote.mock.calls[0][2] as {
+        notebookId: string;
+        noteId: string;
+        targetNotebookId: string;
+      };
+      expect(payload.notebookId).toBe("book-1");
+      expect(payload.noteId).toBe("note-1");
+      expect(payload.targetNotebookId).toBe("book-2");
+      expect(document.querySelector(".notes-drag-ghost")).toBeNull();
+      expect(document.body.classList.contains("notes-dragging")).toBe(false);
+    } finally {
+      if (originalElementFromPoint === undefined) {
+        delete (document as unknown as Record<string, unknown>).elementFromPoint;
+      } else {
+        document.elementFromPoint = originalElementFromPoint;
+      }
+    }
   });
 
   it("loads the snapshot and selects a note into drafts", async () => {

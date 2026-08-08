@@ -550,3 +550,6 @@ bun run test          # vitest（public/** + frontend/src/**）
    `min(var(--app-content-max-width), 100%)`，空库改双栏
    （hero + 快速开始）并填满视口垂直居中，编辑器随窗口拉伸，
    `expandedNavSections` Set → Map 使分区可收起；前端 742 测试全绿
+- [x] 笔记拖拽回归测试（第 299 轮）：指针自绘拖拽首次有自动化覆盖
+   （jsdom PointerEvent polyfill + elementFromPoint stub，断言 ghost/
+   drop-target/move 参数/清理），前端 743 测试全绿
