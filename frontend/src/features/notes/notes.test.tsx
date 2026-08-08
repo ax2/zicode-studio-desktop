@@ -159,6 +159,27 @@ describe("notes store", () => {
     expect(branch.open).toBe(false);
   });
 
+  it("collapses and re-expands a nav section from its summary", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-nav-section")).toBeTruthy(),
+    );
+    const section = container.querySelector(
+      ".notes-nav-section",
+    ) as HTMLDetailsElement;
+    const summary = container.querySelector(
+      ".notes-nav-section-title",
+    ) as HTMLElement;
+
+    expect(section.open).toBe(true);
+    summary.click();
+    await waitFor(() => expect(section.open).toBe(false));
+    summary.click();
+    await waitFor(() => expect(section.open).toBe(true));
+  });
+
   it("loads the snapshot and selects a note into drafts", async () => {
     const store = storeWithGateway();
     await store.getState().load();
@@ -371,5 +392,7 @@ describe("notes React components", () => {
     render(<NotesContent store={store} />);
     expect(document.querySelector(".notes-state-panel")).toBeTruthy();
     expect(document.body.textContent).toContain(t("Your local Notes library"));
+    expect(document.querySelector(".notes-empty-quickstart")).toBeTruthy();
+    expect(document.body.textContent).toContain(t("Quick start"));
   });
 });

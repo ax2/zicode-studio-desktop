@@ -612,6 +612,9 @@ describe("desktop three-region layout contract", () => {
     expect(workspaceAppCss).toMatch(
       /\.project-workspace-main\s*\{[\s\S]*?max-width:\s*var\(--app-content-max-width\)/,
     );
+    expect(notesCss).toMatch(
+      /\.notes-state-panel\s*\{[\s\S]*?width:\s*min\(var\(--app-content-max-width\),\s*100%\)/,
+    );
   });
 
   it("keeps the welcome screen compact on mobile and space-filling on desktop", () => {

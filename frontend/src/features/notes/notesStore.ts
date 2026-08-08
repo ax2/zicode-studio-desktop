@@ -142,7 +142,7 @@ interface NotesState {
   moveNote: NoteSummary | null;
   dragTargetId: string | null;
   expandedNotebookIds: Set<string>;
-  expandedNavSections: Set<string>;
+  expandedNavSections: Map<string, boolean>;
   draftTitle: string;
   draftIcon: string;
   draftContent: string;
@@ -175,7 +175,7 @@ interface NotesState {
   setPreview(preview: boolean): void;
   syncDraftFromNote(): void;
   toggleNotebookExpanded(id: string, force?: boolean): void;
-  toggleNavSection(title: string): void;
+  toggleNavSection(title: string, currentExpanded: boolean): void;
   openMovePopover(note: NoteSummary): void;
   closeMovePopover(): void;
   moveNoteTo(sourceNotebookId: string, noteId: string, targetNotebookId: string): Promise<void>;
@@ -232,7 +232,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     moveNote: null,
     dragTargetId: null,
     expandedNotebookIds: new Set(),
-    expandedNavSections: new Set(),
+    expandedNavSections: new Map(),
     draftTitle: "",
     draftIcon: "",
     draftContent: "",
@@ -653,10 +653,9 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ expandedNotebookIds: expanded });
     },
 
-    toggleNavSection(title) {
-      const sections = new Set(get().expandedNavSections);
-      if (sections.has(title)) sections.delete(title);
-      else sections.add(title);
+    toggleNavSection(title, currentExpanded) {
+      const sections = new Map(get().expandedNavSections);
+      sections.set(title, !currentExpanded);
       set({ expandedNavSections: sections });
     },
 

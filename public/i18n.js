@@ -772,6 +772,10 @@ const zhCN = {
   "Choose a note from the function area or create a new one.": "从功能区选择一篇笔记，或新建笔记。",
   "Create a notebook to start a readable Markdown and Astro-compatible vault.":
     "创建笔记本，以开始使用可读的 Markdown 与 Astro 兼容内容库。",
+  "Quick start": "快速开始",
+  "Create or open a note from the notebook tree": "从左侧笔记本树创建或打开笔记",
+  "Capture a public web page into a note": "把公开网页采集为笔记",
+  "Discuss a note or selection in Chat": "把笔记或选中内容带入对话",
   "Notes unavailable": "笔记暂不可用",
   "This note changed elsewhere. Reload it before editing again.":
     "这篇笔记已在其他位置发生变化，请重新加载后再编辑。",

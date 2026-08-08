@@ -84,8 +84,8 @@ function NavSection({
   defaultExpanded?: boolean;
   children: React.ReactNode;
 }) {
-  const expanded = store((state) =>
-    state.expandedNavSections.has(title) || defaultExpanded || false,
+  const expanded = store(
+    (state) => state.expandedNavSections.get(title) ?? defaultExpanded ?? false,
   );
   const toggle = store((state) => state.toggleNavSection);
   return (
@@ -95,7 +95,7 @@ function NavSection({
         className="notes-nav-section-title"
         onClick={(event) => {
           event.preventDefault();
-          toggle(title);
+          toggle(title, expanded);
         }}
       >
         {title}
@@ -1036,31 +1036,58 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
     );
   }
   return (
-    <Panel
-      title={snapshot.notebooks.length ? t("No note selected") : t("Your local Notes library")}
-      description={
-        snapshot.notebooks.length
-          ? t("Choose a note from the function area or create a new one.")
-          : t("Create a notebook to start a readable Markdown and Astro-compatible vault.")
-      }
-    >
-      <div className="notes-empty-actions">
-        {snapshot.notebooks.length ? (
-          <>
-            <button type="button" className="ui-button ui-button--primary" onClick={() => void newNote()}>
-              {t("New note")}
+    <section className="notes-state-panel notes-empty-library ui-card">
+      <div className="notes-empty-hero">
+        <span className="notes-empty-hero-icon" aria-hidden="true">
+          {snapshot.notebooks.length ? "📓" : "🗂️"}
+        </span>
+        <h1>{snapshot.notebooks.length ? t("No note selected") : t("Your local Notes library")}</h1>
+        <p>
+          {snapshot.notebooks.length
+            ? t("Choose a note from the function area or create a new one.")
+            : t("Create a notebook to start a readable Markdown and Astro-compatible vault.")}
+        </p>
+        <div className="notes-empty-actions">
+          {snapshot.notebooks.length ? (
+            <>
+              <button type="button" className="ui-button ui-button--primary" onClick={() => void newNote()}>
+                {t("New note")}
+              </button>
+              <button type="button" className="ui-button ui-button--secondary" onClick={() => void startCapture()}>
+                {t("Capture URL")}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="ui-button ui-button--primary" onClick={() => setMode("new-notebook")}>
+              {t("Create notebook")}
             </button>
-            <button type="button" className="ui-button ui-button--secondary" onClick={() => void startCapture()}>
-              {t("Capture URL")}
-            </button>
-          </>
-        ) : (
-          <button type="button" className="ui-button ui-button--primary" onClick={() => setMode("new-notebook")}>
-            {t("Create notebook")}
-          </button>
-        )}
+          )}
+        </div>
       </div>
-    </Panel>
+      <aside className="notes-empty-quickstart" aria-label={t("Quick start")}>
+        <h2>{t("Quick start")}</h2>
+        <ul>
+          <li>
+            <span className="notes-empty-step-icon" aria-hidden="true">
+              📝
+            </span>
+            <span>{t("Create or open a note from the notebook tree")}</span>
+          </li>
+          <li>
+            <span className="notes-empty-step-icon" aria-hidden="true">
+              🌐
+            </span>
+            <span>{t("Capture a public web page into a note")}</span>
+          </li>
+          <li>
+            <span className="notes-empty-step-icon" aria-hidden="true">
+              💬
+            </span>
+            <span>{t("Discuss a note or selection in Chat")}</span>
+          </li>
+        </ul>
+      </aside>
+    </section>
   );
 }
 

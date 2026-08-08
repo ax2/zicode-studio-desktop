@@ -546,3 +546,7 @@ bun run test          # vitest（public/** + frontend/src/**）
    t() + 补 8 个翻译键，中文过滤恢复正常；前端 741 测试全绿
 - [x] release 第二十三次重建（第 297 轮）：EXE 41,320,960 B / 安装包
    346,844,660 B，含第 296 轮修复，静默重装验证通过
+- [x] 笔记桌面宽屏空状态 + 侧栏收起（第 298 轮）：state/results 面板改
+   `min(var(--app-content-max-width), 100%)`，空库改双栏
+   （hero + 快速开始），`expandedNavSections` Set → Map 使分区可收起；
+   前端 742 测试全绿
