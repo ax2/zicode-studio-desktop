@@ -100,6 +100,23 @@ describe("setupPluginShell", () => {
     );
   });
 
+  it("returns to Chat and opens the file panel when Files is used from another app", () => {
+    const shell = setupPluginShell({ registry: registry() });
+    const fileSidebar = document.getElementById("file-sidebar");
+    const toggle = document.getElementById("file-sidebar-toggle");
+    const openPanel = vi.spyOn(toggle, "click");
+
+    shell.activate("com.zicode.notes", { focus: false });
+    expect(shell.getActivePluginId()).toBe("com.zicode.notes");
+
+    document.querySelector('[data-plugin-id="core.files"]').click();
+
+    expect(shell.getActivePluginId()).toBe("core.chat");
+    expect(document.body.dataset.activePlugin).toBe("core.chat");
+    expect(fileSidebar.classList.contains("plugin-shell-hidden")).toBe(false);
+    expect(openPanel).toHaveBeenCalledOnce();
+  });
+
   it("shows background activity on Chat and clears it when Chat is reopened", () => {
     const shell = setupPluginShell({ registry: registry() });
     shell.activate("com.zicode.notes", { focus: false });

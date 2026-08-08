@@ -470,3 +470,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 笔记/移动端顶部避让（第 265 轮）：notes 内容挂 notes-main 类、
    移动端 plugin-main-view 顶部 padding 提至 68px，修复各应用顶部
    被 header 覆盖
+- [x] Files 入口跨应用可达（第 266 轮）：非 Chat 视图点击 Files 先
+   切回 Chat 再打开文件面板 + 回归测试

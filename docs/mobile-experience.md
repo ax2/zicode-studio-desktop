@@ -4527,6 +4527,19 @@ P2 再做）完成 P1 UI 层：
    header 底 64；前端 722 全绿、typecheck/Biome 通过；安装目录已
    同步。
 
+第二百六十六轮：Files 入口跨应用可达性修复（2026-08-08）。
+
+1. 根因：plugin-shell 的 Files 系统按钮在非 Chat 视图（设置/帮助/
+   笔记等）点击无效——文件面板与 toggle 属于 Chat 表面，其他插件
+   激活时被 `plugin-shell-hidden` 隐藏，用户此前反馈"文件定位不明、
+   只有对话时会展示"即此问题；
+2. 修复：Files 点击时若当前不在 Chat，先 `activate(core.chat)`
+   切回 Chat 再打开右侧文件面板；新增回归测试（从 Notes 点击
+   Files → 回到 Chat、面板可见、toggle 被触发）；
+3. 验证：生产版 CDP 实测从设置点击 Files → 切回 Chat 且文件面板
+   打开（135 个文件）；前端 723 全绿、typecheck/Biome 通过；安装
+   目录已同步。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

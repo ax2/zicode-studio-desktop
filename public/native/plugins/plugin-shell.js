@@ -281,7 +281,15 @@ export function setupPluginShell({
         id: "core.files",
         label: t("Files"),
         icon: "files",
-        onClick: () => document.getElementById("file-sidebar-toggle")?.click(),
+        onClick: () => {
+          // The file panel is part of the Chat surface: when it is invoked
+          // from another application, return to Chat first so the toggle and
+          // the right-hand panel are visible instead of doing nothing.
+          if (activePluginId !== CHAT_PLUGIN_ID) {
+            activate(CHAT_PLUGIN_ID, { historyMode: "push" });
+          }
+          document.getElementById("file-sidebar-toggle")?.click();
+        },
         system: true,
       },
       {
