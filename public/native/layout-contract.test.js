@@ -632,6 +632,16 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("localizes command palette system command labels for display and filtering", () => {
+    // Raw English labels used to be translated only by the DOM observer, so
+    // filtering by the Chinese label matched nothing. Commands must carry
+    // localized labels via t().
+    expect(appJs).toMatch(/label:\s*t\("Compact"\)/);
+    expect(appJs).toMatch(/label:\s*t\("Settings"\)/);
+    expect(appJs).toMatch(/label:\s*t\("Help"\)/);
+    expect(appJs).toMatch(/desc:\s*t\("Compact context to save tokens"\)/);
+  });
+
   it("keeps the send-later banner and welcome scene narrow-screen safe", () => {
     expect(mobileCss).toMatch(
       /@media \(max-width: 768px\), \(max-height: 520px\) and \(pointer: coarse\)[\s\S]*?\.mobile-send-later\s*\{[\s\S]*?align-items:\s*stretch[\s\S]*?flex-direction:\s*column/,
