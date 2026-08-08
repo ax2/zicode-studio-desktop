@@ -4568,6 +4568,25 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百七十九轮：公网中继与 TURN 部署状态验证（2026-08-09）。
+
+1. 背景：此前“服务器部署新版中继 + coturn”一直列入遗留，本轮对生产
+   环境做实证核验；
+2. 验证结果：
+   - 公网中继 `relay.zicode.com` 已是新版：`/relay/status` 返回
+     `desktops:["dev-ax2-01"]`、`usage`（当日字节数）、`usageDay` 与
+     `usageHistory` 字段，桌面在线；
+   - coturn/TURN 已配置并生效：桌面 `remote-access/config.json` 含
+     `relayTurnUrl= turn:turn.remote.zicode.com:3478?transport=udp`、
+     realm 与共享 secret；`/v2/remote-config` 经设备鉴权实测返回
+     2 个 iceServers——STUN（`stun:turn.remote.zicode.com:3478`）与
+     TURN（带按 1 小时派生的 username/credential 短期凭据），手机端
+     P2P 候选可拿到打洞服务器；
+3. 说明：遗留清单据此更新为——跨 NAT 打洞的**真机验收**（不同网络下
+   手机实测）、真机二维码扫码、TalkBack 朗读（人工）、安装包签名
+   （待证书）；部署基础设施本身已就绪。配置中的令牌/secret 仅按存在
+   性描述，未记录值。
+
 第二百七十八轮：release 第十五次重建（含第 277 轮，2026-08-09）。
 
 1. 让生产安装包包含第 277 轮（社区包目录并行分页加载）；
