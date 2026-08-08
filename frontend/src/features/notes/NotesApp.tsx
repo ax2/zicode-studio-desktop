@@ -34,15 +34,19 @@ export function NotesNav({ store }: { store: NotesStore }) {
   return (
     <div className="notes-nav">
       {project ? (
-        <div
+        <button
+          type="button"
           className="notes-project-header"
           title={project.path || project.id}
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent("zicode:open-project"))
+          }
         >
           <span className="notes-project-icon" aria-hidden="true">
             📂
           </span>
           <span className="notes-project-name">{project.name}</span>
-        </div>
+        </button>
       ) : null}
       <div className="notes-nav-actions">
         <button

@@ -58,6 +58,7 @@ function storeWithGateway(overrides: Partial<NotesGatewayLike> = {}) {
   return createNotesStore({
     gateway: gatewayStub(overrides),
     getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+    getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
     notify: vi.fn(),
   });
 }
@@ -86,6 +87,19 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
+  it("opens the project workspace from the project header", () => {
+    const store = storeWithGateway();
+    const dispatched: string[] = [];
+    const listener = (event: Event) => dispatched.push(event.type);
+    window.addEventListener("zicode:open-project", listener);
+    const { container } = render(<NotesNav store={store} />);
+    const header = container.querySelector(".notes-project-header") as HTMLElement;
+    expect(header).toBeTruthy();
+    header.click();
+    window.removeEventListener("zicode:open-project", listener);
+    expect(dispatched).toEqual(["zicode:open-project"]);
+  });
+
   it("expands and collapses a notebook from its summary without a toggle fight", async () => {
     const store = storeWithGateway();
     await store.getState().load();

@@ -873,6 +873,9 @@ window.addEventListener("zicode:open-note", (event) => {
   pluginShell?.activate("com.zicode.notes");
   notesApp?.openNote?.(notebookId, noteId).catch(showError);
 });
+window.addEventListener("zicode:open-project", () => {
+  pluginShell?.activate("com.zicode.projects");
+});
 window.addEventListener("zicode:open-artifact", (event) => {
   const { artifactId } = event.detail ?? {};
   if (!artifactId) return;

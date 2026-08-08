@@ -455,3 +455,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 笔记保存状态（第 253 轮）：编辑器 saveState（dirty/saving/saved）
   与指示 UI + 3 个翻译 key + 流转测试；715 测试全绿
 - [x] 命令按钮快捷键提示（第 254 轮）：title 补"命令 (Ctrl+Shift+P)"
+- [x] 笔记项目头部跳转（第 260 轮）：项目头部按钮化 + zicode:open-project
+  事件接线，点击打开项目工作台；回归测试 + 生产版实测
