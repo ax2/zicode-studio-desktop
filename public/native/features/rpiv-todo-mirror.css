@@ -1,6 +1,9 @@
 .rpiv-todo-panel {
   position: absolute;
-  right: max(var(--space-4), calc((100% - 960px) / 2));
+  right: max(
+    var(--space-4),
+    calc((100% - var(--chat-content-max-width)) / 2)
+  );
   bottom: calc(100% + var(--space-2));
   z-index: 12;
   overflow: hidden;

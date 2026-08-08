@@ -462,3 +462,8 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 笔记本删除（第 263 轮）：NotesVault.delete_notebook + /v2 API +
    store 二次确认（级联提示）+ UI 删除图标 + Rust/前端测试；release
    重建并验证
+- [x] 桌面宽窗口空白（第 264 轮）：messages/input-area 固定 960px
+   改为 --chat-content-max-width 分档变量，应用视图接入
+   --app-content-max-width，宽屏不再留大片两侧空白
+- [x] 笔记选中文字带入对话（第 264 轮）：textarea 选区实时同步 +
+   点击时实时读取 + 用例覆盖

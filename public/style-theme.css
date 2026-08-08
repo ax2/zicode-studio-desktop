@@ -46,6 +46,11 @@
 
   /* Sizing */
   --sidebar-width: 272px;
+  /* Chat/workspace content column: desktop keeps lines readable by capping
+     content width; wide windows scale the cap up instead of leaving huge
+     gutters on both sides. */
+  --chat-content-max-width: 960px;
+  --app-content-max-width: 1120px;
 
   /* Motion */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -351,4 +356,28 @@
   --shadow-inset: none;
 
   --success: #2a8a52;
+}
+
+/* Desktop wide-window content scaling. The media queries match the WebView
+   viewport width (window minus frame), so a maximized window on a 2560×1600
+   display at 125% scaling reports ~2048px and uses the top tier. */
+@media (min-width: 1280px) {
+  :root {
+    --chat-content-max-width: 1120px;
+    --app-content-max-width: 1200px;
+  }
+}
+
+@media (min-width: 1536px) {
+  :root {
+    --chat-content-max-width: 1280px;
+    --app-content-max-width: 1280px;
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --chat-content-max-width: 1440px;
+    --app-content-max-width: 1360px;
+  }
 }

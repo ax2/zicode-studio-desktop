@@ -101,6 +101,42 @@ describe("notes store", () => {
     expect(dispatched).toEqual(["zicode:open-project"]);
   });
 
+  it("carries the selected editor text into the chat", async () => {
+    const onUseInChat = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      onUseInChat,
+    });
+    await store.getState().load();
+    await store.getState().selectNote({
+      ...SNAPSHOT.notes[0],
+      title: "Selection",
+    });
+    const { container } = render(<NotesContent store={store} />);
+    // switch to edit mode
+    const editTab = container.querySelector(".notes-edit-tab") as HTMLButtonElement;
+    editTab.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(".notes-content-input") as HTMLTextAreaElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(textarea, "Safe content with a selected part");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    await waitFor(() => expect(textarea.value).toBe("Safe content with a selected part"));
+    textarea.setSelectionRange(5, 28);
+    textarea.dispatchEvent(new Event("select", { bubbles: true }));
+    const useInChat = container.querySelector(".notes-use-in-chat") as HTMLButtonElement;
+    useInChat.click();
+    expect(onUseInChat).toHaveBeenCalledTimes(1);
+    expect(onUseInChat.mock.calls[0][1]).toBe("content with a selected");
+  });
+
   it("expands and collapses a notebook from its summary without a toggle fight", async () => {
     const store = storeWithGateway();
     await store.getState().load();

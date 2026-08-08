@@ -154,6 +154,7 @@ const fileBrowserCss = readFileSync(
 );
 const globalStyleCss = readFileSync(join(process.cwd(), "public/style.css"), "utf8");
 const sidebarCss = readFileSync(join(process.cwd(), "public/native/sidebar.css"), "utf8");
+const themeCss = readFileSync(join(process.cwd(), "public/style-theme.css"), "utf8");
 
 describe("desktop three-region layout contract", () => {
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
@@ -580,6 +581,33 @@ describe("desktop three-region layout contract", () => {
   it("wraps long system message text on narrow screens", () => {
     expect(messagesCss).toMatch(
       /\.system-message\s*\{[\s\S]*?overflow-wrap:\s*anywhere/,
+    );
+  });
+
+  it("scales the desktop chat column on wide windows instead of leaving gutters", () => {
+    expect(themeCss).toMatch(
+      /--chat-content-max-width:\s*960px/,
+    );
+    expect(messagesCss).toMatch(
+      /\.messages\s*\{[\s\S]*?padding-left:\s*max\([\s\S]*?var\(--chat-content-max-width\)[\s\S]*?padding-right:\s*max\([\s\S]*?var\(--chat-content-max-width\)/,
+    );
+    expect(composerCss).toMatch(
+      /\.input-area\s*\{[\s\S]*?padding-left:\s*max\([\s\S]*?var\(--chat-content-max-width\)/,
+    );
+    expect(themeCss).toMatch(
+      /@media \(min-width: 1536px\)[\s\S]*?--chat-content-max-width:\s*1280px/,
+    );
+    expect(themeCss).toMatch(
+      /@media \(min-width: 1920px\)[\s\S]*?--chat-content-max-width:\s*1440px/,
+    );
+    expect(themeCss).toMatch(
+      /--app-content-max-width:\s*1120px/,
+    );
+    expect(taskCenterCss).toMatch(
+      /\.task-center-main\s*\{[\s\S]*?max-width:\s*var\(--app-content-max-width\)/,
+    );
+    expect(workspaceAppCss).toMatch(
+      /\.project-workspace-main\s*\{[\s\S]*?max-width:\s*var\(--app-content-max-width\)/,
     );
   });
 

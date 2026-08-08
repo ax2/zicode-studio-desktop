@@ -626,7 +626,7 @@
 }
 
 .notes-editor {
-  width: min(960px, 100%);
+  width: min(var(--app-content-max-width), 100%);
   min-height: 100%;
   margin: 0 auto;
   display: flex;

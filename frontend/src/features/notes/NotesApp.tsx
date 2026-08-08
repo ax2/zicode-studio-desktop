@@ -1138,7 +1138,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
             className="notes-use-in-chat"
             variant="ui-button--secondary"
             onClick={() => {
-              store.getState().discussInChat(note, currentSelectionRef.current);
+              store.getState().discussInChat(
+                note,
+                selection() || currentSelectionRef.current,
+              );
             }}
           />
           <ToolbarButton
@@ -1235,6 +1238,15 @@ function NoteEditor({ store }: { store: NotesStore }) {
           placeholder={t("Write Markdown…")}
           aria-label={t("Note content")}
           onChange={(event) => setDraft({ content: event.target.value })}
+          onSelect={() => {
+            currentSelectionRef.current = selection();
+          }}
+          onKeyUp={() => {
+            currentSelectionRef.current = selection();
+          }}
+          onMouseUp={() => {
+            currentSelectionRef.current = selection();
+          }}
         ></textarea>
       )}
     </section>

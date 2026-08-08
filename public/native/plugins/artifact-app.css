@@ -98,7 +98,7 @@
 
 .artifacts-state-panel,
 .artifacts-document {
-  width: min(960px, 100%);
+  width: min(var(--app-content-max-width), 100%);
   margin: 0 auto;
 }
 

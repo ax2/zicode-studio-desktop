@@ -52,7 +52,7 @@
 }
 
 .finance-plugin-section {
-  width: min(960px, 100%);
+  width: min(var(--app-content-max-width), 100%);
   margin: 0 auto;
   padding: var(--space-5);
 }

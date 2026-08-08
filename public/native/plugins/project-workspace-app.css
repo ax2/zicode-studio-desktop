@@ -1,7 +1,7 @@
 .project-workspace-main {
   display: grid;
   gap: var(--space-6);
-  max-width: 1120px;
+  max-width: var(--app-content-max-width);
   margin: 0 auto;
   padding: var(--space-8);
 }
