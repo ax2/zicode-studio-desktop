@@ -409,3 +409,7 @@ bun run test          # vitest（public/** + frontend/src/**）
   （sceneId + workspaceId，getTarget 提供 workspaceId），projects 聚合
   与 finance 产物写入同步适配；Rust 后端 workspace 目录归属 + 迁移 +
   能力作用域，前端 703 + Rust 163 测试全绿
+- [x] 项目贯穿 P3（第 235 轮）：项目工作台概览新增任务/自动化统计卡；
+  搜索结果行按钮化 + 深链事件（open-note/open-artifact/open-session）
+  与 notes/artifacts handle openNote/openArtifact；760px 以下移动端
+  单列堆叠；前端 706 测试全绿

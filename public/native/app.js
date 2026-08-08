@@ -866,6 +866,28 @@ setupAppKeyboardShortcuts({
   abort: abortCurrentRun,
   isWorking: () => store.lifecycle === "working",
 });
+window.addEventListener("zicode:open-note", (event) => {
+  const { notebookId, noteId } = event.detail ?? {};
+  if (!notebookId || !noteId) return;
+  pluginShell?.activate("com.zicode.notes");
+  notesApp?.openNote?.(notebookId, noteId).catch(showError);
+});
+window.addEventListener("zicode:open-artifact", (event) => {
+  const { artifactId } = event.detail ?? {};
+  if (!artifactId) return;
+  pluginShell?.activate("com.zicode.artifacts");
+  artifactApp?.openArtifact?.(artifactId).catch(showError);
+});
+window.addEventListener("zicode:open-session", (event) => {
+  const { sessionId, workspaceId, projectPath } = event.detail ?? {};
+  if (!sessionId) return;
+  pluginShell?.activate("core.chat");
+  if (workspaceId && workspaceId !== target.workspaceId) {
+    openSessionInProject({ id: sessionId, workspaceId, projectPath }).catch(showError);
+  } else {
+    switchSession(sessionId).catch(showError);
+  }
+});
 convNav.mount();
 
 try {

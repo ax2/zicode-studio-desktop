@@ -99,6 +99,7 @@ const zhCN = {
   "Open folder as workspace": "将文件夹作为工作区打开",
   "Open workspace": "打开工作区",
   "Open workspace in app": "在应用中打开工作区",
+  "Open in app": "在应用中打开",
   "Choose app": "选择应用",
   "Choose app to open workspace": "选择用于打开工作区的应用",
   Files: "文件",
@@ -943,6 +944,7 @@ const zhCN = {
   "What would invalidate the thesis?": "哪些条件会使投资逻辑失效？",
   "Source URLs or execution IDs, one per line": "来源链接或执行 ID，每行一个",
   Automation: "自动化",
+  Automations: "自动化",
   "Automation center": "自动化中心",
   "Schedule repeatable work with explicit approvals and task history.":
     "通过明确审批和任务历史来安排可重复工作。",

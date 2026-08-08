@@ -186,6 +186,41 @@
   color: var(--accent);
 }
 
+.project-workspace-result-row {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 0.5fr) minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-workspace-result-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-workspace-result-open {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.project-workspace-search-results li:has(.project-workspace-result-row):hover {
+  border-color: var(--accent);
+}
+
+.project-workspace-search-results li:has(.project-workspace-result-row) {
+  display: block;
+}
+
 .project-workspace-field {
   display: grid;
   gap: var(--space-2);
@@ -208,6 +243,15 @@
   .project-workspace-results li,
   .project-workspace-activity li,
   .project-workspace-search-results li {
+    grid-template-columns: 1fr;
+  }
+
+  .project-workspace-result-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .project-workspace-search-form {
     grid-template-columns: 1fr;
   }
 

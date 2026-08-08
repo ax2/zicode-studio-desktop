@@ -118,6 +118,14 @@ describe("notes store", () => {
     expect(store.getState().draftContent).toContain("# Plan");
   });
 
+  it("opens a note by id through the deep-link handle", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().openNote("book-1", "note-1");
+    expect(store.getState().selectedNote?.id).toBe("note-1");
+    expect(store.getState().draftTitle).toBe("Roadmap");
+  });
+
   it("creates a new note and marks it for editing", async () => {
     const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-1", title: "Untitled note" } }));
     const store = storeWithGateway({ create });

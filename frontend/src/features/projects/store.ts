@@ -59,6 +59,7 @@ interface ProjectWorkspaceState {
   loadProfile(): Promise<ProjectProfile>;
   saveProfile(nextProfile: ProjectProfile): Promise<ProjectProfile>;
   runProjectSearch(query: string): Promise<void>;
+  openResult(result: Record<string, unknown>): void;
 }
 
 export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
@@ -122,7 +123,8 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
       const activeWorkspaceId = workspaceId();
       const target = get().target;
       try {
-        const [notes, artifacts, knowledge, loadedProfile, sessions, files] = await Promise.all([
+        const [notes, artifacts, knowledge, loadedProfile, sessions, files, tasks, automations] =
+          await Promise.all([
           notesGateway
             ?.list?.(activeSceneId, activeWorkspaceId)
             .catch((reason) => ({ error: reason })),
@@ -141,7 +143,9 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
           target?.workspaceId
             ? dataGateway?.listFiles?.(target.workspaceId, "").catch((reason) => ({ error: reason }))
             : { files: [] },
-        ]);
+            call?.("read_super_agent_tasks").catch((reason) => ({ error: reason })),
+            call?.("automation_workspace", { action: "list" }).catch((reason) => ({ error: reason })),
+          ]);
         const notesAny = notes as {
           snapshot?: { notebooks?: unknown[]; notes?: unknown[] };
           error?: unknown;
@@ -158,6 +162,13 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
         const profileAny = loadedProfile as { error?: unknown };
         const sessionsAny = sessions as { sessions?: unknown[]; projects?: Array<{ sessions?: unknown[] }>; error?: unknown };
         const filesAny = files as { files?: unknown[]; entries?: unknown[]; error?: unknown };
+        const tasksAny = tasks as { data?: { tasks?: unknown[] }; error?: unknown };
+        const automationsAny = automations as {
+          data?: { workflows?: unknown[]; workspace?: { workflows?: unknown[] } };
+          error?: unknown;
+        };
+        const automationWorkflows =
+          automationsAny?.data?.workflows ?? automationsAny?.data?.workspace?.workflows ?? [];
         const snapshot: ProjectSnapshot = {
           notebooks: notesAny?.snapshot?.notebooks ?? [],
           notes: (notesAny?.snapshot?.notes ?? []) as ProjectSnapshot["notes"],
@@ -169,6 +180,10 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
           },
           sessions: (sessionsAny?.sessions ?? sessionsAny?.projects?.[0]?.sessions ?? []) as ProjectSnapshot["sessions"],
           files: (filesAny?.files ?? filesAny?.entries ?? []) as ProjectSnapshot["files"],
+          taskCount: Array.isArray(tasksAny?.data?.tasks) ? tasksAny.data.tasks.length : 0,
+          automationCount: Array.isArray(automationWorkflows)
+            ? automationWorkflows.length
+            : 0,
           warnings: [
             notesAny?.error,
             artifactsAny?.error,
@@ -176,6 +191,8 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
             profileAny?.error,
             sessionsAny?.error,
             filesAny?.error,
+            tasksAny?.error,
+            automationsAny?.error,
           ].filter(Boolean),
         };
         set({ snapshot });
@@ -231,6 +248,42 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
             type: "error",
           });
         }
+      }
+    },
+
+    openResult(result) {
+      const kind = String(result.kind ?? result.type ?? "");
+      if (kind === t("Note")) {
+        window.dispatchEvent(
+          new CustomEvent("zicode:open-note", {
+            detail: { notebookId: result.notebookId, noteId: result.id ?? result.noteId },
+          }),
+        );
+        return;
+      }
+      if (kind === t("Artifact")) {
+        window.dispatchEvent(
+          new CustomEvent("zicode:open-artifact", {
+            detail: { artifactId: result.id ?? result.artifactId },
+          }),
+        );
+        return;
+      }
+      if (kind === t("File")) {
+        window.dispatchEvent(new CustomEvent("picot:open-tree"));
+        return;
+      }
+      if (kind === t("Conversation")) {
+        const target = get().target;
+        window.dispatchEvent(
+          new CustomEvent("zicode:open-session", {
+            detail: {
+              sessionId: result.sessionId ?? result.id,
+              workspaceId: target?.workspaceId ?? result.workspaceId,
+              projectPath: target?.projectPath ?? result.projectPath,
+            },
+          }),
+        );
       }
     },
   }));

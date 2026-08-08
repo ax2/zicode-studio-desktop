@@ -108,6 +108,15 @@ describe("artifacts React app", () => {
     store.getState().destroy();
   });
 
+  it("opens an artifact by id through the deep-link handle", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const store = renderStore(gateway);
+    await store.getState().openArtifact("artifact-1");
+    expect(store.getState().selected?.id).toBe("artifact-1");
+    store.getState().destroy();
+  });
+
   it("scopes search and type filters to the active scene", async () => {
     setLocale("en");
     const gateway = createGateway();

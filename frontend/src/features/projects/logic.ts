@@ -49,6 +49,8 @@ export interface ProjectSnapshot {
   artifacts: Array<{ id?: string; title?: string; summary?: string; createdAt?: string; updatedAt?: string }>;
   sessions: Array<{ id?: string; title?: string }>;
   files: Array<{ name?: string; path?: string; summary?: string; snippet?: string }>;
+  taskCount: number;
+  automationCount: number;
   knowledge: KnowledgeSnapshot;
   warnings: unknown[];
 }
@@ -60,6 +62,8 @@ export function emptyProjectSnapshot(): ProjectSnapshot {
     artifacts: [],
     sessions: [],
     files: [],
+    taskCount: 0,
+    automationCount: 0,
     knowledge: { links: [], similar: [], conflicts: [] },
     warnings: [],
   };

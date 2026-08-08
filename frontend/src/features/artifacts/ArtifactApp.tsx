@@ -269,6 +269,7 @@ export interface ArtifactAppApi {
   renderContent(container: HTMLElement): void;
   renderNavigation(container: HTMLElement): void;
   selectArtifact(descriptor: ArtifactDescriptor): Promise<void>;
+  openArtifact(artifactId: string): Promise<void>;
   setTarget(): void;
   destroy(): void;
 }
@@ -297,6 +298,9 @@ export function createArtifactApp(options: ArtifactAppOptions): ArtifactAppApi {
     },
     selectArtifact(descriptor) {
       return store.getState().selectArtifact(descriptor);
+    },
+    openArtifact(artifactId) {
+      return store.getState().openArtifact(artifactId);
     },
     setTarget() {
       store.getState().setTarget();

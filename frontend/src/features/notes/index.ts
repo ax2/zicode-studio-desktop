@@ -12,6 +12,7 @@ export interface NotesAppHandle {
   renderContent(container: HTMLElement): void;
   setTarget(): Promise<void>;
   setProject(project: ProjectInfo | null): void;
+  openNote(notebookId: string, noteId: string): Promise<void>;
   newNote(): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<unknown>;
@@ -84,6 +85,9 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     },
     setProject(project) {
       store.getState().setProject(project);
+    },
+    openNote(notebookId, noteId) {
+      return store.getState().openNote(notebookId, noteId);
     },
     newNote() {
       return store.getState().newNote();

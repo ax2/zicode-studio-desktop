@@ -97,6 +97,8 @@ function Overview({ store }: { store: ProjectStore }) {
       "Files",
       () => document.dispatchEvent(new CustomEvent("picot:open-tree")),
     ],
+    [snapshot.taskCount, "Tasks", () => openApp("com.zicode.tasks")],
+    [snapshot.automationCount, "Automations", () => openApp("com.zicode.automation")],
   ];
   return (
     <section className="project-workspace-overview">
@@ -349,6 +351,7 @@ function SearchView({ store }: { store: ProjectStore }) {
   const searchQuery = store((state) => state.searchQuery);
   const sessionSearchResults = store((state) => state.sessionSearchResults);
   const runProjectSearch = store((state) => state.runProjectSearch);
+  const openResult = store((state) => state.openResult);
   const [query, setQuery] = useState(searchQuery);
   const matches = projectSearchMatches(snapshot, searchQuery, sessionSearchResults);
 
@@ -386,18 +389,27 @@ function SearchView({ store }: { store: ProjectStore }) {
           <ul>
             {matches.map((match) => (
               <li key={`${match.kind}-${String(match.title ?? "")}`}>
-                <span className="project-workspace-result-type">
-                  {String(match.kind)}
-                </span>
-                <strong>{String(match.title || t("Untitled"))}</strong>
-                <span className="project-workspace-result-summary">
-                  {String(
-                    (match as Record<string, unknown>).snippet ||
-                      (match as Record<string, unknown>).summary ||
-                      (match as Record<string, unknown>).path ||
-                      "",
-                  )}
-                </span>
+                <button
+                  type="button"
+                  className="project-workspace-result-row"
+                  onClick={() => openResult(match as Record<string, unknown>)}
+                >
+                  <span className="project-workspace-result-type">
+                    {String(match.kind)}
+                  </span>
+                  <strong>{String(match.title || t("Untitled"))}</strong>
+                  <span className="project-workspace-result-summary">
+                    {String(
+                      (match as Record<string, unknown>).snippet ||
+                        (match as Record<string, unknown>).summary ||
+                        (match as Record<string, unknown>).path ||
+                        "",
+                    )}
+                  </span>
+                  <span className="project-workspace-result-open">
+                    {t("Open in app")}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>

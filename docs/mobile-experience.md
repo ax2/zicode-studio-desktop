@@ -4144,6 +4144,27 @@ P2 再做）完成 P1 UI 层：
    （EXE 41,734,656 B，SHA-256 `F7160211…`，安装包 347,178,731 B）
    `/S` 静默重装后生产版验证笔记加载正常。
 
+第二百三十五轮：项目贯穿 P3 实施（项目工作台联动、统一搜索、移动端
+适配，2026-08-08）。P1–P3 全部落地，项目成为各应用顶层容器：
+
+1. 项目工作台可操作化：概览新增"任务/自动化"统计卡（经配置网关
+   read_super_agent_tasks / automation_workspace 计数，点击直达对应
+   应用）；项目搜索结果每行变为可点击按钮（"在应用中打开"），按类型
+   深链到对应内容；
+2. 深链接线：app.js 新增 zicode:open-note / zicode:open-artifact /
+   zicode:open-session 事件监听；notes/artifacts 应用 handle 增加
+   openNote(notebookId,noteId)/openArtifact(artifactId)（store 按 id
+   取数并选中），会话按 workspace 是否相同走 switchSession 或
+   openSessionInProject；
+3. 统一搜索：现有项目搜索（对话/笔记/文件/产物）结果全部可跳转；
+4. 移动端适配：project-workspace-app.css 在 760px 以下单列堆叠
+   （统计卡、搜索结果行、知识图谱、搜索表单），结果行按钮化；
+   390px 视口 CDP 实测无横向溢出；
+5. 验证：前端 706 测试全绿（+openNote/openArtifact/openResult/
+   任务自动化统计用例）、typecheck/Biome 通过；安装目录同步后生产版
+   CDP 实测：统计卡 7 项（含任务/自动化，中文标签）、搜索"笔记"返回
+   笔记+对话、点击笔记结果切到笔记应用并选中对应笔记、项目头部跟随。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

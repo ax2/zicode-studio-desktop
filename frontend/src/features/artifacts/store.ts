@@ -45,6 +45,7 @@ interface ArtifactState {
   setPluginId(pluginId: string): void;
   load(options?: { preserveSelection?: boolean }): Promise<void>;
   selectArtifact(descriptor: ArtifactDescriptor): Promise<void>;
+  openArtifact(artifactId: string): Promise<void>;
   deleteSelected(): Promise<void>;
   exportSelected(): boolean;
   setTarget(): void;
@@ -127,6 +128,22 @@ export function createArtifactStore(options: ArtifactAppOptions) {
       set({ loading: true, error: null });
       try {
         const response = await gateway.get(sceneId(), workspaceId(), descriptor.id);
+        if (requestId !== requestSequence) return;
+        set({ selected: response.artifact ?? null });
+      } catch (loadError) {
+        if (requestId === requestSequence) {
+          set({ error: loadError instanceof Error ? loadError : new Error(String(loadError)) });
+        }
+      } finally {
+        if (requestId === requestSequence) set({ loading: false });
+      }
+    },
+
+    async openArtifact(artifactId) {
+      const requestId = ++requestSequence;
+      set({ loading: true, error: null });
+      try {
+        const response = await gateway.get(sceneId(), workspaceId(), artifactId);
         if (requestId !== requestSequence) return;
         set({ selected: response.artifact ?? null });
       } catch (loadError) {

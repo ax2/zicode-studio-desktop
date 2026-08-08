@@ -107,6 +107,7 @@ interface NotesState {
   load(options?: { preserveSelection?: boolean }): Promise<void>;
   applyFilter(options?: { tag?: string | null; sourceOnly?: boolean }): Promise<void>;
   selectNote(summary: NoteSummary): Promise<void>;
+  openNote(notebookId: string, noteId: string): Promise<void>;
   selectNotebook(id: string): void;
   discussInChat(note: Note, selection: string): void;
   attachmentUrl(note: Note, attachmentId: string): string;
@@ -262,6 +263,10 @@ export function createNotesStore(options: NotesStoreOptions) {
       } finally {
         set({ loading: false });
       }
+    },
+
+    async openNote(notebookId, noteId) {
+      await get().selectNote({ notebookId, id: noteId, title: "", updatedAt: "" });
     },
 
     selectNotebook(id) {

@@ -157,4 +157,35 @@ describe("project workspace React app", () => {
     ]);
     store.getState().setTarget(null);
   });
+
+  it("shows task and automation counts and opens results in their apps", async () => {
+    setLocale("en");
+    const call = vi.fn(async (operation: string) => {
+      if (operation === "read_super_agent_tasks") {
+        return { ok: true, data: { tasks: [{ id: "t1" }, { id: "t2" }, { id: "t3" }] } };
+      }
+      if (operation === "automation_workspace") {
+        return { ok: true, data: { workflows: [{ id: "a1" }, { id: "a2" }] } };
+      }
+      return { ok: false };
+    });
+    const store = renderStore({ call });
+    await waitFor(() =>
+      expect(
+        [...document.querySelectorAll(".project-workspace-stat strong")].map(
+          (item) => item.textContent,
+        ),
+      ).toEqual(["1", "1", "1", "0", "0", "3", "2"]),
+    );
+    const dispatched: string[] = [];
+    const listener = (event: Event) =>
+      dispatched.push(`${event.type}:${JSON.stringify((event as CustomEvent).detail ?? {})}`);
+    window.addEventListener("zicode:open-note", listener);
+    store.getState().openResult({ kind: "Note", notebookId: "book-1", id: "note-1" });
+    window.removeEventListener("zicode:open-note", listener);
+    expect(dispatched).toEqual([
+      'zicode:open-note:{"notebookId":"book-1","noteId":"note-1"}',
+    ]);
+    store.getState().setTarget(null);
+  });
 });
