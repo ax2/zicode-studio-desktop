@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
-import { TaskMain, TaskNav } from "./TaskCenterApp";
+import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
 
 function mockCall(tasks: unknown[]) {
@@ -100,5 +100,32 @@ describe("task center React app", () => {
       expect(written?.tasks?.[0]?.status).toBe("paused");
     });
     store.getState().destroy();
+  });
+
+  it("re-renders its main view after the shell clears the shared container", async () => {
+    setLocale("en");
+    const call = mockCall([{ id: "run", title: "Running research", status: "running" }]);
+    const app = createTaskCenterApp({ call, pollIntervalMs: 50 });
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    app.renderContent(container);
+    await waitFor(
+      () => expect(container.textContent).toContain("Running research"),
+      { timeout: 2_000 },
+    );
+
+    // The plugin shell clears the shared container before every activation;
+    // re-rendering must create a fresh root instead of reusing a stale one.
+    container.replaceChildren();
+    app.renderContent(container);
+    await waitFor(
+      () => expect(container.textContent).toContain("Running research"),
+      { timeout: 2_000 },
+    );
+    expect(container.querySelector(".task-center-main")).toBeTruthy();
+
+    app.destroy();
+    container.remove();
   });
 });

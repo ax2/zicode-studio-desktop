@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 import {
   AUTOMATION_FILTERS,
@@ -353,12 +354,18 @@ export function createAutomationApp(options: AutomationAppOptions): AutomationAp
   let contentRoot: Root | null = null;
   return {
     renderNavigation(container) {
-      navRoot ??= createRoot(container);
-      navRoot.render(<AutomationNav store={store} />);
+      navRoot = mountPluginSurface(
+        container,
+        <AutomationNav store={store} />,
+        navRoot,
+      );
     },
     renderContent(container) {
-      contentRoot ??= createRoot(container);
-      contentRoot.render(<AutomationMain store={store} />);
+      contentRoot = mountPluginSurface(
+        container,
+        <AutomationMain store={store} />,
+        contentRoot,
+      );
       store.getState().startScheduler();
     },
     setTarget() {

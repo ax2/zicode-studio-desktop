@@ -1,4 +1,5 @@
-import { createRoot, type Root } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
@@ -277,12 +278,14 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
   let contentRoot: Root | null = null;
   return {
     renderNavigation(container) {
-      navRoot ??= createRoot(container);
-      navRoot.render(<TaskNav store={store} />);
+      navRoot = mountPluginSurface(container, <TaskNav store={store} />, navRoot);
     },
     renderContent(container) {
-      contentRoot ??= createRoot(container);
-      contentRoot.render(<TaskMain store={store} />);
+      contentRoot = mountPluginSurface(
+        container,
+        <TaskMain store={store} />,
+        contentRoot,
+      );
       store.getState().startPolling();
     },
     deactivate() {

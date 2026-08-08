@@ -379,6 +379,34 @@ describe("setupPluginShell", () => {
     expect(financeApp.selectView).toHaveBeenCalledWith("overview");
   });
 
+  it("does not leak app-specific main view classes into other apps", () => {
+    const financeApp = {
+      renderNavigation: vi.fn(),
+      renderContent: vi.fn((container) => {
+        container.classList.add("finance-plugin-main");
+        container.append(
+          Object.assign(document.createElement("section"), { textContent: "Finance overview" }),
+        );
+      }),
+      selectView: vi.fn(),
+      setTarget: vi.fn(),
+    };
+    const shell = setupPluginShell({ registry: registry(), financeApp });
+
+    shell.activate("com.zicode.finance", { focus: false });
+    expect(
+      document.querySelector(".plugin-main-view").classList.contains("finance-plugin-main"),
+    ).toBe(true);
+
+    shell.activate("com.zicode.notes", { focus: false });
+    expect(
+      document.querySelector(".plugin-main-view").classList.contains("finance-plugin-main"),
+    ).toBe(false);
+    expect(document.querySelector(".plugin-main-view").classList.contains("plugin-main-view")).toBe(
+      true,
+    );
+  });
+
   it("renders Artifacts through the shared regions and exports from its command", () => {
     const artifactApp = {
       renderNavigation: vi.fn((container) => {

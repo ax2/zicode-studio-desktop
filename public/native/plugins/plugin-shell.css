@@ -275,6 +275,13 @@
   background: radial-gradient(circle at 80% 10%, var(--accent-glow), transparent 35%), var(--bg);
 }
 
+/* Apps mount into a fresh wrapper on every activation so a previously
+   cleared surface never reuses a stale React root; keep the wrapper
+   layout-transparent so existing surface layout rules still apply. */
+.plugin-app-mount {
+  display: contents;
+}
+
 body[data-active-plugin="core.settings"] .plugin-main-view,
 body[data-active-plugin="core.help"] .plugin-main-view {
   padding: 0;

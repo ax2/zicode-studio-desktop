@@ -1,5 +1,6 @@
 import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { createElement } from "react";
 import { t } from "../../shared/i18n";
 import {
@@ -334,24 +335,22 @@ export function setupFinanceWorkbench({
   function renderNavigation(container: HTMLElement | null) {
     if (!container) return;
     navigationContainer = container;
-    navRoot?.unmount();
-    const root = createRoot(container);
-    navRoot = root;
-    flushSync(() => {
-      root.render(createElement(FinanceNavApp, { store, controller }));
-    });
+    navRoot = mountPluginSurface(
+      container,
+      createElement(FinanceNavApp, { store, controller }),
+      navRoot,
+    );
   }
 
   function renderContent(container: HTMLElement | null) {
     if (!container) return;
     contentContainer = container;
     container.classList.add("finance-plugin-main");
-    contentRoot?.unmount();
-    const root = createRoot(container);
-    contentRoot = root;
-    flushSync(() => {
-      root.render(createElement(FinanceContentApp, { store, controller }));
-    });
+    contentRoot = mountPluginSurface(
+      container,
+      createElement(FinanceContentApp, { store, controller }),
+      contentRoot,
+    );
   }
 
   function setTarget() {

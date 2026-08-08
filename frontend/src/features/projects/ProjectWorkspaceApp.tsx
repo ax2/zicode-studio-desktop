@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 import {
   projectName,
@@ -498,12 +499,14 @@ export function createProjectWorkspaceApp(
   let contentRoot: Root | null = null;
   return {
     renderNavigation(container) {
-      navRoot ??= createRoot(container);
-      navRoot.render(<ProjectNav store={store} />);
+      navRoot = mountPluginSurface(container, <ProjectNav store={store} />, navRoot);
     },
     renderContent(container) {
-      contentRoot ??= createRoot(container);
-      contentRoot.render(<ProjectMain store={store} />);
+      contentRoot = mountPluginSurface(
+        container,
+        <ProjectMain store={store} />,
+        contentRoot,
+      );
       if (!store.getState().loading) void store.getState().load();
     },
     setTarget(target) {

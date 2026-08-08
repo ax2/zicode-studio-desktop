@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 // @ts-expect-error plain JS module without type declarations
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
@@ -289,12 +290,18 @@ export function createArtifactApp(options: ArtifactAppOptions): ArtifactAppApi {
       return store.getState().load(options);
     },
     renderContent(container) {
-      contentRoot ??= createRoot(container);
-      contentRoot.render(<ArtifactMain store={store} />);
+      contentRoot = mountPluginSurface(
+        container,
+        <ArtifactMain store={store} />,
+        contentRoot,
+      );
     },
     renderNavigation(container) {
-      navRoot ??= createRoot(container);
-      navRoot.render(<ArtifactNav store={store} />);
+      navRoot = mountPluginSurface(
+        container,
+        <ArtifactNav store={store} />,
+        navRoot,
+      );
     },
     selectArtifact(descriptor) {
       return store.getState().selectArtifact(descriptor);

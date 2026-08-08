@@ -430,6 +430,12 @@ export function setupPluginShell({
   }
 
   function renderMain(pluginId) {
+    // App views may add their own classes to the shared main container
+    // (e.g. finance adds `finance-plugin-main`); without a reset they leak
+    // into every subsequent app and alter its layout.
+    const wasHidden = pluginMain.classList.contains("plugin-surface-hidden");
+    pluginMain.className = "plugin-main-view";
+    pluginMain.classList.toggle("plugin-surface-hidden", wasHidden);
     pluginMain.replaceChildren();
     if (pluginId === SETTINGS_VIEW_ID) {
       settingsApp?.renderContent?.(pluginMain);

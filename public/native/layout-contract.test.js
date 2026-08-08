@@ -800,6 +800,12 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("mounts plugin apps through a layout-transparent wrapper", () => {
+    expect(pluginShellCss).toMatch(
+      /\.plugin-app-mount\s*\{\s*display:\s*contents/,
+    );
+  });
+
   it("keeps a maskable launcher icon wired into the PWA manifest", () => {
     expect(manifest).toMatch(/"purpose":\s*"maskable"/);
     expect(manifest).toContain('"src": "icons/app-maskable-512.png"');

@@ -487,3 +487,7 @@ bun run test          # vitest（public/** + frontend/src/**）
    欢迎页保持紧凑；前端 731 测试全绿
 - [x] release 第十二次重建（第 272 轮）：EXE 41,316,864 B / 安装包
    346,872,608 B，含第 270–271 轮修复，静默重装验证通过
+- [x] 插件应用 React 根失效（第 273 轮）：项目/任务/自动化/产物/金融
+   接入共享挂载辅助（wrapper + 重建根，display:contents），修复切换
+   应用后视图变空、removeChild 异常与 finance 类污染；前端 734 测试
+   全绿，CDP 两轮全应用切换 0 异常

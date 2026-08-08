@@ -4568,6 +4568,30 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百七十三轮：插件应用 React 根失效修复（切换应用后视图变空/异常，2026-08-08）。
+
+1. 根因：plugin-shell 每次激活都会先 `replaceChildren()` 清空共享的
+   侧栏/主视图容器，再调用应用 `renderNavigation/renderContent`；项目/
+   任务/自动化/产物四个应用用 `root ??= createRoot(container)` 复用挂在
+   旧 DOM 上的 React 根，金融工作台则对直接建在共享容器上的根执行
+   `unmount()`——两者在容器被外部清空后都会触发
+   `NotFoundError: removeChild`，导致切换回来时主视图渲染为空、侧栏导航
+   丢失，且异常中断 activate（金融内容显示的是上一次的残留视图）；
+2. 修复：
+   - 新增 `frontend/src/shared/reactMount.ts`（`mountPluginSurface`）：
+     每次激活卸载旧根（旧 wrapper 已脱离文档，卸载安全）→ 清空容器 →
+     创建全新 wrapper（`display: contents`，布局透明）→ `flushSync` 渲染
+     新根；项目/任务/自动化/产物/金融五个应用全部接入；
+   - plugin-shell `renderMain` 在渲染前重置共享容器 className 为
+     `plugin-main-view`（保留 `plugin-surface-hidden` 状态），消除
+     finance 的 `finance-plugin-main` 类污染其他应用的问题；
+   - 新增回归测试：任务中心在容器被 `replaceChildren()` 清空后再次
+     renderContent 仍渲染内容；plugin-shell 切换应用后 finance 类不再
+     残留；layout-contract 断言 `.plugin-app-mount { display: contents }`；
+3. 验证：前端 734 项全绿（+3）、typecheck/Biome 通过；生产版 CDP
+   两轮全应用切换（24 单元格）：0 空视图、0 finance 类污染、0 异常、
+   0 控制台错误；日志无 ERROR/WARN/panic。
+
 第二百七十二轮：release 第十二次重建（含第 270–271 轮，2026-08-08）。
 
 1. 让生产安装包包含第 270 轮（公网 PWA share_target 作用域）与第 271 轮
