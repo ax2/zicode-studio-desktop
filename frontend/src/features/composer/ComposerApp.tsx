@@ -356,7 +356,7 @@ export function ComposerApp({
                 type="button"
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-icon-btn"
                 id="command-btn"
-                title="Commands"
+                title={t("Commands (Ctrl+Shift+P)")}
                 aria-label="Open commands"
                 tabIndex={-1}
               >

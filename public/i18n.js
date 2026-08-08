@@ -159,6 +159,7 @@ const zhCN = {
   "Saving…": "保存中…",
   Saved: "已保存",
   "Unsaved changes": "有未保存的更改",
+  "Commands (Ctrl+Shift+P)": "命令 (Ctrl+Shift+P)",
   "Context usage": "上下文用量",
   "Context Window": "上下文窗口",
   "Conversation navigator": "对话导航",

@@ -454,3 +454,4 @@ bun run test          # vitest（public/** + frontend/src/**）
   模型渠道旧凭据清理失败补"无法移除旧凭据"警告
 - [x] 笔记保存状态（第 253 轮）：编辑器 saveState（dirty/saving/saved）
   与指示 UI + 3 个翻译 key + 流转测试；715 测试全绿
+- [x] 命令按钮快捷键提示（第 254 轮）：title 补"命令 (Ctrl+Shift+P)"
