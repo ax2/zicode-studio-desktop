@@ -4434,6 +4434,17 @@ P2 再做）完成 P1 UI 层：
    恢复 v4-flash 成功；
 2. 全程无控制台错误；模型成本最低推荐标签（deepseek-v4-flash）正确。
 
+第二百五十八轮：离线与安装状态页验证（2026-08-08）。
+
+1. /offline.html（离线页）、/packages/install-status.html（安装状态
+   页）、/offline.js 均 200 正常伺服且内容完整（离线页含中英文案与
+   样式）；
+2. 离线恢复逻辑（setupOfflineRecovery）确认：状态机 checking/ready/
+   retrying、定时自动重试、手动重试按钮、"网络已恢复但桌面仍不可达"
+   提示完整；
+3. 安装状态页（24KB）与离线入口（offline-entry → setupOfflineRecovery）
+   接线正确。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
