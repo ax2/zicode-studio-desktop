@@ -65,6 +65,32 @@ describe("command palette (React)", () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it("restores focus to the previously focused element when opened by shortcut", () => {
+    const { button, palette, overlay, list } = mount();
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.focus();
+    setupCommandPalette({
+      button,
+      palette,
+      overlay,
+      list,
+      commands: [{ label: "First", action() {} }],
+    });
+
+    // The app opens the palette from a keyboard shortcut by clicking the
+    // trigger; programmatic .click() does not move focus, so the composer
+    // input stays focused and must be restored on close.
+    button.click();
+    expect(palette.classList.contains("hidden")).toBe(false);
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", cancelable: true }),
+    );
+
+    expect(palette.classList.contains("hidden")).toBe(true);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("filters commands as the user types and runs the selected one with Enter", () => {
     const { button, palette, overlay, list } = mount();
     const openNotes = vi.fn();

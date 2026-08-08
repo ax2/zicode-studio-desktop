@@ -41,6 +41,7 @@ export function setupCommandPalette({
   const container = list;
 
   const root: Root = createRoot(container);
+  let previousFocus: HTMLElement | null = null;
 
   function close({ restoreFocus = true }: { restoreFocus?: boolean } = {}) {
     panel.classList.add("hidden");
@@ -48,7 +49,10 @@ export function setupCommandPalette({
     flushSync(() => {
       root.render(null);
     });
-    if (restoreFocus) trigger.focus();
+    if (restoreFocus) {
+      (previousFocus?.isConnected ? previousFocus : trigger).focus();
+    }
+    previousFocus = null;
   }
 
   function runCommand(command: PaletteCommand) {
@@ -64,6 +68,13 @@ export function setupCommandPalette({
   }
 
   function open() {
+    const active = document.activeElement;
+    previousFocus =
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      active !== document.documentElement
+        ? active
+        : null;
     panel.classList.remove("hidden");
     backdrop.classList.remove("hidden");
     flushSync(() => {

@@ -507,3 +507,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    aria-label，场景下拉补 aria-label + 回归断言；9 视图 a11y 扫描 0 问题
 - [x] release 第十六次重建（第 281 轮）：EXE 41,320,960 B / 安装包
    346,803,897 B，含第 280 轮修复，静默重装验证通过
+- [x] 命令面板焦点恢复（第 282 轮）：open 记录先前焦点（排除 body），
+   close 恢复原位否则回退命令按钮 + 回归测试；前端 737 测试全绿
