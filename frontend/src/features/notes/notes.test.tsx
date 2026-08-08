@@ -198,6 +198,18 @@ describe("notes store", () => {
     await store.getState().saveEditor();
     expect(save).toHaveBeenCalled();
     expect(store.getState().dirty).toBe(false);
+    expect(store.getState().saveState).toBe("saved");
+  });
+
+  it("tracks unsaved, saving, and saved states in the editor", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    expect(store.getState().saveState).toBe("idle");
+    store.getState().setDraft({ title: "Renamed" });
+    expect(store.getState().saveState).toBe("dirty");
+    await store.getState().saveEditor();
+    expect(store.getState().saveState).toBe("saved");
   });
 
   it("captures a chat exchange into a conversation note", async () => {

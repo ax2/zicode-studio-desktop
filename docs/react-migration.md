@@ -452,3 +452,5 @@ bun run test          # vitest（public/** + frontend/src/**）
   缺陷
 - [x] 静默错误路径审计（第 252 轮）：空 catch 逐项复核均为 best-effort；
   模型渠道旧凭据清理失败补"无法移除旧凭据"警告
+- [x] 笔记保存状态（第 253 轮）：编辑器 saveState（dirty/saving/saved）
+  与指示 UI + 3 个翻译 key + 流转测试；715 测试全绿

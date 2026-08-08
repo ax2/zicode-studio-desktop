@@ -128,6 +128,7 @@ interface NotesState {
   error: Error | null;
   mode: NotesMode;
   dirty: boolean;
+  saveState: "idle" | "dirty" | "saving" | "saved";
   preview: boolean;
   query: string;
   selectedTag: string | null;
@@ -215,6 +216,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     error: null,
     mode: "library",
     dirty: false,
+    saveState: "idle",
     preview: false,
     query: "",
     selectedTag: null,
@@ -525,7 +527,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
       const draft = get();
       const tags = parseTags(draft.draftTags.join(", "));
-      set({ saveDisabled: true });
+      set({ saveDisabled: true, saveState: "saving" });
       try {
         const response = await gateway.save(sceneId(), workspaceId(), {
           ...note,
@@ -534,8 +536,11 @@ export function createNotesStore(options: NotesStoreOptions) {
           content: draft.draftContent,
           tags,
         });
-        set({ selectedNote: response.note, dirty: false });
+        set({ selectedNote: response.note, dirty: false, saveState: "saved" });
         notify(t("Note saved"));
+        setTimeout(() => {
+          if (get().saveState === "saved") set({ saveState: "idle" });
+        }, 2000);
         await get().load();
       } catch (error) {
         set({ error: error instanceof Error ? error : new Error(String(error)) });
@@ -545,7 +550,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     markDirty() {
-      set({ dirty: true, saveDisabled: false });
+      set({ dirty: true, saveDisabled: false, saveState: "dirty" });
       get().scheduleAutosave();
     },
 

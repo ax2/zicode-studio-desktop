@@ -1053,6 +1053,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const preview = store((state) => state.preview);
   const dirty = store((state) => state.dirty);
   const saveDisabled = store((state) => state.saveDisabled);
+  const saveState = store((state) => state.saveState);
   const deleteArmed = store((state) => state.deleteArmed);
   const error = store((state) => state.error);
   const setDraft = store((state) => state.setDraft);
@@ -1145,6 +1146,15 @@ function NoteEditor({ store }: { store: NotesStore }) {
             disabled={saveDisabled || !dirty}
             onClick={() => void store.getState().saveEditor()}
           />
+          <span className="notes-save-state" data-save-state={saveState} aria-live="polite">
+            {saveState === "saving"
+              ? t("Saving…")
+              : saveState === "saved"
+                ? t("Saved")
+                : saveState === "dirty"
+                  ? t("Unsaved changes")
+                  : ""}
+          </span>
           <ToolbarButton
             label={deleteArmed ? t("Confirm delete") : t("Delete")}
             icon={ICONS.trash}
