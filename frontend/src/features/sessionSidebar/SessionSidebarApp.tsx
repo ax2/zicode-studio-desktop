@@ -387,7 +387,7 @@ export function SessionSidebarApp({
               controller.showMore();
             }}
           >
-            Show more
+            {t("Show more")}
           </button>
         ) : null}
         {canShowLess ? (
@@ -399,7 +399,7 @@ export function SessionSidebarApp({
               controller.showLess();
             }}
           >
-            Show less
+            {t("Show less")}
           </button>
         ) : null}
       </div>

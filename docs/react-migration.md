@@ -447,3 +447,6 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 模型错误分类补全（第 248 轮）：describeModelError 新增
   context-length 分类（上下文超长提示新建会话/压缩上下文）+ 2 条测试；
   快速切换应用压力测试无泄漏/错误
+- [x] 会话侧栏 i18n（第 249 轮）：Show more/Show less/Failed to load
+  sessions 接入 t() 并补中文；运行面审计（日志/二维码/中继状态）无
+  缺陷
