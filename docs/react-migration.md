@@ -560,3 +560,6 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 回收站补强 + 快捷键（第 301 轮）：emptyTrash 清空回收站、行内显示
    来源笔记本名、树导航退出回收站；Ctrl+N 新建 / Ctrl+Shift+T 打开
    回收站；前端 749 测试全绿
+- [x] 备份包含回收站（第 302 轮）：VaultExport 增 trashedNotes（向后
+   兼容），导入写入新 Vault 回收站；read_attachment 允许活动/回收站
+   笔记的附件；Rust 169 项全绿

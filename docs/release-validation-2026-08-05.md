@@ -340,6 +340,24 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     数据完好、回收站为空；Rust 168 项（144+19+5）、前端 749 项测试
     全绿。
 
+## 第二十六次重建（2026-08-09，含第 302 轮备份包含回收站）
+
+- 合入：VaultExport 增 trashedNotes（导出/导入回收站条目 + 附件归属），
+  read_attachment 允许活动/回收站笔记附件；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,423,360 B，
+    SHA-256 `2B54E1F58AE723E885DCDE5122300E36BF0B9E7F19DC7D150DA86A927C0101D4`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,870,491 B，SHA-256
+    `776211E3C78354F8C65F48ACA013F1B8B60A6CA5DE0DC65B035A90042D686D8A`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；生产版 API 全链路：
+    创建→附件→删除→导出（trashedNotes=1/attachments=1）→导入→回收站
+    1 条→恢复→附件字节一致；临时数据全部清理，QVeris 5 条与测试
+    笔记本数据完好；Rust 169 项（145+19+5）、前端 749 项测试全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

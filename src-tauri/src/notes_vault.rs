@@ -186,7 +186,16 @@ pub struct VaultExport {
     pub exported_at: String,
     pub notebook: NotebookDescriptor,
     pub notes: Vec<NoteDocument>,
+    #[serde(default)]
+    pub trashed_notes: Vec<TrashNoteExport>,
     pub attachments: Vec<VaultExportAttachment>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashNoteExport {
+    pub note: NoteDocument,
+    pub deleted_at: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1021,7 +1030,11 @@ impl NotesVault {
         let notebook_id = validate_opaque_id(notebook_id)?;
         let note_id = validate_opaque_id(note_id)?;
         let attachment_id = validate_attachment_id(attachment_id)?;
-        self.get_note(&notebook_id, &note_id)?;
+        let note_exists = self.note_path(&notebook_id, &note_id)?.is_file()
+            || self.trash_path(&notebook_id, &note_id)?.is_file();
+        if !note_exists {
+            return Err(NotesError::new("note_not_found", "Note does not exist"));
+        }
         let path = self
             .vault_root(&notebook_id)?
             .join("public")
@@ -1052,6 +1065,33 @@ impl NotesVault {
         let mut notes = Vec::with_capacity(summaries.len());
         for summary in summaries {
             notes.push(self.get_note(&notebook_id, &summary.id)?);
+        }
+        let mut trashed_notes = Vec::new();
+        let trash_dir = self.vault_root(&notebook_id)?.join(".trash");
+        if trash_dir.is_dir() {
+            for entry in fs::read_dir(&trash_dir)
+                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
+                .flatten()
+            {
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
+                if !file_type.is_file() || file_type.is_symlink() {
+                    continue;
+                }
+                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                    continue;
+                };
+                if !name.ends_with(".md") {
+                    continue;
+                }
+                if let Ok(document) = read_note_file(&entry.path(), &notebook_id) {
+                    trashed_notes.push(TrashNoteExport {
+                        note: document,
+                        deleted_at: modified_at_iso(&entry.path()),
+                    });
+                }
+            }
         }
         let mut attachments = Vec::new();
         let mut total_attachment_bytes = 0usize;
@@ -1100,6 +1140,7 @@ impl NotesVault {
             exported_at: now_iso(),
             notebook,
             notes,
+            trashed_notes,
             attachments,
         })
     }
@@ -1111,7 +1152,12 @@ impl NotesVault {
                 "Unsupported Notes backup schema version",
             ));
         }
-        if export.notes.len() > MAX_NOTES {
+        if export
+            .notes
+            .len()
+            .saturating_add(export.trashed_notes.len())
+            > MAX_NOTES
+        {
             return Err(NotesError::new(
                 "quota_exceeded",
                 "Notes backup contains too many notes",
@@ -1121,6 +1167,22 @@ impl NotesVault {
         validate_title(&imported_title)?;
         let mut note_ids = BTreeSet::new();
         for document in &export.notes {
+            validate_opaque_id(&document.summary.id)?;
+            validate_title(&document.summary.title)?;
+            validate_content(&document.content)?;
+            normalize_tags(document.summary.tags.clone())?;
+            if let Some(source) = &document.summary.source {
+                validate_source(source)?;
+            }
+            if !note_ids.insert(document.summary.id.clone()) {
+                return Err(NotesError::new(
+                    "invalid_parameters",
+                    "Notes backup contains duplicate note IDs",
+                ));
+            }
+        }
+        for trashed in &export.trashed_notes {
+            let document = &trashed.note;
             validate_opaque_id(&document.summary.id)?;
             validate_title(&document.summary.title)?;
             validate_content(&document.content)?;
@@ -1194,6 +1256,31 @@ impl NotesVault {
                     content: normalize_newlines(&document.content),
                 };
                 self.write_note(&imported, None)?;
+            }
+            let trash_dir = self.vault_root(&notebook.id)?.join(".trash");
+            fs::create_dir_all(&trash_dir).map_err(|_| {
+                NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
+            })?;
+            for trashed in export.trashed_notes {
+                let imported = NoteDocument {
+                    summary: NoteSummary {
+                        id: trashed.note.summary.id,
+                        notebook_id: notebook.id.clone(),
+                        title: trashed.note.summary.title,
+                        icon: validate_icon(trashed.note.summary.icon)?,
+                        created_at: trashed.note.summary.created_at,
+                        updated_at: trashed.note.summary.updated_at,
+                        tags: normalize_tags(trashed.note.summary.tags)?,
+                        source: trashed.note.summary.source,
+                        version: String::new(),
+                    },
+                    content: normalize_newlines(&trashed.note.content),
+                };
+                let bytes = serialize_note(&imported)?;
+                atomic_write(
+                    &trash_dir.join(format!("{}.md", imported.summary.id)),
+                    &bytes,
+                )?;
             }
             for (note_id, attachment_id, bytes) in decoded_attachments {
                 let path = self
@@ -2551,6 +2638,55 @@ mod tests {
             .unwrap();
         assert_eq!(imported_bytes, b"safe-png-test-bytes");
         assert_eq!(imported_mime, "image/png");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn backups_include_trashed_notes_and_their_attachments() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Archive", None, None).unwrap();
+        let note = vault
+            .create_note(
+                &notebook.id,
+                "Retired",
+                "Trash me later",
+                vec![],
+                None,
+                None,
+            )
+            .unwrap();
+        let attachment = vault
+            .store_attachment(
+                &notebook.id,
+                &note.summary.id,
+                "proof.txt",
+                "text/plain",
+                b"trash attachment",
+            )
+            .unwrap();
+        vault
+            .delete_note(&notebook.id, &note.summary.id, &note.summary.version)
+            .unwrap();
+
+        let backup = vault.export_notebook(&notebook.id).unwrap();
+        assert!(backup.notes.is_empty());
+        assert_eq!(backup.trashed_notes.len(), 1);
+        assert_eq!(backup.trashed_notes[0].note.summary.title, "Retired");
+        assert!(!backup.trashed_notes[0].deleted_at.is_empty());
+        assert_eq!(backup.attachments.len(), 1);
+
+        let imported = vault.import_export(backup).unwrap();
+        let trash = vault.list_trash(Some(&imported.id)).unwrap();
+        assert_eq!(trash.len(), 1);
+        assert_eq!(trash[0].note.title, "Retired");
+        let restored = vault.restore_note(&imported.id, &note.summary.id).unwrap();
+        assert_eq!(restored.content, "Trash me later");
+        let (bytes, mime) = vault
+            .read_attachment(&imported.id, &note.summary.id, &attachment.id)
+            .unwrap();
+        assert_eq!(bytes, b"trash attachment");
+        assert_eq!(mime, "text/plain");
         let _ = fs::remove_dir_all(root);
     }
 
