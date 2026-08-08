@@ -576,7 +576,34 @@ export class SessionSidebar implements SessionSidebarController {
         action: () => this.startRename(session.id),
       });
     }
+    if (state.archived.includes(session.id)) {
+      rows.push({
+        icon: "🗑️",
+        label: "Delete",
+        action: () => this.deleteArchivedSession(session.id),
+      });
+    }
     this.showMenu(event, rows);
+  }
+
+  async deleteArchivedSession(id: string): Promise<void> {
+    this.closeContextMenu();
+    if (!this.control) return;
+    try {
+      const { deleted } = await this.control.deleteSessions([id]);
+      const deletedSet = new Set(deleted);
+      const state = this.store.getState();
+      this.commit({
+        archived: state.archived.filter((entry) => !deletedSet.has(entry)),
+        sessions: state.sessions.filter((session) => !deletedSet.has(session.id)),
+      });
+      localStorage.setItem(
+        STORAGE.archived,
+        JSON.stringify(this.store.getState().archived),
+      );
+    } catch (error) {
+      console.error("[Sidebar] deleteArchivedSession failed:", error);
+    }
   }
 
   showProjectContextMenu(

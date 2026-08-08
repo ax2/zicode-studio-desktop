@@ -452,6 +452,16 @@ export function SessionSidebarApp({
           ) : null}
         </div>
         <div className={`project-sessions${collapsed ? " collapsed" : ""}`}>
+          {project.isCurrent && canCreateSession && !searchQuery ? (
+            <button
+              type="button"
+              className="session-new-chat-row"
+              onClick={() => controller.createSession(project)}
+            >
+              <NewChatIcon />
+              <span>{t("New chat")}</span>
+            </button>
+          ) : null}
           {visible.map((session) =>
             renderSessionItem(session, { hidden: !titleMatches(session) }),
           )}

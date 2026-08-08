@@ -296,6 +296,53 @@ describe("SessionSidebar.render", () => {
     await vi.waitFor(() => expect(onCreateSession).toHaveBeenCalledWith("ws-1"));
   });
 
+  it("renders a new-chat entry under the current project", async () => {
+    const onCreateSession = vi.fn().mockResolvedValue(undefined);
+    const { sidebar, container } = makeSidebar(
+      [{ id: "s-here", timestamp: new Date().toISOString(), name: "Here" }],
+      { onCreateSession },
+    );
+
+    await sidebar.load();
+
+    const row = container.querySelector(".current-project .session-new-chat-row");
+    expect(row).toBeTruthy();
+    expect(row.textContent).toMatch(/New chat|新建对话/);
+    row.click();
+    await vi.waitFor(() => expect(onCreateSession).toHaveBeenCalledWith("ws-1"));
+  });
+
+  it("deletes an individual archived session from its context menu", async () => {
+    const { sidebar, container, control } = makeSidebar([
+      { id: "s-arc", timestamp: new Date().toISOString(), name: "Arc" },
+    ]);
+    sidebar.toggleArchived("s-arc");
+    await sidebar.load();
+
+    const item = container.querySelector(
+      '.archived-group .session-item[data-session-id="s-arc"]',
+    );
+    expect(item).toBeTruthy();
+    item.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+    const labels = [
+      ...document.querySelectorAll(".session-context-menu .context-menu-item"),
+    ].map((el) => el.textContent.trim());
+    expect(labels.join(" ")).toMatch(/Delete|删除/);
+
+    control.deleteSessions.mockResolvedValue({ deleted: ["s-arc"], errors: [] });
+    [...document.querySelectorAll(".session-context-menu .context-menu-item")]
+      .find((el) => /Delete|删除/.test(el.textContent))
+      ?.click();
+
+    await vi.waitFor(() =>
+      expect(control.deleteSessions).toHaveBeenCalledWith(["s-arc"]),
+    );
+    expect(
+      container.querySelector('.archived-group .session-item[data-session-id="s-arc"]'),
+    ).toBeNull();
+  });
+
   it("groups favourites and archived into separate sections", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-fav", timestamp: new Date().toISOString(), name: "Fav" },

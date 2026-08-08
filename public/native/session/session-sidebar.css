@@ -377,6 +377,34 @@
   display: none;
 }
 
+.session-new-chat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  width: calc(100% - var(--space-4));
+  margin: 0 var(--space-2) var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    background var(--duration) var(--ease),
+    color var(--duration) var(--ease);
+}
+
+.session-new-chat-row:hover {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  color: var(--text-primary);
+}
+
+.session-new-chat-row svg {
+  width: 14px;
+  height: 14px;
+}
+
 .session-title-row {
   display: flex;
   align-items: center;
