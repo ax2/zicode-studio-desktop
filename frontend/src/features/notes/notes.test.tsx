@@ -86,6 +86,31 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
+  it("lets a selected notebook collapse without the controlled-details fight", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-notebook-summary")).toBeTruthy(),
+    );
+    const branch = container.querySelector(
+      ".notes-notebook-branch",
+    ) as HTMLDetailsElement;
+    const summary = container.querySelector(
+      ".notes-notebook-summary",
+    ) as HTMLElement;
+
+    summary.click();
+    await waitFor(() => expect(branch.open).toBe(true));
+
+    // Simulate the user closing the details natively; React must accept the
+    // close instead of forcing the notebook back open.
+    branch.open = false;
+    branch.dispatchEvent(new Event("toggle"));
+    await waitFor(() => expect(branch.open).toBe(false));
+    expect(branch.open).toBe(false);
+  });
+
   it("loads the snapshot and selects a note into drafts", async () => {
     const store = storeWithGateway();
     await store.getState().load();

@@ -115,15 +115,12 @@ function NotebookBranch({
 }) {
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
-  const selectedNote = store((state) => state.selectedNote);
   const selectedTag = store((state) => state.selectedTag);
   const sourceOnly = store((state) => state.sourceOnly);
   const query = store((state) => state.query);
   const loading = store((state) => state.loading);
   const expanded = store((state) =>
     state.expandedNotebookIds.has(notebook.id) ||
-    selectedNotebookId === notebook.id ||
-    snapshot.notes.some((n) => n.id === selectedNote?.id && n.notebookId === notebook.id) ||
     Boolean(query || selectedTag || sourceOnly),
   );
   const toggleExpanded = store((state) => state.toggleNotebookExpanded);
@@ -136,7 +133,10 @@ function NotebookBranch({
       className="notes-notebook-branch"
       data-notebook-id={notebook.id}
       open={expanded}
-      onToggle={() => toggleExpanded(notebook.id)}
+      onToggle={(event) => {
+        const nativeOpen = (event.currentTarget as HTMLDetailsElement).open;
+        if (nativeOpen !== expanded) toggleExpanded(notebook.id, nativeOpen);
+      }}
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: notebook selection pattern preserved from the vanilla tree */}
       <summary

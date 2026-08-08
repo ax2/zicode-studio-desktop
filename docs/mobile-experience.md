@@ -4032,6 +4032,28 @@ app-updater、任务通知、草稿存储）全部收归 React store；剩余 va
    零异常；主题切换 select 值实时同步；全量 698 测试全绿（layout-
    contract 新增右侧栏绝对定位与活动栏全高两条断言）。
 
+第二百二十五轮：笔记闪动修复与数据链路核实（2026-08-08）。
+
+1. 笔记"点击笔记本乱闪"：根因是受控 `<details open={expanded}>` 与
+   `onToggle` 互相打架——`expanded` 由
+   `expandedNotebookIds || selectedNotebookId===id || 笔记归属` 派生，
+   用户点击关闭已选中笔记本时浏览器原生关闭 → onToggle 移除集合 →
+   派生值因"已选中"仍为 true → React 强制重开 → 再次触发 toggle，
+   形成反复展开/收起；
+2. 修复：`onToggle` 只在"浏览器原生状态 ≠ 派生状态"时把 store 同步到
+   原生值（用户意图优先，`toggleNotebookExpanded(id, force)`），并移除
+   派生式中"选中/笔记归属强制展开"两条（`selectNotebook`/`selectNote`
+   改为主动把笔记本写入 expandedNotebookIds，选中即展开一次、之后可
+   收起）；新增回归测试（选中后可原生关闭不再重开）+ 真实实例 CDP 验证
+   （打开→选中→模拟原生关闭→保持关闭）；
+3. 项目/任务/自动化"显示空"核实：CDP 直调配置网关——
+   read_super_agent_tasks 返回 `{ok, tasks:[]}`、automation_workspace
+   list 返回 `{ok, workflows:[]}`，均为**前端加载正常、数据本身为空**；
+   项目视图实际渲染 2 笔记本/3 笔记/8 会话/135 文件（非空），其"最近
+   项目成果"区因 artifacts/knowledge 为空而空；数据按工作区/会话归属，
+   若此前内容在别的工作区或 agent 数据被重置，需在对应工作区确认；
+4. 全量 699 测试全绿（+1 笔记回归测试），typecheck/Biome 通过。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

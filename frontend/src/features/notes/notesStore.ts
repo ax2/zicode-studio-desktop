@@ -91,7 +91,7 @@ interface NotesState {
   setDraft(patch: { title?: string; icon?: string; content?: string; tags?: string[] }): void;
   setPreview(preview: boolean): void;
   syncDraftFromNote(): void;
-  toggleNotebookExpanded(id: string): void;
+  toggleNotebookExpanded(id: string, force?: boolean): void;
   toggleNavSection(title: string): void;
   openMovePopover(note: NoteSummary): void;
   closeMovePopover(): void;
@@ -215,8 +215,15 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
     },
 
-    selectNotebook(id) {
-      set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false });
+  selectNotebook(id) {
+    const expanded = new Set(get().expandedNotebookIds);
+    expanded.add(id);
+    set({
+      selectedNotebookId: id,
+      selectedTag: null,
+      sourceOnly: false,
+      expandedNotebookIds: expanded,
+    });
     },
 
     discussInChat(note, selection) {
@@ -475,10 +482,11 @@ export function createNotesStore(options: NotesStoreOptions) {
       });
     },
 
-    toggleNotebookExpanded(id) {
+    toggleNotebookExpanded(id, force) {
       const expanded = new Set(get().expandedNotebookIds);
-      if (expanded.has(id)) expanded.delete(id);
-      else expanded.add(id);
+      const next = typeof force === "boolean" ? force : !expanded.has(id);
+      if (next) expanded.add(id);
+      else expanded.delete(id);
       set({ expandedNotebookIds: expanded });
     },
 
