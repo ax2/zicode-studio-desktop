@@ -71,6 +71,9 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
     exportBackup: vi.fn(async () => ({ backup: {} })),
     importBackup: vi.fn(async () => ({ notebook: { id: "book-9", title: "Imported" } })),
     rebuild: vi.fn(async () => ({ report: { validNotes: 1, invalidFiles: [] } })),
+    listTrash: vi.fn(async () => ({ trash: [] })),
+    restoreTrash: vi.fn(async () => ({ note: NOTE })),
+    purgeTrash: vi.fn(async () => ({})),
     ...overrides,
   };
 }
@@ -300,6 +303,60 @@ describe("notes store", () => {
         document.elementFromPoint = originalElementFromPoint;
       }
     }
+  });
+
+  it("lists trash and restores or purges trashed notes", async () => {
+    const listTrash = vi.fn(async () => ({
+      trash: [
+        {
+          notebookId: "book-1",
+          note: SNAPSHOT.notes[0],
+          deletedAt: "2026-08-09T00:00:00Z",
+        },
+      ],
+    }));
+    const restoreTrash = vi.fn(async () => ({ note: NOTE }));
+    const purgeTrash = vi.fn(async () => ({}));
+    const store = storeWithGateway({ listTrash, restoreTrash, purgeTrash });
+    await store.getState().loadTrash();
+    expect(store.getState().trash).toHaveLength(1);
+    expect(store.getState().trash[0].note.title).toBe("Roadmap");
+
+    await store.getState().restoreFromTrash(store.getState().trash[0]);
+    expect(restoreTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1");
+    expect(listTrash).toHaveBeenCalledTimes(2);
+
+    await store.getState().purgeFromTrash(store.getState().trash[0]);
+    expect(purgeTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1");
+  });
+
+  it("renders the trash view with restore and purge actions", async () => {
+    const listTrash = vi.fn(async () => ({
+      trash: [
+        {
+          notebookId: "book-1",
+          note: SNAPSHOT.notes[0],
+          deletedAt: "2026-08-09T00:00:00Z",
+        },
+      ],
+    }));
+    const store = storeWithGateway({ listTrash });
+    await store.getState().loadTrash();
+    store.getState().setMode("trash");
+    const { container } = render(<NotesContent store={store} />);
+    expect(container.querySelector(".notes-trash-panel")).toBeTruthy();
+    expect(container.textContent).toContain(t("Trash"));
+    expect(container.textContent).toContain("Roadmap");
+    expect(container.querySelector(".notes-trash-restore")).toBeTruthy();
+    expect(container.querySelector(".notes-trash-purge")).toBeTruthy();
+  });
+
+  it("shows the empty trash state", async () => {
+    const store = storeWithGateway();
+    await store.getState().loadTrash();
+    store.getState().setMode("trash");
+    const { container } = render(<NotesContent store={store} />);
+    expect(container.textContent).toContain(t("Trash is empty"));
   });
 
   it("loads the snapshot and selects a note into drafts", async () => {

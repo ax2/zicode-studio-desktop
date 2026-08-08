@@ -301,6 +301,25 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
 
+## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
+
+- 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归
+  测试、第 300 轮笔记回收站（删除进 `.trash`、列表/恢复/彻底删除、
+  workspace 隔离）与笔记应用设计文档；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,380,352 B，
+    SHA-256 `D590116B03B32A0F8C0A4F3F7B944428ECD75F4E52C01D9575A17F9DA92EEAB1`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,877,932 B，SHA-256
+    `88444C6E4546626A3C4C831CBC959616759BC05B1B388B72DCDD34399874D7D0`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致（0 缺失/0 哈希差异）；
+    `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.83.0、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；CDP
+    全链路实测回收站：删除→回收站 (1)→恢复→再次删除→彻底删除（二次
+    确认）→回收站为空，临时笔记本/笔记已全部清理，QVeris 与测试
+    笔记本数据完好；Rust 167 项（143+19+5）、前端 747 项测试全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

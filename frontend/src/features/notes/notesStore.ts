@@ -12,6 +12,7 @@ import {
   type NotesSnapshot,
   type NoteSummary,
   type Notebook,
+  type TrashEntry,
 } from "./notesLogic";
 
 const RECENT_NOTES_KEY = "zicode-notes-recent";
@@ -98,6 +99,9 @@ export interface NotesGatewayLike {
   exportBackup(sceneId: string, workspaceId: string, notebookId: string): Promise<{ backup: unknown }>;
   importBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebook: Notebook }>;
   rebuild(sceneId: string, workspaceId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
+  listTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ trash?: TrashEntry[] }>;
+  restoreTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
+  purgeTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<unknown>;
 }
 
 export interface NotesStoreOptions {
@@ -128,6 +132,9 @@ interface NotesState {
   selectedNote: Note | null;
   loading: boolean;
   error: Error | null;
+  trash: TrashEntry[];
+  trashLoading: boolean;
+  trashError: string | null;
   mode: NotesMode;
   dirty: boolean;
   saveState: "idle" | "dirty" | "saving" | "saved";
@@ -164,6 +171,9 @@ interface NotesState {
   deleteNotebook(notebookId: string): Promise<void>;
   updateNotebook(notebookId: string, title: string, icon: string): Promise<void>;
   deleteSelectedNote(): Promise<void>;
+  loadTrash(): Promise<void>;
+  restoreFromTrash(entry: TrashEntry): Promise<void>;
+  purgeFromTrash(entry: TrashEntry): Promise<void>;
   saveEditor(): Promise<void>;
   markDirty(): void;
   scheduleAutosave(): void;
@@ -218,6 +228,9 @@ export function createNotesStore(options: NotesStoreOptions) {
     selectedNote: null,
     loading: false,
     error: null,
+    trash: [],
+    trashLoading: false,
+    trashError: null,
     mode: "library",
     dirty: false,
     saveState: "idle",
@@ -549,9 +562,49 @@ export function createNotesStore(options: NotesStoreOptions) {
         await gateway.delete(sceneId(), workspaceId(), note);
         set({ selectedNote: null, dirty: false });
         await get().load({ preserveSelection: false });
+        void get().loadTrash();
         notify(t("Note deleted"));
       } catch (error) {
         set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    async loadTrash() {
+      set({ trashLoading: true, trashError: null });
+      try {
+        const response = await gateway.listTrash(sceneId(), workspaceId());
+        set({ trash: response.trash ?? [] });
+      } catch (error) {
+        set({ trashError: error instanceof Error ? error.message : String(error) });
+      } finally {
+        set({ trashLoading: false });
+      }
+    },
+
+    async restoreFromTrash(entry) {
+      set({ trashLoading: true, trashError: null });
+      try {
+        await gateway.restoreTrash(sceneId(), workspaceId(), entry.notebookId, entry.note.id);
+        await get().load({ preserveSelection: false });
+        await get().loadTrash();
+        notify(t("Note restored"));
+      } catch (error) {
+        set({ trashError: error instanceof Error ? error.message : String(error) });
+      } finally {
+        set({ trashLoading: false });
+      }
+    },
+
+    async purgeFromTrash(entry) {
+      set({ trashLoading: true, trashError: null });
+      try {
+        await gateway.purgeTrash(sceneId(), workspaceId(), entry.notebookId, entry.note.id);
+        await get().loadTrash();
+        notify(t("Note permanently deleted"));
+      } catch (error) {
+        set({ trashError: error instanceof Error ? error.message : String(error) });
+      } finally {
+        set({ trashLoading: false });
       }
     },
 

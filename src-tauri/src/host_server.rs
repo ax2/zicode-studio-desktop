@@ -318,6 +318,9 @@ impl HostServer {
             .route("/v2/notes/create", post(create_note))
             .route("/v2/notes/save", post(save_note))
             .route("/v2/notes/delete", post(delete_note))
+            .route("/v2/notes/trash", get(list_trash))
+            .route("/v2/notes/trash/restore", post(restore_trashed_note))
+            .route("/v2/notes/trash/purge", post(purge_trashed_note))
             .route("/v2/notes/capture", post(capture_note))
             .route(
                 "/v2/notes/attachments",
@@ -1149,6 +1152,24 @@ struct NotesChangesQuery {
     limit: usize,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TrashQuery {
+    workspace_id: String,
+    scene_id: String,
+    #[serde(default)]
+    notebook_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TrashNoteRequest {
+    workspace_id: String,
+    scene_id: String,
+    notebook_id: String,
+    note_id: String,
+}
+
 fn default_note_changes_limit() -> usize {
     100
 }
@@ -1447,6 +1468,53 @@ async fn list_note_changes(
         "sceneId": query.scene_id,
         "snapshot": snapshot,
     })))
+}
+
+async fn list_trash(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<TrashQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
+    let trash = scoped
+        .list_trash(query.notebook_id.as_deref())
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "sceneId": query.scene_id,
+        "trash": trash,
+    })))
+}
+
+async fn restore_trashed_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<TrashNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let note = scoped
+        .restore_note(&request.notebook_id, &request.note_id)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "restored": true, "note": note })))
+}
+
+async fn purge_trashed_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<TrashNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    scoped
+        .purge_note(&request.notebook_id, &request.note_id)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "purged": true, "noteId": request.note_id })))
 }
 
 async fn create_notebook(
@@ -4653,9 +4721,107 @@ mod tests {
             .join(notebook_id)
             .join("src/content/notes")
             .join(format!("{note_id}.md"));
-        let markdown = fs::read_to_string(markdown_path).unwrap();
+        let markdown = fs::read_to_string(&markdown_path).unwrap();
         assert!(markdown.contains("Updated Markdown body."));
         assert!(!markdown.contains("Must not overwrite."));
+
+        // Notes trash: delete moves the note out of the index, restore brings
+        // it back, purge removes it permanently.
+        let deleted = client
+            .post(format!("{}/v2/notes/delete", host.origin()))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id,
+                "expectedVersion": saved["note"]["version"]
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), reqwest::StatusCode::OK);
+
+        let trash: serde_json::Value = client
+            .get(format!(
+                "{}/v2/notes/trash?workspaceId={workspace_id}&sceneId=programming",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(trash["trash"].as_array().unwrap().len(), 1);
+        assert_eq!(trash["trash"][0]["note"]["id"], note_id);
+        assert_eq!(trash["trash"][0]["note"]["title"], "P5 roadmap");
+
+        let restored: serde_json::Value = client
+            .post(format!("{}/v2/notes/trash/restore", host.origin()))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id
+            }))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(restored["note"]["id"], note_id);
+        let trash_after_restore: serde_json::Value = client
+            .get(format!(
+                "{}/v2/notes/trash?workspaceId={workspace_id}&sceneId=programming",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(trash_after_restore["trash"].as_array().unwrap().is_empty());
+
+        let restored_version = restored["note"]["version"].as_str().unwrap();
+        client
+            .post(format!("{}/v2/notes/delete", host.origin()))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id,
+                "expectedVersion": restored_version
+            }))
+            .send()
+            .await
+            .unwrap();
+        let purged = client
+            .post(format!("{}/v2/notes/trash/purge", host.origin()))
+            .json(&json!({
+                "workspaceId": workspace_id,
+                "sceneId": "programming",
+                "notebookId": notebook_id,
+                "noteId": note_id
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(purged.status(), reqwest::StatusCode::OK);
+        let trash_after_purge: serde_json::Value = client
+            .get(format!(
+                "{}/v2/notes/trash?workspaceId={workspace_id}&sceneId=programming",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(trash_after_purge["trash"].as_array().unwrap().is_empty());
+        assert!(!markdown_path.exists());
 
         let private_capture = client
             .post(format!("{}/v2/notes/capture", host.origin()))

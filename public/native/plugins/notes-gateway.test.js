@@ -111,4 +111,34 @@ describe("NotesGateway", () => {
       notebookId: "book-1",
     });
   });
+
+  it("lists, restores, and purges trashed notes", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const gateway = new NotesGateway({
+      fetchImpl,
+      location: { origin: "http://127.0.0.1:57620" },
+    });
+
+    await gateway.listTrash("programming", "workspace-1");
+    expect(fetchImpl.mock.calls[0][0].toString()).toBe(
+      "http://127.0.0.1:57620/v2/notes/trash?sceneId=programming&workspaceId=workspace-1",
+    );
+
+    await gateway.listTrash("programming", "workspace-1", "book-1");
+    expect(fetchImpl.mock.calls[1][0].toString()).toBe(
+      "http://127.0.0.1:57620/v2/notes/trash?sceneId=programming&workspaceId=workspace-1&notebookId=book-1",
+    );
+
+    await gateway.restoreTrash("programming", "workspace-1", "book-1", "note-1");
+    expect(JSON.parse(fetchImpl.mock.calls[2][1].body)).toEqual({
+      sceneId: "programming",
+      workspaceId: "workspace-1",
+      notebookId: "book-1",
+      noteId: "note-1",
+    });
+
+    await gateway.purgeTrash("programming", "workspace-1", "book-1", "note-1");
+    expect(fetchImpl.mock.calls[3][0].toString()).toContain("/v2/notes/trash/purge");
+    expect(JSON.parse(fetchImpl.mock.calls[3][1].body).noteId).toBe("note-1");
+  });
 });

@@ -79,6 +79,14 @@ pub struct NoteDocument {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TrashEntry {
+    pub notebook_id: String,
+    pub note: NoteSummary,
+    pub deleted_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NotesSnapshot {
     pub notebooks: Vec<NotebookDescriptor>,
     pub notes: Vec<NoteSummary>,
@@ -827,21 +835,125 @@ impl NotesVault {
             ));
         }
         let path = self.note_path(notebook_id, note_id)?;
-        fs::remove_file(path)
-            .map_err(|_| NotesError::new("storage_unavailable", "Cannot delete the note"))?;
+        let trash_dir = self.vault_root(notebook_id)?.join(".trash");
+        fs::create_dir_all(&trash_dir).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
+        })?;
+        let trash_path = trash_dir.join(format!("{}.md", validate_opaque_id(note_id)?));
+        fs::rename(&path, &trash_path)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot move the note to trash"))?;
+        self.touch_notebook(notebook_id)?;
+        self.append_change("deleted", &existing.summary, None)?;
+        Ok(())
+    }
+
+    /// List notes currently in the workspace trash, newest deletion first.
+    pub fn list_trash(&self, notebook_id: Option<&str>) -> Result<Vec<TrashEntry>, NotesError> {
+        let notebooks = self.list_notebooks()?;
+        let selected = notebook_id.map(validate_opaque_id).transpose()?;
+        let mut entries = Vec::new();
+        for notebook in &notebooks {
+            if selected.as_ref().is_some_and(|id| id != &notebook.id) {
+                continue;
+            }
+            let trash_dir = self.vault_root(&notebook.id)?.join(".trash");
+            if !trash_dir.is_dir() {
+                continue;
+            }
+            for entry in fs::read_dir(&trash_dir)
+                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
+                .flatten()
+            {
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
+                if !file_type.is_file() || file_type.is_symlink() {
+                    continue;
+                }
+                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                    continue;
+                };
+                if !name.ends_with(".md") {
+                    continue;
+                }
+                if let Ok(note) = read_note_file(&entry.path(), &notebook.id) {
+                    entries.push(TrashEntry {
+                        notebook_id: notebook.id.clone(),
+                        note: note.summary,
+                        deleted_at: modified_at_iso(&entry.path()),
+                    });
+                }
+            }
+        }
+        entries.sort_by(|left, right| right.deleted_at.cmp(&left.deleted_at));
+        Ok(entries)
+    }
+
+    /// Restore a trashed note back into its original notebook.
+    pub fn restore_note(
+        &self,
+        notebook_id: &str,
+        note_id: &str,
+    ) -> Result<NoteDocument, NotesError> {
+        let trash_path = self.trash_path(notebook_id, note_id)?;
+        if !trash_path.is_file() {
+            return Err(NotesError::new(
+                "trash_empty",
+                "No trashed note with this ID",
+            ));
+        }
+        let restored = read_note_file(&trash_path, notebook_id)?;
+        let target = self.note_path(notebook_id, note_id)?;
+        if target.exists() {
+            return Err(NotesError::new(
+                "conflict",
+                "A note with this ID already exists in the notebook",
+            ));
+        }
+        fs::rename(&trash_path, &target)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot restore the note"))?;
+        self.touch_notebook(notebook_id)?;
+        self.append_change(
+            "restored",
+            &restored.summary,
+            Some(&restored.summary.version),
+        )?;
+        Ok(restored)
+    }
+
+    /// Permanently delete a trashed note and its attachments.
+    pub fn purge_note(&self, notebook_id: &str, note_id: &str) -> Result<(), NotesError> {
+        let trash_path = self.trash_path(notebook_id, note_id)?;
+        if !trash_path.is_file() {
+            return Err(NotesError::new(
+                "trash_empty",
+                "No trashed note with this ID",
+            ));
+        }
+        let summary = read_note_file(&trash_path, notebook_id)?.summary;
+        fs::remove_file(&trash_path).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot permanently delete the note")
+        })?;
         let attachment_directory = self
             .vault_root(notebook_id)?
             .join("public")
             .join("attachments")
             .join(validate_opaque_id(note_id)?);
         if attachment_directory.is_dir() {
-            fs::remove_dir_all(attachment_directory).map_err(|_| {
+            fs::remove_dir_all(&attachment_directory).map_err(|_| {
                 NotesError::new("storage_unavailable", "Cannot delete note attachments")
             })?;
         }
         self.touch_notebook(notebook_id)?;
-        self.append_change("deleted", &existing.summary, None)?;
+        self.append_change("purged", &summary, None)?;
         Ok(())
+    }
+
+    fn trash_path(&self, notebook_id: &str, note_id: &str) -> Result<PathBuf, NotesError> {
+        Ok(self
+            .vault_root(notebook_id)?
+            .join(".trash")
+            .join(format!("{}.md", validate_opaque_id(note_id)?)))
     }
 
     pub fn store_attachment(
@@ -2150,6 +2262,19 @@ pub fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
 
+fn modified_at_iso(path: &Path) -> String {
+    let modified = fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .and_then(|duration| {
+            chrono::DateTime::from_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+        });
+    modified
+        .map(|time| time.to_rfc3339_opts(SecondsFormat::Secs, true))
+        .unwrap_or_else(now_iso)
+}
+
 fn atomic_json_write(path: &Path, value: &impl Serialize) -> Result<(), NotesError> {
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|_| NotesError::new("serialization_failed", "Cannot encode Notes metadata"))?;
@@ -2662,6 +2787,84 @@ mod tests {
             notebook_b.id,
             scoped_b.list(None, None, None, false).unwrap().notebooks[0].id
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn trash_round_trips_restore_and_purge() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Research", None, None).unwrap();
+        let note = vault
+            .create_note(
+                &notebook.id,
+                "Draft",
+                "Recoverable body",
+                vec![],
+                Some("📝".into()),
+                None,
+            )
+            .unwrap();
+
+        vault
+            .delete_note(&notebook.id, &note.summary.id, &note.summary.version)
+            .unwrap();
+        assert!(vault.get_note(&notebook.id, &note.summary.id).is_err());
+
+        let trash = vault.list_trash(None).unwrap();
+        assert_eq!(trash.len(), 1);
+        assert_eq!(trash[0].notebook_id, notebook.id);
+        assert_eq!(trash[0].note.id, note.summary.id);
+        assert!(!trash[0].deleted_at.is_empty());
+
+        // The note is no longer in the active index after trashing.
+        assert_eq!(
+            vault
+                .delete_note(&notebook.id, &note.summary.id, "stale")
+                .unwrap_err()
+                .code,
+            "note_not_found"
+        );
+        assert_eq!(vault.list_trash(None).unwrap().len(), 1);
+
+        let restored = vault.restore_note(&notebook.id, &note.summary.id).unwrap();
+        assert_eq!(restored.content, "Recoverable body");
+        assert!(vault.list_trash(None).unwrap().is_empty());
+        assert_eq!(
+            vault
+                .get_note(&notebook.id, &note.summary.id)
+                .unwrap()
+                .summary
+                .id,
+            note.summary.id
+        );
+
+        vault
+            .delete_note(&notebook.id, &note.summary.id, &restored.summary.version)
+            .unwrap();
+        vault.purge_note(&notebook.id, &note.summary.id).unwrap();
+        assert!(vault.list_trash(None).unwrap().is_empty());
+        assert!(vault.purge_note(&notebook.id, &note.summary.id).is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn trash_is_isolated_between_workspaces() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let workspace_a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let workspace_b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        let scoped_a = vault.scoped(workspace_a).unwrap();
+        let scoped_b = vault.scoped(workspace_b).unwrap();
+        let notebook_a = scoped_a.create_notebook("Project A", None, None).unwrap();
+        let note = scoped_a
+            .create_note(&notebook_a.id, "Secret", "Body", vec![], None, None)
+            .unwrap();
+        scoped_a
+            .delete_note(&notebook_a.id, &note.summary.id, &note.summary.version)
+            .unwrap();
+        assert_eq!(scoped_a.list_trash(None).unwrap().len(), 1);
+        assert!(scoped_b.list_trash(None).unwrap().is_empty());
         let _ = fs::remove_dir_all(root);
     }
 

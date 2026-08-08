@@ -15,6 +15,7 @@ import {
   type Note,
   type NoteSummary,
   type Notebook,
+  type TrashEntry,
 } from "./notesLogic";
 import type { NotesStore } from "./notesStore";
 
@@ -462,6 +463,10 @@ function TagsSection({ store }: { store: NotesStore }) {
 }
 
 function DataManagementSection({ store }: { store: NotesStore }) {
+  const trashCount = store((state) => state.trash.length);
+  useEffect(() => {
+    void store.getState().loadTrash();
+  }, [store]);
   return (
     <NavSection title={t("Data management")} store={store}>
       <NavAction label={t("Import Markdown")} onClick={() => void store.getState().importMarkdown()} />
@@ -469,6 +474,13 @@ function DataManagementSection({ store }: { store: NotesStore }) {
       <NavAction label={t("Import backup")} onClick={() => void store.getState().importBackup()} />
       <NavAction label={t("Check and rebuild Vault")} onClick={() => void store.getState().rebuildIndex()} />
       <NavAction label={t("Build Astro site")} onClick={() => void store.getState().publishAstro()} />
+      <NavAction
+        label={trashCount > 0 ? `${t("Trash")} (${trashCount})` : t("Trash")}
+        onClick={() => {
+          void store.getState().loadTrash();
+          store.getState().setMode("trash");
+        }}
+      />
     </NavSection>
   );
 }
@@ -693,6 +705,7 @@ export function NotesContent({ store }: { store: NotesStore }) {
   }
   if (mode === "new-notebook") return <NotebookForm store={store} />;
   if (mode === "capture") return <CaptureForm store={store} />;
+  if (mode === "trash") return <TrashView store={store} />;
   if (selectedNote) return <NoteEditor store={store} />;
   if ((selectedTag || sourceOnly) && snapshot.notes.length > 0) {
     return <FilterResultsView store={store} />;
@@ -1087,6 +1100,82 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
           </li>
         </ul>
       </aside>
+    </section>
+  );
+}
+
+function TrashView({ store }: { store: NotesStore }) {
+  const trash = store((state) => state.trash);
+  const trashLoading = store((state) => state.trashLoading);
+  const trashError = store((state) => state.trashError);
+  const setMode = store((state) => state.setMode);
+  const [purgeArmedId, setPurgeArmedId] = useState<string | null>(null);
+  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const purge = (entry: TrashEntry) => {
+    if (purgeArmedId !== entry.note.id) {
+      setPurgeArmedId(entry.note.id);
+      if (armTimer.current) clearTimeout(armTimer.current);
+      armTimer.current = setTimeout(() => setPurgeArmedId(null), 3000);
+      return;
+    }
+    if (armTimer.current) clearTimeout(armTimer.current);
+    setPurgeArmedId(null);
+    void store.getState().purgeFromTrash(entry);
+  };
+
+  return (
+    <section className="notes-state-panel notes-trash-panel ui-card">
+      <div className="notes-trash-header">
+        <h1>{t("Trash")}</h1>
+        <button type="button" className="ui-button ui-button--ghost" onClick={() => setMode("library")}>
+          {t("All notes")}
+        </button>
+      </div>
+      {trashError ? (
+        <div className="notes-error-banner" role="alert">
+          {trashError}
+        </div>
+      ) : null}
+      {trashLoading ? <p className="notes-nav-message">{t("Loading trash…")}</p> : null}
+      {!trashLoading && trash.length === 0 ? (
+        <p className="notes-nav-message">{t("Trash is empty")}</p>
+      ) : null}
+      <div className="notes-trash-list">
+        {trash.map((entry) => (
+          <div key={entry.note.id} className="notes-trash-item">
+            <span className="notes-note-icon" aria-hidden="true">
+              {entry.note.icon || DEFAULT_NOTE_ICON}
+            </span>
+            <span className="notes-list-item-main">
+              <strong>{entry.note.title}</strong>
+              <span>
+                {t("Deleted")} {formatDate(entry.deletedAt)}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm notes-trash-restore"
+              disabled={trashLoading}
+              onClick={() => void store.getState().restoreFromTrash(entry)}
+            >
+              {t("Restore")}
+            </button>
+            <button
+              type="button"
+              className={`ui-button ui-button--danger ui-button--sm notes-trash-purge${
+                purgeArmedId === entry.note.id ? " notes-delete-armed" : ""
+              }`}
+              disabled={trashLoading}
+              onClick={() => purge(entry)}
+            >
+              {purgeArmedId === entry.note.id
+                ? t("Confirm permanently delete")
+                : t("Delete permanently")}
+            </button>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

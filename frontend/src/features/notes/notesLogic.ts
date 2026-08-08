@@ -36,7 +36,13 @@ export interface NotesSnapshot {
   tags: string[];
 }
 
-export type NotesMode = "library" | "new-notebook" | "capture";
+export type NotesMode = "library" | "new-notebook" | "capture" | "trash";
+
+export interface TrashEntry {
+  notebookId: string;
+  note: NoteSummary;
+  deletedAt: string;
+}
 
 export const BUILTIN_TAGS: Array<[string, string]> = [
   ["inbox", "📥"],

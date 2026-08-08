@@ -131,6 +131,32 @@ export class NotesGateway {
     });
   }
 
+  listTrash(sceneId, workspaceId, notebookId) {
+    const url = this.#url("/v2/notes/trash");
+    url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
+    if (notebookId) url.searchParams.set("notebookId", notebookId);
+    return this.#request(url);
+  }
+
+  restoreTrash(sceneId, workspaceId, notebookId, noteId) {
+    return this.#post("/v2/notes/trash/restore", {
+      sceneId,
+      workspaceId,
+      notebookId,
+      noteId,
+    });
+  }
+
+  purgeTrash(sceneId, workspaceId, notebookId, noteId) {
+    return this.#post("/v2/notes/trash/purge", {
+      sceneId,
+      workspaceId,
+      notebookId,
+      noteId,
+    });
+  }
+
   capture(sceneId, workspaceId, notebookId, { url, title, tags = [] }) {
     return this.#post("/v2/notes/capture", {
       sceneId,

@@ -553,3 +553,7 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 笔记拖拽回归测试（第 299 轮）：指针自绘拖拽首次有自动化覆盖
    （jsdom PointerEvent polyfill + elementFromPoint stub，断言 ghost/
    drop-target/move 参数/清理），前端 743 测试全绿
+- [x] 笔记回收站（第 300 轮）：Store 新增 trash 状态与 loadTrash/
+   restoreFromTrash/purgeFromTrash（删除后自动刷新计数），UI 新增
+   "回收站 (N)"入口与回收站视图（恢复/彻底删除二次确认/空状态）；
+   前端 747 测试全绿
