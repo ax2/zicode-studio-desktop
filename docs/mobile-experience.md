@@ -4279,6 +4279,19 @@ P2 再做）完成 P1 UI 层：
    项目/会话，统计卡 总费用/会话/消息/总 Token，表头 会话/模型/
    Token/工具/费用/日期；前端 713 测试全绿、typecheck/Biome 通过。
 
+第二百四十四轮：全前端 i18n 残留清扫（2026-08-08）。
+
+1. 扫描各功能组件 JSX 硬编码英文（含数组驱动标签、静态文本、aria/
+   placeholder），发现 7 个缺翻译 key：斜杠技能空态"No matching
+   skills"、扩展预览"No preview"、配置"No providers known."、用量
+   Loading/无数据/图表不可用/无最近会话；
+2. 补齐 7 个中英翻译；复核任务中心统计卡（Running/Needs input/
+   Failed/Completed 已走 t()）、金融工作台分组与视图标签
+   （financeGroupLabel/financeViewLabel 全 key 在案）、帮助/场景指示/
+   会话搜索等静态文案 key 均在；
+3. 验证：生产版 CDP 实测斜杠空态"无匹配技能"（原英文残留）；前端
+   713 测试全绿、typecheck/Biome 通过。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
