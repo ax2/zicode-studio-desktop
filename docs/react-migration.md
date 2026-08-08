@@ -515,3 +515,7 @@ bun run test          # vitest（public/** + frontend/src/**）
    设计令牌，check-design-css 门禁首次全绿
 - [x] release 第十八次重建（第 285 轮）：EXE 41,320,960 B / 安装包
    346,864,649 B，含第 284 轮修复，静默重装验证通过
+- [x] 公网中继线上更新（第 286 轮）：服务器 relay 二进制为 8-06 构建、
+   缺 round 270 的 share_target.action 重写；本机验证可构建后上传源码
+   到服务器重建并替换（保留 systemd 令牌），manifest action 已重写为
+   设备作用域、桌面在线、可回滚

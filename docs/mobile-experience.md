@@ -4568,6 +4568,24 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百八十六轮：公网中继线上更新（补齐 round 270 manifest 修复，2026-08-09）。
+
+1. 背景：round 279 验证过公网中继是新版（含 usage 统计），但本轮实测
+   发现 `https://relay.zicode.com/d/dev-ax2-01/manifest.json` 的
+   `share_target.action` 仍是 `/share-target`（未重写为设备作用域路径）
+   ——服务器上的中继二进制为 2026-08-06 构建，早于 round 270 的修复，
+   公网 PWA 分享目标在 Chrome 中会被忽略；
+2. 操作：本机按部署脚本同构步骤本地验证可构建后，将当前
+   `relay_protocol.rs`/`relay_server.rs`/`bin/relay.rs` 上传到服务器
+   `/root/zicode-relay-build`，服务器端 `cargo build --release` 重建
+   （17.8s），备份旧二进制为 `zicode-relay.bak-20260809` 后替换并
+   `systemctl restart zicode-relay`——systemd 单元原样保留（注册令牌
+   未改动，未回显）；
+3. 验证：`share_target.action` 现为 `/d/dev-ax2-01/app/share-target`
+   （位于 scope 内），`start_url`/`scope` 仍设备作用域；`/relay/status`
+   桌面 `dev-ax2-01` 在线、usage 字段完好；服务 active；如需回滚可
+   恢复备份二进制。
+
 第二百八十五轮：release 第十八次重建（含第 284 轮，2026-08-09）。
 
 1. 让生产安装包包含第 284 轮（设计 CSS 门禁清零）；
