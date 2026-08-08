@@ -64,4 +64,40 @@ describe("app keyboard shortcuts", () => {
 
     expect(abort).not.toHaveBeenCalled();
   });
+
+  it("opens the command palette with Ctrl+K and Ctrl+Shift+P", () => {
+    const openCommandPalette = vi.fn();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      openCommandPalette,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, cancelable: true }),
+    );
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "P", ctrlKey: true, shiftKey: true, cancelable: true }),
+    );
+
+    expect(openCommandPalette).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens the palette even while the composer textarea is focused", () => {
+    const openCommandPalette = vi.fn();
+    input.focus();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      openCommandPalette,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, cancelable: true }),
+    );
+
+    expect(openCommandPalette).toHaveBeenCalledTimes(1);
+  });
 });

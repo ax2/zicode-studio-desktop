@@ -865,6 +865,7 @@ setupAppKeyboardShortcuts({
   input,
   abort: abortCurrentRun,
   isWorking: () => store.lifecycle === "working",
+  openCommandPalette: () => commandButton?.click(),
 });
 window.addEventListener("zicode:open-note", (event) => {
   const { notebookId, noteId } = event.detail ?? {};

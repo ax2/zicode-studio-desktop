@@ -419,3 +419,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 笔记拖拽改进（第 237 轮）：drop 落点从标题行扩展到整个笔记本
   分支（展开区也可投放），drop 高亮覆盖整个分支；生产版 CDP 指针
   模拟实测双向拖拽成功并还原数据
+- [x] 命令面板快捷键（第 238 轮）：Ctrl/Cmd+K 与 Ctrl/Cmd+Shift+P 打开
+  命令面板，命令面板纳入 overlayOwnsEscape；前端 710 测试全绿

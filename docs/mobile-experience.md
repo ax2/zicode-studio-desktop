@@ -4196,6 +4196,21 @@ P2 再做）完成 P1 UI 层：
 4. 验证：前端 708 测试全绿、typecheck/Biome 通过；安装目录同步重启后
    生产版实测拖拽落点改进生效。
 
+第二百三十八轮：核心交互深审与命令面板快捷键（2026-08-08）。
+
+1. 新增全局快捷键：Ctrl/Cmd+K 与 Ctrl/Cmd+Shift+P 打开命令面板
+   （keyboard-shortcuts 增加 openCommandPalette 回调，命令面板加入
+   overlayOwnsEscape 以便 Esc 正常关闭）；新增 2 条快捷键回归测试；
+2. 深审结论（无缺陷）：对话 Composer 斜杠技能菜单过滤正常（/emb、
+   /video、/media 等过滤精确；/hyper 命中全量是因为技能描述普遍含
+   Hyperframes 字样，属正确行为）、模型下拉（当前 deepseek-v4-flash，
+   列出 sonnet/deepseek/gemini/glm 等含成本信息）、技能选择写入
+   "/skill:xxx"、附件/思考强度/语音/发送按钮齐全；设置六标签（通用/
+   扩展/用量/配置/远程访问/智能收件箱）各自渲染独立正确内容；会话
+   侧栏右键菜单（收藏/归档）、会话搜索（"你好"→40 条结果）正常；
+3. 验证：前端 710 测试全绿、typecheck/Biome 通过；安装目录同步后
+   生产版 CDP 实测 Ctrl+K 打开命令面板（13 条命令）。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
