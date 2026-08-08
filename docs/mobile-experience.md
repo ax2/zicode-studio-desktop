@@ -4425,6 +4425,15 @@ P2 再做）完成 P1 UI 层：
 2. 第 247 轮更新的快捷键文章在列表中正常显示（含 Ctrl+Shift+P/
    Ctrl+K/Ctrl+S）。
 
+第二百五十七轮：模型下拉搜索与切换验证（2026-08-08）。
+
+1. 模型下拉实测：当前模型 deepseek-v4-flash；搜索"deepseek"过滤出 5
+   个模型（deepseek-chat/v4-flash[成本最低]/v4-pro/deepseek-chat/
+   openrouter-deepseek-chat），上下文窗口与成本信息（128k/1049k、
+   $0.14–$0.87 per 1M）正确展示；切换 deepseek-chat 后标签即时更新，
+   恢复 v4-flash 成功；
+2. 全程无控制台错误；模型成本最低推荐标签（deepseek-v4-flash）正确。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 
