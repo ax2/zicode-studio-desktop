@@ -30,11 +30,6 @@
   border: 0;
 }
 
-.mobile-connection-message {
-  min-width: 0;
-  flex: 1;
-}
-
 .mobile-connection-mode {
   position: absolute;
   top: calc(100% + var(--space-1));
@@ -55,11 +50,6 @@
   width: 9px;
   height: 9px;
   fill: currentColor;
-}
-
-.mobile-connection-retry {
-  min-height: var(--space-10);
-  flex: 0 0 auto;
 }
 
 .mobile-connection-status[data-state="connected"] {

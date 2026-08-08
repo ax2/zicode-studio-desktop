@@ -4568,6 +4568,24 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百九十轮：Biome 全量 lint 清零（2026-08-09）。
+
+1. 背景：`biome lint .` 此前长期有 8 错误 + 5 警告——i18n 重复键 5 处、
+   mobile-experience.css 特异性告警、rpiv-todo 测试未用导入、index.html
+   缺少 app-layout 的闭合 `</div>`（45 开 44 闭）、app.js 两个未用解构
+   变量；
+2. 修复：
+   - i18n 删除 5 个被后文同名键覆盖的早期键（后定义者本就生效，行为
+     不变：Model/Sessions/Session/Untitled/Saved）；
+   - mobile-experience.css 删除两条被更高特异性屏内隐藏规则覆盖的旧
+     版死规则（消息/重试现仅为状态点内的 SR-only 元素）；
+   - rpiv-todo-mirror.test.js 移除未用 `t` 导入；
+   - index.html 补 `.app-layout` 闭合 `</div>`（解析错误消除）；
+   - app.js 移除未用 `form`/`queuedMessages` 解构；
+3. 验证：`biome lint .` 447 文件 0 错误 0 警告（历史首次全绿）；前端
+   737 项测试、设计检查、typecheck、Tauri 权限检查全绿；生产版 CDP
+   实测布局正常（app-layout 1440px、sidebar/main 均在其内）。
+
 第二百八十九轮：release 第十九次重建（含第 288 轮 Rust 门禁修复，2026-08-09）。
 
 1. 让生产安装包与格式化后的 Rust 源码一致；`bun run build` 重建 EXE

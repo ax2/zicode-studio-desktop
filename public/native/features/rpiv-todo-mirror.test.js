@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setLocale, t } from "../../i18n.js";
+import { setLocale } from "../../i18n.js";
 import {
   isRpivTodoCommandNotify,
   isRpivTodoDetails,

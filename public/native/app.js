@@ -148,7 +148,6 @@ const composer = setupComposer({
 });
 const {
   input,
-  form,
   abortButton,
   sendButton,
   composerCard,
@@ -157,7 +156,6 @@ const {
   imageInput,
   imagePreviews,
   skillSlashMenu,
-  queuedMessages,
   modelDropdown,
   modelDropdownBtn,
   modelDropdownLabel,
