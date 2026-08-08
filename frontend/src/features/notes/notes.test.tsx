@@ -348,6 +348,19 @@ describe("notes React components", () => {
     expect(document.querySelector(".notes-preview")).toBeTruthy();
   });
 
+  it("closes the move-to-notebook popover with Escape", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    const moveBtn = container.querySelector(".notes-move-btn") as HTMLButtonElement | null;
+    expect(moveBtn).toBeTruthy();
+    moveBtn?.click();
+    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeTruthy());
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeNull());
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({
