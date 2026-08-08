@@ -413,3 +413,6 @@ bun run test          # vitest（public/** + frontend/src/**）
   搜索结果行按钮化 + 深链事件（open-note/open-artifact/open-session）
   与 notes/artifacts handle openNote/openArtifact；760px 以下移动端
   单列堆叠；前端 706 测试全绿
+- [x] 生产可用性走查（第 236 轮）：项目工作台"最近项目成果"行可点击
+  深链；笔记快速访问"最近笔记"改为 store 全局缓存（不再随标签/查询
+  筛选消失）；全视图审计无控制台错误/溢出；前端 708 测试全绿

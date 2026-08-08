@@ -94,6 +94,7 @@ interface NotesState {
   focusTitleOnNextRender: boolean;
   editingNotebookId: string | null;
   recentNoteIds: string[];
+  recentNotes: NoteSummary[];
   moveNote: NoteSummary | null;
   dragTargetId: string | null;
   expandedNotebookIds: Set<string>;
@@ -109,6 +110,7 @@ interface NotesState {
   selectNote(summary: NoteSummary): Promise<void>;
   openNote(notebookId: string, noteId: string): Promise<void>;
   selectNotebook(id: string): void;
+  resolveRecentNotes(): Promise<void>;
   discussInChat(note: Note, selection: string): void;
   attachmentUrl(note: Note, attachmentId: string): string;
   newNote(): Promise<void>;
@@ -179,6 +181,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     focusTitleOnNextRender: false,
     editingNotebookId: null,
     recentNoteIds: readRecentNoteIds(),
+    recentNotes: [],
     moveNote: null,
     dragTargetId: null,
     expandedNotebookIds: new Set(),
@@ -215,6 +218,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         set({ error: error instanceof Error ? error : new Error(String(error)) });
       } finally {
         set({ loading: false });
+        void get().resolveRecentNotes();
       }
     },
 
@@ -242,6 +246,11 @@ export function createNotesStore(options: NotesStoreOptions) {
           summary.id,
         );
         const note = response.note;
+        const recentNotes = get().recentNotes;
+        const updatedRecentNotes = [
+          note,
+          ...recentNotes.filter((entry) => entry.id !== note.id),
+        ].slice(0, RECENT_NOTES_LIMIT);
         set({
           selectedNote: note,
           selectedNotebookId: note.notebookId,
@@ -252,8 +261,10 @@ export function createNotesStore(options: NotesStoreOptions) {
             note.id,
             ...get().recentNoteIds.filter((id) => id !== note.id),
           ].slice(0, RECENT_NOTES_LIMIT),
+          recentNotes: updatedRecentNotes,
         });
         writeRecentNoteIds(get().recentNoteIds);
+        void get().resolveRecentNotes();
         const expanded = new Set(get().expandedNotebookIds);
         expanded.add(note.notebookId);
         set({ expandedNotebookIds: expanded });
@@ -267,6 +278,26 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     async openNote(notebookId, noteId) {
       await get().selectNote({ notebookId, id: noteId, title: "", updatedAt: "" });
+    },
+
+    async resolveRecentNotes() {
+      const recentNoteIds = get().recentNoteIds;
+      if (recentNoteIds.length === 0) {
+        set({ recentNotes: [] });
+        return;
+      }
+      try {
+        const response = await gateway.list(sceneId(), workspaceId(), {});
+        const byId = new Map(
+          (response.snapshot?.notes ?? []).map((note) => [note.id, note]),
+        );
+        const resolved = recentNoteIds
+          .map((id) => byId.get(id))
+          .filter((note): note is NoteSummary => Boolean(note));
+        if (resolved.length > 0) set({ recentNotes: resolved });
+      } catch {
+        // Recent notes are a convenience; keep the cached list on failure.
+      }
     },
 
     selectNotebook(id) {
@@ -759,8 +790,10 @@ export function createNotesStore(options: NotesStoreOptions) {
         selectedNote: null,
         dirty: false,
         project: normalizeProject(options.getProject?.()),
+        recentNotes: [],
       });
       await get().load({ preserveSelection: false });
+      void get().resolveRecentNotes();
     },
 
     setProject(project) {

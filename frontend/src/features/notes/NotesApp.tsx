@@ -397,11 +397,7 @@ function EmojiPicker({
 function QuickAccessSection({ store }: { store: NotesStore }) {
   const sourceOnly = store((state) => state.sourceOnly);
   const applyFilter = store((state) => state.applyFilter);
-  const recentNoteIds = store((state) => state.recentNoteIds);
-  const snapshot = store((state) => state.snapshot);
-  const recentNotes = recentNoteIds
-    .map((id) => snapshot.notes.find((note) => note.id === id))
-    .filter((note): note is NoteSummary => Boolean(note));
+  const recentNotes = store((state) => state.recentNotes);
   return (
     <NavSection title={t("Quick access")} store={store}>
       {recentNotes.length > 0 ? (

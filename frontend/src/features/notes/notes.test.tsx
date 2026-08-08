@@ -126,6 +126,15 @@ describe("notes store", () => {
     expect(store.getState().draftTitle).toBe("Roadmap");
   });
 
+  it("keeps recent notes visible across tag filters", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    expect(store.getState().recentNotes.map((note) => note.id)).toContain("note-1");
+    await store.getState().applyFilter({ tag: "idea" });
+    expect(store.getState().recentNotes.map((note) => note.id)).toContain("note-1");
+  });
+
   it("creates a new note and marks it for editing", async () => {
     const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-1", title: "Untitled note" } }));
     const store = storeWithGateway({ create });

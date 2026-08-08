@@ -120,7 +120,7 @@ function Overview({ store }: { store: ProjectStore }) {
           )}
         />
       ) : (
-        <RecentResults snapshot={snapshot} />
+        <RecentResults snapshot={snapshot} store={store} />
       )}
       {snapshot.warnings.length ? (
         <p className="project-workspace-warning">
@@ -131,7 +131,8 @@ function Overview({ store }: { store: ProjectStore }) {
   );
 }
 
-function RecentResults({ snapshot }: { snapshot: ProjectSnapshot }) {
+function RecentResults({ snapshot, store }: { snapshot: ProjectSnapshot; store: ProjectStore }) {
+  const openResult = store((state) => state.openResult);
   const items = [
     ...snapshot.notes.slice(0, 4).map((item) => ({ ...item, type: t("Note") })),
     ...snapshot.artifacts.slice(0, 4).map((item) => ({ ...item, type: t("Artifact") })),
@@ -142,15 +143,22 @@ function RecentResults({ snapshot }: { snapshot: ProjectSnapshot }) {
       <ul>
         {items.map((item) => (
           <li key={`${item.type}-${item.id ?? item.title}`}>
-            <span className="project-workspace-result-type">{item.type}</span>
-            <strong>{item.title || t("Untitled")}</strong>
-            <span className="project-workspace-result-summary">
-              {String(
-                (item as Record<string, unknown>).summary ||
-                  (item as Record<string, unknown>).excerpt ||
-                  "",
-              )}
-            </span>
+            <button
+              type="button"
+              className="project-workspace-result-row"
+              onClick={() => openResult(item as Record<string, unknown>)}
+            >
+              <span className="project-workspace-result-type">{item.type}</span>
+              <strong>{item.title || t("Untitled")}</strong>
+              <span className="project-workspace-result-summary">
+                {String(
+                  (item as Record<string, unknown>).summary ||
+                    (item as Record<string, unknown>).excerpt ||
+                    "",
+                )}
+              </span>
+              <span className="project-workspace-result-open">{t("Open in app")}</span>
+            </button>
           </li>
         ))}
       </ul>

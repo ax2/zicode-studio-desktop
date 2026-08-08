@@ -55,6 +55,19 @@ describe("project workspace React app", () => {
     store.getState().setTarget(null);
   });
 
+  it("opens a recent project result in its app from the overview", async () => {
+    setLocale("en");
+    const store = renderStore();
+    await waitFor(() => expect(screen.getByText("Decision")).toBeTruthy());
+    const dispatched: string[] = [];
+    const listener = (event: Event) => dispatched.push(event.type);
+    window.addEventListener("zicode:open-note", listener);
+    (document.querySelector(".project-workspace-results .project-workspace-result-row") as HTMLButtonElement).click();
+    window.removeEventListener("zicode:open-note", listener);
+    expect(dispatched).toEqual(["zicode:open-note"]);
+    store.getState().setTarget(null);
+  });
+
   it("persists project context independently by workspace", async () => {
     setLocale("en");
     const store = renderStore();
