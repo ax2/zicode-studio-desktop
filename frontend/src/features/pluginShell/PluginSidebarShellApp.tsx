@@ -68,10 +68,17 @@ export function PluginSidebarShell({
   return (
     <>
       {project ? (
-        <div className="plugin-sidebar-project" title={project.path || project.name}>
+        <button
+          type="button"
+          className="plugin-sidebar-project"
+          title={`${project.name} · ${t("Open project workspace")}`}
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent("zicode:open-project"))
+          }
+        >
           <span aria-hidden="true">📂</span>
           <span>{project.name}</span>
-        </div>
+        </button>
       ) : null}
       <div className="plugin-sidebar-title">{title}</div>
       {accordions.map((accordion) => (

@@ -457,3 +457,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 命令按钮快捷键提示（第 254 轮）：title 补"命令 (Ctrl+Shift+P)"
 - [x] 笔记项目头部跳转（第 260 轮）：项目头部按钮化 + zicode:open-project
   事件接线，点击打开项目工作台；回归测试 + 生产版实测
+- [x] 插件壳项目行跳转（第 261 轮）：plugin-sidebar-project 按钮化 +
+  中英 title + 测试；设置等应用点击项目行打开项目工作台
