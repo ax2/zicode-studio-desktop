@@ -148,6 +148,7 @@ const zhCN = {
   "No data in selected range.": "所选范围内暂无数据。",
   "Chart unavailable in this environment.": "当前环境无法显示图表。",
   "No recent sessions in selected range.": "所选范围内暂无最近会话。",
+  "No usage data yet": "暂无用量数据",
   "Context usage": "上下文用量",
   "Context Window": "上下文窗口",
   "Conversation navigator": "对话导航",

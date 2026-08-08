@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { setupContextUsage } from "./index";
+import { ContextVizApp } from "./ContextUsageApp";
 import {
   computeContextViz,
   findLatestAssistantUsage,
@@ -26,6 +28,11 @@ afterEach(() => {
 });
 
 describe("context usage (React)", () => {
+  it("shows an empty state instead of a blank popover when no usage exists", () => {
+    render(<ContextVizApp usage={null} contextWindowSize={128_000} />);
+    expect(screen.getByText("暂无用量数据")).toBeTruthy();
+  });
+
   it("keeps the context pill and popover synced from restored session history", () => {
     renderFixture();
     const ui = setupContextUsage();

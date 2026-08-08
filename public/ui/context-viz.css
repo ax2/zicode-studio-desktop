@@ -38,6 +38,12 @@
   margin-bottom: 12px;
 }
 
+.context-viz-empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+}
+
 /* The stacked bar */
 .context-bar {
   display: flex;

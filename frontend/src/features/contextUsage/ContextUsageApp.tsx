@@ -1,4 +1,5 @@
 import { computeContextViz, formatTokens, type UsageLike } from "./contextUsageLogic";
+import { t } from "../../shared/i18n";
 
 export function TokenUsagePill({
   text,
@@ -16,10 +17,17 @@ export function ContextVizApp({
   contextWindowSize: number;
 }) {
   const model = computeContextViz(usage, contextWindowSize);
-  if (!model) return null;
+  if (!model) {
+    return (
+      <>
+        <div className="context-viz-title">{t("Context Window")}</div>
+        <p className="context-viz-empty">{t("No usage data yet")}</p>
+      </>
+    );
+  }
   return (
     <>
-      <div className="context-viz-title">Context Window</div>
+      <div className="context-viz-title">{t("Context Window")}</div>
       <div className="context-bar" id="context-bar">
         {model.segments
           .filter((segment) => segment.tokens > 0)
