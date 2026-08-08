@@ -4568,6 +4568,14 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百八十四轮：设计 CSS 检查遗留项清零（2026-08-09）。
+
+1. 背景：`bun scripts/check-design-css.mjs`（设计契约门禁）此前一直
+   因 `session-sidebar.css` 的 `font-size: 12px` 字面量失败；
+2. 修复：改为设计令牌 `var(--font-size-sm)`，与全局字号体系一致；
+3. 验证：设计检查通过（遗留失败项清零）；前端 737 项全绿、
+   typecheck/Biome 通过；安装目录已同步。
+
 第二百八十三轮：release 第十七次重建（含第 282 轮，2026-08-09）。
 
 1. 让生产安装包包含第 282 轮（命令面板焦点恢复）；
