@@ -54,6 +54,10 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const setQuery = store((state) => state.setQuery);
   const setMode = store((state) => state.setMode);
   const project = store((state) => state.project);
+  const selectMode = store((state) => state.selectMode);
+  const selectedNoteIds = store((state) => state.selectedNoteIds);
+  const snapshot = store((state) => state.snapshot);
+  const [batchOpen, setBatchOpen] = useState(false);
   return (
     <div className="notes-nav">
       {project ? (
@@ -79,6 +83,13 @@ export function NotesNav({ store }: { store: NotesStore }) {
         >
           {t("New notebook")}
         </button>
+        <button
+          type="button"
+          className={`ui-button ui-button--secondary notes-select-mode${selectMode ? " active" : ""}`}
+          onClick={() => store.getState().toggleSelectMode()}
+        >
+          {selectMode ? t("Done") : t("Select")}
+        </button>
       </div>
       <input
         type="search"
@@ -88,6 +99,56 @@ export function NotesNav({ store }: { store: NotesStore }) {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
+      {selectMode && selectedNoteIds.length > 0 ? (
+        batchOpen ? (
+          <div className="notes-batch-move">
+            <strong>{t("Move to notebook")}</strong>
+            {snapshot.notebooks.map((notebook) => (
+              <button
+                key={notebook.id}
+                type="button"
+                className="notes-batch-move-item"
+                onClick={() => {
+                  setBatchOpen(false);
+                  void store.getState().moveSelectedNotes(notebook.id);
+                }}
+              >
+                <span className="notes-nav-item-icon">
+                  {notebook.icon || DEFAULT_NOTEBOOK_ICON}
+                </span>
+                <span className="notes-nav-item-label">{notebook.title}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              className="notes-batch-move-cancel"
+              onClick={() => setBatchOpen(false)}
+            >
+              {t("Cancel")}
+            </button>
+          </div>
+        ) : (
+          <div className="notes-batch-bar" role="toolbar" aria-label={t("Move notes")}>
+            <span className="notes-batch-count">
+              {t("Selected")} {selectedNoteIds.length}
+            </span>
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              onClick={() => setBatchOpen(true)}
+            >
+              {t("Move to…")}
+            </button>
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              onClick={() => store.getState().clearNoteSelection()}
+            >
+              {t("Cancel")}
+            </button>
+          </div>
+        )
+      ) : null}
       <NotebookSection store={store} />
       <QuickAccessSection store={store} />
       <TagsSection store={store} />
@@ -520,6 +581,9 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
   const query = store((state) => state.query);
   const selectNote = store((state) => state.selectNote);
   const openMovePopover = store((state) => state.openMovePopover);
+  const selectMode = store((state) => state.selectMode);
+  const selectedNoteIds = store((state) => state.selectedNoteIds);
+  const isSelected = selectedNoteIds.includes(note.id);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const dragRef = useRef<{
     startX: number;
@@ -580,9 +644,17 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
     <div
       role="button"
       tabIndex={0}
-      className={`notes-list-item notes-tree-note${selectedNote?.id === note.id ? " active" : ""}`}
+      className={`notes-list-item notes-tree-note${selectedNote?.id === note.id ? " active" : ""}${
+        isSelected ? " notes-selected" : ""
+      }`}
       draggable={false}
-      onClick={() => void selectNote(note)}
+      onClick={() => {
+        if (selectMode) {
+          store.getState().toggleNoteSelected(note.id);
+          return;
+        }
+        void selectNote(note);
+      }}
       onPointerDown={(event) => {
         if ((event.target as HTMLElement).closest?.(".notes-move-btn")) return;
         beginPointerDrag(event);
@@ -594,6 +666,11 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         }
       }}
     >
+      {selectMode ? (
+        <span className={`notes-select-check${isSelected ? " checked" : ""}`} aria-hidden="true">
+          {isSelected ? "✓" : ""}
+        </span>
+      ) : null}
       {note.icon ? <span className="notes-note-icon">{note.icon}</span> : null}
       <span className="notes-list-item-main">
         <strong>

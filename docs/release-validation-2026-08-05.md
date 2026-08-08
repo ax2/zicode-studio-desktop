@@ -391,6 +391,24 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     预览大纲列出 3 个 h2、标题 id 稳定、点击无错误、无溢出；前端 754
     项测试全绿。
 
+## 第二十九次重建（2026-08-09，含第 305 轮笔记多选批量移动）
+
+- 合入：selectMode/selectedNoteIds + 多选开关 + 批量操作条 + 移动到
+  笔记本列表；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,423,360 B，
+    SHA-256 `423D939EB61CDD84EE2253B38CE4277AA60AA200D946CB5E3B184B3A5C3617FE`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,865,066 B，SHA-256
+    `6A3E6F27DD65E322FF6B66B51384B50CA67EE151ED2EEDE05ECBA1054A52A32F`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；CDP 实测多选两篇
+    笔记批量移动到目标笔记本（源 0/目标 2、退出选择模式、无错误）；
+    临时数据清理完毕，QVeris 5 条与测试笔记本完好；前端 756 项测试
+    全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

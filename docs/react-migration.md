@@ -567,3 +567,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    HighlightedText 组件复用于树行/结果行，前端 752 测试全绿
 - [x] 笔记预览目录大纲（第 304 轮）：buildHeadingOutline 分配标题 id +
    Outline 粘性侧栏（桌面两栏/移动单列），前端 754 测试全绿
+- [x] 笔记多选批量移动（第 305 轮）：selectMode/selectedNoteIds +
+   批量操作条 + 移动到笔记本列表，前端 756 测试全绿

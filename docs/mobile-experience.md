@@ -4568,6 +4568,23 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百零五轮：笔记多选批量移动 + release 第二十九次重建（2026-08-09）。
+
+1. 实现：设计文档 P2 最后一项——导航区新增"多选"开关；选择模式下笔记
+   行显示圆形勾选指示（点击切换选中而非打开），选中行高亮；出现批量
+   操作条（已选 N 项 / 移动到… / 取消），"移动到…"展开笔记本列表，选择
+   目标后逐条调用 move API 并把全部选中笔记移入，完成后退出选择模式并
+   刷新树；Store 新增 selectMode/selectedNoteIds 与 toggleSelectMode/
+   toggleNoteSelected/clearNoteSelection/moveSelectedNotes；新增 5 条
+   i18n 键；
+2. 验证：前端 756 项全绿（新增批量操作条选择/移动用例 + 多笔记批量
+   move 参数用例）；typecheck/Biome/设计检查通过；release 第二十九次重建
+   （EXE 41,423,360 B / 安装包 346,865,066 B，哈希见
+   `docs/release-validation-2026-08-05.md`）静默重装后生产版 CDP 实测：
+   临时笔记本 A 两篇笔记多选 → 批量操作条"已选 2" → 移动到 B → A 归零、
+   B 变 2、退出选择模式、无错误；临时数据已清理，QVeris 5 条与测试
+   笔记本完好、回收站为空；
+
 第三百零四轮：笔记预览目录大纲（TOC）+ release 第二十八次重建（2026-08-09）。
 
 1. 实现：设计文档 P2 项——预览模式下为 h1–h3 标题分配稳定 id（中文/

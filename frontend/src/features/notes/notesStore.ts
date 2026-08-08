@@ -149,6 +149,8 @@ interface NotesState {
   recentNotes: NoteSummary[];
   moveNote: NoteSummary | null;
   dragTargetId: string | null;
+  selectMode: boolean;
+  selectedNoteIds: string[];
   expandedNotebookIds: Set<string>;
   expandedNavSections: Map<string, boolean>;
   draftTitle: string;
@@ -191,6 +193,10 @@ interface NotesState {
   openMovePopover(note: NoteSummary): void;
   closeMovePopover(): void;
   moveNoteTo(sourceNotebookId: string, noteId: string, targetNotebookId: string): Promise<void>;
+  toggleSelectMode(): void;
+  toggleNoteSelected(noteId: string): void;
+  clearNoteSelection(): void;
+  moveSelectedNotes(targetNotebookId: string): Promise<void>;
   setDragTarget(id: string | null): void;
   attachFile(): Promise<void>;
   importMarkdown(): Promise<void>;
@@ -246,6 +252,8 @@ export function createNotesStore(options: NotesStoreOptions) {
     recentNotes: [],
     moveNote: null,
     dragTargetId: null,
+    selectMode: false,
+    selectedNoteIds: [],
     expandedNotebookIds: new Set(),
     expandedNavSections: new Map(),
     draftTitle: "",
@@ -757,6 +765,54 @@ export function createNotesStore(options: NotesStoreOptions) {
         notify(t("Note moved"));
       } catch (error) {
         set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      }
+    },
+
+    toggleSelectMode() {
+      const selectMode = !get().selectMode;
+      set({ selectMode, selectedNoteIds: selectMode ? get().selectedNoteIds : [] });
+    },
+
+    toggleNoteSelected(noteId) {
+      const selected = new Set(get().selectedNoteIds);
+      if (selected.has(noteId)) selected.delete(noteId);
+      else selected.add(noteId);
+      set({ selectedNoteIds: [...selected] });
+    },
+
+    clearNoteSelection() {
+      set({ selectedNoteIds: [] });
+    },
+
+    async moveSelectedNotes(targetNotebookId) {
+      const selected = [...get().selectedNoteIds];
+      const summaries = get().snapshot.notes.filter(
+        (candidate) => selected.includes(candidate.id) && candidate.notebookId !== targetNotebookId,
+      );
+      if (summaries.length === 0 || !targetNotebookId) return;
+      await get().saveEditor();
+      set({ loading: true, error: null });
+      try {
+        for (const summary of summaries) {
+          await gateway.moveNote(sceneId(), workspaceId(), {
+            notebookId: summary.notebookId,
+            noteId: summary.id,
+            targetNotebookId,
+            expectedVersion: summary.version,
+          });
+        }
+        set({
+          selectedNoteIds: [],
+          selectMode: false,
+          selectedNote: null,
+          dirty: false,
+        });
+        await get().load({ preserveSelection: false });
+        notify(t("Notes moved"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      } finally {
+        set({ loading: false });
       }
     },
 

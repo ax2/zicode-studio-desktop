@@ -61,6 +61,82 @@
   width: 100%;
 }
 
+.notes-nav-actions .notes-select-mode {
+  width: 100%;
+}
+
+.notes-nav-actions .notes-select-mode.active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+
+.notes-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 var(--space-2) var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+}
+
+.notes-batch-count {
+  flex: 1;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.notes-batch-move {
+  display: grid;
+  gap: var(--space-0-5);
+  margin: 0 var(--space-2) var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+}
+
+.notes-batch-move > strong {
+  padding: 0 var(--space-1) var(--space-1);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+}
+
+.notes-batch-move-item {
+  width: 100%;
+  min-height: var(--control-height-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.notes-batch-move-item:hover {
+  background: var(--accent-subtle);
+}
+
+.notes-batch-move-cancel {
+  width: 100%;
+  min-height: var(--control-height-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
 .notes-search-input {
   width: calc(100% - var(--space-4));
   min-height: var(--control-height-sm);
@@ -344,6 +420,28 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.notes-select-check {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--bg);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
+.notes-select-check.checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.notes-selected {
+  background: var(--accent-subtle);
 }
 
 .notes-tree-note {
