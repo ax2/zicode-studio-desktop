@@ -4568,6 +4568,20 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百六十九轮：插件侧栏 fallback 字符串 items 修复（2026-08-08）。
+
+1. 根因：`PluginSidebarShellApp` 的 `Accordion` 期望
+   `{label, action}` 对象数组，但 plugin-shell 的 fallback 路径
+   （无自有导航的内置/开发者插件）直接把字符串数组
+   （如 `["All notes", "Recent", "Web clips"]`）传入，导致
+   `item.label` 为 undefined：按钮文字空白且触发 React
+   "unique key" 警告；
+2. 修复：plugin-shell 组装 accordion 时把字符串 items 规范化为
+   `{ label: t(item) }`；新增回归测试
+   `renders string sidebar view items with readable labels`；
+3. 验证：测试中的 React key 警告消失；前端 728 全绿（新增 1 例）、
+   typecheck/Biome 通过；安装目录 plugin-shell.js 已同步。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

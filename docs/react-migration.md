@@ -476,3 +476,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    解析、landing 注入、fetch 路由 4 例 vm 沙箱测试
 - [x] release 第十一次重建（第 268 轮）：EXE 41,316,864 B /
    安装包 346,819,246 B，含第 264–267 轮修复，静默重装验证通过
+- [x] 插件侧栏 fallback items（第 269 轮）：字符串 items 规范化
+   为 {label}，消除空白按钮与 React key 警告 + 回归测试

@@ -392,10 +392,15 @@ export function setupPluginShell({
       );
     } else if (!hasOwnNavigation) {
       for (const [index, view] of (plugin?.sidebarViews ?? []).entries()) {
+        const items = Array.isArray(view.items)
+          ? view.items.map((item) =>
+              typeof item === "string" ? { label: t(item) } : item,
+            )
+          : view.items;
         accordions.push({
           title: t(view.title),
           description: t(view.description),
-          items: view.items,
+          items,
           action: view.action,
           expanded: index === 0,
         });

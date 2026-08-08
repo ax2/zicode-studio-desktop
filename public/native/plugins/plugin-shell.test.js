@@ -117,6 +117,19 @@ describe("setupPluginShell", () => {
     expect(openPanel).toHaveBeenCalledOnce();
   });
 
+  it("renders string sidebar view items with readable labels", () => {
+    const shell = setupPluginShell({ registry: registry() });
+    shell.activate("com.zicode.notes", { focus: false });
+
+    const buttons = [
+      ...document.querySelectorAll(".plugin-sidebar-surface .plugin-sidebar-items button"),
+    ];
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button.textContent.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it("shows background activity on Chat and clears it when Chat is reopened", () => {
     const shell = setupPluginShell({ registry: registry() });
     shell.activate("com.zicode.notes", { focus: false });
