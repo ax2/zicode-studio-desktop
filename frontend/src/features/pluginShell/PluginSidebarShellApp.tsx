@@ -59,12 +59,20 @@ function Accordion({ accordion }: { accordion: PluginAccordion }) {
 export function PluginSidebarShell({
   title,
   accordions,
+  project,
 }: {
   title: string;
   accordions: PluginAccordion[];
+  project?: { name: string; path?: string } | null;
 }) {
   return (
     <>
+      {project ? (
+        <div className="plugin-sidebar-project" title={project.path || project.name}>
+          <span aria-hidden="true">📂</span>
+          <span>{project.name}</span>
+        </div>
+      ) : null}
       <div className="plugin-sidebar-title">{title}</div>
       {accordions.map((accordion) => (
         <Accordion accordion={accordion} key={accordion.title} />

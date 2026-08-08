@@ -217,6 +217,7 @@ const modelDropdownFeed = createModelDropdownFeed(
   },
 );
 let target = provisionalTargetFromRoute(route);
+let currentProjectInfo = null;
 let configGatewayTargetReady = false;
 let store = createSessionStore(target);
 let navigationGeneration = 0;
@@ -662,6 +663,7 @@ const notesGateway = new NotesGateway({
 const notesApp = setupNotesApp({
   gateway: notesGateway,
   getTarget: () => target,
+  getProject: () => currentProjectInfo,
   notify: notifications.notify,
   onUseInChat: (note, selection = "") => {
     pluginShell?.activate("core.chat");
@@ -742,6 +744,7 @@ pluginShell = setupPluginShell({
   capabilityGateway: pluginCapabilityGateway,
   commandGateway: pluginHostGateway,
   getTarget: () => target,
+  getProject: () => currentProjectInfo,
   openSettings: (tab = "general") => settingsPanel?.openSettings(tab),
   openHelp: () => helpCenter?.open(),
   settingsApp: settingsPanel,
@@ -1026,6 +1029,7 @@ function setupSessionSidebar() {
     },
     onCreateSession: createSessionViaHost,
     onSessionsLoaded: subscribeToLiveSessions,
+    onOpenApp: (pluginId) => pluginShell?.activate(pluginId),
   });
 
   setupSessionSearchDialog({
@@ -1614,6 +1618,12 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   sceneIndicator?.setTarget(target);
   financeWorkbench?.setTarget(target);
   pluginShell?.setTarget(target);
+  if (
+    nextTarget.workspaceId !== previousTarget.workspaceId ||
+    !currentProjectInfo
+  ) {
+    void refreshCurrentProjectInfo();
+  }
   store = createSessionStore(target);
   composer?.setQueue(store.queue);
   todoMirrorPanel.clear();
@@ -1621,6 +1631,36 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   adapter.subscribeTarget(target);
   sidebar?.setActive(target.sessionId);
   await extensionUi.setForegroundSession(target.sessionId, { flush: false });
+}
+
+function projectNameFromPath(path, fallback) {
+  const trimmed = String(path ?? "").trim();
+  if (!trimmed) return fallback;
+  return trimmed.split(/[\\/]/).filter(Boolean).at(-1) || fallback;
+}
+
+async function refreshCurrentProjectInfo() {
+  const workspaceId = target.workspaceId;
+  if (!workspaceId) {
+    currentProjectInfo = null;
+    notesApp?.setProject?.(null);
+    pluginShell?.refreshSidebar?.();
+    return;
+  }
+  let path = "";
+  try {
+    const info = await data.workspaceInfo(workspaceId);
+    path = info?.info?.path ?? "";
+  } catch (error) {
+    console.warn("[Native] Failed to resolve project info:", error);
+  }
+  currentProjectInfo = {
+    id: workspaceId,
+    path,
+    name: projectNameFromPath(path, workspaceId),
+  };
+  notesApp?.setProject?.(currentProjectInfo);
+  pluginShell?.refreshSidebar?.();
 }
 
 function historyBatchSize() {

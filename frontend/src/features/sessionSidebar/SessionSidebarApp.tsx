@@ -38,6 +38,7 @@ export interface SessionSidebarController {
   showMore(): void;
   showLess(): void;
   createSession(project: ProjectGroup): void;
+  openApp(pluginId: string): void;
   showContextMenu(event: React.MouseEvent, session: SessionSummary): void;
   showProjectContextMenu(event: React.MouseEvent, project: ProjectGroup): void;
   closeContextMenu(): void;
@@ -449,6 +450,43 @@ export function SessionSidebarApp({
             >
               <NewChatIcon />
             </button>
+          ) : null}
+          {project.isCurrent ? (
+            <>
+              <button
+                className="project-quick-btn"
+                title={t("Notes")}
+                aria-label={t("Notes")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  controller.openApp("com.zicode.notes");
+                }}
+              >
+                <span aria-hidden="true">📝</span>
+              </button>
+              <button
+                className="project-quick-btn"
+                title={t("Artifacts")}
+                aria-label={t("Artifacts")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  controller.openApp("com.zicode.artifacts");
+                }}
+              >
+                <span aria-hidden="true">🧩</span>
+              </button>
+              <button
+                className="project-quick-btn"
+                title={t("Tasks")}
+                aria-label={t("Tasks")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  controller.openApp("com.zicode.tasks");
+                }}
+              >
+                <span aria-hidden="true">✅</span>
+              </button>
+            </>
           ) : null}
         </div>
         <div className={`project-sessions${collapsed ? " collapsed" : ""}`}>

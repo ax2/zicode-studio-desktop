@@ -61,6 +61,7 @@ export interface NotesGatewayLike {
 export interface NotesStoreOptions {
   gateway: NotesGatewayLike;
   getTarget?: () => { sceneId?: string } | null;
+  getProject?: () => ProjectInfo | null;
   notify?: (message: string) => void;
   confirmPublish?: (message: string) => boolean;
   chooseFile?: (accept: string) => Promise<File | null>;
@@ -71,8 +72,15 @@ export interface NotesStoreOptions {
   renderMarkdown?: (markdown: string) => string;
 }
 
+export interface ProjectInfo {
+  id: string;
+  path: string;
+  name: string;
+}
+
 interface NotesState {
   snapshot: NotesSnapshot;
+  project: ProjectInfo | null;
   selectedNotebookId: string | null;
   selectedNote: Note | null;
   loading: boolean;
@@ -132,6 +140,7 @@ interface NotesState {
   publishAstro(): Promise<void>;
   captureUrl(input: { url: string; title: string; notebookId: string; tags: string[] }): Promise<void>;
   setTarget(): Promise<void>;
+  setProject(project: ProjectInfo | null): void;
   resetDeleteArmed(): void;
   setDeleteArmed(): void;
   destroy(): void;
@@ -154,6 +163,7 @@ export function createNotesStore(options: NotesStoreOptions) {
 
   const store = create<NotesState>()((set, get) => ({
     snapshot: { notebooks: [], notes: [], tags: [] },
+    project: normalizeProject(options.getProject?.()),
     selectedNotebookId: null,
     selectedNote: null,
     loading: false,
@@ -733,8 +743,16 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async setTarget() {
-      set({ selectedNote: null, dirty: false });
+      set({
+        selectedNote: null,
+        dirty: false,
+        project: normalizeProject(options.getProject?.()),
+      });
       await get().load({ preserveSelection: false });
+    },
+
+    setProject(project) {
+      set({ project: normalizeProject(project) });
     },
 
     resetDeleteArmed() {
@@ -755,3 +773,15 @@ export function createNotesStore(options: NotesStoreOptions) {
 }
 
 export type NotesStore = ReturnType<typeof createNotesStore>;
+
+function normalizeProject(
+  project: ProjectInfo | null | undefined,
+): ProjectInfo | null {
+  if (!project?.id) return null;
+  const path = project.path || "";
+  const name =
+    project.name ||
+    path.split(/[\\/]/).filter(Boolean).at(-1) ||
+    project.id;
+  return { id: project.id, path, name };
+}

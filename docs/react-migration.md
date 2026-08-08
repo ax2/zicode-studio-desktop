@@ -398,3 +398,10 @@ bun run test          # vitest（public/** + frontend/src/**）
   （真实点击可展开/收起）；编辑态自动展开；plugin-shell 有自主导航的
   应用不再渲染通用 accordion（消除顶部空重复区块与按钮遮挡）；
   `.notes-nav-button` 补入共享按钮样式（标签恢复竖排）；699 测试全绿
+- [x] 项目贯穿 P1（第 233 轮）：notesStore 增加项目上下文
+  （`ProjectInfo` + `project` 状态 + `setProject`），笔记侧栏顶部渲染
+  项目头部；plugin-shell 侧栏壳新增项目行（`getProject` 注入 +
+  `refreshSidebar`）；会话侧栏当前项目分组新增笔记/产物/任务快捷按钮；
+  app.js 维护 `currentProjectInfo`（adoptTarget 切 workspace 时经
+  workspaceInfo 解析并同步 notes/plugin-shell）；typecheck + 703 测试
+  全绿，CDP 实测无重叠无溢出

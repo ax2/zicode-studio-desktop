@@ -4097,6 +4097,28 @@ workspaceId → 统一索引）与分阶段计划（P1 纯前端 / P2 数据模�
 联动）。关键决策点 D1（多场景合并或分组）、D2（双键）、D3（P1 范围）、
 D4（场景跟随）待用户确认后实施。
 
+第二百三十三轮：项目贯穿 P1 实施（项目为顶层容器，2026-08-08）。按已确认
+方案（D1=项目下多场景内容默认合并、D4=切换项目时场景跟随会话；D2 数据层
+P2 再做）完成 P1 UI 层：
+
+1. notesStore 增加项目上下文：`ProjectInfo {id,path,name}`（name 取路径
+   末段）、`getProject()` 注入、`project` 状态、`setProject()`（轻量更新
+   不重载）；`setTarget()` 同步刷新项目并重载笔记；
+2. 笔记侧栏顶部新增项目头部（`notes-project-header`：📂 + 项目名，超出
+   省略号），切换项目后头部跟随 workspace 更新；
+3. plugin-shell 侧栏壳新增项目行（`plugin-sidebar-project`），
+   `getProject` 注入 + `refreshSidebar()` 方法（切项目后重渲染非 Chat
+   应用的侧栏）；
+4. 会话侧栏当前项目分组头部新增"笔记/产物/任务"三个快捷按钮
+   （`project-quick-btn`，点击直达对应应用，不触发分组折叠）；
+5. app.js 维护 `currentProjectInfo`：`adoptTarget` 切换 workspace 时经
+   `data.workspaceInfo` 解析路径/名称，仅工作区变化或信息缺失时刷新
+   （避免每次切会话多一次主机往返），同步 `notesApp.setProject` +
+   `pluginShell.refreshSidebar`；
+6. 验证：typecheck / Biome（frontend 范围）/ 703 测试全绿；安装目录同步
+   后重启，CDP 实测：快捷按钮渲染并可切到笔记、笔记侧栏项目头部
+   "📂ax2"、插件壳项目行同源、几何检查无重叠无横向溢出。
+
 第一百六十四轮：续期阻塞审计状态记录（2026-08-06）。真机可自动化验收全部
 完成后的状态留档：
 

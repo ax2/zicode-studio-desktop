@@ -200,6 +200,30 @@
   color: var(--bg-solid);
 }
 
+.project-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  opacity: 0.75;
+  font-size: 12px;
+  transition:
+    background var(--duration) var(--ease),
+    opacity var(--duration) var(--ease);
+  flex-shrink: 0;
+}
+
+.project-quick-btn:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  opacity: 1;
+}
+
 /* Open project in external app (VS Code / Cursor / Terminal / …) */
 .archived-delete-all-btn {
   display: none;

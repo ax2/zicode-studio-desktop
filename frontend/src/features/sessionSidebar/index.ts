@@ -66,6 +66,7 @@ export interface SessionSidebarOptions {
   getTarget(): { workspaceId: string; sessionId?: string };
   onSelect(session: SessionSummary): void;
   onCreateSession?(workspaceId: string): Promise<unknown>;
+  onOpenApp?(pluginId: string): void;
   onSessionsLoaded?(sessions: SessionSummary[]): void;
 }
 
@@ -77,6 +78,7 @@ export class SessionSidebar implements SessionSidebarController {
   getTarget: SessionSidebarOptions["getTarget"];
   onSelect: SessionSidebarOptions["onSelect"];
   onCreateSession?: SessionSidebarOptions["onCreateSession"];
+  onOpenApp?: SessionSidebarOptions["onOpenApp"];
   onSessionsLoaded?: SessionSidebarOptions["onSessionsLoaded"];
 
   store: SidebarStoreHook;
@@ -95,6 +97,7 @@ export class SessionSidebar implements SessionSidebarController {
     this.getTarget = options.getTarget;
     this.onSelect = options.onSelect;
     this.onCreateSession = options.onCreateSession;
+    this.onOpenApp = options.onOpenApp;
     this.onSessionsLoaded = options.onSessionsLoaded;
 
     this.store = createSidebarStore({
@@ -678,5 +681,9 @@ export class SessionSidebar implements SessionSidebarController {
       }
     }
     this.commit({ renamingId: null });
+  }
+
+  openApp(pluginId: string): void {
+    this.onOpenApp?.(pluginId);
   }
 }

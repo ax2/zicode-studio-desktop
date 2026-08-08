@@ -5,6 +5,34 @@
   padding: 0 var(--space-2) var(--space-2);
 }
 
+.notes-project-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: 0 var(--space-2) var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  min-height: var(--control-height-md);
+}
+
+.notes-project-icon {
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+.notes-project-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
 .notes-nav-actions .notes-new-notebook {
   width: 100%;
 }

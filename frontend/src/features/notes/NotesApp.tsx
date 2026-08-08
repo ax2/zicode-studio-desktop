@@ -30,8 +30,20 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
   const setQuery = store((state) => state.setQuery);
   const setMode = store((state) => state.setMode);
+  const project = store((state) => state.project);
   return (
     <div className="notes-nav">
+      {project ? (
+        <div
+          className="notes-project-header"
+          title={project.path || project.id}
+        >
+          <span className="notes-project-icon" aria-hidden="true">
+            📂
+          </span>
+          <span className="notes-project-name">{project.name}</span>
+        </div>
+      ) : null}
       <div className="notes-nav-actions">
         <button
           type="button"

@@ -4,12 +4,14 @@ import { NotesContent, NotesNav } from "./NotesApp";
 import {
   createNotesStore,
   type NotesStoreOptions,
+  type ProjectInfo,
 } from "./notesStore";
 
 export interface NotesAppHandle {
   renderNavigation(container: HTMLElement): void;
   renderContent(container: HTMLElement): void;
   setTarget(): Promise<void>;
+  setProject(project: ProjectInfo | null): void;
   newNote(): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<unknown>;
@@ -79,6 +81,9 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
         return store.getState().setTarget();
       }
       return Promise.resolve();
+    },
+    setProject(project) {
+      store.getState().setProject(project);
     },
     newNote() {
       return store.getState().newNote();

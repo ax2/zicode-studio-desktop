@@ -26,6 +26,7 @@ export function setupPluginShell({
   capabilityGateway = null,
   commandGateway = null,
   getTarget = () => null,
+  getProject = () => null,
   openSettings = () => {},
   openHelp = () => {},
   settingsApp = null,
@@ -360,6 +361,7 @@ export function setupPluginShell({
           ? t("Help")
           : t(plugin?.name ?? "Plugins");
     const accordions = [];
+    const project = getProject();
     if (pluginId === MANAGER_VIEW_ID) {
       accordions.push(
         {
@@ -394,7 +396,7 @@ export function setupPluginShell({
     const sidebarShellWrapper = document.createElement("div");
     sidebarShellWrapper.dataset.pluginShellSidebar = "";
     pluginSidebar.append(sidebarShellWrapper);
-    shellSurfaces.mountSidebar(sidebarShellWrapper, { title, accordions });
+    shellSurfaces.mountSidebar(sidebarShellWrapper, { title, accordions, project });
 
     if (pluginId === SETTINGS_VIEW_ID) {
       settingsApp?.renderNavigation?.(pluginSidebar);
@@ -641,6 +643,9 @@ export function setupPluginShell({
     setActivityBadge,
     incrementActivityBadge,
     setTarget,
+    refreshSidebar() {
+      if (activePluginId !== CHAT_PLUGIN_ID) renderSidebar(activePluginId);
+    },
     destroy() {
       unsubscribe();
       for (const application of new Set(applicationViews.values())) application.destroy?.();

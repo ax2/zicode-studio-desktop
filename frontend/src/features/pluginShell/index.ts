@@ -75,6 +75,7 @@ export function setupPluginActivityBar({
 export interface PluginSidebarShellProps {
   title: string;
   accordions: PluginAccordion[];
+  project?: { name: string; path?: string } | null;
 }
 
 export interface PluginMainShellProps {
@@ -117,6 +118,7 @@ export function setupPluginShellSurfaces(): PluginShellSurfacesApi {
           createElement(PluginSidebarShell, {
             title: props.title,
             accordions: props.accordions,
+            project: props.project,
           }),
         );
       });

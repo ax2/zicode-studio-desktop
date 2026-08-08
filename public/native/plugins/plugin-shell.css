@@ -159,6 +159,23 @@
   -webkit-app-region: drag;
 }
 
+.plugin-sidebar-project {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: var(--space-2) var(--space-3) 0;
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plugin-sidebar-view {
   border-top: 1px solid var(--border);
 }
