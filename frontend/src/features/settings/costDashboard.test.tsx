@@ -110,6 +110,7 @@ describe("cost dashboard logic", () => {
 
 describe("cost dashboard store + React tab", () => {
   it("loads usage data and renders overview, models, and sessions", async () => {
+    setLocale("en");
     const data = {
       costDashboard: vi.fn(async () => ({
         dashboard: { sessions: SAMPLE_SESSIONS } as DashboardPayload,
@@ -129,6 +130,7 @@ describe("cost dashboard store + React tab", () => {
   });
 
   it("switches the quick range and re-adapts the payload", async () => {
+    setLocale("en");
     const store = createCostDashboardStore();
     const data = {
       costDashboard: vi.fn(async () => ({

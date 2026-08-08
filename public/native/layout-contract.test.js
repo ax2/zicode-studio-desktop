@@ -283,7 +283,7 @@ describe("desktop three-region layout contract", () => {
     );
     expect(costDashboardRender).toContain('className="cost-dash-sessions-table-wrap"');
     expect(costDashboardRender).toContain('role="region"');
-    expect(costDashboardRender).toContain('aria-label="Sessions table"');
+    expect(costDashboardRender).toMatch(/aria-label[^>]*Sessions table/);
   });
 
   it("keeps help center navigation, articles, and tables usable on narrow screens", () => {

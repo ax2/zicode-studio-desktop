@@ -59,7 +59,7 @@ export function CostDashboardTab({
     return (
       <div className="cost-dash-page">
         <p className="cost-dash-empty-state cost-dash-error">
-          {error || "Failed to load usage data"}
+          {error || t("Failed to load usage data")}
         </p>
         {onRetry ? (
           <button type="button" className="ui-button ui-button--secondary" onClick={onRetry}>
@@ -76,7 +76,11 @@ export function CostDashboardTab({
         <div className="cost-dash-topbar">
           <div className="cost-dash-topbar-actions">
             {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla range chips */}
-            <div className="cost-dash-quick-range" role="group" aria-label="Quick range">
+            <div
+              className="cost-dash-quick-range"
+              role="group"
+              aria-label={t("Quick range")}
+            >
               {Object.keys(RANGE_DAYS).map((key) => (
                 <button
                   key={key}
@@ -97,7 +101,7 @@ export function CostDashboardTab({
           <div className="cost-dash-panel is-active" id="usage-overview">
             <div className="cost-dash-cost-block">
               <div className="cost-dash-subsection-head">
-                <h3>Overview</h3>
+                <h3>{t("Overview")}</h3>
               </div>
               <div className="cost-dash-overview-grid">
                 <OverviewStats overview={overview} usage={usage} />
@@ -113,7 +117,7 @@ export function CostDashboardTab({
             <div className="cost-dash-panel is-active" id="usage-models">
               <div className="cost-dash-cost-block">
                 <div className="cost-dash-subsection-head">
-                  <h3>Models</h3>
+                  <h3>{t("Models")}</h3>
                 </div>
                 <ModelsPanel summary={modelSummary} />
               </div>
@@ -123,7 +127,7 @@ export function CostDashboardTab({
               <div className="cost-dash-panel is-active" id="usage-tool-cost">
                 <div className="cost-dash-cost-block">
                   <div className="cost-dash-subsection-head">
-                    <h3>Tool Cost</h3>
+                    <h3>{t("Tool Cost")}</h3>
                   </div>
                   <ToolCostPanel tools={usage.tools ?? []} />
                 </div>
@@ -132,7 +136,7 @@ export function CostDashboardTab({
               <div className="cost-dash-panel is-active" id="usage-projects">
                 <div className="cost-dash-cost-block">
                   <div className="cost-dash-subsection-head">
-                    <h3>Projects</h3>
+                    <h3>{t("Projects")}</h3>
                   </div>
                   <ProjectsPanel rows={payload.infobar.projects} />
                 </div>
@@ -143,8 +147,8 @@ export function CostDashboardTab({
           <div className="cost-dash-panel is-active" id="usage-sessions">
             <div className="cost-dash-cost-block">
               <div className="cost-dash-subsection-head">
-                <h3>Sessions</h3>
-                <span>Recent sessions in range</span>
+                <h3>{t("Sessions")}</h3>
+                <span>{t("Recent sessions in range")}</span>
               </div>
               <SessionsPanel sessions={payload.sessions} />
             </div>
@@ -183,7 +187,7 @@ function OverviewStats({
         <article key={title} className={`cost-dash-stat-card cost-dash-card-tone-${tone}`}>
           <div className="cost-dash-stat-title">
             {STAT_ICONS[title] ? <Icon svg={STAT_ICONS[title]} /> : null}
-            {title}
+            {t(title)}
           </div>
           <div className="cost-dash-stat-value">{value}</div>
         </article>
@@ -246,11 +250,11 @@ function ActivityPanel({ payload }: { payload: Parameters<typeof deriveOverviewM
       <div className="cost-dash-activity-body">
         <div className="cost-dash-activity-weekdays" aria-hidden="true">
           <span></span>
-          <span>Mon</span>
+          <span>{t("Mon")}</span>
           <span></span>
-          <span>Wed</span>
+          <span>{t("Wed")}</span>
           <span></span>
-          <span>Fri</span>
+          <span>{t("Fri")}</span>
           <span></span>
         </div>
         <div className="cost-dash-activity-grid">
@@ -281,7 +285,7 @@ function ActivityPanel({ payload }: { payload: Parameters<typeof deriveOverviewM
         </div>
       </div>
       <div className="cost-dash-activity-footer">
-        <span>Less</span>
+        <span>{t("Less")}</span>
         {[0, 1, 2, 3, 4].map((level) => (
           <span
             key={level}
@@ -289,7 +293,7 @@ function ActivityPanel({ payload }: { payload: Parameters<typeof deriveOverviewM
             aria-hidden="true"
           ></span>
         ))}
-        <span>More</span>
+        <span>{t("More")}</span>
       </div>
     </div>
   );
@@ -547,17 +551,17 @@ function SessionsPanel({ sessions }: { sessions: CostSession[] }) {
     <div
       className="cost-dash-sessions-table-wrap"
       role="region"
-      aria-label="Sessions table"
+      aria-label={t("Sessions table")}
     >
       <table className="cost-dash-sessions-table">
         <thead>
           <tr>
-            <th>Session</th>
-            <th>Model</th>
-            <th className="cost-dash-num">Tokens</th>
-            <th className="cost-dash-num">Tools</th>
-            <th className="cost-dash-num">Cost</th>
-            <th>Date</th>
+            <th>{t("Session")}</th>
+            <th>{t("Model")}</th>
+            <th className="cost-dash-num">{t("Tokens")}</th>
+            <th className="cost-dash-num">{t("Tools")}</th>
+            <th className="cost-dash-num">{t("Cost")}</th>
+            <th>{t("Date")}</th>
           </tr>
         </thead>
         <tbody>
@@ -565,7 +569,7 @@ function SessionsPanel({ sessions }: { sessions: CostSession[] }) {
             <tr key={String(session.time ?? index)}>
               <td className="cost-dash-sessions-td-title">
                 <div className="cost-dash-sessions-title">
-                  {String(session.title || "Untitled")}
+                  {String(session.title || t("Untitled"))}
                 </div>
                 {session.workspace ? (
                   <div className="cost-dash-sessions-workspace">
