@@ -135,7 +135,9 @@ function ActivityButton({
   return (
     <button
       type="button"
-      className={`plugin-activity-button${item.system ? " plugin-activity-button--system" : ""}`}
+      className={`plugin-activity-button${item.system ? " plugin-activity-button--system" : ""}${
+        isActive ? " active" : ""
+      }`}
       data-plugin-id={item.id}
       title={item.label}
       aria-label={item.label}

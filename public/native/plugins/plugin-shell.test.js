@@ -63,6 +63,9 @@ describe("setupPluginShell", () => {
     expect(document.querySelector('[data-plugin-id="core.chat"]')?.getAttribute("aria-current"))
       .toBe("page");
     expect(
+      document.querySelector('[data-plugin-id="core.chat"]')?.classList.contains("active"),
+    ).toBe(true);
+    expect(
       document.querySelector('[data-plugin-id="com.zicode.notes"]')?.getAttribute("aria-current"),
     ).toBeNull();
   });
@@ -76,6 +79,12 @@ describe("setupPluginShell", () => {
     expect(
       document.querySelector('[data-plugin-id="com.zicode.notes"]')?.getAttribute("aria-current"),
     ).toBe("page");
+    expect(
+      document.querySelector('[data-plugin-id="com.zicode.notes"]')?.classList.contains("active"),
+    ).toBe(true);
+    expect(
+      document.querySelector('[data-plugin-id="core.chat"]')?.classList.contains("active"),
+    ).toBe(false);
     expect(
       document.querySelector('[data-plugin-id="core.chat"]')?.getAttribute("aria-current"),
     ).toBeNull();
