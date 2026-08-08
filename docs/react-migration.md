@@ -496,3 +496,5 @@ bun run test          # vitest（public/** + frontend/src/**）
 - [x] 移动弹层 Escape 关闭（第 275 轮）：MovePopover 补 keydown Escape
    关闭分支 + 组件测试；并实测跨笔记本双向拖拽、嵌套笔记本创建/级联
    删除全流程；前端 735 测试全绿
+- [x] release 第十四次重建（第 276 轮）：EXE 41,320,960 B / 安装包
+   346,829,217 B，含第 275 轮修复，静默重装验证通过

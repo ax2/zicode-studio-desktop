@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第二百七十六轮：release 第十四次重建（含第 275 轮，2026-08-08）。
+
+1. 让生产安装包包含第 275 轮（移动弹层 Escape 关闭）；
+   `bun run build` 重建 EXE 41,320,960 B（SHA-256 `51B5EC61…`）与
+   安装包 346,829,217 B（`E9340170…`），完整哈希见
+   `docs/release-validation-2026-08-05.md`；
+2. 验证：`/S` 静默重装后安装目录 297 个文件与仓库 public 一致；从安装
+   目录启动：`/health` 200（pi 0.83.0、协议 v2、
+   `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、默认窗口
+   1440×900；CDP 实测移动弹层 Escape 关闭生效，应用快速切换无异常；
+   日志无 ERROR/WARN/panic。
+
 第二百七十五轮：笔记“移动到笔记本”弹层支持 Escape 关闭（2026-08-08）。
 
 1. 根因：`MovePopover` 声明 `role="dialog"`，但只支持点击外部/选择目标

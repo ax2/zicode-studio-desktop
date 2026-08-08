@@ -215,3 +215,20 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、默认窗口 1440×900；
   - CDP 两轮全应用切换（24 单元格）：0 空视图、0 finance 类污染、
     0 异常、0 控制台错误；日志无 ERROR/WARN/panic。
+
+## 第十四次重建（2026-08-08，含第 275 轮移动弹层 Escape 关闭）
+
+- 合入第 275 轮：笔记“移动到笔记本”弹层（MovePopover）补 keydown
+  Escape 关闭分支，与其他弹层键盘约定一致；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,320,960 B，
+    SHA-256 `51B5EC6171A53A8000688DA811CF48D764438E0B2C5D128F01C867A69C7977E4`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,829,217 B，SHA-256
+    `E93401708BCD1CB8E3FFBEFD02BC6E86A067B0600C2FCF3DAE5D51A3CCE8E0A7`
+- 验证：
+  - 安装目录 297 个文件与仓库 public 逐文件一致；`/S` 静默重装后从安装
+    目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、默认窗口 1440×900；
+  - CDP 实测移动弹层 Escape 关闭生效、应用快速切换 0 异常；日志无
+    ERROR/WARN/panic。
