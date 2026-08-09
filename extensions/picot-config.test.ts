@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -97,6 +97,60 @@ describe("picot config auth operations", () => {
       openai: { type: "api_key", key: "sk-isolated" },
     });
     expect(existsSync(join(root, ".pi", "agent", "auth.json"))).toBe(false);
+  });
+
+  it("checks QVeris model health through the live gateway credential", async () => {
+    const { root, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const agentDir = join(root, "scene-agent");
+    const authPath = join(agentDir, "auth.json");
+    const modelsPath = join(agentDir, "models.json");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(
+      authPath,
+      JSON.stringify({ qveris: { type: "api_key", key: "sk-health-test" } }),
+    );
+    writeFileSync(
+      modelsPath,
+      JSON.stringify({
+        providers: {
+          qveris: {
+            baseUrl: "http://127.0.0.1:57620/v2/model-gateway",
+            api: "openai-completions",
+            authHeader: true,
+            models: [{ id: "deepseek-v4-flash" }],
+          },
+        },
+      }),
+    );
+    const model = { provider: "qveris", id: "deepseek-v4-flash", name: "deepseek-v4-flash" };
+    const registry = {
+      getAll: () => [model],
+      getAvailable: () => [model],
+      getProviderAuthStatus: () => ({ configured: true, source: "system" }),
+      getProviderDisplayName: () => "QVeris Model Gateway",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => '{"choices":[{"message":{"role":"assistant","content":"OK"}}]}',
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await handlePicotConfig(
+      "check_model_health",
+      { provider: "qveris" },
+      { modelRegistry: registry },
+    );
+
+    expect(result.ok).toBe(true);
+    const results = (result as { data: { results: Array<{ status: string }> } }).data.results;
+    expect(results[0]?.status).toBe("healthy");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:57620/v2/model-gateway/chat/completions",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer sk-health-test" }),
+      }),
+    );
   });
 
   it("stores and removes API keys without requiring registry authStorage", async () => {

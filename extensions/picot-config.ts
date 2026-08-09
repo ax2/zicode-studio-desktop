@@ -280,6 +280,58 @@ async function runModelHealthCheck(
   const startedAt = Date.now();
   let sawAssistantText = false;
   try {
+    // The QVeris credential lives in the desktop OS vault and is hydrated into
+    // the running pi process by sealBrokerAuthConfig, not into a fresh model
+    // session. Probe the same local model-gateway path the desktop chat uses
+    // (baseUrl from this scene's models.json + the live runtime key) so the
+    // health result reflects the real request path instead of a session that
+    // never received the credential.
+    if (provider === QVERIS_PROVIDER_ID) {
+      const key = readQVerisApiKey();
+      if (!key) throw new Error("QVeris API Key is not configured");
+      const gatewayBase = qverisGatewayBaseUrl();
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(new Error("QVeris health check timed out")),
+        30_000,
+      );
+      try {
+        const response = await fetch(`${gatewayBase}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            model: modelId,
+            stream: false,
+            max_tokens: 16,
+            messages: [{ role: "user", content: "Reply exactly: OK" }],
+          }),
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(
+            `QVeris request failed (${response.status}): ${text.slice(0, 200)}`,
+          );
+        }
+        sawAssistantText = /"content"\s*:\s*"[^"]*OK/i.test(text);
+      } finally {
+        clearTimeout(timer);
+      }
+      const result: { provider: string; modelId: string } & ModelHealth = {
+        provider,
+        modelId,
+        status: sawAssistantText ? "healthy" : "unhealthy",
+        checkedAt: new Date().toISOString(),
+        latencyMs: Date.now() - startedAt,
+        error: sawAssistantText ? undefined : "No assistant text returned",
+      };
+      preferences.setHealth(provider, modelId, result);
+      return result;
+    }
     const modelRuntime = await ModelRuntime.create();
     const { session } = await createAgentSession({
       model,
@@ -329,6 +381,19 @@ async function runModelHealthCheck(
     preferences.setHealth(provider, modelId, result);
     return result;
   }
+}
+
+function qverisGatewayBaseUrl(): string {
+  try {
+    const document = readModelsDocument();
+    const baseUrl = document.providers?.[QVERIS_PROVIDER_ID]?.baseUrl;
+    if (typeof baseUrl === "string" && baseUrl.trim()) {
+      return baseUrl.trim().replace(/\/+$/, "");
+    }
+  } catch {
+    // Fall through to the loopback default used by the bundled scene.
+  }
+  return "http://127.0.0.1:57620/v2/model-gateway";
 }
 
 function readConfigFile(filePath: string, fallback: string): { content: string; path: string } {
@@ -685,9 +750,18 @@ export async function handlePicotConfig(
         });
         if (models.length === 0) throw new Error("No matching models available for health check");
         const results = [];
-        for (const model of models) {
-          results.push(await runModelHealthCheck(reg, model, preferences));
-        }
+        // Probe with bounded concurrency so a 25-model channel finishes in a
+        // few seconds instead of running sequentially past the UI timeout.
+        const CONCURRENCY = 5;
+        let nextIndex = 0;
+        const workers = Array.from({ length: Math.min(CONCURRENCY, models.length) }, async () => {
+          while (nextIndex < models.length) {
+            const model = models[nextIndex];
+            nextIndex += 1;
+            results.push(await runModelHealthCheck(reg, model, preferences));
+          }
+        });
+        await Promise.all(workers);
         return { ok: true, data: { results } };
       }
 

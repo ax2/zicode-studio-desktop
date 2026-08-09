@@ -157,8 +157,29 @@ describe("chat feed renderers", () => {
     renderer.finalizeStreamingMessage(handle, { cost: { total: 0.5 } });
     await flush();
     expect(container.querySelector(".message.assistant.streaming")).toBeNull();
+    // The accumulated answer survives finalization even though the
+    // message_start skeleton carried no content of its own.
+    expect(container.querySelector(".message.assistant")?.textContent).toContain("Hello");
     expect(container.querySelector(".message-usage")?.textContent).toBe("$0.5000");
     expect(container.querySelector(".message-copy-btn")).toBeTruthy();
+  });
+
+  it("keeps the answer text when a reasoning response finalizes with thinking", async () => {
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    const handle = renderer.renderAssistantMessage({ id: "r1", content: [] }, true);
+    if (!handle) throw new Error("missing streaming handle");
+    renderer.updateStreamingMessage(handle, [
+      { type: "thinking", thinking: "the user wants a short reply" },
+      { type: "text", text: "OK" },
+    ]);
+    renderer.finalizeStreamingMessage(handle, { cost: { total: 0 } });
+    await flush();
+    const message = container.querySelector(".message.assistant");
+    expect(message?.querySelector(".thinking-content")?.textContent).toContain(
+      "the user wants a short reply",
+    );
+    expect(message?.textContent).toContain("OK");
   });
 
   it("renders the organize-to-note action and dispatches its request", async () => {

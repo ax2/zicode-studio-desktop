@@ -345,6 +345,33 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 全应用走查（对话/项目/任务/笔记/自动化/金融/产物/管理插件/设置/
     帮助）零控制台错误、无横向溢出。
 
+## 第四十九/五十次重建（2026-08-10，含第 375 轮对话回答丢失 + 健康检查修复）
+
+- 合入第 375 轮：
+  - 流式助手消息收尾时把累计思考+正文写回 `message.content`，修复
+    "回答只显示思考块、正文丢失"（会话 JSONL 数据完好，仅实时收尾丢
+    渲染）；前端新增"思考+正文收尾保留正文"单测；
+  - QVeris 渠道健康检查改走本地模型网关（`models.json` baseUrl +
+    运行时实时 key，即桌面对话同一条路径），25 个模型有界并发（5 路）
+    探测约 30s 完成；新增"健康检查走网关凭据"单测；
+  - 前端 780 项（135 文件）全绿，typecheck/Biome 通过；
+- 产物（第二次构建，含并发探测）：
+  - `target/release/zicode-studio-desktop.exe`：41,500,672 B，
+    SHA-256 `D627147D89CAB84B75BE90A62C34B0765C3BDE680B9577853F9B05A2F2DFBA90`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,919,140 B，SHA-256
+    `212332F73041E75F180EBC8C5942837C9112A601C7A19ADA7023493CEBC5A25E`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `2A46ED662FFEBCF6C1F48B05549A86001CA8ECFA23EC50F25C5D7A77818BE5EC`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异），
+    扩展 bundle 与仓库 dist 一致；
+  - release 50 复验：对话"只回复 OK 即可"→ 回答正常渲染（思考块 +
+    OK + 复制/存笔记/整理按钮）；健康检查 30s 内完成：
+    "25 已启用 · 13 健康 · 12 异常"（claude-sonnet-4-5 与
+    deepseek-v4-flash 健康 2–3s，deepseek-chat 等 404 为目录无效 id、
+    deepseek-v4-pro 返回加密正文），模型链路与健康展示均真实。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

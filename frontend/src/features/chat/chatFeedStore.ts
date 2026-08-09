@@ -270,13 +270,23 @@ export class ChatFeed {
     const items = this.store.getState().items.map((item) => {
       if (item.kind !== "assistant" || item.seq !== handle.seq) return item;
       const finalThinking = thinking || item.thinking || "";
-      const hasText = item.noteSourceText.trim().length > 0;
+      const finalText = item.noteSourceText.trim();
       const total = usage?.cost?.total;
       const hasUsage = Boolean(total && total > 0 && !finalThinking);
-      if (!hasText && !hasUsage) return null;
+      if (!finalText && !hasUsage) return null;
+      // The streaming item was created from the message_start skeleton, whose
+      // content may still be empty; carry the accumulated answer into the
+      // finalized message so the renderer and note capture see the real text.
+      const content: ContentBlock[] = [];
+      if (finalThinking) content.push({ type: "thinking", thinking: finalThinking });
+      if (finalText) content.push({ type: "text", text: item.noteSourceText });
       return {
         ...item,
         isStreaming: false,
+        message: {
+          ...item.message,
+          content: content.length > 0 ? content : item.message.content,
+        },
         finalThinking,
         usage,
         thinking: "",

@@ -4568,6 +4568,42 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百七十五轮：修复对话回答丢失 + 模型健康检查误报（2026-08-10）。
+
+1. 排查过程（模型"0 健康 25 异常"）：先验证凭据链路——QVeris API key
+   确实已存于 Windows 凭据库（programming/finance 两个场景均有，前缀
+   sk-C•••）；桌面启动时 `prepare_scene_credentials` 把密钥物化为
+   `<scene>/agent/auth.json`，picot-bridge 的 `sealBrokerAuthConfig`
+   读取后写入 pi 运行时凭据并删除明文文件（安全设计，auth.json 短暂
+   出现后消失属预期）；`[model-gateway]` 日志证明对话请求带
+   `Bearer sk-C585XI…` 且上游 200 OK——**对话模型链路实际是通的**；
+2. 真正缺陷一：对话回答不显示。流式助手消息在
+   `finalizeStreamingMessage` 收尾时只保留了 message_start 的空壳
+   `message.content`，累计文本只存在 `streamingText`，非流式渲染只读
+   `message.content` → 界面只剩思考块、正文丢失（会话 JSONL 里
+   `text:OK` 是完好的，重进会话历史也正常，只有实时收尾丢正文）。
+   修复：finalize 时把累计思考+正文写回 `message.content`；
+3. 真正缺陷二：配置页"检查健康状态"误报。健康检查用全新
+   `ModelRuntime.create()` 会话探测，拿不到运行时已注入的凭据，也读
+   不到被密封删除的 auth.json → 恒报 "No API key found for qveris"。
+   修复：qveris 渠道的健康检查改为直接探测本地模型网关
+   （`models.json` 的 baseUrl + 实时运行时 key，即桌面对话同一条请求
+   路径），返回 200 且含 assistant 文本即 healthy；
+   25 个模型顺序探测会超过前端 120s 超时，改为有界并发（5 路）探测，
+   一次检查约 30s 内完成；
+4. 验证：对话实测回答"OK"正常渲染（含复制/存笔记/整理按钮）；健康
+   检查实测从"0 健康 · 25 异常（No API key）"变为真实分项结果：
+   claude-sonnet-4-5 与 deepseek-v4-flash 健康（2–3s），deepseek-chat /
+   deepseek/deepseek-chat 等 404（目录里这些模型 id 网关不接受）、
+   deepseek-v4-pro 无明文正文（返回加密内容）——模型链路与健康展示
+   均恢复真实状态；新增单测覆盖"思考+正文收尾保留正文"与"健康检查走
+   网关凭据"；前端 780 项（135 文件）全绿，typecheck/Biome 通过。
+5. 发布：release 第四十九/五十次重建（第二次含健康检查并发探测），
+   `/S` 静默重装后安装目录 public 与仓库 299 文件 0 缺失/0 哈希差异、
+   扩展 bundle 与仓库 dist 一致；release 50 复验：对话回答正常渲染、
+   健康检查 30s 内完成并给出真实分项；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百七十四轮：发布就绪全量审计（2026-08-10，验证轮）。
 
 1. 前端 vitest：778 项（135 文件）全绿；TypeScript typecheck 通过；
