@@ -269,6 +269,21 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("centers lone finance and artifact state panels so tall desktop windows do not read as blank", () => {
+    expect(financeCss).toMatch(
+      /\.finance-plugin-main:has\(\.finance-scene-guard\)\s*\{\s*display:\s*flex;\s*flex-direction:\s*column/,
+    );
+    expect(financeCss).toMatch(
+      /\.finance-plugin-main:has\(\.finance-scene-guard\)\s+\.finance-scene-guard\s*\{\s*margin:\s*auto/,
+    );
+    expect(artifactCss).toMatch(
+      /\.artifacts-main:has\(\.artifacts-state-panel\)\s*\{\s*min-height:\s*100%;\s*display:\s*flex;\s*flex-direction:\s*column/,
+    );
+    expect(artifactCss).toMatch(
+      /\.artifacts-main:has\(\.artifacts-state-panel\)\s+\.artifacts-state-panel\s*\{\s*margin:\s*auto/,
+    );
+  });
+
   it("stacks cost dashboard panels and keeps wide tables scrollable on narrow screens", () => {
     expect(costDashboardCss).toMatch(
       /@media \(max-width: 720px\)[\s\S]*?\.cost-dash-section-row\s*\{\s*grid-template-columns:\s*1fr/,

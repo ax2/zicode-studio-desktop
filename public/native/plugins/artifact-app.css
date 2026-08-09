@@ -107,6 +107,19 @@
   padding: var(--space-6);
 }
 
+/* Center the lone empty-state panel in tall desktop windows instead of
+   leaving a phone-sized card stranded under the header (same pattern as the
+   Notes empty state). */
+.artifacts-main:has(.artifacts-state-panel) {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.artifacts-main:has(.artifacts-state-panel) .artifacts-state-panel {
+  margin: auto;
+}
+
 .artifacts-state-panel h1,
 .artifacts-document h1 {
   color: var(--text-primary);

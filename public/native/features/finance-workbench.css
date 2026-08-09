@@ -110,6 +110,18 @@
   padding: var(--space-6);
 }
 
+/* A lone guard card in a tall desktop window reads as a stranded mobile
+   card; center it vertically like the Notes empty state whenever it is the
+   only content of the finance surface. */
+.finance-plugin-main:has(.finance-scene-guard) {
+  display: flex;
+  flex-direction: column;
+}
+
+.finance-plugin-main:has(.finance-scene-guard) .finance-scene-guard {
+  margin: auto;
+}
+
 .finance-scene-guard h1 {
   color: var(--text-primary);
   font-size: var(--font-size-2xl);
