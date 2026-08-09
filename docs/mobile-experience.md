@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百二十九轮：移动端笔记选中后功能区抽屉自动关闭（2026-08-09）。
+
+1. 现象：390px 移动实测发现选中笔记后功能区抽屉仍展开、覆盖编辑器；
+   与文档"选择内容后自动关闭"不符——侧栏点击关闭只匹配
+   `<button>/<a>`，笔记行是 `div[role=button]` 不触发；
+2. 实现：`notesStore.selectNote` 在选中后派发
+   `zicode:function-area-request { open: false }`（用 `document`
+   dispatch，与插件壳/侧栏监听方一致）；桌面端该请求被忽略；
+3. 验证：前端 763 项全绿（+1 用例：选中笔记派发关闭请求）；typecheck/
+   Biome 通过；notes.js 重编并同步安装目录；生产实例 390×844 实测
+   选中笔记后抽屉收起（collapsed=true）、编辑器可见；
+
 第三百二十八轮：键盘可达性与二维码弹层实测（2026-08-09）。
 
 1. 命令面板：Ctrl+Shift+P 打开后焦点自动进入搜索框；ArrowUp/Down 在

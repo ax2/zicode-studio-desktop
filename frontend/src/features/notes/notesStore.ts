@@ -336,6 +336,15 @@ export function createNotesStore(options: NotesStoreOptions) {
           recentNotes: updatedRecentNotes,
         });
         writeRecentNoteIds(get().recentNoteIds);
+        // On mobile the function-area drawer stays open over the editor after
+        // selecting a note; close it explicitly because the sidebar's
+        // click-to-close only fires for <button>/<a> elements, not the note
+        // row's div[role="button"].
+        document.dispatchEvent(
+          new CustomEvent("zicode:function-area-request", {
+            detail: { open: false },
+          }),
+        );
         void get().resolveRecentNotes();
         const expanded = new Set(get().expandedNotebookIds);
         expanded.add(note.notebookId);

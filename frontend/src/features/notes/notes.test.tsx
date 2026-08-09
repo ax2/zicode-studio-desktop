@@ -156,6 +156,22 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
+  it("closes the mobile function-area drawer when a note is selected", async () => {
+    const store = storeWithGateway();
+    const requests: Array<{ open?: boolean }> = [];
+    const listener = (event: Event) => {
+      requests.push((event as CustomEvent<{ open?: boolean }>).detail);
+    };
+    document.addEventListener("zicode:function-area-request", listener);
+    try {
+      await store.getState().load();
+      await store.getState().selectNote(SNAPSHOT.notes[0]);
+      expect(requests.some((detail) => detail.open === false)).toBe(true);
+    } finally {
+      document.removeEventListener("zicode:function-area-request", listener);
+    }
+  });
+
   it("does not duplicate the shell project row inside the notes navigation", () => {
     const store = storeWithGateway();
     const { container } = render(<NotesNav store={store} />);
