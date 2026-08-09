@@ -4568,6 +4568,23 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百一十轮：会话备份导出（数据可移植性）+ release 第三十四次重建
+（2026-08-09）。
+
+1. 实现：新增只读会话备份导出——`GET /v2/sessions/export`（按工作区
+   收集全部可读 `.jsonl` 会话文件 + 项目路径 + 原始内容，返回
+   schema/exportedAt/sessions 的 JSON 备份）；设置 → 通用新增"数据"
+   区块与"导出会话备份"按钮（fetch 后端 → Blob 下载
+   `zicode-sessions-<id>.json`，含 导出中/已导出/失败 状态播报）；
+   会话文件不含凭据，导出为纯数据可移植；
+2. 验证：Rust 171 项（147+19+5，新增导出测试：工作区会话含入、其他
+   项目排除、内容完整）；前端 759 项全绿（新增导出按钮下载链路 UI
+   用例）；clippy/fmt/Biome/设计检查/typecheck 通过；release 第三十四
+   次重建（EXE 41,441,792 B / 安装包 346,926,408 B，哈希见
+   `docs/release-validation-2026-08-05.md`）静默重装后生产版实测：
+   /v2/sessions/export 返回 schema 1 + 8 个会话，设置页导出按钮与状态
+   元素就位、/health 正常；
+
 第三百零九轮：笔记多选批量删除到回收站 + release 第三十三次重建
 （2026-08-09）。
 

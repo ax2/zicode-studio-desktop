@@ -819,6 +819,12 @@ const zhCN = {
   "valid notes": "篇有效笔记",
   "invalid files": "个无效文件",
   Export: "导出",
+  "Export session backup": "导出会话备份",
+  "Download every conversation in this workspace as readable JSON.":
+    "把此工作区的全部会话下载为可读 JSON 备份。",
+  "Exporting session backup…": "正在导出会话备份…",
+  "Session backup exported": "会话备份已导出",
+  "Export failed": "导出失败",
   "Open workbench": "打开工作台",
   "Open existing Finance Workbench": "打开现有金融工作台",
   "Open configuration": "打开配置",

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { t } from "../../shared/i18n";
 import {
   isSettingsHash,
   normalizeSettingsTabKey,
@@ -24,6 +25,7 @@ function controllerStub(): SettingsController {
     costDashboardStore: createCostDashboardStore(),
     packageBrowseStore: createPackageBrowseStore({ control: null }),
     widgetsStore: createSettingsWidgetsStore(),
+    getWorkspaceId: () => "workspace-a",
     loadForTab: vi.fn(),
     wireVanilla: vi.fn(),
     reloadVisibleConfiguration: vi.fn(),
@@ -169,6 +171,44 @@ describe("settings React panel", () => {
     act(() => store.getState().openSettings());
     fireEvent.click(required('[data-settings-tab="usage"]'));
     expect(controller.loadForTab).toHaveBeenCalledWith("usage");
+  });
+
+  it("exports a session backup from the general tab", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ backup: { workspaceId: "workspace-a", sessions: [] } }),
+    } as Response);
+    const createObjectUrl = vi.fn(() => "blob:session-backup");
+    const revokeObjectUrl = vi.fn();
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: createObjectUrl,
+      revokeObjectURL: revokeObjectUrl,
+    });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    try {
+      const store = createSettingsStore();
+      renderApp(store);
+      act(() => store.getState().openSettings());
+      const button = required<HTMLButtonElement>("#export-sessions");
+      expect(button).toBeTruthy();
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(
+          document.querySelector("#session-export-status")?.textContent,
+        ).toContain(t("Session backup exported")),
+      );
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/v2/sessions/export?workspaceId=workspace-a",
+      );
+      expect(createObjectUrl).toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+      vi.unstubAllGlobals();
+      clickSpy.mockRestore();
+    }
   });
 
   it("stays hidden when embedded so plugin-shell owns the layout", () => {

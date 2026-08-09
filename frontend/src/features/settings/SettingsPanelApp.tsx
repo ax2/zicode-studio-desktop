@@ -23,6 +23,7 @@ export interface SettingsController {
   costDashboardStore: CostDashboardStore;
   packageBrowseStore: PackageBrowseStore;
   widgetsStore: SettingsWidgetsStore;
+  getWorkspaceId?: () => string | undefined;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -129,7 +130,7 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "general" ? " active" : ""}`}
         data-settings-panel="general"
       >
-        <GeneralTab store={store} widgets={controller.widgetsStore} />
+        <GeneralTab store={store} widgets={controller.widgetsStore} controller={controller} />
       </div>
       <div
         className={`settings-tab${activeTab === "extensions" ? " active" : ""}`}
@@ -483,9 +484,11 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
 export function GeneralTab({
   store,
   widgets,
+  controller,
 }: {
   store: SettingsStore;
   widgets: SettingsWidgetsStore;
+  controller: SettingsController;
 }) {
   const piVersion = store((state) => state.piVersion);
   const appVersion = store((state) => state.appVersion);
@@ -494,6 +497,38 @@ export function GeneralTab({
   const updater = useAppUpdaterStore();
   const taskNotifications = useTaskNotificationsState();
   const storagePersistence = useStoragePersistenceState();
+  const [sessionExportState, setSessionExportState] = useState<
+    "idle" | "busy" | "done" | "error"
+  >("idle");
+  const exportSessions = async () => {
+    const workspaceId = controller.getWorkspaceId?.();
+    if (!workspaceId) {
+      setSessionExportState("error");
+      return;
+    }
+    setSessionExportState("busy");
+    try {
+      const response = await fetch(
+        `/v2/sessions/export?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
+      if (!response.ok) throw new Error(String(response.status));
+      const payload = (await response.json()) as { backup?: unknown };
+      const blob = new Blob([JSON.stringify(payload.backup ?? {}, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `zicode-sessions-${workspaceId.slice(0, 8)}.json`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      setSessionExportState("done");
+    } catch {
+      setSessionExportState("error");
+    }
+  };
   return (
     <div className="settings-body">
       <AppearancePreferences />
@@ -596,6 +631,39 @@ export function GeneralTab({
         </p>
       </div>
       <SceneProfilesSection widgets={widgets} />
+      <div className="settings-section">
+        <div className="settings-section-title">{t("Data")}</div>
+        <div className="settings-row">
+          <span className="settings-label settings-label-stack">
+            <span className="settings-label-main">{t("Export session backup")}</span>
+            <span className="settings-label-sub">
+              {t("Download every conversation in this workspace as readable JSON.")}
+            </span>
+          </span>
+          <button
+            type="button"
+            id="export-sessions"
+            className="ui-button ui-button--secondary settings-value-btn"
+            disabled={sessionExportState === "busy"}
+            onClick={() => void exportSessions()}
+          >
+            {sessionExportState === "busy" ? t("Exporting session backup…") : t("Export")}
+          </button>
+        </div>
+        <p
+          className="settings-help"
+          id="session-export-status"
+          role="status"
+          aria-live="polite"
+          data-tone={sessionExportState === "error" ? "error" : undefined}
+        >
+          {sessionExportState === "done"
+            ? t("Session backup exported")
+            : sessionExportState === "error"
+              ? t("Export failed")
+              : ""}
+        </p>
+      </div>
       <div className="settings-section" id="setting-updater-section">
         <div className="settings-section-title">{t("Updates")}</div>
         <div className="settings-row" id="setting-pi-version">

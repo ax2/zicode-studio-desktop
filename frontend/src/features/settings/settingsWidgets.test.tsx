@@ -4,12 +4,22 @@ import { GeneralTab } from "./SettingsPanelApp";
 import { createSettingsStore } from "./store";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { fallbackSceneProfiles, getSelectedSceneId } from "./sceneProfiles";
+import type { SettingsController } from "./SettingsPanelApp";
+
+const controllerStub = {
+  loadForTab: vi.fn(),
+  wireVanilla: vi.fn(),
+  reloadVisibleConfiguration: vi.fn(),
+  setTarget: vi.fn(),
+} as unknown as SettingsController;
 
 function renderGeneral(widgets?: ReturnType<typeof createSettingsWidgetsStore>) {
   localStorage.clear();
   const store = createSettingsStore();
   const widgetsStore = widgets ?? createSettingsWidgetsStore();
-  const view = render(<GeneralTab store={store} widgets={widgetsStore} />);
+  const view = render(
+    <GeneralTab store={store} widgets={widgetsStore} controller={controllerStub} />,
+  );
   return { store, widgets: widgetsStore, view };
 }
 

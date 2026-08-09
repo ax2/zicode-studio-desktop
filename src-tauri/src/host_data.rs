@@ -1,4 +1,5 @@
 use crate::process_command::new_command;
+use chrono::{SecondsFormat, Utc};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader};
@@ -62,6 +63,23 @@ pub enum FileKind {
 pub struct DeleteSessionsResult {
     pub deleted: Vec<String>,
     pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBackupEntry {
+    pub session_id: String,
+    pub project_path: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBackup {
+    pub schema_version: u32,
+    pub exported_at: String,
+    pub workspace_id: String,
+    pub sessions: Vec<SessionBackupEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -537,6 +555,44 @@ impl HostDataPlane {
             }
         }
         Ok(result)
+    }
+
+    /// Export every readable session belonging to the workspace as a single
+    /// JSON backup (message contents included; credentials never live in
+    /// session files). Read-only — the store is untouched.
+    pub fn export_sessions(&self, workspace_id: &str) -> Result<SessionBackup, HostDataError> {
+        let current = self.workspace_root(workspace_id).ok();
+        let mut sessions = Vec::new();
+        for path in self.session_files()? {
+            let Ok(Some(summary)) = self.cached_session_summary(&path) else {
+                continue;
+            };
+            if current
+                .as_ref()
+                .is_some_and(|root| same_dir(root, Path::new(&summary.project_path)))
+            {
+                let content = std::fs::read_to_string(&path)
+                    .map_err(|error| HostDataError::Io(error.to_string()))?;
+                if !content.trim().is_empty() {
+                    sessions.push(SessionBackupEntry {
+                        session_id: summary.id,
+                        project_path: summary.project_path,
+                        content,
+                    });
+                }
+            }
+        }
+        sessions.sort_by(|left, right| {
+            left.project_path
+                .cmp(&right.project_path)
+                .then_with(|| left.session_id.cmp(&right.session_id))
+        });
+        Ok(SessionBackup {
+            schema_version: 1,
+            exported_at: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+            workspace_id: workspace_id.to_string(),
+            sessions,
+        })
     }
 
     /// Walk the session store and parse every `.jsonl` session file. When
@@ -1340,6 +1396,55 @@ mod tests {
         let all = data.list_all_sessions("workspace-a").unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].id, "session-a");
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn exports_workspace_sessions_as_a_readable_backup() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-session-export-{nonce}"));
+        let workspace = temp.join("workspace");
+        let other = temp.join("other");
+        let sessions_a = temp.join("sessions/project-a");
+        let sessions_b = temp.join("sessions/project-b");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        fs::create_dir_all(&sessions_a).unwrap();
+        fs::create_dir_all(&sessions_b).unwrap();
+        let write_session = |path: &std::path::Path, id: &str, cwd: &std::path::Path| {
+            let cwd_json = serde_json::to_string(&cwd.to_string_lossy()).unwrap();
+            fs::write(
+                path,
+                format!(
+                    "{{\"type\":\"session\",\"id\":\"{id}\",\"timestamp\":\"2026-01-01\",\"cwd\":{cwd_json}}}\n{{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"body {id}\"}}}}\n"
+                ),
+            )
+            .unwrap();
+        };
+        write_session(&sessions_a.join("session-a.jsonl"), "session-a", &workspace);
+        write_session(&sessions_b.join("session-b.jsonl"), "session-b", &other);
+        let data = HostDataPlane::new(HashMap::from([("workspace-a".into(), workspace.clone())]))
+            .unwrap()
+            .with_session_root(temp.join("sessions"));
+
+        let backup = data.export_sessions("workspace-a").unwrap();
+        assert_eq!(backup.workspace_id, "workspace-a");
+        assert!(!backup.exported_at.is_empty());
+        assert_eq!(backup.sessions.len(), 1);
+        assert_eq!(backup.sessions[0].session_id, "session-a");
+        assert_eq!(
+            backup.sessions[0].project_path,
+            workspace
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        );
+        assert!(backup.sessions[0].content.contains("body session-a"));
+        assert!(!backup.sessions[0].content.contains("session-b"));
         fs::remove_dir_all(temp).unwrap();
     }
 

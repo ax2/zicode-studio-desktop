@@ -294,6 +294,7 @@ impl HostServer {
             .route("/v2/bootstrap", get(bootstrap_target))
             .route("/v2/remote-config", get(remote_config))
             .route("/v2/sessions", get(list_all_sessions_http))
+            .route("/v2/sessions/export", get(export_sessions_http))
             .route("/v2/plugins", get(list_plugins))
             .route("/v2/plugins/enablement", post(set_plugin_enablement))
             .route("/v2/plugins/permission", post(set_plugin_permission))
@@ -2244,6 +2245,21 @@ async fn list_all_sessions_http(
         annotate_live_sessions(&mut sessions, statuses);
     }
     Ok(Json(json!({ "sessions": sessions })))
+}
+
+async fn export_sessions_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<SessionsQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let backup = state
+        .data
+        .export_sessions(&query.workspace_id)
+        .map_err(host_data_http_error)?;
+    Ok(Json(json!({
+        "schemaVersion": 1,
+        "workspaceId": query.workspace_id,
+        "backup": backup,
+    })))
 }
 
 async fn bootstrap_target(

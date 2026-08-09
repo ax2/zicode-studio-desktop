@@ -571,6 +571,8 @@ bun run test          # vitest（public/** + frontend/src/**）
    批量操作条 + 移动到笔记本列表，前端 756 测试全绿
 - [x] 笔记多选批量删除（第 309 轮）：批量操作条删除按钮（二次确认）
    + deleteSelectedNotes 进回收站，前端 758 测试全绿
+- [x] 会话备份导出（第 310 轮）：设置通用页新增数据区块导出按钮 +
+   /v2/sessions/export 只读接口，前端 759 测试全绿
 - [x] 回收站保留期（第 306 轮）：list_trash 惰性清理超 30 天条目
    （list_trash_with_retention 可注入天数），Rust 170 项全绿
 - [x] 设置密码框表单化（第 307 轮）：ApiKeyEditor/TURN 表单改 form

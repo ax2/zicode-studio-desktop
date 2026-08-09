@@ -100,6 +100,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     costDashboardStore,
     packageBrowseStore,
     widgetsStore,
+    getWorkspaceId: options.getWorkspaceId,
     wireVanilla() {},
     loadForTab(tab) {
       if (tab === "general") {
