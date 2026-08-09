@@ -24,6 +24,7 @@ const MAX_ATTACHMENT_BYTES: usize = 5 * 1024 * 1024;
 const MAX_EXPORT_ATTACHMENT_BYTES: usize = 50 * 1024 * 1024;
 const MAX_CHANGE_LOG_BYTES: u64 = 10 * 1024 * 1024;
 const RETAINED_CHANGE_RECORDS: usize = 10_000;
+const TRASH_RETENTION_DAYS: u64 = 30;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -858,6 +859,14 @@ impl NotesVault {
 
     /// List notes currently in the workspace trash, newest deletion first.
     pub fn list_trash(&self, notebook_id: Option<&str>) -> Result<Vec<TrashEntry>, NotesError> {
+        self.list_trash_with_retention(notebook_id, TRASH_RETENTION_DAYS)
+    }
+
+    fn list_trash_with_retention(
+        &self,
+        notebook_id: Option<&str>,
+        retention_days: u64,
+    ) -> Result<Vec<TrashEntry>, NotesError> {
         let notebooks = self.list_notebooks()?;
         let selected = notebook_id.map(validate_opaque_id).transpose()?;
         let mut entries = Vec::new();
@@ -883,6 +892,14 @@ impl NotesVault {
                     continue;
                 };
                 if !name.ends_with(".md") {
+                    continue;
+                }
+                let Some(note_id) = name.strip_suffix(".md").map(str::to_string) else {
+                    continue;
+                };
+                if modified_before_days(&entry.path(), retention_days)
+                    && self.purge_note(&notebook.id, &note_id).is_ok()
+                {
                     continue;
                 }
                 if let Ok(note) = read_note_file(&entry.path(), &notebook.id) {
@@ -2374,6 +2391,14 @@ fn modified_at_iso(path: &Path) -> String {
         .unwrap_or_else(now_iso)
 }
 
+fn modified_before_days(path: &Path, days: u64) -> bool {
+    fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|time| time.elapsed().ok())
+        .is_some_and(|age| age.as_secs() >= days.saturating_mul(24 * 60 * 60))
+}
+
 fn atomic_json_write(path: &Path, value: &impl Serialize) -> Result<(), NotesError> {
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|_| NotesError::new("serialization_failed", "Cannot encode Notes metadata"))?;
@@ -3044,6 +3069,35 @@ mod tests {
                 .code,
             "trash_empty"
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn trash_purges_entries_older_than_retention() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let notebook = vault.create_notebook("Research", None, None).unwrap();
+        let note = vault
+            .create_note(&notebook.id, "Expired", "Old body", vec![], None, None)
+            .unwrap();
+        vault
+            .delete_note(&notebook.id, &note.summary.id, &note.summary.version)
+            .unwrap();
+
+        // A zero-day retention purges everything on the next listing.
+        assert!(vault.list_trash_with_retention(None, 0).unwrap().is_empty());
+        assert!(vault.list_trash(None).unwrap().is_empty());
+        assert!(vault.restore_note(&notebook.id, &note.summary.id).is_err());
+
+        // A long retention keeps fresh entries.
+        let fresh = vault
+            .create_note(&notebook.id, "Fresh", "New body", vec![], None, None)
+            .unwrap();
+        vault
+            .delete_note(&notebook.id, &fresh.summary.id, &fresh.summary.version)
+            .unwrap();
+        assert_eq!(vault.list_trash_with_retention(None, 365).unwrap().len(), 1);
+        assert_eq!(vault.list_trash(None).unwrap().len(), 1);
         let _ = fs::remove_dir_all(root);
     }
 

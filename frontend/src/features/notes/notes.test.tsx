@@ -709,7 +709,7 @@ describe("notes React components", () => {
       async (
         _sceneId: string,
         _workspaceId: string,
-        payload: {
+        _payload: {
           notebookId: string;
           noteId: string;
           targetNotebookId: string;
@@ -751,7 +751,7 @@ describe("notes React components", () => {
       async (
         _sceneId: string,
         _workspaceId: string,
-        payload: {
+        _payload: {
           notebookId: string;
           noteId: string;
           targetNotebookId: string;

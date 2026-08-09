@@ -569,3 +569,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    Outline 粘性侧栏（桌面两栏/移动单列），前端 754 测试全绿
 - [x] 笔记多选批量移动（第 305 轮）：selectMode/selectedNoteIds +
    批量操作条 + 移动到笔记本列表，前端 756 测试全绿
+- [x] 回收站保留期（第 306 轮）：list_trash 惰性清理超 30 天条目
+   （list_trash_with_retention 可注入天数），Rust 170 项全绿

@@ -12,6 +12,12 @@ Open Notes, choose **New notebook**, and enter a name. Each notebook is an indep
 
 Choose **New note** to edit a title, tags, and Markdown content. Use **Preview** to inspect the rendered result and `Ctrl+S` to save. Search covers titles, tags, content, and source URLs. Saves verify the loaded file version so an external edit is not silently overwritten.
 
+Search hits are highlighted inside note titles, and Preview shows a heading outline (h1–h3) on the right; clicking an entry jumps to that heading — handy for long articles.
+
+## Organize notes
+
+The navigation area has a **Select** toggle: enter selection mode, tick multiple notes, then use **Move to…** to move them all into a target notebook at once. You can also move a single note with its ⇄ button or by dragging it onto another notebook.
+
 ## Two-way Chat bridge
 
 - The note action below an assistant answer captures the preceding question, full answer, session
@@ -45,6 +51,8 @@ The **Data management** section provides five operations:
 ## Trash
 
 Deleting a note is not immediate: the note moves into its notebook's trash, which shows the icon, title, source notebook, and deletion time. **Restore** returns the note and its attachments to the original notebook; **Delete permanently** requires a second confirmation and cannot be undone, as does **Empty trash**. Trash is isolated per workspace.
+
+Trash entries are retained for 30 days; entries older than that are permanently removed automatically the next time the trash is opened (use **Delete permanently** or **Empty trash** to clean up earlier). Exported backups include trash entries, so a backup taken right after deletion still restores everything.
 
 Shortcuts: `Ctrl+N` creates a new note, `Ctrl+Shift+T` opens the trash, and `Ctrl+S` saves the current note.
 

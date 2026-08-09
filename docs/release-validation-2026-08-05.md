@@ -409,6 +409,24 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     临时数据清理完毕，QVeris 5 条与测试笔记本完好；前端 756 项测试
     全绿。
 
+## 第三十次重建（2026-08-09，含第 306 轮回收站保留期 + 帮助同步）
+
+- 合入：回收站 30 天保留期惰性清理（list_trash_with_retention），帮助
+  中心中英文同步搜索高亮/目录大纲/多选批量移动/保留期；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,424,896 B，
+    SHA-256 `C2C3FEBEDFBDB5779A13DC8905B68339376D0503E38CB7C2F9A16B246573C459`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,866,294 B，SHA-256
+    `8482F21C62889DCA03666FE89C03E87C5944570E2FE56F24912BCF96CAD10EB4`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；生产版实测回收站
+    文件回拨 31 天 → 打开回收站自动清除；帮助文章含 30 天/目录大纲/
+    多选；临时数据清理完毕，QVeris 5 条与测试笔记本完好；Rust 170 项
+    （146+19+5）、前端 756 项测试全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`
