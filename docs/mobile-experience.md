@@ -4568,6 +4568,38 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百六十轮：修复 Tauri 环境 window.confirm 确认被绕过（2026-08-09）。
+
+1. 问题：实测发现桌面版 `window.confirm` 被 Tauri dialog 插件替换为
+   异步命令 `plugin:dialog|confirm`，但 capability 的 `dialog:default`
+   不包含该命令，Promise 直接 reject
+   （`Command plugin:dialog|confirm not allowed by ACL`）。应用内所有
+   `if (!confirm(...)) return;` 把 Promise 当 truthy，**破坏性操作
+   （删除场景/笔记本/产物、移除 API key/渠道、Astro 发布等）不经确认
+   直接执行**，且产生未捕获 Promise 异常；
+2. 根因深挖：dialog 插件 v2.7.1 只注册 `open`/`save`/`message` 三个
+   命令，其自带的 `window.confirm` shim 却调用不存在的
+   `plugin:dialog|confirm`（capability 补 `allow-confirm` 也无济于事，
+   它只是 message 的别名）——确认在此环境必然被 ACL 拒绝；
+3. 修复：
+   - `public/bootstrap-entry.js` 启动时把 `window.confirm` 改道到已注册
+     且被 `dialog:default` 允许的 `message` 命令（OkCancel 原生对话框，
+     结果映射为布尔）；浏览器客户端回退原生 confirm；
+   - 所有确认调用点改为 `await`：设置场景删除、配置（移除 API key/
+     模型渠道/插入示例）、笔记笔记本删除与 Astro 发布、产物删除；
+   - 插件视图宿主的 `canDeactivate` 与插件壳 `activate`/导航激活改为
+     异步并 await（含同目标并发去重，避免设置/帮助双路径重复停用）；
+   - 插件管理接线 `confirmUninstall`/`confirmPublisher`（此前未接线，
+     卸载/回滚/吊销按钮点击无反应），处理器改为 async await；
+4. 实测：安装版中 `window.confirm` 弹出原生"确定/取消"对话框（#32770），
+   点确定解析为 `true`、取消为 `false`，不再出现 ACL 拒绝与未捕获
+   Promise 异常；
+5. 测试：新增异步确认回归用例（confirm 返回 Promise false 阻止删除、
+   Promise true 放行）覆盖设置场景删除、笔记笔记本删除、产物删除，
+   及 confirm shim 路由用例；前端 768 项（134 文件）全绿、
+   typecheck/Biome/设计检查/权限检查
+   通过；随 release 第四十二次重建进入安装版。
+
 第三百五十九轮：会话备份导出 + 移动端多断点扫查（2026-08-09）。
 
 1. 会话备份导出（设置 → 数据 → 导出会话备份）：下载得到

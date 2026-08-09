@@ -22,7 +22,7 @@ export interface ArtifactAppOptions {
   gateway: ArtifactGatewayLike;
   getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
   notify?: (message: string) => void;
-  confirmDelete?: (message: string) => boolean;
+  confirmDelete?: (message: string) => boolean | Promise<boolean>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
 }
 
@@ -157,7 +157,8 @@ export function createArtifactStore(options: ArtifactAppOptions) {
 
     async deleteSelected() {
       const selected = get().selected;
-      if (!selected || !confirmDelete(`${t("Delete artifact")} “${selected.title}”?`)) return;
+      if (!selected || !(await confirmDelete(`${t("Delete artifact")} “${selected.title}”?`)))
+        return;
       set({ loading: true, error: null });
       try {
         await gateway.delete(sceneId(), workspaceId(), selected);

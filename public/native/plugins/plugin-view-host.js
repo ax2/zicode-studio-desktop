@@ -200,9 +200,9 @@ export function setupPluginViewHost({
     }
   }
 
-  function canDeactivate(pluginId) {
+  async function canDeactivate(pluginId) {
     if (!dirtyPlugins.has(pluginId)) return true;
-    const discard = confirmDiscard(t("Discard unsaved plugin changes?"));
+    const discard = await confirmDiscard(t("Discard unsaved plugin changes?"));
     if (discard) dirtyPlugins.delete(pluginId);
     return discard;
   }

@@ -22,7 +22,7 @@ export interface SettingsWidgetsOptions {
   invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
   onError?: (error: unknown) => void;
   randomId?: () => string;
-  confirmImpl?: (message: string) => boolean;
+  confirmImpl?: (message: string) => boolean | Promise<boolean>;
 }
 
 interface SceneEditorForm {
@@ -244,9 +244,9 @@ export function createSettingsWidgetsStore(options: SettingsWidgetsOptions = {})
       const profile = get().sceneProfiles.find((entry) => entry.id === get().sceneSelectedId);
       if (!invoke || !profile || profile.builtin !== false) return;
       if (
-        !confirmImpl(
+        !(await confirmImpl(
           `Delete custom scene "${profile.name}"? Its isolated data will be preserved.`,
-        )
+        ))
       ) {
         return;
       }

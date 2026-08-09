@@ -55,7 +55,7 @@ export interface ConfigStoreOptions {
   getTarget?: () => { sceneId?: string } | null;
   onModelConfigurationChanged?: () => void | Promise<void>;
   invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
-  confirmImpl?: (message: string) => boolean;
+  confirmImpl?: (message: string) => boolean | Promise<boolean>;
 }
 
 interface EditorMessage {
@@ -317,7 +317,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async removeApiKey(provider) {
-      const ok = confirmImpl(
+      const ok = await confirmImpl(
         `Remove stored API key for ${provider.displayName || provider.provider}?`,
       );
       if (!ok) return;
@@ -546,7 +546,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async removeChannel(channel) {
-      const ok = confirmImpl(
+      const ok = await confirmImpl(
         `Remove model channel "${channel.provider}" and its stored key?`,
       );
       if (!ok) return;
@@ -730,10 +730,10 @@ export function createConfigStore(options: ConfigStoreOptions) {
       }
     },
 
-    insertModelsExample() {
+    async insertModelsExample() {
       const current = getState().modelsEditor.content.trim();
       if (current && current !== "{}" && current !== '{\n  "providers": {}\n}') {
-        if (!confirmImpl("Replace current content with the Ollama example?")) return;
+        if (!(await confirmImpl("Replace current content with the Ollama example?"))) return;
       }
       set({
         modelsEditor: {

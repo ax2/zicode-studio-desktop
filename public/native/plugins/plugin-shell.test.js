@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe("setupPluginShell", () => {
-  it("renders application activities while preserving Chat as the default surface", () => {
+  it("renders application activities while preserving Chat as the default surface", async () => {
     const shell = setupPluginShell({ registry: registry() });
 
     expect(shell.getActivePluginId()).toBe("core.chat");
@@ -70,10 +70,10 @@ describe("setupPluginShell", () => {
     ).toBeNull();
   });
 
-  it("switches to an exclusive plugin main view and makes Chat inert", () => {
+  it("switches to an exclusive plugin main view and makes Chat inert", async () => {
     const shell = setupPluginShell({ registry: registry() });
 
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
 
     expect(shell.getActivePluginId()).toBe("com.zicode.notes");
     expect(
@@ -100,26 +100,27 @@ describe("setupPluginShell", () => {
     );
   });
 
-  it("returns to Chat and opens the file panel when Files is used from another app", () => {
+  it("returns to Chat and opens the file panel when Files is used from another app", async () => {
     const shell = setupPluginShell({ registry: registry() });
     const fileSidebar = document.getElementById("file-sidebar");
     const toggle = document.getElementById("file-sidebar-toggle");
     const openPanel = vi.spyOn(toggle, "click");
 
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
     expect(shell.getActivePluginId()).toBe("com.zicode.notes");
 
     document.querySelector('[data-plugin-id="core.files"]').click();
 
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
     expect(shell.getActivePluginId()).toBe("core.chat");
     expect(document.body.dataset.activePlugin).toBe("core.chat");
     expect(fileSidebar.classList.contains("plugin-shell-hidden")).toBe(false);
     expect(openPanel).toHaveBeenCalledOnce();
   });
 
-  it("renders string sidebar view items with readable labels", () => {
+  it("renders string sidebar view items with readable labels", async () => {
     const shell = setupPluginShell({ registry: registry() });
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
 
     const buttons = [
       ...document.querySelectorAll(".plugin-sidebar-surface .plugin-sidebar-items button"),
@@ -130,39 +131,42 @@ describe("setupPluginShell", () => {
     }
   });
 
-  it("shows background activity on Chat and clears it when Chat is reopened", () => {
+  it("shows background activity on Chat and clears it when Chat is reopened", async () => {
     const shell = setupPluginShell({ registry: registry() });
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
     shell.setActivityBadge("core.chat", { count: 2, tone: "warning" });
     expect(document.querySelector('[data-plugin-id="core.chat"] .plugin-activity-badge').textContent).toBe("2");
-    shell.activate("core.chat", { focus: false });
+    await shell.activate("core.chat", { focus: false });
     expect(document.querySelector('[data-plugin-id="core.chat"] .plugin-activity-badge')).toBeNull();
   });
 
-  it("requests the mobile function area when an application is selected", () => {
+  it("requests the mobile function area when an application is selected", async () => {
     const requested = vi.fn();
     document.addEventListener("zicode:function-area-request", requested, { once: true });
     setupPluginShell({ registry: registry() });
 
     document.querySelector('[data-plugin-id="com.zicode.notes"]').click();
 
+    await vi.waitFor(() => expect(requested).toHaveBeenCalled());
     expect(requested).toHaveBeenCalledOnce();
     expect(requested.mock.calls[0][0].detail).toEqual({ open: true });
   });
 
-  it("restores the previous application when browser Back reveals its history state", () => {
+  it("restores the previous application when browser Back reveals its history state", async () => {
     const shell = setupPluginShell({ registry: registry() });
     document.querySelector('[data-plugin-id="com.zicode.notes"]').click();
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.notes"));
     expect(shell.getActivePluginId()).toBe("com.zicode.notes");
     expect(history.state?.zicodePluginId).toBe("com.zicode.notes");
 
     window.dispatchEvent(
       new PopStateEvent("popstate", { state: { zicodePluginId: "core.chat" } }),
     );
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
     expect(shell.getActivePluginId()).toBe("core.chat");
   });
 
-  it("keeps primary mobile destinations visible and moves secondary activities into More", () => {
+  it("keeps primary mobile destinations visible and moves secondary activities into More", async () => {
     const shell = setupPluginShell({ registry: registry() });
     const historyBack = vi.spyOn(history, "back");
     const more = document.querySelector("[data-mobile-activity-more]");
@@ -194,9 +198,10 @@ describe("setupPluginShell", () => {
     expect(more.getAttribute("aria-expanded")).toBe("true");
     const tasks = menu.querySelector('[data-mobile-plugin-id="com.zicode.tasks"]');
     tasks.click();
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.tasks"));
     expect(shell.getActivePluginId()).toBe("com.zicode.tasks");
     expect(historyBack).not.toHaveBeenCalled();
-    expect(menu.hidden).toBe(true);
+    await vi.waitFor(() => expect(menu.hidden).toBe(true));
     expect(more.classList.contains("active")).toBe(true);
     expect(more.getAttribute("aria-current")).toBe("page");
     expect(more.getAttribute("aria-label")).toBe("More: Tasks");
@@ -217,12 +222,13 @@ describe("setupPluginShell", () => {
     ).toBe(false);
 
     document.querySelector('[data-plugin-id="core.chat"]').click();
+    await vi.waitFor(() => expect(more.hasAttribute("aria-current")).toBe(false));
     expect(more.hasAttribute("aria-current")).toBe(false);
     expect(more.getAttribute("aria-label")).toBe("More");
     historyBack.mockRestore();
   });
 
-  it("traps focus inside the mobile More panel and restores it on Escape", () => {
+  it("traps focus inside the mobile More panel and restores it on Escape", async () => {
     setupPluginShell({ registry: registry() });
     const more = document.querySelector("[data-mobile-activity-more]");
     const menu = document.querySelector("[data-mobile-activity-menu]");
@@ -244,7 +250,7 @@ describe("setupPluginShell", () => {
     expect(document.activeElement).toBe(more);
   });
 
-  it("closes the mobile More panel before browser Back leaves the current application", () => {
+  it("closes the mobile More panel before browser Back leaves the current application", async () => {
     setupPluginShell({ registry: registry() });
     const more = document.querySelector("[data-mobile-activity-more]");
     const menu = document.querySelector("[data-mobile-activity-menu]");
@@ -259,7 +265,7 @@ describe("setupPluginShell", () => {
     expect(more.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("closes More when leaving the mobile breakpoint", () => {
+  it("closes More when leaving the mobile breakpoint", async () => {
     let changeListener = null;
     const media = {
       matches: true,
@@ -284,7 +290,7 @@ describe("setupPluginShell", () => {
     expect(media.removeEventListener).toHaveBeenCalledWith("change", changeListener);
   });
 
-  it("uses instant navigation scrolling when reduced motion is requested", () => {
+  it("uses instant navigation scrolling when reduced motion is requested", async () => {
     const mobileMedia = {
       matches: true,
       addEventListener: vi.fn(),
@@ -299,7 +305,7 @@ describe("setupPluginShell", () => {
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
     const shell = setupPluginShell({ registry: registry() });
 
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
 
     expect(scrollIntoView).toHaveBeenCalledWith({
       behavior: "instant",
@@ -311,9 +317,9 @@ describe("setupPluginShell", () => {
     else delete HTMLElement.prototype.scrollIntoView;
   });
 
-  it("lets Plugin Manager disable a built-in and removes its activity", () => {
+  it("lets Plugin Manager disable a built-in and removes its activity", async () => {
     const shell = setupPluginShell({ registry: registry() });
-    shell.activate("core.pluginManager", { focus: false });
+    await shell.activate("core.pluginManager", { focus: false });
     const notesCard = [...document.querySelectorAll(".plugin-manager-card")].find((card) =>
       card.textContent.includes("com.zicode.notes"),
     );
@@ -325,7 +331,7 @@ describe("setupPluginShell", () => {
     expect(document.querySelector(".plugin-main-view").textContent).toContain("Plugin Manager");
   });
 
-  it("routes Finance commands into the Finance application and configuration", () => {
+  it("routes Finance commands into the Finance application and configuration", async () => {
     const openFinanceWorkbench = vi.fn();
     const openSettings = vi.fn();
     const shell = setupPluginShell({
@@ -339,6 +345,7 @@ describe("setupPluginShell", () => {
       .action();
 
     expect(openFinanceWorkbench).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.finance"));
     expect(shell.getActivePluginId()).toBe("com.zicode.finance");
 
     shell
@@ -348,7 +355,7 @@ describe("setupPluginShell", () => {
     expect(openSettings).toHaveBeenCalledWith("configuration");
   });
 
-  it("renders Finance through the shared function area and main view", () => {
+  it("renders Finance through the shared function area and main view", async () => {
     const financeApp = {
       renderNavigation: vi.fn((container) => {
         container.append(
@@ -365,7 +372,7 @@ describe("setupPluginShell", () => {
     };
     const shell = setupPluginShell({ registry: registry(), financeApp });
 
-    shell.activate("com.zicode.finance", { focus: false });
+    await shell.activate("com.zicode.finance", { focus: false });
 
     expect(shell.getActivePluginId()).toBe("com.zicode.finance");
     expect(document.querySelector(".plugin-sidebar-surface").textContent).toContain(
@@ -379,7 +386,7 @@ describe("setupPluginShell", () => {
     expect(financeApp.selectView).toHaveBeenCalledWith("overview");
   });
 
-  it("does not leak app-specific main view classes into other apps", () => {
+  it("does not leak app-specific main view classes into other apps", async () => {
     const financeApp = {
       renderNavigation: vi.fn(),
       renderContent: vi.fn((container) => {
@@ -393,12 +400,12 @@ describe("setupPluginShell", () => {
     };
     const shell = setupPluginShell({ registry: registry(), financeApp });
 
-    shell.activate("com.zicode.finance", { focus: false });
+    await shell.activate("com.zicode.finance", { focus: false });
     expect(
       document.querySelector(".plugin-main-view").classList.contains("finance-plugin-main"),
     ).toBe(true);
 
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
     expect(
       document.querySelector(".plugin-main-view").classList.contains("finance-plugin-main"),
     ).toBe(false);
@@ -407,7 +414,7 @@ describe("setupPluginShell", () => {
     );
   });
 
-  it("renders Artifacts through the shared regions and exports from its command", () => {
+  it("renders Artifacts through the shared regions and exports from its command", async () => {
     const artifactApp = {
       renderNavigation: vi.fn((container) => {
         container.append(
@@ -424,7 +431,7 @@ describe("setupPluginShell", () => {
     };
     const shell = setupPluginShell({ registry: registry(), artifactApp });
 
-    shell.activate("com.zicode.artifacts", { focus: false });
+    await shell.activate("com.zicode.artifacts", { focus: false });
     expect(document.querySelector(".plugin-sidebar-surface").textContent).toContain(
       "Recent reports",
     );
@@ -495,7 +502,7 @@ describe("setupPluginShell", () => {
       expect(document.querySelector('[data-plugin-id="com.example.view"]')).toBeTruthy(),
     );
 
-    shell.activate("com.example.view", { focus: false });
+    await shell.activate("com.example.view", { focus: false });
     expect(pluginViewHost.renderNavigation).toHaveBeenCalledWith(
       expect.any(Element),
       expect.objectContaining({ id: "com.example.view", origin: "developer" }),
@@ -505,7 +512,7 @@ describe("setupPluginShell", () => {
       expect.objectContaining({ id: "com.example.view", origin: "developer" }),
     );
 
-    shell.activate("core.chat", { focus: false });
+    await shell.activate("core.chat", { focus: false });
     expect(shell.getActivePluginId()).toBe("com.example.view");
     expect(pluginViewHost.canDeactivate).toHaveBeenCalledWith("com.example.view");
   });
@@ -561,25 +568,25 @@ describe("setupPluginShell", () => {
     expect(notify).toHaveBeenCalledWith("Worker completed");
   });
 
-  it("preserves the Plugin Manager filter when switching through Chat", () => {
+  it("preserves the Plugin Manager filter when switching through Chat", async () => {
     const shell = setupPluginShell({ registry: registry() });
-    shell.activate("core.pluginManager", { focus: false });
+    await shell.activate("core.pluginManager", { focus: false });
     document.querySelector('[data-plugin-filter="disabled"]').click();
-    shell.activate("core.chat", { focus: false });
-    shell.activate("core.pluginManager", { focus: false });
+    await shell.activate("core.chat", { focus: false });
+    await shell.activate("core.pluginManager", { focus: false });
 
     expect(
       document.querySelector('[data-plugin-filter="disabled"]').getAttribute("aria-selected"),
     ).toBe("true");
   });
 
-  it("keeps the Command Palette reachable outside Chat", () => {
+  it("keeps the Command Palette reachable outside Chat", async () => {
     const openCommandPalette = vi.fn();
     const shell = setupPluginShell({
       registry: registry(),
       openCommandPalette,
     });
-    shell.activate("com.zicode.notes", { focus: false });
+    await shell.activate("com.zicode.notes", { focus: false });
 
     document.querySelector('[data-plugin-id="core.commands"]').click();
 
@@ -587,7 +594,7 @@ describe("setupPluginShell", () => {
     expect(shell.getActivePluginId()).toBe("com.zicode.notes");
   });
 
-  it("moves file management access into navigation when the top bar is hidden", () => {
+  it("moves file management access into navigation when the top bar is hidden", async () => {
     const openFiles = vi.fn();
     document.getElementById("file-sidebar-toggle").addEventListener("click", openFiles);
     setupPluginShell({ registry: registry() });
@@ -597,7 +604,7 @@ describe("setupPluginShell", () => {
     expect(openFiles).toHaveBeenCalledOnce();
   });
 
-  it("renders Settings and Help as ordinary three-region applications", () => {
+  it("renders Settings and Help as ordinary three-region applications", async () => {
     let openSettings;
     let openHelp;
     const settingsApp = {
@@ -646,6 +653,7 @@ describe("setupPluginShell", () => {
     const shell = setupPluginShell({ registry: registry(), settingsApp, helpApp });
 
     document.querySelector('[data-plugin-id="core.settings"]').click();
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.settings"));
     expect(shell.getActivePluginId()).toBe("core.settings");
     expect(document.querySelector(".plugin-sidebar-surface").textContent).toContain("General");
     expect(document.querySelector(".plugin-main-view").textContent).toContain(
@@ -654,6 +662,7 @@ describe("setupPluginShell", () => {
 
     document.querySelector('[data-plugin-id="core.help"]').click();
     expect(settingsApp.deactivate).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.help"));
     expect(shell.getActivePluginId()).toBe("core.help");
     expect(document.querySelector(".plugin-sidebar-surface").textContent).toContain("Quick start");
     expect(document.querySelector(".plugin-main-view").textContent).toContain(

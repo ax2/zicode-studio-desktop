@@ -108,6 +108,20 @@ describe("artifacts React app", () => {
     store.getState().destroy();
   });
 
+  it("awaits an async confirmation before deleting an artifact", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const store = renderStore(gateway, { confirmDelete: async () => false });
+    await waitFor(() => expect(screen.getByText("Deterministic backtest")).toBeTruthy());
+    fireEvent.click(screen.getByText("Deterministic backtest"));
+    await waitFor(() => expect(document.querySelector(".artifacts-document")).toBeTruthy());
+
+    fireEvent.click(screen.getByText("Delete"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(gateway.delete).not.toHaveBeenCalled();
+    store.getState().destroy();
+  });
+
   it("opens an artifact by id through the deep-link handle", async () => {
     setLocale("en");
     const gateway = createGateway();

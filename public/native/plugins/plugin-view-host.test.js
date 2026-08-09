@@ -172,7 +172,7 @@ describe("PluginViewHost", () => {
     await vi.waitFor(() => expect(document.querySelector("iframe")).toBeTruthy());
     sendFrom(document.querySelector("iframe"), { type: "dirty", dirty: true });
 
-    expect(host.canDeactivate("com.example.view")).toBe(false);
+    await expect(host.canDeactivate("com.example.view")).resolves.toBe(false);
     expect(confirmDiscard).toHaveBeenCalledWith("Discard unsaved plugin changes?");
   });
 });

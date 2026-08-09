@@ -110,8 +110,8 @@ export interface NotesStoreOptions {
   getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
   getProject?: () => ProjectInfo | null;
   notify?: (message: string) => void;
-  confirmPublish?: (message: string) => boolean;
-  confirmDelete?: (message: string) => boolean;
+  confirmPublish?: (message: string) => boolean | Promise<boolean>;
+  confirmDelete?: (message: string) => boolean | Promise<boolean>;
   chooseFile?: (accept: string) => Promise<File | null>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   onUseInChat?: (note: Note, selection: string) => void;
@@ -545,7 +545,7 @@ export function createNotesStore(options: NotesStoreOptions) {
           : `${t("Delete notebook")} “${scope}”? ${t(
               "Child notebooks and notes will also be deleted.",
             )}`;
-      if (!confirmDelete(message)) return;
+      if (!(await confirmDelete(message))) return;
       set({ loading: true, error: null });
       try {
         await gateway.deleteNotebook(sceneId(), workspaceId(), notebookId);
@@ -988,9 +988,9 @@ export function createNotesStore(options: NotesStoreOptions) {
       );
       if (!notebook) return;
       if (
-        !confirmPublish(
+        !(await confirmPublish(
           t("Build this notebook as a local Astro site? Dependencies may be downloaded."),
-        )
+        ))
       ) {
         return;
       }

@@ -4,6 +4,32 @@ import { resolveRemoteAuth } from "./native/features/remote-auth.js";
 import { renderStartupFailure } from "./native/react/startup-failure.js";
 import { parseAppRoute } from "./native/utils/router.js";
 
+// Tauri's dialog plugin v2 replaces `window.confirm` with a shim that invokes
+// the non-existent "plugin:dialog|confirm" command, so every confirmation
+// rejects with an ACL error. The app's `if (!confirm(...))` guard then treats
+// the rejected promise as truthy and destructive actions run without any
+// confirmation. Route confirmations to the registered "message" command
+// (OkCancel buttons, already allowed by `dialog:default`) so the native
+// dialog actually gates the action.
+const nativeConfirm = window.confirm.bind(window);
+window.confirm = async (message) => {
+  try {
+    const invoke = window.__TAURI_INTERNALS__?.invoke;
+    if (typeof invoke === "function") {
+      const result = await invoke("plugin:dialog|message", {
+        message: String(message),
+        kind: "warning",
+        buttons: "OkCancel",
+      });
+      return result === "Ok" || result === "Yes";
+    }
+  } catch {
+    // Fall through to the original implementation (browser clients, or an
+    // unexpected runtime error).
+  }
+  return nativeConfirm(message);
+};
+
 function isSecureRemoteHost() {
   return (
     location.protocol === "https:" &&

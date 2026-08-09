@@ -625,6 +625,29 @@ describe("notes store", () => {
     expect(deleteNotebook).not.toHaveBeenCalled();
   });
 
+  it("awaits an async confirmation before deleting a notebook", async () => {
+    const deleteNotebook = vi.fn(async () => ({ deleted: true }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ deleteNotebook }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      confirmDelete: async () => false,
+    });
+    await store.getState().load();
+    await store.getState().deleteNotebook("book-1");
+    expect(deleteNotebook).not.toHaveBeenCalled();
+
+    const accepting = createNotesStore({
+      gateway: gatewayStub({ deleteNotebook }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      confirmDelete: async () => true,
+    });
+    await accepting.getState().load();
+    await accepting.getState().deleteNotebook("book-1");
+    expect(deleteNotebook).toHaveBeenCalledWith("programming", "ws-1", "book-1");
+  });
+
   it("saves the editor draft through the gateway", async () => {
     const save = vi.fn(async (_sceneId: string, _workspaceId: string, note: Note) => ({
       note: { ...note, id: "note-1" },

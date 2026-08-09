@@ -622,6 +622,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   1440×1004 撑满聊天列、图标 169px、快捷卡片 264×176、内容垂直居中；
   390×844 模拟仍为紧凑单列；前端 764 项全绿、设计 CSS 令牌检查通过。
 
+## 第四十二次重建（2026-08-09，含第 360 轮 confirm 确认修复）
+
+- 合入：`window.confirm` 改道到 dialog 插件已注册的 `message` 命令
+  （OkCancel 原生对话框，`dialog:default` 已允许）；全部确认调用点
+  await（场景/笔记本/产物删除、API key/渠道移除、Astro 发布、插件
+  视图丢弃、插件管理卸载/回滚/吊销）；插件壳导航异步化 + 同目标并发
+  去重；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,494,528 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `0FEB2F6FA0BE690861CA2AF25D53AE77D5A5B69B1988AC281214ABAE46937EFA`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `EB04F4918FB6BE7D6307CDCE6BE02A3E7DCD7700DB3B5E326CFA3482C5219882`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,889,098 B，SHA-256
+    `3223FC7B7F391A15F74B5B67016953D8D7FF0EA9C57B57C5CFED1F9DBFD97C93`；
+- 验证：
+  - `/S` 静默重装后安装目录与仓库 public 297 文件 0 缺失/0 哈希差异；
+  - 安装版实测：`window.confirm` 弹出原生"确定/取消"对话框（#32770），
+    确定解析 `true`、取消解析 `false`，无 ACL 拒绝与未捕获 Promise
+    异常；场景删除端到端：取消→场景保留、确定→场景删除；
+  - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
+  - 前端 768 项（134 文件）全绿、typecheck/Biome/设计检查/权限检查
+    通过。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

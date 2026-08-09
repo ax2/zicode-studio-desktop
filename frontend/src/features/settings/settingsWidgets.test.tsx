@@ -129,6 +129,46 @@ describe("settings widgets store", () => {
     );
     expect(store.getState().sceneEditorOpen).toBe(false);
   });
+
+  it("awaits an async confirmation before deleting a custom scene", async () => {
+    const deleteProfile = vi.fn(async (_command: string, _params: unknown) => ({}));
+    const makeInvoke = () =>
+      vi.fn(async (command: string, params: unknown) => {
+        if (command === "list_scene_profiles") {
+          return [
+            ...fallbackSceneProfiles,
+            { id: "research", name: "Research", builtin: false },
+          ];
+        }
+        if (command === "delete_scene_profile") {
+          deleteProfile(command, params);
+          return {};
+        }
+        return null;
+      });
+
+    const declining = createSettingsWidgetsStore({
+      invoke: makeInvoke(),
+      getTarget: () => ({ sceneId: "programming" }),
+      confirmImpl: async () => false,
+    });
+    await declining.getState().loadSceneProfiles();
+    declining.getState().setSceneSelected("research");
+    await declining.getState().deleteSceneProfile();
+    expect(deleteProfile).not.toHaveBeenCalled();
+
+    const accepting = createSettingsWidgetsStore({
+      invoke: makeInvoke(),
+      getTarget: () => ({ sceneId: "programming" }),
+      confirmImpl: async () => true,
+    });
+    await accepting.getState().loadSceneProfiles();
+    accepting.getState().setSceneSelected("research");
+    await accepting.getState().deleteSceneProfile();
+    expect(deleteProfile).toHaveBeenCalledWith("delete_scene_profile", {
+      sceneId: "research",
+    });
+  });
 });
 
 describe("settings widgets React render", () => {

@@ -86,8 +86,8 @@ export function PluginManagerViewApp({
   revokePublisher?: ((publisherKeyId: string) => Promise<unknown>) | null;
   initialFilter?: PluginManagerFilter;
   onFilterChange?(filter: PluginManagerFilter): void;
-  confirmUninstall?(message: string): boolean;
-  confirmPublisher?(message: string): boolean;
+  confirmUninstall?(message: string): boolean | Promise<boolean>;
+  confirmPublisher?(message: string): boolean | Promise<boolean>;
 }) {
   const [activeFilter, setActiveFilter] = useState<PluginManagerFilter>(initialFilter);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
@@ -176,13 +176,13 @@ export function PluginManagerViewApp({
               label={t("Uninstall")}
               variant="ui-button--danger"
               busy={Boolean(busy[`uninstall-${plugin.id}`])}
-              onClick={() => {
+              onClick={async () => {
                 if (
-                  !confirmUninstall?.(
+                  !(await confirmUninstall?.(
                     `${t("Uninstall")} ${t(plugin.name)}? ${t(
                       "Plugin data will be preserved for a future reinstall.",
                     )}`,
-                  )
+                  ))
                 ) {
                   return;
                 }
@@ -205,11 +205,11 @@ export function PluginManagerViewApp({
                   disabled={typeof rollbackSignedPlugin !== "function"}
                   busy={Boolean(busy[`rollback-${plugin.id}-${version}`])}
                   key={version}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
-                      !confirmPublisher?.(
+                      !(await confirmPublisher?.(
                         `${t("Rollback")} ${t(plugin.name)} → ${version}?`,
-                      )
+                      ))
                     ) {
                       return;
                     }
@@ -228,13 +228,13 @@ export function PluginManagerViewApp({
               variant="ui-button--danger"
               disabled={!plugin.publisherKeyId || typeof revokePublisher !== "function"}
               busy={Boolean(busy[`revoke-${plugin.id}`])}
-              onClick={() => {
+              onClick={async () => {
                 if (
-                  !confirmPublisher?.(
+                  !(await confirmPublisher?.(
                     `${t("Revoke publisher")} ${plugin.publisher}?\n${t(
                       "Key fingerprint",
                     )}: ${plugin.publisherKeyId}`,
-                  )
+                  ))
                 ) {
                   return;
                 }
@@ -335,11 +335,11 @@ export function PluginManagerViewApp({
                 : t("No permissions requested");
               if (
                 !preview.trusted &&
-                !confirmPublisher?.(
+                !(await confirmPublisher?.(
                   `${t("Trust publisher")} ${preview.publisher}?\n${t(
                     "Key fingerprint",
                   )}: ${preview.publisherKeyId}\n${t("Permissions")}: ${permissionSummary}`,
-                )
+                ))
               ) {
                 return;
               }

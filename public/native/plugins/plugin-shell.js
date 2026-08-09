@@ -212,7 +212,24 @@ export function setupPluginShell({
   mobileShellMedia?.addEventListener?.("change", handleMobileShellChange);
   window.addEventListener("resize", handleMobileShellChange);
 
-  function activate(pluginId, { focus = true, historyMode = "none" } = {}) {
+  let pendingActivationPluginId = null;
+
+  async function activate(pluginId, { focus = true, historyMode = "none" } = {}) {
+    // The settings/help system items route through both activateFromNavigation
+    // and the app's open handler, which may re-enter activate for the same
+    // target while the first activation is still awaiting its async guard.
+    // Deduplicate concurrent same-target activations so the second call does
+    // not run the switch logic twice (e.g. deactivating settings twice).
+    if (pendingActivationPluginId === pluginId) return;
+    pendingActivationPluginId = pluginId;
+    try {
+      await activateInner(pluginId, { focus, historyMode });
+    } finally {
+      pendingActivationPluginId = null;
+    }
+  }
+
+  async function activateInner(pluginId, { focus = true, historyMode = "none" } = {}) {
     const previousPluginId = activePluginId;
     if (!SHELL_VIEW_IDS.has(pluginId) && !registry.isEnabled(pluginId)) {
       pluginId = CHAT_PLUGIN_ID;
@@ -221,7 +238,10 @@ export function setupPluginShell({
       settingsApp?.deactivate?.();
     }
     const activeApplication = applicationViews.get(activePluginId);
-    if (pluginId !== activePluginId && activeApplication?.canDeactivate?.() === false) {
+    if (
+      pluginId !== activePluginId &&
+      (await activeApplication?.canDeactivate?.()) === false
+    ) {
       return;
     }
     if (pluginId !== activePluginId) activeApplication?.deactivate?.();
@@ -229,7 +249,7 @@ export function setupPluginShell({
     if (
       pluginId !== activePluginId &&
       previousPlugin?.origin === "developer" &&
-      pluginViewHost?.canDeactivate?.(activePluginId) === false
+      (await pluginViewHost?.canDeactivate?.(activePluginId)) === false
     ) {
       return;
     }
@@ -342,9 +362,9 @@ export function setupPluginShell({
     activityBarApi.commit({ activities: activitiesItems, systemItems, secondaryItems });
   }
 
-  function activateFromNavigation(pluginId) {
+  async function activateFromNavigation(pluginId) {
     closeMobileActivityMenu({ discardHistory: true });
-    activate(pluginId, { historyMode: "push" });
+    await activate(pluginId, { historyMode: "push" });
     if (activePluginId === pluginId) requestFunctionArea();
   }
 
@@ -467,6 +487,8 @@ export function setupPluginShell({
         installSignedPlugin,
         rollbackSignedPlugin,
         revokePublisher,
+        confirmUninstall: (message) => globalThis.confirm?.(message) ?? false,
+        confirmPublisher: (message) => globalThis.confirm?.(message) ?? false,
         initialFilter: managerFilter,
         onFilterChange: (filter) => {
           managerFilter = filter;

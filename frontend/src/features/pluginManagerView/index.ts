@@ -36,8 +36,8 @@ export interface PluginManagerViewOptions {
   revokePublisher?: ((publisherKeyId: string) => Promise<unknown>) | null;
   initialFilter?: PluginManagerFilter;
   onFilterChange?(filter: PluginManagerFilter): void;
-  confirmUninstall?(message: string): boolean;
-  confirmPublisher?(message: string): boolean;
+  confirmUninstall?(message: string): boolean | Promise<boolean>;
+  confirmPublisher?(message: string): boolean | Promise<boolean>;
 }
 
 export function renderPluginManagerView(options: PluginManagerViewOptions): void {

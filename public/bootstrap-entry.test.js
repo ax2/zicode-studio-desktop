@@ -7,6 +7,33 @@ afterEach(() => {
 });
 
 describe("bootstrap entry", () => {
+  it("routes window.confirm through the Tauri message command when available", async () => {
+    const invoke = vi.fn(async () => "Ok");
+    vi.stubGlobal("__TAURI_INTERNALS__", { invoke });
+    const initializeI18n = vi.fn();
+    vi.doMock("./native/features/mobile-start-route.js", () => ({
+      restoreMobileStartRoute: () => false,
+    }));
+    vi.doMock("./native/react/startup-failure.js", () => ({
+      renderStartupFailure: vi.fn(),
+    }));
+    vi.doMock("./i18n.js", () => ({ initializeI18n }));
+
+    await import("./bootstrap-entry.js");
+
+    expect(await window.confirm("Discard unsaved changes?")).toBe(true);
+    expect(invoke).toHaveBeenCalledWith(
+      "plugin:dialog|message",
+      expect.objectContaining({
+        message: "Discard unsaved changes?",
+        buttons: "OkCancel",
+      }),
+    );
+
+    invoke.mockResolvedValueOnce("Cancel");
+    expect(await window.confirm("Discard unsaved changes?")).toBe(false);
+  });
+
   it("renders the startup failure surface when the app bundle fails to load", async () => {
     const renderFailure = vi.fn();
     const initializeI18n = vi.fn();
