@@ -4568,6 +4568,20 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百零八轮：chat-inbox 平台表单化（密码框建议清零）+ release 第三十
+二次重建（2026-08-09）。
+
+1. 收尾第 307 轮记录的最后一项密码框建议：chat-settings-panel 自定义
+   元素（Agent Inbox/飞书/企业微信）的两个 `.chat-platform-form` 由 div
+   改为 `<form onSubmit>`，保存按钮改 type=submit（提交监听替代原点击
+   分支），密码字段全部纳入表单；
+2. 验证：前端 756 项全绿（chat-settings-panel 2 用例继续通过）；
+   typecheck/Biome/设计检查通过；release 第三十二次重建（EXE 41,424,896 B
+   / 安装包 346,833,911 B，哈希见
+   `docs/release-validation-2026-08-05.md`）静默重装后生产版实测设置页
+   全部密码框（API key/App Secret/Secret）均在表单内，Chromium 密码框
+   建议清零；/health 正常、无错误；
+
 第三百零七轮：设置密码字段纳入表单 + 生产可用状态审计 + release 第三十
 一次重建（2026-08-09）。
 

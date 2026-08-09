@@ -23,25 +23,25 @@ class ChatSettingsPanel extends HTMLElement {
         <div class="settings-section">
           <div class="settings-section-title">飞书</div>
           <p class="settings-help">使用飞书开放平台应用的 WebSocket 长连接，无需公网回调地址。</p>
-          <div class="chat-platform-form" data-service="feishu">
+          <form class="chat-platform-form" data-service="feishu">
             <input class="ui-input" data-field="appId" placeholder="App ID（cli_xxx）" autocomplete="off" />
             <input class="ui-input" data-field="appSecret" placeholder="App Secret" type="password" autocomplete="off" />
             <input class="ui-input" data-field="channelId" placeholder="会话 chat_id" autocomplete="off" />
             <input class="ui-input" data-field="allowedUserId" placeholder="允许的用户 open_id（可选）" autocomplete="off" />
-            <button class="ui-button ui-button--primary" data-action="save-platform" data-service="feishu">保存飞书配置</button>
-          </div>
+            <button type="submit" class="ui-button ui-button--primary" data-service="feishu">保存飞书配置</button>
+          </form>
         </div>
 
         <div class="settings-section">
           <div class="settings-section-title">企业微信</div>
           <p class="settings-help">使用企业微信智能机器人的官方长连接。单聊填写 userid，群聊填写 chatid。</p>
-          <div class="chat-platform-form" data-service="wecom">
+          <form class="chat-platform-form" data-service="wecom">
             <input class="ui-input" data-field="botId" placeholder="Bot ID" autocomplete="off" />
             <input class="ui-input" data-field="secret" placeholder="Secret" type="password" autocomplete="off" />
             <input class="ui-input" data-field="channelId" placeholder="userid 或 chatid" autocomplete="off" />
             <input class="ui-input" data-field="allowedUserId" placeholder="允许的用户 userid（可选）" autocomplete="off" />
-            <button class="ui-button ui-button--primary" data-action="save-platform" data-service="wecom">保存企业微信配置</button>
-          </div>
+            <button type="submit" class="ui-button ui-button--primary" data-service="wecom">保存企业微信配置</button>
+          </form>
         </div>
 
         <div class="settings-section">
@@ -67,13 +67,16 @@ class ChatSettingsPanel extends HTMLElement {
     this.addEventListener("click", (event) => {
       const button = event.target.closest("[data-action]");
       if (!button) return;
-      if (button.dataset.action === "save-platform") {
-        void this._savePlatform(button.dataset.service);
-      }
       if (button.dataset.action === "remove-platform") {
         void this._removePlatform(button.dataset.accountId);
       }
       if (button.dataset.action === "save-raw") void this._saveRaw();
+    });
+    this.addEventListener("submit", (event) => {
+      const form = event.target.closest(".chat-platform-form");
+      if (!form) return;
+      event.preventDefault();
+      void this._savePlatform(form.dataset.service);
     });
     this._handleConfigGatewayReady = () => void this._load();
     window.addEventListener("picot-config-gateway-ready", this._handleConfigGatewayReady);
