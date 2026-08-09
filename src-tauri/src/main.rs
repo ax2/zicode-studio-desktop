@@ -536,7 +536,7 @@ fn open_native_workspace_window(
     let builder = builder.decorations(true);
     let window = builder.build().map_err(|error| error.to_string())?;
     if let Some(state) = load_window_state() {
-        apply_window_state(&window, &state);
+        apply_window_state(&window, app, &state);
     }
     set_window_workspace(app, window.label(), &target.workspace_id);
     Ok(())
@@ -632,13 +632,66 @@ fn save_window_state(state: &WindowState) {
     let _ = fs::write(path, format_window_state(state));
 }
 
-fn apply_window_state(window: &WebviewWindow, state: &WindowState) {
+fn apply_window_state(window: &WebviewWindow, app: &AppHandle, state: &WindowState) {
     let _ = window.set_size(tauri::PhysicalSize::new(state.width, state.height));
     if let (Some(x), Some(y)) = (state.x, state.y) {
+        let work_areas = app
+            .available_monitors()
+            .unwrap_or_default()
+            .iter()
+            .map(|monitor| {
+                (
+                    monitor.position().x,
+                    monitor.position().y,
+                    monitor.size().width,
+                    monitor.size().height,
+                )
+            })
+            .collect::<Vec<_>>();
+        let (x, y) = visible_position(x, y, state.width, state.height, &work_areas)
+            .unwrap_or_else(|| centered_position(app, state.width, state.height));
         let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
     }
     if state.maximized {
         let _ = window.maximize();
+    }
+}
+
+const MIN_VISIBLE_WINDOW_EDGE: i32 = 48;
+
+fn visible_position(
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    work_areas: &[(i32, i32, u32, u32)],
+) -> Option<(i32, i32)> {
+    let right = x + width as i32;
+    let bottom = y + height as i32;
+    let visible = work_areas
+        .iter()
+        .any(|(area_x, area_y, area_width, area_height)| {
+            let area_right = area_x + *area_width as i32;
+            let area_bottom = area_y + *area_height as i32;
+            x < area_right - MIN_VISIBLE_WINDOW_EDGE
+                && right > area_x + MIN_VISIBLE_WINDOW_EDGE
+                && y < area_bottom - MIN_VISIBLE_WINDOW_EDGE
+                && bottom > area_y + MIN_VISIBLE_WINDOW_EDGE
+        });
+    visible.then_some((x, y))
+}
+
+fn centered_position(app: &AppHandle, width: u32, height: u32) -> (i32, i32) {
+    match app.primary_monitor().ok().flatten() {
+        Some(monitor) => {
+            let position = monitor.position();
+            let size = monitor.size();
+            (
+                position.x + (size.width.saturating_sub(width) / 2) as i32,
+                position.y + (size.height.saturating_sub(height) / 2) as i32,
+            )
+        }
+        None => (0, 0),
     }
 }
 
@@ -1074,7 +1127,7 @@ fn main() {
                     if let Some(state) = load_window_state() {
                         for window in app_handle.webview_windows().values() {
                             if window.label().starts_with("native-workspace-") {
-                                apply_window_state(window, &state);
+                                apply_window_state(window, app_handle, &state);
                             }
                         }
                     }
@@ -1093,7 +1146,7 @@ fn main() {
 mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
-        WindowState,
+        visible_position, WindowState,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -1155,6 +1208,26 @@ mod tests {
         .unwrap();
         assert_eq!((minimal.width, minimal.height), (800, 600));
         assert!(!minimal.maximized);
+    }
+
+    #[test]
+    fn visible_position_rejects_off_screen_saved_positions() {
+        let monitors = vec![(0, 0, 1920u32, 1080u32)];
+        assert_eq!(
+            visible_position(100, 80, 1600, 1000, &monitors),
+            Some((100, 80))
+        );
+        // Completely off to the left (right edge never reaches the screen).
+        assert_eq!(visible_position(-2000, 0, 1600, 1000, &monitors), None);
+        // Completely off to the right (left edge beyond the work area).
+        assert_eq!(visible_position(2000, 0, 800, 600, &monitors), None);
+        // A partial sliver on the right edge stays put (48px visible).
+        assert_eq!(
+            visible_position(1700, 0, 800, 600, &monitors),
+            Some((1700, 0)),
+        );
+        // Off below the work area.
+        assert_eq!(visible_position(100, 2000, 800, 600, &monitors), None);
     }
 
     #[test]
