@@ -2028,6 +2028,23 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest("#model-dropdown")) closeModelDropdown();
 });
 
+// WebView2 blocks target="_blank" navigations (there is no new-window
+// handler), so links rendered in markdown (messages, note sources, web
+// clips) and attachment links would do nothing on desktop. Route them
+// through the host's open_external command into the system browser.
+document.addEventListener("click", (event) => {
+  if (event.defaultPrevented) return;
+  const anchor = event.target?.closest("a[href]");
+  if (anchor?.target !== "_blank") return;
+  const href = anchor.getAttribute("href") || "";
+  if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+  event.preventDefault();
+  const url = /^https?:\/\//i.test(href) ? href : new URL(href, location.origin).href;
+  control.openExternal(url).catch(() => {
+    globalThis.open(url, "_blank", "noopener,noreferrer");
+  });
+});
+
 if (thinkingBtn) {
   thinkingBtn.addEventListener("click", async () => {
     const idx = THINKING_LEVELS.indexOf(currentThinkingLevel);

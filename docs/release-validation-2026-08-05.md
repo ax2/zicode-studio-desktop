@@ -671,6 +671,29 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
   - 前端 771 项（135 文件）全绿、typecheck/Biome 通过。
 
+## 第四十四次重建（2026-08-09，含第 362 轮外部链接打开修复）
+
+- 合入：`app.js` 全局 click 拦截，把 `target="_blank"` 的 http(s)/相对
+  链接统一经宿主 `open_external` 命令交给系统浏览器（WebView2 拦截
+  新窗口导航，此前 markdown/附件链接点击无响应）；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,495,040 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `6B2D803B792CC47CA2235E71692E2625D0B704FA91B6DB4E5AF1A6D35DA064FA`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `1EAEF8B3F8A146CF259B4785BF675ACBD5C1DE69EA0F4E5204A201AE83E59EA7`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,932,349 B，SHA-256
+    `AEC6225C28250994D79D6D5D264A54635F49A57202FA1EFFACA732B6EE5D6FCA`；
+- 验证：
+  - `/S` 静默重装后安装目录与仓库 public 299 文件 0 缺失/0 哈希差异；
+  - 安装版实测：真实点击 `target="_blank"` 外部链接后默认浏览器
+    （Edge）立即打开目标页，应用零控制台错误；confirm/剪贴板修复
+    仍生效；
+  - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
+  - 前端 771 项（135 文件）全绿、Biome 通过。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`
