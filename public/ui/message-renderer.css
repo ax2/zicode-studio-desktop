@@ -72,10 +72,12 @@
 /* Desktop welcome: the mobile page centers a small welcome card in a phone
    viewport, which leaves most of a large desktop window blank. On desktop,
    center the welcome in the space between the header and composer, scale the
-   icon/type up, and offer quick actions that route into the app areas. */
+   icon/type up, offer quick actions that route into the app areas, and let
+   the card claim the full chat column so the window width is used instead of
+   leaving symmetric gutters around a phone-sized card. */
 @media (min-width: 769px) {
   .welcome {
-    width: min(760px, 100%);
+    width: min(var(--chat-content-max-width), 100%);
     margin: auto 0;
     padding: var(--space-6) 0;
     align-self: center;
