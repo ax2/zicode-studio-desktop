@@ -18,7 +18,11 @@ export function mountPluginSurface(
   previousRoot: Root | null,
 ): Root {
   previousRoot?.unmount();
-  container.replaceChildren();
+  // The plugin shell prepends shell-owned chrome (project row, plugin title)
+  // before an application mounts its navigation/content. Clear only this
+  // app's own previous mount instead of the whole container, so that chrome
+  // survives activation and every application shows the project consistently.
+  container.querySelector(":scope > .plugin-app-mount")?.remove();
   const wrapper = document.createElement("div");
   wrapper.className = "plugin-app-mount";
   container.append(wrapper);

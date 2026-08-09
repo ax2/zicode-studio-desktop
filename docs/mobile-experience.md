@@ -4568,6 +4568,22 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百二十三轮：修复 React 应用侧栏丢失项目行/标题（2026-08-09）。
+
+1. 现象：任务/自动化/金融/产物等 React 应用的功能区只剩应用自身导航，
+   顶部没有项目行也没有应用标题；笔记（自绘导航、追加渲染）却两者都有，
+   应用间不一致，违反"所有应用应能展示项目"；
+2. 根因：`mountPluginSurface` 挂载 React 应用时对共享容器执行
+   `replaceChildren()`，把插件壳先插入的项目行（`.plugin-sidebar-project`）
+   与标题（`.plugin-sidebar-title`）一起清掉了；笔记不经过该函数所以保留；
+3. 实现：改为只移除本应用上一次的 `.plugin-app-mount` 挂载点（壳层在
+   renderSidebar/renderMain 开头仍统一清空容器），壳层内容得以保留；
+   新增 `reactMount.test.tsx` 固化"壳层 chrome 保留、仅替换应用挂载点"
+   契约；
+4. 验证：前端 762 项全绿（+1）；typecheck/Biome/设计检查通过；全部
+   react 包重编并同步安装目录；生产版 CDP 实测任务/自动化/金融/产物
+   侧栏均显示"📂 ax2 + 应用标题 + 应用导航"，与笔记一致；
+
 第三百二十二轮：笔记侧栏去重（移除重复项目头，2026-08-09）。
 
 1. 现象：笔记功能区同时渲染插件壳通用项目行（`.plugin-sidebar-project`）
