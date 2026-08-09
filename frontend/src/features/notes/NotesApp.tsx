@@ -58,6 +58,19 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const selectedNoteIds = store((state) => state.selectedNoteIds);
   const snapshot = store((state) => state.snapshot);
   const [batchOpen, setBatchOpen] = useState(false);
+  const [batchDeleteArmed, setBatchDeleteArmed] = useState(false);
+  const batchArmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armBatchDelete = () => {
+    if (!batchDeleteArmed) {
+      setBatchDeleteArmed(true);
+      if (batchArmTimer.current) clearTimeout(batchArmTimer.current);
+      batchArmTimer.current = setTimeout(() => setBatchDeleteArmed(false), 3000);
+      return;
+    }
+    if (batchArmTimer.current) clearTimeout(batchArmTimer.current);
+    setBatchDeleteArmed(false);
+    void store.getState().deleteSelectedNotes();
+  };
   return (
     <div className="notes-nav">
       {project ? (
@@ -138,6 +151,15 @@ export function NotesNav({ store }: { store: NotesStore }) {
               onClick={() => setBatchOpen(true)}
             >
               {t("Move to…")}
+            </button>
+            <button
+              type="button"
+              className={`ui-button ui-button--danger ui-button--sm notes-batch-delete${
+                batchDeleteArmed ? " notes-delete-armed" : ""
+              }`}
+              onClick={armBatchDelete}
+            >
+              {batchDeleteArmed ? t("Confirm delete selected") : t("Delete selected")}
             </button>
             <button
               type="button"

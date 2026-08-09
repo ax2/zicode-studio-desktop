@@ -799,6 +799,86 @@ describe("notes React components", () => {
     expect(store.getState().selectedNoteIds).toEqual([]);
   });
 
+  it("deletes every selected note into the trash", async () => {
+    const del = vi.fn(
+      async (
+        _sceneId: string,
+        _workspaceId: string,
+        _note: { id: string; notebookId: string; version?: number },
+      ) => ({}),
+    );
+    const listTrash = vi.fn(async () => ({ trash: [] }));
+    const store = createNotesStore({
+      gateway: gatewayStub({
+        delete: del,
+        listTrash,
+        list: vi.fn(async () => ({
+          snapshot: {
+            notebooks: SNAPSHOT.notebooks,
+            notes: [
+              SNAPSHOT.notes[0],
+              {
+                id: "note-2",
+                notebookId: "book-1",
+                title: "Second",
+                updatedAt: "2026-07-31T08:00:00Z",
+              },
+            ],
+            tags: SNAPSHOT.tags,
+          },
+        })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    await store.getState().load();
+    store.getState().toggleSelectMode();
+    store.getState().toggleNoteSelected("note-1");
+    store.getState().toggleNoteSelected("note-2");
+    await store.getState().deleteSelectedNotes();
+    expect(del).toHaveBeenCalledTimes(2);
+    expect(del.mock.calls[0][2]).toMatchObject({ id: "note-1" });
+    expect(del.mock.calls[1][2]).toMatchObject({ id: "note-2" });
+    expect(store.getState().selectMode).toBe(false);
+    expect(store.getState().selectedNoteIds).toEqual([]);
+    expect(listTrash).toHaveBeenCalled();
+  });
+
+  it("deletes selected notes to trash with confirmation", async () => {
+    const del = vi.fn(
+      async (
+        _sceneId: string,
+        _workspaceId: string,
+        _note: { id: string; notebookId: string; version?: number },
+      ) => ({}),
+    );
+    const store = storeWithGateway({ delete: del });
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() => expect(container.querySelector(".notes-list-item")).toBeTruthy());
+
+    (container.querySelector(".notes-select-mode") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-select-check")).toBeTruthy(),
+    );
+    (container.querySelector(".notes-list-item") as HTMLElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-batch-delete")).toBeTruthy(),
+    );
+    const deleteBtn = container.querySelector(".notes-batch-delete") as HTMLButtonElement;
+    expect(deleteBtn.textContent).toContain(t("Delete selected"));
+    deleteBtn.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-batch-delete")?.textContent).toContain(
+        t("Confirm delete selected"),
+      ),
+    );
+    (container.querySelector(".notes-batch-delete") as HTMLButtonElement).click();
+    await waitFor(() => expect(del).toHaveBeenCalled());
+    expect(del.mock.calls[0][2]).toMatchObject({ id: "note-1" });
+    expect(store.getState().selectMode).toBe(false);
+  });
+
   it("closes the move-to-notebook popover with Escape", async () => {
     const store = storeWithGateway();
     await store.getState().load();

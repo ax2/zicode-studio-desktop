@@ -197,6 +197,7 @@ interface NotesState {
   toggleNoteSelected(noteId: string): void;
   clearNoteSelection(): void;
   moveSelectedNotes(targetNotebookId: string): Promise<void>;
+  deleteSelectedNotes(): Promise<void>;
   setDragTarget(id: string | null): void;
   attachFile(): Promise<void>;
   importMarkdown(): Promise<void>;
@@ -809,6 +810,34 @@ export function createNotesStore(options: NotesStoreOptions) {
         });
         await get().load({ preserveSelection: false });
         notify(t("Notes moved"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async deleteSelectedNotes() {
+      const selected = [...get().selectedNoteIds];
+      const summaries = get().snapshot.notes.filter((candidate) =>
+        selected.includes(candidate.id),
+      );
+      if (summaries.length === 0) return;
+      await get().saveEditor();
+      set({ loading: true, error: null });
+      try {
+        for (const summary of summaries) {
+          await gateway.delete(sceneId(), workspaceId(), summary);
+        }
+        set({
+          selectedNoteIds: [],
+          selectMode: false,
+          selectedNote: null,
+          dirty: false,
+        });
+        await get().load({ preserveSelection: false });
+        void get().loadTrash();
+        notify(t("Notes moved to trash"));
       } catch (error) {
         set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
       } finally {

@@ -803,6 +803,8 @@ const zhCN = {
   "Note restored": "笔记已恢复",
   "Note permanently deleted": "笔记已永久删除",
   "Notes moved": "笔记已移动",
+  "Notes moved to trash": "笔记已移入回收站",
+  "Confirm delete selected": "确认删除所选",
   Select: "多选",
   Done: "完成",
   Selected: "已选",
