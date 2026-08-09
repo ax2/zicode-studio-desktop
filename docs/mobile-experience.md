@@ -4568,6 +4568,24 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百八十轮：发布就绪全量审计（第 2 次，2026-08-10）。
+
+1. 前端 vitest：781 项（135 文件）全绿（含 375–379 轮新增的流式正文、
+   健康检查走网关、max_tokens、model_not_found 自动隐藏等用例）；
+   typecheck / Biome（450 文件 0 错误 0 警告）/ design / Tauri 权限
+   （18 条命令）/ Windows 子进程策略全部通过；
+2. Rust：`cargo check --all-targets` 通过；`cargo test` 150 项通过
+   0 失败（另 2 项按约定忽略，含二进制/集成用例共 174 项口径）；
+   clippy `-D warnings` 通过；`cargo fmt --check` 无漂移；
+3. 安装产物：安装目录 public 与仓库 299 文件逐文件一致（0 缺失/
+   0 哈希差异）；扩展 bundle 与仓库 dist 一致；`/health` 200
+   （pi 0.83.0、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+4. 运行时：WebView 全新加载后遍历对话/笔记/设置/帮助/项目/任务/
+   自动化/金融/产物/管理插件十个应用面，控制台 0 错误 0 警告；应用
+   日志自启动以来 0 ERROR / 0 WARN / 0 panic；
+5. 数据基线：QVeris 5 篇 + 侧栏 8 会话 + 回收站 0，与既有基线一致；
+   本轮无代码改动，为审计轮。
+
 第三百七十九轮：健康检查自动隐藏网关不接受的目录别名（2026-08-10）。
 
 1. 上轮健康检查确认 25 个模型里 3 个是网关不接受的别名
