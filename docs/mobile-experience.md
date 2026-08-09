@@ -4568,6 +4568,17 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百四十八轮：release 第三十九次重建（位置 + 最大化记忆进入安装版，
+2026-08-09）。
+
+1. `bun run build` 重建：EXE 41,488,384 B / 安装包 346,869,955 B，
+   完整 SHA-256 见 `docs/release-validation-2026-08-05.md`；`/S` 静默
+   重装后安装目录与仓库 public 0 差异；
+2. 安装版实测：先关实例再预置 1600×1000 + 位置 + maximized → 启动后
+   视口 2048×1210、screenX=0（最大化恢复成功）；WM_CLOSE 写回含位置
+   与 maximized 的状态；测试状态已清理回默认；`/health` 200、中继
+   在线；
+
 第三百四十七轮：窗口状态扩展为位置 + 最大化记忆（2026-08-09）。
 
 1. 实现：`window-state.json` 扩展 `x/y/maximized` 字段——关闭时保存

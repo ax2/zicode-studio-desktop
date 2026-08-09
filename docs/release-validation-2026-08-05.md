@@ -557,6 +557,25 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     1600×960（=物理/1.25，恢复成功）→ WM_CLOSE 写回 → 删除状态文件后
     回到默认 1440×900；Rust 173 项（+1 窗口状态用例）、前端 764 项
     测试全绿；重载控制台零错误。
+
+## 第三十九次重建（2026-08-09，含第 347 轮窗口位置 + 最大化记忆）
+
+- 合入：`window-state.json` 扩展 `x/y/maximized`——关闭时保存
+  `outer_position` 与 `is_maximized`，启动（Ready）恢复尺寸/位置并按需
+  `maximize()`；非法尺寸忽略；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,488,384 B，
+    SHA-256 `DA519B28EBEF4C62E2A926F74388750778B1671DCF64B7B3C507FC00AD5C7795`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,869,955 B，SHA-256
+    `41B1B0559FA526D34C977371CCACEB41B87C8634F7AD293DFC1FAC82DC14A6A0`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致（0 缺失/0 哈希差异）；`/S` 静默
+    重装后从安装目录启动：`/health` 200（pi 0.83.0、协议 v2）、中继在线；
+  - 安装版实测位置/最大化：先关实例再预置 `{width:1600,height:1000,
+    x:100,y:80,maximized:true}` → 启动后 CDP 视口 2048×1210、screenX=0
+    （最大化恢复成功）；WM_CLOSE 写回含位置与 maximized 的状态；测试
+    状态已清理回默认；Rust 173 项、前端 764 项全绿。
     全绿。
 
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
