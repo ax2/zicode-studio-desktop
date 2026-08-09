@@ -956,6 +956,8 @@ const zhCN = {
   "Search results": "搜索结果",
   "Recent tasks": "最近任务",
   "Message matches": "消息匹配",
+  buy: "买入",
+  sell: "卖出",
   "Searching messages…": "正在搜索消息…",
   "No tasks or messages found": "未找到任务或消息",
   "No saved tasks": "暂无已保存任务",

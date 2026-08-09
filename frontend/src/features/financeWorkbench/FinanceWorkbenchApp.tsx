@@ -338,7 +338,7 @@ function LimitOrderResults({ response }: { response: unknown }) {
     <>
       {orders.map((order) => (
         <div className="finance-result-card" key={String(order.id ?? "order")}>
-          <strong>{`${order.side || ""} ${order.symbol || ""} × ${number(order.quantity)}`}</strong>
+          <strong>{`${t(String(order.side || ""))} ${order.symbol || ""} × ${number(order.quantity)}`}</strong>
           <span>
             {[order.status, order.limitPrice ? `@ ${number(order.limitPrice)}` : null]
               .filter(Boolean)

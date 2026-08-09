@@ -4568,6 +4568,16 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百三十九轮：金融订单方向本地化 + 模板串扫描收尾（2026-08-09）。
+
+1. 实现：金融工作台订单行 `buy/sell` 方向经 `t()` 显示为"买入/卖出"
+   （i18n 补 buy/sell 键）；
+2. 复核：任务中心状态/筛选标签（Running/Paused/Failed/Completed/
+   Cancelled/Needs input）键位已齐全（此前裸词匹配误报）；RpivTodo
+   无障碍标签已 `t(STATUS_LABELS[...])` 包裹，无需改动；
+3. 验证：前端 763 项全绿，typecheck/Biome 通过；finance-workbench 重编
+   并同步安装目录；
+
 第三百三十八轮：动态时间/匹配数/上下文提示本地化（2026-08-09）。
 
 1. 扫描源码模板串发现三处动态英文：会话相对时间（Just now / Xm ago /
