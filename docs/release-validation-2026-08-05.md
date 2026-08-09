@@ -427,6 +427,23 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     多选；临时数据清理完毕，QVeris 5 条与测试笔记本完好；Rust 170 项
     （146+19+5）、前端 756 项测试全绿。
 
+## 第三十一次重建（2026-08-09，含第 307 轮设置密码框表单化 + 状态审计）
+
+- 合入：设置页 ApiKeyEditor/TURN 表单化，新增 `docs/production-status.md`
+  生产可用状态审计；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,424,896 B，
+    SHA-256 `7556A44FD2EA0D426F407B525031AD5E1F90B53CF1505D6394733B58EF2AAA95`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,903,208 B，SHA-256
+    `7478E3504EC2A6C23DF13F0787466111E61978A8D0DE409D8815ADD046D2D789`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；生产版实测设置
+    密钥编辑器为 FORM、密码框在表单内；全应用走查无控制台错误/横向
+    溢出；前端 756 项测试全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

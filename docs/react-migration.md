@@ -571,3 +571,5 @@ bun run test          # vitest（public/** + frontend/src/**）
    批量操作条 + 移动到笔记本列表，前端 756 测试全绿
 - [x] 回收站保留期（第 306 轮）：list_trash 惰性清理超 30 天条目
    （list_trash_with_retention 可注入天数），Rust 170 项全绿
+- [x] 设置密码框表单化（第 307 轮）：ApiKeyEditor/TURN 表单改 form
+   onSubmit，Save 改 submit，消除 Chromium 密码框建议

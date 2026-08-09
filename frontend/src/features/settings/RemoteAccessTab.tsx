@@ -270,52 +270,59 @@ function RelaySection({ store }: { store: RemoteAccessStore }) {
             "STUN/TURN servers let the phone punch through NAT for direct P2P. The desktop auto-derives short-lived TURN credentials.",
           )}
         </p>
-        <label className="settings-field">
-          <span>{t("TURN server address")}</span>
-          <input
-            type="url"
-            spellCheck={false}
-            autoComplete="off"
-            value={turnUrlInput}
-            placeholder="turn:turn.remote.zicode.com:3478?transport=udp"
-            onChange={(event) => setTurnInputs(event.target.value, turnRealmInput, turnSecretInput)}
-          />
-        </label>
-        <label className="settings-field">
-          <span>{t("TURN realm")}</span>
-          <input
-            type="text"
-            spellCheck={false}
-            autoComplete="off"
-            value={turnRealmInput}
-            placeholder="turn.remote.zicode.com"
-            onChange={(event) => setTurnInputs(turnUrlInput, event.target.value, turnSecretInput)}
-          />
-        </label>
-        <label className="settings-field">
-          <span>{t("TURN secret")}</span>
-          <input
-            type="password"
-            spellCheck={false}
-            autoComplete="off"
-            value={turnSecretInput}
-            placeholder="••••••••••••"
-            onChange={(event) => setTurnInputs(turnUrlInput, turnRealmInput, event.target.value)}
-          />
-        </label>
-        <div className="remote-access-relay-save remote-access-relay-turn-save">
-          <button
-            type="button"
-            className="ui-button ui-button--secondary ui-button--sm"
-            disabled={updating}
-            onClick={() => void saveTurn()}
-          >
-            {t("Save")}
-          </button>
-          <span className="settings-help" role="status">
-            {turnSaveStatus}
-          </span>
-        </div>
+        <form
+          className="remote-access-turn-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveTurn();
+          }}
+        >
+          <label className="settings-field">
+            <span>{t("TURN server address")}</span>
+            <input
+              type="url"
+              spellCheck={false}
+              autoComplete="off"
+              value={turnUrlInput}
+              placeholder="turn:turn.remote.zicode.com:3478?transport=udp"
+              onChange={(event) => setTurnInputs(event.target.value, turnRealmInput, turnSecretInput)}
+            />
+          </label>
+          <label className="settings-field">
+            <span>{t("TURN realm")}</span>
+            <input
+              type="text"
+              spellCheck={false}
+              autoComplete="off"
+              value={turnRealmInput}
+              placeholder="turn.remote.zicode.com"
+              onChange={(event) => setTurnInputs(turnUrlInput, event.target.value, turnSecretInput)}
+            />
+          </label>
+          <label className="settings-field">
+            <span>{t("TURN secret")}</span>
+            <input
+              type="password"
+              spellCheck={false}
+              autoComplete="off"
+              value={turnSecretInput}
+              placeholder="••••••••••••"
+              onChange={(event) => setTurnInputs(turnUrlInput, turnRealmInput, event.target.value)}
+            />
+          </label>
+          <div className="remote-access-relay-save remote-access-relay-turn-save">
+            <button
+              type="submit"
+              className="ui-button ui-button--secondary ui-button--sm"
+              disabled={updating}
+            >
+              {t("Save")}
+            </button>
+            <span className="settings-help" role="status">
+              {turnSaveStatus}
+            </span>
+          </div>
+        </form>
         <div className="remote-access-relay-save remote-access-relay-config-save">
           <button
             type="button"

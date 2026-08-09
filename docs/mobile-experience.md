@@ -4568,6 +4568,26 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百零七轮：设置密码字段纳入表单 + 生产可用状态审计 + release 第三十
+一次重建（2026-08-09）。
+
+1. 全应用走查（桌面 + 移动）：对话模型下拉/命令面板/思考强度/自动压缩、
+   项目/任务/自动化/金融/产物/插件管理/设置/帮助全部正常渲染，无
+   控制台错误、无横向溢出；应用日志无 ERROR/WARN/panic；
+2. 修复 Chromium 密码框建议：设置页"API key"编辑器与"TURN secret"表单
+   区由 div 改为 `<form onSubmit>`（输入 Enter 自动保存、Save 按钮改
+   submit），生产版实测 `.api-key-editor` 已为 FORM、密码框在表单内；
+   chat-inbox 自定义元素内的密码字段仍为第三方 UI 的 verbose 级建议，
+   已记录不影响功能；
+3. 新增 `docs/production-status.md` 生产可用状态审计：质量门禁（前端
+   756 / Rust 170 / Biome 0 警告 / clippy/fmt/设计检查/typecheck/权限/
+   子进程）、安装产物（与 main 同步、逐文件一致、/health 200）、功能
+   面与数据面证据，以及剩余外部事项清单（真机跨 NAT、二维码扫码、
+   TalkBack、签名、自动更新发布、原生 App 形态决策）；
+4. 验证：release 第三十一次重建（EXE 41,424,896 B / 安装包 346,903,208 B，
+   哈希见 `docs/release-validation-2026-08-05.md`）静默重装后生产版
+   实测设置密钥编辑器为表单、密码框在表单内、/health 正常、无错误；
+
 第三百零六轮：回收站 30 天保留期自动清理 + 帮助中心同步 + release 第三
 十次重建（2026-08-09）。
 

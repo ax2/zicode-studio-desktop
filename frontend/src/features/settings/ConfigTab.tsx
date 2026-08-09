@@ -287,7 +287,13 @@ function ApiKeyEditor({ store, provider }: { store: ConfigStore; provider: Confi
   const close = store((state) => state.closeApiKeyEditor);
   const save = store((state) => state.saveApiKey);
   return (
-    <div className="api-key-editor">
+    <form
+      className="api-key-editor"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
       <div className="api-key-row-name">
         {provider.displayName || provider.provider} API key
       </div>
@@ -299,10 +305,7 @@ function ApiKeyEditor({ store, provider }: { store: ConfigStore; provider: Confi
         value={input}
         onChange={(event) => setInput(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            void save();
-          } else if (event.key === "Escape") {
+          if (event.key === "Escape") {
             event.preventDefault();
             close();
           }
@@ -324,15 +327,14 @@ function ApiKeyEditor({ store, provider }: { store: ConfigStore; provider: Confi
           {t("Cancel")}
         </button>
         <button
-          type="button"
+          type="submit"
           className="ui-button ui-button--primary"
           disabled={saving}
-          onClick={() => void save()}
         >
           {t("Save")}
         </button>
       </div>
-    </div>
+    </form>
   );
 }
 
