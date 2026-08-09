@@ -627,6 +627,11 @@ describe("desktop three-region layout contract", () => {
     expect(messageRendererCss).toMatch(
       /\.welcome-quick-action-icon\s*\{[\s\S]*?font-size:\s*var\(--font-size-2xl\)/,
     );
+    // Very wide desktop windows use a two-column workbench: brand/scene on
+    // the left, quick actions on the right, instead of a centered card.
+    expect(messageRendererCss).toMatch(
+      /@media \(min-width: 1024px\)[\s\S]*?\.welcome\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*7fr\)\s*minmax\(0,\s*5fr\)[\s\S]*?\.welcome-quick-actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    );
   });
 
   it("hides thinking blocks through the show-thinking switch dataset", () => {

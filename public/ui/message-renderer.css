@@ -74,7 +74,10 @@
    center the welcome in the space between the header and composer, scale the
    icon/type up, offer quick actions that route into the app areas, and let
    the card claim the full chat column so the window width is used instead of
-   leaving symmetric gutters around a phone-sized card. */
+   leaving symmetric gutters around a phone-sized card. Very wide windows
+   switch to a two-column layout: brand/scene on the left, quick actions on
+   the right, so the desktop surface reads as a workbench instead of a
+   centered mobile card. */
 @media (min-width: 769px) {
   .welcome {
     width: min(var(--chat-content-max-width), 100%);
@@ -138,6 +141,36 @@
   .welcome-quick-action-icon {
     font-size: var(--font-size-2xl);
     line-height: 1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .welcome {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-8);
+    text-align: left;
+    align-items: center;
+  }
+
+  .welcome-panel {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .welcome-quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 0;
+  }
+
+  .welcome-quick-action {
+    min-height: 76px;
+  }
+
+  .shortcuts-hint {
+    justify-content: flex-start;
+    gap: var(--space-5);
+    margin-top: 0;
   }
 }
 

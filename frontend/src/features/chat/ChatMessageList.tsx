@@ -163,70 +163,78 @@ const WelcomeItem = memo(function WelcomeItem({
   ];
   return (
     <div className="welcome">
-      <div className="welcome-icon">
-        <img src="icons/logo-dark.svg" alt="ZiCode Studio Desktop logo" className="tau-icon-welcome" />
-      </div>
-      <p>Welcome to ZiCode Studio Desktop</p>
-      <p className="hint">
-        Type a message below to start chatting with Pi, or select a session from the sidebar.
-      </p>
-      {workspacePath ? (
-        <p className="hint welcome-workspace">
-          Current workspace: <code>{workspacePath}</code>
+      <div className="welcome-hero">
+        <div className="welcome-icon">
+          <img
+            src="icons/logo-dark.svg"
+            alt="ZiCode Studio Desktop logo"
+            className="tau-icon-welcome"
+          />
+        </div>
+        <p>Welcome to ZiCode Studio Desktop</p>
+        <p className="hint">
+          Type a message below to start chatting with Pi, or select a session from the sidebar.
         </p>
-      ) : null}
-      <button
-        className="welcome-scene"
-        type="button"
-        data-scene={sceneId}
-        title={t("Open scene settings")}
-        onClick={onOpenSceneSettings}
-      >
-        <span className="welcome-scene-dot" aria-hidden="true"></span>
-        <span className="welcome-scene-copy">
-          <span className="welcome-scene-kicker">Current scene</span>
-          <strong data-scene-name>{sceneName}</strong>
-          <span data-scene-description>{sceneDescription}</span>
-        </span>
-      </button>
-      {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of app shortcuts kept as a plain div like the shortcuts-hint row */}
-      <div className="welcome-quick-actions" role="group" aria-label={t("Quick actions")}>
+        {workspacePath ? (
+          <p className="hint welcome-workspace">
+            Current workspace: <code>{workspacePath}</code>
+          </p>
+        ) : null}
         <button
+          className="welcome-scene"
           type="button"
-          className="welcome-quick-action"
-          data-quick-action="new-chat"
-          onClick={() => {
-            document.getElementById("message-input")?.focus();
-          }}
+          data-scene={sceneId}
+          title={t("Open scene settings")}
+          onClick={onOpenSceneSettings}
         >
-          <span className="welcome-quick-action-icon" aria-hidden="true">
-            ✨
+          <span className="welcome-scene-dot" aria-hidden="true"></span>
+          <span className="welcome-scene-copy">
+            <span className="welcome-scene-kicker">Current scene</span>
+            <strong data-scene-name>{sceneName}</strong>
+            <span data-scene-description>{sceneDescription}</span>
           </span>
-          <span>{t("Start a new conversation")}</span>
         </button>
-        {quickActions.map((action) => (
+      </div>
+      <div className="welcome-panel">
+        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of app shortcuts kept as a plain div like the shortcuts-hint row */}
+        <div className="welcome-quick-actions" role="group" aria-label={t("Quick actions")}>
           <button
-            key={action.pluginId}
             type="button"
             className="welcome-quick-action"
-            data-quick-action={action.pluginId}
-            onClick={() => openApp?.(action.pluginId)}
+            data-quick-action="new-chat"
+            onClick={() => {
+              document.getElementById("message-input")?.focus();
+            }}
           >
             <span className="welcome-quick-action-icon" aria-hidden="true">
-              {action.icon}
+              ✨
             </span>
-            <span>{action.label}</span>
+            <span>{t("Start a new conversation")}</span>
           </button>
-        ))}
-      </div>
-      {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
-      <div className="shortcuts-hint" role="group" aria-label="Keyboard shortcuts">
-        <span>
-          <kbd>/</kbd> Focus input
-        </span>
-        <span>
-          <kbd>Esc</kbd> Abort
-        </span>
+          {quickActions.map((action) => (
+            <button
+              key={action.pluginId}
+              type="button"
+              className="welcome-quick-action"
+              data-quick-action={action.pluginId}
+              onClick={() => openApp?.(action.pluginId)}
+            >
+              <span className="welcome-quick-action-icon" aria-hidden="true">
+                {action.icon}
+              </span>
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
+        <div className="shortcuts-hint" role="group" aria-label="Keyboard shortcuts">
+          <span>
+            <kbd>/</kbd> Focus input
+          </span>
+          <span>
+            <kbd>Esc</kbd> Abort
+          </span>
+        </div>
       </div>
     </div>
   );
