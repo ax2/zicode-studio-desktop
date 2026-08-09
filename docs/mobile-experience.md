@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百四十七轮：窗口状态扩展为位置 + 最大化记忆（2026-08-09）。
+
+1. 实现：`window-state.json` 扩展 `x/y/maximized` 字段——关闭时保存
+   `outer_position` 与 `is_maximized`，启动（Ready）时恢复尺寸、位置并
+   按需 `maximize()`；非法尺寸仍忽略；
+2. 验证（debug 实测）：预置 1600×1000 + 位置 + maximized → 启动后
+   视口 2048×1210、screenX=0（最大化恢复成功）；WM_CLOSE 写回
+   `{width:2560,height:1511,x:-9,y:-9,maximized:true}`；测试状态已清理、
+   release 实例已恢复；
+3. 门禁：Rust 173 项全绿（窗口状态用例更新为含位置/最大化断言），
+   clippy/fmt 全绿；此功能随下一轮 release 重建进入安装版；
+
 第三百四十六轮：release 第三十八次重建（窗口大小记忆进入安装版，
 2026-08-09）。
 

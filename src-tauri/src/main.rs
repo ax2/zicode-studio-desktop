@@ -535,8 +535,8 @@ fn open_native_workspace_window(
     // bar drag behavior.
     let builder = builder.decorations(true);
     let window = builder.build().map_err(|error| error.to_string())?;
-    if let Some((width, height)) = load_window_state() {
-        let _ = window.set_size(tauri::PhysicalSize::new(width, height));
+    if let Some(state) = load_window_state() {
+        apply_window_state(&window, &state);
     }
     set_window_workspace(app, window.label(), &target.workspace_id);
     Ok(())
@@ -568,34 +568,78 @@ const WINDOW_STATE_FILE: &str = "window-state.json";
 const MIN_WINDOW_WIDTH: u32 = 800;
 const MIN_WINDOW_HEIGHT: u32 = 600;
 
+#[derive(Default, Debug, PartialEq)]
+struct WindowState {
+    width: u32,
+    height: u32,
+    x: Option<i32>,
+    y: Option<i32>,
+    maximized: bool,
+}
+
 fn window_state_path() -> Result<PathBuf, String> {
     Ok(app_paths::data_root()?.join(WINDOW_STATE_FILE))
 }
 
-fn parse_window_state(content: &str) -> Option<(u32, u32)> {
+fn parse_window_state(content: &str) -> Option<WindowState> {
     let value: serde_json::Value = serde_json::from_str(content).ok()?;
     let width = value.get("width")?.as_u64()? as u32;
     let height = value.get("height")?.as_u64()? as u32;
-    (width >= MIN_WINDOW_WIDTH && height >= MIN_WINDOW_HEIGHT).then_some((width, height))
+    if width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT {
+        return None;
+    }
+    Some(WindowState {
+        width,
+        height,
+        x: value
+            .get("x")
+            .and_then(|entry| entry.as_i64())
+            .map(|entry| entry as i32),
+        y: value
+            .get("y")
+            .and_then(|entry| entry.as_i64())
+            .map(|entry| entry as i32),
+        maximized: value
+            .get("maximized")
+            .and_then(|entry| entry.as_bool())
+            .unwrap_or(false),
+    })
 }
 
-fn format_window_state(width: u32, height: u32) -> String {
-    serde_json::json!({ "width": width, "height": height }).to_string()
+fn format_window_state(state: &WindowState) -> String {
+    serde_json::json!({
+        "width": state.width,
+        "height": state.height,
+        "x": state.x,
+        "y": state.y,
+        "maximized": state.maximized,
+    })
+    .to_string()
 }
 
-fn load_window_state() -> Option<(u32, u32)> {
+fn load_window_state() -> Option<WindowState> {
     let path = window_state_path().ok()?;
     parse_window_state(&fs::read_to_string(path).ok()?)
 }
 
-fn save_window_state(width: u32, height: u32) {
+fn save_window_state(state: &WindowState) {
     let Ok(path) = window_state_path() else {
         return;
     };
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    let _ = fs::write(path, format_window_state(width, height));
+    let _ = fs::write(path, format_window_state(state));
+}
+
+fn apply_window_state(window: &WebviewWindow, state: &WindowState) {
+    let _ = window.set_size(tauri::PhysicalSize::new(state.width, state.height));
+    if let (Some(x), Some(y)) = (state.x, state.y) {
+        let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+    }
+    if state.maximized {
+        let _ = window.maximize();
+    }
 }
 
 fn canonical_if_exists(dir: PathBuf) -> Option<PathBuf> {
@@ -962,7 +1006,14 @@ fn main() {
                     if label.starts_with("native-workspace-") =>
                 {
                     if let Ok(size) = window.inner_size() {
-                        save_window_state(size.width, size.height);
+                        let state = WindowState {
+                            width: size.width,
+                            height: size.height,
+                            x: window.outer_position().ok().map(|position| position.x),
+                            y: window.outer_position().ok().map(|position| position.y),
+                            maximized: window.is_maximized().unwrap_or(false),
+                        };
+                        save_window_state(&state);
                     }
                 }
                 tauri::WindowEvent::Focused(true) if label.starts_with("native-workspace-") => {
@@ -1020,11 +1071,10 @@ fn main() {
                 // Re-apply the remembered size once all windows are ready so
                 // restore works deterministically on every launch.
                 tauri::RunEvent::Ready => {
-                    if let Some((width, height)) = load_window_state() {
+                    if let Some(state) = load_window_state() {
                         for window in app_handle.webview_windows().values() {
                             if window.label().starts_with("native-workspace-") {
-                                let _ =
-                                    window.set_size(tauri::PhysicalSize::new(width, height));
+                                apply_window_state(window, &state);
                             }
                         }
                     }
@@ -1043,6 +1093,7 @@ fn main() {
 mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
+        WindowState,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -1080,15 +1131,30 @@ mod tests {
 
     #[test]
     fn window_state_round_trips_and_rejects_undersized_sizes() {
-        let content = format_window_state(1600, 1000);
-        assert_eq!(parse_window_state(&content), Some((1600, 1000)));
+        let state = WindowState {
+            width: 1600,
+            height: 1000,
+            x: Some(120),
+            y: Some(80),
+            maximized: true,
+        };
+        let parsed = parse_window_state(&format_window_state(&state)).unwrap();
+        assert_eq!(parsed.width, 1600);
+        assert_eq!(parsed.height, 1000);
+        assert_eq!(parsed.x, Some(120));
+        assert_eq!(parsed.y, Some(80));
+        assert!(parsed.maximized);
         assert_eq!(parse_window_state("{}"), None);
         assert_eq!(parse_window_state("not json"), None);
         assert_eq!(parse_window_state(r#"{"width":400,"height":300}"#), None);
-        assert_eq!(
-            parse_window_state(&format_window_state(800, 600)),
-            Some((800, 600)),
-        );
+        let minimal = parse_window_state(&format_window_state(&WindowState {
+            width: 800,
+            height: 600,
+            ..WindowState::default()
+        }))
+        .unwrap();
+        assert_eq!((minimal.width, minimal.height), (800, 600));
+        assert!(!minimal.maximized);
     }
 
     #[test]
