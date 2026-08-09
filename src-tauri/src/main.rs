@@ -1014,10 +1014,27 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle: &tauri::AppHandle, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Some(manager) = app_handle.try_state::<NativePiManagerState>() {
-                    manager.stop_all();
+            match event {
+                // The builder's initial size is applied when the window is
+                // first shown, which can override an early set_size call.
+                // Re-apply the remembered size once all windows are ready so
+                // restore works deterministically on every launch.
+                tauri::RunEvent::Ready => {
+                    if let Some((width, height)) = load_window_state() {
+                        for window in app_handle.webview_windows().values() {
+                            if window.label().starts_with("native-workspace-") {
+                                let _ =
+                                    window.set_size(tauri::PhysicalSize::new(width, height));
+                            }
+                        }
+                    }
                 }
+                tauri::RunEvent::Exit => {
+                    if let Some(manager) = app_handle.try_state::<NativePiManagerState>() {
+                        manager.stop_all();
+                    }
+                }
+                _ => {}
             }
         });
 }

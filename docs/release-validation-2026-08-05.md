@@ -537,6 +537,26 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     网关 `/health` 200（pi 0.83.0、协议 v2、
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；生产版实测长笔记
     滚动后大纲高亮切换（章节 1 → 章节 2）、无错误；前端 761 项测试
+
+## 第三十八次重建（2026-08-09，含第 345–346 轮窗口大小记忆）
+
+- 合入：桌面窗口大小记忆——`<data_root>/window-state.json` 保存主窗口
+  物理尺寸，关闭时（CloseRequested）写入，启动时恢复（Ready 阶段再
+  应用一次，避免初始尺寸覆盖）；低于 800×600 的非法值忽略；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,486,848 B，
+    SHA-256 `4223910500D098F2A9BDD101E8B051EC4998512C3F343E6935A312D4B8ACA798`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,908,268 B，SHA-256
+    `7B8CEC5BC18E811262D75C52C0DA7098C2AC97751ED441E6EEA55CE4068F2E98`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致（0 缺失/0 哈希差异）；`/S` 静默
+    重装后从安装目录启动：网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）、中继在线；
+  - 安装版实测窗口状态：预置 2000×1200 → 启动后 CDP 视口
+    1600×960（=物理/1.25，恢复成功）→ WM_CLOSE 写回 → 删除状态文件后
+    回到默认 1440×900；Rust 173 项（+1 窗口状态用例）、前端 764 项
+    测试全绿；重载控制台零错误。
     全绿。
 
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
