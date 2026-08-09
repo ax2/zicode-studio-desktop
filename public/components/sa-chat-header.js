@@ -35,10 +35,10 @@ class SAChatHeader extends HTMLElement {
       </div>
       <div class="header-right">
         <button class="pill sa-service-pill" data-action="feishu" disabled aria-disabled="true" title="${t("Feishu is not configured")}">
-          <span class="sa-service-dot sa-dot-feishu"></span>飞书
+          <span class="sa-service-dot sa-dot-feishu"></span>${t("Feishu")}
         </button>
         <button class="pill sa-service-pill" data-action="wecom" disabled aria-disabled="true" title="${t("Wecom is not configured")}">
-          <span class="sa-service-dot sa-dot-wecom"></span>企业微信
+          <span class="sa-service-dot sa-dot-wecom"></span>${t("WeCom")}
         </button>
         <button class="icon-btn sa-runtime-toggle" data-action="runtime" title="${t("Task board")}" aria-label="${t("Toggle task board")}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

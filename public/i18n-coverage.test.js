@@ -37,4 +37,36 @@ describe("Chinese translation coverage", () => {
     }
     expect([...missing].sort()).toEqual([]);
   });
+
+  it("keeps UI source free of hardcoded Chinese outside the bilingual allowlist", () => {
+    // Files that legitimately contain Han characters: the zh-CN dictionary,
+    // bilingual pairs (offline/service-worker/themes), internal model-error
+    // matching regexes, help icon keywords, the Help center's isEn branches,
+    // code comments, and the Chinese model prompt templates in app.js.
+    // Anything else is a hardcoded Chinese UI string that breaks the English
+    // interface (e.g. the emoji categories or the Agent Inbox panel).
+    const allowed = new Set([
+      join(process.cwd(), "public", "i18n.js"),
+      join(process.cwd(), "public", "offline.js"),
+      join(process.cwd(), "public", "service-worker.js"),
+      join(process.cwd(), "public", "themes.js"),
+      join(process.cwd(), "public", "native", "features", "remote-auth.js"),
+      join(process.cwd(), "public", "native", "transport", "e2ee.js"),
+      join(process.cwd(), "public", "native", "app.js"),
+      join(process.cwd(), "frontend", "src", "features", "chat", "chatLogic.ts"),
+      join(process.cwd(), "frontend", "src", "features", "help", "logic.ts"),
+      join(process.cwd(), "frontend", "src", "features", "help", "HelpCenterApp.tsx"),
+    ]);
+    const offenders = [];
+    const roots = [
+      join(process.cwd(), "public"),
+      join(process.cwd(), "frontend", "src"),
+    ];
+    for (const path of roots.flatMap((root) => javascriptFiles(root))) {
+      if (allowed.has(path)) continue;
+      const source = readFileSync(path, "utf8");
+      if (/[\p{Script=Han}]/u.test(source)) offenders.push(path);
+    }
+    expect(offenders).toEqual([]);
+  });
 });

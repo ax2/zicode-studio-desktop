@@ -282,6 +282,7 @@ const zhCN = {
     "ZiCode Studio Desktop 配置服务尚未连接",
   "Loading packages...": "正在加载扩展包…",
   "Failed to load packages": "扩展包加载失败",
+  "External tasks · Feishu / WeCom": "外部任务 · 飞书 / 企业微信",
 "New Session": "新建会话",
 "New session": "新建会话",
 "New chat": "新建对话",
