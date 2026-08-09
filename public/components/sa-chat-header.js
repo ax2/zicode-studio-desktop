@@ -130,8 +130,8 @@ class SAChatHeader extends HTMLElement {
     button.setAttribute("aria-disabled", connected ? "false" : "true");
     button.classList.toggle("connected", connected);
     button.title = connected
-      ? `${capitalize(service)} settings`
-      : `${capitalize(service)} is not configured`;
+      ? t(`${capitalize(service)} settings`)
+      : t(`${capitalize(service)} is not configured`);
   }
 
   _toggleRuntime(btn) {

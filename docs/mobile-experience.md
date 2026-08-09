@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百二十七轮：服务状态/插件权限/Composer 文案本地化收尾（2026-08-09）。
+
+1. 复核：`_setServiceConnected` 运行时会用英文覆盖 SA 头部飞书/企业微信
+   的 title（首次静态模板已 t() 但被覆盖）——改为 t() 后实测"飞书尚未
+   配置"；补 Feishu settings/Wecom settings 键；
+2. 插件权限原因（storage.plugin/notifications.send/network.fetch 等 11 条，
+   来自 Rust 注册表）渲染端已 t()，只缺键位：补 11 条中文键后插件管理
+   权限 tooltip 全部中文化（实测 0 英文残留）；
+3. Composer 思考按钮 title/aria-label/文案改 t()（键位已存在）；
+4. 验证：前端 762 项全绿，typecheck/Biome/设计检查通过；i18n/组件已同步
+   安装目录，composer.js 重编；
+
 第三百二十六轮：工具提示与无障碍标签本地化（2026-08-09）。
 
 1. 属性扫描（title/aria-label/placeholder，DOM 观察器不翻译属性）发现

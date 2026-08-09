@@ -391,11 +391,11 @@ export function ComposerApp({
                 type="button"
                 className="thinking-tag off"
                 id="thinking-btn"
-                title="Thinking effort controls reasoning depth. Click to cycle."
-                aria-label="Thinking effort: off. Click to cycle reasoning depth."
+                title={t("Thinking effort controls reasoning depth. Click to cycle.")}
+                aria-label={t("Thinking effort: off. Click to cycle reasoning depth.")}
                 tabIndex={-1}
               >
-                Think off
+                {t("Think off")}
               </button>
               <button
                 type="button"
