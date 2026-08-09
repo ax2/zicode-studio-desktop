@@ -211,6 +211,62 @@ describe("settings React panel", () => {
     }
   });
 
+  it("imports a session backup from the general tab", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        imported: ["session-a"],
+        skipped: ["session-b"],
+        errors: [],
+      }),
+    } as Response);
+    try {
+      const store = createSettingsStore();
+      renderApp(store);
+      act(() => store.getState().openSettings());
+      const input = required<HTMLInputElement>("#import-sessions-input");
+      const file = new File(
+        [
+          JSON.stringify({
+            workspaceId: "workspace-a",
+            sessions: [
+              {
+                sessionId: "session-a",
+                projectPath: "/workspace",
+                content: '{"type":"session","id":"session-a"}',
+              },
+            ],
+          }),
+        ],
+        "backup.json",
+        { type: "application/json" },
+      );
+      fireEvent.change(input, { target: { files: [file] } });
+      const expected = t("Imported {imported}, skipped {skipped}")
+        .replace("{imported}", "1")
+        .replace("{skipped}", "1");
+      await waitFor(() =>
+        expect(
+          document.querySelector("#session-import-status")?.textContent,
+        ).toContain(expected),
+      );
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/v2/sessions/import",
+        expect.objectContaining({ method: "POST" }),
+      );
+      const importCall = fetchSpy.mock.calls.find(([url]) =>
+        String(url).includes("/v2/sessions/import"),
+      );
+      expect(importCall).toBeTruthy();
+      const body = JSON.parse(
+        String((importCall?.[1] as RequestInit).body),
+      );
+      expect(body.sessions[0].sessionId).toBe("session-a");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it("stays hidden when embedded so plugin-shell owns the layout", () => {
     const store = createSettingsStore();
     renderApp(store);

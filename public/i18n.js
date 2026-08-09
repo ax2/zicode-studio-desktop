@@ -825,6 +825,13 @@ const zhCN = {
   "Exporting session backup…": "正在导出会话备份…",
   "Session backup exported": "会话备份已导出",
   "Export failed": "导出失败",
+  "Import session backup": "导入会话备份",
+  "Restore conversations from a session backup file (existing sessions are kept).":
+    "从会话备份文件恢复对话（已存在的会话会被保留）。",
+  "Importing session backup…": "正在导入会话备份…",
+  "Imported {imported}, skipped {skipped}": "已导入 {imported} 项，跳过 {skipped} 项",
+  "Import failed": "导入失败",
+  Import: "导入",
   "Open workbench": "打开工作台",
   "Open existing Finance Workbench": "打开现有金融工作台",
   "Open configuration": "打开配置",

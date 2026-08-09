@@ -500,6 +500,11 @@ export function GeneralTab({
   const [sessionExportState, setSessionExportState] = useState<
     "idle" | "busy" | "done" | "error"
   >("idle");
+  const [sessionImportState, setSessionImportState] = useState<
+    "idle" | "busy" | "done" | "error"
+  >("idle");
+  const [sessionImportMessage, setSessionImportMessage] = useState("");
+  const sessionImportInputRef = useRef<HTMLInputElement | null>(null);
   const exportSessions = async () => {
     const workspaceId = controller.getWorkspaceId?.();
     if (!workspaceId) {
@@ -527,6 +532,58 @@ export function GeneralTab({
       setSessionExportState("done");
     } catch {
       setSessionExportState("error");
+    }
+  };
+  const importSessions = async (file: File) => {
+    const workspaceId = controller.getWorkspaceId?.();
+    if (!workspaceId) {
+      setSessionImportState("error");
+      return;
+    }
+    setSessionImportState("busy");
+    setSessionImportMessage("");
+    try {
+      const parsed = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file);
+      });
+      const payload = JSON.parse(parsed) as {
+        sessions?: Array<{ sessionId?: unknown; projectPath?: unknown; content?: unknown }>;
+      };
+      const sessions = Array.isArray(payload.sessions)
+        ? payload.sessions
+            .map((entry) => ({
+              sessionId: String(entry.sessionId ?? ""),
+              projectPath: String(entry.projectPath ?? ""),
+              content: String(entry.content ?? ""),
+            }))
+            .filter((entry) => entry.sessionId && entry.content)
+        : [];
+      if (sessions.length === 0) {
+        setSessionImportState("error");
+        return;
+      }
+      const response = await fetch("/v2/sessions/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId, sessions }),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      const result = (await response.json()) as {
+        imported?: string[];
+        skipped?: string[];
+        errors?: string[];
+      };
+      setSessionImportMessage(
+        t("Imported {imported}, skipped {skipped}")
+          .replace("{imported}", String(result.imported?.length ?? 0))
+          .replace("{skipped}", String(result.skipped?.length ?? 0)),
+      );
+      setSessionImportState("done");
+    } catch {
+      setSessionImportState("error");
     }
   };
   return (
@@ -661,6 +718,48 @@ export function GeneralTab({
             ? t("Session backup exported")
             : sessionExportState === "error"
               ? t("Export failed")
+              : ""}
+        </p>
+        <div className="settings-row">
+          <span className="settings-label settings-label-stack">
+            <span className="settings-label-main">{t("Import session backup")}</span>
+            <span className="settings-label-sub">
+              {t("Restore conversations from a session backup file (existing sessions are kept).")}
+            </span>
+          </span>
+          <input
+            ref={sessionImportInputRef}
+            id="import-sessions-input"
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void importSessions(file);
+            }}
+          />
+          <button
+            type="button"
+            id="import-sessions"
+            className="ui-button ui-button--secondary settings-value-btn"
+            disabled={sessionImportState === "busy"}
+            onClick={() => sessionImportInputRef.current?.click()}
+          >
+            {sessionImportState === "busy" ? t("Importing session backup…") : t("Import")}
+          </button>
+        </div>
+        <p
+          className="settings-help"
+          id="session-import-status"
+          role="status"
+          aria-live="polite"
+          data-tone={sessionImportState === "error" ? "error" : undefined}
+        >
+          {sessionImportState === "done"
+            ? sessionImportMessage
+            : sessionImportState === "error"
+              ? t("Import failed")
               : ""}
         </p>
       </div>

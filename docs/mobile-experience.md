@@ -4568,6 +4568,24 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百一十二轮：会话备份导入（备份/恢复闭环）+ release 第三十六次重建
+（2026-08-09）。
+
+1. 实现：`POST /v2/sessions/import` 只写回本工作区——逐条校验备份条目
+   （会话 id 与内容首行一致、cwd 必须属于当前工作区、单条 ≤10 MiB /
+   总 ≤50 MiB、已存在 id 跳过不覆盖），写入归档根（优先 `sessions`
+   目录、避开活动实例目录 `instances`）；返回 imported/skipped/errors；
+   设置 → 通用"数据"区块新增"导入会话备份"按钮（文件选择 → FileReader →
+   POST → 状态播报“已导入 N 项，跳过 M 项”）；
+2. 验证：Rust 172 项（148+19+5，新增导入测试：有效条目导入、冲突跳过、
+   跨项目跳过、id 不匹配跳过）；前端 760 项全绿（新增导入链路 UI
+   用例）；clippy/fmt/Biome/设计检查/typecheck 通过；release 第三十六次
+   重建（EXE 41,479,168 B / 安装包 346,910,956 B，哈希见
+   `docs/release-validation-2026-08-05.md`）静默重装后生产版实测：导出 →
+   构造新 id 会话 → 导入（imported 1）→ 会话列表 +1 → 写入
+   `sessions/restored/<ws>/` → 清理后会话数复原、QVeris 5 条、回收站
+   为空；
+
 第三百一十一轮：帮助中心会话备份说明 + release 第三十五次重建
 （2026-08-09）。
 

@@ -1,10 +1,13 @@
 use crate::process_command::new_command;
 use chrono::{SecondsFormat, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, RwLock};
+
+const MAX_SESSION_BACKUP_BYTES: usize = 10 * 1024 * 1024;
+const MAX_SESSION_BACKUP_TOTAL_BYTES: usize = 50 * 1024 * 1024;
 
 #[derive(Debug, Clone)]
 struct CachedSessionSummary {
@@ -65,7 +68,7 @@ pub struct DeleteSessionsResult {
     pub errors: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionBackupEntry {
     pub session_id: String,
@@ -80,6 +83,14 @@ pub struct SessionBackup {
     pub exported_at: String,
     pub workspace_id: String,
     pub sessions: Vec<SessionBackupEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionImportResult {
+    pub imported: Vec<String>,
+    pub skipped: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -595,6 +606,75 @@ impl HostDataPlane {
         })
     }
 
+    /// Restore sessions from a readable backup. Entries are only written for
+    /// sessions whose id parses from the content and whose working directory
+    /// is inside the current workspace; existing ids are skipped and nothing
+    /// is ever overwritten. Per-session and total size caps keep the store
+    /// bounded.
+    pub fn import_sessions(
+        &self,
+        workspace_id: &str,
+        entries: &[SessionBackupEntry],
+    ) -> Result<SessionImportResult, HostDataError> {
+        let mut result = SessionImportResult::default();
+        // Prefer an archive-style root (e.g. `sessions`) over live runtime
+        // instance dirs (`instances`) for restored files.
+        let Some(root) = self
+            .session_roots
+            .iter()
+            .find(|candidate| {
+                candidate.file_name().and_then(|name| name.to_str()) != Some("instances")
+            })
+            .or_else(|| self.session_roots.first())
+            .cloned()
+        else {
+            return Ok(result);
+        };
+        let workspace = self.workspace_root(workspace_id)?;
+        let workspace_canonical = workspace
+            .canonicalize()
+            .map_err(|error| HostDataError::Io(error.to_string()))?;
+        let mut total_bytes = 0usize;
+        for entry in entries {
+            let id = entry.session_id.trim();
+            if id.is_empty() || entry.content.trim().is_empty() {
+                result.errors.push(entry.session_id.clone());
+                continue;
+            }
+            if entry.content.len() > MAX_SESSION_BACKUP_BYTES {
+                result.errors.push(id.to_string());
+                continue;
+            }
+            total_bytes = total_bytes.saturating_add(entry.content.len());
+            if total_bytes > MAX_SESSION_BACKUP_TOTAL_BYTES {
+                result.errors.push(id.to_string());
+                continue;
+            }
+            let Ok(Some((parsed_id, parsed_cwd))) = session_line_identity(&entry.content) else {
+                result.skipped.push(id.to_string());
+                continue;
+            };
+            if parsed_id != id || !same_dir(&workspace_canonical, Path::new(&parsed_cwd)) {
+                result.skipped.push(id.to_string());
+                continue;
+            }
+            if self.resolve_session_path(workspace_id, id)?.is_some() {
+                result.skipped.push(id.to_string());
+                continue;
+            }
+            let directory = root.join("restored").join(workspace_id);
+            std::fs::create_dir_all(&directory)
+                .map_err(|error| HostDataError::Io(error.to_string()))?;
+            std::fs::write(
+                directory.join(format!("{id}.jsonl")),
+                entry.content.as_bytes(),
+            )
+            .map_err(|error| HostDataError::Io(error.to_string()))?;
+            result.imported.push(id.to_string());
+        }
+        Ok(result)
+    }
+
     /// Walk the session store and parse every `.jsonl` session file. When
     /// `workspace_filter` is `Some`, only sessions whose project directory
     /// matches are returned.
@@ -1074,6 +1154,35 @@ fn parse_session_id(path: &Path) -> Result<Option<String>, HostDataError> {
     Ok(None)
 }
 
+/// Read the session line identity (id + working directory) from backup
+/// content without touching the store.
+fn session_line_identity(content: &str) -> Result<Option<(String, String)>, HostDataError> {
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        if entry.get("type").and_then(serde_json::Value::as_str) == Some("session") {
+            return Ok(Some((
+                entry
+                    .get("id")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                entry
+                    .get("cwd")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+            )));
+        }
+    }
+    Ok(None)
+}
+
 fn metadata_modified_at_ms(metadata: &std::fs::Metadata) -> u128 {
     metadata
         .modified()
@@ -1212,7 +1321,7 @@ fn safe_join(root: &Path, relative_path: &str) -> Result<PathBuf, HostDataError>
 
 #[cfg(test)]
 mod tests {
-    use super::{FileKind, HostDataError, HostDataPlane};
+    use super::{FileKind, HostDataError, HostDataPlane, SessionBackupEntry};
     use serde_json::json;
     use std::collections::HashMap;
     use std::fs;
@@ -1445,6 +1554,81 @@ mod tests {
         );
         assert!(backup.sessions[0].content.contains("body session-a"));
         assert!(!backup.sessions[0].content.contains("session-b"));
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn imports_workspace_sessions_with_conflict_and_scope_guards() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-session-import-{nonce}"));
+        let workspace = temp.join("workspace");
+        let other = temp.join("other");
+        let sessions = temp.join("sessions");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::create_dir_all(&other).unwrap();
+        fs::create_dir_all(sessions.join("project-a")).unwrap();
+        fs::write(
+            sessions.join("project-a/existing.jsonl"),
+            format!(
+                "{{\"type\":\"session\",\"id\":\"existing\",\"timestamp\":\"2026-01-01\",\"cwd\":{}}}\n{{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"old\"}}}}\n",
+                serde_json::to_string(&workspace.to_string_lossy()).unwrap()
+            ),
+        )
+        .unwrap();
+        let data = HostDataPlane::new(HashMap::from([("workspace-a".into(), workspace.clone())]))
+            .unwrap()
+            .with_session_root(sessions.clone());
+        let workspace_json = serde_json::to_string(&workspace.to_string_lossy()).unwrap();
+        let other_json = serde_json::to_string(&other.to_string_lossy()).unwrap();
+        let entries = vec![
+            SessionBackupEntry {
+                session_id: "restored-new".into(),
+                project_path: workspace.to_string_lossy().to_string(),
+                content: format!(
+                    "{{\"type\":\"session\",\"id\":\"restored-new\",\"timestamp\":\"2026-01-01\",\"cwd\":{workspace_json}}}\n{{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"hi\"}}}}\n"
+                ),
+            },
+            SessionBackupEntry {
+                session_id: "existing".into(),
+                project_path: workspace.to_string_lossy().to_string(),
+                content: format!(
+                    "{{\"type\":\"session\",\"id\":\"existing\",\"timestamp\":\"2026-01-01\",\"cwd\":{workspace_json}}}\n"
+                ),
+            },
+            SessionBackupEntry {
+                session_id: "foreign".into(),
+                project_path: other.to_string_lossy().to_string(),
+                content: format!(
+                    "{{\"type\":\"session\",\"id\":\"foreign\",\"timestamp\":\"2026-01-01\",\"cwd\":{other_json}}}\n"
+                ),
+            },
+            SessionBackupEntry {
+                session_id: "mismatch".into(),
+                project_path: workspace.to_string_lossy().to_string(),
+                content: format!(
+                    "{{\"type\":\"session\",\"id\":\"different\",\"timestamp\":\"2026-01-01\",\"cwd\":{workspace_json}}}\n"
+                ),
+            },
+        ];
+
+        let result = data.import_sessions("workspace-a", &entries).unwrap();
+        assert_eq!(result.imported, vec!["restored-new".to_string()]);
+        assert_eq!(
+            result.skipped,
+            vec![
+                "existing".to_string(),
+                "foreign".to_string(),
+                "mismatch".to_string()
+            ]
+        );
+        assert!(result.errors.is_empty());
+        assert!(sessions
+            .join("restored/workspace-a/restored-new.jsonl")
+            .is_file());
+        assert!(!sessions.join("restored/workspace-a/foreign.jsonl").exists());
         fs::remove_dir_all(temp).unwrap();
     }
 

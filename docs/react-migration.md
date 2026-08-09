@@ -573,6 +573,8 @@ bun run test          # vitest（public/** + frontend/src/**）
    + deleteSelectedNotes 进回收站，前端 758 测试全绿
 - [x] 会话备份导出（第 310 轮）：设置通用页新增数据区块导出按钮 +
    /v2/sessions/export 只读接口，前端 759 测试全绿
+- [x] 会话备份导入（第 312 轮）：/v2/sessions/import 校验 + 冲突跳过 +
+   归档根写入 + 设置页导入按钮，前端 760 测试全绿
 - [x] 回收站保留期（第 306 轮）：list_trash 惰性清理超 30 天条目
    （list_trash_with_retention 可注入天数），Rust 170 项全绿
 - [x] 设置密码框表单化（第 307 轮）：ApiKeyEditor/TURN 表单改 form

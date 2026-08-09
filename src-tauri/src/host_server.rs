@@ -1,7 +1,7 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
 use crate::artifact_store::{ArtifactDraft, ArtifactError, ArtifactStore};
-use crate::host_data::{HostDataError, HostDataPlane};
+use crate::host_data::{HostDataError, HostDataPlane, SessionBackupEntry};
 use crate::host_router::{HostRouter, RoutedAction, PROTOCOL_VERSION};
 use crate::native_pi_manager::{NativeLaunchSpec, NativePiManager};
 use crate::notes_vault::{content_hash, now_iso, NoteSource, NotesError, NotesVault, VaultExport};
@@ -295,6 +295,7 @@ impl HostServer {
             .route("/v2/remote-config", get(remote_config))
             .route("/v2/sessions", get(list_all_sessions_http))
             .route("/v2/sessions/export", get(export_sessions_http))
+            .route("/v2/sessions/import", post(import_sessions_http))
             .route("/v2/plugins", get(list_plugins))
             .route("/v2/plugins/enablement", post(set_plugin_enablement))
             .route("/v2/plugins/permission", post(set_plugin_permission))
@@ -1049,6 +1050,14 @@ struct BootstrapQuery {
 #[serde(rename_all = "camelCase")]
 struct SessionsQuery {
     workspace_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportSessionsRequest {
+    workspace_id: String,
+    #[serde(default)]
+    sessions: Vec<SessionBackupEntry>,
 }
 
 #[derive(Deserialize)]
@@ -2259,6 +2268,21 @@ async fn export_sessions_http(
         "schemaVersion": 1,
         "workspaceId": query.workspace_id,
         "backup": backup,
+    })))
+}
+
+async fn import_sessions_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ImportSessionsRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let result = state
+        .data
+        .import_sessions(&request.workspace_id, &request.sessions)
+        .map_err(host_data_http_error)?;
+    Ok(Json(json!({
+        "imported": result.imported,
+        "skipped": result.skipped,
+        "errors": result.errors,
     })))
 }
 
