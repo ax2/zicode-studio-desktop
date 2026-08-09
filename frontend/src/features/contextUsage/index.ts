@@ -1,6 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createElement } from "react";
+import { t } from "../../shared/i18n";
 import { ContextVizApp, TokenUsagePill } from "./ContextUsageApp";
 import {
   formatTokens,
@@ -56,7 +57,9 @@ export function setupContextUsage({
     if (contextWindowSize > 0) {
       const percent = Math.round((used / contextWindowSize) * 100);
       text = `${percent}%`;
-      title = `Context: ${formatTokens(used)} / ${formatTokens(contextWindowSize)} tokens`;
+      title = t("Context: {used} / {total} tokens")
+        .replace("{used}", formatTokens(used))
+        .replace("{total}", formatTokens(contextWindowSize));
       if (percent >= 80) {
         tokenUsageEl.classList.add("critical");
       } else if (percent >= 60) {
@@ -64,7 +67,7 @@ export function setupContextUsage({
       }
     } else {
       text = formatTokens(used);
-      title = `Context: ${formatTokens(used)} tokens`;
+      title = t("Context: {used} tokens").replace("{used}", formatTokens(used));
     }
     flushSync(() => {
       pillRoot.render(createElement(TokenUsagePill, { text }));

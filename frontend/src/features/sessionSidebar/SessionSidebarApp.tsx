@@ -516,7 +516,7 @@ export function SessionSidebarApp({
       {visibleSearchResults ? (
         <div className="search-results-group" key="search-results">
           <div className="project-header search-results-header">
-            <span>🔍</span> <span>Message matches</span>{" "}
+            <span>🔍</span> <span>{t("Message matches")}</span>{" "}
             <span className="project-count">{visibleSearchResults.length}</span>
           </div>
           <div className="project-sessions">
@@ -559,7 +559,9 @@ export function SessionSidebarApp({
                   </div>
                   <div className="session-meta">
                     {time}
-                    {matchCount > 1 ? ` · ${matchCount} matches` : ""}
+                    {matchCount > 1
+                      ? ` · ${t("{count} matches").replace("{count}", String(matchCount))}`
+                      : ""}
                   </div>
                 </div>
               );

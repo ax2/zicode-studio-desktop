@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百三十八轮：动态时间/匹配数/上下文提示本地化（2026-08-09）。
+
+1. 扫描源码模板串发现三处动态英文：会话相对时间（Just now / Xm ago /
+   Xh ago / Yesterday）、侧栏搜索"· N matches"与"Message matches"
+   头、上下文 Token 提示（Context: N tokens）；
+2. 实现：`formatSessionTime` 改用 `t()` 模板（{count}m ago 等占位键）；
+   搜索结果计数与头部改 `t()`；上下文提示改 `{used}/{total}` 模板；
+   i18n 补 7 键（复用已有 Message matches）；
+3. 验证：生产实测 Token 提示"上下文：14.5k / 1.0M Token"；前端 763
+   项全绿（formatSessionTime 测试固定英文 locale）；typecheck/Biome
+   通过；session-sidebar/context-usage 重编并同步安装目录；
+
 第三百三十七轮：成本面板提示本地化 + 帮助导航/用量面板实测（2026-08-09）。
 
 1. 实现：成本面板底部动态句"You've used ~Nx more tokens than War and

@@ -203,14 +203,20 @@ export function formatSessionTime(isoTimestamp: string): string {
     const timestamp = Date.parse(isoTimestamp);
     if (!Number.isFinite(timestamp)) return "";
     const deltaMs = Date.now() - timestamp;
-    if (deltaMs < 60 * 1000) return "Just now";
+    if (deltaMs < 60 * 1000) return t("Just now");
     if (deltaMs < 60 * 60 * 1000) {
-      return `${Math.floor(deltaMs / (60 * 1000))}m ago`;
+      return t("{count}m ago").replace(
+        "{count}",
+        String(Math.floor(deltaMs / (60 * 1000))),
+      );
     }
     if (deltaMs < 24 * 60 * 60 * 1000) {
-      return `${Math.floor(deltaMs / (60 * 60 * 1000))}h ago`;
+      return t("{count}h ago").replace(
+        "{count}",
+        String(Math.floor(deltaMs / (60 * 60 * 1000))),
+      );
     }
-    if (deltaMs < 48 * 60 * 60 * 1000) return "Yesterday";
+    if (deltaMs < 48 * 60 * 60 * 1000) return t("Yesterday");
     return new Date(timestamp).toLocaleDateString();
   } catch {
     return "";
@@ -283,3 +289,4 @@ export function highlightParts(
   }
   return parts.length > 0 ? parts : [{ text, mark: false, key: "plain" }];
 }
+import { t } from "../../shared/i18n";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { t } from "../../i18n.js";
+import { setLocale, t } from "../../i18n.js";
 import { setSuperAgentEnabled } from "../../super-agent/settings.js";
 import { formatSessionTime, SessionSidebar } from "../react/session-sidebar.js";
 
@@ -43,6 +43,7 @@ function deferred() {
 
 describe("formatSessionTime", () => {
   it("renders relative labels instead of raw ISO strings", () => {
+    setLocale("en");
     const now = Date.now();
     expect(formatSessionTime(new Date(now - 30 * 1000).toISOString())).toBe("Just now");
     expect(formatSessionTime(new Date(now - 5 * 60 * 1000).toISOString())).toBe("5m ago");
