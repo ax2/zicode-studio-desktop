@@ -694,6 +694,30 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
   - 前端 771 项（135 文件）全绿、Biome 通过。
 
+## 第四十五次重建（2026-08-09，含第 363 轮分享按钮 + 文件管理器修复）
+
+- 合入：Tauri 桌面下隐藏 `navigator.share` 分享按钮（桌面 WebView 调用
+  必然抛 `NotAllowedError`）；文件浏览器"在文件管理器中打开"修复
+  `info?.info?.path` 路径层级（此前 root 恒空、`open_in_app("")` 失败）；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,495,040 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `E8DD2254F9770ADC089AD5576709D76557E13B8E47541447C9C07DF429855A92`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `69E6F8B71B98290BAC858B311AC74F105A768CAC55FEE0F07E44679D58394AB8`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,884,296 B，SHA-256
+    `50AD95E86174455DF5775C3E65CB311C29704F722B2FF78C80C89F0CFC02F3F7`；
+- 验证：
+  - `/S` 静默重装后安装目录与仓库 public 299 文件 0 缺失/0 哈希差异；
+  - 安装版实测：桌面消息区分享按钮不再渲染（0 个）；点击文件浏览器
+    "在文件管理器中打开"后 Windows 资源管理器打开工作区根目录
+    `C:\Users\ax2`；confirm/剪贴板/外部链接修复仍生效；全程零控制台
+    错误；
+  - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
+  - 前端 771 项（135 文件）全绿、Biome 通过。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

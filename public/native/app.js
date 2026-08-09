@@ -1385,7 +1385,7 @@ function setupFileBrowser() {
   document.getElementById("file-sidebar-finder")?.addEventListener("click", async () => {
     try {
       const info = await data.workspaceInfo(target.workspaceId);
-      const root = info?.path ?? "";
+      const root = info?.info?.path ?? "";
       const current = browser.currentPath ?? "";
       const absolutePath = current ? `${root}/${current}` : root;
       await control.openInApp(absolutePath);

@@ -543,7 +543,14 @@ function OrganizeNoteButton({ container }: { container: HTMLElement }) {
 }
 
 function ShareButton({ text }: { text: string }) {
-  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  // The desktop WebView exposes navigator.share but always rejects with
+  // NotAllowedError, so a visible share button there would do nothing.
+  // Hide it in Tauri; keep it on mobile browsers where share is real.
+  const inTauriDesktop = typeof globalThis !== "undefined" && Boolean(globalThis.__TAURI__);
+  const canShare =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    !inTauriDesktop;
   if (!canShare) return null;
   return (
     <button
