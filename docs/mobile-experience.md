@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百二十六轮：工具提示与无障碍标签本地化（2026-08-09）。
+
+1. 属性扫描（title/aria-label/placeholder，DOM 观察器不翻译属性）发现
+   共享头部/面板多处英文：SA 头部（显示手机二维码/飞书/企业微信/任务
+   面板/切换任务面板）、消息思考费用 tooltip、面板调整/关闭按钮；
+2. 实现：`sa-chat-header.js`、`resizable-panel.js`、`super-agent-runtime.js`
+   引入 `t()` 包裹属性文案；`ChatMessageList.tsx` 思考费用 title 改 `t()`；
+   i18n.js 补 8 键（含复用已有 Toggle sidebar/Close）；
+3. 验证：生产版 CDP 实测全部工具提示为中文（显示手机二维码、任务面板/
+   切换任务面板、关闭任务面板、调整面板宽度）；前端 762 项全绿，
+   typecheck/Biome/设计检查通过；文件已同步安装目录（chat.js 重编）；
+
 第三百二十五轮：Super Agent 与包浏览文案本地化补全（2026-08-09）。
 
 1. 全界面英文标签扫描发现三处漏翻：Super Agent 头部状态"Listening"、

@@ -436,7 +436,10 @@ function ThinkingBlock({
           Thinking
         </span>
         {cost != null && cost > 0 ? (
-          <span className="thinking-usage" title="Total cost for this response">
+          <span
+            className="thinking-usage"
+            title={t("Total cost for this response")}
+          >
             ${cost.toFixed(4)}
           </span>
         ) : null}

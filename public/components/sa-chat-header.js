@@ -8,19 +8,21 @@
  * Buttons call window.__saOpenSettings().
  */
 
+import { t } from "../i18n.js";
+
 class SAChatHeader extends HTMLElement {
   connectedCallback() {
     this.classList.add("header", "super-agent-chat-header");
     this.innerHTML = `
       <div class="header-left">
-        <button class="sidebar-toggle sa-sidebar-delegate" title="Toggle sidebar" aria-label="Toggle sidebar">
+        <button class="sidebar-toggle sa-sidebar-delegate" title="${t("Toggle sidebar")}" aria-label="${t("Toggle sidebar")}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="3" y1="6" x2="21" y2="6"/>
             <line x1="3" y1="12" x2="21" y2="12"/>
             <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>
-        <button class="icon-btn lan-qr-btn hidden" data-action="lan-qr" title="Show mobile QR code" aria-label="Show mobile QR code">
+        <button class="icon-btn lan-qr-btn hidden" data-action="lan-qr" title="${t("Show mobile QR code")}" aria-label="${t("Show mobile QR code")}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
             <line x1="12" y1="18" x2="12.01" y2="18"/>
@@ -32,13 +34,13 @@ class SAChatHeader extends HTMLElement {
         </div>
       </div>
       <div class="header-right">
-        <button class="pill sa-service-pill" data-action="feishu" disabled aria-disabled="true" title="飞书尚未配置">
+        <button class="pill sa-service-pill" data-action="feishu" disabled aria-disabled="true" title="${t("Feishu is not configured")}">
           <span class="sa-service-dot sa-dot-feishu"></span>飞书
         </button>
-        <button class="pill sa-service-pill" data-action="wecom" disabled aria-disabled="true" title="企业微信尚未配置">
+        <button class="pill sa-service-pill" data-action="wecom" disabled aria-disabled="true" title="${t("Wecom is not configured")}">
           <span class="sa-service-dot sa-dot-wecom"></span>企业微信
         </button>
-        <button class="icon-btn sa-runtime-toggle" data-action="runtime" title="Task board" aria-label="Toggle task board">
+        <button class="icon-btn sa-runtime-toggle" data-action="runtime" title="${t("Task board")}" aria-label="${t("Toggle task board")}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="16" rx="2"/>

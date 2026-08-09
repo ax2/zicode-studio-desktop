@@ -61,7 +61,7 @@ class SuperAgentRuntime extends HTMLElement {
     this.innerHTML = `
       <div class="runtime-header app-side-panel-header" id="runtime-header">
         <span class="runtime-title">Tasks</span>
-        <button class="icon-btn app-side-panel-close-btn" data-collapse-btn title="Close" aria-label="Close activity panel">
+        <button class="icon-btn app-side-panel-close-btn" data-collapse-btn title="${t("Close")}" aria-label="${t("Close activity panel")}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/>
