@@ -4568,6 +4568,21 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百二十轮：附件与网页采集数据链路实测（2026-08-09）。
+
+1. 附件：临时笔记经 `/v2/notes/attachments` 上传文本文件 → 返回
+   `[hello.txt](/attachments/<noteId>/<uuid>.txt)` markdown，按 UI 流程
+   追加并保存笔记（自动保存）；带错误 expectedVersion 保存返回
+   `version_conflict`（版本冲突防护生效），带正确版本保存成功；附件
+   GET 用 markdown 链接中的完整 id 返回 200，内容与 Content-Type
+   正确（text/plain）；
+2. 采集：`/v2/notes/capture` 抓取 https://example.com 成功创建笔记
+   （标题"采集测试"、正文含 Example Domain，非重复）；UI 侧笔记本行
+   采集按钮打开 680×306 表单（URL/自定义标题/标签/笔记本选择/
+   取消/采集），安全文案"不发送 Cookie 或身份验证请求头"；
+3. 数据：测试笔记本已按 id 删除，QVeris 5 条与测试笔记本完好、笔记1
+   （😀）未受影响；应用日志 160 行 0 ERROR/WARN/panic；
+
 第三百一十九轮：核心交互链路实测（笔记→对话 / Composer / 会话搜索，
 2026-08-09）。
 
