@@ -1,6 +1,6 @@
-# ZiCode Studio Desktop 生产可用状态（2026-08-09）
+# ZiCode Studio Desktop 生产可用状态（2026-08-10）
 
-> 本文件汇总截至第 373 轮的可验证状态，作为“生产可用”目标的持续审计
+> 本文件汇总截至第 374 轮的可验证状态，作为“生产可用”目标的持续审计
 > 基线。凡未标注“外部输入/人工”的项目均有本地证据（测试、CDP 实测、
 > 日志、安装产物）。
 
@@ -11,19 +11,19 @@
 | 前端 vitest | 778 项通过 | 135 个测试文件 |
 | Rust | 174 项通过（150+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
-| Biome lint | 447 文件 0 错误 0 警告 | bunx biome lint . |
+| Biome lint | 450 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
 | TypeScript typecheck | 通过 | tsc --noEmit |
-| Tauri 权限 / Windows 子进程策略 | 通过 | check-tauri-permissions / check-windows-subprocesses |
+| Tauri 权限 / Windows 子进程策略 | 18 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第四十六次重建（第 364 轮，Astro 发布作用域修复）EXE
-  41,495,040 B / 安装包 346,897,304 B；哈希与逐文件
+- 最近 release：第四十八次重建（第 371 轮，金融/产物空态垂直居中）EXE
+  41,500,672 B / 安装包 346,868,516 B；哈希与逐文件
   验证见
   `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第四十六次重建安装版，网关 `/health` 200
+- 当前运行实例：第四十八次重建安装版，网关 `/health` 200
   （pi 0.83.0、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
