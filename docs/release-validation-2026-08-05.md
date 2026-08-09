@@ -372,6 +372,28 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     deepseek-v4-flash 健康 2–3s，deepseek-chat 等 404 为目录无效 id、
     deepseek-v4-pro 返回加密正文），模型链路与健康展示均真实。
 
+## 第五十一次重建（2026-08-10，含第 376 轮健康探针预算修正）
+
+- 合入第 376 轮：健康探针 `max_tokens` 16→128，给思考型模型
+  （deepseek-v4-pro、gemini-2.5-pro、glm-5.2、kimi-k2.x/k3、
+  minimax-m2.7/m3 等）留出正文预算，消除"无正文"误报；单测断言
+  探针请求体 `"max_tokens":128`；前端 780 项（135 文件）全绿，
+  typecheck/Biome 通过；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,500,672 B，
+    SHA-256 `C4255C0C2F6647C7AB34343EE6C3E3FF3A8E79A755D2842C394F7CDB0D7B7448`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,897,924 B，SHA-256
+    `9B4829475398913935B7A62ACC7C59AD7DAD36DBD8E2AE471D676B7AC41ED623`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `2058EC22D26D3A549E9CC4E5B770DD60F404B762253E122F0E1E419C4892685F`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异），
+    扩展 bundle 与仓库 dist 一致；
+  - release 51 复验：健康检查 30s 内完成，"25 已启用 · 22 健康 ·
+    3 异常"——思考型模型全部转健康，剩余 3 个为网关不接受的目录
+    别名 id（404 model_not_found），健康展示真实。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

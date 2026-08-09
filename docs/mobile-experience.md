@@ -4568,6 +4568,26 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百七十六轮：健康检查探测预算修正（2026-08-10）。
+
+1. 上轮健康检查显示 25 个模型里 12 个异常，其中 8 个"无正文"是探测
+   参数误报：探针 `max_tokens=16`，思考型模型（deepseek-v4-pro、
+   gemini-2.5-pro、glm-5.2、kimi-k2.x/k3、minimax-m2.7/m3 等）把
+   预算全花在思考上、正文还没发出就截断 → 误判 unhealthy；实际这些
+   模型在正常对话预算下工作正常；
+2. 修复：健康探针 `max_tokens` 提到 128，给思考型模型留出正文预算；
+   单测断言探针请求体带 `"max_tokens":128`；
+3. 验证（release 50 上热更新 bundle 后复测）：健康检查 30s 内完成，
+   从"13 健康 · 12 异常"变为"25 已启用 · 22 健康 · 3 异常"——
+   deepseek-v4-pro/gemini/glm/kimi/minimax 全部转健康；剩余 3 个异常
+   为目录里网关确实不接受的别名 id（deepseek-chat、
+   deepseek/deepseek-chat、openrouter/deepseek-chat，均 404
+   model_not_found），真实反映"该 id 不可用"；前端 780 项全绿。
+4. 发布：release 第五十一次重建，`/S` 静默重装后安装目录 public 与
+   仓库 299 文件 0 缺失/0 哈希差异、扩展 bundle 与仓库 dist 一致；
+   release 51 复验健康检查"22 健康 · 3 异常"；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百七十五轮：修复对话回答丢失 + 模型健康检查误报（2026-08-10）。
 
 1. 排查过程（模型"0 健康 25 异常"）：先验证凭据链路——QVeris API key

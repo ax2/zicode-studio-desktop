@@ -149,6 +149,7 @@ describe("picot config auth operations", () => {
       "http://127.0.0.1:57620/v2/model-gateway/chat/completions",
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer sk-health-test" }),
+        body: expect.stringContaining('"max_tokens":128'),
       }),
     );
   });

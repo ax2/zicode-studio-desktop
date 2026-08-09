@@ -306,7 +306,9 @@ async function runModelHealthCheck(
           body: JSON.stringify({
             model: modelId,
             stream: false,
-            max_tokens: 16,
+            // Reasoning models spend their first tokens on thinking; leave
+            // enough budget for the probe answer to be emitted.
+            max_tokens: 128,
             messages: [{ role: "user", content: "Reply exactly: OK" }],
           }),
           signal: controller.signal,
