@@ -117,11 +117,11 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
         <div className="settings-extension-list pkg-browse-list" id="pkg-browse-list">
           {status === "loading" ? (
             <div className="settings-api-keys-loading pkg-browse-full-row">
-              Loading packages...
+              {t("Loading packages...")}
             </div>
           ) : status === "error" ? (
             <div className="settings-api-keys-empty pkg-browse-full-row">
-              {error || "Failed to load packages"}{" "}
+              {error || t("Failed to load packages")}{" "}
               <button
                 type="button"
                 className="settings-value-btn"

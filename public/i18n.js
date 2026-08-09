@@ -280,6 +280,8 @@ const zhCN = {
   "No messaging platform configured yet.": "尚未配置消息平台。",
   "ZiCode Studio Desktop configuration service is not connected yet":
     "ZiCode Studio Desktop 配置服务尚未连接",
+  "Loading packages...": "正在加载扩展包…",
+  "Failed to load packages": "扩展包加载失败",
 "New Session": "新建会话",
 "New session": "新建会话",
 "New chat": "新建对话",
