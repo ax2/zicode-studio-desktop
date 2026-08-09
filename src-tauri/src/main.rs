@@ -535,6 +535,9 @@ fn open_native_workspace_window(
     // bar drag behavior.
     let builder = builder.decorations(true);
     let window = builder.build().map_err(|error| error.to_string())?;
+    if let Some((width, height)) = load_window_state() {
+        let _ = window.set_size(tauri::PhysicalSize::new(width, height));
+    }
     set_window_workspace(app, window.label(), &target.workspace_id);
     Ok(())
 }
@@ -559,6 +562,40 @@ fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), Str
     let builder = builder.decorations(true);
     builder.build().map_err(|error| error.to_string())?;
     Ok(())
+}
+
+const WINDOW_STATE_FILE: &str = "window-state.json";
+const MIN_WINDOW_WIDTH: u32 = 800;
+const MIN_WINDOW_HEIGHT: u32 = 600;
+
+fn window_state_path() -> Result<PathBuf, String> {
+    Ok(app_paths::data_root()?.join(WINDOW_STATE_FILE))
+}
+
+fn parse_window_state(content: &str) -> Option<(u32, u32)> {
+    let value: serde_json::Value = serde_json::from_str(content).ok()?;
+    let width = value.get("width")?.as_u64()? as u32;
+    let height = value.get("height")?.as_u64()? as u32;
+    (width >= MIN_WINDOW_WIDTH && height >= MIN_WINDOW_HEIGHT).then_some((width, height))
+}
+
+fn format_window_state(width: u32, height: u32) -> String {
+    serde_json::json!({ "width": width, "height": height }).to_string()
+}
+
+fn load_window_state() -> Option<(u32, u32)> {
+    let path = window_state_path().ok()?;
+    parse_window_state(&fs::read_to_string(path).ok()?)
+}
+
+fn save_window_state(width: u32, height: u32) {
+    let Ok(path) = window_state_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(path, format_window_state(width, height));
 }
 
 fn canonical_if_exists(dir: PathBuf) -> Option<PathBuf> {
@@ -921,6 +958,13 @@ fn main() {
         .on_window_event(|window, event| {
             let label = window.label();
             match event {
+                tauri::WindowEvent::CloseRequested { .. }
+                    if label.starts_with("native-workspace-") =>
+                {
+                    if let Ok(size) = window.inner_size() {
+                        save_window_state(size.width, size.height);
+                    }
+                }
                 tauri::WindowEvent::Focused(true) if label.starts_with("native-workspace-") => {
                     let workspace_id = window
                         .try_state::<WindowWorkspaceState>()
@@ -980,7 +1024,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_static_dir, select_fresh_startup_target};
+    use super::{
+        format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1013,6 +1059,19 @@ mod tests {
 
         assert_eq!(resolved, fs::canonicalize(&workspace_public).unwrap());
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn window_state_round_trips_and_rejects_undersized_sizes() {
+        let content = format_window_state(1600, 1000);
+        assert_eq!(parse_window_state(&content), Some((1600, 1000)));
+        assert_eq!(parse_window_state("{}"), None);
+        assert_eq!(parse_window_state("not json"), None);
+        assert_eq!(parse_window_state(r#"{"width":400,"height":300}"#), None);
+        assert_eq!(
+            parse_window_state(&format_window_state(800, 600)),
+            Some((800, 600)),
+        );
     }
 
     #[test]
