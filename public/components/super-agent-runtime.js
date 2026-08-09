@@ -19,6 +19,7 @@ import {
   normalizeSuperAgentTasks,
 } from "../super-agent/task-state.js";
 import { setupResizablePanel } from "../ui/resizable-panel.js";
+import { t } from "../i18n.js";
 
 class SuperAgentRuntime extends HTMLElement {
   connectedCallback() {
@@ -339,8 +340,8 @@ class SuperAgentRuntime extends HTMLElement {
     ).length;
     const done = this._tasks.filter((task) => task.status === "done").length;
     container.innerHTML = `
-      <button class="sa-btn sa-btn-approve" data-action="approve-all" type="button" ${ready === 0 ? "disabled" : ""}>Approve ${ready}</button>
-      <button class="sa-btn sa-btn-dismiss" data-action="clear-done" type="button" ${done === 0 ? "disabled" : ""}>Clear Done</button>
+      <button class="sa-btn sa-btn-approve" data-action="approve-all" type="button" ${ready === 0 ? "disabled" : ""}>${t("Approve")} ${ready}</button>
+      <button class="sa-btn sa-btn-dismiss" data-action="clear-done" type="button" ${done === 0 ? "disabled" : ""}>${t("Clear Done")}</button>
     `;
     container.querySelector('[data-action="approve-all"]')?.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -368,10 +369,10 @@ class SuperAgentRuntime extends HTMLElement {
         body += this._projectPickerHtml(task);
         body += `
           <div class="runtime-approve-row">
-            <button class="sa-btn" data-action="prompt-task" data-task-id="${task.id}">Prompt AI</button>
+            <button class="sa-btn" data-action="prompt-task" data-task-id="${task.id}">${t("Prompt AI")}</button>
             ${
               hasTargetProject
-                ? `<button class="sa-btn sa-btn-approve" data-action="approve" data-task-id="${task.id}">Approve</button>`
+                ? `<button class="sa-btn sa-btn-approve" data-action="approve" data-task-id="${task.id}">${t("Approve")}</button>`
                 : ""
             }
             <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">✕</button>
@@ -402,13 +403,13 @@ class SuperAgentRuntime extends HTMLElement {
           body += `
             <div class="runtime-approve-row">
               <button class="sa-btn sa-btn-approve" data-action="retry" data-task-id="${task.id}">Retry</button>
-              <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">Dismiss</button>
+              <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">${t("Dismiss")}</button>
             </div>`;
         } else {
           body += `
             <div class="runtime-task-missing-target">Choose a project when creating this task.</div>
             <div class="runtime-approve-row">
-              <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">Dismiss</button>
+              <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">${t("Dismiss")}</button>
             </div>`;
         }
       }
@@ -435,15 +436,15 @@ class SuperAgentRuntime extends HTMLElement {
     const actions = [];
     if (task.status === "pending") {
       actions.push(
-        `<button class="sa-btn" data-action="prompt-task" data-task-id="${escAttr(task.id)}" type="button">Prompt AI</button>`,
+        `<button class="sa-btn" data-action="prompt-task" data-task-id="${escAttr(task.id)}" type="button">${t("Prompt AI")}</button>`,
       );
       if (isDispatchableProjectPath(task.targetProject)) {
         actions.push(
-          `<button class="sa-btn sa-btn-approve" data-action="approve" data-task-id="${escAttr(task.id)}" type="button">Approve</button>`,
+          `<button class="sa-btn sa-btn-approve" data-action="approve" data-task-id="${escAttr(task.id)}" type="button">${t("Approve")}</button>`,
         );
       }
       actions.push(
-        `<button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${escAttr(task.id)}" type="button">Dismiss</button>`,
+        `<button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${escAttr(task.id)}" type="button">${t("Dismiss")}</button>`,
       );
     } else if (task.status === "done") {
       actions.push(

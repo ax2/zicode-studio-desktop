@@ -4568,6 +4568,21 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百二十五轮：Super Agent 与包浏览文案本地化补全（2026-08-09）。
+
+1. 全界面英文标签扫描发现三处漏翻：Super Agent 头部状态"Listening"、
+   任务面板批量按钮"Approve N / Clear Done"（及单任务"Approve /
+   Prompt AI / Dismiss"）、设置包浏览空态"No packages match your
+   filters."；
+2. 实现：`super-agent-runtime.js` 引入 `t()` 并包裹全部按钮文案；
+   `PackageBrowseTab.tsx` 空态改 `t()`；`i18n.js` zhCN 补 6 键
+   （Listening 正在聆听、Approve 批准、Clear Done 清除已完成、
+   Prompt AI 提示 AI、Dismiss 忽略、筛选空态中文）；
+3. 验证：生产版 CDP 实测"正在聆听 / 批准 0 / 清除已完成"、设置包浏览
+   空态为中文；super-agent-runtime 测试固定英文 locale 后 16 项全过；
+   前端 762 项全绿，typecheck/Biome/设计检查通过；文件已同步安装目录
+   （i18n/组件直接生效，settings.js 重编）；
+
 第三百二十四轮：会话右键菜单本地化补全（2026-08-09）。
 
 1. 现象：会话右键菜单（收藏/归档/重命名/删除）在中文界面下中英混杂

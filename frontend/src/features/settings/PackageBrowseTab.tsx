@@ -133,7 +133,7 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
             </div>
           ) : results.length === 0 ? (
             <div className="settings-api-keys-empty pkg-browse-full-row">
-              No packages match your filters.
+              {t("No packages match your filters.")}
             </div>
           ) : (
             pageResults.map((pkg) => <PackageRow key={pkg.name} store={store} pkg={pkg} />)

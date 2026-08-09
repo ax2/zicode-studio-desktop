@@ -2,6 +2,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "./super-agent-runtime.js";
+import { setLocale } from "../i18n.js";
+
+beforeEach(() => {
+  setLocale("en");
+});
 
 // The component loads/saves Agent Inbox data through window.__picotConfigCall
 // (picot-bridge RPC), not fetch. This helper installs a spy that answers the
