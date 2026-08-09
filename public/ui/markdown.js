@@ -6,6 +6,7 @@
  */
 
 import remend from "../vendor/remend.js";
+import { copyText } from "./copy.js";
 
 /**
  * Streaming-tolerant renderer for partial markdown. remend closes unterminated
@@ -362,8 +363,8 @@ export function initCodeCopyDelegation(container) {
     btn.classList.remove("copied", "failed");
     if (status) status.textContent = "";
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
-      await navigator.clipboard.writeText(codeBlock.textContent);
+      const ok = await copyText(codeBlock.textContent);
+      if (!ok) throw new Error("Clipboard unavailable");
       btn.textContent = "Copied";
       btn.classList.add("copied");
       if (status) status.textContent = "Code copied";

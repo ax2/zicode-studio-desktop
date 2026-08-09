@@ -4568,6 +4568,27 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百六十一轮：修复桌面复制按钮失效（2026-08-09）。
+
+1. 问题：消息/代码块/工具输出的"复制"按钮在桌面版全部失效——WebView2
+   对异步 Clipboard API 写入（`clipboard-sanitized-write`）权限未授予
+   （Tauri 的 wry 层只放行读权限），`navigator.clipboard.writeText` 永远
+   pending，按钮既不显示"已复制"也不显示失败；
+2. 修复：
+   - 新增 `public/ui/copy.js` 的 `copyText`：先尝试异步 Clipboard API
+     （600ms 超时），超时/失败后回退到隐藏 textarea +
+     `document.execCommand("copy")`（桌面 WebView 在真实用户手势下
+     支持）；浏览器/移动端保持原生异步路径；
+   - 三处调用点改用 `copyText`：消息复制按钮、工具输出复制
+     （`ChatMessageList.tsx`）、代码块复制（`markdown.js`）；
+   - Rust 主窗口 builder 增加 `enable_clipboard_access()`（授予读权限、
+     安装权限处理器，为未来读剪贴板功能兜底）；
+3. 测试：`copy.js` 新增 3 个用例（异步 API 快速成功/挂起回退/双失败）；
+   前端 771 项（135 文件）全绿、typecheck/Biome 通过；
+4. 实测：真实点击复制按钮后按钮显示"已复制"，Windows 系统剪贴板内容
+   验证为刚复制的消息文本（`Get-Clipboard` 确认）；随 release
+   第四十三次重建进入安装版。
+
 第三百六十轮：修复 Tauri 环境 window.confirm 确认被绕过（2026-08-09）。
 
 1. 问题：实测发现桌面版 `window.confirm` 被 Tauri dialog 插件替换为

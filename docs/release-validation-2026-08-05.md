@@ -648,6 +648,29 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 前端 768 项（134 文件）全绿、typecheck/Biome/设计检查/权限检查
     通过。
 
+## 第四十三次重建（2026-08-09，含第 361 轮剪贴板复制修复）
+
+- 合入：`public/ui/copy.js` 的 `copyText`（异步 Clipboard API 带 600ms
+  超时 + `execCommand("copy")` 回退），消息/工具输出/代码块三处复制
+  调用点替换；Rust 主窗口 `enable_clipboard_access()`；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,495,040 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `40B109F40B3B8DD4FADB1548080AAAD7A6A90BABE894B7ECFBAFDD8EF0AB0CDE`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `01860D23234612D3DF86030306A14384BEF0E0D8606FAF05277C273C3D779AAA`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,881,882 B，SHA-256
+    `51A86E38624BA3741090724D5E8D897E4FDEFC6C30B57B868B2E5B5308B6BDC4`；
+- 验证：
+  - `/S` 静默重装后安装目录与仓库 public 299 文件 0 缺失/0 哈希差异；
+  - 安装版实测：真实点击消息复制按钮 → 按钮显示"已复制"，Windows
+    系统剪贴板（`Get-Clipboard`）内容为刚复制的消息文本；confirm shim
+    仍生效；全程零控制台错误；
+  - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
+  - 前端 771 项（135 文件）全绿、typecheck/Biome 通过。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

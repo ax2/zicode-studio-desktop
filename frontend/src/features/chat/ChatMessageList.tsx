@@ -1,6 +1,8 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown, renderStreamingMarkdown, renderUserMarkdown } from "../../../../public/ui/markdown.js";
+// @ts-expect-error plain JS module without type declarations (public/ui/copy.js)
+import { copyText } from "../../../../public/ui/copy.js";
 import {
   HistoryLoadedStatus,
   HistoryWindowNotice,
@@ -458,16 +460,7 @@ function CopyButton({ text }: { text: string }) {
   }, []);
   const copy = async () => {
     try {
-      if (navigator.clipboard) await navigator.clipboard.writeText(text);
-      else {
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        textarea.style.cssText = "position:fixed;left:-9999px";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        textarea.remove();
-      }
+      await copyText(text);
       setState("copied");
       setLabel(t("Copied"));
     } catch {
@@ -644,8 +637,8 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
   const copyOutput = async () => {
     if (!item.output.trim()) return;
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
-      await navigator.clipboard.writeText(item.output);
+      const ok = await copyText(item.output);
+      if (!ok) throw new Error("Clipboard unavailable");
       setCopyState("copied");
       setCopyLabel("Tool output copied");
     } catch {

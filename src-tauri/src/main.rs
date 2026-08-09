@@ -522,6 +522,7 @@ fn open_native_workspace_window(
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
         .data_directory(app_paths::webview_root()?)
         .title("ZiCode Studio Desktop")
+        .enable_clipboard_access()
         .inner_size(1440.0, 900.0)
         .min_inner_size(800.0, 600.0)
         .icon(icon)

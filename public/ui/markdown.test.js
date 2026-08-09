@@ -88,8 +88,7 @@ describe("renderMarkdown", () => {
 
     const button = container.querySelector("[data-copy-code]");
     button.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(writeText).toHaveBeenCalledWith("echo mobile");
     expect(button.textContent).toBe("Copied");
@@ -112,8 +111,7 @@ describe("renderMarkdown", () => {
 
     const button = container.querySelector("[data-copy-code]");
     button.click();
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(button.textContent).toBe("Copy failed");
     expect(button.classList.contains("failed")).toBe(true);
