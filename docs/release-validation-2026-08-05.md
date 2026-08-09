@@ -578,6 +578,50 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     状态已清理回默认；Rust 173 项、前端 764 项全绿。
     全绿。
 
+## 第四十次重建（2026-08-09，含第 350 轮窗口离屏位置回退）
+
+- 合入：`visible_position`/`centered_position` 离屏回退——恢复保存位置前
+  先检查其是否与任一显示器工作区相交（至少 48px 可见条），完全离屏时
+  回退主屏居中；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,490,432 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `AA1E74B0227C0CB9AC3D87E2AFB79AA04248254CEFC4288C12699E46BA8D020B`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `6B7D39864FA68C8CE34F530BD1FE5583AACD03A6B5B1BDC67385E59B9233F351`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异，功能一致）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,893,778 B，SHA-256
+    `7309635A6FD0E98235B44709689A36B39D059A8441D28C615E1CD1DD503DDB34`；
+- 验证：`/S` 静默重装后预置 `{width:1600,height:1000,x:-2000,y:0,
+  maximized:false}` → 启动即主屏居中（视口 1280×800、screenX=391、
+  screenY=270），离屏回退在安装版生效；`/health` 200（pi 0.83.0、协议
+  v2）、公网中继 `dev-ax2-01` 在线；验证后窗口状态清理回最大化正常状态；
+  前端 764 项、Rust 174 项全绿。
+
+## 第四十一次重建（2026-08-09，含第 352 轮桌面欢迎页撑满 + 窗口状态清理）
+
+- 合入：`message-renderer.css` 桌面欢迎页重做——卡片 `flex:1` 撑满头部
+  与输入区之间的全部高度，≥1024px 两栏玻璃面板（品牌/场景 + 快捷入口），
+  图标/标题/快捷卡片随视口 `clamp()` 缩放，内容垂直居中；移动端 ≤768px
+  布局不变；运行窗口恢复最大化并清理 `window-state.json` 离屏测试残留；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,494,528 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `B7851CC06358FEDBCCC567FFBF8F15713ED009FD8A0C65C6B3F45AAD07FA608A`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `C6A537957AF2B3AD8C79877F1A6E2B0E914C45D2D00E719DFAA99AD7733BD5E3`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异，功能一致）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,889,002 B，SHA-256
+    `5F1527F1286B0F7B1B761638AFD5F0DCAD345221C310C1A5C1EDC92BBD8E6C7C`；
+- 验证：`/S` 静默重装后安装目录与仓库 public 297 文件 0 缺失/0 哈希
+  差异；从安装目录启动：`/health` 200（pi 0.83.0、协议 v2、`lanUrl=
+  https://relay.zicode.com/d/dev-ax2-01`）、公网中继 `dev-ax2-01` 在线、
+  日志无 ERROR/WARN/panic；CDP 实测最大化 2048×1210：欢迎卡片
+  1440×1004 撑满聊天列、图标 169px、快捷卡片 264×176、内容垂直居中；
+  390×844 模拟仍为紧凑单列；前端 764 项全绿、设计 CSS 令牌检查通过。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

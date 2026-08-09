@@ -70,57 +70,74 @@
 }
 
 /* Desktop welcome: the mobile page centers a small welcome card in a phone
-   viewport, which leaves most of a large desktop window blank. On desktop,
-   center the welcome in the space between the header and composer, scale the
-   icon/type up, offer quick actions that route into the app areas, and let
-   the card claim the full chat column so the window width is used instead of
-   leaving symmetric gutters around a phone-sized card. Very wide windows
-   switch to a two-column layout: brand/scene on the left, quick actions on
-   the right, so the desktop surface reads as a workbench instead of a
-   centered mobile card. */
+   viewport, which leaves most of a large desktop window blank. On desktop the
+   card stretches to fill the space between the header and the composer, the
+   icon/type scale up, quick actions route into the app areas, and the card
+   claims the full chat column so the window width is used instead of leaving
+   symmetric gutters around a phone-sized card. Very wide windows switch to a
+   two-column layout (brand/scene on the left, quick actions on the right) so
+   the desktop surface reads as a workbench instead of a centered mobile card.
+   flex: 1 1 auto makes the card consume the free vertical space while the
+   margin: auto 0 keeps the layout centered when the window is short. */
 @media (min-width: 769px) {
   .welcome {
+    flex: 1 1 auto;
     width: min(var(--chat-content-max-width), 100%);
     margin: auto 0;
-    padding: var(--space-6) 0;
+    padding: clamp(var(--space-8), 6vh, var(--space-12)) 0;
     align-self: center;
   }
 
+  .welcome-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(var(--space-3), 3vh, var(--space-6));
+    min-width: 0;
+  }
+
   .tau-icon-welcome {
-    width: 84px;
-    height: 84px;
+    width: clamp(96px, 14vh, 176px);
+    height: clamp(96px, 14vh, 176px);
   }
 
   .welcome p {
-    font-size: var(--font-size-xl);
+    font-size: clamp(var(--font-size-xl), 2.4vw, calc(var(--font-size-xl) * 1.8));
+    margin-bottom: var(--space-1-5);
   }
 
   .welcome .hint {
-    font-size: var(--font-size-md);
+    font-size: clamp(var(--font-size-md), 1.4vw, var(--font-size-lg));
+  }
+
+  .welcome-scene {
+    margin-top: clamp(var(--space-4), 3vh, var(--space-6));
+    padding: clamp(var(--space-3), 2vh, var(--space-5))
+      clamp(var(--space-4), 2.5vw, var(--space-6));
   }
 
   .welcome-quick-actions {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: var(--space-2);
-    margin-top: var(--space-6);
+    gap: var(--space-3);
+    margin-top: clamp(var(--space-6), 4vh, var(--space-10));
   }
 
   .welcome-quick-action {
     display: flex;
     min-width: 0;
-    min-height: 88px;
+    min-height: clamp(108px, 15vh, 176px);
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--space-1-5);
-    padding: var(--space-2) var(--space-1);
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--bg-glass);
     color: var(--text-secondary);
     font: inherit;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     line-height: 1.2;
     cursor: pointer;
     transition:
@@ -142,20 +159,32 @@
     font-size: var(--font-size-2xl);
     line-height: 1;
   }
+
+  .shortcuts-hint {
+    margin-top: clamp(var(--space-6), 4vh, var(--space-10));
+  }
 }
 
 @media (min-width: 1024px) {
   .welcome {
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    gap: var(--space-8);
+    gap: clamp(var(--space-8), 4vw, var(--space-12));
     text-align: left;
     align-items: center;
+    align-content: center;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-glass);
+    padding: clamp(var(--space-8), 5vh, var(--space-12))
+      clamp(var(--space-8), 4vw, var(--space-12));
   }
 
   .welcome-panel {
-    display: grid;
-    gap: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-6);
   }
 
   .welcome-quick-actions {
@@ -164,7 +193,11 @@
   }
 
   .welcome-quick-action {
-    min-height: 76px;
+    min-height: clamp(120px, 15vh, 176px);
+  }
+
+  .welcome-quick-action-icon {
+    font-size: clamp(var(--font-size-2xl), 3.2vh, calc(var(--font-size-2xl) * 1.75));
   }
 
   .shortcuts-hint {
