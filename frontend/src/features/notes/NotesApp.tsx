@@ -470,7 +470,7 @@ function EmojiPicker({
                 className={`notes-emoji-category${index === category ? " active" : ""}`}
                 onClick={() => setCategory(index)}
               >
-                {name}
+                {t(name)}
               </button>
             ))}
           </div>

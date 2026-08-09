@@ -4568,6 +4568,18 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百四十一轮：emoji 分类名双语化（反向本地化，2026-08-09）。
+
+1. 现象：反向扫描发现 emoji 选择器分类名硬编码中文（表情/手势/动物…
+   ），英文界面会显示中文；
+2. 实现：`EMOJI_GROUPS` 分类改为英文源词（Smileys/Hand gestures/
+   Animals/Food/Activities/Travel/Objects/Symbols），渲染处 `t(name)`，
+   i18n zhCN 补 8 键；
+3. 验证：zh 显示"表情/手势/动物/食物/活动/旅行/物品/符号"，en 显示
+   "Smileys/Hand gestures/Animals/Food/Activities/Travel/Objects/
+   Symbols"；前端 763 项全绿，typecheck/Biome 通过；notes.js 重编并
+   同步安装目录；
+
 第三百四十轮：安装目录一致性回归 + 审计刷新（2026-08-09）。
 
 1. 回归：整页重载收集 8 秒 Runtime/Log/console 错误为 0；设置/欢迎/
