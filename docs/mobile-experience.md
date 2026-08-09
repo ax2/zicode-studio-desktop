@@ -4568,6 +4568,35 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百五十五轮：M2 基础设施核验——TURN relay 401 根因定位（2026-08-09）。
+
+1. 背景：M2 跨 NAT 打洞依赖 STUN（公网映射）+ TURN（中继兜底，对称
+   NAT 场景）。本轮对已部署的 coturn/中继链路做本地实测；
+2. 实测结果：
+   - `GET /v2/remote-config` 正常下发 `stun:turn.remote.zicode.com:3478`
+     与 `turn:turn.remote.zicode.com:3478?transport=udp`（含 1 小时有效
+     的会话级临时用户名/凭据）；
+   - STUN 可达：UDP 3478 Binding 请求返回成功响应，TCP 3478 可连通；
+   - WebRTC ICE 收集：host + srflx（公网 IP 120.245.114.2）候选拿到，
+     **relay 候选缺失**；relay-only 策略下 `onicecandidateerror` 返回
+     401 Unauthorized；
+3. 根因定位（桌面侧全部正确）：
+   - 凭据派生：本地复算 `base64(HMAC-SHA1(relayTurnSecret, username))`
+     与 `/v2/remote-config` 下发值一致（仅去 base64 填充差异）；
+   - username 时间戳为 UTC now+1h（有效期内）；realm 与服务器 401
+     响应中的 realm（turn.remote.zicode.com）一致；
+   - 结论：coturn 服务器的 `static-auth-secret` 与桌面端
+     `remote-access/config.json` 的 `relayTurnSecret` 不一致（或服务器
+     配置未按 `scripts/relay/deploy-coturn.sh` 应用 `use-auth-secret`）；
+     属服务器侧部署配置漂移，非应用代码问题；
+4. 修复路径（需服务器访问）：将 `/etc/turnserver.conf` 的
+   `static-auth-secret` 与桌面端 `relayTurnSecret` 对齐（二选一，保持
+   一致），`systemctl restart coturn`，用
+   `turnutils_uclient -u <user> -w <cred> turn.remote.zicode.com` 验证，
+   再重跑 relay-only ICE 收集确认 relay 候选出现；
+5. 说明：中继 WebSocket 路径（relay.zicode.com）与设备注册正常不受
+   影响；本发现使 M2 的对称 NAT 兜底路径暴露为待修复项。
+
 第三百五十四轮：补充交互面验证 + Rust 门禁复核（2026-08-09）。
 
 1. 验证项：
