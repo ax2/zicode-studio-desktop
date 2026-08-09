@@ -74,9 +74,13 @@ fn scene_credential_status(
 #[tauri::command]
 async fn publish_notes_notebook(
     host: tauri::State<'_, HostServer>,
+    workspace_id: String,
     notebook_id: String,
 ) -> Result<notes_vault::AstroPublishReport, String> {
-    let vault = host.notes_vault()?;
+    let vault = host
+        .notes_vault()?
+        .scoped(&workspace_id)
+        .map_err(|error| error.message)?;
     tauri::async_runtime::spawn_blocking(move || vault.publish_astro(&notebook_id))
         .await
         .map_err(|error| format!("Astro publisher stopped unexpectedly: {error}"))?

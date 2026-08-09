@@ -1001,6 +1001,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ loading: true, error: null });
       try {
         const report = (await invoke("publish_notes_notebook", {
+          workspaceId: workspaceId(),
           notebookId: notebook.id,
         })) as { noteCount: number };
         notify(`${t("Astro site built")}: ${report.noteCount} ${t("notes")} · dist/`);

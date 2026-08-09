@@ -718,6 +718,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
   - 前端 771 项（135 文件）全绿、Biome 通过。
 
+## 第四十六次重建（2026-08-09，含第 364 轮 Astro 发布工作区作用域修复）
+
+- 合入：`publish_notes_notebook` 命令增加 `workspace_id` 并按作用域取
+  vault（此前未作用域导致所有笔记本发布报 "Notebook does not exist"）；
+  前端 publishAstro 传入 `workspaceId`；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,495,040 B；安装包
+    内嵌（安装目录副本）SHA-256
+    `D33D8629CF92C256D85B252AD0B7832C7B8FFF678E2851F983371CD7EE6A5426`；
+    打包后 target 副本被回写 bundle 类型标记，SHA-256
+    `7AB011C563D8A8D58925B349798CF5B0362561E47954877CACF1FB2E478BDA76`
+    （与安装副本仅 `__TAURI_BUNDLE_TYPE_VAR_*` 3 字节差异）；
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,897,304 B，SHA-256
+    `AFC1C79891D92197A9F3D3F6A8CD8F80D75EFC7A10EF23F70E8ED654820CE993`；
+- 验证：
+  - `/S` 静默重装后安装目录与仓库 public 299 文件 0 缺失/0 哈希差异；
+  - 安装版实测：临时笔记本执行 `publish_notes_notebook` 成功——bun
+    install + astro build 完成，`dist` 产物生成，publish.log 显示
+    "[build] 2 page(s) built in 4.14s" + "Complete!"；"打开文件夹作为
+    工作区"原生选择器正常；confirm/剪贴板/外部链接/分享/文件管理器
+    修复仍生效；
+  - `/health` 200（pi 0.83.0、协议 v2）、公网中继 `dev-ax2-01` 在线；
+    全部临时数据已清理，vault 恢复 QVeris 5 篇 + 测试笔记本 0 + 回收站 0；
+  - cargo check、typecheck、前端 771 项全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

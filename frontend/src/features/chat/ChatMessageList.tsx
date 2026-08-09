@@ -546,7 +546,9 @@ function ShareButton({ text }: { text: string }) {
   // The desktop WebView exposes navigator.share but always rejects with
   // NotAllowedError, so a visible share button there would do nothing.
   // Hide it in Tauri; keep it on mobile browsers where share is real.
-  const inTauriDesktop = typeof globalThis !== "undefined" && Boolean(globalThis.__TAURI__);
+  const inTauriDesktop =
+    typeof globalThis !== "undefined" &&
+    Boolean((globalThis as Record<string, unknown>).__TAURI__);
   const canShare =
     typeof navigator !== "undefined" &&
     typeof navigator.share === "function" &&

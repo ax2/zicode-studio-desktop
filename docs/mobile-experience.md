@@ -4568,6 +4568,21 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百六十四轮：Astro 发布工作区作用域修复（2026-08-09）。
+
+1. 问题：设置/笔记的"构建 Astro 站点"对所有笔记本都失败——Tauri
+   命令 `publish_notes_notebook` 使用**未按工作区作用域**的
+   `NotesVault`，路径解析为 `vaults/<notebookId>`，而真实笔记在
+   `vaults/<workspaceId>/<notebookId>`，`read_notebook` 必然报
+   "Notebook does not exist"；直接 invoke 复现确认；
+2. 修复：命令增加 `workspace_id` 参数并按作用域取 vault
+   （`notes_vault()?.scoped(&workspace_id)?`），前端 publishAstro 同时
+   传入 `workspaceId`；cargo check、typecheck、前端 771 项全绿；
+3. 附带验证："打开文件夹作为工作区"按钮正常弹出原生"选择文件夹"
+   对话框（#32770），应用无异常；
+4. 说明：随 release 第四十六次重建进入安装版；修复后重新实测
+   Astro 构建（临时笔记本发布 → dist 产物）见下轮记录。
+
 第三百六十三轮：分享按钮 + 文件管理器打开修复（2026-08-09）。
 
 1. 分享按钮：桌面 WebView 暴露 `navigator.share` 但调用必然抛
