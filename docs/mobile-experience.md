@@ -4568,6 +4568,19 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百四十二轮：Agent Inbox 设置面板双语化（2026-08-09）。
+
+1. 反向扫描发现 `chat-settings-panel.js`（飞书/企业微信收件箱设置）整块
+   硬编码中文——英文界面会显示中文；
+2. 实现：全部静态/动态文案改为 `t()` 英文源词（约 30 个键：Beta、
+   Feishu/WeCom、保存/移除/账号/会话数、校验与保存提示、配置服务错误
+   等），i18n zhCN 补齐；占位符保留技术名词（App Secret/Bot ID）；
+3. 验证：zh 显示"智能收件箱 测试版 / 自动启动 / 飞书 / 保存飞书配置"，
+   en 显示"Agent Inbox Beta / Start automatically / Feishu / Save Feishu
+   configuration"；i18n 覆盖测试拦截了键名尾随空格被 normalize 导致的
+   失配（已修正）；前端 763 项全绿，typecheck/Biome 通过；文件已同步
+   安装目录；
+
 第三百四十一轮：emoji 分类名双语化（反向本地化，2026-08-09）。
 
 1. 现象：反向扫描发现 emoji 选择器分类名硬编码中文（表情/手势/动物…

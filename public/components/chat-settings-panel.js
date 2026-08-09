@@ -1,4 +1,5 @@
 import { isSuperAgentEnabled, setSuperAgentEnabled } from "../super-agent/settings.js";
+import { t } from "../i18n.js";
 
 class ChatSettingsPanel extends HTMLElement {
   connectedCallback() {
@@ -8,54 +9,54 @@ class ChatSettingsPanel extends HTMLElement {
       <div class="settings-body">
         <div class="settings-section">
           <div class="settings-section-title chat-settings-title-row">
-            Agent Inbox <span class="ui-badge chat-settings-beta-badge">测试版</span>
+            Agent Inbox <span class="ui-badge chat-settings-beta-badge">${t("Beta")}</span>
           </div>
           <div class="settings-row">
             <span class="settings-label settings-label-stack">
-              <span class="settings-label-main">自动启动</span>
-              <span class="settings-label-sub">ZiCode Studio Desktop 启动时同时启动 Agent Inbox</span>
+              <span class="settings-label-main">${t("Start automatically")}</span>
+              <span class="settings-label-sub">${t("Start Agent Inbox when ZiCode Studio Desktop starts.")}</span>
             </span>
             <button class="settings-toggle" id="toggle-super-agent"></button>
           </div>
-          <p class="settings-help">外部消息先进入独立的 Agent Inbox，向项目实例派发任务仍需本机确认。</p>
+          <p class="settings-help">${t("External messages land in the isolated Agent Inbox; dispatching tasks to project instances still needs local confirmation.")}</p>
         </div>
 
         <div class="settings-section">
-          <div class="settings-section-title">飞书</div>
-          <p class="settings-help">使用飞书开放平台应用的 WebSocket 长连接，无需公网回调地址。</p>
+          <div class="settings-section-title">${t("Feishu")}</div>
+          <p class="settings-help">${t("Uses a Feishu Open Platform app WebSocket; no public callback URL needed.")}</p>
           <form class="chat-platform-form" data-service="feishu">
-            <input class="ui-input" data-field="appId" placeholder="App ID（cli_xxx）" autocomplete="off" />
+            <input class="ui-input" data-field="appId" placeholder="${t("App ID (cli_xxx)")}" autocomplete="off" />
             <input class="ui-input" data-field="appSecret" placeholder="App Secret" type="password" autocomplete="off" />
-            <input class="ui-input" data-field="channelId" placeholder="会话 chat_id" autocomplete="off" />
-            <input class="ui-input" data-field="allowedUserId" placeholder="允许的用户 open_id（可选）" autocomplete="off" />
-            <button type="submit" class="ui-button ui-button--primary" data-service="feishu">保存飞书配置</button>
+            <input class="ui-input" data-field="channelId" placeholder="${t("Channel chat_id")}" autocomplete="off" />
+            <input class="ui-input" data-field="allowedUserId" placeholder="${t("Allowed user open_id (optional)")}" autocomplete="off" />
+            <button type="submit" class="ui-button ui-button--primary" data-service="feishu">${t("Save Feishu configuration")}</button>
           </form>
         </div>
 
         <div class="settings-section">
-          <div class="settings-section-title">企业微信</div>
-          <p class="settings-help">使用企业微信智能机器人的官方长连接。单聊填写 userid，群聊填写 chatid。</p>
+          <div class="settings-section-title">${t("WeCom")}</div>
+          <p class="settings-help">${t("Uses the official WeCom bot long connection. Fill userid for 1:1 chats and chatid for groups.")}</p>
           <form class="chat-platform-form" data-service="wecom">
             <input class="ui-input" data-field="botId" placeholder="Bot ID" autocomplete="off" />
             <input class="ui-input" data-field="secret" placeholder="Secret" type="password" autocomplete="off" />
-            <input class="ui-input" data-field="channelId" placeholder="userid 或 chatid" autocomplete="off" />
-            <input class="ui-input" data-field="allowedUserId" placeholder="允许的用户 userid（可选）" autocomplete="off" />
-            <button type="submit" class="ui-button ui-button--primary" data-service="wecom">保存企业微信配置</button>
+            <input class="ui-input" data-field="channelId" placeholder="${t("userid or chatid")}" autocomplete="off" />
+            <input class="ui-input" data-field="allowedUserId" placeholder="${t("Allowed user userid (optional)")}" autocomplete="off" />
+            <button type="submit" class="ui-button ui-button--primary" data-service="wecom">${t("Save WeCom configuration")}</button>
           </form>
         </div>
 
         <div class="settings-section">
-          <div class="settings-section-title">已配置平台</div>
+          <div class="settings-section-title">${t("Configured platforms")}</div>
           <div class="settings-save-status hidden" data-status aria-live="polite"></div>
           <div class="chat-accounts-list" data-accounts-list></div>
         </div>
 
         <details class="settings-section chat-advanced-config">
-          <summary class="settings-section-title">高级配置</summary>
-          <p class="settings-help">配置保存在 ZiCode Studio Desktop 专用数据目录，不使用 ~/.pi。</p>
+          <summary class="settings-section-title">${t("Advanced configuration")}</summary>
+          <p class="settings-help">${t("Configuration is stored in the ZiCode Studio Desktop data directory, not ~/.pi.")}</p>
           <textarea class="ui-textarea config-editor-textarea settings-config-textarea"
             data-textarea spellcheck="false" autocomplete="off"></textarea>
-          <button class="ui-button ui-button--primary" data-action="save-raw">保存原始配置</button>
+          <button class="ui-button ui-button--primary" data-action="save-raw">${t("Save raw configuration")}</button>
         </details>
       </div>
     `;
@@ -134,18 +135,19 @@ class ChatSettingsPanel extends HTMLElement {
         ? { appId: value("appId"), appSecret: value("appSecret") }
         : { botId: value("botId"), secret: value("secret") };
     if (!channelId || Object.values(credentials).some((item) => !item)) {
-      this._show("请填写平台凭证和会话 ID。", true);
+      this._show(t("Fill in the platform credentials and channel ID."), true);
       return;
     }
+    const serviceLabel = service === "feishu" ? t("Feishu") : t("WeCom");
     config.accounts[accountId] = {
       service,
-      name: service === "feishu" ? "飞书" : "企业微信",
+      name: serviceLabel,
       ...credentials,
       access: { ignoreBots: true },
       channels: {
         main: {
           id: channelId,
-          name: "主会话",
+          name: t("Main channel"),
           dm: true,
           access: {
             ignoreBots: true,
@@ -154,7 +156,10 @@ class ChatSettingsPanel extends HTMLElement {
         },
       },
     };
-    await this._persist(config, `${service === "feishu" ? "飞书" : "企业微信"}配置已保存。`);
+    await this._persist(
+      config,
+      t("{service} configuration saved.").replace("{service}", serviceLabel),
+    );
     form.querySelectorAll("input").forEach((input) => {
       input.value = "";
     });
@@ -163,7 +168,7 @@ class ChatSettingsPanel extends HTMLElement {
   async _removePlatform(accountId) {
     const config = this._readConfig();
     delete config.accounts[accountId];
-    await this._persist(config, "平台配置已移除。");
+    await this._persist(config, t("Platform configuration removed."));
   }
 
   async _saveRaw() {
@@ -172,8 +177,8 @@ class ChatSettingsPanel extends HTMLElement {
       const invalid = Object.values(config.accounts).some(
         (account) => !["feishu", "wecom"].includes(account?.service),
       );
-      if (invalid) throw new Error("仅支持飞书和企业微信账号。");
-      await this._persist(config, "原始配置已保存。");
+      if (invalid) throw new Error(t("Only Feishu and WeCom accounts are supported."));
+      await this._persist(config, t("Raw configuration saved."));
     } catch (error) {
       this._show(messageFromError(error), true);
     }
@@ -197,16 +202,16 @@ class ChatSettingsPanel extends HTMLElement {
               ([id, account]) => `
                 <div class="chat-account-card">
                   <div class="chat-account-header">
-                    <span class="chat-account-name">${account.service === "feishu" ? "飞书" : "企业微信"}</span>
+                    <span class="chat-account-name">${account.service === "feishu" ? t("Feishu") : t("WeCom")}</span>
                     <button class="ui-button ui-button--danger" data-action="remove-platform"
-                      data-account-id="${esc(id)}">移除</button>
+                      data-account-id="${esc(id)}">${t("Remove")}</button>
                   </div>
-                  <div class="chat-account-detail">账号：<code>${esc(id)}</code></div>
-                  <div class="chat-account-detail">会话数：${Object.keys(account.channels || {}).length}</div>
+                  <div class="chat-account-detail">${t("Account:")} <code>${esc(id)}</code></div>
+                  <div class="chat-account-detail">${t("Channels:")} ${Object.keys(account.channels || {}).length}</div>
                 </div>`,
             )
             .join("")
-        : '<p class="settings-help">尚未配置消息平台。</p>';
+        : `<p class="settings-help">${t("No messaging platform configured yet.")}</p>`;
     } catch {
       this._accountsEl.innerHTML = "";
     }
@@ -233,14 +238,14 @@ async function callPicotConfig(op, params = {}) {
 
 async function readChatConfig() {
   if (typeof window.__picotConfigCall === "function") return callPicotConfig("read_chat_config");
-  throw new Error("ZiCode Studio Desktop 配置服务尚未连接");
+  throw new Error(t("ZiCode Studio Desktop configuration service is not connected yet"));
 }
 
 async function writeChatConfig(content) {
   if (typeof window.__picotConfigCall === "function") {
     return callPicotConfig("write_chat_config", { content });
   }
-  throw new Error("ZiCode Studio Desktop 配置服务尚未连接");
+  throw new Error(t("ZiCode Studio Desktop configuration service is not connected yet"));
 }
 
 function messageFromError(error) {
