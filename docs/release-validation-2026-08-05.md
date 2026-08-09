@@ -394,6 +394,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     3 异常"——思考型模型全部转健康，剩余 3 个为网关不接受的目录
     别名 id（404 model_not_found），健康展示真实。
 
+## 第五十二次重建（2026-08-10，含第 377 轮"整理对话为笔记"修复）
+
+- 合入第 377 轮：
+  - `handleRuntimeEvent` 在 `message_start`（user）与 `message_end`
+    （assistant）把实时消息追加进 `currentHistoryMessages`（按 id
+    去重），`buildConversationTranscript` 因此能拿到完整实时对话，
+    修复新会话整理时报"当前没有可整理的对话"；
+  - `showError` 不再把状态置为"已断开"（状态只反映 WebSocket 真实
+    连接，由适配器监听维护）；
+  - 前端 780 项（135 文件）全绿，typecheck/Biome 通过；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,500,672 B，
+    SHA-256 `04D72D628FF06F569F599C8E924E3657A0FB55C87E65ECCA7FD34F615B1C0CC9`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,889,737 B，SHA-256
+    `56205821C16CF0F97902C90E1F3636B048161E51B22FACFE2D5FF7BCF2FDD0D9`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `565E05A63DAB0C760DC990B6607FE97A283E72EE95A9F32DAE6A8DF9943AD50C`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）、
+    扩展 bundle 与仓库 dist 一致；
+  - release 52 复验：新会话发问→回答→点"整理为笔记"→约 14s 自动切到
+    笔记并打开新笔记（标题=首问、标签 captured/chat、正文含摘要/要点
+    结构化整理）；测试笔记删除后 QVeris 恢复 5 篇、回收站 0。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

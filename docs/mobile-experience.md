@@ -4568,6 +4568,27 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百七十七轮：修复"整理对话为笔记"取不到实时消息（2026-08-10）。
+
+1. 端到端走查发现 organize-chat-to-note 在新会话里报"当前没有可整理
+   的对话"：`buildConversationTranscript` 读的是 `currentHistoryMessages`，
+   而该数组只在 `renderHistory`（会话加载时的快照）里赋值；加载后新
+   到达的实时消息只进渲染 feed，不进该数组 → 全新会话的对话永远是
+   空的；
+2. 修复：`handleRuntimeEvent` 在 `message_start`（user）与
+   `message_end`（assistant）时把消息追加进 `currentHistoryMessages`
+   （按 id 去重，快照刷新不重复），整理时就能拿到完整实时对话；
+   同时修复 `showError` 误把状态置为"已断开"——状态应只反映 WebSocket
+   真实连接（由适配器监听维护），显示错误不再伪装断线；
+3. 验证：新会话发问 → 回答 → 点击消息"整理为笔记" → 状态 Working… →
+   约 14s 后自动切到笔记并打开新笔记：标题为对话首个用户问题、标签
+   `captured`/`chat`、正文含"从对话沉淀"+ 会话引用 + 摘要/要点等
+   结构化内容（模型把整段对话按 conversation-note skill 整理）；测试
+   笔记删除后 QVeris 恢复 5 篇、回收站 0；前端 780 项全绿。
+4. 发布：release 第五十二次重建，`/S` 静默重装后安装目录 public 与
+   仓库 299 文件 0 缺失/0 哈希差异、扩展 bundle 与仓库 dist 一致；
+   哈希见 `docs/release-validation-2026-08-05.md`。
+
 第三百七十六轮：健康检查探测预算修正（2026-08-10）。
 
 1. 上轮健康检查显示 25 个模型里 12 个异常，其中 8 个"无正文"是探测

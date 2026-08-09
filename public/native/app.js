@@ -1518,6 +1518,7 @@ async function handleRuntimeEvent(event) {
       if (event.message?.role === "user") {
         messageRenderer.renderUserMessage(event.message);
         upsertActiveSessionFromUserMessage(event.message);
+        appendLiveMessage(event.message);
       } else if (event.message?.role === "assistant") {
         streamingElement = messageRenderer.renderAssistantMessage(event.message, true);
         convNav.notifyStreamingStart();
@@ -1541,6 +1542,7 @@ async function handleRuntimeEvent(event) {
         }
         contextUsage.setUsage(event.message.usage ?? null, currentModelContextWindow);
         setSessionCost(sessionTotalCost + (event.message.usage?.cost?.total ?? 0));
+        appendLiveMessage(event.message);
         streamingElement = null;
         convNav.notifyNewMessage();
         if (pendingOrganizeNote) {
@@ -1853,6 +1855,19 @@ function buildConversationTranscript(messages) {
   return lines.join("\n\n");
 }
 
+// Keep the live conversation in sync with the history list used by
+// organize-to-note. renderHistory() seeds currentHistoryMessages from the
+// snapshot, but messages that arrive after load are only rendered through the
+// feed; without this the transcript would miss every live exchange.
+function appendLiveMessage(message) {
+  if (!message?.role) return;
+  const id = message.id ?? message.entryId ?? message.entry_id ?? null;
+  if (id && currentHistoryMessages.some((candidate) => (candidate.id ?? candidate.entryId ?? candidate.entry_id) === id)) {
+    return;
+  }
+  currentHistoryMessages.push(message);
+}
+
 function setStatus(text) {
   statusText.textContent = text;
   const isWorking = text === "Working…";
@@ -1879,7 +1894,9 @@ function abortCurrentRun() {
 }
 
 function showError(error) {
-  setStatus("Disconnected");
+  // Keep the status reflecting the actual connection state; the adapter's
+  // connection listener owns "Connected"/"Disconnected". Showing an error
+  // must not pretend the WebSocket went down.
   messageRenderer.renderError(error?.message || String(error));
 }
 
