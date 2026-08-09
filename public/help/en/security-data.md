@@ -68,8 +68,12 @@ the draft, while successful submission or clearing site data removes both.
 | Data | Recommendation |
 |---|---|
 | Notes and project files | Include in regular file backups or version control |
+| Conversations (sessions) | Use **Settings → General → Export session backup** for readable JSON |
 | Application data | Back up consistently after closing the application |
 | API keys | Keep recovery with the provider, never in backup documentation |
 | Astro output | Rebuildable; do not treat it as the only source |
 
 > Restoring ordinary files to a new computer does not restore API keys. Enter them again into the system credential store.
+
+Session backup is a read-only export containing the full message history and project paths,
+never credentials; the JSON file is directly readable and suitable for archiving or pre-migration retention.
