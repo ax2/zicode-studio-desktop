@@ -522,6 +522,23 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     导入新 id 会话（imported 1、会话列表 +1、写入 sessions/restored）→
     清理后复原；Rust 172 项（148+19+5）、前端 760 项测试全绿。
 
+## 第三十七次重建（2026-08-09，含第 313 轮大纲滚动联动）
+
+- 合入：findActiveOutlineId + capture 阶段 scroll 监听 + 大纲当前标题
+  高亮（aria-current）；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,479,168 B，
+    SHA-256 `522101CDDD59E58D98FADCB5B6586A5BAF9DB4AF2903AC468B89575F2A0B506E`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,903,047 B，SHA-256
+    `FA10F336E454D5236003DC0A5BCBDF4821B09205D7C707FD1FD751A171E15EAF`
+- 验证：
+  - 安装目录与仓库 public 逐文件一致；`/S` 静默重装后从安装目录启动：
+    网关 `/health` 200（pi 0.83.0、协议 v2、
+    `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；生产版实测长笔记
+    滚动后大纲高亮切换（章节 1 → 章节 2）、无错误；前端 761 项测试
+    全绿。
+
 ## 第十九次重建（2026-08-09，含第 288 轮 Rust 门禁修复）
 
 - 合入第 288 轮：`save_note` 参数 lint 允许 + 全量 `cargo fmt`

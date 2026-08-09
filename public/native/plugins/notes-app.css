@@ -1184,6 +1184,12 @@
   color: var(--text-primary);
 }
 
+.notes-outline li.active button {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
 .notes-outline-level-2 button {
   padding-left: var(--space-5);
 }

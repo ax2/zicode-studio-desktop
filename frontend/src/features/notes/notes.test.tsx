@@ -6,6 +6,7 @@ import {
   buildChildrenByParent,
   buildHeadingOutline,
   conversationNoteTitle,
+  findActiveOutlineId,
   formatDate,
   highlightSegments,
   parseTags,
@@ -132,6 +133,18 @@ describe("notes logic", () => {
       { id: "deep", level: 3, text: "Deep" },
     ]);
     expect(root.querySelector("h4")?.id).toBe("");
+  });
+
+  it("finds the active outline heading near the reading line", () => {
+    expect(findActiveOutlineId([], 0)).toBeNull();
+    const items = [
+      { id: "a", top: 20 },
+      { id: "b", top: 300 },
+      { id: "c", top: 700 },
+    ];
+    expect(findActiveOutlineId(items, 0)).toBe("a");
+    expect(findActiveOutlineId(items, 0, 400)).toBe("b");
+    expect(findActiveOutlineId([{ id: "x", top: 200 }], 0, 80)).toBe("x");
   });
 
   it("builds the notebook tree and tag suggestions", () => {
@@ -696,6 +709,7 @@ describe("notes React components", () => {
       await waitFor(() =>
         expect(container.querySelector(".notes-outline")).toBeTruthy(),
       );
+      expect(container.querySelector(".notes-outline li.active")).toBeTruthy();
       expect(container.querySelector(".notes-outline button")?.textContent).toBe("Plan");
       (container.querySelector(".notes-outline button") as HTMLButtonElement).click();
       expect(scrollIntoView).toHaveBeenCalled();

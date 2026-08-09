@@ -178,6 +178,26 @@ export function buildHeadingOutline(root: ParentNode): OutlineEntry[] {
   });
 }
 
+/**
+ * Pick the outline entry whose heading is currently nearest the reading line
+ * (default 80px from the viewport top). Falls back to the first entry when no
+ * heading has crossed the line yet.
+ */
+export function findActiveOutlineId(
+  items: Array<{ id: string; top: number }>,
+  viewportTop: number,
+  line = 80,
+): string | null {
+  if (items.length === 0) return null;
+  let active: { id: string; top: number } | null = null;
+  for (const item of items) {
+    if (item.top <= viewportTop + line) {
+      if (!active || item.top >= active.top) active = item;
+    }
+  }
+  return active?.id ?? items[0].id;
+}
+
 /** Split `text` into highlighted/normal segments for a case-insensitive query. */
 export function highlightSegments(text: string, query: string): HighlightSegment[] {
   const needle = String(query ?? "").trim().toLowerCase();

@@ -4568,6 +4568,21 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百一十三轮：笔记大纲滚动联动（当前标题高亮）+ release 第三十七次
+重建（2026-08-09）。
+
+1. 实现：预览大纲随滚动高亮当前标题——`findActiveOutlineId` 纯函数按
+   阅读线（视口顶部 80px）选取最近标题；NoteEditor 用 capture 阶段
+   document scroll 监听（应用主视图内部滚动，window scroll 不触发），
+   rAF 节流测量标题矩形并更新 active；大纲条目高亮 + aria-current；
+   长文阅读时方向感更清晰；
+2. 验证：前端 761 项全绿（新增阅读线选取用例 + 大纲 active 断言）；
+   typecheck/Biome/设计检查通过；release 第三十七次重建（EXE 41,479,168 B
+   / 安装包 346,903,047 B，哈希见
+   `docs/release-validation-2026-08-05.md`）静默重装后生产版 CDP 实测：
+   长笔记（8 章节）预览滚动到底 → 大纲高亮从"章节 1"切到"章节 2"、
+   无错误；临时数据已清理，QVeris 5 条与测试笔记本完好；
+
 第三百一十二轮：会话备份导入（备份/恢复闭环）+ release 第三十六次重建
 （2026-08-09）。
 

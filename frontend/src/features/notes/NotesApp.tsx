@@ -9,6 +9,7 @@ import {
   DEFAULT_NOTEBOOK_ICON,
   DEFAULT_NOTE_ICON,
   EMOJI_GROUPS,
+  findActiveOutlineId,
   formatDate,
   ICONS,
   TAG_ICON_FALLBACK,
@@ -1360,6 +1361,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const previewRef = useRef<HTMLElement | null>(null);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
+  const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
 
   useEffect(() => {
     if (preview && previewRef.current) {
@@ -1368,6 +1370,35 @@ function NoteEditor({ store }: { store: NotesStore }) {
       setOutline(buildHeadingOutline(previewRef.current));
     }
   }, [preview, draftContent, store]);
+
+  useEffect(() => {
+    if (!preview) return;
+    let frame = 0;
+    const updateActive = () => {
+      frame = 0;
+      const items = outline
+        .map((entry) => ({
+          id: entry.id,
+          top: document.getElementById(entry.id)?.getBoundingClientRect().top ?? 0,
+        }))
+        .filter((item) => item.top >= 0);
+      // getBoundingClientRect().top is viewport-relative, so the reading
+      // line sits at `line` pixels from the viewport top (viewportTop = 0).
+      setActiveOutlineId(findActiveOutlineId(items, 0));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(updateActive);
+    };
+    updateActive();
+    // Scroll events do not bubble, but a capture-phase document listener
+    // catches scrolls from any scrollable container (the app main view
+    // scrolls internally, not the window).
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [preview, outline]);
 
   useEffect(() => {
     if (store.getState().focusTitleOnNextRender) {
@@ -1524,9 +1555,15 @@ function NoteEditor({ store }: { store: NotesStore }) {
               <h2>{t("Outline")}</h2>
               <ol>
                 {outline.map((entry) => (
-                  <li key={entry.id} className={`notes-outline-level-${entry.level}`}>
+                  <li
+                    key={entry.id}
+                    className={`notes-outline-level-${entry.level}${
+                      entry.id === activeOutlineId ? " active" : ""
+                    }`}
+                  >
                     <button
                       type="button"
+                      aria-current={entry.id === activeOutlineId ? "location" : undefined}
                       onClick={() =>
                         document
                           .getElementById(entry.id)
