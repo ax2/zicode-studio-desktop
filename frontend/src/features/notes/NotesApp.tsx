@@ -54,7 +54,6 @@ export function NotesNav({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
   const setQuery = store((state) => state.setQuery);
   const setMode = store((state) => state.setMode);
-  const project = store((state) => state.project);
   const selectMode = store((state) => state.selectMode);
   const selectedNoteIds = store((state) => state.selectedNoteIds);
   const snapshot = store((state) => state.snapshot);
@@ -74,21 +73,6 @@ export function NotesNav({ store }: { store: NotesStore }) {
   };
   return (
     <div className="notes-nav">
-      {project ? (
-        <button
-          type="button"
-          className="notes-project-header"
-          title={project.path || project.id}
-          onClick={() =>
-            window.dispatchEvent(new CustomEvent("zicode:open-project"))
-          }
-        >
-          <span className="notes-project-icon" aria-hidden="true">
-            📂
-          </span>
-          <span className="notes-project-name">{project.name}</span>
-        </button>
-      ) : null}
       <div className="notes-nav-actions">
         <button
           type="button"

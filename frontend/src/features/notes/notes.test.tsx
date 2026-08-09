@@ -156,17 +156,12 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
-  it("opens the project workspace from the project header", () => {
+  it("does not duplicate the shell project row inside the notes navigation", () => {
     const store = storeWithGateway();
-    const dispatched: string[] = [];
-    const listener = (event: Event) => dispatched.push(event.type);
-    window.addEventListener("zicode:open-project", listener);
     const { container } = render(<NotesNav store={store} />);
-    const header = container.querySelector(".notes-project-header") as HTMLElement;
-    expect(header).toBeTruthy();
-    header.click();
-    window.removeEventListener("zicode:open-project", listener);
-    expect(dispatched).toEqual(["zicode:open-project"]);
+    // The plugin shell already renders the project row for every application;
+    // Notes must not render its own duplicate project header on top of it.
+    expect(container.querySelector(".notes-project-header")).toBeNull();
   });
 
   it("highlights the search query inside note titles", async () => {

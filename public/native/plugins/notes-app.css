@@ -5,47 +5,6 @@
   padding: 0 var(--space-2) var(--space-2);
 }
 
-.notes-project-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  width: 100%;
-  margin: 0 var(--space-2) var(--space-1);
-  padding: var(--space-1-5) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  min-height: var(--control-height-md);
-  transition:
-    background var(--duration) var(--ease),
-    border-color var(--duration) var(--ease);
-}
-
-.notes-project-header:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-hover);
-}
-
-.notes-project-icon {
-  font-size: var(--font-size-sm);
-  line-height: 1;
-}
-
-.notes-project-name {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-}
-
 .notes-save-state {
   align-self: center;
   color: var(--text-dim);
