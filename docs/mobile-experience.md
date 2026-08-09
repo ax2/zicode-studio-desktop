@@ -4568,6 +4568,23 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百五十七轮：笔记备份导出实测 + 附件链路复核（2026-08-09）。
+
+1. 笔记"导出可读备份"端到端验证：选中 QVeris 后导出，成功提示
+   "可读备份已导出"，下载得到 `QVeris.zicode-notes.json`（约 3.8 KB），
+   内容为有效 JSON——含 schemaVersion/notebook/notes/attachments/
+   trashedNotes，5 篇笔记标题与正文完整（"笔记1"内容"测试"等）；
+2. 附件链路复核：点击"添加附件"会创建 transient file input
+   （accept 为图片/文档类型）；自动化注入文件受 WebView2 原生文件
+   对话框阻塞（change 事件无法由 CDP 触发），属自动化限制而非应用
+   缺陷——取消对话框路径有 focus 兜底，附件存储侧由 Rust
+   `stores_safe_attachments_and_round_trips_readable_backups` 用例与
+   笔记网关测试覆盖；
+3. TURN relay 复测仍为 401（服务器密钥未对齐，等待修复，见第 355
+   轮）；全部临时数据已按 id 删除（note/notebook deleted:true），
+   vault 恢复为 QVeris 5 篇 + 测试笔记本 0 篇 + 回收站 0；本轮无
+   代码改动。
+
 第三百五十六轮：会话侧栏与对话导航轨交互实测（2026-08-09）。
 
 1. 会话右键菜单：收藏/归档/重命名三项正常显示，Esc 关闭；
