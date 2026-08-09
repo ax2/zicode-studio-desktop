@@ -77,3 +77,9 @@ the draft, while successful submission or clearing site data removes both.
 
 Session backup is a read-only export containing the full message history and project paths,
 never credentials; the JSON file is directly readable and suitable for archiving or pre-migration retention.
+
+To restore, open **Settings → General → Import session backup** and pick a previously
+exported JSON file. Entries are validated per item (the session id must match the first
+line of its content, paths must belong to the current workspace, each entry is capped at
+10 MiB, and the total at 50 MiB); existing session ids are skipped rather than overwritten.
+Imported conversations appear in the sidebar and are ready for migration or recovery.
