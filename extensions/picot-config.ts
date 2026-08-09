@@ -760,7 +760,15 @@ export async function handlePicotConfig(
           while (nextIndex < models.length) {
             const model = models[nextIndex];
             nextIndex += 1;
-            results.push(await runModelHealthCheck(reg, model, preferences));
+            const result = await runModelHealthCheck(reg, model, preferences);
+            // A 404 `model_not_found` is definitive: that id does not exist on
+            // the chat gateway. Keep the composer dropdown clean by hiding
+            // such entries; they remain visible in the configuration model
+            // list where the user can re-enable them if upstream changes.
+            if (result.status === "unhealthy" && /model_not_found/i.test(result.error ?? "")) {
+              preferences.setVisibility(provider, model.id as string, false);
+            }
+            results.push(result);
           }
         });
         await Promise.all(workers);

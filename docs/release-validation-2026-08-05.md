@@ -419,6 +419,27 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     笔记并打开新笔记（标题=首问、标签 captured/chat、正文含摘要/要点
     结构化整理）；测试笔记删除后 QVeris 恢复 5 篇、回收站 0。
 
+## 第五十三次重建（2026-08-10，含第 379 轮无效模型别名自动隐藏）
+
+- 合入第 379 轮：`check_model_health` 对返回 404 `model_not_found`
+  （确定性"该 id 不存在"）的模型调用 `setVisibility(false)`，模型
+  下拉经 `applyConfiguredModelVisibility` 自动移除这些条目（配置页
+  模型列表仍可见、可手动重新启用）；新增单测；前端 780 项全绿；
+- 产物：
+  - `target/release/zicode-studio-desktop.exe`：41,500,672 B，
+    SHA-256 `D60140BAA1B539E41614F348BC5FB44D48EC5D900B70870514FA04BE2BC273F5`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,929,118 B，SHA-256
+    `925FB50E5F66E4FD58C25D064C0F5128895EEBF21E25E61D0055079DF152DF15`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `AF4A51CC18889FC2D817D870685252F69220AE3F995B75B1399648A1AAD5C557`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）、
+    扩展 bundle 与仓库 dist 一致；
+  - 健康检查后 `picot-models.json` 三个别名 visibility=false，页面
+    刷新后模型下拉 23 项（22 个可用模型 + 当前选择），deepseek-chat /
+    deepseek/deepseek-chat / openrouter/deepseek-chat 不再出现。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

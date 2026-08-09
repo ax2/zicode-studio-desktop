@@ -4568,6 +4568,24 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百七十九轮：健康检查自动隐藏网关不接受的目录别名（2026-08-10）。
+
+1. 上轮健康检查确认 25 个模型里 3 个是网关不接受的别名
+   （deepseek-chat、deepseek/deepseek-chat、openrouter/deepseek-chat，
+   均 404 model_not_found），但模型下拉仍列出它们——用户误选会直接
+   报 404；
+2. 修复：`check_model_health` 对返回 `model_not_found`（404，确定性
+   "该 id 不存在"而非暂时故障）的模型调用 `setVisibility(false)`，
+   模型下拉（`availableModels` 经 `applyConfiguredModelVisibility`
+   过滤）自动移除这些条目；配置页模型列表仍可见并可手动重新启用；
+3. 验证：健康检查后 `picot-models.json` 三个别名 visibility=false；
+   页面刷新后模型下拉从 26 项（含重复）变为 23 项，deepseek-chat 等
+   不再出现，22 个可用模型全部保留；新增单测覆盖"model_not_found
+   自动隐藏"；前端 780 项全绿。
+4. 发布：release 第五十三次重建，`/S` 静默重装后安装目录 public 与
+   仓库 299 文件 0 缺失/0 哈希差异、扩展 bundle 与仓库 dist 一致；
+   哈希见 `docs/release-validation-2026-08-05.md`。
+
 第三百七十八轮：第 375–377 轮修复后的回归验证（2026-08-10，验证轮）。
 
 1. 门禁：前端 780 项（135 文件）全绿，typecheck / Biome（450 文件）/

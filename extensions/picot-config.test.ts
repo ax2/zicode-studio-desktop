@@ -154,6 +154,62 @@ describe("picot config auth operations", () => {
     );
   });
 
+  it("hides catalog entries the gateway definitively rejects with model_not_found", async () => {
+    const { root, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const agentDir = join(root, "scene-agent");
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(
+      join(agentDir, "auth.json"),
+      JSON.stringify({ qveris: { type: "api_key", key: "sk-health-test" } }),
+    );
+    writeFileSync(
+      join(agentDir, "models.json"),
+      JSON.stringify({
+        providers: {
+          qveris: {
+            baseUrl: "http://127.0.0.1:57620/v2/model-gateway",
+            api: "openai-completions",
+            authHeader: true,
+            models: [{ id: "deepseek-chat" }, { id: "deepseek-v4-flash" }],
+          },
+        },
+      }),
+    );
+    const catalog = [
+      { provider: "qveris", id: "deepseek-chat", name: "deepseek-chat" },
+      { provider: "qveris", id: "deepseek-v4-flash", name: "deepseek-v4-flash" },
+    ];
+    const registry = {
+      getAll: () => catalog,
+      getAvailable: () => catalog,
+      getProviderAuthStatus: () => ({ configured: true, source: "system" }),
+      getProviderDisplayName: () => "QVeris Model Gateway",
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      text: async () =>
+        JSON.stringify({
+          error: { code: "model_not_found", message: "the requested model is not available" },
+        }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await handlePicotConfig(
+      "check_model_health",
+      { provider: "qveris" },
+      { modelRegistry: registry },
+    );
+
+    expect(result.ok).toBe(true);
+    const prefsPath = join(agentDir, "picot-models.json");
+    const prefs = JSON.parse(readFileSync(prefsPath, "utf8"));
+    expect(prefs.visibility).toEqual({
+      "qveris/deepseek-chat": false,
+      "qveris/deepseek-v4-flash": false,
+    });
+  });
+
   it("stores and removes API keys without requiring registry authStorage", async () => {
     vi.stubEnv("HOME", "");
     const { home, handlePicotConfig } = await loadConfigWithTempHome();
