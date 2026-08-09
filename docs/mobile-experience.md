@@ -4568,6 +4568,19 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百五十九轮：会话备份导出 + 移动端多断点扫查（2026-08-09）。
+
+1. 会话备份导出（设置 → 数据 → 导出会话备份）：下载得到
+   `zicode-sessions-f70e093f.json`（约 212 KB），有效 JSON，含
+   exportedAt/schemaVersion/sessions/workspaceId，8 个会话（含
+   content/projectPath/sessionId）完整；
+2. 移动端多断点溢出扫查：360/420/768/820px 下
+   `document.documentElement.scrollWidth` 均等于视口宽，无真实横向
+   溢出；360–768px 检出负坐标元素均为收起状态的侧栏抽屉（离屏
+   drawer，设计行为），820px 无任何越界；全程零控制台错误；
+3. TURN relay 复测仍为 401（服务器密钥未对齐，等待修复，见第 355
+   轮）；本轮无代码改动。
+
 第三百五十八轮：富 Markdown 渲染 / 带入对话选区 / 附件存储链路实测
 （2026-08-09）。
 
