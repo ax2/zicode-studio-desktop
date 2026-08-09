@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { setupMessagesInsets, syncMessagesInsets } from "./layout-insets.js";
+import {
+  setupMessagesInsets,
+  syncMessagesAlignment,
+  syncMessagesInsets,
+} from "./layout-insets.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -283,5 +287,53 @@ describe("syncMessagesInsets", () => {
 
     expect(messages.scrollTop).toBe(240);
     destroy();
+  });
+});
+
+describe("syncMessagesAlignment", () => {
+  test("adds the bottom-aligned class while the history fits the viewport", () => {
+    const messages = document.createElement("div");
+    Object.defineProperty(messages, "scrollHeight", { value: 400 });
+    Object.defineProperty(messages, "clientHeight", { value: 500 });
+
+    syncMessagesAlignment(messages);
+
+    expect(messages.classList.contains("messages-bottom-aligned")).toBe(true);
+  });
+
+  test("removes the class once the history overflows so top-flow scrolling stays reachable", () => {
+    const messages = document.createElement("div");
+    messages.classList.add("messages-bottom-aligned");
+    Object.defineProperty(messages, "scrollHeight", { value: 900 });
+    Object.defineProperty(messages, "clientHeight", { value: 500 });
+
+    syncMessagesAlignment(messages);
+
+    expect(messages.classList.contains("messages-bottom-aligned")).toBe(false);
+  });
+
+  test("tolerates sub-pixel rounding at the boundary", () => {
+    const messages = document.createElement("div");
+    Object.defineProperty(messages, "scrollHeight", { value: 501 });
+    Object.defineProperty(messages, "clientHeight", { value: 500 });
+
+    syncMessagesAlignment(messages);
+
+    expect(messages.classList.contains("messages-bottom-aligned")).toBe(true);
+  });
+
+  test("normalizes flex-end before measuring and keeps the class while the history still fits", () => {
+    const messages = document.createElement("div");
+    messages.classList.add("messages-bottom-aligned");
+    Object.defineProperty(messages, "scrollHeight", { value: 490 });
+    Object.defineProperty(messages, "clientHeight", { value: 500 });
+
+    syncMessagesAlignment(messages);
+
+    expect(messages.classList.contains("messages-bottom-aligned")).toBe(true);
+  });
+
+  test("does nothing without a messages element", () => {
+    expect(() => syncMessagesAlignment(null)).not.toThrow();
   });
 });

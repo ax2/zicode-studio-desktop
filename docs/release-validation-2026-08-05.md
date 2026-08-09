@@ -301,6 +301,29 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     `lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；日志无
     ERROR/WARN/panic。
 
+## 第四十七次重建（2026-08-09，含第 370 轮聊天底部对齐修复）
+
+- 合入第 370 轮：短对话历史贴住 Composer（`.messages-bottom-aligned`，
+  由 `syncMessagesAlignment` 在内容放得下时启用、溢出即移除），消除
+  最后一条消息与输入区之间的死区；测量先归一化到顶流（Chromium 在
+  flex-end 下低估 scrollHeight）避免长会话首屏被裁；前端 777 项
+  （135 文件）全绿，typecheck/Biome/design 通过；
+- 产物（第二次构建，含测量归一化修复）：
+  - `target/release/zicode-studio-desktop.exe`：41,496,576 B，
+    SHA-256 `DBFB723F41F92D4F7A0B3DB62D222F9F41584C8BDA12705E6239A314967091E8`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,918,375 B，SHA-256
+    `C6238F862D7A7B7FE2AA3F0D192C13EF702BA7D0694DF6199CF335A46F1BDEC9`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `AE1A19BBA24EACBE16E12611A316B55B6D51E9FB0CAC3B3FE2BD40211F681D68`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - `/S` 静默重装后从安装目录启动，CDP 复验：长会话
+    "你现在用的什么通道跟我对话？" `scrollH 2634>1210`、类关闭、
+    滚动范围 1424px 首条可达；短会话"release冒烟：回复ok"类开启、
+    最后一条消息结束于 y≈1056、Composer 顶 y≈1068（距 12px）；
+  - 桌面欢迎页在开启类后仍居中铺满聊天列（自身 auto margin 不受影响）。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

@@ -54,6 +54,7 @@ export function setupMessagesInsets({
   visualViewport = window.visualViewport,
 } = {}) {
   let frameId = 0;
+  let alignmentFrameId = 0;
   let baselineViewportHeight = viewportHeight(visualViewport);
   let bottomAnchorIntent = isNearBottom(messages);
   let pendingBottomAnchorIntent = bottomAnchorIntent;
@@ -87,6 +88,7 @@ export function setupMessagesInsets({
     frameId = 0;
     syncKeyboardState();
     syncMessagesInsets({ main, messages, header, inputArea });
+    syncMessagesAlignment(messages);
     if (pendingBottomAnchorIntent) scrollToBottom(messages);
     bottomAnchorIntent = pendingBottomAnchorIntent || isNearBottom(messages);
   };
@@ -115,6 +117,36 @@ export function setupMessagesInsets({
   observer?.observe(inputArea);
   observer?.observe(main);
 
+  // Message content grows during streaming/history renders without resizing
+  // the scroller itself, so watch the DOM and re-evaluate the alignment class
+  // on the next frame (bounded to one pass per frame).
+  const scheduleAlignmentSync = () => {
+    if (alignmentFrameId) return;
+    alignmentFrameId = requestAnimationFrame(() => {
+      alignmentFrameId = 0;
+      syncMessagesAlignment(messages);
+    });
+  };
+  const alignmentObserver =
+    typeof MutationObserver === "function"
+      ? new MutationObserver((records) => {
+          // The alignment class toggle on the scroller itself is managed here;
+          // only react to content changes (children/text) so the toggle never
+          // reschedules itself.
+          const contentChanged = records.some(
+            (record) => !(record.type === "attributes" && record.target === messages),
+          );
+          if (contentChanged) scheduleAlignmentSync();
+        })
+      : null;
+  alignmentObserver?.observe(messages, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
   window.addEventListener("resize", scheduleSync);
   visualViewport?.addEventListener("resize", scheduleSync);
   visualViewport?.addEventListener("scroll", scheduleSync);
@@ -124,7 +156,9 @@ export function setupMessagesInsets({
 
   return () => {
     if (frameId) cancelAnimationFrame(frameId);
+    if (alignmentFrameId) cancelAnimationFrame(alignmentFrameId);
     observer?.disconnect();
+    alignmentObserver?.disconnect();
     window.removeEventListener("resize", scheduleSync);
     visualViewport?.removeEventListener("resize", scheduleSync);
     visualViewport?.removeEventListener("scroll", scheduleSync);
@@ -137,6 +171,21 @@ export function setupMessagesInsets({
     main?.style.removeProperty("--mobile-visual-viewport-top");
     main?.style.removeProperty("--mobile-visual-viewport-bottom");
   };
+}
+
+export function syncMessagesAlignment(messages) {
+  if (!messages) return;
+  // Chromium under-reports scrollHeight while flex-end is active because the
+  // overflow above the scroller is not part of the scroll area. Normalize to
+  // top-flow before measuring so long histories are never misjudged as short.
+  const wasAligned = messages.classList.contains("messages-bottom-aligned");
+  if (wasAligned) {
+    messages.classList.remove("messages-bottom-aligned");
+    // Force a synchronous reflow so scrollHeight reflects the real content.
+    void messages.getBoundingClientRect();
+  }
+  const fits = messages.scrollHeight <= messages.clientHeight + 1;
+  messages.classList.toggle("messages-bottom-aligned", fits);
 }
 
 function viewportHeight(visualViewport = window.visualViewport) {

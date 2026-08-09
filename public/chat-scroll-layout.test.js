@@ -26,4 +26,10 @@ describe("chat scroll layout", () => {
     expect(ruleBody(".message .message-content")).toContain("max-width: 100%");
     expect(ruleBody(".message-content")).toContain("overflow-wrap: anywhere");
   });
+
+  test("bottom-aligns short histories so the composer is never separated from the last message by dead space", () => {
+    expect(ruleBody(".messages.messages-bottom-aligned")).toContain(
+      "justify-content: flex-end",
+    );
+  });
 });

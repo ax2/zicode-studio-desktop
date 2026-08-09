@@ -23,6 +23,15 @@
   scroll-behavior: smooth;
 }
 
+/* Short conversations hug the composer instead of leaving a large dead band
+   between the last message and the input. layout-insets.js toggles this class
+   only while the history fits the viewport; once it overflows the class is
+   removed so long histories keep normal top-flow scrolling and every message
+   stays reachable. */
+.messages.messages-bottom-aligned {
+  justify-content: flex-end;
+}
+
 .messages::-webkit-scrollbar {
   width: 6px;
 }
