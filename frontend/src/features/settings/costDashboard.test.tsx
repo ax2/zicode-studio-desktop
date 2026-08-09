@@ -99,6 +99,7 @@ describe("cost dashboard logic", () => {
   });
 
   it("builds activity month labels and overview note", () => {
+    setLocale("en");
     const labels = buildActivityMonthLabels(
       [{ key: "2026-08-01", value: 1 }],
       0,

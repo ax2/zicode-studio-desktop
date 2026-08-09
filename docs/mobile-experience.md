@@ -4568,6 +4568,19 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百三十七轮：成本面板提示本地化 + 帮助导航/用量面板实测（2026-08-09）。
+
+1. 实现：成本面板底部动态句"You've used ~Nx more tokens than War and
+   Peace."（动态拼接无法整句翻译）改为 `t()` 模板
+   "You've used ~{ratio}x more tokens than War and Peace."，zhCN 补键；
+   生产实测显示"你使用的 Token 大约相当于《战争与和平》的 1 倍。"；
+2. 帮助中心：侧栏为 9 组分类树共 14 篇文章（首组展开、其余折叠），
+   manifest 14 页与"14 篇文章"计数一致；
+3. 用量面板：7d/30d/90d 范围切换 + Chart 图表 + 统计（总费用/会话/
+   消息/Token/活跃天数/高峰时段/工具调用）正常渲染；
+4. 验证：前端 763 项全绿（costDashboard 测试固定英文 locale），
+   typecheck/Biome 通过；settings.js 重编并同步安装目录；
+
 第三百三十六轮：主题持久化与会话搜索导航实测（2026-08-09）。
 
 1. 主题持久化：切到 clean（浅色）后整页重载，主题选择器与背景色保持

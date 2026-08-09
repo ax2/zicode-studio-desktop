@@ -173,6 +173,8 @@ const zhCN = {
   "Request approved market data providers": "请求已批准的市场数据提供商",
   "Read active Pi session context": "读取当前 Pi 会话上下文",
   "Store artifact metadata and resource handles": "存储产物元数据与资源句柄",
+  "You've used ~{ratio}x more tokens than War and Peace.":
+    "你使用的 Token 大约相当于《战争与和平》的 {ratio} 倍。",
   "Failed to load sessions.": "无法加载会话。",
   "The previous credential could not be removed.": "无法移除旧凭据。",
   "Saving…": "保存中…",
