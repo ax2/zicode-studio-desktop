@@ -67,7 +67,7 @@ fn prepare_runtime_isolation_at(
 
     crate::credential_broker::prepare_scene_credentials(root, &target.scene_id, &agent_dir)?;
 
-    let environment = BTreeMap::from([
+    let mut environment = BTreeMap::from([
         ("PI_CODING_AGENT_DIR".to_string(), path_string(&agent_dir)),
         (
             "PI_CODING_AGENT_SESSION_DIR".to_string(),
@@ -91,6 +91,17 @@ fn prepare_runtime_isolation_at(
         ("TEMP".to_string(), path_string(&temp_dir)),
         ("TMP".to_string(), path_string(&temp_dir)),
     ]);
+    // Pi resolves custom provider keys from `models.json` env references (for
+    // example `"apiKey": "$QVERIS_API_KEY"`). Expose each scene credential
+    // from the OS vault as `<PROVIDER>_API_KEY` so the model layer can attach
+    // the Authorization header for the local model gateway. Values are only
+    // placed in the child process environment, never logged or persisted.
+    for (provider, key) in
+        crate::credential_broker::scene_provider_credentials(root, &target.scene_id)?
+    {
+        let env_name = format!("{}_API_KEY", provider_env_name(&provider));
+        environment.insert(env_name, key);
+    }
 
     Ok(RuntimeIsolation {
         agent_dir,
@@ -99,6 +110,19 @@ fn prepare_runtime_isolation_at(
         temp_dir,
         environment,
     })
+}
+
+fn provider_env_name(provider: &str) -> String {
+    provider
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn opaque_key(value: &str) -> String {

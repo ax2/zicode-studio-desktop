@@ -210,6 +210,38 @@ describe("picot config auth operations", () => {
     });
   });
 
+  it("keeps the QVeris gateway apiKey env reference in the scene models document", async () => {
+    const { root, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const agentDir = join(root, "scene-agent");
+    mkdirSync(agentDir, { recursive: true });
+    const modelsPath = join(agentDir, "models.json");
+    writeFileSync(
+      modelsPath,
+      JSON.stringify({
+        providers: {
+          qveris: {
+            baseUrl: "http://127.0.0.1:57620/v2/model-gateway",
+            api: "openai-completions",
+            authHeader: true,
+            models: [{ id: "deepseek-v4-flash" }],
+          },
+        },
+      }),
+    );
+    const model = { provider: "qveris", id: "deepseek-v4-flash", name: "deepseek-v4-flash" };
+    const registry = {
+      getAll: () => [model],
+      getAvailable: () => [model],
+      getProviderAuthStatus: () => ({ configured: false }),
+      getProviderDisplayName: () => "QVeris Model Gateway",
+    };
+
+    await handlePicotConfig("list_model_catalog", {}, { modelRegistry: registry });
+
+    const document = JSON.parse(readFileSync(modelsPath, "utf8"));
+    expect(document.providers.qveris.apiKey).toBe("$QVERIS_API_KEY");
+  });
+
   it("stores and removes API keys without requiring registry authStorage", async () => {
     vi.stubEnv("HOME", "");
     const { home, handlePicotConfig } = await loadConfigWithTempHome();

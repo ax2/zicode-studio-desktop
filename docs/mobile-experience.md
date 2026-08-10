@@ -4568,6 +4568,37 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百八十一轮：pi 运行时升级 0.83.0 → 0.84.1（2026-08-10）。
+
+1. 新版发布内容（`earendil-works/pi-mono` v0.84.1）：新增 Qwen Token
+   Plan Individual 内置 provider；新增 `pi auth check` 凭据预检（对
+   桌面健康检查有直接价值）；fullscreen 支持多击选词/段落与半页滚动；
+   阻塞工具调用支持 terminate 终止整批；修复 Bun 单文件在含
+   `bunfig.toml` 目录启动崩溃、扩展 TUI 包装递归、Windows fullscreen
+   右键粘贴、`Agent.reset()` 运行中清空状态、LaTeX 排版与 fullscreen
+   鼠标事件量；
+2. 更新流程：`bun run update:pi` 锁定 `scripts/pi-version.json`
+   （0.84.1 + 六平台 SHA-256），下载 Windows x64 二进制并校验哈希，
+   解压到 `src-tauri/resources/pi`，`smoke-pi-rpc` 6 条 RPC 命令两次
+   冒烟通过；RPC 契约 fixture 新增 `tests/fixtures/pi-rpc/0.84.1/`
+   （与 0.83.0 契约一致）；
+3. 门禁：前端 781 项、typecheck、Biome（451 文件）、Rust
+   check/test/clippy/fmt 全绿；
+4. **0.84.1 兼容性修复**：升级后模型链路报
+   "Provider is not configured: qveris"。排查 pi 0.84.1 的
+   `resolveProviderAuth`：自定义 provider 必须先有 `apiKey` 配置才会
+   走凭据解析，而运行时凭据注入（seal 的 authStorage/runtime
+   credentials）不再被模型层消费。修复：桌面启动时把场景凭据从 OS
+   凭据库以 `<PROVIDER>_API_KEY` 环境变量注入 pi 子进程
+   （`scene_provider_credentials` + `provider_env_name`），qveris 的
+   models.json 增加 `apiKey: "$QVERIS_API_KEY"` 引用（ensure/sync
+   自动补齐）；实测错误链从 "Provider is not configured" → "从环境
+   变量 QVERIS_API_KEY 解析失败" → 注入后模型正常应答；
+5. 门禁（修复后）：前端 782 项、Rust 150 项（新增 apiKey 引用用例与
+   场景凭据读取）、typecheck/Biome/design/clippy/fmt 全绿；
+6. 发布：release 第五十五次重建（pi 0.84.1 + 凭据注入），`/S` 静默
+   重装后验证见 `docs/release-validation-2026-08-05.md`。
+
 第三百八十轮：发布就绪全量审计（第 2 次，2026-08-10）。
 
 1. 前端 vitest：781 项（135 文件）全绿（含 375–379 轮新增的流式正文、

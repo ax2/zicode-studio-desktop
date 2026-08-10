@@ -204,6 +204,42 @@ pub fn prepare_scene_credentials(
     Ok(())
 }
 
+/// Read every OS-vault credential registered for a scene as (provider, key)
+/// pairs. Used to expose scene API keys to Pi through the process environment
+/// (`<PROVIDER>_API_KEY`) so the model layer can resolve custom providers
+/// whose `models.json` declares an env-var `apiKey` reference. The keys are
+/// never logged and never written to configuration documents.
+pub fn scene_provider_credentials(
+    root: &Path,
+    scene_id: &str,
+) -> Result<Vec<(String, String)>, String> {
+    let index = read_index(root)?;
+    let mut credentials = Vec::new();
+    for item in index
+        .entries
+        .iter()
+        .filter(|item| item.scene_id == scene_id)
+    {
+        validate_identifier("provider", &item.provider)?;
+        let password = match keyring::Entry::new(SERVICE_NAME, &item.account)
+            .and_then(|entry| entry.get_password())
+        {
+            Ok(password) => password,
+            Err(keyring::Error::NoEntry) => continue,
+            Err(error) => {
+                return Err(format!(
+                    "Cannot read the system credential for provider {}: {error}",
+                    item.provider
+                ))
+            }
+        };
+        if !password.trim().is_empty() {
+            credentials.push((item.provider.clone(), password));
+        }
+    }
+    Ok(credentials)
+}
+
 fn store_scene_credential_at(
     root: &Path,
     scene_id: &str,

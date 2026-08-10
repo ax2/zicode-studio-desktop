@@ -440,6 +440,33 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     刷新后模型下拉 23 项（22 个可用模型 + 当前选择），deepseek-chat /
     deepseek/deepseek-chat / openrouter/deepseek-chat 不再出现。
 
+## 第五十四/五十五次重建（2026-08-10，pi 0.83.0 → 0.84.1）
+
+- 合入：`scripts/pi-version.json` 锁定 0.84.1（六平台 SHA-256），
+  `src-tauri/resources/pi` 解压 0.84.1 二进制，RPC 契约 fixture
+  `tests/fixtures/pi-rpc/0.84.1/`；
+- 0.84.1 兼容修复（模型链路曾报 "Provider is not configured:
+  qveris"）：`credential_broker::scene_provider_credentials` 读取场景
+  OS 凭据，`runtime_isolation` 以 `<PROVIDER>_API_KEY` 注入 pi 子进程
+  环境；`picot-config` 的 qveris models.json 增加
+  `apiKey: "$QVERIS_API_KEY"` 引用（ensure/sync 自动补齐）；新增
+  apiKey 引用单测；前端 782 项、Rust 150 项全绿；
+- 产物（第二次构建，含凭据注入）：
+  - `target/release/zicode-studio-desktop.exe`：41,504,256 B，
+    SHA-256 `CFE9769C92DA1FDAA8830761C0EAC49EC74147C0C8411A96CCA0A40A34EBCF86`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,777,811 B，SHA-256
+    `F57B852ECED68E309152B7EA65D72669A03BF84D89B48694B66DDBF31764A304`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `857C050A54597278DAC89A075292DD1C52AF6206D1B21DAB24AFD9910553DE86`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）、
+    安装目录 pi `.version`=0.84.1、`/health` piVersion 0.84.1；
+  - 对话冒烟：消息 → 回答正常渲染，`[model-gateway]` 日志
+    `auth=Bearer sk-C585XI…` + 上游 200 OK（0.84.1 经 env+apiKey
+    引用解析到密钥）；健康检查"22 健康 · 3 异常"（3 个为已隐藏的
+    无效别名）。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

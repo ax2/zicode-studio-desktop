@@ -75,6 +75,10 @@ const SUPPORTED_MODEL_APIS = new Set([
   "google-generative-ai",
 ]);
 const QVERIS_PROVIDER_ID = "qveris";
+// Pi 0.84+ resolves custom provider keys from `models.json` env references
+// when the runtime credential store is unavailable. The desktop injects the
+// scene key as this environment variable at launch.
+const QVERIS_API_KEY_REF = "$QVERIS_API_KEY";
 
 type CredentialStoreLike = {
   modify?: (
@@ -447,13 +451,12 @@ function writeModelsDocument(document: Record<string, unknown>): void {
 
 function ensureBuiltInModelGateway(): void {
   const current = readModelsDocument();
-  const stored = fs.existsSync(MODELS_CONFIG_PATH)
-    ? (JSON.parse(fs.readFileSync(MODELS_CONFIG_PATH, "utf8")) as {
-        providers?: Record<string, { baseUrl?: unknown }>;
-      })
-    : {};
-  if (asString(stored.providers?.[QVERIS_PROVIDER_ID]?.baseUrl)) {
-    return;
+  const qveris = current.providers?.[QVERIS_PROVIDER_ID];
+  if (qveris && typeof qveris === "object" && !Array.isArray(qveris)) {
+    if (asString(qveris.baseUrl) && asString(qveris.apiKey) === QVERIS_API_KEY_REF) {
+      return;
+    }
+    qveris.apiKey = QVERIS_API_KEY_REF;
   }
   writeModelsDocument(current);
 }
@@ -472,6 +475,7 @@ async function syncQVerisModelCatalog(
     baseUrl,
     api: "openai-completions",
     authHeader: true,
+    apiKey: QVERIS_API_KEY_REF,
     models,
   };
   writeModelsDocument(document);
