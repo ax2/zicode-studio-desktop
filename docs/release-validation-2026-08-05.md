@@ -467,6 +467,30 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     引用解析到密钥）；健康检查"22 健康 · 3 异常"（3 个为已隐藏的
     无效别名）。
 
+## 第五十六/五十七/五十八次重建（2026-08-10，第 382 轮桌面交互修复）
+
+- 合入第 382 轮：
+  - 工作区：实测"将文件夹作为工作区打开"当前窗口就地切换；新增
+    "切换工作区"菜单（`list_workspaces` 命令 + 侧栏按钮，点击就地
+    切换，Esc/外部点击关闭；第三、四次重建补 ACL 与路径显示修正）；
+  - 文件右侧侧边栏实底背景、侧栏/功能区 `overflow-x: hidden`、
+    设置移除"返回对话"入口、已归档默认折叠、"删除全部已归档"按钮
+    svg 尺寸修复；
+  - 前端 782 项、Rust 150 项、typecheck/Biome/clippy/fmt 全绿；
+- 产物（最终，release 58）：
+  - `target/release/zicode-studio-desktop.exe`：41,518,592 B，
+    SHA-256 `D8DFE86AFBD728D400203FBEBCF932E9285986F004BF285B477FE5FFDF9990A7`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,766,650 B，SHA-256
+    `5951741E9C6A4EA632C546356B4C44EC3956416D3D04FB32E336CDA091A439D3`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `3C2999C9B62E496E47C26A06351BA843DB8D080F874CEEDDD7D8128F31C1CE82`
+- 验证：
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - release 58 实测：切换器列出全部工作区（ax2/work/cloud_store/
+    zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
+    侧栏实底、归档折叠、设置无返回入口均符合预期。
+
 ## 第二十四次重建（2026-08-09，含第 298–300 轮 + 笔记回收站）
 
 - 合入：第 298 轮桌面宽屏空状态/侧栏收起、第 299 轮布局走查/拖拽回归

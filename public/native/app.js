@@ -98,6 +98,7 @@ import {
   resolveWorkspaceViaHost,
   setupNewSessionButton,
   setupOpenFolderButton,
+  setupWorkspaceSwitcher,
   spawnSessionViaHost,
 } from "./workspace/workspace-actions.js";
 
@@ -859,6 +860,7 @@ setupNewSessionButton({
   fetchImpl: hostFetch,
 });
 setupOpenFolderButton({ onError: showError });
+setupWorkspaceSwitcher({ onError: showError });
 setupLanQr({ control });
 setupAppKeyboardShortcuts({
   input,

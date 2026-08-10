@@ -196,3 +196,104 @@ export function setupOpenFolderButton({ onError } = {}) {
   });
   return true;
 }
+
+/**
+ * Workspace switcher: list every registered workspace and switch the current
+ * window to the selected project in place. Falls back to a hidden control on
+ * remote/browser clients that cannot invoke native window navigation.
+ */
+export function setupWorkspaceSwitcher({ onError } = {}) {
+  const button = document.getElementById("workspace-switcher-btn");
+  const menu = document.getElementById("workspace-switcher-menu");
+  if (!button || !menu) return false;
+
+  const invoke = resolveInvoke();
+  if (!invoke) {
+    button.style.setProperty("display", "none");
+    return false;
+  }
+
+  const currentWorkspaceId = () => {
+    const match = window.location.pathname.match(/^\/app\/workspaces\/([^/]+)\//);
+    return match ? decodeURIComponent(match[1]) : "";
+  };
+
+  const closeMenu = () => {
+    menu.classList.add("hidden");
+    button.setAttribute("aria-expanded", "false");
+  };
+
+  const displayPath = (path) => {
+    // Windows canonicalization prefixes paths with the verbatim marker.
+    return String(path || "").replace(/^\\\\\?\\/, "").replace(/^\\\?\\/, "");
+  };
+
+  const projectName = (path) => {
+    const parts = displayPath(path).split(/[\\/]/).filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : path || "";
+  };
+
+  const openMenu = async () => {
+    button.setAttribute("aria-expanded", "true");
+    menu.classList.remove("hidden");
+    menu.textContent = "";
+    const current = currentWorkspaceId();
+    try {
+      const workspaces = (await invoke("list_workspaces")) ?? [];
+      if (workspaces.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "workspace-switcher-item";
+        empty.textContent = "No other workspaces yet";
+        menu.append(empty);
+        return;
+      }
+      for (const workspace of workspaces) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = `workspace-switcher-item${workspace.id === current ? " current" : ""}`;
+        item.setAttribute("role", "menuitem");
+        const name = document.createElement("strong");
+        name.textContent = projectName(workspace.path);
+        const path = document.createElement("span");
+        path.textContent = displayPath(workspace.path);
+        item.append(name, path);
+        item.addEventListener("click", async () => {
+          closeMenu();
+          try {
+            await invoke("open_new_session_in_workspace", {
+              projectPath: workspace.path,
+            });
+          } catch (error) {
+            onError?.(error instanceof Error ? error : new Error(String(error)));
+          }
+        });
+        menu.append(item);
+      }
+    } catch (error) {
+      menu.textContent = "";
+      const failed = document.createElement("div");
+      failed.className = "workspace-switcher-item";
+      failed.textContent = error instanceof Error ? error.message : String(error);
+      menu.append(failed);
+    }
+  };
+
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (menu.classList.contains("hidden")) {
+      void openMenu();
+    } else {
+      closeMenu();
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!menu.contains(event.target) && event.target !== button) closeMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.classList.contains("hidden")) {
+      closeMenu();
+      button.focus({ preventScroll: true });
+    }
+  });
+  return true;
+}

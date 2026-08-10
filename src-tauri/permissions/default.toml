@@ -94,6 +94,11 @@ identifier = "allow-publish-notes-notebook"
 description = "Allow explicitly building a local Notes notebook as an Astro static site."
 commands.allow = ["publish_notes_notebook"]
 
+[[permission]]
+identifier = "allow-list-workspaces"
+description = "Allow listing registered workspaces for the desktop workspace switcher."
+commands.allow = ["list_workspaces"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
@@ -115,4 +120,5 @@ permissions = [
   "allow-delete-scene-credential",
   "allow-scene-credential-status",
   "allow-publish-notes-notebook",
+  "allow-list-workspaces",
 ]

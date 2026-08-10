@@ -182,6 +182,26 @@ impl MetadataStore {
         Ok(id)
     }
 
+    /// Enumerate every registered workspace as (workspace_id, canonical_path),
+    /// ordered by path. Used by the desktop workspace switcher to offer quick
+    /// navigation between opened projects.
+    pub fn list_workspaces(&self) -> Result<Vec<(String, String)>, String> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT workspace_id, canonical_path FROM workspaces ORDER BY canonical_path")
+            .map_err(|error| format!("Cannot query workspace metadata: {error}"))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| format!("Cannot query workspace metadata: {error}"))?;
+        let mut workspaces = Vec::new();
+        for row in rows {
+            workspaces.push(row.map_err(|error| format!("Cannot read workspace row: {error}"))?);
+        }
+        Ok(workspaces)
+    }
+
     pub fn store_device_token(
         &mut self,
         device_id: &str,

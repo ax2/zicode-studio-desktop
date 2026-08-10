@@ -47,7 +47,9 @@ export function createSidebarStore(initial: {
     activeSessionId: initial.activeSessionId ?? null,
     favourites: [],
     archived: [],
-    archivedCollapsed: localStorage.getItem("picot-archived-collapsed") !== "false",
+    // Archived sessions are secondary; always start the section collapsed on
+    // launch (the in-session toggle can still expand it).
+    archivedCollapsed: true,
     projectsCollapsed: {},
     unread: [],
     streaming: [],

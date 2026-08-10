@@ -254,6 +254,30 @@ async fn open_new_session_in_workspace(
     open_fresh_session_at_path(&app, Some(&window), &cwd, scene_id.as_deref())
 }
 
+#[derive(serde::Serialize)]
+struct WorkspaceInfo {
+    id: String,
+    path: String,
+}
+
+/// List every workspace registered in the metadata store so the desktop
+/// workspace switcher can offer one-click navigation between opened projects.
+#[tauri::command]
+fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceInfo>, String> {
+    let launcher = app
+        .try_state::<WorkspaceLauncher>()
+        .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
+    let metadata = launcher
+        .metadata
+        .lock()
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
+    Ok(metadata
+        .list_workspaces()?
+        .into_iter()
+        .map(|(id, path)| WorkspaceInfo { id, path })
+        .collect())
+}
+
 /// Switch the focused ZiCode Studio Desktop window to `projectPath` and resume the given saved
 /// session in it. Used by the sidebar to jump to a session that belongs to a
 /// different project without opening a second project window.
@@ -1012,6 +1036,7 @@ fn main() {
             revoke_plugin_publisher,
             open_new_session_in_workspace,
             open_session_in_project,
+            list_workspaces,
             ensure_agent_inbox_session,
             list_scene_profiles,
             save_scene_profile,

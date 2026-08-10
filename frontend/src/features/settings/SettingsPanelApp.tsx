@@ -73,7 +73,6 @@ export function SettingsApp({
 export function SettingsNav({ store }: { store: SettingsStore }) {
   const activeTab = store((state) => state.activeTab);
   const navigateTab = store((state) => state.navigateTab);
-  const closeSettings = store((state) => state.closeSettings);
   return (
     <aside className="settings-nav">
       <div className="settings-nav-title">{t("Settings")}</div>
@@ -88,14 +87,6 @@ export function SettingsNav({ store }: { store: SettingsStore }) {
           {t(tab.label)}
         </button>
       ))}
-      <button
-        type="button"
-        className="settings-nav-back"
-        id="settings-close"
-        onClick={() => closeSettings()}
-      >
-        <span className="settings-nav-back-icon">‹</span> {t("Back to chat")}
-      </button>
     </aside>
   );
 }

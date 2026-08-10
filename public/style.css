@@ -125,6 +125,9 @@ body {
   min-width: var(--panel-width);
   max-width: var(--panel-width);
   flex: 0 0 var(--panel-width);
+  /* The panel floats over the main surface; give it an opaque backdrop so
+     content scrolling underneath does not bleed through the file list. */
+  background: var(--bg-solid);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
