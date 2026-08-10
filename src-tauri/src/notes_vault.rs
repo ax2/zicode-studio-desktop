@@ -1239,6 +1239,7 @@ impl NotesVault {
         let imported_title = format!("{} (Imported)", export.notebook.title);
         validate_title(&imported_title)?;
         let mut note_ids = BTreeSet::new();
+        let imported_note_count = export.notes.len();
         for document in &export.notes {
             validate_opaque_id(&document.summary.id)?;
             validate_title(&document.summary.title)?;
@@ -1370,7 +1371,12 @@ impl NotesVault {
             let _ = fs::remove_dir_all(self.vault_root(&notebook.id)?);
             return Err(error);
         }
-        Ok(notebook)
+        // Report the real note count (the freshly created descriptor starts
+        // at zero until the imported documents are written).
+        Ok(NotebookDescriptor {
+            note_count: imported_note_count,
+            ..notebook
+        })
     }
 
     pub fn import_markdown(
@@ -2710,6 +2716,7 @@ mod tests {
         assert_eq!(backup.notes.len(), 1);
         assert_eq!(backup.attachments.len(), 1);
         let imported = vault.import_export(backup).unwrap();
+        assert_eq!(imported.note_count, 1);
         let imported_note = vault
             .get_note(&imported.id, &note.summary.id)
             .expect("backup preserves stable note IDs inside the new vault");

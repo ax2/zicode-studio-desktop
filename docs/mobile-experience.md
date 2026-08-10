@@ -4568,6 +4568,26 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百八十八轮：数据安全闭环验证 + 导入计数修复（2026-08-10）。
+
+1. 数据闭环实测（真实 Host API，临时数据已清理、QVeris 笔记完好）：
+   - 笔记：新建笔记本 → 新建笔记 → 编辑保存 → 删除进回收站 →
+     回收站列表可见 → 恢复 → 回到列表 → 导出可读备份（JSON 含该
+     笔记）→ 删除笔记本（级联）→ 导入备份 → 笔记内容逐字节还原
+     （唯一内容校验通过）；
+   - 会话：`/v2/sessions/export` 返回 schemaVersion=1、12 个会话，
+     每条含 sessionId/projectPath/content，结构完整；
+2. 修复：导入备份的响应此前返回新建笔记本的初始 `noteCount=0`（与
+   导入后的实际笔记数不符）；现返回导入后的真实笔记数，并补 Rust
+   断言（备份往返测试校验 `note_count`）；
+3. 测试过程确认：列表接口返回 `snapshot.notebooks`、回收站条目为
+   `{note:{...}}`、删除笔记本需 sceneId——均为既有契约，功能正常；
+4. 门禁：前端 794 项、Rust 152 项、typecheck/Biome/design/Tauri
+   权限 20 条/clippy/fmt 全绿；
+5. 发布：release 第六十四次重建 + `/S` 静默重装，日志无
+   ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百八十七轮：键盘无障碍走查 + 会话操作按钮键盘可达（2026-08-10）。
 
 1. 键盘走查：Tab/方向键/Enter/Space/Escape 逐项复核活动栏、会话侧栏、
