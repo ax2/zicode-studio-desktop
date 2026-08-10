@@ -201,6 +201,7 @@
 }
 
 .project-header:hover .project-more-btn,
+.project-header:focus-within .project-more-btn,
 .project-more-btn:focus-visible {
   opacity: 1;
   visibility: visible;
@@ -472,7 +473,19 @@
   pointer-events: auto;
 }
 
+.session-item:focus-within .session-action-slot {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .session-item:hover .session-archive-btn {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.session-item:focus-within .session-archive-btn {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -519,6 +532,12 @@
 }
 
 .session-item:hover .session-more-btn {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.session-item:focus-within .session-more-btn {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;

@@ -4568,6 +4568,25 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百八十七轮：键盘无障碍走查 + 会话操作按钮键盘可达（2026-08-10）。
+
+1. 键盘走查：Tab/方向键/Enter/Space/Escape 逐项复核活动栏、会话侧栏、
+   会话/项目"更多"菜单、命令面板、设置下拉；命令面板
+   （Ctrl+Shift+P）打开后搜索框获焦、Escape 关闭并恢复焦点；
+   活动栏方向键可循环移动焦点；
+2. 修复：桌面端会话行/项目头的 ⋮ 与归档按钮此前 `visibility: hidden`
+   且仅 hover 显示，键盘无法聚焦。改为 `:focus-within` 联动显示：
+   行/头获得焦点后按钮变为可见，Tab 可依次进入（实测：行聚焦 →
+   Tab → 归档 → Tab → ⋮），Space/Enter 激活打开菜单，Escape 关闭
+   并回焦到触发按钮；
+3. 回归测试：新增会话侧栏"更多按钮键盘可聚焦"用例与 2 项布局契约
+   （`.main` 裁剪 off-canvas、会话操作按钮 focus-within 可见规则）；
+4. 门禁：前端 794 项全绿、Rust 152 项、typecheck/Biome/design/
+   Tauri 权限 20 条/clippy/fmt 全绿；
+5. 发布：release 第六十三次重建 + `/S` 静默重装，CDP 复核键盘路径
+   通过，日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百八十六轮：全应用面审计 + 横向溢出/可访问性修复（2026-08-10）。
 
 1. 全应用面审计：桌面视口逐一遍历对话/项目/笔记/任务/自动化/金融/

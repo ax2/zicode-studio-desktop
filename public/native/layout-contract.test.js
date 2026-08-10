@@ -168,6 +168,19 @@ describe("desktop three-region layout contract", () => {
     expect(styleCss).toMatch(/\.app-side-panel\s*\{[^}]*position:\s*absolute/s);
   });
 
+  it("keeps session action buttons keyboard-reachable via focus-within", () => {
+    expect(sessionSidebarCss).toMatch(
+      /\.session-item:focus-within \.session-more-btn\s*\{[^}]*visibility:\s*visible/s,
+    );
+    expect(sessionSidebarCss).toMatch(
+      /\.session-item:focus-within \.session-archive-btn\s*\{[^}]*visibility:\s*visible/s,
+    );
+    expect(sessionSidebarCss).toMatch(/\.project-header:focus-within \.project-more-btn/);
+    expect(sessionSidebarCss).toMatch(
+      /\.project-more-btn:focus-visible\s*\{[^}]*visibility:\s*visible/s,
+    );
+  });
+
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
     expect(index).not.toContain('id="settings-btn"');
     expect(index).not.toContain('id="help-btn"');

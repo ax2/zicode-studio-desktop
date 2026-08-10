@@ -408,6 +408,25 @@ describe("SessionSidebar.render", () => {
     expect(sidebar.isArchived("s-more")).toBe(true);
   });
 
+  it("keeps the more button keyboard-focusable on desktop rows", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-kb", timestamp: new Date().toISOString(), name: "Keyboard" },
+    ]);
+    document.body.appendChild(container);
+    await sidebar.load();
+
+    const moreBtn = container.querySelector(
+      '.session-item[data-session-id="s-kb"] .session-more-btn',
+    );
+    expect(moreBtn).toBeTruthy();
+    moreBtn.focus();
+    expect(document.activeElement).toBe(moreBtn);
+    moreBtn.click();
+    expect(document.querySelector(".session-context-menu")).toBeTruthy();
+    document.body.click();
+    container.remove();
+  });
+
   it("opens the project header menu from the touch-friendly more button", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-a", timestamp: new Date().toISOString(), name: "A" },

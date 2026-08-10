@@ -491,6 +491,33 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十三次重建（2026-08-10，第 387 轮键盘无障碍走查）
+
+- 合入第 387 轮：
+  - 会话行/项目头的 ⋮ 与归档按钮增加 `:focus-within` 显示规则，
+    桌面端键盘用户可 Tab 进入（行聚焦 → Tab → 归档 → Tab → ⋮），
+    Space/Enter 打开菜单、Escape 关闭并回焦触发按钮；
+  - 键盘走查复核：命令面板（Ctrl+Shift+P）打开/搜索获焦/Escape
+    关闭并恢复焦点，活动栏方向键循环移动焦点；
+  - 前端 794 项（新增会话侧栏键盘聚焦用例 + 布局契约 focus-within
+    规则断言）、Rust 152 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 63）：
+  - `target/release/zicode-studio-desktop.exe`：41,594,880 B，
+    SHA-256 `AA7786E5FB49BB7C6249B379AFB9CC1CE49E9EABF2CA3B3956C6BA0BE49E7EAD`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,796,720 B，SHA-256
+    `EDA083DB39C1882F5D06EA0EC577FDF6773CC1E18ADAD7D1EF47FB3F93224DAB`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `BB1CB4B2B3BCFE7A4BE20790139C1AAFF9F7010C8E7D8E6E095464376836F3AC`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：真实点击/键盘聚焦会话行后 `:focus-within` 生效、⋮ 按钮
+    computed visibility=visible、文档横向溢出 0、会话 12 条数据完好；
+    日志无 ERROR/WARN/panic。
+
 ## 第六十二次重建（2026-08-10，第 386 轮全应用审计 + 溢出/可访问性修复）
 
 - 合入第 386 轮：
