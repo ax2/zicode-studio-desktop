@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import { ConfigTab } from "./ConfigTab";
 import { createConfigStore, type ConfigGatewayLike, type ConfigGatewayResult } from "./configStore";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
@@ -23,6 +23,8 @@ function makeGateway(overrides: Record<string, unknown> = {}): {
 }
 
 describe("settings config store", () => {
+  afterEach(() => cleanup());
+
   it("loads the model catalog into providers", async () => {
     const { gateway, calls } = makeGateway({
       list_model_catalog: async () => ({
@@ -45,6 +47,53 @@ describe("settings config store", () => {
     await store.getState().loadApiKeys();
     expect(store.getState().apiStatus).toBe("error");
     expect(store.getState().apiError).toBe("catalog down");
+  });
+
+  it("summarizes provider health over visible models only", async () => {
+    const { gateway } = makeGateway({
+      list_model_catalog: async () => ({
+        ok: true,
+        data: {
+          providers: [
+            {
+              provider: "openai",
+              displayName: "OpenAI",
+              configured: true,
+              models: [
+                {
+                  id: "ok",
+                  name: "OK",
+                  available: true,
+                  visible: true,
+                  health: { status: "healthy", latencyMs: 100 },
+                },
+                {
+                  id: "broken",
+                  name: "Broken",
+                  available: true,
+                  visible: true,
+                  health: { status: "unhealthy", error: "boom" },
+                },
+                {
+                  id: "alias",
+                  name: "Hidden alias",
+                  available: true,
+                  visible: false,
+                  health: { status: "unhealthy", error: "model_not_found" },
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+    const store = createConfigStore({ configGateway: gateway });
+    await store.getState().loadApiKeys();
+    render(<ConfigTab store={store} widgets={createSettingsWidgetsStore()} />);
+
+    const summary = document.querySelector(".api-key-row-summary")?.textContent || "";
+    const counts = (summary.match(/\d+/g) || []).slice(0, 3);
+    expect(counts).toEqual(["2", "1", "1"]);
   });
 
   it("stores an API key through the gateway and refreshes dependent panels", async () => {

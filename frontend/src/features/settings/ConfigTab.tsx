@@ -680,9 +680,13 @@ function InlineEditor({
 }
 
 function describeProviderSummary(models: ConfigModel[]): string {
-  const enabled = models.filter((model) => model.visible !== false).length;
-  const healthy = models.filter((model) => model.health?.status === "healthy").length;
-  const issues = models.filter((model) => model.health?.status === "unhealthy").length;
+  // The summary reflects the usable set: models the user can pick. Hidden
+  // catalog aliases (auto-hidden when the gateway rejects them) still show
+  // their own per-row health, but no longer inflate the summary's issue count.
+  const visible = models.filter((model) => model.visible !== false);
+  const enabled = visible.length;
+  const healthy = visible.filter((model) => model.health?.status === "healthy").length;
+  const issues = visible.filter((model) => model.health?.status === "unhealthy").length;
   return `${enabled} ${t("enabled")} · ${healthy} ${t("healthy")} · ${issues} ${t("issues")}`;
 }
 

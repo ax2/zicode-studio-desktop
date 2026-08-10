@@ -491,6 +491,33 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十五次重建（2026-08-10，第 389 轮核心链路实测 + 健康汇总口径）
+
+- 合入第 389 轮：
+  - 模型链路端到端实测：真实发消息 → 网关应答 → 回复渲染 → 会话
+    落盘工作区 `.zicode/sessions` → 侧栏新增，0 控制台错误；
+  - 配套链路复核：模型下拉 22 项、配置页模型健康、会话归档/删除
+    （文件同步删除）、产物库闭环、Ctrl+K 搜索；测试数据已清理；
+  - 修复：模型健康汇总统一按可见模型统计（此前"已启用"按可见、
+    "健康/异常"按全部，含已隐藏别名），隐藏别名不再计入异常；
+    补单元测试；
+  - 前端 795 项、Rust 152 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 65）：
+  - `target/release/zicode-studio-desktop.exe`：41,595,392 B，
+    SHA-256 `2B39E2489D23343E5BCA1B4B5CDB0204CD57616168683E1A7622B1BBEE9E49E3`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,788,903 B，SHA-256
+    `4E2A32A4229CEDA490F495E6252ECA9D3A36D203040DB79974502ECF5ED1ECB6`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `7D2FC35849AFB70A05E4278BF7981D5650F816C4EE5D32DCE45A3C77C4A151A5`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - 实测配置页汇总显示"22 已启用 · 22 健康 · 0 异常"；日志无
+    ERROR/WARN/panic。
+
 ## 第六十四次重建（2026-08-10，第 388 轮数据闭环验证 + 导入计数修复）
 
 - 合入第 388 轮：
