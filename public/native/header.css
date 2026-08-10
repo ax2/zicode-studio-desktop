@@ -13,6 +13,9 @@
   min-height: 0;
   position: relative;
   z-index: 1;
+  /* Clip off-canvas side panels (collapsed file browser) and floating rails
+     so they never widen the document or create a horizontal scrollbar. */
+  overflow: hidden;
 }
 
 /* Header — translucent toolbar */

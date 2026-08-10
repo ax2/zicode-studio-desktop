@@ -157,6 +157,17 @@ const sidebarCss = readFileSync(join(process.cwd(), "public/native/sidebar.css")
 const themeCss = readFileSync(join(process.cwd(), "public/style-theme.css"), "utf8");
 
 describe("desktop three-region layout contract", () => {
+  it("clips off-canvas side panels so they never widen the document", () => {
+    expect(headerCss).toMatch(/\.main\s*\{[^}]*overflow:\s*hidden/s);
+    expect(headerCss).toMatch(/\.main\s*\{[^}]*min-width:\s*0/s);
+  });
+
+  it("moves the collapsed file panel fully off-canvas", () => {
+    const styleCss = readFileSync(join(process.cwd(), "public/style.css"), "utf8");
+    expect(styleCss).toMatch(/\.app-side-panel\.collapsed\s*\{[^}]*translateX\(100%\)/s);
+    expect(styleCss).toMatch(/\.app-side-panel\s*\{[^}]*position:\s*absolute/s);
+  });
+
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
     expect(index).not.toContain('id="settings-btn"');
     expect(index).not.toContain('id="help-btn"');

@@ -228,6 +228,7 @@ const zhCN = {
   off: "关闭",
   "Empty session": "空会话",
   "No saved sessions in this workspace": "当前工作区暂无会话",
+  "Message input": "消息输入框",
   "Archive session": "归档会话",
   "Unarchive session": "取消归档会话",
   "More actions": "更多操作",

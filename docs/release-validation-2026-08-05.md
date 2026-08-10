@@ -491,6 +491,35 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十二次重建（2026-08-10，第 386 轮全应用审计 + 溢出/可访问性修复）
+
+- 合入第 386 轮：
+  - `.main` 增加 `overflow: hidden`：折叠态右侧文件面板（320px
+    off-canvas）与浮动会话导航轨不再撑宽文档，消除对话视图 320px、
+    其他应用 4px 的文档级横向溢出；
+  - 会话搜索输入框与对话输入框补 `aria-label`（"搜索会话"/
+    "消息输入框"），中英翻译齐全；
+  - 全应用面审计（桌面 + 390×844 移动仿真）0 控制台错误、0 文档级
+    横向溢出；主题切换/新建会话/归档二次确认/工作区切换复核通过；
+  - 前端 792 项（新增布局契约 2 项）、Rust 152 项、
+    typecheck/Biome/design/Tauri 权限 20 条/clippy/fmt 全绿；
+- 产物（release 62）：
+  - `target/release/zicode-studio-desktop.exe`：41,594,880 B，
+    SHA-256 `D73C8C269D13FD8A6F462E9EE44EDFB9ABB77E093E4E76AD232D86047B3F9CB5`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,767,990 B，SHA-256
+    `46D10F2D2F06D6078B61E6F8C30B4B84F34671C78A1881321B5C4315261A863E`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `527CDE4AFF016DEE47AC6C973AC60AE4A1E08BD30011CF343A504C64F31573AA`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：对话/项目/笔记/任务/自动化/金融/产物/设置/帮助文档级
+    横向溢出全为 0，`.main` computed overflow=hidden，会话搜索与
+    消息输入框 aria-label 生效，会话 12 条数据完好；日志无
+    ERROR/WARN/panic。
+
 ## 第六十一次重建（2026-08-10，第 385 轮任务/自动化/金融按工作区隔离）
 
 - 合入第 385 轮：

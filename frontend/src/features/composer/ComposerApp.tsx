@@ -272,6 +272,7 @@ export function ComposerApp({
             ref={inputRef}
             id="message-input"
             placeholder="Type a message, or use / to call a skill…"
+            aria-label={t("Message input")}
             autoComplete="off"
             rows={2}
             aria-autocomplete="list"
