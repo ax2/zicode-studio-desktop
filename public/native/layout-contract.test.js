@@ -181,6 +181,15 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("defers the palette's workspace-switcher click past its own bubbling", () => {
+    // The switcher closes when an outside click reaches the document listener;
+    // running the palette command must schedule the button click asynchronously
+    // so the palette item's own click cannot close the freshly opened menu.
+    expect(appJs).toMatch(
+      /label: t\("Switch workspace"\)[\s\S]{0,600}setTimeout\(\s*\(\s*\) =>\s*document\.getElementById\("workspace-switcher-btn"\)\?\.click\(\),/,
+    );
+  });
+
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
     expect(index).not.toContain('id="settings-btn"');
     expect(index).not.toContain('id="help-btn"');

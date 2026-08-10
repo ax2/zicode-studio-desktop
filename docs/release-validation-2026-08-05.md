@@ -491,6 +491,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十六次重建（2026-08-10，第 390 轮启动恢复验证 + 命令面板补全）
+
+- 合入第 390 轮：
+  - 命令面板（Ctrl+Shift+P）补"新建会话"与"切换工作区"两个高频
+    命令；修复"切换工作区"命令被自身点击冒泡立即关闭菜单的问题
+    （延后触发按钮，补契约回归测试）；
+  - 重启恢复、移动端深度交互（抽屉/菜单/底部导航）、6 套主题切换
+    复核通过；
+  - 前端 796 项、Rust 152 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 66）：
+  - `target/release/zicode-studio-desktop.exe`：41,595,392 B，
+    SHA-256 `DE5C6AF222AD7E8DF2342CA3B97D8B1228C95408372A76F4F6C340D019EA43F6`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,774,606 B，SHA-256
+    `21B80D332AB5E5A6A5A9B6627D44A827BAC61486C6D2D326964DAC02A5BA5D8A`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `D1DDD81194698E9572E3352BCCB309288B40037EA5728D176C301F21B691BB56`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - 实测命令面板顶部为"新建会话/切换工作区"，切换工作区命令正常
+    打开切换器（5 个工作区）；日志无 ERROR/WARN/panic。
+
 ## 第六十五次重建（2026-08-10，第 389 轮核心链路实测 + 健康汇总口径）
 
 - 合入第 389 轮：

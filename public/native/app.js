@@ -572,6 +572,26 @@ setupCommandPalette({
   list: commandList,
   commands: () => [
     {
+      icon: "+",
+      label: t("New session"),
+      desc: t("Start a new conversation"),
+      action: () => document.getElementById("new-session-btn")?.click(),
+    },
+    {
+      icon: "⇄",
+      label: t("Switch workspace"),
+      desc: t("Open the workspace switcher"),
+      action: () => {
+        // Defer until the palette's own click has finished bubbling so the
+        // switcher's outside-click listener does not close the menu it just
+        // opened (target would be the palette item, not the switcher button).
+        setTimeout(
+          () => document.getElementById("workspace-switcher-btn")?.click(),
+          0,
+        );
+      },
+    },
+    {
       icon: "🗜️",
       label: t("Compact"),
       desc: t("Compact context to save tokens"),
