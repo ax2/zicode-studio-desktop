@@ -7,6 +7,11 @@ function render(width = 390) {
     <aside id="sidebar">
       <button class="plugin-sidebar-view-header">Disclosure</button>
       <button class="content-action">Open item</button>
+      <button class="session-more-btn">More</button>
+      <button class="session-archive-btn">Archive</button>
+      <button class="project-more-btn">Project more</button>
+      <button id="workspace-switcher-btn">Switch</button>
+      <div id="workspace-switcher-menu"><button class="workspace-switcher-item">WS</button></div>
     </aside>
     <div id="sidebar-overlay" aria-hidden="true"></div>
     <button id="sidebar-toggle" aria-expanded="true"></button>
@@ -53,6 +58,21 @@ describe("mobile function area", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(true);
     expect(document.activeElement).toBe(document.getElementById("sidebar-toggle"));
+  });
+
+  it("keeps the drawer open for session menus and the workspace switcher", () => {
+    controller = render();
+    document.getElementById("sidebar-toggle").click();
+    for (const selector of [
+      ".session-more-btn",
+      ".session-archive-btn",
+      ".project-more-btn",
+      "#workspace-switcher-btn",
+      ".workspace-switcher-item",
+    ]) {
+      document.querySelector(selector).click();
+      expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(false);
+    }
   });
 
   it("lets the mobile Back gesture close the open function area before leaving the app", () => {

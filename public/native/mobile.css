@@ -276,6 +276,29 @@
     bottom: var(--mobile-nav-height);
   }
 
+  /* Shared workspace bar inside the drawer: comfortable tap targets and
+     keep the switcher menu inside the drawer viewport. */
+  .workspace-bar {
+    padding: var(--space-2) var(--space-2) 0;
+    gap: var(--space-1-5);
+  }
+
+  .workspace-bar-project {
+    min-height: var(--space-12);
+    padding: var(--space-2) var(--space-2-5);
+  }
+
+  .workspace-bar-switcher {
+    width: var(--space-12);
+    height: var(--space-12);
+  }
+
+  .workspace-switcher-menu {
+    left: var(--space-2);
+    right: var(--space-2);
+    max-height: 45vh;
+  }
+
   .sidebar-header {
     min-height: var(--space-12);
   }
@@ -599,6 +622,10 @@
 }
 
 @media (max-width: 420px) {
+  .workspace-bar-text span {
+    display: none;
+  }
+
   .composer-toolbar .thinking-tag {
     max-width: var(--space-12);
     overflow: hidden;

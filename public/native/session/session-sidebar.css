@@ -224,6 +224,47 @@
   opacity: 1;
 }
 
+/* Touch-friendly "more" menu entry on project headers (archive all sessions),
+   revealed on hover for fine pointers and always visible on coarse pointers. */
+.project-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    background var(--duration) var(--ease),
+    color var(--duration) var(--ease),
+    opacity var(--duration) var(--ease),
+    visibility var(--duration) var(--ease);
+}
+
+.project-header:hover .project-more-btn,
+.project-more-btn:focus-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.project-more-btn:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.project-more-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Open project in external app (VS Code / Cursor / Terminal / …) */
 .archived-delete-all-btn {
   display: none;
@@ -517,6 +558,52 @@
   background: var(--bg-glass-hover);
 }
 
+/* Touch-friendly "more" menu entry on session rows: exposes the same
+   favourite/archive/rename/delete actions that were previously right-click
+   only, so coarse-pointer devices can open the menu with a plain tap. */
+.session-more-btn {
+  position: relative;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition:
+    all var(--duration) var(--ease),
+    opacity var(--duration) var(--ease),
+    visibility var(--duration) var(--ease);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.session-more-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.session-item:hover .session-more-btn {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.session-more-btn:hover {
+  background: var(--bg-glass-hover);
+}
+
 .session-tag {
   font-size: var(--font-size-sm);
   padding: var(--space-0-5) var(--space-1);
@@ -567,6 +654,35 @@
   .context-menu-item {
     min-height: var(--space-10);
     align-items: center;
+  }
+
+  /* Hover-only actions must stay reachable on touch: keep the archive,
+     "more" menu, and delete-all controls visible without a pointer hover. */
+  .session-action-slot,
+  .session-archive-btn,
+  .session-more-btn,
+  .project-more-btn {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .archived-delete-all-btn {
+    display: flex;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .session-archive-btn,
+  .session-more-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .project-more-btn {
+    width: 28px;
+    height: 28px;
   }
 
   .sidebar-confirm-actions {

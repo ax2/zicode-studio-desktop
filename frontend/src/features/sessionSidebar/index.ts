@@ -559,6 +559,23 @@ export class SessionSidebar implements SessionSidebarController {
   // ── context menu ────────────────────────────────────────────────
   showContextMenu(event: React.MouseEvent, session: SessionSummary): void {
     event.preventDefault();
+    this.showMenu(event, this.buildSessionMenuRows(session));
+  }
+
+  /** Touch-friendly entry point: opens the same session menu anchored under
+   *  the "more" button, so no right-click is required on coarse pointers. */
+  showSessionMenuFromButton(
+    button: HTMLElement,
+    session: SessionSummary,
+  ): void {
+    const rect = button.getBoundingClientRect();
+    this.showMenu(
+      { clientX: rect.left, clientY: rect.bottom + 4, currentTarget: button },
+      this.buildSessionMenuRows(session),
+    );
+  }
+
+  private buildSessionMenuRows(session: SessionSummary): ContextMenuRow[] {
     const state = this.store.getState();
     const rows: ContextMenuRow[] = [
       {
@@ -586,7 +603,7 @@ export class SessionSidebar implements SessionSidebarController {
         action: () => this.deleteArchivedSession(session.id),
       });
     }
-    this.showMenu(event, rows);
+    return rows;
   }
 
   async deleteArchivedSession(id: string): Promise<void> {
@@ -614,13 +631,26 @@ export class SessionSidebar implements SessionSidebarController {
     project: ProjectGroup,
   ): void {
     event.preventDefault();
-    this.showMenu(event, [
+    this.showMenu(event, this.buildProjectMenuRows(project));
+  }
+
+  /** Touch-friendly entry point for the project header menu. */
+  showProjectMenuFromButton(button: HTMLElement, project: ProjectGroup): void {
+    const rect = button.getBoundingClientRect();
+    this.showMenu(
+      { clientX: rect.left, clientY: rect.bottom + 4, currentTarget: button },
+      this.buildProjectMenuRows(project),
+    );
+  }
+
+  private buildProjectMenuRows(project: ProjectGroup): ContextMenuRow[] {
+    return [
       {
         icon: "🗄️",
         label: "Archive all sessions",
         action: () => this.archiveProject(project),
       },
-    ]);
+    ];
   }
 
   showMenu(

@@ -229,6 +229,7 @@ const zhCN = {
   "Empty session": "空会话",
   "Archive session": "归档会话",
   "Unarchive session": "取消归档会话",
+  "More actions": "更多操作",
   "Delete all archived sessions": "删除全部已归档会话",
   Listening: "正在聆听",
   Approve: "批准",

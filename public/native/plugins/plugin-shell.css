@@ -189,6 +189,13 @@
   border-color: var(--border-hover);
 }
 
+/* The shared workspace bar above the function area shows the current project
+   (name + path) with the folder picker and workspace switcher in every view,
+   so the plugin sidebar's duplicate project row is not rendered. */
+body[data-active-plugin] .plugin-sidebar-project {
+  display: none;
+}
+
 .plugin-sidebar-view {
   border-top: 1px solid var(--border);
 }

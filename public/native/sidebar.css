@@ -30,13 +30,81 @@
   -webkit-app-region: drag;
 }
 
-/* Workspace switcher menu: anchored under the sidebar header, above the
-   session list, with an opaque backdrop so it never blends into the tree. */
+/* Shared workspace bar: the current project (name + path) plus the workspace
+   switcher, shown above the function area in every view (chat and plugins). */
+.workspace-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1-5) var(--space-2) 0;
+  -webkit-app-region: drag;
+}
+
+.workspace-bar-project {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1-5) var(--space-1-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition:
+    border-color var(--duration) var(--ease),
+    background var(--duration) var(--ease);
+}
+
+.workspace-bar-project:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-glass-hover);
+}
+
+.workspace-bar-icon {
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.workspace-bar-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+
+.workspace-bar-text strong {
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-bar-text span {
+  font-size: var(--font-size-xs);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-bar-switcher {
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+/* Workspace switcher menu: anchored under the shared workspace bar, with an
+   opaque backdrop so it never blends into the tree. */
 .workspace-switcher-menu {
   position: absolute;
-  top: 46px;
-  left: var(--space-3);
-  right: var(--space-3);
+  top: calc(100% + 4px);
+  left: var(--space-2);
+  right: var(--space-2);
   z-index: 120;
   display: flex;
   flex-direction: column;
@@ -58,7 +126,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: var(--space-0-5);
   width: 100%;
   padding: var(--space-2) var(--space-2-5);
   border: 0;

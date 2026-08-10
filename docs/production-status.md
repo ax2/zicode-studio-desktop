@@ -1,30 +1,29 @@
 # ZiCode Studio Desktop 生产可用状态（2026-08-10）
 
-> 本文件汇总截至第 382 轮的可验证状态，作为“生产可用”目标的持续审计
-> 基线。凡未标注“外部输入/人工”的项目均有本地证据（测试、CDP 实测、
+> 本文件汇总截至第 383 轮的可验证状态，作为"生产可用"目标的持续审计
+> 基线。凡未标注"外部输入/人工"的项目均有本地证据（测试、CDP 实测、
 > 日志、安装产物）。
 
 ## 1. 质量门禁（全部绿）
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 782 项通过 | 135 个测试文件 |
+| 前端 vitest | 785 项通过 | 135 个测试文件 |
 | Rust | 174 项通过（150+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 450 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
 | TypeScript typecheck | 通过 | tsc --noEmit |
-| Tauri 权限 / Windows 子进程策略 | 18 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
+| Tauri 权限 / Windows 子进程策略 | 19 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第四十八次重建（第 371 轮，金融/产物空态垂直居中）EXE
-  41,500,672 B / 安装包 346,868,516 B；哈希与逐文件
-  验证见
-  `docs/release-validation-2026-08-05.md`；
+- 最近 release：第五十九次重建（第 383 轮，共享工作区栏 + 移动端
+  右键功能可触达）EXE 41,518,592 B / 安装包 346,765,177 B；哈希与
+  逐文件验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第四十八次重建安装版，网关 `/health` 200
-  （pi 0.83.0、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
+- 当前运行实例：第五十九次重建安装版，网关 `/health` 200
+  （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
 ## 3. 功能面（本地已验证）
@@ -34,6 +33,11 @@
   （Ctrl+K 搜索、/ 聚焦、Esc 中止）、消息四动作、会话侧栏（收藏/
   归档/重命名/删除/标题自动生成）、桌面欢迎页铺满聊天列并升级为
   双栏工作台（≥1024px 品牌/场景 + 快捷入口，移动端保持单列）；
+- 共享工作区栏：对话/笔记/设置/帮助等所有功能区视图顶部统一显示当前
+  工作区（名称+路径），点击打开"将文件夹作为工作区打开"并在当前窗口
+  就地切换；"切换工作区"菜单列出全部已注册工作区并可就地切换；会话行
+  与项目头新增 ⋮"更多操作"按钮，移动端粗指针下归档/删除全部按钮恒
+  可见，右键/悬停功能全部可触达（第 383 轮）；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

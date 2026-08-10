@@ -396,6 +396,51 @@ describe("SessionSidebar.render", () => {
     expect(container.querySelector(".archived-group .project-group")).toBeNull();
   });
 
+  it("opens the session context menu from the touch-friendly more button", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-more", timestamp: new Date().toISOString(), name: "More" },
+    ]);
+    await sidebar.load();
+
+    const moreBtn = container.querySelector(
+      '.session-item[data-session-id="s-more"] .session-more-btn',
+    );
+    expect(moreBtn).toBeTruthy();
+    moreBtn.click();
+
+    const labels = [
+      ...document.querySelectorAll(".session-context-menu .context-menu-item"),
+    ].map((el) => el.textContent.trim());
+    expect(labels.join(" ")).toMatch(/Favourite|收藏/);
+    expect(labels.join(" ")).toMatch(/Archive|归档/);
+
+    [...document.querySelectorAll(".session-context-menu .context-menu-item")]
+      .find((el) => /Archive|归档/.test(el.textContent))
+      ?.click();
+    expect(sidebar.isArchived("s-more")).toBe(true);
+  });
+
+  it("opens the project header menu from the touch-friendly more button", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "A" },
+      { id: "s-b", timestamp: new Date().toISOString(), name: "B" },
+    ]);
+    await sidebar.load();
+
+    const moreBtn = container.querySelector(
+      ".project-group.current-project .project-more-btn",
+    );
+    expect(moreBtn).toBeTruthy();
+    moreBtn.click();
+
+    const menuItem = document.querySelector(".session-context-menu .context-menu-item");
+    expect(menuItem?.textContent).toContain("Archive all sessions");
+    menuItem.click();
+
+    expect(sidebar.isArchived("s-a")).toBe(true);
+    expect(sidebar.isArchived("s-b")).toBe(true);
+  });
+
   it("pins the latest Agent Inbox session before normal projects and hides its history", async () => {
     setSuperAgentEnabled(true);
     const { sidebar, container, onSelect } = makeSidebar([

@@ -199,17 +199,23 @@ export function setupOpenFolderButton({ onError } = {}) {
 
 /**
  * Workspace switcher: list every registered workspace and switch the current
- * window to the selected project in place. Falls back to a hidden control on
- * remote/browser clients that cannot invoke native window navigation.
+ * window to the selected project in place. Also renders the shared workspace
+ * bar (current project name + path) and wires the project row to the native
+ * folder picker. Falls back to a hidden control on remote/browser clients
+ * that cannot invoke native window navigation.
  */
 export function setupWorkspaceSwitcher({ onError } = {}) {
   const button = document.getElementById("workspace-switcher-btn");
   const menu = document.getElementById("workspace-switcher-menu");
-  if (!button || !menu) return false;
+  const projectButton = document.getElementById("workspace-bar-project");
+  const nameEl = document.getElementById("workspace-bar-name");
+  const pathEl = document.getElementById("workspace-bar-path");
+  if (!button || !menu || !projectButton) return false;
 
   const invoke = resolveInvoke();
   if (!invoke) {
     button.style.setProperty("display", "none");
+    projectButton.style.setProperty("display", "none");
     return false;
   }
 
@@ -231,6 +237,23 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
   const projectName = (path) => {
     const parts = displayPath(path).split(/[\\/]/).filter(Boolean);
     return parts.length > 0 ? parts[parts.length - 1] : path || "";
+  };
+
+  const refreshWorkspaceLabel = async () => {
+    const current = currentWorkspaceId();
+    try {
+      const workspaces = (await invoke("list_workspaces")) ?? [];
+      const active = workspaces.find((workspace) => workspace.id === current);
+      if (active) {
+        if (nameEl) nameEl.textContent = projectName(active.path);
+        if (pathEl) pathEl.textContent = displayPath(active.path);
+      } else if (workspaces.length > 0) {
+        if (nameEl) nameEl.textContent = projectName(workspaces[0].path);
+        if (pathEl) pathEl.textContent = displayPath(workspaces[0].path);
+      }
+    } catch {
+      // Keep the placeholder; the switcher still lists workspaces on open.
+    }
   };
 
   const openMenu = async () => {
@@ -278,6 +301,16 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
     }
   };
 
+  projectButton.addEventListener("click", async () => {
+    projectButton.disabled = true;
+    try {
+      await invoke("open_folder_as_workspace");
+    } catch (error) {
+      onError?.(error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      projectButton.disabled = false;
+    }
+  });
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     if (menu.classList.contains("hidden")) {
@@ -295,5 +328,6 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
       button.focus({ preventScroll: true });
     }
   });
+  void refreshWorkspaceLabel();
   return true;
 }

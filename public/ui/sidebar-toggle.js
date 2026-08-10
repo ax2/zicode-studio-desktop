@@ -45,7 +45,15 @@ export function setupSidebarToggle({ mobileBreakpoint = 768 } = {}) {
     if (!isMobile()) return;
     const target = event.target?.closest?.("button, a[href]");
     if (!target || target.closest(".plugin-sidebar-view-header, summary")) return;
-    if (target.matches("#session-search-clear, #refresh-sessions-btn")) return;
+    if (
+      target.matches(
+        "#session-search-clear, #refresh-sessions-btn, #workspace-switcher-btn",
+      ) ||
+      target.closest(
+        "#workspace-switcher-menu, .session-more-btn, .session-archive-btn, .project-more-btn, .archived-delete-all-btn",
+      )
+    )
+      return;
     queueMicrotask(() => setCollapsed(true));
   };
   const handleKeydown = (event) => {

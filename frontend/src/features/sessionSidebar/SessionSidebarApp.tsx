@@ -40,7 +40,9 @@ export interface SessionSidebarController {
   createSession(project: ProjectGroup): void;
   openApp(pluginId: string): void;
   showContextMenu(event: React.MouseEvent, session: SessionSummary): void;
+  showSessionMenuFromButton(button: HTMLElement, session: SessionSummary): void;
   showProjectContextMenu(event: React.MouseEvent, project: ProjectGroup): void;
+  showProjectMenuFromButton(button: HTMLElement, project: ProjectGroup): void;
   closeContextMenu(): void;
   retryLoad(): void;
 }
@@ -120,6 +122,26 @@ function NewChatIcon() {
     >
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="6" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -352,8 +374,8 @@ export function SessionSidebarApp({
               {title}
             </div>
           )}
-          {showArchiveButton ? (
-            <span className="session-action-slot">
+          <span className="session-action-slot">
+            {showArchiveButton ? (
               <button
                 className="session-archive-btn"
                 title={archiveLabel}
@@ -365,8 +387,22 @@ export function SessionSidebarApp({
               >
                 <ArchiveIcon />
               </button>
-            </span>
-          ) : null}
+            ) : null}
+            <button
+              className="session-more-btn"
+              title={t("More actions")}
+              aria-label={t("More actions")}
+              onClick={(event) => {
+                event.stopPropagation();
+                controller.showSessionMenuFromButton(
+                  event.currentTarget,
+                  session,
+                );
+              }}
+            >
+              <MoreIcon />
+            </button>
+          </span>
         </div>
       </div>
     );
@@ -488,6 +524,17 @@ export function SessionSidebarApp({
               </button>
             </>
           ) : null}
+          <button
+            className="project-more-btn"
+            title={t("More actions")}
+            aria-label={t("More actions")}
+            onClick={(event) => {
+              event.stopPropagation();
+              controller.showProjectMenuFromButton(event.currentTarget, project);
+            }}
+          >
+            <MoreIcon />
+          </button>
         </div>
         <div className={`project-sessions${collapsed ? " collapsed" : ""}`}>
           {project.isCurrent && canCreateSession && !searchQuery ? (
