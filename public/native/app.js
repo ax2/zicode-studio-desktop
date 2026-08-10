@@ -93,11 +93,9 @@ import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usa
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupProjectHeader } from "./react/project-header.js";
 import {
-  createSessionViaHost,
   openSessionInProjectViaHost,
   resolveWorkspaceViaHost,
   setupNewSessionButton,
-  setupOpenFolderButton,
   setupWorkspaceSwitcher,
   spawnSessionViaHost,
 } from "./workspace/workspace-actions.js";
@@ -859,7 +857,6 @@ setupNewSessionButton({
   onError: showError,
   fetchImpl: hostFetch,
 });
-setupOpenFolderButton({ onError: showError });
 setupWorkspaceSwitcher({ onError: showError });
 setupLanQr({ control });
 setupAppKeyboardShortcuts({
@@ -1054,9 +1051,7 @@ function setupSessionSidebar() {
       updateSuperAgentActiveState(session);
       selectSession(session);
     },
-    onCreateSession: createSessionViaHost,
     onSessionsLoaded: subscribeToLiveSessions,
-    onOpenApp: (pluginId) => pluginShell?.activate(pluginId),
   });
 
   setupSessionSearchDialog({

@@ -6,6 +6,7 @@ use crate::scene_profiles::resolve_scene_profile;
 use serde::Serialize;
 #[cfg(target_os = "macos")]
 use std::collections::HashSet;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::OnceLock;
@@ -58,7 +59,7 @@ impl PiLaunchResolver {
     ) -> Result<NativeLaunchSpec, String> {
         let binary = self.resolve_bundled_pi()?;
         let portable_git = self.resolve_bundled_portable_git()?;
-        let isolation = prepare_runtime_isolation(target, portable_git.as_deref())?;
+        let isolation = prepare_runtime_isolation(target, Path::new(cwd), portable_git.as_deref())?;
         let scene = resolve_scene_profile(&target.scene_id)?;
         let mut environment = isolation.environment;
         environment.insert("PI_DESKTOP_SCENE_NAME".into(), scene.name);
@@ -90,10 +91,17 @@ impl PiLaunchResolver {
         let pi_bin_str = strip_verbatim_prefix(&pi_bin.to_string_lossy());
         let portable_git = self.resolve_bundled_portable_git()?;
         let augmented_path = build_augmented_path(portable_git.as_deref(), None);
+        // Pi commands run outside a scene runtime; point their global agent
+        // config at `~/.zicode/agent` instead of the default `~/.pi/agent`.
+        let pi_agent_dir = crate::app_paths::pi_global_agent_dir()?;
+        fs::create_dir_all(&pi_agent_dir)
+            .map_err(|error| format!("Cannot create {}: {error}", pi_agent_dir.display()))?;
+        crate::app_paths::migrate_legacy_pi_agent()?;
         let mut command = new_command(&pi_bin_str);
         command
             .args(args)
             .env("PATH", augmented_path)
+            .env("PI_CODING_AGENT_DIR", &pi_agent_dir)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());

@@ -251,7 +251,7 @@ describe("SessionSidebar.render", () => {
     );
   });
 
-  it("groups sessions by project and opens other projects in a new window", async () => {
+  it("keeps the session list bound to the current workspace", async () => {
     const { sidebar, container, onSelect } = makeSidebar([
       {
         id: "s-there",
@@ -265,52 +265,40 @@ describe("SessionSidebar.render", () => {
     ]);
     await sidebar.load();
     const groups = container.querySelectorAll(".project-group");
-    expect(groups).toHaveLength(2);
-    // Project order follows the incoming recency order, even when the active
-    // project appears later in the list.
-    expect(groups[0].classList.contains("current-project")).toBe(false);
-    expect(groups[0].querySelector(".project-name").textContent).toBe("other");
-    expect(groups[1].classList.contains("current-project")).toBe(true);
-    expect(groups[1].querySelector(".project-sessions").classList.contains("collapsed")).toBe(
-      false,
-    );
-    expect(groups[0].querySelector(".project-sessions").classList.contains("collapsed")).toBe(true);
-    container.querySelector('.session-item[data-session-id="s-there"]').click();
-    expect(onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "s-there", projectPath: "/other", isCurrentWorkspace: false }),
+    expect(groups).toHaveLength(1);
+    expect(groups[0].classList.contains("current-project")).toBe(true);
+    expect(groups[0].querySelector(".project-name").textContent).toBe("ws-1");
+    expect(container.querySelector('.session-item[data-session-id="s-there"]')).toBeNull();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("shows an empty hint when the current workspace has no sessions", async () => {
+    const { sidebar, container } = makeSidebar([
+      {
+        id: "s-other",
+        timestamp: new Date().toISOString(),
+        name: "Other",
+        projectPath: "/other",
+        projectName: "other",
+        isCurrentWorkspace: false,
+      },
+    ]);
+    await sidebar.load();
+    expect(container.querySelectorAll(".session-item")).toHaveLength(0);
+    expect(container.textContent).toMatch(
+      /No saved sessions in this workspace|当前工作区暂无会话/,
     );
   });
 
-  it("shows the current project new-chat button for LAN clients", async () => {
-    delete globalThis.__TAURI__;
-    const onCreateSession = vi.fn().mockResolvedValue(undefined);
-    const { sidebar, container } = makeSidebar(
-      [{ id: "s-here", timestamp: new Date().toISOString(), name: "Here" }],
-      { onCreateSession },
-    );
-
+  it("keeps only the top-level new-session control, not per-project duplicates", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-here", timestamp: new Date().toISOString(), name: "Here" },
+    ]);
     await sidebar.load();
-
-    const button = container.querySelector(".current-project .project-new-chat-btn");
-    expect(button).toBeTruthy();
-    button.click();
-    await vi.waitFor(() => expect(onCreateSession).toHaveBeenCalledWith("ws-1"));
-  });
-
-  it("renders a new-chat entry under the current project", async () => {
-    const onCreateSession = vi.fn().mockResolvedValue(undefined);
-    const { sidebar, container } = makeSidebar(
-      [{ id: "s-here", timestamp: new Date().toISOString(), name: "Here" }],
-      { onCreateSession },
-    );
-
-    await sidebar.load();
-
-    const row = container.querySelector(".current-project .session-new-chat-row");
-    expect(row).toBeTruthy();
-    expect(row.textContent).toMatch(/New chat|新建对话/);
-    row.click();
-    await vi.waitFor(() => expect(onCreateSession).toHaveBeenCalledWith("ws-1"));
+    expect(container.querySelector(".project-new-chat-btn")).toBeNull();
+    expect(container.querySelector(".session-new-chat-row")).toBeNull();
+    expect(container.querySelector(".project-quick-btn")).toBeNull();
+    expect(container.querySelector(".project-more-btn")).toBeTruthy();
   });
 
   it("deletes an individual archived session from its context menu", async () => {
@@ -647,49 +635,29 @@ describe("SessionSidebar.render", () => {
     expect(container.querySelector('.session-item[data-session-id="s-a"]').tabIndex).toBe(-1);
   });
 
-  it("navigates session items with arrows, skipping collapsed projects", async () => {
+  it("navigates session items with arrows, skipping a collapsed project", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
-      {
-        id: "s-other",
-        timestamp: new Date().toISOString(),
-        name: "Other",
-        projectPath: "/other",
-        projectName: "other",
-        isCurrentWorkspace: false,
-      },
+      { id: "s-b", timestamp: new Date().toISOString(), name: "Beta" },
     ]);
     document.body.appendChild(container);
     await sidebar.load();
 
-    const otherHeader = container.querySelector(
-      '.project-group:not(.current-project) .project-header',
+    const header = container.querySelector(
+      ".project-group.current-project .project-header",
     );
-    const otherList = container.querySelector(
-      '.project-group:not(.current-project) .project-sessions',
+    header.click();
+    const list = container.querySelector(
+      ".project-group.current-project .project-sessions",
     );
-    // Non-current projects default to collapsed, so their items are not
-    // reachable with arrow navigation.
-    expect(
-      otherList.classList.contains("collapsed"),
-    ).toBe(true);
+    expect(list.classList.contains("collapsed")).toBe(true);
 
     const alpha = container.querySelector('.session-item[data-session-id="s-a"]');
     alpha.focus();
     alpha.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    // The collapsed project's session item is skipped; focus lands on its header.
-    expect(document.activeElement).toBe(otherHeader);
-
-    // Expand the other project; its session becomes reachable again.
-    otherHeader.click();
-    expect(otherList.classList.contains("collapsed")).toBe(false);
-    alpha.focus();
-    alpha.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    expect(document.activeElement).toBe(otherHeader);
-    otherHeader.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    expect(document.activeElement).toBe(
-      container.querySelector('.session-item[data-session-id="s-other"]'),
-    );
+    // The collapsed project's session items are not reachable; focus stays on
+    // the only visible item (its header).
+    expect(document.activeElement).toBe(header);
   });
 
   it("activates sessions and project headers with Enter or Space", async () => {

@@ -40,6 +40,11 @@ description = "Allow opening a fresh session in the current workspace window."
 commands.allow = ["open_new_session_in_workspace"]
 
 [[permission]]
+identifier = "allow-switch-window-workspace"
+description = "Allow switching the current window to another workspace without leaving the active application."
+commands.allow = ["switch_window_workspace"]
+
+[[permission]]
 identifier = "allow-open-session-in-project"
 description = "Allow opening or focusing a project's workspace window at a saved session."
 commands.allow = ["open_session_in_project"]
@@ -109,6 +114,7 @@ permissions = [
   "allow-rollback-signed-plugin-package",
   "allow-revoke-plugin-publisher",
   "allow-open-new-session-in-workspace",
+  "allow-switch-window-workspace",
   "allow-open-session-in-project",
   "allow-ensure-agent-inbox-session",
   "allow-check-beta-update",

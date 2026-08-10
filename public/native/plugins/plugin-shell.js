@@ -296,22 +296,23 @@ export function setupPluginShell({
       icon: plugin.icon,
       badge: activityBadges.get(plugin.id) ?? null,
     }));
+    // The Files panel belongs to the Chat surface, so its activity button is
+    // only offered while Chat is active; other apps keep the panel out of the
+    // way instead of offering a shortcut that switches away from the view.
     const systemItems = [
-      {
-        id: "core.files",
-        label: t("Files"),
-        icon: "files",
-        onClick: () => {
-          // The file panel is part of the Chat surface: when it is invoked
-          // from another application, return to Chat first so the toggle and
-          // the right-hand panel are visible instead of doing nothing.
-          if (activePluginId !== CHAT_PLUGIN_ID) {
-            activate(CHAT_PLUGIN_ID, { historyMode: "push" });
-          }
-          document.getElementById("file-sidebar-toggle")?.click();
-        },
-        system: true,
-      },
+      ...(activePluginId === CHAT_PLUGIN_ID
+        ? [
+            {
+              id: "core.files",
+              label: t("Files"),
+              icon: "files",
+              onClick: () => {
+                document.getElementById("file-sidebar-toggle")?.click();
+              },
+              system: true,
+            },
+          ]
+        : []),
       {
         id: "core.commands",
         label: t("Commands"),
@@ -360,6 +361,19 @@ export function setupPluginShell({
       ...secondarySystemItems,
     ];
     activityBarApi.commit({ activities: activitiesItems, systemItems, secondaryItems });
+  }
+
+  // When the window was navigated to a new workspace in place, the URL keeps
+  // `?app=<pluginId>` so the same application (notes, tasks, settings, …)
+  // reopens instead of always landing on Chat.
+  function initialAppPluginId() {
+    const requested = new URLSearchParams(globalThis.location?.search || "").get(
+      "app",
+    );
+    if (!requested) return CHAT_PLUGIN_ID;
+    if (SHELL_VIEW_IDS.has(requested)) return requested;
+    if (registry.isEnabled(requested)) return requested;
+    return CHAT_PLUGIN_ID;
   }
 
   async function activateFromNavigation(pluginId) {
@@ -642,8 +656,9 @@ export function setupPluginShell({
   window.addEventListener("zicode:locale-changed", handleLocaleChange);
 
   renderActivities();
-  activate(CHAT_PLUGIN_ID, { focus: false });
-  writePluginHistory(CHAT_PLUGIN_ID);
+  const initialPlugin = initialAppPluginId();
+  activate(initialPlugin, { focus: false });
+  writePluginHistory(initialPlugin);
   settingsApp?.setOpenHandler?.((tab) => {
     if (tab === null) {
       activate(CHAT_PLUGIN_ID, { focus: false });

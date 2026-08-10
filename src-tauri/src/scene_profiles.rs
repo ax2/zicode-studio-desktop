@@ -95,9 +95,20 @@ pub fn delete_scene_profile(scene_id: String) -> Result<(), String> {
 }
 
 fn profiles_path() -> Result<PathBuf, String> {
-    dirs::data_local_dir()
-        .map(|root| root.join("zicode").join("scene-profiles.json"))
-        .ok_or_else(|| "Cannot resolve local application data directory".to_string())
+    let path = crate::app_paths::system_root()?.join("scene-profiles.json");
+    if !path.is_file() {
+        // One-time migration from the previous app data location.
+        if let Some(root) = dirs::data_local_dir() {
+            let legacy = root.join("zicode").join("scene-profiles.json");
+            if legacy.is_file() {
+                if let Some(parent) = path.parent() {
+                    let _ = fs::create_dir_all(parent);
+                    let _ = fs::copy(&legacy, &path);
+                }
+            }
+        }
+    }
+    Ok(path)
 }
 
 fn read_custom_profiles(path: &Path) -> Result<Vec<SceneProfile>, String> {

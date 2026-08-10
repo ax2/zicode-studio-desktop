@@ -89,6 +89,9 @@ impl ArtifactError {
 pub struct ArtifactStore {
     root: PathBuf,
     workspace_id: Option<String>,
+    workspace_roots:
+        Option<std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, PathBuf>>>>,
+    system_root: Option<PathBuf>,
 }
 
 impl ArtifactStore {
@@ -103,7 +106,25 @@ impl ArtifactStore {
         Ok(Self {
             root,
             workspace_id: None,
+            workspace_roots: None,
+            system_root: None,
         })
+    }
+
+    /// Point workspace-scoped stores at `<workspace>/.zicode/artifacts`
+    /// instead of the app-data plugin directory. Unregistered workspaces keep
+    /// the legacy layout so the store stays readable in tests and during
+    /// migration.
+    pub fn with_workspace_registry(
+        mut self,
+        workspace_roots: std::sync::Arc<
+            std::sync::RwLock<std::collections::HashMap<String, PathBuf>>,
+        >,
+        system_root: PathBuf,
+    ) -> Self {
+        self.workspace_roots = Some(workspace_roots);
+        self.system_root = Some(system_root);
+        self
     }
 
     /// Return a workspace-scoped view over `items/<workspaceId>/`.
@@ -113,14 +134,53 @@ impl ArtifactStore {
     pub fn scoped(&self, workspace_id: &str) -> Result<ArtifactStore, ArtifactError> {
         let workspace_id = validate_workspace_id(workspace_id)?;
         let items = self.root.join("items");
-        fs::create_dir_all(items.join(&workspace_id)).map_err(|_| {
+        let items_dir = self.resolved_items_dir(&workspace_id, &items)?;
+        fs::create_dir_all(&items_dir).map_err(|_| {
             ArtifactError::new("storage_unavailable", "Cannot create artifact directory")
         })?;
         self.migrate_legacy(&workspace_id)?;
         Ok(ArtifactStore {
             root: self.root.clone(),
             workspace_id: Some(workspace_id),
+            workspace_roots: self.workspace_roots.clone(),
+            system_root: self.system_root.clone(),
         })
+    }
+
+    /// Resolve the on-disk items directory for a workspace. When the registry
+    /// knows the root, data lives in `<workspace>/.zicode/artifacts` and the
+    /// legacy app-data directory is moved there once.
+    fn resolved_items_dir(
+        &self,
+        workspace_id: &str,
+        legacy_items: &Path,
+    ) -> Result<PathBuf, ArtifactError> {
+        let legacy = legacy_items.join(workspace_id);
+        let Some(registry) = &self.workspace_roots else {
+            return Ok(legacy);
+        };
+        let Some(system_root) = &self.system_root else {
+            return Ok(legacy);
+        };
+        let Ok(roots) = registry.read() else {
+            return Ok(legacy);
+        };
+        let Some(workspace_root) = roots.get(workspace_id) else {
+            return Ok(legacy);
+        };
+        let resolved =
+            crate::app_paths::workspace_app_dir(workspace_root, system_root).join("artifacts");
+        if !resolved.exists() && legacy.is_dir() {
+            if let Some(parent) = resolved.parent() {
+                fs::create_dir_all(parent).map_err(|_| {
+                    ArtifactError::new("storage_unavailable", "Cannot create artifact directory")
+                })?;
+            }
+            fs::rename(&legacy, &resolved).map_err(|_| {
+                ArtifactError::new("storage_unavailable", "Cannot migrate legacy artifacts")
+            })?;
+        }
+        Ok(resolved)
     }
 
     /// One-time migration: move legacy artifact files (created before project
@@ -202,9 +262,12 @@ impl ArtifactStore {
     }
 
     fn items_dir(&self) -> PathBuf {
+        let items = self.root.join("items");
         match &self.workspace_id {
-            Some(workspace_id) => self.root.join("items").join(workspace_id),
-            None => self.root.join("items"),
+            Some(workspace_id) => self
+                .resolved_items_dir(workspace_id, &items)
+                .unwrap_or_else(|_| items.join(workspace_id)),
+            None => items,
         }
     }
 

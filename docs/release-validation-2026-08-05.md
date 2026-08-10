@@ -491,6 +491,44 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十次重建（2026-08-10，第 384 轮工作区模型 + ~/.zicode 存储）
+
+- 合入第 384 轮：
+  - UI：移除对话侧栏"将文件夹作为工作区打开"按钮、项目头部新建会话/
+    笔记/产物/任务快捷按钮与"新建对话"文字行；Files 活动按钮仅在对
+    视图显示；
+  - 全局公共工作区 `~/.zicode` 默认注册并在切换器置顶；
+  - `switch_window_workspace` 命令：当前窗口原地切换工作区，URL 携带
+    `?app=<当前应用>`，加载后恢复原应用视图；
+  - 存储：会话→`<工作区>/.zicode/sessions`（旧 instances/sessions
+    一次性迁移）、笔记→`.zicode/notes`、产物→`.zicode/artifacts`；
+    系统配置（pi agent/models、场景档案、远程访问、凭据索引、工作区
+    元数据）迁移到 `~/.zicode`，旧 `~/.pi/agent` 与旧数据目录保留；
+  - 侧栏会话列表按当前工作区过滤（切换工作区即切换列表），空工作区
+    显示"当前工作区暂无会话"；
+  - 前端 787 项、Rust 152 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 60）：
+  - `target/release/zicode-studio-desktop.exe`：41,594,368 B，
+    SHA-256 `83F1BECAA3DCE3047EEC00DE49516DCB432043B98858FEAE3C58B3749BEAF036`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,799,733 B，SHA-256
+    `B091636B4B0E4FC61B9A1EECD23E172576E01B081A2CC76BEF67CDCB33DEF153`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `5E05FB09B3C794006E76C418EDAF3B8A2D2F0F5D9EFB310476279CDC22B3ED85`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - `~/.zicode` 已建：`metadata/picot.sqlite3`、`scenes/`、
+    `agent/`（含自 `~/.pi/agent` 迁移的 settings/models/auth）、
+    `credentials/`、`remote-access/`、`scene-profiles.json`；
+  - 会话迁移：旧 `%LOCALAPPDATA%\zicode\instances|sessions` 的 12 个
+    会话已迁至 `C:\Users\ax2\.zicode\sessions`（instances 残留 0）；
+  - CDP 实测：无冗余按钮、切换器全局工作区置顶、笔记视图切换工作区
+    后停留原应用（`?app=`）、全局工作区会话列表为空并显示空态提示、
+    切回 ax2 恢复 12 个会话；日志无 ERROR/WARN/panic。
+
 ## 第五十九次重建（2026-08-10，第 383 轮共享工作区栏 + 移动端可触达）
 
 - 合入第 383 轮：

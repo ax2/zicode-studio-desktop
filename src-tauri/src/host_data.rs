@@ -2,6 +2,7 @@ use crate::process_command::new_command;
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -228,12 +229,87 @@ impl HostDataPlane {
         self
     }
 
+    /// Shared workspace registry so other stores (notes, artifacts) can
+    /// resolve a workspace id to its root and store data inside the project.
+    pub fn workspace_roots(&self) -> Arc<RwLock<HashMap<String, PathBuf>>> {
+        self.workspace_roots.clone()
+    }
+
     fn session_files(&self) -> Result<Vec<PathBuf>, HostDataError> {
         let mut files = Vec::new();
         for root in &self.session_roots {
             collect_session_files(root, &mut files)?;
         }
+        for (_, workspace) in self
+            .workspace_roots
+            .read()
+            .map_err(|_| HostDataError::Io("workspace registry poisoned".into()))?
+            .iter()
+        {
+            let app_dir = crate::app_paths::workspace_app_dir(
+                workspace,
+                &crate::app_paths::system_root().unwrap_or_default(),
+            )
+            .join("sessions");
+            if app_dir.is_dir() {
+                collect_session_files(&app_dir, &mut files)?;
+            }
+        }
         Ok(files)
+    }
+
+    /// One-time migration: move legacy session files (kept under the app data
+    /// `instances`/`sessions` roots) into the owning workspace's
+    /// `.zicode/sessions` directory. Guarded by a marker file so it only runs
+    /// once; legacy files stay untouched when the target already exists.
+    pub fn migrate_legacy_sessions(&self, marker: &Path) -> Result<usize, HostDataError> {
+        if marker.exists() {
+            return Ok(0);
+        }
+        let system_root = crate::app_paths::system_root().unwrap_or_default();
+        let workspace_roots = self
+            .workspace_roots
+            .read()
+            .map_err(|_| HostDataError::Io("workspace registry poisoned".into()))?;
+        let mut candidates = Vec::new();
+        for root in &self.session_roots {
+            collect_session_files(root, &mut candidates)?;
+        }
+        let mut moved = 0usize;
+        for path in candidates {
+            let content =
+                fs::read_to_string(&path).map_err(|error| HostDataError::Io(error.to_string()))?;
+            let Some((_, cwd)) = session_line_identity(&content)? else {
+                continue;
+            };
+            let Ok(cwd) = PathBuf::from(&cwd).canonicalize() else {
+                continue;
+            };
+            let Some((_, workspace_root)) = workspace_roots
+                .iter()
+                .find(|(_, root)| root.as_path() == cwd.as_path())
+            else {
+                continue;
+            };
+            let app_dir =
+                crate::app_paths::workspace_app_dir(workspace_root, &system_root).join("sessions");
+            let destination = app_dir.join(
+                path.file_name()
+                    .ok_or_else(|| HostDataError::Io("session file has no name".into()))?,
+            );
+            if destination.exists() {
+                continue;
+            }
+            fs::create_dir_all(&app_dir).map_err(|error| HostDataError::Io(error.to_string()))?;
+            fs::rename(&path, &destination)
+                .map_err(|error| HostDataError::Io(error.to_string()))?;
+            moved += 1;
+        }
+        if let Some(parent) = marker.parent() {
+            fs::create_dir_all(parent).map_err(|error| HostDataError::Io(error.to_string()))?;
+        }
+        fs::write(marker, "migrated").map_err(|error| HostDataError::Io(error.to_string()))?;
+        Ok(moved)
     }
 
     /// Register (or update) a workspace root at runtime. Used when the user
@@ -1505,6 +1581,44 @@ mod tests {
         let all = data.list_all_sessions("workspace-a").unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].id, "session-a");
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn migrates_legacy_session_files_into_the_workspace_zicode_directory() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-session-migrate-{nonce}"));
+        let workspace = temp.join("workspace");
+        let legacy = temp.join("instances/legacy/sessions");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::create_dir_all(&legacy).unwrap();
+        let session = legacy.join("session-a.jsonl");
+        fs::write(
+            &session,
+            format!(
+                "{{\"type\":\"session\",\"id\":\"session-a\",\"timestamp\":\"2026-01-01\",\"cwd\":{}}}\n{{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"hello\"}}}}\n",
+                serde_json::to_string(&workspace.to_string_lossy()).unwrap()
+            ),
+        )
+        .unwrap();
+        let data = HostDataPlane::new(HashMap::from([("workspace-a".into(), workspace.clone())]))
+            .unwrap()
+            .with_session_root(temp.join("instances"));
+        let marker = temp.join("sessions/.legacy-migrated");
+
+        let moved = data.migrate_legacy_sessions(&marker).unwrap();
+        assert_eq!(moved, 1);
+        let destination = workspace.join(".zicode/sessions/session-a.jsonl");
+        assert!(destination.is_file());
+        assert!(!session.exists());
+        assert_eq!(data.migrate_legacy_sessions(&marker).unwrap(), 0);
+
+        let listed = data.list_sessions("workspace-a").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "session-a");
         fs::remove_dir_all(temp).unwrap();
     }
 

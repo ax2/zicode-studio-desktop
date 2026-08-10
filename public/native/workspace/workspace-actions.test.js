@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupNewSessionButton } from "./workspace-actions.js";
+import {
+  setupNewSessionButton,
+  setupWorkspaceSwitcher,
+} from "./workspace-actions.js";
 
 function installTauriInvoke(invoke) {
   globalThis.__TAURI__ = { core: { invoke } };
@@ -98,5 +101,43 @@ describe("workspace actions", () => {
 
     await Promise.resolve();
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("switches the window to another workspace while keeping the active app", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <button id="workspace-bar-project"></button>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    const invoke = vi.fn().mockImplementation((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([
+          { id: "ws-1", path: "/home/user/work" },
+          { id: "ws-global", path: "/home/user/.zicode" },
+        ]);
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+
+    setupWorkspaceSwitcher({ onError: vi.fn() });
+    document.getElementById("workspace-switcher-btn").click();
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".workspace-switcher-item").length).toBe(2),
+    );
+
+    const items = [...document.querySelectorAll(".workspace-switcher-item")];
+    expect(items[0].textContent).toContain(".zicode");
+    items[1].click();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("switch_window_workspace", {
+        projectPath: "/home/user/work",
+        pluginId: "com.zicode.notes",
+      }),
+    );
   });
 });

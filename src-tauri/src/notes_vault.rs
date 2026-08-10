@@ -252,6 +252,9 @@ impl NotesError {
 pub struct NotesVault {
     root: PathBuf,
     workspace_id: Option<String>,
+    workspace_roots:
+        Option<std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, PathBuf>>>>,
+    system_root: Option<PathBuf>,
 }
 
 impl NotesVault {
@@ -266,7 +269,24 @@ impl NotesVault {
         Ok(Self {
             root,
             workspace_id: None,
+            workspace_roots: None,
+            system_root: None,
         })
+    }
+
+    /// Point workspace-scoped vaults at `<workspace>/.zicode/notes` instead of
+    /// the app-data plugin directory. Unregistered workspaces keep the legacy
+    /// layout so the store stays readable in tests and during migration.
+    pub fn with_workspace_registry(
+        mut self,
+        workspace_roots: std::sync::Arc<
+            std::sync::RwLock<std::collections::HashMap<String, PathBuf>>,
+        >,
+        system_root: PathBuf,
+    ) -> Self {
+        self.workspace_roots = Some(workspace_roots);
+        self.system_root = Some(system_root);
+        self
     }
 
     /// Return a workspace-scoped view over `vaults/<workspaceId>/`.
@@ -276,13 +296,53 @@ impl NotesVault {
     pub fn scoped(&self, workspace_id: &str) -> Result<NotesVault, NotesError> {
         let workspace_id = validate_opaque_id(workspace_id)?;
         let vaults = self.root.join("vaults");
-        fs::create_dir_all(vaults.join(&workspace_id))
+        let vault_dir = self.resolved_vault_dir(&workspace_id, &vaults)?;
+        fs::create_dir_all(&vault_dir)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
         self.migrate_legacy(&workspace_id)?;
         Ok(NotesVault {
             root: self.root.clone(),
             workspace_id: Some(workspace_id),
+            workspace_roots: self.workspace_roots.clone(),
+            system_root: self.system_root.clone(),
         })
+    }
+
+    /// Resolve the on-disk vault directory for a workspace. When the
+    /// workspace registry knows the root, data lives in
+    /// `<workspace>/.zicode/notes` and the legacy app-data vault is moved
+    /// there once. Otherwise the legacy `vaults/<id>` path is used.
+    fn resolved_vault_dir(
+        &self,
+        workspace_id: &str,
+        legacy_vaults: &Path,
+    ) -> Result<PathBuf, NotesError> {
+        let legacy = legacy_vaults.join(workspace_id);
+        let Some(registry) = &self.workspace_roots else {
+            return Ok(legacy);
+        };
+        let Some(system_root) = &self.system_root else {
+            return Ok(legacy);
+        };
+        let Ok(roots) = registry.read() else {
+            return Ok(legacy);
+        };
+        let Some(workspace_root) = roots.get(workspace_id) else {
+            return Ok(legacy);
+        };
+        let resolved =
+            crate::app_paths::workspace_app_dir(workspace_root, system_root).join("notes");
+        if !resolved.exists() && legacy.is_dir() {
+            if let Some(parent) = resolved.parent() {
+                fs::create_dir_all(parent).map_err(|_| {
+                    NotesError::new("storage_unavailable", "Notes storage is unavailable")
+                })?;
+            }
+            fs::rename(&legacy, &resolved).map_err(|_| {
+                NotesError::new("storage_unavailable", "Cannot migrate legacy notes")
+            })?;
+        }
+        Ok(resolved)
     }
 
     /// One-time migration: move legacy notebook directories (created before
@@ -309,7 +369,7 @@ impl NotesVault {
                 skipped: true,
             });
         }
-        let workspace_dir = vaults.join(&workspace_id);
+        let workspace_dir = self.resolved_vault_dir(&workspace_id, &vaults)?;
         fs::create_dir_all(&workspace_dir)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
         let mut moved_notebooks = 0usize;
@@ -352,21 +412,17 @@ impl NotesVault {
     }
 
     fn vaults_dir(&self) -> PathBuf {
+        let vaults = self.root.join("vaults");
         match &self.workspace_id {
-            Some(workspace_id) => self.root.join("vaults").join(workspace_id),
-            None => self.root.join("vaults"),
+            Some(workspace_id) => self
+                .resolved_vault_dir(workspace_id, &vaults)
+                .unwrap_or_else(|_| vaults.join(workspace_id)),
+            None => vaults,
         }
     }
 
     fn change_log_path(&self) -> PathBuf {
-        match &self.workspace_id {
-            Some(workspace_id) => self
-                .root
-                .join("vaults")
-                .join(workspace_id)
-                .join("changes.jsonl"),
-            None => self.root.join("changes.jsonl"),
-        }
+        self.vaults_dir().join("changes.jsonl")
     }
 
     pub fn list(

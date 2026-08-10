@@ -155,6 +155,7 @@ struct WindowWorkspaceState(Mutex<HashMap<String, String>>);
 async fn open_folder_as_workspace(
     app: AppHandle,
     window: WebviewWindow,
+    plugin_id: Option<String>,
 ) -> Result<Option<String>, String> {
     let Some(picked) = app.dialog().file().blocking_pick_folder() else {
         return Ok(None);
@@ -163,7 +164,7 @@ async fn open_folder_as_workspace(
         .as_path()
         .ok_or_else(|| "Selected folder is not a local path".to_string())?
         .to_path_buf();
-    open_workspace_at_path(&app, Some(&window), &path, None)?;
+    open_workspace_at_path(&app, Some(&window), &path, None, plugin_id.as_deref())?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
@@ -246,12 +247,37 @@ async fn open_new_session_in_workspace(
     window: WebviewWindow,
     project_path: String,
     scene_id: Option<String>,
+    plugin_id: Option<String>,
 ) -> Result<(), String> {
     let cwd = PathBuf::from(&project_path);
     if !cwd.is_dir() {
         return Err(format!("Project folder no longer exists: {project_path}"));
     }
-    open_fresh_session_at_path(&app, Some(&window), &cwd, scene_id.as_deref())
+    open_fresh_session_at_path(
+        &app,
+        Some(&window),
+        &cwd,
+        scene_id.as_deref(),
+        plugin_id.as_deref(),
+    )
+}
+
+/// Switch the current window to another registered workspace without leaving
+/// the application the user is in: a fresh runtime is spawned for the target
+/// project and the window navigates to the same app route (`?app=` preserves
+/// the active plugin) instead of always landing on a new Chat session.
+#[tauri::command]
+async fn switch_window_workspace(
+    app: AppHandle,
+    window: WebviewWindow,
+    project_path: String,
+    plugin_id: Option<String>,
+) -> Result<(), String> {
+    let cwd = PathBuf::from(&project_path);
+    if !cwd.is_dir() {
+        return Err(format!("Project folder no longer exists: {project_path}"));
+    }
+    open_fresh_session_at_path(&app, Some(&window), &cwd, None, plugin_id.as_deref())
 }
 
 #[derive(serde::Serialize)]
@@ -298,7 +324,7 @@ async fn open_session_in_project(
     } else {
         Some(session.to_string())
     };
-    open_workspace_at_path(&app, Some(&window), &cwd, resume.as_deref())
+    open_workspace_at_path(&app, Some(&window), &cwd, resume.as_deref(), None)
 }
 
 /// Ensure the fixed Agent Inbox workspace exists, has a sidebar-visible saved
@@ -374,6 +400,7 @@ fn open_fresh_session_at_path(
     source_window: Option<&WebviewWindow>,
     cwd: &Path,
     scene_id: Option<&str>,
+    app_param: Option<&str>,
 ) -> Result<(), String> {
     let launcher = app
         .try_state::<WorkspaceLauncher>()
@@ -402,11 +429,11 @@ fn open_fresh_session_at_path(
     if let Some(window) =
         source_window.filter(|window| window.label().starts_with("native-workspace-"))
     {
-        return navigate_workspace_window(app, window, host.origin(), &target, true);
+        return navigate_workspace_window(app, window, host.origin(), &target, app_param, true);
     }
     let label = format!("native-workspace-{workspace_id}");
     if let Some(existing) = app.get_webview_window(&label) {
-        return navigate_workspace_window(app, &existing, host.origin(), &target, true);
+        return navigate_workspace_window(app, &existing, host.origin(), &target, app_param, true);
     }
     if let Err(error) = open_native_workspace_window(app, host.origin(), &target) {
         let _ = runtimes.stop(&target);
@@ -420,6 +447,7 @@ fn open_workspace_at_path(
     source_window: Option<&WebviewWindow>,
     cwd: &Path,
     resume_session_id: Option<&str>,
+    app_param: Option<&str>,
 ) -> Result<(), String> {
     let launcher = app
         .try_state::<WorkspaceLauncher>()
@@ -471,6 +499,7 @@ fn open_workspace_at_path(
             window,
             host.origin(),
             &target,
+            app_param,
             resume_session_id.is_none(),
         );
     }
@@ -482,6 +511,7 @@ fn open_workspace_at_path(
             &existing,
             host.origin(),
             &target,
+            app_param,
             resume_session_id.is_none(),
         );
     }
@@ -495,13 +525,20 @@ fn open_workspace_at_path(
     Ok(())
 }
 
-fn native_workspace_url(host_origin: &str, target: &RuntimeTarget) -> Result<tauri::Url, String> {
-    format!(
+fn native_workspace_url(
+    host_origin: &str,
+    target: &RuntimeTarget,
+    app_param: Option<&str>,
+) -> Result<tauri::Url, String> {
+    let mut url = format!(
         "{}/app/workspaces/{}/sessions/{}",
         host_origin, target.workspace_id, target.session_id
-    )
-    .parse()
-    .map_err(|error| format!("Invalid native Host URL: {error}"))
+    );
+    if let Some(app) = app_param.filter(|value| !value.trim().is_empty()) {
+        url.push_str(&format!("?app={}", app.trim()));
+    }
+    url.parse()
+        .map_err(|error| format!("Invalid native Host URL: {error}"))
 }
 
 fn set_window_workspace(app: &AppHandle, label: &str, workspace_id: &str) {
@@ -522,9 +559,10 @@ fn navigate_workspace_window(
     window: &WebviewWindow,
     host_origin: &str,
     target: &RuntimeTarget,
+    app_param: Option<&str>,
     stop_target_on_error: bool,
 ) -> Result<(), String> {
-    let url = native_workspace_url(host_origin, target)?;
+    let url = native_workspace_url(host_origin, target, app_param)?;
     if let Err(error) = window.navigate(url) {
         if stop_target_on_error {
             if let Some(runtimes) = app.try_state::<NativePiManagerState>() {
@@ -544,7 +582,7 @@ fn open_native_workspace_window(
     target: &RuntimeTarget,
 ) -> Result<(), String> {
     let label = format!("native-workspace-{}", target.workspace_id);
-    let url = native_workspace_url(host_origin, target)?;
+    let url = native_workspace_url(host_origin, target, None)?;
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
@@ -891,17 +929,44 @@ fn extract_session_cwd(session_path: &Path) -> Option<String> {
     None
 }
 
-fn find_latest_session_boot_target() -> Option<(String, String)> {
+/// Collect every `.jsonl` session file below a directory (recursive). Works
+/// for both the legacy app-data layout (`instances/<key>/sessions/*.jsonl`)
+/// and the workspace `.zicode/sessions` layout.
+fn collect_jsonl_files(root: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_jsonl_files(&path, files);
+        } else if path.extension().and_then(|ext| ext.to_str()) == Some("jsonl") {
+            files.push(path);
+        }
+    }
+}
+
+fn find_latest_session_boot_target(extra_roots: &[PathBuf]) -> Option<(String, String)> {
     let sessions_root = app_paths::sessions_root().ok()?;
-    if !sessions_root.exists() {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if sessions_root.exists() {
+        collect_jsonl_files(&sessions_root, &mut candidates);
+    } else {
         log::info!(
             "[picot-native] startup target skipped: sessions dir not found at {}",
             sessions_root.display()
         );
-        return None;
+    }
+    if let Ok(instances_root) = app_paths::data_root().map(|root| root.join("instances")) {
+        if instances_root.is_dir() {
+            collect_jsonl_files(&instances_root, &mut candidates);
+        }
+    }
+    for root in extra_roots {
+        collect_jsonl_files(root, &mut candidates);
     }
 
-    let latest = list_session_files(&sessions_root)
+    let latest = candidates
         .into_iter()
         .filter_map(|path| {
             let mtime = fs::metadata(&path).ok()?.modified().ok()?;
@@ -926,12 +991,30 @@ fn select_fresh_startup_target(
 fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(), String> {
     configure_bundled_tool_path(&static_dir)?;
     notes_vault::configure_bundled_bun(&static_dir)?;
+    let system_root = app_paths::system_root()?;
+    fs::create_dir_all(&system_root)
+        .map_err(|error| format!("Cannot create {}: {error}", system_root.display()))?;
+    app_paths::migrate_metadata_into_system_root()?;
+    app_paths::migrate_legacy_pi_agent()?;
+    app_paths::migrate_legacy_scene_agents()?;
+    app_paths::migrate_legacy_credentials_index()?;
     let data_root = app_paths::data_root()?;
     let scene_profiles = list_scene_profiles()?;
-    let credential_migration = credential_broker::migrate_registered_scene_credentials(
-        &data_root,
-        scene_profiles.iter().map(|profile| profile.id.as_str()),
+    let scene_ids: Vec<&str> = scene_profiles
+        .iter()
+        .map(|profile| profile.id.as_str())
+        .collect();
+    let mut credential_migration = credential_broker::migrate_registered_scene_credentials(
+        &system_root,
+        scene_ids.iter().copied(),
     )?;
+    // Clean up legacy scene auth documents from the previous data root too.
+    let legacy_migration = credential_broker::migrate_registered_scene_credentials(
+        &data_root,
+        scene_ids.iter().copied(),
+    )?;
+    credential_migration.migrated += legacy_migration.migrated;
+    credential_migration.removed_orphans += legacy_migration.removed_orphans;
     if credential_migration.migrated > 0 || credential_migration.removed_orphans > 0 {
         log::info!(
             "[picot-native] migrated {} legacy scene credential documents and removed {} orphan plaintext documents",
@@ -943,12 +1026,9 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     if removed_instances > 0 {
         log::info!("[picot-native] removed {removed_instances} abandoned empty runtime instances");
     }
-    let home_cwd = dirs::home_dir()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .into_owned();
-    let (cwd, session_path) =
-        select_fresh_startup_target(home_cwd, find_latest_session_boot_target());
+    let default_cwd = app_paths::global_workspace_root()?;
+    fs::create_dir_all(&default_cwd)
+        .map_err(|error| format!("Cannot create {}: {error}", default_cwd.display()))?;
     let legacy_metadata_path = app
         .path()
         .app_data_dir()
@@ -959,6 +1039,33 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     let metadata_path = app_paths::metadata_path()?;
     app_paths::migrate_legacy_metadata(&legacy_metadata_path, &metadata_path)?;
     let metadata = Arc::new(Mutex::new(MetadataStore::open(&metadata_path)?));
+    {
+        let mut metadata = metadata
+            .lock()
+            .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
+        // Pre-register the global shared workspace (`~/.zicode`) so the
+        // switcher always offers it as the default workspace.
+        metadata.workspace_id_for_path(&default_cwd)?;
+    }
+    // Include every registered workspace's `.zicode/sessions` when resuming
+    // the most recently used session (legacy app-data roots still apply).
+    let workspace_session_roots: Vec<PathBuf> = {
+        let metadata = metadata
+            .lock()
+            .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
+        let mut roots = Vec::new();
+        for (_, path) in metadata.list_workspaces()? {
+            let root = PathBuf::from(&path);
+            if root.is_dir() {
+                roots.push(app_paths::workspace_app_dir(&root, &system_root).join("sessions"));
+            }
+        }
+        roots
+    };
+    let (cwd, session_path) = select_fresh_startup_target(
+        default_cwd.to_string_lossy().into_owned(),
+        find_latest_session_boot_target(&workspace_session_roots),
+    );
     let workspace_id = metadata
         .lock()
         .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
@@ -973,12 +1080,28 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     let mut launch = launch_resolver.native_launch_spec(&cwd, session_path.as_deref(), &target)?;
     let runtimes = NativePiManager::new(256);
     let remote_auth = Arc::new(Mutex::new(RemoteAuth::new(metadata.clone())));
+    let mut seeded_workspace_roots =
+        std::collections::HashMap::from([(target.workspace_id.clone(), PathBuf::from(&cwd))]);
+    if let Ok(all) = metadata
+        .lock()
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())
+        .and_then(|store| store.list_workspaces())
+    {
+        for (workspace_id, path) in all {
+            let candidate = PathBuf::from(&path);
+            if candidate.is_dir() {
+                seeded_workspace_roots
+                    .entry(workspace_id)
+                    .or_insert(candidate);
+            }
+        }
+    }
     let host = tauri::async_runtime::block_on(async {
         let host = HostServer::start_with_workspaces(
             static_dir,
             runtimes.clone(),
             remote_auth,
-            std::collections::HashMap::from([(target.workspace_id.clone(), PathBuf::from(&cwd))]),
+            seeded_workspace_roots,
         )
         .await?;
         host.configure_plugin_broker(&target, &mut launch)?;
@@ -1035,6 +1158,7 @@ fn main() {
             rollback_signed_plugin_package,
             revoke_plugin_publisher,
             open_new_session_in_workspace,
+            switch_window_workspace,
             open_session_in_project,
             list_workspaces,
             ensure_agent_inbox_session,

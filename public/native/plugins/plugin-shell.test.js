@@ -70,6 +70,30 @@ describe("setupPluginShell", () => {
     ).toBeNull();
   });
 
+  it("reopens the active application after an in-place workspace switch (?app=)", async () => {
+    history.replaceState(
+      null,
+      "",
+      "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.notes",
+    );
+    const shell = setupPluginShell({ registry: registry() });
+
+    await vi.waitFor(() =>
+      expect(shell.getActivePluginId()).toBe("com.zicode.notes"),
+    );
+    expect(document.body.dataset.activePlugin).toBe("com.zicode.notes");
+  });
+
+  it("falls back to Chat when the ?app= plugin is unknown or disabled", async () => {
+    history.replaceState(
+      null,
+      "",
+      "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.does-not-exist",
+    );
+    const shell = setupPluginShell({ registry: registry() });
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
+  });
+
   it("switches to an exclusive plugin main view and makes Chat inert", async () => {
     const shell = setupPluginShell({ registry: registry() });
 
@@ -100,22 +124,15 @@ describe("setupPluginShell", () => {
     );
   });
 
-  it("returns to Chat and opens the file panel when Files is used from another app", async () => {
+  it("keeps the Files activity button Chat-only so other apps stay put", async () => {
     const shell = setupPluginShell({ registry: registry() });
-    const fileSidebar = document.getElementById("file-sidebar");
-    const toggle = document.getElementById("file-sidebar-toggle");
-    const openPanel = vi.spyOn(toggle, "click");
 
     await shell.activate("com.zicode.notes", { focus: false });
     expect(shell.getActivePluginId()).toBe("com.zicode.notes");
+    expect(document.querySelector('[data-plugin-id="core.files"]')).toBeNull();
 
-    document.querySelector('[data-plugin-id="core.files"]').click();
-
-    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
-    expect(shell.getActivePluginId()).toBe("core.chat");
-    expect(document.body.dataset.activePlugin).toBe("core.chat");
-    expect(fileSidebar.classList.contains("plugin-shell-hidden")).toBe(false);
-    expect(openPanel).toHaveBeenCalledOnce();
+    await shell.activate("core.chat", { focus: false });
+    expect(document.querySelector('[data-plugin-id="core.files"]')).not.toBeNull();
   });
 
   it("renders string sidebar view items with readable labels", async () => {

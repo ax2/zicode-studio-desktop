@@ -65,8 +65,6 @@ export interface SessionSidebarOptions {
   };
   getTarget(): { workspaceId: string; sessionId?: string };
   onSelect(session: SessionSummary): void;
-  onCreateSession?(workspaceId: string): Promise<unknown>;
-  onOpenApp?(pluginId: string): void;
   onSessionsLoaded?(sessions: SessionSummary[]): void;
 }
 
@@ -77,8 +75,6 @@ export class SessionSidebar implements SessionSidebarController {
   control: SessionSidebarOptions["control"];
   getTarget: SessionSidebarOptions["getTarget"];
   onSelect: SessionSidebarOptions["onSelect"];
-  onCreateSession?: SessionSidebarOptions["onCreateSession"];
-  onOpenApp?: SessionSidebarOptions["onOpenApp"];
   onSessionsLoaded?: SessionSidebarOptions["onSessionsLoaded"];
 
   store: SidebarStoreHook;
@@ -96,8 +92,6 @@ export class SessionSidebar implements SessionSidebarController {
     this.control = options.control;
     this.getTarget = options.getTarget;
     this.onSelect = options.onSelect;
-    this.onCreateSession = options.onCreateSession;
-    this.onOpenApp = options.onOpenApp;
     this.onSessionsLoaded = options.onSessionsLoaded;
 
     this.store = createSidebarStore({
@@ -538,19 +532,6 @@ export class SessionSidebar implements SessionSidebarController {
     );
   }
 
-  createSession(project: ProjectGroup): void {
-    const invoke = (globalThis as { __TAURI__?: { core?: { invoke?: unknown } } })
-      .__TAURI__?.core?.invoke;
-    const create = invoke
-      ? (
-          invoke as (command: string, options: Record<string, unknown>) => Promise<unknown>
-        )("open_new_session_in_workspace", { projectPath: project.path })
-      : this.onCreateSession?.(this.getTarget()?.workspaceId);
-    create?.catch((error) => {
-      console.error("[Sidebar] Failed to start new chat:", error);
-    });
-  }
-
   selectSession(session: SessionSummary): void {
     this.closeContextMenu();
     this.onSelect?.(session);
@@ -713,7 +694,4 @@ export class SessionSidebar implements SessionSidebarController {
     this.commit({ renamingId: null });
   }
 
-  openApp(pluginId: string): void {
-    this.onOpenApp?.(pluginId);
-  }
 }

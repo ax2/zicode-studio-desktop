@@ -4568,6 +4568,43 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百八十四轮：工作区模型重构 + 存储迁移到 ~/.zicode（2026-08-10）。
+
+1. **精简冗余按钮**：
+   - 对话侧栏移除"将文件夹作为工作区打开"按钮（工作区栏项目卡片已覆盖
+     同一功能）；保留搜索旁的新建会话按钮；
+   - 移除项目头部（ax2 旁）的新建会话/笔记/产物/任务快捷按钮，以及项目
+     下方重复的"新建对话"文字行；⋮ 更多操作（归档全部会话）保留；
+   - Files 活动按钮仅在对视图显示，设置/笔记等其他应用视图不再出现
+     （需要文件时直接在对页使用）；
+2. **全局公共工作区**：默认注册 `~/.zicode` 为全局工作区（首次启动自动
+   创建并写入元数据），工作区切换器预置并置顶显示；
+3. **切换工作区不再跳转对话**：新增 `switch_window_workspace` 命令，在
+   当前窗口原地切换到目标工作区，URL 携带 `?app=<当前应用>`，页面加载后
+   恢复原应用视图（对话/笔记/设置等），停在当前窗口；
+4. **数据目录（工作区 `.zicode` 布局）**：
+   - 会话：新会话写入 `<工作区>/.zicode/sessions`（全局工作区为
+     `~/.zicode/.zicode/sessions`）；启动时一次性把旧
+     `%LOCALAPPDATA%\zicode\instances|sessions` 中的会话按 cwd 迁移到
+     所属工作区 `.zicode/sessions`（旧文件保留可读）；
+   - 笔记：`<工作区>/.zicode/notes`（旧 `plugins/plugin-data/.../vaults`
+     按工作区一次性迁移）；产物：`<工作区>/.zicode/artifacts`（旧
+     `items` 目录一次性迁移）；
+5. **系统配置迁至 `~/.zicode`（不再是 `~/.pi` 或 `%LOCALAPPDATA%\zicode`）**：
+   - pi 全局 agent 配置（settings/models/models-store/auth 等）→
+     `~/.zicode/agent`，`PI_CODING_AGENT_DIR` 注入所有 pi 命令（含
+     `pi list`/`pi auth`）；旧 `~/.pi/agent` 一次性复制迁移；
+   - 场景 agent 配置（含 models.json）→ `~/.zicode/scenes/<key>/agent`
+     （旧 scenes 目录一次性迁移）；
+   - 场景档案、远程访问配置、凭据索引、工作区元数据（picot.sqlite3）
+     均迁移到 `~/.zicode`，旧文件保留为备份；
+6. 验证：release 60 安装后 CDP 实测（无冗余按钮、切换器含全局工作区、
+   切换保留应用、会话/笔记/产物落盘新目录、旧数据迁移后仍可见、健康
+   检查 pi 0.84.1）；前端 787 项、Rust 152 项、typecheck/Biome/design/
+   Tauri 权限 20 条/clippy/fmt 全绿；
+7. 发布：release 第六十次重建 + `/S` 静默重装，安装目录 public 与仓库
+   逐文件一致，哈希见 `docs/release-validation-2026-08-05.md`。
+
 第三百八十三轮：共享工作区栏 + 移动端右键功能可触达（2026-08-10）。
 
 1. **共享工作区栏（公共组件）**：对话、笔记、设置、帮助等所有功能区视图

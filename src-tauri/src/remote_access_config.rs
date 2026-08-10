@@ -253,9 +253,23 @@ fn normalize_ws_url(value: Option<String>) -> Result<Option<String>, String> {
 }
 
 fn config_path() -> Result<PathBuf, String> {
-    Ok(crate::app_paths::data_root()?
+    let path = crate::app_paths::system_root()?
         .join("remote-access")
-        .join("config.json"))
+        .join("config.json");
+    if !path.is_file() {
+        // One-time migration from the previous app data location.
+        if let Ok(legacy) =
+            crate::app_paths::data_root().map(|root| root.join("remote-access").join("config.json"))
+        {
+            if legacy.is_file() {
+                if let Some(parent) = path.parent() {
+                    let _ = fs::create_dir_all(parent);
+                    let _ = fs::copy(&legacy, &path);
+                }
+            }
+        }
+    }
+    Ok(path)
 }
 
 fn load_at(path: &Path) -> Result<RemoteAccessConfig, String> {

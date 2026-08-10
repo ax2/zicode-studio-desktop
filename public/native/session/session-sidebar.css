@@ -176,54 +176,6 @@
   font-size: var(--font-size-md);
 }
 
-.project-new-chat-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: var(--radius-xs);
-  color: var(--text-dim);
-  cursor: pointer;
-  opacity: 1;
-  transition:
-    background var(--duration) var(--ease),
-    color var(--duration) var(--ease);
-  flex-shrink: 0;
-}
-
-.project-new-chat-btn:hover {
-  background: var(--accent);
-  color: var(--bg-solid);
-}
-
-.project-quick-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  opacity: 0.75;
-  font-size: var(--font-size-sm);
-  transition:
-    background var(--duration) var(--ease),
-    opacity var(--duration) var(--ease);
-  flex-shrink: 0;
-}
-
-.project-quick-btn:hover {
-  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
-  opacity: 1;
-}
-
 /* Touch-friendly "more" menu entry on project headers (archive all sessions),
    revealed on hover for fine pointers and always visible on coarse pointers. */
 .project-more-btn {
@@ -450,34 +402,6 @@
 
 .session-item.hidden {
   display: none;
-}
-
-.session-new-chat-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  width: calc(100% - var(--space-4));
-  margin: 0 var(--space-2) var(--space-1);
-  padding: var(--space-1-5) var(--space-2);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-dim);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-  transition:
-    background var(--duration) var(--ease),
-    color var(--duration) var(--ease);
-}
-
-.session-new-chat-row:hover {
-  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
-  color: var(--text-primary);
-}
-
-.session-new-chat-row svg {
-  width: 14px;
-  height: 14px;
 }
 
 .session-title-row {

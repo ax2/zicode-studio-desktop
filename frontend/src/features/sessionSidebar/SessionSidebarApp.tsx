@@ -22,7 +22,6 @@ import type {
 } from "./sessionSidebarStore";
 
 export interface SessionSidebarController {
-  onCreateSession?: (workspaceId: string) => Promise<unknown>;
   isSidebarItemVisible(element: Element): boolean;
   selectSession(session: SessionSummary): void;
   toggleFavourite(id: string): void;
@@ -37,8 +36,6 @@ export interface SessionSidebarController {
   toggleProjectCollapsed(path: string): void;
   showMore(): void;
   showLess(): void;
-  createSession(project: ProjectGroup): void;
-  openApp(pluginId: string): void;
   showContextMenu(event: React.MouseEvent, session: SessionSummary): void;
   showSessionMenuFromButton(button: HTMLElement, session: SessionSummary): void;
   showProjectContextMenu(event: React.MouseEvent, project: ProjectGroup): void;
@@ -105,24 +102,6 @@ function FolderChevron() {
         />
       </svg>
     </span>
-  );
-}
-
-function NewChatIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
   );
 }
 
@@ -266,7 +245,14 @@ export function SessionSidebarApp({
   });
 
   const superAgentEnabled = isSuperAgentEnabled();
-  const superAgentSessions = sessions.filter((session) =>
+  // The session list is bound to the current workspace: switching workspace
+  // swaps the whole list. The pinned Agent Inbox stays as a system surface.
+  const workspaceSessions = sessions.filter(
+    (session) =>
+      session.isCurrentWorkspace ||
+      isSuperAgentProjectPath(session.projectPath),
+  );
+  const superAgentSessions = workspaceSessions.filter((session) =>
     isSuperAgentProjectPath(session.projectPath),
   );
   const pinnedSuperAgent = superAgentEnabled
@@ -276,7 +262,7 @@ export function SessionSidebarApp({
   const favouritesSessions: SessionSummary[] = [];
   const archivedSessions: SessionSummary[] = [];
   const regular: SessionSummary[] = [];
-  for (const session of sessions) {
+  for (const session of workspaceSessions) {
     if (isSuperAgentProjectPath(session.projectPath)) continue;
     if (archived.includes(session.id)) archivedSessions.push(session);
     else if (favourites.includes(session.id)) favouritesSessions.push(session);
@@ -317,6 +303,13 @@ export function SessionSidebarApp({
   }
   if (sessions.length === 0) {
     return <div className="session-loading">{t("No saved sessions")}</div>;
+  }
+  if (workspaceSessions.length === 0) {
+    return (
+      <div className="session-loading">
+        {t("No saved sessions in this workspace")}
+      </div>
+    );
   }
 
   const visibleSearchResults =
@@ -445,12 +438,6 @@ export function SessionSidebarApp({
   const renderProjectGroup = (project: ProjectGroup) => {
     const stored = projectsCollapsed[project.path];
     const collapsed = stored === undefined ? !project.isCurrent : stored === true;
-    const invoke = (globalThis as { __TAURI__?: { core?: { invoke?: unknown } } })
-      .__TAURI__?.core?.invoke;
-    const canCreateSession = Boolean(
-      invoke || (project.isCurrent && controller.onCreateSession),
-    );
-    const newChatLabel = `${t("New chat in")} ${project.name}`;
     const visible = project.isCurrent && !searchQuery
       ? project.sessions.slice(0, visibleCount)
       : project.sessions;
@@ -474,56 +461,6 @@ export function SessionSidebarApp({
             {project.name}
           </span>
           <span className="project-count">{project.sessions.length}</span>
-          {canCreateSession ? (
-            <button
-              className="project-new-chat-btn"
-              title={newChatLabel}
-              aria-label={newChatLabel}
-              onClick={(event) => {
-                event.stopPropagation();
-                controller.createSession(project);
-              }}
-            >
-              <NewChatIcon />
-            </button>
-          ) : null}
-          {project.isCurrent ? (
-            <>
-              <button
-                className="project-quick-btn"
-                title={t("Notes")}
-                aria-label={t("Notes")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  controller.openApp("com.zicode.notes");
-                }}
-              >
-                <span aria-hidden="true">📝</span>
-              </button>
-              <button
-                className="project-quick-btn"
-                title={t("Artifacts")}
-                aria-label={t("Artifacts")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  controller.openApp("com.zicode.artifacts");
-                }}
-              >
-                <span aria-hidden="true">🧩</span>
-              </button>
-              <button
-                className="project-quick-btn"
-                title={t("Tasks")}
-                aria-label={t("Tasks")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  controller.openApp("com.zicode.tasks");
-                }}
-              >
-                <span aria-hidden="true">✅</span>
-              </button>
-            </>
-          ) : null}
           <button
             className="project-more-btn"
             title={t("More actions")}
@@ -537,16 +474,6 @@ export function SessionSidebarApp({
           </button>
         </div>
         <div className={`project-sessions${collapsed ? " collapsed" : ""}`}>
-          {project.isCurrent && canCreateSession && !searchQuery ? (
-            <button
-              type="button"
-              className="session-new-chat-row"
-              onClick={() => controller.createSession(project)}
-            >
-              <NewChatIcon />
-              <span>{t("New chat")}</span>
-            </button>
-          ) : null}
           {visible.map((session) =>
             renderSessionItem(session, { hidden: !titleMatches(session) }),
           )}

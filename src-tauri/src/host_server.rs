@@ -123,6 +123,25 @@ impl HostServer {
             data = data
                 .with_session_root(data_root.join("instances"))
                 .with_session_root(data_root.join("sessions"));
+            // One-time migration of legacy session files into the owning
+            // workspace's `.zicode/sessions`. Skipped in tests so the unit
+            // suite never touches the real marker or user data.
+            #[cfg(not(test))]
+            if let Ok(marker) = crate::app_paths::data_root()
+                .map(|root| root.join("sessions").join(".legacy-migrated"))
+            {
+                match data.migrate_legacy_sessions(&marker) {
+                    Ok(moved) if moved > 0 => {
+                        log::info!(
+                            "[host-data] migrated {moved} legacy session file(s) into workspace .zicode directories"
+                        );
+                    }
+                    Ok(_) => {}
+                    Err(error) => {
+                        log::warn!("[host-data] legacy session migration skipped: {error:?}");
+                    }
+                }
+            }
         }
         // Prefer a stable, high, rarely-used loopback port. The desktop Host
         // exposes workspace and runtime control endpoints, so it must never be
@@ -179,10 +198,14 @@ impl HostServer {
         let plugin_root = crate::app_paths::plugins_root()?;
         let plugins = PluginRegistry::open(plugin_root.clone())
             .map_err(|error| format!("Cannot initialize application plugin registry: {error}"))?;
+        let workspace_roots = data.workspace_roots();
+        let system_root = crate::app_paths::system_root().unwrap_or_default();
         let notes = NotesVault::new(plugin_root.clone())
-            .map_err(|error| format!("Cannot initialize Notes vault: {error}"))?;
+            .map_err(|error| format!("Cannot initialize Notes vault: {error}"))?
+            .with_workspace_registry(workspace_roots.clone(), system_root.clone());
         let artifacts = ArtifactStore::new(plugin_root.clone())
-            .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?;
+            .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?
+            .with_workspace_registry(workspace_roots, system_root);
         let capability_broker = CapabilityBroker::new(plugin_root)
             .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?;
         let relay_status: RelayAgentStatus = Arc::new(Mutex::new(RelayAgentState::default()));

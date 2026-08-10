@@ -8,21 +8,21 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 785 项通过 | 135 个测试文件 |
+| 前端 vitest | 787 项通过 | 135 个测试文件 |
 | Rust | 174 项通过（150+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 450 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
 | TypeScript typecheck | 通过 | tsc --noEmit |
-| Tauri 权限 / Windows 子进程策略 | 19 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
+| Tauri 权限 / Windows 子进程策略 | 20 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第五十九次重建（第 383 轮，共享工作区栏 + 移动端
-  右键功能可触达）EXE 41,518,592 B / 安装包 346,765,177 B；哈希与
-  逐文件验证见 `docs/release-validation-2026-08-05.md`；
+- 最近 release：第六十次重建（第 384 轮，工作区模型 + `~/.zicode`
+  存储）EXE 41,594,368 B / 安装包 346,799,733 B；哈希与逐文件验证见
+  `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第五十九次重建安装版，网关 `/health` 200
+- 当前运行实例：第六十次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -38,6 +38,12 @@
   就地切换；"切换工作区"菜单列出全部已注册工作区并可就地切换；会话行
   与项目头新增 ⋮"更多操作"按钮，移动端粗指针下归档/删除全部按钮恒
   可见，右键/悬停功能全部可触达（第 383 轮）；
+- 工作区与存储（第 384 轮）：全局公共工作区默认 `~/.zicode`（切换器
+  置顶）；切换工作区在当前窗口原地进行并保留当前应用（`?app=`）；
+  会话/笔记/产物分别存于 `<工作区>/.zicode/{sessions,notes,artifacts}`，
+  旧数据一次性迁移；系统配置（pi agent/models、场景档案、远程访问、
+  凭据索引、工作区元数据）统一在 `~/.zicode`，旧 `~/.pi/agent` 保留；
+  侧栏会话列表按当前工作区过滤，空工作区显示空态提示；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

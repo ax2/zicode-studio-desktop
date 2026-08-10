@@ -17,21 +17,32 @@ pub struct RuntimeIsolation {
 
 pub fn prepare_runtime_isolation(
     target: &RuntimeTarget,
+    cwd: &Path,
     portable_git_root: Option<&Path>,
 ) -> Result<RuntimeIsolation, String> {
-    let root = crate::app_paths::data_root()?;
-    prepare_runtime_isolation_at(&root, target, portable_git_root)
+    let data_root = crate::app_paths::data_root()?;
+    let system_root = crate::app_paths::system_root()?;
+    prepare_runtime_isolation_at(&data_root, &system_root, cwd, target, portable_git_root)
 }
 
 fn prepare_runtime_isolation_at(
-    root: &Path,
+    data_root: &Path,
+    system_root: &Path,
+    cwd: &Path,
     target: &RuntimeTarget,
     portable_git_root: Option<&Path>,
 ) -> Result<RuntimeIsolation, String> {
-    let scene_root = root.join("scenes").join(opaque_key(&target.scene_id));
-    let instance_root = root.join("instances").join(opaque_key(&target.instance_id));
+    let scene_root = system_root
+        .join("scenes")
+        .join(opaque_key(&target.scene_id));
+    let instance_root = data_root
+        .join("instances")
+        .join(opaque_key(&target.instance_id));
     let agent_dir = scene_root.join("agent");
-    let session_dir = instance_root.join("sessions");
+    // Chat sessions live in the workspace's own `.zicode/sessions` directory
+    // (the global workspace uses `~/.zicode/sessions` directly) so every
+    // project carries its own conversation history.
+    let session_dir = crate::app_paths::workspace_app_dir(cwd, system_root).join("sessions");
     let log_dir = instance_root.join("logs");
     let temp_dir = instance_root.join("tmp");
 
@@ -65,7 +76,7 @@ fn prepare_runtime_isolation_at(
         merge_shell_path(&agent_dir.join("settings.json"), &bash_path)?;
     }
 
-    crate::credential_broker::prepare_scene_credentials(root, &target.scene_id, &agent_dir)?;
+    crate::credential_broker::prepare_scene_credentials(system_root, &target.scene_id, &agent_dir)?;
 
     let mut environment = BTreeMap::from([
         ("PI_CODING_AGENT_DIR".to_string(), path_string(&agent_dir)),
@@ -87,7 +98,11 @@ fn prepare_runtime_isolation_at(
             path_string(&instance_root),
         ),
         ("PI_DESKTOP_LOG_DIR".to_string(), path_string(&log_dir)),
-        ("PI_DESKTOP_DATA_DIR".to_string(), path_string(root)),
+        ("PI_DESKTOP_DATA_DIR".to_string(), path_string(data_root)),
+        (
+            "PI_DESKTOP_SYSTEM_DIR".to_string(),
+            path_string(system_root),
+        ),
         ("TEMP".to_string(), path_string(&temp_dir)),
         ("TMP".to_string(), path_string(&temp_dir)),
     ]);
@@ -97,7 +112,7 @@ fn prepare_runtime_isolation_at(
     // the Authorization header for the local model gateway. Values are only
     // placed in the child process environment, never logged or persisted.
     for (provider, key) in
-        crate::credential_broker::scene_provider_credentials(root, &target.scene_id)?
+        crate::credential_broker::scene_provider_credentials(system_root, &target.scene_id)?
     {
         let env_name = format!("{}_API_KEY", provider_env_name(&provider));
         environment.insert(env_name, key);
@@ -184,18 +199,16 @@ mod tests {
         fs::write(portable.join("bin").join("bash.exe"), b"test").unwrap();
         let target =
             RuntimeTarget::new("workspace", "session", "../../instance").with_scene("../finance");
+        let cwd = temp.join("project");
+        fs::create_dir_all(&cwd).unwrap();
 
-        let isolation = prepare_runtime_isolation_at(&temp, &target, Some(&portable)).unwrap();
+        let isolation =
+            prepare_runtime_isolation_at(&temp, &temp, &cwd, &target, Some(&portable)).unwrap();
 
         assert!(isolation.agent_dir.starts_with(temp.join("scenes")));
-        assert!(isolation.session_dir.starts_with(temp.join("instances")));
+        assert!(isolation.session_dir.starts_with(cwd.join(".zicode")));
         assert!(!isolation.agent_dir.to_string_lossy().contains("finance"));
-        assert_eq!(
-            isolation.session_dir,
-            temp.join("instances")
-                .join(opaque_key("../../instance"))
-                .join("sessions")
-        );
+        assert_eq!(isolation.session_dir, cwd.join(".zicode").join("sessions"));
         assert_ne!(
             opaque_key(&target.scene_id),
             opaque_key(&target.instance_id)
@@ -243,7 +256,9 @@ mod tests {
         )
         .unwrap();
 
-        prepare_runtime_isolation_at(&temp, &target, Some(&portable)).unwrap();
+        let cwd = temp.join("project");
+        fs::create_dir_all(&cwd).unwrap();
+        prepare_runtime_isolation_at(&temp, &temp, &cwd, &target, Some(&portable)).unwrap();
 
         let settings: Value =
             serde_json::from_str(&fs::read_to_string(agent_dir.join("settings.json")).unwrap())

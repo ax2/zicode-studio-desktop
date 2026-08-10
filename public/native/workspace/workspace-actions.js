@@ -172,31 +172,6 @@ function isTypingTarget(target) {
   return target.closest('[contenteditable="true"]') !== null;
 }
 
-export function setupOpenFolderButton({ onError } = {}) {
-  const button = document.getElementById("open-folder-btn");
-  if (!button) return false;
-
-  const invoke = resolveInvoke();
-  if (!invoke) {
-    // Remote/browser clients cannot open native windows; hide the control
-    // rather than leave a button that silently does nothing.
-    button.style.setProperty("display", "none");
-    return false;
-  }
-
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    try {
-      await invoke("open_folder_as_workspace");
-    } catch (error) {
-      onError?.(error instanceof Error ? error : new Error(String(error)));
-    } finally {
-      button.disabled = false;
-    }
-  });
-  return true;
-}
-
 /**
  * Workspace switcher: list every registered workspace and switch the current
  * window to the selected project in place. Also renders the shared workspace
@@ -239,6 +214,9 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
     return parts.length > 0 ? parts[parts.length - 1] : path || "";
   };
 
+  const activePluginId = () =>
+    document.body.dataset.activePlugin || "core.chat";
+
   const refreshWorkspaceLabel = async () => {
     const current = currentWorkspaceId();
     try {
@@ -270,7 +248,14 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
         menu.append(empty);
         return;
       }
-      for (const workspace of workspaces) {
+      const global = workspaces.find((workspace) => {
+        const path = displayPath(workspace.path).replace(/[\\/]+$/, "");
+        return path.toLowerCase().endsWith(".zicode");
+      });
+      const ordered = global
+        ? [global, ...workspaces.filter((workspace) => workspace !== global)]
+        : workspaces;
+      for (const workspace of ordered) {
         const item = document.createElement("button");
         item.type = "button";
         item.className = `workspace-switcher-item${workspace.id === current ? " current" : ""}`;
@@ -283,8 +268,9 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
         item.addEventListener("click", async () => {
           closeMenu();
           try {
-            await invoke("open_new_session_in_workspace", {
+            await invoke("switch_window_workspace", {
               projectPath: workspace.path,
+              pluginId: activePluginId(),
             });
           } catch (error) {
             onError?.(error instanceof Error ? error : new Error(String(error)));
@@ -304,7 +290,9 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
   projectButton.addEventListener("click", async () => {
     projectButton.disabled = true;
     try {
-      await invoke("open_folder_as_workspace");
+      await invoke("open_folder_as_workspace", {
+        pluginId: activePluginId(),
+      });
     } catch (error) {
       onError?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
