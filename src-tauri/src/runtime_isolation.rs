@@ -93,6 +93,7 @@ fn prepare_runtime_isolation_at(
             "PI_DESKTOP_INSTANCE_ID".to_string(),
             target.instance_id.clone(),
         ),
+        ("PI_DESKTOP_WORKSPACE_DIR".to_string(), path_string(cwd)),
         (
             "PI_DESKTOP_INSTANCE_DIR".to_string(),
             path_string(&instance_root),

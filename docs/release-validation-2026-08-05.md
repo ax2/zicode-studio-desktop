@@ -491,6 +491,35 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十一次重建（2026-08-10，第 385 轮任务/自动化/金融按工作区隔离）
+
+- 合入第 385 轮：
+  - picot-config 数据平面把任务、自动化工作流、金融研究卡片的数据
+    目录改为工作区作用域：`<工作区>/.zicode/{tasks,automation,finance}/`，
+    运行时注入 `PI_DESKTOP_WORKSPACE_DIR` 供扩展定位；
+  - 首次加载时把旧场景级文件（`~/.zicode/scenes/<key>/agent/<app>/`）
+    一次性移入所属工作区目录；读写保留旧文件兜底，数据不分裂/不丢失；
+  - 前端 790 项（新增任务落盘、自动化落盘、旧数据迁移 3 项）、Rust
+    152 项、typecheck/Biome/design/Tauri 权限 20 条/clippy/fmt 全绿；
+- 产物（release 61）：
+  - `target/release/zicode-studio-desktop.exe`：41,594,880 B，
+    SHA-256 `F5B7628318F0F6671941AE5E0729B0ACD13A00A343C02126E2105CE60DFDCDB5`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,785,983 B，SHA-256
+    `BB4EF6F82CCB38AB9D3AE0B6EF8592410C3993017495482396B7CDC779C69A62`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `0B91A2B6734C0ED8FEA2227AD7B54D9C31C58FF2B3F6CCAEC318ECA55D956211`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - 安装版 `extensions/picot-bridge.mjs` 含 `WORKSPACE_APP_DIR` 与
+    `tasks/automation/finance` 工作区路径及迁移对；
+  - 真实运行时迁移生效：旧
+    `~/.zicode/scenes/<key>/agent/automation/workflows.json` 已移至
+    `C:\Users\ax2\.zicode\automation\workflows.json`（场景目录残留 0）；
+  - 日志无 ERROR/WARN/panic。
+
 ## 第六十次重建（2026-08-10，第 384 轮工作区模型 + ~/.zicode 存储）
 
 - 合入第 384 轮：

@@ -133,12 +133,67 @@ const AGENT_CONFIG_PATH = path.join(PI_AGENT_ROOT, "settings.json");
 const MODELS_CONFIG_PATH = path.join(PI_AGENT_ROOT, "models.json");
 const CHAT_CONFIG_PATH = path.join(PI_AGENT_ROOT, "chat", "config.json");
 const AUTH_CONFIG_PATH = path.join(PI_AGENT_ROOT, "auth.json");
-const SUPER_AGENT_TASKS_PATH = path.join(PI_AGENT_ROOT, "super-agent", "tasks.json");
-const FINANCE_RESEARCH_PATH = path.join(PI_AGENT_ROOT, "finance", "research.json");
-const AUTOMATION_WORKSPACE_PATH = path.join(PI_AGENT_ROOT, "automation", "workflows.json");
+
+// Per-application data is workspace-scoped: each project keeps its own
+// tasks/finance/automation data under `<workspace>/.zicode/<app>/` (the same
+// layout as sessions and notes), so switching workspace switches the data.
+function resolveWorkspaceAppDir(): string {
+  const explicit = process.env.PI_DESKTOP_WORKSPACE_DIR?.trim();
+  const workspaceRoot = explicit ? path.resolve(explicit) : process.cwd();
+  return path.join(workspaceRoot, ".zicode");
+}
+
+const WORKSPACE_APP_DIR = resolveWorkspaceAppDir();
+const SUPER_AGENT_TASKS_PATH = path.join(WORKSPACE_APP_DIR, "tasks", "tasks.json");
+const FINANCE_RESEARCH_PATH = path.join(WORKSPACE_APP_DIR, "finance", "research.json");
+const AUTOMATION_WORKSPACE_PATH = path.join(WORKSPACE_APP_DIR, "automation", "workflows.json");
 const PISTUDIO_INSTANCES_DIR = process.env.PI_DESKTOP_INSTANCE_DIR
   ? path.join(path.resolve(process.env.PI_DESKTOP_INSTANCE_DIR), "super-agent")
   : path.join(path.dirname(PI_AGENT_ROOT), "instances");
+
+// One-time migration: move legacy scene-scoped app data (written before the
+// workspace layout existed) into the owning workspace's `.zicode` directory.
+// The first workspace that boots the extension claims the data; the legacy
+// file is left untouched when a target already exists or the move fails.
+function migrateLegacyAppData(): void {
+  const legacy: Array<[string, string]> = [
+    [path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"), SUPER_AGENT_TASKS_PATH],
+    [path.join(PI_AGENT_ROOT, "finance", "research.json"), FINANCE_RESEARCH_PATH],
+    [path.join(PI_AGENT_ROOT, "automation", "workflows.json"), AUTOMATION_WORKSPACE_PATH],
+  ];
+  for (const [source, target] of legacy) {
+    if (!fs.existsSync(source) || fs.existsSync(target)) continue;
+    try {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.renameSync(source, target);
+    } catch {
+      // Keep the legacy file in place; the next read falls back to it.
+    }
+  }
+}
+
+migrateLegacyAppData();
+
+// Prefer the workspace-scoped file, but keep reading/writing the legacy
+// scene-scoped file when the migration could not move it yet, so data is
+// never silently split or lost.
+function dataFileFor(workspacePath: string, legacyPath: string): string {
+  return fs.existsSync(workspacePath) ? workspacePath : legacyPath;
+}
+
+// Writes always land in the workspace-scoped file; when the legacy file still
+// exists (migration could not run), move it first so data is never split.
+function workspaceDataPath(workspacePath: string, legacyPath: string): string {
+  if (!fs.existsSync(workspacePath) && fs.existsSync(legacyPath)) {
+    try {
+      fs.mkdirSync(path.dirname(workspacePath), { recursive: true });
+      fs.renameSync(legacyPath, workspacePath);
+    } catch {
+      // Keep the legacy file; the read fallback keeps data visible.
+    }
+  }
+  return workspacePath;
+}
 
 function modelPreferenceKey(provider: string, modelId: string): string {
   return `${provider}/${modelId}`;
@@ -1190,8 +1245,12 @@ export async function handlePicotConfig(
       }
 
       case "read_super_agent_tasks": {
-        const content = fs.existsSync(SUPER_AGENT_TASKS_PATH)
-          ? fs.readFileSync(SUPER_AGENT_TASKS_PATH, "utf8")
+        const tasksPath = dataFileFor(
+          SUPER_AGENT_TASKS_PATH,
+          path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"),
+        );
+        const content = fs.existsSync(tasksPath)
+          ? fs.readFileSync(tasksPath, "utf8")
           : '{"tasks":[]}';
         let tasks: unknown[] = [];
         try {
@@ -1205,8 +1264,12 @@ export async function handlePicotConfig(
 
       case "write_super_agent_tasks": {
         const tasks = Array.isArray(params.tasks) ? params.tasks : [];
-        fs.mkdirSync(path.dirname(SUPER_AGENT_TASKS_PATH), { recursive: true });
-        fs.writeFileSync(SUPER_AGENT_TASKS_PATH, JSON.stringify({ tasks }, null, 2), "utf8");
+        const tasksPath = workspaceDataPath(
+          SUPER_AGENT_TASKS_PATH,
+          path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"),
+        );
+        fs.mkdirSync(path.dirname(tasksPath), { recursive: true });
+        fs.writeFileSync(tasksPath, JSON.stringify({ tasks }, null, 2), "utf8");
         return { ok: true, data: { count: tasks.length } };
       }
 
@@ -1282,9 +1345,13 @@ type AutomationWorkflow = {
 type AutomationWorkspace = { version: 1; workflows: AutomationWorkflow[] };
 
 function readAutomationWorkspace(): AutomationWorkspace {
-  if (!fs.existsSync(AUTOMATION_WORKSPACE_PATH)) return { version: 1, workflows: [] };
+  const dataPath = dataFileFor(
+    AUTOMATION_WORKSPACE_PATH,
+    path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
+  );
+  if (!fs.existsSync(dataPath)) return { version: 1, workflows: [] };
   try {
-    const parsed = JSON.parse(fs.readFileSync(AUTOMATION_WORKSPACE_PATH, "utf8")) as {
+    const parsed = JSON.parse(fs.readFileSync(dataPath, "utf8")) as {
       workflows?: unknown[];
     };
     return {
@@ -1299,7 +1366,11 @@ function readAutomationWorkspace(): AutomationWorkspace {
 }
 
 function writeAutomationWorkspace(workspace: AutomationWorkspace): void {
-  writeConfigFile(AUTOMATION_WORKSPACE_PATH, JSON.stringify(workspace, null, 2));
+  const target = workspaceDataPath(
+    AUTOMATION_WORKSPACE_PATH,
+    path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
+  );
+  writeConfigFile(target, JSON.stringify(workspace, null, 2));
 }
 
 function normalizeAutomationRun(value: unknown): AutomationRun {
@@ -1348,9 +1419,13 @@ function normalizeAutomationWorkflow(value: unknown): AutomationWorkflow {
 }
 
 function readFinanceResearchWorkspace(): FinanceResearchWorkspace {
-  if (!fs.existsSync(FINANCE_RESEARCH_PATH)) return { version: 1, cards: [] };
+  const dataPath = dataFileFor(
+    FINANCE_RESEARCH_PATH,
+    path.join(PI_AGENT_ROOT, "finance", "research.json"),
+  );
+  if (!fs.existsSync(dataPath)) return { version: 1, cards: [] };
   try {
-    const parsed = JSON.parse(fs.readFileSync(FINANCE_RESEARCH_PATH, "utf8")) as { cards?: unknown[] };
+    const parsed = JSON.parse(fs.readFileSync(dataPath, "utf8")) as { cards?: unknown[] };
     return {
       version: 1,
       cards: Array.isArray(parsed.cards)
@@ -1370,7 +1445,11 @@ function readFinanceResearchWorkspace(): FinanceResearchWorkspace {
 }
 
 function writeFinanceResearchWorkspace(workspace: FinanceResearchWorkspace): void {
-  writeConfigFile(FINANCE_RESEARCH_PATH, JSON.stringify(workspace, null, 2));
+  const target = workspaceDataPath(
+    FINANCE_RESEARCH_PATH,
+    path.join(PI_AGENT_ROOT, "finance", "research.json"),
+  );
+  writeConfigFile(target, JSON.stringify(workspace, null, 2));
 }
 
 function normalizeFinanceResearchCard(value: unknown): FinanceResearchCard {

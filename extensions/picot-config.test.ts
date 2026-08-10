@@ -30,14 +30,18 @@ async function loadConfigWithTempHome() {
 
 async function loadConfigWithIsolatedAgentRoot(sceneId = "programming") {
   const root = mkdtempSync(join(tmpdir(), "picot-config-isolated-"));
+  const workspace = join(root, "workspace");
+  mkdirSync(workspace, { recursive: true });
   tempHomes.push(root);
   vi.resetModules();
   vi.stubEnv("PI_CODING_AGENT_DIR", join(root, "scene-agent"));
   vi.stubEnv("PI_DESKTOP_INSTANCE_DIR", join(root, "instance"));
+  vi.stubEnv("PI_DESKTOP_WORKSPACE_DIR", workspace);
   vi.stubEnv("PI_DESKTOP_SCENE_ID", sceneId);
   const module = await import("./picot-config.ts");
   return {
     root,
+    workspace,
     handlePicotConfig: module.handlePicotConfig,
   };
 }
@@ -698,7 +702,7 @@ describe("finance workbench operations", () => {
   });
 
   it("persists watchlist research with opposing evidence and invalidation", async () => {
-    const { handlePicotConfig } = await loadConfigWithIsolatedAgentRoot("finance");
+    const { workspace, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot("finance");
     const created = await handlePicotConfig(
       "finance_research_workspace",
       {
@@ -729,12 +733,18 @@ describe("finance workbench operations", () => {
     await expect(
       handlePicotConfig("finance_research_workspace", { action: "list" }, {}),
     ).resolves.toMatchObject({ ok: true, data: { cards: [{ symbol: "AAPL" }] } });
+    expect(
+      existsSync(join(workspace, ".zicode", "finance", "research.json")),
+    ).toBe(true);
+    expect(
+      readFileSync(join(workspace, ".zicode", "finance", "research.json"), "utf8"),
+    ).toContain("AAPL");
   });
 });
 
 describe("automation workspace operations", () => {
   it("persists schedules, approval policy, cost limits, retries, and run history", async () => {
-    const { handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const { workspace, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
     const created = await handlePicotConfig(
       "automation_workspace",
       {
@@ -781,6 +791,65 @@ describe("automation workspace operations", () => {
     ).resolves.toMatchObject({
       ok: true,
       data: { workflow: { approvalPending: true, history: [{ status: "approval_required" }] } },
+    });
+    expect(
+      existsSync(join(workspace, ".zicode", "automation", "workflows.json")),
+    ).toBe(true);
+  });
+});
+
+describe("workspace-scoped app data", () => {
+  it("stores super-agent tasks under the workspace .zicode directory", async () => {
+    const { workspace, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const written = await handlePicotConfig(
+      "write_super_agent_tasks",
+      { tasks: [{ id: "task-1", title: "Ship round 385" }] },
+      {},
+    );
+    expect(written).toMatchObject({ ok: true, data: { count: 1 } });
+    const tasksPath = join(workspace, ".zicode", "tasks", "tasks.json");
+    expect(existsSync(tasksPath)).toBe(true);
+    expect(JSON.parse(readFileSync(tasksPath, "utf8")).tasks[0].title).toBe("Ship round 385");
+  });
+
+  it("migrates legacy scene-scoped app data into the workspace on first load", async () => {
+    const root = mkdtempSync(join(tmpdir(), "picot-config-migrate-"));
+    const workspace = join(root, "workspace");
+    const sceneAgent = join(root, "scene-agent");
+    mkdirSync(join(sceneAgent, "super-agent"), { recursive: true });
+    mkdirSync(join(sceneAgent, "automation"), { recursive: true });
+    mkdirSync(workspace, { recursive: true });
+    writeFileSync(
+      join(sceneAgent, "super-agent", "tasks.json"),
+      JSON.stringify({ tasks: [{ id: "legacy-task", title: "Legacy" }] }),
+    );
+    writeFileSync(
+      join(sceneAgent, "automation", "workflows.json"),
+      JSON.stringify({ version: 1, workflows: [{ id: "legacy-wf", title: "Legacy workflow" }] }),
+    );
+    tempHomes.push(root);
+    vi.resetModules();
+    vi.stubEnv("PI_CODING_AGENT_DIR", sceneAgent);
+    vi.stubEnv("PI_DESKTOP_WORKSPACE_DIR", workspace);
+    const module = await import("./picot-config.ts");
+
+    const read = await module.handlePicotConfig("read_super_agent_tasks", {}, {});
+    expect(read).toMatchObject({ ok: true, data: { tasks: [{ id: "legacy-task" }] } });
+    expect(existsSync(join(sceneAgent, "super-agent", "tasks.json"))).toBe(false);
+    expect(
+      JSON.parse(
+        readFileSync(join(workspace, ".zicode", "tasks", "tasks.json"), "utf8"),
+      ).tasks[0].id,
+    ).toBe("legacy-task");
+
+    const automation = await module.handlePicotConfig(
+      "automation_workspace",
+      { action: "list" },
+      {},
+    );
+    expect(automation).toMatchObject({
+      ok: true,
+      data: { workflows: [{ id: "legacy-wf" }] },
     });
   });
 });

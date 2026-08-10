@@ -4568,6 +4568,28 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百八十五轮：任务/自动化/金融数据按工作区隔离（2026-08-10）。
+
+1. 背景：第 384 轮已把对话会话、笔记、产物迁到
+   `<工作区>/.zicode/`，但任务（super-agent tasks）、自动化工作流、
+   金融研究卡片仍由 picot-bridge 扩展写入场景 agent 目录
+   （`~/.zicode/scenes/<场景>/agent/<应用>/`），同一场景的多个工作区
+   共享一份数据；
+2. 修复：picot-config 数据平面把这三个应用的数据目录改为工作区作用域：
+   - 任务 → `<工作区>/.zicode/tasks/tasks.json`
+   - 自动化 → `<工作区>/.zicode/automation/workflows.json`
+   - 金融研究 → `<工作区>/.zicode/finance/research.json`
+   运行时注入 `PI_DESKTOP_WORKSPACE_DIR`（工作区根路径），扩展据此
+   定位；切换工作区后任务/自动化/金融数据随之切换；
+3. 迁移：扩展首次加载时把旧场景级文件一次性移入所属工作区目录（目标
+   已存在则保留原文件）；读写均保留旧文件兜底，避免数据分裂或丢失；
+4. 测试：picot-config 新增 3 项（任务落盘工作区目录、自动化落盘工作区
+   目录、旧场景级数据迁移），前端 790 项全绿；Rust 152 项、
+   typecheck/Biome/design/Tauri 权限 20 条/clippy/fmt 全绿；
+5. 发布：release 第六十一次重建 + `/S` 静默重装，文件系统实测任务/
+   自动化/金融数据落在工作区 `.zicode` 目录，旧场景级数据已迁移；
+   哈希见 `docs/release-validation-2026-08-05.md`。
+
 第三百八十四轮：工作区模型重构 + 存储迁移到 ~/.zicode（2026-08-10）。
 
 1. **精简冗余按钮**：

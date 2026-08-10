@@ -1,6 +1,6 @@
 # ZiCode Studio Desktop 生产可用状态（2026-08-10）
 
-> 本文件汇总截至第 383 轮的可验证状态，作为"生产可用"目标的持续审计
+> 本文件汇总截至第 385 轮的可验证状态，作为"生产可用"目标的持续审计
 > 基线。凡未标注"外部输入/人工"的项目均有本地证据（测试、CDP 实测、
 > 日志、安装产物）。
 
@@ -8,7 +8,7 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 787 项通过 | 135 个测试文件 |
+| 前端 vitest | 790 项通过 | 135 个测试文件 |
 | Rust | 174 项通过（150+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 450 文件 0 错误 0 警告 | bunx biome lint . |
@@ -18,11 +18,11 @@
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第六十次重建（第 384 轮，工作区模型 + `~/.zicode`
-  存储）EXE 41,594,368 B / 安装包 346,799,733 B；哈希与逐文件验证见
+- 最近 release：第六十一次重建（第 385 轮，任务/自动化/金融按工作区
+  隔离）EXE 41,594,880 B / 安装包 346,785,983 B；哈希与逐文件验证见
   `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第六十次重建安装版，网关 `/health` 200
+- 当前运行实例：第六十一次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -44,6 +44,11 @@
   旧数据一次性迁移；系统配置（pi agent/models、场景档案、远程访问、
   凭据索引、工作区元数据）统一在 `~/.zicode`，旧 `~/.pi/agent` 保留；
   侧栏会话列表按当前工作区过滤，空工作区显示空态提示；
+- 插件数据按工作区隔离（第 385 轮）：任务
+  `<工作区>/.zicode/tasks/tasks.json`、自动化
+  `<工作区>/.zicode/automation/workflows.json`、金融研究
+  `<工作区>/.zicode/finance/research.json`，扩展经
+  `PI_DESKTOP_WORKSPACE_DIR` 定位；旧场景级数据一次性迁移并保留兜底；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、
