@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十四次重建（2026-08-11，第 399 轮表单可访问名称 + 硬编码英文清理）
+
+- 合入第 399 轮：
+  - 审计：桌面 10 功能区 + 移动端 390px 多状态全部可见交互元素
+    可访问名称完整；发现智能收件箱聊天平台表单（飞书/企业微信）
+    8 个输入框缺 aria-label、3 个 placeholder 硬编码英文；
+  - 修复：8 个输入框补 aria-label，3 个 placeholder 改走 t()，
+    新增 App ID/App Secret/Bot ID/Secret 四个 i18n 键；
+  - 回归测试：布局契约锁定该表单全部输入框必须带 aria-label 且
+    placeholder 必须经 t()；
+  - 前端 811 项、Rust 179 项、typecheck/Biome 453 文件/design/
+    i18n 覆盖率/Tauri 权限 20 条全绿；
+- 产物（release 74）：
+  - `target/release/zicode-studio-desktop.exe`：41,600,512 B，
+    SHA-256 `1C85CAAE74D2F32F0BA875C8A9E4509F0C6C7BE9F14DA1D6AD3402A645D68502`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,803,618 B，SHA-256
+    `A431402F0CD24B43C82231C023F682C2CC8B73FED5635C3B158AE7B9153477D2`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `963F67DC937D49265A296865D53434D414EAE0BC3F5B271E3C68701286A9A5AD`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 打开设置 → 智能收件箱：8 个输入框 aria-label 与 placeholder
+    均为中文，无英文残留；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第七十三次重建（2026-08-11，第 397 轮断连错误本地化 + i18n 门禁修复）
 
 - 合入第 397 轮：
