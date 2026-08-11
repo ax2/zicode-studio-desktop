@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十三次重建（2026-08-11，第 397 轮断连错误本地化 + i18n 门禁修复）
+
+- 合入第 397 轮：
+  - 全表面审计（CDP，桌面 1440×900 + 移动 390×844）：12 个功能区
+    遍历，0 控制台错误、0 文档级横向溢出；
+  - 修复：Pi 运行时断连时笔记/自动化/任务/项目/产物各表面显示原始
+    英文 `Pi RPC request failed: ProcessClosed`——新增共享
+    `localizeHostError` 映射为友好中文提示（含恢复指引），应用到
+    全部 store 加载/保存/删除/搜索/通知错误路径与聊天错误渲染；
+  - 修复 i18n.js 7 处重复对象键（`Symbol` "代码" 被金融 "标的代码"
+    遮蔽属真实翻译 bug），Biome 门禁由红转绿（453 文件）；
+  - 前端 809 项（新增 8 项共享/各 store 回归）、Rust 178 项、
+    typecheck/Biome/design/i18n 覆盖率/Tauri 权限 20 条全绿；
+- 产物（release 73）：
+  - `target/release/zicode-studio-desktop.exe`：41,600,512 B，
+    SHA-256 `D092C3CCC87C444D9B2AD88790580A63DE40EE40BA52C925E689929D1AFE0B64`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,800,903 B，SHA-256
+    `55E95B1FCD6120D805EBBF24ED66521E64D7A87ABA71CD0BCA139C6DA5065FBC`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `0B5C4F7638E864B0AFBCD38A28F9236AF7F07E92DE656861B77A01C709E0CA21`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 全表面巡检 0 控制台错误/0 横向溢出/无原始英文错误；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第七十二次重建（2026-08-11，第 396 轮成本/帮助/任务/自动化全表面复核）
 
 - 合入第 396 轮：
