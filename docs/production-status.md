@@ -8,8 +8,8 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 822 项通过 | 137 个测试文件 |
-| Rust | 180 项通过（156+19+5，另 2 项忽略） | cargo test |
+| 前端 vitest | 823 项通过 | 137 个测试文件 |
+| Rust | 181 项通过（157+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
@@ -135,6 +135,10 @@
   export_all_notebooks + `/v2/notes/export-all` + 前端入口），一次
   下载整个工作区全部笔记本的可读备份；Rust/前端测试齐备，前端
   822 项、Rust 180 项全绿；
+- 笔记批量恢复（第 407 轮）：新增"导入全部笔记本备份"（Rust
+  import_all_export + `POST /v2/notes/import-all-backup` + 前端
+  入口），与导出对称的一键恢复；导出→导入闭环单测齐备，前端
+  823 项、Rust 181 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

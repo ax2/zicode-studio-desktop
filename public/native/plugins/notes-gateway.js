@@ -231,6 +231,14 @@ export class NotesGateway {
     });
   }
 
+  importAllBackup(sceneId, workspaceId, backup) {
+    return this.#post("/v2/notes/import-all-backup", {
+      sceneId,
+      workspaceId,
+      backup,
+    });
+  }
+
   rebuild(sceneId, workspaceId, notebookId) {
     return this.#post("/v2/notes/rebuild", {
       sceneId,

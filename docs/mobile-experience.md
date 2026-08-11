@@ -4807,6 +4807,24 @@ P2 再做）完成 P1 UI 层：
 5. 发布：release 第七十九次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百零七轮：笔记"导入全部笔记本备份"（2026-08-11）。
+
+1. 数据闭环对称补全：与导出全部对应的一键恢复——选择工作区级备份
+   文件（schemaVersion 1 + notebooks[]），逐个笔记本按标准
+   "(Imported)" 后缀导入；
+2. 实现：
+   - Rust：`VaultExportBundle` 结构与
+     `NotesVault::import_all_export`（校验 schema、逐本导入）；
+     host 新增 `POST /v2/notes/import-all-backup`（50 MiB 上限）；
+   - 前端：数据管理新增"导入全部笔记本备份"入口，chooseFile →
+     解析 → 批量导入 → 重载列表 + 成功 toast；
+3. 测试：Rust 单测（2 笔记本导出→导入闭环，标题带 Imported 后缀、
+   笔记数正确）+ 前端 store 测试（mock 网关 → 选中首个导入笔记本）；
+4. 门禁：前端 823 项、Rust 181 项（157+19+5，另 2 项忽略）、
+   typecheck/Biome 455 文件/design 全绿；
+5. 发布：release 第八十次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

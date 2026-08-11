@@ -79,6 +79,7 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
     exportBackup: vi.fn(async () => ({ backup: {} })),
     exportAllBackup: vi.fn(async () => ({ backup: { notebooks: [] } })),
     importBackup: vi.fn(async () => ({ notebook: { id: "book-9", title: "Imported" } })),
+    importAllBackup: vi.fn(async () => ({ notebooks: [] })),
     rebuild: vi.fn(async () => ({ report: { validNotes: 1, invalidFiles: [] } })),
     listTrash: vi.fn(async () => ({ trash: [] })),
     restoreTrash: vi.fn(async () => ({ note: NOTE })),
@@ -640,6 +641,37 @@ describe("notes store", () => {
     expect(store.getState().selectedNotebookId).toBe("book-1");
     const backupArg = (importBackup.mock.calls[0] as unknown[])[2];
     expect(backupArg).toMatchObject({ schemaVersion: 1 });
+  });
+
+  it("imports every notebook from a workspace backup bundle", async () => {
+    const importAllBackup = vi.fn(async () => ({
+      notebooks: [
+        { id: "book-1", title: "Alpha (Imported)" },
+        { id: "book-2", title: "Beta (Imported)" },
+      ],
+    }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ importAllBackup }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      chooseFile: vi.fn(
+        async () =>
+          ({
+            size: 128,
+            text: async () =>
+              JSON.stringify({
+                schemaVersion: 1,
+                notebooks: [{ notebook: { title: "Alpha" } }],
+              }),
+          }) as unknown as File,
+      ),
+    });
+    await store.getState().load();
+    await store.getState().importAllBackup();
+    expect(importAllBackup).toHaveBeenCalledOnce();
+    expect(store.getState().selectedNotebookId).toBe("book-1");
+    const backupArg = (importAllBackup.mock.calls[0] as unknown[])[2];
+    expect(backupArg).toMatchObject({ schemaVersion: 1, notebooks: expect.any(Array) });
   });
 
   it("creates a new note and marks it for editing", async () => {

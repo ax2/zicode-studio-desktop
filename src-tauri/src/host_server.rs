@@ -4,7 +4,9 @@ use crate::artifact_store::{ArtifactDraft, ArtifactError, ArtifactStore};
 use crate::host_data::{HostDataError, HostDataPlane, SessionBackupEntry};
 use crate::host_router::{HostRouter, RoutedAction, PROTOCOL_VERSION};
 use crate::native_pi_manager::{NativeLaunchSpec, NativePiManager};
-use crate::notes_vault::{content_hash, now_iso, NoteSource, NotesError, NotesVault, VaultExport};
+use crate::notes_vault::{
+    content_hash, now_iso, NoteSource, NotesError, NotesVault, VaultExport, VaultExportBundle,
+};
 use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunchResolver};
 use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
 use crate::plugin_package::SignedPluginPreview;
@@ -360,6 +362,11 @@ impl HostServer {
             .route(
                 "/v2/notes/import-backup",
                 post(import_notes_backup).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
+            )
+            .route(
+                "/v2/notes/import-all-backup",
+                post(import_notes_all_backup)
+                    .layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
             )
             .route("/v2/notes/rebuild", post(rebuild_notes_index))
             .route("/v2/artifacts", get(list_artifacts))
@@ -1378,6 +1385,14 @@ struct ImportBackupRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ImportAllBackupRequest {
+    workspace_id: String,
+    scene_id: String,
+    backup: VaultExportBundle,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RebuildNotesRequest {
     workspace_id: String,
     scene_id: String,
@@ -1895,6 +1910,22 @@ async fn import_notes_backup(
         .import_export(request.backup)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
+}
+
+/// Restore every notebook from a workspace-level backup bundle.
+async fn import_notes_all_backup(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ImportAllBackupRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let notebooks = scoped
+        .import_all_export(request.backup)
+        .map_err(notes_api_error)?;
+    Ok(Json(json!({ "notebooks": notebooks })))
 }
 
 async fn rebuild_notes_index(

@@ -44,6 +44,8 @@ const zhCN = {
     "部分会话的转写内容无法读取。",
   "Export all notebooks backup": "导出全部笔记本备份",
   "All notebooks backup exported": "全部笔记本备份已导出",
+  "Import all notebooks backup": "导入全部笔记本备份",
+  "All notebooks backup imported": "全部笔记本备份已导入",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",

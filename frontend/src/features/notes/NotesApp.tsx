@@ -563,6 +563,7 @@ function DataManagementSection({ store }: { store: NotesStore }) {
       <NavAction label={t("Export readable backup")} onClick={() => void store.getState().exportBackup()} />
       <NavAction label={t("Export all notebooks backup")} onClick={() => void store.getState().exportAllBackup()} />
       <NavAction label={t("Import backup")} onClick={() => void store.getState().importBackup()} />
+      <NavAction label={t("Import all notebooks backup")} onClick={() => void store.getState().importAllBackup()} />
       <NavAction label={t("Check and rebuild Vault")} onClick={() => void store.getState().rebuildIndex()} />
       <NavAction label={t("Build Astro site")} onClick={() => void store.getState().publishAstro()} />
       <NavAction

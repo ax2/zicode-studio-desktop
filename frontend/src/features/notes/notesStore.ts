@@ -100,6 +100,7 @@ export interface NotesGatewayLike {
   exportBackup(sceneId: string, workspaceId: string, notebookId: string): Promise<{ backup: unknown }>;
   exportAllBackup(sceneId: string, workspaceId: string): Promise<{ backup: unknown }>;
   importBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebook: Notebook }>;
+  importAllBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebooks: Notebook[] }>;
   rebuild(sceneId: string, workspaceId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
   listTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ trash?: TrashEntry[] }>;
   restoreTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
@@ -206,6 +207,7 @@ interface NotesState {
   exportBackup(): Promise<void>;
   exportAllBackup(): Promise<void>;
   importBackup(): Promise<void>;
+  importAllBackup(): Promise<void>;
   rebuildIndex(): Promise<void>;
   publishAstro(): Promise<void>;
   captureUrl(input: { url: string; title: string; notebookId: string; tags: string[] }): Promise<void>;
@@ -966,6 +968,39 @@ export function createNotesStore(options: NotesStoreOptions) {
         set({ selectedNotebookId: response.notebook.id, selectedNote: null, dirty: false });
         await get().load({ preserveSelection: false });
         notify(t("Notes backup imported"));
+      } catch (error) {
+        set({
+          error:
+            error instanceof SyntaxError
+              ? new Error(t("Notes backup is not valid JSON"))
+              : error instanceof Error
+                ? error
+                : new Error(String(error)),
+        });
+      }
+    },
+
+    async importAllBackup() {
+      try {
+        const file = await chooseFile(".json");
+        if (!file) return;
+        if (!file.size || file.size > 70 * 1024 * 1024) {
+          throw new Error(t("Notes backup exceeds the 70 MiB limit"));
+        }
+        const backup = JSON.parse(await file.text());
+        const response = await gateway.importAllBackup(
+          sceneId(),
+          workspaceId(),
+          backup,
+        );
+        const firstNotebook = response.notebooks?.[0];
+        set({
+          selectedNotebookId: firstNotebook?.id ?? null,
+          selectedNote: null,
+          dirty: false,
+        });
+        await get().load({ preserveSelection: false });
+        notify(t("All notebooks backup imported"));
       } catch (error) {
         set({
           error:

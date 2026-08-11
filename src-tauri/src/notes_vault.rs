@@ -192,6 +192,16 @@ pub struct VaultExport {
     pub attachments: Vec<VaultExportAttachment>,
 }
 
+/// A workspace-level archival bundle produced by `export_all_notebooks` and
+/// accepted by `import_all_export` for one-shot restores.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultExportBundle {
+    pub schema_version: u32,
+    #[serde(default)]
+    pub notebooks: Vec<VaultExport>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrashNoteExport {
@@ -1390,6 +1400,26 @@ impl NotesVault {
         })
     }
 
+    /// Restore every notebook from a workspace-level backup bundle. Each
+    /// notebook is imported with the standard "(Imported)" suffix, matching
+    /// the per-notebook restore path.
+    pub fn import_all_export(
+        &self,
+        bundle: VaultExportBundle,
+    ) -> Result<Vec<NotebookDescriptor>, NotesError> {
+        if bundle.schema_version != 1 {
+            return Err(NotesError::new(
+                "invalid_parameters",
+                "Unsupported Notes workspace backup schema version",
+            ));
+        }
+        let mut imported = Vec::with_capacity(bundle.notebooks.len());
+        for export in bundle.notebooks {
+            imported.push(self.import_export(export)?);
+        }
+        Ok(imported)
+    }
+
     pub fn import_markdown(
         &self,
         notebook_id: &str,
@@ -2512,7 +2542,10 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), NotesError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{compact_change_log, content_hash, now_iso, NoteChange, NoteSource, NotesVault};
+    use super::{
+        compact_change_log, content_hash, now_iso, NoteChange, NoteSource, NotesVault,
+        VaultExportBundle,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -2613,6 +2646,33 @@ mod tests {
         assert_eq!(titles, vec!["Alpha", "Beta"]);
         assert_eq!(exports[0].notes.len(), 1);
         assert_eq!(exports[1].notes.len(), 1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn restores_every_notebook_from_a_workspace_bundle() {
+        let root = root();
+        let source = NotesVault::new(root.join("source")).unwrap();
+        let first = source.create_notebook("Alpha", None, None).unwrap();
+        source
+            .create_note(&first.id, "A1", "# A1", vec![], None, None)
+            .unwrap();
+        let second = source.create_notebook("Beta", None, None).unwrap();
+        source
+            .create_note(&second.id, "B1", "# B1", vec![], None, None)
+            .unwrap();
+        let exports = source.export_all_notebooks().unwrap();
+        let bundle = VaultExportBundle {
+            schema_version: 1,
+            notebooks: exports,
+        };
+
+        let target = NotesVault::new(root.join("target")).unwrap();
+        let imported = target.import_all_export(bundle).unwrap();
+        let titles: Vec<String> = imported.iter().map(|n| n.title.clone()).collect();
+        assert_eq!(titles, vec!["Alpha (Imported)", "Beta (Imported)"]);
+        assert_eq!(imported[0].note_count, 1);
+        assert_eq!(imported[1].note_count, 1);
         fs::remove_dir_all(root).unwrap();
     }
 
