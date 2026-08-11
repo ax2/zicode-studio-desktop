@@ -491,6 +491,35 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十二次重建（2026-08-11，第 396 轮成本/帮助/任务/自动化全表面复核）
+
+- 合入第 396 轮：
+  - 成本用量面板实测：加载真实数据（总费用 $0.01、会话 7、消息 23），
+    图表 canvas 渲染正常，无横向溢出；
+  - 通知中心 Toast 系统正常（恢复提示弹出与关闭，第 392 轮已实测）；
+  - 帮助中心 14 篇文章逐篇打开均有 h1 与正文，"界面与导航"含工作区
+    章节、"快捷键"含命令面板/工作区表格；
+  - 任务中心筛选栏 + 空态正常；自动化空态正常；产物库空态正常；
+  - 金融工作台非金融场景显示场景守卫，"打开场景设置"按钮实测跳转
+    设置场景区并滚动到位；
+  - 新增回归测试：帮助 manifest 14 页，每页 zh/en 文件必须存在且
+    >80 字符；
+  - 前端 801 项、Rust 178 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 72）：
+  - `target/release/zicode-studio-desktop.exe`：41,600,512 B，
+    SHA-256 `736AA01E72E5230ECD495D6FD0BB335AC2DC8ED0F1BF63B742B136365FA79497`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,833,577 B，SHA-256
+    `0482D1E424F02DCD37CAFA75D1B279F5C13B2D30A82F5C9661F7B643748B6E37`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `7368A550C7D4D0ED5AF880915C7C58F06401A85DF22C51E124D364DD7E92BC4C`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第七十一次重建（2026-08-11，第 395 轮笔记剪藏/附件 + 错误本地化）
 
 - 合入第 395 轮：

@@ -208,6 +208,20 @@ describe("desktop three-region layout contract", () => {
     expect(appJs).toContain("isRuntimeProcessClosedError(error)) markRuntimeDisconnected()");
   });
 
+  it("keeps the Help manifest complete in both locales", () => {
+    const manifest = JSON.parse(
+      readFileSync(join(process.cwd(), "public/help/manifest.json"), "utf8"),
+    );
+    expect(manifest.pages.length).toBeGreaterThanOrEqual(14);
+    for (const page of manifest.pages) {
+      const zhPath = join(process.cwd(), "public/help", page.file);
+      const enPath = join(process.cwd(), "public/help/en", page.file);
+      // readFileSync throws when a manifest-referenced article is missing.
+      expect(readFileSync(zhPath, "utf8").length).toBeGreaterThan(80);
+      expect(readFileSync(enPath, "utf8").length).toBeGreaterThan(80);
+    }
+  });
+
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
     expect(index).not.toContain('id="settings-btn"');
     expect(index).not.toContain('id="help-btn"');
