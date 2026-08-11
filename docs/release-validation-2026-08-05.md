@@ -491,6 +491,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十七次重建（2026-08-11，第 403 轮导出成功/失败反馈）
+
+- 合入第 403 轮：
+  - 会话导出接入通知系统：成功弹"对话已导出为 Markdown"，失败弹
+    "无法导出该对话：无法读取该会话的转写内容。"（固定虚拟会话
+    优雅降级）；
+  - 补 3 个 i18n 键；新增成功/失败通知断言测试；
+  - 前端 818 项、Rust 179 项、typecheck/Biome 455 文件/design/
+    i18n 覆盖率/Tauri 权限 20 条全绿；
+- 产物（release 77）：
+  - `target/release/zicode-studio-desktop.exe`：41,604,608 B，
+    SHA-256 `1874D6D89E927C52F279BA47CA5BB3C62250CE6D161113EAD707DE905225FC1B`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,802,201 B，SHA-256
+    `AB9E76029659B89DEDE78EBEBBFFA6623EFEABA19A909EE2612347E1C6371CCA`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `3B859A4807DB57355591AF683EF92B97303C298D075A6483E8EBE9751F165E39`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：真实会话导出成功 toast、固定虚拟会话导出失败 toast、
+    390px 移动端菜单含导出项；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第七十六次重建（2026-08-11，第 402 轮 Markdown 导出 + JSX 本地化）
 
 - 合入第 402 轮：
