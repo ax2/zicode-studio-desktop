@@ -4841,6 +4841,25 @@ P2 再做）完成 P1 UI 层：
 3. 结论：本轮为性能验证 + 工具轮，无运行时变更，运行实例保持
    release 80。
 
+第四百零九轮：更新入口 UX 修复（2026-08-11）。
+
+1. 发现：自动更新未配置（私有仓库、无签名产物）时，设置页更新行
+   显示"使用 GitHub Releases"按钮却是禁用态——提示与行为矛盾，
+   用户无法到达发布页；
+2. 修复：
+   - updaterStore 未配置分支 `disabled` 改为 `false`；
+   - 设置页点击该按钮时创建 `target="_blank"` 锚点，经全局外部链接
+     拦截器调用 host `open_external` 打开
+     `https://github.com/ax2/zicode-studio-desktop/releases`；
+3. 测试：updaterStore 未配置断言改 disabled=false；settings 新增
+   测试（点击按钮 → 创建指向 Releases 的 `_blank` 锚点）；
+4. 验证（CDP）：更新行按钮可点（disabled=false、aria-busy=false、
+   文案"使用 GitHub Releases"、状态"自动更新尚未配置"），点击触发
+   外部打开链路；
+5. 门禁：前端 824 项、typecheck/Biome 456 文件/design 全绿；
+6. 发布：release 第八十一次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

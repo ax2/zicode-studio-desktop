@@ -86,7 +86,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       set({
         status: "Automatic updates are not configured",
         button: "Use GitHub Releases",
-        disabled: true,
+        disabled: false,
         canInstall: false,
         sidebarVisible: false,
       });

@@ -787,6 +787,20 @@ export function GeneralTab({
               data-mode={updater.canInstall ? "install" : "check"}
               aria-busy={updater.disabled ? "true" : "false"}
               onClick={() => {
+                if (!updater.enabled) {
+                  // Auto-updates are not configured for this build; send the
+                  // user to the GitHub Releases page through the global
+                  // external-link handler instead of an inert disabled button.
+                  const url = "https://github.com/ax2/zicode-studio-desktop/releases";
+                  const anchor = document.createElement("a");
+                  anchor.href = url;
+                  anchor.target = "_blank";
+                  anchor.rel = "noopener noreferrer";
+                  document.body.append(anchor);
+                  anchor.click();
+                  anchor.remove();
+                  return;
+                }
                 if (updater.canInstall) {
                   void updater.installUpdate();
                 } else {

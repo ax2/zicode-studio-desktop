@@ -165,6 +165,21 @@ describe("settings React panel", () => {
     expect(document.querySelector("chat-settings-panel")).toBeTruthy();
   });
 
+  it("opens GitHub Releases from the update button when auto-updates are unconfigured", () => {
+    renderApp();
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    fireEvent.click(required("#btn-check-updates"));
+    const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement | undefined;
+    expect(anchor).toBeTruthy();
+    expect(anchor?.href).toBe(
+      "https://github.com/ax2/zicode-studio-desktop/releases",
+    );
+    expect(anchor?.target).toBe("_blank");
+    clickSpy.mockRestore();
+  });
+
   it("lazy-loads the active tab through the controller when opened", () => {
     const store = createSettingsStore();
     const { controller } = renderApp(store);

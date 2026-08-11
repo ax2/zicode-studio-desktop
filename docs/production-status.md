@@ -8,7 +8,7 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 823 项通过 | 137 个测试文件 |
+| 前端 vitest | 824 项通过 | 137 个测试文件 |
 | Rust | 181 项通过（157+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
@@ -143,6 +143,9 @@
   111–135ms、笔记展开/打开 12–131ms、命令面板 40–89ms、会话搜索
   ~40ms，全部远低于成功指标；新增 `scripts/bench-desktop-ui.mjs`
   基准工具供后续回归检查；
+- 更新入口（第 409 轮）：修复未配置自动更新时"使用 GitHub Releases"
+  按钮禁用导致的提示与行为矛盾——按钮改为可点并打开 GitHub
+  Releases 页；updaterStore 与 settings 测试齐备，前端 824 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

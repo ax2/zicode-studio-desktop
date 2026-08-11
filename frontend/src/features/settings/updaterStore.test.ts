@@ -48,7 +48,7 @@ describe("app updater store", () => {
 
     const state = useAppUpdaterStore.getState();
     expect(state.status).toContain("not configured");
-    expect(state.disabled).toBe(true);
+    expect(state.disabled).toBe(false);
     expect(state.sidebarVisible).toBe(false);
   });
 });
