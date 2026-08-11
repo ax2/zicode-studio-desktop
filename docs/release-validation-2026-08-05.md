@@ -491,6 +491,30 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十一次重建（2026-08-11，第 409 轮更新入口 UX 修复）
+
+- 合入第 409 轮：
+  - 修复未配置自动更新时"使用 GitHub Releases"按钮禁用导致的提示与
+    行为矛盾：按钮改为可点并打开 GitHub Releases 页（经全局外部
+    链接拦截器调用 host `open_external`）；
+  - updaterStore 未配置分支 disabled=false；settings 新增锚点测试；
+  - 前端 824 项、Rust 181 项、typecheck/Biome 456 文件/design 全绿；
+- 产物（release 81）：
+  - `target/release/zicode-studio-desktop.exe`：41,646,080 B，
+    SHA-256 `23147A51227CF4FE466057B082FCADCA136F14AC7F747225F1F5824C948B805B`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,793,801 B，SHA-256
+    `BAFA56A0B895075186BC0C40277E8036626720EF349BE54AC29C64C119B1639D`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `E663DBA03D222397794645D06D4837892C81791916F2EE52E68B8887C481BB58`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：更新行按钮可点（disabled=false、aria-busy=false、文案与
+    状态正确），点击触发外部打开链路；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第八十次重建（2026-08-11，第 407 轮笔记批量恢复导入）
 
 - 合入第 407 轮：
