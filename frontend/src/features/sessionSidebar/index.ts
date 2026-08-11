@@ -1,6 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createElement } from "react";
+import { t } from "../../shared/i18n";
 // @ts-expect-error plain JS module without type declarations (public/native/)
 import { randomId } from "../../../../public/native/utils/random-id.js";
 // @ts-expect-error plain JS module without type declarations (public/)
@@ -74,6 +75,11 @@ export interface SessionSidebarOptions {
   getTarget(): { workspaceId: string; sessionId?: string };
   onSelect(session: SessionSummary): void;
   onSessionsLoaded?(sessions: SessionSummary[]): void;
+  notify?(payload: {
+    title: string;
+    message?: string;
+    type?: string;
+  }): void;
 }
 
 export class SessionSidebar implements SessionSidebarController {
@@ -84,6 +90,7 @@ export class SessionSidebar implements SessionSidebarController {
   getTarget: SessionSidebarOptions["getTarget"];
   onSelect: SessionSidebarOptions["onSelect"];
   onSessionsLoaded?: SessionSidebarOptions["onSessionsLoaded"];
+  notify: NonNullable<SessionSidebarOptions["notify"]>;
 
   store: SidebarStoreHook;
   root: Root;
@@ -101,6 +108,7 @@ export class SessionSidebar implements SessionSidebarController {
     this.getTarget = options.getTarget;
     this.onSelect = options.onSelect;
     this.onSessionsLoaded = options.onSessionsLoaded;
+    this.notify = options.notify ?? (() => {});
 
     this.store = createSidebarStore({
       activeSessionId: options.getTarget()?.sessionId ?? null,
@@ -623,8 +631,17 @@ export class SessionSidebar implements SessionSidebarController {
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
+      this.notify({
+        title: t("Conversation exported as Markdown"),
+        type: "success",
+      });
     } catch (error) {
       console.error("[Sidebar] exportSessionMarkdown failed:", error);
+      this.notify({
+        title: t("Could not export this conversation"),
+        message: t("The session transcript could not be read."),
+        type: "error",
+      });
     }
   }
 

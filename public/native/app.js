@@ -1079,6 +1079,7 @@ function setupSessionSidebar() {
       selectSession(session);
     },
     onSessionsLoaded: subscribeToLiveSessions,
+    notify: notifications.notify,
   });
 
   setupSessionSearchDialog({

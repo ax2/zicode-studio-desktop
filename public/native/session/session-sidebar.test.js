@@ -442,6 +442,7 @@ describe("SessionSidebar.render", () => {
     const { sidebar, container } = makeSidebar(
       [{ id: "s-export", timestamp: new Date().toISOString(), name: "Planning" }],
       {
+        notify: vi.fn(),
         data: {
           listAllSessions: vi.fn().mockResolvedValue({
             sessions: [
@@ -479,7 +480,54 @@ describe("SessionSidebar.render", () => {
     const anchor = clickSpy.mock.instances[0];
     expect(anchor).toBeTruthy();
     expect(anchor.download).toBe("Planning-s-export.md");
+    await vi.waitFor(() =>
+      expect(sidebar.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "success" }),
+      ),
+    );
     clickSpy.mockRestore();
+  });
+
+  it("notifies when the conversation transcript cannot be exported", async () => {
+    const notify = vi.fn();
+    const { sidebar, container } = makeSidebar(
+      [{ id: "s-missing", timestamp: new Date().toISOString(), name: "Missing" }],
+      {
+        notify,
+        data: {
+          listAllSessions: vi.fn().mockResolvedValue({
+            sessions: [
+              {
+                id: "s-missing",
+                name: "Missing",
+                timestamp: new Date().toISOString(),
+                projectPath: "/ws-1",
+                projectName: "ws-1",
+                isCurrentWorkspace: true,
+              },
+            ],
+          }),
+          searchSessions: vi.fn().mockResolvedValue({ results: [] }),
+          readSessionMessages: vi
+            .fn()
+            .mockRejectedValue(new Error("session not found")),
+        },
+      },
+    );
+    await sidebar.load();
+    const moreBtn = container.querySelector(
+      '.session-item[data-session-id="s-missing"] .session-more-btn',
+    );
+    moreBtn.click();
+    const exportItem = [
+      ...document.querySelectorAll(".session-context-menu .context-menu-item"),
+    ].find((el) => /Export as Markdown|导出为 Markdown/.test(el.textContent));
+    exportItem.click();
+    await vi.waitFor(() => expect(notify).toHaveBeenCalled());
+    expect(notify.mock.calls[0][0].type).toBe("error");
+    expect(notify.mock.calls[0][0].title).toMatch(
+      /Could not export this conversation|无法导出该对话/,
+    );
   });
 
   it("opens the project header menu from the touch-friendly more button", async () => {
