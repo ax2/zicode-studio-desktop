@@ -4710,6 +4710,35 @@ P2 再做）完成 P1 UI 层：
    release 75；多尺寸不变量（.main min-width:0/overflow:hidden、
    移动断点、app-side-panel 离屏变换）均有布局契约测试锁定。
 
+第四百零二轮：JSX 硬编码英文修复 + 会话导出为 Markdown（2026-08-11）。
+
+1. 静态扫描发现 5 处 JSX 文本节点硬编码英文（第 393 轮测试只覆盖
+   属性未覆盖文本）：
+   - 思考块标签 "Thinking"（zh 界面显示英文）；
+   - 原生确认对话框 Yes/No/Cancel 与编辑器 Save/Submit；
+   - 内联扩展提示 Submit/Cancel/Back（两处 Submit）；
+   - 配置页 "Insert example"；
+   - 设置页 "Ask the browser not to evict encrypted drafts
+     automatically"；
+   全部改走 t() 并补/复用 i18n 键；
+2. 回归测试升级：i18n 覆盖率新增"JSX 文本节点无裸英文标签"检查
+   （键盘键名白名单），防止同类回归；
+3. 新功能：会话"更多"菜单新增"导出为 Markdown"——通过
+   read_session_messages 读取会话转写，渲染为用户/助手分节
+   （思考块引用、工具调用列表、模型名标注）的 Markdown 文档并下载
+   （文件名取自会话标题 + 会话短 id）；
+4. 验证：
+   - 单测：Markdown 渲染（文本/思考/工具调用/空消息）、文件名净化、
+     菜单触发下载（mock readSessionMessages/URL.createObjectURL）；
+   - CDP live：ax2 工作区真实会话导出
+     `验证 env apiKey：回复 OK-019fe91b.md`，内容含中文分节
+     "## 用户/## 助手 · deepseek-v4-flash/> **思考**"；聊天思考块
+     标签实测为"思考"；
+   - 门禁：前端 817 项、typecheck/Biome 455 文件/design/
+     i18n 覆盖率全绿；
+5. 发布：release 第七十六次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

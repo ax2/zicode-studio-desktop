@@ -55,11 +55,11 @@ function Actions({
     <div className="inline-prompt-actions">
       {onSubmit ? (
         <button type="button" className="inline-prompt-submit" onClick={onSubmit}>
-          Submit
+          {t("Submit")}
         </button>
       ) : null}
       <button type="button" className="inline-prompt-cancel" onClick={onCancel}>
-        Cancel
+        {t("Cancel")}
       </button>
     </div>
   );
@@ -228,7 +228,7 @@ export function InlineExtensionPromptCard({
                 settle({ value: customSentinel });
               }}
             >
-              Submit
+              {t("Submit")}
             </button>
             <button
               type="button"
@@ -239,7 +239,7 @@ export function InlineExtensionPromptCard({
                 flushSync(() => {});
               }}
             >
-              Back
+              {t("Back")}
             </button>
           </div>
         </div>

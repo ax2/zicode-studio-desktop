@@ -10,6 +10,10 @@ import {
   type SessionSidebarController,
 } from "./SessionSidebarApp";
 import {
+  renderSessionMarkdown,
+  sessionMarkdownFileName,
+} from "./sessionMarkdown";
+import {
   groupByProject,
   hasLiveStatus,
   isUnreadSession,
@@ -50,6 +54,10 @@ export interface SessionSidebarOptions {
       workspaceId: string,
       query: string,
     ): Promise<{ results: SessionSearchResult[] }>;
+    readSessionMessages(
+      workspaceId: string,
+      sessionId: string,
+    ): Promise<unknown[]>;
   };
   runtime: {
     request(
@@ -584,7 +592,40 @@ export class SessionSidebar implements SessionSidebarController {
         action: () => this.deleteArchivedSession(session.id),
       });
     }
+    rows.push({
+      icon: "📄",
+      label: "Export as Markdown",
+      action: () => this.exportSessionMarkdown(session),
+    });
     return rows;
+  }
+
+  async exportSessionMarkdown(session: SessionSummary): Promise<void> {
+    this.closeContextMenu();
+    const workspaceId =
+      session.workspaceId || this.getTarget().workspaceId;
+    try {
+      const frame = (await this.data.readSessionMessages(
+        workspaceId,
+        session.id,
+      )) as { messages?: unknown[] };
+      const messages = Array.isArray(frame) ? frame : frame?.messages ?? [];
+      const markdown = renderSessionMarkdown(messages);
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = sessionMarkdownFileName(
+        session.name || session.firstMessage,
+        session.id,
+      );
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      console.error("[Sidebar] exportSessionMarkdown failed:", error);
+    }
   }
 
   async deleteArchivedSession(id: string): Promise<void> {

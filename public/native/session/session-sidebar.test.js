@@ -427,6 +427,61 @@ describe("SessionSidebar.render", () => {
     container.remove();
   });
 
+  it("exports the conversation as Markdown from the more menu", async () => {
+    const createObjectUrl = vi.fn(() => "blob:export");
+    const revoke = vi.fn();
+    URL.createObjectURL = createObjectUrl;
+    URL.revokeObjectURL = revoke;
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const messages = [
+      { role: "user", content: [{ type: "text", text: "Hello" }] },
+      { role: "assistant", content: [{ type: "text", text: "Hi" }] },
+    ];
+    const { sidebar, container } = makeSidebar(
+      [{ id: "s-export", timestamp: new Date().toISOString(), name: "Planning" }],
+      {
+        data: {
+          listAllSessions: vi.fn().mockResolvedValue({
+            sessions: [
+              {
+                id: "s-export",
+                name: "Planning",
+                timestamp: new Date().toISOString(),
+                projectPath: "/ws-1",
+                projectName: "ws-1",
+                isCurrentWorkspace: true,
+              },
+            ],
+          }),
+          searchSessions: vi.fn().mockResolvedValue({ results: [] }),
+          readSessionMessages: vi.fn().mockResolvedValue({ messages }),
+        },
+      },
+    );
+    await sidebar.load();
+
+    const moreBtn = container.querySelector(
+      '.session-item[data-session-id="s-export"] .session-more-btn',
+    );
+    moreBtn.click();
+    const exportItem = [
+      ...document.querySelectorAll(".session-context-menu .context-menu-item"),
+    ].find((el) => /Export as Markdown|导出为 Markdown/.test(el.textContent));
+    expect(exportItem).toBeTruthy();
+    exportItem.click();
+
+    await vi.waitFor(() =>
+      expect(sidebar.data.readSessionMessages).toHaveBeenCalledWith("ws-1", "s-export"),
+    );
+    expect(createObjectUrl).toHaveBeenCalled();
+    const anchor = clickSpy.mock.instances[0];
+    expect(anchor).toBeTruthy();
+    expect(anchor.download).toBe("Planning-s-export.md");
+    clickSpy.mockRestore();
+  });
+
   it("opens the project header menu from the touch-friendly more button", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-a", timestamp: new Date().toISOString(), name: "A" },

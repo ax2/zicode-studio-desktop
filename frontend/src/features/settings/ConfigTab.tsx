@@ -668,7 +668,7 @@ function InlineEditor({
               id="inline-models-insert-example"
               onClick={() => insertExample()}
             >
-              Insert example
+              {t("Insert example")}
             </button>
           ) : null}
           <button

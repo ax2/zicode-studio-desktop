@@ -44,6 +44,39 @@ describe("Chinese translation coverage", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("keeps JSX text nodes localized (no bare English labels between tags)", () => {
+    const offenders = [];
+    const roots = [join(process.cwd(), "frontend", "src", "features")];
+    const labelPattern = /^[A-Z][a-z]+(?: [a-z]+)*$/;
+    // Keyboard key names are universal and appear as hints (Esc, Ctrl+K, …).
+    const keyAllowlist = new Set([
+      "Esc",
+      "Enter",
+      "Tab",
+      "Space",
+      "Shift",
+      "Ctrl",
+      "Alt",
+    ]);
+    for (const path of roots.flatMap((root) => javascriptFiles(root))) {
+      if (!path.endsWith(".tsx")) continue;
+      const source = readFileSync(path, "utf8");
+      // A bare English label is JSX text that starts after a tag close or a
+      // string-expression close and ends at a closing tag. Type annotations
+      // like `Promise<unknown>` never end at `</`, so they do not match.
+      for (const match of source.matchAll(
+        /(?:>|\})\s*\n?\s*([A-Z][a-z]+(?: [a-z]+)*)\s*\n?\s*<\//g,
+      )) {
+        const value = match[1];
+        if (keyAllowlist.has(value)) continue;
+        if (labelPattern.test(value)) {
+          offenders.push(`${path}: ${value}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("translates every static t() key used by the native application", () => {
     setLocale("zh-CN");
     const missing = new Set();

@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { t } from "../../shared/i18n";
 import {
   defaultTitle,
   parseOption,
@@ -113,10 +114,10 @@ export function NativeDialogApp({
         {store.method === "confirm" ? (
           <>
             <button type="button" onClick={() => onFinish({ confirmed: false })}>
-              No
+              {t("No")}
             </button>
             <button type="button" onClick={() => onFinish({ confirmed: true })}>
-              Yes
+              {t("Yes")}
             </button>
           </>
         ) : store.method !== "select" ? (
@@ -127,11 +128,11 @@ export function NativeDialogApp({
               onFinish({ value });
             }}
           >
-            {store.method === "editor" ? "Save" : "Submit"}
+            {store.method === "editor" ? t("Save") : t("Submit")}
           </button>
         ) : null}
         <button type="button" onClick={() => onFinish({ cancelled: true })}>
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
     </div>

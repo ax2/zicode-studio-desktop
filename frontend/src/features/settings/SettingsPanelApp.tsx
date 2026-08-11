@@ -653,7 +653,7 @@ export function GeneralTab({
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Protect local drafts")}</span>
             <span className="settings-label-sub">
-              Ask the browser not to evict encrypted drafts automatically
+              {t("Ask the browser not to evict encrypted drafts automatically")}
             </span>
           </span>
           <button

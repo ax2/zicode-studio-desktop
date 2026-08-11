@@ -437,7 +437,7 @@ function ThinkingBlock({
             <path d="M6.5 9h11" />
             <path d="M7 13h10" />
           </svg>{" "}
-          Thinking
+          {t("Thinking")}
         </span>
         {cost != null && cost > 0 ? (
           <span

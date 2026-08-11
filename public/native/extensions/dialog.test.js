@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseDialogContent, parseOption, showNativeDialog } from "../react/dialog.js";
+import { setLocale } from "../../i18n.js";
 
 describe("native extension dialog", () => {
   it("parses rpiv ask-user-question select titles with previews", () => {
@@ -49,6 +50,7 @@ describe("native extension dialog", () => {
   });
 
   it("focuses the first action for confirm dialogs and restores focus on close", async () => {
+    setLocale("en");
     document.body.innerHTML = `
       <button id="dialog-trigger" type="button">Open</button>
       <div id="dialog-container" class="hidden"></div>
