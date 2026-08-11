@@ -286,7 +286,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         }
         set({ snapshot, selectedNotebookId, selectedNote });
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       } finally {
         set({ loading: false });
         void get().resolveRecentNotes();
@@ -351,7 +351,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         set({ expandedNotebookIds: expanded });
         get().syncDraftFromNote();
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       } finally {
         set({ loading: false });
       }
@@ -422,7 +422,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         get().syncDraftFromNote();
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       }
     },
 
@@ -520,7 +520,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         });
         await get().load({ preserveSelection: false });
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       }
     },
 
@@ -553,7 +553,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().load({ preserveSelection: false });
         notify(t("Notebook deleted"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       }
     },
 
@@ -571,7 +571,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().load({ preserveSelection: true });
         notify(t("Notebook saved"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       }
     },
 
@@ -586,7 +586,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         void get().loadTrash();
         notify(t("Note deleted"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       }
     },
 
@@ -667,7 +667,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         }, 2000);
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       } finally {
         set({ saveDisabled: false });
       }
@@ -774,7 +774,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().load({ preserveSelection: false });
         notify(t("Note moved"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       }
     },
 
@@ -820,7 +820,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().load({ preserveSelection: false });
         notify(t("Notes moved"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       } finally {
         set({ loading: false });
       }
@@ -848,7 +848,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         void get().loadTrash();
         notify(t("Notes moved to trash"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)), loading: false });
+        set({ error: localizeNotesHostError(error), loading: false });
       } finally {
         set({ loading: false });
       }
@@ -881,7 +881,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         void get().saveEditor();
         notify(t("Attachment added"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       }
     },
 
@@ -909,7 +909,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().load();
         notify(t("Markdown imported"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       }
     },
 
@@ -930,7 +930,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         );
         notify(t("Readable backup exported"));
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       }
     },
 
@@ -974,7 +974,7 @@ export function createNotesStore(options: NotesStoreOptions) {
           } ${t("invalid files")}`,
         );
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       }
     },
 
@@ -1006,7 +1006,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         })) as { noteCount: number };
         notify(`${t("Astro site built")}: ${report.noteCount} ${t("notes")} · dist/`);
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       } finally {
         set({ loading: false });
       }
@@ -1027,7 +1027,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().selectNote(response.note);
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error : new Error(String(error)) });
+        set({ error: localizeNotesHostError(error) });
       }
     },
 
@@ -1075,4 +1075,23 @@ function normalizeProject(
     path.split(/[\\/]/).filter(Boolean).at(-1) ||
     project.id;
   return { id: project.id, path, name };
+}
+
+// The host returns stable English messages for API errors; map the
+// user-facing ones to the active locale so the Chinese UI never shows raw
+// English sentences.
+export function localizeNotesHostError(error: unknown): Error {
+  if (!(error instanceof Error)) return new Error(String(error));
+  const code = (error as Error & { code?: string }).code;
+  if (code === "permission_denied" && /network/i.test(error.message)) {
+    return new Error(
+      t(
+        "Grant Notes network access in Plugin Manager before capturing a web page",
+      ),
+    );
+  }
+  if (code === "quota_exceeded" && /too many notes/i.test(error.message)) {
+    return new Error(t("Notes backup contains too many notes"));
+  }
+  return error;
 }

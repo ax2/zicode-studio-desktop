@@ -234,6 +234,9 @@ const zhCN = {
   "Archive session": "归档会话",
   "Unarchive session": "取消归档会话",
   "More actions": "更多操作",
+  "Grant Notes network access in Plugin Manager before capturing a web page":
+    "请先在插件管理中为笔记授予网络权限，再进行网页采集",
+  "Notes backup contains too many notes": "笔记备份包含的笔记过多",
   "Current workspace:": "当前工作区：",
   Abort: "中止",
   "Paste API key…": "粘贴 API Key…",

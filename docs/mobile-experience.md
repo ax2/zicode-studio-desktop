@@ -4568,6 +4568,26 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
+
+1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：
+   - 网页剪藏：采集 https://example.com/ 成功建笔记（标题/正文/来源
+     URL），重复采集命中去重（duplicate=true）；
+   - 附件：上传 proof.txt → 读取返回字节与原文完全一致；附件以
+     markdown 链接写入笔记正文（由前端追加，符合设计）；
+   - 英文界面切换：语言切到 en 后 Composer 占位符/状态/按钮/搜索
+     aria 全部英文，切回 zh 恢复中文；
+2. 修复：主机返回的 API 错误消息为英文（如采集需网络权限的
+   "Grant Notes network access in Plugin Manager..."），中文界面会
+   直接显示英文；新增 `localizeNotesHostError` 按错误码映射本地化
+   （覆盖采集网络权限、备份笔记过多两类），并应用到笔记 store 全部
+   16 处错误设置；补 i18n 键与单测；
+3. 门禁：前端 800 项全绿（新增 1 项）、Rust 178 项、
+   typecheck/Biome/design/Tauri 权限 20 条/clippy/fmt 全绿；
+4. 发布：release 第七十一次重建 + `/S` 静默重装，日志无
+   ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十四轮：安全审计 + Agent Inbox 启动修复（2026-08-11）。
 
 1. 安全审计：

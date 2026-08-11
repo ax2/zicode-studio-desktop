@@ -15,7 +15,11 @@ import {
 } from "./notesLogic";
 import { NotesContent, NotesNav } from "./NotesApp";
 import { setupNotesApp } from "./index";
-import { createNotesStore, type NotesGatewayLike } from "./notesStore";
+import {
+  createNotesStore,
+  localizeNotesHostError,
+  type NotesGatewayLike,
+} from "./notesStore";
 import type { Note, NotesSnapshot } from "./notesLogic";
 
 // jsdom has no PointerEvent yet; the notes tree drag is pointer-driven, so
@@ -156,6 +160,29 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
+  it("localizes known host API errors for the active locale", () => {
+    const permission = new Error(
+      "Grant Notes network access in Plugin Manager before capturing a web page",
+    ) as Error & { code?: string };
+    permission.code = "permission_denied";
+    expect(localizeNotesHostError(permission).message).toBe(
+      t(
+        "Grant Notes network access in Plugin Manager before capturing a web page",
+      ),
+    );
+
+    const quota = new Error("Notes backup contains too many notes") as Error & {
+      code?: string;
+    };
+    quota.code = "quota_exceeded";
+    expect(localizeNotesHostError(quota).message).toBe(
+      t("Notes backup contains too many notes"),
+    );
+
+    const unknown = new Error("Unrelated failure");
+    expect(localizeNotesHostError(unknown)).toBe(unknown);
+  });
+
   it("closes the mobile function-area drawer when a note is selected", async () => {
     const store = storeWithGateway();
     const requests: Array<{ open?: boolean }> = [];
