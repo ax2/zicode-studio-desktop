@@ -16,6 +16,24 @@ ZiCode uses one consistent three-region workspace for Chat, Notes, Projects, Set
 
 The main-view header keeps a file manager button for browsing the current workspace and opening generated files. Full local paths and the “Open in…” menu do not occupy the header.
 
+## Workspaces
+
+The function area (left rail) always shows the workspace bar with the current
+workspace name and full path:
+
+- Click the workspace name to open the system folder picker and open the
+  selected directory as a workspace;
+- Click the "Switch workspace" button to list every registered workspace
+  (name + path, current highlighted). Selecting one switches the current
+  window **in place** and stays in the active application (Chat, Notes,
+  Settings, …) instead of jumping back to Chat;
+- On first launch the app registers a global shared workspace at
+  `~/.zicode` and pins it at the top of the switcher;
+- Each workspace keeps its sessions, notes, tasks, automations, finance
+  research, and artifacts under
+  `<workspace>/.zicode/{sessions,notes,tasks,automation,finance,artifacts}/`,
+  so switching workspace switches the data.
+
 ## Switching applications
 
 1. Select an application from the activity rail.

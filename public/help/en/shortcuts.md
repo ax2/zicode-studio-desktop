@@ -11,6 +11,19 @@
 
 Open the Command Palette with `Ctrl+Shift+P` (or the command button next to the composer) to run application and plugin commands. Command-only plugins do not need their own navigation button.
 
+Common palette commands include **New session**, **Switch workspace**,
+**Compact** (compress the current conversation's context), and
+expand/collapse-all tool actions.
+
+## Workspaces
+
+- Open a folder as a workspace: click the workspace name in the workspace bar.
+- Switch workspace: use the workspace bar "Switch workspace" button or the
+  palette command; the current window switches in place and keeps the active
+  application.
+- Session/project "more" actions are reachable from the inline ⋮ button
+  (focus with Tab, activate with Enter/Space).
+
 ## Search
 
 - `Ctrl+K` opens session search from anywhere (the sidebar search box also works).

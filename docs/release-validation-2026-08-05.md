@@ -491,6 +491,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十七次重建（2026-08-10，第 391 轮帮助文档同步实际架构）
+
+- 合入第 391 轮：
+  - 帮助中心"界面与导航/场景与隔离/快捷键"三篇文章与第 384–390 轮
+    的实际架构同步（工作区栏/切换器、按工作区数据目录
+    `<工作区>/.zicode/<应用>/`、`~/.zicode` 系统配置、命令面板
+    命令），zh/en 双语更新；
+  - 补文档覆盖契约测试（Help 必须包含工作区切换与按工作区数据布局）；
+  - 前端 797 项、Rust 152 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 67）：
+  - `target/release/zicode-studio-desktop.exe`：41,595,392 B，
+    SHA-256 `24ACD556A8CF5B1794AD310A313CB0A78F9063E157AC5B8ABCA5AE6E9D5C2339`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,822,796 B，SHA-256
+    `F980B530C33EAE5500475013C3FE0A6E60B1125A2D75FFBDD734031789E95962`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `86005536A964C1A968AB8B903019CD53B06528338A3AE089171DB33AE197E9D9`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测帮助"界面与导航"渲染新版工作区内容（工作区栏/切换器/
+    `.zicode`），会话 12 条数据完好；日志无 ERROR/WARN/panic。
+
 ## 第六十六次重建（2026-08-10，第 390 轮启动恢复验证 + 命令面板补全）
 
 - 合入第 390 轮：

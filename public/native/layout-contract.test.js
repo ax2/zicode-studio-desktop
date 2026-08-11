@@ -20,6 +20,9 @@ const messageRendererCss = readFileSync(
   join(process.cwd(), "public/ui/message-renderer.css"),
   "utf8",
 );
+const helpInterfaceMd = readFileSync(join(process.cwd(), "public/help/interface.md"), "utf8");
+const helpScenesMd = readFileSync(join(process.cwd(), "public/help/scenes.md"), "utf8");
+const helpShortcutsMd = readFileSync(join(process.cwd(), "public/help/shortcuts.md"), "utf8");
 const taskCenterCss = readFileSync(
   join(process.cwd(), "public/native/plugins/task-center-app.css"),
   "utf8",
@@ -188,6 +191,15 @@ describe("desktop three-region layout contract", () => {
     expect(appJs).toMatch(
       /label: t\("Switch workspace"\)[\s\S]{0,600}setTimeout\(\s*\(\s*\) =>\s*document\.getElementById\("workspace-switcher-btn"\)\?\.click\(\),/,
     );
+  });
+
+  it("documents the workspace switcher and per-workspace data layout in Help", () => {
+    expect(helpInterfaceMd).toMatch(/切换工作区|Switch workspace/);
+    expect(helpInterfaceMd).toMatch(/\.zicode/);
+    expect(helpScenesMd).toMatch(/按工作区隔离|isolated per\n?\s*workspace/);
+    expect(helpScenesMd).toMatch(/~\/\.zicode/);
+    expect(helpShortcutsMd).toMatch(/新建会话|New session/);
+    expect(helpShortcutsMd).toMatch(/切换工作区|Switch workspace/);
   });
 
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
