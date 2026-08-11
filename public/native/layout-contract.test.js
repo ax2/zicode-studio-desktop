@@ -963,4 +963,22 @@ describe("desktop three-region layout contract", () => {
       expect(placeholder).toMatch(/\$\{t\(/);
     }
   });
+
+  it("keeps primary touch targets at least 40px on mobile layouts", () => {
+    expect(mobileCss).toMatch(
+      /\.session-item\s*\{[\s\S]*?min-height:\s*var\(--space-10\)/,
+    );
+    expect(mobileCss).toMatch(
+      /\.session-more-btn\s*\{[\s\S]*?min-width:\s*var\(--space-10\)[\s\S]*?min-height:\s*var\(--space-10\)/,
+    );
+    expect(mobileCss).toMatch(
+      /\.thinking-effort-dot\s*\{[\s\S]*?min-width:\s*var\(--space-10\)/,
+    );
+    expect(mobileCss).toMatch(
+      /\.automation-checkbox\s*\{[\s\S]*?min-height:\s*var\(--space-10\)/,
+    );
+    expect(mobileCss).toMatch(
+      /\.automation-checkbox input\[type="checkbox"\]\s*\{[\s\S]*?width:\s*24px[\s\S]*?height:\s*24px/,
+    );
+  });
 });

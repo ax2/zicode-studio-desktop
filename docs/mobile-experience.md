@@ -4667,6 +4667,26 @@ P2 再做）完成 P1 UI 层：
 5. 发布：release 第七十四次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百轮：移动端触摸目标尺寸审计与修复（2026-08-11）。
+
+1. 审计（CDP，390×844，9 个功能区）：主交互目标 ≥40px、全部交互
+   ≥24px（WCAG 2.2 AA 最小值）为标准；
+2. 发现并修复：
+   - 会话行高度 30px → 移动端 min-height 40px；
+   - 会话"更多操作"按钮宽 30px → min-width/min-height 40px；
+   - 思考强度分段圆点宽 38px → 轨道加宽至 200px + 每段
+     min-width 40px；
+   - 自动化"每次运行前均需审批"复选框 13×13 → 24×24（AA 最小值）
+     + 整行 label min-height 40px（实际点按区 ≥40×40）；
+3. 回归测试：布局契约新增"移动端主交互目标 ≥40px"规则检查
+   （session-item/session-more-btn/thinking-effort-dot/
+    automation-checkbox）；
+4. 验证：CDP 复测全部表面无 <24px 目标；40px 主控全部达标（复选框
+   本身 24px 属 AA 合规，行点按区 40px）；
+   门禁前端 812 项、typecheck/Biome 453 文件/design 全绿；
+5. 发布：release 第七十五次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

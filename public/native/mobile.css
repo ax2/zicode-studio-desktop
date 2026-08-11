@@ -609,6 +609,36 @@
     bottom: var(--mobile-visual-viewport-bottom, 0px);
   }
 
+  /* Touch targets: keep primary controls comfortable on coarse pointers.
+     Session rows, row actions, thinking-effort segments and the automation
+     approval checkbox get at least a 40px tap area. */
+  .session-item {
+    min-height: var(--space-10);
+  }
+
+  .session-more-btn {
+    min-width: var(--space-10);
+    min-height: var(--space-10);
+  }
+
+  .thinking-effort {
+    width: 200px;
+  }
+
+  .thinking-effort-dot {
+    min-width: var(--space-10);
+  }
+
+  .automation-checkbox {
+    min-height: var(--space-10);
+  }
+
+  .automation-checkbox input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    accent-color: var(--accent);
+  }
+
 }
 
 @media (max-height: 520px) and (pointer: coarse) {
