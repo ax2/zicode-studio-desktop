@@ -202,6 +202,12 @@ describe("desktop three-region layout contract", () => {
     expect(helpShortcutsMd).toMatch(/切换工作区|Switch workspace/);
   });
 
+  it("detects runtime process death and surfaces the reconnect hint", () => {
+    expect(appJs).toContain('ProcessClosed|process\\s+(is\\s+)?closed');
+    expect(appJs).toContain('t("Runtime disconnected")');
+    expect(appJs).toContain("isRuntimeProcessClosedError(error)) markRuntimeDisconnected()");
+  });
+
   it("keeps settings and help in navigation without duplicate Chat sidebar entries", () => {
     expect(index).not.toContain('id="settings-btn"');
     expect(index).not.toContain('id="help-btn"');

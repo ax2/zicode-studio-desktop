@@ -18,6 +18,8 @@ const zhCN = {
   Connecting: "连接中",
   "Connecting...": "连接中…",
   Disconnected: "已断开",
+  "Runtime disconnected": "运行时连接已断开",
+  "Start a new session to reconnect": "新建会话即可恢复连接",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",

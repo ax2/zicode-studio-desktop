@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第六十八次重建（2026-08-11，第 392 轮运行时崩溃恢复实测）
+
+- 合入第 392 轮：
+  - 故障注入实测：终止当前会话 Pi 运行时进程后，应用不崩溃、状态变
+    "已断开"、发送消息给出清晰错误（ProcessClosed），新建会话立即
+    重新拉起运行时并恢复正常对话；
+  - 修复：运行时进程死亡后发送路径检测 `ProcessClosed` 类错误，立即
+    把状态置为"已断开"并弹出一次性恢复提示（新建会话即可恢复），
+    连接监听器复用同一逻辑，每次断开只提示一次、重连后重置；
+  - 契约回归测试：app.js 含进程关闭错误检测、恢复提示文案与发送路径
+    接线；
+  - 前端 798 项、Rust 152 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 68）：
+  - `target/release/zicode-studio-desktop.exe`：41,599,488 B，
+    SHA-256 `6B31D43BE0C64660526D1D6BE01BA9CC2DEA4B7AE9A9EF43C046618531E1B885`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,799,572 B，SHA-256
+    `C668DFBBE9868C2512F6D3866225DE3F3FB4E56D6AF2DE3B541B91AE9CD8F80F`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `26F934A5A9EEE1C7677D5C1AD1465B8D8BAD2E03C60224ADF1739BB46EBC9DC9`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - 安装版状态正常（已连接）、12 会话完好、0 横向溢出；日志无
+    ERROR/WARN/panic。
+
 ## 第六十七次重建（2026-08-10，第 391 轮帮助文档同步实际架构）
 
 - 合入第 391 轮：

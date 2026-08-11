@@ -142,7 +142,10 @@ const messageRenderer = new MessageRenderer(messagesElement, {
 const toolRenderer = new ToolCardRenderer(messagesElement);
 const composer = setupComposer({
   onSubmit: ({ altKey }) => {
-    sendComposerInput({ altKey }).catch(showError);
+    sendComposerInput({ altKey }).catch((error) => {
+      if (isRuntimeProcessClosedError(error)) markRuntimeDisconnected();
+      showError(error);
+    });
   },
 });
 const {
@@ -427,12 +430,16 @@ runtime.subscribe((frame) => {
   if (previous.queue !== store.queue) composer?.setQueue(store.queue);
   handleRuntimeEvent(frame.event).catch(showError);
 });
+let runtimeDisconnectNotified = false;
 setupConfigGatewayConnectionListener({
   adapter,
   isReady: () => configGatewayTargetReady,
-  onDisconnected: () => setStatus("Disconnected"),
+  onDisconnected: () => markRuntimeDisconnected(),
 });
 adapter.connect();
+window.addEventListener("picot-config-gateway-ready", () => {
+  runtimeDisconnectNotified = false;
+});
 
 // Wire DOM-only event handlers immediately, before any network awaits, so the
 // UI (settings overlay, file browser, composer, abort) stays responsive even
@@ -1915,6 +1922,23 @@ function showError(error) {
   // connection listener owns "Connected"/"Disconnected". Showing an error
   // must not pretend the WebSocket went down.
   messageRenderer.renderError(error?.message || String(error));
+}
+
+function isRuntimeProcessClosedError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /ProcessClosed|process\s+(is\s+)?closed/i.test(message);
+}
+
+function markRuntimeDisconnected() {
+  setStatus("Disconnected");
+  if (!runtimeDisconnectNotified) {
+    runtimeDisconnectNotified = true;
+    notifications.notify({
+      title: t("Runtime disconnected"),
+      message: t("Start a new session to reconnect"),
+      type: "warning",
+    });
+  }
 }
 
 messagesElement.addEventListener("openmodelsettings", () => {
