@@ -146,6 +146,11 @@
 - 更新入口（第 409 轮）：修复未配置自动更新时"使用 GitHub Releases"
   按钮禁用导致的提示与行为矛盾——按钮改为可点并打开 GitHub
   Releases 页；updaterStore 与 settings 测试齐备，前端 824 项全绿；
+- M3 端到端加密（第 410 轮核验）：Noise_XK（X25519 +
+  ChaCha20-Poly1305）已实现并接线——桌面响应方（Rust e2ee.rs +
+  relay_client 状态机）、手机发起方（JS e2ee.js + runtime-adapter）、
+  中继透明转发密文；Rust 5 项 + JS 24 项测试全过，运行实例身份已
+  加载；剩余门槛为真机验收；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

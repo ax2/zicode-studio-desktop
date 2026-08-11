@@ -4860,6 +4860,25 @@ P2 再做）完成 P1 UI 层：
 6. 发布：release 第八十一次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百一十轮：M3 端到端加密全链核验（2026-08-11）。
+
+1. 背景：早期交接将"M2 P2P / M3 端到端加密"标注为未启动；本轮
+   逐层核验确认 M3 已实现并接线：
+   - 身份：桌面 E2EE 静态 X25519 身份（Noise_XK）私钥存系统凭据库，
+     `e2ee_key.exe` 可输出公钥/指纹；运行实例日志无 "e2ee identity
+     unavailable"，身份已加载进 relay 代理；
+   - Rust（桌面响应方）：`e2ee.rs` Noise_XK 握手/ChaCha20-Poly1305
+     传输，5 项单测全过（含握手往返加解密、错误静态密钥拒绝）；
+     `relay_client.rs` 会话状态机 Transparent → Handshake →
+     Encrypted，首帧 `e2ee_handshake` 进入密文桥，数据帧封装为
+     `e2ee_frame` 转发；
+   - JS（手机发起方）：`e2ee.js`（NIST/RFC 7748/8439 向量 +
+     完整握手）与 `runtime-adapter.js`（首帧必须 e2ee_handshake、
+     加解密帧交换）测试 24 项全过；
+   - 中继：`relay_server.rs` 对 WsFrame 负载透明转发，不读取密文；
+2. 结论：M3 E2E 已实现且有全层自动化测试；剩余门槛为真机验收
+   （与 M2 一起，需手机与公网环境）。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：
