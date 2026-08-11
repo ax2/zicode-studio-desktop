@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
+import { localizeHostError } from "../../shared/hostErrors.js";
 import {
   isAutomationDue,
   nextAutomationRun,
@@ -83,7 +84,7 @@ export function createAutomationStore(options: AutomationAppOptions) {
         return workflows;
       } catch (reason) {
         const error = reason instanceof Error ? reason : new Error(String(reason));
-        set({ error });
+        set({ error: localizeHostError(error) });
         return get().workflows;
       } finally {
         set({ loading: false });
@@ -93,7 +94,9 @@ export function createAutomationStore(options: AutomationAppOptions) {
     async saveWorkflow(workflow) {
       const response = await call("automation_workspace", { action: "upsert", workflow });
       if (!response?.ok) {
-        throw new Error(response?.error || t("Could not save automation"));
+        throw localizeHostError(
+          new Error(response?.error || t("Could not save automation")),
+        );
       }
       const workflows =
         response.data?.workspace?.workflows ?? response.data?.workflows ?? get().workflows;
@@ -106,7 +109,9 @@ export function createAutomationStore(options: AutomationAppOptions) {
       if (!response?.ok) {
         notify({
           title: t("Could not remove automation"),
-          message: response?.error,
+          message: response?.error
+            ? localizeHostError(new Error(response.error)).message
+            : undefined,
           type: "error",
         });
         return;
@@ -122,7 +127,7 @@ export function createAutomationStore(options: AutomationAppOptions) {
       } catch (reason) {
         notify({
           title: t("Could not run automation"),
-          message: reason instanceof Error ? reason.message : String(reason),
+          message: localizeHostError(reason).message,
           type: "error",
         });
       }
@@ -199,7 +204,9 @@ async function recordRun(
     nextRunAt: nextRunAt ?? workflow.nextRunAt,
   });
   if (!response?.ok) {
-    throw new Error(response?.error || "Could not update automation history");
+    throw localizeHostError(
+      new Error(response?.error || t("Could not update automation history")),
+    );
   }
   refs.set({ workflows: response.data?.workspace?.workflows ?? refs.get().workflows });
 }
@@ -211,7 +218,9 @@ async function enqueue(
 ) {
   const taskResponse = await refs.call("read_super_agent_tasks");
   if (!taskResponse?.ok) {
-    throw new Error(taskResponse?.error || t("Task service is unavailable"));
+    throw localizeHostError(
+      new Error(taskResponse?.error || t("Task service is unavailable")),
+    );
   }
   const taskId = `automation-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
@@ -243,7 +252,9 @@ async function enqueue(
   const tasks = [...(taskResponse.data?.tasks ?? []), task];
   const write = await refs.call("write_super_agent_tasks", { tasks });
   if (!write?.ok) {
-    throw new Error(write?.error || t("Could not queue automation task"));
+    throw localizeHostError(
+      new Error(write?.error || t("Could not queue automation task")),
+    );
   }
   await recordRun(
     workflow,

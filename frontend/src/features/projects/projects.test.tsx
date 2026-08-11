@@ -202,3 +202,22 @@ describe("project workspace React app", () => {
     store.getState().setTarget(null);
   });
 });
+
+describe("project workspace host errors", () => {
+  it("localizes a closed Pi runtime warning from a failed source", async () => {
+    setLocale("zh-CN");
+    const notesGateway = {
+      list: vi.fn(async () => {
+        throw new Error("Pi RPC request failed: ProcessClosed");
+      }),
+    };
+    const store = renderStore({ notesGateway });
+    await waitFor(() =>
+      expect(document.querySelector(".project-workspace-warning")).toBeTruthy(),
+    );
+    expect(store.getState().snapshot.warnings).toContain(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+    store.getState().setTarget(null);
+  });
+});

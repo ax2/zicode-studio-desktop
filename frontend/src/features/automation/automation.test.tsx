@@ -103,6 +103,21 @@ describe("automation logic", () => {
   });
 });
 
+describe("automation store host errors", () => {
+  it("localizes a closed Pi runtime in the error state", async () => {
+    setLocale("zh-CN");
+    const call = vi.fn(async () => {
+      throw new Error("Pi RPC request failed: ProcessClosed");
+    });
+    const store = createAutomationStore({ call });
+    await store.getState().load();
+    expect(store.getState().error?.message).toBe(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+    store.getState().destroy();
+  });
+});
+
 describe("automation React app", () => {
   it("renders workflows from the workspace and shows approval actions", async () => {
     setLocale("en");

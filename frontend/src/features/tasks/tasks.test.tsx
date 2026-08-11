@@ -129,3 +129,18 @@ describe("task center React app", () => {
     container.remove();
   });
 });
+
+describe("task center store host errors", () => {
+  it("localizes a closed Pi runtime in the error state", async () => {
+    setLocale("zh-CN");
+    const call = vi.fn(async () => {
+      throw new Error("Pi RPC request failed: ProcessClosed");
+    });
+    const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
+    await store.getState().load();
+    expect(store.getState().error?.message).toBe(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+    store.getState().destroy();
+  });
+});

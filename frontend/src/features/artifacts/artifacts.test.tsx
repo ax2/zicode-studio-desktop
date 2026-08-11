@@ -150,3 +150,20 @@ describe("artifacts React app", () => {
     store.getState().destroy();
   });
 });
+
+describe("artifact store host errors", () => {
+  it("localizes a closed Pi runtime in the error state", async () => {
+    setLocale("zh-CN");
+    const gateway = createGateway();
+    gateway.list.mockRejectedValueOnce(new Error("Pi RPC request failed: ProcessClosed"));
+    const store = createArtifactStore({
+      gateway,
+      getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
+    });
+    await store.getState().load();
+    expect(store.getState().error?.message).toBe(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+    store.getState().destroy();
+  });
+});

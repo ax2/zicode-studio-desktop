@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
+import { localizeHostError } from "../../shared/hostErrors.js";
 import {
   emptyProjectSnapshot,
   projectWorkspaceKey,
@@ -193,11 +194,17 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
             filesAny?.error,
             tasksAny?.error,
             automationsAny?.error,
-          ].filter(Boolean),
+          ]
+            .filter(Boolean)
+            .map((warning) => localizeHostError(warning).message),
         };
         set({ snapshot });
       } catch (reason) {
-        set({ error: reason instanceof Error ? reason : new Error(String(reason)) });
+        set({
+          error: localizeHostError(
+            reason instanceof Error ? reason : new Error(String(reason)),
+          ),
+        });
       } finally {
         set({ loading: false });
       }
@@ -207,7 +214,9 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
       if (typeof call !== "function") return get().profile;
       const response = await call("read_project_profile");
       if (!response?.ok) {
-        throw new Error(response?.error || t("Could not load project context"));
+        throw localizeHostError(
+          new Error(response?.error || t("Could not load project context")),
+        );
       }
       const profile = (response.data as { profile?: ProjectProfile })?.profile || get().profile;
       set({ profile });
@@ -218,7 +227,9 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
       if (typeof call === "function") {
         const response = await call("write_project_profile", { profile: nextProfile });
         if (!response?.ok) {
-          throw new Error(response?.error || t("Could not save project context"));
+          throw localizeHostError(
+            new Error(response?.error || t("Could not save project context")),
+          );
         }
         const profile =
           (response.data as { profile?: ProjectProfile })?.profile || nextProfile;
@@ -244,7 +255,7 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
         } catch (reason) {
           notify({
             title: t("Conversation search failed"),
-            message: reason instanceof Error ? reason.message : String(reason),
+            message: localizeHostError(reason).message,
             type: "error",
           });
         }

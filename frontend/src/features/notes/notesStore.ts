@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { localizeHostError } from "../../shared/hostErrors";
 import {
   AUTOSAVE_DELAY_MS,
   conversationNoteTitle,
@@ -1081,6 +1082,8 @@ function normalizeProject(
 // user-facing ones to the active locale so the Chinese UI never shows raw
 // English sentences.
 export function localizeNotesHostError(error: unknown): Error {
+  const runtimeClosed = localizeHostError(error);
+  if (runtimeClosed !== error) return runtimeClosed;
   if (!(error instanceof Error)) return new Error(String(error));
   const code = (error as Error & { code?: string }).code;
   if (code === "permission_denied" && /network/i.test(error.message)) {

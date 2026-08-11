@@ -160,6 +160,13 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
+  it("maps a closed Pi runtime to the localized recovery message", () => {
+    const closed = new Error("Pi RPC request failed: ProcessClosed");
+    expect(localizeNotesHostError(closed).message).toBe(
+      t("Pi runtime is disconnected. Start a new session to reconnect."),
+    );
+  });
+
   it("localizes known host API errors for the active locale", () => {
     const permission = new Error(
       "Grant Notes network access in Plugin Manager before capturing a web page",

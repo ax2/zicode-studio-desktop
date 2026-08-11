@@ -8,10 +8,10 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 801 项通过 | 135 个测试文件 |
+| 前端 vitest | 809 项通过 | 136 个测试文件 |
 | Rust | 178 项通过（154+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
-| Biome lint | 450 文件 0 错误 0 警告 | bunx biome lint . |
+| Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
 | TypeScript typecheck | 通过 | tsc --noEmit |
 | Tauri 权限 / Windows 子进程策略 | 20 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
@@ -89,6 +89,13 @@
   逐篇打开、任务/自动化/产物空态、金融场景守卫跳转均实测通过；新增
   帮助 manifest 完整性回归测试（zh/en 双语文档必须存在且非空），
   前端 801 项全绿；
+- 断连恢复与错误本地化（第 397 轮）：全表面审计 0 控制台错误/0 文档
+  级溢出；Pi 运行时断连时各表面原始英文错误改为友好中文提示
+  （"Pi 运行时连接已断开。新建一个会话即可恢复连接。"）并应用到
+  笔记/自动化/任务/项目/产物全部 store 与聊天错误渲染；故障注入
+  确认应用可自动重生运行时恢复；清理 i18n.js 7 处重复键（含
+  `Symbol` 被金融"标的代码"遮蔽的真实翻译 bug），Biome 门禁转绿
+  （453 文件），前端 809 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

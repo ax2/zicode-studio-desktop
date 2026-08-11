@@ -20,14 +20,14 @@ const zhCN = {
   Disconnected: "已断开",
   "Runtime disconnected": "运行时连接已断开",
   "Start a new session to reconnect": "新建会话即可恢复连接",
+  "Pi runtime is disconnected. Start a new session to reconnect.":
+    "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",
   "Keyboard shortcuts": "键盘快捷键",
   "Focus input": "聚焦输入框",
   "Quick actions": "快捷入口",
-  "Start a new conversation": "开始新对话",
-  Abort: "中止",
   "Retry request": "重试请求",
   "Request cannot be retried yet": "暂时无法重试请求",
   "Wait for the current task to finish.": "请等待当前任务完成。",
@@ -243,18 +243,13 @@ const zhCN = {
   "Skill slash commands": "技能斜杠命令",
   "Extension question": "扩展提问",
   "Type a custom answer": "输入自定义回答",
-  Symbol: "代码",
-  Research: "研究",
   "Dismiss notification": "关闭通知",
-  Protection: "保护",
   "Configure an OpenAI-, Anthropic-, or Google-compatible endpoint for this scene.":
     "为此场景配置兼容 OpenAI、Anthropic 或 Google 的端点。",
   "Credentials are stored separately from {file}.": "凭据与 {file} 分开存储。",
   "Edit {file} to add custom providers (Ollama, vLLM, LM Studio, OpenAI-compatible proxies, OpenRouter routing overrides, etc).":
     "编辑 {file} 以添加自定义提供方（Ollama、vLLM、LM Studio、OpenAI 兼容代理、OpenRouter 路由覆盖等）。",
   "See the": "参见",
-  Skills: "技能",
-  Scene: "场景",
   "Delete all archived sessions": "删除全部已归档会话",
   "Delete archived sessions": "删除已归档会话",
   "Delete {count} archived sessions permanently? This cannot be undone.":

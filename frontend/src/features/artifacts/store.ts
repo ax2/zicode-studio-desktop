@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
+import { localizeHostError } from "../../shared/hostErrors.js";
 import {
   defaultDownloadFile,
   EMPTY_ARTIFACT_SNAPSHOT,
@@ -116,7 +117,11 @@ export function createArtifactStore(options: ArtifactAppOptions) {
         }
       } catch (loadError) {
         if (requestId === requestSequence) {
-          set({ error: loadError instanceof Error ? loadError : new Error(String(loadError)) });
+          set({
+            error: localizeHostError(
+              loadError instanceof Error ? loadError : new Error(String(loadError)),
+            ),
+          });
         }
       } finally {
         if (requestId === requestSequence) set({ loading: false });
@@ -132,7 +137,11 @@ export function createArtifactStore(options: ArtifactAppOptions) {
         set({ selected: response.artifact ?? null });
       } catch (loadError) {
         if (requestId === requestSequence) {
-          set({ error: loadError instanceof Error ? loadError : new Error(String(loadError)) });
+          set({
+            error: localizeHostError(
+              loadError instanceof Error ? loadError : new Error(String(loadError)),
+            ),
+          });
         }
       } finally {
         if (requestId === requestSequence) set({ loading: false });
@@ -148,7 +157,11 @@ export function createArtifactStore(options: ArtifactAppOptions) {
         set({ selected: response.artifact ?? null });
       } catch (loadError) {
         if (requestId === requestSequence) {
-          set({ error: loadError instanceof Error ? loadError : new Error(String(loadError)) });
+          set({
+            error: localizeHostError(
+              loadError instanceof Error ? loadError : new Error(String(loadError)),
+            ),
+          });
         }
       } finally {
         if (requestId === requestSequence) set({ loading: false });
@@ -168,7 +181,9 @@ export function createArtifactStore(options: ArtifactAppOptions) {
         notify(`${t("Artifact deleted")}: ${deletedTitle}`);
       } catch (deleteError) {
         set({
-          error: deleteError instanceof Error ? deleteError : new Error(String(deleteError)),
+          error: localizeHostError(
+            deleteError instanceof Error ? deleteError : new Error(String(deleteError)),
+          ),
           loading: false,
         });
       }

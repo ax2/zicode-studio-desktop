@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
+import { localizeHostError } from "../../shared/hostErrors.js";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskCancelled, markTaskPaused, normalizeSuperAgentTasks } from "../../../../public/super-agent/task-state.js";
 import { childTarget, type SuperAgentTask, type TaskFilter } from "./logic";
@@ -72,7 +73,11 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         const tasks = normalizeSuperAgentTasks(response.data?.tasks ?? []) as SuperAgentTask[];
         set({ tasks, error: null });
       } catch (reason) {
-        set({ error: reason instanceof Error ? reason : new Error(String(reason)) });
+        set({
+          error: localizeHostError(
+            reason instanceof Error ? reason : new Error(String(reason)),
+          ),
+        });
       } finally {
         set({ loading: false });
       }
@@ -91,7 +96,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not update task"),
-          message: reason instanceof Error ? reason.message : String(reason),
+          message: localizeHostError(reason).message,
           type: "error",
         });
       }
@@ -104,7 +109,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not pause task"),
-          message: reason instanceof Error ? reason.message : String(reason),
+          message: localizeHostError(reason).message,
           type: "error",
         });
       }
@@ -121,7 +126,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not cancel task"),
-          message: reason instanceof Error ? reason.message : String(reason),
+          message: localizeHostError(reason).message,
           type: "error",
         });
       }
