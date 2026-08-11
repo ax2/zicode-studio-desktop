@@ -990,13 +990,7 @@ async fn model_gateway_proxy(
     let auth_preview = headers
         .get("authorization")
         .and_then(|value| value.to_str().ok())
-        .map(|value| {
-            if value.len() > 16 {
-                format!("{}… ({} chars)", &value[..16], value.len())
-            } else {
-                value.to_string()
-            }
-        })
+        .map(auth_preview)
         .unwrap_or_else(|| "<none>".to_string());
     log::info!(
         "[model-gateway] {method} /{path} auth={auth_preview} body={} bytes",
@@ -1048,6 +1042,17 @@ async fn model_gateway_proxy(
         .unwrap_or_else(|_| {
             api_error(StatusCode::INTERNAL_SERVER_ERROR, "model_gateway_stream").into_response()
         })
+}
+
+/// Mask an `Authorization` header for logs: reveal only a short prefix plus
+/// the total length so operators can correlate a request without exposing the
+/// credential. Values that are too short to mask meaningfully are redacted.
+fn auth_preview(value: &str) -> String {
+    if value.len() > 8 {
+        format!("{}… ({} chars)", &value[..6], value.len())
+    } else {
+        "<redacted>".to_string()
+    }
 }
 
 fn rewrite_developer_roles(body: &Bytes) -> Result<Bytes, serde_json::Error> {
@@ -4197,9 +4202,9 @@ fn now_seconds() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        extension_ui_requires_owner, html_to_markdown, is_public_ip, lan_qr_issuer_allowed,
-        messages_from_entries_response, public_remote_path, remote_http_authorized,
-        rewrite_developer_roles, websocket_origin_allowed, HostServer,
+        auth_preview, extension_ui_requires_owner, html_to_markdown, is_public_ip,
+        lan_qr_issuer_allowed, messages_from_entries_response, public_remote_path,
+        remote_http_authorized, rewrite_developer_roles, websocket_origin_allowed, HostServer,
     };
     use crate::metadata_store::MetadataStore;
     use crate::native_pi_manager::NativePiManager;
@@ -4215,6 +4220,21 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
     use tokio::sync::mpsc;
+
+    #[test]
+    fn masks_authorization_headers_in_logs() {
+        let token = "Bearer sk-0123456789abcdef0123456789abcdef";
+        let preview = auth_preview(token);
+        assert!(!preview.contains("abcdef0123456789"));
+        assert!(preview.starts_with("Bearer"));
+        assert!(!preview.contains("sk-0123456789abcdef"));
+        assert!(preview.contains('…'));
+        assert!(preview.contains(&token.len().to_string()));
+
+        // Short or empty values are redacted rather than echoed verbatim.
+        assert_eq!(auth_preview("short"), "<redacted>");
+        assert_eq!(auth_preview(""), "<redacted>");
+    }
 
     #[test]
     fn rewrites_developer_roles_to_system_before_forwarding() {

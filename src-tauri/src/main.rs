@@ -814,7 +814,24 @@ fn agent_inbox_path() -> Result<PathBuf, String> {
 }
 
 fn session_dir_name(cwd: &Path) -> String {
-    format!("--{}--", cwd.to_string_lossy().replace(['/', '\\'], "-"))
+    // Windows forbids `: * ? " < > |` and control characters in directory
+    // names; drive letters (C:) and UNC prefixes must be sanitized too or the
+    // Agent Inbox placeholder session folder cannot be created.
+    let sanitized: String = cwd
+        .to_string_lossy()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_control()
+                || matches!(ch, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+            {
+                '-'
+            } else {
+                ch
+            }
+        })
+        .collect();
+    let truncated: String = sanitized.chars().take(120).collect();
+    format!("--{truncated}--")
 }
 
 fn now_unix_millis() -> u128 {
@@ -1300,11 +1317,24 @@ fn main() {
 mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
-        visible_position, WindowState,
+        session_dir_name, visible_position, WindowState,
     };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn session_dir_names_are_valid_windows_folder_names() {
+        let drive_path = PathBuf::from(r"C:\Users\ax2\AppData\Local\zicode\workspaces\agent-inbox");
+        let name = session_dir_name(&drive_path);
+        assert!(!name.contains(':'));
+        assert!(!name.contains(['*', '?', '"', '<', '>', '|']));
+        assert!(!name.is_empty());
+
+        let long = PathBuf::from(format!("C:\\{}\\workspace", "a".repeat(300)));
+        let long_name = session_dir_name(&long);
+        assert!(long_name.chars().count() <= 124);
+    }
 
     fn unique_temp_dir(label: &str) -> PathBuf {
         let suffix = SystemTime::now()

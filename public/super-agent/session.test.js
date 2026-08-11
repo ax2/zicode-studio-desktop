@@ -10,7 +10,7 @@ import {
 describe("super agent session helpers", () => {
   it("selects latest session from the super agent project and marks it as super-agent", () => {
     const project = {
-      path: "/Users/me/zicode/agent/super-agent",
+      path: "/Users/me/zicode/workspaces/agent-inbox",
       dirName: "super-agent",
       sessions: [
         { filePath: "/old.jsonl", timestamp: "2026-06-01T00:00:00.000Z" },
@@ -19,7 +19,7 @@ describe("super agent session helpers", () => {
     };
 
     expect(
-      getSuperAgentProject([project], "/Users/me/zicode/agent/super-agent")?.session,
+      getSuperAgentProject([project], "/Users/me/zicode/workspaces/agent-inbox")?.session,
     ).toMatchObject({
       filePath: "/new.jsonl",
       kind: "super-agent",
@@ -29,7 +29,7 @@ describe("super agent session helpers", () => {
 
   it("prefers the chat-connected Super Agent session over a newer inactive session", () => {
     const project = {
-      path: "/Users/me/zicode/agent/super-agent",
+      path: "/Users/me/zicode/workspaces/agent-inbox",
       dirName: "super-agent",
       sessions: [
         {
@@ -47,7 +47,7 @@ describe("super agent session helpers", () => {
     };
 
     expect(
-      getSuperAgentProject([project], "/Users/me/zicode/agent/super-agent")?.session,
+      getSuperAgentProject([project], "/Users/me/zicode/workspaces/agent-inbox")?.session,
     ).toMatchObject({
       filePath: "/chat-listener.jsonl",
       kind: "super-agent",
@@ -58,21 +58,27 @@ describe("super agent session helpers", () => {
   it("matches only the fixed super agent workspace path", () => {
     expect(
       isSuperAgentProjectPath(
-        "/Users/me/zicode/agent/super-agent",
-        "/Users/me/zicode/agent/super-agent",
+        "/Users/me/zicode/workspaces/agent-inbox",
+        "/Users/me/zicode/workspaces/agent-inbox",
       ),
     ).toBe(true);
     expect(
       isSuperAgentProjectPath(
         "/Users/me/project",
-        "/Users/me/zicode/agent/super-agent",
+        "/Users/me/zicode/workspaces/agent-inbox",
       ),
     ).toBe(false);
   });
 
   it("recognizes the conventional super agent path before home resolution completes", () => {
     expect(
-      isSuperAgentProjectPath("/Users/me/zicode/agent/super-agent", ""),
+      isSuperAgentProjectPath("/Users/me/zicode/workspaces/agent-inbox", ""),
+    ).toBe(true);
+    expect(
+      isSuperAgentProjectPath(
+        "C:\\Users\\ax2\\AppData\\Local\\zicode\\workspaces\\agent-inbox",
+        "",
+      ),
     ).toBe(true);
   });
 

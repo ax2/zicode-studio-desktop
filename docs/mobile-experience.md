@@ -4568,6 +4568,27 @@ P2 再做）完成 P1 UI 层：
    ERROR/WARN/panic；
 3. 说明：当前运行实例为重建后的 release（安装目录版）。
 
+第三百九十四轮：安全审计 + Agent Inbox 启动修复（2026-08-11）。
+
+1. 安全审计：
+   - 应用日志扫描 4 类敏感模式（sk- 密钥、api_key、Bearer、password）
+     全部为 0 命中；model-gateway 日志仅记录 Authorization 前 16 字符
+     掩码（含总长度）；
+   - 配置目录 `~/.zicode` 权限确认：agent 目录及其凭据文件 ACL 仅本机
+     用户 + SYSTEM + Administrators（无 Users 组读取）；
+   - 收紧 model-gateway 日志掩码：从 16 字符减到 6 字符，短值整体
+     脱敏，并抽取 `auth_preview` 函数 + 单测；
+2. Agent Inbox（超级代理）启动修复：启用开关后 `ensure_agent_inbox_session`
+   报"目录名称无效 (os error 267)"——根因是 `session_dir_name` 未清理
+   Windows 非法字符，`C:` 的冒号使占位会话目录名无效；修复为统一
+   清洗 `: * ? " < > |` 与控制字符并截断长度，补单测；修复后 inbox
+   工作区/占位会话创建、运行时启动、侧栏固定组展示全链路验证；
+3. 门禁：前端 799 项、Rust 178 项（新增 2 项）、typecheck/Biome/
+   design/Tauri 权限 20 条/clippy/fmt 全绿；
+4. 发布：release 第七十次重建 + `/S` 静默重装，日志无
+   ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十三轮：本地化审计——清除界面硬编码英文（2026-08-11）。
 
 1. 审计发现中文界面仍有多处硬编码英文：会话侧栏加载/失败/删除确认

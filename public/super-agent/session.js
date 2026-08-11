@@ -1,9 +1,14 @@
 const SUPER_AGENT_KIND = "super-agent";
 const SUPER_AGENT_NAME = "Agent Inbox";
-const SUPER_AGENT_PATH_SUFFIX = "/zicode/agent/super-agent";
+// The Agent Inbox workspace lives at `<data_root>/workspaces/agent-inbox`;
+// match on the normalized (forward-slash) path so Windows drive letters and
+// backslashes do not break the pinned-group detection.
+const SUPER_AGENT_PATH_SUFFIX = "/zicode/workspaces/agent-inbox";
 
 function normalizePath(value) {
-  return String(value || "").replace(/\/+$/, "");
+  return String(value || "")
+    .replace(/[\\/]+/g, "/")
+    .replace(/\/+$/, "");
 }
 
 function sessionTime(session) {

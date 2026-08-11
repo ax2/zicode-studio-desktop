@@ -491,6 +491,37 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十次重建（2026-08-11，第 394 轮安全审计 + Agent Inbox 修复）
+
+- 合入第 394 轮：
+  - 安全审计：日志无 sk-/api_key/Bearer/password 命中；
+    model-gateway 日志掩码从 16 字符收紧到 6 字符并抽取 `auth_preview`
+    单测；`~/.zicode` 配置与凭据文件 ACL 仅本机用户 + SYSTEM +
+    Administrators；
+  - Agent Inbox 修复两处：`session_dir_name` 未清理 Windows 非法字符
+    （`C:` 冒号导致 os error 267，占位会话目录无法创建）；前端
+    `SUPER_AGENT_PATH_SUFFIX` 仍为旧路径 `/zicode/agent/super-agent`
+    （第 384 轮把 inbox 工作区改到 `workspaces/agent-inbox` 后固定组
+    一直不显示）——统一为按正斜杠规范化匹配新路径，双修复均补单测；
+  - 前端 799 项、Rust 154 项、typecheck/Biome/design/Tauri 权限
+    20 条/clippy/fmt 全绿；
+- 产物（release 70）：
+  - `target/release/zicode-studio-desktop.exe`：41,600,512 B，
+    SHA-256 `8AA6660960A8B36B4DCBC457CF00C93791FA8DEB1C7843293DD2173C32BECF7E`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,808,479 B，SHA-256
+    `DB5E6715D0B49772B7CDA42A79E2B047F9207DD75C7FD1E51667507BB3507E01`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `A4A7B72213040F9BF36D3E1CAC190E9E91A0C859D3AEFAED8AC2A870198A4C65`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - Agent Inbox 全链路实测：启用开关 → `ensure_agent_inbox_session`
+    成功 → 双运行时启动 → 侧栏固定组"★ 智能收件箱 已固定"展示 →
+    切回 ax2 工作区 12+1 会话、固定组跨工作区可见、0 横向溢出；
+    日志无 ERROR/WARN/panic。
+
 ## 第六十九次重建（2026-08-11，第 393 轮本地化审计）
 
 - 合入第 393 轮：

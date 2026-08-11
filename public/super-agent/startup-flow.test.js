@@ -16,8 +16,8 @@ describe("super agent startup flow", () => {
     const action = selectSuperAgentStartupAction({
       enabled: true,
       sessions: [
-        { id: "old", projectPath: "/Users/me/zicode/agent/super-agent", timestamp: 10 },
-        { id: "new", projectPath: "/Users/me/zicode/agent/super-agent", timestamp: 20 },
+        { id: "old", projectPath: "/Users/me/zicode/workspaces/agent-inbox", timestamp: 10 },
+        { id: "new", projectPath: "/Users/me/zicode/workspaces/agent-inbox", timestamp: 20 },
       ],
     });
 
@@ -40,7 +40,7 @@ describe("super agent startup flow", () => {
   it("detects conventional Agent Inbox sessions", () => {
     expect(
       hasSuperAgentSession([
-        { projectPath: "/Users/me/zicode/agent/super-agent" },
+        { projectPath: "/Users/me/zicode/workspaces/agent-inbox" },
       ]),
     ).toBe(true);
     expect(hasSuperAgentSession([{ projectPath: "/Users/me/project" }])).toBe(false);
