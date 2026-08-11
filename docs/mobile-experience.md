@@ -4643,6 +4643,30 @@ P2 再做）完成 P1 UI 层：
 4. 说明：本轮为验证与回归锁定轮，无生产代码变更，运行实例保持
    release 73。
 
+第三百九十九轮：原生表单可访问名称 + 硬编码英文清理（2026-08-11）。
+
+1. 审计（CDP，zh-CN）：
+   - 桌面 10 个功能区 + 移动端 390px 聊天/更多菜单/笔记/任务/设置/
+     帮助全部可见交互元素可访问名称完整（按钮/输入/下拉/文本域均
+     有 aria-label、label 关联或可见文本），0 缺口；
+   - 运行态英文扫描无残留（命中项均为品牌/快捷键/权限标识）；
+   - 发现真实缺口：智能收件箱聊天平台表单（飞书/企业微信）8 个输入框
+     仅 placeholder 无 aria-label，且 3 个 placeholder 为硬编码英文
+     （App Secret / Bot ID / Secret），zh 界面会显示英文；
+2. 修复：
+   - 8 个输入框全部补 aria-label（应用 ID/应用密钥/会话 chat_id/
+     允许的用户 open_id（可选）/机器人 ID/密钥/userid 或 chatid/
+     允许的用户 userid（可选））；
+   - 3 个硬编码 placeholder 改走 t()，新增 4 个 i18n 键
+     （App ID/App Secret/Bot ID/Secret）；
+3. 回归测试：布局契约新增"聊天平台表单输入框必须全部带 aria-label 且
+   placeholder 必须经 t()"检查；
+4. 验证：CDP 打开设置 → 智能收件箱，8 个输入框 aria-label 与
+   placeholder 均为中文，无英文残留；门禁前端 811 项、
+   typecheck/Biome 453 文件/design/i18n 覆盖率全绿；
+5. 发布：release 第七十四次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

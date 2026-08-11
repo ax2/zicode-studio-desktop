@@ -22,6 +22,10 @@ const zhCN = {
   "Start a new session to reconnect": "新建会话即可恢复连接",
   "Pi runtime is disconnected. Start a new session to reconnect.":
     "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+  "App ID": "应用 ID",
+  "App Secret": "应用密钥",
+  "Bot ID": "机器人 ID",
+  Secret: "密钥",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",

@@ -25,10 +25,10 @@ class ChatSettingsPanel extends HTMLElement {
           <div class="settings-section-title">${t("Feishu")}</div>
           <p class="settings-help">${t("Uses a Feishu Open Platform app WebSocket; no public callback URL needed.")}</p>
           <form class="chat-platform-form" data-service="feishu">
-            <input class="ui-input" data-field="appId" placeholder="${t("App ID (cli_xxx)")}" autocomplete="off" />
-            <input class="ui-input" data-field="appSecret" placeholder="App Secret" type="password" autocomplete="off" />
-            <input class="ui-input" data-field="channelId" placeholder="${t("Channel chat_id")}" autocomplete="off" />
-            <input class="ui-input" data-field="allowedUserId" placeholder="${t("Allowed user open_id (optional)")}" autocomplete="off" />
+            <input class="ui-input" data-field="appId" aria-label="${t("App ID")}" placeholder="${t("App ID (cli_xxx)")}" autocomplete="off" />
+            <input class="ui-input" data-field="appSecret" aria-label="${t("App Secret")}" placeholder="${t("App Secret")}" type="password" autocomplete="off" />
+            <input class="ui-input" data-field="channelId" aria-label="${t("Channel chat_id")}" placeholder="${t("Channel chat_id")}" autocomplete="off" />
+            <input class="ui-input" data-field="allowedUserId" aria-label="${t("Allowed user open_id (optional)")}" placeholder="${t("Allowed user open_id (optional)")}" autocomplete="off" />
             <button type="submit" class="ui-button ui-button--primary" data-service="feishu">${t("Save Feishu configuration")}</button>
           </form>
         </div>
@@ -37,10 +37,10 @@ class ChatSettingsPanel extends HTMLElement {
           <div class="settings-section-title">${t("WeCom")}</div>
           <p class="settings-help">${t("Uses the official WeCom bot long connection. Fill userid for 1:1 chats and chatid for groups.")}</p>
           <form class="chat-platform-form" data-service="wecom">
-            <input class="ui-input" data-field="botId" placeholder="Bot ID" autocomplete="off" />
-            <input class="ui-input" data-field="secret" placeholder="Secret" type="password" autocomplete="off" />
-            <input class="ui-input" data-field="channelId" placeholder="${t("userid or chatid")}" autocomplete="off" />
-            <input class="ui-input" data-field="allowedUserId" placeholder="${t("Allowed user userid (optional)")}" autocomplete="off" />
+            <input class="ui-input" data-field="botId" aria-label="${t("Bot ID")}" placeholder="${t("Bot ID")}" autocomplete="off" />
+            <input class="ui-input" data-field="secret" aria-label="${t("Secret")}" placeholder="${t("Secret")}" type="password" autocomplete="off" />
+            <input class="ui-input" data-field="channelId" aria-label="${t("userid or chatid")}" placeholder="${t("userid or chatid")}" autocomplete="off" />
+            <input class="ui-input" data-field="allowedUserId" aria-label="${t("Allowed user userid (optional)")}" placeholder="${t("Allowed user userid (optional)")}" autocomplete="off" />
             <button type="submit" class="ui-button ui-button--primary" data-service="wecom">${t("Save WeCom configuration")}</button>
           </form>
         </div>

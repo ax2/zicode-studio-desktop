@@ -942,4 +942,25 @@ describe("desktop three-region layout contract", () => {
       "pub fn pi_global_agent_dir() -> Result<PathBuf, String> {\n    Ok(system_root()?.join(\"agent\"))",
     );
   });
+
+  it("keeps chat platform form fields labelled and translated", () => {
+    const panel = readFileSync(
+      join(process.cwd(), "public/components/chat-settings-panel.js"),
+      "utf8",
+    );
+    const inputs = [...panel.matchAll(/<input[^>]*>/g)].map((match) => match[0]);
+    expect(inputs.length).toBeGreaterThanOrEqual(8);
+    for (const input of inputs) {
+      expect(input).toMatch(/aria-label=/);
+    }
+    const placeholders = [...panel.matchAll(/placeholder="([^"]*)"/g)].map(
+      (match) => match[1],
+    );
+    expect(placeholders.length).toBeGreaterThanOrEqual(8);
+    for (const placeholder of placeholders) {
+      // Every placeholder must be built through the shared t() pipeline so the
+      // Chinese UI never shows raw English hints.
+      expect(placeholder).toMatch(/\$\{t\(/);
+    }
+  });
 });
