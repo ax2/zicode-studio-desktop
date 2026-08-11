@@ -173,13 +173,15 @@ const WelcomeItem = memo(function WelcomeItem({
             className="tau-icon-welcome"
           />
         </div>
-        <p>Welcome to ZiCode Studio Desktop</p>
+        <p>{t("Welcome to ZiCode Studio Desktop")}</p>
         <p className="hint">
-          Type a message below to start chatting with Pi, or select a session from the sidebar.
+          {t(
+            "Type a message below to start chatting with Pi, or select a session from the sidebar.",
+          )}
         </p>
         {workspacePath ? (
           <p className="hint welcome-workspace">
-            Current workspace: <code>{workspacePath}</code>
+            {t("Current workspace:")} <code>{workspacePath}</code>
           </p>
         ) : null}
         <button
@@ -191,7 +193,7 @@ const WelcomeItem = memo(function WelcomeItem({
         >
           <span className="welcome-scene-dot" aria-hidden="true"></span>
           <span className="welcome-scene-copy">
-            <span className="welcome-scene-kicker">Current scene</span>
+            <span className="welcome-scene-kicker">{t("Current scene")}</span>
             <strong data-scene-name>{sceneName}</strong>
             <span data-scene-description>{sceneDescription}</span>
           </span>
@@ -229,12 +231,12 @@ const WelcomeItem = memo(function WelcomeItem({
           ))}
         </div>
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
-        <div className="shortcuts-hint" role="group" aria-label="Keyboard shortcuts">
+        <div className="shortcuts-hint" role="group" aria-label={t("Keyboard shortcuts")}>
           <span>
-            <kbd>/</kbd> Focus input
+            <kbd>/</kbd> {t("Focus input")}
           </span>
           <span>
-            <kbd>Esc</kbd> Abort
+            <kbd>Esc</kbd> {t("Abort")}
           </span>
         </div>
       </div>
@@ -686,8 +688,8 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
           <button
             type="button"
             className="tool-action-btn copy-output-btn"
-            title="Copy output"
-            aria-label="Copy output"
+            title={t("Copy output")}
+            aria-label={t("Copy output")}
             disabled={!item.output.trim() || Boolean(copyState)}
             onClick={() => void copyOutput()}
           >

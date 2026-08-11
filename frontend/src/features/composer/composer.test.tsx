@@ -153,7 +153,7 @@ describe("composer React shell", () => {
     const menu = document.getElementById("skill-slash-menu");
     expect(menu?.classList.contains("hidden")).toBe(false);
     expect(menu?.querySelectorAll(".skill-slash-option").length).toBe(1);
-    expect(menu?.textContent).toContain("Skills");
+    expect(menu?.textContent).toMatch(/Skills|技能/);
     expect(menu?.textContent).toContain("Research");
     expect(menu?.textContent).not.toContain("Settings");
     expect(menu?.textContent).not.toContain("Review");

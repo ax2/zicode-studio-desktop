@@ -195,11 +195,11 @@ export function ComposerApp({
             className={`skill-slash-menu${slash.open ? "" : " hidden"}`}
             id="skill-slash-menu"
             role="listbox"
-            aria-label="Skill slash commands"
+            aria-label={t("Skill slash commands")}
           >
-            <div className="skill-slash-heading">Skills</div>
+            <div className="skill-slash-heading">{t("Skills")}</div>
             {slash.matches.length === 0 ? (
-              <div className="skill-slash-empty">No matching skills</div>
+              <div className="skill-slash-empty">{t("No matching skills")}</div>
             ) : (
               slash.matches.map((command, index) => (
                 <button
@@ -271,7 +271,7 @@ export function ComposerApp({
           <textarea
             ref={inputRef}
             id="message-input"
-            placeholder="Type a message, or use / to call a skill…"
+            placeholder={t("Type a message, or use / to call a skill…")}
             aria-label={t("Message input")}
             autoComplete="off"
             rows={2}
@@ -342,8 +342,8 @@ export function ComposerApp({
                 type="button"
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-icon-btn"
                 id="attach-btn"
-                title="Attach image"
-                aria-label="Attach image"
+                title={t("Attach image")}
+                aria-label={t("Attach image")}
                 aria-haspopup="dialog"
                 aria-expanded={imagePickerOpen}
                 tabIndex={-1}
@@ -358,7 +358,7 @@ export function ComposerApp({
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-icon-btn"
                 id="command-btn"
                 title={t("Commands (Ctrl+Shift+P)")}
-                aria-label="Open commands"
+                aria-label={t("Open commands")}
                 tabIndex={-1}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -376,7 +376,7 @@ export function ComposerApp({
                   type="button"
                   className="ui-button ui-button--sm ui-button--ghost model-dropdown-btn"
                   id="model-dropdown-btn"
-                  title="Switch model"
+                  title={t("Switch model")}
                   tabIndex={-1}
                 >
                   <span className="model-dropdown-label" id="model-dropdown-label">
@@ -402,7 +402,7 @@ export function ComposerApp({
                 type="button"
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn"
                 id="mic-btn"
-                title="Voice input"
+                title={t("Voice input")}
                 tabIndex={-1}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -411,7 +411,7 @@ export function ComposerApp({
                   <line x1="12" x2="12" y1="19" y2="22" />
                 </svg>
               </button>
-              <button type="submit" id="send-btn" title="Send message" tabIndex={-1}>
+              <button type="submit" id="send-btn" title={t("Send message")} tabIndex={-1}>
                 <span className="send-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="19" x2="12" y2="5" />
@@ -419,7 +419,7 @@ export function ComposerApp({
                   </svg>
                 </span>
               </button>
-              <button type="button" id="abort-btn" className="hidden" title="Abort (Esc)" tabIndex={-1}>
+              <button type="button" id="abort-btn" className="hidden" title={t("Abort (Esc)")} tabIndex={-1}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>

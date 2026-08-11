@@ -21,6 +21,29 @@ function javascriptFiles(root) {
 }
 
 describe("Chinese translation coverage", () => {
+  it("keeps user-facing React attributes localized (no hardcoded English labels)", () => {
+    const offenders = [];
+    const roots = [join(process.cwd(), "frontend", "src", "features")];
+    const labelPattern = /^[A-Z][a-z]+(?: [a-z]+)*$/;
+    for (const path of roots.flatMap((root) => javascriptFiles(root))) {
+      if (!path.endsWith(".tsx")) continue;
+      const source = readFileSync(path, "utf8");
+      for (const match of source.matchAll(
+        /\b(placeholder|aria-label|title)="([^"]+)"/g,
+      )) {
+        const value = match[2];
+        if (
+          /^[A-Z]/.test(value) &&
+          /[a-z]/.test(value) &&
+          labelPattern.test(value)
+        ) {
+          offenders.push(`${path}: ${match[1]}="${value}"`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("translates every static t() key used by the native application", () => {
     setLocale("zh-CN");
     const missing = new Set();

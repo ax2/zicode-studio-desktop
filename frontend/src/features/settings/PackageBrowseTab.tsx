@@ -49,7 +49,7 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
   return (
     <div className="settings-body">
       <div className="settings-section">
-        <div className="settings-section-title">Browse Community Packages</div>
+        <div className="settings-section-title">{t("Browse Community Packages")}</div>
         <p className="settings-help">
           Discover extensions, skills, themes, and prompts from the Pi ecosystem. Install with
           one click.
@@ -59,7 +59,7 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
             type="text"
             id="pkg-browse-search"
             className="pkg-browse-search"
-            placeholder="Search packages..."
+            placeholder={t("Search packages...")}
             autoComplete="off"
             spellCheck={false}
             value={searchQuery}
@@ -95,18 +95,18 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
                 void store.getState().setInstalledOnly(event.target.checked)
               }
             />
-            <span>Installed only</span>
+            <span>{t("Installed only")}</span>
           </label>
           <select
             id="pkg-browse-sort"
             className="pkg-browse-sort"
-            aria-label="Sort packages"
+            aria-label={t("Sort packages")}
             value={sortMode}
             onChange={(event) => store.getState().setSort(event.target.value)}
           >
-            <option value="downloads">Most downloads</option>
-            <option value="name">Name (A–Z)</option>
-            <option value="updated">Recently updated</option>
+            <option value="downloads">{t("Most downloads")}</option>
+            <option value="name">{t("Name (A–Z)")}</option>
+            <option value="updated">{t("Recently updated")}</option>
           </select>
           <span className="pkg-browse-count" id="pkg-browse-count">
             {results.length === 0

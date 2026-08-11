@@ -51,7 +51,7 @@ export function CostDashboardTab({
   if (status === "loading") {
     return (
       <div className="cost-dash-page">
-        <p className="cost-dash-empty-state">Loading usage…</p>
+        <p className="cost-dash-empty-state">{t("Loading usage…")}</p>
       </div>
     );
   }
@@ -301,7 +301,7 @@ function ActivityPanel({ payload }: { payload: Parameters<typeof deriveOverviewM
 
 function ModelsPanel({ summary }: { summary: ReturnType<typeof buildModelSummary> }) {
   if (summary.series.length === 0 || summary.labels.length === 0) {
-    return <div className="cost-dash-empty-state">No data in selected range.</div>;
+    return <div className="cost-dash-empty-state">{t("No data in selected range.")}</div>;
   }
   return (
     <div className="cost-dash-models-card">
@@ -395,7 +395,11 @@ function ModelsChart({ summary }: { summary: ReturnType<typeof buildModelSummary
     };
   }, [summary, Chart]);
   if (!Chart) {
-    return <div className="cost-dash-empty-state">Chart unavailable in this environment.</div>;
+    return (
+      <div className="cost-dash-empty-state">
+        {t("Chart unavailable in this environment.")}
+      </div>
+    );
   }
   return <canvas ref={canvasRef} className="cost-dash-models-chart" width="960" height="320" />;
 }
@@ -544,7 +548,11 @@ function ProjectsPanel({ rows }: { rows: CostRow[] }) {
 
 function SessionsPanel({ sessions }: { sessions: CostSession[] }) {
   if (!Array.isArray(sessions) || sessions.length === 0) {
-    return <div className="cost-dash-empty-state">No recent sessions in selected range.</div>;
+    return (
+      <div className="cost-dash-empty-state">
+        {t("No recent sessions in selected range.")}
+      </div>
+    );
   }
   return (
     // biome-ignore lint/a11y/useSemanticElements: region role preserved from the vanilla sessions table

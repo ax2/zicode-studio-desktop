@@ -114,7 +114,7 @@ export function SessionSearchDialogApp({
         className="session-search-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Search tasks"
+        aria-label={t("Search tasks")}
         onKeyDown={(event) => {
           if (event.key !== "Tab") return;
           const focusable = Array.from(
@@ -157,7 +157,7 @@ export function SessionSearchDialogApp({
             ref={inputRef}
             type="text"
             className="session-search-dialog-input"
-            placeholder="Search tasks and messages…"
+            placeholder={t("Search tasks and messages…")}
             autoComplete="off"
             spellCheck={false}
             value={query}
@@ -183,7 +183,7 @@ export function SessionSearchDialogApp({
           ref={listRef}
           className="session-search-results"
           role="listbox"
-          aria-label="Search results"
+          aria-label={t("Search results")}
         >
           {titleRows.length > 0 ? (
             <div className="session-search-group" key="title-group">

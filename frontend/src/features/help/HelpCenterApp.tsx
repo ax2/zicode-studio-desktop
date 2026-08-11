@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { t } from "../../shared/i18n";
 import {
   HELP_DEFAULT_PAGE,
   matchesSearch,
@@ -157,7 +158,7 @@ export function HelpMain({ store }: { store: HelpStore }) {
         className="help-center-article"
         aria-busy={!article}
       >
-        {!article && !error ? <p>Loading documentation…</p> : null}
+        {!article && !error ? <p>{t("Loading documentation…")}</p> : null}
         {error ? <p>{error}</p> : null}
       </article>
       <div className="help-center-toc">

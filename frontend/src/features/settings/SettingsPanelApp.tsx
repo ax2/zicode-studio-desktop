@@ -404,7 +404,7 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
               id="scene-profile-name"
               required
               maxLength={80}
-              placeholder="Research"
+              placeholder={t("Research")}
               value={form.name}
               onChange={(event) => setForm({ name: event.target.value })}
             />

@@ -22,7 +22,7 @@ export function ConfigTab({
   return (
     <div className="settings-body">
       <div className="settings-scene-context configuration-scene-context">
-        <span className="settings-scene-context-label">Editing current scene</span>
+        <span className="settings-scene-context-label">{t("Editing current scene")}</span>
         <strong id="configuration-scene-name">{sceneName}</strong>
         <code id="configuration-scene-id">{sceneId}</code>
         <span className="settings-scene-context-note">
@@ -41,9 +41,9 @@ export function ConfigTab({
         </div>
       </div>
       <div className="settings-section" id="settings-auth-section" style={{ display: "none" }}>
-        <div className="settings-section-title">Protection</div>
+        <div className="settings-section-title">{t("Protection")}</div>
         <div className="settings-row">
-          <span className="settings-label">Require login</span>
+          <span className="settings-label">{t("Require login")}</span>
           <button
             type="button"
             className={`settings-toggle${authEnabled ? " on" : ""}`}
@@ -56,7 +56,7 @@ export function ConfigTab({
       </div>
       <div className="settings-section">
         <div className="settings-section-title settings-section-title-row">
-          <span>Custom model channels</span>
+          <span>{t("Custom model channels")}</span>
           <button
             type="button"
             className="ui-button ui-button--secondary"
@@ -67,8 +67,13 @@ export function ConfigTab({
           </button>
         </div>
         <p className="settings-help">
-          Configure an OpenAI-, Anthropic-, or Google-compatible endpoint for this scene.
-          Credentials are stored separately from <code>models.json</code>.
+          {t(
+            "Configure an OpenAI-, Anthropic-, or Google-compatible endpoint for this scene.",
+          )}{" "}
+          {t("Credentials are stored separately from {file}.").replace(
+            "{file}",
+            "models.json",
+          )}
         </p>
         <div className="provider-channel-list" id="provider-channel-list">
           <ProviderChannelsPanel store={store} />
@@ -78,7 +83,7 @@ export function ConfigTab({
       <div className="settings-section">
         <div className="settings-section-title">{t("Agent")}</div>
         <div className="settings-config-meta">
-          <span className="settings-label">Agent config file</span>
+          <span className="settings-label">{t("Agent config file")}</span>
           <span className="settings-static-value" id="inline-config-path">
             {inlinePath(configEditor)}
           </span>
@@ -86,10 +91,12 @@ export function ConfigTab({
         <InlineEditor store={store} kind="config" />
       </div>
       <div className="settings-section">
-        <div className="settings-section-title">Advanced provider JSON</div>
+        <div className="settings-section-title">{t("Advanced provider JSON")}</div>
         <p className="settings-help">
-          Edit <code>zicode/agent/models.json</code> to add custom providers (Ollama, vLLM, LM
-          Studio, OpenAI-compatible proxies, OpenRouter routing overrides, etc). See the{" "}
+          {t(
+            "Edit {file} to add custom providers (Ollama, vLLM, LM Studio, OpenAI-compatible proxies, OpenRouter routing overrides, etc).",
+          ).replace("{file}", "zicode/agent/models.json")}{" "}
+          {t("See the")}{" "}
           <a
             href="https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/docs/models.md"
             id="models-config-docs-link"
@@ -98,12 +105,12 @@ export function ConfigTab({
               store.getState().openModelsDocs();
             }}
           >
-            models.json docs
+            {t("models.json docs")}
           </a>{" "}
-          for the full schema. Changes are picked up immediately — no restart needed.
+          {t("for the full schema. Changes are picked up immediately — no restart needed.")}
         </p>
         <div className="settings-config-meta">
-          <span className="settings-label">Providers file</span>
+          <span className="settings-label">{t("Providers file")}</span>
           <span className="settings-static-value" id="inline-models-path">
             {inlinePath(modelsEditor)}
           </span>
@@ -147,7 +154,7 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
     );
   }
   if (providers.length === 0) {
-    return <div className="settings-api-keys-empty">No providers known.</div>;
+    return <div className="settings-api-keys-empty">{t("No providers known.")}</div>;
   }
 
   const sorted = [...providers].sort((a, b) => Number(b.configured) - Number(a.configured));
@@ -169,8 +176,8 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
           type="search"
           id="provider-auth-search"
           className="ui-input"
-          placeholder="Search providers…"
-          aria-label="Search providers"
+          placeholder={t("Search providers…")}
+          aria-label={t("Search providers")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
@@ -301,7 +308,7 @@ function ApiKeyEditor({ store, provider }: { store: ConfigStore; provider: Confi
         type="password"
         autoComplete="off"
         spellCheck={false}
-        placeholder="Paste API key…"
+        placeholder={t("Paste API key…")}
         value={input}
         onChange={(event) => setInput(event.target.value)}
         onKeyDown={(event) => {
@@ -524,7 +531,7 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
         />
       </label>
       <label className="provider-channel-wide">
-        <span>Base URL</span>
+        <span>{t("Base URL")}</span>
         <input
           className="ui-input"
           id="provider-channel-base-url"
@@ -536,7 +543,7 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
         />
       </label>
       <label>
-        <span>API protocol</span>
+        <span>{t("API protocol")}</span>
         <select
           className="ui-input"
           id="provider-channel-api"
@@ -550,13 +557,13 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
         </select>
       </label>
       <label>
-        <span>API key</span>
+        <span>{t("API key")}</span>
         <input
           className="ui-input"
           id="provider-channel-api-key"
           type="password"
           autoComplete="new-password"
-          placeholder="Leave blank to keep current key"
+          placeholder={t("Leave blank to keep current key")}
           value={form.apiKey}
           onChange={(event) => setForm({ apiKey: event.target.value })}
         />
@@ -567,7 +574,7 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
         ) : null}
       </label>
       <label className="provider-channel-wide">
-        <span>Models (one ID per line)</span>
+        <span>{t("Models (one ID per line)")}</span>
         <textarea
           className="ui-textarea"
           id="provider-channel-models"

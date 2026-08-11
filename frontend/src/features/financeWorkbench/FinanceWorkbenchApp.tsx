@@ -736,14 +736,14 @@ export function FinanceContentApp({
             <input
               ref={researchSymbolRef}
               className="ui-input"
-              placeholder="Symbol"
+              placeholder={t("Symbol")}
               required
               disabled={Boolean(busy.research)}
             />
             <input
               ref={researchTitleRef}
               className="ui-input"
-              placeholder="Research title"
+              placeholder={t("Research title")}
               disabled={Boolean(busy.research)}
             />
             <input

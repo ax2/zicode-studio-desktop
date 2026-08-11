@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { t } from "../../shared/i18n";
 import {
   isTypeSomethingOption,
   parseOption,
@@ -31,7 +32,7 @@ function PreviewPanel({
   preview: DialogContent["previews"][number] | null;
 }) {
   if (!preview) {
-    return <div className="inline-prompt-preview-empty">No preview</div>;
+    return <div className="inline-prompt-preview-empty">{t("No preview")}</div>;
   }
   return (
     <>
@@ -124,7 +125,7 @@ export function InlineExtensionPromptCard({
     <div
       className={`inline-prompt-card${answered ? " answered" : ""}`}
       role="group"
-      aria-label="Extension question"
+      aria-label={t("Extension question")}
     >
       <div className="inline-prompt-header">
         <span className="inline-prompt-eyebrow">{content.header || "Question"}</span>
@@ -193,7 +194,7 @@ export function InlineExtensionPromptCard({
             ref={multiCustomRef}
             className="inline-prompt-input"
             type="text"
-            placeholder="Type a custom answer"
+            placeholder={t("Type a custom answer")}
             disabled={answered !== null}
             onChange={(event) => setCustomActive(event.currentTarget.value.trim().length > 0)}
           />
@@ -214,7 +215,7 @@ export function InlineExtensionPromptCard({
             ref={customInputRef}
             className="inline-prompt-input"
             type="text"
-            placeholder="Type a custom answer"
+            placeholder={t("Type a custom answer")}
             disabled={answered !== null}
           />
           <div className="inline-prompt-actions">

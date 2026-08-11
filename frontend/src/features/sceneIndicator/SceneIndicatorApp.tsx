@@ -9,7 +9,7 @@ export function SceneIndicatorApp({
   return (
     <>
       <span className="scene-indicator-dot" aria-hidden="true" />
-      <span className="scene-indicator-prefix">Scene</span>
+      <span className="scene-indicator-prefix">{t("Scene")}</span>
       <strong id="scene-indicator-name">{t(profile.name)}</strong>
     </>
   );

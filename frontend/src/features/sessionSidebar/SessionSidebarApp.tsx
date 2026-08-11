@@ -289,14 +289,14 @@ export function SessionSidebarApp({
     );
   }
   if (sessions.length === 0 && phase === "loading") {
-    return <div className="session-loading">Loading sessions...</div>;
+    return <div className="session-loading">{t("Loading sessions...")}</div>;
   }
   if (sessions.length === 0 && phase === "error") {
     return (
       <div className="session-loading">
-        Failed to load sessions.{" "}
+        {t("Failed to load sessions.")}{" "}
         <button className="retry-link" id="retry-load-sessions" onClick={() => controller.retryLoad()}>
-          Retry
+          {t("Retry")}
         </button>
       </div>
     );
@@ -496,7 +496,7 @@ export function SessionSidebarApp({
           <div className="project-sessions">
             {visibleSearchResults.map((result: SessionSearchResult) => {
               const title =
-                result.sessionName || result.firstMessage || "Untitled";
+                result.sessionName || result.firstMessage || t("Untitled");
               const snippet = result.matches?.[0]?.snippet || "";
               const matchCount = result.matches?.length ?? 0;
               const time = formatSessionTime(result.sessionTimestamp || "");
@@ -664,12 +664,12 @@ export function SessionSidebarApp({
                 className="sidebar-confirm-dialog"
                 role="dialog"
                 aria-modal="true"
-                aria-label="Delete archived sessions"
+                aria-label={t("Delete archived sessions")}
               >
                 <div className="sidebar-confirm-message">
-                  {`Delete ${confirmDeleteCount} archived session${
-                    confirmDeleteCount === 1 ? "" : "s"
-                  } permanently? This cannot be undone.`}
+                  {t(
+                    "Delete {count} archived sessions permanently? This cannot be undone.",
+                  ).replace("{count}", String(confirmDeleteCount))}
                 </div>
                 <div className="sidebar-confirm-actions">
                   <button
@@ -677,14 +677,14 @@ export function SessionSidebarApp({
                     className="sidebar-confirm-no"
                     onClick={() => controller.cancelDeleteAll()}
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     type="button"
                     className="sidebar-confirm-yes"
                     onClick={() => controller.confirmDeleteAll()}
                   >
-                    Delete
+                    {t("Delete")}
                   </button>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { flushSync } from "react-dom";
 import { useSyncExternalStore } from "react";
+import { t } from "../../shared/i18n";
 import type { NotificationKind } from "./notificationCenterLogic";
 
 export interface NotificationItem {
@@ -93,7 +94,7 @@ function NotificationCard({
       <button
         type="button"
         className="native-notification-close"
-        aria-label="Dismiss notification"
+        aria-label={t("Dismiss notification")}
         onClick={onDismiss}
       >
         ×
