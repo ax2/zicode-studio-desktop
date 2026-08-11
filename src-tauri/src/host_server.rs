@@ -356,6 +356,7 @@ impl HostServer {
             .route("/v2/notes/attachment", get(read_note_attachment))
             .route("/v2/notes/import-markdown", post(import_markdown_note))
             .route("/v2/notes/export", get(export_notes_backup))
+            .route("/v2/notes/export-all", get(export_notes_all))
             .route(
                 "/v2/notes/import-backup",
                 post(import_notes_backup).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
@@ -1362,6 +1363,13 @@ struct ExportNotesQuery {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ExportAllNotesQuery {
+    workspace_id: String,
+    scene_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportBackupRequest {
     workspace_id: String,
     scene_id: String,
@@ -1855,6 +1863,23 @@ async fn export_notes_backup(
         .export_notebook(&query.notebook_id)
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "backup": backup })))
+}
+
+/// Export every notebook in the workspace as a single archival bundle.
+async fn export_notes_all(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ExportAllNotesQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &query.scene_id, false)?;
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes.scoped(&query.workspace_id).map_err(notes_api_error)?;
+    let notebooks = scoped.export_all_notebooks().map_err(notes_api_error)?;
+    Ok(Json(json!({
+        "backup": {
+            "schemaVersion": 1,
+            "notebooks": notebooks,
+        }
+    })))
 }
 
 async fn import_notes_backup(

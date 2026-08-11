@@ -216,6 +216,13 @@ export class NotesGateway {
     return this.#request(url);
   }
 
+  exportAllBackup(sceneId, workspaceId) {
+    const url = this.#url("/v2/notes/export-all");
+    url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("workspaceId", workspaceId);
+    return this.#request(url);
+  }
+
   importBackup(sceneId, workspaceId, backup) {
     return this.#post("/v2/notes/import-backup", {
       sceneId,

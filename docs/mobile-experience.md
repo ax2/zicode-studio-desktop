@@ -4789,6 +4789,24 @@ P2 再做）完成 P1 UI 层：
 5. 发布：release 第七十八次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百零六轮：笔记工作区级"导出全部笔记本备份"（2026-08-11）。
+
+1. 数据闭环补全：此前笔记备份导出仅限当前选中的笔记本，无法一次
+   备份整个工作区；
+2. 实现：
+   - Rust：`NotesVault::export_all_notebooks` 遍历全部笔记本聚合
+     VaultExport；host 新增 `GET /v2/notes/export-all`（返回
+     `{ backup: { schemaVersion, notebooks[] } }`）；
+   - 前端：数据管理新增"导出全部笔记本备份"入口，下载
+     `zicode-notes-all-<workspaceId 前 8 位>.json`，成功 toast
+     "全部笔记本备份已导出"；
+3. 测试：Rust 单测（2 笔记本 → 2 份导出，标题/笔记数正确）+ 前端
+   store 测试（mock 网关 → 下载文件名与内容断言）；
+4. 门禁：前端 822 项、Rust 180 项（156+19+5，另 2 项忽略）、
+   typecheck/Biome 455 文件/design 全绿；
+5. 发布：release 第七十九次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

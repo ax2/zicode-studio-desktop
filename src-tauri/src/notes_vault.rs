@@ -1218,6 +1218,17 @@ impl NotesVault {
         })
     }
 
+    /// Export every notebook in this vault as one archival bundle so users can
+    /// back up an entire workspace without exporting notebooks one by one.
+    pub fn export_all_notebooks(&self) -> Result<Vec<VaultExport>, NotesError> {
+        let notebooks = self.list_notebooks()?;
+        let mut exports = Vec::with_capacity(notebooks.len());
+        for notebook in notebooks {
+            exports.push(self.export_notebook(&notebook.id)?);
+        }
+        Ok(exports)
+    }
+
     pub fn import_export(&self, export: VaultExport) -> Result<NotebookDescriptor, NotesError> {
         if export.schema_version != VAULT_SCHEMA_VERSION {
             return Err(NotesError::new(
@@ -2579,6 +2590,30 @@ mod tests {
         assert_eq!(loaded.content, "# Roadmap\n\nCapability broker.");
         assert_eq!(loaded.summary.tags, vec!["plugin", "roadmap"]);
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn exports_every_notebook_as_one_workspace_bundle() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let first = vault.create_notebook("Alpha", None, None).unwrap();
+        vault
+            .create_note(&first.id, "A1", "# A1", vec![], None, None)
+            .unwrap();
+        let second = vault.create_notebook("Beta", None, None).unwrap();
+        vault
+            .create_note(&second.id, "B1", "# B1", vec![], None, None)
+            .unwrap();
+
+        let exports = vault.export_all_notebooks().unwrap();
+        let titles: Vec<String> = exports
+            .iter()
+            .map(|export| export.notebook.title.clone())
+            .collect();
+        assert_eq!(titles, vec!["Alpha", "Beta"]);
+        assert_eq!(exports[0].notes.len(), 1);
+        assert_eq!(exports[1].notes.len(), 1);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -77,6 +77,7 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
     attachmentUrl: vi.fn(() => "/api/attachments/x"),
     importMarkdown: vi.fn(async () => ({ note: NOTE })),
     exportBackup: vi.fn(async () => ({ backup: {} })),
+    exportAllBackup: vi.fn(async () => ({ backup: { notebooks: [] } })),
     importBackup: vi.fn(async () => ({ notebook: { id: "book-9", title: "Imported" } })),
     rebuild: vi.fn(async () => ({ report: { validNotes: 1, invalidFiles: [] } })),
     listTrash: vi.fn(async () => ({ trash: [] })),
@@ -597,6 +598,25 @@ describe("notes store", () => {
     const [fileName, content] = downloadFile.mock.calls[0];
     expect(fileName).toBe("Projects.zicode-notes.json");
     expect(JSON.parse(content)).toMatchObject({ schemaVersion: 1 });
+  });
+
+  it("exports every notebook as one workspace backup through the download hook", async () => {
+    const downloadFile = vi.fn();
+    const exportAllBackup = vi.fn(async () => ({
+      backup: { schemaVersion: 1, notebooks: [{ notebook: { id: "book-1" } }] },
+    }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ exportAllBackup }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    await store.getState().exportAllBackup();
+    expect(exportAllBackup).toHaveBeenCalledWith("programming", "ws-1");
+    expect(downloadFile).toHaveBeenCalledOnce();
+    const [fileName, content] = downloadFile.mock.calls[0];
+    expect(fileName).toBe("zicode-notes-all-ws-1.json");
+    expect(JSON.parse(content).notebooks).toHaveLength(1);
   });
 
   it("imports a readable backup through the file picker", async () => {

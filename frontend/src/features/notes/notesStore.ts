@@ -98,6 +98,7 @@ export interface NotesGatewayLike {
   attachmentUrl(sceneId: string, workspaceId: string, note: Note, attachmentId: string): string;
   importMarkdown(sceneId: string, workspaceId: string, notebookId: string, fileName: string, markdown: string): Promise<{ note: Note }>;
   exportBackup(sceneId: string, workspaceId: string, notebookId: string): Promise<{ backup: unknown }>;
+  exportAllBackup(sceneId: string, workspaceId: string): Promise<{ backup: unknown }>;
   importBackup(sceneId: string, workspaceId: string, backup: unknown): Promise<{ notebook: Notebook }>;
   rebuild(sceneId: string, workspaceId: string, notebookId: string): Promise<{ report: { validNotes: number; invalidFiles: unknown[] } }>;
   listTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ trash?: TrashEntry[] }>;
@@ -203,6 +204,7 @@ interface NotesState {
   attachFile(): Promise<void>;
   importMarkdown(): Promise<void>;
   exportBackup(): Promise<void>;
+  exportAllBackup(): Promise<void>;
   importBackup(): Promise<void>;
   rebuildIndex(): Promise<void>;
   publishAstro(): Promise<void>;
@@ -930,6 +932,23 @@ export function createNotesStore(options: NotesStoreOptions) {
           "application/json",
         );
         notify(t("Readable backup exported"));
+      } catch (error) {
+        set({ error: localizeNotesHostError(error) });
+      }
+    },
+
+    async exportAllBackup() {
+      try {
+        const response = await gateway.exportAllBackup(
+          sceneId(),
+          workspaceId(),
+        );
+        downloadFile(
+          `zicode-notes-all-${workspaceId().slice(0, 8)}.json`,
+          JSON.stringify(response.backup, null, 2),
+          "application/json",
+        );
+        notify(t("All notebooks backup exported"));
       } catch (error) {
         set({ error: localizeNotesHostError(error) });
       }
