@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十九次重建（2026-08-11，第 406 轮笔记工作区级备份导出）
+
+- 合入第 406 轮：
+  - Rust：`NotesVault::export_all_notebooks` 聚合全部笔记本导出；
+    host 新增 `GET /v2/notes/export-all`；
+  - 前端：数据管理新增"导出全部笔记本备份"，下载
+    `zicode-notes-all-<workspaceId>.json`（schemaVersion 1 +
+    notebooks[]），成功 toast；
+  - 测试：Rust 单测（2 笔记本聚合）+ 前端 store 测试；
+  - 前端 822 项、Rust 180 项（156+19+5，另 2 项忽略）、
+    typecheck/Biome 455 文件/design 全绿；
+- 产物（release 79）：
+  - `target/release/zicode-studio-desktop.exe`：41,618,944 B，
+    SHA-256 `745696153DDDC18EF9F00A3C01E5C50708E8C90DA2F92DDA30E4BC90661F08D0`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,813,855 B，SHA-256
+    `3E03D0D8DA4476DD26DAAA9F133307CC21D9041239E15162142F7FA6BEBB4185`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `3D158E870342691F0525AF26F2B8309BBE3F93EC0D391705D1F697A5A33462C7`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：ax2 工作区"导出全部笔记本备份"下载
+    `zicode-notes-all-f70e093f.json`，含 QVeris 与剪藏测试两个
+    笔记本；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第七十八次重建（2026-08-11，第 405 轮项目级 Markdown 导出）
 
 - 合入第 405 轮：
