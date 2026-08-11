@@ -491,6 +491,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第七十六次重建（2026-08-11，第 402 轮 Markdown 导出 + JSX 本地化）
+
+- 合入第 402 轮：
+  - 修复 5 处 JSX 文本节点硬编码英文（思考块标签、确认对话框、
+    内联扩展提示、插入示例、草稿提示），i18n 覆盖率测试升级为
+    同时检查 JSX 文本节点；
+  - 新功能：会话"更多"菜单"导出为 Markdown"（read_session_messages
+    → 用户/助手分节、思考引用、工具列表 → 下载）；
+  - 前端 817 项、Rust 179 项、typecheck/Biome 455 文件/design/
+    i18n 覆盖率/Tauri 权限 20 条全绿；
+- 产物（release 76）：
+  - `target/release/zicode-studio-desktop.exe`：41,600,512 B，
+    SHA-256 `1765AFA4259E8B7434DB80F9FC478675D6A81C2D44D1CEA380FD54BCC5861C09`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,827,906 B，SHA-256
+    `2DA213FA0F0D6F0F53B24F8DD9352D92DB6987415831DCC58A93C63A72817D71`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `D93B1CE289BA831EC6B07B7FC24CF4800D9BA2CEF749FB919E64E458FDDA1C38`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：真实会话导出 Markdown 内容完整（中文分节 + 思考引用）；
+    思考块标签实测为"思考"；
+  - 应用日志无 ERROR/WARN/panic。
+
 ## 第七十五次重建（2026-08-11，第 400 轮移动端触摸目标修复）
 
 - 合入第 400 轮：
