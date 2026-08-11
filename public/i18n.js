@@ -36,6 +36,12 @@ const zhCN = {
   "Conversation exported as Markdown": "对话已导出为 Markdown",
   "Could not export this conversation": "无法导出该对话",
   "The session transcript could not be read.": "无法读取该会话的转写内容。",
+  "Export project as Markdown": "导出项目为 Markdown",
+  "Project exported as Markdown": "项目已导出为 Markdown",
+  "Could not export this project": "无法导出该项目",
+  "No session transcripts could be read.": "无法读取任何会话的转写内容。",
+  "Some session transcripts could not be read.":
+    "部分会话的转写内容无法读取。",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",

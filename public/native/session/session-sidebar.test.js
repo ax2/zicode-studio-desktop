@@ -384,6 +384,77 @@ describe("SessionSidebar.render", () => {
     expect(container.querySelector(".archived-group .project-group")).toBeNull();
   });
 
+  it("exports every session in a project as one Markdown document", async () => {
+    const createObjectUrl = vi.fn(() => "blob:project-export");
+    URL.createObjectURL = createObjectUrl;
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const notify = vi.fn();
+    const { sidebar, container } = makeSidebar(
+      [
+        { id: "s-a", timestamp: new Date().toISOString(), name: "First" },
+        { id: "s-b", timestamp: new Date().toISOString(), name: "Second" },
+      ],
+      {
+        notify,
+        data: {
+          listAllSessions: vi.fn().mockResolvedValue({
+            sessions: [
+              {
+                id: "s-a",
+                name: "First",
+                timestamp: new Date().toISOString(),
+                projectPath: "/ws-1",
+                projectName: "ws-1",
+                isCurrentWorkspace: true,
+              },
+              {
+                id: "s-b",
+                name: "Second",
+                timestamp: new Date().toISOString(),
+                projectPath: "/ws-1",
+                projectName: "ws-1",
+                isCurrentWorkspace: true,
+              },
+            ],
+          }),
+          searchSessions: vi.fn().mockResolvedValue({ results: [] }),
+          readSessionMessages: vi.fn().mockImplementation((_ws, sessionId) =>
+            Promise.resolve({
+              messages: [
+                { role: "user", content: [{ type: "text", text: sessionId }] },
+              ],
+            }),
+          ),
+        },
+      },
+    );
+    await sidebar.load();
+
+    const currentHeader = container.querySelector(".project-group.current-project .project-header");
+    currentHeader.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    const exportItem = [
+      ...document.querySelectorAll(".session-context-menu .context-menu-item"),
+    ].find((el) => /Export project as Markdown|导出项目为 Markdown/.test(el.textContent));
+    expect(exportItem).toBeTruthy();
+    exportItem.click();
+
+    await vi.waitFor(() =>
+      expect(sidebar.data.readSessionMessages).toHaveBeenCalledTimes(2),
+    );
+    await vi.waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "success" }),
+      ),
+    );
+    const anchor = clickSpy.mock.instances[0];
+    expect(anchor).toBeTruthy();
+    expect(anchor.download).toBe("ws-1.md");
+    clickSpy.mockRestore();
+  });
+
   it("opens the session context menu from the touch-friendly more button", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-more", timestamp: new Date().toISOString(), name: "More" },

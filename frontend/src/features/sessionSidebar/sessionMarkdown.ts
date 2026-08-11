@@ -72,3 +72,26 @@ export function sessionMarkdownFileName(
   const safe = base.slice(0, 60);
   return `${safe}-${sessionId.slice(0, 8)}.md`;
 }
+
+export interface ProjectMarkdownPart {
+  title: string;
+  body: string;
+}
+
+/** Join one or more rendered sessions into a single project document. */
+export function renderProjectSessionsMarkdown(
+  parts: ProjectMarkdownPart[],
+): string {
+  const sections = parts
+    .filter((part) => part.body.trim().length > 0)
+    .map((part) => `# ${part.title}\n\n${part.body.trim()}`);
+  return `${sections.join("\n\n---\n\n")}${sections.length > 0 ? "\n" : ""}`;
+}
+
+/** A filesystem-safe Markdown filename for a whole-project export. */
+export function projectMarkdownFileName(name: string | undefined): string {
+  const base =
+    (name || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim() ||
+    t("Project");
+  return `${base.slice(0, 60)}.md`;
+}

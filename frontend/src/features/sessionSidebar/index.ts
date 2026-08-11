@@ -11,6 +11,8 @@ import {
   type SessionSidebarController,
 } from "./SessionSidebarApp";
 import {
+  projectMarkdownFileName,
+  renderProjectSessionsMarkdown,
   renderSessionMarkdown,
   sessionMarkdownFileName,
 } from "./sessionMarkdown";
@@ -619,18 +621,10 @@ export class SessionSidebar implements SessionSidebarController {
       )) as { messages?: unknown[] };
       const messages = Array.isArray(frame) ? frame : frame?.messages ?? [];
       const markdown = renderSessionMarkdown(messages);
-      const blob = new Blob([markdown], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = sessionMarkdownFileName(
-        session.name || session.firstMessage,
-        session.id,
+      this.downloadMarkdownFile(
+        markdown,
+        sessionMarkdownFileName(session.name || session.firstMessage, session.id),
       );
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 0);
       this.notify({
         title: t("Conversation exported as Markdown"),
         type: "success",
@@ -643,6 +637,18 @@ export class SessionSidebar implements SessionSidebarController {
         type: "error",
       });
     }
+  }
+
+  private downloadMarkdownFile(markdown: string, fileName: string): void {
+    const blob = new Blob([markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   async deleteArchivedSession(id: string): Promise<void> {
@@ -689,7 +695,57 @@ export class SessionSidebar implements SessionSidebarController {
         label: "Archive all sessions",
         action: () => this.archiveProject(project),
       },
+      {
+        icon: "📦",
+        label: "Export project as Markdown",
+        action: () => this.exportProjectMarkdown(project),
+      },
     ];
+  }
+
+  async exportProjectMarkdown(project: ProjectGroup): Promise<void> {
+    this.closeContextMenu();
+    const workspaceId = this.getTarget().workspaceId;
+    const parts: Array<{ title: string; body: string }> = [];
+    let failed = 0;
+    for (const session of project.sessions) {
+      try {
+        const frame = (await this.data.readSessionMessages(
+          session.workspaceId || workspaceId,
+          session.id,
+        )) as { messages?: unknown[] };
+        const messages = Array.isArray(frame) ? frame : frame?.messages ?? [];
+        const body = renderSessionMarkdown(messages);
+        if (body.trim()) {
+          parts.push({
+            title: session.name || session.firstMessage || session.id,
+            body,
+          });
+        } else {
+          failed += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+    }
+    if (parts.length === 0) {
+      this.notify({
+        title: t("Could not export this project"),
+        message: t("No session transcripts could be read."),
+        type: "error",
+      });
+      return;
+    }
+    this.downloadMarkdownFile(
+      renderProjectSessionsMarkdown(parts),
+      projectMarkdownFileName(project.name),
+    );
+    this.notify({
+      title: t("Project exported as Markdown"),
+      message:
+        failed > 0 ? t("Some session transcripts could not be read.") : undefined,
+      type: "success",
+    });
   }
 
   showMenu(

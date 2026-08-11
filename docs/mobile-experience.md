@@ -4771,6 +4771,24 @@ P2 再做）完成 P1 UI 层：
 2. 结论：本轮为验证轮，未发现缺陷、无生产代码变更，运行实例保持
    release 77。
 
+第四百零五轮：项目级会话批量导出为 Markdown（2026-08-11）。
+
+1. 新功能：项目头上下文菜单新增"导出项目为 Markdown"（📦）——
+   遍历项目内全部会话，逐个读取转写并渲染（复用单会话渲染），
+   以 `# 会话标题` 分节合并为一个 Markdown 文档下载（文件名取自
+   项目名）；读取失败或空转写的会话跳过并计数，全部失败时弹出
+   错误 toast，部分失败时成功 toast 附注；
+2. 单会话导出同步重构为共享 `downloadMarkdownFile`；
+3. 测试：`renderProjectSessionsMarkdown` 分节/空正文过滤、
+   `projectMarkdownFileName` 文件名净化、侧栏项目菜单导出
+   （mock 2 会话 → 1 个下载 + success toast）；
+4. 验证（CDP）：ax2 项目头菜单含"导出项目为 Markdown"，导出
+   `ax2.md` 含多会话 `# ` 分节（用户/助手/思考/工具完整）；
+   门禁前端 821 项、typecheck/Biome 455 文件/design/i18n 覆盖率
+   全绿；
+5. 发布：release 第七十八次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：
