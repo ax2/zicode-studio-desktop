@@ -8,8 +8,8 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 809 项通过 | 136 个测试文件 |
-| Rust | 178 项通过（154+19+5，另 2 项忽略） | cargo test |
+| 前端 vitest | 810 项通过 | 136 个测试文件 |
+| Rust | 179 项通过（155+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
@@ -96,6 +96,13 @@
   确认应用可自动重生运行时恢复；清理 i18n.js 7 处重复键（含
   `Symbol` 被金融"标的代码"遮蔽的真实翻译 bug），Biome 门禁转绿
   （453 文件），前端 809 项全绿；
+- 存储落位审计（第 398 轮）：系统/模型配置（agent、scenes、
+  metadata、credentials、remote-access、scene-profiles）全部在
+  `~/.zicode`；工作区数据按 `<工作区>/.zicode/<app>` 落位（全局
+  工作区 `~/.zicode` 自身在 `~/.zicode/.zicode/<app>`）；`~/.pi/agent`
+  仅为迁移备份且无新写入；生产代码唯一 `home.join(".pi")` 位于一次性
+  迁移函数。新增 Rust 路径不变量与前端源码契约防回归测试，前端
+  810 项、Rust 179 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

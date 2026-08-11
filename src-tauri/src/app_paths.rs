@@ -256,7 +256,10 @@ fn contains_session_file(root: &Path) -> Result<bool, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{cleanup_empty_instances_at, migrate_legacy_metadata, workspace_app_dir};
+    use super::{
+        cleanup_empty_instances_at, global_workspace_root, migrate_legacy_metadata,
+        pi_global_agent_dir, system_root, workspace_app_dir,
+    };
     use std::fs;
 
     #[test]
@@ -270,6 +273,24 @@ mod tests {
             workspace_app_dir(&std::path::PathBuf::from("/home/user/work"), &system),
             std::path::PathBuf::from("/home/user/work/.zicode")
         );
+    }
+
+    #[test]
+    fn system_config_lives_under_home_zicode_not_pi() {
+        let system = system_root().expect("system root resolves");
+        assert_eq!(
+            system.file_name().and_then(|name| name.to_str()),
+            Some(".zicode")
+        );
+        assert_eq!(global_workspace_root().expect("global root resolves"), system);
+        assert_eq!(
+            pi_global_agent_dir().expect("pi agent dir resolves"),
+            system.join("agent")
+        );
+        // The Pi agent directory must never resolve under a legacy `~/.pi`
+        // location; `~/.pi` is only a one-time migration source.
+        let home = dirs::home_dir().expect("home resolves");
+        assert!(!pi_global_agent_dir().unwrap().starts_with(home.join(".pi")));
     }
 
     #[test]

@@ -916,4 +916,30 @@ describe("desktop three-region layout contract", () => {
     expect(manifest).toContain('"display": "standalone"');
     expect(manifest).toContain('"share_target"');
   });
+
+  it("keeps system/model config under ~/.zicode with ~/.pi as a migration source only", () => {
+    const appPaths = readFileSync(
+      join(process.cwd(), "src-tauri/src/app_paths.rs"),
+      "utf8",
+    );
+    // The only way to build a legacy Pi path is `home.join(".pi")`; it must
+    // appear exactly once, inside the one-time migration function, so no
+    // production write target can ever point at `~/.pi` again.
+    const productionSource = appPaths.split("#[cfg(test)]")[0];
+    expect(productionSource.match(/home\.join\("\.pi"\)/g)).toHaveLength(1);
+    const migrationStart = appPaths.indexOf(
+      "One-time migration of Pi's legacy global agent directory",
+    );
+    const migrationEnd = appPaths.indexOf("\n}\n", migrationStart);
+    expect(migrationStart).toBeGreaterThan(-1);
+    expect(migrationEnd).toBeGreaterThan(migrationStart);
+    expect(productionSource.indexOf('home.join(".pi")')).toBeGreaterThanOrEqual(
+      migrationStart,
+    );
+    expect(productionSource.indexOf('home.join(".pi")')).toBeLessThan(migrationEnd);
+    // The global agent dir must derive from `~/.zicode`, never `~/.pi`.
+    expect(appPaths).toContain(
+      "pub fn pi_global_agent_dir() -> Result<PathBuf, String> {\n    Ok(system_root()?.join(\"agent\"))",
+    );
+  });
 });

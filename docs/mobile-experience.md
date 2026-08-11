@@ -4613,6 +4613,36 @@ P2 再做）完成 P1 UI 层：
 5. 发布：release 第七十三次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第三百九十八轮：存储落位审计（~/.zicode vs ~/.pi）+ 防回归测试
+（2026-08-11）。
+
+1. 逐项核验用户要求的"系统配置（含模型配置）保存到 ~/.zicode 而非
+   ~/.pi"：
+   - `~/.zicode`：agent（auth/models-store/settings.json）、scenes/
+     <场景>/agent/models.json、metadata/picot.sqlite3（工作区注册表）、
+     credentials、remote-access、scene-profiles.json 全部就位；
+   - 工作区数据按 `<工作区>/.zicode/<app>` 落位：会话/笔记/产物/任务/
+     自动化/金融均确认（`~/.zicode/sessions`、`~/.zicode/notes` 属于
+     工作区 `C:\Users\ax2`，与会话文件内 cwd 一致；全局工作区
+     `~/.zicode` 自身数据在 `~/.zicode/.zicode/<app>`，符合架构注释）；
+   - `~/.pi/agent` 与 `~/.zicode/agent` 逐字节相同、非硬链接，最新
+     写入停在迁移前（08-10 10:27），此后无任何新写入——仅保留为
+     迁移备份；
+   - 代码审计：生产路径唯一 `home.join(".pi")` 出现在
+     `migrate_legacy_pi_agent`（一次性迁移源）；`pi_global_agent_dir`
+     派生自 `system_root()/agent`；运行时环境变量
+     `PI_CODING_AGENT_DIR/PI_DESKTOP_WORKSPACE_DIR/PI_DESKTOP_DATA_DIR/
+     PI_DESKTOP_SYSTEM_DIR` 全部指向 ~/.zicode 体系；
+2. 补防回归测试：
+   - Rust：`system_config_lives_under_home_zicode_not_pi`（系统根/
+     全局工作区/全局 agent 目录路径不变量）；
+   - 前端契约：扫描 `app_paths.rs` 生产段，`home.join(".pi")` 必须
+     恰好出现一次且位于迁移函数内；
+3. 门禁：前端 810 项、Rust 179 项（155+19+5，另 2 项忽略）、
+   typecheck/Biome 453 文件/design 全绿；
+4. 说明：本轮为验证与回归锁定轮，无生产代码变更，运行实例保持
+   release 73。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：
