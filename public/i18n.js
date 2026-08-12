@@ -46,6 +46,10 @@ const zhCN = {
   "All notebooks backup exported": "全部笔记本备份已导出",
   "Import all notebooks backup": "导入全部笔记本备份",
   "All notebooks backup imported": "全部笔记本备份已导入",
+  "Export all artifacts": "导出全部产物",
+  "All artifacts exported": "全部产物已导出",
+  "No artifacts to export": "没有可导出的产物",
+  "Could not export artifacts": "无法导出产物",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",

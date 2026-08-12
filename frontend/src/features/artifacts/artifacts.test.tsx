@@ -28,7 +28,7 @@ function createGateway() {
         plugins: ["com.zicode.finance"],
       },
     })),
-    get: vi.fn(async () => ({
+    get: vi.fn(async (_scene: string, _workspace: string, _id: string) => ({
       artifact: {
         ...DESCRIPTOR,
         content: { metrics: { totalReturn: 0.12 } },
@@ -164,6 +164,71 @@ describe("artifact store host errors", () => {
     expect(store.getState().error?.message).toBe(
       "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
     );
+    store.getState().destroy();
+  });
+});
+
+describe("artifact bulk export", () => {
+  it("bundles every artifact into one download", async () => {
+    setLocale("en");
+    const downloadFile = vi.fn();
+    const gateway = createGateway();
+    gateway.list.mockResolvedValue({
+      snapshot: {
+        artifacts: [
+          DESCRIPTOR,
+          { ...DESCRIPTOR, id: "artifact-2", title: "Second" },
+        ],
+        kinds: ["report"],
+        plugins: ["com.zicode.finance"],
+      },
+    });
+    gateway.get.mockImplementation(
+      async (_scene: string, _workspace: string, id: string) => ({
+      artifact: {
+        ...DESCRIPTOR,
+        id,
+        title: id === "artifact-2" ? "Second" : DESCRIPTOR.title,
+        content: { metrics: { totalReturn: 0.12 } },
+      },
+      }),
+    );
+    const store = createArtifactStore({
+      gateway,
+      getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    await store.getState().load();
+    await store.getState().exportAll();
+
+    expect(gateway.get).toHaveBeenCalledTimes(2);
+    expect(downloadFile).toHaveBeenCalledOnce();
+    const [fileName, content] = downloadFile.mock.calls[0];
+    expect(fileName).toBe("zicode-artifacts-all-ws-finan.json");
+    const bundle = JSON.parse(content);
+    expect(bundle.schemaVersion).toBe(1);
+    expect(bundle.artifacts).toHaveLength(2);
+    expect(bundle.artifacts[1].title).toBe("Second");
+    store.getState().destroy();
+  });
+
+  it("notifies when there is nothing to export", async () => {
+    setLocale("en");
+    const notify = vi.fn();
+    const gateway = createGateway();
+    gateway.list.mockResolvedValue({
+      snapshot: { artifacts: [], kinds: [], plugins: [] },
+    });
+    const store = createArtifactStore({
+      gateway,
+      getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
+      notify,
+      downloadFile: vi.fn(),
+    });
+    await store.getState().load();
+    await store.getState().exportAll();
+    expect(notify).toHaveBeenCalledWith("No artifacts to export");
     store.getState().destroy();
   });
 });

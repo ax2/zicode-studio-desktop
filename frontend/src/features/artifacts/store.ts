@@ -49,6 +49,7 @@ interface ArtifactState {
   openArtifact(artifactId: string): Promise<void>;
   deleteSelected(): Promise<void>;
   exportSelected(): boolean;
+  exportAll(): Promise<void>;
   setTarget(): void;
   destroy(): void;
 }
@@ -202,6 +203,48 @@ export function createArtifactStore(options: ArtifactAppOptions) {
       );
       notify(t("Artifact exported"));
       return true;
+    },
+
+    async exportAll() {
+      const artifacts = get().snapshot.artifacts;
+      if (artifacts.length === 0) {
+        notify(t("No artifacts to export"));
+        return;
+      }
+      const documents = [];
+      for (const descriptor of artifacts) {
+        try {
+          const response = await gateway.get(
+            sceneId(),
+            workspaceId(),
+            descriptor.id,
+          );
+          if (response.artifact) {
+            documents.push(response.artifact);
+          }
+        } catch {
+          // Skip artifacts that cannot be read; the bundle still exports the
+          // ones that succeeded. All-failure is handled below.
+        }
+      }
+      if (documents.length === 0) {
+        notify(t("Could not export artifacts"));
+        return;
+      }
+      downloadFile(
+        `zicode-artifacts-all-${workspaceId().slice(0, 8)}.json`,
+        `${JSON.stringify(
+          {
+            schemaVersion: 1,
+            exportedAt: new Date().toISOString(),
+            artifacts: documents,
+          },
+          null,
+          2,
+        )}\n`,
+        "application/json",
+      );
+      notify(t("All artifacts exported"));
     },
 
     setTarget() {

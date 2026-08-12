@@ -29,6 +29,7 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
   const setPluginId = store((state) => state.setPluginId);
   const load = store((state) => state.load);
   const selectArtifact = store((state) => state.selectArtifact);
+  const exportAll = store((state) => state.exportAll);
   const [search, setSearch] = useState(store.getState().query);
 
   useEffect(() => {
@@ -54,6 +55,13 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
           onChange={(event) => setSearch(event.target.value)}
         />
       </label>
+      <button
+        type="button"
+        className="ui-button ui-button--secondary ui-button--sm artifacts-export-all"
+        onClick={() => void exportAll()}
+      >
+        {t("Export all artifacts")}
+      </button>
       <FilterSection
         title={t("Types")}
         options={[
@@ -266,6 +274,7 @@ function StatePanel({
 export interface ArtifactAppApi {
   deleteSelected(): Promise<void>;
   exportSelected(): boolean;
+  exportAll(): Promise<void>;
   load(options?: { preserveSelection?: boolean }): Promise<void>;
   renderContent(container: HTMLElement): void;
   renderNavigation(container: HTMLElement): void;
@@ -285,6 +294,9 @@ export function createArtifactApp(options: ArtifactAppOptions): ArtifactAppApi {
     },
     exportSelected() {
       return store.getState().exportSelected();
+    },
+    exportAll() {
+      return store.getState().exportAll();
     },
     load(options) {
       return store.getState().load(options);

@@ -54,6 +54,10 @@ describe("app updater sidebar action", () => {
     expect(document.getElementById("setting-update-status").textContent).toContain(
       "not configured",
     );
-    expect(document.getElementById("btn-check-updates").disabled).toBe(true);
+    // The button stays enabled as a GitHub Releases entry; it must never
+    // trigger an unsigned feed check.
+    expect(document.getElementById("btn-check-updates").disabled).toBe(false);
+    document.getElementById("btn-check-updates").click();
+    expect(check).not.toHaveBeenCalled();
   });
 });
