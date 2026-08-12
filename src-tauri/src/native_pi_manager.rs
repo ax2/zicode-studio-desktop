@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 use crate::pi_rpc_bridge::InMemoryPiProcess;
-use crate::pi_rpc_bridge::{BridgeFrame, PiRpcBridge, PiRpcProcess};
+use crate::pi_rpc_bridge::{BridgeError, BridgeFrame, PiRpcBridge, PiRpcProcess};
 use crate::process_command::new_command;
 use crate::runtime_coordinator::{
     MutationAcceptance, RuntimeCoordinator, RuntimeSnapshot, RuntimeState, RuntimeStatus,
@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 
 const MAX_RPC_FRAME_BYTES: usize = 16 * 1024 * 1024;
@@ -65,6 +65,7 @@ struct ManagedRuntime {
     target: Arc<Mutex<RuntimeTarget>>,
     bridge: PiRpcBridge,
     process: Option<PiRpcProcess>,
+    launch: Option<NativeLaunchSpec>,
 }
 
 struct NativePiManagerInner {
@@ -72,7 +73,12 @@ struct NativePiManagerInner {
     runtimes: Mutex<HashMap<String, ManagedRuntime>>,
     events: broadcast::Sender<NativeRuntimeEvent>,
     pending_ui: Mutex<HashMap<String, Vec<NativeRuntimeEvent>>>,
+    last_respawn: Mutex<HashMap<String, Instant>>,
 }
+
+/// Minimum interval between automatic runtime respawns for the same instance.
+/// Prevents a rapidly dying pi process from churning the registry.
+const RESPAWN_MIN_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,6 +102,7 @@ impl NativePiManager {
                 runtimes: Mutex::new(HashMap::new()),
                 events,
                 pending_ui: Mutex::new(HashMap::new()),
+                last_respawn: Mutex::new(HashMap::new()),
             }),
         }
     }
@@ -115,6 +122,7 @@ impl NativePiManager {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        let launch_spec = spec.clone();
         let child = command
             .spawn()
             .map_err(|error| format!("Cannot start embedded Pi native RPC process: {error}"))?;
@@ -139,6 +147,7 @@ impl NativePiManager {
                     target: Arc::new(Mutex::new(target.clone())),
                     bridge: bridge.clone(),
                     process: Some(process),
+                    launch: Some(launch_spec),
                 },
             );
         self.start_event_pump(target, bridge);
@@ -167,6 +176,7 @@ impl NativePiManager {
                     target: Arc::new(Mutex::new(target.clone())),
                     bridge: bridge.clone(),
                     process: None,
+                    launch: None,
                 },
             );
         self.start_event_pump(target, bridge);
@@ -259,6 +269,54 @@ impl NativePiManager {
             .unwrap_or_default())
     }
 
+    /// Rebuild a runtime whose RPC bridge reported `ProcessClosed`. The old
+    /// process (if any) is killed, the stale registration is removed, and the
+    /// original launch spec is replayed so the target comes back with a fresh
+    /// stdin/stdout bridge. Throttled per instance to avoid respawn storms.
+    fn respawn(&self, target: &RuntimeTarget) -> Result<(), String> {
+        {
+            let mut last = self
+                .inner
+                .last_respawn
+                .lock()
+                .map_err(|_| "Runtime respawn lock poisoned".to_string())?;
+            if let Some(previous) = last.get(&target.instance_id) {
+                if previous.elapsed() < RESPAWN_MIN_INTERVAL {
+                    return Ok(());
+                }
+            }
+            last.insert(target.instance_id.clone(), Instant::now());
+        }
+
+        let launch = {
+            let mut runtimes = self
+                .inner
+                .runtimes
+                .lock()
+                .map_err(|_| "Native runtime registry lock poisoned".to_string())?;
+            let Some(mut runtime) = runtimes.remove(&target.instance_id) else {
+                return Ok(());
+            };
+            if let Some(process) = &mut runtime.process {
+                let _ = process.kill();
+            }
+            runtime.launch
+        };
+        let Some(launch) = launch else {
+            return Err("Native runtime has no launch spec to respawn".into());
+        };
+
+        // Best-effort cleanup of the coordinator record so the fresh
+        // registration in `spawn` is accepted.
+        let _ = self
+            .inner
+            .coordinator
+            .lock()
+            .map_err(|_| "Runtime coordinator lock poisoned".to_string())?
+            .unregister(target);
+        self.spawn(target.clone(), launch)
+    }
+
     pub async fn request(
         &self,
         target: &RuntimeTarget,
@@ -306,10 +364,32 @@ impl NativePiManager {
             .get(&target.instance_id)
             .map(|runtime| runtime.bridge.clone())
             .ok_or_else(|| "Native runtime instance is not running".to_string())?;
-        let response = bridge
-            .request(command, timeout)
-            .await
-            .map_err(|error| format!("Pi RPC request failed: {error:?}"))?;
+        let response = match bridge.request(command.clone(), timeout).await {
+            Ok(response) => response,
+            Err(BridgeError::ProcessClosed) => {
+                // The pi subprocess RPC channel is gone (stdin pipe closed or
+                // the process exited). Rebuild the runtime once so config and
+                // extension operations recover automatically instead of leaving
+                // every dependent view stuck on a disconnected error until the
+                // user manually starts a new session.
+                self.respawn(target)?;
+                let bridge = self
+                    .inner
+                    .runtimes
+                    .lock()
+                    .map_err(|_| "Native runtime registry lock poisoned".to_string())?
+                    .get(&target.instance_id)
+                    .map(|runtime| runtime.bridge.clone())
+                    .ok_or_else(|| "Native runtime instance is not running".to_string())?;
+                bridge
+                    .request(command, timeout)
+                    .await
+                    .map_err(|error| format!("Pi RPC request failed: {error:?}"))?
+            }
+            Err(error) => {
+                return Err(format!("Pi RPC request failed: {error:?}"));
+            }
+        };
         if let Some(key) = mutation_key {
             self.inner
                 .coordinator
@@ -692,5 +772,27 @@ mod tests {
         let event = events.recv().await.unwrap();
         assert_eq!(event.target, formal);
         assert_eq!(manager.target_for_session_id("session-a"), Some(formal));
+    }
+
+    #[tokio::test]
+    async fn respawn_without_launch_spec_reports_a_clear_error() {
+        let manager = NativePiManager::in_memory(8);
+        let target = RuntimeTarget::new("workspace-a", "session-a", "instance-a");
+        manager.register_in_memory(target.clone()).unwrap();
+
+        let error = manager.respawn(&target).unwrap_err();
+        assert!(error.contains("no launch spec"), "{error}");
+        // The dead runtime is removed even when respawn cannot rebuild it, so a
+        // follow-up request fails with a deterministic "not running" error
+        // instead of hanging on a broken bridge.
+        assert!(manager
+            .request(
+                &target,
+                json!({ "type": "get_state" }),
+                None,
+                Duration::from_secs(1),
+            )
+            .await
+            .is_err_and(|error| error.contains("not running")));
     }
 }

@@ -648,6 +648,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - CDP 实测会话右键菜单显示收藏/归档/重命名/导出为 Markdown；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零五次重建（2026-08-13，第 448 轮 RPC 桥自愈）
+
+- 合入第 448 轮：
+  - `NativePiManager` 保存 launch spec；请求遇 `BridgeError::ProcessClosed`
+    时自动移除死运行时、按原 spec 重建 pi 并重试一次（同一实例
+    10s 节流防抖）；
+  - 新增单测覆盖无 spec 重建报错与死运行时确定性失败路径；
+  - 门禁：Rust 193 项（169+19+5，另 2 忽略）、Clippy warnings-as-errors、
+    fmt、前端 860 项（139 文件）全绿；
+- 产物（release 105）：
+  - `target/release/zicode-studio-desktop.exe`：41,985,536 B，
+    SHA-256 `7FE48AD9F0FC49141599554F405F88CC16C074C57EF9BA321B46E567E7F2C214`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,008,524 B，SHA-256
+    `D416D8632BBCB0F8621FEFD17089E01F2AD612CFA4FAAC20173FCD069EF6C241`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `FF2A42DD2CD80C36E905304A908ECE2547D14A68EC79765B8A7F57B85B4FDC24`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - CDP 实测启动后 automation_workspace RPC 返回 ok、自动化视图显示
+    正确空态（修复前为"无法加载自动化/Pi 运行时连接已断开"）；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：

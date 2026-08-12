@@ -5253,6 +5253,27 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十八轮：修复重启后配置 RPC 桥死亡（ProcessClosed）缺陷（2026-08-13）。
+
+1. 运行时审计发现真实缺陷：应用重启后，恢复会话的 pi 运行时 RPC 桥
+   报告 `BridgeError::ProcessClosed`（stdin 写入通道已断），导致所有
+   依赖配置 RPC 的应用不可用——自动化/任务显示"无法加载"、super-agent
+   面板卡"连接中…"、设置配置页提示断连；而对话仍可回复（桌面模型网关
+   直连上游，不依赖该桥）。多次干净重启可复现；新建会话偶发恢复；
+2. 排查：手动以 `--mode rpc [--session]` 启动 pi 并喂入 config 命令，
+   stdin/stdout 协议完全正常（返回 response 并处理 prompt），定位为
+   桌面侧桥接生命周期问题——`PiRpcBridge` 写线程一次写入失败即永久
+   退出，宿主没有任何重建逻辑；
+3. 修复（宿主侧自愈）：`NativePiManager` 保存每次启动的 launch spec，
+   请求遇 `ProcessClosed` 时自动移除死运行时、按原 spec 重建 pi 并
+   重试一次（同一实例 10s 节流防抖）；新增单测覆盖无 spec 重建报错
+   与死运行时确定性失败路径；Rust 193 项全绿（169+19+5，另 2 忽略）；
+4. 验证：debug 构建启动后 automation RPC 返回 ok、自动化视图显示正确
+   空态；release 第一百零五次重建 + `/S` 静默重装后同测通过，安装目录
+   public 0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay
+   `dev-ax2-01` 在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百四十七轮：桌面响应式 + 英文界面走查（2026-08-13）。
 
 1. CDP Emulation 桌面多宽度（1440/1280/1024/900/768）打开笔记编辑：
