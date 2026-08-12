@@ -491,6 +491,29 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十五次重建（2026-08-12，第 415 轮导出文档标题头）
+
+- 合入第 415 轮：
+  - 会话导出支持文档级 `# 标题` H1（标题取自会话名/首条消息），
+    单会话导出自包含；项目导出保持分节标题（不传 title 避免重复
+    H1）；
+  - 前端 829 项、Rust 181 项、typecheck/Biome 456 文件/design 全绿；
+- 产物（release 85）：
+  - `target/release/zicode-studio-desktop.exe`：41,646,080 B，
+    SHA-256 `D785A309B38372A69023B096521143099DCCD7A37FD4B72C3DD9FFE9F77E08B2`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,800,472 B，SHA-256
+    `6E31BD62DAE831DA4513E029844BF652772ADA7E7ED725999961659ED8A6AF5E`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `211045B55F15FB36F245CE67A2BC28A3C27C76423F78D95CB8F702DA4AD3C1BC`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：真实会话导出文件以 `# 验证 env apiKey：回复 OK` 开头，
+    内容完整；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十四次重建（2026-08-12，第 414 轮移动端帮助导航触摸高度）
 
 - 合入第 414 轮：
