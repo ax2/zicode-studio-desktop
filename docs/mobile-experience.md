@@ -5253,6 +5253,22 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百五十七轮：完整门禁总审计（2026-08-13）。
+
+1. 当前 main（release 106 对应代码）全量门禁：
+   - 前端 vitest 861 项 / 139 文件全绿；
+   - TypeScript typecheck 通过；Biome lint 459 文件 0 错误 0 警告；
+   - 设计 CSS 令牌检查通过；
+   - Rust 194 项通过（170+19+5，另 2 忽略），Clippy warnings-as-errors
+     与 fmt 通过；
+   - MkDocs strict 构建通过；
+2. 安装产物：release 106 与 main 同步，安装目录 public 300 文件
+   0 缺失/0 哈希差异，运行实例 `/health` 200（pi 0.84.1、relay
+   `dev-ax2-01` 在线），日志无 ERROR/WARN/panic；
+3. 结论：本地可验证范围内全部门禁与功能/数据链路绿，剩余事项均需
+   外部输入（TURN 服务器密钥对齐、真机移动网络 M2 验收、代码签名、
+   自动更新发布）。
+
 第四百五十六轮：超级智能体任务交互链路实测（2026-08-13）。
 
 1. release 106 安装版：
