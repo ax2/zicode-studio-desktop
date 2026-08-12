@@ -16,6 +16,10 @@ const pluginShell = readFileSync(
 const helpCss = readFileSync(join(process.cwd(), "public/native/features/help-center.css"), "utf8");
 const headerCss = readFileSync(join(process.cwd(), "public/native/header.css"), "utf8");
 const mobileCss = readFileSync(join(process.cwd(), "public/native/mobile.css"), "utf8");
+const designSystemCss = readFileSync(
+  join(process.cwd(), "public/design-system.css"),
+  "utf8",
+);
 const messageRendererCss = readFileSync(
   join(process.cwd(), "public/ui/message-renderer.css"),
   "utf8",
@@ -181,6 +185,12 @@ describe("desktop three-region layout contract", () => {
     expect(sessionSidebarCss).toMatch(/\.project-header:focus-within \.project-more-btn/);
     expect(sessionSidebarCss).toMatch(
       /\.project-more-btn:focus-visible\s*\{[^}]*visibility:\s*visible/s,
+    );
+  });
+
+  it("gives every ui control a visible keyboard focus ring", () => {
+    expect(designSystemCss).toMatch(
+      /\.ui-button:focus-visible,[\s\S]*?\.ui-icon-button:focus-visible,[\s\S]*?\.ui-input:focus-visible,[\s\S]*?\.ui-select:focus-visible\s*\{[\s\S]*?box-shadow:\s*0\s+0\s+0\s+var\(--focus-ring-width\)\s+var\(--accent-glow\)/,
     );
   });
 
