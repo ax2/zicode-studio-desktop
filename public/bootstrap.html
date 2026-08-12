@@ -63,16 +63,37 @@
 </head>
 <body>
   <main class="card">
-    <h1>ZiCode Studio Desktop could not start</h1>
-    <p>The embedded <code>pi</code> runtime that ships with ZiCode Studio Desktop failed to launch.</p>
-    <p>This usually means the installation is incomplete or corrupted. Reinstalling ZiCode Studio Desktop normally fixes it. Click <b>Retry startup</b> after reinstalling or rebooting.</p>
+    <h1 id="startup-title">ZiCode Studio Desktop could not start</h1>
+    <p id="startup-body-1">The embedded <code>pi</code> runtime that ships with ZiCode Studio Desktop failed to launch.</p>
+    <p id="startup-body-2">This usually means the installation is incomplete or corrupted. Reinstalling ZiCode Studio Desktop normally fixes it. Click <b id="retry-label">Retry startup</b> after reinstalling or rebooting.</p>
     <div id="startup-error" class="error"></div>
     <div class="actions">
-      <button id="retry-btn" type="button">Retry startup</button>
+      <button id="retry-btn" type="button" data-retry>Retry startup</button>
     </div>
     <div id="hint" class="hint"></div>
   </main>
   <script>
+    const localeCookie = document.cookie
+      .split("; ")
+      .find((value) => value.startsWith("zicode-studio-locale="));
+    const cookieLocale = localeCookie
+      ? decodeURIComponent(localeCookie.slice("zicode-studio-locale=".length))
+      : "";
+    const zh = (cookieLocale || navigator.language || "").toLowerCase().startsWith("zh");
+    if (zh) {
+      const texts = {
+        title: "ZiCode Studio Desktop 无法启动",
+        body1: "随 ZiCode Studio Desktop 内置的 pi 运行时启动失败。",
+        body2: "这通常意味着安装不完整或已损坏。重新安装 ZiCode Studio Desktop 一般可以修复；重新安装或重启后，点击“重试启动”。",
+        retry: "重试启动",
+      };
+      document.title = texts.title;
+      document.getElementById("startup-title").textContent = texts.title;
+      document.getElementById("startup-body-1").textContent = texts.body1;
+      document.getElementById("startup-body-2").innerHTML = texts.body2.replace("“重试启动”", `<b>${texts.retry}</b>`);
+      document.getElementById("retry-btn").textContent = texts.retry;
+      document.documentElement.lang = "zh-CN";
+    }
     const retryBtn = document.getElementById('retry-btn');
     const hint = document.getElementById('hint');
     const errorBox = document.getElementById('startup-error');

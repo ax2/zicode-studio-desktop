@@ -491,6 +491,30 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
+
+- 合入第 438 轮：
+  - `public/bootstrap.html` 按 `zicode-studio-locale` cookie /
+    navigator.language 切换中/英文（标题/正文/重试按钮）；
+  - i18n 补 "Download and install update" 键；
+  - 门禁：前端 848 项、Rust 192 项、typecheck/Biome 458 文件/design/
+    Tauri 权限 24 条全绿；
+- 产物（release 98）：
+  - `target/release/zicode-studio-desktop.exe`：41,969,152 B，
+    SHA-256 `C22DB1EA0DFC02BF22D5BAD3193449853AD3C76DD7653A5EFC9FB6775A4DF694`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,957,837 B，SHA-256
+    `26D5BBD4EF545C9474CD62C3F58FD65C5F712D4840F961952BAADA126C18E8D1`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `A66AF0BCA6DD96B3C86FC548EA6CFB7BC4CB9E1C8B10ABAC784DE9D2D0160797`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测 bootstrap 页 zh 渲染：title/h1"无法启动"、按钮
+    "重试启动"、lang zh-CN；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十七次重建（2026-08-12，第 437 轮复制状态本地化）
 
 - 合入第 437 轮：

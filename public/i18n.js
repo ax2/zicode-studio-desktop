@@ -537,6 +537,7 @@ const zhCN = {
   "App version": "应用版本",
   "Pi version": "Pi 版本",
   "Check for updates": "检查更新",
+  "Download and install update": "下载并安装更新",
   Updates: "更新",
   "Desktop version": "桌面版本",
   "Click to check": "点击检查",

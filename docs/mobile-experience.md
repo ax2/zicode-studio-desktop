@@ -5253,6 +5253,23 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十八轮：启动失败页与静态提示本地化（2026-08-12）。
+
+1. 扫描发现：`public/bootstrap.html`（pi 运行时启动失败时显示的无应用
+   JS 静态页）全部英文（标题/正文/重试按钮）；index.html 静态
+   title/aria 属性中 "Download and install update" 无中文键；
+2. 修复：bootstrap.html 按 `zicode-studio-locale` cookie 或
+   navigator.language 切换中/英文（中文标题"无法启动"、正文、重试
+   按钮"重试启动"）；i18n 补 "Download and install update" 键；
+   检查确认 index.html 其余静态 title/aria/placeholder 均有键；
+3. 验证：CDP 设 zh cookie 加载 bootstrap 页——title/h1"无法启动"、
+   按钮"重试启动"、lang zh-CN；前端 848 项、typecheck/Biome 458 文件
+   全绿；
+4. 发布：release 第九十八次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十七轮：代码块/工具卡片复制状态本地化（2026-08-12）。
 
 1. 扫描发现：复用渲染管线的 `public/ui/markdown.js` 代码块复制按钮
