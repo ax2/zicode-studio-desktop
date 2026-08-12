@@ -21,12 +21,14 @@ The main-view header keeps a file manager button for browsing the current worksp
 The function area (left rail) always shows the workspace bar with the current
 workspace name and full path:
 
-- Click the workspace name to open the system folder picker and open the
-  selected directory as a workspace;
+- The workspace name is a passive label rather than an "open folder as
+  workspace" button;
 - Click the "Switch workspace" button to list every registered workspace
   (name + path, current highlighted). Selecting one switches the current
   window **in place** and stays in the active application (Chat, Notes,
-  Settings, …) instead of jumping back to Chat;
+  Settings, …) instead of jumping back to Chat. The menu bottom offers
+  "Open folder as workspace" to register a new directory through the system
+  folder picker;
 - On first launch the app registers a global shared workspace at
   `~/.zicode` and pins it at the top of the switcher;
 - Each workspace keeps its sessions, notes, tasks, automations, finance

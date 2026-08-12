@@ -1,10 +1,11 @@
 /**
  * Workspace actions — bridge UI controls to native Tauri commands that manage
- * workspace windows. Currently wires the "Open folder as workspace" button to
- * the native folder picker, which spawns a dedicated window + pi runtime for
- * the chosen directory.
+ * workspace windows. The workspace bar shows the current workspace as a
+ * passive label; the switcher menu lists every registered workspace and also
+ * offers "Open folder as workspace" for the native folder picker.
  */
 import { getSelectedSceneId } from "../react/settings.js";
+import { t } from "../../i18n.js";
 
 
 /**
@@ -175,22 +176,23 @@ function isTypingTarget(target) {
 /**
  * Workspace switcher: list every registered workspace and switch the current
  * window to the selected project in place. Also renders the shared workspace
- * bar (current project name + path) and wires the project row to the native
- * folder picker. Falls back to a hidden control on remote/browser clients
- * that cannot invoke native window navigation.
+ * bar (current project name + path) as a passive label and offers "Open
+ * folder as workspace" inside the switcher menu so the folder picker stays
+ * reachable without a dedicated button. Falls back to a hidden control on
+ * remote/browser clients that cannot invoke native window navigation.
  */
 export function setupWorkspaceSwitcher({ onError } = {}) {
   const button = document.getElementById("workspace-switcher-btn");
   const menu = document.getElementById("workspace-switcher-menu");
-  const projectButton = document.getElementById("workspace-bar-project");
+  const label = document.getElementById("workspace-bar-label");
   const nameEl = document.getElementById("workspace-bar-name");
   const pathEl = document.getElementById("workspace-bar-path");
-  if (!button || !menu || !projectButton) return false;
+  if (!button || !menu || !label) return false;
 
   const invoke = resolveInvoke();
   if (!invoke) {
     button.style.setProperty("display", "none");
-    projectButton.style.setProperty("display", "none");
+    label.style.setProperty("display", "none");
     return false;
   }
 
@@ -225,9 +227,11 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
       if (active) {
         if (nameEl) nameEl.textContent = projectName(active.path);
         if (pathEl) pathEl.textContent = displayPath(active.path);
+        label.title = displayPath(active.path);
       } else if (workspaces.length > 0) {
         if (nameEl) nameEl.textContent = projectName(workspaces[0].path);
         if (pathEl) pathEl.textContent = displayPath(workspaces[0].path);
+        label.title = displayPath(workspaces[0].path);
       }
     } catch {
       // Keep the placeholder; the switcher still lists workspaces on open.
@@ -244,61 +248,73 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
       if (workspaces.length === 0) {
         const empty = document.createElement("div");
         empty.className = "workspace-switcher-item";
-        empty.textContent = "No other workspaces yet";
+        empty.textContent = t("No other workspaces yet");
         menu.append(empty);
-        return;
-      }
-      const global = workspaces.find((workspace) => {
-        const path = displayPath(workspace.path).replace(/[\\/]+$/, "");
-        return path.toLowerCase().endsWith(".zicode");
-      });
-      const ordered = global
-        ? [global, ...workspaces.filter((workspace) => workspace !== global)]
-        : workspaces;
-      for (const workspace of ordered) {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = `workspace-switcher-item${workspace.id === current ? " current" : ""}`;
-        item.setAttribute("role", "menuitem");
-        const name = document.createElement("strong");
-        name.textContent = projectName(workspace.path);
-        const path = document.createElement("span");
-        path.textContent = displayPath(workspace.path);
-        item.append(name, path);
-        item.addEventListener("click", async () => {
-          closeMenu();
-          try {
-            await invoke("switch_window_workspace", {
-              projectPath: workspace.path,
-              pluginId: activePluginId(),
-            });
-          } catch (error) {
-            onError?.(error instanceof Error ? error : new Error(String(error)));
-          }
+      } else {
+        const global = workspaces.find((workspace) => {
+          const path = displayPath(workspace.path).replace(/[\\/]+$/, "");
+          return path.toLowerCase().endsWith(".zicode");
         });
-        menu.append(item);
+        const ordered = global
+          ? [global, ...workspaces.filter((workspace) => workspace !== global)]
+          : workspaces;
+        for (const workspace of ordered) {
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = `workspace-switcher-item${workspace.id === current ? " current" : ""}`;
+          item.setAttribute("role", "menuitem");
+          const name = document.createElement("strong");
+          name.textContent = projectName(workspace.path);
+          const path = document.createElement("span");
+          path.textContent = displayPath(workspace.path);
+          item.append(name, path);
+          item.addEventListener("click", async () => {
+            closeMenu();
+            try {
+              await invoke("switch_window_workspace", {
+                projectPath: workspace.path,
+                pluginId: activePluginId(),
+              });
+            } catch (error) {
+              onError?.(error instanceof Error ? error : new Error(String(error)));
+            }
+          });
+          menu.append(item);
+        }
       }
+      appendOpenFolderAction();
     } catch (error) {
       menu.textContent = "";
       const failed = document.createElement("div");
       failed.className = "workspace-switcher-item";
       failed.textContent = error instanceof Error ? error.message : String(error);
       menu.append(failed);
+      appendOpenFolderAction();
     }
   };
 
-  projectButton.addEventListener("click", async () => {
-    projectButton.disabled = true;
-    try {
-      await invoke("open_folder_as_workspace", {
-        pluginId: activePluginId(),
-      });
-    } catch (error) {
-      onError?.(error instanceof Error ? error : new Error(String(error)));
-    } finally {
-      projectButton.disabled = false;
-    }
-  });
+  const appendOpenFolderAction = () => {
+    const divider = document.createElement("div");
+    divider.className = "workspace-switcher-divider";
+    menu.append(divider);
+    const openFolder = document.createElement("button");
+    openFolder.type = "button";
+    openFolder.className = "workspace-switcher-item workspace-switcher-open-folder";
+    openFolder.textContent = t("Open folder as workspace");
+    openFolder.setAttribute("role", "menuitem");
+    openFolder.addEventListener("click", async () => {
+      closeMenu();
+      try {
+        await invoke("open_folder_as_workspace", {
+          pluginId: activePluginId(),
+        });
+      } catch (error) {
+        onError?.(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+    menu.append(openFolder);
+  };
+
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     if (menu.classList.contains("hidden")) {

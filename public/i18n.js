@@ -345,6 +345,7 @@ const zhCN = {
   "Start a new conversation": "开始新对话",
   "Switch workspace": "切换工作区",
   "Open the workspace switcher": "打开工作区切换器",
+  "No other workspaces yet": "暂无其他工作区",
 "New chat": "新建对话",
   Search: "搜索",
   "Search sessions": "搜索会话",

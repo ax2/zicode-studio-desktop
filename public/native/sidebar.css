@@ -41,7 +41,9 @@
   -webkit-app-region: drag;
 }
 
-.workspace-bar-project {
+/* The current workspace is a passive label — the switcher button on the
+   right is the single control for choosing or opening a workspace. */
+.workspace-bar-label {
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
@@ -53,16 +55,7 @@
   background: transparent;
   color: var(--text-primary);
   text-align: left;
-  cursor: pointer;
   -webkit-app-region: no-drag;
-  transition:
-    border-color var(--duration) var(--ease),
-    background var(--duration) var(--ease);
-}
-
-.workspace-bar-project:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-glass-hover);
 }
 
 .workspace-bar-icon {
@@ -161,6 +154,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.workspace-switcher-divider {
+  height: 1px;
+  margin: var(--space-0-5) 0;
+  background: var(--border);
+}
+
+.workspace-switcher-open-folder {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 550;
+  justify-content: center;
+  text-align: center;
 }
 
 /* Mode toggle pills */

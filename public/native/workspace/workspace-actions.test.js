@@ -106,7 +106,10 @@ describe("workspace actions", () => {
   it("switches the window to another workspace while keeping the active app", async () => {
     document.body.innerHTML = `
       <div class="workspace-bar" id="workspace-bar">
-        <button id="workspace-bar-project"></button>
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
         <button id="workspace-switcher-btn"></button>
         <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
       </div>
@@ -126,7 +129,7 @@ describe("workspace actions", () => {
     setupWorkspaceSwitcher({ onError: vi.fn() });
     document.getElementById("workspace-switcher-btn").click();
     await vi.waitFor(() =>
-      expect(document.querySelectorAll(".workspace-switcher-item").length).toBe(2),
+      expect(document.querySelectorAll(".workspace-switcher-item").length).toBe(3),
     );
 
     const items = [...document.querySelectorAll(".workspace-switcher-item")];
@@ -137,6 +140,68 @@ describe("workspace actions", () => {
       expect(invoke).toHaveBeenCalledWith("switch_window_workspace", {
         projectPath: "/home/user/work",
         pluginId: "com.zicode.notes",
+      }),
+    );
+  });
+
+  it("keeps the workspace name as a passive label instead of an open-folder button", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    document.body.dataset.activePlugin = "core.chat";
+    const invoke = vi.fn().mockResolvedValue([
+      { id: "ws-global", path: "/home/user/.zicode" },
+    ]);
+    installTauriInvoke(invoke);
+
+    setupWorkspaceSwitcher({ onError: vi.fn() });
+
+    expect(document.getElementById("workspace-bar-project")).toBeNull();
+    expect(document.getElementById("workspace-bar-label")).not.toBeNull();
+    expect(document.getElementById("workspace-bar-label").tagName).toBe("DIV");
+  });
+
+  it("opens the native folder picker from the switcher menu", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    document.body.dataset.activePlugin = "com.zicode.tasks";
+    const invoke = vi.fn().mockImplementation((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([{ id: "ws-1", path: "/home/user/work" }]);
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+
+    setupWorkspaceSwitcher({ onError: vi.fn() });
+    document.getElementById("workspace-switcher-btn").click();
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".workspace-switcher-item").length).toBe(2),
+    );
+
+    const openFolder = document.querySelector(".workspace-switcher-open-folder");
+    expect(openFolder).not.toBeNull();
+    expect(openFolder.textContent).toBe("将文件夹作为工作区打开");
+    openFolder.click();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("open_folder_as_workspace", {
+        pluginId: "com.zicode.tasks",
       }),
     );
   });

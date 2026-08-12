@@ -5253,6 +5253,41 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百二十二轮：工作区栏精简 + 七项工作区/存储需求核验（2026-08-12）。
+
+1. 按需求精简冗余按钮：
+   - 工作区栏项目卡片不再承担"将文件夹作为工作区打开"的按钮职责——
+     当前工作区名称 + 路径改为纯展示（`div.workspace-bar-label`），与
+     顶部"切换工作区"选择器不再重复；"将文件夹作为工作区打开"移入
+     切换器菜单底部（分隔线 + 菜单项），打开新工作区能力保留；
+   - 复核无残留：对话侧栏搜索旁仅保留新建会话图标按钮（无重复文字
+     按钮），项目头部（ax2 旁）的新建会话/笔记/产物/任务快捷按钮与
+     项目下方"新建对话"文字行均已移除（第 384 轮，本轮 CDP 确认
+     `.project-quick-btn/.session-new-chat-row/.project-new-chat-btn`
+     全部为 0）；设置视图"文件"按钮仅对话显示（活动栏 `core.files`
+     只在对页注册 + CSS `data-active-plugin` 非 chat 隐藏头部文件
+     按钮），实测设置下 `display:none`；
+2. 全局公共工作区：`~/.zicode` 默认注册并在切换器置顶（release 87
+   实测菜单首项 `C:\Users\ax2\.zicode`）；切换工作区当前窗口原地
+   切换并停留当前应用（实测 settings → work → agent-inbox，
+   `document.body.dataset.activePlugin` 恒为 `core.settings`）；
+3. 数据目录核验：对话/笔记/产物在 `<工作区>/.zicode/
+   {sessions,notes,artifacts}`，任务/自动化/金融在 `<工作区>/.zicode/
+   {tasks,automation,finance}`（agent-inbox 实测）；全局工作区
+   `~/.zicode` 自身的数据落在 `~/.zicode/.zicode/`，与系统配置目录
+   分离；
+4. 系统配置核验：pi agent（settings/models/auth）、场景配置、凭据
+   索引、远程访问、工作区元数据全部在 `~/.zicode`；`~/.pi/agent`
+   仅为一次性迁移备份且无新写入（生产代码唯一 `.pi` 引用位于迁移
+   函数）；
+5. 门禁：前端 833 项全绿（新增工作区栏被动标签 + 切换器打开文件夹
+   2 项）、Rust 通过、typecheck/Biome 456 文件/design/Tauri 权限
+   20 条全绿；
+6. 发布：release 第八十七次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、协议 v2、relay
+   `dev-ax2-01` 在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百八十五轮：任务/自动化/金融数据按工作区隔离（2026-08-10）。
 
 1. 背景：第 384 轮已把对话会话、笔记、产物迁到

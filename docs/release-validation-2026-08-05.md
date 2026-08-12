@@ -491,6 +491,37 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十七次重建（2026-08-12，第 422 轮工作区栏精简）
+
+- 合入第 422 轮：
+  - 工作区栏项目卡片改为纯展示标签（`div.workspace-bar-label`），
+    不再承担"将文件夹作为工作区打开"按钮职责；该入口移入切换器
+    菜单底部（分隔线 + "将文件夹作为工作区打开"菜单项，仍调用
+    `open_folder_as_workspace` 并保持当前应用）；
+  - 帮助文档 interface.md（zh/en）同步工作区栏说明；
+  - 七项工作区/存储需求核验：重复按钮无残留、`~/.zicode` 全局工作区
+    置顶、切换工作区停留当前应用（settings 实测）、各应用按工作区
+    `.zicode` 目录落盘、系统/模型配置统一在 `~/.zicode`（`~/.pi` 仅
+    迁移备份）；
+  - 前端 833 项、Rust 通过、typecheck/Biome 456 文件/design/Tauri
+    权限 20 条全绿；
+- 产物（release 87）：
+  - `target/release/zicode-studio-desktop.exe`：41,718,784 B，
+    SHA-256 `D145A147122BC0CB80D1EA73E6A20D9EAD3BDE2EA2199E862C34BC440EAFF9B1`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,874,047 B，SHA-256
+    `E23795B68BD79802FDF1ACFDD5DBD98154EBA422313989CE9DEA08A07932B9FD`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `D91330AD0147B152CAADA724BB35E961A4A81629AF074926D9B0506577785C90`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：工作区栏为被动标签（无 `workspace-bar-project` 按钮）、
+    切换器菜单含全部工作区（`~/.zicode` 置顶）+ "将文件夹作为工作区
+    打开"项；切换工作区停留当前应用；设置视图头部文件按钮隐藏；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十六次重建（2026-08-12，第 418 轮产物批量导入）
 
 - 合入第 418 轮：

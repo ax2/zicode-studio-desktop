@@ -283,7 +283,7 @@
     gap: var(--space-1-5);
   }
 
-  .workspace-bar-project {
+  .workspace-bar-label {
     min-height: var(--space-12);
     padding: var(--space-2) var(--space-2-5);
   }
