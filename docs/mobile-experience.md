@@ -5253,6 +5253,25 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十三轮：CDP 全应用运行时审计（2026-08-12）。
+
+1. 以 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`
+   启动 release 102 实例，CDP 遍历 12 个功能视图（对话/项目/任务/
+   笔记/自动化/金融/产物/命令/插件管理/设置/帮助）：
+   - 每个视图 activePlugin 正确切换，页面无横向溢出
+     （documentElement/body scrollWidth == clientWidth）；
+   - 全程 0 console error / 0 未捕获异常（仅启动期 1 条 Tauri
+     "Couldn't find callback id" 已知良性告警，属 WebView 重载与
+     Rust 异步竞态）；
+   - 对话消息往返实测：输入 ping → 模型回复 + 成本追踪正常；
+2. 排查"正在启动会话…"常驻：确认其位于
+   `#instance-swap-overlay`（index.html 启动遮罩），交换完成后
+   opacity:0 / pointer-events:none / aria-hidden=true，纯保留 DOM
+   不挡交互、不可见，非缺陷；静态英文标签经 translateDocument 运行
+   时已译为中文；
+3. 结论：本地运行期零报错、零溢出、核心链路可用，与自动测试证据
+   一致；本轮无代码改动，仅记录验证证据。
+
 第四百四十二轮：插件/灯箱残留英文清理（2026-08-12）。
 
 1. 扫描命令面板、插件侧栏与消息图片灯箱：
