@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第九十次重建（2026-08-12，第 426 轮数据安全审计）
+
+- 合入第 426 轮：
+  - 自动化 `removeWorkflow` 增加 confirmRemove（默认
+    `globalThis.confirm`），拒绝跳过；消息
+    "移除自动化 “标题”? 此操作无法撤销。"；
+  - 会话侧栏 `deleteArchivedSession` 增加 confirm（默认
+    `globalThis.confirm`），与"删除全部已归档"行为一致；消息
+    "删除会话 “标题”? 这将永久删除该对话，且无法撤销。"；
+  - 测试：自动化拒绝/接受 2 项、会话拒绝 1 项；前端 840 项、
+    typecheck/Biome 456 文件/design 全绿（本轮无 Rust 改动）；
+- 产物（release 90）：
+  - `target/release/zicode-studio-desktop.exe`：41,774,080 B，
+    SHA-256 `40B49FAB0B644E459747C5ED9D3CBB7FC58AD11A62DCF9E30793561D477AEAE7`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,817,615 B，SHA-256
+    `1A1DCF635C568E867C05DE8E0ADDDB2E1E538AE5937B351CB7D1BC6FF995A9C6`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `3937D0798125DFF91F22C4EC5829B2817670CD601B70E96C33A91F54078B186A`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：自动化创建测试流程→"移除"→confirm 文案正确、拒绝保留、
+    接受移除并清理；真实会话归档→"删除"→confirm 文案正确、拒绝保留、
+    取消归档恢复；均 0 控制台错误；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十九次重建（2026-08-12，第 425 轮笔记本删除可恢复）
 
 - 合入第 425 轮：

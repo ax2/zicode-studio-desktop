@@ -82,6 +82,7 @@ export interface SessionSidebarOptions {
     message?: string;
     type?: string;
   }): void;
+  confirm?(message: string): boolean | Promise<boolean>;
 }
 
 export class SessionSidebar implements SessionSidebarController {
@@ -93,6 +94,7 @@ export class SessionSidebar implements SessionSidebarController {
   onSelect: SessionSidebarOptions["onSelect"];
   onSessionsLoaded?: SessionSidebarOptions["onSessionsLoaded"];
   notify: NonNullable<SessionSidebarOptions["notify"]>;
+  confirm: NonNullable<SessionSidebarOptions["confirm"]>;
 
   store: SidebarStoreHook;
   root: Root;
@@ -111,6 +113,8 @@ export class SessionSidebar implements SessionSidebarController {
     this.onSelect = options.onSelect;
     this.onSessionsLoaded = options.onSessionsLoaded;
     this.notify = options.notify ?? (() => {});
+    this.confirm =
+      options.confirm ?? ((message: string) => globalThis.confirm?.(message) ?? false);
 
     this.store = createSidebarStore({
       activeSessionId: options.getTarget()?.sessionId ?? null,
@@ -656,6 +660,19 @@ export class SessionSidebar implements SessionSidebarController {
   async deleteArchivedSession(id: string): Promise<void> {
     this.closeContextMenu();
     if (!this.control) return;
+    const session = this.store
+      .getState()
+      .sessions.find((candidate) => candidate.id === id);
+    const title = session?.name || session?.firstMessage || t("Empty session");
+    if (
+      !(await this.confirm(
+        `${t("Delete session")} “${title}”? ${t(
+          "This permanently removes the conversation and cannot be undone.",
+        )}`,
+      ))
+    ) {
+      return;
+    }
     try {
       const { deleted } = await this.control.deleteSessions([id]);
       const deletedSet = new Set(deleted);

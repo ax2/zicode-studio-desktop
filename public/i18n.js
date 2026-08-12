@@ -290,6 +290,11 @@ const zhCN = {
   "Delete archived sessions": "删除已归档会话",
   "Delete {count} archived sessions permanently? This cannot be undone.":
     "将永久删除 {count} 个已归档会话？此操作无法撤销。",
+  "Delete session": "删除会话",
+  "This permanently removes the conversation and cannot be undone.":
+    "这将永久删除该对话，且无法撤销。",
+  "Remove automation": "移除自动化",
+  "This cannot be undone.": "此操作无法撤销。",
   Listening: "正在聆听",
   Approve: "批准",
   "Clear Done": "清除已完成",

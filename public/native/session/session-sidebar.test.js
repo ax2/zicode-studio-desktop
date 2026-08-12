@@ -26,6 +26,7 @@ function makeSidebar(sessions, overrides = {}) {
     control,
     getTarget: () => ({ workspaceId: "ws-1", sessionId: "s-active" }),
     onSelect,
+    confirm: () => true,
     ...overrides,
   });
   return { sidebar, container, data, runtime, control, onSelect };
@@ -330,6 +331,29 @@ describe("SessionSidebar.render", () => {
     expect(
       container.querySelector('.archived-group .session-item[data-session-id="s-arc"]'),
     ).toBeNull();
+  });
+
+  it("keeps an archived session when the delete confirmation is declined", async () => {
+    const { sidebar, container, control } = makeSidebar(
+      [{ id: "s-arc", timestamp: new Date().toISOString(), name: "Arc" }],
+      { confirm: () => false },
+    );
+    sidebar.toggleArchived("s-arc");
+    await sidebar.load();
+
+    const item = container.querySelector(
+      '.archived-group .session-item[data-session-id="s-arc"]',
+    );
+    item.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    [...document.querySelectorAll(".session-context-menu .context-menu-item")]
+      .find((el) => /Delete|删除/.test(el.textContent))
+      ?.click();
+
+    await Promise.resolve();
+    expect(control.deleteSessions).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('.archived-group .session-item[data-session-id="s-arc"]'),
+    ).toBeTruthy();
   });
 
   it("groups favourites and archived into separate sections", async () => {

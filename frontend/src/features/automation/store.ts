@@ -25,6 +25,7 @@ export interface AutomationAppOptions {
   getTarget?: () => { sceneId?: string; cwd?: string } | null;
   openApp?: (pluginId: string) => void;
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
+  confirmRemove?: (message: string) => boolean | Promise<boolean>;
   pollIntervalMs?: number;
 }
 
@@ -49,6 +50,9 @@ export function createAutomationStore(options: AutomationAppOptions) {
   const call = options.call;
   const getTarget = options.getTarget ?? (() => null);
   const notify = options.notify ?? (() => {});
+  const confirmRemove =
+    options.confirmRemove ??
+    ((message: string) => globalThis.confirm?.(message) ?? false);
   const pollIntervalMs = options.pollIntervalMs ?? 60_000;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let ticking = false;
@@ -105,6 +109,17 @@ export function createAutomationStore(options: AutomationAppOptions) {
     },
 
     async removeWorkflow(id) {
+      const workflow = get().workflows.find((candidate) => candidate.id === id);
+      if (
+        !workflow ||
+        !(await confirmRemove(
+          `${t("Remove automation")} “${workflow.title}”? ${t(
+            "This cannot be undone.",
+          )}`,
+        ))
+      ) {
+        return;
+      }
       const response = await call("automation_workspace", { action: "remove", id });
       if (!response?.ok) {
         notify({

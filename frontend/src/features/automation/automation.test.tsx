@@ -116,6 +116,28 @@ describe("automation store host errors", () => {
     );
     store.getState().destroy();
   });
+
+  it("skips removing a workflow when the confirmation is declined", async () => {
+    const call = mockCall();
+    const store = createAutomationStore({ call, confirmRemove: () => false });
+    await store.getState().load();
+    await store.getState().removeWorkflow("workflow-1");
+    expect(call).not.toHaveBeenCalledWith(
+      "automation_workspace",
+      expect.objectContaining({ action: "remove" }),
+    );
+  });
+
+  it("removes a workflow only after confirmation", async () => {
+    const call = mockCall();
+    const store = createAutomationStore({ call, confirmRemove: () => true });
+    await store.getState().load();
+    await store.getState().removeWorkflow("workflow-1");
+    expect(call).toHaveBeenCalledWith(
+      "automation_workspace",
+      expect.objectContaining({ action: "remove", id: "workflow-1" }),
+    );
+  });
 });
 
 describe("automation React app", () => {
