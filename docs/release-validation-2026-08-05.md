@@ -491,6 +491,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十二次重建（2026-08-12，第 411 轮产物批量导出）
+
+- 合入第 411 轮：
+  - 产物库新增"导出全部产物"（纯前端：遍历快照逐项读取文档，打包
+    `{ schemaVersion: 1, exportedAt, artifacts[] }` 下载）；
+  - 空态提示/逐项失败跳过/全失败提示；app-updater 测试同步适配
+    新按钮行为（可点但只开 GitHub、不触发未签名 feed 检查）；
+  - 前端 826 项、Rust 181 项、typecheck/Biome 456 文件/design 全绿；
+- 产物（release 82）：
+  - `target/release/zicode-studio-desktop.exe`：41,646,080 B，
+    SHA-256 `028DFE817C53BD7575DD037380C6DFB37E668D81FA1A44DE16CAF5504522227C`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,802,453 B，SHA-256
+    `A443A41630180471BD670E37E42CB82735C69667B06126754E075F9DE71F5812`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `C9C6D46BE7B4E86ECEDC2FBF2625987855E962C7E36270A22BE079A8C59181BD`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：产物导航"导出全部产物"按钮就位，空态下无下载、无报错
+    （提示"没有可导出的产物"）；批量打包逻辑由单测覆盖（2 产物 →
+    1 下载、内容断言）；
+  - 新实例启动后 relay 连接成功，运行期日志无 ERROR/WARN/panic
+    （安装窗口内旧实例的 DNS 瞬时抖动不属本版本）。
+
 ## 第八十一次重建（2026-08-11，第 409 轮更新入口 UX 修复）
 
 - 合入第 409 轮：
