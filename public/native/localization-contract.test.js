@@ -96,4 +96,32 @@ describe("vanilla UI localization contract", () => {
       't("Notification")',
     );
   });
+
+  it("localizes super-agent task events, loading, and empty states", () => {
+    const taskState = read("public/super-agent/task-state.js");
+    for (const key of [
+      "Dispatched to project agent on port {port}.",
+      "Marked ready for project-agent dispatch.",
+      "Dispatched to project agent (session {session}).",
+      "Child session bound: {session}.",
+      "Task marked {status}.",
+      "Task paused by the user.",
+      "Task resumed and queued for dispatch.",
+      "Task cancelled by the user.",
+    ]) {
+      expect(taskState).toContain(`t("${key}")`);
+    }
+    expect(taskState).not.toMatch(/Task paused by the user\."\s*}$/);
+
+    const runtime = read("public/components/super-agent-runtime.js");
+    expect(runtime).toContain('t("Connecting...")');
+    expect(runtime).toContain('t("No tasks in this view")');
+    expect(runtime).toContain('t(\'No tasks with status "{status}"…\')');
+    expect(runtime).toContain("t(event.type");
+    expect(runtime).toContain("t(event.message");
+
+    expect(read("frontend/src/features/tasks/TaskCenterApp.tsx")).toContain(
+      "t(event.message || (event.status ? statusLabel(event.status) : \"event\"))",
+    );
+  });
 });

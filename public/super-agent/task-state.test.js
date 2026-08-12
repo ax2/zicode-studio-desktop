@@ -71,7 +71,7 @@ describe("super-agent task state", () => {
       at: "2026-07-10T12:00:00.000Z",
       type: "dispatched",
       status: "running",
-      message: "Dispatched to project agent on port 3002.",
+      message: "已派发给端口 3002 上的项目智能体。",
     });
   });
 

@@ -1,4 +1,20 @@
+import { t } from "i18n";
+
 export const ACTIVE_TASK_STATUSES = new Set(["running", "needs_input", "blocked"]);
+
+function localizedStatus(status) {
+  const labels = {
+    pending: t("Pending"),
+    running: t("Running"),
+    paused: t("Paused"),
+    needs_input: t("Needs input"),
+    blocked: t("Blocked"),
+    failed: t("Failed"),
+    done: t("Done"),
+    cancelled: t("Cancelled"),
+  };
+  return labels[status] ?? status;
+}
 
 const DEFAULT_SOURCE = {
   channel: "local",
@@ -76,8 +92,8 @@ export function markTaskForDispatch(task, { superAgentPort = null, childPort = n
         type: "dispatched",
         status: "running",
         message: childPort
-          ? `Dispatched to project agent on port ${childPort}.`
-          : "Marked ready for project-agent dispatch.",
+          ? t("Dispatched to project agent on port {port}.").replace("{port}", childPort)
+          : t("Marked ready for project-agent dispatch."),
       },
     ],
   };
@@ -110,7 +126,10 @@ export function markTaskDispatchTarget(
         at: timestamp,
         type: "dispatched",
         status: "running",
-        message: `Dispatched to project agent (session ${childSessionId || "pending"}).`,
+        message: t("Dispatched to project agent (session {session}).").replace(
+          "{session}",
+          childSessionId || t("pending"),
+        ),
       },
     ],
   };
@@ -135,7 +154,7 @@ export function markTaskChildSessionBound(task, { childSessionId, now } = {}) {
         at: timestamp,
         type: "session_bound",
         status: normalized.status,
-        message: `Child session bound: ${childSessionId}.`,
+        message: t("Child session bound: {session}.").replace("{session}", childSessionId),
       },
     ],
   };
@@ -194,7 +213,10 @@ export function markTaskFinished(
         at: timestamp,
         type: eventTypeForStatus(nextStatus),
         status: nextStatus,
-        message: summary || nextFailReason || `Task marked ${nextStatus}.`,
+        message:
+          summary ||
+          nextFailReason ||
+          t("Task marked {status}.").replace("{status}", localizedStatus(nextStatus)),
       },
     ],
   };
@@ -208,7 +230,7 @@ export function markTaskPaused(task, { now } = {}) {
     status: "paused",
     events: [
       ...normalized.events,
-      { at: timestamp, type: "paused", status: "paused", message: "Task paused by the user." },
+      { at: timestamp, type: "paused", status: "paused", message: t("Task paused by the user.") },
     ],
   };
 }
@@ -231,7 +253,12 @@ export function markTaskResumed(task, { now } = {}) {
     },
     events: [
       ...normalized.events,
-      { at: timestamp, type: "resumed", status: "pending", message: "Task resumed and queued for dispatch." },
+      {
+        at: timestamp,
+        type: "resumed",
+        status: "pending",
+        message: t("Task resumed and queued for dispatch."),
+      },
     ],
   };
 }
@@ -239,7 +266,7 @@ export function markTaskResumed(task, { now } = {}) {
 export function markTaskCancelled(task, { now } = {}) {
   return markTaskFinished(task, {
     status: "cancelled",
-    failReason: "Task cancelled by the user.",
+    failReason: t("Task cancelled by the user."),
     now,
   });
 }

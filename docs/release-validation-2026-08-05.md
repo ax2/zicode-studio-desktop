@@ -543,6 +543,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 本地化契约与前端 855 项测试全绿；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零一次重建（2026-08-12，第 441 轮任务事件本地化）
+
+- 合入第 441 轮：
+  - `task-state.js` 事件消息创建时走 t() 并替换
+    {port}/{session}/{status} 占位（派发/子会话绑定/完成/暂停/恢复/
+    取消 8 类模板），共享 `i18n` 三端同一实例；
+  - `super-agent-runtime.js` 加载态/空态本地化（"Connecting..."/带
+    状态空态键），两个历史列表渲染 t() 兜底；
+  - i18n 新增 12 键；localization-contract 测试扩至 6 项；重新生成
+    tasks bundle；
+  - 门禁：前端 856 项（139 文件）、typecheck/Biome/design 全绿；
+- 产物（release 101）：
+  - `target/release/zicode-studio-desktop.exe`：41,973,248 B，
+    SHA-256 `C5AE4B799185AD6FF43E8159053B0A22A5A198BCA1C9D177CB87511E583B94C9`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,032,780 B，SHA-256
+    `EB4C9056C4A2228F4D5931AAD7D93CB28150246F38CB5EA20BEC6F0B196EEE5F`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `FD895DDD427316F80B8BDBCB69CC76098764AAEE21506C0BB1C3EA03BFD4C6D6`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - 公网中继 `/relay/status` 显示 `dev-ax2-01` 在线；
+  - 本地化契约与前端 856 项测试全绿；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：

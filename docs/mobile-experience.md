@@ -5253,6 +5253,30 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十一轮：任务事件/加载/空态本地化（2026-08-12）。
+
+1. 审计发现任务中心与运行时面板的用户可见英文：
+   - `task-state.js` 持久化事件消息（"Dispatched to project agent on
+     port …"、"Task paused by the user."、"Task marked {status}." 等 8
+     类模板）不经 t()，旧数据与后续历史都显示英文；
+   - `super-agent-runtime.js` 任务面板加载态 "Connecting…"、空态
+     "No tasks with status …" 硬编码；
+   - 两个历史列表（vanilla `_historyHtml` 与 React TaskCenterApp）直接
+     输出 `event.message`/`event.type` 原文；
+2. 修复：i18n 补 12 键（8 条事件模板 + 小写事件类型 + 带状态空态键），
+   `task-state.js` 引入共享 `i18n`（bare specifier，browser import map /
+   esbuild external / vitest alias 三端同一实例）在创建时本地化并替换
+   {port}/{session}/{status} 占位；运行时面板加载/空态走 t()；两个历史
+   列表渲染时 t() 兜底（旧英文静态消息可随语言切换翻译，动态端口/会话
+   旧记录保持原文）；
+3. 测试：task-state 中文断言、localization-contract 新增 1 项（6 项）、
+   i18n-coverage 全量键校验通过；前端 856 项全绿（139 文件）；
+   typecheck/Biome/design 全绿；
+4. 发布：release 第一百零一次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百四十轮：React 侧文案本地化补齐（上下文窗口/输入队列/通知，2026-08-12）。
 
 1. 扫描 React 源（frontend/src）发现用户可见硬编码英文：

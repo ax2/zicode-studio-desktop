@@ -242,7 +242,9 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
             {[...task.events].reverse().slice(0, 12).map((event) => (
               <li key={event.at ?? `${event.status}-${event.message}`}>
                 <time>{formatDate(event.at)}</time>
-                <span>{event.message || event.status}</span>
+                <span>
+                  {t(event.message || (event.status ? statusLabel(event.status) : "event"))}
+                </span>
               </li>
             ))}
           </ol>

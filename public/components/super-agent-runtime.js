@@ -308,7 +308,7 @@ class SuperAgentRuntime extends HTMLElement {
 
     if (!this._hasLoadedOnce) {
       list.innerHTML = `<div style="padding:20px 0;text-align:center;font-size:12px;color:var(--text-dim)">
-        Connecting…
+        ${t("Connecting...")}
       </div>`;
       return;
     }
@@ -322,8 +322,16 @@ class SuperAgentRuntime extends HTMLElement {
     filtered = [...filtered].sort((a, b) => (order[a.status] ?? 4) - (order[b.status] ?? 4));
 
     if (filtered.length === 0) {
+      const emptyMessage =
+        this._filter === "all"
+          ? t("No tasks in this view")
+          : t('No tasks with status "{status}"…').replace(
+              "{status}",
+              ({ pending: t("Pending"), running: t("Running"), done: t("Done") })[this._filter] ??
+                this._filter,
+            );
       list.innerHTML = `<div style="padding:20px 0;text-align:center;font-size:12px;color:var(--text-dim)">
-        No tasks${this._filter !== "all" ? ` with status "${this._filter}"` : ""}…
+        ${emptyMessage}
       </div>`;
       return;
     }
@@ -464,8 +472,8 @@ class SuperAgentRuntime extends HTMLElement {
             .map(
               (event) => `<div class="runtime-task-history-item">
                 <span>${esc(formatHistoryTimestamp(event.at))}</span>
-                <strong>${esc(event.type || event.status || "event")}</strong>
-                <p>${esc(event.message || event.status || "")}</p>
+                <strong>${esc(t(event.type || event.status || "event"))}</strong>
+                <p>${esc(event.message ? t(event.message) : t(event.type || event.status || "event"))}</p>
               </div>`,
             )
             .join("")}
