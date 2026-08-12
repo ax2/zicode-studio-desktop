@@ -83,3 +83,19 @@ exported JSON file. Entries are validated per item (the session id must match th
 line of its content, paths must belong to the current workspace, each entry is capped at
 10 MiB, and the total at 50 MiB); existing session ids are skipped rather than overwritten.
 Imported conversations appear in the sidebar and are ready for migration or recovery.
+
+## Workspace data snapshots
+
+The app snapshots the current workspace automatically on startup (at most once per
+day) and on demand from **Settings → General → Workspace data backup**: sessions,
+notes, artifacts, tasks, automations, and finance data are copied to
+`~/.zicode/backups/<workspace>/`, keeping the newest 7 per workspace. Backups live
+outside the workspace data, so accidental deletion or corruption can be recovered by
+restoring from a snapshot. Restoring replaces the current workspace data and
+automatically snapshots the current state first (it appears in the backup list),
+making the operation reversible; restart the app afterwards to load the restored
+data. Deleting a backup requires confirmation.
+
+Note deletion always goes through trash first (including whole notebooks), with
+30-day retention; session and automation deletion require confirmation. Core data
+therefore has three layers of protection: trash, snapshots, and exports.
