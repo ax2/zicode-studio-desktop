@@ -491,6 +491,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十四次重建（2026-08-12，第 414 轮移动端帮助导航触摸高度）
+
+- 合入第 414 轮：
+  - release 83 移动端全表面回归（390px，8 表面）：0 溢出、新功能
+    入口移动端可达（会话导出为 Markdown、笔记导出/导入全部、更新
+    按钮）；
+  - 修复帮助导航文章链接移动端触摸高度（20px → min-height 40px）；
+    文章正文行内交叉引用链接属 WCAG 行内豁免；
+  - 新增契约测试锁定移动端帮助导航链接触摸高度；
+  - 前端 828 项、Rust 181 项、typecheck/Biome 456 文件/design 全绿；
+- 产物（release 84）：
+  - `target/release/zicode-studio-desktop.exe`：41,646,080 B，
+    SHA-256 `2D29B6A48BFF5785D40243660B6B8DD3FB43A998C96FD334659CBED263427254`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,818,121 B，SHA-256
+    `E9646C89F207CA9F3091A3C36D98507B7966356594B460DD3F49BD12F41922AE`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `15669E63BB25C37254C717CBDD3A57C6441F8D8A2781B5785813610E83A571EC`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：390px 帮助导航链接高度 40px（min-height 40px）；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十三次重建（2026-08-12，第 412 轮 4K 消息宽度修复）
 
 - 合入第 412 轮：
