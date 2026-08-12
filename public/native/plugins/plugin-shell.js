@@ -604,7 +604,7 @@ export function setupPluginShell({
         (plugin.commands ?? []).map((command) => ({
           icon: commandPaletteIcon(command.icon),
           label: `${t(plugin.name)}: ${t(command.label)}`,
-          desc: plugin.description,
+          desc: t(plugin.description),
           action: () => {
             void executeCommand(command.id).catch((error) =>
               notify(error?.message ?? String(error)),
@@ -780,7 +780,7 @@ export function setupPluginShell({
 function buildPluginSidebar() {
   const surface = document.createElement("div");
   surface.className = "plugin-sidebar-surface plugin-surface-hidden";
-  surface.setAttribute("aria-label", "Plugin views");
+  surface.setAttribute("aria-label", t("Plugin views"));
   return surface;
 }
 

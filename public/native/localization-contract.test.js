@@ -124,4 +124,18 @@ describe("vanilla UI localization contract", () => {
       "t(event.message || (event.status ? statusLabel(event.status) : \"event\"))",
     );
   });
+
+  it("localizes plugin surfaces and the image lightbox", () => {
+    const lightbox = read("public/ui/image-lightbox.js");
+    expect(lightbox).toContain('t("Image preview")');
+    expect(lightbox).toContain('t("Close")');
+    expect(lightbox).not.toMatch(/setAttribute\("aria-label", "Image preview"\)/);
+    expect(lightbox).not.toMatch(/setAttribute\("aria-label", "Close"\)/);
+
+    const shell = read("public/native/plugins/plugin-shell.js");
+    expect(shell).toContain("desc: t(plugin.description)");
+    expect(shell).not.toMatch(/desc: plugin\.description/);
+    expect(shell).toContain('t("Plugin views")');
+    expect(shell).not.toMatch(/setAttribute\("aria-label", "Plugin views"\)/);
+  });
 });

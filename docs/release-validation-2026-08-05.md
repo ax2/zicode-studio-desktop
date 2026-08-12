@@ -571,6 +571,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 本地化契约与前端 856 项测试全绿；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零二次重建（2026-08-12，第 442 轮插件/灯箱英文清理）
+
+- 合入第 442 轮：
+  - `plugin-shell.js` 命令面板条目 `desc` 改走 `t(plugin.description)`，
+    插件功能区侧栏 aria-label 改走 `t("Plugin views")`；
+  - `image-lightbox.js` 预览弹层与关闭按钮 aria-label 走 t()，新增
+    "Image preview" 键；
+  - localization-contract 测试扩至 7 项锁定三处不再裸英文；
+  - 门禁：前端 857 项（139 文件）、typecheck/Biome 全绿；
+- 产物（release 102）：
+  - `target/release/zicode-studio-desktop.exe`：41,973,248 B，
+    SHA-256 `09E6AABE17C20E1B9ED0CF9C8C1D5B165BF52E608BAD857DB41F2F53EC1E6040`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,018,902 B，SHA-256
+    `2DB759FD1BDB60A8F684A6E02C6BE43A64032EA3C7DC5B455C5657FC57C57276`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `CD54DD906C15BECA8680B2D26C161A16D0F85F495D8A9181A48E05A708313320`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - 本地化契约与前端 857 项测试全绿；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：

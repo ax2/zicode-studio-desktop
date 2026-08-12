@@ -5253,6 +5253,24 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十二轮：插件/灯箱残留英文清理（2026-08-12）。
+
+1. 扫描命令面板、插件侧栏与消息图片灯箱：
+   - `plugin-shell.js` 命令面板条目 `desc` 直接输出英文描述
+     （`plugin.description`），与 label 已本地化不一致；
+   - 插件功能区侧栏 aria-label "Plugin views" 硬编码；
+   - `image-lightbox.js` 图片预览弹层与关闭按钮 aria-label
+     （"Image preview"/"Close"）硬编码；
+2. 修复：三处全部走 t()（命令面板 desc 用既有描述键，侧栏/灯箱复用
+   "Plugin views"/"Close" 键，新增 "Image preview" 键）；插件管理器
+   复核确认 name/description 均已本地化；
+3. 测试：localization-contract 新增 1 项（7 项）锁定三处不再裸英文；
+   前端 857 项全绿（139 文件）；typecheck/Biome 全绿；
+4. 发布：release 第一百零二次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百四十一轮：任务事件/加载/空态本地化（2026-08-12）。
 
 1. 审计发现任务中心与运行时面板的用户可见英文：

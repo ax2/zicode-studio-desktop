@@ -89,6 +89,7 @@ const zhCN = {
     "无法复制代码，请检查浏览器剪贴板权限。",
   "Scrollable table": "可横向滚动的表格",
   "Pi task progress": "Pi 任务进度",
+  "Image preview": "图片预览",
   "Show task details": "展开任务详情",
   "Hide task details": "收起任务详情",
   "{action}. {completed}/{total} complete": "{action}。已完成 {completed}/{total}",

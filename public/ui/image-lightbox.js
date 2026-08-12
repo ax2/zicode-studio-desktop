@@ -6,6 +6,8 @@
  * event delegation so dynamically rendered images are covered automatically.
  */
 
+import { t } from "../i18n.js";
+
 let overlay = null;
 let lastFocused = null;
 
@@ -16,7 +18,7 @@ function getOrCreateOverlay() {
   overlay.className = "image-lightbox-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "Image preview");
+  overlay.setAttribute("aria-label", t("Image preview"));
 
   const img = document.createElement("img");
   img.className = "image-lightbox-img";
@@ -24,7 +26,7 @@ function getOrCreateOverlay() {
 
   const closeBtn = document.createElement("button");
   closeBtn.className = "image-lightbox-close";
-  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.setAttribute("aria-label", t("Close"));
   closeBtn.innerHTML =
     '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="3" y1="3" x2="17" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="3" x2="3" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
