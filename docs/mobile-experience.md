@@ -5253,6 +5253,20 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百五十六轮：超级智能体任务交互链路实测（2026-08-13）。
+
+1. release 106 安装版：
+   - Agent Inbox 面板显示待处理任务卡片（折叠态：标题/提示 AI/忽略），
+     点击展开后显示任务描述、来源（automation）与项目选择器（可列出
+     工作区项目并选中），0 控制台错误；
+   - 点击"提示 AI"：输入框生成完整任务上下文指令（Task ID / Status /
+     Title / Description / Target project），符合"带入对话"式交互；
+     实际执行需用户发送后由智能体运行并通过 RPC 回写（native-dispatch
+     与 task-state 单测覆盖）；
+2. 运行状态：`/health` 200（pi 0.84.1、relay `dev-ax2-01` 在线），
+   日志无 ERROR/WARN/panic；
+3. 门禁：前端 861 项全绿；本轮无运行时代码改动。
+
 第四百五十五轮：场景/金融门控实测 + TURN 401 排障手册（2026-08-13）。
 
 1. release 106 安装版：
