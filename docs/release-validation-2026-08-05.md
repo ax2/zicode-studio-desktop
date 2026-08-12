@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十六次重建（2026-08-12，第 418 轮产物批量导入）
+
+- 合入第 418 轮：
+  - Rust：`ArtifactStore::import_document`（保留原 id/handle/
+    created_at/version，幂等跳过已存在项）+ `import_all`；host 新增
+    `POST /v2/artifacts/import-all`（70 MiB 上限）；
+  - 前端：网关 `importAll`、Store `importAll`、导航"导入全部产物"
+    按钮，与导出对称；
+  - 测试：Rust 导出→导入闭环（保留 id/内容一致、二次导入幂等 0）+
+    前端 store 测试；
+  - 前端 831 项、Rust 182 项（158+19+5，另 2 项忽略）、
+    typecheck/Biome 456 文件/design 全绿；
+- 产物（release 86）：
+  - `target/release/zicode-studio-desktop.exe`：41,714,688 B，
+    SHA-256 `282FA5FB9F327014B940E2FE05E02E6B8D94ACDFAAB92AD33B253E18586F4821`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,847,290 B，SHA-256
+    `01CFC3574413FE5EBF6AC067DD8F412E911F2BF34F2BF39877E2233E358EA3F6`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `F98939AC0DB9164970CAD5953DFA30B7A573E675EC72DDC4E055599B0B7DF2B4`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 闭环：创建→导出→删除→导入恢复（importedCount 1、原 id 与
+    内容一致）→清理，全部 200；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十五次重建（2026-08-12，第 415 轮导出文档标题头）
 
 - 合入第 415 轮：
