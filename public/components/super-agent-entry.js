@@ -15,7 +15,7 @@ class SuperAgentEntry extends HTMLElement {
       <div class="super-agent-entry-inner">
         <div class="super-agent-entry-icon">⚡</div>
         <div class="super-agent-entry-info">
-          <div class="super-agent-entry-name">AGENT INBOX</div>
+          <div class="super-agent-entry-name">${t("Agent Inbox")}</div>
           <div class="super-agent-entry-status">
             <span class="super-agent-status-dot"></span>
               <span class="super-agent-status-text">${t("External tasks · Feishu / WeCom")}</span>

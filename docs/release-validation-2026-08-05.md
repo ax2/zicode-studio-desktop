@@ -491,6 +491,30 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第九十六次重建（2026-08-12，第 436 轮香草组件本地化）
+
+- 合入第 436 轮：
+  - `super-agent-runtime.js`/`super-agent-entry.js`/`sa-chat-header.js`
+    可见英文标签全部改走 `t()`（任务/筛选/强制取消/清除/历史/查看
+    会话/目标/项目/重试/正在聆听/AGENT INBOX 等）；i18n 补 8 键；
+  - 门禁：前端 848 项、Rust 192 项、typecheck/Biome 458 文件/design/
+    Tauri 权限 24 条全绿；
+- 产物（release 96）：
+  - `target/release/zicode-studio-desktop.exe`：41,870,848 B，
+    SHA-256 `89DC060282398EF0F84A52B26D223D5671405947CBAECC5A88046751F3BB21DC`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,855,875 B，SHA-256
+    `1E22E2867BC91FD315DDFBF54CB569DC5BBFACA535E2E88C7FF4DC9D96C18B86`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `18FFE5F527BA760ED8FF924488555B93427BB165C4BECF3A7EDFB71DFBDA0033`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：任务面板标题"任务"、筛选"全部/等待中/运行中/完成"、
+    头部状态"正在聆听"，可见文本无硬编码英文标签、0 控制台错误；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十五次重建（2026-08-12，第 435 轮收件箱断连本地化）
 
 - 合入第 435 轮：

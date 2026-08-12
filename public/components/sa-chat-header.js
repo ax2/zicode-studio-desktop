@@ -30,7 +30,7 @@ class SAChatHeader extends HTMLElement {
         </button>
         <div class="status">
           <span class="status-indicator connected" id="sa-status-indicator"></span>
-          <span class="status-text" id="sa-status-text">Listening</span>
+          <span class="status-text" id="sa-status-text">${t("Listening")}</span>
         </div>
       </div>
       <div class="header-right">

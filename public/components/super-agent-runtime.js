@@ -60,7 +60,7 @@ class SuperAgentRuntime extends HTMLElement {
   _render() {
     this.innerHTML = `
       <div class="runtime-header app-side-panel-header" id="runtime-header">
-        <span class="runtime-title">Tasks</span>
+        <span class="runtime-title">${t("Tasks")}</span>
         <button class="icon-btn app-side-panel-close-btn" data-collapse-btn title="${t("Close")}" aria-label="${t("Close activity panel")}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -70,10 +70,10 @@ class SuperAgentRuntime extends HTMLElement {
         </button>
       </div>
       <div class="runtime-filters" data-filters>
-        <button class="runtime-filter active" data-filter="all">All</button>
-        <button class="runtime-filter" data-filter="pending">Pending <span data-pending-count>0</span></button>
-        <button class="runtime-filter" data-filter="running">Running <span data-running-count>0</span></button>
-        <button class="runtime-filter" data-filter="done">Done <span data-done-count>0</span></button>
+        <button class="runtime-filter active" data-filter="all">${t("All")}</button>
+        <button class="runtime-filter" data-filter="pending">${t("Pending")} <span data-pending-count>0</span></button>
+        <button class="runtime-filter" data-filter="running">${t("Running")} <span data-running-count>0</span></button>
+        <button class="runtime-filter" data-filter="done">${t("Done")} <span data-done-count>0</span></button>
       </div>
       <div class="runtime-task-list" data-task-list></div>
       <div class="runtime-bulk-actions" data-bulk-actions></div>
@@ -379,17 +379,17 @@ class SuperAgentRuntime extends HTMLElement {
           </div>`;
       } else if (task.status === "done" || task.status === "running") {
         if (hasTargetProject) {
-          body += `<div class="runtime-task-target">Target: <strong>${esc(projectName)}</strong></div>`;
+          body += `<div class="runtime-task-target">${t("Target")}: <strong>${esc(projectName)}</strong></div>`;
         }
         if (task.dispatch?.childSessionId || task.dispatch?.childPort) {
           const canOpen = Boolean(task.dispatch?.childSessionId);
           body += `<div class="runtime-approve-row">
-            <button class="sa-btn" data-action="view-session" data-task-id="${escAttr(task.id)}" ${canOpen ? "" : 'disabled title="Waiting for the agent session to start…"'}>View Session →</button>
-            ${task.status === "running" ? `<button class="sa-btn sa-btn-dismiss" data-action="force-cancel" data-task-id="${escAttr(task.id)}">Force Cancel</button>` : ""}
+            <button class="sa-btn" data-action="view-session" data-task-id="${escAttr(task.id)}" ${canOpen ? "" : `disabled title="${t("Waiting for the agent session to start…")}"`}>${t("View Session")} →</button>
+            ${task.status === "running" ? `<button class="sa-btn sa-btn-dismiss" data-action="force-cancel" data-task-id="${escAttr(task.id)}">${t("Force Cancel")}</button>` : ""}
           </div>`;
         } else if (task.status === "running") {
           body += `<div class="runtime-approve-row">
-            <button class="sa-btn sa-btn-dismiss" data-action="force-cancel" data-task-id="${escAttr(task.id)}">Force Cancel</button>
+            <button class="sa-btn sa-btn-dismiss" data-action="force-cancel" data-task-id="${escAttr(task.id)}">${t("Force Cancel")}</button>
           </div>`;
         }
       } else if (
@@ -397,17 +397,17 @@ class SuperAgentRuntime extends HTMLElement {
         task.status === "blocked" ||
         task.status === "needs_input"
       ) {
-        body += `<div class="runtime-task-error">${esc(task.result?.failReason || task.failReason || "Waiting for input.")}</div>`;
+        body += `<div class="runtime-task-error">${esc(task.result?.failReason || task.failReason || t("Waiting for input."))}</div>`;
         if (hasTargetProject) {
-          body += `<div class="runtime-task-target">Project: <strong>${esc(projectName)}</strong></div>`;
+          body += `<div class="runtime-task-target">${t("Project")}: <strong>${esc(projectName)}</strong></div>`;
           body += `
             <div class="runtime-approve-row">
-              <button class="sa-btn sa-btn-approve" data-action="retry" data-task-id="${task.id}">Retry</button>
+              <button class="sa-btn sa-btn-approve" data-action="retry" data-task-id="${task.id}">${t("Retry")}</button>
               <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">${t("Dismiss")}</button>
             </div>`;
         } else {
           body += `
-            <div class="runtime-task-missing-target">Choose a project when creating this task.</div>
+            <div class="runtime-task-missing-target">${t("Choose a project when creating this task.")}</div>
             <div class="runtime-approve-row">
               <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">${t("Dismiss")}</button>
             </div>`;
@@ -448,7 +448,7 @@ class SuperAgentRuntime extends HTMLElement {
       );
     } else if (task.status === "done") {
       actions.push(
-        `<button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${escAttr(task.id)}" type="button">Clear</button>`,
+        `<button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${escAttr(task.id)}" type="button">${t("Clear")}</button>`,
       );
     }
     if (actions.length === 0) return "";
@@ -472,7 +472,7 @@ class SuperAgentRuntime extends HTMLElement {
         </div>`
       : "";
     return `<div class="runtime-task-history">
-      <button class="sa-btn" data-action="toggle-history" data-task-id="${escAttr(task.id)}" type="button">History</button>
+      <button class="sa-btn" data-action="toggle-history" data-task-id="${escAttr(task.id)}" type="button">${t("History")}</button>
       ${items}
     </div>`;
   }

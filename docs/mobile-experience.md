@@ -5253,6 +5253,26 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十六轮：香草组件硬编码英文本地化（2026-08-12）。
+
+1. 扫描发现 React 之外的三处香草组件存在可见硬编码英文：
+   `super-agent-runtime.js`（任务面板标题/筛选/强制取消/重试/清除/
+   历史/查看会话/目标/项目等）、`super-agent-entry.js`
+   （"AGENT INBOX"）、`sa-chat-header.js`（"Listening"）；
+2. 修复：全部改走 `t()`，i18n 补 8 个键（强制取消/清除/目标/查看
+   会话/等待智能体会话启动/等待输入/创建任务需选项目/忽略去重），
+   复用既有 Tasks/Pending/Running/Done/Retry/History/Project/All/
+   Listening/Agent Inbox 键；
+3. 验证：组件测试 95 项全绿；CDP release 96 实测任务面板标题"任务"、
+   筛选"全部/等待中/运行中/完成"、头部状态"正在聆听"，可见文本无
+   硬编码英文标签、0 控制台错误；
+4. 门禁：前端 848 项、Rust 192 项、typecheck/Biome 458 文件/design/
+   Tauri 权限 24 条全绿；
+5. 发布：release 第九十六次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十五轮：智能收件箱设置断连错误本地化（2026-08-12）。
 
 1. 全 DOM 原始错误扫描（运行时断开状态）定位到第二处同类缺口：
