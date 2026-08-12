@@ -11,6 +11,7 @@ import { createConfigStore } from "./configStore";
 import { createCostDashboardStore } from "./costDashboardStore";
 import { createPackageBrowseStore } from "./packageBrowseStore";
 import { createRemoteAccessStore } from "./remoteAccessStore";
+import { createBackupStore } from "./backupStore";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
@@ -22,6 +23,7 @@ function controllerStub(): SettingsController {
       confirmImpl: () => false,
     }),
     remoteAccessStore: createRemoteAccessStore(null),
+    backupStore: createBackupStore({ getWorkspaceId: () => "workspace-a" }),
     costDashboardStore: createCostDashboardStore(),
     packageBrowseStore: createPackageBrowseStore({ control: null }),
     widgetsStore: createSettingsWidgetsStore(),

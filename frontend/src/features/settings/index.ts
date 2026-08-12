@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createConfigStore, type ConfigGatewayLike } from "./configStore";
 import { createCostDashboardStore, type CostDashboardData } from "./costDashboardStore";
+import { createBackupStore } from "./backupStore";
 import type { SettingsTabKey } from "./logic";
 import { createRemoteAccessStore, type RemoteAccessGateway } from "./remoteAccessStore";
 import {
@@ -64,6 +65,19 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   const remoteAccessStore = createRemoteAccessStore(
     (options.remoteAccessGateway as RemoteAccessGateway | null | undefined) ?? null,
   );
+  const backupStore = createBackupStore({
+    invoke: (globalThis as {
+      __TAURI__?: {
+        core?: {
+          invoke?: (
+            command: string,
+            params?: Record<string, unknown>,
+          ) => Promise<unknown>;
+        };
+      };
+    }).__TAURI__?.core?.invoke,
+    getWorkspaceId: options.getWorkspaceId,
+  });
   const costDashboardStore = createCostDashboardStore();
   const packageBrowseStore = createPackageBrowseStore({
     control: (options.control as HostControlGatewayLike | null | undefined) ?? null,
@@ -97,6 +111,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
   const controller: SettingsController = {
     configStore,
     remoteAccessStore,
+    backupStore,
     costDashboardStore,
     packageBrowseStore,
     widgetsStore,
@@ -105,6 +120,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     loadForTab(tab) {
       if (tab === "general") {
         void widgetsStore.getState().loadSceneProfiles();
+        void backupStore.getState().load();
       } else if (tab === "usage") {
         if (options.data && options.getWorkspaceId) {
           void costDashboardStore

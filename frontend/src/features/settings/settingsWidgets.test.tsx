@@ -3,6 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { GeneralTab } from "./SettingsPanelApp";
 import { createSettingsStore } from "./store";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
+import { createBackupStore } from "./backupStore";
 import { fallbackSceneProfiles, getSelectedSceneId } from "./sceneProfiles";
 import type { SettingsController } from "./SettingsPanelApp";
 
@@ -11,6 +12,7 @@ const controllerStub = {
   wireVanilla: vi.fn(),
   reloadVisibleConfiguration: vi.fn(),
   setTarget: vi.fn(),
+  backupStore: createBackupStore({ getWorkspaceId: () => "workspace-a" }),
 } as unknown as SettingsController;
 
 function renderGeneral(widgets?: ReturnType<typeof createSettingsWidgetsStore>) {

@@ -104,6 +104,21 @@ identifier = "allow-list-workspaces"
 description = "Allow listing registered workspaces for the desktop workspace switcher."
 commands.allow = ["list_workspaces"]
 
+[[permission]]
+identifier = "allow-create-workspace-backup"
+description = "Allow snapshotting the current workspace's app data into ~/.zicode/backups."
+commands.allow = ["create_workspace_backup"]
+
+[[permission]]
+identifier = "allow-list-workspace-backups"
+description = "Allow listing available workspace data snapshots."
+commands.allow = ["list_workspace_backups"]
+
+[[permission]]
+identifier = "allow-delete-workspace-backup"
+description = "Allow permanently removing one workspace data snapshot."
+commands.allow = ["delete_workspace_backup"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
@@ -127,4 +142,7 @@ permissions = [
   "allow-scene-credential-status",
   "allow-publish-notes-notebook",
   "allow-list-workspaces",
+  "allow-create-workspace-backup",
+  "allow-list-workspace-backups",
+  "allow-delete-workspace-backup",
 ]

@@ -8,21 +8,21 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 840 项通过 | 137 个测试文件 |
-| Rust | 187 项通过（163+19+5，另 2 项忽略） | cargo test |
+| 前端 vitest | 844 项通过 | 138 个测试文件 |
+| Rust | 191 项通过（167+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
 | TypeScript typecheck | 通过 | tsc --noEmit |
-| Tauri 权限 / Windows 子进程策略 | 20 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
+| Tauri 权限 / Windows 子进程策略 | 23 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第九十次重建（第 426 轮，数据安全审计）
-  EXE 41,774,080 B / 安装包 346,817,615 B；哈希与逐文件
+- 最近 release：第九十一次重建（第 427 轮，工作区数据自动备份）
+  EXE 41,853,952 B / 安装包 346,921,298 B；哈希与逐文件
   验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第九十次重建安装版，网关 `/health` 200
+- 当前运行实例：第九十一次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -216,6 +216,11 @@
   现在都弹确认（"此操作无法撤销"/"这将永久删除该对话，且无法撤销"），
   拒绝即跳过；CDP 实测 confirm 文案与拒绝保留均正确；前端 840 项
   全绿；
+- 工作区数据自动备份（第 427 轮）：设置 → 通用 → 数据新增"工作区
+  数据备份"——立即备份、启动时自动快照（每天最多一次）、`~/.zicode/
+  backups/<工作区>/` 独立存放、每工作区保留最近 7 份、删除需确认；
+  CDP 实测启动自动备份 + 手动备份 + 删除确认全闭环；前端 844 项、
+  Rust 191 项、Tauri 权限 23 条全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、
@@ -246,6 +251,9 @@
 - 会话备份：设置 → 通用"导出会话备份"把工作区全部会话下载为可读 JSON
   （只读接口，会话文件不含凭据）；"导入会话备份"校验后只写回本工作区
   （冲突跳过、归档根写入），备份/恢复闭环。
+- 工作区数据备份：启动自动 + 手动快照到 `~/.zicode/backups/<工作区>/`
+  （独立于工作区数据，最多 7 份/工作区，删除需确认），与 per-app
+  导出/导入互为补充，覆盖笔记/会话/产物/任务/自动化/金融。
 
 ## 5. 剩余外部事项（需设备/人工/外部输入）
 

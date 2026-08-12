@@ -16,10 +16,15 @@ import { useStoragePersistenceState } from "./storagePersistenceStore";
 import type { SettingsStore } from "./store";
 import { useTaskNotificationsState } from "./taskNotificationsStore";
 import { useAppUpdaterStore } from "./updaterStore";
+import {
+  formatBackupSize,
+  type BackupStore,
+} from "./backupStore";
 
 export interface SettingsController {
   configStore: ConfigStore;
   remoteAccessStore: RemoteAccessStore;
+  backupStore: BackupStore;
   costDashboardStore: CostDashboardStore;
   packageBrowseStore: PackageBrowseStore;
   widgetsStore: SettingsWidgetsStore;
@@ -472,6 +477,97 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
   );
 }
 
+function WorkspaceBackupSection({ store }: { store: BackupStore }) {
+  const backups = store((state) => state.backups);
+  const loading = store((state) => state.loading);
+  const creating = store((state) => state.creating);
+  const deletingId = store((state) => state.deletingId);
+  const status = store((state) => state.status);
+  const error = store((state) => state.error);
+  const load = store((state) => state.load);
+  const createBackup = store((state) => state.createBackup);
+  const deleteBackup = store((state) => state.deleteBackup);
+
+  return (
+    <div className="settings-section" id="workspace-backup-section">
+      <div className="settings-section-title">{t("Workspace data backup")}</div>
+      <div className="settings-row">
+        <span className="settings-label settings-label-stack">
+          <span className="settings-label-main">{t("Back up this workspace")}</span>
+          <span className="settings-label-sub">
+            {t(
+              "Snapshots notes, conversations, artifacts, tasks and automations into ~/.zicode/backups. Startup auto-backup runs at most once per day; the newest 7 are kept.",
+            )}
+          </span>
+        </span>
+        <button
+          type="button"
+          id="create-workspace-backup"
+          className="ui-button ui-button--secondary settings-value-btn"
+          disabled={creating}
+          onClick={() => void createBackup()}
+        >
+          {creating ? t("Backing up…") : t("Back up now")}
+        </button>
+      </div>
+      <p
+        className="settings-help"
+        id="workspace-backup-status"
+        role="status"
+        aria-live="polite"
+        data-tone={error ? "error" : undefined}
+      >
+        {status ||
+          error ||
+          (backups.length > 0
+            ? `${t("Latest backup")}: ${new Date(backups[0].createdAt).toLocaleString()}`
+            : t("No backups yet"))}
+      </p>
+      {backups.length > 0 ? (
+        <ul className="workspace-backup-list" aria-label={t("Workspace backups")}>
+          {backups.slice(0, 7).map((backup) => (
+            <li key={backup.id} className="workspace-backup-item">
+              <span className="workspace-backup-meta">
+                <strong>{new Date(backup.createdAt).toLocaleString()}</strong>
+                <span>
+                  {formatBackupSize(backup.sizeBytes)} · {backup.apps.join(", ")}
+                </span>
+              </span>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                disabled={deletingId === backup.id}
+                onClick={() => {
+                  if (
+                    globalThis.confirm?.(
+                      `${t("Delete workspace backup")} “${new Date(
+                        backup.createdAt,
+                      ).toLocaleString()}”? ${t("This cannot be undone.")}`,
+                    ) === false
+                  ) {
+                    return;
+                  }
+                  void deleteBackup(backup.id);
+                }}
+              >
+                {deletingId === backup.id ? t("Deleting…") : t("Delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <button
+        type="button"
+        className="ui-button ui-button--ghost ui-button--sm"
+        onClick={() => void load()}
+        disabled={loading}
+      >
+        {t("Refresh")}
+      </button>
+    </div>
+  );
+}
+
 export function GeneralTab({
   store,
   widgets,
@@ -753,6 +849,7 @@ export function GeneralTab({
               ? t("Import failed")
               : ""}
         </p>
+        <WorkspaceBackupSection store={controller.backupStore} />
       </div>
       <div className="settings-section" id="setting-updater-section">
         <div className="settings-section-title">{t("Updates")}</div>

@@ -2,6 +2,7 @@
 
 mod app_paths;
 mod artifact_store;
+mod backup_store;
 mod credential_broker;
 mod e2ee;
 mod host_data;
@@ -303,6 +304,42 @@ fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceInfo>, String> {
         .into_iter()
         .map(|(id, path)| WorkspaceInfo { id, path })
         .collect())
+}
+
+/// Snapshot the workspace's `.zicode` app data into `~/.zicode/backups`.
+#[tauri::command]
+fn create_workspace_backup(
+    app: AppHandle,
+    workspace_id: String,
+) -> Result<crate::backup_store::WorkspaceBackup, String> {
+    let launcher = app
+        .try_state::<WorkspaceLauncher>()
+        .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
+    let metadata = launcher
+        .metadata
+        .lock()
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
+    let workspace_root = metadata
+        .list_workspaces()?
+        .into_iter()
+        .find(|(id, _)| id == &workspace_id)
+        .map(|(_, path)| path)
+        .ok_or_else(|| "Workspace is not registered".to_string())?;
+    crate::backup_store::create_workspace_backup(&workspace_id, Path::new(&workspace_root))
+}
+
+/// List available workspace snapshots, newest first.
+#[tauri::command]
+fn list_workspace_backups(
+    workspace_id: String,
+) -> Result<Vec<crate::backup_store::WorkspaceBackup>, String> {
+    crate::backup_store::list_workspace_backups(&workspace_id)
+}
+
+/// Permanently remove one workspace snapshot.
+#[tauri::command]
+fn delete_workspace_backup(workspace_id: String, backup_id: String) -> Result<(), String> {
+    crate::backup_store::delete_workspace_backup(&workspace_id, &backup_id)
 }
 
 /// Switch the focused ZiCode Studio Desktop window to `projectPath` and resume the given saved
@@ -1088,6 +1125,22 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         .lock()
         .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
         .workspace_id_for_path(Path::new(&cwd))?;
+    // Snapshot the resumed workspace's app data on startup (at most once per
+    // day per workspace) so accidental data loss has a recovery path.
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+    match crate::backup_store::backup_if_due(&workspace_id, Path::new(&cwd), now_secs) {
+        Ok(Some(backup)) => log::info!(
+            "[picot-native] created workspace backup {} ({} apps, {} bytes)",
+            backup.id,
+            backup.apps.len(),
+            backup.size_bytes
+        ),
+        Ok(None) => {}
+        Err(error) => log::warn!("[picot-native] workspace backup skipped: {error}"),
+    }
     let session_id = format!("temporary-{}", uuid::Uuid::new_v4().simple());
     let target = RuntimeTarget::new(
         workspace_id,
@@ -1179,6 +1232,9 @@ fn main() {
             switch_window_workspace,
             open_session_in_project,
             list_workspaces,
+            create_workspace_backup,
+            list_workspace_backups,
+            delete_workspace_backup,
             ensure_agent_inbox_session,
             list_scene_profiles,
             save_scene_profile,

@@ -5253,6 +5253,36 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百二十七轮：工作区数据自动备份（2026-08-12）。
+
+1. 新增工作区数据备份（数据保护闭环）：
+   - Rust `backup_store.rs`：把 `<工作区>/.zicode/` 下
+     {sessions,notes,artifacts,tasks,automation,finance} 目录快照到
+     `~/.zicode/backups/<workspaceId>/<时间戳>/`（与工作区数据分离，
+     数据丢失后仍有恢复路径），写入 backup.json 元数据（时间/大小/
+     应用清单），每工作区最多保留 7 份；
+   - 自动备份：应用启动时对恢复的工作区执行 `backup_if_due`（距上次
+     备份不足 24 小时则跳过），日志记录
+     "created workspace backup … (N apps, M bytes)"；
+   - Tauri 命令 `create/list/delete_workspace_backup`（按工作区 id
+     解析根路径，删除校验 id 防路径穿越）+ 权限 3 条（共 23 条）；
+   - 前端：设置 → 通用 → 数据区新增"工作区数据备份"——立即备份、
+     最近备份时间、备份列表（时间/大小/应用清单）、删除（confirm
+     "此操作无法撤销"）；
+2. 验证：Rust 单测 4 项（快照/列表排序、每日间隔、保留 7 份、路径
+   穿越拒绝）；前端 backupStore 测试 4 项；CDP release 91 实测：
+   启动自动备份落盘（agent-inbox 工作区），设置页立即备份 → 状态
+   "工作区备份已创建"、列表新增一条，删除备份 → confirm 文案
+   "删除工作区备份 …? 此操作无法撤销。"，拒绝保留、接受移除；均
+   0 控制台错误；
+3. 门禁：前端 844 项全绿（新增 4 项）、Rust 191 项（167+19+5，
+   另 2 项忽略，新增 4 项）、typecheck/Biome 458 文件/design/Tauri
+   权限 23 条/clippy/fmt 全绿；
+4. 发布：release 第九十一次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），启动日志含自动备份记录，无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百二十六轮：数据安全审计 + 补两处删除确认（2026-08-12）。
 
 1. 全应用数据安全审计：逐面核查破坏性操作——笔记（删除→回收站、
