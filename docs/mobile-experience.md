@@ -4983,6 +4983,25 @@ P2 再做）完成 P1 UI 层：
 2. 结论：20 轮（397–416）累积功能与修复在 release 85 上无回归；
    本轮为验证轮，无运行时变更，运行实例保持 release 85。
 
+第四百一十八轮：产物批量导入（2026-08-12）。
+
+1. 数据闭环第三表面补齐：产物库新增"导入全部产物"（与第 411 轮
+   导出对称的恢复）——选择 `{ schemaVersion, artifacts[] }` 归档，
+   经 `POST /v2/artifacts/import-all` 逐项写回；
+2. 实现：
+   - Rust：`ArtifactStore::import_document`（保留原 id/handle/
+     created_at/version，幂等跳过已存在项）+ `import_all`
+     （返回实际导入数）；host 新增 `POST /v2/artifacts/import-all`
+     （70 MiB 上限）；
+   - 前端：网关 `importAll`、Store `importAll`（chooseFile → 解析
+     → 导入 → 重载 + toast）、导航"导入全部产物"按钮；
+3. 测试：Rust 单测（创建→导出→新库导入→保留 id/内容一致、二次导入
+   幂等 0）+ 前端 store 测试（mock 网关 → 断言参数与 toast）；
+4. 门禁：前端 831 项、Rust 182 项（158+19+5，另 2 项忽略）、
+   typecheck/Biome 456 文件/design 全绿；
+5. 发布：release 第八十六次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

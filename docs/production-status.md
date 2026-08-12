@@ -8,8 +8,8 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 830 项通过 | 137 个测试文件 |
-| Rust | 181 项通过（157+19+5，另 2 项忽略） | cargo test |
+| 前端 vitest | 831 项通过 | 137 个测试文件 |
+| Rust | 182 项通过（158+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
@@ -173,6 +173,10 @@
   前端 830 项全绿；
 - 关键路径冒烟（第 417 轮）：release 85 健康/工作区切换/会话/笔记/
   产物/设置/命令面板 9 项全过、控制台 0 真实错误，20 轮累积无回归；
+- 产物批量导入（第 418 轮）：产物库新增"导入全部产物"（Rust
+  import_document/import_all 保留原 id 幂等恢复 + `POST
+  /v2/artifacts/import-all` + 前端入口），与导出对称；Rust/前端
+  测试齐备，前端 831 项、Rust 182 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

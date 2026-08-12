@@ -57,6 +57,14 @@ export class ArtifactGateway {
     });
   }
 
+  importAll(sceneId, workspaceId, artifacts) {
+    return this.#post("/v2/artifacts/import-all", {
+      sceneId,
+      workspaceId,
+      artifacts,
+    });
+  }
+
   #post(path, body) {
     return this.#request(this.#url(path), {
       method: "POST",

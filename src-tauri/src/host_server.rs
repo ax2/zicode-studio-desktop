@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
-use crate::artifact_store::{ArtifactDraft, ArtifactError, ArtifactStore};
+use crate::artifact_store::{ArtifactDocument, ArtifactDraft, ArtifactError, ArtifactStore};
 use crate::host_data::{HostDataError, HostDataPlane, SessionBackupEntry};
 use crate::host_router::{HostRouter, RoutedAction, PROTOCOL_VERSION};
 use crate::native_pi_manager::{NativeLaunchSpec, NativePiManager};
@@ -373,6 +373,11 @@ impl HostServer {
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
             .route("/v2/artifacts/delete", post(delete_artifact))
+            .route(
+                "/v2/artifacts/import-all",
+                post(import_artifacts_all)
+                    .layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
+            )
             .route("/v2/auth/exchange", post(exchange_pairing))
             .route("/v2/auth/ca.pem", get(download_remote_ca))
             .route("/v2/lan-qr", get(lan_qr))
@@ -1439,6 +1444,15 @@ struct CreateArtifactRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ImportArtifactsAllRequest {
+    workspace_id: String,
+    scene_id: String,
+    #[serde(default)]
+    artifacts: Vec<ArtifactDocument>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DeleteArtifactRequest {
     workspace_id: String,
     scene_id: String,
@@ -2014,6 +2028,25 @@ async fn create_artifact(
         })
         .map_err(artifacts_api_error)?;
     Ok(Json(json!({ "artifact": artifact })))
+}
+
+/// Restore a workspace-level artifact bundle produced by the bulk export.
+async fn import_artifacts_all(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ImportArtifactsAllRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_artifacts_authorized(&state, &request.scene_id, None)?;
+    let artifacts = state
+        .artifacts
+        .lock()
+        .map_err(|_| artifacts_unavailable())?;
+    let scoped = artifacts
+        .scoped(&request.workspace_id)
+        .map_err(artifacts_api_error)?;
+    let imported = scoped
+        .import_all(&request.workspace_id, request.artifacts)
+        .map_err(artifacts_api_error)?;
+    Ok(Json(json!({ "imported": imported })))
 }
 
 async fn delete_artifact(

@@ -50,6 +50,11 @@ const zhCN = {
   "All artifacts exported": "全部产物已导出",
   "No artifacts to export": "没有可导出的产物",
   "Could not export artifacts": "无法导出产物",
+  "Import all artifacts": "导入全部产物",
+  "All artifacts imported": "全部产物已导入",
+  "Could not import artifacts": "无法导入产物",
+  "Artifact bundle exceeds the 70 MiB limit": "产物归档超过 70 MiB 上限",
+  "Artifact bundle is not valid JSON": "产物归档不是有效的 JSON",
   "Welcome to ZiCode Studio Desktop": "欢迎使用 ZiCode Studio Desktop",
   "Type a message below to start chatting with Pi, or select a session from the sidebar.":
     "在下方输入消息即可开始与 Pi 对话，或从侧边栏选择一个会话。",

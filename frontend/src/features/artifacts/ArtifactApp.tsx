@@ -30,6 +30,7 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
   const load = store((state) => state.load);
   const selectArtifact = store((state) => state.selectArtifact);
   const exportAll = store((state) => state.exportAll);
+  const importAll = store((state) => state.importAll);
   const [search, setSearch] = useState(store.getState().query);
 
   useEffect(() => {
@@ -61,6 +62,13 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
         onClick={() => void exportAll()}
       >
         {t("Export all artifacts")}
+      </button>
+      <button
+        type="button"
+        className="ui-button ui-button--secondary ui-button--sm artifacts-import-all"
+        onClick={() => void importAll()}
+      >
+        {t("Import all artifacts")}
       </button>
       <FilterSection
         title={t("Types")}

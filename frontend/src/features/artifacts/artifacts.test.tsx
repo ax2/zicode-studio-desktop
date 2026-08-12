@@ -35,6 +35,7 @@ function createGateway() {
       },
     })),
     create: vi.fn(),
+    importAll: vi.fn(async () => ({ imported: 1 })),
     delete: vi.fn(async () => ({ deleted: true })),
   };
 }
@@ -229,6 +230,47 @@ describe("artifact bulk export", () => {
     await store.getState().load();
     await store.getState().exportAll();
     expect(notify).toHaveBeenCalledWith("No artifacts to export");
+    store.getState().destroy();
+  });
+});
+
+describe("artifact bulk import", () => {
+  it("restores a bundle through the gateway and reloads the list", async () => {
+    setLocale("en");
+    const importAll = vi.fn(async () => ({ imported: 1 }));
+    const notify = vi.fn();
+    const gateway = createGateway();
+    gateway.importAll.mockImplementation(importAll);
+    const store = createArtifactStore({
+      gateway,
+      getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
+      notify,
+      downloadFile: vi.fn(),
+      chooseFile: vi.fn(
+        async () =>
+          ({
+            size: 256,
+            text: async () =>
+              JSON.stringify({
+                schemaVersion: 1,
+                artifacts: [
+                  {
+                    id: "artifact-1",
+                    title: "Backtest",
+                    content: { metrics: {} },
+                  },
+                ],
+              }),
+          }) as unknown as File,
+      ),
+    });
+    await store.getState().importAll();
+    expect(importAll).toHaveBeenCalledWith(
+      "finance",
+      "ws-finance",
+      expect.any(Array),
+    );
+    expect(notify).toHaveBeenCalledWith("All artifacts imported");
     store.getState().destroy();
   });
 });

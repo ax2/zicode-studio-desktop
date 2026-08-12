@@ -16,6 +16,7 @@ export interface ArtifactGatewayLike {
     filters: { query?: string; kind?: string; pluginId?: string },
   ): Promise<{ snapshot?: { artifacts?: ArtifactDescriptor[]; kinds?: string[]; plugins?: string[] } }>;
   get(sceneId: string, workspaceId: string, artifactId: string): Promise<{ artifact?: ArtifactDocument }>;
+  importAll(sceneId: string, workspaceId: string, artifacts: unknown[]): Promise<{ imported?: number }>;
   delete(sceneId: string, workspaceId: string, artifact: ArtifactDescriptor): Promise<unknown>;
 }
 
@@ -25,6 +26,7 @@ export interface ArtifactAppOptions {
   notify?: (message: string) => void;
   confirmDelete?: (message: string) => boolean | Promise<boolean>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
+  chooseFile?: (accept: string) => Promise<File | null>;
 }
 
 interface ArtifactSnapshot {
@@ -50,8 +52,28 @@ interface ArtifactState {
   deleteSelected(): Promise<void>;
   exportSelected(): boolean;
   exportAll(): Promise<void>;
+  importAll(): Promise<void>;
   setTarget(): void;
   destroy(): void;
+}
+
+function defaultChooseFile(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.style.display = "none";
+    let settled = false;
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      input.remove();
+      resolve(file);
+    };
+    input.addEventListener("change", () => finish(input.files?.[0] ?? null));
+    document.body.append(input);
+    input.click();
+  });
 }
 
 export function createArtifactStore(options: ArtifactAppOptions) {
@@ -60,6 +82,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
   const notify = options.notify ?? (() => {});
   const confirmDelete = options.confirmDelete ?? ((message: string) => globalThis.confirm?.(message) ?? false);
   const downloadFile = options.downloadFile ?? defaultDownloadFile;
+  const chooseFile = options.chooseFile ?? defaultChooseFile;
   let requestSequence = 0;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
@@ -245,6 +268,28 @@ export function createArtifactStore(options: ArtifactAppOptions) {
         "application/json",
       );
       notify(t("All artifacts exported"));
+    },
+
+    async importAll() {
+      try {
+        const file = await chooseFile(".json");
+        if (!file) return;
+        if (!file.size || file.size > 70 * 1024 * 1024) {
+          notify(t("Artifact bundle exceeds the 70 MiB limit"));
+          return;
+        }
+        const bundle = JSON.parse(await file.text());
+        const artifacts = Array.isArray(bundle?.artifacts) ? bundle.artifacts : [];
+        await gateway.importAll(sceneId(), workspaceId(), artifacts);
+        await get().load({ preserveSelection: false });
+        notify(t("All artifacts imported"));
+      } catch (error) {
+        notify(
+          error instanceof SyntaxError
+            ? t("Artifact bundle is not valid JSON")
+            : t("Could not import artifacts"),
+        );
+      }
     },
 
     setTarget() {

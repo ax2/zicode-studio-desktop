@@ -413,6 +413,83 @@ impl ArtifactStore {
         })
     }
 
+    /// Restore a previously exported artifact, preserving its original id and
+    /// metadata so cross-references (notes, knowledge links) keep working.
+    pub fn import_document(
+        &self,
+        workspace_id: &str,
+        document: ArtifactDocument,
+    ) -> Result<ArtifactDocument, ArtifactError> {
+        let descriptor = document.descriptor.clone();
+        let id = validate_opaque_id(&descriptor.id)?;
+        let content_bytes = serde_json::to_vec_pretty(&document.content)
+            .map_err(|_| ArtifactError::new("invalid_parameters", "Invalid artifact content"))?;
+        if content_bytes.len() > MAX_CONTENT_BYTES {
+            return Err(ArtifactError::new(
+                "payload_too_large",
+                "Artifact content exceeds 1 MiB",
+            ));
+        }
+        let content_path = self.content_path(&id)?;
+        if content_path.exists() {
+            // Idempotent restore: an artifact with the same id already exists.
+            return Ok(document);
+        }
+        validate_scene_id(&descriptor.scene_id)?;
+        validate_plugin_id(&descriptor.plugin_id)?;
+        validate_kind(&descriptor.kind)?;
+        validate_text(&descriptor.title, MAX_TITLE_CHARS, "Artifact title")?;
+        if descriptor
+            .summary
+            .trim()
+            .len()
+            .saturating_sub(0)
+            > MAX_SUMMARY_CHARS
+        {
+            return Err(ArtifactError::new(
+                "invalid_parameters",
+                "Artifact summary exceeds the limit",
+            ));
+        }
+        validate_mime_type(&descriptor.mime_type)?;
+        if self.list(&descriptor.scene_id, None, None, None)?.artifacts.len() >= MAX_ARTIFACTS {
+            return Err(ArtifactError::new(
+                "quota_exceeded",
+                "The scene artifact limit has been reached",
+            ));
+        }
+        atomic_write(&content_path, &content_bytes)?;
+        let mut restored = document;
+        restored.descriptor.workspace_id = validate_workspace_id(workspace_id)?;
+        restored.descriptor.size = content_bytes.len();
+        let metadata = serde_json::to_vec_pretty(&restored.descriptor)
+            .map_err(|_| ArtifactError::new("serialization_failed", "Cannot encode artifact"))?;
+        if let Err(error) = atomic_write(&self.metadata_path(&id)?, &metadata) {
+            let _ = fs::remove_file(&content_path);
+            return Err(error);
+        }
+        Ok(restored)
+    }
+
+    /// Restore a workspace-level artifact bundle produced by the bulk export.
+    /// Returns the number of artifacts actually written (existing ids skipped).
+    pub fn import_all(
+        &self,
+        workspace_id: &str,
+        documents: Vec<ArtifactDocument>,
+    ) -> Result<usize, ArtifactError> {
+        let mut imported = 0usize;
+        for document in documents {
+            let id = validate_opaque_id(&document.descriptor.id)?;
+            if self.content_path(&id)?.exists() {
+                continue;
+            }
+            self.import_document(workspace_id, document)?;
+            imported += 1;
+        }
+        Ok(imported)
+    }
+
     pub fn get(
         &self,
         scene_id: &str,
@@ -548,6 +625,21 @@ fn validate_text(value: &str, maximum: usize, label: &str) -> Result<String, Art
     Ok(value.to_string())
 }
 
+fn validate_opaque_id(value: &str) -> Result<String, ArtifactError> {
+    if value.len() > 128
+        || value.is_empty()
+        || value
+            .chars()
+            .any(|ch| !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_')
+    {
+        return Err(ArtifactError::new(
+            "invalid_parameters",
+            "Artifact id is invalid",
+        ));
+    }
+    Ok(value.to_string())
+}
+
 fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
 }
@@ -585,7 +677,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), ArtifactError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ArtifactDraft, ArtifactStore};
+    use super::{ArtifactDocument, ArtifactDraft, ArtifactStore};
     use serde_json::json;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -699,6 +791,74 @@ mod tests {
         )
         .unwrap();
         assert_eq!(migrated["workspaceId"], workspace_id);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn restores_exported_artifacts_preserving_ids_and_content() {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-artifacts-restore-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let workspace_a = "11111111-1111-4111-8111-111111111111";
+        let workspace_b = "22222222-2222-4222-8222-222222222222";
+        let source = ArtifactStore::new(root.join("source")).unwrap();
+        let created = source
+            .scoped(workspace_a)
+            .unwrap()
+            .create(ArtifactDraft {
+                workspace_id: workspace_a.into(),
+                scene_id: "finance".into(),
+                plugin_id: "com.zicode.finance".into(),
+                kind: "report".into(),
+                title: "Backtest".into(),
+                summary: "Deterministic result".into(),
+                mime_type: "application/json".into(),
+                provenance: json!({ "engine": "local" }),
+                content: json!({ "metrics": { "totalReturn": 0.12 } }),
+            })
+            .unwrap();
+        let exported = source
+            .scoped(workspace_a)
+            .unwrap()
+            .get("finance", &created.descriptor.id)
+            .unwrap();
+
+        let target = ArtifactStore::new(root.join("target")).unwrap();
+        let imported_count = target
+            .scoped(workspace_b)
+            .unwrap()
+            .import_all(
+                workspace_b,
+                vec![ArtifactDocument {
+                    descriptor: exported.descriptor.clone(),
+                    content: exported.content.clone(),
+                }],
+            )
+            .unwrap();
+        assert_eq!(imported_count, 1);
+        let restored = target
+            .scoped(workspace_b)
+            .unwrap()
+            .get("finance", &created.descriptor.id)
+            .unwrap();
+        assert_eq!(restored.descriptor.id, created.descriptor.id);
+        assert_eq!(restored.descriptor.handle, created.descriptor.handle);
+        assert_eq!(restored.descriptor.title, "Backtest");
+        assert_eq!(
+            restored.content["metrics"]["totalReturn"],
+            json!(0.12)
+        );
+        // A second import is idempotent and reports zero new artifacts.
+        let again = target
+            .scoped(workspace_b)
+            .unwrap()
+            .import_all(workspace_b, vec![exported])
+            .unwrap();
+        assert_eq!(again, 0);
         let _ = fs::remove_dir_all(root);
     }
 }
