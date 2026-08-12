@@ -282,7 +282,10 @@ mod tests {
             system.file_name().and_then(|name| name.to_str()),
             Some(".zicode")
         );
-        assert_eq!(global_workspace_root().expect("global root resolves"), system);
+        assert_eq!(
+            global_workspace_root().expect("global root resolves"),
+            system
+        );
         assert_eq!(
             pi_global_agent_dir().expect("pi agent dir resolves"),
             system.join("agent")

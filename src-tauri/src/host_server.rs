@@ -375,8 +375,7 @@ impl HostServer {
             .route("/v2/artifacts/delete", post(delete_artifact))
             .route(
                 "/v2/artifacts/import-all",
-                post(import_artifacts_all)
-                    .layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
+                post(import_artifacts_all).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
             )
             .route("/v2/auth/exchange", post(exchange_pairing))
             .route("/v2/auth/ca.pem", get(download_remote_ca))
@@ -3321,17 +3320,16 @@ async fn dispatch(
                 let device_id = config
                     .relay_device_id
                     .unwrap_or_else(|| "zicode-desktop".to_string());
-                let result =
-                    tokio::task::spawn_blocking(move || {
-                        crate::turn_probe::probe_turn(&turn_url, &realm, &secret, &device_id)
-                    })
-                    .await
-                    .map_err(|error| {
-                        (
-                            "turn_probe_failed",
-                            format!("TURN probe task failed: {error}"),
-                        )
-                    })?;
+                let result = tokio::task::spawn_blocking(move || {
+                    crate::turn_probe::probe_turn(&turn_url, &realm, &secret, &device_id)
+                })
+                .await
+                .map_err(|error| {
+                    (
+                        "turn_probe_failed",
+                        format!("TURN probe task failed: {error}"),
+                    )
+                })?;
                 let (result, detail) = match result {
                     crate::turn_probe::TurnProbeResult::Ok => ("ok", None),
                     crate::turn_probe::TurnProbeResult::Unauthenticated => {

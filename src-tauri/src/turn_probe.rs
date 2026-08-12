@@ -116,7 +116,12 @@ impl StunMessage {
 }
 
 fn read_u32(bytes: &[u8], offset: usize) -> u32 {
-    u32::from_be_bytes([bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]])
+    u32::from_be_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
 }
 
 fn derive_username_and_credential(secret: &str, device_id: &str) -> (String, String) {
@@ -152,7 +157,11 @@ fn parse_turn_host_port(turn_url: &str) -> Result<SocketAddr, String> {
         host_port
     };
     let (host, port) = if let Some((host, port)) = host_port.rsplit_once(':') {
-        (host, port.parse::<u16>().map_err(|_| "invalid TURN port".to_string())?)
+        (
+            host,
+            port.parse::<u16>()
+                .map_err(|_| "invalid TURN port".to_string())?,
+        )
     } else {
         (host_port, 3478)
     };
@@ -177,24 +186,25 @@ fn allocation_request(
         attributes: vec![(0x8022, vec![0, 0, 0, 5])],
     };
     if let Some(username) = username {
-        message.attributes.push((ATTR_USERNAME, username.as_bytes().to_vec()));
+        message
+            .attributes
+            .push((ATTR_USERNAME, username.as_bytes().to_vec()));
     }
     if let Some(realm) = realm {
-        message.attributes.push((ATTR_REALM, realm.as_bytes().to_vec()));
+        message
+            .attributes
+            .push((ATTR_REALM, realm.as_bytes().to_vec()));
     }
     if let Some(nonce) = nonce {
-        message.attributes.push((ATTR_NONCE, nonce.as_bytes().to_vec()));
+        message
+            .attributes
+            .push((ATTR_NONCE, nonce.as_bytes().to_vec()));
     }
     message.encode(key)
 }
 
 /// Run the TURN allocation probe against the configured server.
-pub fn probe_turn(
-    turn_url: &str,
-    realm: &str,
-    secret: &str,
-    device_id: &str,
-) -> TurnProbeResult {
+pub fn probe_turn(turn_url: &str, realm: &str, secret: &str, device_id: &str) -> TurnProbeResult {
     let address = match parse_turn_host_port(turn_url) {
         Ok(address) => address,
         Err(error) => return TurnProbeResult::Protocol(error),
@@ -263,9 +273,7 @@ pub fn probe_turn(
     match response.message_type {
         TYPE_ALLOCATION_RESPONSE => TurnProbeResult::Ok,
         TYPE_ALLOCATION_ERROR => TurnProbeResult::Unauthenticated,
-        other => TurnProbeResult::Protocol(format!(
-            "unexpected TURN response type 0x{other:04x}"
-        )),
+        other => TurnProbeResult::Protocol(format!("unexpected TURN response type 0x{other:04x}")),
     }
 }
 
@@ -316,8 +324,10 @@ mod tests {
                     continue;
                 }
                 // Validate the message integrity against the shared secret.
-                let username = std::str::from_utf8(message.attribute(ATTR_USERNAME).unwrap()).unwrap();
-                let received_realm = std::str::from_utf8(message.attribute(ATTR_REALM).unwrap()).unwrap();
+                let username =
+                    std::str::from_utf8(message.attribute(ATTR_USERNAME).unwrap()).unwrap();
+                let received_realm =
+                    std::str::from_utf8(message.attribute(ATTR_REALM).unwrap()).unwrap();
                 let credential = derive_credential_for_username(&secret, username);
                 let key = turn_key(username, received_realm, &credential);
                 // Recompute the STUN message-integrity over the exact bytes
@@ -331,9 +341,8 @@ mod tests {
                 mac.update(&client_message[..20 + message_length - 20]);
                 mac.update(&[0u8; 20]);
                 let expected = mac.finalize().into_bytes();
-                let provided = client_message
-                    [20 + message_length - 20..20 + message_length]
-                    .to_vec();
+                let provided =
+                    client_message[20 + message_length - 20..20 + message_length].to_vec();
                 let ok = expected.as_slice() == provided.as_slice();
                 let response = StunMessage {
                     message_type: if ok {
@@ -377,8 +386,8 @@ mod tests {
         assert_eq!(
             turn_key("1234567890:user", "turn.example.com", &credential),
             vec![
-                0x72, 0x64, 0x28, 0x5f, 0xce, 0x49, 0x5c, 0xdb, 0xf7, 0xd0, 0x36, 0x96, 0x88,
-                0x54, 0x22, 0xd5
+                0x72, 0x64, 0x28, 0x5f, 0xce, 0x49, 0x5c, 0xdb, 0xf7, 0xd0, 0x36, 0x96, 0x88, 0x54,
+                0x22, 0xd5
             ]
         );
     }

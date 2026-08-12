@@ -439,20 +439,19 @@ impl ArtifactStore {
         validate_plugin_id(&descriptor.plugin_id)?;
         validate_kind(&descriptor.kind)?;
         validate_text(&descriptor.title, MAX_TITLE_CHARS, "Artifact title")?;
-        if descriptor
-            .summary
-            .trim()
-            .len()
-            .saturating_sub(0)
-            > MAX_SUMMARY_CHARS
-        {
+        if descriptor.summary.trim().len().saturating_sub(0) > MAX_SUMMARY_CHARS {
             return Err(ArtifactError::new(
                 "invalid_parameters",
                 "Artifact summary exceeds the limit",
             ));
         }
         validate_mime_type(&descriptor.mime_type)?;
-        if self.list(&descriptor.scene_id, None, None, None)?.artifacts.len() >= MAX_ARTIFACTS {
+        if self
+            .list(&descriptor.scene_id, None, None, None)?
+            .artifacts
+            .len()
+            >= MAX_ARTIFACTS
+        {
             return Err(ArtifactError::new(
                 "quota_exceeded",
                 "The scene artifact limit has been reached",
@@ -848,10 +847,7 @@ mod tests {
         assert_eq!(restored.descriptor.id, created.descriptor.id);
         assert_eq!(restored.descriptor.handle, created.descriptor.handle);
         assert_eq!(restored.descriptor.title, "Backtest");
-        assert_eq!(
-            restored.content["metrics"]["totalReturn"],
-            json!(0.12)
-        );
+        assert_eq!(restored.content["metrics"]["totalReturn"], json!(0.12));
         // A second import is idempotent and reports zero new artifacts.
         let again = target
             .scoped(workspace_b)
