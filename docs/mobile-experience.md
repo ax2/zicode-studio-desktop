@@ -4909,6 +4909,26 @@ P2 再做）完成 P1 UI 层：
 5. 发布：release 第八十三次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百一十三轮：M2 基础设施状态核查（2026-08-12）。
+
+1. 安全核验：`~/.zicode` 目录 ACL 仅 SYSTEM + Administrators +
+   本机用户——远程访问 config.json（含 TURN 密钥与设备注册令牌）随
+   目录继承受限 ACL，写入路径依赖父目录继承，无泄露面；
+2. M2 桌面侧就绪核验：
+   - relay：live 状态"中继已连接"（08-12 09:52），今日/近 7 日流量
+     有记录，运行期无 relay 错误；
+   - TURN：`derive_turn_credential` 为标准 coturn auth-secret REST
+     方案（无填充 base64(HMAC-SHA1(static-auth-secret, username))，
+     username=<过期时间戳>:<设备>），已知向量测试 + 独立复算一致；
+   - 配置完整：relay 地址/设备 ID/TURN URL/realm/密钥齐备；
+   - 设置页"经服务器访问"开启，端到端加密身份指纹与 e2ee_key 工具
+     完全一致；
+3. 剩余唯一外部前置：coturn 服务器 `static-auth-secret` 必须等于
+   桌面 `relayTurnSecret`（当前值在桌面配置中），随后在服务器上
+   用 `turnutils_uclient -u <时间戳>:dev-ax2-01 -w <派生凭据>` 验证
+   TURN relay，再进行真机移动网络验收；
+4. 结论：桌面侧 M2 无遗留本地障碍，全部等待服务器密钥对齐 + 真机。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：
