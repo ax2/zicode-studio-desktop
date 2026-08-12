@@ -697,6 +697,12 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("caps message bubbles at the chat content width so wide windows stay readable", () => {
+    expect(messageRendererCss).toMatch(
+      /\.message\s+\.message-content\s*\{[\s\S]*?width:\s*min\(\s*var\(--chat-content-max-width\),\s*100%\)/,
+    );
+  });
+
   it("keeps the welcome screen compact on mobile and space-filling on desktop", () => {
     expect(messageRendererCss).toMatch(
       /\.welcome-quick-actions\s*\{\s*display:\s*none;/,

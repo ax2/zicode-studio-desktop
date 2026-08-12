@@ -4894,6 +4894,21 @@ P2 再做）完成 P1 UI 层：
 5. 发布：release 第八十二次重建 + `/S` 静默重装，哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百一十二轮：4K/超宽布局审计与消息宽度修复（2026-08-12）。
+
+1. 审计（release 82，2560×1440 / 3840×2160 × dpr 1/1.5，5 表面）：
+   0 溢出、0 裁剪、主区随宽度缩放、控制台 0 错误；`--chat-content-
+   max-width` 响应式分级（960→1120→1280→1440px）在 4K 生效；
+2. 发现并修复真实缺陷：`.message-content` 无宽度上限，4K 下助手
+   消息气泡撑到 3324px（应封顶 1440px）——基础规则被
+   `.message.assistant .message-content { width: 100% }` 覆盖；
+   修复为 `width: min(var(--chat-content-max-width), 100%)`；
+3. 回归测试：布局契约新增"消息气泡封顶聊天内容宽度"检查；
+4. 验证：CDP 实测 4 条消息宽度全部 1440px、无超宽元素；
+   门禁前端 827 项、typecheck/Biome 456 文件/design 全绿；
+5. 发布：release 第八十三次重建 + `/S` 静默重装，哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：
