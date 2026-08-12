@@ -313,6 +313,7 @@ const zhCN = {
     "编辑 {file} 以添加自定义提供方（Ollama、vLLM、LM Studio、OpenAI 兼容代理、OpenRouter 路由覆盖等）。",
   "See the": "参见",
   "Delete all archived sessions": "删除全部已归档会话",
+  "Archive all sessions": "归档全部会话",
   "Delete archived sessions": "删除已归档会话",
   "Delete {count} archived sessions permanently? This cannot be undone.":
     "将永久删除 {count} 个已归档会话？此操作无法撤销。",

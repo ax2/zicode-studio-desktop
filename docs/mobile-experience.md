@@ -5253,6 +5253,26 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十五轮：会话/项目右键菜单本地化 + 数据链路实测（2026-08-13）。
+
+1. 数据定义字符串扫描（frontend/src 全量）发现会话侧栏右键菜单
+   （SessionSidebarApp）渲染 `row.label` 原文，未走 t()：收藏/归档/
+   重命名/删除/导出 Markdown 等 9 个标签在中文界面显示英文（词典其实
+   已有大部分键）；另 "Archive all sessions" 缺键；
+2. 修复：菜单渲染改 `t(row.label)`；i18n 补 "Archive all sessions"
+   键；契约测试新增 1 项（9 项）——锁定菜单走 t() 且侧栏全部
+   label 字符串均有词典键；前端 859 项全绿；
+3. 数据链路实测（CDP + 磁盘）：笔记新建后输入标题/正文，自动保存
+   落盘（.md frontmatter title/updatedAt/icon + changes.jsonl 审计
+   版本哈希均更新）；主题切换实测：applyTheme("clean") 即时生效、
+   刷新后持久（pi-studio-theme cookie）、切回 dawn 保留，0 控制台
+   错误；
+4. 发布：release 第一百零四次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；CDP 实测会话菜单显示
+   收藏/归档/重命名/导出为 Markdown；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百四十四轮：自动化命令面板文案补齐（2026-08-12）。
 
 1. 移动视口（390×844，CDP Emulation）遍历 12 视图实测：全部

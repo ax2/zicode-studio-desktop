@@ -649,7 +649,7 @@ export function SessionSidebarApp({
                   }}
                 >
                   <span className="context-menu-icon">{row.icon}</span>
-                  {row.label}
+                  {t(row.label)}
                 </div>
               ))}
             </div>,

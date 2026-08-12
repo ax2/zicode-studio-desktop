@@ -622,6 +622,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 本地化契约与前端 858 项测试全绿；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零四次重建（2026-08-13，第 445 轮会话菜单本地化）
+
+- 合入第 445 轮：
+  - `SessionSidebarApp.tsx` 会话/项目右键菜单渲染改 `t(row.label)`；
+  - i18n 补 "Archive all sessions" 键；
+  - localization-contract 测试扩至 9 项（全量校验侧栏 label 词典
+    覆盖）；前端 859 项（139 文件）、typecheck/Biome 全绿；
+  - 数据链路实测：笔记编辑自动保存落盘（frontmatter + changes.jsonl
+    版本哈希），主题切换即时生效且刷新后持久，均 0 控制台错误；
+- 产物（release 104）：
+  - `target/release/zicode-studio-desktop.exe`：41,973,248 B，
+    SHA-256 `EAF31DE26D43C0AAE85346D9BFB548931E62E3C27B58B4EECE1FA94CFE3EB0D5`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,031,649 B，SHA-256
+    `0852C30010D02D908B94A4993264410B9A2F77A601A12506439F8A972B5D6F7A`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `7CB0FAD228522AE90BEA425231736E3E9F54AEB659D18C2A2C0FC3A835B91916`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - 本地化契约与前端 859 项测试全绿；
+  - CDP 实测会话右键菜单显示收藏/归档/重命名/导出为 Markdown；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：

@@ -162,4 +162,29 @@ describe("vanilla UI localization contract", () => {
     const missing = [...strings].filter((value) => !keys.has(value));
     expect(missing).toEqual([]);
   });
+
+  it("localizes session and project context menu labels", () => {
+    const app = read(
+      "frontend/src/features/sessionSidebar/SessionSidebarApp.tsx",
+    );
+    expect(app).toContain("{t(row.label)}");
+    expect(app).not.toMatch(/^\s*\{row\.label\}\s*$/m);
+
+    const sidebar = read("frontend/src/features/sessionSidebar/index.ts");
+    const dictionary = read("public/i18n.js");
+    const keys = new Set();
+    for (const match of dictionary.matchAll(
+      /(?:^|\s)(?:"([^"]+)"|([A-Za-z][A-Za-z0-9 _.\-/{}%…"']*))\s*:/gm,
+    )) {
+      const key = (match[1] || match[2] || "").trim();
+      if (key && key.length > 1) keys.add(key);
+    }
+    const labels = new Set(
+      [...sidebar.matchAll(/\blabel:\s*"([^"]+)"/g)].map((match) => match[1]),
+    );
+    const missing = [...labels].filter(
+      (label) => !keys.has(label) && !label.includes("${"),
+    );
+    expect(missing).toEqual([]);
+  });
 });
