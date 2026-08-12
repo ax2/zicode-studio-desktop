@@ -1761,8 +1761,21 @@ function revealHistoryForSearchIfNeeded() {
   return true;
 }
 
+function isInternalConfigPrompt(message) {
+  if (!message || typeof message !== "object") return false;
+  if (message.role !== "user") return false;
+  const blocks = Array.isArray(message.content) ? message.content : [];
+  const text = blocks
+    .filter((block) => block?.type === "text" && typeof block.text === "string")
+    .map((block) => block.text)
+    .join("");
+  return text.startsWith("/picot-config ");
+}
+
 function renderHistory(messages, { preserveScroll = false } = {}) {
-  const source = Array.isArray(messages) ? messages : [];
+  const source = (Array.isArray(messages) ? messages : []).filter(
+    (message) => !isInternalConfigPrompt(message),
+  );
   const windowTargetKey = `${target.workspaceId}\u0000${target.sessionId}`;
   const resetWindow = historyWindowTargetKey !== windowTargetKey;
   if (!historyWindow || resetWindow) {

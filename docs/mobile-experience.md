@@ -5253,6 +5253,27 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百五十轮：修复 config 提示污染会话历史（2026-08-13）。
+
+1. "整理对话为笔记"实测发现：配置网关发送的 `/picot-config …` 提示被
+   pi 记录为会话用户消息——显示在对话历史、进入导出 Markdown 与全文
+   搜索、污染整理出的笔记标题与内容（与 ConfigGateway 注释声明的
+   "不进入会话历史"不符）；
+2. 修复（三处统一过滤 `starts_with("/picot-config ")` 的用户消息）：
+   - `app.js renderHistory`：渲染前过滤，同时覆盖"整理对话为笔记"与
+     捕获（两者读取同一 currentHistoryMessages）；
+   - `sessionMarkdown.ts`：导出 Markdown 跳过内部提示；
+   - `host_data.rs search_session_file`：全文搜索跳过，且不污染会话
+     首条消息标题；
+3. 测试：Rust 新增搜索过滤单测（config 提示不命中、首条标题取真实
+   用户消息），sessionMarkdown 新增跳过单测；Rust 194 项全绿
+   （170+19+5，另 2 忽略）、前端 861 项全绿（139 文件）；
+4. 发布：release 第一百零六次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；CDP 实测 config 调用后对话历史
+   不再显示 /picot-config 用户消息；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百四十九轮：修复后全应用回归走查（2026-08-13）。
 
 1. release 105（含 RPC 桥自愈）安装版 CDP 回归：

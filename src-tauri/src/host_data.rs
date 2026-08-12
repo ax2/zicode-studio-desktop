@@ -931,6 +931,12 @@ fn search_session_file(
                 let Some(text) = message_text(entry.pointer("/message/content")) else {
                     continue;
                 };
+                // Internal configuration prompts are injected by the desktop
+                // config gateway and must never surface in session search,
+                // exports, or the first-message title.
+                if text.starts_with("/picot-config ") {
+                    continue;
+                }
                 if role == "user" && first_message.is_none() {
                     first_message = Some(text.chars().take(120).collect::<String>());
                 }
@@ -1963,6 +1969,49 @@ mod tests {
                 == 1
         );
         assert!(data.search_sessions("missing", "widget").is_err());
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn search_skips_internal_config_prompts_and_keeps_them_out_of_titles() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp = std::env::temp_dir().join(format!("picot-host-config-search-{nonce}"));
+        let workspace = temp.join("workspace");
+        let sessions = temp.join("sessions/project");
+        fs::create_dir_all(&workspace).unwrap();
+        fs::create_dir_all(&sessions).unwrap();
+        fs::write(
+            sessions.join("session.jsonl"),
+            format!(
+                "{{\"type\":\"session\",\"id\":\"session-a\",\"timestamp\":\"2026-01-01\",\"cwd\":{}}}\n{{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"/picot-config {{\\\"id\\\":\\\"cfg-1\\\",\\\"op\\\":\\\"automation_workspace\\\",\\\"params\\\":{{\\\"action\\\":\\\"list\\\"}}}}\"}}}}\n{{\"type\":\"message\",\"message\":{{\"role\":\"user\",\"content\":\"refactor the widget factory\"}}}}\n",
+                serde_json::to_string(&workspace.to_string_lossy()).unwrap()
+            ),
+        )
+        .unwrap();
+        let data = HostDataPlane::new(HashMap::from([("workspace-a".into(), workspace)]))
+            .unwrap()
+            .with_session_root(temp.join("sessions"));
+
+        let results = data
+            .search_sessions("workspace-a", "automation_workspace")
+            .unwrap();
+        assert!(results.is_empty(), "config prompt must not match search");
+        let results = data.search_sessions("workspace-a", "widget").unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].session_id, "session-a");
+        // The config prompt is skipped, so the first real user message becomes
+        // the title, and it must never start with the internal prompt prefix.
+        assert_eq!(
+            results[0].first_message.as_deref(),
+            Some("refactor the widget factory")
+        );
+        assert!(results[0]
+            .first_message
+            .as_deref()
+            .is_none_or(|text| !text.starts_with("/picot-config ")));
         fs::remove_dir_all(temp).unwrap();
     }
 

@@ -32,6 +32,18 @@ export function renderSessionMarkdown(
     const message = raw as SessionMessage;
     const role = message.role;
     const blocks = Array.isArray(message.content) ? message.content : [];
+    // Internal configuration prompts injected by the desktop config gateway
+    // must never leak into exported Markdown documents.
+    if (
+      role === "user" &&
+      blocks
+        .filter((block) => block.type === "text")
+        .map((block) => block.text ?? "")
+        .join("")
+        .startsWith("/picot-config ")
+    ) {
+      continue;
+    }
     const texts: string[] = [];
     const thinking: string[] = [];
     const tools: string[] = [];

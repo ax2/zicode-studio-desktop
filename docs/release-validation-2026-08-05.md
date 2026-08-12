@@ -674,6 +674,33 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     正确空态（修复前为"无法加载自动化/Pi 运行时连接已断开"）；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零六次重建（2026-08-13，第 450 轮 config 提示过滤）
+
+- 合入第 450 轮：
+  - `app.js renderHistory` 渲染前过滤 `/picot-config …` 用户消息
+    （同时覆盖整理对话为笔记与捕获路径）；
+  - `sessionMarkdown.ts` 导出 Markdown 跳过内部提示；
+  - `host_data.rs` 全文搜索跳过内部提示且不污染会话首条标题；
+  - 新增 Rust 搜索过滤单测与 sessionMarkdown 单测；
+  - 门禁：Rust 194 项（170+19+5，另 2 忽略）、Clippy warnings-as-errors、
+    fmt、前端 861 项（139 文件）全绿；
+- 产物（release 106）：
+  - `target/release/zicode-studio-desktop.exe`：41,985,536 B，
+    SHA-256 `43EA264543DB5460CDCEC2E11A36D58FA69EC637EC88A5461719AD9F80ADA3B3`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,032,684 B，SHA-256
+    `9D56EC9D713FE58C36A78FF0CDC0A1703821BDEB95E6C09EF7B6D0F7F6AE2680`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `7BAD46CD76B07EEF9352EBC69594C113EE6B09ADD6FF2847C3B418FB2EBA939C`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - CDP 实测触发 config 调用后对话历史不再显示 /picot-config 用户
+    消息；"整理对话为笔记"输出不受内部提示污染；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：

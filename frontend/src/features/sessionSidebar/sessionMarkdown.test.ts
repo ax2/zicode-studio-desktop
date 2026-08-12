@@ -56,6 +56,27 @@ describe("session Markdown export", () => {
     ).toBe("## Assistant\n\nx");
   });
 
+  it("skips internal config prompts injected by the desktop gateway", () => {
+    setLocale("en");
+    const markdown = renderSessionMarkdown([
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: '/picot-config {"id":"cfg-1","op":"automation_workspace","params":{"action":"list"}}',
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [{ type: "text", text: "Hello" }],
+      },
+    ]);
+    expect(markdown).not.toContain("/picot-config");
+    expect(markdown).toContain("Hello");
+  });
+
   it("builds a safe filename from the session title", () => {
     setLocale("zh-CN");
     expect(sessionMarkdownFileName("会议: 2026/Q3", "019fb7c9fcee7336")).toBe(
