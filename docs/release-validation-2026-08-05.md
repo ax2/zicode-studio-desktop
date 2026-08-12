@@ -491,6 +491,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十三次重建（2026-08-12，第 412 轮 4K 消息宽度修复）
+
+- 合入第 412 轮：
+  - 4K/超宽审计（2560×1440 / 3840×2160 × dpr 1/1.5，5 表面）：
+    0 溢出、0 裁剪、主区缩放正确、0 控制台错误；
+  - 修复真实缺陷：`.message-content` 无宽度上限，4K 下助手消息
+    气泡 3324px（应封顶 1440px）——`width: 100%` 覆盖了基础
+    `width: min(var(--chat-content-max-width), 100%)`；
+  - 新增契约测试锁定消息气泡宽度封顶；
+  - 前端 827 项、Rust 181 项、typecheck/Biome 456 文件/design 全绿；
+- 产物（release 83）：
+  - `target/release/zicode-studio-desktop.exe`：41,646,080 B，
+    SHA-256 `3A2D27FDD2858B94698E5F9738B7BD4C59C256B92E746DB6CAA485028B42140F`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,826,520 B，SHA-256
+    `8DDAE88F1EBA8C97E96B10FEF036594FC17ACE231440F4CE784B5C28EA052D39`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `44088119E925FCD037803521BC3DBD4E014BA2CF0B9F34997888AAF5F499B04C`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP：4K 下真实会话 4 条消息宽度全部 1440px、无超宽元素；
+  - 新实例启动后 relay 连接成功，运行期日志无 ERROR/WARN/panic。
+
 ## 第八十二次重建（2026-08-12，第 411 轮产物批量导出）
 
 - 合入第 411 轮：
