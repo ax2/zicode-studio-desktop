@@ -120,7 +120,7 @@ async function main() {
   await sleep(1200);
   await timed("notes-tree-open", async () => {
     await evalJs(`(() => {
-      const details = [...document.querySelectorAll("details.notes-notebook-branch")].find((d) => /QVeris/.test(d.innerText || ""));
+      const details = document.querySelector("details.notes-notebook-branch");
       if (details && !details.hasAttribute("open")) details.querySelector("summary")?.click();
     })()`);
     for (let i = 0; i < 30; i++) {

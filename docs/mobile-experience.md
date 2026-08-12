@@ -5253,6 +5253,28 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百二十九轮：M2 跨栈验证 + 性能基准修复 + 文档头刷新（2026-08-12）。
+
+1. **M2 P2P 跨栈验证（重要证据）**：运行被忽略的
+   `browser_offerer_interops_with_the_desktop_answerer`（真 headless
+   Chrome offerer ↔ Rust webrtc-rs answerer 的 DataChannel ping/pong
+   回环）——**通过**（1.14s），确认生产路径（手机浏览器 ↔ 桌面 Rust
+   应答方）可用；Rust 进程内回环测试与前端 p2p 11 项单测亦全绿；
+   同时发现：在桌面 WebView2 页面里跑 `p2p-loopback-test.html` 失败
+   （"offerer could not send ping"），根因是 WebView2 不支持 WebRTC
+   DataChannel——而桌面 P2P 应答方是 Rust webrtc-rs、非 WebView2，
+   该页面仅供手机浏览器使用，失败为环境限制而非代码回归（p2p.js
+   自第 135 轮后无改动）；
+2. 性能基准修复：`bench-desktop-ui.mjs` 的笔记树定位此前按笔记本名
+   "QVeris" 匹配（第 425 轮事故后该笔记本已不存在），导致超时误报
+   3285ms；改为取第一个笔记本分支，复测恢复正常：会话切换 111ms、
+   笔记树 12ms、笔记打开 124ms、命令面板 14ms、会话全文搜索 227ms；
+3. 文档头刷新：`docs/production-status.md` 日期更新为 2026-08-12、
+   汇总轮次更新为第 428 轮；
+4. 门禁：前端 845 项、Rust 192 项（168+19+5，另 2 项忽略；含跨栈
+   测试按需运行通过）、typecheck/Biome/design/Tauri 权限 24 条全绿；
+5. 本轮为验证 + 维护轮，无安装包变更（运行实例仍为 release 92）。
+
 第四百二十八轮：备份恢复闭环（2026-08-12）。
 
 1. 补齐第 427 轮备份功能的数据恢复路径：
