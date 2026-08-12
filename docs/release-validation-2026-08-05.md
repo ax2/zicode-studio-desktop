@@ -514,6 +514,35 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 本地化契约测试全绿；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百次重建（2026-08-12，第 440 轮 React 文案本地化）
+
+- 合入第 440 轮：
+  - 上下文窗口图例标签 "Cached (reused)"/"Uncached"/"Available"、
+    "{percent}% used" 后缀、空用量 title "Context usage" 改走共享
+    t() 管道（`contextUsageLogic.ts`/`ContextUsageApp.tsx`/`index.ts`）；
+  - 输入队列 "Steering"/"Follow-up" 与通知兜底 "Notification" 标题
+    补 i18n 键并走 t()（`ComposerApp.tsx`/`notificationCenter/index.ts`）；
+  - i18n 新增 7 键；localization-contract 测试扩至 5 项锁定 React 源
+    与 bundle 无裸英文；重新生成 context-usage/composer/
+    notification-center bundle；
+  - 门禁：前端 855 项（139 文件）、typecheck/Biome 全绿；
+- 产物（release 100）：
+  - `target/release/zicode-studio-desktop.exe`：41,969,152 B，
+    SHA-256 `A825C4BDCD56284D2DE8F3D5AA71ED12CC13170C5D8723A02EEFE917D92358BF`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,010,945 B，SHA-256
+    `69FE959B14606654C07D4DE54104EE3A91E074536F6743F6273054120E9FC4CB`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `2217CA18B363B97AAF38E8734954BBD3CF2FB8ADDB9C0871DA9EE04613B00485`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - 公网中继 `/relay/status` 显示 `dev-ax2-01` 在线；
+  - 本地化契约与前端 855 项测试全绿；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：

@@ -123,6 +123,8 @@ describe("composer React shell", () => {
     expect(container?.querySelectorAll(".queued-msg").length).toBe(2);
     expect(container?.textContent).toContain("steer-a");
     expect(container?.textContent).toContain("follow-b");
+    expect(container?.textContent).toContain("引导");
+    expect(container?.textContent).toContain("追问");
     composer?.setQueue({});
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(document.getElementById("queued-messages")?.classList.contains("hidden")).toBe(true);

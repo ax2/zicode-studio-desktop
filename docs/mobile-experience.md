@@ -5253,6 +5253,28 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十轮：React 侧文案本地化补齐（上下文窗口/输入队列/通知，2026-08-12）。
+
+1. 扫描 React 源（frontend/src）发现用户可见硬编码英文：
+   - 上下文窗口图例标签 "Cached (reused)"/"Uncached"/"Available" 与
+     "{percent}% used" 后缀（`contextUsageLogic.ts`、
+     `ContextUsageApp.tsx`）；
+   - 空用量时用量胶囊 title "Context usage"（`contextUsage/index.ts`）；
+   - 输入队列标签 "Steering"/"Follow-up"（`ComposerApp.tsx`）；
+   - 通知无标题时的兜底 title "Notification"
+     （`notificationCenter/index.ts`）；
+2. 修复：i18n 补 7 键（已缓存（复用）/未缓存/可用/% 已用/引导/追问/
+   通知），全部改走共享 t() 管道；重新生成 context-usage、composer、
+   notification-center 三个 React bundle；
+3. 测试：契约测试新增 1 项（5 项）锁定 React 源均走 t() 且 bundle
+   不含裸英文；React/vitest 断言同步改中文预期（含 vanilla
+   workspace/context-usage 测试）；前端 855 项全绿（139 文件）；
+   typecheck/Biome 全绿；
+4. 发布：release 第一百次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十九轮：动态属性扫描收尾 + 本地化契约测试（2026-08-12）。
 
 1. 动态 title/aria-label/placeholder 扫描：全部香草组件仅剩

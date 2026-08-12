@@ -1,6 +1,7 @@
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createElement } from "react";
+import { t } from "../../shared/i18n";
 import {
   createNotificationStore,
   NotificationStackApp,
@@ -42,7 +43,7 @@ export function createNotificationCenter({
     const notification = normalizeNotification(input);
     const item: NotificationItem = {
       id: nextId++,
-      title: notification.title || "Notification",
+      title: notification.title || t("Notification"),
       type: notification.type || "info",
       message: notification.message,
       detail: notification.detail,

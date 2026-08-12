@@ -46,7 +46,7 @@ export function setupContextUsage({
       flushSync(() => {
         pillRoot.render(createElement(TokenUsagePill, { text: "" }));
       });
-      tokenUsageEl.title = "Context usage";
+      tokenUsageEl.title = t("Context usage");
       hide();
       return;
     }

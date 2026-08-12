@@ -32,10 +32,10 @@ describe("context usage header", () => {
     pill.click();
 
     expect(document.getElementById("context-viz").classList.contains("hidden")).toBe(false);
-    expect(document.getElementById("context-legend").textContent).toContain("Cached");
+    expect(document.getElementById("context-legend").textContent).toContain("已缓存（复用）");
     expect(document.getElementById("context-legend").textContent).toContain("9.3k");
-    expect(document.getElementById("context-legend").textContent).toContain("Uncached");
-    expect(document.getElementById("context-viz-used").textContent).toBe("7% used");
+    expect(document.getElementById("context-legend").textContent).toContain("未缓存");
+    expect(document.getElementById("context-viz-used").textContent).toBe("7% 已用");
     expect(document.getElementById("context-viz-total").textContent).toBe("9.5k / 128.0k");
   });
 

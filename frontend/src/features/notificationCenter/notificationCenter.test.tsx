@@ -37,4 +37,10 @@ describe("notification center (React)", () => {
 
     expect(document.querySelector(".native-notification")).toBeNull();
   });
+
+  it("localizes the fallback title for notifications without one", () => {
+    const center = createNotificationCenter({ duration: 0 });
+    const notification = center.notify({ type: "info" });
+    expect(notification.element.textContent).toContain("通知");
+  });
 });

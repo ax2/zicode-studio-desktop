@@ -54,7 +54,7 @@ export function ContextVizApp({
         ))}
       </div>
       <div className="context-viz-footer">
-        <span id="context-viz-used">{model.percent}% used</span>
+        <span id="context-viz-used">{model.percent}{t("% used")}</span>
         <span id="context-viz-total">
           {formatTokens(model.totalUsed)} / {formatTokens(model.total)}
         </span>

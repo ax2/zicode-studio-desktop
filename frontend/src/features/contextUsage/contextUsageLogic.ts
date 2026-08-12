@@ -1,3 +1,5 @@
+import { t } from "../../shared/i18n";
+
 export interface UsageLike {
   input?: number;
   cacheRead?: number;
@@ -70,9 +72,9 @@ export function computeContextViz(
   const totalUsed = input + cacheRead;
   const free = Math.max(0, total - totalUsed);
   const segments: ContextSegment[] = [
-    { key: "cache", label: "Cached (reused)", tokens: cacheRead, color: "cache" },
-    { key: "input", label: "Uncached", tokens: input, color: "input" },
-    { key: "free", label: "Available", tokens: free, color: "free" },
+    { key: "cache", label: t("Cached (reused)"), tokens: cacheRead, color: "cache" },
+    { key: "input", label: t("Uncached"), tokens: input, color: "input" },
+    { key: "free", label: t("Available"), tokens: free, color: "free" },
   ];
   return {
     segments,

@@ -101,11 +101,11 @@ export function ComposerApp({
     ...(queue.steering ?? [])
       .map((message) => String(message ?? "").trim())
       .filter(Boolean)
-      .map((message) => ({ label: "Steering", message })),
+      .map((message) => ({ label: t("Steering"), message })),
     ...(queue.followUp ?? [])
       .map((message) => String(message ?? "").trim())
       .filter(Boolean)
-      .map((message) => ({ label: "Follow-up", message })),
+      .map((message) => ({ label: t("Follow-up"), message })),
   ];
 
   const updateSlashFromInput = (input: HTMLTextAreaElement) => {

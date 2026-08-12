@@ -71,4 +71,29 @@ describe("vanilla UI localization contract", () => {
     expect(html).toContain("重试启动");
     expect(html).toContain("zicode-studio-locale");
   });
+
+  it("keeps React feature labels inside the shared t() pipeline", () => {
+    const contextLogic = read(
+      "frontend/src/features/contextUsage/contextUsageLogic.ts",
+    );
+    for (const key of ["Cached (reused)", "Uncached", "Available"]) {
+      expect(contextLogic).toContain(`t("${key}")`);
+      expect(contextLogic).not.toMatch(new RegExp(`label: "${key}"`));
+    }
+    expect(read("frontend/src/features/contextUsage/ContextUsageApp.tsx")).toContain(
+      't("% used")',
+    );
+    expect(read("frontend/src/features/contextUsage/index.ts")).toContain(
+      't("Context usage")',
+    );
+    expect(read("frontend/src/features/composer/ComposerApp.tsx")).toContain(
+      't("Steering")',
+    );
+    expect(read("frontend/src/features/composer/ComposerApp.tsx")).toContain(
+      't("Follow-up")',
+    );
+    expect(read("frontend/src/features/notificationCenter/index.ts")).toContain(
+      't("Notification")',
+    );
+  });
 });
