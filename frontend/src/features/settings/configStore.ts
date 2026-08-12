@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { localizeHostError } from "../../shared/hostErrors";
 import { fallbackSceneProfiles } from "./sceneProfiles";
+
+function localizeError(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (!message) return fallback;
+  return localizeHostError(new Error(message)).message;
+}
 
 export interface ConfigModel {
   id: string;
@@ -251,7 +258,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       if (!data?.ok || !Array.isArray(data.data?.providers)) {
         set({
           apiStatus: "error",
-          apiError: data?.error || "Failed to load providers.",
+          apiError: localizeError(data?.error, t("Failed to load providers.")),
           providers: [],
         });
         return;
@@ -309,7 +316,10 @@ export function createConfigStore(options: ConfigStoreOptions) {
         }
       })();
       if (!resp?.ok) {
-        set({ apiKeyError: resp?.error || "Failed to save key.", apiKeySaving: false });
+        set({
+          apiKeyError: localizeError(resp?.error, t("Failed to save key.")),
+          apiKeySaving: false,
+        });
         return;
       }
       set({ editingProvider: null, apiKeySaving: false });
@@ -326,7 +336,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       } catch (error) {
         if (typeof globalThis.alert === "function") {
           globalThis.alert(
-            error instanceof Error ? error.message : "Failed to remove system credential.",
+            localizeError(error, t("Failed to remove system credential.")),
           );
         }
         return;
@@ -366,7 +376,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         });
         return;
       }
-      const message = resp?.error || "Health check failed";
+      const message = localizeError(resp?.error, t("Health check failed"));
       set({
         providers: getState().providers.map((entry) =>
           entry.provider === provider
@@ -427,7 +437,13 @@ export function createConfigStore(options: ConfigStoreOptions) {
         error: error instanceof Error ? error.message : String(error),
       }) as ConfigGatewayResult);
       if (!response?.ok) {
-        set({ channelStatus: "error", channelError: response?.error || "Failed to load channels." });
+        set({
+          channelStatus: "error",
+          channelError: localizeError(
+            response?.error,
+            t("Failed to load channels."),
+          ),
+        });
         return;
       }
       const channels = Array.isArray(response.data?.channels) ? response.data.channels : [];
@@ -446,7 +462,12 @@ export function createConfigStore(options: ConfigStoreOptions) {
             }),
           ) as ConfigGatewayResult;
           if (!resp?.ok) {
-            set({ channelError: resp?.error || "Failed to load QVeris models." });
+            set({
+              channelError: localizeError(
+                resp?.error,
+                t("Failed to load QVeris models."),
+              ),
+            });
             return false;
           }
           await refreshEverything();
@@ -526,7 +547,10 @@ export function createConfigStore(options: ConfigStoreOptions) {
       if (!response?.ok) {
         set({
           channelSaving: false,
-          channelEditorError: response?.error || "Failed to save model channel.",
+          channelEditorError: localizeError(
+            response?.error,
+            t("Failed to save model channel."),
+          ),
         });
         return;
       }
@@ -554,9 +578,10 @@ export function createConfigStore(options: ConfigStoreOptions) {
         await deleteSystemCredential(channel.provider || "");
       } catch (error) {
         set({
-          channelError:
-            (error instanceof Error ? error.message : String(error)) ||
-            "Failed to remove system credential.",
+          channelError: localizeError(
+            error,
+            t("Failed to remove system credential."),
+          ),
         });
         return;
       }
@@ -564,7 +589,12 @@ export function createConfigStore(options: ConfigStoreOptions) {
         (error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
       ) as ConfigGatewayResult;
       if (!result?.ok) {
-        set({ channelError: result?.error || "Failed to remove channel." });
+        set({
+          channelError: localizeError(
+            result?.error,
+            t("Failed to remove channel."),
+          ),
+        });
         return;
       }
       await refreshEverything();
@@ -574,7 +604,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       set({ configEditor: { ...getState().configEditor, loading: true, message: null, path: "Loading…" } });
       try {
         const data = await call("read_agent_config");
-        if (!data?.ok) throw new Error(data?.error || "Failed to load config");
+        if (!data?.ok) throw new Error(data?.error || t("Failed to load config"));
         let content = data.data?.content ?? "";
         try {
           content = JSON.stringify(JSON.parse(content), null, 2);
@@ -589,7 +619,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
             path: "",
             loading: false,
             message: {
-              message: error instanceof Error ? error.message : String(error),
+              message: localizeError(error, t("Failed to load config")),
               tone: "error",
             },
             saving: false,
@@ -617,7 +647,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       set({ configEditor: { ...getState().configEditor, saving: true } });
       try {
         const data = await call("write_agent_config", { content });
-        if (!data?.ok) throw new Error(data?.error || "Failed to save config");
+        if (!data?.ok) throw new Error(data?.error || t("Failed to save config"));
         set({
           configEditor: {
             ...getState().configEditor,
@@ -631,7 +661,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
             ...getState().configEditor,
             saving: false,
             message: {
-              message: error instanceof Error ? error.message : String(error),
+              message: localizeError(error, t("Failed to save config")),
               tone: "error",
             },
           },
@@ -643,7 +673,9 @@ export function createConfigStore(options: ConfigStoreOptions) {
       set({ modelsEditor: { ...getState().modelsEditor, loading: true, message: null, path: "Loading…" } });
       try {
         const data = await call("read_models_config");
-        if (!data?.ok) throw new Error(data?.error || "Failed to load models.json");
+        if (!data?.ok) {
+          throw new Error(data?.error || t("Failed to load models config"));
+        }
         let content = data.data?.content ?? "";
         try {
           content = JSON.stringify(JSON.parse(content), null, 2);
@@ -658,7 +690,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
             path: "",
             loading: false,
             message: {
-              message: error instanceof Error ? error.message : String(error),
+              message: localizeError(error, t("Failed to load models config")),
               tone: "error",
             },
             saving: false,
@@ -722,7 +754,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
             ...getState().modelsEditor,
             saving: false,
             message: {
-              message: error instanceof Error ? error.message : String(error),
+              message: localizeError(error, t("Failed to save models config")),
               tone: "error",
             },
           },

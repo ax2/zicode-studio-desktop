@@ -8,7 +8,7 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 845 项通过 | 138 个测试文件 |
+| 前端 vitest | 847 项通过 | 138 个测试文件 |
 | Rust | 192 项通过（168+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
@@ -18,11 +18,11 @@
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第九十三次重建（第 431/432 轮，帮助文档与维护）
-  EXE 41,870,848 B / 安装包 346,857,707 B；哈希与逐文件
+- 最近 release：第九十四次重建（第 434 轮，配置页断连本地化）
+  EXE 41,870,848 B / 安装包 346,880,395 B；哈希与逐文件
   验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第九十三次重建安装版，网关 `/health` 200
+- 当前运行实例：第九十四次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -243,6 +243,11 @@
 - MkDocs 严格构建验收（第 433 轮）：`mkdocs build --strict` 本地
   通过（4.35s），与 CI docs.yml 一致；requirements 第 10 节本地可
   验证项全部具备证据，剩余验收项均需外部输入；
+- 配置页断连本地化（第 434 轮）：修复设置 → 配置页显示原始
+  ProcessClosed 的缺口——configStore 全部展示型错误统一经
+  localizeHostError 本地化并补 11 个中文兜底文案；CDP release 94
+  实测全部错误位显示"Pi 运行时连接已断开。新建一个会话即可恢复
+  连接。"；前端 847 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

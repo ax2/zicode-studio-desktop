@@ -5253,6 +5253,27 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十四轮：配置页断连错误本地化修复（2026-08-12）。
+
+1. 走查发现：设置 → 配置页在 Pi 运行时断开时显示原始英文
+   "Pi RPC request failed: ProcessClosed"（第 397 轮断连本地化漏掉了
+   设置配置页）；
+2. 修复：`configStore` 增加 `localizeError`（统一走
+   `localizeHostError`），应用到模型提供方/渠道加载、密钥保存、渠道
+   移除/保存、健康检查、智能体/模型配置编辑器、系统凭据移除提示等
+   全部展示型错误；新增 11 个中文兜底文案（无法加载模型提供方/
+   渠道/QVeris 模型、保存密钥/渠道/配置失败等）；
+3. 验证：新增 2 项单测（catalog/channel 的 ProcessClosed → 中文
+   "Pi 运行时连接已断开。新建一个会话即可恢复连接。"）；CDP release
+   94 实测配置页全部错误位显示友好文案、无原始 ProcessClosed、0
+   控制台错误；
+4. 门禁：前端 847 项全绿（新增 2 项）、Rust 192 项、typecheck/Biome
+   458 文件/design/Tauri 权限 24 条全绿；
+5. 发布：release 第九十四次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十三轮：MkDocs 严格构建验收（2026-08-12）。
 
 1. 按 `docs/requirements.md` 第 10 节验收清单补做本地可验证项：

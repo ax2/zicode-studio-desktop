@@ -491,6 +491,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第九十四次重建（2026-08-12，第 434 轮配置页断连本地化）
+
+- 合入第 434 轮：
+  - `configStore` 增加 `localizeError`，把模型提供方/渠道加载、密钥
+    保存、渠道移除/保存、健康检查、智能体/模型配置编辑器、系统凭据
+    移除提示等全部展示型错误统一经 `localizeHostError` 本地化；
+  - 补 11 个中文兜底文案；新增 catalog/channel 断连本地化单测 2 项；
+  - 门禁：前端 847 项、Rust 192 项、typecheck/Biome 458 文件/design/
+    Tauri 权限 24 条全绿；
+- 产物（release 94）：
+  - `target/release/zicode-studio-desktop.exe`：41,870,848 B，
+    SHA-256 `E886CCF69E4D86D1A626749D8FB69FD4A7DEB31E87496087A354691D0FFB6957`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,880,395 B，SHA-256
+    `DB1E8FC49488B0C06EAF0C2879F5D446FBC4C6BC843EEEF91786D3C4ABD558E5`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `1F0B1D89121368977E73017FDB7D5BF8E267060A094BF686A39E6B1947522C3D`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：设置 → 配置页全部错误位显示
+    "Pi 运行时连接已断开。新建一个会话即可恢复连接。"，无原始
+    ProcessClosed，0 控制台错误；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十三次重建（2026-08-12，第 431/432 轮帮助文档与维护）
 
 - 合入第 431/432 轮（无运行时代码改动）：

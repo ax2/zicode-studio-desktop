@@ -49,6 +49,36 @@ describe("settings config store", () => {
     expect(store.getState().apiError).toBe("catalog down");
   });
 
+  it("localizes a closed Pi runtime in the catalog error", async () => {
+    const { gateway } = makeGateway({
+      list_model_catalog: async () => ({
+        ok: false,
+        error: "Pi RPC request failed: ProcessClosed",
+      }),
+    });
+    const store = createConfigStore({ configGateway: gateway });
+    await store.getState().loadApiKeys();
+    expect(store.getState().apiStatus).toBe("error");
+    expect(store.getState().apiError).toBe(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+  });
+
+  it("localizes a closed Pi runtime in the channel error", async () => {
+    const { gateway } = makeGateway({
+      list_provider_channels: async () => ({
+        ok: false,
+        error: "Pi RPC request failed: ProcessClosed",
+      }),
+    });
+    const store = createConfigStore({ configGateway: gateway });
+    await store.getState().loadChannels();
+    expect(store.getState().channelStatus).toBe("error");
+    expect(store.getState().channelError).toBe(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+  });
+
   it("summarizes provider health over visible models only", async () => {
     const { gateway } = makeGateway({
       list_model_catalog: async () => ({
