@@ -7,6 +7,7 @@
 
 import remend from "../vendor/remend.js";
 import { copyText } from "./copy.js";
+import { t } from "../i18n.js";
 
 /**
  * Streaming-tolerant renderer for partial markdown. remend closes unterminated
@@ -109,7 +110,7 @@ export function renderMarkdown(text) {
       const block = codeBlocks[parseInt(codeMatch[1], 10)];
       const langLabel = block.lang || "code";
       html += `<div class="code-block-wrapper">`;
-      html += `<div class="code-block-header"><span class="code-language">${escapeHtml(langLabel)}</span><div class="code-copy-actions"><span class="code-copy-status" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="copy-btn" data-copy-code aria-label="Copy code" title="Copy code">Copy</button></div></div>`;
+      html += `<div class="code-block-header"><span class="code-language">${escapeHtml(langLabel)}</span><div class="code-copy-actions"><span class="code-copy-status" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="copy-btn" data-copy-code aria-label="${t("Copy code")}" title="${t("Copy code")}">${t("Copy")}</button></div></div>`;
       html += `<pre><code>${escapeHtml(block.code)}</code></pre></div>`;
       continue;
     }
@@ -359,23 +360,27 @@ export function initCodeCopyDelegation(container) {
     if (!codeBlock) return;
     const status = btn.closest(".code-copy-actions")?.querySelector(".code-copy-status");
     btn.disabled = true;
-    btn.textContent = "Copying…";
+    btn.textContent = t("Copying…");
     btn.classList.remove("copied", "failed");
     if (status) status.textContent = "";
     try {
       const ok = await copyText(codeBlock.textContent);
       if (!ok) throw new Error("Clipboard unavailable");
-      btn.textContent = "Copied";
+      btn.textContent = t("Copied");
       btn.classList.add("copied");
-      if (status) status.textContent = "Code copied";
+      if (status) status.textContent = t("Code copied");
     } catch {
-      btn.textContent = "Copy failed";
+      btn.textContent = t("Copy failed");
       btn.classList.add("failed");
-      if (status) status.textContent = "Unable to copy code. Check browser clipboard permission.";
+      if (status) {
+        status.textContent = t(
+          "Unable to copy code. Check browser clipboard permission.",
+        );
+      }
     }
     const resetDelay = btn.classList.contains("failed") ? 5000 : 2400;
     setTimeout(() => {
-      btn.textContent = "Copy";
+      btn.textContent = t("Copy");
       btn.classList.remove("copied", "failed");
       btn.disabled = false;
       if (status) status.textContent = "";

@@ -634,7 +634,7 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
   const [localExpanded, setLocalExpanded] = useState<boolean | null>(null);
   const expanded = localExpanded ?? item.expanded;
   const [copyState, setCopyState] = useState<"" | "copied" | "failed">("");
-  const [copyLabel, setCopyLabel] = useState("Copy output");
+  const [copyLabel, setCopyLabel] = useState(t("Copy output"));
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (copyTimer.current) clearTimeout(copyTimer.current);
@@ -651,15 +651,17 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
       const ok = await copyText(item.output);
       if (!ok) throw new Error("Clipboard unavailable");
       setCopyState("copied");
-      setCopyLabel("Tool output copied");
+    setCopyLabel(t("Tool output copied"));
     } catch {
       setCopyState("failed");
-      setCopyLabel("Unable to copy tool output. Check browser clipboard permission.");
+    setCopyLabel(
+      t("Unable to copy tool output. Check browser clipboard permission."),
+    );
     }
     if (copyTimer.current) clearTimeout(copyTimer.current);
     copyTimer.current = setTimeout(() => {
       setCopyState("");
-      setCopyLabel("Copy output");
+    setCopyLabel(t("Copy output"));
     }, copyState === "failed" ? 5000 : 2000);
   };
   return (
@@ -703,7 +705,7 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
           </div>
         </div>
         <span className={`tool-copy-status${copyState ? ` ${copyState}` : ""}`} role="status" aria-live="polite" aria-atomic="true">
-          {copyLabel === "Copy output" ? "" : copyLabel}
+          {copyLabel === t("Copy output") ? "" : copyLabel}
         </span>
       </div>
       {expanded ? (

@@ -5253,6 +5253,23 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十七轮：代码块/工具卡片复制状态本地化（2026-08-12）。
+
+1. 扫描发现：复用渲染管线的 `public/ui/markdown.js` 代码块复制按钮
+   与状态（Copy/Copying…/Copied/Code copied/Copy failed/剪贴板权限
+   提示）以及聊天工具卡片的复制输出状态（Tool output copied/无法复制
+   工具输出）在中文界面显示英文（i18n 键早已存在但代码未走 t()）；
+2. 修复：`markdown.js` 引入 t() 并本地化全部复制文案（影响对话/笔记/
+   产物/帮助所有渲染代码块的表面）；`ChatMessageList.tsx` 工具卡片
+   复制状态改走 t()（初始值/哨兵判断同步改为本地化文案）；
+3. 验证：markdown 单测更新为中文断言（复制代码/已复制/复制/复制失败/
+   请检查浏览器剪贴板权限）并全绿；前端 848 项、typecheck/Biome 458
+   文件全绿；
+4. 发布：release 第九十七次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十六轮：香草组件硬编码英文本地化（2026-08-12）。
 
 1. 扫描发现 React 之外的三处香草组件存在可见硬编码英文：

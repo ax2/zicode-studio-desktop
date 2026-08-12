@@ -74,7 +74,7 @@ describe("renderMarkdown", () => {
     const button = template.content.querySelector("[data-copy-code]");
 
     expect(button.type).toBe("button");
-    expect(button.getAttribute("aria-label")).toBe("Copy code");
+    expect(button.getAttribute("aria-label")).toBe("复制代码");
     expect(template.content.querySelector(".code-copy-status").getAttribute("role")).toBe("status");
   });
 
@@ -91,11 +91,11 @@ describe("renderMarkdown", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(writeText).toHaveBeenCalledWith("echo mobile");
-    expect(button.textContent).toBe("Copied");
+    expect(button.textContent).toBe("已复制");
     expect(button.classList.contains("copied")).toBe(true);
-    expect(container.querySelector(".code-copy-status").textContent).toBe("Code copied");
+    expect(container.querySelector(".code-copy-status").textContent).toBe("代码已复制");
     vi.runAllTimers();
-    expect(button.textContent).toBe("Copy");
+    expect(button.textContent).toBe("复制");
     expect(button.disabled).toBe(false);
   });
 
@@ -113,10 +113,10 @@ describe("renderMarkdown", () => {
     button.click();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(button.textContent).toBe("Copy failed");
+    expect(button.textContent).toBe("复制失败");
     expect(button.classList.contains("failed")).toBe(true);
     expect(container.querySelector(".code-copy-status").textContent).toContain(
-      "Check browser clipboard permission",
+      "请检查浏览器剪贴板权限",
     );
     vi.runAllTimers();
   });

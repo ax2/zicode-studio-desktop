@@ -491,6 +491,31 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第九十七次重建（2026-08-12，第 437 轮复制状态本地化）
+
+- 合入第 437 轮：
+  - `public/ui/markdown.js` 代码块复制按钮与状态全部改走 `t()`
+    （Copy/Copying…/Copied/Code copied/Copy failed/剪贴板权限提示），
+    覆盖对话/笔记/产物/帮助共享渲染；
+  - `ChatMessageList.tsx` 工具卡片复制输出状态改走 `t()`；
+  - markdown 单测更新为中文断言；门禁：前端 848 项、Rust 192 项、
+    typecheck/Biome 458 文件/design/Tauri 权限 24 条全绿；
+- 产物（release 97）：
+  - `target/release/zicode-studio-desktop.exe`：41,969,152 B，
+    SHA-256 `CF5CFF1559E53930072A69841897157D20E0299855D15B4250C85C4A9D75983F`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,997,557 B，SHA-256
+    `49A1EACCCD24EDA8F4751DAA173FF5147502E60BA6148C67EF3E97D19D1DCAD6`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `A24D0DDFC0F4588653D9F08143A430349D8528C993054E77105574475F93CD4E`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - markdown 单测断言复制按钮/状态为中文（复制代码/已复制/复制/
+    复制失败/请检查浏览器剪贴板权限）全绿；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十六次重建（2026-08-12，第 436 轮香草组件本地化）
 
 - 合入第 436 轮：
