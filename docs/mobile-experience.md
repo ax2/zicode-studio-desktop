@@ -5253,6 +5253,33 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百二十三轮：TURN 连接一键自测（2026-08-12）。
+
+1. 实现：桌面新增 TURN 连通性自测，无需手机即可本地验证 M2 凭据链路：
+   - Rust `turn_probe.rs`：按 coturn auth-secret REST 方案派生短期用户名
+     与凭据（HMAC-SHA1，已知向量 `north/1234567890:user → yqWhSUay…//A`
+     锁定），构造 STUN Allocation 请求：先无认证发送 → 读取 401 质询的
+     realm/nonce → 用 RFC 5389 long-term 密钥
+     `MD5(username:realm:credential)` 计算 message-integrity 重发 →
+     200 为 ok、401 为 unauthenticated、网络失败为 unreachable；
+   - host `probe_turn` RPC（`spawn_blocking` 防阻塞），只回传
+     `{ result, detail }`，绝不回传 TURN 密钥；
+   - 前端：RemoteAccessGateway.probeTurn()、store runTurnProbe 状态机
+     （busy/ok/unauthenticated/unreachable/protocol/unconfigured/error）、
+     设置 → 远程访问 → "测试 TURN 连接"按钮与本地化状态文案；
+2. 验证：单测覆盖同密钥 → Ok、错密钥 → Unauthenticated、已知向量密钥
+   MD5 复算；CDP release 88 实测点击按钮返回 `unauthenticated`
+   （"TURN 服务器拒绝了派生凭据——请确认桌面密钥与 coturn 的
+   static-auth-secret 一致"），与第 413 轮结论一致——服务器可达、
+   桌面派生正确、根因仍是 coturn 服务端密钥未对齐（外部输入）；
+3. 门禁：前端 837 项全绿（新增网关/store/标签测试 4 项）、Rust 185 项
+   （161+19+5，新增 3 项）、typecheck/Biome 456 文件/design/Tauri 权限
+   20 条/clippy/fmt（本模块）全绿；
+4. 发布：release 第八十八次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百二十二轮：工作区栏精简 + 七项工作区/存储需求核验（2026-08-12）。
 
 1. 按需求精简冗余按钮：

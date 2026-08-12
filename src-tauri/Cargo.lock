@@ -9696,6 +9696,7 @@ dependencies = [
  "keyring",
  "local-ip-address",
  "log",
+ "md-5",
  "pem",
  "percent-encoding",
  "qrcode",

@@ -38,8 +38,19 @@ export interface RemoteAccessGateway {
   setPublic(httpsUrl: string, enrollmentUrl: string): Promise<unknown>;
   setRelay(enabled: boolean, relayUrl: string): Promise<RemoteAccessStatus>;
   updateRelayTurn(url: string, realm: string, secret: string): Promise<unknown>;
+  probeTurn(): Promise<{ result: string; detail?: string }>;
   revokeDevice(deviceId: string): Promise<unknown>;
 }
+
+export type TurnProbeStatus =
+  | "idle"
+  | "busy"
+  | "ok"
+  | "unauthenticated"
+  | "unreachable"
+  | "protocol"
+  | "unconfigured"
+  | "error";
 
 interface RemoteAccessState {
   status: RemoteAccessStatus;
@@ -55,6 +66,8 @@ interface RemoteAccessState {
   turnRealmInput: string;
   turnSecretInput: string;
   turnSaveStatus: string;
+  turnProbeStatus: TurnProbeStatus;
+  turnProbeDetail: string;
   relaySaveStatus: string;
   loadError: string | null;
   load(): Promise<void>;
@@ -65,6 +78,7 @@ interface RemoteAccessState {
   setRelayUrlInput(value: string): void;
   setTurnInputs(url: string, realm: string, secret: string): void;
   saveTurn(): Promise<void>;
+  runTurnProbe(): Promise<void>;
   revokeDevice(deviceId: string): Promise<void>;
 }
 
@@ -92,6 +106,8 @@ export function createRemoteAccessStore(gateway: RemoteAccessGateway | null) {
     turnRealmInput: "",
     turnSecretInput: "",
     turnSaveStatus: "",
+    turnProbeStatus: "idle",
+    turnProbeDetail: "",
     relaySaveStatus: "",
     loadError: null,
 
@@ -211,6 +227,33 @@ export function createRemoteAccessStore(gateway: RemoteAccessGateway | null) {
         });
       } finally {
         set({ updating: false });
+      }
+    },
+
+    async runTurnProbe() {
+      if (get().turnProbeStatus === "busy" || !gateway) return;
+      set({ turnProbeStatus: "busy", turnProbeDetail: "" });
+      try {
+        const probe = await gateway.probeTurn();
+        const result = probe?.result;
+        const known: TurnProbeStatus[] = [
+          "ok",
+          "unauthenticated",
+          "unreachable",
+          "protocol",
+          "unconfigured",
+        ];
+        set({
+          turnProbeStatus: known.includes(result as TurnProbeStatus)
+            ? (result as TurnProbeStatus)
+            : "error",
+          turnProbeDetail: probe?.detail || "",
+        });
+      } catch (error) {
+        set({
+          turnProbeStatus: "error",
+          turnProbeDetail: error instanceof Error ? error.message : String(error),
+        });
       }
     },
 

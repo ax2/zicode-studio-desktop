@@ -491,6 +491,36 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十八次重建（2026-08-12，第 423 轮 TURN 连接自测）
+
+- 合入第 423 轮：
+  - Rust `turn_probe.rs`：coturn auth-secret 短期凭据派生 + STUN
+    Allocation 双向往返（无认证 401 质询 → realm/nonce +
+    `MD5(username:realm:credential)` message-integrity 重发）；
+    `host_server` 新增 `probe_turn` RPC（spawn_blocking，不回传密钥）；
+  - 前端：RemoteAccessGateway.probeTurn + store runTurnProbe 状态机 +
+    设置"测试 TURN 连接"按钮（含 unconfigured/ok/unauthenticated/
+    unreachable/protocol/error 本地化文案）；
+  - 测试：同密钥 Ok、错密钥 Unauthenticated、已知向量 + MD5 密钥复算；
+    前端 837 项、Rust 185 项（161+19+5，另 2 项忽略）、
+    typecheck/Biome 456 文件/design/clippy 全绿；
+- 产物（release 88）：
+  - `target/release/zicode-studio-desktop.exe`：41,760,256 B，
+    SHA-256 `148BB60A1D6DED61AE69563D504732EC131AA65C0CEB33CBB206A8A774F9E3D8`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,845,167 B，SHA-256
+    `4445DD26CD6EA88F3D07A17DF5275E62D15C73F263BC4D383E5558FD44C68C8D`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `B8B33C99E297F0322BE22A37031FB148E69658A49754AB5CEE8993F7BFC62B6B`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：设置 → 远程访问 → 点击"测试 TURN 连接"，返回
+    `unauthenticated`（"TURN 服务器拒绝了派生凭据——请确认桌面密钥与
+    coturn 的 static-auth-secret 一致"），按钮状态/文案正确；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十七次重建（2026-08-12，第 422 轮工作区栏精简）
 
 - 合入第 422 轮：

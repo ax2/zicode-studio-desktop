@@ -46,6 +46,11 @@ export class RemoteAccessGateway {
     });
   }
 
+  async probeTurn() {
+    const frame = await this.#request("probe_turn");
+    return frame?.turnProbe ?? { result: "protocol" };
+  }
+
   async listDevices() {
     const frame = await this.#request("list_devices");
     return Array.isArray(frame?.devices) ? frame.devices : [];

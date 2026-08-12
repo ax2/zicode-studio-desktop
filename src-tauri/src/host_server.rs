@@ -3300,6 +3300,61 @@ async fn dispatch(
                     &request_id,
                 ))
             }
+            Some("probe_turn") => {
+                let config = crate::remote_access_config::load()
+                    .map_err(|message| ("remote_access_config_failed", message))?;
+                let Some(turn_url) = config.relay_turn_url.clone() else {
+                    return Ok(json!({
+                        "type": "auth_response",
+                        "requestId": request_id,
+                        "turnProbe": { "result": "unconfigured" },
+                    }));
+                };
+                let Some(secret) = config.relay_turn_secret.clone() else {
+                    return Ok(json!({
+                        "type": "auth_response",
+                        "requestId": request_id,
+                        "turnProbe": { "result": "unconfigured" },
+                    }));
+                };
+                let realm = config.relay_turn_realm.unwrap_or_default();
+                let device_id = config
+                    .relay_device_id
+                    .unwrap_or_else(|| "zicode-desktop".to_string());
+                let result =
+                    tokio::task::spawn_blocking(move || {
+                        crate::turn_probe::probe_turn(&turn_url, &realm, &secret, &device_id)
+                    })
+                    .await
+                    .map_err(|error| {
+                        (
+                            "turn_probe_failed",
+                            format!("TURN probe task failed: {error}"),
+                        )
+                    })?;
+                let (result, detail) = match result {
+                    crate::turn_probe::TurnProbeResult::Ok => ("ok", None),
+                    crate::turn_probe::TurnProbeResult::Unauthenticated => {
+                        ("unauthenticated", None)
+                    }
+                    crate::turn_probe::TurnProbeResult::Unreachable(message) => {
+                        ("unreachable", Some(message))
+                    }
+                    crate::turn_probe::TurnProbeResult::Protocol(message) => {
+                        ("protocol", Some(message))
+                    }
+                };
+                let mut probe = serde_json::Map::new();
+                probe.insert("result".into(), serde_json::Value::String(result.into()));
+                if let Some(detail) = detail {
+                    probe.insert("detail".into(), serde_json::Value::String(detail));
+                }
+                Ok(json!({
+                    "type": "auth_response",
+                    "requestId": request_id,
+                    "turnProbe": serde_json::Value::Object(probe),
+                }))
+            }
             Some("revoke_device") => {
                 let device_id = frame
                     .get("deviceId")

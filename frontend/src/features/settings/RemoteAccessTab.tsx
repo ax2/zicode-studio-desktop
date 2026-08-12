@@ -5,7 +5,42 @@ import {
   formatRemoteTime,
   type RemoteAccessStore,
   type RemoteDevice,
+  type TurnProbeStatus,
 } from "./remoteAccessStore";
+
+export function turnProbeMessage(
+  status: TurnProbeStatus,
+  detail: string,
+): string {
+  switch (status) {
+    case "ok":
+      return t(
+        "TURN connection OK — credentials match the server.",
+      );
+    case "unauthenticated":
+      return t(
+        "TURN server rejected the derived credential — check that the desktop secret matches the coturn static-auth-secret.",
+      );
+    case "unreachable":
+      return detail
+        ? `${t("TURN server unreachable")}: ${detail}`
+        : t("TURN server unreachable");
+    case "protocol":
+      return detail
+        ? `${t("TURN protocol error")}: ${detail}`
+        : t("TURN protocol error");
+    case "unconfigured":
+      return t(
+        "Configure the TURN server address, realm and secret first.",
+      );
+    case "error":
+      return detail
+        ? `${t("TURN test failed")}: ${detail}`
+        : t("TURN test failed");
+    default:
+      return "";
+  }
+}
 
 export function RemoteAccessTab({ store }: { store: RemoteAccessStore }) {
   const load = store((state) => state.load);
@@ -169,11 +204,14 @@ function RelaySection({ store }: { store: RemoteAccessStore }) {
   const turnRealmInput = store((state) => state.turnRealmInput);
   const turnSecretInput = store((state) => state.turnSecretInput);
   const turnSaveStatus = store((state) => state.turnSaveStatus);
+  const turnProbeStatus = store((state) => state.turnProbeStatus);
+  const turnProbeDetail = store((state) => state.turnProbeDetail);
   const relaySaveStatus = store((state) => state.relaySaveStatus);
   const setRelayUrlInput = store((state) => state.setRelayUrlInput);
   const setTurnInputs = store((state) => state.setTurnInputs);
   const saveRelay = store((state) => state.saveRelay);
   const saveTurn = store((state) => state.saveTurn);
+  const runTurnProbe = store((state) => state.runTurnProbe);
 
   const history = Array.isArray(status.relayUsageHistory)
     ? status.relayUsageHistory.filter((entry) => Number.isFinite(Number(entry?.day)))
@@ -320,6 +358,26 @@ function RelaySection({ store }: { store: RemoteAccessStore }) {
             </button>
             <span className="settings-help" role="status">
               {turnSaveStatus}
+            </span>
+          </div>
+          <div className="remote-access-relay-save remote-access-turn-probe">
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              disabled={updating || turnProbeStatus === "busy"}
+              aria-busy={turnProbeStatus === "busy"}
+              onClick={() => void runTurnProbe()}
+            >
+              {turnProbeStatus === "busy"
+                ? t("Testing TURN connection…")
+                : t("Test TURN connection")}
+            </button>
+            <span
+              className="settings-help"
+              role="status"
+              data-turn-probe-status={turnProbeStatus}
+            >
+              {turnProbeMessage(turnProbeStatus, turnProbeDetail)}
             </span>
           </div>
         </form>

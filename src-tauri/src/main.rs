@@ -28,6 +28,7 @@ mod runtime_coordinator;
 mod runtime_isolation;
 mod scene_profiles;
 mod settings_store;
+mod turn_probe;
 
 use host_server::HostServer;
 use metadata_store::MetadataStore;

@@ -16,6 +16,7 @@ function gatewayStub(overrides: Partial<RemoteAccessGateway> = {}): RemoteAccess
     setPublic: vi.fn(async () => ({})),
     setRelay: vi.fn(async (enabled) => ({ relayEnabled: enabled })),
     updateRelayTurn: vi.fn(async () => ({})),
+    probeTurn: vi.fn(async () => ({ result: "protocol" })),
     revokeDevice: vi.fn(async () => ({})),
     ...overrides,
   };
@@ -88,6 +89,28 @@ describe("remote access store", () => {
     expect(store.getState().devices[0].deviceId).toBe("d2");
   });
 
+  it("runs a TURN probe and surfaces the server verdict", async () => {
+    const probeTurn = vi.fn(async () => ({ result: "unauthenticated" }));
+    const gateway = gatewayStub({ probeTurn });
+    const store = createRemoteAccessStore(gateway);
+    const pending = store.getState().runTurnProbe();
+    expect(store.getState().turnProbeStatus).toBe("busy");
+    await pending;
+    expect(probeTurn).toHaveBeenCalled();
+    expect(store.getState().turnProbeStatus).toBe("unauthenticated");
+  });
+
+  it("surfaces gateway failures from the TURN probe", async () => {
+    const probeTurn = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const gateway = gatewayStub({ probeTurn });
+    const store = createRemoteAccessStore(gateway);
+    await store.getState().runTurnProbe();
+    expect(store.getState().turnProbeStatus).toBe("error");
+    expect(store.getState().turnProbeDetail).toContain("boom");
+  });
+
   it("formats byte counts", () => {
     expect(formatBytes(0)).toBe("0 B");
     expect(formatBytes(1024)).toBe("1.0 KB");
@@ -128,5 +151,25 @@ describe("remote access React tab", () => {
     const button = document.querySelector(".remote-device-revoke") as HTMLButtonElement;
     act(() => button.click());
     expect(button.textContent).toBe(t("Confirm revoke"));
+  });
+
+  it("tests the TURN connection from the relay section", async () => {
+    const probeTurn = vi.fn(async () => ({ result: "ok" }));
+    const gateway = gatewayStub({ probeTurn });
+    const store = createRemoteAccessStore(gateway);
+    render(<RemoteAccessTab store={store} />);
+    await waitFor(() =>
+      expect(document.querySelector(".remote-access-turn-probe button")).toBeTruthy(),
+    );
+    const buttons = document.querySelectorAll(".remote-access-turn-probe button");
+    const button = buttons[buttons.length - 1] as HTMLButtonElement;
+    act(() => button.click());
+    await waitFor(() => expect(store.getState().turnProbeStatus).toBe("ok"));
+    expect(probeTurn).toHaveBeenCalled();
+    const statuses = document.querySelectorAll('[data-turn-probe-status="ok"]');
+    const status = statuses[statuses.length - 1];
+    expect(status?.textContent).toContain(
+      t("TURN connection OK — credentials match the server."),
+    );
   });
 });

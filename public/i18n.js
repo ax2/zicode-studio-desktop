@@ -450,6 +450,17 @@ const zhCN = {
   "TURN secret": "TURN 密钥",
   "STUN/TURN servers let the phone punch through NAT for direct P2P. The desktop auto-derives short-lived TURN credentials.":
     "STUN/TURN 服务器让手机可以穿透 NAT 建立直连；桌面端会自动签发短期 TURN 凭据。",
+  "Test TURN connection": "测试 TURN 连接",
+  "Testing TURN connection…": "正在测试 TURN 连接…",
+  "TURN connection OK — credentials match the server.":
+    "TURN 连接正常，凭据与服务器匹配。",
+  "TURN server rejected the derived credential — check that the desktop secret matches the coturn static-auth-secret.":
+    "TURN 服务器拒绝了派生凭据——请确认桌面密钥与 coturn 的 static-auth-secret 一致。",
+  "TURN server unreachable": "TURN 服务器不可达",
+  "TURN protocol error": "TURN 协议错误",
+  "Configure the TURN server address, realm and secret first.":
+    "请先配置 TURN 服务器地址、realm 和密钥。",
+  "TURN test failed": "TURN 测试失败",
   "Save failed": "保存失败",
   "Relay changes take effect after restart.": "中继更改在重启后生效。",
   "Relay server address is required when relay access is enabled.":

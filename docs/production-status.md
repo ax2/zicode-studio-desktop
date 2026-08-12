@@ -8,8 +8,8 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 833 项通过 | 137 个测试文件 |
-| Rust | 182 项通过（158+19+5，另 2 项忽略） | cargo test |
+| 前端 vitest | 837 项通过 | 137 个测试文件 |
+| Rust | 185 项通过（161+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
@@ -18,11 +18,11 @@
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第八十七次重建（第 422 轮，工作区栏精简）
-  EXE 41,718,784 B / 安装包 346,874,047 B；哈希与逐文件
+- 最近 release：第八十八次重建（第 423 轮，TURN 连接自测）
+  EXE 41,760,256 B / 安装包 346,845,167 B；哈希与逐文件
   验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第八十七次重建安装版，网关 `/health` 200
+- 当前运行实例：第八十八次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -193,6 +193,12 @@
   全局工作区置顶、切换停留当前应用、各应用按工作区 `.zicode` 目录
   落盘、系统/模型配置统一在 `~/.zicode` 而非 `~/.pi`），release 87
   安装版 CDP 实测通过；前端 833 项全绿；
+- TURN 连接自测（第 423 轮）：设置 → 远程访问新增"测试 TURN 连接"
+  按钮，桌面端按 coturn auth-secret REST 方案派生短期凭据并发起
+  STUN Allocation 往返（RFC 5389 `MD5(username:realm:credential)`
+  message-integrity），无手机即可本地判定 ok/unauthenticated/
+  unreachable/protocol；release 88 实测返回 unauthenticated（服务端
+  密钥未对齐，与第 413 轮一致）；前端 837 项、Rust 185 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、
@@ -227,7 +233,7 @@
 
 | 事项 | 状态 | 所需输入 |
 | --- | --- | --- |
-| 真机跨 NAT 打洞验收（M2） | STUN 可达且公网映射（srflx）正常；**TURN relay 401**：桌面端凭据派生正确（HMAC 复算一致、时间戳/realm 匹配），根因为 coturn 服务器 `static-auth-secret` 与桌面 `relayTurnSecret` 不一致 | 对齐服务器密钥并重启 coturn 后用 `turnutils_uclient` 验证，再接入真机实测移动网络 |
+| 真机跨 NAT 打洞验收（M2） | STUN 可达且公网映射（srflx）正常；**TURN relay 401**：桌面端凭据派生正确（HMAC 复算一致、时间戳/realm 匹配、`MD5(username:realm:credential)` 密钥单测锁定），设置页"测试 TURN 连接"实测返回 unauthenticated，根因为 coturn 服务器 `static-auth-secret` 与桌面 `relayTurnSecret` 不一致 | 对齐服务器密钥并重启 coturn，用设置页"测试 TURN 连接"转绿后接入真机实测移动网络 |
 | 二维码扫码 / PWA 分享目标 | 服务端 manifest/分享链路已修并测试 | 真机扫码与系统分享 |
 | TalkBack / 无障碍朗读走查 | 键盘导航、aria 语义已实现 | 人工朗读走查 |
 | 安装包 Authenticode 签名 | 脚本就绪，未签名 | 代码签名证书 |
@@ -319,5 +325,5 @@ Ctrl+N 快捷键、新建对话（临时会话不落盘）、打开文件夹原�
 导航轨圆点锁定与滚动逻辑核实（短会话无滚动属设计行为），零控制台
 错误；
 第 370–396 轮的逐轮记录见 `docs/mobile-experience.md` 与
-`docs/release-validation-2026-08-05.md`；当前运行实例为第八十七次
-重建安装版（第 422 轮，`/health` 200、公网中继在线、日志无错误）。
+`docs/release-validation-2026-08-05.md`；当前运行实例为第八十八次
+重建安装版（第 423 轮，`/health` 200、公网中继在线、日志无错误）。

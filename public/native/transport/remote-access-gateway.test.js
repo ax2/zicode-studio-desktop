@@ -133,6 +133,20 @@ describe("RemoteAccessGateway", () => {
     await expect(update).resolves.toMatchObject({ restartRequired: true });
   });
 
+  it("probes the TURN relay through a local-only auth request", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const gateway = new RemoteAccessGateway(adapter);
+    const probe = gateway.probeTurn();
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({ type: "auth_request", operation: "probe_turn" });
+    adapter.receive({
+      type: "auth_response",
+      requestId: sent.requestId,
+      turnProbe: { result: "unauthenticated" },
+    });
+    await expect(probe).resolves.toMatchObject({ result: "unauthenticated" });
+  });
+
   it("rejects pending requests after disconnect", async () => {
     const adapter = createInMemoryRuntimeAdapter();
     const gateway = new RemoteAccessGateway(adapter);
