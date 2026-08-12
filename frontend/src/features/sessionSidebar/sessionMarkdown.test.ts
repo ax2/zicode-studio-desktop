@@ -35,6 +35,18 @@ describe("session Markdown export", () => {
     expect(markdown).toContain("Hi there");
   });
 
+  it("prepends an optional document title as an H1 header", () => {
+    setLocale("en");
+    const markdown = renderSessionMarkdown(
+      [{ role: "user", content: [{ type: "text", text: "Hello" }] }],
+      { title: "Planning session" },
+    );
+    expect(markdown.startsWith("# Planning session\n")).toBe(true);
+    expect(markdown).toContain("## User");
+    // No title means no H1 header.
+    expect(renderSessionMarkdown([]).startsWith("# ")).toBe(false);
+  });
+
   it("skips empty messages and trailing whitespace-only output", () => {
     setLocale("en");
     expect(renderSessionMarkdown([]).trim()).toBe("");

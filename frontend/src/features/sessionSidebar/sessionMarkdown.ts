@@ -16,10 +16,17 @@ interface SessionMessage {
 /**
  * Render a session transcript (the `read_session_messages` payload) as a
  * readable Markdown document: one section per user/assistant exchange, with
- * thinking blocks quoted and tool calls listed compactly.
+ * thinking blocks quoted and tool calls listed compactly. An optional title
+ * becomes a document-level H1 header.
  */
-export function renderSessionMarkdown(messages: unknown[]): string {
+export function renderSessionMarkdown(
+  messages: unknown[],
+  options?: { title?: string },
+): string {
   const lines: string[] = [];
+  if (options?.title?.trim()) {
+    lines.push(`# ${options.title.trim()}`, "");
+  }
   for (const raw of messages) {
     if (!raw || typeof raw !== "object") continue;
     const message = raw as SessionMessage;

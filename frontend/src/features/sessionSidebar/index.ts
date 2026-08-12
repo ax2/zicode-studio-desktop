@@ -620,7 +620,9 @@ export class SessionSidebar implements SessionSidebarController {
         session.id,
       )) as { messages?: unknown[] };
       const messages = Array.isArray(frame) ? frame : frame?.messages ?? [];
-      const markdown = renderSessionMarkdown(messages);
+      const markdown = renderSessionMarkdown(messages, {
+        title: session.name || session.firstMessage || t("Conversation"),
+      });
       this.downloadMarkdownFile(
         markdown,
         sessionMarkdownFileName(session.name || session.firstMessage, session.id),
