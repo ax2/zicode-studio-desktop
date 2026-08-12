@@ -548,7 +548,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         children.length === 0 && notesInNotebook === 0
           ? `${t("Delete notebook")} “${notebook.title}”?`
           : `${t("Delete notebook")} “${scope}”? ${t(
-              "Child notebooks and notes will also be deleted.",
+              "Child notebooks and notes will also move to trash.",
             )}`;
       if (!(await confirmDelete(message))) return;
       set({ loading: true, error: null });
@@ -556,7 +556,8 @@ export function createNotesStore(options: NotesStoreOptions) {
         await gateway.deleteNotebook(sceneId(), workspaceId(), notebookId);
         set({ selectedNotebookId: null, selectedNote: null });
         await get().load({ preserveSelection: false });
-        notify(t("Notebook deleted"));
+        void get().loadTrash();
+        notify(t("Notebook moved to trash"));
       } catch (error) {
         set({ error: localizeNotesHostError(error), loading: false });
       }

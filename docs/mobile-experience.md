@@ -5253,6 +5253,38 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百二十五轮：笔记本删除改为回收站可恢复 + 审计数据事故复盘（2026-08-12）。
+
+1. **事故记录（重要）**：本轮笔记全链路走查时，自动化脚本的选择器把
+   "zsd-424 功能测试"（当时在 QVeris 笔记本内）误匹配为笔记本名，在
+   覆盖 confirm 后触发了 QVeris 笔记本删除。旧实现的
+   `delete_notebook` 直接 `remove_dir_all`，属于**永久删除**：QVeris
+   笔记本（5 篇笔记、2 篇已入回收站的旧笔记、Astro 发布脚手架）已从
+   磁盘删除。已穷尽本地恢复途径（工作区/AppData 各目录、Downloads、
+   旧 plugin-data、变更日志仅含哈希、无卷影副本），**数据不可恢复**；
+   教训：自动化走查不得覆盖确认并模糊匹配选择器，破坏性验证必须使用
+   一次性测试数据；
+2. **产品缺陷修复**：笔记本删除此前绕过笔记应用的回收站体系，与
+   "删除可恢复"的产品承诺不一致。本轮把 `delete_notebook` 改为：
+   - 整棵子树（含嵌套笔记本）的每篇笔记先移入各自 `.trash`，再把
+     整个 vault 目录移到 `<工作区>/.zicode/notes/.deleted/<id>`；
+   - `list_trash` 同时扫描活动与已删除笔记本的 `.trash`（并携带
+     `notebookTitle`，回收站仍能显示来源笔记本名）；
+   - `restore_note` 遇到已删除笔记本时先整体还原该笔记本再恢复笔记；
+   - `empty_trash` / 30 天保留期清理后自动移除空的已删除笔记本目录；
+   - 前端确认文案与提示改为"一并移入回收站，可在回收站恢复"；
+3. 验证：Rust 单测覆盖删除→回收站（含笔记本名）→恢复→清空闭环、
+   嵌套笔记本整树删除；release 89 CDP 实测：新建测试笔记本→建笔记→
+   删除→回收站显示"无标题笔记 · zsd-425 回收站测试 · 已删除"→恢复
+   后笔记本回归→再次删除→清空回收站→磁盘 `.deleted` 为空、变更日志
+   记录 created/deleted/restored/deleted/purged 全链路；
+4. 门禁：前端 837 项全绿、Rust 187 项（163+19+5，另 2 项忽略，新增
+   2 项）、typecheck/Biome 456 文件/design/clippy/fmt 全绿；
+5. 发布：release 第八十九次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百二十四轮：rustfmt 恢复 + 多尺寸全表面审计（2026-08-12）。
 
 1. 格式门禁恢复：`cargo fmt --check` 此前因 rustfmt 1.8 格式漂移在

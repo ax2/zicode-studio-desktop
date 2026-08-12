@@ -40,6 +40,7 @@ export type NotesMode = "library" | "new-notebook" | "capture" | "trash";
 
 export interface TrashEntry {
   notebookId: string;
+  notebookTitle?: string;
   note: NoteSummary;
   deletedAt: string;
 }

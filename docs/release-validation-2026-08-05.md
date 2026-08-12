@@ -491,6 +491,38 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第八十九次重建（2026-08-12，第 425 轮笔记本删除可恢复）
+
+- 合入第 425 轮：
+  - Rust：`delete_notebook` 改为回收站语义——整棵子树（含嵌套笔记本）
+    笔记先移入各自 `.trash`，vault 目录移入
+    `<工作区>/.zicode/notes/.deleted/<id>`；`list_trash` 扫描活动 +
+    已删除笔记本（`TrashEntry` 增加 `notebookTitle`）；`restore_note`
+    对已删除笔记本先整体还原再恢复笔记；清空回收站/保留期后移除空的
+    已删除笔记本目录；
+  - 前端：回收站显示来源笔记本名（已删除笔记本用 `notebookTitle`
+    兜底）、确认与提示文案改为"移入回收站，可在回收站恢复"；
+  - 测试：删除→回收站→恢复→清空闭环、嵌套笔记本整树删除 2 项新增；
+    前端 837 项、Rust 187 项（163+19+5，另 2 项忽略）、
+    typecheck/Biome 456 文件/design/clippy/fmt 全绿；
+- 产物（release 89）：
+  - `target/release/zicode-studio-desktop.exe`：41,774,080 B，
+    SHA-256 `6028C56099D6B6FB4B18268798FCA0453694C103CF1886CA6DCB166C5A18B515`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,828,310 B，SHA-256
+    `3953C2E8AE7A9369F5DCBCF0EC684657FF2B99F7E327CB8B67678CEDA064B85F`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `5120162AEAB21D871737CCE4DB0FDB329DF7D77785FFD471BD0AECCE7C6AA9BF`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：新建测试笔记本→建笔记→删除→回收站显示
+    "无标题笔记 · zsd-425 回收站测试 · 已删除"→恢复后笔记本回归→
+    再次删除→清空回收站→磁盘 `.deleted` 为空、changes.jsonl 记录
+    created/deleted/restored/deleted/purged 全链路；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第八十八次重建（2026-08-12，第 423 轮 TURN 连接自测）
 
 - 合入第 423 轮：

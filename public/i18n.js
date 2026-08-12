@@ -234,7 +234,10 @@ const zhCN = {
   "Delete notebook": "删除笔记本",
   "sub-notebooks": "个子笔记本",
   "Child notebooks and notes will also be deleted.": "其中的子笔记本和笔记也会一并删除。",
+  "Child notebooks and notes will also move to trash.":
+    "其中的子笔记本和笔记也会一并移入回收站，可在回收站恢复。",
   "Notebook deleted": "笔记本已删除",
+  "Notebook moved to trash": "笔记本已移入回收站，可在回收站恢复。",
   "Context usage": "上下文用量",
   "Context Window": "上下文窗口",
   "Conversation navigator": "对话导航",

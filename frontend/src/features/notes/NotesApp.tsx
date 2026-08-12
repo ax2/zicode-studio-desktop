@@ -1295,8 +1295,14 @@ function TrashView({ store }: { store: NotesStore }) {
             <span className="notes-list-item-main">
               <strong>{entry.note.title}</strong>
               <span>
-                {snapshot.notebooks.find((notebook) => notebook.id === entry.notebookId)?.title ?? ""}
-                {snapshot.notebooks.some((notebook) => notebook.id === entry.notebookId) ? " · " : ""}
+                {snapshot.notebooks.find((notebook) => notebook.id === entry.notebookId)?.title ??
+                  entry.notebookTitle ??
+                  ""}
+                {snapshot.notebooks.some((notebook) => notebook.id === entry.notebookId)
+                  ? " · "
+                  : entry.notebookTitle
+                    ? " · "
+                    : ""}
                 {t("Deleted")} {formatDate(entry.deletedAt)}
               </span>
             </span>

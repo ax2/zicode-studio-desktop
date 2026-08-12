@@ -695,7 +695,7 @@ describe("notes store", () => {
     await store.getState().load();
     await store.getState().deleteNotebook("book-1");
     expect(deleteNotebook).toHaveBeenCalledWith("programming", "ws-1", "book-1");
-    expect(notify).toHaveBeenCalledWith("笔记本已删除");
+    expect(notify).toHaveBeenCalledWith("笔记本已移入回收站，可在回收站恢复。");
   });
 
   it("skips deletion when the confirmation is declined", async () => {

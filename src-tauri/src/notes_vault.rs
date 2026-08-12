@@ -82,6 +82,8 @@ pub struct NoteDocument {
 #[serde(rename_all = "camelCase")]
 pub struct TrashEntry {
     pub notebook_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notebook_title: Option<String>,
     pub note: NoteSummary,
     pub deleted_at: String,
 }
@@ -743,8 +745,62 @@ impl NotesVault {
                 "Notebook does not exist",
             ));
         }
-        fs::remove_dir_all(&root)
-            .map_err(|_| NotesError::new("storage_unavailable", "Cannot delete notebook"))
+        // Collect the notebook and every descendant (nested notebooks share
+        // the parent_id chain) so the whole subtree moves to the trash area
+        // instead of being permanently removed.
+        let notebooks = self.list_notebooks()?;
+        let mut to_delete = Vec::new();
+        let mut queue = vec![notebook_id.clone()];
+        while let Some(id) = queue.pop() {
+            if to_delete.contains(&id) {
+                continue;
+            }
+            to_delete.push(id.clone());
+            for candidate in &notebooks {
+                if candidate.parent_id.as_deref() == Some(id.as_str()) {
+                    queue.push(candidate.id.clone());
+                }
+            }
+        }
+        let deleted_root = self.deleted_vaults_dir();
+        fs::create_dir_all(&deleted_root).map_err(|_| {
+            NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
+        })?;
+        for id in &to_delete {
+            let source = self.vault_root(id)?;
+            if !source.exists() {
+                continue;
+            }
+            let target = deleted_root.join(id);
+            if target.exists() {
+                return Err(NotesError::new(
+                    "storage_unavailable",
+                    format!("Notebook {id} is already in the trash"),
+                ));
+            }
+            // Move every active note into the notebook's own `.trash` first
+            // so the existing restore/purge pipeline stays uniform for
+            // deleted notebooks.
+            let notes = self.scan_notebook_notes(id)?;
+            if !notes.is_empty() {
+                let trash_dir = source.join(".trash");
+                fs::create_dir_all(&trash_dir).map_err(|_| {
+                    NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
+                })?;
+                for note in &notes {
+                    let note_path = self.note_path(id, &note.id)?;
+                    let trash_path = trash_dir.join(format!("{}.md", &note.id));
+                    fs::rename(&note_path, &trash_path).map_err(|_| {
+                        NotesError::new("storage_unavailable", "Cannot move the note to trash")
+                    })?;
+                    self.append_change("deleted", note, None)?;
+                }
+            }
+            fs::rename(&source, &target).map_err(|_| {
+                NotesError::new("storage_unavailable", "Cannot move the notebook to trash")
+            })?;
+        }
+        Ok(())
     }
 
     pub fn create_note(
@@ -933,52 +989,125 @@ impl NotesVault {
         notebook_id: Option<&str>,
         retention_days: u64,
     ) -> Result<Vec<TrashEntry>, NotesError> {
-        let notebooks = self.list_notebooks()?;
         let selected = notebook_id.map(validate_opaque_id).transpose()?;
         let mut entries = Vec::new();
-        for notebook in &notebooks {
+        // Active notebooks keep their `.trash` directories.
+        for notebook in self.list_notebooks()? {
             if selected.as_ref().is_some_and(|id| id != &notebook.id) {
                 continue;
             }
-            let trash_dir = self.vault_root(&notebook.id)?.join(".trash");
-            if !trash_dir.is_dir() {
-                continue;
-            }
-            for entry in fs::read_dir(&trash_dir)
-                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
+            let directory = self.vault_root(&notebook.id)?;
+            self.collect_trash_directory(
+                &directory,
+                &notebook.id,
+                &notebook.title,
+                retention_days,
+                &mut entries,
+            )?;
+        }
+        // Deleted notebooks live under `.deleted/`; their notes were moved
+        // into each notebook's `.trash` before the move, so the same
+        // collection applies. Once a deleted notebook's trash is empty the
+        // whole directory is removed (retention also purges it over time).
+        let deleted_root = self.deleted_vaults_dir();
+        if deleted_root.is_dir() {
+            let mut cleaned = Vec::new();
+            for entry in fs::read_dir(&deleted_root)
+                .map_err(|_| NotesError::new("storage_unavailable", "Cannot read the notes trash"))?
                 .flatten()
             {
                 let Ok(file_type) = entry.file_type() else {
                     continue;
                 };
-                if !file_type.is_file() || file_type.is_symlink() {
+                if !file_type.is_dir() || file_type.is_symlink() {
                     continue;
                 }
-                let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                let Some(id) = entry.file_name().to_str().map(str::to_string) else {
                     continue;
                 };
-                if !name.ends_with(".md") {
+                if validate_opaque_id(&id).is_err() {
                     continue;
                 }
-                let Some(note_id) = name.strip_suffix(".md").map(str::to_string) else {
-                    continue;
-                };
-                if modified_before_days(&entry.path(), retention_days)
-                    && self.purge_note(&notebook.id, &note_id).is_ok()
+                if selected
+                    .as_ref()
+                    .is_some_and(|selected_id| selected_id != &id)
                 {
                     continue;
                 }
-                if let Ok(note) = read_note_file(&entry.path(), &notebook.id) {
-                    entries.push(TrashEntry {
-                        notebook_id: notebook.id.clone(),
-                        note: note.summary,
-                        deleted_at: modified_at_iso(&entry.path()),
-                    });
+                let Ok(notebook) = self.read_notebook(&id) else {
+                    continue;
+                };
+                self.collect_trash_directory(
+                    &deleted_root.join(&id),
+                    &id,
+                    &notebook.title,
+                    retention_days,
+                    &mut entries,
+                )?;
+                cleaned.push(id);
+            }
+            for id in cleaned {
+                let directory = deleted_root.join(&id);
+                let trash_dir = directory.join(".trash");
+                let empty = !trash_dir.is_dir()
+                    || fs::read_dir(&trash_dir)
+                        .map(|mut read| read.next().is_none())
+                        .unwrap_or(true);
+                if empty {
+                    let _ = fs::remove_dir_all(&directory);
                 }
             }
         }
         entries.sort_by(|left, right| right.deleted_at.cmp(&left.deleted_at));
         Ok(entries)
+    }
+
+    fn collect_trash_directory(
+        &self,
+        directory: &Path,
+        notebook_id: &str,
+        notebook_title: &str,
+        retention_days: u64,
+        entries: &mut Vec<TrashEntry>,
+    ) -> Result<(), NotesError> {
+        let trash_dir = directory.join(".trash");
+        if !trash_dir.is_dir() {
+            return Ok(());
+        }
+        for entry in fs::read_dir(&trash_dir)
+            .map_err(|_| NotesError::new("storage_unavailable", "Cannot read trash"))?
+            .flatten()
+        {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_file() || file_type.is_symlink() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+                continue;
+            };
+            if !name.ends_with(".md") {
+                continue;
+            }
+            let Some(note_id) = name.strip_suffix(".md").map(str::to_string) else {
+                continue;
+            };
+            if modified_before_days(&entry.path(), retention_days)
+                && self.purge_note(notebook_id, &note_id).is_ok()
+            {
+                continue;
+            }
+            if let Ok(note) = read_note_file(&entry.path(), notebook_id) {
+                entries.push(TrashEntry {
+                    notebook_id: notebook_id.to_string(),
+                    notebook_title: Some(notebook_title.to_string()),
+                    note: note.summary,
+                    deleted_at: modified_at_iso(&entry.path()),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// Restore a trashed note back into its original notebook.
@@ -987,15 +1116,26 @@ impl NotesVault {
         notebook_id: &str,
         note_id: &str,
     ) -> Result<NoteDocument, NotesError> {
-        let trash_path = self.trash_path(notebook_id, note_id)?;
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let note_id = validate_opaque_id(note_id)?;
+        // Restoring a note from a deleted notebook brings the whole notebook
+        // back first; the remaining trashed notes stay recoverable.
+        let active = self.vaults_dir().join(&notebook_id);
+        let deleted = self.deleted_vaults_dir().join(&notebook_id);
+        if !active.exists() && deleted.is_dir() {
+            fs::rename(&deleted, &active).map_err(|_| {
+                NotesError::new("storage_unavailable", "Cannot restore the notebook")
+            })?;
+        }
+        let trash_path = self.trash_path(&notebook_id, &note_id)?;
         if !trash_path.is_file() {
             return Err(NotesError::new(
                 "trash_empty",
                 "No trashed note with this ID",
             ));
         }
-        let restored = read_note_file(&trash_path, notebook_id)?;
-        let target = self.note_path(notebook_id, note_id)?;
+        let restored = read_note_file(&trash_path, &notebook_id)?;
+        let target = self.note_path(&notebook_id, &note_id)?;
         if target.exists() {
             return Err(NotesError::new(
                 "conflict",
@@ -1004,7 +1144,7 @@ impl NotesVault {
         }
         fs::rename(&trash_path, &target)
             .map_err(|_| NotesError::new("storage_unavailable", "Cannot restore the note"))?;
-        self.touch_notebook(notebook_id)?;
+        self.touch_notebook(&notebook_id)?;
         self.append_change(
             "restored",
             &restored.summary,
@@ -1744,7 +1884,16 @@ impl NotesVault {
 
     fn vault_root(&self, notebook_id: &str) -> Result<PathBuf, NotesError> {
         let notebook_id = validate_opaque_id(notebook_id)?;
-        Ok(self.vaults_dir().join(notebook_id))
+        let active = self.vaults_dir().join(&notebook_id);
+        let deleted = self.deleted_vaults_dir().join(&notebook_id);
+        if active.exists() || !deleted.exists() {
+            return Ok(active);
+        }
+        Ok(deleted)
+    }
+
+    fn deleted_vaults_dir(&self) -> PathBuf {
+        self.vaults_dir().join(".deleted")
     }
 
     fn note_path(&self, notebook_id: &str, note_id: &str) -> Result<PathBuf, NotesError> {
@@ -3118,6 +3267,93 @@ mod tests {
             notebook_b.id,
             scoped_b.list(None, None, None, false).unwrap().notebooks[0].id
         );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn deleting_a_notebook_moves_notes_to_trash_and_restores_them() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let workspace_a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let scoped_a = vault.scoped(workspace_a).unwrap();
+        let notebook = scoped_a.create_notebook("Trash me", None, None).unwrap();
+        let note = scoped_a
+            .create_note(&notebook.id, "Recoverable", "body", vec![], None, None)
+            .unwrap();
+
+        scoped_a.delete_notebook(&notebook.id).unwrap();
+
+        // The notebook disappears from the active list but its note is in
+        // the workspace trash, tagged with the notebook title.
+        assert_eq!(
+            scoped_a
+                .list(None, None, None, false)
+                .unwrap()
+                .notebooks
+                .len(),
+            0
+        );
+        let trash = scoped_a.list_trash(None).unwrap();
+        assert_eq!(trash.len(), 1);
+        assert_eq!(trash[0].notebook_id, notebook.id);
+        assert_eq!(trash[0].notebook_title.as_deref(), Some("Trash me"));
+        assert_eq!(trash[0].note.id, note.summary.id);
+
+        // Restoring the note brings the notebook back and makes it readable.
+        let restored = scoped_a
+            .restore_note(&notebook.id, &note.summary.id)
+            .unwrap();
+        assert_eq!(restored.summary.id, note.summary.id);
+        assert_eq!(
+            scoped_a
+                .list(None, None, None, false)
+                .unwrap()
+                .notebooks
+                .len(),
+            1
+        );
+        assert!(scoped_a.get_note(&notebook.id, &note.summary.id).is_ok());
+
+        // Delete again and empty the trash to purge permanently.
+        scoped_a.delete_notebook(&notebook.id).unwrap();
+        assert_eq!(scoped_a.empty_trash(None).unwrap(), 1);
+        assert!(scoped_a.list_trash(None).unwrap().is_empty());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn deleting_a_parent_notebook_moves_descendants_to_trash() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let workspace_a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let scoped_a = vault.scoped(workspace_a).unwrap();
+        let parent = scoped_a.create_notebook("Parent", None, None).unwrap();
+        let child = scoped_a
+            .create_notebook("Child", None, Some(parent.id.clone()))
+            .unwrap();
+        let parent_note = scoped_a
+            .create_note(&parent.id, "P", "p", vec![], None, None)
+            .unwrap();
+        let child_note = scoped_a
+            .create_note(&child.id, "C", "c", vec![], None, None)
+            .unwrap();
+
+        scoped_a.delete_notebook(&parent.id).unwrap();
+
+        assert!(scoped_a
+            .list(None, None, None, false)
+            .unwrap()
+            .notebooks
+            .is_empty());
+        let trash = scoped_a.list_trash(None).unwrap();
+        assert_eq!(trash.len(), 2);
+        assert!(trash
+            .iter()
+            .any(|entry| entry.note.id == parent_note.summary.id));
+        assert!(trash
+            .iter()
+            .any(|entry| entry.note.id == child_note.summary.id));
+        assert!(trash.iter().all(|entry| entry.notebook_title.is_some()));
         let _ = fs::remove_dir_all(root);
     }
 
