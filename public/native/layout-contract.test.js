@@ -987,4 +987,10 @@ describe("desktop three-region layout contract", () => {
       /\.automation-checkbox input\[type="checkbox"\]\s*\{[\s\S]*?width:\s*24px[\s\S]*?height:\s*24px/,
     );
   });
+
+  it("gives mobile help navigation links a comfortable touch height", () => {
+    expect(helpCss).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.help-center-navigation\s+\.help-center-nav-link\s*\{[\s\S]*?min-height:\s*var\(--space-10\)/,
+    );
+  });
 });

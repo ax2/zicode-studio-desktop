@@ -8,7 +8,7 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 827 项通过 | 137 个测试文件 |
+| 前端 vitest | 828 项通过 | 137 个测试文件 |
 | Rust | 181 项通过（157+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
@@ -162,6 +162,9 @@
   `~/.zicode` 目录 ACL 受保护；桌面侧无遗留本地障碍，唯一外部前置
   为 coturn `static-auth-secret` 与桌面 `relayTurnSecret` 对齐后
   用 `turnutils_uclient` 验证；
+- 移动回归（第 414 轮）：release 83 全表面 0 溢出、新功能入口移动端
+  可达；修复帮助导航链接移动端触摸高度（20→40px），新增契约测试，
+  前端 828 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

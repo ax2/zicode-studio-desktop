@@ -465,4 +465,8 @@
     overflow: visible;
     padding: var(--space-4);
   }
+
+  .help-center-navigation .help-center-nav-link {
+    min-height: var(--space-10);
+  }
 }
