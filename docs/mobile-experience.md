@@ -5253,6 +5253,20 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十三轮：MkDocs 严格构建验收（2026-08-12）。
+
+1. 按 `docs/requirements.md` 第 10 节验收清单补做本地可验证项：
+   `mkdocs build --strict` 本地运行通过（mkdocs 1.6.1 + material
+   9.6.20，4.35s，exit 0），与 CI `docs.yml` 一致；未纳入站点导航的
+   页面（production-status、session-handoff、release-validation、
+   deployment-runbook 等内部档案）仅为提示、不影响严格构建；
+2. 验收清单其余本地项均有证据：单元/集成测试（前端 845、Rust 192）、
+   cargo check/Clippy/fmt、无子进程控制台窗口（check-windows-
+   subprocesses）、多场景/多实例隔离、插件生命周期验证（历史轮次）；
+   剩余项（Release Workflow 出包、干净虚拟机断网安装、真机 M2/扫码/
+   TalkBack、签名、自动更新发布、原生 App）均需外部输入；
+3. 本轮无运行时代码改动，运行实例仍为 release 93。
+
 第四百三十二轮：release 93 维护发布（2026-08-12）。
 
 1. 把第 431 轮帮助文档更新（security-data zh/en 新增"工作区数据快照"
