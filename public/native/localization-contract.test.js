@@ -187,4 +187,21 @@ describe("vanilla UI localization contract", () => {
     );
     expect(missing).toEqual([]);
   });
+
+  it("keeps dynamic service menu keys in the dictionary", () => {
+    const header = read("public/components/sa-chat-header.js");
+    expect(header).toContain(`t(\`\${capitalize(service)} settings\`)`);
+    expect(header).toContain(
+      `t(\`\${capitalize(service)} is not configured\`)`,
+    );
+    const dictionary = read("public/i18n.js");
+    for (const key of [
+      "Feishu settings",
+      "Wecom settings",
+      "Feishu is not configured",
+      "Wecom is not configured",
+    ]) {
+      expect(dictionary).toContain(`"${key}"`);
+    }
+  });
 });

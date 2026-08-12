@@ -5253,6 +5253,24 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十六轮：设置面板交互审计 + 动态键加固（2026-08-13）。
+
+1. CDP 深度交互审计（release 104）：
+   - 设置面板 6 个 Tab（通用/扩展/用量/配置/远程访问/智能收件箱）逐一
+     切换，activeTab 与内容均正确（主题/语言、社区包、成本面板、场景
+     配置、安全移动访问、Agent Inbox），0 横向溢出、0 控制台错误；
+   - 自动压缩开关点击切换正常，实测后已恢复原状态；
+   - 运行时状态确认"已连接"（data-runtime=native）；配置页多处
+     "Pi 运行时连接已断开"为隐藏的错误兜底模板（getBoundingClientRect
+     尺寸 0），非真实断连；
+   - 静态页复核：bootstrap.html 英文为 locale 切换的英文回退分支
+     （第 438 轮已双语化），offline/index 标题正常；
+2. 加固：localization-contract 新增 1 项（10 项）锁定
+   sa-chat-header 动态模板键（`${service} settings` 等）对应的
+   Feishu/Wecom 键均在词典，防动态键缺翻译回归；
+3. 门禁：前端 860 项全绿（139 文件）、typecheck/Biome 全绿；本轮无
+   运行时代码改动（仅测试与文档），不重建 release。
+
 第四百四十五轮：会话/项目右键菜单本地化 + 数据链路实测（2026-08-13）。
 
 1. 数据定义字符串扫描（frontend/src 全量）发现会话侧栏右键菜单
