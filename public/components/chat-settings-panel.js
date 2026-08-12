@@ -249,7 +249,11 @@ async function writeChatConfig(content) {
 }
 
 function messageFromError(error) {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (/ProcessClosed|process\s+(is\s+)?closed/i.test(message)) {
+    return t("Pi runtime is disconnected. Start a new session to reconnect.");
+  }
+  return message;
 }
 
 function esc(value) {

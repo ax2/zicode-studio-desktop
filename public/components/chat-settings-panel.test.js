@@ -50,4 +50,21 @@ describe("chat-settings-panel", () => {
     expect(panel.querySelector("[data-status]").classList.contains("hidden")).toBe(true);
     expect(panel.querySelector("[data-textarea]").value).toContain('"botName":"ZiCode"');
   });
+
+  it("localizes a closed Pi runtime in the load status", async () => {
+    const Panel = customElements.get("chat-settings-panel");
+    const panel = new Panel();
+    document.body.appendChild(panel);
+
+    window.__picotConfigCall = vi.fn().mockResolvedValue({
+      ok: false,
+      error: "Pi RPC request failed: ProcessClosed",
+    });
+
+    window.dispatchEvent(new CustomEvent("picot-config-gateway-ready"));
+    await flushPromises();
+    expect(panel.querySelector("[data-status]").textContent).toContain(
+      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+    );
+  });
 });

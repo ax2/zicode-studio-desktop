@@ -5253,6 +5253,25 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十五轮：智能收件箱设置断连错误本地化（2026-08-12）。
+
+1. 全 DOM 原始错误扫描（运行时断开状态）定位到第二处同类缺口：
+   设置 → 智能收件箱的"已配置平台"状态区显示原始
+   "Pi RPC request failed: ProcessClosed"（隐藏的设置面板常驻 DOM，
+   导致全表面扫描均命中同一文本）；
+2. 修复：`chat-settings-panel.js` 的 `messageFromError` 对
+   ProcessClosed 返回本地化文案"Pi 运行时连接已断开。新建一个会话即可
+   恢复连接。"；
+3. 验证：新增单测（配置网关返回 ProcessClosed → 状态区显示中文友好
+   文案）；CDP release 95 实测全 DOM 无原始 ProcessClosed、
+   智能收件箱状态显示友好文案、0 控制台错误；
+4. 门禁：前端 848 项全绿（新增 1 项）、Rust 192 项、typecheck/Biome
+   458 文件/design/Tauri 权限 24 条全绿；
+5. 发布：release 第九十五次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十四轮：配置页断连错误本地化修复（2026-08-12）。
 
 1. 走查发现：设置 → 配置页在 Pi 运行时断开时显示原始英文
