@@ -1155,6 +1155,10 @@ const zhCN = {
     "集中监控、恢复并复查后台工作。",
   "Open project overview": "打开项目概览",
   "Open task center": "打开任务中心",
+  "Open automations": "打开自动化",
+  "Scheduled, approval-aware workflows with retries and auditable history.":
+    "可计划、需审批的工作流，支持重试与可审计的历史。",
+  "Plugin view": "插件视图",
   "Project workspace": "项目工作区",
   "Project context": "项目上下文",
   "Recent activity": "最近活动",

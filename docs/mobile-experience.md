@@ -5253,6 +5253,24 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百四十四轮：自动化命令面板文案补齐（2026-08-12）。
+
+1. 移动视口（390×844，CDP Emulation）遍历 12 视图实测：全部
+   documentElement/body 横向溢出 0、0 控制台错误；笔记新建/自动保存
+   流程可用（默认预览、可切编辑）；
+2. 命令面板遍历发现 "自动化: Open automations" 为英文：plugin-registry
+   的 `label: "Open automations"` 与描述
+   "Scheduled, approval-aware workflows…" 无 i18n 键，而其余应用均已
+   本地化；另 "Plugin view" 缺键；
+3. 修复：i18n 补 3 键（打开自动化/自动化描述/插件视图）；契约测试新增
+   1 项（8 项）——解析 plugin-registry 全部展示字符串逐一校验词典覆盖，
+   防此类缺键回归；前端 858 项全绿；CDP 实测命令面板显示
+   "自动化: 打开自动化（可计划、需审批的工作流…）"；
+4. 发布：release 第一百零三次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百四十三轮：CDP 全应用运行时审计（2026-08-12）。
 
 1. 以 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`

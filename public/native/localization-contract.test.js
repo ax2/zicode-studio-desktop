@@ -138,4 +138,28 @@ describe("vanilla UI localization contract", () => {
     expect(shell).toContain('t("Plugin views")');
     expect(shell).not.toMatch(/setAttribute\("aria-label", "Plugin views"\)/);
   });
+
+  it("keeps every builtin plugin registry string in the dictionary", () => {
+    const registry = read("public/native/plugins/plugin-registry.js");
+    const dictionary = read("public/i18n.js");
+    const keys = new Set();
+    for (const match of dictionary.matchAll(
+      /(?:^|\s)(?:"([^"]+)"|([A-Za-z][A-Za-z0-9 _.\-/{}%…"']*))\s*:/gm,
+    )) {
+      const key = (match[1] || match[2] || "").trim();
+      if (key && key.length > 1) keys.add(key);
+    }
+    const strings = new Set(
+      [...registry.matchAll(/(name|description|title|label|action|items):\s*"([^"]+)"/g)]
+        .map((match) => match[2])
+        .concat(
+          [...registry.matchAll(/items:\s*\[([^\]]+)\]/g)].flatMap((match) =>
+            [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]),
+          ),
+        )
+        .filter((value) => /[A-Za-z]{2}/.test(value)),
+    );
+    const missing = [...strings].filter((value) => !keys.has(value));
+    expect(missing).toEqual([]);
+  });
 });

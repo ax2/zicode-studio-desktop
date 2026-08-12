@@ -596,6 +596,32 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
   - 本地化契约与前端 857 项测试全绿；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零三次重建（2026-08-12，第 444 轮自动化命令面板文案）
+
+- 合入第 444 轮：
+  - i18n 补 3 键："Open automations"（打开自动化）、自动化插件描述、
+    "Plugin view"（插件视图）；
+  - localization-contract 测试改为全量校验 plugin-registry 展示字符串
+    均有词典键（扩至 8 项）；前端 858 项（139 文件）、typecheck/Biome
+    全绿；
+  - CDP 移动视口（390×844）遍历 12 视图 0 横向溢出/0 控制台错误，
+    命令面板实测显示"自动化: 打开自动化…"；
+- 产物（release 103）：
+  - `target/release/zicode-studio-desktop.exe`：41,973,248 B，
+    SHA-256 `FBD4344276C6F67B0647136D8D80158B1EA1FB32AF18539F247FD3F0B74B2D9F`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,013,194 B，SHA-256
+    `A2406A36D5C6A9A23AAA6475864479302423245B56D6F1C1E34876F50D0E03B5`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `AB1859CABF7C444A011051CDE5989EC776277AEED7DEB235FF8A5CC084C3A66E`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 300 文件逐文件一致（0 缺失/0 哈希差异），
+    安装目录中继与 release 产物同哈希；
+  - 本地化契约与前端 858 项测试全绿；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十八次重建（2026-08-12，第 438 轮启动失败页本地化）
 
 - 合入第 438 轮：
