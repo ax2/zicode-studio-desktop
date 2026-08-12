@@ -8,7 +8,7 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 848 项通过 | 138 个测试文件 |
+| 前端 vitest | 852 项通过 | 139 个测试文件 |
 | Rust | 192 项通过（168+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
@@ -18,11 +18,11 @@
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第九十八次重建（第 438 轮，启动失败页本地化）
-  EXE 41,969,152 B / 安装包 346,957,837 B；哈希与逐文件
+- 最近 release：第九十九次重建（第 439 轮，本地化契约）
+  EXE 41,969,152 B / 安装包 346,993,237 B；哈希与逐文件
   验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第九十八次重建安装版，网关 `/health` 200
+- 当前运行实例：第九十九次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -262,6 +262,9 @@
 - 启动失败页本地化（第 438 轮）：bootstrap.html 按 locale cookie
   切换中/英文（无应用 JS 的静态失败页），index.html 静态提示补键；
   CDP 实测 zh 渲染"无法启动/重试启动"；
+- 本地化契约（第 439 轮）：动态属性扫描补 markdown 表格 aria-label；
+  新增 localization-contract 测试锁定香草组件与失败页本地化防回归；
+  前端 852 项全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

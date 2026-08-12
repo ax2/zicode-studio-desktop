@@ -65,7 +65,7 @@ describe("renderMarkdown", () => {
 
     expect(wrapper.getAttribute("tabindex")).toBe("0");
     expect(wrapper.getAttribute("role")).toBe("region");
-    expect(wrapper.getAttribute("aria-label")).toBe("Scrollable table");
+    expect(wrapper.getAttribute("aria-label")).toBe("可横向滚动的表格");
   });
 
   it("renders an accessible code copy action", () => {

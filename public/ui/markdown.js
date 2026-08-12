@@ -127,7 +127,7 @@ export function renderMarkdown(text) {
       // More robust: split between first and last pipe
       const headerRow = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
 
-      html += '<div class="table-wrapper" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr>';
+      html += `<div class="table-wrapper" tabindex="0" role="region" aria-label="${t("Scrollable table")}"><table><thead><tr>`;
       headerRow.forEach((cell, idx) => {
         const align = alignments[idx] || "left";
         html += `<th style="text-align:${align}">${renderInline(cell.trim())}</th>`;

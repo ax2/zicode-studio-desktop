@@ -5253,6 +5253,23 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百三十九轮：动态属性扫描收尾 + 本地化契约测试（2026-08-12）。
+
+1. 动态 title/aria-label/placeholder 扫描：全部香草组件仅剩
+   `markdown.js` 表格的 `aria-label="Scrollable table"` 未走 t()，
+   已补（复用既有键"可横向滚动的表格"）；再次全量文本扫描与通知标题
+   扫描均归零；
+2. 新增 `public/native/localization-contract.test.js` 契约测试（4 项）：
+   锁定 markdown 复制文案、super-agent 任务面板/入口/头部标签、
+   bootstrap 中文分支均走 t()/内置中文，防回归；
+3. 门禁：前端 852 项全绿（新增 4 项契约 + 1 项表格标签断言调整）、
+   Rust 192 项、typecheck/Biome 459 文件/design/Tauri 权限 24 条
+   全绿；
+4. 发布：release 第九十九次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百三十八轮：启动失败页与静态提示本地化（2026-08-12）。
 
 1. 扫描发现：`public/bootstrap.html`（pi 运行时启动失败时显示的无应用
