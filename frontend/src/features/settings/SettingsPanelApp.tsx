@@ -482,11 +482,13 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const loading = store((state) => state.loading);
   const creating = store((state) => state.creating);
   const deletingId = store((state) => state.deletingId);
+  const restoringId = store((state) => state.restoringId);
   const status = store((state) => state.status);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
   const createBackup = store((state) => state.createBackup);
   const deleteBackup = store((state) => state.deleteBackup);
+  const restoreBackup = store((state) => state.restoreBackup);
 
   return (
     <div className="settings-section" id="workspace-backup-section">
@@ -551,6 +553,27 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                 }}
               >
                 {deletingId === backup.id ? t("Deleting…") : t("Delete")}
+              </button>
+              <button
+                type="button"
+                className="ui-button ui-button--secondary ui-button--sm"
+                disabled={restoringId === backup.id}
+                onClick={() => {
+                  if (
+                    globalThis.confirm?.(
+                      `${t("Restore workspace from backup")} “${new Date(
+                        backup.createdAt,
+                      ).toLocaleString()}”? ${t(
+                        "Restore overwrites current workspace data; the current state is snapshotted first.",
+                      )}`,
+                    ) === false
+                  ) {
+                    return;
+                  }
+                  void restoreBackup(backup.id);
+                }}
+              >
+                {restoringId === backup.id ? t("Restoring…") : t("Restore")}
               </button>
             </li>
           ))}

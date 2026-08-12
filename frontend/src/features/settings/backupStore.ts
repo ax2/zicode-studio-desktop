@@ -23,11 +23,13 @@ interface BackupState {
   loading: boolean;
   creating: boolean;
   deletingId: string | null;
+  restoringId: string | null;
   status: string;
   error: string;
   load(): Promise<void>;
   createBackup(): Promise<void>;
   deleteBackup(id: string): Promise<void>;
+  restoreBackup(id: string): Promise<void>;
 }
 
 function resolveInvoke(
@@ -51,6 +53,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
     loading: false,
     creating: false,
     deletingId: null,
+    restoringId: null,
     status: "",
     error: "",
 
@@ -99,6 +102,27 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         set({ error: error instanceof Error ? error.message : String(error) });
       } finally {
         set({ deletingId: null });
+      }
+    },
+
+    async restoreBackup(id) {
+      const workspaceId = getWorkspaceId();
+      if (!workspaceId || !invoke || get().restoringId) return;
+      set({ restoringId: id, status: "", error: "" });
+      try {
+        const report = (await invoke("restore_workspace_backup", {
+          workspaceId,
+          backupId: id,
+        })) as { apps?: string[] } | undefined;
+        if (!report) throw new Error(t("Workspace restore failed"));
+        set({
+          status: t("Workspace restored from backup — restart ZiCode Studio to load the data."),
+        });
+        await get().load();
+      } catch (error) {
+        set({ error: error instanceof Error ? error.message : String(error) });
+      } finally {
+        set({ restoringId: null });
       }
     },
   }));

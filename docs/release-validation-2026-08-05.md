@@ -491,6 +491,34 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     zicode-studio-desktop，路径无 `\\?\` 前缀）并可就地切换；文件
     侧栏实底、归档折叠、设置无返回入口均符合预期。
 
+## 第九十二次重建（2026-08-12，第 428 轮备份恢复闭环）
+
+- 合入第 428 轮：
+  - Rust `restore_workspace_backup`：把快照中的
+    {sessions,notes,artifacts,tasks,automation,finance} 复制回
+    `<工作区>/.zicode/`（替换现有目录），恢复前自动快照当前状态；
+  - Tauri 命令 `restore_workspace_backup` + 权限 1 条（共 24 条）；
+  - 前端：备份列表新增"恢复"（确认文案 + 重启提示）；backupStore
+    恢复测试 1 项；
+  - 门禁：前端 845 项、Rust 192 项（168+19+5，另 2 项忽略）、
+    typecheck/Biome 458 文件/design/Tauri 权限 24 条/clippy/fmt 全绿；
+- 产物（release 92）：
+  - `target/release/zicode-studio-desktop.exe`：41,870,848 B，
+    SHA-256 `B77117C82A721321B073F4DA413B6A04ED51BB1A06356E9A6354594BDA4103EE`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    346,880,740 B，SHA-256
+    `0B45D870F239578AFF37BBAB4B47A0D1E86F9158FC117DF842D84A7BC6A492C9`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `E81B1D76636313459CE3C1B28C5AFC94C7B4CB6DC5803065E8042AF17BD3D854`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`）；
+  - 安装目录 public 与仓库 299 文件逐文件一致（0 缺失/0 哈希差异）；
+  - CDP 实测：建测试笔记本+笔记→手动备份→删除笔记本→"恢复"确认
+    文案正确（拒绝保留、接受执行）→状态提示重启→笔记应用恢复出
+    笔记本→清理测试数据后回到测试前状态；全程 0 控制台错误；
+  - 运行期日志无 ERROR/WARN/panic。
+
 ## 第九十一次重建（2026-08-12，第 427 轮工作区数据自动备份）
 
 - 合入第 427 轮：

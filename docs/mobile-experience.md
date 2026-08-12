@@ -5253,6 +5253,32 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百二十八轮：备份恢复闭环（2026-08-12）。
+
+1. 补齐第 427 轮备份功能的数据恢复路径：
+   - Rust `restore_workspace_backup`：校验备份属于同一工作区后，把
+     快照中的 {sessions,notes,artifacts,tasks,automation,finance}
+     目录复制回 `<工作区>/.zicode/`（替换现有目录）；恢复前先自动
+     创建当前状态快照（pre-restore backup），操作可逆；
+   - Tauri 命令 `restore_workspace_backup`（按工作区 id 解析根路径）
+     + 权限 1 条（共 24 条）；
+   - 前端：备份列表每条新增"恢复"按钮，确认文案明确"恢复会用备份
+     覆盖当前工作区数据；恢复前会自动备份当前状态"，成功后提示
+     "请重启 ZiCode Studio 以加载数据"；
+2. 验证：Rust 单测（备份→改动数据→恢复→内容回到快照 + pre-restore
+   快照存在）；前端 backupStore 恢复测试；CDP release 92 实测：
+   建测试笔记本→手动备份→删除笔记本→设置页点"恢复"→确认文案正确
+   （拒绝保留、接受执行）→状态提示重启→笔记应用恢复出笔记本；清理
+   测试数据（删除笔记本、清空回收站、删除测试备份）后回到测试前状态；
+   全程 0 控制台错误；
+3. 门禁：前端 845 项全绿（新增 1 项）、Rust 192 项（168+19+5，
+   另 2 项忽略，新增 1 项）、typecheck/Biome 458 文件/design/Tauri
+   权限 24 条/clippy/fmt 全绿；
+4. 发布：release 第九十二次重建 + `/S` 静默重装，安装目录 public
+   0 缺失/0 哈希差异，`/health` 200（pi 0.84.1、relay `dev-ax2-01`
+   在线），日志无 ERROR/WARN/panic；哈希见
+   `docs/release-validation-2026-08-05.md`。
+
 第四百二十七轮：工作区数据自动备份（2026-08-12）。
 
 1. 新增工作区数据备份（数据保护闭环）：

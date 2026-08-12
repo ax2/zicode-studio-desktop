@@ -8,21 +8,21 @@
 
 | 门禁 | 数量/结果 | 证据 |
 | --- | --- | --- |
-| 前端 vitest | 844 项通过 | 138 个测试文件 |
-| Rust | 191 项通过（167+19+5，另 2 项忽略） | cargo test |
+| 前端 vitest | 845 项通过 | 138 个测试文件 |
+| Rust | 192 项通过（168+19+5，另 2 项忽略） | cargo test |
 | Clippy（warnings as errors）+ fmt | 通过 | scripts/check-rust.sh |
 | Biome lint | 453 文件 0 错误 0 警告 | bunx biome lint . |
 | 设计 CSS 令牌检查 | 通过 | scripts/check-design-css.mjs |
 | TypeScript typecheck | 通过 | tsc --noEmit |
-| Tauri 权限 / Windows 子进程策略 | 23 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
+| Tauri 权限 / Windows 子进程策略 | 24 条命令 / 通过 | check-tauri-permissions / check-windows-subprocesses |
 
 ## 2. 安装产物（与 main 同步）
 
-- 最近 release：第九十一次重建（第 427 轮，工作区数据自动备份）
-  EXE 41,853,952 B / 安装包 346,921,298 B；哈希与逐文件
+- 最近 release：第九十二次重建（第 428 轮，备份恢复闭环）
+  EXE 41,870,848 B / 安装包 346,880,740 B；哈希与逐文件
   验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第九十一次重建安装版，网关 `/health` 200
+- 当前运行实例：第九十二次重建安装版，网关 `/health` 200
   （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
   公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
@@ -221,6 +221,10 @@
   backups/<工作区>/` 独立存放、每工作区保留最近 7 份、删除需确认；
   CDP 实测启动自动备份 + 手动备份 + 删除确认全闭环；前端 844 项、
   Rust 191 项、Tauri 权限 23 条全绿；
+- 备份恢复闭环（第 428 轮）：备份列表新增"恢复"——把快照内容复制回
+  工作区 `.zicode`（恢复前自动快照当前状态，可逆），确认文案与重启
+  提示齐备；CDP 实测建测试数据→备份→删除→恢复→数据回归全闭环；
+  前端 845 项、Rust 192 项、Tauri 权限 24 条全绿；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、
@@ -252,8 +256,9 @@
   （只读接口，会话文件不含凭据）；"导入会话备份"校验后只写回本工作区
   （冲突跳过、归档根写入），备份/恢复闭环。
 - 工作区数据备份：启动自动 + 手动快照到 `~/.zicode/backups/<工作区>/`
-  （独立于工作区数据，最多 7 份/工作区，删除需确认），与 per-app
-  导出/导入互为补充，覆盖笔记/会话/产物/任务/自动化/金融。
+  （独立于工作区数据，最多 7 份/工作区，删除需确认），可从快照恢复
+  （恢复前自动备份当前状态），与 per-app 导出/导入互为补充，覆盖
+  笔记/会话/产物/任务/自动化/金融。
 
 ## 5. 剩余外部事项（需设备/人工/外部输入）
 

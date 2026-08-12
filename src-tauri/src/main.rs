@@ -312,6 +312,11 @@ fn create_workspace_backup(
     app: AppHandle,
     workspace_id: String,
 ) -> Result<crate::backup_store::WorkspaceBackup, String> {
+    let workspace_root = resolve_workspace_root(&app, &workspace_id)?;
+    crate::backup_store::create_workspace_backup(&workspace_id, &workspace_root)
+}
+
+fn resolve_workspace_root(app: &AppHandle, workspace_id: &str) -> Result<PathBuf, String> {
     let launcher = app
         .try_state::<WorkspaceLauncher>()
         .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
@@ -322,10 +327,10 @@ fn create_workspace_backup(
     let workspace_root = metadata
         .list_workspaces()?
         .into_iter()
-        .find(|(id, _)| id == &workspace_id)
+        .find(|(id, _)| id == workspace_id)
         .map(|(_, path)| path)
         .ok_or_else(|| "Workspace is not registered".to_string())?;
-    crate::backup_store::create_workspace_backup(&workspace_id, Path::new(&workspace_root))
+    Ok(PathBuf::from(workspace_root))
 }
 
 /// List available workspace snapshots, newest first.
@@ -340,6 +345,18 @@ fn list_workspace_backups(
 #[tauri::command]
 fn delete_workspace_backup(workspace_id: String, backup_id: String) -> Result<(), String> {
     crate::backup_store::delete_workspace_backup(&workspace_id, &backup_id)
+}
+
+/// Replace the workspace's app data from a snapshot; the current state is
+/// snapshotted first.
+#[tauri::command]
+fn restore_workspace_backup(
+    app: AppHandle,
+    workspace_id: String,
+    backup_id: String,
+) -> Result<crate::backup_store::RestoreReport, String> {
+    let workspace_root = resolve_workspace_root(&app, &workspace_id)?;
+    crate::backup_store::restore_workspace_backup(&workspace_id, &workspace_root, &backup_id)
 }
 
 /// Switch the focused ZiCode Studio Desktop window to `projectPath` and resume the given saved
@@ -1235,6 +1252,7 @@ fn main() {
             create_workspace_backup,
             list_workspace_backups,
             delete_workspace_backup,
+            restore_workspace_backup,
             ensure_agent_inbox_session,
             list_scene_profiles,
             save_scene_profile,

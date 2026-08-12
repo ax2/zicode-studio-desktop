@@ -87,6 +87,31 @@ describe("workspace backup store", () => {
     });
   });
 
+  it("restores a backup and reports the result", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") return [];
+      if (command === "restore_workspace_backup") {
+        return {
+          backupId: "b1",
+          preRestoreBackupId: "b0",
+          apps: ["notes", "sessions"],
+          sizeBytes: 42,
+        };
+      }
+      return undefined;
+    });
+    const store = createBackupStore({
+      invoke,
+      getWorkspaceId: () => "ws-1",
+    });
+    await store.getState().restoreBackup("b1");
+    expect(invoke).toHaveBeenCalledWith("restore_workspace_backup", {
+      workspaceId: "ws-1",
+      backupId: "b1",
+    });
+    expect(store.getState().status).toBeTruthy();
+  });
+
   it("formats backup sizes", () => {
     expect(formatBackupSize(0)).toBe("0 B");
     expect(formatBackupSize(2048)).toBe("2.0 KB");

@@ -119,6 +119,11 @@ identifier = "allow-delete-workspace-backup"
 description = "Allow permanently removing one workspace data snapshot."
 commands.allow = ["delete_workspace_backup"]
 
+[[permission]]
+identifier = "allow-restore-workspace-backup"
+description = "Allow restoring workspace app data from a snapshot (current state is snapshotted first)."
+commands.allow = ["restore_workspace_backup"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
@@ -145,4 +150,5 @@ permissions = [
   "allow-create-workspace-backup",
   "allow-list-workspace-backups",
   "allow-delete-workspace-backup",
+  "allow-restore-workspace-backup",
 ]

@@ -33,6 +33,15 @@ pub struct WorkspaceBackup {
     pub apps: Vec<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreReport {
+    pub backup_id: String,
+    pub pre_restore_backup_id: String,
+    pub apps: Vec<String>,
+    pub size_bytes: u64,
+}
+
 /// System-level backups live under `~/.zicode/backups`, separate from any
 /// workspace so they survive workspace data loss.
 pub fn backups_root() -> Result<PathBuf, String> {
@@ -243,6 +252,55 @@ pub fn delete_workspace_backup(workspace_id: &str, backup_id: &str) -> Result<()
     fs::remove_dir_all(&directory).map_err(|error| format!("Cannot delete backup: {error}"))
 }
 
+/// Replace the workspace's app data with a snapshot's contents. The current
+/// state is snapshotted first so the operation is reversible.
+pub fn restore_workspace_backup(
+    workspace_id: &str,
+    workspace_root: &Path,
+    backup_id: &str,
+) -> Result<RestoreReport, String> {
+    validate_workspace_id(workspace_id)?;
+    validate_backup_id(backup_id)?;
+    let backup_dir = workspace_backups_dir(workspace_id)?.join(backup_id);
+    if !backup_dir.is_dir() {
+        return Err("Backup does not exist".to_string());
+    }
+    let metadata_bytes = fs::read(backup_dir.join("backup.json"))
+        .map_err(|_| "Backup metadata is missing".to_string())?;
+    let metadata: WorkspaceBackup = serde_json::from_slice(&metadata_bytes)
+        .map_err(|_| "Backup metadata is invalid".to_string())?;
+    if metadata.workspace_id != workspace_id {
+        return Err("Backup does not belong to this workspace".to_string());
+    }
+    // Protect the current state before replacing anything.
+    let pre_restore = create_workspace_backup(workspace_id, workspace_root)?;
+    let data_root = workspace_root.join(".zicode");
+    let mut apps = Vec::new();
+    let mut size_bytes = 0u64;
+    for app in BACKUP_APPS {
+        let source = backup_dir.join(app);
+        if !source.is_dir() {
+            continue;
+        }
+        let target = data_root.join(app);
+        if target.exists() {
+            fs::remove_dir_all(&target)
+                .map_err(|error| format!("Cannot replace {}: {error}", target.display()))?;
+        }
+        size_bytes += copy_tree(&source, &target)?;
+        apps.push((*app).to_string());
+    }
+    if apps.is_empty() {
+        return Err("Backup contains no restorable app data".to_string());
+    }
+    Ok(RestoreReport {
+        backup_id: backup_id.to_string(),
+        pre_restore_backup_id: pre_restore.id,
+        apps,
+        size_bytes,
+    })
+}
+
 /// Create a backup on startup when the workspace has none, or its newest
 /// snapshot is older than one day. Returns the created backup, if any.
 pub fn backup_if_due(
@@ -367,6 +425,36 @@ mod tests {
             list_workspace_backups(&workspace_id).unwrap().len(),
             MAX_BACKUPS_PER_WORKSPACE
         );
+        cleanup(&workspace_id);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn restores_a_snapshot_over_the_workspace_and_snapshots_current_state_first() {
+        let root = test_root();
+        let workspace = root.join("ws-e");
+        let workspace_id = unique_workspace_id("ws-e");
+        let data = workspace.join(".zicode").join("notes");
+        fs::create_dir_all(&data).unwrap();
+        fs::write(data.join("before.md"), "before").unwrap();
+
+        let backup = create_workspace_backup(&workspace_id, &workspace).unwrap();
+        // Change the live data after the snapshot.
+        fs::remove_file(data.join("before.md")).unwrap();
+        fs::write(data.join("after.md"), "after").unwrap();
+
+        let report = restore_workspace_backup(&workspace_id, &workspace, &backup.id).unwrap();
+        assert_eq!(report.backup_id, backup.id);
+        assert!(!report.pre_restore_backup_id.is_empty());
+        assert!(report.apps.contains(&"notes".to_string()));
+        assert!(data.join("before.md").is_file());
+        assert!(!data.join("after.md").exists());
+
+        // The current (pre-restore) state was snapshotted for reversibility.
+        let backups = list_workspace_backups(&workspace_id).unwrap();
+        assert!(backups
+            .iter()
+            .any(|entry| entry.id == report.pre_restore_backup_id));
         cleanup(&workspace_id);
         let _ = fs::remove_dir_all(&root);
     }

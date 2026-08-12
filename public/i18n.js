@@ -1001,6 +1001,13 @@ const zhCN = {
   "Delete workspace backup": "删除工作区备份",
   "Workspace backup created": "工作区备份已创建",
   "Workspace backup failed": "工作区备份失败",
+  "Restoring…": "正在恢复…",
+  "Restore workspace from backup": "从备份恢复工作区",
+  "Restore overwrites current workspace data; the current state is snapshotted first.":
+    "恢复会用备份覆盖当前工作区数据；恢复前会自动备份当前状态。",
+  "Workspace restored from backup — restart ZiCode Studio to load the data.":
+    "已从备份恢复工作区——请重启 ZiCode Studio 以加载数据。",
+  "Workspace restore failed": "工作区恢复失败",
   "Deleting…": "正在删除…",
   Import: "导入",
   "Open workbench": "打开工作台",
