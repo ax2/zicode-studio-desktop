@@ -5010,6 +5010,23 @@ P2 再做）完成 P1 UI 层：
 2. 结论：无缺陷；本轮为核查轮，无运行时变更，运行实例保持
    release 86。
 
+第四百二十轮：自动更新签名准备（2026-08-12）。
+
+1. 现状核查：`tauri.conf.json` 已有 updater 公钥与端点，但匹配的
+   私钥本地/CI 均不存在（早期生成的私钥已丢失），release 工作流
+   无签名/updater 步骤，`createUpdaterArtifacts=false`；
+2. 准备：
+   - 重新生成 minisign 密钥对：私钥 `~/.tauri/zicode-studio-desktop.key`
+     + 密码 `~/.tauri/zicode-studio-desktop.key.password`，ACL 限制
+     为仅本机用户 + SYSTEM + Administrators，**不提交到 Git**；
+   - `tauri.conf.json` 的 updater 公钥替换为新密钥对匹配值；
+   - AUTO_UPDATER.md 更新启用步骤（1–2 已完成，剩余 3–7 需用户
+     配置 GitHub secrets、翻转 createUpdaterArtifacts、注入签名
+     工作流并做旧→新真实升级测试）；
+3. 验证：cargo check 通过（构建可消费新配置）；`createUpdaterArtifacts`
+   保持 false，当前构建不受影响；
+4. 说明：本轮为签名准备轮，无运行时变更，运行实例保持 release 86。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

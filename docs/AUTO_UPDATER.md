@@ -21,23 +21,24 @@ ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私�
 
 正式启用自动更新前需要同时完成：
 
-1. 为 Tauri updater 生成独立签名密钥。
-2. 将公钥写入 `src-tauri/tauri.conf.json` 的
-   `plugins.updater.pubkey`。
+1. ~~为 Tauri updater 生成独立签名密钥。~~ **已完成（2026-08-12）**：
+   新 minisign 密钥对已生成并保存在 `~/.tauri/zicode-studio-desktop.key`
+   （私钥）与 `~/.tauri/zicode-studio-desktop.key.pub`（公钥），密码
+   在 `~/.tauri/zicode-studio-desktop.key.password`；私钥与密码文件
+   ACL 已限制为仅本机用户 + SYSTEM + Administrators，**绝不提交到
+   Git、文档或日志**。
+2. ~~将公钥写入 `src-tauri/tauri.conf.json` 的
+   `plugins.updater.pubkey`。~~ **已完成（2026-08-12）**：配置中的
+   公钥已替换为新密钥对匹配的公钥。
 3. 将私钥和密码保存为 GitHub Actions secrets：
    `TAURI_SIGNING_PRIVATE_KEY` 和
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
+   （私钥内容与密码文件均在本机 `~/.tauri/` 下，按需读取。）
 4. 将 `bundle.createUpdaterArtifacts` 改为 `true`。
 5. 在 Release workflow 中注入签名变量并验证生成的 `.sig` 与
    `latest.json`。
 6. 为私有仓库实现受控下载代理，或者在产品公开后允许匿名访问 Release 资产。
 7. 用旧版本到新版本完成一次真实的下载、签名校验、安装和重启测试。
-
-生成密钥示例：
-
-```bash
-bun run tauri signer generate -- -w ~/.tauri/zicode-studio-desktop.key
-```
 
 私钥不得提交到 Git、文档、安装包或日志。
 
