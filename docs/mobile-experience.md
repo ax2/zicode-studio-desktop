@@ -5253,6 +5253,18 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百五十八轮：Astro 发布入口门控实测（2026-08-13）。
+
+1. release 106 安装版：未选中笔记本时点击"构建 Astro 站点"：
+   - store 逻辑正确拦截（`Select a notebook first` 提示，不启动构建、
+     不落盘、无控制台错误）；选中笔记本后的完整构建需原生确认框 +
+     内置 bun 安装依赖并执行 Astro build（publishAstro 与 Astro 产出
+     由 notes 单测与 notes_vault 测试覆盖），CDP 无法跨原生对话框
+     自动完成；
+2. 运行状态：`/health` 200（pi 0.84.1、relay `dev-ax2-01` 在线），
+   日志无 ERROR/WARN/panic；
+3. 门禁：前端 861 项全绿；本轮无运行时代码改动。
+
 第四百五十七轮：完整门禁总审计（2026-08-13）。
 
 1. 当前 main（release 106 对应代码）全量门禁：
