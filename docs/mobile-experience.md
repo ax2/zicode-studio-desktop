@@ -5027,6 +5027,21 @@ P2 再做）完成 P1 UI 层：
    保持 false，当前构建不受影响；
 4. 说明：本轮为签名准备轮，无运行时变更，运行实例保持 release 86。
 
+第四百二十一轮：release 工作流签名产物支持（2026-08-12）。
+
+1. `release.yml` 改造：
+   - tauri-action 步骤注入 `TAURI_SIGNING_PRIVATE_KEY` /
+     `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（secrets 未配置时为空值、
+     无副作用）；
+   - 新增条件上传步骤：签名 secrets 配置后，自动把构建产物中的
+     `latest.json` 与各 bundle `.sig` 上传到草稿 Release
+     （未生成时提示跳过）；
+2. AUTO_UPDATER 第 5 步更新为"已准备，剩真实构建验证"；
+3. 说明：自动更新正式启用仅剩用户侧 3 步——配置 GitHub secrets、
+   翻转 `bundle.createUpdaterArtifacts=true`、触发一次带签名的
+   Release 构建验证 + 旧→新真实升级测试；
+4. 本轮为工作流准备轮，无运行时变更，运行实例保持 release 86。
+
 第三百九十五轮：笔记剪藏/附件链路实测 + 主机错误本地化（2026-08-11）。
 
 1. 实测（真实 Host API，临时数据已清理、QVeris 完好）：

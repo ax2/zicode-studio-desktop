@@ -183,6 +183,9 @@
   密码 ACL 受限、不入库），tauri.conf.json 公钥已更新，AUTO_UPDATER
   启用步骤明确；剩余为用户配置 GitHub secrets + 翻转
   createUpdaterArtifacts + 工作流签名 + 真实升级测试；
+- 工作流签名产物（第 421 轮）：release.yml 已注入签名变量并添加
+  签名产物（.sig/latest.json）条件上传步骤，自动更新剩余仅用户
+  配置 secrets + 翻转开关 + 真实构建验证；
 - 笔记：项目→笔记本→笔记三级、嵌套笔记本、图标与 emoji 分组选择、
   标签（内置图标/快捷添加）、Markdown 预览 + 目录大纲（滚动联动）、
   搜索高亮、

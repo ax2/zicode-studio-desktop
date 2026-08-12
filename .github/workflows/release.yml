@@ -182,11 +182,33 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Auto-update signing: when the private key secrets are configured
+          # and bundle.createUpdaterArtifacts is true, tauri emits latest.json
+          # plus per-bundle .sig files which the next step uploads. Empty
+          # secrets are inert while createUpdaterArtifacts stays false.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseDraft: true
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           args: --bundles ${{ matrix.bundles }}
+
+      - name: Upload updater artifacts when signing is enabled
+        if: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          found=0
+          for f in target/release/bundle/*/*.sig target/release/bundle/*/latest.json; do
+            found=1
+            gh release upload "$RELEASE_TAG" "$f" --repo "$GITHUB_REPOSITORY" --clobber || echo "upload skipped: $f"
+          done
+          if [[ "$found" == "0" ]]; then
+            echo "No updater artifacts found (createUpdaterArtifacts is likely still false); nothing to upload."
+          fi
 
   publish-release:
     needs: build

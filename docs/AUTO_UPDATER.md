@@ -35,8 +35,12 @@ ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私�
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
    （私钥内容与密码文件均在本机 `~/.tauri/` 下，按需读取。）
 4. 将 `bundle.createUpdaterArtifacts` 改为 `true`。
-5. 在 Release workflow 中注入签名变量并验证生成的 `.sig` 与
-   `latest.json`。
+5. ~~在 Release workflow 中注入签名变量并验证生成的 `.sig` 与
+   `latest.json`。~~ **已准备（2026-08-12）**：`release.yml` 的
+   tauri-action 已注入 `TAURI_SIGNING_PRIVATE_KEY` 与
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（secrets 为空时无副作用），
+   并在签名 secrets 配置后自动上传 `.sig` 与 `latest.json` 到草稿
+   Release；剩余为配置 secrets 后触发一次真实构建验证产物。
 6. 为私有仓库实现受控下载代理，或者在产品公开后允许匿名访问 Release 资产。
 7. 用旧版本到新版本完成一次真实的下载、签名校验、安装和重启测试。
 
