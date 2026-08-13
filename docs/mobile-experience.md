@@ -5253,6 +5253,23 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百六十轮：Git 推送恢复 + Pi 最新版本核对 + 运行实例健康复核（2026-08-13）。
+
+1. GitHub 网络（本机直连/本地代理 7890）恢复后 `git push origin main`
+   成功：`c0fe080..4644245 main -> main`，本地 main 与 `origin/main`
+   完全同步（领先计数 0），工作区干净；
+2. Pi 上游（earendil-works/pi-mono Releases）核对：最新版仍为
+   v0.84.1（Qwen Token Plan Individual、`pi auth check` 认证预检、
+   全屏交互改进、blocked tool_call 终止支持等），当前捆绑版本已是
+   最新，无需升级；
+3. 运行实例复核：`zicode-studio-desktop` PID 51012（2026-08-13
+   03:29 启动），应用日志无 ERROR/WARN/panic，`[model-gateway]`
+   最近请求全部 upstream 200（deepseek-v4-flash），中继
+   `relay access enabled for https://relay.zicode.com`；
+4. 门禁：本轮无运行时代码改动，沿用第 457 轮全量门禁基线（前端
+   861 项 / Rust 194 项 / Biome / typecheck / design / clippy / MkDocs
+   全绿）。
+
 第四百五十九轮：仓库敏感信息扫描（2026-08-13）。
 
 1. 对全部 746 个 git 跟踪文件扫描 API Key/secret/password/token/私钥
