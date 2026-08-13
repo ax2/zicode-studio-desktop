@@ -24,3 +24,29 @@ export function localizeHostError(error: unknown): Error {
   }
   return error instanceof Error ? error : new Error(String(error));
 }
+
+// Plugin backends return stable English messages for invalid input (for
+// example "Cannot decode image", "Unsupported document type"). Most invalid
+// input is already rejected in the frontend, but a corrupted file that passes
+// the MIME check still reaches the backend. Map those leftovers to friendly
+// localized text instead of showing raw English internals.
+export function friendlyPluginError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const lowered = message.toLowerCase();
+  if (/cannot decode|invalid base64|invalid data|corrupt/.test(lowered)) {
+    return t("The file could not be decoded.");
+  }
+  if (/unsupported (document|file|type|image)/.test(lowered)) {
+    return t("This file type is not supported.");
+  }
+  if (/exceeds|too (large|big)|byte limit/.test(lowered)) {
+    return t("The file is too large.");
+  }
+  if (/unknown (sheet|template)|not found/.test(lowered)) {
+    return t("The selected option is not available.");
+  }
+  if (/cannot open|cannot read/.test(lowered)) {
+    return t("The file could not be read.");
+  }
+  return message;
+}

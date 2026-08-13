@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 
 export interface IdPhotoLayoutResult {
   ok: boolean;
@@ -204,7 +205,7 @@ export function createIdPhotoStore(options: IdPhotoOptions) {
       } catch (error) {
         set({
           busy: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: friendlyPluginError(error),
         });
       }
     },

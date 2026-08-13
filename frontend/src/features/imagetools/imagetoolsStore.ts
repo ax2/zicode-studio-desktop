@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { ImageToolResult } from "./imagetoolsLogic";
 
 export interface ProcessInput {
@@ -187,7 +188,7 @@ export function createImageToolsStore(options: ImageToolsOptions) {
       } catch (error) {
         set({
           busy: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: friendlyPluginError(error),
         });
       }
     },

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDocumentsStore, type DocumentsGateway } from "./documentsStore";
 import { setLocale } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 
 const RESULT = {
   ok: true,
@@ -78,6 +79,8 @@ describe("documents store", () => {
     const { store } = createStore(gateway);
     store.getState().setFile("bad.exe", "data:base64,AAAA");
     await store.getState().run();
-    expect(store.getState().error).toBe("unsupported type");
+    expect(store.getState().error).toBe(
+      friendlyPluginError(new Error("unsupported type")),
+    );
   });
 });

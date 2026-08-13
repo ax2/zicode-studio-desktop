@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { DocumentImportResult } from "./documentsLogic";
 
 export interface DocumentImportInput {
@@ -129,7 +130,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
           selectedNotebookId: state.selectedNotebookId || notebooks[0]?.id || "",
         }));
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyPluginError(error) });
       }
     },
 
@@ -152,7 +153,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
         notify(t("Document imported"));
         await get().loadNotebooks();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 

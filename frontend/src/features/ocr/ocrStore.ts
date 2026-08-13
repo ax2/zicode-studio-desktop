@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { OcrResult } from "./ocrLogic";
 
 export interface OcrScope {
@@ -110,7 +111,7 @@ export function createOcrStore(options: OcrOptions) {
         set({ result, editedText: result.text, busy: false });
         notify(t("Text extracted"));
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -121,7 +122,7 @@ export function createOcrStore(options: OcrOptions) {
         await navigator.clipboard?.writeText(editedText);
         notify(t("Copied"));
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyPluginError(error) });
       }
     },
 
@@ -134,7 +135,7 @@ export function createOcrStore(options: OcrOptions) {
         set({ busy: false });
         notify(t("Sent to notes"));
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
   }));

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { setLocale } from "./i18n.js";
-import { isRuntimeProcessClosedError, localizeHostError } from "./hostErrors.js";
+import {
+  friendlyPluginError,
+  isRuntimeProcessClosedError,
+  localizeHostError,
+} from "./hostErrors.js";
 
 describe("host error localization", () => {
   it("recognizes runtime process-closed errors in every phrasing the host emits", () => {
@@ -41,5 +45,25 @@ describe("host error localization", () => {
     const original = new Error("quota exceeded");
     expect(localizeHostError(original)).toBe(original);
     expect(localizeHostError("plain string").message).toBe("plain string");
+  });
+
+  it("maps common plugin backend errors to friendly messages", () => {
+    setLocale("zh-CN");
+    expect(friendlyPluginError(new Error("Cannot decode image: bad data"))).toBe(
+      "无法解码该文件。",
+    );
+    expect(friendlyPluginError(new Error("Unsupported document type"))).toBe(
+      "不支持此文件类型。",
+    );
+    expect(friendlyPluginError(new Error("Image exceeds the 10 MiB limit"))).toBe(
+      "文件过大。",
+    );
+    expect(friendlyPluginError(new Error("Unknown template: xyz"))).toBe(
+      "所选选项不可用。",
+    );
+    expect(friendlyPluginError(new Error("Cannot open image /tmp/a.png"))).toBe(
+      "无法读取该文件。",
+    );
+    expect(friendlyPluginError(new Error("some other failure"))).toBe("some other failure");
   });
 });

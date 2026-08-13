@@ -243,6 +243,11 @@ const zhCN = {
   "Start a new session to reconnect": "新建会话即可恢复连接",
   "Pi runtime is disconnected. Start a new session to reconnect.":
     "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+  "The file could not be decoded.": "无法解码该文件。",
+  "This file type is not supported.": "不支持此文件类型。",
+  "The file is too large.": "文件过大。",
+  "The selected option is not available.": "所选选项不可用。",
+  "The file could not be read.": "无法读取该文件。",
   "App ID": "应用 ID",
   "App Secret": "应用密钥",
   "Bot ID": "机器人 ID",
