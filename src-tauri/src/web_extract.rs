@@ -275,7 +275,10 @@ fn element_score(el: &ElementRef) -> f64 {
         .select(&link_selector)
         .map(|a| text_len(&a.text().collect::<String>()))
         .sum();
-    if len > 0.0 {
+    // A short element that is mostly a single link (e.g. a "Learn more"
+    // paragraph) is content, not navigation. Only penalize link density on
+    // blocks with enough text to be meaningful.
+    if len > 60.0 {
         let density = link_len as f64 / len;
         if density > 0.5 {
             score -= 40.0 * density;
@@ -588,5 +591,12 @@ mod tests {
         let html = r#"<html><body><article><img src="javascript:alert(1)" alt="x"></article></body></html>"#;
         let article = extract(html, "https://example.com/");
         assert!(!article.content_markdown.contains("javascript:"));
+    }
+
+    #[test]
+    fn extracts_a_minimal_div_page() {
+        let html = r#"<html lang="en"><head><title>Example Domain</title></head><body><div><h1>Example Domain</h1><p>This domain is for use in documentation examples without needing permission. Avoid use in operations.</p><p><a href="https://iana.org/domains/example">Learn more</a></p></div></body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert!(article.content_markdown.contains("documentation examples"));
     }
 }
