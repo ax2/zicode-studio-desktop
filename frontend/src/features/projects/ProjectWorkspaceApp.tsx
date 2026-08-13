@@ -124,9 +124,19 @@ function Overview({ store }: { store: ProjectStore }) {
         <RecentResults snapshot={snapshot} store={store} />
       )}
       {snapshot.warnings.length ? (
-        <p className="project-workspace-warning">
-          {t("Some project sources could not be refreshed. Existing results remain available.")}
-        </p>
+        <div className="project-workspace-warning" role="status">
+          <span>
+            {t("Some project sources could not be refreshed. Existing results remain available.")}
+          </span>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            disabled={loading}
+            onClick={() => void store.getState().load()}
+          >
+            {t("Retry")}
+          </button>
+        </div>
       ) : null}
     </section>
   );
