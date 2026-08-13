@@ -227,6 +227,12 @@ pub fn import(
         DocumentKind::Pdf => (pdf_to_markdown(&bytes)?, "pdf"),
         DocumentKind::Docx => (docx_to_markdown(&bytes)?, "docx"),
     };
+    if markdown.trim().is_empty() {
+        return Err(
+            "No text could be extracted from this document. It may be a scanned image without a text layer."
+                .to_string(),
+        );
+    }
     let file_name = request
         .document
         .rsplit(['/', '\\'])
@@ -249,6 +255,14 @@ pub fn import(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn tmp_root() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "document-import-test-{}",
+            uuid::Uuid::new_v4().simple()
+        ))
+    }
 
     #[test]
     fn normalizes_pdf_page_breaks() {
@@ -283,5 +297,31 @@ mod tests {
         let markdown = "# Project roadmap\n\nSome body text";
         let title = fallback_title(None, "roadmap.docx", markdown);
         assert_eq!(title, "Project roadmap");
+    }
+
+    #[test]
+    fn rejects_documents_without_extractable_text() {
+        let root = tmp_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let docx_path = root.join("empty.docx");
+        let file = std::fs::File::create(&docx_path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        zip.start_file(
+            "word/document.xml",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        zip.write_all(
+            br#"<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body></w:body></w:document>"#,
+        )
+        .unwrap();
+        zip.finish().unwrap();
+        let request = DocumentImportRequest {
+            document: docx_path.to_string_lossy().into_owned(),
+            title: None,
+            kind: None,
+        };
+        assert!(import(&request, &root).is_err());
+        std::fs::remove_dir_all(&root).ok();
     }
 }
