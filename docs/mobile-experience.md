@@ -5253,6 +5253,25 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百六十二轮：设置页"测试 TURN 连接" UI 级验收（2026-08-13）。
+
+1. 背景：第 461 轮修复了 TURN 客户端凭据构造（MESSAGE-INTEGRITY 覆盖
+   范围 + base64 填充），本轮在运行中的安装版上做用户界面级验证；
+2. 操作：以
+   `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9226`
+   重启桌面实例（PID 17088），经 CDP 打开 设置 → 远程访问：
+   - "Relay access（经服务器访问）"实时状态：中继已连接（10:59 连接
+     时间）；
+   - 点击"测试 TURN 连接"：状态 idle → busy → ok，文案
+     "TURN 连接正常，凭据与服务器匹配。"；
+3. 佐证：同一凭据此前已通过公网 `turn.remote.zicode.com:3478` ALLOCATE
+   SUCCESS（0x0103）；服务器 syslog 无 `Cannot find credentials` /
+   `no available ports`；
+4. 门禁：Rust 194 项（含 turn_probe 修复测试）全绿；前端无改动沿用
+   第 460 轮基线；
+5. 遗留：真机 M2 跨 NAT 验收（手机重连）；中继端口段扩容（阿里云安全
+   组）；签名/自动更新（外部输入）。
+
 第四百六十一轮：TURN 401 根因修复——客户端 MI 构造与 base64 填充（2026-08-13）。
 
 1. 根因定位（服务器 coturn 4.5.2 与桌面探测逐包对比）：
