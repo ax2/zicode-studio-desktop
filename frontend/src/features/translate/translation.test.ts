@@ -52,7 +52,7 @@ describe("translation store", () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);
     store.getState().setTargetLang("Chinese");
-    store.setState({ result: RESULT });
+    store.setState({ result: RESULT, editedText: RESULT.translated });
     store.getState().swap();
     expect(store.getState().targetLang).toBe("English");
     expect(store.getState().text).toBe("你好");

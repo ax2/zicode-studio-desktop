@@ -104,12 +104,13 @@ export function createTranslationStore(options: TranslationOptions) {
     },
 
     swap() {
-      const { sourceLang, targetLang, result } = get();
+      const { sourceLang, targetLang, editedText } = get();
       set({
         sourceLang: targetLang,
         targetLang: sourceLang || "English",
-        text: result?.translated ?? "",
+        text: editedText,
         result: null,
+        editedText: "",
         error: "",
       });
     },
