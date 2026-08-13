@@ -655,6 +655,33 @@ export function setupPluginShell({
   };
   window.addEventListener("zicode:locale-changed", handleLocaleChange);
 
+  // Ctrl/Cmd+1..9 switch to the first nine activity-bar applications in their
+  // visible order (Chat first). Ignored while typing in a field so numeric
+  // input is never hijacked, and skipped for modified digits (Shift+digit).
+  function activityPluginForDigit(digit) {
+    const visible = registry
+      .list()
+      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false);
+    return visible[digit - 1]?.id ?? null;
+  }
+
+  function handleActivityShortcut(event) {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (!/^[1-9]$/.test(event.key)) return;
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      target.closest("input, textarea, select, [contenteditable='true']")
+    ) {
+      return;
+    }
+    const pluginId = activityPluginForDigit(Number(event.key));
+    if (!pluginId) return;
+    event.preventDefault();
+    void activateFromNavigation(pluginId);
+  }
+  document.addEventListener("keydown", handleActivityShortcut);
+
   renderActivities();
   const initialPlugin = initialAppPluginId();
   activate(initialPlugin, { focus: false });
@@ -709,6 +736,7 @@ export function setupPluginShell({
       pluginViewHost?.destroy?.();
       window.removeEventListener("zicode:locale-changed", handleLocaleChange);
       window.removeEventListener("resize", handleMobileShellChange);
+      document.removeEventListener("keydown", handleActivityShortcut);
       globalThis.removeEventListener?.("popstate", handlePluginPopState);
       mobileShellMedia?.removeEventListener?.("change", handleMobileShellChange);
       mobileMenuHistory?.dispose();

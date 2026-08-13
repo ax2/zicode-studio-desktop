@@ -129,6 +129,7 @@ const DIAGNOSTICS = `(() => {
 
 async function diagnose(cdp, name, url, viewport) {
   await openPage(cdp, url);
+  let shortcutActive = null;
   // For the notes app, open the first note so the editor (and its toolbar,
   // which was reported as top-clipped) is actually rendered.
   if (name === "notes") {
@@ -144,6 +145,21 @@ async function diagnose(cdp, name, url, viewport) {
     });
     await sleep(1500);
   }
+  // For the chat app, exercise the Ctrl/Cmd+digit app-switch shortcut.
+  if (name === "chat") {
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true, cancelable: true }));
+        return true;
+      })()`,
+    });
+    await sleep(900);
+    const shortcutResult = await cdp.send("Runtime.evaluate", {
+      expression: `document.querySelector(".plugin-activity-button.active")?.getAttribute("data-plugin-id") ?? null`,
+      returnByValue: true,
+    });
+    shortcutActive = shortcutResult?.result?.value ?? null;
+  }
   const evaluated = await cdp.send("Runtime.evaluate", {
     expression: DIAGNOSTICS,
     returnByValue: true,
@@ -156,7 +172,7 @@ async function diagnose(cdp, name, url, viewport) {
   mkdirSync(OUT_DIR, { recursive: true });
   const file = join(OUT_DIR, `${name}-${viewport.width}x${viewport.height}.png`);
   writeFileSync(file, Buffer.from(screenshot.data, "base64"));
-  return { name, url, viewport, ...result, screenshot: file };
+  return { name, url, viewport, shortcutActive, ...result, screenshot: file };
 }
 
 async function main() {
@@ -252,6 +268,7 @@ async function main() {
             notesToolbarTop: result.notesToolbarRect?.top ?? null,
             bodyText: result.bodyText,
             activityList: result.activityListInfo,
+            shortcutActive: result.shortcutActive,
           }),
         );
       }
