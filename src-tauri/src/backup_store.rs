@@ -20,6 +20,11 @@ const BACKUP_APPS: &[&str] = &[
     "tasks",
     "automation",
     "finance",
+    "idphoto",
+    "imagetools",
+    "clipboard",
+    "habits",
+    "watch",
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
