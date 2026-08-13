@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import type {
   PluginActivityItem,
@@ -230,13 +231,41 @@ export function PluginActivityBarApp({
   const mobileOpen = store((state) => state.mobileOpen);
   const secondarySelected = store((state) => state.secondarySelected);
   const moreLabel = store((state) => state.moreLabel);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [listOverflow, setListOverflow] = useState({ top: false, bottom: false });
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const update = () => {
+      const { scrollTop, scrollHeight, clientHeight } = list;
+      const scrollable = scrollHeight > clientHeight + 1;
+      setListOverflow({
+        top: scrollable && scrollTop > 1,
+        bottom: scrollable && scrollTop + clientHeight < scrollHeight - 1,
+      });
+    };
+    update();
+    list.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      list.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [activities.length]);
 
   return (
     <nav className="plugin-activity-bar" aria-label={t("Applications")}>
       <div className="plugin-activity-brand">
         <img src="icons/zicode-mark.svg" alt="" />
       </div>
-      <div className="plugin-activity-list" data-plugin-activities>
+      <div
+        ref={listRef}
+        className={`plugin-activity-list${listOverflow.top ? " can-scroll-up" : ""}${
+          listOverflow.bottom ? " can-scroll-down" : ""
+        }`}
+        data-plugin-activities
+      >
         {activities.map((item) => (
           <ActivityButton
             key={item.id}

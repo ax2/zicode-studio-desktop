@@ -29,6 +29,7 @@
 }
 
 .plugin-activity-list {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -36,6 +37,40 @@
   overflow-x: hidden;
   min-height: 0;
   flex: 1 1 auto;
+}
+
+/* Scroll fade affordance: sticky gradient pseudo-elements reveal when the
+   plugin list can scroll up/down, so the overflow is discoverable without
+   relying on a (usually auto-hidden) thin scrollbar. */
+.plugin-activity-list::before,
+.plugin-activity-list::after {
+  content: "";
+  position: sticky;
+  left: 0;
+  right: 0;
+  height: var(--space-4);
+  flex: 0 0 auto;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--duration) var(--ease);
+}
+
+.plugin-activity-list::before {
+  top: 0;
+  margin-bottom: calc(var(--space-4) * -1);
+  background: linear-gradient(to bottom, var(--sidebar-bg-mobile), transparent);
+}
+
+.plugin-activity-list::after {
+  bottom: 0;
+  margin-top: calc(var(--space-4) * -1);
+  background: linear-gradient(to top, var(--sidebar-bg-mobile), transparent);
+}
+
+.plugin-activity-list.can-scroll-up::before,
+.plugin-activity-list.can-scroll-down::after {
+  opacity: 1;
 }
 
 .plugin-activity-spacer {

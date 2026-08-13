@@ -97,6 +97,16 @@ const DIAGNOSTICS = `(() => {
     .filter((el) => /\b(notes|plugin|chat|composer|main|app|header)\b/.test(el.className))
     .slice(0, 12)
     .map((el) => el.className);
+  const activityList = document.querySelector(".plugin-activity-list[data-plugin-activities]");
+  const activityListInfo = activityList
+    ? {
+        scrollTop: activityList.scrollTop,
+        scrollHeight: activityList.scrollHeight,
+        clientHeight: activityList.clientHeight,
+        canScrollUp: activityList.classList.contains("can-scroll-up"),
+        canScrollDown: activityList.classList.contains("can-scroll-down"),
+      }
+    : null;
   return {
     title,
     startupFailure,
@@ -113,6 +123,7 @@ const DIAGNOSTICS = `(() => {
     firstButtonRect: firstButtonRect && { top: Math.round(firstButtonRect.top), bottom: Math.round(firstButtonRect.bottom), left: Math.round(firstButtonRect.left), width: Math.round(firstButtonRect.width) },
     clippedByHeader: Math.round(clippedByHeader),
     containers,
+    activityListInfo,
   };
 })()`;
 
@@ -205,10 +216,16 @@ async function main() {
       ? allApps.filter(([name]) => name === filter)
       : allApps;
 
-    const viewports = [
-      { width: 1440, height: 900 },
-      { width: 390, height: 844 },
-    ];
+    const viewportOverride = process.env.VIEWPORT;
+    const viewports = viewportOverride
+      ? [(() => {
+          const [width, height] = viewportOverride.split("x").map(Number);
+          return { width, height };
+        })()]
+      : [
+          { width: 1440, height: 900 },
+          { width: 390, height: 844 },
+        ];
 
     const report = [];
     for (const viewport of viewports) {
@@ -234,6 +251,7 @@ async function main() {
             headerBottom: result.headerRect?.bottom ?? null,
             notesToolbarTop: result.notesToolbarRect?.top ?? null,
             bodyText: result.bodyText,
+            activityList: result.activityListInfo,
           }),
         );
       }
