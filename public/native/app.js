@@ -793,19 +793,29 @@ const documentsApp = setupDocumentsApp({
     workspaceId: target.workspaceId,
   }),
   notify: notifications.notify,
-  saveToNotes: async (fileName, markdown) => {
+  listNotebooks: async () => {
     const { sceneId, workspaceId } = target;
     const list = await notesGateway.list(sceneId, workspaceId);
-    const notebooks = list?.snapshot?.notebooks ?? [];
-    let notebookId = notebooks[0]?.id;
-    if (!notebookId) {
+    return (list?.snapshot?.notebooks ?? []).map((notebook) => ({
+      id: notebook.id,
+      title: notebook.title,
+    }));
+  },
+  saveToNotes: async (notebookId, fileName, markdown) => {
+    const { sceneId, workspaceId } = target;
+    let targetId = notebookId;
+    if (!targetId) {
+      const list = await notesGateway.list(sceneId, workspaceId);
+      targetId = list?.snapshot?.notebooks?.[0]?.id;
+    }
+    if (!targetId) {
       const created = await notesGateway.createNotebook(sceneId, workspaceId, {
         title: "Imported documents",
       });
-      notebookId = created?.notebook?.id;
+      targetId = created?.notebook?.id;
     }
-    if (!notebookId) throw new Error("No notebook available to save the document");
-    await notesGateway.importMarkdown(sceneId, workspaceId, notebookId, fileName, markdown);
+    if (!targetId) throw new Error("No notebook available to save the document");
+    await notesGateway.importMarkdown(sceneId, workspaceId, targetId, fileName, markdown);
   },
 });
 const clipboardApp = setupClipboardApp({

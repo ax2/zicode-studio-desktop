@@ -56,6 +56,11 @@ export class DocumentsHttpGateway implements DocumentsGateway {
 
 export type PreviewMode = "rendered" | "source";
 
+export interface NotebookRef {
+  id: string;
+  title: string;
+}
+
 export interface DocumentsState {
   fileName: string;
   document: string;
@@ -64,9 +69,13 @@ export interface DocumentsState {
   saving: boolean;
   error: string;
   result: DocumentImportResult | null;
+  notebooks: NotebookRef[];
+  selectedNotebookId: string;
   setFile(name: string, document: string): void;
   clear(): void;
   setPreview(mode: PreviewMode): void;
+  loadNotebooks(): Promise<void>;
+  setNotebook(id: string): void;
   run(): Promise<void>;
   save(): Promise<void>;
   copyMarkdown(): Promise<void>;
@@ -76,7 +85,8 @@ export interface DocumentsOptions {
   gateway?: DocumentsGateway;
   getTarget(): { sceneId: string; workspaceId: string };
   notify(message: string): void;
-  saveToNotes?(fileName: string, markdown: string): Promise<void>;
+  listNotebooks?(): Promise<NotebookRef[]>;
+  saveToNotes?(notebookId: string, fileName: string, markdown: string): Promise<void>;
 }
 
 export function createDocumentsStore(options: DocumentsOptions) {
@@ -84,6 +94,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
     gateway = new DocumentsHttpGateway(),
     getTarget,
     notify,
+    listNotebooks,
     saveToNotes,
   } = options;
   return create<DocumentsState>()((set, get) => ({
@@ -94,6 +105,8 @@ export function createDocumentsStore(options: DocumentsOptions) {
     saving: false,
     error: "",
     result: null,
+    notebooks: [],
+    selectedNotebookId: "",
 
     setFile(name, document) {
       set({ fileName: name, document, result: null, error: "" });
@@ -105,6 +118,23 @@ export function createDocumentsStore(options: DocumentsOptions) {
 
     setPreview(mode) {
       set({ preview: mode });
+    },
+
+    async loadNotebooks() {
+      if (!listNotebooks) return;
+      try {
+        const notebooks = await listNotebooks();
+        set((state) => ({
+          notebooks,
+          selectedNotebookId: state.selectedNotebookId || notebooks[0]?.id || "",
+        }));
+      } catch (error) {
+        set({ error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    setNotebook(id) {
+      set({ selectedNotebookId: id });
     },
 
     async run() {
@@ -120,17 +150,18 @@ export function createDocumentsStore(options: DocumentsOptions) {
         });
         set({ result, busy: false });
         notify(t("Document imported"));
+        await get().loadNotebooks();
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });
       }
     },
 
     async save() {
-      const { result, saving } = get();
+      const { result, saving, selectedNotebookId } = get();
       if (!result || saving || !saveToNotes) return;
       set({ saving: true, error: "" });
       try {
-        await saveToNotes(result.fileName, result.markdown);
+        await saveToNotes(selectedNotebookId, result.fileName, result.markdown);
         set({ saving: false });
         notify(t("Saved to notes"));
       } catch (error) {

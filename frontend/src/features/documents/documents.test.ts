@@ -15,12 +15,17 @@ function stubGateway(overrides: Partial<DocumentsGateway> = {}): DocumentsGatewa
   return { import: vi.fn(async () => RESULT), ...overrides };
 }
 
-function createStore(gateway: DocumentsGateway, saveToNotes = vi.fn(async () => {})) {
+function createStore(
+  gateway: DocumentsGateway,
+  saveToNotes = vi.fn(async () => {}),
+  listNotebooks = vi.fn(async () => []),
+) {
   const notify = vi.fn();
   const store = createDocumentsStore({
     gateway,
     getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
     notify,
+    listNotebooks,
     saveToNotes,
   });
   return { store, notify, saveToNotes };
@@ -55,11 +60,12 @@ describe("documents store", () => {
   it("saves the imported markdown to notes", async () => {
     const gateway = stubGateway();
     const saveToNotes = vi.fn(async () => {});
-    const { store, notify } = createStore(gateway, saveToNotes);
+    const listNotebooks = vi.fn(async () => [{ id: "nb1", title: "Research" }]);
+    const { store, notify } = createStore(gateway, saveToNotes, listNotebooks);
     store.getState().setFile("report.docx", "data:base64,AAAA");
     await store.getState().run();
     await store.getState().save();
-    expect(saveToNotes).toHaveBeenCalledWith("report.docx", RESULT.markdown);
+    expect(saveToNotes).toHaveBeenCalledWith("nb1", "report.docx", RESULT.markdown);
     expect(notify).toHaveBeenCalledWith("Saved to notes");
   });
 

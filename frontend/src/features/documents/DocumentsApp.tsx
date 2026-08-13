@@ -33,6 +33,8 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
   const error = store((state) => state.error);
   const result = store((state) => state.result);
   const preview = store((state) => state.preview);
+  const notebooks = store((state) => state.notebooks);
+  const selectedNotebookId = store((state) => state.selectedNotebookId);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -148,6 +150,21 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
               />
             )}
             <div className="idphoto-result-actions">
+              {notebooks.length > 0 ? (
+                <label className="settings-field documents-notebook">
+                  <span>{t("Save to notebook")}</span>
+                  <select
+                    value={selectedNotebookId}
+                    onChange={(event) => store.getState().setNotebook(event.target.value)}
+                  >
+                    {notebooks.map((notebook) => (
+                      <option key={notebook.id} value={notebook.id}>
+                        {notebook.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <button
                 type="button"
                 className="ui-button ui-button--secondary ui-button--sm"

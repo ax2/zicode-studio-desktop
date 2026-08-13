@@ -7,12 +7,14 @@ export { DocumentsHttpGateway } from "./documentsStore";
 export type { DocumentsOptions } from "./documentsStore";
 export { isSupportedDocument, readFileAsDataUrl } from "./documentsLogic";
 export type { DocumentImportResult } from "./documentsLogic";
+export type { NotebookRef } from "./documentsStore";
 
 export function setupDocumentsApp(options: DocumentsOptions) {
   return createDocumentsApp({
     gateway: options.gateway ?? new DocumentsHttpGateway(),
     getTarget: options.getTarget,
     notify: options.notify,
+    listNotebooks: options.listNotebooks,
     saveToNotes: options.saveToNotes,
   });
 }
