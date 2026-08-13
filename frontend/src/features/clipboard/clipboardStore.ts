@@ -159,10 +159,18 @@ export function createClipboardStore(options: ClipboardOptions) {
 
     async paste() {
       try {
-        const text = await navigator.clipboard?.readText();
-        if (text) set({ draft: text, error: "" });
+        if (typeof navigator.clipboard?.readText !== "function") {
+          set({ error: t("Clipboard access is not available") });
+          return;
+        }
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          set({ draft: text, error: "" });
+        } else {
+          set({ error: t("Clipboard is empty") });
+        }
       } catch {
-        // Clipboard read may be blocked by browser permissions.
+        set({ error: t("Cannot read the clipboard") });
       }
     },
   }));

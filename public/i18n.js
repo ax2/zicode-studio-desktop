@@ -185,6 +185,9 @@ const zhCN = {
   "No watchers yet": "还没有监控",
   "Watcher added": "已添加监控",
   "Watcher removed": "已删除监控",
+  "Clipboard access is not available": "剪贴板访问不可用",
+  "Clipboard is empty": "剪贴板为空",
+  "Cannot read the clipboard": "无法读取剪贴板",
   OCR: "文字识别",
   "Text Extraction": "文字提取",
   "Extract text from screenshots and images using the system OCR engine.":
