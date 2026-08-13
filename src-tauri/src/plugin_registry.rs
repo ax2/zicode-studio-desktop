@@ -1866,6 +1866,68 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.translate",
+                "name": "Translate",
+                "description": "Translate text between languages using the configured model.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:translate.workbench", "onCapability:translate.text"],
+                "contributes": {
+                    "activities": [{ "id": "translate", "title": "Translate", "order": 107 }],
+                    "views": [
+                        { "id": "translate.sidebar", "activity": "translate", "location": "sidebar", "title": "Translate" },
+                        { "id": "translate.workbench", "activity": "translate", "location": "main", "title": "Translation" }
+                    ],
+                    "commands": [{ "id": "translate.open", "title": "Open Translation" }],
+                    "capabilities": [
+                        {
+                            "id": "translate.text",
+                            "title": "Translate text",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "text": { "type": "string", "minLength": 1, "maxLength": 50000 },
+                                    "targetLang": { "type": "string", "minLength": 1, "maxLength": 40 },
+                                    "sourceLang": { "type": "string", "maxLength": 40 },
+                                    "model": { "type": "string", "maxLength": 120 }
+                                },
+                                "required": ["text", "targetLang"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "translate_text",
+                            "title": "Translate text",
+                            "description": "Translate a piece of text into another language using the configured model.",
+                            "capability": "translate.text",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "text": { "type": "string" },
+                                    "targetLang": { "type": "string" },
+                                    "sourceLang": { "type": "string" },
+                                    "model": { "type": "string" }
+                                },
+                                "required": ["text", "targetLang"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "network.fetch", "reason": "Call the model gateway for translation" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose translation to Pi" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.habits",
                 "name": "Habits",
                 "description": "Track daily habits and metrics with streaks and history.",
@@ -2404,8 +2466,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 13);
-        assert_eq!(registry.capabilities("programming").len(), 12);
+        assert_eq!(registry.list("programming").len(), 14);
+        assert_eq!(registry.capabilities("programming").len(), 13);
         assert!(registry
             .pi_tools("programming")
             .iter()

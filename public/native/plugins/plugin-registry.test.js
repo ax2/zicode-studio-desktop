@@ -22,6 +22,7 @@ describe("BuiltinPluginRegistry", () => {
       "com.zicode.automation",
       "com.zicode.finance",
       "com.zicode.graph",
+      "com.zicode.translate",
       "com.zicode.habits",
       "com.zicode.idphoto",
       "com.zicode.imagetools",

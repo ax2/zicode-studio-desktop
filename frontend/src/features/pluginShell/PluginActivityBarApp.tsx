@@ -74,6 +74,10 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["circle", { cx: "12", cy: "12", r: "8" }],
     ["path", { d: "m8.5 12 2.5 2.5 4.5-5" }],
   ],
+  translate: [
+    ["circle", { cx: "12", cy: "12", r: "9" }],
+    ["path", { d: "M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18" }],
+  ],
   plugins: [
     ["path", { d: "M8 3v4M16 3v4M5 7h14v5a7 7 0 0 1-14 0Z" }],
     ["path", { d: "M9 21v-3M15 21v-3" }],

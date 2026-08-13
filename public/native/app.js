@@ -54,6 +54,7 @@ import { setupDocumentsApp } from "./react/documents.js";
 import { setupClipboardApp } from "./react/clipboard.js";
 import { setupGraphApp } from "./react/graph.js";
 import { setupHabitsApp } from "./react/habits.js";
+import { setupTranslationApp } from "./react/translate.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
 import { setupComposer } from "./react/composer.js";
@@ -826,6 +827,13 @@ const habitsApp = setupHabitsApp({
   }),
   notify: notifications.notify,
 });
+const translationApp = setupTranslationApp({
+  getTarget: () => ({
+    sceneId: target.sceneId,
+    workspaceId: target.workspaceId,
+  }),
+  notify: notifications.notify,
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   capabilityGateway: pluginCapabilityGateway,
@@ -849,6 +857,7 @@ pluginShell = setupPluginShell({
     "com.zicode.clipboard": clipboardApp,
     "com.zicode.graph": graphApp,
     "com.zicode.habits": habitsApp,
+    "com.zicode.translate": translationApp,
   },
   pluginViewHost,
   openCommandPalette: () => commandButton?.click(),

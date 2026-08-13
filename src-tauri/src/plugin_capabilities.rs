@@ -290,6 +290,9 @@ impl CapabilityBroker {
             ("com.zicode.habits", "habits.toggle") => {
                 self.toggle_habit(&invocation.workspace_id, &invocation.input)
             }
+            ("com.zicode.translate", "translate.text") => {
+                self.translate_text(&invocation.scene_id, &invocation.input)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
     }
@@ -429,6 +432,40 @@ impl CapabilityBroker {
         let entry = crate::habit_tracker::toggle(&workspace_root, habit_id, date)
             .map_err(|error| CapabilityError::new("toggle_failed", error))?;
         Ok(json!({ "entry": entry }))
+    }
+
+    fn translate_text(&self, scene_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let request: crate::translation::TranslationRequest = serde_json::from_value(input.clone())
+            .map_err(|error| {
+                CapabilityError::new(
+                    "invalid_parameters",
+                    format!("Invalid translation input: {error}"),
+                )
+            })?;
+        let system_root = self.system_root.as_ref().ok_or_else(|| {
+            CapabilityError::new("credential_unavailable", "System root is unavailable")
+        })?;
+        let credentials =
+            crate::credential_broker::scene_provider_credentials(system_root, scene_id)
+                .map_err(|error| CapabilityError::new("credential_unavailable", error))?;
+        let api_key = credentials
+            .iter()
+            .find(|(provider, _)| provider == "qveris")
+            .map(|(_, key)| key.clone())
+            .ok_or_else(|| {
+                CapabilityError::new(
+                    "credential_unavailable",
+                    "Translation model key is not configured for this scene",
+                )
+            })?;
+        let result = crate::translation::translate(&request, &api_key)
+            .map_err(|error| CapabilityError::new("translate_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize translation result: {error}"),
+            )
+        })
     }
 
     fn invoke_developer_worker(

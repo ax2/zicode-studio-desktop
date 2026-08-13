@@ -34,6 +34,7 @@ mod runtime_coordinator;
 mod runtime_isolation;
 mod scene_profiles;
 mod settings_store;
+mod translation;
 mod turn_probe;
 mod web_extract;
 

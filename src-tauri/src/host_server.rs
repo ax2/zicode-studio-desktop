@@ -399,6 +399,7 @@ impl HostServer {
             .route("/v2/habits/upsert", post(upsert_habit_http))
             .route("/v2/habits/toggle", post(toggle_habit_http))
             .route("/v2/habits/remove", post(remove_habit_http))
+            .route("/v2/translate", post(translate_http))
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2407,6 +2408,61 @@ async fn remove_habit_http(
     Ok(Json(
         json!({ "removed": removed, "habitId": request.habit_id }),
     ))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TranslateRequest {
+    scene_id: String,
+    text: String,
+    target_lang: String,
+    #[serde(default)]
+    source_lang: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+}
+
+async fn translate_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<TranslateRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_translate_authorized(&state, &request.scene_id)?;
+    let system_root = crate::app_paths::system_root()
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "system root unavailable"))?;
+    let credentials =
+        crate::credential_broker::scene_provider_credentials(&system_root, &request.scene_id)
+            .map_err(|error| {
+                plugin_api_error(
+                    StatusCode::PRECONDITION_FAILED,
+                    "credential_unavailable",
+                    &error,
+                )
+            })?;
+    let api_key = credentials
+        .iter()
+        .find(|(provider, _)| provider == "qveris")
+        .map(|(_, key)| key.clone())
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::PRECONDITION_FAILED,
+                "credential_unavailable",
+                "Translation model key is not configured for this scene",
+            )
+        })?;
+    let input = crate::translation::TranslationRequest {
+        text: request.text,
+        target_lang: request.target_lang,
+        source_lang: request.source_lang,
+        model: request.model,
+    };
+    let result = crate::translation::translate(&input, &api_key)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "translate_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize translation result",
+        )
+    })?))
 }
 
 async fn import_markdown_note(
@@ -4491,6 +4547,40 @@ fn ensure_habits_authorized(
     Ok(())
 }
 
+fn ensure_translate_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.translate")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Translate is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("network.fetch")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Translate network permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -5318,7 +5408,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 13);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 14);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

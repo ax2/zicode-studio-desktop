@@ -124,6 +124,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     commands: [{ id: "graph.open", label: "Open Knowledge Graph", icon: "open" }],
   },
   {
+    id: "com.zicode.translate",
+    name: "Translate",
+    description: "Translate text between languages using the configured model.",
+    icon: "translate",
+    order: 107,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "translate.sidebar",
+        title: "Translate",
+        description: "Translate text between languages.",
+      },
+    ],
+    commands: [{ id: "translate.open", label: "Open Translation", icon: "open" }],
+  },
+  {
     id: "com.zicode.habits",
     name: "Habits",
     description: "Track daily habits and metrics with streaks and history.",
