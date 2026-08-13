@@ -105,6 +105,101 @@
   background: var(--bg-solid);
 }
 
+.idphoto-crop-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.idphoto-crop {
+  position: relative;
+  width: 100%;
+  max-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-solid);
+  user-select: none;
+  touch-action: none;
+}
+
+.idphoto-crop-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.idphoto-crop-shade {
+  position: absolute;
+  inset: 0;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+.idphoto-crop-box {
+  position: absolute;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  cursor: move;
+}
+
+.idphoto-crop-handle {
+  position: absolute;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: 50%;
+}
+
+.idphoto-crop-handle--nw {
+  left: -8px;
+  top: -8px;
+  cursor: nwse-resize;
+}
+
+.idphoto-crop-handle--se {
+  right: -8px;
+  bottom: -8px;
+  cursor: nwse-resize;
+}
+
+.idphoto-crop-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+}
+
+.idphoto-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.idphoto-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.idphoto-slot select {
+  flex: 1;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+
+.idphoto-slot input[type="number"] {
+  width: 64px;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+
 .idphoto-source-actions {
   display: flex;
   align-items: center;

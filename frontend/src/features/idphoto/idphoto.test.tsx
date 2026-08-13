@@ -99,6 +99,36 @@ describe("idphoto store", () => {
     );
   });
 
+  it("sends mixed slots instead of a single template", async () => {
+    const layout = vi.fn(async () => ({ ok: true } as IdPhotoLayoutResult));
+    const store = createStore(stubGateway({ layout }));
+    store.getState().setPhoto("data:image/png;base64,AAAA", "photo.png");
+    store.getState().setMixed(true);
+    store.getState().updateSlot(0, "two_inch", 3);
+    store.getState().addSlot();
+    store.getState().updateSlot(1, "one_inch", 2);
+    await store.getState().layout();
+    expect(layout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slots: [
+          { template: "two_inch", count: 3 },
+          { template: "one_inch", count: 2 },
+        ],
+      }),
+    );
+  });
+
+  it("sends the crop rectangle for single-template layout", async () => {
+    const layout = vi.fn(async () => ({ ok: true } as IdPhotoLayoutResult));
+    const store = createStore(stubGateway({ layout }));
+    store.getState().setPhoto("data:image/png;base64,AAAA", "photo.png");
+    store.getState().setCrop({ x: 0.1, y: 0.2, w: 0.8, h: 0.7 });
+    await store.getState().layout();
+    expect(layout).toHaveBeenCalledWith(
+      expect.objectContaining({ crop: { x: 0.1, y: 0.2, w: 0.8, h: 0.7 } }),
+    );
+  });
+
   it("surfaces gateway errors without clearing the photo", async () => {
     const layout = vi.fn(async () => {
       throw new Error("layout failed");

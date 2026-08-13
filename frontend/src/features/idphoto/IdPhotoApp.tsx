@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
@@ -26,6 +26,174 @@ export type IdPhotoAppApi = {
   executeCommand(): void;
   refresh(): Promise<void>;
 };
+
+interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function defaultCrop(aspect: number): CropRect {
+  // Centered: 84% width, height derived from the aspect, capped at 90% height.
+  const w = 0.84;
+  let h = w / aspect;
+  if (h > 0.9) {
+    h = 0.9;
+    const w2 = h * aspect;
+    return { x: (1 - w2) / 2, y: (1 - h) / 2, w: w2, h };
+  }
+  return { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
+}
+
+function CropBox({
+  src,
+  aspect,
+  value,
+  onChange,
+}: {
+  src: string;
+  aspect: number;
+  value: CropRect | null;
+  onChange(crop: CropRect): void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const drag = useRef<{
+    mode: "move" | "se" | "nw";
+    startX: number;
+    startY: number;
+    start: CropRect;
+  } | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const update = () =>
+      setContainerSize({ w: container.clientWidth, h: container.clientHeight });
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  const displayed = useMemo(() => {
+    if (!natural || containerSize.w === 0 || containerSize.h === 0) return null;
+    const scale = Math.min(containerSize.w / natural.w, containerSize.h / natural.h);
+    const w = natural.w * scale;
+    const h = natural.h * scale;
+    return { x: (containerSize.w - w) / 2, y: (containerSize.h - h) / 2, w, h };
+  }, [natural, containerSize]);
+
+  const crop = value ?? defaultCrop(aspect);
+
+  const boxFromCrop = (rect: CropRect) => {
+    if (!displayed) return { x: 0, y: 0, w: 0, h: 0 };
+    return {
+      x: displayed.x + rect.x * displayed.w,
+      y: displayed.y + rect.y * displayed.h,
+      w: rect.w * displayed.w,
+      h: rect.h * displayed.h,
+    };
+  };
+
+  const onPointerDown = (mode: "move" | "se" | "nw") => (event: React.PointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    drag.current = {
+      mode,
+      startX: event.clientX,
+      startY: event.clientY,
+      start: crop,
+    };
+    const move = (moveEvent: PointerEvent) => {
+      const session = drag.current;
+      if (!session || !displayed) return;
+      const dx = (moveEvent.clientX - session.startX) / displayed.w;
+      const dy = (moveEvent.clientY - session.startY) / displayed.h;
+      let next: CropRect;
+      if (session.mode === "move") {
+        next = {
+          x: clamp01(session.start.x + dx),
+          y: clamp01(session.start.y + dy),
+          w: session.start.w,
+          h: session.start.h,
+        };
+        // Keep the rectangle inside the photo.
+        next.x = Math.min(next.x, 1 - next.w);
+        next.y = Math.min(next.y, 1 - next.h);
+      } else if (session.mode === "se") {
+        const w = clamp01(session.start.w + dx);
+        const h = w / aspect;
+        const x = Math.min(session.start.x, 1 - w);
+        const y = Math.min(session.start.y, 1 - h);
+        next = { x, y, w, h };
+      } else {
+        const w = clamp01(session.start.w - dx);
+        const h = w / aspect;
+        const x = Math.min(1 - w, session.start.x + (session.start.w - w));
+        const y = Math.min(1 - h, session.start.y + (session.start.h - h));
+        next = { x: Math.max(0, x), y: Math.max(0, y), w, h };
+      }
+      onChange(next);
+    };
+    const up = () => {
+      drag.current = null;
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+    };
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+  };
+
+  const box = boxFromCrop(crop);
+  const handleSize = 16;
+
+  return (
+    <div
+      ref={containerRef}
+      className="idphoto-crop"
+      style={{ aspectRatio: natural ? `${natural.w} / ${natural.h}` : "3 / 4" }}
+    >
+      <img
+        className="idphoto-crop-image"
+        src={src}
+        alt=""
+        onLoad={(event) => {
+          const img = event.currentTarget;
+          setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+        }}
+      />
+      {displayed ? (
+        <>
+          <div className="idphoto-crop-shade" />
+          <div
+            className="idphoto-crop-box"
+            style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+            onPointerDown={onPointerDown("move")}
+            role="presentation"
+          >
+            <span
+              className="idphoto-crop-handle idphoto-crop-handle--nw"
+              style={{ width: handleSize, height: handleSize }}
+              onPointerDown={onPointerDown("nw")}
+            />
+            <span
+              className="idphoto-crop-handle idphoto-crop-handle--se"
+              style={{ width: handleSize, height: handleSize }}
+              onPointerDown={onPointerDown("se")}
+            />
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 function IdPhotoNav({ store }: { store: IdPhotoStore }) {
   const templateId = store((state) => state.templateId);
@@ -65,6 +233,14 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
   const result = store((state) => state.result);
+  const mixed = store((state) => state.mixed);
+  const slots = store((state) => state.slots);
+  const crop = store((state) => state.crop);
+  const setMixed = store((state) => state.setMixed);
+  const setCrop = store((state) => state.setCrop);
+  const addSlot = store((state) => state.addSlot);
+  const removeSlot = store((state) => state.removeSlot);
+  const updateSlot = store((state) => state.updateSlot);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -111,7 +287,28 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
           />
           {photo ? (
             <div className="idphoto-source-preview">
-              <img src={photo} alt={photoName || t("Source photo")} />
+              {mixed ? (
+                <img src={photo} alt={photoName || t("Source photo")} />
+              ) : (
+                <div className="idphoto-crop-wrap">
+                  <CropBox
+                    src={photo}
+                    aspect={(template?.widthMm ?? 25) / (template?.heightMm ?? 35)}
+                    value={crop}
+                    onChange={setCrop}
+                  />
+                  <p className="idphoto-crop-hint">
+                    {t("Drag to move, drag the corners to resize")}
+                  </p>
+                  <button
+                    type="button"
+                    className="ui-button ui-button--ghost ui-button--sm"
+                    onClick={() => setCrop(null)}
+                  >
+                    {t("Reset crop")}
+                  </button>
+                </div>
+              )}
               <div className="idphoto-source-actions">
                 <span className="idphoto-source-name" title={photoName}>
                   {photoName || t("Pasted photo")}
@@ -156,19 +353,76 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
 
         <section className="ui-card idphoto-options">
           <h2>{t("Options")}</h2>
-          <label className="settings-field">
-            <span>{t("Template")}</span>
-            <select
-              value={templateId}
-              onChange={(event) => store.getState().setTemplate(event.target.value)}
-            >
-              {IDPHOTO_TEMPLATES.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {t(candidate.name)} · {candidate.widthMm}×{candidate.heightMm}mm
-                </option>
+          <div className="settings-field">
+            <span>{t("Mixed layout")}</span>
+            <label className="idphoto-grid-auto">
+              <input
+                type="checkbox"
+                checked={mixed}
+                onChange={(event) => setMixed(event.target.checked)}
+              />
+              {t("Mixed layout")}
+            </label>
+          </div>
+          {mixed ? (
+            <div className="idphoto-slots">
+              {slots.map((slot, index) => (
+                <div key={index} className="idphoto-slot">
+                  <select
+                    value={slot.template}
+                    onChange={(event) =>
+                      updateSlot(index, event.target.value, slot.count)
+                    }
+                  >
+                    {IDPHOTO_TEMPLATES.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {t(candidate.name)}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={slot.count}
+                    aria-label={t("Count")}
+                    onChange={(event) =>
+                      updateSlot(index, slot.template, Number(event.target.value) || 1)
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="ui-button ui-button--ghost ui-button--sm"
+                    aria-label={t("Remove")}
+                    onClick={() => removeSlot(index)}
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
-            </select>
-          </label>
+              <button
+                type="button"
+                className="ui-button ui-button--secondary ui-button--sm"
+                onClick={addSlot}
+              >
+                {t("Add template")}
+              </button>
+            </div>
+          ) : (
+            <label className="settings-field">
+              <span>{t("Template")}</span>
+              <select
+                value={templateId}
+                onChange={(event) => store.getState().setTemplate(event.target.value)}
+              >
+                {IDPHOTO_TEMPLATES.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {t(candidate.name)} · {candidate.widthMm}×{candidate.heightMm}mm
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="settings-field">
             <span>{t("Print sheet")}</span>
             <select
@@ -225,52 +479,54 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
               }
             />
           </label>
-          <div className="settings-field">
-            <span>{t("Grid")}</span>
-            <label className="idphoto-grid-auto">
-              <input
-                type="checkbox"
-                checked={autoGrid}
-                onChange={(event) =>
-                  store.getState().setGrid(cols || 3, rows || 3, event.target.checked)
-                }
-              />
-              {t("Auto fit sheet")}
-            </label>
-            {!autoGrid ? (
-              <div className="idphoto-grid-manual">
+          {!mixed ? (
+            <div className="settings-field">
+              <span>{t("Grid")}</span>
+              <label className="idphoto-grid-auto">
                 <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={cols || 1}
-                  aria-label={t("Columns")}
+                  type="checkbox"
+                  checked={autoGrid}
                   onChange={(event) =>
-                    store.getState().setGrid(
-                      Math.max(1, Number(event.target.value) || 1),
-                      rows || 1,
-                      false,
-                    )
+                    store.getState().setGrid(cols || 3, rows || 3, event.target.checked)
                   }
                 />
-                <span>×</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={rows || 1}
-                  aria-label={t("Rows")}
-                  onChange={(event) =>
-                    store.getState().setGrid(
-                      cols || 1,
-                      Math.max(1, Number(event.target.value) || 1),
-                      false,
-                    )
-                  }
-                />
-              </div>
-            ) : null}
-          </div>
+                {t("Auto fit sheet")}
+              </label>
+              {!autoGrid ? (
+                <div className="idphoto-grid-manual">
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={cols || 1}
+                    aria-label={t("Columns")}
+                    onChange={(event) =>
+                      store.getState().setGrid(
+                        Math.max(1, Number(event.target.value) || 1),
+                        rows || 1,
+                        false,
+                      )
+                    }
+                  />
+                  <span>×</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={rows || 1}
+                    aria-label={t("Rows")}
+                    onChange={(event) =>
+                      store.getState().setGrid(
+                        cols || 1,
+                        Math.max(1, Number(event.target.value) || 1),
+                        false,
+                      )
+                    }
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="idphoto-generate-row">
             <button
               type="button"
@@ -281,7 +537,14 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
             >
               {busy ? t("Generating…") : t("Generate layout")}
             </button>
-            {template && sheet ? (
+            {mixed ? (
+              <span className="settings-help">
+                {slots
+                  .map((slot) => `${t(templateById(slot.template)?.name ?? slot.template)}×${slot.count}`)
+                  .join(" + ")}
+                {sheet ? ` → ${t(sheet.name)}` : ""}
+              </span>
+            ) : template && sheet ? (
               <span className="settings-help">
                 {t("Template")} {t(template.name)} → {t(sheet.name)}
               </span>
@@ -299,7 +562,20 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
           {result?.url ? (
             <>
               <div className="idphoto-result-meta">
-                <strong>{formatResultSize(result)}</strong>
+                {result.mixed && result.slots?.length ? (
+                  <strong>
+                    {result.slots
+                      .map(
+                        (slot) =>
+                          `${t(templateById(slot.template)?.name ?? slot.template)}×${slot.count}`,
+                      )
+                      .join(" + ")}{" "}
+                    ·{" "}
+                    {t("Total {count} photos").replace("{count}", String(result.count))}
+                  </strong>
+                ) : (
+                  <strong>{formatResultSize(result)}</strong>
+                )}
                 <span>
                   {result.widthPx}×{result.heightPx}px @300DPI
                 </span>

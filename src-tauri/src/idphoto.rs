@@ -71,6 +71,14 @@ pub struct CropRect {
     pub h: f64,
 }
 
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IdPhotoSlot {
+    pub template: String,
+    /// 该模板要排的张数
+    pub count: u32,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IdPhotoRequest {
@@ -96,6 +104,9 @@ pub struct IdPhotoRequest {
     /// 每张照片四周的白色描边（像素）
     #[serde(default = "default_border_px")]
     pub border_px: u32,
+    /// 混合排版：一张纸排多种模板（优先于单模板 grid 计算）
+    #[serde(default)]
+    pub slots: Option<Vec<IdPhotoSlot>>,
 }
 
 fn default_background() -> String {
@@ -120,6 +131,20 @@ pub struct IdPhotoResult {
     pub height_px: u32,
     pub width_mm: f64,
     pub height_mm: f64,
+    /// 是否为混合排版
+    #[serde(default)]
+    pub mixed: bool,
+    /// 混合排版时各模板的张数汇总
+    #[serde(default)]
+    pub slots: Vec<SlotResult>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlotResult {
+    pub template: String,
+    pub template_name: String,
+    pub count: u32,
 }
 
 pub fn mm_to_px(mm: f64) -> u32 {
@@ -302,59 +327,205 @@ fn sheet_pixel_size(sheet_mm: (f64, f64)) -> (u32, u32) {
     (mm_to_px(sheet_mm.0), mm_to_px(sheet_mm.1))
 }
 
+/// 从源图裁剪到模板比例、缩放到 300DPI、可选替换底色，返回 RGBA 照片。
+fn make_photo(
+    source: &DynamicImage,
+    template_mm: (f64, f64),
+    crop: Option<&CropRect>,
+    background: &str,
+    tolerance: u8,
+) -> RgbaImage {
+    let aspect = template_mm.0 / template_mm.1;
+    let cropped = crop_to_aspect(source, aspect, crop);
+    let target_px = (mm_to_px(template_mm.0), mm_to_px(template_mm.1));
+    let resized = cropped
+        .resize(target_px.0, target_px.1, FilterType::CatmullRom)
+        .to_rgba8();
+    match background_rgb(background) {
+        Some(target) => replace_background(&resized, target, tolerance),
+        None => resized,
+    }
+}
+
+/// 把照片按“先左对齐换行、再整体居中”排进纸张，返回实际排入张数。
+fn pack_items(
+    sheet: &mut RgbaImage,
+    items: Vec<RgbaImage>,
+    border: u32,
+    margin_px: u32,
+    gap_px: u32,
+) -> usize {
+    let sheet_w = sheet.width() as i64;
+    let sheet_h = sheet.height() as i64;
+    let margin = margin_px as i64;
+    let gap = gap_px as i64;
+    let border = border as i64;
+    let usable_w = sheet_w - margin * 2;
+    let usable_h = sheet_h - margin * 2;
+
+    // 先干跑：按行分组并计算每行高度。
+    let mut rows: Vec<(i64, usize)> = Vec::new();
+    let mut cur_w = 0i64;
+    let mut cur_h = 0i64;
+    let mut cur_len = 0usize;
+    let flush =
+        |rows: &mut Vec<(i64, usize)>, cur_h: &mut i64, cur_w: &mut i64, cur_len: &mut usize| {
+            if *cur_len > 0 {
+                rows.push((*cur_h, *cur_len));
+                *cur_h = 0;
+                *cur_w = 0;
+                *cur_len = 0;
+            }
+        };
+    for photo in &items {
+        let pw = photo.width() as i64 + border * 2;
+        let ph = photo.height() as i64 + border * 2;
+        if cur_len > 0 && cur_w + gap + pw > usable_w {
+            flush(&mut rows, &mut cur_h, &mut cur_w, &mut cur_len);
+        }
+        cur_w += pw + if cur_len > 0 { gap } else { 0 };
+        cur_h = cur_h.max(ph);
+        cur_len += 1;
+    }
+    flush(&mut rows, &mut cur_h, &mut cur_w, &mut cur_len);
+
+    let block_h =
+        rows.iter().map(|(h, _)| *h).sum::<i64>() + (rows.len().saturating_sub(1) as i64) * gap;
+    let start_y = (margin + (usable_h - block_h) / 2).max(margin);
+
+    let mut placed = 0usize;
+    let mut item_iter = items.iter();
+    let mut y = start_y;
+    for (row_h, row_len) in &rows {
+        let row_w: i64 = items
+            .iter()
+            .skip(placed)
+            .take(*row_len)
+            .map(|p| p.width() as i64 + border * 2)
+            .sum::<i64>()
+            + (*row_len as i64 - 1) * gap;
+        let mut x = (margin + (usable_w - row_w) / 2).max(margin);
+        for _ in 0..*row_len {
+            let Some(photo) = item_iter.next() else {
+                break;
+            };
+            let pw = photo.width() as i64 + border * 2;
+            let ph = photo.height() as i64 + border * 2;
+            if x + pw <= sheet_w - margin && y + ph <= sheet_h - margin {
+                image::imageops::overlay(sheet, photo, x + border, y + border);
+                placed += 1;
+            }
+            x += pw + gap;
+        }
+        y += row_h + gap;
+    }
+    placed
+}
+
 /// 执行证件照排版，输出 PNG 到工作区 `.zicode/idphoto/`。
 pub fn layout(
     request: &IdPhotoRequest,
     workspace_root: &Path,
     workspace_id: &str,
 ) -> Result<IdPhotoResult, String> {
-    let (template_id, template_name, template_w_mm, template_h_mm) = template(&request.template)
-        .ok_or_else(|| format!("Unknown template: {}", request.template))?;
     let (sheet_id, sheet_name, sheet_w_mm, sheet_h_mm) =
         sheet(&request.sheet).ok_or_else(|| format!("Unknown sheet: {}", request.sheet))?;
 
     let source = decode_image(&request.image, workspace_root)?;
-    let aspect = template_w_mm / template_h_mm;
-    let cropped = crop_to_aspect(&source, aspect, request.crop.as_ref());
-    let target_px = (mm_to_px(template_w_mm), mm_to_px(template_h_mm));
-    let resized = cropped.resize(target_px.0, target_px.1, FilterType::CatmullRom);
-    let rgb = resized.to_rgba8();
-
-    let photo = match background_rgb(&request.background) {
-        Some(target) => replace_background(&rgb, target, request.tolerance),
-        None => rgb,
-    };
-
-    let (cols, rows) = compute_grid(
-        (template_w_mm, template_h_mm),
-        (sheet_w_mm, sheet_h_mm),
-        request.cols,
-        request.rows,
-    );
     let (sheet_w_px, sheet_h_px) = sheet_pixel_size((sheet_w_mm, sheet_h_mm));
     let margin_px = mm_to_px(SHEET_MARGIN_MM);
     let gap_px = mm_to_px(GAP_MM);
     let border = request.border_px;
-    let photo_w = target_px.0 + border * 2;
-    let photo_h = target_px.1 + border * 2;
 
     let mut sheet: RgbaImage =
         ImageBuffer::from_pixel(sheet_w_px, sheet_h_px, Rgba([255, 255, 255, 255]));
-    for row in 0..rows {
-        for col in 0..cols {
-            let x = margin_px as i64 + col as i64 * (photo_w as i64 + gap_px as i64);
-            let y = margin_px as i64 + row as i64 * (photo_h as i64 + gap_px as i64);
-            if x + photo_w as i64 > sheet_w_px as i64 || y + photo_h as i64 > sheet_h_px as i64 {
-                continue;
+
+    let (cols, rows, count, mixed, slot_results, result_template, result_template_name) =
+        if let Some(slots) = request.slots.as_ref().filter(|slots| !slots.is_empty()) {
+            let mut items: Vec<RgbaImage> = Vec::new();
+            let mut slot_results = Vec::new();
+            for slot in slots {
+                let (template_id, template_name, template_w_mm, template_h_mm) =
+                    template(&slot.template)
+                        .ok_or_else(|| format!("Unknown template: {}", slot.template))?;
+                let photo = make_photo(
+                    &source,
+                    (template_w_mm, template_h_mm),
+                    None,
+                    &request.background,
+                    request.tolerance,
+                );
+                slot_results.push(SlotResult {
+                    template: template_id.to_string(),
+                    template_name: template_name.to_string(),
+                    count: slot.count.max(1),
+                });
+                for _ in 0..slot.count.max(1) {
+                    items.push(photo.clone());
+                }
             }
-            image::imageops::overlay(
-                &mut sheet,
-                &photo,
-                x as i64 + border as i64,
-                y as i64 + border as i64,
+            let placed = pack_items(&mut sheet, items, border, margin_px, gap_px);
+            (
+                0,
+                0,
+                placed as u32,
+                true,
+                slot_results,
+                String::new(),
+                String::new(),
+            )
+        } else {
+            let (template_id, template_name, template_w_mm, template_h_mm) =
+                template(&request.template)
+                    .ok_or_else(|| format!("Unknown template: {}", request.template))?;
+            let photo = make_photo(
+                &source,
+                (template_w_mm, template_h_mm),
+                request.crop.as_ref(),
+                &request.background,
+                request.tolerance,
             );
-        }
-    }
+            let (cols, rows) = compute_grid(
+                (template_w_mm, template_h_mm),
+                (sheet_w_mm, sheet_h_mm),
+                request.cols,
+                request.rows,
+            );
+            let photo_w = photo.width() + border * 2;
+            let photo_h = photo.height() + border * 2;
+            let mut placed = 0u32;
+            for row in 0..rows {
+                for col in 0..cols {
+                    let x = margin_px as i64 + col as i64 * (photo_w as i64 + gap_px as i64);
+                    let y = margin_px as i64 + row as i64 * (photo_h as i64 + gap_px as i64);
+                    if x + photo_w as i64 > sheet_w_px as i64
+                        || y + photo_h as i64 > sheet_h_px as i64
+                    {
+                        continue;
+                    }
+                    image::imageops::overlay(
+                        &mut sheet,
+                        &photo,
+                        x + border as i64,
+                        y + border as i64,
+                    );
+                    placed += 1;
+                }
+            }
+            (
+                cols,
+                rows,
+                placed,
+                false,
+                vec![SlotResult {
+                    template: template_id.to_string(),
+                    template_name: template_name.to_string(),
+                    count: placed,
+                }],
+                template_id.to_string(),
+                template_name.to_string(),
+            )
+        };
 
     let output_dir = workspace_root.join(".zicode").join("idphoto");
     std::fs::create_dir_all(&output_dir)
@@ -370,17 +541,19 @@ pub fn layout(
         ok: true,
         file_name,
         url,
-        template: template_id.to_string(),
-        template_name: template_name.to_string(),
+        template: result_template,
+        template_name: result_template_name,
         sheet: sheet_id.to_string(),
         sheet_name: sheet_name.to_string(),
         cols,
         rows,
-        count: cols * rows,
+        count,
         width_px: sheet_w_px,
         height_px: sheet_h_px,
         width_mm: sheet_w_mm,
         height_mm: sheet_h_mm,
+        mixed,
+        slots: slot_results,
     })
 }
 
@@ -478,15 +651,66 @@ mod tests {
             cols: None,
             rows: None,
             border_px: 2,
+            slots: None,
         };
         let result = layout(&request, &tmp, "ws-test").unwrap();
         assert_eq!(result.cols, 3);
         assert_eq!(result.rows, 3);
+        assert!(!result.mixed);
         let path = tmp.join(".zicode").join("idphoto").join(&result.file_name);
         assert!(path.exists());
         let decoded = image::open(&path).unwrap();
         assert_eq!(decoded.width(), mm_to_px(102.0));
         assert_eq!(decoded.height(), mm_to_px(152.0));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn mixed_layout_packs_multiple_templates() {
+        let tmp = std::env::temp_dir().join(format!("idphoto-mix-{}", Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let img = DynamicImage::ImageRgba8(ImageBuffer::from_pixel(
+            600,
+            800,
+            Rgba([240, 240, 240, 255]),
+        ));
+        let data_url = {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            img.write_to(&mut bytes, image::ImageFormat::Png).unwrap();
+            let b64 = base64::engine::general_purpose::STANDARD.encode(bytes.into_inner());
+            format!("data:image/png;base64,{b64}")
+        };
+        let request = IdPhotoRequest {
+            image: data_url,
+            template: "one_inch".into(),
+            sheet: "6inch".into(),
+            background: "red".into(),
+            tolerance: 48,
+            crop: None,
+            cols: None,
+            rows: None,
+            border_px: 2,
+            slots: Some(vec![
+                IdPhotoSlot {
+                    template: "one_inch".into(),
+                    count: 4,
+                },
+                IdPhotoSlot {
+                    template: "two_inch".into(),
+                    count: 2,
+                },
+            ]),
+        };
+        let result = layout(&request, &tmp, "ws-test").unwrap();
+        assert!(result.mixed);
+        assert_eq!(result.count, 6);
+        assert_eq!(result.slots.len(), 2);
+        assert_eq!(result.slots[0].template, "one_inch");
+        assert_eq!(result.slots[0].count, 4);
+        assert_eq!(result.slots[1].template, "two_inch");
+        assert_eq!(result.slots[1].count, 2);
+        let path = tmp.join(".zicode").join("idphoto").join(&result.file_name);
+        assert!(path.exists());
         std::fs::remove_dir_all(&tmp).ok();
     }
 }

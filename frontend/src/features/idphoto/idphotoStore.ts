@@ -16,6 +16,8 @@ export interface IdPhotoLayoutResult {
   heightPx?: number;
   widthMm?: number;
   heightMm?: number;
+  mixed?: boolean;
+  slots?: Array<{ template: string; templateName: string; count: number }>;
 }
 
 export interface IdPhotoLayoutInput {
@@ -29,6 +31,8 @@ export interface IdPhotoLayoutInput {
   borderPx: number;
   cols?: number;
   rows?: number;
+  crop?: { x: number; y: number; w: number; h: number };
+  slots?: Array<{ template: string; count: number }>;
 }
 
 export interface IdPhotoGateway {
@@ -83,6 +87,9 @@ export interface IdPhotoState {
   cols: number;
   rows: number;
   autoGrid: boolean;
+  mixed: boolean;
+  slots: Array<{ template: string; count: number }>;
+  crop: { x: number; y: number; w: number; h: number } | null;
   busy: boolean;
   error: string;
   result: IdPhotoLayoutResult | null;
@@ -93,6 +100,11 @@ export interface IdPhotoState {
   setTolerance(tolerance: number): void;
   setBorderPx(borderPx: number): void;
   setGrid(cols: number, rows: number, autoGrid: boolean): void;
+  setMixed(mixed: boolean): void;
+  setCrop(crop: { x: number; y: number; w: number; h: number } | null): void;
+  addSlot(): void;
+  removeSlot(index: number): void;
+  updateSlot(index: number, template: string, count: number): void;
   layout(): Promise<void>;
   reset(): void;
 }
@@ -116,6 +128,9 @@ export function createIdPhotoStore(options: IdPhotoOptions) {
     cols: 0,
     rows: 0,
     autoGrid: true,
+    mixed: false,
+    slots: [{ template: "one_inch", count: 4 }],
+    crop: null,
     busy: false,
     error: "",
     result: null,
@@ -141,6 +156,26 @@ export function createIdPhotoStore(options: IdPhotoOptions) {
     setGrid(cols, rows, autoGrid) {
       set({ cols, rows, autoGrid, result: null, error: "" });
     },
+    setMixed(mixed) {
+      set({ mixed, result: null, error: "" });
+    },
+    setCrop(crop) {
+      set({ crop, result: null, error: "" });
+    },
+    addSlot() {
+      const slots = [...get().slots, { template: "one_inch", count: 2 }];
+      set({ slots, result: null, error: "" });
+    },
+    removeSlot(index) {
+      const slots = get().slots.filter((_, i) => i !== index);
+      set({ slots: slots.length > 0 ? slots : [{ template: "one_inch", count: 2 }], result: null, error: "" });
+    },
+    updateSlot(index, template, count) {
+      const slots = get().slots.map((slot, i) =>
+        i === index ? { template, count: Math.max(1, count) } : slot,
+      );
+      set({ slots, result: null, error: "" });
+    },
 
     async layout() {
       const state = get();
@@ -157,7 +192,12 @@ export function createIdPhotoStore(options: IdPhotoOptions) {
           background: state.background,
           tolerance: state.tolerance,
           borderPx: state.borderPx,
-          ...(state.autoGrid ? {} : { cols: state.cols || undefined, rows: state.rows || undefined }),
+          ...(state.mixed
+            ? { slots: state.slots }
+            : {
+                crop: state.crop ?? undefined,
+                ...(state.autoGrid ? {} : { cols: state.cols || undefined, rows: state.rows || undefined }),
+              }),
         });
         set({ result, busy: false });
         notify(t("ID photo layout generated"));
