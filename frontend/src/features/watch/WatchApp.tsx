@@ -25,6 +25,7 @@ function WatchMain({ store }: { store: WatchStore }) {
   const error = store((state) => state.error);
   const draftName = store((state) => state.draftName);
   const draftUrl = store((state) => state.draftUrl);
+  const editingId = store((state) => state.editingId);
 
   useEffect(() => {
     void store.getState().load();
@@ -85,24 +86,73 @@ function WatchMain({ store }: { store: WatchStore }) {
             <ul className="watch-items">
               {items.map((item) => {
                 const result = results[item.id];
+                const editing = editingId === item.id;
                 return (
                   <li key={item.id} className="watch-item">
-                    <div className="watch-item-body">
-                      <strong className="watch-item-name">{item.name}</strong>
-                      <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
-                        {item.url}
-                      </a>
-                      <span className="watch-item-meta">
-                        {result
-                          ? result.changed
-                            ? t("Changed")
-                            : t("Unchanged")
-                          : item.lastCheckedAt
-                            ? `${t("Changes")}: ${item.changeCount}`
-                            : t("Not checked yet")}
-                      </span>
-                    </div>
+                    {editing ? (
+                      <div className="watch-edit">
+                        <input
+                          className="watch-name-input"
+                          value={draftName}
+                          aria-label={t("Watch name")}
+                          onChange={(event) =>
+                            store.getState().setDraft({ draftName: event.target.value })
+                          }
+                        />
+                        <input
+                          className="watch-url-input"
+                          value={draftUrl}
+                          aria-label={t("Page URL")}
+                          type="url"
+                          onChange={(event) =>
+                            store.getState().setDraft({ draftUrl: event.target.value })
+                          }
+                        />
+                        <div className="watch-edit-actions">
+                          <button
+                            type="button"
+                            className="ui-button ui-button--primary ui-button--sm"
+                            disabled={busy || !draftName.trim() || !draftUrl.trim()}
+                            onClick={() => void store.getState().saveEdit()}
+                          >
+                            {t("Save")}
+                          </button>
+                          <button
+                            type="button"
+                            className="ui-button ui-button--ghost ui-button--sm"
+                            onClick={() => store.getState().cancelEdit()}
+                          >
+                            {t("Cancel")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="watch-item-body">
+                        <strong className="watch-item-name">{item.name}</strong>
+                        <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
+                          {item.url}
+                        </a>
+                        <span className="watch-item-meta">
+                          {result
+                            ? result.changed
+                              ? t("Changed")
+                              : t("Unchanged")
+                            : item.lastCheckedAt
+                              ? `${t("Changes")}: ${item.changeCount}`
+                              : t("Not checked yet")}
+                        </span>
+                      </div>
+                    )}
                     <div className="watch-item-actions">
+                      {!editing ? (
+                        <button
+                          type="button"
+                          className="ui-button ui-button--ghost ui-button--sm"
+                          onClick={() => store.getState().startEdit(item)}
+                        >
+                          {t("Edit")}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="ui-button ui-button--secondary ui-button--sm"

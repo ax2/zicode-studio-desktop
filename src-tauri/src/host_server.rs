@@ -402,6 +402,7 @@ impl HostServer {
             .route("/v2/translate", post(translate_http))
             .route("/v2/watch", get(list_watch_http))
             .route("/v2/watch/add", post(add_watch_http))
+            .route("/v2/watch/update", post(update_watch_http))
             .route("/v2/watch/check", post(check_watch_http))
             .route("/v2/watch/remove", post(remove_watch_http))
             .route(
@@ -2497,6 +2498,16 @@ struct WatchIdRequest {
     id: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateWatchRequest {
+    scene_id: String,
+    workspace_id: String,
+    id: String,
+    name: String,
+    url: String,
+}
+
 fn watch_workspace_root(
     state: &HostState,
     workspace_id: &str,
@@ -2531,6 +2542,17 @@ async fn add_watch_http(
     let workspace_root = watch_workspace_root(&state, &request.workspace_id)?;
     let item = crate::web_watch::add(&workspace_root, &request.name, &request.url)
         .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "add_failed", &error))?;
+    Ok(Json(json!({ "item": item })))
+}
+
+async fn update_watch_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<UpdateWatchRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_watch_authorized(&state, &request.scene_id)?;
+    let workspace_root = watch_workspace_root(&state, &request.workspace_id)?;
+    let item = crate::web_watch::update(&workspace_root, &request.id, &request.name, &request.url)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "update_failed", &error))?;
     Ok(Json(json!({ "item": item })))
 }
 

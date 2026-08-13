@@ -166,6 +166,30 @@ pub fn remove(workspace_root: &Path, id: &str) -> Result<bool, String> {
     Ok(removed)
 }
 
+pub fn update(workspace_root: &Path, id: &str, name: &str, url: &str) -> Result<WatchItem, String> {
+    let trimmed_name = name.trim();
+    if trimmed_name.is_empty() {
+        return Err("Watch name is required".to_string());
+    }
+    if trimmed_name.chars().count() > MAX_NAME_CHARS {
+        return Err(format!(
+            "Watch name exceeds the {MAX_NAME_CHARS} character limit"
+        ));
+    }
+    validate_url(url)?;
+    let mut file = read_file(workspace_root);
+    let item = file
+        .items
+        .iter_mut()
+        .find(|item| item.id == id)
+        .ok_or_else(|| "Watcher not found".to_string())?;
+    item.name = trimmed_name.to_string();
+    item.url = url.trim().to_string();
+    let updated = item.clone();
+    write_file(workspace_root, &file)?;
+    Ok(updated)
+}
+
 pub fn check(workspace_root: &Path, id: &str) -> Result<WatchCheckResult, String> {
     let mut file = read_file(workspace_root);
     let index = file
@@ -221,6 +245,17 @@ mod tests {
         assert!(add(&root, "local", "http://127.0.0.1/x").is_err());
         assert!(add(&root, "local", "ftp://example.com/x").is_err());
         assert!(add(&root, "missing host", "not a url").is_err());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn updates_a_watcher_name_and_url() {
+        let root = tmp_root();
+        let item = add(&root, "Example", "https://example.com/").unwrap();
+        let updated = update(&root, &item.id, "Renamed", "https://example.org/").unwrap();
+        assert_eq!(updated.name, "Renamed");
+        assert_eq!(updated.url, "https://example.org/");
+        assert_eq!(list(&root)[0].name, "Renamed");
         std::fs::remove_dir_all(&root).ok();
     }
 

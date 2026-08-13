@@ -193,6 +193,7 @@ const zhCN = {
   "Not checked yet": "尚未检查",
   "No watchers yet": "还没有监控",
   "Watcher added": "已添加监控",
+  "Watcher updated": "已更新监控",
   "Watcher removed": "已删除监控",
   "Delete this watcher? This cannot be undone.":
     "删除这个监控项？此操作无法撤销。",

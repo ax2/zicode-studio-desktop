@@ -10,6 +10,10 @@ export interface WatchScope {
 export interface WatchGateway {
   list(scope: WatchScope): Promise<{ items: WatchItem[] }>;
   add(scope: WatchScope, name: string, url: string): Promise<{ item: WatchItem }>;
+  update(
+    scope: WatchScope,
+    item: { id: string; name: string; url: string },
+  ): Promise<{ item: WatchItem }>;
   check(scope: WatchScope, id: string): Promise<WatchCheckResult>;
   remove(scope: WatchScope, id: string): Promise<{ removed: boolean }>;
 }
@@ -64,6 +68,16 @@ export class WatchHttpGateway implements WatchGateway {
     }) as Promise<{ item: WatchItem }>;
   }
 
+  update(
+    scope: WatchScope,
+    item: { id: string; name: string; url: string },
+  ): Promise<{ item: WatchItem }> {
+    return this.#request("/v2/watch/update", {
+      method: "POST",
+      body: JSON.stringify({ ...scope, ...item }),
+    }) as Promise<{ item: WatchItem }>;
+  }
+
   check(scope: WatchScope, id: string): Promise<WatchCheckResult> {
     return this.#request("/v2/watch/check", {
       method: "POST",
@@ -86,9 +100,13 @@ export interface WatchState {
   error: string;
   draftName: string;
   draftUrl: string;
+  editingId: string | null;
   setDraft(patch: Partial<Pick<WatchState, "draftName" | "draftUrl">>): void;
   load(): Promise<void>;
   add(): Promise<void>;
+  startEdit(item: WatchItem): void;
+  saveEdit(): Promise<void>;
+  cancelEdit(): void;
   check(id: string): Promise<void>;
   checkAll(): Promise<void>;
   remove(id: string): Promise<void>;
@@ -109,6 +127,7 @@ export function createWatchStore(options: WatchOptions) {
     error: "",
     draftName: "",
     draftUrl: "",
+    editingId: null,
 
     setDraft(patch) {
       set({ ...patch, error: "" });
@@ -132,6 +151,32 @@ export function createWatchStore(options: WatchOptions) {
         await gateway.add(getTarget(), draftName, draftUrl);
         set({ draftName: "", draftUrl: "", busy: false });
         notify(t("Watcher added"));
+        await get().load();
+      } catch (error) {
+        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    startEdit(item) {
+      set({ editingId: item.id, draftName: item.name, draftUrl: item.url, error: "" });
+    },
+
+    cancelEdit() {
+      set({ editingId: null, draftName: "", draftUrl: "" });
+    },
+
+    async saveEdit() {
+      const { editingId, draftName, draftUrl, busy } = get();
+      if (!editingId || !draftName.trim() || !draftUrl.trim() || busy) return;
+      set({ busy: true, error: "" });
+      try {
+        await gateway.update(getTarget(), {
+          id: editingId,
+          name: draftName,
+          url: draftUrl,
+        });
+        set({ busy: false, editingId: null, draftName: "", draftUrl: "" });
+        notify(t("Watcher updated"));
         await get().load();
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });

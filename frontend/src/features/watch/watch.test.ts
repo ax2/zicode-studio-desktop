@@ -14,6 +14,7 @@ function stubGateway(overrides: Partial<WatchGateway> = {}): WatchGateway {
   return {
     list: vi.fn(async () => ({ items: [ITEM] })),
     add: vi.fn(async () => ({ item: ITEM })),
+    update: vi.fn(async () => ({ item: ITEM })),
     check: vi.fn(async () => ({ id: "w1", changed: true, hash: "abc", contentLength: 10, checkedAt: "x" })),
     remove: vi.fn(async () => ({ removed: true })),
     ...overrides,
@@ -51,6 +52,19 @@ describe("watch store", () => {
       "https://example.com/",
     );
     expect(notify).toHaveBeenCalledWith("Watcher added");
+  });
+
+  it("edits an existing watcher", async () => {
+    const gateway = stubGateway();
+    const { store, notify } = createStore(gateway);
+    store.getState().startEdit(ITEM);
+    store.getState().setDraft({ draftName: "Renamed", draftUrl: "https://example.org/" });
+    await store.getState().saveEdit();
+    expect(gateway.update).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      { id: "w1", name: "Renamed", url: "https://example.org/" },
+    );
+    expect(notify).toHaveBeenCalledWith("Watcher updated");
   });
 
   it("checks a watcher and records the result", async () => {
