@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
 import type { WatchCheckResult, WatchItem } from "./watchLogic";
+import { normalizeUrl } from "./watchLogic";
 
 export interface WatchScope {
   sceneId: string;
@@ -148,7 +149,7 @@ export function createWatchStore(options: WatchOptions) {
       if (!draftName.trim() || !draftUrl.trim() || busy) return;
       set({ busy: true, error: "" });
       try {
-        await gateway.add(getTarget(), draftName, draftUrl);
+        await gateway.add(getTarget(), draftName, normalizeUrl(draftUrl));
         set({ draftName: "", draftUrl: "", busy: false });
         notify(t("Watcher added"));
         await get().load();
@@ -173,7 +174,7 @@ export function createWatchStore(options: WatchOptions) {
         await gateway.update(getTarget(), {
           id: editingId,
           name: draftName,
-          url: draftUrl,
+          url: normalizeUrl(draftUrl),
         });
         set({ busy: false, editingId: null, draftName: "", draftUrl: "" });
         notify(t("Watcher updated"));

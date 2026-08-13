@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { createWatchStore, type WatchGateway } from "./watchStore";
+import { normalizeUrl } from "./watchLogic";
 
 const ITEM = {
   id: "w1",
@@ -33,6 +34,12 @@ function createStore(gateway: WatchGateway) {
 
 describe("watch store", () => {
   beforeEach(() => setLocale("en"));
+
+  it("normalizes URLs without a scheme", () => {
+    expect(normalizeUrl("example.com/page")).toBe("https://example.com/page");
+    expect(normalizeUrl("https://example.com")).toBe("https://example.com");
+    expect(normalizeUrl("  ")).toBe("");
+  });
 
   it("loads watchers", async () => {
     const gateway = stubGateway();
