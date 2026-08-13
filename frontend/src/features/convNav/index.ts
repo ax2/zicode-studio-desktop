@@ -110,6 +110,8 @@ export class ConvNav {
     this.#badgeEl?.removeEventListener("click", this.#onBadgeClick);
     this.#observer?.disconnect();
     if (this.#latestFocusTimer) clearTimeout(this.#latestFocusTimer);
+    if (this.#navLockTimer) clearTimeout(this.#navLockTimer);
+    if (this.#tooltipHideTimer) clearTimeout(this.#tooltipHideTimer);
     this.#pendingLatestFocus = false;
     this.#clearLatestAnnouncement();
     this.#trackRoot?.unmount();
