@@ -214,6 +214,37 @@ async function diagnose(cdp, name, url, viewport) {
     });
     appForm = formResult?.result?.value ?? null;
   }
+  // For the finance app in the Finance scene, open the research view and verify
+  // the research-card form fields.
+  if (name === "finance") {
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const item = Array.from(document.querySelectorAll(".finance-nav-item")).find(
+          (button) => /研究工作区|Research workspace/.test(button.textContent || ""),
+        );
+        item?.click();
+        return !!item;
+      })()`,
+    });
+    await sleep(500);
+    const researchResult = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const form = document.querySelector('[data-finance-view="research"] form');
+        if (!form) return { sceneGuard: true, researchForm: false };
+        const inputs = Array.from(form.querySelectorAll("input"));
+        const textareas = Array.from(form.querySelectorAll("textarea"));
+        return {
+          sceneGuard: false,
+          researchForm: true,
+          inputs: inputs.length,
+          textareas: textareas.length,
+          submit: !!form.querySelector('button[type="submit"]'),
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = researchResult?.result?.value ?? null;
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
