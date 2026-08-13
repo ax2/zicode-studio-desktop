@@ -98,6 +98,7 @@ export interface WatchState {
   items: WatchItem[];
   results: Record<string, WatchCheckResult>;
   busy: boolean;
+  checking: boolean;
   error: string;
   draftName: string;
   draftUrl: string;
@@ -125,6 +126,7 @@ export function createWatchStore(options: WatchOptions) {
     items: [],
     results: {},
     busy: false,
+    checking: false,
     error: "",
     draftName: "",
     draftUrl: "",
@@ -185,23 +187,24 @@ export function createWatchStore(options: WatchOptions) {
     },
 
     async check(id) {
-      set({ busy: true, error: "" });
+      set({ busy: true, checking: true, error: "" });
       try {
         const result = await gateway.check(getTarget(), id);
         set((state) => ({
           results: { ...state.results, [id]: result },
           busy: false,
+          checking: false,
         }));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, checking: false, error: error instanceof Error ? error.message : String(error) });
       }
     },
 
     async checkAll() {
       const { items, busy } = get();
       if (busy || items.length === 0) return;
-      set({ busy: true, error: "" });
+      set({ busy: true, checking: true, error: "" });
       try {
         const results: Record<string, WatchCheckResult> = {};
         for (const item of items) {
@@ -210,6 +213,7 @@ export function createWatchStore(options: WatchOptions) {
         set((state) => ({
           results: { ...state.results, ...results },
           busy: false,
+          checking: false,
         }));
         notify(
           t("Checked {count} watchers").replace(
@@ -219,7 +223,7 @@ export function createWatchStore(options: WatchOptions) {
         );
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, checking: false, error: error instanceof Error ? error.message : String(error) });
       }
     },
 

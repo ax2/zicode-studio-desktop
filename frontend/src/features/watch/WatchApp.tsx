@@ -24,6 +24,7 @@ function WatchMain({ store }: { store: WatchStore }) {
   const items = store((state) => state.items);
   const results = store((state) => state.results);
   const busy = store((state) => state.busy);
+  const checking = store((state) => state.checking);
   const error = store((state) => state.error);
   const draftName = store((state) => state.draftName);
   const draftUrl = store((state) => state.draftUrl);
@@ -79,10 +80,10 @@ function WatchMain({ store }: { store: WatchStore }) {
                 type="button"
                 className="ui-button ui-button--secondary ui-button--sm"
                 disabled={busy}
-                aria-busy={busy}
+                aria-busy={checking}
                 onClick={() => void store.getState().checkAll()}
               >
-                {t("Check all")}
+                {checking ? t("Checking…") : t("Check all")}
               </button>
             </div>
             <ul className="watch-items">
@@ -161,7 +162,7 @@ function WatchMain({ store }: { store: WatchStore }) {
                         disabled={busy}
                         onClick={() => void store.getState().check(item.id)}
                       >
-                        {t("Check now")}
+                        {checking ? t("Checking…") : t("Check now")}
                       </button>
                       <button
                         type="button"
