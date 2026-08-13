@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { WatchCheckResult, WatchItem } from "./watchLogic";
 import { normalizeUrl } from "./watchLogic";
 
@@ -142,7 +143,7 @@ export function createWatchStore(options: WatchOptions) {
         const result = await gateway.list(getTarget());
         set({ items: result.items, busy: false });
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -156,7 +157,7 @@ export function createWatchStore(options: WatchOptions) {
         notify(t("Watcher added"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -182,7 +183,7 @@ export function createWatchStore(options: WatchOptions) {
         notify(t("Watcher updated"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -197,7 +198,7 @@ export function createWatchStore(options: WatchOptions) {
         }));
         await get().load();
       } catch (error) {
-        set({ busy: false, checking: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, checking: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -223,7 +224,7 @@ export function createWatchStore(options: WatchOptions) {
         );
         await get().load();
       } catch (error) {
-        set({ busy: false, checking: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, checking: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -239,7 +240,7 @@ export function createWatchStore(options: WatchOptions) {
         notify(t("Watcher removed"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
   }));

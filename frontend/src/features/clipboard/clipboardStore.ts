@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { ClipboardItem } from "./clipboardLogic";
 
 export interface ClipboardScope {
@@ -119,7 +120,7 @@ export function createClipboardStore(options: ClipboardOptions) {
         const result = await gateway.list(getTarget());
         set({ items: result.items, busy: false });
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -133,7 +134,7 @@ export function createClipboardStore(options: ClipboardOptions) {
         notify(t("Added to inbox"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -145,7 +146,7 @@ export function createClipboardStore(options: ClipboardOptions) {
         notify(t("Item removed"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -156,7 +157,7 @@ export function createClipboardStore(options: ClipboardOptions) {
         set({ busy: false, items: [] });
         notify(t("Inbox cleared"));
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -185,7 +186,7 @@ export function createClipboardStore(options: ClipboardOptions) {
         set({ busy: false });
         notify(t("Sent to notes"));
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 

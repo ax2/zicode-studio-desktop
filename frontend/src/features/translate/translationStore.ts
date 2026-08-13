@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { TranslationResult } from "./translationLogic";
 
 export interface TranslationScope {
@@ -128,7 +129,7 @@ export function createTranslationStore(options: TranslationOptions) {
         set({ result, editedText: result.translated, busy: false });
         notify(t("Translation complete"));
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 

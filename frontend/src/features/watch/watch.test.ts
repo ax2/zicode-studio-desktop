@@ -107,4 +107,17 @@ describe("watch store", () => {
     );
     expect(notify).toHaveBeenCalledWith("Watcher removed");
   });
+
+  it("localizes backend URL errors", async () => {
+    setLocale("zh-CN");
+    const gateway = stubGateway({
+      add: vi.fn(async () => {
+        throw new Error("URL host resolves to a private address 127.0.0.1");
+      }),
+    });
+    const { store } = createStore(gateway);
+    store.getState().setDraft({ draftName: "Bad", draftUrl: "http://127.0.0.1" });
+    await store.getState().add();
+    expect(store.getState().error).toBe("该网址无效或无法访问。");
+  });
 });

@@ -66,4 +66,28 @@ describe("host error localization", () => {
     );
     expect(friendlyPluginError(new Error("some other failure"))).toBe("some other failure");
   });
+
+  it("maps web-watch, translation and missing-record backend errors", () => {
+    setLocale("zh-CN");
+    expect(
+      friendlyPluginError(new Error("URL host resolves to a private address 127.0.0.1")),
+    ).toBe("该网址无效或无法访问。");
+    expect(friendlyPluginError(new Error("Only http and https URLs are supported"))).toBe(
+      "该网址无效或无法访问。",
+    );
+    expect(friendlyPluginError(new Error("Page is unreachable: connection refused"))).toBe(
+      "无法访问该网页。",
+    );
+    expect(
+      friendlyPluginError(new Error("Translation model key is not configured for this scene")),
+    ).toBe("当前场景尚未配置翻译模型。");
+    expect(friendlyPluginError(new Error("Model gateway is unreachable: timeout"))).toBe(
+      "翻译服务暂时不可用，请稍后重试。",
+    );
+    expect(
+      friendlyPluginError(new Error("Text exceeds the 50000 character translation limit")),
+    ).toBe("文本过长。");
+    expect(friendlyPluginError(new Error("Watcher not found"))).toBe("找不到该条目。");
+    expect(friendlyPluginError(new Error("Habit not found"))).toBe("找不到该条目。");
+  });
 });

@@ -58,15 +58,16 @@ describe("translation store", () => {
     expect(store.getState().text).toBe("你好");
   });
 
-  it("surfaces gateway errors", async () => {
+  it("localizes model configuration errors", async () => {
+    setLocale("zh-CN");
     const gateway = stubGateway({
       translate: vi.fn(async () => {
-        throw new Error("model not configured");
+        throw new Error("Translation model key is not configured for this scene");
       }),
     });
     const { store } = createStore(gateway);
     store.getState().setText("Hello");
     await store.getState().run();
-    expect(store.getState().error).toBe("model not configured");
+    expect(store.getState().error).toBe("当前场景尚未配置翻译模型。");
   });
 });

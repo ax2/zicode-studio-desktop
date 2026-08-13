@@ -33,6 +33,42 @@ export function localizeHostError(error: unknown): Error {
 export function friendlyPluginError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const lowered = message.toLowerCase();
+  // Web Watch: URL validation.
+  if (
+    /url is invalid|only http and https|url has no host|url host cannot be resolved|url host resolves to a private/.test(
+      lowered,
+    )
+  ) {
+    return t("The URL is invalid or cannot be accessed.");
+  }
+  // Web Watch: page fetch failures (before the generic "cannot read" below).
+  if (
+    /page is unreachable|cannot read page body|cannot build web client|page returned http|page exceeds/.test(
+      lowered,
+    )
+  ) {
+    return t("The page could not be reached.");
+  }
+  // Translation: missing model key.
+  if (/translation model key is not configured/.test(lowered)) {
+    return t("The translation model is not configured for this scene.");
+  }
+  // Translation: unreachable or empty model gateway response.
+  if (
+    /model gateway is unreachable|cannot build model client|model gateway error|cannot read model response|model returned an empty/.test(
+      lowered,
+    )
+  ) {
+    return t("The translation service is temporarily unavailable.");
+  }
+  // Translation: text length (before the generic "exceeds" file check).
+  if (/character (translation )?limit|text exceeds/.test(lowered)) {
+    return t("The text is too long.");
+  }
+  // Watch/Habits: missing record.
+  if (/watcher not found|habit not found/.test(lowered)) {
+    return t("The item was not found.");
+  }
   if (/cannot decode|invalid base64|invalid data|corrupt/.test(lowered)) {
     return t("The file could not be decoded.");
   }

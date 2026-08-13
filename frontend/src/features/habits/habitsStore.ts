@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import type { Habit, HabitEntry } from "./habitsLogic";
 
 export interface HabitsScope {
@@ -132,7 +133,7 @@ export function createHabitsStore(options: HabitsOptions) {
         const result = await gateway.list(getTarget());
         set({ habits: result.habits, entries: result.entries, busy: false });
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -150,7 +151,7 @@ export function createHabitsStore(options: HabitsOptions) {
         notify(t("Habit added"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -183,7 +184,7 @@ export function createHabitsStore(options: HabitsOptions) {
         notify(t("Habit updated"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -192,7 +193,7 @@ export function createHabitsStore(options: HabitsOptions) {
         await gateway.toggle(getTarget(), habitId, date);
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyPluginError(error) });
       }
     },
 
@@ -204,7 +205,7 @@ export function createHabitsStore(options: HabitsOptions) {
         notify(t("Habit removed"));
         await get().load();
       } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        set({ busy: false, error: friendlyPluginError(error) });
       }
     },
   }));
