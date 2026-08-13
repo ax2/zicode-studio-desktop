@@ -5253,6 +5253,18 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百五十九轮：仓库敏感信息扫描（2026-08-13）。
+
+1. 对全部 746 个 git 跟踪文件扫描 API Key/secret/password/token/私钥
+   等敏感模式：
+   - 命中 5 处均为测试夹具或占位符（qv-finance-secret、secret-runtime-
+     token、picot-device-token、frpc.toml change-me 注释、
+     sk-0123456789… 假 key），无真实凭据入库；
+   - 符合项目档案规则（技术文档不记录密码/私钥/令牌/凭据）；
+2. 运行状态：`/health` 200（pi 0.84.1、relay `dev-ax2-01` 在线），
+   日志无 ERROR/WARN/panic；
+3. 门禁：前端 861 项全绿；本轮无运行时代码改动。
+
 第四百五十八轮：Astro 发布入口门控实测（2026-08-13）。
 
 1. release 106 安装版：未选中笔记本时点击"构建 Astro 站点"：
