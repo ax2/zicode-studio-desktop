@@ -37,6 +37,7 @@ describe("translation store", () => {
       { text: "Hello", targetLang: "Chinese" },
     );
     expect(store.getState().result?.translated).toBe("你好");
+    expect(store.getState().editedText).toBe("你好");
     expect(notify).toHaveBeenCalledWith("Translation complete");
   });
 

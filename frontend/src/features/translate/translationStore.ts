@@ -62,6 +62,7 @@ export interface TranslationState {
   sourceLang: string;
   targetLang: string;
   result: TranslationResult | null;
+  editedText: string;
   busy: boolean;
   error: string;
   setText(value: string): void;
@@ -70,6 +71,7 @@ export interface TranslationState {
   swap(): void;
   run(): Promise<void>;
   copyResult(): Promise<void>;
+  setEditedText(value: string): void;
 }
 
 export interface TranslationOptions {
@@ -85,6 +87,7 @@ export function createTranslationStore(options: TranslationOptions) {
     sourceLang: "",
     targetLang: "Chinese",
     result: null,
+    editedText: "",
     busy: false,
     error: "",
 
@@ -121,7 +124,7 @@ export function createTranslationStore(options: TranslationOptions) {
           targetLang,
           ...(sourceLang ? { sourceLang } : {}),
         });
-        set({ result, busy: false });
+        set({ result, editedText: result.translated, busy: false });
         notify(t("Translation complete"));
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });
@@ -129,14 +132,18 @@ export function createTranslationStore(options: TranslationOptions) {
     },
 
     async copyResult() {
-      const { result } = get();
-      if (!result) return;
+      const { editedText } = get();
+      if (!editedText) return;
       try {
-        await navigator.clipboard?.writeText(result.translated);
+        await navigator.clipboard?.writeText(editedText);
         notify(t("Copied"));
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });
       }
+    },
+
+    setEditedText(value) {
+      set({ editedText: value });
     },
   }));
 }

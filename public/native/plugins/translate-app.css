@@ -80,6 +80,13 @@
 }
 
 .translate-result-text {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass-strong);
   margin: var(--space-3) 0 0;
   white-space: pre-wrap;
   word-break: break-word;

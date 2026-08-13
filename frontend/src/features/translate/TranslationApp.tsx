@@ -27,6 +27,7 @@ function TranslationMain({ store }: { store: TranslationStore }) {
   const sourceLang = store((state) => state.sourceLang);
   const targetLang = store((state) => state.targetLang);
   const result = store((state) => state.result);
+  const editedText = store((state) => state.editedText);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
 
@@ -113,9 +114,13 @@ function TranslationMain({ store }: { store: TranslationStore }) {
         </div>
         {result ? (
           <>
-            <p className="translate-result-text">{result.translated}</p>
+            <textarea
+              className="translate-result-text"
+              value={editedText}
+              onChange={(event) => store.getState().setEditedText(event.target.value)}
+            />
             <p className="translate-result-meta">
-              {result.model} · {result.targetLang} · {result.charCount} {t("characters")}
+              {result.model} · {result.targetLang} · {editedText.length} {t("characters")}
             </p>
           </>
         ) : (
