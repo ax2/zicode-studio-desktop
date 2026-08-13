@@ -163,6 +163,20 @@ function GraphMain({ store }: { store: GraphStore }) {
                 </ul>
               </section>
             ) : null}
+
+            {(data?.similar?.length ?? 0) > 0 ? (
+              <section className="ui-card graph-side-card">
+                <h2>{t("Similar notes")}</h2>
+                <ul className="graph-conflict-list">
+                  {data?.similar.map((pair, index) => (
+                    <li key={index} className="graph-conflict">
+                      <strong>{pair.leftTitle} ↔ {pair.rightTitle}</strong>
+                      <span>{pair.sharedTags.join(", ")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
           </aside>
         </div>
       ) : (
