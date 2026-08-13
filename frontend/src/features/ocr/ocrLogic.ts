@@ -6,6 +6,13 @@ export interface OcrResult {
   charCount: number;
 }
 
+export const OCR_LANGUAGES = [
+  { id: "", name: "Auto-detect" },
+  { id: "en-US", name: "English" },
+  { id: "zh-CN", name: "Chinese" },
+  { id: "ja-JP", name: "Japanese" },
+];
+
 export function downscaleImage(file: File, maxEdge = 2400): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

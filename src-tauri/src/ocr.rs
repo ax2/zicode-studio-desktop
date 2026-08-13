@@ -41,7 +41,14 @@ $stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Wind
 $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
 $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
 
-$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+$language = $env:ZICODE_OCR_LANGUAGE
+$engine = $null
+if ($language) {
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new($language))
+}
+if ($null -eq $engine) {
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+}
 if ($null -eq $engine) {
     $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new('en-US'))
 }
@@ -57,6 +64,8 @@ $result.Text
 #[serde(rename_all = "camelCase")]
 pub struct OcrRequest {
     pub image: String,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -100,15 +109,20 @@ fn save_temp_png(img: &image::DynamicImage) -> Result<PathBuf, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn run_windows_ocr(png_path: &Path) -> Result<String, String> {
-    let output = crate::process_command::new_command("powershell.exe")
+fn run_windows_ocr(png_path: &Path, language: Option<&str>) -> Result<String, String> {
+    let mut command = crate::process_command::new_command("powershell.exe");
+    command
         .args([
             "-NoProfile",
             "-NonInteractive",
             "-Command",
             WINDOWS_OCR_SCRIPT,
         ])
-        .env("ZICODE_OCR_IMAGE", png_path)
+        .env("ZICODE_OCR_IMAGE", png_path);
+    if let Some(language) = language.map(str::trim).filter(|value| !value.is_empty()) {
+        command.env("ZICODE_OCR_LANGUAGE", language);
+    }
+    let output = command
         .output()
         .map_err(|error| format!("Cannot start Windows OCR: {error}"))?;
     if !output.status.success() {
@@ -132,14 +146,14 @@ fn run_windows_ocr(png_path: &Path) -> Result<String, String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn run_windows_ocr(_png_path: &Path) -> Result<String, String> {
+fn run_windows_ocr(_png_path: &Path, _language: Option<&str>) -> Result<String, String> {
     Err("OCR is only available on Windows".to_string())
 }
 
 pub fn extract_text(request: &OcrRequest, workspace_root: &Path) -> Result<OcrResult, String> {
     let img = decode_image(&request.image, workspace_root)?;
     let png_path = save_temp_png(&img)?;
-    let text = run_windows_ocr(&png_path)?;
+    let text = run_windows_ocr(&png_path, request.language.as_deref())?;
     let char_count = text.chars().count();
     std::fs::remove_file(&png_path).ok();
     Ok(OcrResult {

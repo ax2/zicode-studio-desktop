@@ -29,6 +29,7 @@ describe("ocr store", () => {
     expect(gateway.extract).toHaveBeenCalledWith(
       { sceneId: "programming", workspaceId: "ws-1" },
       "data:image/png;base64,AAAA",
+      undefined,
     );
     expect(store.getState().result?.text).toBe("Hello world");
     expect(store.getState().editedText).toBe("Hello world");

@@ -1888,7 +1888,8 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                                 "type": "object",
                                 "additionalProperties": false,
                                 "properties": {
-                                    "image": { "type": "string", "minLength": 1, "maxLength": 20000000 }
+                                    "image": { "type": "string", "minLength": 1, "maxLength": 20000000 },
+                                    "language": { "type": "string", "minLength": 1, "maxLength": 40 }
                                 },
                                 "required": ["image"]
                             }

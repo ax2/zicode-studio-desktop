@@ -8,7 +8,7 @@ export interface OcrScope {
 }
 
 export interface OcrGateway {
-  extract(scope: OcrScope, image: string): Promise<OcrResult>;
+  extract(scope: OcrScope, image: string, language?: string): Promise<OcrResult>;
 }
 
 export class OcrHttpGateway implements OcrGateway {
@@ -27,13 +27,13 @@ export class OcrHttpGateway implements OcrGateway {
     this.#location = location;
   }
 
-  async extract(scope: OcrScope, image: string): Promise<OcrResult> {
+  async extract(scope: OcrScope, image: string, language?: string): Promise<OcrResult> {
     const response = await this.#fetch(
       new URL("/v2/ocr/extract", this.#location.origin).toString(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...scope, image }),
+        body: JSON.stringify({ ...scope, image, language }),
       },
     );
     if (!response.ok) {
@@ -55,11 +55,13 @@ export interface OcrState {
   fileName: string;
   result: OcrResult | null;
   editedText: string;
+  language: string;
   busy: boolean;
   error: string;
   setImage(image: string, fileName: string): void;
   clear(): void;
   setEditedText(value: string): void;
+  setLanguage(value: string): void;
   run(): Promise<void>;
   copy(): Promise<void>;
 }
@@ -77,6 +79,7 @@ export function createOcrStore(options: OcrOptions) {
     fileName: "",
     result: null,
     editedText: "",
+    language: "",
     busy: false,
     error: "",
 
@@ -92,12 +95,16 @@ export function createOcrStore(options: OcrOptions) {
       set({ editedText: value });
     },
 
+    setLanguage(value) {
+      set({ language: value });
+    },
+
     async run() {
-      const { image, busy } = get();
+      const { image, language, busy } = get();
       if (!image || busy) return;
       set({ busy: true, error: "", result: null });
       try {
-        const result = await gateway.extract(getTarget(), image);
+        const result = await gateway.extract(getTarget(), image, language || undefined);
         set({ result, editedText: result.text, busy: false });
         notify(t("Text extracted"));
       } catch (error) {

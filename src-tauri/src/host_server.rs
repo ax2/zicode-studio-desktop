@@ -2589,6 +2589,8 @@ struct ExtractTextRequest {
     scene_id: String,
     workspace_id: String,
     image: String,
+    #[serde(default)]
+    language: Option<String>,
 }
 
 async fn extract_text_http(
@@ -2608,6 +2610,7 @@ async fn extract_text_http(
         })?;
     let input = crate::ocr::OcrRequest {
         image: request.image,
+        language: request.language,
     };
     let result = crate::ocr::extract_text(&input, &workspace_root)
         .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "ocr_failed", &error))?;

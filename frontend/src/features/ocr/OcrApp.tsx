@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
-import { downscaleImage } from "./ocrLogic";
+import { downscaleImage, OCR_LANGUAGES } from "./ocrLogic";
 import { createOcrStore, type OcrOptions, type OcrStore } from "./ocrStore";
 
 export type OcrAppApi = {
@@ -24,6 +24,7 @@ function OcrMain({ store }: { store: OcrStore }) {
   const fileName = store((state) => state.fileName);
   const result = store((state) => state.result);
   const editedText = store((state) => state.editedText);
+  const language = store((state) => state.language);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -81,6 +82,19 @@ function OcrMain({ store }: { store: OcrStore }) {
             <img className="ocr-preview" src={image} alt={fileName} />
             <div className="ocr-preview-actions">
               <span className="ocr-file-name">{fileName}</span>
+              <label className="settings-field">
+                <span>{t("OCR language")}</span>
+                <select
+                  value={language}
+                  onChange={(event) => store.getState().setLanguage(event.target.value)}
+                >
+                  {OCR_LANGUAGES.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {t(candidate.name)}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 className="ui-button ui-button--primary ui-button--sm"
