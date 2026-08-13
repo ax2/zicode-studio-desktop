@@ -130,6 +130,7 @@ const DIAGNOSTICS = `(() => {
 async function diagnose(cdp, name, url, viewport) {
   await openPage(cdp, url);
   let shortcutActive = null;
+  let notesEditor = null;
   // For the notes app, open the first note so the editor (and its toolbar,
   // which was reported as top-clipped) is actually rendered.
   if (name === "notes") {
@@ -144,6 +145,34 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     await sleep(1500);
+    const beforeEdit = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const preview = !!document.querySelector(".notes-preview");
+        const toolbarButtons = Array.from(
+          document.querySelectorAll(".notes-editor-toolbar button"),
+        )
+          .map((button) => button.getAttribute("aria-label") || button.textContent?.trim())
+          .filter(Boolean);
+        document.querySelector(".notes-edit-tab")?.click();
+        return { preview, toolbarButtons };
+      })()`,
+      returnByValue: true,
+    });
+    await sleep(700);
+    const afterEdit = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const textarea = !!document.querySelector(".notes-content-input");
+        const tagEditor = !!document.querySelector(".notes-tag-editor");
+        return { textarea, tagEditor };
+      })()`,
+      returnByValue: true,
+    });
+    notesEditor = {
+      previewDefault: beforeEdit?.result?.value?.preview ?? null,
+      editMode: afterEdit?.result?.value?.textarea ?? null,
+      tagEditor: afterEdit?.result?.value?.tagEditor ?? null,
+      toolbarButtons: beforeEdit?.result?.value?.toolbarButtons ?? [],
+    };
   }
   // For the chat app, exercise the Ctrl/Cmd+digit app-switch shortcut.
   if (name === "chat") {
@@ -172,7 +201,7 @@ async function diagnose(cdp, name, url, viewport) {
   mkdirSync(OUT_DIR, { recursive: true });
   const file = join(OUT_DIR, `${name}-${viewport.width}x${viewport.height}.png`);
   writeFileSync(file, Buffer.from(screenshot.data, "base64"));
-  return { name, url, viewport, shortcutActive, ...result, screenshot: file };
+  return { name, url, viewport, shortcutActive, notesEditor, ...result, screenshot: file };
 }
 
 async function main() {
@@ -269,6 +298,7 @@ async function main() {
             bodyText: result.bodyText,
             activityList: result.activityListInfo,
             shortcutActive: result.shortcutActive,
+            notesEditor: result.notesEditor,
           }),
         );
       }
