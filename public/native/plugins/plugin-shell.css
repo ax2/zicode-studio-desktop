@@ -81,7 +81,15 @@
 
 .plugin-activity-button.active {
   color: var(--accent-text);
-  background: var(--accent-subtle);
+  /* The theme's --accent-subtle is often weaker than --bg-glass-hover,
+     which made the active app/settings icon look unselected. Tint with the
+     accent color directly so the active state reads clearly in every theme
+     while the hover rule above stays distinct. */
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.plugin-activity-button.active:hover {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .plugin-activity-button.active::before {
