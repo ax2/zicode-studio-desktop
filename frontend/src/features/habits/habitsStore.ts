@@ -93,9 +93,13 @@ export interface HabitsState {
   draftName: string;
   draftEmoji: string;
   draftColor: string;
+  editingId: string | null;
   setDraft(patch: Partial<Pick<HabitsState, "draftName" | "draftEmoji" | "draftColor">>): void;
   load(): Promise<void>;
   addHabit(): Promise<void>;
+  startEdit(habit: Habit): void;
+  cancelEdit(): void;
+  saveEdit(): Promise<void>;
   toggle(habitId: string, date: string): Promise<void>;
   remove(habitId: string): Promise<void>;
 }
@@ -116,6 +120,7 @@ export function createHabitsStore(options: HabitsOptions) {
     draftName: "",
     draftEmoji: "✅",
     draftColor: "#4f8cff",
+    editingId: null,
 
     setDraft(patch) {
       set({ ...patch, error: "" });
@@ -143,6 +148,39 @@ export function createHabitsStore(options: HabitsOptions) {
         });
         set({ draftName: "", busy: false });
         notify(t("Habit added"));
+        await get().load();
+      } catch (error) {
+        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    startEdit(habit) {
+      set({
+        editingId: habit.id,
+        draftName: habit.name,
+        draftEmoji: habit.emoji,
+        draftColor: habit.color,
+        error: "",
+      });
+    },
+
+    cancelEdit() {
+      set({ editingId: null, draftName: "", draftEmoji: "✅", draftColor: "#4f8cff" });
+    },
+
+    async saveEdit() {
+      const { editingId, draftName, draftEmoji, draftColor, busy } = get();
+      if (!editingId || !draftName.trim() || busy) return;
+      set({ busy: true, error: "" });
+      try {
+        await gateway.upsert(getTarget(), {
+          id: editingId,
+          name: draftName,
+          emoji: draftEmoji,
+          color: draftColor,
+        });
+        set({ busy: false, editingId: null, draftName: "" });
+        notify(t("Habit updated"));
         await get().load();
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });

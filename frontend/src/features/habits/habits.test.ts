@@ -66,6 +66,19 @@ describe("habits store", () => {
     expect(notify).toHaveBeenCalledWith("Habit added");
   });
 
+  it("edits an existing habit", async () => {
+    const gateway = stubGateway();
+    const { store, notify } = createStore(gateway);
+    store.getState().startEdit(HABIT);
+    store.getState().setDraft({ draftName: "Read daily" });
+    await store.getState().saveEdit();
+    expect(gateway.upsert).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      { id: "h1", name: "Read daily", emoji: "📖", color: "#4f8cff" },
+    );
+    expect(notify).toHaveBeenCalledWith("Habit updated");
+  });
+
   it("toggles a date and removes a habit", async () => {
     const gateway = stubGateway();
     const { store, notify } = createStore(gateway);

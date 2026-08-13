@@ -30,6 +30,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
   const draftName = store((state) => state.draftName);
   const draftEmoji = store((state) => state.draftEmoji);
   const draftColor = store((state) => state.draftColor);
+  const editingId = store((state) => state.editingId);
 
   useEffect(() => {
     void store.getState().load();
@@ -110,24 +111,87 @@ function HabitsMain({ store }: { store: HabitsStore }) {
             {habits.map((habit) => {
               const streak = currentStreak(entries, habit.id);
               const habitDates = done.get(habit.id) ?? new Set<string>();
+              const editing = editingId === habit.id;
               return (
                 <li key={habit.id} className="habits-item">
-                  <div className="habits-item-head">
-                    <span className="habits-item-icon" style={{ background: habit.color }}>
-                      {habit.emoji}
-                    </span>
-                    <span className="habits-item-name">{habit.name}</span>
-                    <span className="habits-item-streak">
-                      {streak} {t("day streak")}
-                    </span>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--ghost ui-button--sm habits-delete"
-                      onClick={() => void store.getState().remove(habit.id)}
-                    >
-                      {t("Delete")}
-                    </button>
-                  </div>
+                  {editing ? (
+                    <div className="habits-edit">
+                      <input
+                        className="habits-name-input"
+                        value={draftName}
+                        aria-label={t("Habit name")}
+                        onChange={(event) =>
+                          store.getState().setDraft({ draftName: event.target.value })
+                        }
+                      />
+                      <div className="habits-picker" role="radiogroup" aria-label={t("Habit emoji")}>
+                        {EMOJIS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className={`habits-emoji${draftEmoji === emoji ? " is-active" : ""}`}
+                            aria-pressed={draftEmoji === emoji}
+                            onClick={() => store.getState().setDraft({ draftEmoji: emoji })}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="habits-picker" role="radiogroup" aria-label={t("Habit color")}>
+                        {COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={`habits-color${draftColor === color ? " is-active" : ""}`}
+                            aria-pressed={draftColor === color}
+                            style={{ background: color }}
+                            onClick={() => store.getState().setDraft({ draftColor: color })}
+                          />
+                        ))}
+                      </div>
+                      <div className="habits-edit-actions">
+                        <button
+                          type="button"
+                          className="ui-button ui-button--primary ui-button--sm"
+                          disabled={busy || !draftName.trim()}
+                          onClick={() => void store.getState().saveEdit()}
+                        >
+                          {t("Save")}
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--ghost ui-button--sm"
+                          onClick={() => store.getState().cancelEdit()}
+                        >
+                          {t("Cancel")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="habits-item-head">
+                      <span className="habits-item-icon" style={{ background: habit.color }}>
+                        {habit.emoji}
+                      </span>
+                      <span className="habits-item-name">{habit.name}</span>
+                      <span className="habits-item-streak">
+                        {streak} {t("day streak")}
+                      </span>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--ghost ui-button--sm"
+                        onClick={() => store.getState().startEdit(habit)}
+                      >
+                        {t("Edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--ghost ui-button--sm habits-delete"
+                        onClick={() => void store.getState().remove(habit.id)}
+                      >
+                        {t("Delete")}
+                      </button>
+                    </div>
+                  )}
                   <div className="habits-grid">
                     {dates.map((date) => {
                       const checked = habitDates.has(date);

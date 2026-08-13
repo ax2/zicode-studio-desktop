@@ -149,6 +149,7 @@ const zhCN = {
   "day streak": "天连续",
   "No habits yet": "还没有习惯",
   "Habit added": "已添加习惯",
+  "Habit updated": "已更新习惯",
   "Habit removed": "已删除习惯",
   Translate: "翻译",
   Translation: "翻译",
