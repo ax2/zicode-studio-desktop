@@ -211,6 +211,12 @@ export function createWatchStore(options: WatchOptions) {
           results: { ...state.results, ...results },
           busy: false,
         }));
+        notify(
+          t("Checked {count} watchers").replace(
+            "{count}",
+            String(Object.keys(results).length),
+          ),
+        );
         await get().load();
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });

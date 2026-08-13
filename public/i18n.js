@@ -189,6 +189,7 @@ const zhCN = {
   "Watch name": "监控名称",
   "Add watcher": "添加监控",
   "Check all": "全部检查",
+  "Checked {count} watchers": "已检查 {count} 个监控项",
   Changed: "已变化",
   Unchanged: "未变化",
   Changes: "次变化",
