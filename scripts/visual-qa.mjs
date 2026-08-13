@@ -238,6 +238,16 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     mobileMore = moreResult?.result?.value ?? null;
+    // Close the menu so the subsequent layout diagnostics measure the app,
+    // not the overlay.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.querySelector("[data-mobile-activity-menu-close]")?.click();
+        document.querySelector("[data-mobile-activity-backdrop]")?.click();
+        return true;
+      })()`,
+    });
+    await sleep(300);
   }
   const evaluated = await cdp.send("Runtime.evaluate", {
     expression: DIAGNOSTICS,
