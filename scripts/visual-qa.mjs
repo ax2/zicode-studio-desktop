@@ -244,6 +244,31 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     appForm = researchResult?.result?.value ?? null;
+    // Also verify the paper-trading "Create account" form.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const item = Array.from(document.querySelectorAll(".finance-nav-item")).find(
+          (button) => /模拟交易|Paper trading/.test(button.textContent || ""),
+        );
+        item?.click();
+        return !!item;
+      })()`,
+    });
+    await sleep(500);
+    const paperResult = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const form = document.querySelector('[data-finance-view="paper"] form');
+        if (!form) return { paperForm: false };
+        const inputs = Array.from(form.querySelectorAll("input"));
+        return {
+          paperForm: true,
+          inputs: inputs.length,
+          submit: !!form.querySelector('button[type="submit"]'),
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = { ...(appForm ?? {}), ...(paperResult?.result?.value ?? {}) };
   }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
