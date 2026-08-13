@@ -120,7 +120,9 @@ function TranslationMain({ store }: { store: TranslationStore }) {
               onChange={(event) => store.getState().setEditedText(event.target.value)}
             />
             <p className="translate-result-meta">
-              {result.model} · {result.targetLang} · {editedText.length} {t("characters")}
+              {result.sourceLang ? `${result.sourceLang} → ${result.targetLang}` : result.targetLang}
+              {" · "}
+              {result.model} · {editedText.length} {t("characters")}
             </p>
           </>
         ) : (
