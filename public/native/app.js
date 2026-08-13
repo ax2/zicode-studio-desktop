@@ -836,18 +836,11 @@ const clipboardApp = setupClipboardApp({
     }
     if (!notebookId) throw new Error("No notebook available");
     const trimmed = text.trim();
-    let title;
     if (/^https?:\/\//i.test(trimmed)) {
-      try {
-        const parsed = new URL(trimmed);
-        const lastSegment = parsed.pathname.split("/").filter(Boolean).pop();
-        title = lastSegment ? `${parsed.hostname}/${lastSegment}` : parsed.hostname;
-      } catch {
-        title = "Captured URL";
-      }
-    } else {
-      title = trimmed.split("\n")[0].slice(0, 80) || "Captured note";
+      await notesGateway.capture(sceneId, workspaceId, notebookId, { url: trimmed });
+      return;
     }
+    const title = trimmed.split("\n")[0].slice(0, 80) || "Captured note";
     await notesGateway.create(sceneId, workspaceId, notebookId, {
       title,
       content: trimmed,
