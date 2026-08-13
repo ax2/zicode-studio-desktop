@@ -108,6 +108,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     ],
   },
   {
+    id: "com.zicode.graph",
+    name: "Knowledge Graph",
+    description: "Visualize note links, backlinks, similar notes and conflicts.",
+    icon: "graph",
+    order: 106,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "graph.sidebar",
+        title: "Graph",
+        description: "Notes and their connections.",
+      },
+    ],
+    commands: [{ id: "graph.open", label: "Open Knowledge Graph", icon: "open" }],
+  },
+  {
     id: "com.zicode.idphoto",
     name: "ID Photo",
     description: "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",

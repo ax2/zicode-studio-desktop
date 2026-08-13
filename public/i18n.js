@@ -124,6 +124,15 @@ const zhCN = {
   "Item removed": "已删除条目",
   URL: "链接",
   Text: "文本",
+  "Knowledge Graph": "知识图谱",
+  Graph: "图谱",
+  "Visualize note links, backlinks, similar notes and conflicts.":
+    "可视化笔记链接、反向链接、相似笔记与冲突。",
+  "Notes and their connections.": "笔记及其关联。",
+  "Open Knowledge Graph": "打开知识图谱",
+  Conflicts: "冲突",
+  "Create links between notes by writing backlinks or sharing tags.":
+    "通过反向链接或共享标签在笔记之间建立关联。",
   "Layout: {cols} cols × {rows} rows · {count} photos":
     "排版：{cols}列 × {rows}行 · 共{count}张",
   "ID photo layout result": "证件照排版结果",

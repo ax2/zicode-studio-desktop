@@ -5175,7 +5175,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 11);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 12);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

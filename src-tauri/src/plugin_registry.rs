@@ -1866,6 +1866,31 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.graph",
+                "name": "Knowledge Graph",
+                "description": "Visualize note links, backlinks, similar notes and conflicts.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:graph.main"],
+                "contributes": {
+                    "activities": [{ "id": "graph", "title": "Knowledge Graph", "order": 106 }],
+                    "views": [
+                        { "id": "graph.sidebar", "activity": "graph", "location": "sidebar", "title": "Graph" },
+                        { "id": "graph.main", "activity": "graph", "location": "main", "title": "Knowledge Graph" }
+                    ],
+                    "commands": [{ "id": "graph.open", "title": "Open Knowledge Graph" }]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "Read note links and similarity data" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.idphoto",
                 "name": "ID Photo",
                 "description": "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",
@@ -2305,7 +2330,7 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 11);
+        assert_eq!(registry.list("programming").len(), 12);
         assert_eq!(registry.capabilities("programming").len(), 10);
         assert!(registry
             .pi_tools("programming")
