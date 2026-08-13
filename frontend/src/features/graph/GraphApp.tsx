@@ -35,6 +35,12 @@ function groupColor(nodes: GraphNode[], node: GraphNode): string {
   return GROUP_COLORS[index % GROUP_COLORS.length];
 }
 
+function conflictReasonLabel(reason: string): string {
+  if (reason === "source_changed") return t("Source changed");
+  if (reason === "duplicate_title") return t("Duplicate title");
+  return reason;
+}
+
 function GraphNav() {
   return <nav className="graph-nav" aria-label={t("Knowledge Graph")} />;
 }
@@ -151,7 +157,7 @@ function GraphMain({ store }: { store: GraphStore }) {
                   {data?.conflicts.map((conflict, index) => (
                     <li key={index} className="graph-conflict">
                       <strong>{conflict.leftTitle} ↔ {conflict.rightTitle}</strong>
-                      <span>{conflict.reason}</span>
+                      <span>{conflictReasonLabel(conflict.reason)}</span>
                     </li>
                   ))}
                 </ul>

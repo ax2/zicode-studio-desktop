@@ -136,6 +136,8 @@ const zhCN = {
   "Notes and their connections.": "笔记及其关联。",
   "Open Knowledge Graph": "打开知识图谱",
   Conflicts: "冲突",
+  "Source changed": "来源已变化",
+  "Duplicate title": "标题重复",
   "Create links between notes by writing backlinks or sharing tags.":
     "通过反向链接或共享标签在笔记之间建立关联。",
   Habits: "习惯",
