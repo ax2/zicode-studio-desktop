@@ -74,6 +74,20 @@ relay 端口，默认 49160–49167 具体端口集）→ 启用服务 → 打�
 中继数据回环验证（需 root，读取 `/etc/turnserver.conf` 的 auth-secret；
 短时重复运行会占满 8 个中继端口，等分配过期或重启 coturn 后再测）。
 
+**扩容中继端口段**：默认只有 UDP 49160–49167（8 个端口），每个并发 TURN
+分配占用 1–2 个端口，多设备同时访问时容易耗尽（coturn 日志
+`create_relay_ioa_sockets: no available ports`）。扩容步骤：
+
+1. 先在阿里云安全组放行目标端口段（如 UDP 49160–49199，40 个具体端口），
+   再改服务器配置，顺序不能反，否则中继分配落在未放行端口上会不可达；
+2. 服务器执行（替换端口段后重启）：
+   `sed -i 's/^max-port=.*/max-port=49199/' /etc/turnserver.conf &&
+   systemctl restart coturn`；
+3. 确认 `ufw allow 49160:49199/udp`（若 ufw 激活）与 `ss -lun | grep
+   3478` 正常，桌面设置页"测试 TURN 连接"仍为 ok；后续重建部署时用
+   `ZICODE_TURN_RELAY_MIN_PORT` / `ZICODE_TURN_RELAY_MAX_PORT` 保持同一
+   端口段。
+
 ### TURN 401 故障排查（auth-secret 不一致 / 客户端凭据构造）
 
 设置页"测试 TURN 连接"返回 unauthenticated 时，依次排查两类根因：
