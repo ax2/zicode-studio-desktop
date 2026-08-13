@@ -220,7 +220,7 @@
 
 /* Open project in external app (VS Code / Cursor / Terminal / …) */
 .archived-delete-all-btn {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 20px;
@@ -234,9 +234,13 @@
   cursor: pointer;
   line-height: 0;
   flex-shrink: 0;
+  opacity: 0;
+  visibility: hidden;
   transition:
     color var(--duration) var(--ease),
-    background var(--duration) var(--ease);
+    background var(--duration) var(--ease),
+    opacity var(--duration) var(--ease),
+    visibility var(--duration) var(--ease);
 }
 
 .archived-delete-all-btn svg {
@@ -250,7 +254,14 @@
 }
 
 .archived-header:hover .archived-delete-all-btn {
-  display: flex;
+  opacity: 1;
+  visibility: visible;
+}
+
+.archived-header:focus-within .archived-delete-all-btn,
+.archived-delete-all-btn:focus-visible {
+  opacity: 1;
+  visibility: visible;
 }
 
 .archived-delete-all-btn:hover {

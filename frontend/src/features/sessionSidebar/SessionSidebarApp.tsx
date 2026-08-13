@@ -606,6 +606,7 @@ export function SessionSidebarApp({
             <span className="project-count">{archivedSessions.length}</span>
             <button
               className="archived-delete-all-btn"
+              tabIndex={0}
               title={t("Delete all archived sessions")}
               aria-label={t("Delete all archived sessions")}
               onClick={(event) => {
