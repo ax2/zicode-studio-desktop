@@ -16,6 +16,7 @@ mod image_tools;
 mod metadata_store;
 mod native_pi_manager;
 mod notes_vault;
+mod ocr;
 mod p2p;
 mod pi_launch;
 mod pi_rpc_bridge;

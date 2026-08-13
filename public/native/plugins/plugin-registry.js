@@ -172,6 +172,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     commands: [{ id: "watch.open", label: "Open Web Watch", icon: "open" }],
   },
   {
+    id: "com.zicode.ocr",
+    name: "OCR",
+    description: "Extract text from screenshots and images using the system OCR engine.",
+    icon: "ocr",
+    order: 110,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "ocr.sidebar",
+        title: "OCR",
+        description: "Extract text from screenshots and images.",
+      },
+    ],
+    commands: [{ id: "ocr.open", label: "Open Text Extraction", icon: "open" }],
+  },
+  {
     id: "com.zicode.idphoto",
     name: "ID Photo",
     description: "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",

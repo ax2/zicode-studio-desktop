@@ -48,6 +48,7 @@ async function run() {
   habits: path.join(root, "frontend/src/features/habits/index.ts"),
   translate: path.join(root, "frontend/src/features/translate/index.ts"),
   watch: path.join(root, "frontend/src/features/watch/index.ts"),
+  ocr: path.join(root, "frontend/src/features/ocr/index.ts"),
   chat: path.join(root, "frontend/src/features/chat/index.ts"),
       composer: path.join(root, "frontend/src/features/composer/index.ts"),
       "session-sidebar": path.join(

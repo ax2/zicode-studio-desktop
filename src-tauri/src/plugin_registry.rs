@@ -1866,6 +1866,62 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.ocr",
+                "name": "OCR",
+                "description": "Extract text from screenshots and images using the system OCR engine.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:ocr.workbench", "onCapability:ocr.text"],
+                "contributes": {
+                    "activities": [{ "id": "ocr", "title": "OCR", "order": 110 }],
+                    "views": [
+                        { "id": "ocr.sidebar", "activity": "ocr", "location": "sidebar", "title": "OCR" },
+                        { "id": "ocr.workbench", "activity": "ocr", "location": "main", "title": "Text Extraction" }
+                    ],
+                    "commands": [{ "id": "ocr.open", "title": "Open Text Extraction" }],
+                    "capabilities": [
+                        {
+                            "id": "ocr.text",
+                            "title": "Extract text from image",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "image": { "type": "string", "minLength": 1, "maxLength": 20000000 }
+                                },
+                                "required": ["image"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "ocr_text",
+                            "title": "Extract text from image",
+                            "description": "Recognize text in a screenshot or image (a data URL or local file path).",
+                            "capability": "ocr.text",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "image": { "type": "string" }
+                                },
+                                "required": ["image"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "Read the selected image for OCR" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose OCR to Pi" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.watch",
                 "name": "Web Watch",
                 "description": "Detect when public web pages change with content hash checks.",
@@ -2550,8 +2606,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 15);
-        assert_eq!(registry.capabilities("programming").len(), 15);
+        assert_eq!(registry.list("programming").len(), 16);
+        assert_eq!(registry.capabilities("programming").len(), 16);
         assert!(registry
             .pi_tools("programming")
             .iter()

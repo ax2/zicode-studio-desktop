@@ -185,6 +185,16 @@ const zhCN = {
   "No watchers yet": "还没有监控",
   "Watcher added": "已添加监控",
   "Watcher removed": "已删除监控",
+  OCR: "文字识别",
+  "Text Extraction": "文字提取",
+  "Extract text from screenshots and images using the system OCR engine.":
+    "使用系统 OCR 引擎从截图和图片中提取文字。",
+  "Extract text from screenshots and images.": "从截图和图片中提取文字。",
+  "Open Text Extraction": "打开文字提取",
+  "Extract text": "提取文字",
+  "Extracting…": "提取中…",
+  "No text extracted yet": "还没有提取到文字",
+  "Text extracted": "已提取文字",
   "Layout: {cols} cols × {rows} rows · {count} photos":
     "排版：{cols}列 × {rows}行 · 共{count}张",
   "ID photo layout result": "证件照排版结果",

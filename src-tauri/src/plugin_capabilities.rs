@@ -299,6 +299,9 @@ impl CapabilityBroker {
             ("com.zicode.watch", "watch.check") => {
                 self.check_watch(&invocation.workspace_id, &invocation.input)
             }
+            ("com.zicode.ocr", "ocr.text") => {
+                self.extract_text(&invocation.workspace_id, &invocation.input)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
     }
@@ -506,6 +509,22 @@ impl CapabilityBroker {
             CapabilityError::new(
                 "serialization_failed",
                 format!("Cannot serialize watch result: {error}"),
+            )
+        })
+    }
+
+    fn extract_text(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let request: crate::ocr::OcrRequest =
+            serde_json::from_value(input.clone()).map_err(|error| {
+                CapabilityError::new("invalid_parameters", format!("Invalid OCR input: {error}"))
+            })?;
+        let result = crate::ocr::extract_text(&request, &workspace_root)
+            .map_err(|error| CapabilityError::new("ocr_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize OCR result: {error}"),
             )
         })
     }

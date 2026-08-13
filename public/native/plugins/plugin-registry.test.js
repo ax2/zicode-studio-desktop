@@ -25,6 +25,7 @@ describe("BuiltinPluginRegistry", () => {
       "com.zicode.translate",
       "com.zicode.habits",
       "com.zicode.watch",
+      "com.zicode.ocr",
       "com.zicode.idphoto",
       "com.zicode.imagetools",
       "com.zicode.clipboard",

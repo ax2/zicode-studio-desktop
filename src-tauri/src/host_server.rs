@@ -404,6 +404,10 @@ impl HostServer {
             .route("/v2/watch/add", post(add_watch_http))
             .route("/v2/watch/check", post(check_watch_http))
             .route("/v2/watch/remove", post(remove_watch_http))
+            .route(
+                "/v2/ocr/extract",
+                post(extract_text_http).layer(DefaultBodyLimit::max(MAX_IDPHOTO_HTTP_BODY_BYTES)),
+            )
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2557,6 +2561,42 @@ async fn remove_watch_http(
     Ok(Json(json!({ "removed": removed, "id": request.id })))
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExtractTextRequest {
+    scene_id: String,
+    workspace_id: String,
+    image: String,
+}
+
+async fn extract_text_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ExtractTextRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_ocr_authorized(&state, &request.scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&request.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let input = crate::ocr::OcrRequest {
+        image: request.image,
+    };
+    let result = crate::ocr::extract_text(&input, &workspace_root)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "ocr_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize OCR result",
+        )
+    })?))
+}
+
 async fn import_markdown_note(
     State(state): State<Arc<HostState>>,
     Json(request): Json<ImportMarkdownRequest>,
@@ -4707,6 +4747,40 @@ fn ensure_watch_authorized(
     Ok(())
 }
 
+fn ensure_ocr_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.ocr")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "OCR is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "OCR storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -5534,7 +5608,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 15);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 16);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

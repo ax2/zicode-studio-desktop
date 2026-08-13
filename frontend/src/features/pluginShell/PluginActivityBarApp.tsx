@@ -83,6 +83,10 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["circle", { cx: "12", cy: "12", r: "3" }],
     ["path", { d: "M12 4 14 8M20 12l-4 2M12 20l-2-4M4 12l4-2" }],
   ],
+  ocr: [
+    ["path", { d: "M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" }],
+    ["path", { d: "M7 9h10M7 13h7M7 17h4" }],
+  ],
   plugins: [
     ["path", { d: "M8 3v4M16 3v4M5 7h14v5a7 7 0 0 1-14 0Z" }],
     ["path", { d: "M9 21v-3M15 21v-3" }],
