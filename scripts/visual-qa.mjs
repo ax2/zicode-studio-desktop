@@ -132,6 +132,7 @@ async function diagnose(cdp, name, url, viewport) {
   let shortcutActive = null;
   let notesEditor = null;
   let appForm = null;
+  let mobileMore = null;
   // For the notes app, open the first note so the editor (and its toolbar,
   // which was reported as top-clipped) is actually rendered.
   if (name === "notes") {
@@ -213,6 +214,31 @@ async function diagnose(cdp, name, url, viewport) {
     });
     appForm = formResult?.result?.value ?? null;
   }
+  // On the mobile shell, exercise the "More" application menu.
+  if (viewport.width < 700) {
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.querySelector("[data-mobile-activity-more]")?.click();
+        return true;
+      })()`,
+    });
+    await sleep(400);
+    const moreResult = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const menu = document.querySelector("[data-mobile-activity-menu]");
+        const items = Array.from(
+          menu?.querySelectorAll("[data-mobile-plugin-id]") ?? [],
+        ).map((item) => item.getAttribute("aria-label") || item.textContent?.trim());
+        return {
+          open: !!menu && !menu.hasAttribute("hidden"),
+          itemCount: items.length,
+          items,
+        };
+      })()`,
+      returnByValue: true,
+    });
+    mobileMore = moreResult?.result?.value ?? null;
+  }
   const evaluated = await cdp.send("Runtime.evaluate", {
     expression: DIAGNOSTICS,
     returnByValue: true,
@@ -225,7 +251,7 @@ async function diagnose(cdp, name, url, viewport) {
   mkdirSync(OUT_DIR, { recursive: true });
   const file = join(OUT_DIR, `${name}-${viewport.width}x${viewport.height}.png`);
   writeFileSync(file, Buffer.from(screenshot.data, "base64"));
-  return { name, url, viewport, shortcutActive, notesEditor, appForm, ...result, screenshot: file };
+  return { name, url, viewport, shortcutActive, notesEditor, appForm, mobileMore, ...result, screenshot: file };
 }
 
 async function main() {
@@ -324,6 +350,7 @@ async function main() {
             shortcutActive: result.shortcutActive,
             notesEditor: result.notesEditor,
             appForm: result.appForm,
+            mobileMore: result.mobileMore,
           }),
         );
       }
