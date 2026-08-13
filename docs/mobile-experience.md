@@ -5253,6 +5253,24 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百六十七轮：release 第一百零七次重建（含 451–466 轮修复，2026-08-13）。
+
+1. 让生产安装包与 main 同步：`bun run build`（tauri build --bundles nsis，
+   beforeBuildCommand 命中本地缓存）构建 release 107；
+2. 产物：EXE 41,985,536 B（SHA-256 `A7727238…`）、安装包
+   347,019,789 B（`AFEB68C7…`）、内置中继 1,805,312 B
+   （`1096EEF5…`），完整哈希与逐项验证见
+   `docs/release-validation-2026-08-05.md`；
+3. 验证：`/S` 静默重装后从安装目录启动——`/health` 200（pi 0.84.1、
+   协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），日志
+   `relay access enabled`、自启动以来无 ERROR/WARN/panic；安装目录
+   public 含 461–466 轮修复文件（notes.js 过滤修复、mobile.css `:has`
+   规则、plugin-shell accent 色调、conversation-note skill）；
+4. 说明：安装 EXE 与构建产物同大小，NSIS 打包附加 bundle 信息故哈希
+   不同，属预期；
+5. 遗留：真机 M2 跨 NAT 验收；中继端口扩容（阿里云安全组）；签名/
+   自动更新（外部输入）。
+
 第四百六十六轮：笔记交互与多应用面核验（2026-08-13）。
 
 1. 默认视图：打开笔记默认进入"预览"（预览 tab 高亮、编辑器隐藏），

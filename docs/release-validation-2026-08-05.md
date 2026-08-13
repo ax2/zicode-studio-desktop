@@ -674,6 +674,40 @@ Authenticode 签名，对外分发前仍需受控发布流水线配置代码签�
     正确空态（修复前为"无法加载自动化/Pi 运行时连接已断开"）；
   - 运行期日志无 ERROR/WARN/panic。
 
+## 第一百零七次重建（2026-08-13，含第 451–466 轮修复）
+
+- 合入内容（第 451–466 轮）：
+  - TURN 设置面板/自测 UI 与 TURN 401 根因修复：桌面端 MI 构造（HMAC
+    只覆盖 MESSAGE-INTEGRITY 之前字节）+ REST 凭据保留 base64 `=` 填充
+    （`turn_probe.rs` / `remote_access_config.rs`），公网
+    `turn.remote.zicode.com:3478` ALLOCATE 实测通过、设置页"测试 TURN
+    连接"转绿；
+  - 活动栏 active 高亮改为 `color-mix(in srgb, var(--accent) 18%,
+    transparent)` 色调背景（深色主题下不再弱于 hover）；
+  - 笔记"过滤状态下新建笔记编辑器立即关闭"修复（`newNote()` 清除
+    标签/网页剪藏/搜索过滤并保持选中，新增回归测试）；
+  - 移动端侧栏展开时隐藏连接/直连圆点（`body:has(.sidebar:not(.collapsed))`
+    规则）；
+  - 门禁：前端 862 项（139 文件）、Rust 194 项（170+19+5，另 2 忽略）、
+    design 检查全绿；
+- 产物（release 107）：
+  - `target/release/zicode-studio-desktop.exe`：41,985,536 B，
+    SHA-256 `A772723825460205305C8C355332F09FD3753AB42BFED4290E47E787406AAA0D`
+  - `target/release/bundle/nsis/ZiCode Studio Desktop_0.1.0_x64-setup.exe`：
+    347,019,789 B，SHA-256
+    `AFEB68C7FE99C04E597985833C976CBE9D806D975B2630FD1361426F4D67B680`
+  - `target/release/zicode-relay.exe`：1,805,312 B，SHA-256
+    `1096EEF5144EE8D0B6707C6B3DB66D71ED1930EA4F5966DA638BE01AE2710212`
+- 验证：
+  - `/S` 静默重装后从安装目录启动：网关 `/health` 200（pi 0.84.1、
+    协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），日志
+    `relay access enabled`，自启动以来无 ERROR/WARN/panic（仅 INFO）；
+  - 安装目录 public 含 461–466 轮修复文件：notes.js 过滤修复、
+    mobile.css `:has` 规则、plugin-shell accent 色调背景、
+    conversation-note skill；
+  - 安装 EXE 与构建产物同大小（41,985,536 B；NSIS 打包附加 bundle 信息
+    故哈希不同，属预期）。
+
 ## 第一百零六次重建（2026-08-13，第 450 轮 config 提示过滤）
 
 - 合入第 450 轮：
