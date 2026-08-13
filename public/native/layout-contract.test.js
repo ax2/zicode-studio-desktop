@@ -863,6 +863,18 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("keeps native range sliders and checkboxes above the 24px touch target", () => {
+    expect(mobileCss).toMatch(
+      /input\[type="range"\]\s*\{\s*min-height:\s*var\(--space-10\)/,
+    );
+    expect(mobileCss).toMatch(
+      /input\[type="range"\]::-webkit-slider-thumb\s*\{\s*width:\s*24px[\s\S]*?height:\s*24px/,
+    );
+    expect(mobileCss).toMatch(
+      /input\[type="checkbox"\],\s*input\[type="radio"\]\s*\{\s*width:\s*24px[\s\S]*?height:\s*24px/,
+    );
+  });
+
   it("keeps anchored popovers on positioned containing blocks (no viewport-relative 100% offsets)", () => {
     // Composer card and input area stay positioned so absolute popovers resolve
     // against them instead of the viewport.

@@ -396,8 +396,33 @@
     font-size: var(--font-size-lg);
   }
 
+  /* Native range sliders (idphoto tolerance/border, imagetools quality/gap)
+     default to a ~16px track that is hard to drag on touch; enlarge the hit
+     area and thumb to the 24px WCAG minimum. */
+  input[type="range"] {
+    min-height: var(--space-10);
+    accent-color: var(--accent);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
   :is(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) {
     min-height: var(--space-10);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 24px;
+    height: 24px;
+    accent-color: var(--accent);
   }
 
   body[data-active-plugin="core.settings"] .plugin-main-view,
