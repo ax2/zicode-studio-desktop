@@ -2041,6 +2041,80 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.clipboard",
+                "name": "Clipboard",
+                "description": "A quick capture inbox for text and URLs before you organize them.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": [
+                    "onView:clipboard.inbox",
+                    "onCapability:clipboard.add",
+                    "onCapability:clipboard.list"
+                ],
+                "contributes": {
+                    "activities": [{ "id": "clipboard", "title": "Clipboard", "order": 255 }],
+                    "views": [
+                        { "id": "clipboard.sidebar", "activity": "clipboard", "location": "sidebar", "title": "Clipboard" },
+                        { "id": "clipboard.inbox", "activity": "clipboard", "location": "main", "title": "Clipboard Inbox" }
+                    ],
+                    "commands": [{ "id": "clipboard.open", "title": "Open Clipboard Inbox" }],
+                    "capabilities": [
+                        {
+                            "id": "clipboard.add",
+                            "title": "Add to clipboard inbox",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "text": { "type": "string", "minLength": 1, "maxLength": 200000 },
+                                    "source": { "type": "string", "maxLength": 64 }
+                                },
+                                "required": ["text"]
+                            }
+                        },
+                        {
+                            "id": "clipboard.list",
+                            "title": "List clipboard inbox",
+                            "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "clipboard_add",
+                            "title": "Add to clipboard inbox",
+                            "description": "Capture a piece of text or a URL into the workspace clipboard inbox for later organization.",
+                            "capability": "clipboard.add",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "text": { "type": "string" },
+                                    "source": { "type": "string" }
+                                },
+                                "required": ["text"]
+                            }
+                        },
+                        {
+                            "name": "clipboard_list",
+                            "title": "List clipboard inbox",
+                            "description": "List the current clipboard inbox items in this workspace.",
+                            "capability": "clipboard.list",
+                            "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "Store captured clipboard items" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose the clipboard inbox to Pi" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.documents",
                 "name": "Documents",
                 "description": "Import PDF and DOCX files as readable Markdown.",
@@ -2231,8 +2305,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 10);
-        assert_eq!(registry.capabilities("programming").len(), 8);
+        assert_eq!(registry.list("programming").len(), 11);
+        assert_eq!(registry.capabilities("programming").len(), 10);
         assert!(registry
             .pi_tools("programming")
             .iter()

@@ -107,6 +107,23 @@ const zhCN = {
   "Open Image Tools": "打开图片工具",
   "Import PDF and DOCX files.": "导入 PDF 和 DOCX 文件。",
   "Open Document Import": "打开文档导入",
+  Clipboard: "剪贴板",
+  "Clipboard Inbox": "剪贴板收件箱",
+  "A quick capture inbox for text and URLs before you organize them.":
+    "用于整理前的文本和链接快速收件箱。",
+  "Capture text and URLs before you organize them.":
+    "先把文本和链接收进来，稍后再整理。",
+  "Open Clipboard Inbox": "打开剪贴板收件箱",
+  "Type or paste text": "输入或粘贴文本",
+  "Add to inbox": "添加到收件箱",
+  "Paste from clipboard": "从剪贴板粘贴",
+  "Clear all": "清空全部",
+  "No captured items yet": "还没有捕获的内容",
+  "Added to inbox": "已添加到收件箱",
+  "Inbox cleared": "已清空收件箱",
+  "Item removed": "已删除条目",
+  URL: "链接",
+  Text: "文本",
   "Layout: {cols} cols × {rows} rows · {count} photos":
     "排版：{cols}列 × {rows}行 · 共{count}张",
   "ID photo layout result": "证件照排版结果",

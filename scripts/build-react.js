@@ -43,6 +43,7 @@ async function run() {
   idphoto: path.join(root, "frontend/src/features/idphoto/index.ts"),
   imagetools: path.join(root, "frontend/src/features/imagetools/index.ts"),
   documents: path.join(root, "frontend/src/features/documents/index.ts"),
+  clipboard: path.join(root, "frontend/src/features/clipboard/index.ts"),
   chat: path.join(root, "frontend/src/features/chat/index.ts"),
       composer: path.join(root, "frontend/src/features/composer/index.ts"),
       "session-sidebar": path.join(

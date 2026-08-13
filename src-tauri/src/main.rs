@@ -3,6 +3,7 @@
 mod app_paths;
 mod artifact_store;
 mod backup_store;
+mod clipboard_inbox;
 mod credential_broker;
 mod document_import;
 mod e2ee;

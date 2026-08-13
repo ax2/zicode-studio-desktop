@@ -23,6 +23,7 @@ describe("BuiltinPluginRegistry", () => {
       "com.zicode.finance",
       "com.zicode.idphoto",
       "com.zicode.imagetools",
+      "com.zicode.clipboard",
       "com.zicode.documents",
       "com.zicode.artifacts",
     ]);

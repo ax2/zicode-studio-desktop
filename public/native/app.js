@@ -51,6 +51,7 @@ import { setupAutomationApp } from "./react/automation.js";
 import { setupIdPhotoApp } from "./react/idphoto.js";
 import { setupImageToolsApp } from "./react/imagetools.js";
 import { setupDocumentsApp } from "./react/documents.js";
+import { setupClipboardApp } from "./react/clipboard.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
 import { setupComposer } from "./react/composer.js";
@@ -802,6 +803,13 @@ const documentsApp = setupDocumentsApp({
     await notesGateway.importMarkdown(sceneId, workspaceId, notebookId, fileName, markdown);
   },
 });
+const clipboardApp = setupClipboardApp({
+  getTarget: () => ({
+    sceneId: target.sceneId,
+    workspaceId: target.workspaceId,
+  }),
+  notify: notifications.notify,
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   capabilityGateway: pluginCapabilityGateway,
@@ -822,6 +830,7 @@ pluginShell = setupPluginShell({
     "com.zicode.idphoto": idphotoApp,
     "com.zicode.imagetools": imageToolsApp,
     "com.zicode.documents": documentsApp,
+    "com.zicode.clipboard": clipboardApp,
   },
   pluginViewHost,
   openCommandPalette: () => commandButton?.click(),

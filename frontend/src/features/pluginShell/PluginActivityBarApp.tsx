@@ -60,6 +60,10 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["path", { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }],
     ["path", { d: "M14 2v6h6M9 13h6M9 17h6" }],
   ],
+  clipboard: [
+    ["path", { d: "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" }],
+    ["path", { d: "M9 2h6v4H9zM9 12h6M9 16h6" }],
+  ],
   plugins: [
     ["path", { d: "M8 3v4M16 3v4M5 7h14v5a7 7 0 0 1-14 0Z" }],
     ["path", { d: "M9 21v-3M15 21v-3" }],

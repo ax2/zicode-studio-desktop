@@ -140,6 +140,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     commands: [{ id: "imagetools.open", label: "Open Image Tools", icon: "open" }],
   },
   {
+    id: "com.zicode.clipboard",
+    name: "Clipboard",
+    description: "A quick capture inbox for text and URLs before you organize them.",
+    icon: "clipboard",
+    order: 255,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "clipboard.sidebar",
+        title: "Clipboard",
+        description: "Capture text and URLs before you organize them.",
+      },
+    ],
+    commands: [{ id: "clipboard.open", label: "Open Clipboard Inbox", icon: "open" }],
+  },
+  {
     id: "com.zicode.documents",
     name: "Documents",
     description: "Import PDF and DOCX files as readable Markdown.",

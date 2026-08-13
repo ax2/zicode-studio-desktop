@@ -391,6 +391,10 @@ impl HostServer {
                 post(import_document_http)
                     .layer(DefaultBodyLimit::max(MAX_DOCUMENT_HTTP_BODY_BYTES)),
             )
+            .route("/v2/clipboard", get(list_clipboard_http))
+            .route("/v2/clipboard/add", post(add_clipboard_http))
+            .route("/v2/clipboard/remove", post(remove_clipboard_http))
+            .route("/v2/clipboard/clear", post(clear_clipboard_http))
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2179,6 +2183,121 @@ async fn import_document_http(
             "Cannot serialize document result",
         )
     })?))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClipboardQuery {
+    scene_id: String,
+    workspace_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClipboardAddRequest {
+    scene_id: String,
+    workspace_id: String,
+    text: String,
+    #[serde(default)]
+    source: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClipboardRemoveRequest {
+    scene_id: String,
+    workspace_id: String,
+    id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClipboardClearRequest {
+    scene_id: String,
+    workspace_id: String,
+}
+
+async fn list_clipboard_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ClipboardQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_clipboard_authorized(&state, &query.scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&query.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let items = crate::clipboard_inbox::list(&workspace_root);
+    Ok(Json(json!({ "items": items })))
+}
+
+async fn add_clipboard_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ClipboardAddRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_clipboard_authorized(&state, &request.scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&request.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let item = crate::clipboard_inbox::add(
+        &workspace_root,
+        &request.text,
+        request.source.as_deref().unwrap_or("manual"),
+    )
+    .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "add_failed", &error))?;
+    Ok(Json(json!({ "item": item })))
+}
+
+async fn remove_clipboard_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ClipboardRemoveRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_clipboard_authorized(&state, &request.scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&request.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let removed = crate::clipboard_inbox::remove(&workspace_root, &request.id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "remove_failed", &error))?;
+    Ok(Json(json!({ "removed": removed, "id": request.id })))
+}
+
+async fn clear_clipboard_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<ClipboardClearRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_clipboard_authorized(&state, &request.scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&request.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let removed = crate::clipboard_inbox::clear(&workspace_root)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "clear_failed", &error))?;
+    Ok(Json(json!({ "removed": removed })))
 }
 
 async fn import_markdown_note(
@@ -4195,6 +4314,40 @@ fn ensure_documents_authorized(
     Ok(())
 }
 
+fn ensure_clipboard_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.clipboard")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Clipboard is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Clipboard storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -5022,7 +5175,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 10);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 11);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

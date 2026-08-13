@@ -280,6 +280,12 @@ impl CapabilityBroker {
             ("com.zicode.documents", "documents.import") => {
                 self.import_document(&invocation.workspace_id, &invocation.input)
             }
+            ("com.zicode.clipboard", "clipboard.add") => {
+                self.add_clipboard(&invocation.workspace_id, &invocation.input)
+            }
+            ("com.zicode.clipboard", "clipboard.list") => {
+                self.list_clipboard(&invocation.workspace_id)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
     }
@@ -376,6 +382,28 @@ impl CapabilityBroker {
                 format!("Cannot serialize document result: {error}"),
             )
         })
+    }
+
+    fn add_clipboard(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let text = input.get("text").and_then(Value::as_str).ok_or_else(|| {
+            CapabilityError::new("invalid_parameters", "Clipboard text is required")
+        })?;
+        let source = input.get("source").and_then(Value::as_str).unwrap_or("pi");
+        let item = crate::clipboard_inbox::add(&workspace_root, text, source)
+            .map_err(|error| CapabilityError::new("add_failed", error))?;
+        serde_json::to_value(item).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize clipboard item: {error}"),
+            )
+        })
+    }
+
+    fn list_clipboard(&self, workspace_id: &str) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let items = crate::clipboard_inbox::list(&workspace_root);
+        Ok(json!({ "items": items }))
     }
 
     fn invoke_developer_worker(
