@@ -65,10 +65,14 @@ impl StunMessage {
             cursor += 4 + value.len().next_multiple_of(4);
         }
         if let Some(key) = with_integrity {
+            let integrity_offset = cursor;
             write_u16(&mut message, cursor, ATTR_MESSAGE_INTEGRITY);
             write_u16(&mut message, cursor + 2, 20);
             let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(key).expect("hmac key");
-            mac.update(&message);
+            // RFC 5389: the HMAC input is the STUN message up to, but not
+            // including, the MESSAGE-INTEGRITY attribute itself. The header
+            // length field already accounts for the integrity attribute.
+            mac.update(&message[..integrity_offset]);
             let digest = mac.finalize().into_bytes();
             message[cursor + 4..cursor + 24].copy_from_slice(&digest);
         }
@@ -135,13 +139,14 @@ fn derive_username_and_credential(secret: &str, device_id: &str) -> (String, Str
 }
 
 /// coturn auth-secret password for an exact username:
-/// unpadded base64 of HMAC-SHA1(secret, username).
+/// padded base64 of HMAC-SHA1(secret, username). coturn compares the
+/// long-term key `MD5(username:realm:credential)` with the credential string
+/// exactly as issued, so trailing `=` padding must be preserved.
 fn derive_credential_for_username(secret: &str, username: &str) -> String {
     let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(secret.as_bytes()).expect("hmac key");
     mac.update(username.as_bytes());
     base64::engine::general_purpose::STANDARD
         .encode(mac.finalize().into_bytes())
-        .trim_end_matches('=')
         .to_string()
 }
 
@@ -183,7 +188,12 @@ fn allocation_request(
     let mut message = StunMessage {
         message_type: TYPE_ALLOCATION,
         transaction_id,
-        attributes: vec![(0x8022, vec![0, 0, 0, 5])],
+        attributes: vec![
+            // REQUESTED-TRANSPORT (UDP): 17 << 16.
+            (0x0019, vec![0x11, 0, 0, 0]),
+            // REQUESTED-ADDRESS-FAMILY (IPv4): family 0x01 + reserved.
+            (0x0017, vec![0x01, 0, 0, 0]),
+        ],
     };
     if let Some(username) = username {
         message
@@ -330,19 +340,16 @@ mod tests {
                     std::str::from_utf8(message.attribute(ATTR_REALM).unwrap()).unwrap();
                 let credential = derive_credential_for_username(&secret, username);
                 let key = turn_key(username, received_realm, &credential);
-                // Recompute the STUN message-integrity over the exact bytes
-                // the client sent (everything before the integrity attribute).
+                // Recompute the STUN message-integrity the way coturn does:
+                // HMAC over everything up to the integrity attribute, with the
+                // padded REST credential inside the long-term key.
                 let client_message = buffer[..size].to_vec();
                 let message_length = read_u16(&client_message, 2) as usize;
+                let integrity_offset = 20 + message_length - 24;
                 let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(&key).unwrap();
-                // The MAC covers the header and every attribute up to and
-                // including the integrity attribute header, with the 20-byte
-                // value itself zeroed during the computation.
-                mac.update(&client_message[..20 + message_length - 20]);
-                mac.update(&[0u8; 20]);
+                mac.update(&client_message[..integrity_offset]);
                 let expected = mac.finalize().into_bytes();
-                let provided =
-                    client_message[20 + message_length - 20..20 + message_length].to_vec();
+                let provided = client_message[integrity_offset + 4..integrity_offset + 24].to_vec();
                 let ok = expected.as_slice() == provided.as_slice();
                 let response = StunMessage {
                     message_type: if ok {
@@ -379,15 +386,16 @@ mod tests {
 
     #[test]
     fn derives_the_coturn_rest_known_vector_and_rfc5389_key() {
-        // RFC 5389 auth-secret example used by coturn's REST API docs.
+        // RFC 5389 auth-secret example used by coturn's REST API docs. coturn
+        // keeps the trailing `=` padding in the issued credential.
         let credential = derive_credential_for_username("north", "1234567890:user");
-        assert_eq!(credential, "yqWhSUayifUHn5H27OXq5rL3//A");
+        assert_eq!(credential, "yqWhSUayifUHn5H27OXq5rL3//A=");
         // MD5(username:realm:credential) is the long-term credential key.
         assert_eq!(
             turn_key("1234567890:user", "turn.example.com", &credential),
             vec![
-                0x72, 0x64, 0x28, 0x5f, 0xce, 0x49, 0x5c, 0xdb, 0xf7, 0xd0, 0x36, 0x96, 0x88, 0x54,
-                0x22, 0xd5
+                0xa7, 0x7f, 0x4d, 0x9b, 0xe9, 0xdb, 0xb1, 0x16, 0x68, 0x8c, 0xa6, 0x99, 0xb8, 0x00,
+                0x0a, 0xd7
             ]
         );
     }

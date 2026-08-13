@@ -5253,6 +5253,41 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百六十一轮：TURN 401 根因修复——客户端 MI 构造与 base64 填充（2026-08-13）。
+
+1. 根因定位（服务器 coturn 4.5.2 与桌面探测逐包对比）：
+   - 桌面探测与 `src-tauri/src/turn_probe.rs` 把 MESSAGE-INTEGRITY
+     属性本身（24 字节）纳入 HMAC 输入，且 REST 凭据去掉了 base64 `=`
+     填充；coturn 期望 HMAC 只覆盖 MI 属性之前的字节、凭据保留填充，
+     因此认证请求一律 401（服务器日志
+     `Cannot find credentials of user <timestamp:device>`）；
+   - 逐包验证：官方 `turnutils_uclient -W`（REST 明文密钥）在最小实例
+     与正式实例均 ALLOCATE 成功；其 MI 恰好匹配
+     `MD5(username:realm:base64(HMAC-SHA1(secret, username)))`（带填充），
+     且 HMAC 覆盖 MI 之前的字节；
+   - `lt-cred-mech` 与 `use-auth-secret` 共存不是根因：临时实例仅
+     `use-auth-secret`、以及原配置（两者并存）在正确客户端下都成功，
+     生产配置已恢复原样；
+2. 代码修复：
+   - `src-tauri/src/turn_probe.rs`：凭据保留 `=` 填充；`StunMessage::
+     encode` 的 HMAC 只覆盖 MI 属性之前的字节；ALLOCATE 属性改为
+     REQUESTED-TRANSPORT(UDP) + REQUESTED-ADDRESS-FAMILY(IPv4)；
+     mock 改为按 coturn 真实算法校验；
+   - `src-tauri/src/remote_access_config.rs`：派生 TURN 凭据保留 `=`
+     填充（手机 WebRTC iceServers 同源修复）；
+3. 端到端验证：
+   - 服务器本机最小实例/正式实例（原配置）与桌面公网
+     `turn.remote.zicode.com:3478` 均 ALLOCATE SUCCESS（0x0103）；
+   - 重新构建 release 并替换运行实例：`GET /v2/remote-config` 下发带
+     填充凭据，用该实时凭据对公网 TURN 完成分配；服务器 syslog 无新的
+     `Cannot find credentials` / `no available ports`；测试残留已清理；
+4. 门禁：cargo check --all-targets / cargo test（194 项通过，2 项忽略）
+   / clippy -D warnings / fmt 全绿；前端与 Biome 无改动沿用第 460 轮
+   基线；
+5. 遗留/建议：中继端口段仅 49160–49167（8 个 UDP 端口），并发分配能力
+   有限；建议阿里云安全组与 ufw 放行更大端口段（如 49160–49259）后调大
+   `max-port`；M2 真机跨 NAT 验收待手机重连。
+
 第四百六十轮：Git 推送恢复 + Pi 最新版本核对 + 运行实例健康复核（2026-08-13）。
 
 1. GitHub 网络（本机直连/本地代理 7890）恢复后 `git push origin main`

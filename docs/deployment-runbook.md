@@ -74,12 +74,13 @@ relay 端口，默认 49160–49167 具体端口集）→ 启用服务 → 打�
 中继数据回环验证（需 root，读取 `/etc/turnserver.conf` 的 auth-secret；
 短时重复运行会占满 8 个中继端口，等分配过期或重启 coturn 后再测）。
 
-### TURN 401 故障排查（auth-secret 不一致）
+### TURN 401 故障排查（auth-secret 不一致 / 客户端凭据构造）
 
-设置页"测试 TURN 连接"返回 unauthenticated 时，根因几乎总是服务器
-`static-auth-secret` 与桌面 `relayTurnSecret` 不一致（deploy 脚本未显式
-传 `ZICODE_TURN_SECRET` 时会生成随机 secret，旧桌面配置因此失效）。
-对齐步骤（任选其一）：
+设置页"测试 TURN 连接"返回 unauthenticated 时，依次排查两类根因：
+
+**1. 服务器与桌面 secret 不一致**（最常见）：deploy 脚本未显式传
+`ZICODE_TURN_SECRET` 时会生成随机 secret，旧桌面配置因此失效。对齐步骤
+（任选其一）：
 
 1. **以服务器为准**：服务器执行 `grep static-auth-secret
    /etc/turnserver.conf` 取当前 secret，在桌面 **设置 → 远程访问 →
@@ -91,8 +92,22 @@ relay 端口，默认 49160–49167 具体端口集）→ 启用服务 → 打�
    `ZICODE_TURN_SECRET=<同一 secret>` 重新执行
    `./scripts/relay/deploy-coturn.sh`（重写 `/etc/turnserver.conf` 并
    重启 coturn）；
-3. 对齐后在设置页点"测试 TURN 连接"，应转绿；再以手机移动网络实测
-   M2 打洞/中继路径。
+
+**2. 客户端凭据构造错误**（第 461 轮修复，桌面 release 106+）：即使
+secret 完全一致，旧版桌面的 TURN 自测/凭据派生仍会 401，服务器日志为
+`Cannot find credentials of user <timestamp:device>`。原因与修复：
+
+- 旧实现把 MESSAGE-INTEGRITY 属性本身（24 字节）纳入 HMAC 输入，且 REST
+  凭据去掉了 base64 `=` 填充；coturn 要求 HMAC 只覆盖 MI 属性之前的
+  字节、凭据保留填充；
+- 正确算法：凭据 = 保留填充的 `base64(HMAC-SHA1(secret, username))`；
+  完整性 key = `MD5(username:realm:credential)`；HMAC 覆盖 MI 属性之前
+  的全部字节；
+- 该问题与 `lt-cred-mech` 无关：coturn 4.5.2 下 `lt-cred-mech` +
+  `use-auth-secret` 共存可用，默认配置保持两者并存；
+
+对齐/升级后在设置页点"测试 TURN 连接"，应转绿；再以手机移动网络实测
+M2 打洞/中继路径。
 
 secret 仅存在于服务器 `/etc/turnserver.conf` 与桌面配置（经设置面板
 保存），不入仓、不写入任何文档。

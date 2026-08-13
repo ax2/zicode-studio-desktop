@@ -77,16 +77,15 @@ impl Default for RemoteAccessConfig {
 
 /// Derive a coturn long-term credential (auth-secret REST scheme):
 /// `username` is used verbatim (callers prefix an expiry timestamp), and the
-/// credential is unpadded base64 of HMAC-SHA1(secret, username).
+/// credential is padded base64 of HMAC-SHA1(secret, username). coturn
+/// verifies the long-term key with the credential string exactly as issued,
+/// so the trailing `=` padding must be preserved.
 pub fn derive_turn_credential(secret: &str, username: &str) -> Result<String, String> {
     let mut mac = <Hmac<Sha1> as Mac>::new_from_slice(secret.as_bytes())
         .map_err(|error| format!("invalid turn secret: {error}"))?;
     mac.update(username.as_bytes());
     let digest = mac.finalize().into_bytes();
-    Ok(base64::engine::general_purpose::STANDARD
-        .encode(digest)
-        .trim_end_matches('=')
-        .to_string())
+    Ok(base64::engine::general_purpose::STANDARD.encode(digest))
 }
 
 fn unix_now_secs() -> u64 {
@@ -515,10 +514,11 @@ mod tests {
 
     #[test]
     fn derives_coturn_long_term_credentials_with_the_known_vector() {
-        // RFC 5389 auth-secret example used by coturn's REST API docs.
+        // RFC 5389 auth-secret example used by coturn's REST API docs. coturn
+        // keeps the trailing `=` padding in the issued credential.
         assert_eq!(
             derive_turn_credential("north", "1234567890:user").unwrap(),
-            "yqWhSUayifUHn5H27OXq5rL3//A"
+            "yqWhSUayifUHn5H27OXq5rL3//A="
         );
     }
 

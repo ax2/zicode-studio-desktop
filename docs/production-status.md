@@ -1,6 +1,6 @@
 # ZiCode Studio Desktop 生产可用状态（2026-08-13）
 
-> 本文件汇总截至第 460 轮的可验证状态，作为"生产可用"目标的持续审计
+> 本文件汇总截至第 461 轮的可验证状态，作为"生产可用"目标的持续审计
 > 基线。凡未标注"外部输入/人工"的项目均有本地证据（测试、CDP 实测、
 > 日志、安装产物）。
 
@@ -22,9 +22,11 @@
   EXE 41,985,536 B / 安装包 347,032,684 B；哈希与逐文件
   验证见 `docs/release-validation-2026-08-05.md`；
 - 安装目录 public 与仓库逐文件一致（0 缺失/0 哈希差异）；
-- 当前运行实例：第一百零六次重建安装版，网关 `/health` 200
-  （pi 0.84.1、协议 v2、`lanUrl=https://relay.zicode.com/d/dev-ax2-01`），
-  公网中继 `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
+- 当前运行实例：第一百零六次重建安装版 + 第 461 轮 TURN 修复重建
+  （EXE 41,952,256 B，2026-08-13 10:45 构建并替换），网关 `/health`
+  200（pi 0.84.1、协议 v2、
+  `lanUrl=https://relay.zicode.com/d/dev-ax2-01`），公网中继
+  `dev-ax2-01` 在线，应用日志无 ERROR/WARN/panic。
 
 ## 3. 功能面（本地已验证）
 
@@ -199,6 +201,14 @@
   message-integrity），无手机即可本地判定 ok/unauthenticated/
   unreachable/protocol；release 88 实测返回 unauthenticated（服务端
   密钥未对齐，与第 413 轮一致）；前端 837 项、Rust 185 项全绿；
+- TURN 401 根因修复（第 461 轮）：桌面探测/`turn_probe.rs` 的
+  MESSAGE-INTEGRITY 把 MI 属性本身纳入 HMAC、且 REST 凭据去掉 base64
+  `=` 填充，导致 secret 一致时仍 401；已改为 HMAC 只覆盖 MI 之前字节、
+  凭据保留填充（`remote_access_config.rs` 同源修复），并修正 ALLOCATE
+  属性（REQUESTED-TRANSPORT + REQUESTED-ADDRESS-FAMILY）。服务器本机
+  与桌面公网 `turn.remote.zicode.com:3478` 均 ALLOCATE SUCCESS；
+  `/v2/remote-config` 实时凭据实测分配成功；`lt-cred-mech` 与
+  `use-auth-secret` 共存可用，生产配置保持原样；Rust 194 项全绿；
 - 多尺寸审计 + 格式恢复（第 424 轮）：统一 rustfmt 1.8 格式后
   `cargo fmt --check` 恢复通过；800/1440/2560/390px 四尺寸 × 10
   应用面全表面 0 控制台错误、0 文档级横向溢出；TURN 测试按钮与
@@ -363,7 +373,7 @@
 
 | 事项 | 状态 | 所需输入 |
 | --- | --- | --- |
-| 真机跨 NAT 打洞验收（M2） | STUN 可达且公网映射（srflx）正常；**TURN relay 401**：桌面端凭据派生正确（HMAC 复算一致、时间戳/realm 匹配、`MD5(username:realm:credential)` 密钥单测锁定），设置页"测试 TURN 连接"实测返回 unauthenticated，根因为 coturn 服务器 `static-auth-secret` 与桌面 `relayTurnSecret` 不一致 | 对齐服务器密钥并重启 coturn，用设置页"测试 TURN 连接"转绿后接入真机实测移动网络 |
+| 真机跨 NAT 打洞验收（M2） | STUN 可达且公网映射（srflx）正常；**TURN relay 认证已修复（第 461 轮）**：根因是桌面端 MI 构造（HMAC 多算 MI 属性）+ REST 凭据去掉 base64 `=` 填充，已修并实测桌面公网 ALLOCATE SUCCESS；`lt-cred-mech` 非根因（生产配置原样保留） | 手机重连后接入移动网络实测打洞/中继回落 |
 | 二维码扫码 / PWA 分享目标 | 服务端 manifest/分享链路已修并测试 | 真机扫码与系统分享 |
 | TalkBack / 无障碍朗读走查 | 键盘导航、aria 语义已实现 | 人工朗读走查 |
 | 安装包 Authenticode 签名 | 脚本就绪，未签名 | 代码签名证书 |
