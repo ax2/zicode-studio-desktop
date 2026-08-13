@@ -133,14 +133,14 @@ function WatchMain({ store }: { store: WatchStore }) {
                         <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
                           {item.url}
                         </a>
-                      <span className="watch-item-meta">
-                        {result
-                          ? result.changed
-                            ? t("Changed")
-                            : t("Unchanged")
-                          : item.lastCheckedAt
-                            ? `${t("Changes")}: ${item.changeCount} · ${formatTime(item.lastCheckedAt)}`
-                            : t("Not checked yet")}
+                        <span className="watch-item-meta">
+                          {result
+                            ? result.changed
+                              ? `${t("Changed")}${result.title ? ` · ${result.title}` : ""}`
+                              : `${t("Unchanged")}${result.title ? ` · ${result.title}` : ""}`
+                            : item.lastCheckedAt
+                              ? `${t("Changes")}: ${item.changeCount} · ${formatTime(item.lastCheckedAt)}`
+                              : t("Not checked yet")}
                       </span>
                       </div>
                     )}
