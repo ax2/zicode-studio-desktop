@@ -23,6 +23,7 @@ function OcrMain({ store }: { store: OcrStore }) {
   const image = store((state) => state.image);
   const fileName = store((state) => state.fileName);
   const result = store((state) => state.result);
+  const editedText = store((state) => state.editedText);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -121,9 +122,13 @@ function OcrMain({ store }: { store: OcrStore }) {
         </div>
         {result ? (
           <>
-            <pre className="ocr-result-text">{result.text}</pre>
+            <textarea
+              className="ocr-result-text"
+              value={editedText}
+              onChange={(event) => store.getState().setEditedText(event.target.value)}
+            />
             <p className="ocr-result-meta">
-              {result.charCount} {t("characters")}
+              {editedText.length} {t("characters")}
             </p>
           </>
         ) : (

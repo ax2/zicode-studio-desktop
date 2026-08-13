@@ -106,6 +106,9 @@
 }
 
 .ocr-result-text {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
   max-height: 420px;
   overflow: auto;
   margin: var(--space-3) 0 0;

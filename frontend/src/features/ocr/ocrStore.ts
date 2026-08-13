@@ -54,10 +54,12 @@ export interface OcrState {
   image: string;
   fileName: string;
   result: OcrResult | null;
+  editedText: string;
   busy: boolean;
   error: string;
   setImage(image: string, fileName: string): void;
   clear(): void;
+  setEditedText(value: string): void;
   run(): Promise<void>;
   copy(): Promise<void>;
 }
@@ -74,15 +76,20 @@ export function createOcrStore(options: OcrOptions) {
     image: "",
     fileName: "",
     result: null,
+    editedText: "",
     busy: false,
     error: "",
 
     setImage(image, fileName) {
-      set({ image, fileName, result: null, error: "" });
+      set({ image, fileName, result: null, editedText: "", error: "" });
     },
 
     clear() {
-      set({ image: "", fileName: "", result: null, error: "" });
+      set({ image: "", fileName: "", result: null, editedText: "", error: "" });
+    },
+
+    setEditedText(value) {
+      set({ editedText: value });
     },
 
     async run() {
@@ -91,7 +98,7 @@ export function createOcrStore(options: OcrOptions) {
       set({ busy: true, error: "", result: null });
       try {
         const result = await gateway.extract(getTarget(), image);
-        set({ result, busy: false });
+        set({ result, editedText: result.text, busy: false });
         notify(t("Text extracted"));
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });
@@ -99,10 +106,10 @@ export function createOcrStore(options: OcrOptions) {
     },
 
     async copy() {
-      const { result } = get();
-      if (!result) return;
+      const { editedText } = get();
+      if (!editedText) return;
       try {
-        await navigator.clipboard?.writeText(result.text);
+        await navigator.clipboard?.writeText(editedText);
         notify(t("Copied"));
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });

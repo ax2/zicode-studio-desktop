@@ -31,6 +31,7 @@ describe("ocr store", () => {
       "data:image/png;base64,AAAA",
     );
     expect(store.getState().result?.text).toBe("Hello world");
+    expect(store.getState().editedText).toBe("Hello world");
     expect(notify).toHaveBeenCalledWith("Text extracted");
   });
 
