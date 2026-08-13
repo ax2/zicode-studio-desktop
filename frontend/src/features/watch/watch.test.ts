@@ -1,0 +1,77 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setLocale } from "../../shared/i18n";
+import { createWatchStore, type WatchGateway } from "./watchStore";
+
+const ITEM = {
+  id: "w1",
+  name: "Example",
+  url: "https://example.com/",
+  changeCount: 0,
+  createdAt: "2026-08-13T10:00:00Z",
+};
+
+function stubGateway(overrides: Partial<WatchGateway> = {}): WatchGateway {
+  return {
+    list: vi.fn(async () => ({ items: [ITEM] })),
+    add: vi.fn(async () => ({ item: ITEM })),
+    check: vi.fn(async () => ({ id: "w1", changed: true, hash: "abc", contentLength: 10, checkedAt: "x" })),
+    remove: vi.fn(async () => ({ removed: true })),
+    ...overrides,
+  };
+}
+
+function createStore(gateway: WatchGateway) {
+  const notify = vi.fn();
+  const store = createWatchStore({
+    gateway,
+    getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+    notify,
+  });
+  return { store, notify };
+}
+
+describe("watch store", () => {
+  beforeEach(() => setLocale("en"));
+
+  it("loads watchers", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    await store.getState().load();
+    expect(store.getState().items).toEqual([ITEM]);
+  });
+
+  it("adds a watcher and reloads", async () => {
+    const gateway = stubGateway();
+    const { store, notify } = createStore(gateway);
+    store.getState().setDraft({ draftName: "  Example  ", draftUrl: "https://example.com/" });
+    await store.getState().add();
+    expect(gateway.add).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      "  Example  ",
+      "https://example.com/",
+    );
+    expect(notify).toHaveBeenCalledWith("Watcher added");
+  });
+
+  it("checks a watcher and records the result", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    await store.getState().check("w1");
+    expect(gateway.check).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      "w1",
+    );
+    expect(store.getState().results.w1?.changed).toBe(true);
+  });
+
+  it("removes a watcher", async () => {
+    const gateway = stubGateway();
+    const { store, notify } = createStore(gateway);
+    await store.getState().remove("w1");
+    expect(gateway.remove).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      "w1",
+    );
+    expect(notify).toHaveBeenCalledWith("Watcher removed");
+  });
+});

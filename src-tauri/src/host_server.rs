@@ -400,6 +400,10 @@ impl HostServer {
             .route("/v2/habits/toggle", post(toggle_habit_http))
             .route("/v2/habits/remove", post(remove_habit_http))
             .route("/v2/translate", post(translate_http))
+            .route("/v2/watch", get(list_watch_http))
+            .route("/v2/watch/add", post(add_watch_http))
+            .route("/v2/watch/check", post(check_watch_http))
+            .route("/v2/watch/remove", post(remove_watch_http))
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2463,6 +2467,94 @@ async fn translate_http(
             "Cannot serialize translation result",
         )
     })?))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WatchQuery {
+    scene_id: String,
+    workspace_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AddWatchRequest {
+    scene_id: String,
+    workspace_id: String,
+    name: String,
+    url: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WatchIdRequest {
+    scene_id: String,
+    workspace_id: String,
+    id: String,
+}
+
+fn watch_workspace_root(
+    state: &HostState,
+    workspace_id: &str,
+) -> Result<PathBuf, (StatusCode, Json<Value>)> {
+    state
+        .data
+        .workspace_root_path(workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })
+}
+
+async fn list_watch_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<WatchQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_watch_authorized(&state, &query.scene_id)?;
+    let workspace_root = watch_workspace_root(&state, &query.workspace_id)?;
+    let items = crate::web_watch::list(&workspace_root);
+    Ok(Json(json!({ "items": items })))
+}
+
+async fn add_watch_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<AddWatchRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_watch_authorized(&state, &request.scene_id)?;
+    let workspace_root = watch_workspace_root(&state, &request.workspace_id)?;
+    let item = crate::web_watch::add(&workspace_root, &request.name, &request.url)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "add_failed", &error))?;
+    Ok(Json(json!({ "item": item })))
+}
+
+async fn check_watch_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<WatchIdRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_watch_authorized(&state, &request.scene_id)?;
+    let workspace_root = watch_workspace_root(&state, &request.workspace_id)?;
+    let result = crate::web_watch::check(&workspace_root, &request.id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "check_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize watch result",
+        )
+    })?))
+}
+
+async fn remove_watch_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<WatchIdRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_watch_authorized(&state, &request.scene_id)?;
+    let workspace_root = watch_workspace_root(&state, &request.workspace_id)?;
+    let removed = crate::web_watch::remove(&workspace_root, &request.id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "remove_failed", &error))?;
+    Ok(Json(json!({ "removed": removed, "id": request.id })))
 }
 
 async fn import_markdown_note(
@@ -4581,6 +4673,40 @@ fn ensure_translate_authorized(
     Ok(())
 }
 
+fn ensure_watch_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.watch")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Web Watch is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("network.fetch")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Web Watch network permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -5408,7 +5534,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 14);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 15);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

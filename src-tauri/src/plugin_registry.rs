@@ -1866,6 +1866,90 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.watch",
+                "name": "Web Watch",
+                "description": "Detect when public web pages change with content hash checks.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:watch.center", "onCapability:watch.check"],
+                "contributes": {
+                    "activities": [{ "id": "watch", "title": "Web Watch", "order": 109 }],
+                    "views": [
+                        { "id": "watch.sidebar", "activity": "watch", "location": "sidebar", "title": "Web Watch" },
+                        { "id": "watch.center", "activity": "watch", "location": "main", "title": "Web Watch" }
+                    ],
+                    "commands": [{ "id": "watch.open", "title": "Open Web Watch" }],
+                    "capabilities": [
+                        {
+                            "id": "watch.add",
+                            "title": "Add page watcher",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+                                    "url": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                                },
+                                "required": ["name", "url"]
+                            }
+                        },
+                        {
+                            "id": "watch.check",
+                            "title": "Check page watcher",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": { "type": "string", "minLength": 1, "maxLength": 100 }
+                                },
+                                "required": ["id"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "watch_add",
+                            "title": "Add page watcher",
+                            "description": "Add a public web page to the watch list.",
+                            "capability": "watch.add",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": { "type": "string" },
+                                    "url": { "type": "string" }
+                                },
+                                "required": ["name", "url"]
+                            }
+                        },
+                        {
+                            "name": "watch_check",
+                            "title": "Check page watcher",
+                            "description": "Fetch a watched page and report whether its content changed.",
+                            "capability": "watch.check",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": { "type": "string" }
+                                },
+                                "required": ["id"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "network.fetch", "reason": "Fetch watched public pages" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose web watch to Pi" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.translate",
                 "name": "Translate",
                 "description": "Translate text between languages using the configured model.",
@@ -2466,8 +2550,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 14);
-        assert_eq!(registry.capabilities("programming").len(), 13);
+        assert_eq!(registry.list("programming").len(), 15);
+        assert_eq!(registry.capabilities("programming").len(), 15);
         assert!(registry
             .pi_tools("programming")
             .iter()

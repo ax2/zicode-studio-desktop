@@ -293,6 +293,12 @@ impl CapabilityBroker {
             ("com.zicode.translate", "translate.text") => {
                 self.translate_text(&invocation.scene_id, &invocation.input)
             }
+            ("com.zicode.watch", "watch.add") => {
+                self.add_watch(&invocation.workspace_id, &invocation.input)
+            }
+            ("com.zicode.watch", "watch.check") => {
+                self.check_watch(&invocation.workspace_id, &invocation.input)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
     }
@@ -464,6 +470,42 @@ impl CapabilityBroker {
             CapabilityError::new(
                 "serialization_failed",
                 format!("Cannot serialize translation result: {error}"),
+            )
+        })
+    }
+
+    fn add_watch(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let name = input
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CapabilityError::new("invalid_parameters", "Watch name is required"))?;
+        let url = input
+            .get("url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CapabilityError::new("invalid_parameters", "Watch URL is required"))?;
+        let item = crate::web_watch::add(&workspace_root, name, url)
+            .map_err(|error| CapabilityError::new("add_failed", error))?;
+        serde_json::to_value(item).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize watch item: {error}"),
+            )
+        })
+    }
+
+    fn check_watch(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let id = input
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CapabilityError::new("invalid_parameters", "Watch id is required"))?;
+        let result = crate::web_watch::check(&workspace_root, id)
+            .map_err(|error| CapabilityError::new("check_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize watch result: {error}"),
             )
         })
     }

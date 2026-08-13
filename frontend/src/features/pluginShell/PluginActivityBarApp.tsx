@@ -78,6 +78,11 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["circle", { cx: "12", cy: "12", r: "9" }],
     ["path", { d: "M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18" }],
   ],
+  watch: [
+    ["circle", { cx: "12", cy: "12", r: "8" }],
+    ["circle", { cx: "12", cy: "12", r: "3" }],
+    ["path", { d: "M12 4 14 8M20 12l-4 2M12 20l-2-4M4 12l4-2" }],
+  ],
   plugins: [
     ["path", { d: "M8 3v4M16 3v4M5 7h14v5a7 7 0 0 1-14 0Z" }],
     ["path", { d: "M9 21v-3M15 21v-3" }],

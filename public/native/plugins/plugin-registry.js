@@ -156,6 +156,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     commands: [{ id: "habits.open", label: "Open Habit Tracker", icon: "open" }],
   },
   {
+    id: "com.zicode.watch",
+    name: "Web Watch",
+    description: "Detect when public web pages change with content hash checks.",
+    icon: "watch",
+    order: 109,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "watch.sidebar",
+        title: "Web Watch",
+        description: "Detect when public web pages change.",
+      },
+    ],
+    commands: [{ id: "watch.open", label: "Open Web Watch", icon: "open" }],
+  },
+  {
     id: "com.zicode.idphoto",
     name: "ID Photo",
     description: "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",

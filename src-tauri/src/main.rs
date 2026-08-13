@@ -37,6 +37,7 @@ mod settings_store;
 mod translation;
 mod turn_probe;
 mod web_extract;
+mod web_watch;
 
 use host_server::HostServer;
 use metadata_store::MetadataStore;
