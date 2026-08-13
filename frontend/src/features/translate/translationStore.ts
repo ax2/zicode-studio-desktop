@@ -69,6 +69,7 @@ export interface TranslationState {
   setTargetLang(value: string): void;
   swap(): void;
   run(): Promise<void>;
+  copyResult(): Promise<void>;
 }
 
 export interface TranslationOptions {
@@ -124,6 +125,17 @@ export function createTranslationStore(options: TranslationOptions) {
         notify(t("Translation complete"));
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    async copyResult() {
+      const { result } = get();
+      if (!result) return;
+      try {
+        await navigator.clipboard?.writeText(result.translated);
+        notify(t("Copied"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error.message : String(error) });
       }
     },
   }));

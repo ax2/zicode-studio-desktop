@@ -91,6 +91,7 @@ export interface ClipboardState {
   clear(): Promise<void>;
   paste(): Promise<void>;
   sendToNote(text: string): Promise<void>;
+  copyItem(text: string): Promise<void>;
 }
 
 export interface ClipboardOptions {
@@ -185,6 +186,16 @@ export function createClipboardStore(options: ClipboardOptions) {
         notify(t("Sent to notes"));
       } catch (error) {
         set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    async copyItem(text) {
+      if (!text) return;
+      try {
+        await navigator.clipboard?.writeText(text);
+        notify(t("Copied"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error.message : String(error) });
       }
     },
   }));

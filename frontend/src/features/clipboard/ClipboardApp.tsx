@@ -103,9 +103,7 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
                   <button
                     type="button"
                     className="ui-button ui-button--ghost ui-button--sm"
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(item.text);
-                    }}
+                    onClick={() => void store.getState().copyItem(item.text)}
                   >
                     {t("Copy")}
                   </button>

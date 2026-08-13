@@ -105,7 +105,7 @@ function TranslationMain({ store }: { store: TranslationStore }) {
             <button
               type="button"
               className="ui-button ui-button--ghost ui-button--sm"
-              onClick={() => void navigator.clipboard?.writeText(result.translated)}
+              onClick={() => void store.getState().copyResult()}
             >
               {t("Copy")}
             </button>
