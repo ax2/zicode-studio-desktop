@@ -95,6 +95,7 @@ function GraphMain({ store }: { store: GraphStore }) {
                 const point = positions.get(node.id);
                 if (!point) return null;
                 const active = selectedId === node.id;
+                const label = node.title.length > 18 ? `${node.title.slice(0, 18)}…` : node.title;
                 return (
                   <g
                     key={node.id}
@@ -102,6 +103,16 @@ function GraphMain({ store }: { store: GraphStore }) {
                     onClick={() => store.getState().select(active ? null : node.id)}
                   >
                     <circle cx={point.x} cy={point.y} r={active ? 12 : 8} fill={groupColor(nodes, node)} />
+                    {nodes.length <= 18 ? (
+                      <text
+                        className="graph-node-label"
+                        x={point.x}
+                        y={point.y + 22}
+                        textAnchor="middle"
+                      >
+                        {label}
+                      </text>
+                    ) : null}
                     <title>{node.title}</title>
                   </g>
                 );

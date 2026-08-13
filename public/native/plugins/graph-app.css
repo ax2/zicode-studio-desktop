@@ -70,6 +70,13 @@
   opacity: 1;
 }
 
+.graph-node-label {
+  fill: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  user-select: none;
+}
+
 .graph-legend {
   margin: var(--space-2) 0 0;
   color: var(--text-secondary);
