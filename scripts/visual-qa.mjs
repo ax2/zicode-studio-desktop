@@ -131,6 +131,7 @@ async function diagnose(cdp, name, url, viewport) {
   await openPage(cdp, url);
   let shortcutActive = null;
   let notesEditor = null;
+  let appForm = null;
   // For the notes app, open the first note so the editor (and its toolbar,
   // which was reported as top-clipped) is actually rendered.
   if (name === "notes") {
@@ -189,6 +190,29 @@ async function diagnose(cdp, name, url, viewport) {
     });
     shortcutActive = shortcutResult?.result?.value ?? null;
   }
+  // For the automation app, verify the create-workflow form is fully rendered
+  // and the schedule selector exposes its options.
+  if (name === "automation") {
+    const formResult = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const select = document.querySelector("#automation-schedule");
+        const checkbox = document.querySelector(".automation-checkbox input[type='checkbox']");
+        return {
+          name: !!document.querySelector("#automation-name"),
+          targetProject: !!document.querySelector("#automation-target"),
+          prompt: !!document.querySelector("#automation-prompt"),
+          schedule: !!select,
+          scheduleOptions: select
+            ? Array.from(select.options).map((option) => option.textContent)
+            : [],
+          approval: !!checkbox,
+          submit: !!document.querySelector(".automation-form button[type='submit']"),
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = formResult?.result?.value ?? null;
+  }
   const evaluated = await cdp.send("Runtime.evaluate", {
     expression: DIAGNOSTICS,
     returnByValue: true,
@@ -201,7 +225,7 @@ async function diagnose(cdp, name, url, viewport) {
   mkdirSync(OUT_DIR, { recursive: true });
   const file = join(OUT_DIR, `${name}-${viewport.width}x${viewport.height}.png`);
   writeFileSync(file, Buffer.from(screenshot.data, "base64"));
-  return { name, url, viewport, shortcutActive, notesEditor, ...result, screenshot: file };
+  return { name, url, viewport, shortcutActive, notesEditor, appForm, ...result, screenshot: file };
 }
 
 async function main() {
@@ -299,6 +323,7 @@ async function main() {
             activityList: result.activityListInfo,
             shortcutActive: result.shortcutActive,
             notesEditor: result.notesEditor,
+            appForm: result.appForm,
           }),
         );
       }
