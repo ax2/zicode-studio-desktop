@@ -276,6 +276,13 @@
     bottom: var(--mobile-nav-height);
   }
 
+  /* The connection-status dot (and its direct-connection badge) floats at
+     the top-left above the sidebar drawer; hide them while the drawer is
+     open so they do not sit on top of the session list. */
+  body:has(.sidebar:not(.collapsed)) .mobile-connection-status {
+    display: none;
+  }
+
   /* Shared workspace bar inside the drawer: comfortable tap targets and
      keep the switcher menu inside the drawer viewport. */
   .workspace-bar {
