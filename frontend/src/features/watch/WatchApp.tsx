@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { formatTime } from "./watchLogic";
 import { createWatchStore, type WatchOptions, type WatchStore } from "./watchStore";
 
 export type WatchAppApi = {
@@ -132,15 +133,15 @@ function WatchMain({ store }: { store: WatchStore }) {
                         <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
                           {item.url}
                         </a>
-                        <span className="watch-item-meta">
-                          {result
-                            ? result.changed
-                              ? t("Changed")
-                              : t("Unchanged")
-                            : item.lastCheckedAt
-                              ? `${t("Changes")}: ${item.changeCount}`
-                              : t("Not checked yet")}
-                        </span>
+                      <span className="watch-item-meta">
+                        {result
+                          ? result.changed
+                            ? t("Changed")
+                            : t("Unchanged")
+                          : item.lastCheckedAt
+                            ? `${t("Changes")}: ${item.changeCount} · ${formatTime(item.lastCheckedAt)}`
+                            : t("Not checked yet")}
+                      </span>
                       </div>
                     )}
                     <div className="watch-item-actions">
