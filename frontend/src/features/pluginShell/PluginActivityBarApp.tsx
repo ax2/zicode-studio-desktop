@@ -173,13 +173,16 @@ export function PluginIcon({ name }: { name: string }) {
 function ActivityButton({
   item,
   isActive,
+  shortcut,
   onActivate,
 }: {
   item: PluginActivityItem;
   isActive: boolean;
+  shortcut?: string;
   onActivate(item: PluginActivityItem): void;
 }) {
   const badge = item.badge && item.badge.count > 0 ? item.badge : null;
+  const title = shortcut ? `${item.label} (${shortcut})` : item.label;
   return (
     <button
       type="button"
@@ -187,13 +190,16 @@ function ActivityButton({
         isActive ? " active" : ""
       }`}
       data-plugin-id={item.id}
-      title={item.label}
+      title={title}
       aria-label={item.label}
       aria-current={isActive ? "page" : undefined}
       onClick={() => onActivate(item)}
     >
       <PluginIcon name={item.icon} />
-      <span className="plugin-activity-tooltip">{item.label}</span>
+      <span className="plugin-activity-tooltip">
+        {item.label}
+        {shortcut ? <span className="plugin-activity-shortcut">{shortcut}</span> : null}
+      </span>
       {badge ? (
         <span
           className={`plugin-activity-badge tone-${badge.tone || "info"}`}
@@ -266,11 +272,12 @@ export function PluginActivityBarApp({
         }`}
         data-plugin-activities
       >
-        {activities.map((item) => (
+        {activities.map((item, index) => (
           <ActivityButton
             key={item.id}
             item={item}
             isActive={item.id === activePluginId}
+            shortcut={index < 9 ? `Ctrl+${index + 1}` : undefined}
             onActivate={onActivate}
           />
         ))}

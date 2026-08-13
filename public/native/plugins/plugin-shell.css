@@ -188,6 +188,15 @@
   opacity: 1;
 }
 
+.plugin-activity-shortcut {
+  margin-left: var(--space-1-5);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+}
+
 .plugin-sidebar-active {
   background: var(--sidebar-bg-mobile);
 }
