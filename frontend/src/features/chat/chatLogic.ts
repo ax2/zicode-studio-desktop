@@ -160,6 +160,27 @@ export function formatResult(result: unknown): string {
   return JSON.stringify(result, null, 2);
 }
 
+/**
+ * Maps known tool-runtime errors to a friendly, localized message so a failed
+ * tool call does not surface a raw `[runtime_stopped] …` string to the user.
+ * Returns null when no friendly mapping exists; callers then fall back to the
+ * original output.
+ */
+export function friendlyToolError(output: unknown): string | null {
+  const raw = String(output ?? "").trim();
+  if (!raw) return null;
+  if (/runtime[_ -]?stopped|broker token.*no longer active/i.test(raw)) {
+    return t("The session runtime stopped before the tool finished. Retry to run it again.");
+  }
+  if (/broker[_ -]?token.*(invalid|expired)|broker_token_invalid/i.test(raw)) {
+    return t("The tool session expired. Retry to run it again.");
+  }
+  if (/tool[_ -]?unavailable|tool.*(missing|disabled)/i.test(raw)) {
+    return t("This tool is unavailable in the current scene.");
+  }
+  return null;
+}
+
 export interface DiffLine {
   kind: "removed" | "added";
   text: string;

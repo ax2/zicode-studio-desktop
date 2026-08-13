@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanChatTranscript,
   describeModelError,
+  friendlyToolError,
   formatResult,
   getArgsPreview,
   renderDiffData,
@@ -36,6 +37,19 @@ describe("chat logic", () => {
       "context-length",
     );
     expect(describeModelError({ error: "boom" }).kind).toBe("generic");
+  });
+
+  it("maps known tool-runtime errors to friendly messages", () => {
+    expect(
+      friendlyToolError("[runtime_stopped] The runtime that owns this broker token is no longer active"),
+    ).toBe("会话运行时在工具完成前已停止。请重试以再次运行。");
+    expect(
+      friendlyToolError("Runtime broker token is invalid or expired"),
+    ).toBe("工具会话已过期。请重试以再次运行。");
+    expect(
+      friendlyToolError("The tool is missing, disabled, or not granted for this scene"),
+    ).toBe("当前场景中此工具不可用。");
+    expect(friendlyToolError("some other failure")).toBeNull();
   });
 
   it("splits streaming content and cleans transcripts", () => {

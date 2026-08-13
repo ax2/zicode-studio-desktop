@@ -332,6 +332,12 @@ const zhCN = {
   "Tool output copied": "工具输出已复制",
   "Unable to copy tool output. Check browser clipboard permission.":
     "无法复制工具输出，请检查浏览器剪贴板权限。",
+  "The session runtime stopped before the tool finished. Retry to run it again.":
+    "会话运行时在工具完成前已停止。请重试以再次运行。",
+  "The tool session expired. Retry to run it again.":
+    "工具会话已过期。请重试以再次运行。",
+  "This tool is unavailable in the current scene.":
+    "当前场景中此工具不可用。",
   "in progress": "进行中",
   deleted: "已删除",
   "A new answer is available. Use Latest to jump to the end.":

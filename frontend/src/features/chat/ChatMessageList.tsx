@@ -10,6 +10,7 @@ import {
 import { t } from "../../shared/i18n";
 import {
   describeModelError,
+  friendlyToolError,
   formatJson,
   renderDiffData,
   type ContentBlock,
@@ -641,6 +642,7 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
   }, []);
   const argsPreview = getArgsPreview(item.toolName, item.args);
   const argsJson = formatJson(item.args);
+  const displayOutput = item.isError ? friendlyToolError(item.output) ?? item.output : item.output;
   const isEdit =
     (item.toolName === "edit" || item.toolName === "Edit") &&
     item.args &&
@@ -725,13 +727,13 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
             <div className="tool-args">{argsJson}</div>
           ) : null}
           <div className="tool-output-wrapper">
-            <div className="tool-output">{item.output}</div>
+            <div className="tool-output">{displayOutput}</div>
           </div>
         </div>
       ) : (
         <div className="tool-card-body" hidden>
           <div className="tool-output-wrapper">
-            <div className="tool-output">{item.output}</div>
+            <div className="tool-output">{displayOutput}</div>
           </div>
         </div>
       )}
