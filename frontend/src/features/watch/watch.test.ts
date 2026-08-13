@@ -64,6 +64,18 @@ describe("watch store", () => {
     expect(store.getState().results.w1?.changed).toBe(true);
   });
 
+  it("checks every watcher at once", async () => {
+    const gateway = stubGateway({
+      list: vi.fn(async () => ({
+        items: [ITEM, { ...ITEM, id: "w2", name: "Second" }],
+      })),
+    });
+    const { store } = createStore(gateway);
+    await store.getState().load();
+    await store.getState().checkAll();
+    expect(gateway.check).toHaveBeenCalledTimes(2);
+  });
+
   it("removes a watcher", async () => {
     const gateway = stubGateway();
     const { store, notify } = createStore(gateway);

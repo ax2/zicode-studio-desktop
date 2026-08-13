@@ -70,47 +70,60 @@ function WatchMain({ store }: { store: WatchStore }) {
 
       <section className="ui-card watch-list">
         {items.length > 0 ? (
-          <ul className="watch-items">
-            {items.map((item) => {
-              const result = results[item.id];
-              return (
-                <li key={item.id} className="watch-item">
-                  <div className="watch-item-body">
-                    <strong className="watch-item-name">{item.name}</strong>
-                    <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
-                      {item.url}
-                    </a>
-                    <span className="watch-item-meta">
-                      {result
-                        ? result.changed
-                          ? t("Changed")
-                          : t("Unchanged")
-                        : item.lastCheckedAt
-                          ? `${t("Changes")}: ${item.changeCount}`
-                          : t("Not checked yet")}
-                    </span>
-                  </div>
-                  <div className="watch-item-actions">
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary ui-button--sm"
-                      disabled={busy}
-                      onClick={() => void store.getState().check(item.id)}
-                    >
-                      {t("Check now")}
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--ghost ui-button--sm"
-                      onClick={() => void store.getState().remove(item.id)}
-                    >
-                      {t("Delete")}
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <div className="watch-list-header">
+              <button
+                type="button"
+                className="ui-button ui-button--secondary ui-button--sm"
+                disabled={busy}
+                aria-busy={busy}
+                onClick={() => void store.getState().checkAll()}
+              >
+                {t("Check all")}
+              </button>
+            </div>
+            <ul className="watch-items">
+              {items.map((item) => {
+                const result = results[item.id];
+                return (
+                  <li key={item.id} className="watch-item">
+                    <div className="watch-item-body">
+                      <strong className="watch-item-name">{item.name}</strong>
+                      <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
+                        {item.url}
+                      </a>
+                      <span className="watch-item-meta">
+                        {result
+                          ? result.changed
+                            ? t("Changed")
+                            : t("Unchanged")
+                          : item.lastCheckedAt
+                            ? `${t("Changes")}: ${item.changeCount}`
+                            : t("Not checked yet")}
+                      </span>
+                    </div>
+                    <div className="watch-item-actions">
+                      <button
+                        type="button"
+                        className="ui-button ui-button--secondary ui-button--sm"
+                        disabled={busy}
+                        onClick={() => void store.getState().check(item.id)}
+                      >
+                        {t("Check now")}
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button ui-button--ghost ui-button--sm"
+                        onClick={() => void store.getState().remove(item.id)}
+                      >
+                        {t("Delete")}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         ) : (
           <p className="idphoto-result-empty">{t("No watchers yet")}</p>
         )}

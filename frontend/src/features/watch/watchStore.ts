@@ -90,6 +90,7 @@ export interface WatchState {
   load(): Promise<void>;
   add(): Promise<void>;
   check(id: string): Promise<void>;
+  checkAll(): Promise<void>;
   remove(id: string): Promise<void>;
 }
 
@@ -143,6 +144,25 @@ export function createWatchStore(options: WatchOptions) {
         const result = await gateway.check(getTarget(), id);
         set((state) => ({
           results: { ...state.results, [id]: result },
+          busy: false,
+        }));
+        await get().load();
+      } catch (error) {
+        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    async checkAll() {
+      const { items, busy } = get();
+      if (busy || items.length === 0) return;
+      set({ busy: true, error: "" });
+      try {
+        const results: Record<string, WatchCheckResult> = {};
+        for (const item of items) {
+          results[item.id] = await gateway.check(getTarget(), item.id);
+        }
+        set((state) => ({
+          results: { ...state.results, ...results },
           busy: false,
         }));
         await get().load();
