@@ -197,23 +197,25 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                       </button>
                     </div>
                   )}
-                  <div className="habits-grid">
-                    {dates.map((date, index) => {
-                      const checked = habitDates.has(date);
-                      const isToday = index === 0;
-                      return (
-                        <button
-                          key={date}
-                          type="button"
-                          className={`habits-day${checked ? " is-done" : ""}${isToday ? " is-today" : ""}`}
-                          aria-label={date}
-                          title={date}
-                          style={checked ? { background: habit.color } : undefined}
-                          onClick={() => void store.getState().toggle(habit.id, date)}
-                        />
-                      );
-                    })}
-                  </div>
+                  {!editing ? (
+                    <div className="habits-grid">
+                      {dates.map((date, index) => {
+                        const checked = habitDates.has(date);
+                        const isToday = index === 0;
+                        return (
+                          <button
+                            key={date}
+                            type="button"
+                            className={`habits-day${checked ? " is-done" : ""}${isToday ? " is-today" : ""}`}
+                            aria-label={date}
+                            title={date}
+                            style={checked ? { background: habit.color } : undefined}
+                            onClick={() => void store.getState().toggle(habit.id, date)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
