@@ -15,11 +15,7 @@ export type WatchAppApi = {
 };
 
 function WatchNav() {
-  return (
-    <nav className="watch-nav" aria-label={t("Web Watch")}>
-      <strong className="watch-nav-title">{t("Web Watch")}</strong>
-    </nav>
-  );
+  return <nav className="watch-nav" aria-label={t("Web Watch")} />;
 }
 
 function WatchMain({ store }: { store: WatchStore }) {

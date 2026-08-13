@@ -35,11 +35,7 @@ function groupColor(nodes: GraphNode[], node: GraphNode): string {
 }
 
 function GraphNav() {
-  return (
-    <nav className="graph-nav" aria-label={t("Knowledge Graph")}>
-      <strong className="graph-nav-title">{t("Graph")}</strong>
-    </nav>
-  );
+  return <nav className="graph-nav" aria-label={t("Knowledge Graph")} />;
 }
 
 function GraphMain({ store }: { store: GraphStore }) {

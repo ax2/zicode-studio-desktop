@@ -19,11 +19,7 @@ export type TranslationAppApi = {
 };
 
 function TranslationNav() {
-  return (
-    <nav className="translate-nav" aria-label={t("Translate")}>
-      <strong className="translate-nav-title">{t("Translation")}</strong>
-    </nav>
-  );
+  return <nav className="translate-nav" aria-label={t("Translate")} />;
 }
 
 function TranslationMain({ store }: { store: TranslationStore }) {

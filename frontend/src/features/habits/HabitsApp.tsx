@@ -19,11 +19,7 @@ const EMOJIS = ["✅", "📖", "🏃", "🧘", "💧", "🥗", "💪", "🎯", "
 const COLORS = ["#4f8cff", "#2bb673", "#e0a63f", "#c15f9f", "#8a63d2", "#ef6a6a"];
 
 function HabitsNav() {
-  return (
-    <nav className="habits-nav" aria-label={t("Habits")}>
-      <strong className="habits-nav-title">{t("Habit Tracker")}</strong>
-    </nav>
-  );
+  return <nav className="habits-nav" aria-label={t("Habits")} />;
 }
 
 function HabitsMain({ store }: { store: HabitsStore }) {

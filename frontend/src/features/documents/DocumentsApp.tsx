@@ -23,11 +23,7 @@ export type DocumentsAppApi = {
 };
 
 function DocumentsNav() {
-  return (
-    <nav className="documents-nav" aria-label={t("Documents")}>
-      <strong className="documents-nav-title">{t("Document Import")}</strong>
-    </nav>
-  );
+  return <nav className="documents-nav" aria-label={t("Documents")} />;
 }
 
 function DocumentsMain({ store }: { store: DocumentsStore }) {

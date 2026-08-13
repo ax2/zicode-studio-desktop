@@ -16,11 +16,7 @@ export type ClipboardAppApi = {
 };
 
 function ClipboardNav() {
-  return (
-    <nav className="clipboard-nav" aria-label={t("Clipboard")}>
-      <strong className="clipboard-nav-title">{t("Clipboard Inbox")}</strong>
-    </nav>
-  );
+  return <nav className="clipboard-nav" aria-label={t("Clipboard")} />;
 }
 
 function ClipboardMain({ store }: { store: ClipboardStore }) {

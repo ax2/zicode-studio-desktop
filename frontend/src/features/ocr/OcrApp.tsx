@@ -16,11 +16,7 @@ export type OcrAppApi = {
 };
 
 function OcrNav() {
-  return (
-    <nav className="ocr-nav" aria-label={t("OCR")}>
-      <strong className="ocr-nav-title">{t("Text Extraction")}</strong>
-    </nav>
-  );
+  return <nav className="ocr-nav" aria-label={t("OCR")} />;
 }
 
 function OcrMain({ store }: { store: OcrStore }) {
