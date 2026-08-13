@@ -24,6 +24,7 @@ export interface FinanceWorkbenchOptions {
   };
   getTarget?(): { sceneId?: string; workspaceId?: string } | null;
   openConfiguration?(): void;
+  openSceneSettings?(): void;
   openFinanceApp?(): void;
   artifactGateway?: {
     create(
@@ -49,6 +50,7 @@ export function setupFinanceWorkbench({
   configGateway,
   getTarget = () => null,
   openConfiguration = () => {},
+  openSceneSettings = () => {},
   openFinanceApp = () => {},
   artifactGateway = null,
   notify = () => {},
@@ -170,6 +172,7 @@ export function setupFinanceWorkbench({
       if (store.getState().activeViewId === "research") void loadResearchWorkspace();
     },
     openConfiguration: () => openConfiguration?.(),
+    openSceneSettings: () => openSceneSettings?.(),
     async runUsage() {
       setBusy("usage", true);
       setResult("usage", { ok: false, error: t("Loading usage audit…") });

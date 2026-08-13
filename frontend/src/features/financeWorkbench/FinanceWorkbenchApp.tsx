@@ -23,6 +23,7 @@ function record(value: unknown): Record<string, unknown> {
 export interface FinanceWorkbenchController {
   selectView(id: string): void;
   openConfiguration(): void;
+  openSceneSettings(): void;
   runUsage(): void;
   runDiscovery(query: string): void;
   saveSnapshot(input: string): void;
@@ -599,7 +600,7 @@ export function FinanceContentApp({
         <button
           type="button"
           className="ui-button ui-button--primary"
-          onClick={() => controller.openConfiguration()}
+          onClick={() => controller.openSceneSettings()}
         >
           {t("Open scene settings")}
         </button>

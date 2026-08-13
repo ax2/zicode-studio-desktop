@@ -668,6 +668,14 @@ const financeWorkbench = setupFinanceWorkbench({
   configGateway: config,
   getTarget: () => target,
   openConfiguration: () => settingsPanel?.openSettings("configuration"),
+  openSceneSettings: () => {
+    settingsPanel?.openSettings("general");
+    requestAnimationFrame(() => {
+      document
+        .getElementById("scene-profile-section")
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  },
   openFinanceApp: () => pluginShell?.activate("com.zicode.finance"),
   artifactGateway,
   notify: notifications.notify,
