@@ -150,7 +150,7 @@ const zhCN = {
   "Add habit": "添加习惯",
   "Habit emoji": "习惯图标",
   "Habit color": "习惯颜色",
-  "day streak": "天连续",
+  "{streak}-day streak": "连续 {streak} 天",
   "No habits yet": "还没有习惯",
   "Habit added": "已添加习惯",
   "Habit updated": "已更新习惯",

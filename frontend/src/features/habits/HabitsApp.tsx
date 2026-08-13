@@ -175,7 +175,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                       </span>
                       <span className="habits-item-name">{habit.name}</span>
                       <span className="habits-item-streak">
-                        {streak} {t("day streak")}
+                        {t("{streak}-day streak").replace("{streak}", String(streak))}
                       </span>
                       <button
                         type="button"
