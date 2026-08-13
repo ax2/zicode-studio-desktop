@@ -1075,8 +1075,11 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async captureUrl({ url, title, notebookId, tags }) {
-      const normalizedUrl = String(url).trim();
+      let normalizedUrl = String(url).trim();
       if (!normalizedUrl) return;
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = `https://${normalizedUrl}`;
+      }
       set({ error: null });
       try {
         const response = await gateway.capture(sceneId(), workspaceId(), notebookId, {
