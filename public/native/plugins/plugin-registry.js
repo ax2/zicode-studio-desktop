@@ -124,6 +124,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     commands: [{ id: "graph.open", label: "Open Knowledge Graph", icon: "open" }],
   },
   {
+    id: "com.zicode.habits",
+    name: "Habits",
+    description: "Track daily habits and metrics with streaks and history.",
+    icon: "habits",
+    order: 108,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "habits.sidebar",
+        title: "Habits",
+        description: "Track your daily habits and keep a streak.",
+      },
+    ],
+    commands: [{ id: "habits.open", label: "Open Habit Tracker", icon: "open" }],
+  },
+  {
     id: "com.zicode.idphoto",
     name: "ID Photo",
     description: "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",

@@ -286,6 +286,10 @@ impl CapabilityBroker {
             ("com.zicode.clipboard", "clipboard.list") => {
                 self.list_clipboard(&invocation.workspace_id)
             }
+            ("com.zicode.habits", "habits.list") => self.list_habits(&invocation.workspace_id),
+            ("com.zicode.habits", "habits.toggle") => {
+                self.toggle_habit(&invocation.workspace_id, &invocation.input)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
     }
@@ -404,6 +408,27 @@ impl CapabilityBroker {
         let workspace_root = self.workspace_root(workspace_id)?;
         let items = crate::clipboard_inbox::list(&workspace_root);
         Ok(json!({ "items": items }))
+    }
+
+    fn list_habits(&self, workspace_id: &str) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let (habits, entries) = crate::habit_tracker::list(&workspace_root);
+        Ok(json!({ "habits": habits, "entries": entries }))
+    }
+
+    fn toggle_habit(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let habit_id = input
+            .get("habitId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CapabilityError::new("invalid_parameters", "Habit id is required"))?;
+        let date = input
+            .get("date")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CapabilityError::new("invalid_parameters", "Habit date is required"))?;
+        let entry = crate::habit_tracker::toggle(&workspace_root, habit_id, date)
+            .map_err(|error| CapabilityError::new("toggle_failed", error))?;
+        Ok(json!({ "entry": entry }))
     }
 
     fn invoke_developer_worker(

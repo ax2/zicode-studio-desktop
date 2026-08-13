@@ -395,6 +395,10 @@ impl HostServer {
             .route("/v2/clipboard/add", post(add_clipboard_http))
             .route("/v2/clipboard/remove", post(remove_clipboard_http))
             .route("/v2/clipboard/clear", post(clear_clipboard_http))
+            .route("/v2/habits", get(list_habits_http))
+            .route("/v2/habits/upsert", post(upsert_habit_http))
+            .route("/v2/habits/toggle", post(toggle_habit_http))
+            .route("/v2/habits/remove", post(remove_habit_http))
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2298,6 +2302,111 @@ async fn clear_clipboard_http(
     let removed = crate::clipboard_inbox::clear(&workspace_root)
         .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "clear_failed", &error))?;
     Ok(Json(json!({ "removed": removed })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HabitsQuery {
+    scene_id: String,
+    workspace_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpsertHabitRequest {
+    scene_id: String,
+    workspace_id: String,
+    #[serde(default)]
+    id: Option<String>,
+    name: String,
+    #[serde(default)]
+    emoji: Option<String>,
+    #[serde(default)]
+    color: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HabitToggleRequest {
+    scene_id: String,
+    workspace_id: String,
+    habit_id: String,
+    date: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoveHabitRequest {
+    scene_id: String,
+    workspace_id: String,
+    habit_id: String,
+}
+
+fn habits_workspace_root(
+    state: &HostState,
+    workspace_id: &str,
+) -> Result<PathBuf, (StatusCode, Json<Value>)> {
+    state
+        .data
+        .workspace_root_path(workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })
+}
+
+async fn list_habits_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<HabitsQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_habits_authorized(&state, &query.scene_id)?;
+    let workspace_root = habits_workspace_root(&state, &query.workspace_id)?;
+    let (habits, entries) = crate::habit_tracker::list(&workspace_root);
+    Ok(Json(json!({ "habits": habits, "entries": entries })))
+}
+
+async fn upsert_habit_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<UpsertHabitRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_habits_authorized(&state, &request.scene_id)?;
+    let workspace_root = habits_workspace_root(&state, &request.workspace_id)?;
+    let habit = crate::habit_tracker::upsert(
+        &workspace_root,
+        request.id.as_deref(),
+        &request.name,
+        request.emoji.as_deref().unwrap_or("✅"),
+        request.color.as_deref().unwrap_or("#4f8cff"),
+    )
+    .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "upsert_failed", &error))?;
+    Ok(Json(json!({ "habit": habit })))
+}
+
+async fn toggle_habit_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<HabitToggleRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_habits_authorized(&state, &request.scene_id)?;
+    let workspace_root = habits_workspace_root(&state, &request.workspace_id)?;
+    let entry = crate::habit_tracker::toggle(&workspace_root, &request.habit_id, &request.date)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "toggle_failed", &error))?;
+    Ok(Json(json!({ "entry": entry })))
+}
+
+async fn remove_habit_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<RemoveHabitRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_habits_authorized(&state, &request.scene_id)?;
+    let workspace_root = habits_workspace_root(&state, &request.workspace_id)?;
+    let removed = crate::habit_tracker::remove(&workspace_root, &request.habit_id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "remove_failed", &error))?;
+    Ok(Json(
+        json!({ "removed": removed, "habitId": request.habit_id }),
+    ))
 }
 
 async fn import_markdown_note(
@@ -4348,6 +4457,40 @@ fn ensure_clipboard_authorized(
     Ok(())
 }
 
+fn ensure_habits_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.habits")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Habits is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Habits storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -5175,7 +5318,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 12);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 13);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

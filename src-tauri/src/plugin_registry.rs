@@ -1866,6 +1866,80 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.habits",
+                "name": "Habits",
+                "description": "Track daily habits and metrics with streaks and history.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": [
+                    "onView:habits.dashboard",
+                    "onCapability:habits.list",
+                    "onCapability:habits.toggle"
+                ],
+                "contributes": {
+                    "activities": [{ "id": "habits", "title": "Habits", "order": 108 }],
+                    "views": [
+                        { "id": "habits.sidebar", "activity": "habits", "location": "sidebar", "title": "Habits" },
+                        { "id": "habits.dashboard", "activity": "habits", "location": "main", "title": "Habit Tracker" }
+                    ],
+                    "commands": [{ "id": "habits.open", "title": "Open Habit Tracker" }],
+                    "capabilities": [
+                        {
+                            "id": "habits.list",
+                            "title": "List habits",
+                            "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
+                        },
+                        {
+                            "id": "habits.toggle",
+                            "title": "Toggle habit",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "habitId": { "type": "string", "minLength": 1, "maxLength": 100 },
+                                    "date": { "type": "string", "minLength": 10, "maxLength": 10 }
+                                },
+                                "required": ["habitId", "date"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "habits_list",
+                            "title": "List habits",
+                            "description": "List the user's habits and their recent check-in history.",
+                            "capability": "habits.list",
+                            "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
+                        },
+                        {
+                            "name": "habits_toggle",
+                            "title": "Toggle habit",
+                            "description": "Mark a habit as done (or undone) for a given YYYY-MM-DD date.",
+                            "capability": "habits.toggle",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "habitId": { "type": "string" },
+                                    "date": { "type": "string" }
+                                },
+                                "required": ["habitId", "date"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "Store habits and check-ins" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose habits to Pi" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.graph",
                 "name": "Knowledge Graph",
                 "description": "Visualize note links, backlinks, similar notes and conflicts.",
@@ -2330,8 +2404,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 12);
-        assert_eq!(registry.capabilities("programming").len(), 10);
+        assert_eq!(registry.list("programming").len(), 13);
+        assert_eq!(registry.capabilities("programming").len(), 12);
         assert!(registry
             .pi_tools("programming")
             .iter()

@@ -7,6 +7,7 @@ mod clipboard_inbox;
 mod credential_broker;
 mod document_import;
 mod e2ee;
+mod habit_tracker;
 mod host_data;
 mod host_router;
 mod host_server;

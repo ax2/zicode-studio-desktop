@@ -133,6 +133,20 @@ const zhCN = {
   Conflicts: "冲突",
   "Create links between notes by writing backlinks or sharing tags.":
     "通过反向链接或共享标签在笔记之间建立关联。",
+  Habits: "习惯",
+  "Habit Tracker": "习惯追踪",
+  "Track daily habits and metrics with streaks and history.":
+    "用连续天数和历史记录追踪每日习惯与指标。",
+  "Track your daily habits and keep a streak.": "追踪每日习惯，保持连续记录。",
+  "Open Habit Tracker": "打开习惯追踪",
+  "Habit name": "习惯名称",
+  "Add habit": "添加习惯",
+  "Habit emoji": "习惯图标",
+  "Habit color": "习惯颜色",
+  "day streak": "天连续",
+  "No habits yet": "还没有习惯",
+  "Habit added": "已添加习惯",
+  "Habit removed": "已删除习惯",
   "Layout: {cols} cols × {rows} rows · {count} photos":
     "排版：{cols}列 × {rows}行 · 共{count}张",
   "ID photo layout result": "证件照排版结果",
