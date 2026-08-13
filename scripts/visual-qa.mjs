@@ -269,6 +269,34 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     appForm = { ...(appForm ?? {}), ...(paperResult?.result?.value ?? {}) };
+    // Verify a representative JSON-driven view (backtest) renders its textarea,
+    // sample helper, and submit control.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const item = Array.from(document.querySelectorAll(".finance-nav-item")).find(
+          (button) => /策略回测|Strategy backtest/.test(button.textContent || ""),
+        );
+        item?.click();
+        return !!item;
+      })()`,
+    });
+    await sleep(500);
+    const backtestResult = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const view = document.querySelector('[data-finance-view="backtest"]');
+        if (!view) return { backtest: false };
+        return {
+          backtest: true,
+          textarea: !!view.querySelector("textarea"),
+          sample: Array.from(view.querySelectorAll("button")).some((button) =>
+            /Insert sample|插入示例/.test(button.textContent || ""),
+          ),
+          submit: !!view.querySelector('button[type="submit"]'),
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = { ...(appForm ?? {}), ...(backtestResult?.result?.value ?? {}) };
   }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
