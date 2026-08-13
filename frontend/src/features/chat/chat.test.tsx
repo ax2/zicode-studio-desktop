@@ -231,11 +231,11 @@ describe("chat feed renderers", () => {
       output: "content",
     });
     await flush();
-    expect(container.querySelector(".tool-status")?.textContent).toBe("streaming");
+    expect(container.querySelector(".tool-status")?.textContent).toBe("运行中");
     expect(container.querySelector(".tool-output")?.textContent).toBe("content");
     tools.finalizeToolCard("tc-1", { content: [{ type: "text", text: "done" }] }, false);
     await flush();
-    expect(container.querySelector(".tool-status")?.textContent).toBe("complete");
+    expect(container.querySelector(".tool-status")?.textContent).toBe("完成");
     expect(container.querySelector(".tool-output")?.textContent).toBe("done");
   });
 

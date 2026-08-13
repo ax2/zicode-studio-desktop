@@ -683,7 +683,7 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
             {argsPreview ? <span className="tool-args-preview">{argsPreview}</span> : null}
           </span>
           <span className="tool-toggle-action">
-            {expanded ? "Collapse tool details" : "Expand tool details"}
+            {expanded ? t("Collapse tool details") : t("Expand tool details")}
           </span>
         </button>
         <div className="tool-header-right">
@@ -701,7 +701,7 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
             </svg>
           </button>
           <div className={`tool-status ${item.status}`} role="status" aria-live="polite">
-            {item.status}
+            {toolStatusLabel(item.status)}
           </div>
         </div>
         <span className={`tool-copy-status${copyState ? ` ${copyState}` : ""}`} role="status" aria-live="polite" aria-atomic="true">
@@ -749,6 +749,21 @@ function getArgsPreview(_toolName: string, args: Record<string, unknown>): strin
     if (typeof val === "string" && val.length > 0) return val.substring(0, 60);
   }
   return "";
+}
+
+function toolStatusLabel(status: string): string {
+  switch (status) {
+    case "error":
+      return t("error");
+    case "complete":
+      return t("complete");
+    case "pending":
+      return t("pending");
+    case "streaming":
+      return t("streaming");
+    default:
+      return status;
+  }
 }
 
 function CopyIcon() {
