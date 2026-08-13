@@ -1,14 +1,19 @@
 import { t } from "./i18n.js";
 
 // The Rust host wraps failed Pi RPC calls with stable English messages (for
-// example "Pi RPC request failed: ProcessClosed"). A closed runtime is a
-// recoverable state: creating a new session reconnects. Every feature store
-// should route host errors through `localizeHostError` so the Chinese UI
-// never shows raw English internals and instead tells the user the recovery
-// action.
+// example "Pi RPC request failed: ProcessClosed", "ZiCode Studio Desktop Host
+// runtime is disconnected", or "runtime_stopped"). A closed/stopped runtime is
+// a recoverable state: creating a new session reconnects. Every feature store
+// should route host errors through `localizeHostError` so the Chinese UI never
+// shows raw English internals and instead tells the user the recovery action.
 export function isRuntimeProcessClosedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /ProcessClosed|process\s+(is\s+)?closed/i.test(message);
+  return (
+    /ProcessClosed|process\s+(?:is\s+)?closed/i.test(message) ||
+    /\b(?:runtime|host|adapter)\b[^.\n]*?\b(disconnected|stopped|unavailable|no longer active)\b/i.test(
+      message,
+    )
+  );
 }
 
 export function localizeHostError(error: unknown): Error {

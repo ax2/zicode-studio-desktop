@@ -9,6 +9,22 @@ describe("host error localization", () => {
     );
     expect(isRuntimeProcessClosedError(new Error("process closed"))).toBe(true);
     expect(isRuntimeProcessClosedError("ProcessClosed")).toBe(true);
+    expect(
+      isRuntimeProcessClosedError(
+        new Error("ZiCode Studio Desktop Host runtime is disconnected"),
+      ),
+    ).toBe(true);
+    expect(isRuntimeProcessClosedError(new Error("Runtime adapter is disconnected"))).toBe(true);
+    expect(
+      isRuntimeProcessClosedError(
+        new Error("This ZiCode Studio Desktop runtime is stopped or unavailable"),
+      ),
+    ).toBe(true);
+    expect(
+      isRuntimeProcessClosedError(
+        new Error("The runtime that owns this broker token is no longer active"),
+      ),
+    ).toBe(true);
     expect(isRuntimeProcessClosedError(new Error("quota exceeded"))).toBe(false);
     expect(isRuntimeProcessClosedError("network unavailable")).toBe(false);
   });
