@@ -13,5 +13,6 @@ export function setupOcrApp(options: OcrOptions) {
     gateway: options.gateway ?? new OcrHttpGateway(),
     getTarget: options.getTarget,
     notify: options.notify,
+    saveToNote: options.saveToNote,
   });
 }

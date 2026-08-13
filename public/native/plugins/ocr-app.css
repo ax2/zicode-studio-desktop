@@ -105,6 +105,11 @@
   margin: 0;
 }
 
+.ocr-result-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
 .ocr-result-text {
   width: 100%;
   min-height: 180px;

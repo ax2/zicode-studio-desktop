@@ -125,13 +125,23 @@ function OcrMain({ store }: { store: OcrStore }) {
         <div className="ocr-result-header">
           <h2>{t("Result")}</h2>
           {result ? (
-            <button
-              type="button"
-              className="ui-button ui-button--ghost ui-button--sm"
-              onClick={() => void store.getState().copy()}
-            >
-              {t("Copy")}
-            </button>
+            <div className="ocr-result-actions">
+              <button
+                type="button"
+                className="ui-button ui-button--secondary ui-button--sm"
+                disabled={busy}
+                onClick={() => void store.getState().sendToNote()}
+              >
+                {t("Send to note")}
+              </button>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => void store.getState().copy()}
+              >
+                {t("Copy")}
+              </button>
+            </div>
           ) : null}
         </div>
         {result ? (

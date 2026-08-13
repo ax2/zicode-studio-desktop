@@ -881,6 +881,24 @@ const ocrApp = setupOcrApp({
     workspaceId: target.workspaceId,
   }),
   notify: notifications.notify,
+  saveToNote: async (text) => {
+    const { sceneId, workspaceId } = target;
+    const list = await notesGateway.list(sceneId, workspaceId);
+    let notebookId = list?.snapshot?.notebooks?.[0]?.id;
+    if (!notebookId) {
+      const created = await notesGateway.createNotebook(sceneId, workspaceId, {
+        title: "OCR notes",
+      });
+      notebookId = created?.notebook?.id;
+    }
+    if (!notebookId) throw new Error("No notebook available");
+    const trimmed = text.trim();
+    const title = trimmed.split("\n")[0].slice(0, 80) || "Extracted text";
+    await notesGateway.create(sceneId, workspaceId, notebookId, {
+      title,
+      content: trimmed,
+    });
+  },
 });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,

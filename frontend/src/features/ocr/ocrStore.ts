@@ -64,16 +64,18 @@ export interface OcrState {
   setLanguage(value: string): void;
   run(): Promise<void>;
   copy(): Promise<void>;
+  sendToNote(): Promise<void>;
 }
 
 export interface OcrOptions {
   gateway?: OcrGateway;
   getTarget(): OcrScope;
   notify(message: string): void;
+  saveToNote?(text: string): Promise<void>;
 }
 
 export function createOcrStore(options: OcrOptions) {
-  const { gateway = new OcrHttpGateway(), getTarget, notify } = options;
+  const { gateway = new OcrHttpGateway(), getTarget, notify, saveToNote } = options;
   return create<OcrState>()((set, get) => ({
     image: "",
     fileName: "",
@@ -120,6 +122,19 @@ export function createOcrStore(options: OcrOptions) {
         notify(t("Copied"));
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+
+    async sendToNote() {
+      const { editedText } = get();
+      if (!saveToNote || !editedText.trim()) return;
+      set({ busy: true, error: "" });
+      try {
+        await saveToNote(editedText);
+        set({ busy: false });
+        notify(t("Sent to notes"));
+      } catch (error) {
+        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
       }
     },
   }));
