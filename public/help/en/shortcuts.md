@@ -37,3 +37,6 @@ expand/collapse-all tool actions.
 ## Navigation
 
 Use the left navigation rail to switch applications. The adjacent function area changes with the selected application while the main view shows its content.
+
+- `Ctrl+1` through `Ctrl+9` switch to the first nine applications in the
+  activity-bar order (`1` = Chat, `2` = Projects, … `9` = OCR).
