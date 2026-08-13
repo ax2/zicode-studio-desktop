@@ -38,7 +38,11 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
 
   const pickFiles = (files: FileList | null) => {
     const file = files && files[0];
-    if (!file || !isSupportedDocument(file.name)) return;
+    if (!file) return;
+    if (!isSupportedDocument(file.name)) {
+      store.setState({ error: t("Only PDF and DOCX files are supported") });
+      return;
+    }
     readFileAsDataUrl(file)
       .then((dataUrl) => store.getState().setFile(file.name, dataUrl))
       .catch((reason: unknown) => {

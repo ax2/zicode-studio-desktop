@@ -188,6 +188,8 @@ const zhCN = {
   "Clipboard access is not available": "剪贴板访问不可用",
   "Clipboard is empty": "剪贴板为空",
   "Cannot read the clipboard": "无法读取剪贴板",
+  "Only PDF and DOCX files are supported": "仅支持 PDF 和 DOCX 文件",
+  "Only image files are supported": "仅支持图片文件",
   OCR: "文字识别",
   "Text Extraction": "文字提取",
   "Extract text from screenshots and images using the system OCR engine.":

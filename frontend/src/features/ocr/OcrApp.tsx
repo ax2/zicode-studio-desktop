@@ -30,7 +30,11 @@ function OcrMain({ store }: { store: OcrStore }) {
 
   const pickFiles = (files: FileList | null) => {
     const file = files && files[0];
-    if (!file || !file.type.startsWith("image/")) return;
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      store.setState({ error: t("Only image files are supported") });
+      return;
+    }
     downscaleImage(file)
       .then((dataUrl) => store.getState().setImage(dataUrl, file.name))
       .catch((reason: unknown) => {

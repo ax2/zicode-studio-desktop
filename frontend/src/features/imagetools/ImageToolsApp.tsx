@@ -73,7 +73,10 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
   const pickFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const entries = Array.from(files).filter((file) => file.type.startsWith("image/"));
-    if (entries.length === 0) return;
+    if (entries.length === 0) {
+      store.setState({ error: t("Only image files are supported") });
+      return;
+    }
     Promise.all(entries.map((file) => downscaleImage(file)))
       .then((dataUrls) =>
         store.getState().addImages(dataUrls, entries.map((file) => file.name)),
