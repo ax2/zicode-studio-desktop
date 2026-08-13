@@ -49,6 +49,8 @@ import { setupArtifactApp } from "./react/artifacts.js";
 import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { setupAutomationApp } from "./react/automation.js";
 import { setupIdPhotoApp } from "./react/idphoto.js";
+import { setupImageToolsApp } from "./react/imagetools.js";
+import { setupDocumentsApp } from "./react/documents.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
 import { setupComposer } from "./react/composer.js";
@@ -772,6 +774,34 @@ const idphotoApp = setupIdPhotoApp({
   }),
   notify: notifications.notify,
 });
+const imageToolsApp = setupImageToolsApp({
+  getTarget: () => ({
+    sceneId: target.sceneId,
+    workspaceId: target.workspaceId,
+  }),
+  notify: notifications.notify,
+});
+const documentsApp = setupDocumentsApp({
+  getTarget: () => ({
+    sceneId: target.sceneId,
+    workspaceId: target.workspaceId,
+  }),
+  notify: notifications.notify,
+  saveToNotes: async (fileName, markdown) => {
+    const { sceneId, workspaceId } = target;
+    const list = await notesGateway.list(sceneId, workspaceId);
+    const notebooks = list?.snapshot?.notebooks ?? [];
+    let notebookId = notebooks[0]?.id;
+    if (!notebookId) {
+      const created = await notesGateway.createNotebook(sceneId, workspaceId, {
+        title: "Imported documents",
+      });
+      notebookId = created?.notebook?.id;
+    }
+    if (!notebookId) throw new Error("No notebook available to save the document");
+    await notesGateway.importMarkdown(sceneId, workspaceId, notebookId, fileName, markdown);
+  },
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   capabilityGateway: pluginCapabilityGateway,
@@ -790,6 +820,8 @@ pluginShell = setupPluginShell({
     "com.zicode.tasks": taskCenterApp,
     "com.zicode.automation": automationApp,
     "com.zicode.idphoto": idphotoApp,
+    "com.zicode.imagetools": imageToolsApp,
+    "com.zicode.documents": documentsApp,
   },
   pluginViewHost,
   openCommandPalette: () => commandButton?.click(),

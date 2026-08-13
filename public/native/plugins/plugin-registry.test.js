@@ -21,6 +21,9 @@ describe("BuiltinPluginRegistry", () => {
       "com.zicode.notes",
       "com.zicode.automation",
       "com.zicode.finance",
+      "com.zicode.idphoto",
+      "com.zicode.imagetools",
+      "com.zicode.documents",
       "com.zicode.artifacts",
     ]);
     await expect(registry.setEnabled("core.chat", false)).rejects.toThrow("required core plugin");

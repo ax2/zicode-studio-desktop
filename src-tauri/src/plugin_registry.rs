@@ -1716,7 +1716,8 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                     "onCommand:notes.captureUrl",
                     "onCapability:notes.search",
                     "onCapability:notes.get",
-                    "onCapability:notes.create"
+                    "onCapability:notes.create",
+                    "onCapability:notes.extractWeb"
                 ],
                 "contributes": {
                     "activities": [{ "id": "notes", "title": "Notes", "order": 100 }],
@@ -1773,6 +1774,18 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                                 },
                                 "required": ["notebookId", "title"]
                             }
+                        },
+                        {
+                            "id": "notes.extractWeb",
+                            "title": "Extract web article",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "url": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                                },
+                                "required": ["url"]
+                            }
                         }
                     ],
                     "piTools": [
@@ -1821,6 +1834,20 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                                     "tags": { "type": "array", "items": { "type": "string" } }
                                 },
                                 "required": ["notebookId", "title"]
+                            }
+                        },
+                        {
+                            "name": "notes_extract_web",
+                            "title": "Extract web article",
+                            "description": "Fetch a public web page and extract its main article content (removing navigation, header, footer, ads and sidebars) as readable Markdown that preserves headings, lists, links, images, quotes, code and tables.",
+                            "capability": "notes.extractWeb",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "url": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                                },
+                                "required": ["url"]
                             }
                         }
                     ]
@@ -1901,6 +1928,171 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 "permissions": {
                     "required": [{ "name": "storage.plugin", "reason": "保存证件照排版输出" }],
                     "optional": [{ "name": "pi.tools.register", "reason": "向 Pi 提供证件照排版工具" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
+                "id": "com.zicode.imagetools",
+                "name": "Image Tools",
+                "description": "Image toolbox: resize, format/quality conversion, flip, rotate and grid concat.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:imagetools.workbench", "onCapability:imagetools.process", "onCapability:imagetools.concat"],
+                "contributes": {
+                    "activities": [{ "id": "imagetools", "title": "Image Tools", "order": 250 }],
+                    "views": [
+                        { "id": "imagetools.sidebar", "activity": "imagetools", "location": "sidebar", "title": "Image Tools" },
+                        { "id": "imagetools.workbench", "activity": "imagetools", "location": "main", "title": "Image Tools" }
+                    ],
+                    "commands": [{ "id": "imagetools.open", "title": "Open Image Tools" }],
+                    "capabilities": [
+                        {
+                            "id": "imagetools.process",
+                            "title": "Process image",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "image": { "type": "string", "minLength": 1, "maxLength": 20000000 },
+                                    "resize": {
+                                        "type": "object",
+                                        "properties": {
+                                            "width": { "type": "integer", "minimum": 1, "maximum": 20000 },
+                                            "height": { "type": "integer", "minimum": 1, "maximum": 20000 },
+                                            "fit": { "type": "string", "enum": ["contain", "cover", "stretch"] }
+                                        }
+                                    },
+                                    "format": { "type": "string", "enum": ["png", "jpeg", "webp"] },
+                                    "quality": { "type": "integer", "minimum": 1, "maximum": 100 },
+                                    "rotate": { "type": "integer", "enum": [90, 180, 270] },
+                                    "flip": { "type": "string", "enum": ["horizontal", "vertical", "both"] }
+                                },
+                                "required": ["image"]
+                            }
+                        },
+                        {
+                            "id": "imagetools.concat",
+                            "title": "Concat images",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "images": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "type": "string", "minLength": 1, "maxLength": 20000000 } },
+                                    "columns": { "type": "integer", "minimum": 1, "maximum": 20 },
+                                    "gap": { "type": "integer", "minimum": 0, "maximum": 200 },
+                                    "background": { "type": "string", "minLength": 1, "maxLength": 16 }
+                                },
+                                "required": ["images"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "image_process",
+                            "title": "Process image",
+                            "description": "Resize, convert format/quality, rotate or flip an image (input as a data URL or local file path).",
+                            "capability": "imagetools.process",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "image": { "type": "string" },
+                                    "resize": { "type": "object" },
+                                    "format": { "type": "string", "enum": ["png", "jpeg", "webp"] },
+                                    "quality": { "type": "integer", "minimum": 1, "maximum": 100 },
+                                    "rotate": { "type": "integer", "enum": [90, 180, 270] },
+                                    "flip": { "type": "string", "enum": ["horizontal", "vertical", "both"] }
+                                },
+                                "required": ["image"]
+                            }
+                        },
+                        {
+                            "name": "image_concat",
+                            "title": "Concat images",
+                            "description": "Arrange multiple images into a grid (data URLs or local file paths) and output one combined PNG.",
+                            "capability": "imagetools.concat",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "images": { "type": "array", "items": { "type": "string" } },
+                                    "columns": { "type": "integer", "minimum": 1, "maximum": 20 },
+                                    "gap": { "type": "integer", "minimum": 0, "maximum": 200 },
+                                    "background": { "type": "string" }
+                                },
+                                "required": ["images"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "Save processed image output" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose image tools to Pi" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
+                "id": "com.zicode.documents",
+                "name": "Documents",
+                "description": "Import PDF and DOCX files as readable Markdown.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:documents.workbench", "onCapability:documents.import"],
+                "contributes": {
+                    "activities": [{ "id": "documents", "title": "Documents", "order": 260 }],
+                    "views": [
+                        { "id": "documents.sidebar", "activity": "documents", "location": "sidebar", "title": "Documents" },
+                        { "id": "documents.workbench", "activity": "documents", "location": "main", "title": "Document Import" }
+                    ],
+                    "commands": [{ "id": "documents.open", "title": "Open Document Import" }],
+                    "capabilities": [
+                        {
+                            "id": "documents.import",
+                            "title": "Import document",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document": { "type": "string", "minLength": 1, "maxLength": 50000000 },
+                                    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+                                    "kind": { "type": "string", "enum": ["pdf", "docx"] }
+                                },
+                                "required": ["document"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "documents_import",
+                            "title": "Import document",
+                            "description": "Convert a PDF or DOCX document (a data URL or local file path) into readable Markdown, preserving headings, paragraphs, and lists.",
+                            "capability": "documents.import",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document": { "type": "string" },
+                                    "title": { "type": "string" },
+                                    "kind": { "type": "string", "enum": ["pdf", "docx"] }
+                                },
+                                "required": ["document"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "Read documents selected by the user" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "Expose document import to Pi" }]
                 }
             }),
             false,
@@ -2039,8 +2231,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 8);
-        assert_eq!(registry.capabilities("programming").len(), 4);
+        assert_eq!(registry.list("programming").len(), 10);
+        assert_eq!(registry.capabilities("programming").len(), 8);
         assert!(registry
             .pi_tools("programming")
             .iter()

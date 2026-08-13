@@ -40,8 +40,10 @@ async function run() {
       help: path.join(root, "frontend/src/features/help/index.ts"),
       settings: path.join(root, "frontend/src/features/settings/index.ts"),
       notes: path.join(root, "frontend/src/features/notes/index.ts"),
-      idphoto: path.join(root, "frontend/src/features/idphoto/index.ts"),
-      chat: path.join(root, "frontend/src/features/chat/index.ts"),
+  idphoto: path.join(root, "frontend/src/features/idphoto/index.ts"),
+  imagetools: path.join(root, "frontend/src/features/imagetools/index.ts"),
+  documents: path.join(root, "frontend/src/features/documents/index.ts"),
+  chat: path.join(root, "frontend/src/features/chat/index.ts"),
       composer: path.join(root, "frontend/src/features/composer/index.ts"),
       "session-sidebar": path.join(
         root,

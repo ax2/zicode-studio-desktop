@@ -48,6 +48,18 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["circle", { cx: "12", cy: "11", r: "3" }],
     ["path", { d: "M7 19c.9-2.5 2.7-3.8 5-3.8s4.1 1.3 5 3.8" }],
   ],
+  imagetools: [
+    [
+      "path",
+      { d: "M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" },
+    ],
+    ["circle", { cx: "9", cy: "9", r: "2" }],
+    ["path", { d: "m21 15-4.5-4.5L9 18" }],
+  ],
+  documents: [
+    ["path", { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }],
+    ["path", { d: "M14 2v6h6M9 13h6M9 17h6" }],
+  ],
   plugins: [
     ["path", { d: "M8 3v4M16 3v4M5 7h14v5a7 7 0 0 1-14 0Z" }],
     ["path", { d: "M9 21v-3M15 21v-3" }],

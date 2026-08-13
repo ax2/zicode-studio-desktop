@@ -108,6 +108,54 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     ],
   },
   {
+    id: "com.zicode.idphoto",
+    name: "ID Photo",
+    description: "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",
+    icon: "idphoto",
+    order: 200,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "idphoto.sidebar",
+        title: "ID Photo",
+        description: "Choose a template and print sheet.",
+      },
+    ],
+    commands: [{ id: "idphoto.open", label: "Open ID Photo Layout", icon: "open" }],
+  },
+  {
+    id: "com.zicode.imagetools",
+    name: "Image Tools",
+    description: "Image toolbox: resize, format/quality conversion, flip, rotate and grid concat.",
+    icon: "imagetools",
+    order: 250,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "imagetools.sidebar",
+        title: "Image Tools",
+        description: "Process or arrange images.",
+      },
+    ],
+    commands: [{ id: "imagetools.open", label: "Open Image Tools", icon: "open" }],
+  },
+  {
+    id: "com.zicode.documents",
+    name: "Documents",
+    description: "Import PDF and DOCX files as readable Markdown.",
+    icon: "documents",
+    order: 260,
+    enabledByDefault: true,
+    sidebarViews: [
+      {
+        id: "documents.sidebar",
+        title: "Documents",
+        description: "Import PDF and DOCX files.",
+      },
+    ],
+    commands: [{ id: "documents.open", label: "Open Document Import", icon: "open" }],
+  },
+  {
     id: "com.zicode.artifacts",
     name: "Artifacts",
     description: "Reports, charts, files, provenance, and exports from every plugin.",

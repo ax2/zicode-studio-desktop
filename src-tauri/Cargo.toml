@@ -30,7 +30,7 @@ serde_json = "1"
 semver = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-rustls = "0.26"
-reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "blocking"] }
 dirs = "5"
 log = "0.4"
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
@@ -56,6 +56,10 @@ qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+scraper = "0.21"
+ego-tree = "0.9"
+pdf-extract = "0.7.3"
+quick-xml = "0.37"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
 keyring = { version = "4.1.5", features = ["v1"] }

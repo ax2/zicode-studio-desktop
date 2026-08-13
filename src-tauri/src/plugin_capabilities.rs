@@ -267,8 +267,18 @@ impl CapabilityBroker {
             ("com.zicode.notes", "notes.create") => {
                 self.create_note(&invocation.workspace_id, &invocation.input)
             }
+            ("com.zicode.notes", "notes.extractWeb") => self.extract_web(&invocation.input),
             ("com.zicode.idphoto", "idphoto.layout") => {
                 self.layout_idphoto(&invocation.workspace_id, &invocation.input)
+            }
+            ("com.zicode.imagetools", "imagetools.process") => {
+                self.process_image(&invocation.workspace_id, &invocation.input)
+            }
+            ("com.zicode.imagetools", "imagetools.concat") => {
+                self.concat_images(&invocation.workspace_id, &invocation.input)
+            }
+            ("com.zicode.documents", "documents.import") => {
+                self.import_document(&invocation.workspace_id, &invocation.input)
             }
             _ => self.invoke_developer_worker(registry, invocation),
         }
@@ -289,6 +299,81 @@ impl CapabilityBroker {
             CapabilityError::new(
                 "serialization_failed",
                 format!("Cannot serialize idphoto result: {error}"),
+            )
+        })
+    }
+
+    fn extract_web(&self, input: &Value) -> Result<Value, CapabilityError> {
+        let url = input
+            .get("url")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                CapabilityError::new("invalid_parameters", "A web page URL is required")
+            })?;
+        let article = crate::web_extract::fetch_and_extract(url)
+            .map_err(|error| CapabilityError::new("capture_failed", error))?;
+        serde_json::to_value(article).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize extracted article: {error}"),
+            )
+        })
+    }
+
+    fn process_image(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let request: crate::image_tools::ImageProcessRequest =
+            serde_json::from_value(input.clone()).map_err(|error| {
+                CapabilityError::new(
+                    "invalid_parameters",
+                    format!("Invalid image process input: {error}"),
+                )
+            })?;
+        let result = crate::image_tools::process(&request, &workspace_root, workspace_id)
+            .map_err(|error| CapabilityError::new("process_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize image result: {error}"),
+            )
+        })
+    }
+
+    fn concat_images(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let request: crate::image_tools::ImageConcatRequest = serde_json::from_value(input.clone())
+            .map_err(|error| {
+                CapabilityError::new(
+                    "invalid_parameters",
+                    format!("Invalid image concat input: {error}"),
+                )
+            })?;
+        let result = crate::image_tools::concat(&request, &workspace_root, workspace_id)
+            .map_err(|error| CapabilityError::new("concat_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize image result: {error}"),
+            )
+        })
+    }
+
+    fn import_document(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let request: crate::document_import::DocumentImportRequest =
+            serde_json::from_value(input.clone()).map_err(|error| {
+                CapabilityError::new(
+                    "invalid_parameters",
+                    format!("Invalid document import input: {error}"),
+                )
+            })?;
+        let result = crate::document_import::import(&request, &workspace_root)
+            .map_err(|error| CapabilityError::new("import_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize document result: {error}"),
             )
         })
     }

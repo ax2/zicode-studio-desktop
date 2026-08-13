@@ -48,6 +48,7 @@ const MAX_HTTP_BODY_BYTES: usize = 2 * 1024 * 1024;
 const QVERIS_GATEWAY_TARGET: &str = "https://aigateway.qveris.ai/v1";
 const MAX_ATTACHMENT_HTTP_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_IDPHOTO_HTTP_BODY_BYTES: usize = 20 * 1024 * 1024;
+const MAX_DOCUMENT_HTTP_BODY_BYTES: usize = 50 * 1024 * 1024;
 const MAX_BACKUP_HTTP_BODY_BYTES: usize = 70 * 1024 * 1024;
 const MAX_WS_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 const PLUGIN_BROKER_TOKEN_TTL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -376,6 +377,20 @@ impl HostServer {
                 post(layout_idphoto_http).layer(DefaultBodyLimit::max(MAX_IDPHOTO_HTTP_BODY_BYTES)),
             )
             .route("/v2/idphoto/file", get(read_idphoto_file))
+            .route(
+                "/v2/imagetools/process",
+                post(process_image_http).layer(DefaultBodyLimit::max(MAX_IDPHOTO_HTTP_BODY_BYTES)),
+            )
+            .route(
+                "/v2/imagetools/concat",
+                post(concat_images_http).layer(DefaultBodyLimit::max(MAX_IDPHOTO_HTTP_BODY_BYTES)),
+            )
+            .route("/v2/imagetools/file", get(read_imagetools_file))
+            .route(
+                "/v2/documents/import",
+                post(import_document_http)
+                    .layer(DefaultBodyLimit::max(MAX_DOCUMENT_HTTP_BODY_BYTES)),
+            )
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -1813,6 +1828,8 @@ async fn capture_note(
                 content_hash: hash,
                 author: captured.author,
                 published_at: captured.published_at,
+                site_name: captured.site_name,
+                image: captured.image,
             }),
         )
         .map_err(notes_api_error)?;
@@ -1968,6 +1985,200 @@ async fn read_idphoto_file(
                 "cannot stream idphoto file",
             )
         })
+}
+
+async fn process_image_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let scene_id = request
+        .get("sceneId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let workspace_id = request
+        .get("workspaceId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "workspaceId is required"))?
+        .to_string();
+    ensure_imagetools_authorized(&state, &scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let input: crate::image_tools::ImageProcessRequest =
+        serde_json::from_value(request).map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_parameters",
+                &format!("Invalid image input: {error}"),
+            )
+        })?;
+    let result = crate::image_tools::process(&input, &workspace_root, &workspace_id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "process_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize image result",
+        )
+    })?))
+}
+
+async fn concat_images_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let scene_id = request
+        .get("sceneId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let workspace_id = request
+        .get("workspaceId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "workspaceId is required"))?
+        .to_string();
+    ensure_imagetools_authorized(&state, &scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let input: crate::image_tools::ImageConcatRequest =
+        serde_json::from_value(request).map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_parameters",
+                &format!("Invalid concat input: {error}"),
+            )
+        })?;
+    let result = crate::image_tools::concat(&input, &workspace_root, &workspace_id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "concat_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize image result",
+        )
+    })?))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ImageToolsFileQuery {
+    workspace_id: String,
+    file: String,
+}
+
+async fn read_imagetools_file(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ImageToolsFileQuery>,
+) -> Result<Response, (StatusCode, Json<Value>)> {
+    if !query.file.starts_with("image-")
+        || !["png", "jpg", "webp"]
+            .iter()
+            .any(|ext| query.file.ends_with(&format!(".{ext}")))
+    {
+        return Err(plugin_api_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_file_name",
+            "invalid image file name",
+        ));
+    }
+    let workspace_root = state
+        .data
+        .workspace_root_path(&query.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let path = workspace_root
+        .join(".zicode")
+        .join("imagetools")
+        .join(&query.file);
+    let bytes = std::fs::read(&path).map_err(|_| {
+        plugin_api_error(
+            StatusCode::NOT_FOUND,
+            "file_not_found",
+            "image file not found",
+        )
+    })?;
+    let mime = if query.file.ends_with(".png") {
+        "image/png"
+    } else if query.file.ends_with(".webp") {
+        "image/webp"
+    } else {
+        "image/jpeg"
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(axum::http::header::CONTENT_TYPE, mime)
+        .header(axum::http::header::CACHE_CONTROL, "private, max-age=300")
+        .header("x-content-type-options", "nosniff")
+        .body(Body::from(bytes))
+        .map_err(|_| {
+            plugin_api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "stream_failed",
+                "cannot stream image file",
+            )
+        })
+}
+
+async fn import_document_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let scene_id = request
+        .get("sceneId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let workspace_id = request
+        .get("workspaceId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "workspaceId is required"))?
+        .to_string();
+    ensure_documents_authorized(&state, &scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let input: crate::document_import::DocumentImportRequest = serde_json::from_value(request)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_parameters",
+                &format!("Invalid document input: {error}"),
+            )
+        })?;
+    let result = crate::document_import::import(&input, &workspace_root)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "import_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize document result",
+        )
+    })?))
 }
 
 async fn import_markdown_note(
@@ -3916,6 +4127,74 @@ fn ensure_idphoto_authorized(
     Ok(())
 }
 
+fn ensure_imagetools_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.imagetools")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Image Tools is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Image Tools storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
+fn ensure_documents_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.documents")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Documents is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Documents storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -4031,6 +4310,8 @@ struct CapturedPage {
     final_url: String,
     author: Option<String>,
     published_at: Option<String>,
+    site_name: Option<String>,
+    image: Option<String>,
 }
 
 async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError> {
@@ -4132,21 +4413,34 @@ async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError>
         let text = String::from_utf8(bytes)
             .map_err(|_| NotesError::new("capture_failed", "The web page is not UTF-8 text"))?;
         let is_plain = content_type.starts_with("text/plain");
+        let article = if is_plain {
+            None
+        } else {
+            Some(crate::web_extract::extract(&text, url.as_ref()))
+        };
         let title = if is_plain {
             url.path_segments()
                 .and_then(|segments| segments.filter(|value| !value.is_empty()).next_back())
                 .unwrap_or(host)
                 .to_string()
         } else {
-            extract_tag_text(&text, "title")
-                .map(|value| decode_html_entities(&value))
+            article
+                .as_ref()
+                .map(|article| article.title.clone())
+                .filter(|value| !value.trim().is_empty())
+                .or_else(|| {
+                    extract_tag_text(&text, "title").map(|value| decode_html_entities(&value))
+                })
                 .filter(|value| !value.trim().is_empty())
                 .unwrap_or_else(|| host.to_string())
         };
         let markdown = if is_plain {
             text.trim().to_string()
         } else {
-            html_to_markdown(&text)
+            article
+                .as_ref()
+                .map(|article| article.content_markdown.clone())
+                .unwrap_or_default()
         };
         if markdown.trim().is_empty() {
             return Err(NotesError::new(
@@ -4154,11 +4448,26 @@ async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError>
                 "No readable page content was found",
             ));
         }
+        let (author, site_name, image) = match &article {
+            Some(article) => (
+                article
+                    .byline
+                    .clone()
+                    .or_else(|| extract_meta_content(&text, &["author", "article:author"])),
+                article.site_name.clone(),
+                article.image.clone(),
+            ),
+            None => (
+                extract_meta_content(&text, &["author", "article:author"]),
+                None,
+                None,
+            ),
+        };
         return Ok(CapturedPage {
             title: title.trim().chars().take(200).collect(),
             markdown,
             final_url: url.to_string(),
-            author: extract_meta_content(&text, &["author", "article:author"]),
+            author,
             published_at: extract_meta_content(
                 &text,
                 &[
@@ -4168,6 +4477,8 @@ async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError>
                     "publishdate",
                 ],
             ),
+            site_name,
+            image,
         });
     }
     Err(NotesError::new(
@@ -4314,64 +4625,6 @@ fn html_attribute(tag: &str, attribute: &str) -> Option<String> {
     None
 }
 
-fn html_to_markdown(html: &str) -> String {
-    let cleaned = remove_html_blocks(html, &["script", "style", "noscript", "svg", "nav"]);
-    let mut output = String::new();
-    let mut cursor = 0usize;
-    while cursor < cleaned.len() {
-        let Some(relative) = cleaned[cursor..].find('<') else {
-            output.push_str(&cleaned[cursor..]);
-            break;
-        };
-        let start = cursor + relative;
-        output.push_str(&cleaned[cursor..start]);
-        let Some(end_relative) = cleaned[start..].find('>') else {
-            break;
-        };
-        let end = start + end_relative + 1;
-        let raw = cleaned[start + 1..end - 1].trim();
-        let closing = raw.starts_with('/');
-        let name = raw
-            .trim_start_matches('/')
-            .split(|character: char| character.is_ascii_whitespace() || character == '/')
-            .next()
-            .unwrap_or("")
-            .to_lowercase();
-        match (closing, name.as_str()) {
-            (false, "h1") => output.push_str("\n\n# "),
-            (false, "h2") => output.push_str("\n\n## "),
-            (false, "h3") => output.push_str("\n\n### "),
-            (false, "h4") => output.push_str("\n\n#### "),
-            (false, "li") => output.push_str("\n- "),
-            (false, "br") => output.push('\n'),
-            (true, "p" | "div" | "article" | "section" | "blockquote")
-            | (true, "h1" | "h2" | "h3" | "h4" | "li" | "ul" | "ol") => output.push_str("\n\n"),
-            _ => {}
-        }
-        cursor = end;
-    }
-    normalize_markdown_whitespace(&decode_html_entities(&output))
-}
-
-fn remove_html_blocks(html: &str, tags: &[&str]) -> String {
-    let mut result = html.to_string();
-    for tag in tags {
-        loop {
-            let lower = result.to_lowercase();
-            let Some(start) = lower.find(&format!("<{tag}")) else {
-                break;
-            };
-            let Some(relative_end) = lower[start..].find(&format!("</{tag}>")) else {
-                result.truncate(start);
-                break;
-            };
-            let end = start + relative_end + tag.len() + 3;
-            result.replace_range(start..end, "");
-        }
-    }
-    result
-}
-
 fn strip_html_tags(value: &str) -> String {
     let mut output = String::new();
     let mut in_tag = false;
@@ -4395,25 +4648,6 @@ fn decode_html_entities(value: &str) -> String {
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
         .replace("&#39;", "'")
-}
-
-fn normalize_markdown_whitespace(value: &str) -> String {
-    let mut output = String::new();
-    let mut blank_lines = 0usize;
-    for line in value.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            blank_lines += 1;
-            if blank_lines <= 1 && !output.is_empty() {
-                output.push('\n');
-            }
-            continue;
-        }
-        blank_lines = 0;
-        output.push_str(line);
-        output.push('\n');
-    }
-    output.trim().to_string()
 }
 
 fn api_error(status: StatusCode, code: &'static str) -> (StatusCode, Json<Value>) {
@@ -4483,9 +4717,9 @@ fn now_seconds() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        auth_preview, extension_ui_requires_owner, html_to_markdown, is_public_ip,
-        lan_qr_issuer_allowed, messages_from_entries_response, public_remote_path,
-        remote_http_authorized, rewrite_developer_roles, websocket_origin_allowed, HostServer,
+        auth_preview, extension_ui_requires_owner, is_public_ip, lan_qr_issuer_allowed,
+        messages_from_entries_response, public_remote_path, remote_http_authorized,
+        rewrite_developer_roles, websocket_origin_allowed, HostServer,
     };
     use crate::metadata_store::MetadataStore;
     use crate::native_pi_manager::NativePiManager;
@@ -4695,11 +4929,13 @@ mod tests {
 
     #[test]
     fn web_capture_sanitizes_active_html_and_rejects_private_network_addresses() {
-        let markdown = html_to_markdown(
+        let article = crate::web_extract::extract(
             r#"<main><h1>Public title</h1><script>alert("secret")</script><p>Readable <strong>text</strong>.</p></main>"#,
+            "https://example.com/",
         );
+        let markdown = article.content_markdown;
         assert!(markdown.contains("# Public title"));
-        assert!(markdown.contains("Readable text."));
+        assert!(markdown.contains("Readable **text**."));
         assert!(!markdown.contains("alert"));
         assert!(!is_public_ip("127.0.0.1".parse().unwrap()));
         assert!(!is_public_ip("10.2.3.4".parse().unwrap()));
@@ -4786,7 +5022,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 8);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 10);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

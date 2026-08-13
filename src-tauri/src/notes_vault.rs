@@ -52,6 +52,10 @@ pub struct NoteSource {
     pub author: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub published_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2261,6 +2265,12 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
         if let Some(published_at) = &source.published_at {
             output.push_str(&format!("  publishedAt: {}\n", yaml_string(published_at)));
         }
+        if let Some(site_name) = &source.site_name {
+            output.push_str(&format!("  siteName: {}\n", yaml_string(site_name)));
+        }
+        if let Some(image) = &source.image {
+            output.push_str(&format!("  image: {}\n", yaml_string(image)));
+        }
     }
     output.push_str("---\n\n");
     output.push_str(&document.content);
@@ -2315,6 +2325,8 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             content_hash: required_frontmatter_string(frontmatter, "contentHash")?,
             author: optional_frontmatter_string(frontmatter, "author"),
             published_at: optional_frontmatter_string(frontmatter, "publishedAt"),
+            site_name: optional_frontmatter_string(frontmatter, "siteName"),
+            image: optional_frontmatter_string(frontmatter, "image"),
         })
     } else {
         None
@@ -2871,6 +2883,8 @@ mod tests {
                     content_hash: content_hash("Captured body"),
                     author: Some("Example Author".into()),
                     published_at: None,
+                    site_name: None,
+                    image: None,
                 }),
             )
             .unwrap();
