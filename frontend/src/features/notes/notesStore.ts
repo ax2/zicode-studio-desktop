@@ -420,6 +420,12 @@ export function createNotesStore(options: NotesStoreOptions) {
           preview: false,
           focusTitleOnNextRender: true,
           mode: "library",
+          // Clear active list filters (tag / web-clip / search) so the fresh
+          // note stays in the snapshot after the follow-up load(); otherwise
+          // load() drops it from the filtered result and closes the editor.
+          selectedTag: null,
+          sourceOnly: false,
+          query: "",
         });
         const expanded = new Set(get().expandedNotebookIds);
         expanded.add(notebookId);

@@ -683,6 +683,19 @@ describe("notes store", () => {
     expect(store.getState().dirty).toBe(false);
   });
 
+  it("clears tag/web-clip/search filters when creating a note so the editor stays open", async () => {
+    const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-1", title: "Untitled note" } }));
+    const store = storeWithGateway({ create });
+    await store.getState().load();
+    await store.getState().applyFilter({ tag: "idea" });
+    expect(store.getState().selectedTag).toBe("idea");
+    await store.getState().newNote();
+    expect(store.getState().selectedTag).toBeNull();
+    expect(store.getState().sourceOnly).toBe(false);
+    expect(store.getState().query).toBe("");
+    expect(store.getState().selectedNote?.title).toBe("Untitled note");
+  });
+
   it("deletes a notebook after confirmation and reloads", async () => {
     const deleteNotebook = vi.fn(async () => ({ deleted: true }));
     const notify = vi.fn();
