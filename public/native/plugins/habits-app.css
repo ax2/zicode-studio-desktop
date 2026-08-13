@@ -163,6 +163,10 @@
   border-color: transparent;
 }
 
+.habits-day.is-today {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 @media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
   .habits-main {
     padding: var(--space-3);
