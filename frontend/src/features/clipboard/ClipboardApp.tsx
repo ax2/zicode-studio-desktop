@@ -107,6 +107,13 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
                   </button>
                   <button
                     type="button"
+                    className="ui-button ui-button--secondary ui-button--sm"
+                    onClick={() => void store.getState().sendToNote(item.text)}
+                  >
+                    {t("Send to note")}
+                  </button>
+                  <button
+                    type="button"
                     className="ui-button ui-button--ghost ui-button--sm"
                     onClick={() => void store.getState().remove(item.id)}
                   >

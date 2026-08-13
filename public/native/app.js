@@ -824,6 +824,24 @@ const clipboardApp = setupClipboardApp({
     workspaceId: target.workspaceId,
   }),
   notify: notifications.notify,
+  saveToNote: async (text) => {
+    const { sceneId, workspaceId } = target;
+    const list = await notesGateway.list(sceneId, workspaceId);
+    let notebookId = list?.snapshot?.notebooks?.[0]?.id;
+    if (!notebookId) {
+      const created = await notesGateway.createNotebook(sceneId, workspaceId, {
+        title: "Clipboard inbox",
+      });
+      notebookId = created?.notebook?.id;
+    }
+    if (!notebookId) throw new Error("No notebook available");
+    const trimmed = text.trim();
+    const title = trimmed.split("\n")[0].slice(0, 80) || "Captured note";
+    await notesGateway.create(sceneId, workspaceId, notebookId, {
+      title,
+      content: trimmed,
+    });
+  },
 });
 const graphApp = setupGraphApp({
   loadKnowledge: async () => {

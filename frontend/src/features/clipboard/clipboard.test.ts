@@ -20,14 +20,15 @@ function stubGateway(overrides: Partial<ClipboardGateway> = {}): ClipboardGatewa
   };
 }
 
-function createStore(gateway: ClipboardGateway) {
+function createStore(gateway: ClipboardGateway, saveToNote = vi.fn(async () => {})) {
   const notify = vi.fn();
   const store = createClipboardStore({
     gateway,
     getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
     notify,
+    saveToNote,
   });
-  return { store, notify };
+  return { store, notify, saveToNote };
 }
 
 describe("clipboard store", () => {
@@ -72,5 +73,14 @@ describe("clipboard store", () => {
     expect(gateway.clear).toHaveBeenCalledWith({ sceneId: "programming", workspaceId: "ws-1" });
     expect(store.getState().items).toEqual([]);
     expect(notify).toHaveBeenCalledWith("Inbox cleared");
+  });
+
+  it("sends an item to notes", async () => {
+    const gateway = stubGateway();
+    const saveToNote = vi.fn(async () => {});
+    const { store, notify } = createStore(gateway, saveToNote);
+    await store.getState().sendToNote("https://example.com");
+    expect(saveToNote).toHaveBeenCalledWith("https://example.com");
+    expect(notify).toHaveBeenCalledWith("Sent to notes");
   });
 });

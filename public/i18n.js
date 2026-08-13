@@ -121,6 +121,8 @@ const zhCN = {
   "Clear all": "清空全部",
   "No captured items yet": "还没有捕获的内容",
   "Added to inbox": "已添加到收件箱",
+  "Send to note": "发送到笔记",
+  "Sent to notes": "已发送到笔记",
   "Inbox cleared": "已清空收件箱",
   "Item removed": "已删除条目",
   URL: "链接",

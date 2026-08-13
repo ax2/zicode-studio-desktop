@@ -90,16 +90,18 @@ export interface ClipboardState {
   remove(id: string): Promise<void>;
   clear(): Promise<void>;
   paste(): Promise<void>;
+  sendToNote(text: string): Promise<void>;
 }
 
 export interface ClipboardOptions {
   gateway?: ClipboardGateway;
   getTarget(): ClipboardScope;
   notify(message: string): void;
+  saveToNote?(text: string): Promise<void>;
 }
 
 export function createClipboardStore(options: ClipboardOptions) {
-  const { gateway = new ClipboardHttpGateway(), getTarget, notify } = options;
+  const { gateway = new ClipboardHttpGateway(), getTarget, notify, saveToNote } = options;
   return create<ClipboardState>()((set, get) => ({
     items: [],
     draft: "",
@@ -171,6 +173,18 @@ export function createClipboardStore(options: ClipboardOptions) {
         }
       } catch {
         set({ error: t("Cannot read the clipboard") });
+      }
+    },
+
+    async sendToNote(text) {
+      if (!saveToNote || !text.trim()) return;
+      set({ busy: true, error: "" });
+      try {
+        await saveToNote(text);
+        set({ busy: false });
+        notify(t("Sent to notes"));
+      } catch (error) {
+        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
       }
     },
   }));

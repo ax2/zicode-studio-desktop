@@ -13,5 +13,6 @@ export function setupClipboardApp(options: ClipboardOptions) {
     gateway: options.gateway ?? new ClipboardHttpGateway(),
     getTarget: options.getTarget,
     notify: options.notify,
+    saveToNote: options.saveToNote,
   });
 }
