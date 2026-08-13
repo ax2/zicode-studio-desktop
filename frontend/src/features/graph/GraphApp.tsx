@@ -18,6 +18,7 @@ export type GraphAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
+  setTarget(): Promise<void>;
 };
 
 const GROUP_COLORS = [
@@ -190,6 +191,9 @@ export function createGraphApp(options: GraphOptions): GraphAppApi {
     },
     executeCommand() {},
     refresh() {
+      return store.getState().load();
+    },
+    setTarget() {
       return store.getState().load();
     },
   };

@@ -13,6 +13,7 @@ export type ClipboardAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
+  setTarget(): Promise<void>;
 };
 
 function ClipboardNav() {
@@ -156,6 +157,9 @@ export function createClipboardApp(options: ClipboardOptions): ClipboardAppApi {
     },
     executeCommand() {},
     refresh() {
+      return store.getState().load();
+    },
+    setTarget() {
       return store.getState().load();
     },
   };

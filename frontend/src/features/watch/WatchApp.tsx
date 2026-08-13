@@ -13,6 +13,7 @@ export type WatchAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
+  setTarget(): Promise<void>;
 };
 
 function WatchNav() {
@@ -210,6 +211,9 @@ export function createWatchApp(options: WatchOptions): WatchAppApi {
     },
     executeCommand() {},
     refresh() {
+      return store.getState().load();
+    },
+    setTarget() {
       return store.getState().load();
     },
   };

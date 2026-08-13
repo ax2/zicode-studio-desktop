@@ -13,6 +13,7 @@ export type HabitsAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
+  setTarget(): Promise<void>;
 };
 
 const EMOJIS = ["✅", "📖", "🏃", "🧘", "💧", "🥗", "💪", "🎯", "😴", "✍️", "🎨", "🧹"];
@@ -248,6 +249,9 @@ export function createHabitsApp(options: HabitsOptions): HabitsAppApi {
     },
     executeCommand() {},
     refresh() {
+      return store.getState().load();
+    },
+    setTarget() {
       return store.getState().load();
     },
   };
