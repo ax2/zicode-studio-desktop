@@ -48,6 +48,7 @@ import { createNotificationCenter } from "./react/notification-center.js";
 import { setupArtifactApp } from "./react/artifacts.js";
 import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { setupAutomationApp } from "./react/automation.js";
+import { setupIdPhotoApp } from "./react/idphoto.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
 import { setupComposer } from "./react/composer.js";
@@ -764,6 +765,13 @@ const automationApp = setupAutomationApp({
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   notify: notifications.notify,
 });
+const idphotoApp = setupIdPhotoApp({
+  getTarget: () => ({
+    sceneId: target.sceneId,
+    workspaceId: target.workspaceId,
+  }),
+  notify: notifications.notify,
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   capabilityGateway: pluginCapabilityGateway,
@@ -781,6 +789,7 @@ pluginShell = setupPluginShell({
     "com.zicode.projects": projectWorkspaceApp,
     "com.zicode.tasks": taskCenterApp,
     "com.zicode.automation": automationApp,
+    "com.zicode.idphoto": idphotoApp,
   },
   pluginViewHost,
   openCommandPalette: () => commandButton?.click(),

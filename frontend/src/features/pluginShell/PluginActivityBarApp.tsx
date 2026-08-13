@@ -40,6 +40,14 @@ const ICON_PATHS: Record<string, SvgShape[]> = {
     ["path", { d: "M4 4h16v16H4z" }],
     ["path", { d: "M8 15l3-3 2 2 3-4 2 3M8 8h3" }],
   ],
+  idphoto: [
+    [
+      "path",
+      { d: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" },
+    ],
+    ["circle", { cx: "12", cy: "11", r: "3" }],
+    ["path", { d: "M7 19c.9-2.5 2.7-3.8 5-3.8s4.1 1.3 5 3.8" }],
+  ],
   plugins: [
     ["path", { d: "M8 3v4M16 3v4M5 7h14v5a7 7 0 0 1-14 0Z" }],
     ["path", { d: "M9 21v-3M15 21v-3" }],

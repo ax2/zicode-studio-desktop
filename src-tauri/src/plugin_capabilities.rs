@@ -8,11 +8,14 @@ use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-pub const MAX_CAPABILITY_INPUT_BYTES: usize = 256 * 1024;
+// 证件照排版需要接收照片 data URL（可达数 MB），全局上限提高到 16 MiB；
+// 审计只记录输入哈希，不落盘原始字节。
+pub const MAX_CAPABILITY_INPUT_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_CAPABILITY_OUTPUT_BYTES: usize = 1024 * 1024;
 const MAX_NOTE_FILES: usize = 500;
 const MAX_NOTE_FILE_BYTES: u64 = 2 * 1024 * 1024;
@@ -55,6 +58,8 @@ struct CachedInvocation {
 pub struct CapabilityBroker {
     data_root: PathBuf,
     notes: NotesVault,
+    workspace_roots: Option<Arc<RwLock<HashMap<String, PathBuf>>>>,
+    system_root: Option<PathBuf>,
     audit_path: PathBuf,
     idempotency: HashMap<String, CachedInvocation>,
     idempotency_order: VecDeque<String>,
@@ -75,9 +80,37 @@ impl CapabilityBroker {
         Ok(Self {
             data_root,
             notes,
+            workspace_roots: None,
+            system_root: None,
             audit_path: audit_root.join("capabilities.jsonl"),
             idempotency: HashMap::new(),
             idempotency_order: VecDeque::new(),
+        })
+    }
+
+    /// Point workspace-scoped capabilities at `<workspace>/.zicode/...`.
+    pub fn with_workspace_registry(
+        mut self,
+        workspace_roots: Arc<RwLock<HashMap<String, PathBuf>>>,
+        system_root: PathBuf,
+    ) -> Self {
+        self.workspace_roots = Some(workspace_roots);
+        self.system_root = Some(system_root);
+        self
+    }
+
+    fn workspace_root(&self, workspace_id: &str) -> Result<PathBuf, CapabilityError> {
+        let roots = self.workspace_roots.as_ref().ok_or_else(|| {
+            CapabilityError::new("workspace_unavailable", "Workspace registry is unavailable")
+        })?;
+        let registry = roots.read().map_err(|_| {
+            CapabilityError::new("workspace_unavailable", "Workspace registry is locked")
+        })?;
+        registry.get(workspace_id).cloned().ok_or_else(|| {
+            CapabilityError::new(
+                "workspace_not_found",
+                format!("Workspace {workspace_id} is not registered"),
+            )
         })
     }
 
@@ -234,8 +267,30 @@ impl CapabilityBroker {
             ("com.zicode.notes", "notes.create") => {
                 self.create_note(&invocation.workspace_id, &invocation.input)
             }
+            ("com.zicode.idphoto", "idphoto.layout") => {
+                self.layout_idphoto(&invocation.workspace_id, &invocation.input)
+            }
             _ => self.invoke_developer_worker(registry, invocation),
         }
+    }
+
+    fn layout_idphoto(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
+        let workspace_root = self.workspace_root(workspace_id)?;
+        let request: crate::idphoto::IdPhotoRequest = serde_json::from_value(input.clone())
+            .map_err(|error| {
+                CapabilityError::new(
+                    "invalid_parameters",
+                    format!("Invalid idphoto layout input: {error}"),
+                )
+            })?;
+        let result = crate::idphoto::layout(&request, &workspace_root, workspace_id)
+            .map_err(|error| CapabilityError::new("layout_failed", error))?;
+        serde_json::to_value(result).map_err(|error| {
+            CapabilityError::new(
+                "serialization_failed",
+                format!("Cannot serialize idphoto result: {error}"),
+            )
+        })
     }
 
     fn invoke_developer_worker(

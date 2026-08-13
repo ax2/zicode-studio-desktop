@@ -47,6 +47,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 const MAX_HTTP_BODY_BYTES: usize = 2 * 1024 * 1024;
 const QVERIS_GATEWAY_TARGET: &str = "https://aigateway.qveris.ai/v1";
 const MAX_ATTACHMENT_HTTP_BODY_BYTES: usize = 8 * 1024 * 1024;
+const MAX_IDPHOTO_HTTP_BODY_BYTES: usize = 20 * 1024 * 1024;
 const MAX_BACKUP_HTTP_BODY_BYTES: usize = 70 * 1024 * 1024;
 const MAX_WS_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 const PLUGIN_BROKER_TOKEN_TTL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -205,11 +206,12 @@ impl HostServer {
         let notes = NotesVault::new(plugin_root.clone())
             .map_err(|error| format!("Cannot initialize Notes vault: {error}"))?
             .with_workspace_registry(workspace_roots.clone(), system_root.clone());
+        let capability_broker = CapabilityBroker::new(plugin_root.clone())
+            .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?
+            .with_workspace_registry(workspace_roots.clone(), system_root.clone());
         let artifacts = ArtifactStore::new(plugin_root.clone())
             .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?
             .with_workspace_registry(workspace_roots, system_root);
-        let capability_broker = CapabilityBroker::new(plugin_root)
-            .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?;
         let relay_status: RelayAgentStatus = Arc::new(Mutex::new(RelayAgentState::default()));
         let e2ee_identity = match crate::e2ee::E2eeIdentity::load_or_create() {
             Ok(identity) => Some(Arc::new(identity)),
@@ -369,6 +371,11 @@ impl HostServer {
                     .layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
             )
             .route("/v2/notes/rebuild", post(rebuild_notes_index))
+            .route(
+                "/v2/idphoto/layout",
+                post(layout_idphoto_http).layer(DefaultBodyLimit::max(MAX_IDPHOTO_HTTP_BODY_BYTES)),
+            )
+            .route("/v2/idphoto/file", get(read_idphoto_file))
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -1863,6 +1870,104 @@ async fn read_note_attachment(
         .header("content-security-policy", "default-src 'none'; sandbox")
         .body(Body::from(bytes))
         .map_err(|_| notes_unavailable())
+}
+
+async fn layout_idphoto_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let scene_id = request
+        .get("sceneId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let workspace_id = request
+        .get("workspaceId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| api_error(StatusCode::BAD_REQUEST, "workspaceId is required"))?
+        .to_string();
+    ensure_idphoto_authorized(&state, &scene_id)?;
+    let workspace_root = state
+        .data
+        .workspace_root_path(&workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let input: crate::idphoto::IdPhotoRequest =
+        serde_json::from_value(request).map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_parameters",
+                &format!("Invalid idphoto input: {error}"),
+            )
+        })?;
+    let result = crate::idphoto::layout(&input, &workspace_root, &workspace_id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "layout_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize idphoto result",
+        )
+    })?))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IdPhotoFileQuery {
+    workspace_id: String,
+    file: String,
+}
+
+async fn read_idphoto_file(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<IdPhotoFileQuery>,
+) -> Result<Response, (StatusCode, Json<Value>)> {
+    // 仅允许本插件生成的命名文件，杜绝路径穿越。
+    if !query.file.starts_with("idphoto-") || !query.file.ends_with(".png") {
+        return Err(plugin_api_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_file_name",
+            "invalid idphoto file name",
+        ));
+    }
+    let workspace_root = state
+        .data
+        .workspace_root_path(&query.workspace_id)
+        .map_err(|error| {
+            plugin_api_error(
+                StatusCode::BAD_REQUEST,
+                "workspace_unavailable",
+                &format!("{error:?}"),
+            )
+        })?;
+    let path = workspace_root
+        .join(".zicode")
+        .join("idphoto")
+        .join(&query.file);
+    let bytes = std::fs::read(&path).map_err(|_| {
+        plugin_api_error(
+            StatusCode::NOT_FOUND,
+            "file_not_found",
+            "idphoto file not found",
+        )
+    })?;
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(axum::http::header::CONTENT_TYPE, "image/png")
+        .header(axum::http::header::CACHE_CONTROL, "private, max-age=300")
+        .header("x-content-type-options", "nosniff")
+        .body(Body::from(bytes))
+        .map_err(|_| {
+            plugin_api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "stream_failed",
+                "cannot stream idphoto file",
+            )
+        })
 }
 
 async fn import_markdown_note(
@@ -3777,6 +3882,40 @@ fn ensure_notes_authorized(
     Ok(())
 }
 
+fn ensure_idphoto_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.idphoto")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "ID Photo is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("storage.plugin")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "ID Photo storage permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_notes_network_permission(
     state: &HostState,
     scene_id: &str,
@@ -4647,7 +4786,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 7);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 8);
         assert!(before["plugins"]
             .as_array()
             .unwrap()
@@ -5298,7 +5437,11 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(listed["capabilities"][0]["id"], "notes.search");
+        assert!(listed["capabilities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|capability| capability["id"] == "notes.search"));
 
         let response = client
             .post(format!("{}/v2/plugin-capabilities/invoke", host.origin()))

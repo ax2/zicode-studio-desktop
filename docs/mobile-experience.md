@@ -5253,6 +5253,34 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百七十一轮：新增"证件照排版"插件（com.zicode.idphoto，2026-08-13）。
+
+1. 目标：实现证件照排版软件的主要功能，并给 Pi 提供能力——对话中提供
+   一张照片，按模板排版并打印；
+2. Rust 排版引擎（src-tauri/src/idphoto.rs，新增 image 依赖）：
+   - 9 种模板：一寸/小一寸/大一寸/二寸/小二寸/签证照/护照/驾照/美签
+     （毫米规格，300DPI 换算像素）；
+   - 3 种打印纸：5寸/6寸/A4；边距 5mm、间距 2mm，自动或手动网格；
+   - 按模板比例裁剪（默认头部偏上）、可选边缘洪水填充换底色
+     （白/红/蓝/浅蓝 + 容差）、每张白描边；
+   - 输出 PNG 到 `<工作区>/.zicode/idphoto/`；
+3. Pi 能力：内置清单注册 `idphoto.layout` 能力与 `idphoto_layout`
+   工具（inputSchema：image data URL/路径、template、sheet、background、
+   tolerance、cols/rows、borderPx）；CapabilityBroker 接入工作区根路径，
+   能力输入上限提升到 16MiB（承载照片 data URL）；
+4. 前端工作台（frontend/src/features/idphoto + idphoto-app.css）：
+   上传/拖拽照片（长边压缩 2048px）、模板/纸张/底色/容差/描边/网格选项、
+   一键生成排版、结果预览（300DPI 尺寸信息）、"打开/打印"；
+   活动栏新增"证件照"入口（含图标）；
+5. 宿主路由：POST /v2/idphoto/layout（20MB 上限）与 GET
+   /v2/idphoto/file（鉴权服务排版图）；
+6. 验证：CDP 实测——二寸红底 6寸 → 2×2=4 张、1205×1795 PNG 正常加载；
+   capability invoke（一寸蓝底 6寸）→ 3×3=9 张并返回可加载 URL；
+   前端 867 项（新增 5 项 idphoto 测试）、Rust 201 项全绿；应用日志
+   无 ERROR/WARN；
+7. 说明：运行实例已同步新构建（含 image 依赖）；NSIS 安装包重建并入
+   下一次 release；测试生成的排版 PNG 保留在工作区 .zicode/idphoto/。
+
 第四百七十轮：快捷键/移动菜单/发布流水线核实（2026-08-13）。
 
 1. Ctrl+Shift+P 命令面板快捷键实测可用（CDP 正确修饰键位

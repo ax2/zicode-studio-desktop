@@ -1839,6 +1839,76 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 1,
+                "id": "com.zicode.idphoto",
+                "name": "ID Photo",
+                "description": "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:idphoto.workbench", "onCapability:idphoto.layout"],
+                "contributes": {
+                    "activities": [{ "id": "idphoto", "title": "ID Photo", "order": 200 }],
+                    "views": [
+                        { "id": "idphoto.sidebar", "activity": "idphoto", "location": "sidebar", "title": "ID Photo" },
+                        { "id": "idphoto.workbench", "activity": "idphoto", "location": "main", "title": "ID Photo Layout" }
+                    ],
+                    "commands": [{ "id": "idphoto.open", "title": "Open ID Photo Layout" }],
+                    "capabilities": [
+                        {
+                            "id": "idphoto.layout",
+                            "title": "证件照排版",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "image": { "type": "string", "minLength": 1, "maxLength": 20000000 },
+                                    "template": { "type": "string", "enum": ["one_inch", "small_one_inch", "large_one_inch", "two_inch", "small_two_inch", "visa", "passport", "driving", "us_visa"] },
+                                    "sheet": { "type": "string", "enum": ["5inch", "6inch", "a4"] },
+                                    "background": { "type": "string", "enum": ["keep", "white", "red", "blue", "lightblue"] },
+                                    "tolerance": { "type": "integer", "minimum": 0, "maximum": 255 },
+                                    "cols": { "type": "integer", "minimum": 1, "maximum": 30 },
+                                    "rows": { "type": "integer", "minimum": 1, "maximum": 30 },
+                                    "borderPx": { "type": "integer", "minimum": 0, "maximum": 20 }
+                                },
+                                "required": ["image", "template", "sheet"]
+                            }
+                        }
+                    ],
+                    "piTools": [
+                        {
+                            "name": "idphoto_layout",
+                            "title": "证件照排版",
+                            "description": "把一张人像照片按证件照模板（一寸/二寸/签证等）裁剪、可选替换底色（白/红/蓝/浅蓝），排版到打印纸（5寸/6寸/A4）并输出 PNG；返回可直接展示与打印的图片地址。image 参数传照片的 data URL 或文件路径。",
+                            "capability": "idphoto.layout",
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "image": { "type": "string", "minLength": 1, "maxLength": 20000000 },
+                                    "template": { "type": "string", "enum": ["one_inch", "small_one_inch", "large_one_inch", "two_inch", "small_two_inch", "visa", "passport", "driving", "us_visa"] },
+                                    "sheet": { "type": "string", "enum": ["5inch", "6inch", "a4"] },
+                                    "background": { "type": "string", "enum": ["keep", "white", "red", "blue", "lightblue"] },
+                                    "tolerance": { "type": "integer", "minimum": 0, "maximum": 255 },
+                                    "cols": { "type": "integer", "minimum": 1, "maximum": 30 },
+                                    "rows": { "type": "integer", "minimum": 1, "maximum": 30 },
+                                    "borderPx": { "type": "integer", "minimum": 0, "maximum": 20 }
+                                },
+                                "required": ["image", "template", "sheet"]
+                            }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "storage.plugin", "reason": "保存证件照排版输出" }],
+                    "optional": [{ "name": "pi.tools.register", "reason": "向 Pi 提供证件照排版工具" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 1,
                 "id": "com.zicode.automation",
                 "name": "Automation",
                 "description": "Scheduled, approval-aware workflows with retries and auditable history.",
@@ -1969,9 +2039,16 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 7);
-        assert_eq!(registry.capabilities("programming").len(), 3);
-        assert_eq!(registry.pi_tools("programming")[0].name, "notes_search");
+        assert_eq!(registry.list("programming").len(), 8);
+        assert_eq!(registry.capabilities("programming").len(), 4);
+        assert!(registry
+            .pi_tools("programming")
+            .iter()
+            .any(|tool| tool.name == "notes_search"));
+        assert!(registry
+            .pi_tools("programming")
+            .iter()
+            .any(|tool| tool.name == "idphoto_layout"));
         registry
             .set_enabled("programming", "com.zicode.notes", false)
             .unwrap();

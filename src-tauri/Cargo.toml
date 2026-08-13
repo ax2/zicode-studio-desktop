@@ -55,6 +55,7 @@ pem = "3"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
 keyring = { version = "4.1.5", features = ["v1"] }

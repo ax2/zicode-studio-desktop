@@ -8,6 +8,7 @@ mod e2ee;
 mod host_data;
 mod host_router;
 mod host_server;
+mod idphoto;
 mod metadata_store;
 mod native_pi_manager;
 mod notes_vault;
