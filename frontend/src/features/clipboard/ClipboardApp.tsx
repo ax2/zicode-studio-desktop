@@ -76,7 +76,11 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
             <button
               type="button"
               className="ui-button ui-button--ghost ui-button--sm"
-              onClick={() => void store.getState().clear()}
+              onClick={() => {
+                if (globalThis.confirm?.(t("Clear the clipboard inbox? This cannot be undone."))) {
+                  void store.getState().clear();
+                }
+              }}
             >
               {t("Clear all")}
             </button>

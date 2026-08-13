@@ -119,6 +119,8 @@ const zhCN = {
   "Add to inbox": "添加到收件箱",
   "Paste from clipboard": "从剪贴板粘贴",
   "Clear all": "清空全部",
+  "Clear the clipboard inbox? This cannot be undone.":
+    "清空剪贴板收件箱？此操作无法撤销。",
   "No captured items yet": "还没有捕获的内容",
   "Added to inbox": "已添加到收件箱",
   "Send to note": "发送到笔记",
@@ -150,6 +152,8 @@ const zhCN = {
   "No habits yet": "还没有习惯",
   "Habit added": "已添加习惯",
   "Habit updated": "已更新习惯",
+  "Delete this habit and its history? This cannot be undone.":
+    "删除这个习惯及其历史记录？此操作无法撤销。",
   "Habit removed": "已删除习惯",
   Translate: "翻译",
   Translation: "翻译",
@@ -190,6 +194,8 @@ const zhCN = {
   "No watchers yet": "还没有监控",
   "Watcher added": "已添加监控",
   "Watcher removed": "已删除监控",
+  "Delete this watcher? This cannot be undone.":
+    "删除这个监控项？此操作无法撤销。",
   "Clipboard access is not available": "剪贴板访问不可用",
   "Clipboard is empty": "剪贴板为空",
   "Cannot read the clipboard": "无法读取剪贴板",

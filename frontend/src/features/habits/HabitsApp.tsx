@@ -186,7 +186,11 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                       <button
                         type="button"
                         className="ui-button ui-button--ghost ui-button--sm habits-delete"
-                        onClick={() => void store.getState().remove(habit.id)}
+                        onClick={() => {
+                          if (globalThis.confirm?.(t("Delete this habit and its history? This cannot be undone."))) {
+                            void store.getState().remove(habit.id);
+                          }
+                        }}
                       >
                         {t("Delete")}
                       </button>
