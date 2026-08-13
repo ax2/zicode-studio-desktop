@@ -20,6 +20,7 @@ export type DocumentsAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
+  setTarget(): Promise<void>;
 };
 
 function DocumentsNav() {
@@ -217,6 +218,9 @@ export function createDocumentsApp(options: DocumentsOptions): DocumentsAppApi {
     executeCommand() {},
     refresh() {
       return Promise.resolve();
+    },
+    setTarget() {
+      return store.getState().loadNotebooks();
     },
   };
 }
