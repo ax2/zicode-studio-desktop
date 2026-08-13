@@ -5253,6 +5253,24 @@ P2 再做）完成 P1 UI 层：
    0、日志无 ERROR/WARN/panic；哈希见
    `docs/release-validation-2026-08-05.md`。
 
+第四百七十轮：快捷键/移动菜单/发布流水线核实（2026-08-13）。
+
+1. Ctrl+Shift+P 命令面板快捷键实测可用（CDP 正确修饰键位
+   Ctrl=2+Shift=8 触发，面板展开 15 项）；此前误判为不生效系测试合成
+   键位用错（6=Ctrl+Meta）；
+2. 移动端"更多"菜单点击项后正确收起（`onMenuItemClick` →
+   `closeMobileActivityMenu`，实测 300ms 内 hidden）；"命令"项打开命令
+   面板且菜单同步关闭；
+3. 发布流水线核实："脚本就绪待证书/密钥"属实——
+   `scripts/sign-release.ps1` 对 EXE/安装包做 signtool Authenticode
+   签名（此前自签证书验证过流程）；`.github/workflows/release.yml`
+   在 minisign 私钥 secrets 配置后自动产出 GitHub Release + updater
+   签名产物；
+4. 门禁：本轮无代码改动；
+5. 遗留：真机 M2 跨 NAT 验收（手机重连）；中继端口扩容（阿里云安全
+   组）；Authenticode 证书；自动更新 secrets（需用户确认）；"项目串联"
+   设计决策。
+
 第四百六十九轮：配置目录/渲染质量/移动端导航核验（2026-08-13）。
 
 1. 系统配置目录（用户要求"再次确认"）：`~/.zicode` 持有全部系统配置主
