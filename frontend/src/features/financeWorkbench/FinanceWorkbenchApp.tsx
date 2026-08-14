@@ -586,9 +586,6 @@ export function FinanceContentApp({
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
 
   const discoveryQueryRef = useRef<HTMLInputElement | null>(null);
-  const paperAccountNameRef = useRef<HTMLInputElement | null>(null);
-  const paperAccountCurrencyRef = useRef<HTMLInputElement | null>(null);
-  const paperAccountCashRef = useRef<HTMLInputElement | null>(null);
 
   if (sceneId !== "finance") {
     return (
@@ -834,32 +831,34 @@ export function FinanceContentApp({
             onSubmit={(event) => {
               event.preventDefault();
               controller.createPaperAccount({
-                name: paperAccountNameRef.current?.value.trim() ?? "",
-                baseCurrency: paperAccountCurrencyRef.current?.value.trim() ?? "",
-                initialCash: Number(paperAccountCashRef.current?.value),
+                name: inputValue("paperName").trim(),
+                baseCurrency: (inputValue("paperCurrency") || "CNY").trim(),
+                initialCash: Number(inputValue("paperCash")),
               });
             }}
           >
             <input
-              ref={paperAccountNameRef}
               className="ui-input"
               placeholder={t("Account name")}
               required
               disabled={Boolean(busy.paperAccount)}
+              value={inputValue("paperName")}
+              onChange={(event) => setInputValue("paperName", event.target.value)}
             />
             <input
-              ref={paperAccountCurrencyRef}
               className="ui-input"
-              defaultValue="CNY"
               disabled={Boolean(busy.paperAccount)}
+              value={inputValue("paperCurrency") || "CNY"}
+              onChange={(event) => setInputValue("paperCurrency", event.target.value)}
             />
             <input
-              ref={paperAccountCashRef}
               className="ui-input"
               type="number"
               min="0"
               required
               disabled={Boolean(busy.paperAccount)}
+              value={inputValue("paperCash")}
+              onChange={(event) => setInputValue("paperCash", event.target.value)}
             />
             <div className="finance-form-actions">
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.paperAccount)}>
