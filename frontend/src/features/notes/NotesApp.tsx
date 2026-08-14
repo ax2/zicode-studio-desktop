@@ -1709,7 +1709,7 @@ function ToolbarButton({
       className={`ui-button ${variant} ${className}`.trim()}
       disabled={disabled}
       aria-pressed={ariaPressed}
-      aria-label={label}
+      aria-label={hint ? `${label} (${hint})` : label}
       title={hint ? `${label} (${hint})` : label}
       onClick={onClick}
     >
