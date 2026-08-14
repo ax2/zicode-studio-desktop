@@ -11,6 +11,7 @@ import {
 export interface HelpCenterOptions {
   fetchImpl?: typeof fetch;
   getLocaleImpl?: () => string;
+  translateImpl?: (source: string) => string;
 }
 
 export interface HelpArticle {
@@ -35,6 +36,7 @@ interface HelpState {
 export function createHelpStore(options: HelpCenterOptions) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   const getLocaleImpl = options.getLocaleImpl ?? (() => "zh-CN");
+  const translate = options.translateImpl ?? ((source: string) => source);
 
   return create<HelpState>()((set, get) => ({
     manifest: null,
@@ -56,11 +58,11 @@ export function createHelpStore(options: HelpCenterOptions) {
         locale === "en" ? "/help/en/manifest.json" : "/help/manifest.json",
       );
       if (!response.ok) {
-        throw new Error(`Help index could not be loaded (${response.status})`);
+        throw new Error(`${translate("Help index could not be loaded")} (${response.status})`);
       }
       const payload = (await response.json()) as HelpManifest;
       if (!Array.isArray(payload?.pages) || payload.pages.length === 0) {
-        throw new Error("Help index does not contain any pages");
+        throw new Error(translate("Help index does not contain any pages"));
       }
       set({ manifest: payload, manifestLocale: locale });
       return payload;
@@ -73,7 +75,7 @@ export function createHelpStore(options: HelpCenterOptions) {
       const prefix = get().manifestLocale === "en" ? "/help/en/" : "/help/";
       const response = await fetchImpl(`${prefix}${page.file}`);
       if (!response.ok) {
-        throw new Error(`Help page could not be loaded (${response.status})`);
+        throw new Error(`${translate("Help page could not be loaded")} (${response.status})`);
       }
       const markdown = await response.text();
       set({

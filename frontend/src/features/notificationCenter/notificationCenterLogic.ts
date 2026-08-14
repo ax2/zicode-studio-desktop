@@ -12,5 +12,5 @@ export function normalizeNotification(
   input: string | NotificationInput,
 ): NotificationInput {
   if (typeof input === "string") return { title: input };
-  return input && typeof input === "object" ? input : { title: "Notification" };
+  return input && typeof input === "object" ? input : {};
 }

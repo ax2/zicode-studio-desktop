@@ -1601,6 +1601,11 @@ const zhCN = {
   "Concentration HHI": "集中度 HHI",
   "Largest position weight": "最大持仓权重",
   "Stale positions": "过期行情持仓",
+  "No active workspace": "没有活动工作区",
+  "Usage data is unavailable": "用量数据不可用",
+  "Help index could not be loaded": "无法加载帮助索引",
+  "Help index does not contain any pages": "帮助索引中没有任何页面",
+  "Help page could not be loaded": "无法加载帮助页面",
 };
 
 const dictionaries = { "zh-CN": zhCN, en: {} };

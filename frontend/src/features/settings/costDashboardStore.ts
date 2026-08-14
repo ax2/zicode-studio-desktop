@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { t } from "../../shared/i18n";
 import {
   adaptDashboardToInfobarPayload,
   DEFAULT_RANGE,
@@ -53,8 +54,8 @@ export function createCostDashboardStore() {
       set({ status: "loading", error: null });
       try {
         const workspaceId = getWorkspaceId();
-        if (!workspaceId) throw new Error("No active workspace");
-        if (!data) throw new Error("Usage data is unavailable");
+        if (!workspaceId) throw new Error(t("No active workspace"));
+        if (!data) throw new Error(t("Usage data is unavailable"));
         const response = await data.costDashboard(workspaceId);
         const dashboard = response?.dashboard ?? {};
         set({

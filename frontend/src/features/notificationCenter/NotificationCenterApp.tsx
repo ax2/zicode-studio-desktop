@@ -82,7 +82,7 @@ function NotificationCard({
     >
       <div className="native-notification-content">
         <div className="native-notification-title">
-          {item.title || "Notification"}
+          {item.title || t("Notification")}
         </div>
         {item.message ? (
           <div className="native-notification-message">{item.message}</div>

@@ -94,4 +94,15 @@ describe("help center React app", () => {
     expect(handler).toHaveBeenCalledWith("getting-started");
     expect(fetchImpl).toHaveBeenCalledWith("/help/getting-started.md");
   });
+
+  it("localizes help load errors through the injected translator", async () => {
+    const failing = vi.fn(async () => ({ ok: false, status: 500 }) as Response);
+    const store = createHelpStore({
+      fetchImpl: failing as unknown as typeof fetch,
+      getLocaleImpl: () => "zh-CN",
+      translateImpl: (source) =>
+        source === "Help index could not be loaded" ? "无法加载帮助索引" : source,
+    });
+    await expect(store.getState().loadManifest()).rejects.toThrow("无法加载帮助索引");
+  });
 });

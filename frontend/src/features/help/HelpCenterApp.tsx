@@ -295,7 +295,7 @@ export interface HelpCenterAppApi {
 }
 
 export function createHelpCenterApp(options: HelpCenterOptions): HelpCenterAppApi {
-  const store = createHelpStore(options);
+  const store = createHelpStore({ ...options, translateImpl: t });
   let openHandler: ((pageId: string | null) => void) | null = null;
   let navRoot: Root | null = null;
   let navWrapper: HTMLElement | null = null;

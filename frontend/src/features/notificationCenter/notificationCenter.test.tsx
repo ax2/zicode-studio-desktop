@@ -43,4 +43,11 @@ describe("notification center (React)", () => {
     const notification = center.notify({ type: "info" });
     expect(notification.element.textContent).toContain("通知");
   });
+
+  it("localizes the fallback title for malformed notification input", () => {
+    const center = createNotificationCenter({ duration: 0 });
+    const notification = center.notify(null as unknown as string);
+    expect(notification.element.textContent).toContain("通知");
+    expect(notification.element.textContent).not.toContain("Notification");
+  });
 });
