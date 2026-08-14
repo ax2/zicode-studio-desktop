@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { t } from "../../shared/i18n";
 import {
   asArray,
@@ -46,6 +46,28 @@ export interface FinanceWorkbenchController {
 
 function ResultMessage({ value }: { value: string }) {
   return <p className="finance-message">{value}</p>;
+}
+
+function CopyResultButton({ response }: { response: unknown }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard?.writeText(JSON.stringify(response, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable; ignore.
+    }
+  };
+  return (
+    <button
+      type="button"
+      className="ui-button ui-button--ghost ui-button--sm finance-result-copy"
+      onClick={() => void copy()}
+    >
+      {copied ? t("Copied") : t("Copy result")}
+    </button>
+  );
 }
 
 function MetricGrid({
@@ -134,17 +156,20 @@ function BacktestResults({ response }: { response: unknown }) {
     return <ResultMessage value={t("Backtest returned no metrics.")} />;
   }
   return (
-    <MetricGrid
-      entries={[
-        [t("Total return"), metrics.totalReturn],
-        [t("CAGR"), metrics.cagr],
-        [t("Maximum drawdown"), metrics.maxDrawdown],
-        [t("Sharpe ratio"), metrics.sharpeRatio],
-        [t("Final equity"), metrics.finalEquity],
-        [t("Completed trades"), metrics.completedTrades],
-      ]}
-      percentLabels={[t("Total return"), t("CAGR"), t("Maximum drawdown")]}
-    />
+    <>
+      <MetricGrid
+        entries={[
+          [t("Total return"), metrics.totalReturn],
+          [t("CAGR"), metrics.cagr],
+          [t("Maximum drawdown"), metrics.maxDrawdown],
+          [t("Sharpe ratio"), metrics.sharpeRatio],
+          [t("Final equity"), metrics.finalEquity],
+          [t("Completed trades"), metrics.completedTrades],
+        ]}
+        percentLabels={[t("Total return"), t("CAGR"), t("Maximum drawdown")]}
+      />
+      <CopyResultButton response={response} />
+    </>
   );
 }
 
@@ -200,6 +225,7 @@ function ScreeningResults({ response }: { response: unknown }) {
           <code>{number(candidate.score)}</code>
         </div>
       ))}
+      <CopyResultButton response={response} />
     </>
   );
 }

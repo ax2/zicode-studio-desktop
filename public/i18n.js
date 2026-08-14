@@ -911,6 +911,7 @@ const zhCN = {
     "使用确定性的下一根 K 线成交，并计算手续费和滑点。",
   "Insert sample": "插入示例",
   "Format JSON": "格式化 JSON",
+  "Copy result": "复制结果",
   "Must be a JSON object": "必须是 JSON 对象",
   "Valid JSON": "JSON 有效",
   "Invalid JSON": "JSON 无效",
