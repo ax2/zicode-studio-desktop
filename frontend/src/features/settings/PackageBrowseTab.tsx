@@ -75,14 +75,14 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
                 onClick={() => store.getState().setType(type)}
               >
                 {type === "all"
-                  ? "All"
+                  ? t("All")
                   : type === "extension"
-                    ? "Extensions"
+                    ? t("Extensions")
                     : type === "skill"
-                      ? "Skills"
+                      ? t("Skills")
                       : type === "theme"
-                        ? "Themes"
-                        : "Prompts"}
+                        ? t("Themes")
+                        : t("Prompts")}
               </button>
             ))}
           </div>
@@ -181,7 +181,7 @@ function PackageRow({ store, pkg }: { store: PackageBrowseStore; pkg: BrowsePack
         </div>
         {busy ? (
           <div className="settings-extension-status">
-            {installed ? "Removing…" : "Installing…"}
+            {installed ? t("Removing…") : t("Installing…")}
           </div>
         ) : null}
         <div className="pkg-browse-links">
@@ -189,13 +189,13 @@ function PackageRow({ store, pkg }: { store: PackageBrowseStore; pkg: BrowsePack
           {repo ? (
             <LinkButton
               kind={/github\.com/i.test(repo) ? "github" : "link"}
-              label={/github\.com/i.test(repo) ? "GitHub" : "repo"}
+              label={/github\.com/i.test(repo) ? "GitHub" : t("repo")}
               url={repo}
               store={store}
             />
           ) : null}
           {homepage && homepage !== repo ? (
-            <LinkButton kind="link" label="homepage" url={homepage} store={store} />
+            <LinkButton kind="link" label={t("homepage")} url={homepage} store={store} />
           ) : null}
         </div>
       </div>
@@ -207,11 +207,11 @@ function PackageRow({ store, pkg }: { store: PackageBrowseStore; pkg: BrowsePack
           onClick={() => void store.getState().toggleInstall(pkg)}
         >
           {!canManage ? (
-            "Desktop only"
+            t("Desktop only")
           ) : busy ? (
             <>
               <span className="settings-btn-spinner" aria-hidden="true"></span>
-              <span>{installed ? "Uninstalling…" : "Installing…"}</span>
+              <span>{installed ? t("Uninstalling…") : t("Installing…")}</span>
             </>
           ) : installed ? (
             t("Uninstall")
