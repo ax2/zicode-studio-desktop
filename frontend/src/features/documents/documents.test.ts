@@ -124,4 +124,15 @@ describe("documents store", () => {
       HTMLAnchorElement.prototype.click = originalClick;
     }
   });
+
+  it("clears the selected document and result", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.getState().setFile("report.docx", "data:base64,AAAA");
+    store.setState({ result: RESULT });
+    store.getState().clear();
+    expect(store.getState().fileName).toBe("");
+    expect(store.getState().document).toBe("");
+    expect(store.getState().result).toBeNull();
+  });
 });

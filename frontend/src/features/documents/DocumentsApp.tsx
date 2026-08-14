@@ -98,6 +98,14 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
             >
               {busy ? t("Importing…") : t("Import")}
             </button>
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              disabled={busy}
+              onClick={() => store.getState().clear()}
+            >
+              {t("Clear")}
+            </button>
           </div>
         ) : null}
         {error ? (
