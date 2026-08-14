@@ -52,11 +52,14 @@ function CopyResultButton({ response }: { response: unknown }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
-      await navigator.clipboard?.writeText(JSON.stringify(response, null, 2));
+      if (typeof navigator.clipboard?.writeText !== "function") {
+        throw new Error("Clipboard unavailable");
+      }
+      await navigator.clipboard.writeText(JSON.stringify(response, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard may be unavailable; ignore.
+      // Clipboard may be unavailable; keep the label as "Copy result".
     }
   };
   return (
