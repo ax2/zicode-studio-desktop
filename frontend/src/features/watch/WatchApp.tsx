@@ -137,9 +137,9 @@ function WatchMain({ store }: { store: WatchStore }) {
                         </a>
                         <span className="watch-item-meta">
                           {result
-                            ? result.changed
-                              ? `${t("Changed")}${result.title ? ` · ${result.title}` : ""}`
-                              : `${t("Unchanged")}${result.title ? ` · ${result.title}` : ""}`
+                            ? `${result.changed ? t("Changed") : t("Unchanged")}${
+                                result.title ? ` · ${result.title}` : ""
+                              } · ${formatTime(result.checkedAt)}`
                             : item.lastCheckedAt
                               ? `${t("Changes")}: ${item.changeCount} · ${formatTime(item.lastCheckedAt)}`
                               : t("Not checked yet")}
