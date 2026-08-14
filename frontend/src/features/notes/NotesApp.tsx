@@ -1549,6 +1549,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             icon={ICONS.copy}
             className="notes-copy-note"
             variant="ui-button--ghost"
+            hint="Ctrl+Shift+C"
             disabled={!draftContent.trim()}
             onClick={() => void store.getState().copyNote()}
           />

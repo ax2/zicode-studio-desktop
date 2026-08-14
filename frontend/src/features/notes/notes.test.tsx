@@ -658,6 +658,49 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("copies the current note markdown with Ctrl+Shift+C", async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const app = setupNotesApp({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+
+    const notebookBranch = [...nav.querySelectorAll(".notes-notebook-branch")].find((branch) =>
+      (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Projects"),
+    );
+    (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "c",
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(String(writeText.mock.calls[0][0])).toContain("# Plan");
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("toggles edit and preview with Ctrl+E", async () => {
     const app = setupNotesApp({
       gateway: gatewayStub(),
