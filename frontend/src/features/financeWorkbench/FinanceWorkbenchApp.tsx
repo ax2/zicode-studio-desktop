@@ -382,24 +382,24 @@ function JsonForm({
   busy,
   sample,
   submitLabel,
-  textareaRef,
+  value,
+  onChange,
   placeholder,
   onSubmit,
 }: {
   busy: boolean;
   sample?: unknown;
   submitLabel: string;
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange(value: string): void;
   placeholder: string;
   onSubmit(input: string): void;
 }) {
   const insertSample = () => {
-    if (textareaRef.current && sample !== undefined) {
-      textareaRef.current.value = JSON.stringify(sample, null, 2);
-    }
+    if (sample !== undefined) onChange(JSON.stringify(sample, null, 2));
   };
   const clearInput = () => {
-    if (textareaRef.current) textareaRef.current.value = "";
+    onChange("");
   };
   return (
     <form
@@ -407,16 +407,17 @@ function JsonForm({
       aria-busy={busy}
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(textareaRef.current?.value ?? "");
+        onSubmit(value);
       }}
     >
       <textarea
-        ref={textareaRef}
         className="ui-textarea"
         placeholder={placeholder}
         rows={5}
         spellCheck={false}
         disabled={busy}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
       />
       <div className="finance-form-actions">
         {sample !== undefined ? (
@@ -579,11 +580,12 @@ export function FinanceContentApp({
   const paperLimit = store((state) => state.paperLimit);
   const paperMark = store((state) => state.paperMark);
   const busy = store((state) => state.busy);
+  const jsonInputs = store((state) => state.inputs);
+  const jsonValue = (key: string) => jsonInputs[key] ?? "";
+  const setJsonValue = (key: string, value: string) =>
+    store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
 
   const discoveryQueryRef = useRef<HTMLInputElement | null>(null);
-  const snapshotInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const backtestInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const screenInputRef = useRef<HTMLTextAreaElement | null>(null);
   const researchSymbolRef = useRef<HTMLInputElement | null>(null);
   const researchTitleRef = useRef<HTMLInputElement | null>(null);
   const researchEventRef = useRef<HTMLInputElement | null>(null);
@@ -595,9 +597,6 @@ export function FinanceContentApp({
   const paperAccountNameRef = useRef<HTMLInputElement | null>(null);
   const paperAccountCurrencyRef = useRef<HTMLInputElement | null>(null);
   const paperAccountCashRef = useRef<HTMLInputElement | null>(null);
-  const paperOrderInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const paperLimitInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const paperMarkInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   if (sceneId !== "finance") {
     return (
@@ -658,7 +657,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.snapshot)}
             sample={sampleSnapshot()}
             submitLabel={t("Save snapshot")}
-            textareaRef={snapshotInputRef}
+            value={jsonValue("snapshot")}
+            onChange={(value) => setJsonValue("snapshot", value)}
             placeholder='{"kind":"quote","symbol":"600519.SH","currency":"CNY","asOf":"...","source":{"provider":"QVeris","executionId":"exec_..."},"payload":{"price":1400}}'
             onSubmit={(input) => controller.saveSnapshot(input)}
           />
@@ -686,7 +686,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.backtest)}
             sample={sampleBacktest()}
             submitLabel={t("Run backtest")}
-            textareaRef={backtestInputRef}
+            value={jsonValue("backtest")}
+            onChange={(value) => setJsonValue("backtest", value)}
             placeholder='{"bars":[...],"strategy":{"type":"sma_crossover","fastPeriod":20,"slowPeriod":60}}'
             onSubmit={(input) => controller.runBacktest(input)}
           />
@@ -703,7 +704,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.screening)}
             sample={sampleScreening()}
             submitLabel={t("Rank candidates")}
-            textareaRef={screenInputRef}
+            value={jsonValue("screening")}
+            onChange={(value) => setJsonValue("screening", value)}
             placeholder='{"securities":[...],"factors":[...]}'
             onSubmit={(input) => controller.runScreening(input)}
           />
@@ -870,7 +872,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.paperOrder)}
             sample={undefined}
             submitLabel={t("Record simulated order")}
-            textareaRef={paperOrderInputRef}
+            value={jsonValue("paperOrder")}
+            onChange={(value) => setJsonValue("paperOrder", value)}
             placeholder='{"accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"snapshot":{"price":1400,"asOf":"2026-07-30T07:00:00Z","source":"QVeris execution id"}}'
             onSubmit={(input) => controller.recordPaperOrder(input)}
           />
@@ -879,7 +882,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.paperLimit)}
             sample={undefined}
             submitLabel={t("Manage limit order")}
-            textareaRef={paperLimitInputRef}
+            value={jsonValue("paperLimit")}
+            onChange={(value) => setJsonValue("paperLimit", value)}
             placeholder='{"action":"place","accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"limitPrice":1380,"currency":"CNY"}'
             onSubmit={(input) => controller.manageLimitOrder(input)}
           />
@@ -888,7 +892,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.paperMark)}
             sample={undefined}
             submitLabel={t("Mark portfolio")}
-            textareaRef={paperMarkInputRef}
+            value={jsonValue("paperMark")}
+            onChange={(value) => setJsonValue("paperMark", value)}
             placeholder='{"accountId":"...","quotes":[{"symbol":"600519.SH","price":1410,"asOf":"...","source":"QVeris exec_...","currency":"CNY"}]}'
             onSubmit={(input) => controller.markPortfolio(input)}
           />

@@ -28,6 +28,7 @@ export interface FinanceWorkbenchStore {
   paperLimit: unknown;
   paperMark: unknown;
   busy: Record<string, boolean>;
+  inputs: Record<string, string>;
 }
 
 export type FinanceWorkbenchStoreHook = UseBoundStore<
@@ -51,5 +52,6 @@ export function createFinanceWorkbenchStore(): FinanceWorkbenchStoreHook {
     paperLimit: null,
     paperMark: null,
     busy: {},
+    inputs: {},
   }));
 }

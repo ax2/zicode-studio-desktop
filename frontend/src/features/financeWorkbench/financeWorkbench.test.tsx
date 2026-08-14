@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent } from "@testing-library/react";
 import { setupFinanceWorkbench } from "./index";
 
 function mountWorkbench(
@@ -156,11 +157,12 @@ describe("finance workbench", () => {
     );
 
     workbench.selectView("backtest");
-    (
+    fireEvent.change(
       content.querySelector(
         '[data-finance-view="backtest"] textarea',
-      ) as HTMLTextAreaElement
-    ).value = "{}";
+      ) as HTMLTextAreaElement,
+      { target: { value: "{}" } },
+    );
     submitForm(content, "backtest");
     await vi.waitFor(() => expect(content.textContent).toContain("12.00%"));
     await vi.waitFor(() => expect(artifactGateway.create).toHaveBeenCalledOnce());
@@ -248,11 +250,12 @@ describe("finance workbench", () => {
     );
 
     workbench.selectView("screening");
-    (
+    fireEvent.change(
       content.querySelector(
         '[data-finance-view="screening"] textarea',
-      ) as HTMLTextAreaElement
-    ).value = "{}";
+      ) as HTMLTextAreaElement,
+      { target: { value: "{}" } },
+    );
     submitForm(content, "screening");
     await vi.waitFor(() => expect(content.textContent).toContain("75.00%"));
     expect(content.querySelector('img')).toBeNull();
@@ -311,17 +314,22 @@ describe("finance workbench", () => {
     );
 
     workbench.selectView("snapshots");
-    (
+    fireEvent.change(
       content.querySelector(
         '[data-finance-view="snapshots"] textarea',
-      ) as HTMLTextAreaElement
-    ).value = JSON.stringify({
-      kind: "quote",
-      symbol: "600519.SH",
-      asOf: "2026-07-31T08:00:00Z",
-      source: { provider: "QVeris", executionId: "run-1" },
-      payload: { price: 1400 },
-    });
+      ) as HTMLTextAreaElement,
+      {
+        target: {
+          value: JSON.stringify({
+            kind: "quote",
+            symbol: "600519.SH",
+            asOf: "2026-07-31T08:00:00Z",
+            source: { provider: "QVeris", executionId: "run-1" },
+            payload: { price: 1400 },
+          }),
+        },
+      },
+    );
     submitForm(content, "snapshots");
     await vi.waitFor(() => expect(artifactGateway.create).toHaveBeenCalledOnce());
     expect(artifactGateway.create.mock.calls[0][2]).toMatchObject({
@@ -333,11 +341,12 @@ describe("finance workbench", () => {
     });
 
     workbench.selectView("backtest");
-    (
+    fireEvent.change(
       content.querySelector(
         '[data-finance-view="backtest"] textarea',
-      ) as HTMLTextAreaElement
-    ).value = "{}";
+      ) as HTMLTextAreaElement,
+      { target: { value: "{}" } },
+    );
     submitForm(content, "backtest");
     await vi.waitFor(() => expect(content.textContent).toContain("5.00%"));
     await vi.waitFor(() =>
@@ -374,5 +383,22 @@ describe("finance workbench", () => {
       "finance_research_workspace",
       expect.objectContaining({ action: "remove" }),
     );
+  });
+
+  it("preserves JSON input when switching views", async () => {
+    const { content, workbench } = mountWorkbench({ sceneId: "finance" });
+    workbench.selectView("backtest");
+    const backtest = content.querySelector(
+      '[data-finance-view="backtest"] textarea',
+    ) as HTMLTextAreaElement;
+    fireEvent.change(backtest, { target: { value: '{"foo":"bar"}' } });
+    expect(backtest.value).toBe('{"foo":"bar"}');
+
+    workbench.selectView("screening");
+    workbench.selectView("backtest");
+    const restored = content.querySelector(
+      '[data-finance-view="backtest"] textarea',
+    ) as HTMLTextAreaElement;
+    expect(restored.value).toBe('{"foo":"bar"}');
   });
 });
