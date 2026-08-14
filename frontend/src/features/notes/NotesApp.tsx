@@ -1217,7 +1217,12 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
         <div className="notes-empty-actions">
           {snapshot.notebooks.length ? (
             <>
-              <button type="button" className="ui-button ui-button--primary" onClick={() => void newNote()}>
+              <button
+                type="button"
+                className="ui-button ui-button--primary"
+                title={t("New note") + " (Ctrl+N)"}
+                onClick={() => void newNote()}
+              >
                 {t("New note")}
               </button>
               <button type="button" className="ui-button ui-button--secondary" onClick={() => void startCapture()}>
