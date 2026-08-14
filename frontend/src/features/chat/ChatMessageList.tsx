@@ -422,9 +422,20 @@ function ThinkingBlock({
   const [open, setOpen] = useState(expanded);
   return (
     <div className="thinking-block">
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: thinking toggle pattern preserved from the vanilla renderer */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: disclosure toggle mirrors the vanilla delegated click */}
-      <div className={`thinking-toggle${open ? " expanded" : ""}`} data-thinking-toggle onClick={() => setOpen(!open)}>
+      <div
+        className={`thinking-toggle${open ? " expanded" : ""}`}
+        data-thinking-toggle
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setOpen(!open);
+          }
+        }}
+      >
         <span className="chevron">
           <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" aria-hidden="true">
             <path d="M2 1l4 3-4 3z" />
