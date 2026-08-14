@@ -99,6 +99,7 @@ const zhCN = {
   "Character count": "字数",
   "Reading time": "阅读时长",
   "min read": "分钟阅读",
+  "Last edited": "最后编辑",
   "Nothing to preview yet": "暂无内容可预览",
   "Import a document to preview its Markdown here.":
     "导入文档后，这里会显示 Markdown 预览。",

@@ -1218,6 +1218,19 @@ describe("notes React components", () => {
     (document.querySelector(".image-lightbox-close") as HTMLButtonElement).click();
   });
 
+  it("shows the last-edited date for a note with a timestamp", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-editor")).toBeTruthy(),
+    );
+    expect(container.querySelector(".notes-edited-at")?.textContent).toContain(
+      t("Last edited"),
+    );
+  });
+
   it("selects notes and moves them through the batch bar", async () => {
     const moveNote = vi.fn(
       async (

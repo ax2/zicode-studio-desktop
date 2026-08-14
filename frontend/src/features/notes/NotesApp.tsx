@@ -1640,6 +1640,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
         tags={draftTags}
         onChange={(tags) => setDraft({ tags })}
       />
+      {note.updatedAt ? (
+        <p className="notes-edited-at">
+          {t("Last edited")}: {formatDate(note.updatedAt)}
+        </p>
+      ) : null}
       {note.source?.url ? (
         <p className="notes-source">
           {t("Source")}:{" "}
