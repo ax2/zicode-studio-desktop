@@ -142,7 +142,7 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
   if (status === "error") {
     return (
       <div className="settings-api-keys-empty">
-        <div>{error || "Failed to load providers."}</div>
+        <div>{error || t("Failed to load providers.")}</div>
         <button
           type="button"
           className="ui-button ui-button--secondary config-editor-cancel"

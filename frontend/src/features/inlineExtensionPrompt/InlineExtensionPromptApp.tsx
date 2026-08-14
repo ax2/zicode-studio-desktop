@@ -128,8 +128,8 @@ export function InlineExtensionPromptCard({
       aria-label={t("Extension question")}
     >
       <div className="inline-prompt-header">
-        <span className="inline-prompt-eyebrow">{content.header || "Question"}</span>
-        <div className="inline-prompt-title">{content.title || "Choose an option"}</div>
+        <span className="inline-prompt-eyebrow">{content.header || t("Question")}</span>
+        <div className="inline-prompt-title">{content.title || t("Choose an option")}</div>
       </div>
 
       {request.method === "select" ? (

@@ -1037,6 +1037,7 @@ const zhCN = {
   "Open model settings": "打开模型设置",
   Session: "会话",
   Question: "问题",
+  "Choose an option": "选择一个选项",
   Answer: "回答",
   "Discuss in Chat": "带入对话",
   "Conversation saved to Notes": "对话内容已沉淀到笔记",
@@ -1220,6 +1221,7 @@ const zhCN = {
   "This note changed elsewhere. Reload it before editing again.":
     "这篇笔记已在其他位置发生变化，请重新加载后再编辑。",
   Attach: "添加附件",
+  "Open attachment": "打开附件",
   "Attachment added": "附件已添加",
   "Attachments must contain 1 byte to 5 MiB": "附件大小必须在 1 字节到 5 MiB 之间",
   "Data management": "数据管理",

@@ -1726,7 +1726,7 @@ function rewriteAttachmentUrls(container: HTMLElement, store: NotesStore) {
         link.target = "_blank";
         link.rel = "noreferrer";
         link.className = "notes-attachment-fallback";
-        link.textContent = target.getAttribute("alt") || "Open attachment";
+        link.textContent = target.getAttribute("alt") || t("Open attachment");
         target.replaceWith(link);
       });
     }
