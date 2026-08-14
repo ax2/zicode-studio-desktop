@@ -193,7 +193,10 @@ export function createClipboardStore(options: ClipboardOptions) {
     async copyItem(text) {
       if (!text) return;
       try {
-        await navigator.clipboard?.writeText(text);
+        if (typeof navigator.clipboard?.writeText !== "function") {
+          throw new Error(t("Clipboard access is not available"));
+        }
+        await navigator.clipboard.writeText(text);
         notify(t("Copied"));
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });

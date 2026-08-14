@@ -174,7 +174,10 @@ export function createDocumentsStore(options: DocumentsOptions) {
       const { result } = get();
       if (!result) return;
       try {
-        await navigator.clipboard?.writeText(result.markdown);
+        if (typeof navigator.clipboard?.writeText !== "function") {
+          throw new Error(t("Clipboard access is not available"));
+        }
+        await navigator.clipboard.writeText(result.markdown);
         notify(t("Copied"));
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });

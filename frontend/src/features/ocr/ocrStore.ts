@@ -119,7 +119,10 @@ export function createOcrStore(options: OcrOptions) {
       const { editedText } = get();
       if (!editedText) return;
       try {
-        await navigator.clipboard?.writeText(editedText);
+        if (typeof navigator.clipboard?.writeText !== "function") {
+          throw new Error(t("Clipboard access is not available"));
+        }
+        await navigator.clipboard.writeText(editedText);
         notify(t("Copied"));
       } catch (error) {
         set({ error: friendlyPluginError(error) });
