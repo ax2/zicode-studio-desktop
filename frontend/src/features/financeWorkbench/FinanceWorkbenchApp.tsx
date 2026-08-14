@@ -831,6 +831,7 @@ export function FinanceContentApp({
               ref={paperAccountNameRef}
               className="ui-input"
               placeholder={t("Account name")}
+              required
               disabled={Boolean(busy.paperAccount)}
             />
             <input
@@ -843,6 +844,8 @@ export function FinanceContentApp({
               ref={paperAccountCashRef}
               className="ui-input"
               type="number"
+              min="0"
+              required
               disabled={Boolean(busy.paperAccount)}
             />
             <div className="finance-form-actions">
