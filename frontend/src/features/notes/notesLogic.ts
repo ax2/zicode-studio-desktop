@@ -118,6 +118,8 @@ export const ICONS: Record<string, string> = {
   attach:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7.5 4.5v6a1.75 1.75 0 0 0 3.5 0v-6.5a3 3 0 0 0-6 0v7a4.2 4.2 0 0 0 8.4 0V5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   save: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8l2.5 2.5V13a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 13V9h5v4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  download:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v7M5 6.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 12.5h11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   trash:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1.5M4.5 4.5l.7 8.2a1 1 0 0 0 1 .8h3.6a1 1 0 0 0 1-.8l.7-8.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   plus: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',

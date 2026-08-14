@@ -238,6 +238,7 @@ interface NotesState {
   exportAllBackup(): Promise<void>;
   importBackup(): Promise<void>;
   importAllBackup(): Promise<void>;
+  downloadNote(): Promise<void>;
   rebuildIndex(): Promise<void>;
   publishAstro(): Promise<void>;
   captureUrl(input: { url: string; title: string; notebookId: string; tags: string[] }): Promise<void>;
@@ -1050,6 +1051,17 @@ export function createNotesStore(options: NotesStoreOptions) {
       } catch (error) {
         set({ error: localizeNotesHostError(error) });
       }
+    },
+
+    async downloadNote() {
+      await get().saveIfDirty();
+      const note = get().selectedNote;
+      if (!note) return;
+      downloadFile(
+        `${safeFileName(note.title || "note")}.md`,
+        note.content,
+        "text/markdown",
+      );
     },
 
     async importBackup() {

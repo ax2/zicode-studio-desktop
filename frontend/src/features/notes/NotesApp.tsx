@@ -1528,6 +1528,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
             onClick={() => void store.getState().attachFile()}
           />
           <ToolbarButton
+            label={t("Download Markdown")}
+            icon={ICONS.download}
+            className="notes-download-note"
+            variant="ui-button--ghost"
+            onClick={() => void store.getState().downloadNote()}
+          />
+          <ToolbarButton
             label={t("Save")}
             icon={ICONS.save}
             className="notes-save"
