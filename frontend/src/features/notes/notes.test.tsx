@@ -605,6 +605,55 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("duplicates the current note with Ctrl+D", async () => {
+    const create = vi.fn(async () => ({
+      note: { ...NOTE, id: "note-9", title: "Roadmap (副本)" },
+    }));
+    const list = vi.fn(async () => ({
+      snapshot: {
+        ...SNAPSHOT,
+        notes: [
+          ...SNAPSHOT.notes,
+          { id: "note-9", notebookId: "book-1", title: "Roadmap (副本)" },
+        ],
+      },
+    }));
+    const app = setupNotesApp({
+      gateway: gatewayStub({ create, list }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+
+    const notebookBranch = [...nav.querySelectorAll(".notes-notebook-branch")].find((branch) =>
+      (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Projects"),
+    );
+    (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "d", ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create).toHaveBeenCalledWith(
+      "programming",
+      "ws-1",
+      "book-1",
+      expect.objectContaining({ title: "Roadmap (副本)" }),
+    );
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("toggles edit and preview with Ctrl+E", async () => {
     const app = setupNotesApp({
       gateway: gatewayStub(),

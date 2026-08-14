@@ -1556,6 +1556,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             icon={ICONS.duplicate}
             className="notes-duplicate-note"
             variant="ui-button--ghost"
+            hint="Ctrl+D"
             disabled={!draftContent.trim()}
             onClick={() => void store.getState().duplicateNote()}
           />
