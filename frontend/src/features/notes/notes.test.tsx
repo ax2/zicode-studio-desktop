@@ -926,6 +926,16 @@ describe("notes React components", () => {
     expect(document.querySelectorAll(".notes-tag-chip").length).toBe(1);
   });
 
+  it("focuses and selects the title when a new note is created", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.setState({ preview: false, focusTitleOnNextRender: true });
+    render(<NotesContent store={store} />);
+    const titleInput = document.querySelector(".notes-title-input") as HTMLInputElement;
+    await waitFor(() => expect(document.activeElement).toBe(titleInput));
+  });
+
   it("switches to preview mode and renders markdown", async () => {
     const store = storeWithGateway();
     await store.getState().load();

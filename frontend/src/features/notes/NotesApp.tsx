@@ -1390,6 +1390,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const setDeleteArmed = store((state) => state.setDeleteArmed);
   const resetDeleteArmed = store((state) => state.resetDeleteArmed);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
+  const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
@@ -1435,6 +1436,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
   useEffect(() => {
     if (store.getState().focusTitleOnNextRender) {
       store.setState({ focusTitleOnNextRender: false });
+      const title = titleRef.current;
+      if (title) {
+        title.focus();
+        title.select();
+      }
     }
   }, [store]);
 
@@ -1570,6 +1576,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           />
         </div>
         <input
+          ref={titleRef}
           className="notes-title-input"
           value={draftTitle}
           placeholder={t("Note title")}
