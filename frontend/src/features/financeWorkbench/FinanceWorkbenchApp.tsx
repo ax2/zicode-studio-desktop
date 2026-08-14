@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { t } from "../../shared/i18n";
 import {
   asArray,
@@ -585,7 +584,6 @@ export function FinanceContentApp({
   const setInputValue = (key: string, value: string) =>
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
 
-  const discoveryQueryRef = useRef<HTMLInputElement | null>(null);
 
   if (sceneId !== "finance") {
     return (
@@ -618,14 +616,15 @@ export function FinanceContentApp({
             aria-busy={Boolean(busy.discovery)}
             onSubmit={(event) => {
               event.preventDefault();
-              controller.runDiscovery(discoveryQueryRef.current?.value ?? "");
+              controller.runDiscovery(inputValue("discovery"));
             }}
           >
             <input
-              ref={discoveryQueryRef}
               className="ui-input"
-              defaultValue="historical daily adjusted equity prices and company fundamentals"
               disabled={Boolean(busy.discovery)}
+              placeholder="historical daily adjusted equity prices and company fundamentals"
+              value={inputValue("discovery")}
+              onChange={(event) => setInputValue("discovery", event.target.value)}
             />
             <div className="finance-form-actions">
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.discovery)}>

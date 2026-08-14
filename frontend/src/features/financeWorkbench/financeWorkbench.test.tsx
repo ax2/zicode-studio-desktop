@@ -146,11 +146,12 @@ describe("finance workbench", () => {
     );
 
     workbench.selectView("discovery");
-    (
+    fireEvent.change(
       content.querySelector(
         '[data-finance-view="discovery"] input',
-      ) as HTMLInputElement
-    ).value = "historical prices";
+      ) as HTMLInputElement,
+      { target: { value: "historical prices" } },
+    );
     submitForm(content, "discovery");
     await vi.waitFor(() =>
       expect(content.textContent).toContain("Historical prices"),
