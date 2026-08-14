@@ -63,6 +63,11 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       void store.getState().saveEditor();
       return;
     }
+    if (!event.shiftKey && key === "e") {
+      event.preventDefault();
+      store.getState().setPreview(!store.getState().preview);
+      return;
+    }
     if (!event.shiftKey && key === "n") {
       event.preventDefault();
       void store.getState().newNote();

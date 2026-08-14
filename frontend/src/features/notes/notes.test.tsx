@@ -605,6 +605,43 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("toggles edit and preview with Ctrl+E", async () => {
+    const app = setupNotesApp({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+
+    const notebookBranch = [...nav.querySelectorAll(".notes-notebook-branch")].find((branch) =>
+      (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Projects"),
+    );
+    (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+    expect(content.querySelector(".notes-preview")).toBeTruthy();
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "e", ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    await waitFor(() => expect(content.querySelector(".notes-content-input")).toBeTruthy());
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "e", ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    await waitFor(() => expect(content.querySelector(".notes-preview")).toBeTruthy());
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("loads the snapshot and selects a note into drafts", async () => {
     const store = storeWithGateway();
     await store.getState().load();
