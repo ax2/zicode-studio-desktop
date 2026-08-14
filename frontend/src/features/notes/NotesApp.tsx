@@ -1541,6 +1541,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
             onClick={() => void store.getState().downloadNote()}
           />
           <ToolbarButton
+            label={t("Duplicate note")}
+            icon={ICONS.duplicate}
+            className="notes-duplicate-note"
+            variant="ui-button--ghost"
+            disabled={!draftContent.trim()}
+            onClick={() => void store.getState().duplicateNote()}
+          />
+          <ToolbarButton
             label={t("Save")}
             icon={ICONS.save}
             className="notes-save"

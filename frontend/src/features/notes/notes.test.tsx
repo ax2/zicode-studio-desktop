@@ -838,6 +838,44 @@ describe("notes store", () => {
     expect(store.getState().selectedNote?.title).toBe("Untitled note");
   });
 
+  it("duplicates the current note with a copy suffix and keeps its content", async () => {
+    const create = vi.fn(async () => ({
+      note: { ...NOTE, id: "note-9", title: "Roadmap (副本)" },
+    }));
+    const list = vi.fn(async () => ({
+      snapshot: {
+        ...SNAPSHOT,
+        notes: [
+          ...SNAPSHOT.notes,
+          { id: "note-9", notebookId: "book-1", title: "Roadmap (副本)" },
+        ],
+      },
+    }));
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub({ create, list }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
+      notify,
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    await store.getState().duplicateNote();
+    expect(create).toHaveBeenCalledWith(
+      "programming",
+      "ws-1",
+      "book-1",
+      expect.objectContaining({
+        title: "Roadmap (副本)",
+        content: "# Plan\n\nSafe content",
+        tags: ["plugin"],
+        icon: "📝",
+      }),
+    );
+    expect(store.getState().selectedNote?.id).toBe("note-9");
+    expect(notify).toHaveBeenCalledWith(t("Note duplicated"));
+  });
+
   it("deletes a notebook after confirmation and reloads", async () => {
     const deleteNotebook = vi.fn(async () => ({ deleted: true }));
     const notify = vi.fn();

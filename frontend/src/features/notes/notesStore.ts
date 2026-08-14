@@ -200,6 +200,7 @@ interface NotesState {
   discussInChat(note: Note, selection: string): Promise<void>;
   attachmentUrl(note: Note, attachmentId: string): string;
   newNote(): Promise<void>;
+  duplicateNote(): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<Note>;
   createNotebook(title: string, icon: string, parentId?: string | null): Promise<void>;
@@ -497,6 +498,41 @@ export function createNotesStore(options: NotesStoreOptions) {
         set({ expandedNotebookIds: expanded });
         get().syncDraftFromNote();
         await get().load();
+      } catch (error) {
+        set({ error: localizeNotesHostError(error), loading: false });
+      }
+    },
+
+    async duplicateNote() {
+      const note = get().selectedNote;
+      if (!note) return;
+      const draft = get();
+      set({ loading: true, error: null });
+      try {
+        const response = await gateway.create(sceneId(), workspaceId(), note.notebookId, {
+          title: `${draft.draftTitle.trim() || note.title} (${t("Duplicate")})`,
+          content: draft.draftContent,
+          tags: parseTags(draft.draftTags.join(", ")),
+          icon: draft.draftIcon.trim() || DEFAULT_NOTE_ICON,
+        });
+        set({
+          selectedNote: response.note,
+          selectedNotebookId: note.notebookId,
+          dirty: false,
+          preview: true,
+          mode: "library",
+          // Clear active list filters (tag / web-clip / search) so the freshly
+          // duplicated note stays in the snapshot after the follow-up load().
+          selectedTag: null,
+          sourceOnly: false,
+          query: "",
+        });
+        const expanded = new Set(get().expandedNotebookIds);
+        expanded.add(note.notebookId);
+        set({ expandedNotebookIds: expanded });
+        get().syncDraftFromNote();
+        await get().load();
+        notify(t("Note duplicated"));
       } catch (error) {
         set({ error: localizeNotesHostError(error), loading: false });
       }
