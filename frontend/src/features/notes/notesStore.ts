@@ -1058,8 +1058,8 @@ export function createNotesStore(options: NotesStoreOptions) {
       const note = get().selectedNote;
       if (!note) return;
       downloadFile(
-        `${safeFileName(note.title || "note")}.md`,
-        note.content,
+        `${safeFileName(get().draftTitle || note.title || "note")}.md`,
+        get().draftContent,
         "text/markdown",
       );
     },
