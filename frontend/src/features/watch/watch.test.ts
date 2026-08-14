@@ -97,6 +97,24 @@ describe("watch store", () => {
     expect(gateway.check).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps successful check results when one watcher fails", async () => {
+    setLocale("zh-CN");
+    const gateway = stubGateway({
+      list: vi.fn(async () => ({
+        items: [ITEM, { ...ITEM, id: "w2", name: "Second" }],
+      })),
+      check: vi.fn(async (_scope, id) => {
+        if (id === "w2") throw new Error("Page is unreachable: timeout");
+        return { id: "w1", changed: true, hash: "abc", contentLength: 10, checkedAt: "x" };
+      }),
+    });
+    const { store } = createStore(gateway);
+    await store.getState().load();
+    await store.getState().checkAll();
+    expect(store.getState().results.w1?.changed).toBe(true);
+    expect(store.getState().error).toContain("无法访问");
+  });
+
   it("removes a watcher", async () => {
     const gateway = stubGateway();
     const { store, notify } = createStore(gateway);

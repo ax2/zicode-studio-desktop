@@ -206,25 +206,34 @@ export function createWatchStore(options: WatchOptions) {
       const { items, busy } = get();
       if (busy || items.length === 0) return;
       set({ busy: true, checking: true, error: "" });
-      try {
-        const results: Record<string, WatchCheckResult> = {};
-        for (const item of items) {
+      const results: Record<string, WatchCheckResult> = {};
+      let firstError = "";
+      for (const item of items) {
+        try {
           results[item.id] = await gateway.check(getTarget(), item.id);
+        } catch (error) {
+          // Keep checking the rest so one unreachable watcher does not
+          // discard every other result.
+          if (!firstError) firstError = friendlyPluginError(error);
         }
-        set((state) => ({
-          results: { ...state.results, ...results },
-          busy: false,
-          checking: false,
-        }));
+      }
+      set((state) => ({
+        results: { ...state.results, ...results },
+        busy: false,
+        checking: false,
+      }));
+      const checked = Object.keys(results).length;
+      if (checked > 0) {
         notify(
           t("Checked {count} watchers").replace(
             "{count}",
-            String(Object.keys(results).length),
+            String(checked),
           ),
         );
-        await get().load();
-      } catch (error) {
-        set({ busy: false, checking: false, error: friendlyPluginError(error) });
+      }
+      await get().load();
+      if (firstError) {
+        set({ error: firstError });
       }
     },
 
