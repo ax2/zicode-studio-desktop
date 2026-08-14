@@ -403,6 +403,7 @@ export function ComposerApp({
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn"
                 id="mic-btn"
                 title={t("Voice input")}
+                aria-label={t("Voice input")}
                 tabIndex={-1}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -411,7 +412,13 @@ export function ComposerApp({
                   <line x1="12" x2="12" y1="19" y2="22" />
                 </svg>
               </button>
-              <button type="submit" id="send-btn" title={t("Send message")} tabIndex={-1}>
+              <button
+                type="submit"
+                id="send-btn"
+                title={t("Send message")}
+                aria-label={t("Send message")}
+                tabIndex={-1}
+              >
                 <span className="send-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="19" x2="12" y2="5" />
@@ -419,7 +426,14 @@ export function ComposerApp({
                   </svg>
                 </span>
               </button>
-              <button type="button" id="abort-btn" className="hidden" title={t("Abort (Esc)")} tabIndex={-1}>
+              <button
+                type="button"
+                id="abort-btn"
+                className="hidden"
+                title={t("Abort (Esc)")}
+                aria-label={t("Abort (Esc)")}
+                tabIndex={-1}
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="4" y="4" width="16" height="16" rx="2" />
                 </svg>

@@ -75,6 +75,12 @@ describe("composer React shell", () => {
     for (const id of expectedIds) {
       expect(document.getElementById(id), `missing #${id}`).toBeTruthy();
     }
+    for (const id of ["attach-btn", "command-btn", "mic-btn", "send-btn", "abort-btn"]) {
+      expect(
+        document.getElementById(id)?.getAttribute("aria-label"),
+        `missing aria-label on #${id}`,
+      ).toBeTruthy();
+    }
     expect(elements?.input).toBe(document.getElementById("message-input"));
     expect(elements?.composerCard).toBe(document.getElementById("composer-card"));
     expect((elements?.abortButton as HTMLButtonElement)?.classList.contains("hidden")).toBe(true);
