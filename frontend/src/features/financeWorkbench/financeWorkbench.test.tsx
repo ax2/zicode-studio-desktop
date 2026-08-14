@@ -402,4 +402,21 @@ describe("finance workbench", () => {
     ) as HTMLTextAreaElement;
     expect(restored.value).toBe('{"foo":"bar"}');
   });
+
+  it("formats compact JSON in JSON-driven forms", async () => {
+    const { content, workbench } = mountWorkbench({ sceneId: "finance" });
+    workbench.selectView("backtest");
+    const backtest = content.querySelector(
+      '[data-finance-view="backtest"] textarea',
+    ) as HTMLTextAreaElement;
+    fireEvent.change(backtest, { target: { value: '{"bars":[1,2],"strategy":{"type":"sma"}}' } });
+
+    const formatButton = [...content.querySelectorAll("button")].find((button) =>
+      (button.textContent ?? "").includes("格式化 JSON"),
+    ) as HTMLButtonElement;
+    fireEvent.click(formatButton);
+
+    expect(JSON.parse(backtest.value)).toEqual({ bars: [1, 2], strategy: { type: "sma" } });
+    expect(backtest.value).toContain("\n");
+  });
 });
