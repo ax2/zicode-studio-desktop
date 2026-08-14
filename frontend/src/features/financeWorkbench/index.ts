@@ -34,6 +34,7 @@ export interface FinanceWorkbenchOptions {
     ): Promise<unknown>;
   } | null;
   notify?(notification: Record<string, unknown>): void;
+  confirmRemove?(message: string): boolean | Promise<boolean>;
 }
 
 export interface FinanceWorkbenchHandle {
@@ -54,6 +55,7 @@ export function setupFinanceWorkbench({
   openFinanceApp = () => {},
   artifactGateway = null,
   notify = () => {},
+  confirmRemove = (message: string) => globalThis.confirm?.(message) ?? false,
 }: FinanceWorkbenchOptions): FinanceWorkbenchHandle | null {
   if (!configGateway) return null;
   const store = createFinanceWorkbenchStore();
@@ -148,6 +150,9 @@ export function setupFinanceWorkbench({
   }
 
   async function removeResearchCard(id: string) {
+    if (!(await confirmRemove(t("Remove this research card? This cannot be undone.")))) {
+      return;
+    }
     const removed = await call("finance_research_workspace", { action: "remove", id });
     if (!removed?.ok) {
       notify({

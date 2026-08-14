@@ -348,4 +348,31 @@ describe("finance workbench", () => {
       ),
     );
   });
+
+  it("confirms before removing a research card", async () => {
+    const call = vi.fn(async (op: string) => {
+      if (op === "finance_research_workspace") {
+        return { ok: true, data: { cards: [{ id: "c1", symbol: "AAPL", title: "Apple" }] } };
+      }
+      return { ok: true, data: {} };
+    });
+    const confirmRemove = vi.fn(() => false);
+    const { content, workbench } = mountWorkbench(
+      { sceneId: "finance" },
+      { call, confirmRemove },
+    );
+    workbench.selectView("research");
+    await vi.waitFor(() =>
+      expect(content.querySelector(".finance-research-card")).toBeTruthy(),
+    );
+    const removeButton = content.querySelector(
+      ".finance-research-card button",
+    ) as HTMLButtonElement;
+    removeButton.click();
+    await vi.waitFor(() => expect(confirmRemove).toHaveBeenCalledTimes(1));
+    expect(call).not.toHaveBeenCalledWith(
+      "finance_research_workspace",
+      expect.objectContaining({ action: "remove" }),
+    );
+  });
 });

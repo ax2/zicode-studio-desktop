@@ -1500,6 +1500,7 @@ const zhCN = {
   "Could not save research card": "无法保存研究卡片",
   "Could not load research workspace": "无法加载研究工作区",
   "Could not remove research card": "无法移除研究卡片",
+  "Remove this research card? This cannot be undone.": "移除这张研究卡片？此操作无法撤销。",
   "Loading research workspace…": "正在加载研究工作区…",
   "No research cards yet": "暂无研究卡片",
 "Upcoming events": "近期事件",
