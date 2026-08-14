@@ -178,6 +178,29 @@ describe("chat feed renderers", () => {
     expect(container.querySelector(".message-copy-btn")).toBeTruthy();
   });
 
+  it("makes the thinking disclosure keyboard-operable", async () => {
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    const handle = renderer.renderAssistantMessage({ id: "a1", content: "Hi" }, true);
+    if (!handle) throw new Error("missing streaming handle");
+    renderer.finalizeStreamingMessage(handle, { cost: { total: 0 } }, "internal reasoning");
+    await flush();
+
+    const toggle = container.querySelector(".thinking-toggle");
+    expect(toggle?.getAttribute("role")).toBe("button");
+    expect(toggle?.getAttribute("tabindex")).toBe("0");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+
+    toggle?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await flush();
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector(".thinking-toggle.expanded")).toBeTruthy();
+
+    toggle?.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    await flush();
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("keeps the answer text when a reasoning response finalizes with thinking", async () => {
     const container = makeContainer();
     const renderer = new MessageRenderer(container);
