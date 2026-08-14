@@ -97,7 +97,18 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
 
       <div className="imagetools-workspace">
         <section className="ui-card imagetools-source">
-          <h2>{mode === "concat" ? t("Images") : t("Image")}</h2>
+          <div className="imagetools-source-header">
+            <h2>{mode === "concat" ? t("Images") : t("Image")}</h2>
+            {images.length > 0 ? (
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => store.getState().clearImages()}
+              >
+                {t("Clear all")}
+              </button>
+            ) : null}
+          </div>
           <input
             ref={fileRef}
             type="file"

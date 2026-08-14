@@ -75,4 +75,17 @@ describe("imagetools store", () => {
       }),
     );
   });
+
+  it("clears all selected images", () => {
+    const store = createStore(stubGateway());
+    store.getState().addImages(
+      ["data:image/png;base64,AA", "data:image/png;base64,BB"],
+      ["a.png", "b.png"],
+    );
+    store.setState({ result: { ok: true, url: "/x" } });
+    store.getState().clearImages();
+    expect(store.getState().images).toEqual([]);
+    expect(store.getState().names).toEqual([]);
+    expect(store.getState().result).toBeNull();
+  });
 });
