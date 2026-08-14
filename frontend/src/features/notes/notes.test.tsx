@@ -329,6 +329,7 @@ describe("notes store", () => {
     await store.getState().discussInChat(note, "");
     expect(gateway.save).toHaveBeenCalledTimes(1);
     expect(onUseInChat).toHaveBeenCalledTimes(1);
+    expect(onUseInChat.mock.calls[0][0].title).toBe("Updated");
   });
 
   it("expands and collapses a notebook from its summary without a toggle fight", async () => {

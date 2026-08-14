@@ -398,7 +398,7 @@ export function createNotesStore(options: NotesStoreOptions) {
           // Keep the chat action usable even if the pending save fails.
         }
       }
-      onUseInChat?.(note, selection);
+      onUseInChat?.(get().selectedNote ?? note, selection);
     },
 
     attachmentUrl(note, attachmentId) {
