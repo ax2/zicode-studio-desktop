@@ -180,6 +180,19 @@ describe("finance workbench", () => {
         }),
       }),
     );
+
+    const copyButton = [...content.querySelectorAll("button")].find((button) =>
+      (button.textContent ?? "").includes("复制结果"),
+    ) as HTMLButtonElement;
+    expect(copyButton).toBeTruthy();
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    fireEvent.click(copyButton);
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(String(writeText.mock.calls[0][0])).toContain("totalReturn");
   });
 
   it("renders factor coverage and paper-account balances without HTML injection", async () => {
