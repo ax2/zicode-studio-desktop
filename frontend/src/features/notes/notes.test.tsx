@@ -1083,6 +1083,54 @@ describe("notes React components", () => {
     expect(listTrash).toHaveBeenCalled();
   });
 
+  it("keeps deleting remaining notes when one delete fails", async () => {
+    const del = vi.fn(
+      async (
+        _sceneId: string,
+        _workspaceId: string,
+        note: { id: string; notebookId: string; version?: number },
+      ) => {
+        if (note.id === "note-2") throw new Error("delete failed");
+        return {};
+      },
+    );
+    const listTrash = vi.fn(async () => ({ trash: [] }));
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub({
+        delete: del,
+        listTrash,
+        list: vi.fn(async () => ({
+          snapshot: {
+            notebooks: SNAPSHOT.notebooks,
+            notes: [
+              SNAPSHOT.notes[0],
+              {
+                id: "note-2",
+                notebookId: "book-1",
+                title: "Second",
+                updatedAt: "2026-07-31T08:00:00Z",
+              },
+            ],
+            tags: SNAPSHOT.tags,
+          },
+        })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+    });
+    await store.getState().load();
+    store.getState().toggleSelectMode();
+    store.getState().toggleNoteSelected("note-1");
+    store.getState().toggleNoteSelected("note-2");
+    await store.getState().deleteSelectedNotes();
+    expect(del).toHaveBeenCalledTimes(2);
+    expect(store.getState().selectMode).toBe(false);
+    expect(store.getState().selectedNoteIds).toEqual([]);
+    expect(notify).toHaveBeenCalled();
+    expect(store.getState().error?.message).toBe("delete failed");
+  });
+
   it("deletes selected notes to trash with confirmation", async () => {
     const del = vi.fn(
       async (

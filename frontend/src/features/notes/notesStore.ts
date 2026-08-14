@@ -858,24 +858,30 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (summaries.length === 0) return;
       await get().saveEditor();
       set({ loading: true, error: null });
-      try {
-        for (const summary of summaries) {
+      let firstError: Error | null = null;
+      let deletedCount = 0;
+      for (const summary of summaries) {
+        try {
           await gateway.delete(sceneId(), workspaceId(), summary);
+          deletedCount += 1;
+        } catch (error) {
+          // Keep deleting the rest so one failure does not leave the other
+          // selections in a stale state.
+          if (!firstError) firstError = localizeNotesHostError(error);
         }
-        set({
-          selectedNoteIds: [],
-          selectMode: false,
-          selectedNote: null,
-          dirty: false,
-        });
-        await get().load({ preserveSelection: false });
-        void get().loadTrash();
-        notify(t("Notes moved to trash"));
-      } catch (error) {
-        set({ error: localizeNotesHostError(error), loading: false });
-      } finally {
-        set({ loading: false });
       }
+      set({
+        selectedNoteIds: [],
+        selectMode: false,
+        selectedNote: null,
+        dirty: false,
+      });
+      await get().load({ preserveSelection: false });
+      void get().loadTrash();
+      if (deletedCount > 0) {
+        notify(t("Notes moved to trash"));
+      }
+      if (firstError) set({ error: firstError });
     },
 
     setDragTarget(dragTargetId) {
