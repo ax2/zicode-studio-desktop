@@ -273,4 +273,25 @@ describe("artifact bulk import", () => {
     expect(notify).toHaveBeenCalledWith("All artifacts imported");
     store.getState().destroy();
   });
+
+  it("rejects a non-object artifact bundle", async () => {
+    setLocale("en");
+    const importAll = vi.fn(async () => ({ imported: 1 }));
+    const notify = vi.fn();
+    const gateway = createGateway();
+    gateway.importAll.mockImplementation(importAll);
+    const store = createArtifactStore({
+      gateway,
+      getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
+      notify,
+      downloadFile: vi.fn(),
+      chooseFile: vi.fn(
+        async () => ({ size: 16, text: async () => '"hello"' }) as unknown as File,
+      ),
+    });
+    await store.getState().importAll();
+    expect(importAll).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith("Artifact bundle is not valid JSON");
+    store.getState().destroy();
+  });
 });

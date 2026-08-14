@@ -279,6 +279,10 @@ export function createArtifactStore(options: ArtifactAppOptions) {
           return;
         }
         const bundle = JSON.parse(await file.text());
+        if (!bundle || typeof bundle !== "object" || Array.isArray(bundle)) {
+          notify(t("Artifact bundle is not valid JSON"));
+          return;
+        }
         const artifacts = Array.isArray(bundle?.artifacts) ? bundle.artifacts : [];
         await gateway.importAll(sceneId(), workspaceId(), artifacts);
         await get().load({ preserveSelection: false });
