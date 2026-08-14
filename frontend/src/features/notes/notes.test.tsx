@@ -1038,6 +1038,52 @@ describe("notes React components", () => {
     expect(store.getState().selectedNoteIds).toEqual([]);
   });
 
+  it("keeps moving remaining notes when one move fails", async () => {
+    const moveNote = vi.fn(
+      async (
+        _sceneId: string,
+        _workspaceId: string,
+        params: { noteId: string },
+      ) => {
+        if (params.noteId === "note-2") throw new Error("move failed");
+        return {};
+      },
+    );
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub({
+        moveNote,
+        list: vi.fn(async () => ({
+          snapshot: {
+            notebooks: SNAPSHOT.notebooks,
+            notes: [
+              SNAPSHOT.notes[0],
+              {
+                id: "note-2",
+                notebookId: "book-1",
+                title: "Second",
+                updatedAt: "2026-07-31T08:00:00Z",
+              },
+            ],
+            tags: SNAPSHOT.tags,
+          },
+        })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+    });
+    await store.getState().load();
+    store.getState().toggleSelectMode();
+    store.getState().toggleNoteSelected("note-1");
+    store.getState().toggleNoteSelected("note-2");
+    await store.getState().moveSelectedNotes("book-2");
+    expect(moveNote).toHaveBeenCalledTimes(2);
+    expect(store.getState().selectMode).toBe(false);
+    expect(store.getState().selectedNoteIds).toEqual([]);
+    expect(notify).toHaveBeenCalled();
+    expect(store.getState().error?.message).toBe("move failed");
+  });
+
   it("deletes every selected note into the trash", async () => {
     const del = vi.fn(
       async (

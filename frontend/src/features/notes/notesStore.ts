@@ -826,28 +826,35 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (summaries.length === 0 || !targetNotebookId) return;
       await get().saveEditor();
       set({ loading: true, error: null });
-      try {
-        for (const summary of summaries) {
+      let firstError: Error | null = null;
+      let movedCount = 0;
+      for (const summary of summaries) {
+        try {
           await gateway.moveNote(sceneId(), workspaceId(), {
             notebookId: summary.notebookId,
             noteId: summary.id,
             targetNotebookId,
             expectedVersion: summary.version,
           });
+          movedCount += 1;
+        } catch (error) {
+          // Keep moving the rest so one failure does not leave the selection
+          // in a stale state.
+          if (!firstError) firstError = localizeNotesHostError(error);
         }
-        set({
-          selectedNoteIds: [],
-          selectMode: false,
-          selectedNote: null,
-          dirty: false,
-        });
-        await get().load({ preserveSelection: false });
-        notify(t("Notes moved"));
-      } catch (error) {
-        set({ error: localizeNotesHostError(error), loading: false });
-      } finally {
-        set({ loading: false });
       }
+      set({
+        selectedNoteIds: [],
+        selectMode: false,
+        selectedNote: null,
+        dirty: false,
+        loading: false,
+      });
+      await get().load({ preserveSelection: false });
+      if (movedCount > 0) {
+        notify(t("Notes moved"));
+      }
+      if (firstError) set({ error: firstError });
     },
 
     async deleteSelectedNotes() {
