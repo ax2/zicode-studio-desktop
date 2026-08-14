@@ -237,13 +237,8 @@ export function setupFinanceWorkbench({
       setResult("snapshots", result);
     },
     async runBacktest(input) {
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(input) as Record<string, unknown>;
-      } catch {
-        setResult("backtest", { ok: false, error: t("Backtest input must be valid JSON.") });
-        return;
-      }
+      const parsed = parseJsonInput(input, "backtest", "Backtest input must be valid JSON.");
+      if (!parsed) return;
       setBusy("backtest", true);
       setResult("backtest", { ok: false, error: t("Running backtest…") });
       const result = await call("finance_backtest", { input: parsed }, { timeoutMs: 60_000 });
