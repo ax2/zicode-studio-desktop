@@ -1401,8 +1401,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
+  const [copiedMarkdown, setCopiedMarkdown] = useState(false);
 
   useEffect(() => {
     if (preview && previewRef.current) {
@@ -1545,13 +1547,18 @@ function NoteEditor({ store }: { store: NotesStore }) {
             onClick={() => void store.getState().downloadNote()}
           />
           <ToolbarButton
-            label={t("Copy Markdown")}
+            label={copiedMarkdown ? t("Copied") : t("Copy Markdown")}
             icon={ICONS.copy}
             className="notes-copy-note"
             variant="ui-button--ghost"
             hint="Ctrl+Shift+C"
             disabled={!draftContent.trim()}
-            onClick={() => void store.getState().copyNote()}
+            onClick={() => {
+              void store.getState().copyNote();
+              setCopiedMarkdown(true);
+              if (copyTimer.current) clearTimeout(copyTimer.current);
+              copyTimer.current = setTimeout(() => setCopiedMarkdown(false), 2000);
+            }}
           />
           <ToolbarButton
             label={t("Duplicate note")}
