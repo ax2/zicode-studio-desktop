@@ -1026,6 +1026,16 @@ describe("notes React components", () => {
     expect(document.querySelector(".notes-preview")).toBeTruthy();
   });
 
+  it("shows an empty-state hint when previewing a blank note", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "" });
+    store.getState().setPreview(true);
+    render(<NotesContent store={store} />);
+    expect(document.querySelector(".notes-preview-empty")).toBeTruthy();
+  });
+
   it("preserves unsaved edits when toggling to preview", async () => {
     const store = storeWithGateway();
     await store.getState().load();
