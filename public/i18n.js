@@ -633,6 +633,8 @@ const zhCN = {
   Loading: "加载中",
   "Loading…": "加载中…",
   "Loading...": "加载中…",
+  "Failed to load": "加载失败",
+  "Empty directory": "空目录",
   Unavailable: "不可用",
   Unknown: "未知",
   Retry: "重试",

@@ -349,7 +349,7 @@ async function reconcileRuns(current: AutomationWorkflow[], refs: StoreRefs) {
           status: "retry_queued",
           startedAt: now,
           taskId: (task as { id: string }).id,
-          message: "Automatically queued for retry",
+          message: t("Automatically queued for retry"),
         },
       });
     } else if (task.status === "failed") {

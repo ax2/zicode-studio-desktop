@@ -1,4 +1,5 @@
 import { fileIcon, formatSize, type FileEntry } from "./fileBrowserLogic";
+import { t } from "../../shared/i18n";
 import type { StoreApi, UseBoundStore } from "zustand";
 
 export type FileBrowserStatus = "idle" | "loading" | "ready" | "error";
@@ -27,13 +28,13 @@ export function FileBrowserApp({
   onOpenDirectory(path: string): void;
 }) {
   if (status === "loading" || status === "idle") {
-    return <FileMessage text="Loading…" />;
+    return <FileMessage text={t("Loading…")} />;
   }
   if (status === "error") {
-    return <FileMessage text={error || "Failed to load"} />;
+    return <FileMessage text={error || t("Failed to load")} />;
   }
   if (entries.length === 0) {
-    return <FileMessage text="Empty directory" />;
+    return <FileMessage text={t("Empty directory")} />;
   }
   return (
     <>

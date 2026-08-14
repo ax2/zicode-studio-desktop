@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { create } from "zustand";
 import { FileBrowserBridge, type FileBrowserStore } from "./FileBrowserApp";
 import type { FileEntry } from "./fileBrowserLogic";
+import { t } from "../../shared/i18n";
 
 export interface FileBrowserGateway {
   listFiles(
@@ -66,7 +67,7 @@ export class NativeFileBrowser {
       if (requestId !== this.requestId) return;
       this.commit({
         status: "error",
-        error: error instanceof Error ? error.message : "Failed to load",
+        error: error instanceof Error ? error.message : t("Failed to load"),
       });
     }
   }
