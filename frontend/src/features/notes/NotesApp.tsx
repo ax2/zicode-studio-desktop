@@ -1492,6 +1492,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             className="notes-edit-tab"
             variant={preview ? "ui-button--ghost" : "ui-button--secondary"}
             ariaPressed={!preview}
+            hint="Ctrl+E"
             onClick={() => setPreview(false)}
           />
           <ToolbarButton
@@ -1500,6 +1501,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             className="notes-preview-tab"
             variant={preview ? "ui-button--secondary" : "ui-button--ghost"}
             ariaPressed={preview}
+            hint="Ctrl+E"
             onClick={() => setPreview(true)}
           />
         </div>
@@ -1530,6 +1532,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             className="notes-save"
             variant="ui-button--primary"
             disabled={saveDisabled || !dirty}
+            hint="Ctrl+S"
             onClick={() => void store.getState().saveEditor()}
           />
           <span className="notes-save-state" data-save-state={saveState} aria-live="polite">
@@ -1672,6 +1675,7 @@ function ToolbarButton({
   variant,
   disabled,
   ariaPressed,
+  hint,
   onClick,
 }: {
   label: string;
@@ -1680,6 +1684,7 @@ function ToolbarButton({
   variant: string;
   disabled?: boolean;
   ariaPressed?: boolean;
+  hint?: string;
   onClick(): void;
 }) {
   return (
@@ -1689,7 +1694,7 @@ function ToolbarButton({
       disabled={disabled}
       aria-pressed={ariaPressed}
       aria-label={label}
-      title={label}
+      title={hint ? `${label} (${hint})` : label}
       onClick={onClick}
     >
       <Icon svg={icon} />
