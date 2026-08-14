@@ -1398,10 +1398,26 @@ function NoteEditor({ store }: { store: NotesStore }) {
     }
   }, [store]);
 
-  const selection = () => contentRef.current?.value.slice(
-    contentRef.current.selectionStart ?? 0,
-    contentRef.current.selectionEnd ?? 0,
-  ).trim() ?? "";
+  const selection = () => {
+    if (preview && previewRef.current) {
+      const windowSelection = window.getSelection();
+      if (
+        windowSelection &&
+        windowSelection.rangeCount > 0 &&
+        windowSelection.anchorNode &&
+        previewRef.current.contains(windowSelection.anchorNode)
+      ) {
+        return windowSelection.toString().trim();
+      }
+      return "";
+    }
+    return (
+      contentRef.current?.value.slice(
+        contentRef.current.selectionStart ?? 0,
+        contentRef.current.selectionEnd ?? 0,
+      ).trim() ?? ""
+    );
+  };
 
   const currentSelectionRef = useRef("");
   useEffect(() => {
@@ -1541,7 +1557,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
       ) : null}
       {preview ? (
         <div className="notes-preview-wrap">
-          <article ref={previewRef} className="notes-preview markdown-body" />
+          <article
+            ref={previewRef}
+            className="notes-preview markdown-body"
+            onMouseUp={() => {
+              currentSelectionRef.current = selection();
+            }}
+            onKeyUp={() => {
+              currentSelectionRef.current = selection();
+            }}
+          />
           {outline.length > 0 ? (
             <nav className="notes-outline" aria-label={t("Outline")}>
               <h2>{t("Outline")}</h2>

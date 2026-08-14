@@ -100,6 +100,7 @@ function storeWithGateway(overrides: Partial<NotesGatewayLike> = {}) {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  vi.restoreAllMocks();
 });
 
 describe("notes logic", () => {
@@ -280,6 +281,36 @@ describe("notes store", () => {
     useInChat.click();
     expect(onUseInChat).toHaveBeenCalledTimes(1);
     expect(onUseInChat.mock.calls[0][1]).toBe("content with a selected");
+  });
+
+  it("carries selected preview text into the chat", async () => {
+    const onUseInChat = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      onUseInChat,
+    });
+    await store.getState().load();
+    await store.getState().selectNote({
+      ...SNAPSHOT.notes[0],
+      title: "Preview selection",
+      content: "Rendered preview body with a highlighted phrase",
+    });
+    const { container } = render(<NotesContent store={store} />);
+    const previewEl = container.querySelector(".notes-preview") as HTMLElement;
+    await waitFor(() => expect(previewEl).toBeTruthy());
+    // Simulate a window selection anchored inside the rendered preview.
+    const selectionStub = {
+      rangeCount: 1,
+      anchorNode: previewEl,
+      toString: () => "highlighted phrase",
+    };
+    vi.spyOn(window, "getSelection").mockReturnValue(selectionStub as unknown as Selection);
+    const useInChat = container.querySelector(".notes-use-in-chat") as HTMLButtonElement;
+    useInChat.click();
+    expect(onUseInChat).toHaveBeenCalledTimes(1);
+    expect(onUseInChat.mock.calls[0][1]).toBe("highlighted phrase");
   });
 
   it("expands and collapses a notebook from its summary without a toggle fight", async () => {
