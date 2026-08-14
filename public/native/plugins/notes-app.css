@@ -1223,6 +1223,12 @@
   margin-bottom: 0;
 }
 
+.notes-preview-empty {
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  margin: var(--space-3) 0;
+}
+
 .notes-preview h1,
 .notes-preview h2,
 .notes-preview h3,

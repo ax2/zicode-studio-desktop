@@ -1623,6 +1623,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
       ) : null}
       {preview ? (
         <div className="notes-preview-wrap">
+          {!draftContent.trim() ? (
+            <p className="notes-preview-empty">{t("Nothing to preview yet")}</p>
+          ) : null}
           <article
             ref={previewRef}
             className="notes-preview markdown-body"
