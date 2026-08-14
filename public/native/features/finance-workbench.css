@@ -204,6 +204,21 @@
   min-width: 0;
 }
 
+.finance-json-error,
+.finance-json-ok {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.finance-json-error {
+  color: var(--danger, #ef6a6a);
+}
+
+.finance-json-ok {
+  color: var(--success, #2bb673);
+}
+
 .finance-form-actions {
   display: flex;
   justify-content: flex-end;

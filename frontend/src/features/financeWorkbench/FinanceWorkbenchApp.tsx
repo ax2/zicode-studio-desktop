@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { t } from "../../shared/i18n";
 import {
   asArray,
@@ -400,6 +401,19 @@ function JsonForm({
   const clearInput = () => {
     onChange("");
   };
+  const jsonError = useMemo(() => {
+    const text = value.trim();
+    if (!text) return null;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return t("Must be a JSON object");
+      }
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  }, [value]);
   return (
     <form
       className="finance-form"
@@ -418,6 +432,15 @@ function JsonForm({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {jsonError ? (
+        <p className="finance-json-error" role="status">
+          ✗ {jsonError}
+        </p>
+      ) : value.trim() ? (
+        <p className="finance-json-ok" role="status">
+          ✓ {t("Valid JSON")}
+        </p>
+      ) : null}
       <div className="finance-form-actions">
         {sample !== undefined ? (
           <button

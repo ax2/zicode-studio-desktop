@@ -897,6 +897,8 @@ const zhCN = {
   "Deterministic next-bar execution with fees and slippage.":
     "使用确定性的下一根 K 线成交，并计算手续费和滑点。",
   "Insert sample": "插入示例",
+  "Must be a JSON object": "必须是 JSON 对象",
+  "Valid JSON": "JSON 有效",
   "Run backtest": "运行回测",
   "Running backtest…": "正在运行回测…",
   "Backtest input must be valid JSON.": "回测输入必须是有效 JSON。",
