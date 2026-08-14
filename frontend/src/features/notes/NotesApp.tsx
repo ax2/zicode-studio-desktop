@@ -1634,6 +1634,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             }
           }}
         />
+        <PinButton store={store} note={note} />
       </div>
       <TagEditor
         store={store}

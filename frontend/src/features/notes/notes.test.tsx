@@ -735,6 +735,21 @@ describe("notes store", () => {
     await vi.waitFor(() => expect(store.getState().pinnedNotes).toEqual([]));
   });
 
+  it("pins the current note from the editor title row", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-editor")).toBeTruthy(),
+    );
+    const pinButton = container.querySelector(
+      ".notes-title-row .notes-pin-btn",
+    ) as HTMLButtonElement;
+    pinButton.click();
+    expect(store.getState().pinnedNoteIds).toEqual(["note-1"]);
+  });
+
   it("exports a readable backup through the download hook", async () => {
     const downloadFile = vi.fn();
     const store = createNotesStore({
