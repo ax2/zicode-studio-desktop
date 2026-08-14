@@ -411,7 +411,7 @@ function JsonForm({
       }
       return null;
     } catch (error) {
-      return error instanceof Error ? error.message : String(error);
+      return error instanceof SyntaxError ? t("Invalid JSON") : (error instanceof Error ? error.message : String(error));
     }
   }, [value]);
   return (
