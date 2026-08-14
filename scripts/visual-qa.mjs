@@ -82,7 +82,11 @@ const DIAGNOSTICS = `(() => {
   const main = document.querySelector(".plugin-main-view, #chat-main, main, .app-main, .plugin-app-mount");
   const mainRect = main ? main.getBoundingClientRect() : null;
   const header = document.querySelector(".app-header, .plugin-app-header, header, .topbar, .header");
-  const headerRect = header ? header.getBoundingClientRect() : null;
+  const headerVisible =
+    header &&
+    getComputedStyle(header).display !== "none" &&
+    header.getBoundingClientRect().height > 0;
+  const headerRect = headerVisible ? header.getBoundingClientRect() : null;
   // Notes-specific toolbar (the top button row that was reported as clipped).
   const notesToolbar = document.querySelector(".notes-editor-toolbar");
   const notesToolbarRect = notesToolbar ? notesToolbar.getBoundingClientRect() : null;
@@ -93,6 +97,8 @@ const DIAGNOSTICS = `(() => {
     firstButtonRect && headerRect && firstButtonRect.top < headerRect.bottom
       ? firstButtonRect.top - headerRect.bottom
       : 0;
+  const clippedAtViewportTop =
+    mainRect && mainRect.top < 0 ? Math.round(mainRect.top) : 0;
   const containers = Array.from(document.querySelectorAll("div[class], section[class]"))
     .filter((el) => /\b(notes|plugin|chat|composer|main|app|header)\b/.test(el.className))
     .slice(0, 12)
@@ -119,6 +125,7 @@ const DIAGNOSTICS = `(() => {
     docClientWidth: doc.clientWidth,
     mainRect: mainRect && { top: Math.round(mainRect.top), bottom: Math.round(mainRect.bottom), left: Math.round(mainRect.left), width: Math.round(mainRect.width) },
     headerRect: headerRect && { top: Math.round(headerRect.top), bottom: Math.round(headerRect.bottom) },
+    clippedAtViewportTop,
     notesToolbarRect: notesToolbarRect && { top: Math.round(notesToolbarRect.top), bottom: Math.round(notesToolbarRect.bottom), height: Math.round(notesToolbarRect.height) },
     firstButtonRect: firstButtonRect && { top: Math.round(firstButtonRect.top), bottom: Math.round(firstButtonRect.bottom), left: Math.round(firstButtonRect.left), width: Math.round(firstButtonRect.width) },
     clippedByHeader: Math.round(clippedByHeader),
@@ -436,6 +443,7 @@ async function main() {
             activePluginId: result.activePluginId,
             overflowX: result.overflowX,
             clippedByHeader: result.clippedByHeader,
+            clippedAtViewportTop: result.clippedAtViewportTop,
             firstButtonTop: result.firstButtonRect?.top ?? null,
             headerBottom: result.headerRect?.bottom ?? null,
             notesToolbarTop: result.notesToolbarRect?.top ?? null,
