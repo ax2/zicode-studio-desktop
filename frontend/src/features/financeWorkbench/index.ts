@@ -97,7 +97,15 @@ export function setupFinanceWorkbench({
     errorKey: string,
   ): Record<string, unknown> | null => {
     try {
-      return JSON.parse(text) as Record<string, unknown>;
+      const parsed = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setResult(resultKey as keyof ReturnType<FinanceWorkbenchStoreHook["getState"]>, {
+          ok: false,
+          error: t(errorKey),
+        });
+        return null;
+      }
+      return parsed as Record<string, unknown>;
     } catch {
       setResult(resultKey as keyof ReturnType<FinanceWorkbenchStoreHook["getState"]>, {
         ok: false,
