@@ -586,6 +586,13 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
                 alt={t("ID photo layout result")}
               />
               <div className="idphoto-result-actions">
+                <a
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  href={result.url}
+                  download={result.fileName}
+                >
+                  {t("Download")}
+                </a>
                 <button
                   type="button"
                   className="ui-button ui-button--primary ui-button--sm"
