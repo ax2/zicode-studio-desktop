@@ -1040,6 +1040,7 @@ const zhCN = {
   "Choose an option": "选择一个选项",
   Answer: "回答",
   "Discuss in Chat": "带入对话",
+  "Selected text or whole note": "选中文字或整篇笔记",
   "Conversation saved to Notes": "对话内容已沉淀到笔记",
   "There is no assistant response to save": "没有可保存的助手回答",
   "Continue this knowledge in Chat with the Discuss in Chat action.":

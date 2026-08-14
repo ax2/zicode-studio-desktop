@@ -1512,6 +1512,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             icon={ICONS.chat}
             className="notes-use-in-chat"
             variant="ui-button--secondary"
+            hint={t("Selected text or whole note")}
             onClick={() => {
               void store.getState().discussInChat(
                 note,
