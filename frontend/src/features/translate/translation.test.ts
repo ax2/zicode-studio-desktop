@@ -58,6 +58,18 @@ describe("translation store", () => {
     expect(store.getState().text).toBe("你好");
   });
 
+  it("keeps the source text when swapping without a result", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.getState().setText("Hello");
+    store.getState().setSourceLang("English");
+    store.getState().setTargetLang("Chinese");
+    store.getState().swap();
+    expect(store.getState().text).toBe("Hello");
+    expect(store.getState().sourceLang).toBe("Chinese");
+    expect(store.getState().targetLang).toBe("English");
+  });
+
   it("localizes model configuration errors", async () => {
     setLocale("zh-CN");
     const gateway = stubGateway({

@@ -105,11 +105,14 @@ export function createTranslationStore(options: TranslationOptions) {
     },
 
     swap() {
-      const { sourceLang, targetLang, editedText } = get();
+      const { sourceLang, targetLang, editedText, text } = get();
       set({
         sourceLang: targetLang,
         targetLang: sourceLang || "English",
-        text: editedText,
+        // With a previous result, swap the translated text into the source.
+        // Without one, keep the source text so swapping languages never
+        // clears what the user typed.
+        text: editedText || text,
         result: null,
         editedText: "",
         error: "",
