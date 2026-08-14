@@ -150,6 +150,12 @@ export function formatDate(value: unknown): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** Rough reading-time estimate for the editor footer (chars → minutes). */
+export function estimateReadingMinutes(charCount: number): number {
+  if (!Number.isFinite(charCount) || charCount <= 0) return 0;
+  return Math.max(1, Math.round(charCount / 400));
+}
+
 export interface HighlightSegment {
   text: string;
   match: boolean;

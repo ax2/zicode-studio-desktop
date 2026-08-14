@@ -11,6 +11,7 @@ import {
   DEFAULT_NOTEBOOK_ICON,
   DEFAULT_NOTE_ICON,
   EMOJI_GROUPS,
+  estimateReadingMinutes,
   findActiveOutlineId,
   formatDate,
   ICONS,
@@ -1581,6 +1582,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
           <span className="notes-char-count" title={t("Character count")}>
             {draftContent.length} {t("characters")}
           </span>
+          {estimateReadingMinutes(draftContent.length) > 0 ? (
+            <span className="notes-char-count" title={t("Reading time")}>
+              ≈ {estimateReadingMinutes(draftContent.length)} {t("min read")}
+            </span>
+          ) : null}
           <ToolbarButton
             label={deleteArmed ? t("Confirm delete") : t("Delete")}
             icon={ICONS.trash}
