@@ -366,11 +366,16 @@ async function reconcileRuns(current: AutomationWorkflow[], refs: StoreRefs) {
   }
   if (tasksChanged) await refs.call("write_super_agent_tasks", { tasks });
   for (const update of updates) {
-    await recordRun(
-      update.workflow,
-      update.run,
-      { approvalPending: false, nextRunAt: update.workflow.nextRunAt },
-      refs,
-    );
+    try {
+      await recordRun(
+        update.workflow,
+        update.run,
+        { approvalPending: false, nextRunAt: update.workflow.nextRunAt },
+        refs,
+      );
+    } catch {
+      // Keep reconciling the remaining runs; a single record failure must not
+      // prevent due workflows from being scheduled afterward.
+    }
   }
 }
