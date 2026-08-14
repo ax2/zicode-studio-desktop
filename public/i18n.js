@@ -1606,6 +1606,19 @@ const zhCN = {
   "Help index could not be loaded": "无法加载帮助索引",
   "Help index does not contain any pages": "帮助索引中没有任何页面",
   "Help page could not be loaded": "无法加载帮助页面",
+  "Up to date": "已是最新",
+  "Check failed": "检查失败",
+  "Downloading…": "下载中…",
+  "Downloading {percent}%…": "下载中 {percent}%…",
+  "Version {version} available": "版本 {version} 可用",
+  "Update available": "有可用更新",
+  "Download & install": "下载并安装",
+  "Preparing download…": "准备下载中…",
+  "Installing…": "安装中…",
+  "Installed. Relaunching…": "已安装，正在重启…",
+  "Relaunching…": "正在重启…",
+  "Install failed": "安装失败",
+  "Try again": "重试",
 };
 
 const dictionaries = { "zh-CN": zhCN, en: {} };

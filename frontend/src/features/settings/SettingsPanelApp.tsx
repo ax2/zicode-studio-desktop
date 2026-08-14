@@ -736,7 +736,7 @@ export function GeneralTab({
           <span className="settings-label settings-label-stack">
             <span className="settings-label-main">{t("Task completion alerts")}</span>
             <span className="settings-label-sub">
-              Notify when Pi finishes in the background
+              {t("Notify when Pi finishes in the background")}
             </span>
           </span>
           <button

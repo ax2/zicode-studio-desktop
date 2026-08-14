@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setLocale } from "../../shared/i18n";
 import { useAppUpdaterStore } from "./updaterStore";
 
 function resetStore() {
@@ -20,6 +21,7 @@ function resetStore() {
 
 describe("app updater store", () => {
   beforeEach(() => {
+    setLocale("en");
     localStorage.clear();
     Reflect.deleteProperty(globalThis, "__TAURI__");
     resetStore();
@@ -50,5 +52,13 @@ describe("app updater store", () => {
     expect(state.status).toContain("not configured");
     expect(state.disabled).toBe(false);
     expect(state.sidebarVisible).toBe(false);
+  });
+
+  it("localizes the updater status and button for the active locale", () => {
+    setLocale("zh-CN");
+    useAppUpdaterStore.getState().configure(false);
+
+    expect(useAppUpdaterStore.getState().status).toBe("自动更新尚未配置");
+    expect(useAppUpdaterStore.getState().button).toBe("使用 GitHub Releases");
   });
 });

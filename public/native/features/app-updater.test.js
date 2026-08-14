@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setLocale } from "i18n";
 import { setupAppUpdater } from "../react/settings.js";
 
 function renderUpdaterDom() {
@@ -11,6 +12,7 @@ function renderUpdaterDom() {
 
 describe("app updater sidebar action", () => {
   beforeEach(() => {
+    setLocale("en");
     renderUpdaterDom();
     localStorage.clear();
   });

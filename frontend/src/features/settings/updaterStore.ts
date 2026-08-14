@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { t } from "../../shared/i18n";
 
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export const BETA_SETTINGS_KEY = "picot-settings-beta-updates";
@@ -84,8 +85,8 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     });
     if (!enabled) {
       set({
-        status: "Automatic updates are not configured",
-        button: "Use GitHub Releases",
+        status: t("Automatic updates are not configured"),
+        button: t("Use GitHub Releases"),
         disabled: false,
         canInstall: false,
         sidebarVisible: false,
@@ -96,19 +97,21 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   },
   showIdle() {
     set({
-      status: "Click to check",
-      button: "Check now",
+      status: t("Click to check"),
+      button: t("Check now"),
       disabled: false,
       canInstall: false,
       sidebarVisible: false,
     });
   },
   showAvailable(nextUpdate) {
-    const version = nextUpdate?.version ? `v${nextUpdate.version}` : "Update";
+    const version = nextUpdate?.version ? `v${nextUpdate.version}` : null;
     set({
       update: nextUpdate,
-      status: `${version} available`,
-      button: "Download & install",
+      status: version
+        ? t("Version {version} available").replace("{version}", version)
+        : t("Update available"),
+      button: t("Download & install"),
       disabled: false,
       canInstall: true,
       sidebarVisible: true,
@@ -119,7 +122,11 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     if (state.checking || state.installing) return state.update;
     set({ checking: true, lastCheckMs: Date.now() });
     if (!silent) {
-      set({ status: "Checking…", button: "Checking…", disabled: true });
+      set({
+        status: t("Checking…"),
+        button: t("Checking…"),
+        disabled: true,
+      });
     }
     try {
       const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
@@ -147,8 +154,8 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
         get().showAvailable(update);
       } else {
         set({
-          status: "Up to date",
-          button: "Check now",
+          status: t("Up to date"),
+          button: t("Check now"),
           disabled: false,
           canInstall: false,
           sidebarVisible: false,
@@ -157,7 +164,11 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       return update;
     } catch (error) {
       if (!silent) {
-        set({ status: "Check failed", button: "Check now", disabled: false });
+        set({
+          status: t("Check failed"),
+          button: t("Check now"),
+          disabled: false,
+        });
       }
       get().logger.warn?.("[Updater] Check failed:", error);
       return null;
@@ -167,12 +178,12 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   },
   formatProgress() {
     const { totalBytes, downloadedBytes } = get();
-    if (!totalBytes) return "Downloading…";
+    if (!totalBytes) return t("Downloading…");
     const percent = Math.min(
       99,
       Math.floor((downloadedBytes / totalBytes) * 100),
     );
-    return `Downloading ${percent}%…`;
+    return t("Downloading {percent}%…").replace("{percent}", String(percent));
   },
   async installUpdate() {
     const state = get();
@@ -187,8 +198,8 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       totalBytes: 0,
       downloadedBytes: 0,
       sidebarVisible: false,
-      status: "Preparing download…",
-      button: "Installing…",
+      status: t("Preparing download…"),
+      button: t("Installing…"),
       disabled: true,
     });
 
@@ -214,7 +225,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
                 totalBytes: event.data?.contentLength || 0,
                 downloadedBytes: 0,
                 status: get().formatProgress(),
-                button: "Installing…",
+                button: t("Installing…"),
                 disabled: true,
               });
             } else if (event?.event === "Progress") {
@@ -222,13 +233,13 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
                 downloadedBytes:
                   get().downloadedBytes + (event.data?.chunkLength || 0),
                 status: get().formatProgress(),
-                button: "Installing…",
+                button: t("Installing…"),
                 disabled: true,
               });
             } else if (event?.event === "Finished") {
               set({
-                status: "Installing…",
-                button: "Installing…",
+                status: t("Installing…"),
+                button: t("Installing…"),
                 disabled: true,
               });
             }
@@ -236,8 +247,8 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
         );
       }
       set({
-        status: "Installed. Relaunching…",
-        button: "Relaunching…",
+        status: t("Installed. Relaunching…"),
+        button: t("Relaunching…"),
         disabled: true,
       });
       const relaunch = tauri?.process?.relaunch;
@@ -248,8 +259,8 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     } catch (error) {
       get().logger.warn?.("[Updater] Install failed:", error);
       set({
-        status: "Install failed",
-        button: "Try again",
+        status: t("Install failed"),
+        button: t("Try again"),
         disabled: false,
         canInstall: true,
         sidebarVisible: true,
