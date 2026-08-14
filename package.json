@@ -31,6 +31,7 @@
     "smoke:pi-rpc": "bun run scripts/smoke-pi-rpc.js",
     "smoke:pi-rpc:update": "bun run scripts/smoke-pi-rpc.js --update",
     "smoke:finance-extension": "bun run build:extensions && bun run scripts/smoke-finance-extension.js",
+    "smoke:plugins": "bun run scripts/smoke-plugin-writes.js",
     "build:extensions": "bun run scripts/build-extensions.js",
     "package:plugin": "bun run scripts/package-plugin.js",
     "plugin:keygen": "bun run scripts/generate-plugin-key.js",
