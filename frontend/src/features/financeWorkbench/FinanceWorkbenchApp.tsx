@@ -398,6 +398,9 @@ function JsonForm({
       textareaRef.current.value = JSON.stringify(sample, null, 2);
     }
   };
+  const clearInput = () => {
+    if (textareaRef.current) textareaRef.current.value = "";
+  };
   return (
     <form
       className="finance-form"
@@ -426,6 +429,14 @@ function JsonForm({
             {t("Insert sample")}
           </button>
         ) : null}
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          onClick={clearInput}
+          disabled={busy}
+        >
+          {t("Clear")}
+        </button>
         <button type="submit" className="ui-button ui-button--primary" disabled={busy}>
           {submitLabel}
         </button>
