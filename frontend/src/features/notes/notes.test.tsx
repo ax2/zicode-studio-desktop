@@ -719,6 +719,22 @@ describe("notes store", () => {
     expect(backupArg).toMatchObject({ schemaVersion: 1 });
   });
 
+  it("rejects a non-object notes backup", async () => {
+    const importBackup = vi.fn(async () => ({ notebook: { id: "book-1", title: "Imported" } }));
+    const store = createNotesStore({
+      gateway: gatewayStub({ importBackup }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      chooseFile: vi.fn(
+        async () => ({ size: 16, text: async () => '"hello"' }) as unknown as File,
+      ),
+    });
+    await store.getState().load();
+    await store.getState().importBackup();
+    expect(importBackup).not.toHaveBeenCalled();
+    expect(store.getState().error?.message).toContain("JSON");
+  });
+
   it("imports every notebook from a workspace backup bundle", async () => {
     const importAllBackup = vi.fn(async () => ({
       notebooks: [

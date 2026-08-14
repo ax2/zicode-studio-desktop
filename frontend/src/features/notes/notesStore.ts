@@ -986,6 +986,9 @@ export function createNotesStore(options: NotesStoreOptions) {
           throw new Error(t("Notes backup exceeds the 70 MiB limit"));
         }
         const backup = JSON.parse(await file.text());
+        if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
+          throw new SyntaxError("backup must be a JSON object");
+        }
         const response = await gateway.importBackup(sceneId(), workspaceId(), backup);
         set({ selectedNotebookId: response.notebook.id, selectedNote: null, dirty: false });
         await get().load({ preserveSelection: false });
@@ -1010,6 +1013,9 @@ export function createNotesStore(options: NotesStoreOptions) {
           throw new Error(t("Notes backup exceeds the 70 MiB limit"));
         }
         const backup = JSON.parse(await file.text());
+        if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
+          throw new SyntaxError("backup must be a JSON object");
+        }
         const response = await gateway.importAllBackup(
           sceneId(),
           workspaceId(),
