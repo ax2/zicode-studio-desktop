@@ -1015,6 +1015,26 @@ describe("notes store", () => {
     expect(store.getState().saveState).toBe("saved");
   });
 
+  it("auto-titles an untitled note from its first content line", async () => {
+    const save = vi.fn(async (_sceneId: string, _workspaceId: string, note: Note) => ({
+      note: { ...note, id: "note-1" },
+    }));
+    const store = storeWithGateway({ save });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({
+      title: t("Untitled note"),
+      content: "First line\nSecond line",
+    });
+    await store.getState().saveEditor();
+    expect(save).toHaveBeenCalledWith(
+      "programming",
+      "ws-1",
+      expect.objectContaining({ title: "First line" }),
+    );
+    expect(store.getState().draftTitle).toBe("First line");
+  });
+
   it("tracks unsaved, saving, and saved states in the editor", async () => {
     const store = storeWithGateway();
     await store.getState().load();

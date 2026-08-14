@@ -765,16 +765,28 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
       const draft = get();
       const tags = parseTags(draft.draftTags.join(", "));
+      const typedTitle = draft.draftTitle.trim();
+      const title =
+        typedTitle && typedTitle !== t("Untitled note")
+          ? typedTitle
+          : draft.draftContent.trim()
+            ? conversationNoteTitle(draft.draftContent)
+            : t("Untitled note");
       set({ saveDisabled: true, saveState: "saving" });
       try {
         const response = await gateway.save(sceneId(), workspaceId(), {
           ...note,
-          title: draft.draftTitle,
+          title,
           icon: draft.draftIcon.trim() || DEFAULT_NOTE_ICON,
           content: draft.draftContent,
           tags,
         });
-        set({ selectedNote: response.note, dirty: false, saveState: "saved" });
+        set({
+          selectedNote: response.note,
+          draftTitle: title,
+          dirty: false,
+          saveState: "saved",
+        });
         notify(t("Note saved"));
         setTimeout(() => {
           if (get().saveState === "saved") set({ saveState: "idle" });
