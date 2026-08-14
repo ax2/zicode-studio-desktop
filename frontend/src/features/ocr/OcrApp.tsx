@@ -29,6 +29,7 @@ function OcrMain({ store }: { store: OcrStore }) {
   const error = store((state) => state.error);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const pickFiles = (files: FileList | null) => {
     const file = files && files[0];
@@ -137,9 +138,13 @@ function OcrMain({ store }: { store: OcrStore }) {
               <button
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
-                onClick={() => void store.getState().copy()}
+                onClick={() => {
+                  void store.getState().copy();
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
               >
-                {t("Copy")}
+                {copied ? t("Copied") : t("Copy")}
               </button>
               <button
                 type="button"
