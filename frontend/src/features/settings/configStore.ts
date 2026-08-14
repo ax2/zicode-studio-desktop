@@ -638,7 +638,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
           configEditor: {
             ...getState().configEditor,
             message: {
-              message: `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+              message: `${t("Invalid JSON")}: ${error instanceof Error ? error.message : String(error)}`,
               tone: "error",
             },
           },
@@ -649,7 +649,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         set({
           configEditor: {
             ...getState().configEditor,
-            message: { message: "Configuration must be a JSON object.", tone: "error" },
+            message: { message: t("Configuration must be a JSON object."), tone: "error" },
           },
         });
         return;
@@ -719,7 +719,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
           modelsEditor: {
             ...getState().modelsEditor,
             message: {
-              message: `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+              message: `${t("Invalid JSON")}: ${error instanceof Error ? error.message : String(error)}`,
               tone: "error",
             },
           },
@@ -730,7 +730,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         set({
           modelsEditor: {
             ...getState().modelsEditor,
-            message: { message: "models.json must be a JSON object.", tone: "error" },
+            message: { message: t("Configuration must be a JSON object."), tone: "error" },
           },
         });
         return;
@@ -741,7 +741,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         set({
           modelsEditor: {
             ...getState().modelsEditor,
-            message: { message: "'providers' must be an object.", tone: "error" },
+            message: { message: t("'providers' must be an object."), tone: "error" },
           },
         });
         return;

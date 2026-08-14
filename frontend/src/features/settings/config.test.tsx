@@ -229,7 +229,7 @@ describe("settings config store", () => {
     const store = createConfigStore({ configGateway: gateway });
     store.setState({ modelsEditor: { content: "not json", path: "", loading: false, message: null, saving: false } });
     await store.getState().saveModelsEditor();
-    expect(store.getState().modelsEditor.message?.message).toContain("Invalid JSON");
+    expect(store.getState().modelsEditor.message?.message).toContain("JSON");
     expect(calls.some((call) => call.op === "write_models_config")).toBe(false);
   });
 
@@ -238,7 +238,7 @@ describe("settings config store", () => {
     const store = createConfigStore({ configGateway: gateway });
     store.setState({ configEditor: { content: '"hello"', path: "", loading: false, message: null, saving: false } });
     await store.getState().saveConfigEditor();
-    expect(store.getState().configEditor.message?.message).toContain("JSON object");
+    expect(store.getState().configEditor.message?.message).toContain("JSON");
     expect(calls.some((call) => call.op === "write_agent_config")).toBe(false);
   });
 
