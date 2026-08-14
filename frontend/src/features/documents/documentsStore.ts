@@ -80,6 +80,7 @@ export interface DocumentsState {
   run(): Promise<void>;
   save(): Promise<void>;
   copyMarkdown(): Promise<void>;
+  download(): void;
 }
 
 export interface DocumentsOptions {
@@ -182,6 +183,26 @@ export function createDocumentsStore(options: DocumentsOptions) {
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });
       }
+    },
+
+    download() {
+      const { result } = get();
+      if (!result || !result.markdown.trim()) return;
+      const baseName = (result.fileName || result.title || "document").replace(
+        /\.[^.]+$/,
+        "",
+      );
+      const blob = new Blob([result.markdown], {
+        type: "text/markdown;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${baseName}.md`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     },
   }));
 }

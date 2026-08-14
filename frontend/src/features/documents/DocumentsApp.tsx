@@ -168,6 +168,13 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
               ) : null}
               <button
                 type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => store.getState().download()}
+              >
+                {t("Download Markdown")}
+              </button>
+              <button
+                type="button"
                 className="ui-button ui-button--secondary ui-button--sm"
                 onClick={() => void store.getState().copyMarkdown()}
               >
