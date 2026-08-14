@@ -961,6 +961,9 @@ describe("notes React components", () => {
     );
     expect(document.querySelector(".notes-content-input")).toBeTruthy();
     expect(document.querySelectorAll(".notes-tag-chip").length).toBe(1);
+    expect(document.querySelector(".notes-char-count")?.textContent).toContain(
+      String(NOTE.content.length),
+    );
   });
 
   it("focuses and selects the title when a new note is created", async () => {

@@ -12,6 +12,13 @@
   white-space: nowrap;
 }
 
+.notes-char-count {
+  align-self: center;
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
 .notes-save-state[data-save-state="saved"] {
   color: var(--success);
 }
