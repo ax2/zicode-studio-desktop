@@ -51,6 +51,19 @@ describe("documents store", () => {
     expect(notify).toHaveBeenCalledWith("Document imported");
   });
 
+  it("localizes runtime-disconnected errors when saving to notes", async () => {
+    setLocale("zh-CN");
+    const gateway = stubGateway();
+    const saveToNotes = vi.fn(async () => {
+      throw new Error("Pi RPC request failed: ProcessClosed");
+    });
+    const { store } = createStore(gateway, saveToNotes);
+    store.getState().setFile("report.docx", "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA");
+    await store.getState().run();
+    await store.getState().save();
+    expect(store.getState().error).toContain("Pi 运行时");
+  });
+
   it("does not run without a selected document", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);

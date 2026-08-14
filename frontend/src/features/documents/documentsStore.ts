@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
-import { friendlyPluginError } from "../../shared/hostErrors";
+import { friendlyPluginError, localizeHostError } from "../../shared/hostErrors";
 import type { DocumentImportResult } from "./documentsLogic";
 
 export interface DocumentImportInput {
@@ -166,7 +166,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
         set({ saving: false });
         notify(t("Saved to notes"));
       } catch (error) {
-        set({ saving: false, error: error instanceof Error ? error.message : String(error) });
+        set({ saving: false, error: localizeHostError(error).message });
       }
     },
 
