@@ -193,6 +193,31 @@ describe("finance workbench", () => {
     fireEvent.click(copyButton);
     await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
     expect(String(writeText.mock.calls[0][0])).toContain("totalReturn");
+
+    const downloadButton = [...content.querySelectorAll("button")].find((button) =>
+      (button.textContent ?? "").includes("下载"),
+    ) as HTMLButtonElement;
+    expect(downloadButton).toBeTruthy();
+    const createObjectURL = vi.fn(() => "blob:mock");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      value: revokeObjectURL,
+      configurable: true,
+    });
+    const anchorClick = vi.fn();
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = anchorClick;
+    try {
+      fireEvent.click(downloadButton);
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(anchorClick).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
   });
 
   it("renders factor coverage and paper-account balances without HTML injection", async () => {

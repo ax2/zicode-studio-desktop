@@ -62,14 +62,36 @@ function CopyResultButton({ response }: { response: unknown }) {
       // Clipboard may be unavailable; keep the label as "Copy result".
     }
   };
+  const download = () => {
+    const blob = new Blob([JSON.stringify(response, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "zicode-result.json";
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
   return (
-    <button
-      type="button"
-      className="ui-button ui-button--ghost ui-button--sm finance-result-copy"
-      onClick={() => void copy()}
-    >
-      {copied ? t("Copied") : t("Copy result")}
-    </button>
+    <>
+      <button
+        type="button"
+        className="ui-button ui-button--ghost ui-button--sm finance-result-copy"
+        onClick={() => void copy()}
+      >
+        {copied ? t("Copied") : t("Copy result")}
+      </button>
+      <button
+        type="button"
+        className="ui-button ui-button--ghost ui-button--sm finance-result-download"
+        onClick={download}
+      >
+        {t("Download")}
+      </button>
+    </>
   );
 }
 
