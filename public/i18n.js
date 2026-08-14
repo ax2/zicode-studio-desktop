@@ -96,6 +96,7 @@ const zhCN = {
   "Saved to notes": "已保存到笔记",
   "Document imported": "文档已导入",
   characters: "字符",
+  "Character count": "字数",
   "Import a document to preview its Markdown here.":
     "导入文档后，这里会显示 Markdown 预览。",
   "Choose a template and print sheet.": "选择模板和打印纸。",

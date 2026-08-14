@@ -1545,6 +1545,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   ? t("Unsaved changes")
                   : ""}
           </span>
+          <span className="notes-char-count" title={t("Character count")}>
+            {draftContent.length} {t("characters")}
+          </span>
           <ToolbarButton
             label={deleteArmed ? t("Confirm delete") : t("Delete")}
             icon={ICONS.trash}
