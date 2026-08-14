@@ -75,7 +75,7 @@ export function CommandPaletteApp({
           <span className="command-icon">{command.icon ?? "⌘"}</span>
           <span className="command-copy">
             <span className="command-label">
-              {command.label ?? "Command"}
+              {command.label ?? t("Command")}
             </span>
             <span className="command-desc">{command.desc ?? ""}</span>
           </span>

@@ -270,7 +270,7 @@ export function InlineExtensionPromptCard({
 
       {answered ? (
         <div className="inline-prompt-status">
-          {answered.cancelled ? "Cancelled" : "Answered"}
+          {answered.cancelled ? t("Cancelled") : t("Answered")}
         </div>
       ) : null}
     </div>
