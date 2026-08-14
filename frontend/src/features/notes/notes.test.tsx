@@ -1036,6 +1036,17 @@ describe("notes React components", () => {
     expect(document.querySelector(".notes-preview-empty")).toBeTruthy();
   });
 
+  it("disables Discuss-in-Chat for an empty note", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "" });
+    store.getState().setPreview(false);
+    render(<NotesContent store={store} />);
+    const discuss = document.querySelector(".notes-use-in-chat") as HTMLButtonElement;
+    expect(discuss.disabled).toBe(true);
+  });
+
   it("preserves unsaved edits when toggling to preview", async () => {
     const store = storeWithGateway();
     await store.getState().load();
