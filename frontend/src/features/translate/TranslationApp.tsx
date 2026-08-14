@@ -91,6 +91,14 @@ function TranslationMain({ store }: { store: TranslationStore }) {
           >
             {busy ? t("Translating…") : t("Translate")}
           </button>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            disabled={busy || (!text.trim() && !result)}
+            onClick={() => store.getState().clear()}
+          >
+            {t("Clear")}
+          </button>
         </div>
         {error ? (
           <p className="idphoto-error" role="alert">

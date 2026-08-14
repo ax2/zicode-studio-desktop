@@ -74,6 +74,7 @@ export interface TranslationState {
   copyResult(): Promise<void>;
   setEditedText(value: string): void;
   download(): void;
+  clear(): void;
 }
 
 export interface TranslationOptions {
@@ -169,6 +170,10 @@ export function createTranslationStore(options: TranslationOptions) {
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
+
+    clear() {
+      set({ text: "", result: null, editedText: "", error: "" });
     },
   }));
 }

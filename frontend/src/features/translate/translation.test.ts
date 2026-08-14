@@ -109,4 +109,14 @@ describe("translation store", () => {
       HTMLAnchorElement.prototype.click = originalClick;
     }
   });
+
+  it("clears the source text and result", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.setState({ text: "Hello", result: RESULT, editedText: "你好" });
+    store.getState().clear();
+    expect(store.getState().text).toBe("");
+    expect(store.getState().result).toBeNull();
+    expect(store.getState().editedText).toBe("");
+  });
 });
