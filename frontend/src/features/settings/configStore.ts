@@ -638,7 +638,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
           configEditor: {
             ...getState().configEditor,
             message: {
-              message: `${t("Invalid JSON")}: ${error instanceof Error ? error.message : String(error)}`,
+              message: t("Invalid JSON"),
               tone: "error",
             },
           },
@@ -719,7 +719,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
           modelsEditor: {
             ...getState().modelsEditor,
             message: {
-              message: `${t("Invalid JSON")}: ${error instanceof Error ? error.message : String(error)}`,
+              message: t("Invalid JSON"),
               tone: "error",
             },
           },
