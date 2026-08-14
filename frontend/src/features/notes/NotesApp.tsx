@@ -1523,7 +1523,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             icon={ICONS.chat}
             className="notes-use-in-chat"
             variant="ui-button--secondary"
-            hint={t("Selected text or whole note")}
+            hint={`Ctrl+Enter · ${t("Selected text or whole note")}`}
             disabled={!draftContent.trim()}
             onClick={() => {
               void store.getState().discussInChat(

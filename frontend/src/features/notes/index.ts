@@ -87,6 +87,13 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       event.preventDefault();
       void store.getState().loadTrash();
       store.getState().setMode("trash");
+      return;
+    }
+    if (key === "enter" && !event.shiftKey) {
+      const note = store.getState().selectedNote;
+      if (!note) return;
+      event.preventDefault();
+      void store.getState().discussInChat(note, "");
     }
   };
   document.addEventListener("keydown", handleKeydown);
