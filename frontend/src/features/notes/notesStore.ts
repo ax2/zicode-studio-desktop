@@ -168,7 +168,7 @@ interface NotesState {
   openNote(notebookId: string, noteId: string): Promise<void>;
   selectNotebook(id: string): void;
   resolveRecentNotes(): Promise<void>;
-  discussInChat(note: Note, selection: string): void;
+  discussInChat(note: Note, selection: string): Promise<void>;
   attachmentUrl(note: Note, attachmentId: string): string;
   newNote(): Promise<void>;
   startCapture(): Promise<void>;
@@ -390,7 +390,14 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false, mode: "library" });
     },
 
-    discussInChat(note, selection) {
+    async discussInChat(note, selection) {
+      if (get().dirty) {
+        try {
+          await get().saveEditor();
+        } catch {
+          // Keep the chat action usable even if the pending save fails.
+        }
+      }
       onUseInChat?.(note, selection);
     },
 

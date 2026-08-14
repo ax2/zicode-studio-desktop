@@ -279,7 +279,7 @@ describe("notes store", () => {
     textarea.dispatchEvent(new Event("select", { bubbles: true }));
     const useInChat = container.querySelector(".notes-use-in-chat") as HTMLButtonElement;
     useInChat.click();
-    expect(onUseInChat).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onUseInChat).toHaveBeenCalledTimes(1));
     expect(onUseInChat.mock.calls[0][1]).toBe("content with a selected");
   });
 
@@ -295,7 +295,6 @@ describe("notes store", () => {
     await store.getState().selectNote({
       ...SNAPSHOT.notes[0],
       title: "Preview selection",
-      content: "Rendered preview body with a highlighted phrase",
     });
     const { container } = render(<NotesContent store={store} />);
     const previewEl = container.querySelector(".notes-preview") as HTMLElement;
@@ -311,6 +310,25 @@ describe("notes store", () => {
     useInChat.click();
     expect(onUseInChat).toHaveBeenCalledTimes(1);
     expect(onUseInChat.mock.calls[0][1]).toBe("highlighted phrase");
+  });
+
+  it("saves pending edits before discussing a note in chat", async () => {
+    const onUseInChat = vi.fn();
+    const gateway = gatewayStub();
+    const store = createNotesStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      onUseInChat,
+    });
+    await store.getState().load();
+    await store.getState().selectNote({ ...SNAPSHOT.notes[0], title: "Dirty note" });
+    const note = store.getState().selectedNote as Note;
+    store.getState().setDraft({ content: "unsaved edit" });
+    expect(store.getState().dirty).toBe(true);
+    await store.getState().discussInChat(note, "");
+    expect(gateway.save).toHaveBeenCalledTimes(1);
+    expect(onUseInChat).toHaveBeenCalledTimes(1);
   });
 
   it("expands and collapses a notebook from its summary without a toggle fight", async () => {

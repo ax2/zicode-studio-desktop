@@ -1465,7 +1465,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             className="notes-use-in-chat"
             variant="ui-button--secondary"
             onClick={() => {
-              store.getState().discussInChat(
+              void store.getState().discussInChat(
                 note,
                 selection() || currentSelectionRef.current,
               );
