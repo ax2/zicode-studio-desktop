@@ -1120,6 +1120,31 @@ describe("notes React components", () => {
     }
   });
 
+  it("opens the image lightbox from an inline note image in preview", async () => {
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          content:
+            "# Plan\n\n![shot](/attachments/note-1/00000000-0000-0000-0000-000000000000.png)",
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const image = await waitFor(
+      () => container.querySelector("img.inline-image") as HTMLImageElement,
+    );
+    image.click();
+    await waitFor(() =>
+      expect(
+        document.querySelector(".image-lightbox-overlay")?.classList.contains("open"),
+      ).toBe(true),
+    );
+    (document.querySelector(".image-lightbox-close") as HTMLButtonElement).click();
+  });
+
   it("selects notes and moves them through the batch bar", async () => {
     const moveNote = vi.fn(
       async (
