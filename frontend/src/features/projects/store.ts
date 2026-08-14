@@ -49,6 +49,7 @@ interface ProjectWorkspaceState {
   loading: boolean;
   error: Error | null;
   profile: ProjectProfile;
+  contextDraft: ProjectProfile | null;
   searchQuery: string;
   sessionSearchResults: unknown[];
   openApp(pluginId: string): void;
@@ -59,6 +60,7 @@ interface ProjectWorkspaceState {
   load(): Promise<void>;
   loadProfile(): Promise<ProjectProfile>;
   saveProfile(nextProfile: ProjectProfile): Promise<ProjectProfile>;
+  setContextDraft(patch: Partial<ProjectProfile>): void;
   runProjectSearch(query: string): Promise<void>;
   openResult(result: Record<string, unknown>): void;
 }
@@ -84,6 +86,7 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
     loading: false,
     error: null,
     profile: readProjectWorkspaceProfile({ storage, target: getTarget() }),
+    contextDraft: null,
     searchQuery: "",
     sessionSearchResults: [],
 
@@ -233,12 +236,18 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
         }
         const profile =
           (response.data as { profile?: ProjectProfile })?.profile || nextProfile;
-        set({ profile });
+        set({ profile, contextDraft: null });
         return profile;
       }
       saveLocalProjectProfile({ storage, target: get().target, profile: nextProfile });
-      set({ profile: nextProfile });
+      set({ profile: nextProfile, contextDraft: null });
       return nextProfile;
+    },
+
+    setContextDraft(patch) {
+      set((state) => ({
+        contextDraft: { ...(state.contextDraft ?? state.profile), ...patch },
+      }));
     },
 
     async runProjectSearch(query) {

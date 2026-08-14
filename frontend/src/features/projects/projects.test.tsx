@@ -130,6 +130,31 @@ describe("project workspace React app", () => {
     store.getState().setTarget(null);
   });
 
+  it("preserves the context draft when switching views", async () => {
+    setLocale("en");
+    const store = renderStore();
+    await waitFor(() => expect(screen.getByText("Report")).toBeTruthy());
+    (
+      document.querySelectorAll(".project-workspace-nav-item")[1] as HTMLButtonElement
+    ).click();
+    await waitFor(() => expect(document.querySelector("textarea")).toBeTruthy());
+    fireEvent.change(document.querySelector("textarea") as HTMLTextAreaElement, {
+      target: { value: "Draft instructions" },
+    });
+
+    (
+      document.querySelectorAll(".project-workspace-nav-item")[0] as HTMLButtonElement
+    ).click();
+    (
+      document.querySelectorAll(".project-workspace-nav-item")[1] as HTMLButtonElement
+    ).click();
+    await waitFor(() => expect(document.querySelector("textarea")).toBeTruthy());
+    expect((document.querySelector("textarea") as HTMLTextAreaElement).value).toBe(
+      "Draft instructions",
+    );
+    store.getState().setTarget(null);
+  });
+
   it("aggregates sessions and files into project search", async () => {
     setLocale("en");
     const dataGateway = {

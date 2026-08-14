@@ -179,21 +179,22 @@ function RecentResults({ snapshot, store }: { snapshot: ProjectSnapshot; store: 
 
 function ContextEditor({ store }: { store: ProjectStore }) {
   const profile = store((state) => state.profile);
+  const contextDraft = store((state) => state.contextDraft);
   const saveProfile = store((state) => state.saveProfile);
+  const setContextDraft = store((state) => state.setContextDraft);
   const notify = store((state) => state.notify);
-  const [instructions, setInstructions] = useState(profile.instructions);
-  const [defaultScene, setDefaultScene] = useState(profile.defaultScene);
-  const [budget, setBudget] = useState(String(profile.budget ?? ""));
   const [saving, setSaving] = useState(false);
+  const draft = contextDraft ?? profile;
+  const budget = String(draft.budget ?? "");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     try {
       await saveProfile({
-        instructions: instructions.trim(),
-        defaultScene,
-        budget: String(budget).trim(),
+        instructions: draft.instructions.trim(),
+        defaultScene: draft.defaultScene,
+        budget: String(draft.budget ?? "").trim(),
       });
       notify({ title: t("Project context saved"), type: "success" });
     } catch (reason) {
@@ -215,17 +216,17 @@ function ContextEditor({ store }: { store: ProjectStore }) {
           id="project-instructions"
           className="ui-textarea"
           rows={7}
-          value={instructions}
+          value={draft.instructions}
           placeholder={t("Describe goals, conventions, constraints, and the definition of done.")}
-          onChange={(event) => setInstructions(event.target.value)}
+          onChange={(event) => setContextDraft({ instructions: event.target.value })}
         />
       </Field>
       <Field label={t("Default scene")} htmlFor="project-scene">
         <select
           id="project-scene"
           className="ui-select"
-          value={defaultScene}
-          onChange={(event) => setDefaultScene(event.target.value)}
+          value={draft.defaultScene}
+          onChange={(event) => setContextDraft({ defaultScene: event.target.value })}
         >
           <option value="programming">{t("Programming")}</option>
           <option value="finance">{t("Finance")}</option>
@@ -238,7 +239,7 @@ function ContextEditor({ store }: { store: ProjectStore }) {
           className="ui-input"
           value={budget}
           placeholder={t("Optional cost limit")}
-          onChange={(event) => setBudget(event.target.value)}
+          onChange={(event) => setContextDraft({ budget: event.target.value })}
         />
       </Field>
       <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
