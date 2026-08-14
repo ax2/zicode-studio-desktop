@@ -945,6 +945,27 @@ describe("notes store", () => {
     );
   });
 
+  it("downloads the live draft even when it has unsaved changes", async () => {
+    const downloadFile = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ title: "Draft title", content: "Draft body" });
+    await store.getState().downloadNote();
+
+    expect(downloadFile).toHaveBeenCalledWith(
+      "Draft title.md",
+      "Draft body",
+      "text/markdown",
+    );
+  });
+
   it("moves a note to another notebook", async () => {
     const moveNote = vi.fn(async () => ({}));
     const store = storeWithGateway({ moveNote });
