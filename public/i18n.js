@@ -217,6 +217,7 @@ const zhCN = {
   "Extract text from screenshots and images.": "从截图和图片中提取文字。",
   "Open Text Extraction": "打开文字提取",
   "Extract text": "提取文字",
+  Download: "下载",
   "OCR language": "识别语言",
   "Extracting…": "提取中…",
   "No text was recognized in the image": "未在图片中识别到文字",

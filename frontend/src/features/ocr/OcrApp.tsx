@@ -141,6 +141,13 @@ function OcrMain({ store }: { store: OcrStore }) {
               >
                 {t("Copy")}
               </button>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => store.getState().download()}
+              >
+                {t("Download")}
+              </button>
             </div>
           ) : null}
         </div>

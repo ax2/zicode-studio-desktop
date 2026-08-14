@@ -54,4 +54,31 @@ describe("ocr store", () => {
     await store.getState().run();
     expect(store.getState().error).toBe("no language pack");
   });
+
+  it("downloads the extracted text as a text file", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.setState({ editedText: "Hello world", fileName: "shot.png" });
+
+    const createObjectURL = vi.fn(() => "blob:mock");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      value: revokeObjectURL,
+      configurable: true,
+    });
+    const click = vi.fn();
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = click;
+    try {
+      store.getState().download();
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(click).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
+  });
 });
