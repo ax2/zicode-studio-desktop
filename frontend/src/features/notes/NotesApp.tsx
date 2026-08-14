@@ -604,10 +604,28 @@ function NavAction({ label, onClick }: { label: string; onClick(): void }) {
   );
 }
 
+function PinButton({ store, note }: { store: NotesStore; note: NoteSummary }) {
+  const pinned = store((state) => state.pinnedNoteIds.includes(note.id));
+  return (
+    <button
+      type="button"
+      className={`notes-pin-btn${pinned ? " is-pinned" : ""}`}
+      title={pinned ? t("Unpin from quick access") : t("Pin to quick access")}
+      aria-label={pinned ? t("Unpin from quick access") : t("Pin to quick access")}
+      aria-pressed={pinned}
+      onClick={(event) => {
+        event.stopPropagation();
+        store.getState().togglePinned(note.id);
+      }}
+    >
+      <Icon svg={ICONS.pin} />
+    </button>
+  );
+}
+
 function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary }) {
   const selectedNote = store((state) => state.selectedNote);
   const query = store((state) => state.query);
-  const pinnedNoteIds = store((state) => state.pinnedNoteIds);
   const selectNote = store((state) => state.selectNote);
   const openMovePopover = store((state) => state.openMovePopover);
   const selectMode = store((state) => state.selectMode);
@@ -713,19 +731,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
       <span className="notes-drag-handle" aria-hidden="true">
         ⠿
       </span>
-      <button
-        type="button"
-        className={`notes-pin-btn${pinnedNoteIds.includes(note.id) ? " is-pinned" : ""}`}
-        title={pinnedNoteIds.includes(note.id) ? t("Unpin from quick access") : t("Pin to quick access")}
-        aria-label={pinnedNoteIds.includes(note.id) ? t("Unpin from quick access") : t("Pin to quick access")}
-        aria-pressed={pinnedNoteIds.includes(note.id)}
-        onClick={(event) => {
-          event.stopPropagation();
-          store.getState().togglePinned(note.id);
-        }}
-      >
-        <Icon svg={ICONS.pin} />
-      </button>
+      <PinButton store={store} note={note} />
       <button
         type="button"
         className="notes-move-btn"
@@ -1152,6 +1158,7 @@ function FilterResultsView({ store }: { store: NotesStore }) {
               </strong>
               <span>{formatDate(note.updatedAt)}</span>
             </span>
+            <PinButton store={store} note={note} />
           </div>
         ))}
       </div>
