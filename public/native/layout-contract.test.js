@@ -414,6 +414,12 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
+  it("keeps the mobile note editor actions scrollable instead of clipped", () => {
+    expect(notesCss).toMatch(
+      /@media \(max-width: 768px\), \(max-height: 520px\) and \(pointer: coarse\)[\s\S]*?\.notes-editor-actions\s*\{[\s\S]*?overflow-x:\s*auto[\s\S]*?scrollbar-width:\s*none/,
+    );
+  });
+
   it("wraps automation detail values instead of clipping them on narrow screens", () => {
     expect(automationCss).toMatch(
       /@media \(max-width: 760px\)[\s\S]*?\.automation-card\s*dd\s*\{[\s\S]*?white-space:\s*normal[\s\S]*?overflow-wrap:\s*anywhere/,

@@ -1509,6 +1509,13 @@ body.notes-dragging .notes-result-item {
 
   .notes-editor-actions {
     justify-content: flex-end;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .notes-editor-actions::-webkit-scrollbar {
+    display: none;
   }
 
   .notes-editor-tabs .ui-button,
