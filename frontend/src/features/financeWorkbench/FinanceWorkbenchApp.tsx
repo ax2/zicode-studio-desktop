@@ -645,7 +645,7 @@ export function FinanceContentApp({
             <input
               className="ui-input"
               disabled={Boolean(busy.discovery)}
-              placeholder="historical daily adjusted equity prices and company fundamentals"
+              placeholder={t("historical daily adjusted equity prices and company fundamentals")}
               value={inputValue("discovery")}
               onChange={(event) => setInputValue("discovery", event.target.value)}
             />

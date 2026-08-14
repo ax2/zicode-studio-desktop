@@ -875,6 +875,8 @@ const zhCN = {
   "Audit samples": "审计样本",
   "Capability discovery": "数据能力发现",
   "Discover is free; inspect cost before calling.": "发现免费；调用前请先检查费用。",
+  "historical daily adjusted equity prices and company fundamentals":
+    "历史每日复权股价与公司基本面",
   Discover: "发现",
   "Checking…": "正在检查…",
   "Key required": "需要配置密钥",
