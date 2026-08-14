@@ -1544,6 +1544,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
             onClick={() => void store.getState().downloadNote()}
           />
           <ToolbarButton
+            label={t("Copy Markdown")}
+            icon={ICONS.copy}
+            className="notes-copy-note"
+            variant="ui-button--ghost"
+            disabled={!draftContent.trim()}
+            onClick={() => void store.getState().copyNote()}
+          />
+          <ToolbarButton
             label={t("Duplicate note")}
             icon={ICONS.duplicate}
             className="notes-duplicate-note"

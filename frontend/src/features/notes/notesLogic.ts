@@ -120,6 +120,8 @@ export const ICONS: Record<string, string> = {
   save: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8l2.5 2.5V13a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 13V9h5v4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
   download:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v7M5 6.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 12.5h11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  copy:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5h6a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4 4.5H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1H10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   duplicate:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 5.5V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v5.5a1 1 0 0 0 1 1h1.5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
   trash:

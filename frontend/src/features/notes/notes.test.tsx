@@ -876,6 +876,26 @@ describe("notes store", () => {
     expect(notify).toHaveBeenCalledWith(t("Note duplicated"));
   });
 
+  it("copies the live markdown to the clipboard", async () => {
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
+      notify,
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    await store.getState().copyNote();
+    expect(writeText).toHaveBeenCalledWith("# Plan\n\nSafe content");
+    expect(notify).toHaveBeenCalledWith(t("Copied"));
+  });
+
   it("deletes a notebook after confirmation and reloads", async () => {
     const deleteNotebook = vi.fn(async () => ({ deleted: true }));
     const notify = vi.fn();

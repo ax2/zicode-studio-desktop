@@ -240,6 +240,7 @@ interface NotesState {
   importBackup(): Promise<void>;
   importAllBackup(): Promise<void>;
   downloadNote(): Promise<void>;
+  copyNote(): Promise<void>;
   rebuildIndex(): Promise<void>;
   publishAstro(): Promise<void>;
   captureUrl(input: { url: string; title: string; notebookId: string; tags: string[] }): Promise<void>;
@@ -1098,6 +1099,21 @@ export function createNotesStore(options: NotesStoreOptions) {
         get().draftContent,
         "text/markdown",
       );
+    },
+
+    async copyNote() {
+      await get().saveIfDirty();
+      const note = get().selectedNote;
+      if (!note) return;
+      try {
+        if (typeof navigator.clipboard?.writeText !== "function") {
+          throw new Error(t("Clipboard access is not available"));
+        }
+        await navigator.clipboard.writeText(get().draftContent);
+        notify(t("Copied"));
+      } catch (error) {
+        set({ error: error instanceof Error ? error : new Error(String(error)) });
+      }
     },
 
     async importBackup() {
