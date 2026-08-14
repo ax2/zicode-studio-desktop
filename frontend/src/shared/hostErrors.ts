@@ -90,5 +90,8 @@ export function friendlyPluginError(error: unknown): string {
   if (/ocr is only available|cannot start windows ocr/.test(lowered)) {
     return t("The text extraction service is unavailable on this device.");
   }
+  if (/cannot create|cannot serialize|cannot save|cannot encode/.test(lowered)) {
+    return t("The operation could not be completed.");
+  }
   return message;
 }

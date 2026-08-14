@@ -70,6 +70,9 @@ describe("host error localization", () => {
     expect(
       friendlyPluginError(new Error("Cannot extract PDF text: bad stream")),
     ).toBe("无法读取该文件。");
+    expect(friendlyPluginError(new Error("Cannot save image: disk full"))).toBe(
+      "操作无法完成。",
+    );
     expect(friendlyPluginError(new Error("some other failure"))).toBe("some other failure");
   });
 
