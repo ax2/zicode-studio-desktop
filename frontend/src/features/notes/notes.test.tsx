@@ -925,6 +925,26 @@ describe("notes store", () => {
     expect(store.getState().snapshot.tags).toContain("chat");
   });
 
+  it("downloads the current note as Markdown", async () => {
+    const downloadFile = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    await store.getState().downloadNote();
+
+    expect(downloadFile).toHaveBeenCalledWith(
+      "Roadmap.md",
+      NOTE.content,
+      "text/markdown",
+    );
+  });
+
   it("moves a note to another notebook", async () => {
     const moveNote = vi.fn(async () => ({}));
     const store = storeWithGateway({ moveNote });
