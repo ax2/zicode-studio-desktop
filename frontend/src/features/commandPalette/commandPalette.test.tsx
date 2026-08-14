@@ -127,4 +127,21 @@ describe("command palette (React)", () => {
     expect(openTasks).toHaveBeenCalledTimes(1);
     expect(openNotes).not.toHaveBeenCalled();
   });
+
+  it("shows the global keyboard shortcut hint in a footer", () => {
+    const { button, palette, overlay, list } = mount();
+    setupCommandPalette({
+      button,
+      palette,
+      overlay,
+      list,
+      commands: [{ label: "First", action() {} }],
+    });
+
+    button.click();
+
+    const footer = list.querySelector(".command-palette-footer");
+    expect(footer?.textContent).toContain("Ctrl+1-9");
+    expect(footer?.textContent).toContain("Esc");
+  });
 });

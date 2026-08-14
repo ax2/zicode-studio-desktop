@@ -54,9 +54,17 @@
 }
 
 .command-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-1-5);
+}
+
+.command-palette-results {
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-1-5);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .command-palette-search {
@@ -106,6 +114,17 @@
   color: var(--text-dim);
   font-size: var(--font-size-sm);
   text-align: center;
+}
+
+.command-palette-footer {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-1);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  text-align: center;
+  letter-spacing: 0.01em;
 }
 
 .command-item:active {

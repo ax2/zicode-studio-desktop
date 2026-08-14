@@ -62,28 +62,33 @@ export function CommandPaletteApp({
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={onKeyDown}
       />
-      {filtered.map((command, index) => (
-        <button
-          type="button"
-          // biome-ignore lint/suspicious/noArrayIndexKey: command catalog has no stable ids
-          key={index}
-          className={`command-item${index === effectiveIndex ? " selected" : ""}`}
-          disabled={Boolean(command.disabled)}
-          onMouseEnter={() => setSelectedIndex(index)}
-          onClick={() => onRun(command)}
-        >
-          <span className="command-icon">{command.icon ?? "⌘"}</span>
-          <span className="command-copy">
-            <span className="command-label">
-              {command.label ?? t("Command")}
+      <div className="command-palette-results">
+        {filtered.map((command, index) => (
+          <button
+            type="button"
+            // biome-ignore lint/suspicious/noArrayIndexKey: command catalog has no stable ids
+            key={index}
+            className={`command-item${index === effectiveIndex ? " selected" : ""}`}
+            disabled={Boolean(command.disabled)}
+            onMouseEnter={() => setSelectedIndex(index)}
+            onClick={() => onRun(command)}
+          >
+            <span className="command-icon">{command.icon ?? "⌘"}</span>
+            <span className="command-copy">
+              <span className="command-label">
+                {command.label ?? t("Command")}
+              </span>
+              <span className="command-desc">{command.desc ?? ""}</span>
             </span>
-            <span className="command-desc">{command.desc ?? ""}</span>
-          </span>
-        </button>
-      ))}
-      {filtered.length === 0 ? (
-        <p className="command-empty">{t("No matching commands")}</p>
-      ) : null}
+          </button>
+        ))}
+        {filtered.length === 0 ? (
+          <p className="command-empty">{t("No matching commands")}</p>
+        ) : null}
+      </div>
+      <footer className="command-palette-footer">
+        {t("Switch apps: Ctrl+1-9 · Focus input: / · Cancel: Esc")}
+      </footer>
     </>
   );
 }
