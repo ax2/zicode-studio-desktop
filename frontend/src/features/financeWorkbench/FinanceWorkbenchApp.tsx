@@ -466,7 +466,7 @@ function JsonForm({
           type="button"
           className="ui-button ui-button--ghost ui-button--sm"
           onClick={clearInput}
-          disabled={busy}
+          disabled={busy || !value.trim()}
         >
           {t("Clear")}
         </button>
