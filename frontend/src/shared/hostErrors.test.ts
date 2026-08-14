@@ -64,6 +64,9 @@ describe("host error localization", () => {
     expect(friendlyPluginError(new Error("Cannot open image /tmp/a.png"))).toBe(
       "无法读取该文件。",
     );
+    expect(
+      friendlyPluginError(new Error("No text was recognized in the image")),
+    ).toBe("未在图片中识别到文字");
     expect(friendlyPluginError(new Error("some other failure"))).toBe("some other failure");
   });
 

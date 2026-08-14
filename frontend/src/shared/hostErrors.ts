@@ -84,5 +84,11 @@ export function friendlyPluginError(error: unknown): string {
   if (/cannot open|cannot read/.test(lowered)) {
     return t("The file could not be read.");
   }
+  if (/no text was recognized/.test(lowered)) {
+    return t("No text was recognized in the image");
+  }
+  if (/ocr is only available|cannot start windows ocr/.test(lowered)) {
+    return t("The text extraction service is unavailable on this device.");
+  }
   return message;
 }

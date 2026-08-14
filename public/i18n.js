@@ -214,6 +214,8 @@ const zhCN = {
   "Extract text": "提取文字",
   "OCR language": "识别语言",
   "Extracting…": "提取中…",
+  "No text was recognized in the image": "未在图片中识别到文字",
+  "The text extraction service is unavailable on this device.": "此设备上的文字提取服务不可用。",
   "No text extracted yet": "还没有提取到文字",
   "Text extracted": "已提取文字",
   "Layout: {cols} cols × {rows} rows · {count} photos":
