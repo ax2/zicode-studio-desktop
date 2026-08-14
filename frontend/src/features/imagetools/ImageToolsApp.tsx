@@ -307,6 +307,13 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
               <img className="imagetools-result-image" src={result.url} alt="" />
               <div className="idphoto-result-actions">
                 <a
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  href={result.url}
+                  download={result.fileName}
+                >
+                  {t("Download")}
+                </a>
+                <a
                   className="ui-button ui-button--secondary ui-button--sm"
                   href={result.url}
                   target="_blank"
