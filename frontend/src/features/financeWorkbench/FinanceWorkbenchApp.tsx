@@ -581,19 +581,11 @@ export function FinanceContentApp({
   const paperMark = store((state) => state.paperMark);
   const busy = store((state) => state.busy);
   const jsonInputs = store((state) => state.inputs);
-  const jsonValue = (key: string) => jsonInputs[key] ?? "";
-  const setJsonValue = (key: string, value: string) =>
+  const inputValue = (key: string) => jsonInputs[key] ?? "";
+  const setInputValue = (key: string, value: string) =>
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
 
   const discoveryQueryRef = useRef<HTMLInputElement | null>(null);
-  const researchSymbolRef = useRef<HTMLInputElement | null>(null);
-  const researchTitleRef = useRef<HTMLInputElement | null>(null);
-  const researchEventRef = useRef<HTMLInputElement | null>(null);
-  const researchThesisRef = useRef<HTMLTextAreaElement | null>(null);
-  const researchBullRef = useRef<HTMLTextAreaElement | null>(null);
-  const researchBearRef = useRef<HTMLTextAreaElement | null>(null);
-  const researchInvalidationRef = useRef<HTMLTextAreaElement | null>(null);
-  const researchSourcesRef = useRef<HTMLTextAreaElement | null>(null);
   const paperAccountNameRef = useRef<HTMLInputElement | null>(null);
   const paperAccountCurrencyRef = useRef<HTMLInputElement | null>(null);
   const paperAccountCashRef = useRef<HTMLInputElement | null>(null);
@@ -657,8 +649,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.snapshot)}
             sample={sampleSnapshot()}
             submitLabel={t("Save snapshot")}
-            value={jsonValue("snapshot")}
-            onChange={(value) => setJsonValue("snapshot", value)}
+            value={inputValue("snapshot")}
+            onChange={(value) => setInputValue("snapshot", value)}
             placeholder='{"kind":"quote","symbol":"600519.SH","currency":"CNY","asOf":"...","source":{"provider":"QVeris","executionId":"exec_..."},"payload":{"price":1400}}'
             onSubmit={(input) => controller.saveSnapshot(input)}
           />
@@ -686,8 +678,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.backtest)}
             sample={sampleBacktest()}
             submitLabel={t("Run backtest")}
-            value={jsonValue("backtest")}
-            onChange={(value) => setJsonValue("backtest", value)}
+            value={inputValue("backtest")}
+            onChange={(value) => setInputValue("backtest", value)}
             placeholder='{"bars":[...],"strategy":{"type":"sma_crossover","fastPeriod":20,"slowPeriod":60}}'
             onSubmit={(input) => controller.runBacktest(input)}
           />
@@ -704,8 +696,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.screening)}
             sample={sampleScreening()}
             submitLabel={t("Rank candidates")}
-            value={jsonValue("screening")}
-            onChange={(value) => setJsonValue("screening", value)}
+            value={inputValue("screening")}
+            onChange={(value) => setInputValue("screening", value)}
             placeholder='{"securities":[...],"factors":[...]}'
             onSubmit={(input) => controller.runScreening(input)}
           />
@@ -734,74 +726,82 @@ export function FinanceContentApp({
             onSubmit={(event) => {
               event.preventDefault();
               controller.saveResearchCard({
-                symbol: researchSymbolRef.current?.value ?? "",
-                title: researchTitleRef.current?.value ?? "",
-                eventAt: researchEventRef.current?.value
-                  ? new Date(researchEventRef.current.value).toISOString()
+                symbol: inputValue("researchSymbol"),
+                title: inputValue("researchTitle"),
+                eventAt: inputValue("researchEvent")
+                  ? new Date(inputValue("researchEvent")).toISOString()
                   : null,
-                thesis: researchThesisRef.current?.value ?? "",
-                bullCase: researchBullRef.current?.value ?? "",
-                bearCase: researchBearRef.current?.value ?? "",
-                invalidation: researchInvalidationRef.current?.value ?? "",
-                sources: (researchSourcesRef.current?.value ?? "").split(/\r?\n/),
+                thesis: inputValue("researchThesis"),
+                bullCase: inputValue("researchBull"),
+                bearCase: inputValue("researchBear"),
+                invalidation: inputValue("researchInvalidation"),
+                sources: inputValue("researchSources").split(/\r?\n/),
               });
             }}
           >
             <input
-              ref={researchSymbolRef}
               className="ui-input"
               placeholder={t("Symbol")}
               required
               disabled={Boolean(busy.research)}
+              value={inputValue("researchSymbol")}
+              onChange={(event) => setInputValue("researchSymbol", event.target.value)}
             />
             <input
-              ref={researchTitleRef}
               className="ui-input"
               placeholder={t("Research title")}
               disabled={Boolean(busy.research)}
+              value={inputValue("researchTitle")}
+              onChange={(event) => setInputValue("researchTitle", event.target.value)}
             />
             <input
-              ref={researchEventRef}
               className="ui-input"
               type="datetime-local"
               aria-label={t("Upcoming event")}
               disabled={Boolean(busy.research)}
+              value={inputValue("researchEvent")}
+              onChange={(event) => setInputValue("researchEvent", event.target.value)}
             />
             <textarea
-              ref={researchThesisRef}
               className="ui-textarea"
               rows={3}
               placeholder={t("Investment thesis")}
               required
               disabled={Boolean(busy.research)}
+              value={inputValue("researchThesis")}
+              onChange={(event) => setInputValue("researchThesis", event.target.value)}
             />
             <textarea
-              ref={researchBullRef}
               className="ui-textarea"
               rows={4}
               placeholder={t("Bull case and supporting evidence")}
               disabled={Boolean(busy.research)}
+              value={inputValue("researchBull")}
+              onChange={(event) => setInputValue("researchBull", event.target.value)}
             />
             <textarea
-              ref={researchBearRef}
               className="ui-textarea"
               rows={4}
               placeholder={t("Bear case and counter-evidence")}
               disabled={Boolean(busy.research)}
+              value={inputValue("researchBear")}
+              onChange={(event) => setInputValue("researchBear", event.target.value)}
             />
             <textarea
-              ref={researchInvalidationRef}
               className="ui-textarea"
               rows={3}
               placeholder={t("What would invalidate the thesis?")}
               disabled={Boolean(busy.research)}
+              value={inputValue("researchInvalidation")}
+              onChange={(event) => setInputValue("researchInvalidation", event.target.value)}
             />
             <textarea
-              ref={researchSourcesRef}
               className="ui-textarea"
               rows={3}
               placeholder={t("Source URLs or execution IDs, one per line")}
               disabled={Boolean(busy.research)}
+              value={inputValue("researchSources")}
+              onChange={(event) => setInputValue("researchSources", event.target.value)}
             />
             <div className="finance-form-actions">
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)}>
@@ -872,8 +872,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.paperOrder)}
             sample={undefined}
             submitLabel={t("Record simulated order")}
-            value={jsonValue("paperOrder")}
-            onChange={(value) => setJsonValue("paperOrder", value)}
+            value={inputValue("paperOrder")}
+            onChange={(value) => setInputValue("paperOrder", value)}
             placeholder='{"accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"snapshot":{"price":1400,"asOf":"2026-07-30T07:00:00Z","source":"QVeris execution id"}}'
             onSubmit={(input) => controller.recordPaperOrder(input)}
           />
@@ -882,8 +882,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.paperLimit)}
             sample={undefined}
             submitLabel={t("Manage limit order")}
-            value={jsonValue("paperLimit")}
-            onChange={(value) => setJsonValue("paperLimit", value)}
+            value={inputValue("paperLimit")}
+            onChange={(value) => setInputValue("paperLimit", value)}
             placeholder='{"action":"place","accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"limitPrice":1380,"currency":"CNY"}'
             onSubmit={(input) => controller.manageLimitOrder(input)}
           />
@@ -892,8 +892,8 @@ export function FinanceContentApp({
             busy={Boolean(busy.paperMark)}
             sample={undefined}
             submitLabel={t("Mark portfolio")}
-            value={jsonValue("paperMark")}
-            onChange={(value) => setJsonValue("paperMark", value)}
+            value={inputValue("paperMark")}
+            onChange={(value) => setInputValue("paperMark", value)}
             placeholder='{"accountId":"...","quotes":[{"symbol":"600519.SH","price":1410,"asOf":"...","source":"QVeris exec_...","currency":"CNY"}]}'
             onSubmit={(input) => controller.markPortfolio(input)}
           />
