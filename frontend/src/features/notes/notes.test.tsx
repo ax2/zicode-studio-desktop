@@ -632,6 +632,19 @@ describe("notes store", () => {
     expect(store.getState().recentNotes.map((note) => note.id)).toContain("note-1");
   });
 
+  it("pins and unpins a note for quick access", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    store.getState().togglePinned("note-1");
+    expect(store.getState().pinnedNoteIds).toEqual(["note-1"]);
+    await vi.waitFor(() =>
+      expect(store.getState().pinnedNotes.map((note) => note.id)).toContain("note-1"),
+    );
+    store.getState().togglePinned("note-1");
+    expect(store.getState().pinnedNoteIds).toEqual([]);
+    await vi.waitFor(() => expect(store.getState().pinnedNotes).toEqual([]));
+  });
+
   it("exports a readable backup through the download hook", async () => {
     const downloadFile = vi.fn();
     const store = createNotesStore({

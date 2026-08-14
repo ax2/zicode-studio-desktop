@@ -499,11 +499,30 @@ function QuickAccessSection({ store }: { store: NotesStore }) {
   const sourceOnly = store((state) => state.sourceOnly);
   const applyFilter = store((state) => state.applyFilter);
   const recentNotes = store((state) => state.recentNotes);
+  const pinnedNotes = store((state) => state.pinnedNotes);
+  const pinnedIds = new Set(store((state) => state.pinnedNoteIds));
+  const recentNotPinned = recentNotes.filter((note) => !pinnedIds.has(note.id));
   return (
     <NavSection title={t("Quick access")} store={store}>
-      {recentNotes.length > 0 ? (
+      {pinnedNotes.map((note) => (
+        <button
+          key={note.id}
+          type="button"
+          className="notes-nav-button"
+          onClick={() => void store.getState().selectNote(note)}
+        >
+          <span className="notes-nav-item-icon">
+            {note.icon || DEFAULT_NOTE_ICON}
+          </span>
+          <span className="notes-nav-item-label">{note.title}</span>
+          <span className="notes-nav-pin-mark" aria-hidden="true">
+            📌
+          </span>
+        </button>
+      ))}
+      {recentNotPinned.length > 0 ? (
         <>
-          {recentNotes.map((note) => (
+          {recentNotPinned.map((note) => (
             <button
               key={note.id}
               type="button"
@@ -588,6 +607,7 @@ function NavAction({ label, onClick }: { label: string; onClick(): void }) {
 function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary }) {
   const selectedNote = store((state) => state.selectedNote);
   const query = store((state) => state.query);
+  const pinnedNoteIds = store((state) => state.pinnedNoteIds);
   const selectNote = store((state) => state.selectNote);
   const openMovePopover = store((state) => state.openMovePopover);
   const selectMode = store((state) => state.selectMode);
@@ -693,6 +713,19 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
       <span className="notes-drag-handle" aria-hidden="true">
         ⠿
       </span>
+      <button
+        type="button"
+        className={`notes-pin-btn${pinnedNoteIds.includes(note.id) ? " is-pinned" : ""}`}
+        title={pinnedNoteIds.includes(note.id) ? t("Unpin from quick access") : t("Pin to quick access")}
+        aria-label={pinnedNoteIds.includes(note.id) ? t("Unpin from quick access") : t("Pin to quick access")}
+        aria-pressed={pinnedNoteIds.includes(note.id)}
+        onClick={(event) => {
+          event.stopPropagation();
+          store.getState().togglePinned(note.id);
+        }}
+      >
+        <Icon svg={ICONS.pin} />
+      </button>
       <button
         type="button"
         className="notes-move-btn"

@@ -1100,6 +1100,8 @@ const zhCN = {
   "No notebooks yet": "暂无笔记本",
   "Create notebook": "创建笔记本",
   "Quick access": "快速访问",
+  "Pin to quick access": "置顶到快速访问",
+  "Unpin from quick access": "取消置顶",
   "All notes": "全部笔记",
   Recent: "最近",
   "Web clips": "网页剪藏",

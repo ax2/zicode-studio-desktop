@@ -18,6 +18,8 @@ import {
 
 const RECENT_NOTES_KEY = "zicode-notes-recent";
 const RECENT_NOTES_LIMIT = 8;
+const PINNED_NOTES_KEY = "zicode-notes-pinned";
+const PINNED_NOTES_LIMIT = 16;
 
 function readRecentNoteIds(): string[] {
   try {
@@ -39,6 +41,29 @@ function writeRecentNoteIds(ids: string[]): void {
     );
   } catch {
     // Storage may be unavailable; recent-notes is a convenience only.
+  }
+}
+
+function readPinnedNoteIds(): string[] {
+  try {
+    const raw = localStorage.getItem(PINNED_NOTES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((id) => typeof id === "string").slice(0, PINNED_NOTES_LIMIT)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePinnedNoteIds(ids: string[]): void {
+  try {
+    localStorage.setItem(
+      PINNED_NOTES_KEY,
+      JSON.stringify(ids.slice(0, PINNED_NOTES_LIMIT)),
+    );
+  } catch {
+    // Storage may be unavailable; pinned notes is a convenience only.
   }
 }
 
@@ -150,6 +175,8 @@ interface NotesState {
   editingNotebookId: string | null;
   recentNoteIds: string[];
   recentNotes: NoteSummary[];
+  pinnedNoteIds: string[];
+  pinnedNotes: NoteSummary[];
   moveNote: NoteSummary | null;
   dragTargetId: string | null;
   selectMode: boolean;
@@ -168,6 +195,8 @@ interface NotesState {
   openNote(notebookId: string, noteId: string): Promise<void>;
   selectNotebook(id: string): void;
   resolveRecentNotes(): Promise<void>;
+  resolvePinnedNotes(): Promise<void>;
+  togglePinned(noteId: string): void;
   discussInChat(note: Note, selection: string): Promise<void>;
   attachmentUrl(note: Note, attachmentId: string): string;
   newNote(): Promise<void>;
@@ -257,6 +286,8 @@ export function createNotesStore(options: NotesStoreOptions) {
     editingNotebookId: null,
     recentNoteIds: readRecentNoteIds(),
     recentNotes: [],
+    pinnedNoteIds: readPinnedNoteIds(),
+    pinnedNotes: [],
     moveNote: null,
     dragTargetId: null,
     selectMode: false,
@@ -296,6 +327,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       } finally {
         set({ loading: false });
         void get().resolveRecentNotes();
+        void get().resolvePinnedNotes();
       }
     },
 
@@ -385,6 +417,36 @@ export function createNotesStore(options: NotesStoreOptions) {
       } catch {
         // Recent notes are a convenience; keep the cached list on failure.
       }
+    },
+
+    async resolvePinnedNotes() {
+      const pinnedNoteIds = get().pinnedNoteIds;
+      if (pinnedNoteIds.length === 0) {
+        set({ pinnedNotes: [] });
+        return;
+      }
+      try {
+        const response = await gateway.list(sceneId(), workspaceId(), {});
+        const byId = new Map(
+          (response.snapshot?.notes ?? []).map((note) => [note.id, note]),
+        );
+        const resolved = pinnedNoteIds
+          .map((id) => byId.get(id))
+          .filter((note): note is NoteSummary => Boolean(note));
+        set({ pinnedNotes: resolved });
+      } catch {
+        // Pinned notes are a convenience; keep the cached list on failure.
+      }
+    },
+
+    togglePinned(noteId) {
+      const current = get().pinnedNoteIds;
+      const next = current.includes(noteId)
+        ? current.filter((id) => id !== noteId)
+        : [noteId, ...current].slice(0, PINNED_NOTES_LIMIT);
+      set({ pinnedNoteIds: next });
+      writePinnedNoteIds(next);
+      void get().resolvePinnedNotes();
     },
 
     selectNotebook(id) {

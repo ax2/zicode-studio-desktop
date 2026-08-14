@@ -465,6 +465,48 @@
   background: var(--accent-subtle);
 }
 
+.notes-pin-btn {
+  flex: 0 0 auto;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.notes-pin-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.notes-pin-btn.is-pinned,
+.notes-tree-note:hover .notes-pin-btn,
+.notes-tree-note:focus-visible .notes-pin-btn {
+  opacity: 1;
+}
+
+.notes-pin-btn.is-pinned {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.notes-pin-btn:hover {
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+
+.notes-nav-pin-mark {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+}
+
 .notes-move-popover {
   position: fixed;
   z-index: 120;
