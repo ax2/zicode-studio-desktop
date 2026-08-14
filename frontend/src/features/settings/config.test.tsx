@@ -233,6 +233,15 @@ describe("settings config store", () => {
     expect(calls.some((call) => call.op === "write_models_config")).toBe(false);
   });
 
+  it("rejects a non-object agent config before saving", async () => {
+    const { gateway, calls } = makeGateway({});
+    const store = createConfigStore({ configGateway: gateway });
+    store.setState({ configEditor: { content: '"hello"', path: "", loading: false, message: null, saving: false } });
+    await store.getState().saveConfigEditor();
+    expect(store.getState().configEditor.message?.message).toContain("JSON object");
+    expect(calls.some((call) => call.op === "write_agent_config")).toBe(false);
+  });
+
   it("inserts the models example after confirmation", async () => {
     const { gateway } = makeGateway({});
     const store = createConfigStore({ configGateway: gateway, confirmImpl: () => true });

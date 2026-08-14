@@ -630,8 +630,9 @@ export function createConfigStore(options: ConfigStoreOptions) {
 
     async saveConfigEditor() {
       const content = getState().configEditor.content;
+      let parsed: unknown;
       try {
-        JSON.parse(content);
+        parsed = JSON.parse(content);
       } catch (error) {
         set({
           configEditor: {
@@ -640,6 +641,15 @@ export function createConfigStore(options: ConfigStoreOptions) {
               message: `Invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
               tone: "error",
             },
+          },
+        });
+        return;
+      }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        set({
+          configEditor: {
+            ...getState().configEditor,
+            message: { message: "Configuration must be a JSON object.", tone: "error" },
           },
         });
         return;
