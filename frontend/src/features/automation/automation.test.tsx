@@ -138,6 +138,40 @@ describe("automation store host errors", () => {
       expect.objectContaining({ action: "remove", id: "workflow-1" }),
     );
   });
+
+  it("keeps scheduling remaining automations when one fails", async () => {
+    const dueWorkflow = (id: string): AutomationWorkflow => ({
+      ...WORKFLOW,
+      id,
+      title: id,
+      enabled: true,
+      schedule: "interval",
+      intervalMinutes: 30,
+      requireApproval: false,
+      approvalPending: false,
+      nextRunAt: null,
+    });
+    const readTasks = vi.fn(async () => {
+      throw new Error("task service down");
+    });
+    const call = vi.fn(async (operation: string, params?: unknown) => {
+      const p = (params ?? {}) as Record<string, unknown>;
+      if (operation === "automation_workspace" && p.action === "list") {
+        return {
+          ok: true,
+          data: { workflows: [dueWorkflow("wf-1"), dueWorkflow("wf-2")] },
+        };
+      }
+      if (operation === "read_super_agent_tasks") {
+        return readTasks();
+      }
+      return { ok: true, data: {} };
+    });
+    const store = createAutomationStore({ call });
+    await store.getState().tick();
+    expect(readTasks).toHaveBeenCalledTimes(2);
+    store.getState().destroy();
+  });
 });
 
 describe("automation React app", () => {

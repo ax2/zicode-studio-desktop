@@ -155,26 +155,31 @@ export function createAutomationStore(options: AutomationAppOptions) {
         const current = await get().load();
         await reconcileRuns(current, { call, getTarget, notify, set, get });
         for (const workflow of current.filter((item) => isAutomationDue(item))) {
-          const now = new Date().toISOString();
-          if (workflow.requireApproval) {
-            await recordRun(
-              workflow,
-              {
-                status: "approval_required",
-                startedAt: now,
-                taskId: null,
-                message: t("Waiting for approval"),
-              },
-              { approvalPending: true, nextRunAt: workflow.nextRunAt || now },
-              { call, getTarget, notify, set, get },
-            );
-            notify({
-              title: t("Automation needs approval"),
-              message: workflow.title,
-              type: "warning",
-            });
-          } else {
-            await enqueue(workflow, "schedule", { call, getTarget, notify, set, get });
+          try {
+            const now = new Date().toISOString();
+            if (workflow.requireApproval) {
+              await recordRun(
+                workflow,
+                {
+                  status: "approval_required",
+                  startedAt: now,
+                  taskId: null,
+                  message: t("Waiting for approval"),
+                },
+                { approvalPending: true, nextRunAt: workflow.nextRunAt || now },
+                { call, getTarget, notify, set, get },
+              );
+              notify({
+                title: t("Automation needs approval"),
+                message: workflow.title,
+                type: "warning",
+              });
+            } else {
+              await enqueue(workflow, "schedule", { call, getTarget, notify, set, get });
+            }
+          } catch {
+            // Keep scheduling the remaining due workflows; a single broken
+            // automation must not block every other one indefinitely.
           }
         }
       } catch {
