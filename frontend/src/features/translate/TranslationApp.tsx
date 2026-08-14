@@ -103,13 +103,22 @@ function TranslationMain({ store }: { store: TranslationStore }) {
         <div className="translate-result-header">
           <h2>{t("Result")}</h2>
           {result ? (
-            <button
-              type="button"
-              className="ui-button ui-button--ghost ui-button--sm"
-              onClick={() => void store.getState().copyResult()}
-            >
-              {t("Copy")}
-            </button>
+            <div className="translate-result-actions">
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => store.getState().download()}
+              >
+                {t("Download")}
+              </button>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => void store.getState().copyResult()}
+              >
+                {t("Copy")}
+              </button>
+            </div>
           ) : null}
         </div>
         {result ? (

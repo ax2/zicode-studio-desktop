@@ -82,4 +82,31 @@ describe("translation store", () => {
     await store.getState().run();
     expect(store.getState().error).toBe("当前场景尚未配置翻译模型。");
   });
+
+  it("downloads the translation as a text file", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.setState({ editedText: "你好" });
+
+    const createObjectURL = vi.fn(() => "blob:mock");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {
+      value: createObjectURL,
+      configurable: true,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      value: revokeObjectURL,
+      configurable: true,
+    });
+    const click = vi.fn();
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = click;
+    try {
+      store.getState().download();
+      expect(createObjectURL).toHaveBeenCalled();
+      expect(click).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
+  });
 });

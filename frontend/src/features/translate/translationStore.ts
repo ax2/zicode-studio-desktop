@@ -73,6 +73,7 @@ export interface TranslationState {
   run(): Promise<void>;
   copyResult(): Promise<void>;
   setEditedText(value: string): void;
+  download(): void;
 }
 
 export interface TranslationOptions {
@@ -152,6 +153,22 @@ export function createTranslationStore(options: TranslationOptions) {
 
     setEditedText(value) {
       set({ editedText: value });
+    },
+
+    download() {
+      const { editedText } = get();
+      if (!editedText.trim()) return;
+      const blob = new Blob([editedText], {
+        type: "text/plain;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "translation.txt";
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     },
   }));
 }
