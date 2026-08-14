@@ -935,6 +935,20 @@ describe("notes React components", () => {
     expect(document.querySelector(".notes-preview")).toBeTruthy();
   });
 
+  it("preserves unsaved edits when toggling to preview", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    store.getState().setDraft({ content: "EDITED before preview" });
+    expect(store.getState().dirty).toBe(true);
+
+    store.getState().setPreview(true);
+
+    expect(store.getState().draftContent).toBe("EDITED before preview");
+    expect(store.getState().dirty).toBe(true);
+  });
+
   it("renders a clickable heading outline in preview mode", async () => {
     const scrollIntoView = vi.fn();
     const original = Element.prototype.scrollIntoView;

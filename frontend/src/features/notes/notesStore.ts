@@ -803,7 +803,6 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     setPreview(preview) {
-      get().syncDraftFromNote();
       set({ preview });
     },
 
