@@ -308,7 +308,7 @@ describe("notes store", () => {
     vi.spyOn(window, "getSelection").mockReturnValue(selectionStub as unknown as Selection);
     const useInChat = container.querySelector(".notes-use-in-chat") as HTMLButtonElement;
     useInChat.click();
-    expect(onUseInChat).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onUseInChat).toHaveBeenCalledTimes(1));
     expect(onUseInChat.mock.calls[0][1]).toBe("highlighted phrase");
   });
 
@@ -668,6 +668,32 @@ describe("notes store", () => {
     const [fileName, content] = downloadFile.mock.calls[0];
     expect(fileName).toBe("zicode-notes-all-ws-1.json");
     expect(JSON.parse(content).notebooks).toHaveLength(1);
+  });
+
+  it("saves pending edits before exporting a backup", async () => {
+    const order: string[] = [];
+    const gateway = gatewayStub({
+      save: vi.fn(async () => {
+        order.push("save");
+        return { note: { ...NOTE, title: "Saved" } };
+      }),
+      exportAllBackup: vi.fn(async () => {
+        order.push("export");
+        return { backup: { notebooks: [] } };
+      }),
+    });
+    const store = createNotesStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      downloadFile: vi.fn(),
+    });
+    await store.getState().load();
+    await store.getState().selectNote({ ...SNAPSHOT.notes[0], title: "Dirty" });
+    store.getState().setDraft({ content: "unsaved edit" });
+    expect(store.getState().dirty).toBe(true);
+    await store.getState().exportAllBackup();
+    expect(order).toEqual(["save", "export"]);
   });
 
   it("imports a readable backup through the file picker", async () => {

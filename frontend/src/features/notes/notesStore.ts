@@ -182,6 +182,7 @@ interface NotesState {
   purgeFromTrash(entry: TrashEntry): Promise<void>;
   emptyTrash(): Promise<void>;
   saveEditor(): Promise<void>;
+  saveIfDirty(): Promise<void>;
   markDirty(): void;
   scheduleAutosave(): void;
   cancelAutosave(): void;
@@ -391,13 +392,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async discussInChat(note, selection) {
-      if (get().dirty) {
-        try {
-          await get().saveEditor();
-        } catch {
-          // Keep the chat action usable even if the pending save fails.
-        }
-      }
+      await get().saveIfDirty();
       onUseInChat?.(get().selectedNote ?? note, selection);
     },
 
@@ -692,6 +687,16 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
     },
 
+    async saveIfDirty() {
+      if (get().dirty) {
+        try {
+          await get().saveEditor();
+        } catch {
+          // Preserve the primary action even if the pending save fails.
+        }
+      }
+    },
+
     markDirty() {
       set({ dirty: true, saveDisabled: false, saveState: "dirty" });
       get().scheduleAutosave();
@@ -905,6 +910,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async importMarkdown() {
+      await get().saveIfDirty();
       const notebookId = get().selectedNotebookId;
       if (!notebookId) {
         set({ mode: "new-notebook" });
@@ -933,6 +939,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async exportBackup() {
+      await get().saveIfDirty();
       const notebook = get().snapshot.notebooks.find(
         (candidate) => candidate.id === get().selectedNotebookId,
       );
@@ -954,6 +961,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async exportAllBackup() {
+      await get().saveIfDirty();
       try {
         const response = await gateway.exportAllBackup(
           sceneId(),
@@ -1028,6 +1036,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async rebuildIndex() {
+      await get().saveIfDirty();
       const notebookId = get().selectedNotebookId;
       if (!notebookId) {
         notify(t("Select a notebook first"));
@@ -1048,6 +1057,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async publishAstro() {
+      await get().saveIfDirty();
       if (!get().selectedNotebookId) {
         notify(t("Select a notebook first"));
         return;
