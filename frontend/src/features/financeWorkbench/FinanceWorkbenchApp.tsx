@@ -401,6 +401,16 @@ function JsonForm({
   const clearInput = () => {
     onChange("");
   };
+  const formatInput = () => {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed !== null && typeof parsed === "object") {
+        onChange(JSON.stringify(parsed, null, 2));
+      }
+    } catch {
+      // Invalid JSON is left as-is; the inline error already reports it.
+    }
+  };
   const jsonError = useMemo(() => {
     const text = value.trim();
     if (!text) return null;
@@ -459,6 +469,14 @@ function JsonForm({
           disabled={busy}
         >
           {t("Clear")}
+        </button>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          onClick={formatInput}
+          disabled={busy || !value.trim()}
+        >
+          {t("Format JSON")}
         </button>
         <button type="submit" className="ui-button ui-button--primary" disabled={busy}>
           {submitLabel}
