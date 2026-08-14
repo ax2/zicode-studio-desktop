@@ -81,7 +81,7 @@ export function friendlyPluginError(error: unknown): string {
   if (/unknown (sheet|template)|not found/.test(lowered)) {
     return t("The selected option is not available.");
   }
-  if (/cannot open|cannot read/.test(lowered)) {
+  if (/cannot open|cannot read|cannot extract|cannot locate/.test(lowered)) {
     return t("The file could not be read.");
   }
   if (/no text was recognized/.test(lowered)) {
