@@ -50,6 +50,7 @@ export function ConfigTab({
             id="toggle-auth"
             role="switch"
             aria-checked={Boolean(authEnabled)}
+            aria-label={t("Require login")}
             onClick={() => widgets.getState().toggle("auth")}
           ></button>
         </div>

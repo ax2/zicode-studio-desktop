@@ -16,7 +16,7 @@ class ChatSettingsPanel extends HTMLElement {
               <span class="settings-label-main">${t("Start automatically")}</span>
               <span class="settings-label-sub">${t("Start Agent Inbox when ZiCode Studio Desktop starts.")}</span>
             </span>
-            <button class="settings-toggle" id="toggle-super-agent"></button>
+            <button class="settings-toggle" id="toggle-super-agent" aria-label="${t("Start automatically")}"></button>
           </div>
           <p class="settings-help">${t("External messages land in the isolated Agent Inbox; dispatching tasks to project instances still needs local confirmation.")}</p>
         </div>

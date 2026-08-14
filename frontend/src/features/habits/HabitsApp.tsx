@@ -87,12 +87,14 @@ function HabitsMain({ store }: { store: HabitsStore }) {
             ))}
           </div>
           <div className="habits-picker" role="radiogroup" aria-label={t("Habit color")}>
-            {COLORS.map((color) => (
+            {COLORS.map((color, index) => (
               <button
                 key={color}
                 type="button"
                 className={`habits-color${draftColor === color ? " is-active" : ""}`}
                 aria-pressed={draftColor === color}
+                aria-label={`${t("Habit color")} ${index + 1}`}
+                title={color}
                 style={{ background: color }}
                 onClick={() => store.getState().setDraft({ draftColor: color })}
               />
