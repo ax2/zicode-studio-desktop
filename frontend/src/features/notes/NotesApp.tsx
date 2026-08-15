@@ -1668,6 +1668,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             className="notes-save"
             variant="ui-button--primary"
             disabled={saveDisabled || !dirty}
+            busy={saveState === "saving"}
             hint="Ctrl+S"
             onClick={() => void store.getState().saveEditor()}
           />
@@ -1838,6 +1839,7 @@ function ToolbarButton({
   variant,
   disabled,
   ariaPressed,
+  busy,
   hint,
   onClick,
 }: {
@@ -1847,6 +1849,7 @@ function ToolbarButton({
   variant: string;
   disabled?: boolean;
   ariaPressed?: boolean;
+  busy?: boolean;
   hint?: string;
   onClick(): void;
 }) {
@@ -1856,6 +1859,7 @@ function ToolbarButton({
       className={`ui-button ${variant} ${className}`.trim()}
       disabled={disabled}
       aria-pressed={ariaPressed}
+      aria-busy={busy}
       aria-label={hint ? `${label} (${hint})` : label}
       title={hint ? `${label} (${hint})` : label}
       onClick={onClick}
