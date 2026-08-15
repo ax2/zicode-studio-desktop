@@ -123,6 +123,15 @@ export interface NotesGatewayLike {
         toTitle: string;
         kind: string;
       }>;
+      similar?: Array<{
+        leftNotebookId: string;
+        leftNoteId: string;
+        leftTitle: string;
+        rightNotebookId: string;
+        rightNoteId: string;
+        rightTitle: string;
+        sharedTags: string[];
+      }>;
     };
   }>;
   createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
@@ -152,6 +161,13 @@ export interface NoteBacklink {
   noteId: string;
   title: string;
   kind: string;
+}
+
+export interface SimilarNote {
+  notebookId: string;
+  noteId: string;
+  title: string;
+  sharedTags: string[];
 }
 
 export interface NotesStoreOptions {
@@ -210,6 +226,7 @@ interface NotesState {
   draftContent: string;
   draftTags: string[];
   backlinks: NoteBacklink[];
+  similarNotes: SimilarNote[];
   deleteArmed: boolean;
   saveDisabled: boolean;
   load(options?: { preserveSelection?: boolean }): Promise<void>;
@@ -328,6 +345,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     draftContent: "",
     draftTags: [],
     backlinks: [],
+    similarNotes: [],
     deleteArmed: false,
     saveDisabled: true,
 
@@ -439,6 +457,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         const response = await gateway.knowledge(sceneId(), workspaceId());
         if (requestId !== backlinksRequestId) return;
         const links = response.snapshot?.links ?? [];
+        const similarPairs = response.snapshot?.similar ?? [];
         const backlinks: NoteBacklink[] = [];
         for (const link of links) {
           if (
@@ -454,7 +473,28 @@ export function createNotesStore(options: NotesStoreOptions) {
             });
           }
         }
-        set({ backlinks });
+        const similarNotes: SimilarNote[] = [];
+        for (const pair of similarPairs) {
+          if (pair.leftNotebookId === targetNotebookId && pair.leftNoteId === targetNoteId) {
+            similarNotes.push({
+              notebookId: pair.rightNotebookId,
+              noteId: pair.rightNoteId,
+              title: pair.rightTitle,
+              sharedTags: pair.sharedTags,
+            });
+          } else if (
+            pair.rightNotebookId === targetNotebookId &&
+            pair.rightNoteId === targetNoteId
+          ) {
+            similarNotes.push({
+              notebookId: pair.leftNotebookId,
+              noteId: pair.leftNoteId,
+              title: pair.leftTitle,
+              sharedTags: pair.sharedTags,
+            });
+          }
+        }
+        set({ backlinks, similarNotes });
       } catch {
         // Backlinks are a navigation convenience; keep the previous list on failure.
       }

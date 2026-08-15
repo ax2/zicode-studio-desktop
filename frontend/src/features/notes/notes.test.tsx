@@ -247,12 +247,26 @@ describe("notes store", () => {
               kind: "wikilink",
             },
           ],
+          similar: [
+            {
+              leftNotebookId: "book-1",
+              leftNoteId: "note-1",
+              leftTitle: "Roadmap",
+              rightNotebookId: "book-2",
+              rightNoteId: "note-2",
+              rightTitle: "Source Note",
+              sharedTags: ["plugin"],
+            },
+          ],
         },
       })),
     });
     await store.getState().loadBacklinks(NOTE);
     expect(store.getState().backlinks).toEqual([
       { notebookId: "book-2", noteId: "note-2", title: "Source Note", kind: "wikilink" },
+    ]);
+    expect(store.getState().similarNotes).toEqual([
+      { notebookId: "book-2", noteId: "note-2", title: "Source Note", sharedTags: ["plugin"] },
     ]);
   });
 

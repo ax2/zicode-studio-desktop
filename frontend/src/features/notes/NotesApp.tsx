@@ -1604,6 +1604,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const draftContent = store((state) => state.draftContent);
   const draftTags = store((state) => state.draftTags);
   const backlinks = store((state) => state.backlinks);
+  const similarNotes = store((state) => state.similarNotes);
   const preview = store((state) => state.preview);
   const dirty = store((state) => state.dirty);
   const saveDisabled = store((state) => state.saveDisabled);
@@ -2181,6 +2182,28 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   <span className="notes-backlink-title">{backlink.title}</span>
                   <span className="notes-backlink-kind">
                     {backlinkKindLabel(backlink.kind)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
+      {similarNotes.length > 0 ? (
+        <nav className="notes-backlinks" aria-label={t("Similar notes")}>
+          <h2>{t("Similar notes")}</h2>
+          <ul>
+            {similarNotes.map((similar) => (
+              <li key={`${similar.notebookId}-${similar.noteId}`}>
+                <button
+                  type="button"
+                  className="notes-backlink"
+                  title={similar.title}
+                  onClick={() => void openNote(similar.notebookId, similar.noteId)}
+                >
+                  <span className="notes-backlink-title">{similar.title}</span>
+                  <span className="notes-backlink-kind">
+                    {similar.sharedTags.join(", ")}
                   </span>
                 </button>
               </li>
