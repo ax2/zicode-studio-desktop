@@ -1,31 +1,34 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-export interface PreferenceOption {
+export interface SelectOption {
   value: string;
   label: string;
 }
 
-interface PreferenceSelectProps {
+interface SelectProps {
   id: string;
   value: string;
-  options: PreferenceOption[];
+  options: SelectOption[];
   label: string;
   onChange: (value: string) => void;
+  /** Extra class for the wrapper, used to size the control per context. */
+  className?: string;
 }
 
 /**
- * Accessible custom select that replaces the native <select> for the
- * Appearance preferences. The native dropdown popup is rendered by the OS in
- * WebView2 and does not follow the app theme, so this renders the option list
- * in-DOM with the standard combobox/listbox ARIA pattern.
+ * Accessible custom select that replaces the native <select>. The native
+ * dropdown popup is rendered by the OS in WebView2 and does not follow the app
+ * theme, so this renders the option list in-DOM with the standard
+ * combobox/listbox ARIA pattern.
  */
-export function PreferenceSelect({
+export function Select({
   id,
   value,
   options,
   label,
   onChange,
-}: PreferenceSelectProps) {
+  className,
+}: SelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(() =>
     Math.max(
@@ -117,12 +120,15 @@ export function PreferenceSelect({
   const current = options.find((option) => option.value === value);
 
   return (
-    <div className="preference-select" ref={rootRef}>
+    <div
+      className={`app-select${className ? ` ${className}` : ""}`}
+      ref={rootRef}
+    >
       <button
         ref={triggerRef}
         type="button"
         id={id}
-        className="ui-select settings-preference-select preference-select-trigger"
+        className="ui-select app-select-trigger"
         role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -134,11 +140,11 @@ export function PreferenceSelect({
         onClick={() => setOpen((next) => !next)}
         onKeyDown={onTriggerKeyDown}
       >
-        <span className="preference-select-value">
+        <span className="app-select-value">
           {current?.label ?? value}
         </span>
         <svg
-          className="preference-select-chevron"
+          className="app-select-chevron"
           width="14"
           height="14"
           viewBox="0 0 14 14"
@@ -157,7 +163,7 @@ export function PreferenceSelect({
       {open ? (
         <div
           id={listboxId}
-          className="preference-select-menu"
+          className="app-select-menu"
           role="listbox"
           aria-label={label}
         >
@@ -166,7 +172,7 @@ export function PreferenceSelect({
               key={option.value}
               type="button"
               id={`${id}-option-${index}`}
-              className={`preference-select-option${
+              className={`app-select-option${
                 option.value === value ? " selected" : ""
               }${index === activeIndex ? " active" : ""}`}
               role="option"

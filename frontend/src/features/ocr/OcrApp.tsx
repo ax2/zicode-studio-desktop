@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import { downscaleImage, OCR_LANGUAGES } from "./ocrLogic";
 import { createOcrStore, type OcrOptions, type OcrStore } from "./ocrStore";
 
@@ -83,19 +84,19 @@ function OcrMain({ store }: { store: OcrStore }) {
             <img className="ocr-preview" src={image} alt={fileName} />
             <div className="ocr-preview-actions">
               <span className="ocr-file-name">{fileName}</span>
-              <label className="settings-field">
+              <div className="settings-field">
                 <span>{t("OCR language")}</span>
-                <select
+                <Select
+                  id="ocr-language"
                   value={language}
-                  onChange={(event) => store.getState().setLanguage(event.target.value)}
-                >
-                  {OCR_LANGUAGES.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {t(candidate.name)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  label={t("OCR language")}
+                  options={OCR_LANGUAGES.map((candidate) => ({
+                    value: candidate.id,
+                    label: t(candidate.name),
+                  }))}
+                  onChange={(value) => store.getState().setLanguage(value)}
+                />
+              </div>
               <button
                 type="button"
                 className="ui-button ui-button--primary ui-button--sm"

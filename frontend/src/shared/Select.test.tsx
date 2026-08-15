@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { PreferenceSelect } from "./PreferenceSelect";
+import { Select } from "./Select";
 
 afterEach(cleanup);
 
@@ -11,11 +11,11 @@ const OPTIONS = [
 ];
 
 function renderSelect(
-  props: Partial<Parameters<typeof PreferenceSelect>[0]> = {},
+  props: Partial<Parameters<typeof Select>[0]> = {},
 ) {
   const onChange = vi.fn();
-  const view = render(
-    <PreferenceSelect
+  render(
+    <Select
       id="theme-select"
       value="clean"
       options={OPTIONS}
@@ -24,10 +24,10 @@ function renderSelect(
       {...props}
     />,
   );
-  return { view, onChange };
+  return { onChange };
 }
 
-describe("PreferenceSelect", () => {
+describe("Select", () => {
   it("renders the selected option label and listbox attributes", () => {
     renderSelect();
     const trigger = screen.getByRole("combobox", { name: "Theme" });
@@ -51,7 +51,9 @@ describe("PreferenceSelect", () => {
     renderSelect();
     fireEvent.click(screen.getByRole("combobox", { name: "Theme" }));
     expect(
-      screen.getByRole("option", { name: "Bright White" })?.getAttribute("aria-selected"),
+      screen
+        .getByRole("option", { name: "Bright White" })
+        ?.getAttribute("aria-selected"),
     ).toBe("true");
   });
 
@@ -74,5 +76,12 @@ describe("PreferenceSelect", () => {
     fireEvent.keyDown(trigger, { key: "Escape" });
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("applies the wrapper class to the root element", () => {
+    renderSelect({ className: "settings-preference-select" });
+    expect(
+      document.querySelector(".app-select.settings-preference-select"),
+    ).toBeTruthy();
   });
 });

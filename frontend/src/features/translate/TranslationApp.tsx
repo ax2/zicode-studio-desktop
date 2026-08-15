@@ -1,6 +1,7 @@
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import { TARGET_LANGUAGES } from "./translationLogic";
 import {
   createTranslationStore,
@@ -47,20 +48,22 @@ function TranslationMain({ store }: { store: TranslationStore }) {
           onChange={(event) => store.getState().setText(event.target.value)}
         />
         <div className="translate-controls">
-          <label className="settings-field">
+          <div className="settings-field">
             <span>{t("Source language")}</span>
-            <select
+            <Select
+              id="translate-source-language"
               value={sourceLang}
-              onChange={(event) => store.getState().setSourceLang(event.target.value)}
-            >
-              <option value="">{t("Auto-detect")}</option>
-              {TARGET_LANGUAGES.map((language) => (
-                <option key={language} value={language}>
-                  {t(language)}
-                </option>
-              ))}
-            </select>
-          </label>
+              label={t("Source language")}
+              options={[
+                { value: "", label: t("Auto-detect") },
+                ...TARGET_LANGUAGES.map((language) => ({
+                  value: language,
+                  label: t(language),
+                })),
+              ]}
+              onChange={(value) => store.getState().setSourceLang(value)}
+            />
+          </div>
           <button
             type="button"
             className="ui-button ui-button--ghost ui-button--sm translate-swap"
@@ -69,19 +72,19 @@ function TranslationMain({ store }: { store: TranslationStore }) {
           >
             ⇄
           </button>
-          <label className="settings-field">
+          <div className="settings-field">
             <span>{t("Target language")}</span>
-            <select
+            <Select
+              id="translate-target-language"
               value={targetLang}
-              onChange={(event) => store.getState().setTargetLang(event.target.value)}
-            >
-              {TARGET_LANGUAGES.map((language) => (
-                <option key={language} value={language}>
-                  {t(language)}
-                </option>
-              ))}
-            </select>
-          </label>
+              label={t("Target language")}
+              options={TARGET_LANGUAGES.map((language) => ({
+                value: language,
+                label: t(language),
+              }))}
+              onChange={(value) => store.getState().setTargetLang(value)}
+            />
+          </div>
           <button
             type="button"
             className="ui-button ui-button--primary ui-button--sm"

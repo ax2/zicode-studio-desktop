@@ -9,9 +9,9 @@ import type { CostDashboardStore } from "./costDashboardStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
 import { PackageBrowseTab } from "./PackageBrowseTab";
 import type { PackageBrowseStore } from "./packageBrowseStore";
-import { PreferenceSelect } from "./PreferenceSelect";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
+import { Select } from "../../shared/Select";
 import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 import { useStoragePersistenceState } from "./storagePersistenceStore";
 import type { SettingsStore } from "./store";
@@ -192,11 +192,12 @@ function AppearancePreferences() {
       <div className="settings-section-title">{t("Appearance")}</div>
       <div className="settings-row">
         <span className="settings-label">{t("Theme")}</span>
-        <PreferenceSelect
+        <Select
           id="theme-select"
           value={themeId}
           options={themeOptions}
           label={t("Theme")}
+          className="settings-preference-select"
           onChange={(value) => {
             applyTheme(value);
             setThemeId(value);
@@ -205,11 +206,12 @@ function AppearancePreferences() {
       </div>
       <div className="settings-row">
         <span className="settings-label">{t("Language")}</span>
-        <PreferenceSelect
+        <Select
           id="language-select"
           value={locale}
           options={languageOptions}
           label={t("Language")}
+          className="settings-preference-select"
           onChange={(value) => setLocale(value)}
         />
       </div>
