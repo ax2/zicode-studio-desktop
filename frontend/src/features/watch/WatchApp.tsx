@@ -169,8 +169,8 @@ function WatchMain({ store }: { store: WatchStore }) {
                       <button
                         type="button"
                         className="ui-button ui-button--ghost ui-button--sm"
-                        onClick={() => {
-                          if (globalThis.confirm?.(t("Delete this watcher? This cannot be undone."))) {
+                        onClick={async () => {
+                          if (await globalThis.confirm?.(t("Delete this watcher? This cannot be undone."))) {
                             void store.getState().remove(item.id);
                           }
                         }}

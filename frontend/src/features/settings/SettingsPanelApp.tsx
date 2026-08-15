@@ -538,13 +538,13 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
                 disabled={deletingId === backup.id}
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    globalThis.confirm?.(
+                    (await globalThis.confirm?.(
                       `${t("Delete workspace backup")} “${new Date(
                         backup.createdAt,
                       ).toLocaleString()}”? ${t("This cannot be undone.")}`,
-                    ) === false
+                    )) === false
                   ) {
                     return;
                   }
@@ -557,15 +557,15 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                 type="button"
                 className="ui-button ui-button--secondary ui-button--sm"
                 disabled={restoringId === backup.id}
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    globalThis.confirm?.(
+                    (await globalThis.confirm?.(
                       `${t("Restore workspace from backup")} “${new Date(
                         backup.createdAt,
                       ).toLocaleString()}”? ${t(
                         "Restore overwrites current workspace data; the current state is snapshotted first.",
                       )}`,
-                    ) === false
+                    )) === false
                   ) {
                     return;
                   }

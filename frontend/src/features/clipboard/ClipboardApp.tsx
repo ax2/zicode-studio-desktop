@@ -78,8 +78,8 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
             <button
               type="button"
               className="ui-button ui-button--ghost ui-button--sm"
-              onClick={() => {
-                if (globalThis.confirm?.(t("Clear the clipboard inbox? This cannot be undone."))) {
+              onClick={async () => {
+                if (await globalThis.confirm?.(t("Clear the clipboard inbox? This cannot be undone."))) {
                   void store.getState().clear();
                 }
               }}
