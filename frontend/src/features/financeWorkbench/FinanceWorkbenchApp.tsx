@@ -719,6 +719,14 @@ export function FinanceContentApp({
               onChange={(event) => setInputValue("discovery", event.target.value)}
             />
             <div className="finance-form-actions">
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                disabled={Boolean(busy.discovery) || !inputValue("discovery").trim()}
+                onClick={() => setInputValue("discovery", "")}
+              >
+                {t("Clear")}
+              </button>
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.discovery)}>
                 {t("Discover")}
               </button>
