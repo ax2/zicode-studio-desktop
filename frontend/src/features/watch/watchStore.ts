@@ -152,10 +152,13 @@ export function createWatchStore(options: WatchOptions) {
       if (!draftName.trim() || !draftUrl.trim() || busy) return;
       set({ busy: true, error: "" });
       try {
-        await gateway.add(getTarget(), draftName, normalizeUrl(draftUrl));
+        const { item } = await gateway.add(getTarget(), draftName, normalizeUrl(draftUrl));
         set({ draftName: "", draftUrl: "", busy: false });
         notify(t("Watcher added"));
         await get().load();
+        // Establish the initial content baseline immediately so the user sees
+        // a checked status without a second click.
+        if (item?.id) await get().check(item.id);
       } catch (error) {
         set({ busy: false, error: friendlyPluginError(error) });
       }

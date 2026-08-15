@@ -60,6 +60,11 @@ describe("watch store", () => {
       "https://example.com/",
     );
     expect(notify).toHaveBeenCalledWith("Watcher added");
+    // The new watcher is checked immediately to establish its baseline.
+    expect(gateway.check).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      "w1",
+    );
   });
 
   it("edits an existing watcher", async () => {
