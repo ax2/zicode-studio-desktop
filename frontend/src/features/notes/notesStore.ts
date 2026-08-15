@@ -291,6 +291,7 @@ export function createNotesStore(options: NotesStoreOptions) {
 
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let backlinksRequestId = 0;
 
   const store = create<NotesState>()((set, get) => ({
     snapshot: { notebooks: [], notes: [], tags: [] },
@@ -431,10 +432,12 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async loadBacklinks(note) {
+      const requestId = ++backlinksRequestId;
       const targetNotebookId = note.notebookId;
       const targetNoteId = note.id;
       try {
         const response = await gateway.knowledge(sceneId(), workspaceId());
+        if (requestId !== backlinksRequestId) return;
         const links = response.snapshot?.links ?? [];
         const backlinks: NoteBacklink[] = [];
         for (const link of links) {

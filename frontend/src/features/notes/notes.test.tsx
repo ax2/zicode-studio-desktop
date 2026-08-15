@@ -256,6 +256,64 @@ describe("notes store", () => {
     ]);
   });
 
+  it("ignores a stale backlinks response after a newer note is selected", async () => {
+    type KnowledgeResponse = Awaited<ReturnType<NotesGatewayLike["knowledge"]>>;
+    let resolveFirst!: (value: KnowledgeResponse) => void;
+    let resolveSecond!: (value: KnowledgeResponse) => void;
+    const first = new Promise<KnowledgeResponse>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const second = new Promise<KnowledgeResponse>((resolve) => {
+      resolveSecond = resolve;
+    });
+    const knowledge = vi
+      .fn<NotesGatewayLike["knowledge"]>()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const store = storeWithGateway({ knowledge });
+
+    const firstCall = store.getState().loadBacklinks({ ...NOTE, id: "note-1" });
+    const secondCall = store.getState().loadBacklinks({ ...NOTE, id: "note-2" });
+
+    resolveSecond({
+      snapshot: {
+        links: [
+          {
+            fromNotebookId: "book-2",
+            fromNoteId: "note-2",
+            fromTitle: "Newer",
+            toNotebookId: "book-1",
+            toNoteId: "note-2",
+            toTitle: "Roadmap",
+            kind: "wikilink",
+          },
+        ],
+      },
+    });
+    await secondCall;
+
+    resolveFirst({
+      snapshot: {
+        links: [
+          {
+            fromNotebookId: "book-2",
+            fromNoteId: "note-2",
+            fromTitle: "Older",
+            toNotebookId: "book-1",
+            toNoteId: "note-1",
+            toTitle: "Roadmap",
+            kind: "wikilink",
+          },
+        ],
+      },
+    });
+    await firstCall;
+
+    expect(store.getState().backlinks).toEqual([
+      { notebookId: "book-2", noteId: "note-2", title: "Newer", kind: "wikilink" },
+    ]);
+  });
+
   it("closes the mobile function-area drawer when a note is selected", async () => {
     const store = storeWithGateway();
     const requests: Array<{ open?: boolean }> = [];
