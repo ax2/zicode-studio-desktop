@@ -219,6 +219,11 @@
   color: var(--success, #2bb673);
 }
 
+.finance-form .ui-textarea {
+  font-family: var(--font-mono);
+  line-height: 1.6;
+}
+
 .finance-form-actions {
   display: flex;
   justify-content: flex-end;
