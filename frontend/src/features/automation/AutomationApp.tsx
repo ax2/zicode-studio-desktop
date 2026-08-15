@@ -184,8 +184,8 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           label={t("Schedule")}
           options={[
             { value: "manual", label: t("Manual") },
-            { value: "interval", label: t("Every hour") },
-            { value: "daily", label: t("Daily at 09:00") },
+            { value: "interval", label: t("By interval") },
+            { value: "daily", label: t("Daily") },
           ]}
           onChange={setSchedule}
         />
