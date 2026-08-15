@@ -190,7 +190,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
 
     download() {
       const { result } = get();
-      if (!result || !result.markdown.trim()) return;
+      if (!result?.markdown.trim()) return;
       const baseName = (result.fileName || result.title || "document").replace(
         /\.[^.]+$/,
         "",

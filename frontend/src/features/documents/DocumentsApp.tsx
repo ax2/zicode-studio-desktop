@@ -42,11 +42,11 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
-    if (previewRef.current) initCodeCopyDelegation(previewRef.current);
+    if (previewRef.current && result) initCodeCopyDelegation(previewRef.current);
   }, [result]);
 
   const pickFiles = (files: FileList | null) => {
-    const file = files && files[0];
+    const file = files?.[0];
     if (!file) return;
     if (!isSupportedDocument(file.name)) {
       store.setState({ error: t("Only PDF and DOCX files are supported") });
@@ -161,7 +161,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
             ) : (
               <article
                 ref={previewRef}
-                className="markdown-body documents-preview"
+                className="markdown-body documents-preview" // biome-ignore lint/security/noDangerouslySetInnerHtml: renderMarkdown escapes HTML before returning the preview
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(result.markdown) }}
               />
             )}

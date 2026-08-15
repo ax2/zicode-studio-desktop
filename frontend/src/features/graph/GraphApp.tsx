@@ -83,13 +83,13 @@ function GraphMain({ store }: { store: GraphStore }) {
               role="img"
               aria-label={t("Knowledge Graph")}
             >
-              {edges.map((edge, index) => {
+              {edges.map((edge) => {
                 const source = positions.get(edge.source);
                 const target = positions.get(edge.target);
                 if (!source || !target) return null;
                 return (
                   <line
-                    key={`${edge.source}-${edge.target}-${index}`}
+                    key={`${edge.source}-${edge.target}-${edge.kind}`}
                     x1={source.x}
                     y1={source.y}
                     x2={target.x}
@@ -104,6 +104,7 @@ function GraphMain({ store }: { store: GraphStore }) {
                 const active = selectedId === node.id;
                 const label = node.title.length > 18 ? `${node.title.slice(0, 18)}…` : node.title;
                 return (
+                  // biome-ignore lint/a11y/noStaticElementInteractions: canvas nodes are mouse-driven; keyboard selection is available via the side Notes list buttons
                   <g
                     key={node.id}
                     className={`graph-node${active ? " is-active" : ""}`}

@@ -422,6 +422,7 @@ function ThinkingBlock({
   const [open, setOpen] = useState(expanded);
   return (
     <div className="thinking-block">
+      {/* biome-ignore lint/a11y/useSemanticElements: ARIA button pattern preserved from the vanilla thinking toggle */}
       <div
         className={`thinking-toggle${open ? " expanded" : ""}`}
         data-thinking-toggle

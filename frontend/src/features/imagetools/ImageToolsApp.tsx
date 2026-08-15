@@ -143,7 +143,7 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
           {images.length > 0 ? (
             <div className="imagetools-thumbs">
               {images.map((src, index) => (
-                <div key={index} className="imagetools-thumb">
+                <div key={src} className="imagetools-thumb">
                   <img src={src} alt={names[index] || ""} />
                   {mode === "concat" ? (
                     <button

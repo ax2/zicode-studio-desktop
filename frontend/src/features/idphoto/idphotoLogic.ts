@@ -93,8 +93,6 @@ export function formatResultSize(result: {
   cols?: number;
   rows?: number;
 }): string {
-  const width = result.widthMm ?? 0;
-  const height = result.heightMm ?? 0;
   const cols = result.cols ?? 0;
   const rows = result.rows ?? 0;
   return t("Layout: {cols} cols × {rows} rows · {count} photos")

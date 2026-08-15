@@ -240,6 +240,7 @@ export function PluginActivityBarApp({
   const listRef = useRef<HTMLDivElement>(null);
   const [listOverflow, setListOverflow] = useState({ top: false, bottom: false });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure overflow when the activity list length changes
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;

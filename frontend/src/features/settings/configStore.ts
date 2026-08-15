@@ -633,7 +633,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       let parsed: unknown;
       try {
         parsed = JSON.parse(content);
-      } catch (error) {
+      } catch {
         set({
           configEditor: {
             ...getState().configEditor,
@@ -714,7 +714,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       let parsed: unknown;
       try {
         parsed = JSON.parse(content);
-      } catch (error) {
+      } catch {
         set({
           modelsEditor: {
             ...getState().modelsEditor,

@@ -33,7 +33,7 @@ function OcrMain({ store }: { store: OcrStore }) {
   const [copied, setCopied] = useState(false);
 
   const pickFiles = (files: FileList | null) => {
-    const file = files && files[0];
+    const file = files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       store.setState({ error: t("Only image files are supported") });

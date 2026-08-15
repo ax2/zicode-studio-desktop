@@ -375,6 +375,7 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
           {mixed ? (
             <div className="idphoto-slots">
               {slots.map((slot, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: slots are positional and manipulated by index
                 <div key={index} className="idphoto-slot">
                   <Select
                     id={`idphoto-slot-template-${index}`}

@@ -227,7 +227,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                   )}
                   {!editing ? (
                     <div className="habits-grid">
-                      {dates.map((date, index) => {
+                      {dates.map((date) => {
                         const checked = habitDates.has(date);
                         const isToday = date === todayKey;
                         return (

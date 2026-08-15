@@ -131,9 +131,11 @@ export function layoutGraph(
   for (let step = 0; step < iterations; step += 1) {
     const temperature = 1 - step / iterations;
     for (let a = 0; a < nodes.length; a += 1) {
-      const pa = positions.get(nodes[a].id)!;
+      const pa = positions.get(nodes[a].id);
+      if (!pa) continue;
       for (let b = a + 1; b < nodes.length; b += 1) {
-        const pb = positions.get(nodes[b].id)!;
+        const pb = positions.get(nodes[b].id);
+        if (!pb) continue;
         let dx = pa.x - pb.x;
         let dy = pa.y - pb.y;
         let distance = Math.hypot(dx, dy);
@@ -167,7 +169,8 @@ export function layoutGraph(
       pb.y -= fy;
     }
     for (const node of nodes) {
-      const point = positions.get(node.id)!;
+      const point = positions.get(node.id);
+      if (!point) continue;
       point.x += (centerX - point.x) * 0.03;
       point.y += (centerY - point.y) * 0.03;
       point.x = clamp(point.x, 36, width - 36);
