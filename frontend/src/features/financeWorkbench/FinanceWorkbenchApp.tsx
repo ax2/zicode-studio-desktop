@@ -285,9 +285,11 @@ function ResearchSection({
 function ResearchResults({
   response,
   controller,
+  onEdit,
 }: {
   response: unknown;
   controller: FinanceWorkbenchController;
+  onEdit(card: Record<string, unknown>): void;
 }) {
   const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
   if (!result?.ok) {
@@ -325,13 +327,22 @@ function ResearchResults({
                 <span className="ui-badge">{String(card.symbol)}</span>
                 <h4>{String(card.title || card.symbol)}</h4>
               </div>
-              <button
-                type="button"
-                className="ui-button ui-button--ghost ui-button--sm"
-                onClick={() => controller.removeResearchCard(String(card.id))}
-              >
-                {t("Remove")}
-              </button>
+              <div className="finance-research-card-actions">
+                <button
+                  type="button"
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  onClick={() => onEdit(card as Record<string, unknown>)}
+                >
+                  {t("Edit")}
+                </button>
+                <button
+                  type="button"
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  onClick={() => controller.removeResearchCard(String(card.id))}
+                >
+                  {t("Remove")}
+                </button>
+              </div>
             </header>
             <ResearchSection label={t("Thesis")} value={card.thesis} />
             <div className="finance-research-cases">
@@ -713,6 +724,38 @@ export function FinanceContentApp({
   const setInputValue = (key: string, value: string) =>
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
   const [creatingSession, setCreatingSession] = useState(false);
+  const [editingResearchCardId, setEditingResearchCardId] = useState<string | null>(null);
+
+  const startEditResearchCard = (card: Record<string, unknown>) => {
+    setInputValue("researchSymbol", String(card.symbol ?? ""));
+    setInputValue("researchTitle", String(card.title ?? ""));
+    setInputValue(
+      "researchEvent",
+      card.eventAt ? new Date(String(card.eventAt)).toISOString().slice(0, 16) : "",
+    );
+    setInputValue("researchThesis", String(card.thesis ?? ""));
+    setInputValue("researchBull", String(card.bullCase ?? ""));
+    setInputValue("researchBear", String(card.bearCase ?? ""));
+    setInputValue("researchInvalidation", String(card.invalidation ?? ""));
+    setInputValue("researchSources", asArray(card.sources).join("\n"));
+    setEditingResearchCardId(String(card.id ?? ""));
+  };
+
+  const clearResearchForm = () => {
+    for (const key of [
+      "researchSymbol",
+      "researchTitle",
+      "researchEvent",
+      "researchThesis",
+      "researchBull",
+      "researchBear",
+      "researchInvalidation",
+      "researchSources",
+    ]) {
+      setInputValue(key, "");
+    }
+    setEditingResearchCardId(null);
+  };
 
 
   if (sceneId !== "finance") {
@@ -878,6 +921,7 @@ export function FinanceContentApp({
             onSubmit={(event) => {
               event.preventDefault();
               controller.saveResearchCard({
+                ...(editingResearchCardId ? { id: editingResearchCardId } : {}),
                 symbol: inputValue("researchSymbol"),
                 title: inputValue("researchTitle"),
                 eventAt: inputValue("researchEvent")
@@ -889,6 +933,7 @@ export function FinanceContentApp({
                 invalidation: inputValue("researchInvalidation"),
                 sources: inputValue("researchSources").split(/\r?\n/),
               });
+              clearResearchForm();
             }}
           >
             <input
@@ -968,29 +1013,16 @@ export function FinanceContentApp({
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
                 disabled={Boolean(busy.research)}
-                onClick={() => {
-                  for (const key of [
-                    "researchSymbol",
-                    "researchTitle",
-                    "researchEvent",
-                    "researchThesis",
-                    "researchBull",
-                    "researchBear",
-                    "researchInvalidation",
-                    "researchSources",
-                  ]) {
-                    setInputValue(key, "");
-                  }
-                }}
+                onClick={clearResearchForm}
               >
                 {t("Clear")}
               </button>
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)} aria-busy={Boolean(busy.research)}>
-                {t("Save research card")}
+                {editingResearchCardId ? t("Update research card") : t("Save research card")}
               </button>
             </div>
           </form>
-          {research ? <ResearchResults response={research} controller={controller} /> : null}
+          {research ? <ResearchResults response={research} controller={controller} onEdit={startEditResearchCard} /> : null}
         </SectionShell>
       );
     case "paper":

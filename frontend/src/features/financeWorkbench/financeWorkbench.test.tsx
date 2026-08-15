@@ -436,9 +436,10 @@ describe("finance workbench", () => {
     await vi.waitFor(() =>
       expect(content.querySelector(".finance-research-card")).toBeTruthy(),
     );
-    const removeButton = content.querySelector(
-      ".finance-research-card button",
-    ) as HTMLButtonElement;
+    const removeButton = Array.from(
+      content.querySelectorAll<HTMLButtonElement>(".finance-research-card button"),
+    ).find((button) => /移除|Remove/.test((button.textContent ?? "").trim()));
+    if (!removeButton) throw new Error("missing research-card remove button");
     removeButton.click();
     await vi.waitFor(() => expect(confirmRemove).toHaveBeenCalledTimes(1));
     expect(call).not.toHaveBeenCalledWith(
