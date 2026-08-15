@@ -104,6 +104,7 @@ import { setupProjectHeader } from "./react/project-header.js";
 import {
   openSessionInProjectViaHost,
   resolveWorkspaceViaHost,
+  createSessionInApp,
   setupNewSessionButton,
   setupWorkspaceSwitcher,
   spawnSessionViaHost,
@@ -679,7 +680,13 @@ const financeWorkbench = setupFinanceWorkbench({
   },
   createFinanceSession: () => {
     settingsPanel?.selectScene?.("finance");
-    document.getElementById("new-session-btn")?.click();
+    void createSessionInApp({
+      data,
+      workspaceId: target.workspaceId,
+      sceneId: "finance",
+      pluginId: "com.zicode.finance",
+      fetchImpl: hostFetch,
+    }).catch(showError);
   },
   openFinanceApp: () => pluginShell?.activate("com.zicode.finance"),
   artifactGateway,

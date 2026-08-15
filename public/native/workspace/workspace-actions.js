@@ -29,6 +29,7 @@ export async function createSessionViaHost(
   workspaceId,
   sceneId = getSelectedSceneId(),
   fetchImpl = globalThis.fetch,
+  pluginId = null,
 ) {
   const response = await fetchImpl("/v2/new-session", {
     method: "POST",
@@ -42,7 +43,8 @@ export async function createSessionViaHost(
   const target = await response.json();
   const { workspaceId: wid, sessionId: sid } = target;
   if (!wid || !sid) throw new Error("Server returned an invalid session target");
-  window.location.href = `/app/workspaces/${encodeURIComponent(wid)}/sessions/${encodeURIComponent(sid)}`;
+  const appQuery = pluginId ? `?app=${encodeURIComponent(pluginId)}` : "";
+  window.location.href = `/app/workspaces/${encodeURIComponent(wid)}/sessions/${encodeURIComponent(sid)}${appQuery}`;
 }
 
 /**
@@ -126,6 +128,28 @@ export async function openSessionInProjectViaHost(session, fetchImpl = globalThi
  * @param {(error: Error) => void} [options.onError]
  * @returns {boolean}
  */
+export async function createSessionInApp({
+  data,
+  workspaceId,
+  sceneId = getSelectedSceneId(),
+  pluginId = null,
+  fetchImpl = globalThis.fetch,
+}) {
+  const invoke = resolveInvoke();
+  if (invoke) {
+    const response = await data.workspaceInfo(workspaceId);
+    const path = response?.info?.path;
+    if (!path) throw new Error("Workspace path is unavailable");
+    await invoke("open_new_session_in_workspace", {
+      projectPath: path,
+      sceneId,
+      pluginId,
+    });
+  } else {
+    await createSessionViaHost(workspaceId, sceneId, fetchImpl, pluginId);
+  }
+}
+
 export function setupNewSessionButton({ data, workspaceId, onError, fetchImpl } = {}) {
   const button = document.getElementById("new-session-btn");
   if (!button) return false;

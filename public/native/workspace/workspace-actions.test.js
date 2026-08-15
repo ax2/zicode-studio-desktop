@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  createSessionInApp,
   setupNewSessionButton,
   setupWorkspaceSwitcher,
 } from "./workspace-actions.js";
@@ -101,6 +102,27 @@ describe("workspace actions", () => {
 
     await Promise.resolve();
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("opens a new session in a requested plugin", async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    installTauriInvoke(invoke);
+    const data = {
+      workspaceInfo: vi.fn().mockResolvedValue({ info: { path: "/tmp/picot" } }),
+    };
+
+    await createSessionInApp({
+      data,
+      workspaceId: "workspace-a",
+      sceneId: "finance",
+      pluginId: "com.zicode.finance",
+    });
+
+    expect(invoke).toHaveBeenCalledWith("open_new_session_in_workspace", {
+      projectPath: "/tmp/picot",
+      sceneId: "finance",
+      pluginId: "com.zicode.finance",
+    });
   });
 
   it("switches the window to another workspace while keeping the active app", async () => {
