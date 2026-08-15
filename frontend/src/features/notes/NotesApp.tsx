@@ -443,6 +443,7 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
   const [parentId, setParentId] = useState(notebook.parentId ?? "");
   const [error, setError] = useState<string | null>(null);
   const snapshot = store((state) => state.snapshot);
+  const loading = store((state) => state.loading);
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     inputRef.current?.focus();
@@ -528,7 +529,12 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         >
           {t("Cancel")}
         </button>
-        <button type="submit" className="ui-button ui-button--primary">
+        <button
+          type="submit"
+          className="ui-button ui-button--primary"
+          disabled={loading}
+          aria-busy={loading}
+        >
           {t("Save notebook")}
         </button>
       </div>
