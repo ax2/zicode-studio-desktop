@@ -38,6 +38,7 @@ describe("watch store", () => {
   it("normalizes URLs without a scheme", () => {
     expect(normalizeUrl("example.com/page")).toBe("https://example.com/page");
     expect(normalizeUrl("https://example.com")).toBe("https://example.com");
+    expect(normalizeUrl("ftp://example.com")).toBe("ftp://example.com");
     expect(normalizeUrl("  ")).toBe("");
   });
 
