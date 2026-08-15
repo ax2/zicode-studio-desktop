@@ -1556,6 +1556,7 @@ const zhCN = {
     "管理观察列表、正反证据、失效条件与近期事件。",
   "Save research card": "保存研究卡片",
   "Update research card": "更新研究卡片",
+  "Cancel editing": "取消编辑",
   "Research card saved": "研究卡片已保存",
   "Could not save research card": "无法保存研究卡片",
   "Could not load research workspace": "无法加载研究工作区",

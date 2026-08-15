@@ -1020,7 +1020,7 @@ export function FinanceContentApp({
                 disabled={Boolean(busy.research)}
                 onClick={clearResearchForm}
               >
-                {t("Clear")}
+                {editingResearchCardId ? t("Cancel editing") : t("Clear")}
               </button>
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)} aria-busy={Boolean(busy.research)}>
                 {editingResearchCardId ? t("Update research card") : t("Save research card")}
