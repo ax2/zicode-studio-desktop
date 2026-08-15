@@ -114,6 +114,12 @@ describe("notes logic", () => {
       "See [Design](zicode-note://Design) and [Roadmap](zicode-note://Roadmap)",
     );
     expect(wikilinkMarkdown("No link here")).toBe("No link here");
+    expect(
+      wikilinkMarkdown("```js\nconst x = [[1, 2]];\n```\nSee [[Design]]"),
+    ).toBe("```js\nconst x = [[1, 2]];\n```\nSee [Design](zicode-note://Design)");
+    expect(wikilinkMarkdown("Inline `[[a, b]]` and [[Design]]")).toBe(
+      "Inline `[[a, b]]` and [Design](zicode-note://Design)",
+    );
   });
 
   it("parses tags, dates, titles, and file names", () => {

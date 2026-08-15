@@ -1598,10 +1598,28 @@ function backlinkKindLabel(kind: string): string {
 }
 
 export function wikilinkMarkdown(content: string): string {
-  return content.replace(/\[\[([^\]\n]+)\]\]/g, (_match, title: string) => {
-    const label = title.trim();
-    return `[${label}](zicode-note://${encodeURIComponent(label)})`;
-  });
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence;
+      result.push(line);
+      continue;
+    }
+    if (inFence) {
+      result.push(line);
+      continue;
+    }
+    result.push(
+      line.replace(/(`[^`\n]*`|\[\[[^\]\n]+\]\])/g, (match) => {
+        if (match.startsWith("`")) return match;
+        const label = match.slice(2, -2).trim();
+        return `[${label}](zicode-note://${encodeURIComponent(label)})`;
+      }),
+    );
+  }
+  return result.join("\n");
 }
 
 function NoteEditor({ store }: { store: NotesStore }) {
