@@ -1704,6 +1704,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           placeholder={t("Note title")}
           aria-label={t("Note title")}
           enterKeyHint="next"
+          autoComplete="off"
+          autoCapitalize="sentences"
           onChange={(event) => setDraft({ title: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !preview) {
