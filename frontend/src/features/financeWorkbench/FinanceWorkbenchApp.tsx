@@ -547,7 +547,7 @@ function JsonForm({
           type="button"
           className="ui-button ui-button--ghost ui-button--sm"
           onClick={formatInput}
-          disabled={busy || !value.trim()}
+          disabled={busy || !value.trim() || Boolean(jsonError)}
         >
           {t("Format JSON")}
         </button>
