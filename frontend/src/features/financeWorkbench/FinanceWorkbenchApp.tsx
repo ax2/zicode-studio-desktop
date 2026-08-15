@@ -1129,6 +1129,9 @@ export function FinanceContentApp({
             onSubmit={(input) => controller.recordPaperOrder(input)}
           />
           {paperOrder ? <ResultMessage value={paperOrder as string} /> : null}
+          <p className="finance-json-hint">
+            {t("Supported actions: place, cancel, process.")}
+          </p>
           <JsonForm
             busy={Boolean(busy.paperLimit)}
             sample={samplePaperLimit()}

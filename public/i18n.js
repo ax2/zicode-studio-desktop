@@ -972,6 +972,7 @@ const zhCN = {
   "Create account": "创建账户",
   "Record simulated order": "记录模拟订单",
   "Manage limit order": "管理限价单",
+  "Supported actions: place, cancel, process.": "支持的操作：place、cancel、process。",
   "Limit order input must be valid JSON.": "限价单输入必须是有效 JSON。",
   "Could not manage limit order.": "无法处理限价单。",
   "No pending orders were triggered.": "没有挂单被当前行情触发。",
