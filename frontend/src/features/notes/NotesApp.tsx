@@ -1080,6 +1080,7 @@ function TagEditor({
   const suggestionsId = useId();
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const pool = allTagSuggestions(snapshotTags).filter(
     (name) => !tags.includes(name) && (!input.trim() || name.toLowerCase().includes(input.trim().toLowerCase())),
   );
@@ -1092,12 +1093,14 @@ function TagEditor({
   ) {
     pool.unshift(candidate);
   }
+  const visiblePool = pool.slice(0, 16);
   const addTag = (value: string) => {
     const name = String(value).trim().replace(/^#/, "");
     if (!name || tags.includes(name)) return;
     onChange([...tags, name]);
     setInput("");
     setShowSuggestions(false);
+    setActiveIndex(-1);
   };
   return (
     <div className="notes-tag-editor">
@@ -1127,18 +1130,38 @@ function TagEditor({
         aria-autocomplete="list"
         aria-expanded={showSuggestions && pool.length > 0}
         aria-controls={suggestionsId}
+        aria-activedescendant={
+          activeIndex >= 0 ? `${suggestionsId}-option-${activeIndex}` : undefined
+        }
         autoComplete="off"
         value={input}
         onFocus={() => setShowSuggestions(true)}
-        onChange={(event) => setInput(event.target.value)}
+        onChange={(event) => {
+          setInput(event.target.value);
+          setActiveIndex(-1);
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === ",") {
             event.preventDefault();
-            if (input.trim()) addTag(input);
+            if (activeIndex >= 0 && visiblePool[activeIndex]) {
+              addTag(visiblePool[activeIndex]);
+            } else if (input.trim()) {
+              addTag(input);
+            }
+          } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            if (visiblePool.length === 0) return;
+            setShowSuggestions(true);
+            setActiveIndex((current) => {
+              if (current < 0) return event.key === "ArrowDown" ? 0 : visiblePool.length - 1;
+              const step = event.key === "ArrowDown" ? 1 : -1;
+              return (current + step + visiblePool.length) % visiblePool.length;
+            });
           } else if (event.key === "Backspace" && !input && tags.length) {
             onChange(tags.slice(0, -1));
           } else if (event.key === "Escape") {
             setShowSuggestions(false);
+            setActiveIndex(-1);
             (event.target as HTMLInputElement).blur();
           }
         }}
@@ -1155,14 +1178,16 @@ function TagEditor({
       />
       {showSuggestions && pool.length > 0 ? (
         <div id={suggestionsId} className="notes-tag-suggestions" role="listbox" aria-label={t("Add tag")}>
-          {pool.slice(0, 16).map((name) => (
+          {visiblePool.map((name, index) => (
             <button
               key={name}
               type="button"
               className="notes-tag-suggestion"
               role="option"
-              aria-selected={false}
+              id={`${suggestionsId}-option-${index}`}
+              aria-selected={index === activeIndex}
               onPointerDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActiveIndex(index)}
               onClick={() => addTag(name)}
             >
               <span className="notes-tag-chip-icon">{tagIcon(name)}</span>
