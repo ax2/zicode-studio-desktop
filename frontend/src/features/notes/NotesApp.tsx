@@ -1122,6 +1122,8 @@ function TagEditor({
         className="notes-tag-input"
         placeholder={t("Add tag")}
         aria-label={t("Add tag")}
+        role="combobox"
+        aria-autocomplete="list"
         aria-expanded={showSuggestions && pool.length > 0}
         aria-controls={suggestionsId}
         autoComplete="off"
