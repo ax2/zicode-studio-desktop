@@ -13,6 +13,9 @@ pub struct DocumentImportRequest {
     pub document: String,
     #[serde(default)]
     pub title: Option<String>,
+    /// Original client-side filename when the document is sent as a data URL.
+    #[serde(default)]
+    pub file_name: Option<String>,
     /// Optional explicit kind: "pdf" or "docx". Detected automatically when omitted.
     #[serde(default)]
     pub kind: Option<String>,
@@ -208,6 +211,48 @@ fn truncated(value: &str, max_chars: usize) -> String {
     result
 }
 
+fn sanitize_file_name(value: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .map(|ch| {
+            if ch.is_control() || matches!(ch, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+            {
+                '_'
+            } else {
+                ch
+            }
+        })
+        .collect();
+    let trimmed = cleaned.trim().trim_matches('.').to_string();
+    if trimmed.is_empty() {
+        "document".to_string()
+    } else {
+        truncated(&trimmed, 160)
+    }
+}
+
+fn derive_file_name(request: &DocumentImportRequest, kind_name: &str) -> String {
+    if let Some(name) = request
+        .file_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+    {
+        return sanitize_file_name(name);
+    }
+    let derived = request
+        .document
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("")
+        .to_string();
+    if derived.is_empty() || derived.starts_with("data:") || derived.contains(";base64,") {
+        format!("document.{kind_name}")
+    } else {
+        sanitize_file_name(&derived)
+    }
+}
+
 pub fn import(
     request: &DocumentImportRequest,
     workspace_root: &Path,
@@ -233,12 +278,7 @@ pub fn import(
                 .to_string(),
         );
     }
-    let file_name = request
-        .document
-        .rsplit(['/', '\\'])
-        .next()
-        .unwrap_or("document")
-        .to_string();
+    let file_name = derive_file_name(request, kind_name);
     let title = fallback_title(request.title.as_deref(), &file_name, &markdown);
     let char_count = markdown.chars().count();
 
@@ -300,6 +340,43 @@ mod tests {
     }
 
     #[test]
+    fn derives_a_readable_file_name_for_data_url_uploads() {
+        let request = DocumentImportRequest {
+            document: "data:application/pdf;base64,AAAA".to_string(),
+            title: None,
+            file_name: Some("quarterly-report.pdf".to_string()),
+            kind: None,
+        };
+        assert_eq!(derive_file_name(&request, "pdf"), "quarterly-report.pdf");
+
+        let without_name = DocumentImportRequest {
+            document: "data:application/pdf;base64,AAAA".to_string(),
+            title: None,
+            file_name: None,
+            kind: None,
+        };
+        assert_eq!(derive_file_name(&without_name, "pdf"), "document.pdf");
+
+        let from_path = DocumentImportRequest {
+            document: "/tmp/uploads/notes.docx".to_string(),
+            title: None,
+            file_name: None,
+            kind: None,
+        };
+        assert_eq!(derive_file_name(&from_path, "docx"), "notes.docx");
+    }
+
+    #[test]
+    fn sanitizes_unsafe_file_name_characters() {
+        assert_eq!(
+            sanitize_file_name("../report:final?.pdf"),
+            "_report_final_.pdf"
+        );
+        assert_eq!(sanitize_file_name("..."), "document");
+        assert_eq!(sanitize_file_name("  "), "document");
+    }
+
+    #[test]
     fn rejects_documents_without_extractable_text() {
         let root = tmp_root();
         std::fs::create_dir_all(&root).unwrap();
@@ -319,6 +396,7 @@ mod tests {
         let request = DocumentImportRequest {
             document: docx_path.to_string_lossy().into_owned(),
             title: None,
+            file_name: None,
             kind: None,
         };
         assert!(import(&request, &root).is_err());

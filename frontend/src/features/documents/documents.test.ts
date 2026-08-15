@@ -46,6 +46,7 @@ describe("documents store", () => {
       sceneId: "programming",
       workspaceId: "ws-1",
       document: expect.stringContaining("data:"),
+      fileName: "report.docx",
     });
     expect(store.getState().result?.markdown).toContain("# Introduction");
     expect(notify).toHaveBeenCalledWith("Document imported");

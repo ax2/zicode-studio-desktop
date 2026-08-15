@@ -7,6 +7,7 @@ export interface DocumentImportInput {
   sceneId: string;
   workspaceId: string;
   document: string;
+  fileName?: string;
   title?: string;
   kind?: string;
 }
@@ -140,7 +141,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
     },
 
     async run() {
-      const { document, busy } = get();
+      const { document, fileName, busy } = get();
       if (!document || busy) return;
       const target = getTarget();
       set({ busy: true, error: "", result: null });
@@ -149,6 +150,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
           sceneId: target.sceneId,
           workspaceId: target.workspaceId,
           document,
+          ...(fileName ? { fileName } : {}),
         });
         set({ result, busy: false });
         notify(t("Document imported"));
