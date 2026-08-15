@@ -104,6 +104,7 @@ function storeWithGateway(overrides: Partial<NotesGatewayLike> = {}) {
 afterEach(() => {
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("notes logic", () => {
@@ -1549,6 +1550,98 @@ describe("notes React components", () => {
       (document.querySelector(".attachment-viewer-open") as HTMLButtonElement).hidden,
     ).toBe(false);
     (document.querySelector(".attachment-viewer-close") as HTMLButtonElement).click();
+  });
+
+  it("previews a text attachment in-app and hides the open-in-tab action", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      text: async () => "# Readme\n\nAttached text",
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          content:
+            "# Plan\n\n[readme](/attachments/note-1/00000000-0000-0000-0000-000000000000.txt)",
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const link = await waitFor(
+      () => container.querySelector("a.notes-attachment-link") as HTMLAnchorElement,
+    );
+    expect(link.getAttribute("data-attachment-kind")).toBe("txt");
+    expect(link.querySelector(".notes-attachment-icon")?.textContent).toBe("📄");
+
+    link.click();
+    await waitFor(() =>
+      expect(
+        document.querySelector(".attachment-viewer-content")?.textContent,
+      ).toBe("# Readme\n\nAttached text"),
+    );
+    expect(
+      (document.querySelector(".attachment-viewer-open") as HTMLButtonElement).hidden,
+    ).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/attachments/x"),
+    );
+    (document.querySelector(".attachment-viewer-close") as HTMLButtonElement).click();
+  });
+
+  it("ignores a stale text fetch after opening a newer attachment", async () => {
+    const pendingResolvers: Array<(value: unknown) => void> = [];
+    const fetchMock = vi.fn((_url: string) => {
+      if (fetchMock.mock.calls.length === 1) {
+        return new Promise((resolve) => pendingResolvers.push(resolve));
+      }
+      return Promise.resolve({ ok: true, text: async () => "new content" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          content:
+            "# Plan\n\n[a](/attachments/note-1/00000000-0000-0000-0000-000000000000.txt)\n\n[b](/attachments/note-1/00000000-0000-0000-0000-000000000001.txt)",
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const links = await waitFor(() => {
+      const items = Array.from(
+        container.querySelectorAll("a.notes-attachment-link"),
+      ) as HTMLAnchorElement[];
+      if (items.length !== 2) throw new Error("attachments not rendered");
+      return items;
+    });
+    expect(links).toHaveLength(2);
+
+    // Open the first (slow) attachment, close it, then open the second (fast).
+    links[0].click();
+    await waitFor(() =>
+      expect(
+        document.querySelector(".attachment-viewer-overlay")?.classList.contains("open"),
+      ).toBe(true),
+    );
+    (document.querySelector(".attachment-viewer-close") as HTMLButtonElement).click();
+    links[1].click();
+    await waitFor(() =>
+      expect(
+        document.querySelector(".attachment-viewer-content")?.textContent,
+      ).toBe("new content"),
+    );
+
+    // Let the stale fetch resolve; it must not overwrite the newer preview.
+    pendingResolvers[0]?.({ ok: true, text: async () => "old content" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      document.querySelector(".attachment-viewer-content")?.textContent,
+    ).toBe("new content");
   });
 
   it("shows the last-edited date for a note with a timestamp", async () => {

@@ -16,6 +16,9 @@ const TEXT_KINDS = new Set(["txt", "md", "csv", "json"]);
 
 let overlay = null;
 let lastFocused = null;
+// Incremented on every open; guards against a slow fetch for a previous
+// attachment resolving after the user has already opened another one.
+let viewToken = 0;
 
 /** Map a lower-case file extension to a compact emoji glyph. */
 export function attachmentIconFor(kind) {
@@ -50,7 +53,11 @@ function closeLightboxIcon() {
 }
 
 function getOrCreateOverlay() {
-  if (overlay) return overlay;
+  // Recreate the dialog if a previous instance was removed from the document
+  // (e.g. by a test harness or an aggressive DOM reset), so openViewer never
+  // points at a detached element.
+  if (overlay?.isConnected) return overlay;
+  overlay = null;
 
   overlay = document.createElement("div");
   overlay.className = "attachment-viewer-overlay";
@@ -169,6 +176,7 @@ async function downloadAttachment(url, fileName) {
 function openViewer({ url, name, kind }) {
   const ov = getOrCreateOverlay();
   const isText = isTextAttachment(kind);
+  const token = ++viewToken;
 
   ov.dataset.url = url;
   ov.dataset.name = name;
@@ -201,6 +209,7 @@ function openViewer({ url, name, kind }) {
           return response.text();
         })
         .then((text) => {
+          if (token !== viewToken) return;
           status.remove();
           const pre = document.createElement("pre");
           pre.className = "attachment-viewer-content";
@@ -208,6 +217,7 @@ function openViewer({ url, name, kind }) {
           body.appendChild(pre);
         })
         .catch(() => {
+          if (token !== viewToken) return;
           status.textContent = t("Could not load this attachment");
         });
     } else {
