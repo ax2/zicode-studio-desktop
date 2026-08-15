@@ -218,14 +218,17 @@ function UsageResults({ response }: { response: unknown }) {
     | undefined;
   const summary = (usageData.summary ?? {}) as Record<string, unknown>;
   return (
-    <MetricGrid
-      entries={[
-        [t("Recent requests"), summary.total_count ?? usageData.total],
-        [t("Settled credits"), summary.settled_credits],
-        [t("Available credits"), latestLedger?.balance_after?.total_available_credits],
-        [t("Audit samples"), asArray(usageData.items).length],
-      ]}
-    />
+    <>
+      <MetricGrid
+        entries={[
+          [t("Recent requests"), summary.total_count ?? usageData.total],
+          [t("Settled credits"), summary.settled_credits],
+          [t("Available credits"), latestLedger?.balance_after?.total_available_credits],
+          [t("Audit samples"), asArray(usageData.items).length],
+        ]}
+      />
+      <CopyResultButton response={response} />
+    </>
   );
 }
 
