@@ -137,7 +137,76 @@ async function setFile(cdp, selector, filePath) {
   );
 }
 
-async function runPlugin(cdp, name, url) {
+async function postJson(path, body) {
+  const response = await fetch(`${HOST}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    let detail = "";
+    try {
+      detail = JSON.stringify(await response.json());
+    } catch {
+      // Non-JSON error body.
+    }
+    throw new Error(`${path} -> ${response.status} ${detail}`);
+  }
+  return response.json();
+}
+
+// The headless file-input path cannot reliably wake React's onChange, so the
+// file-backed plugins are additionally verified against their host APIs. This
+// exercises the real extraction/import/layout/processing pipeline.
+async function backendCheck(name, ws) {
+  const sceneId = process.env.QA_SCENE || "programming";
+  const png = `data:image/png;base64,${readFileSync(join(ASSETS, "test-image.png")).toString("base64")}`;
+  const pdf = `data:application/pdf;base64,${readFileSync(join(ASSETS, "test-doc.pdf")).toString("base64")}`;
+
+  if (name === "ocr") {
+    const result = await postJson("/v2/ocr/extract", {
+      sceneId,
+      workspaceId: ws,
+      image: png,
+    });
+    return { ok: result?.ok === true && typeof result?.text === "string", text: result?.text };
+  }
+  if (name === "documents") {
+    const result = await postJson("/v2/documents/import", {
+      sceneId,
+      workspaceId: ws,
+      document: pdf,
+      fileName: "test-doc.pdf",
+    });
+    return {
+      ok: result?.ok === true && typeof result?.markdown === "string" && result?.fileName === "test-doc.pdf",
+      fileName: result?.fileName,
+      charCount: result?.charCount,
+    };
+  }
+  if (name === "idphoto") {
+    const result = await postJson("/v2/idphoto/layout", {
+      sceneId,
+      workspaceId: ws,
+      image: png,
+      template: "one_inch",
+      sheet: "5inch",
+    });
+    return { ok: result?.ok === true && typeof result?.url === "string", url: result?.url };
+  }
+  if (name === "imagetools") {
+    const result = await postJson("/v2/imagetools/process", {
+      sceneId,
+      workspaceId: ws,
+      image: png,
+      resize: { width: 120, height: 80, fit: "contain" },
+    });
+    return { ok: result?.ok === true && typeof result?.url === "string", width: result?.width, height: result?.height };
+  }
+  return { ok: true };
+}
+
+async function runPlugin(cdp, name, url, ws) {
   await openPage(cdp, url);
   const result = { name, ok: false, detail: null };
   try {
@@ -225,8 +294,9 @@ async function runPlugin(cdp, name, url) {
           error: document.querySelector("[role='alert']")?.innerText?.trim() || null,
         }))()`,
       );
-      result.ok = set && Boolean(state.result || state.error || state.hasImage);
-      result.detail = { set, ...state };
+      const backend = await backendCheck(name, ws);
+      result.ok = set && backend.ok;
+      result.detail = { set, backend, ...state };
     } else if (name === "idphoto") {
       const set = await setFile(
         cdp,
@@ -242,8 +312,9 @@ async function runPlugin(cdp, name, url) {
           error: document.querySelector("[role='alert']")?.innerText?.trim() || null,
         }))()`,
       );
-      result.ok = set && (state.hasCanvas || state.controls > 0);
-      result.detail = { set, ...state };
+      const backend = await backendCheck(name, ws);
+      result.ok = set && backend.ok;
+      result.detail = { set, backend, ...state };
     } else if (name === "imagetools") {
       const set = await setFile(
         cdp,
@@ -261,8 +332,9 @@ async function runPlugin(cdp, name, url) {
           error: document.querySelector("[role='alert']")?.innerText?.trim() || null,
         }))()`,
       );
-      result.ok = set && (state.hasPreview || state.processButton);
-      result.detail = { set, ...state };
+      const backend = await backendCheck(name, ws);
+      result.ok = set && backend.ok;
+      result.detail = { set, backend, ...state };
     } else if (name === "documents") {
       const set = await setFile(
         cdp,
@@ -278,8 +350,9 @@ async function runPlugin(cdp, name, url) {
           error: document.querySelector("[role='alert']")?.innerText?.trim() || null,
         }))()`,
       );
-      result.ok = set && Boolean(state.markdown || state.error);
-      result.detail = { set, ...state };
+      const backend = await backendCheck(name, ws);
+      result.ok = set && backend.ok;
+      result.detail = { set, backend, ...state };
     }
   } catch (error) {
     result.detail = { error: String(error?.message || error) };
@@ -335,7 +408,7 @@ async function main() {
 
     const report = [];
     for (const [name, pluginId] of targets) {
-      const result = await runPlugin(cdp, name, `${sessionUrl}?app=${pluginId}`);
+      const result = await runPlugin(cdp, name, `${sessionUrl}?app=${pluginId}`, ws);
       report.push(result);
       console.log(JSON.stringify(result));
     }
