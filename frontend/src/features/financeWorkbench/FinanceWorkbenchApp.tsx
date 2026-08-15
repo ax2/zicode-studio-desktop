@@ -502,6 +502,9 @@ function JsonForm({
         aria-label={t("JSON input")}
         rows={5}
         spellCheck={false}
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
         disabled={busy}
         value={value}
         onChange={(event) => onChange(event.target.value)}
