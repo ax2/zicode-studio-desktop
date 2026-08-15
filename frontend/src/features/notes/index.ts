@@ -97,6 +97,7 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     if (key === "enter" && !event.shiftKey) {
       const note = store.getState().selectedNote;
       if (!note) return;
+      if (!store.getState().draftContent.trim()) return;
       event.preventDefault();
       void store.getState().discussInChat(note, "");
     }
