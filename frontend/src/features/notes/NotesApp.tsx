@@ -1327,6 +1327,9 @@ function FilterResultsView({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
   const applyFilter = store((state) => state.applyFilter);
   const selectNote = store((state) => state.selectNote);
+  const notebookNameById = new Map(
+    snapshot.notebooks.map((notebook) => [notebook.id, notebook.title]),
+  );
   const title = selectedTag
     ? `${t("Tag")} #${selectedTag}`
     : sourceOnly
@@ -1370,6 +1373,11 @@ function FilterResultsView({ store }: { store: NotesStore }) {
               <strong>
                 <HighlightedText text={note.title} query={query} />
               </strong>
+              {notebookNameById.get(note.notebookId) ? (
+                <span className="notes-result-notebook">
+                  {notebookNameById.get(note.notebookId)}
+                </span>
+              ) : null}
               {note.snippet ? (
                 <span className="notes-result-snippet">
                   <HighlightedText text={stripMarkdown(note.snippet)} query={query} />

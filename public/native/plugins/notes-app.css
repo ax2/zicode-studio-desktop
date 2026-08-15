@@ -737,6 +737,11 @@
   font-size: var(--font-size-sm);
 }
 
+.notes-result-main .notes-result-notebook {
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+}
+
 .notes-state-panel {
   width: min(var(--app-content-max-width), 100%);
   margin: auto;
