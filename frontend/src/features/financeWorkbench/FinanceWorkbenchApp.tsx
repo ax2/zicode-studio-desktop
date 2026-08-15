@@ -986,6 +986,18 @@ export function FinanceContentApp({
               onChange={(event) => setInputValue("paperCash", event.target.value)}
             />
             <div className="finance-form-actions">
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                disabled={Boolean(busy.paperAccount)}
+                onClick={() => {
+                  for (const key of ["paperName", "paperCurrency", "paperCash"]) {
+                    setInputValue(key, "");
+                  }
+                }}
+              >
+                {t("Clear")}
+              </button>
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.paperAccount)}>
                 {t("Create account")}
               </button>
