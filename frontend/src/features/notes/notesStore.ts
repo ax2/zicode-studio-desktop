@@ -204,6 +204,7 @@ interface NotesState {
   trashLoading: boolean;
   trashError: string | null;
   mode: NotesMode;
+  newNotebookParentId: string | null;
   dirty: boolean;
   saveState: "idle" | "dirty" | "saving" | "saved";
   preview: boolean;
@@ -260,6 +261,7 @@ interface NotesState {
   cancelAutosave(): void;
   setQuery(query: string): void;
   setMode(mode: NotesMode): void;
+  startNewNotebook(parentId: string): void;
   setEditingNotebook(id: string | null): void;
   setDraft(patch: { title?: string; icon?: string; content?: string; tags?: string[] }): void;
   setPreview(preview: boolean): void;
@@ -331,6 +333,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     sourceOnly: false,
     focusTitleOnNextRender: false,
     editingNotebookId: null,
+    newNotebookParentId: null,
     recentNoteIds: readRecentNoteIds(),
     recentNotes: [],
     pinnedNoteIds: readPinnedNoteIds(),
@@ -947,7 +950,11 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     setMode(mode) {
-      set({ mode });
+      set({ mode, newNotebookParentId: null });
+    },
+
+    startNewNotebook(parentId) {
+      set({ newNotebookParentId: parentId, mode: "new-notebook" });
     },
 
     setEditingNotebook(editingNotebookId) {

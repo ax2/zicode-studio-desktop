@@ -387,6 +387,12 @@ function NotebookActions({ store, notebook }: { store: NotesStore; notebook: Not
         }}
       />
       <IconAction
+        label={t("New sub-notebook")}
+        icon={ICONS.plus}
+        className="notes-notebook-new-sub"
+        onClick={() => void store.getState().startNewNotebook(notebook.id)}
+      />
+      <IconAction
         label={t("Capture URL into this notebook")}
         icon={ICONS.globe}
         className="notes-notebook-capture"
@@ -1041,7 +1047,7 @@ function Panel({
 function NotebookForm({ store }: { store: NotesStore }) {
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState(DEFAULT_NOTEBOOK_ICON);
-  const [parentId, setParentId] = useState("");
+  const [parentId, setParentId] = useState(store.getState().newNotebookParentId ?? "");
   const [error, setError] = useState<string | null>(null);
   const snapshot = store((state) => state.snapshot);
   const loading = store((state) => state.loading);

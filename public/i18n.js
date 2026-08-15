@@ -1226,6 +1226,7 @@ const zhCN = {
   "Icon": "图标",
   "Notebook actions": "笔记本操作",
   "New note in this notebook": "在此笔记本新建笔记",
+  "New sub-notebook": "新建子笔记本",
   "Capture URL into this notebook": "采集网址到该笔记本",
   "Edit notebook": "编辑笔记本",
   "Save notebook": "保存笔记本",
