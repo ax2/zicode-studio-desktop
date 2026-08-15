@@ -1640,6 +1640,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
   }, [moreOpen]);
 
   useEffect(() => {
+    if (!isNarrow) setMoreOpen(false);
+  }, [isNarrow]);
+
+  useEffect(() => {
     const flushAutosave = () => {
       void store.getState().saveIfDirty();
     };
