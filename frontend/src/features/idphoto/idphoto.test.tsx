@@ -139,4 +139,39 @@ describe("idphoto store", () => {
     expect(store.getState().error).toContain("layout failed");
     expect(store.getState().photo).toBe("data:image/png;base64,AAAA");
   });
+
+  it("resetAll restores every option and clears the photo and result", async () => {
+    const store = createStore(stubGateway());
+    store.getState().setPhoto("data:image/png;base64,AAAA", "photo.png");
+    store.getState().setTemplate("two_inch");
+    store.getState().setSheet("a4");
+    store.getState().setBackground("red");
+    store.getState().setTolerance(90);
+    store.getState().setBorderPx(5);
+    store.getState().setGrid(2, 3, false);
+    store.getState().setMixed(true);
+    store.getState().addSlot();
+    store.getState().setCrop({ x: 0.1, y: 0.2, w: 0.8, h: 0.7 });
+
+    store.getState().resetAll();
+
+    expect(store.getState()).toMatchObject({
+      photo: "",
+      photoName: "",
+      templateId: "one_inch",
+      sheetId: "6inch",
+      background: "keep",
+      tolerance: 48,
+      borderPx: 2,
+      cols: 0,
+      rows: 0,
+      autoGrid: true,
+      mixed: false,
+      slots: [{ template: "one_inch", count: 4 }],
+      crop: null,
+      busy: false,
+      error: "",
+      result: null,
+    });
+  });
 });

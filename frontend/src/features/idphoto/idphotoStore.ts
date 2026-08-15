@@ -108,6 +108,7 @@ export interface IdPhotoState {
   updateSlot(index: number, template: string, count: number): void;
   layout(): Promise<void>;
   reset(): void;
+  resetAll(): void;
 }
 
 export interface IdPhotoOptions {
@@ -217,6 +218,27 @@ export function createIdPhotoStore(options: IdPhotoOptions) {
         result: null,
         error: "",
         busy: false,
+      });
+    },
+
+    resetAll() {
+      set({
+        photo: "",
+        photoName: "",
+        templateId: "one_inch",
+        sheetId: "6inch",
+        background: "keep",
+        tolerance: 48,
+        borderPx: 2,
+        cols: 0,
+        rows: 0,
+        autoGrid: true,
+        mixed: false,
+        slots: [{ template: "one_inch", count: 4 }],
+        crop: null,
+        busy: false,
+        error: "",
+        result: null,
       });
     },
   }));

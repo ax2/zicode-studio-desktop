@@ -273,6 +273,13 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
             )}
           </p>
         </div>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          onClick={() => store.getState().resetAll()}
+        >
+          {t("Reset")}
+        </button>
       </header>
 
       <div className="idphoto-workspace">

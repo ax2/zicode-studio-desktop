@@ -50,6 +50,7 @@ const zhCN = {
   "Count": "张数",
   "Crop the source photo": "裁剪源照片",
   "Drag to move, drag the corners to resize": "拖动移动，拖四角调整大小",
+  "Reset": "重置",
   "Reset crop": "重置裁剪",
   "Crop applies to single-template layout only": "裁剪仅用于单一模板排版",
   "Total {count} photos": "共 {count} 张",
