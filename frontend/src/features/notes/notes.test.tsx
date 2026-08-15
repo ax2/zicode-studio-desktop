@@ -127,9 +127,9 @@ describe("notes logic", () => {
     expect(safeFileName('a/b:c')).toBe("a-b-c");
     expect(tagIcon("idea")).toBe("💡");
     expect(tagIcon("custom")).toBe("🏷️");
-    expect(estimateReadingMinutes(0)).toBe(0);
-    expect(estimateReadingMinutes(200)).toBe(1);
-    expect(estimateReadingMinutes(800)).toBe(2);
+    expect(estimateReadingMinutes("")).toBe(0);
+    expect(estimateReadingMinutes("word ".repeat(200))).toBe(1);
+    expect(estimateReadingMinutes("你好世界".repeat(100))).toBe(1);
   });
 
   it("splits text into highlighted segments case-insensitively", () => {

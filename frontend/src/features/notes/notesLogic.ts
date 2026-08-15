@@ -177,10 +177,14 @@ export function formatRelativeTime(value: unknown): string {
   return formatDate(value);
 }
 
-/** Rough reading-time estimate for the editor footer (chars → minutes). */
-export function estimateReadingMinutes(charCount: number): number {
-  if (!Number.isFinite(charCount) || charCount <= 0) return 0;
-  return Math.max(1, Math.round(charCount / 400));
+/** Rough reading-time estimate for the editor footer (content → minutes). */
+export function estimateReadingMinutes(content: string): number {
+  if (!content) return 0;
+  const cjkCount = (content.match(/[\u3400-\u9fff]/g) ?? []).length;
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const minutes = cjkCount / 400 + wordCount / 200;
+  if (minutes <= 0) return 0;
+  return Math.max(1, Math.round(minutes));
 }
 
 export interface HighlightSegment {
