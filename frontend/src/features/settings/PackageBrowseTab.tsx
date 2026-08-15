@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import {
   BROWSE_PAGE_SIZE,
   browseSourceFor,
@@ -97,17 +98,18 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
             />
             <span>{t("Installed only")}</span>
           </label>
-          <select
+          <Select
             id="pkg-browse-sort"
             className="pkg-browse-sort"
-            aria-label={t("Sort packages")}
             value={sortMode}
-            onChange={(event) => store.getState().setSort(event.target.value)}
-          >
-            <option value="downloads">{t("Most downloads")}</option>
-            <option value="name">{t("Name (A–Z)")}</option>
-            <option value="updated">{t("Recently updated")}</option>
-          </select>
+            label={t("Sort packages")}
+            options={[
+              { value: "downloads", label: t("Most downloads") },
+              { value: "name", label: t("Name (A–Z)") },
+              { value: "updated", label: t("Recently updated") },
+            ]}
+            onChange={(value) => store.getState().setSort(value)}
+          />
           <span className="pkg-browse-count" id="pkg-browse-count">
             {results.length === 0
               ? `0 of ${results.length}`
