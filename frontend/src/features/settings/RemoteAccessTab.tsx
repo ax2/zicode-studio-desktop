@@ -321,6 +321,8 @@ function RelaySection({ store }: { store: RemoteAccessStore }) {
               type="url"
               spellCheck={false}
               autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
               value={turnUrlInput}
               placeholder="turn:turn.remote.zicode.com:3478?transport=udp"
               onChange={(event) => setTurnInputs(event.target.value, turnRealmInput, turnSecretInput)}
@@ -332,6 +334,8 @@ function RelaySection({ store }: { store: RemoteAccessStore }) {
               type="text"
               spellCheck={false}
               autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
               value={turnRealmInput}
               placeholder="turn.remote.zicode.com"
               onChange={(event) => setTurnInputs(turnUrlInput, event.target.value, turnSecretInput)}
