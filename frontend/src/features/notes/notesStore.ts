@@ -337,6 +337,10 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     async applyFilter({ tag = null, sourceOnly: clipOnly = false } = {}) {
       await get().saveEditor();
+      // "Show all notes" (no tag, no web-clip filter) also clears an active
+      // search query so the results list returns to the full library. A
+      // tag/clip filter keeps the query so the two can be combined.
+      const query = tag === null && !clipOnly ? "" : get().query;
       set({
         selectedNotebookId: null,
         selectedTag: tag,
@@ -345,6 +349,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         dirty: false,
         editingNotebookId: null,
         mode: "library",
+        query,
       });
       await get().load({ preserveSelection: false });
     },

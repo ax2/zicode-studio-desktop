@@ -864,6 +864,7 @@ export function NotesContent({ store }: { store: NotesStore }) {
   const error = store((state) => state.error);
   const selectedTag = store((state) => state.selectedTag);
   const sourceOnly = store((state) => state.sourceOnly);
+  const query = store((state) => state.query);
   const snapshot = store((state) => state.snapshot);
 
   if (loading && !selectedNote) {
@@ -873,8 +874,19 @@ export function NotesContent({ store }: { store: NotesStore }) {
   if (mode === "capture") return <CaptureForm store={store} />;
   if (mode === "trash") return <TrashView store={store} />;
   if (selectedNote) return <NoteEditor store={store} />;
-  if ((selectedTag || sourceOnly) && snapshot.notes.length > 0) {
+  if ((selectedTag || sourceOnly || query.trim()) && snapshot.notes.length > 0) {
     return <FilterResultsView store={store} />;
+  }
+  if (query.trim() && snapshot.notes.length === 0) {
+    return (
+      <Panel title={t("Search results")} description={t("No notes match your search.")}>
+        <div className="notes-empty-actions">
+          <button type="button" className="ui-button ui-button--ghost" onClick={() => store.getState().setQuery("")}>
+            {t("Show all notes")}
+          </button>
+        </div>
+      </Panel>
+    );
   }
   if (error) {
     return (
@@ -1135,19 +1147,29 @@ function TagEditor({
 function FilterResultsView({ store }: { store: NotesStore }) {
   const snapshot = store((state) => state.snapshot);
   const selectedTag = store((state) => state.selectedTag);
+  const sourceOnly = store((state) => state.sourceOnly);
   const query = store((state) => state.query);
   const applyFilter = store((state) => state.applyFilter);
   const selectNote = store((state) => state.selectNote);
+  const title = selectedTag
+    ? `${t("Tag")} #${selectedTag}`
+    : sourceOnly
+      ? t("Web clips")
+      : t("Search results");
   return (
     <section className="notes-results">
       <h1 className="notes-results-title">
-        {selectedTag ? `${t("Tag")} #${selectedTag}` : t("Web clips")}
+        {title}
       </h1>
       <div className="notes-results-meta">
         <span>
           {snapshot.notes.length} {t("notes")}
         </span>
-        <button type="button" className="ui-button ui-button--ghost" onClick={() => void applyFilter({})}>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost"
+          onClick={() => void applyFilter({})}
+        >
           {t("Show all notes")}
         </button>
       </div>

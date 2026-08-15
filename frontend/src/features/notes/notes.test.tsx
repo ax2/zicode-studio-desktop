@@ -257,6 +257,14 @@ describe("notes store", () => {
     store.getState().setQuery("");
   });
 
+  it("clears the search query when showing all notes", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    store.getState().setQuery("road");
+    await store.getState().applyFilter({});
+    expect(store.getState().query).toBe("");
+  });
+
   it("carries the selected editor text into the chat", async () => {
     const onUseInChat = vi.fn();
     const store = createNotesStore({

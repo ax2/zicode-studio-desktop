@@ -1185,6 +1185,8 @@ const zhCN = {
   "Note deleted": "笔记已删除",
   "New notebook": "新建笔记本",
   "Search notes": "搜索笔记",
+  "Search results": "搜索结果",
+  "No notes match your search.": "没有匹配的笔记。",
   "Loading notes…": "正在加载笔记…",
   "No notes found": "未找到笔记",
   "Web clip": "网页剪藏",
