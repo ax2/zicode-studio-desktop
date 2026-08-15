@@ -158,6 +158,9 @@ export function NotesNav({ store }: { store: NotesStore }) {
           className="notes-search-input"
           placeholder={t("Search notes")}
           aria-label={t("Search notes")}
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -1245,6 +1248,9 @@ function TagEditor({
           activeIndex >= 0 ? `${suggestionsId}-option-${activeIndex}` : undefined
         }
         autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={input}
         onFocus={() => setShowSuggestions(true)}
         onChange={(event) => {
