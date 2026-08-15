@@ -1841,6 +1841,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           const needle = linkQuery.trim().toLowerCase();
           return !needle || candidate.title.toLowerCase().includes(needle);
         })
+        .sort((left, right) => left.title.localeCompare(right.title))
         .slice(0, 8)
     : [];
 

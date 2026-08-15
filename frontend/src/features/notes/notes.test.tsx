@@ -478,7 +478,7 @@ describe("notes store", () => {
     );
     await waitFor(() => {
       const active = content.querySelector(".notes-link-suggestion.is-active");
-      expect(active?.textContent ?? "").toContain("Demo");
+      expect(active?.textContent ?? "").toContain("Design");
     });
     textarea.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
@@ -486,7 +486,7 @@ describe("notes store", () => {
 
     await waitFor(() => {
       expect((content.querySelector(".notes-content-input") as HTMLTextAreaElement).value).toBe(
-        "See [[Demo]]",
+        "See [[Design]]",
       );
     });
 
