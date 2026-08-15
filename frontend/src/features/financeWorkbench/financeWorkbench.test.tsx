@@ -73,20 +73,30 @@ describe("finance workbench", () => {
     ).toBe(true);
   });
 
-  it("routes the scene-guard button to scene settings, not data-key config", () => {
+  it("routes the scene-guard scene button to scene settings, not data-key config", () => {
     const openConfiguration = vi.fn();
     const openSceneSettings = vi.fn();
+    const createFinanceSession = vi.fn(async () => ({ ok: true }));
     const { content } = mountWorkbench({ sceneId: "programming" }, {
       openConfiguration,
       openSceneSettings,
+      createFinanceSession,
     });
 
-    const button = content.querySelector<HTMLButtonElement>(
-      ".finance-scene-guard button",
+    const sceneButton = content.querySelector<HTMLButtonElement>(
+      ".finance-scene-guard .ui-button--secondary",
     );
-    button?.click();
+    expect(sceneButton).toBeTruthy();
+    fireEvent.click(sceneButton!);
     expect(openSceneSettings).toHaveBeenCalledTimes(1);
     expect(openConfiguration).not.toHaveBeenCalled();
+
+    const sessionButton = content.querySelector<HTMLButtonElement>(
+      ".finance-scene-guard .ui-button--primary",
+    );
+    expect(sessionButton).toBeTruthy();
+    fireEvent.click(sessionButton!);
+    expect(createFinanceSession).toHaveBeenCalledTimes(1);
   });
 
   it("loads the status and shows Connected when the Finance key is configured", async () => {
