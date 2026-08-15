@@ -155,6 +155,28 @@ export function formatDate(value: unknown): string {
   });
 }
 
+/** Relative "time ago" for the editor footer; falls back to formatDate. */
+export function formatRelativeTime(value: unknown): string {
+  if (!value) return "";
+  const date = new Date(String(value));
+  if (!Number.isFinite(date.getTime())) return "";
+  const deltaMs = Date.now() - date.getTime();
+  if (deltaMs < 60 * 1000) return t("Just now");
+  if (deltaMs < 60 * 60 * 1000) {
+    return t("{count}m ago").replace(
+      "{count}",
+      String(Math.floor(deltaMs / (60 * 1000))),
+    );
+  }
+  if (deltaMs < 24 * 60 * 60 * 1000) {
+    return t("{count}h ago").replace(
+      "{count}",
+      String(Math.floor(deltaMs / (60 * 60 * 1000))),
+    );
+  }
+  return formatDate(value);
+}
+
 /** Rough reading-time estimate for the editor footer (chars → minutes). */
 export function estimateReadingMinutes(charCount: number): number {
   if (!Number.isFinite(charCount) || charCount <= 0) return 0;

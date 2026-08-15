@@ -14,6 +14,7 @@ import {
   estimateReadingMinutes,
   findActiveOutlineId,
   formatDate,
+  formatRelativeTime,
   ICONS,
   TAG_ICON_FALLBACK,
   tagIcon,
@@ -1718,7 +1719,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
       />
       {note.updatedAt ? (
         <p className="notes-edited-at">
-          {t("Last edited")}: {formatDate(note.updatedAt)}
+          {t("Last edited")}: {formatRelativeTime(note.updatedAt)}
         </p>
       ) : null}
       {note.source?.url ? (

@@ -9,6 +9,7 @@ import {
   estimateReadingMinutes,
   findActiveOutlineId,
   formatDate,
+  formatRelativeTime,
   highlightSegments,
   noteFrontmatter,
   parseTags,
@@ -111,6 +112,8 @@ describe("notes logic", () => {
     expect(formatDate("2026-07-31T08:00:00Z")).toBeTruthy();
     expect(formatDate("2020-03-01T08:00:00Z")).toContain("2020");
     expect(formatDate("invalid")).toBe("");
+    expect(formatRelativeTime(new Date().toISOString())).toBeTruthy();
+    expect(formatRelativeTime("invalid")).toBe("");
     expect(conversationNoteTitle("First line\nSecond")).toBe("First line");
     expect(conversationNoteTitle("x".repeat(80))).toHaveLength(61);
     expect(conversationNoteTitle("# Heading\nBody")).toBe("Heading");
