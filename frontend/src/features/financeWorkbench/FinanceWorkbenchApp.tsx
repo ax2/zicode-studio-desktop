@@ -1107,7 +1107,11 @@ export function FinanceContentApp({
             <input
               className="ui-input"
               type="number"
-              min="0"
+              min="0.01"
+              step="any"
+              inputMode="decimal"
+              placeholder={t("Initial cash")}
+              aria-label={t("Initial cash")}
               required
               disabled={Boolean(busy.paperAccount)}
               value={inputValue("paperCash")}
