@@ -16,7 +16,7 @@ import {
   safeFileName,
   tagIcon,
 } from "./notesLogic";
-import { NotesContent, NotesNav } from "./NotesApp";
+import { NotesContent, NotesNav, wikilinkMarkdown } from "./NotesApp";
 import { setupNotesApp } from "./index";
 import {
   createNotesStore,
@@ -109,6 +109,13 @@ afterEach(() => {
 });
 
 describe("notes logic", () => {
+  it("converts wikilinks to note links for the preview", () => {
+    expect(wikilinkMarkdown("See [[Design]] and [[Roadmap]]")).toBe(
+      "See [Design](zicode-note://Design) and [Roadmap](zicode-note://Roadmap)",
+    );
+    expect(wikilinkMarkdown("No link here")).toBe("No link here");
+  });
+
   it("parses tags, dates, titles, and file names", () => {
     expect(parseTags("a, #b, c")).toEqual(["a", "b", "c"]);
     expect(formatDate("2026-07-31T08:00:00Z")).toBeTruthy();

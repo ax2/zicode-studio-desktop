@@ -1597,6 +1597,13 @@ function backlinkKindLabel(kind: string): string {
   return kind;
 }
 
+export function wikilinkMarkdown(content: string): string {
+  return content.replace(/\[\[([^\]\n]+)\]\]/g, (_match, title: string) => {
+    const label = title.trim();
+    return `[${label}](zicode-note://${encodeURIComponent(label)})`;
+  });
+}
+
 function NoteEditor({ store }: { store: NotesStore }) {
   const note = store((state) => state.selectedNote) as Note;
   const draftTitle = store((state) => state.draftTitle);
@@ -1683,7 +1690,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
 
   useEffect(() => {
     if (preview && previewRef.current) {
-      previewRef.current.innerHTML = renderMarkdown(draftContent);
+      previewRef.current.innerHTML = renderMarkdown(wikilinkMarkdown(draftContent));
       rewriteAttachmentUrls(previewRef.current, store);
       initImageLightbox(previewRef.current);
       initAttachmentViewer(previewRef.current);
@@ -2084,6 +2091,21 @@ function NoteEditor({ store }: { store: NotesStore }) {
           <article
             ref={previewRef}
             className="notes-preview markdown-body"
+            onClick={(event) => {
+              const target = event.target as Element;
+              const anchor = target.closest<HTMLAnchorElement>(
+                'a[href^="zicode-note://"]',
+              );
+              if (!anchor) return;
+              event.preventDefault();
+              const title = decodeURIComponent(
+                anchor.getAttribute("href")?.replace("zicode-note://", "") ?? "",
+              );
+              const match = snapshotNotes.find(
+                (candidate) => candidate.title.toLowerCase() === title.toLowerCase(),
+              );
+              if (match) void openNote(match.notebookId, match.id);
+            }}
             onMouseUp={() => {
               currentSelectionRef.current = selection();
             }}
