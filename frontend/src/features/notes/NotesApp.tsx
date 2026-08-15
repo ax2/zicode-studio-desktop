@@ -2092,13 +2092,31 @@ function NoteEditor({ store }: { store: NotesStore }) {
               const textarea = event.currentTarget as HTMLTextAreaElement;
               const start = textarea.selectionStart;
               const end = textarea.selectionEnd;
-              setDraft({
-                content: `${draftContent.slice(0, start)}  ${draftContent.slice(end)}`,
-              });
-              const cursor = start + 2;
-              window.setTimeout(() => {
-                textarea.selectionStart = textarea.selectionEnd = cursor;
-              }, 0);
+              if (event.shiftKey) {
+                const lineStart = draftContent.lastIndexOf("\n", start - 1) + 1;
+                const leading = draftContent
+                  .slice(lineStart)
+                  .match(/^ {1,2}/)?.[0]?.length ?? 0;
+                if (leading > 0) {
+                  setDraft({
+                    content: `${draftContent.slice(0, lineStart)}${draftContent.slice(
+                      lineStart + leading,
+                    )}`,
+                  });
+                  const cursor = Math.max(lineStart, start - leading);
+                  window.setTimeout(() => {
+                    textarea.selectionStart = textarea.selectionEnd = cursor;
+                  }, 0);
+                }
+              } else {
+                setDraft({
+                  content: `${draftContent.slice(0, start)}  ${draftContent.slice(end)}`,
+                });
+                const cursor = start + 2;
+                window.setTimeout(() => {
+                  textarea.selectionStart = textarea.selectionEnd = cursor;
+                }, 0);
+              }
             }
           }}
         ></textarea>
