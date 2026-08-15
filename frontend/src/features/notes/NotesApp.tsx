@@ -57,6 +57,19 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
   );
 }
 
+function useIsNarrowViewport() {
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(max-width: 768px)");
+    const onChange = (event: MediaQueryListEvent) => setIsNarrow(event.matches);
+    setIsNarrow(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return isNarrow;
+}
+
 export function NotesNav({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
   const setQuery = store((state) => state.setQuery);
@@ -1507,6 +1520,27 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const isNarrow = useIsNarrowViewport();
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!moreMenuRef.current?.contains(event.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [moreOpen]);
 
   useEffect(() => {
     if (preview && previewRef.current) {
@@ -1606,6 +1640,87 @@ function NoteEditor({ store }: { store: NotesStore }) {
     void store.getState().deleteSelectedNote();
   };
 
+  const secondaryActions = (
+    <>
+      <ToolbarButton
+        label={t("Discuss in Chat")}
+        icon={ICONS.chat}
+        className="notes-use-in-chat"
+        variant="ui-button--secondary"
+        hint={`Ctrl+Enter · ${t("Selected text or whole note")}`}
+        disabled={!draftContent.trim()}
+        onClick={() => {
+          setMoreOpen(false);
+          void store.getState().discussInChat(
+            note,
+            selection() || currentSelectionRef.current,
+          );
+        }}
+      />
+      <ToolbarButton
+        label={t("Attach")}
+        icon={ICONS.attach}
+        className="notes-attach"
+        variant="ui-button--ghost"
+        onClick={() => {
+          setMoreOpen(false);
+          void store.getState().attachFile();
+        }}
+      />
+      <ToolbarButton
+        label={t("Download Markdown")}
+        icon={ICONS.download}
+        className="notes-download-note"
+        variant="ui-button--ghost"
+        hint="Ctrl+Shift+D"
+        onClick={() => {
+          setMoreOpen(false);
+          void store.getState().downloadNote();
+        }}
+      />
+      <ToolbarButton
+        label={copiedMarkdown ? t("Copied") : t("Copy Markdown")}
+        icon={ICONS.copy}
+        className="notes-copy-note"
+        variant="ui-button--ghost"
+        hint="Ctrl+Shift+C"
+        disabled={!draftContent.trim()}
+        onClick={() => {
+          setMoreOpen(false);
+          void store.getState().copyNote();
+          setCopiedMarkdown(true);
+          if (copyTimer.current) clearTimeout(copyTimer.current);
+          copyTimer.current = setTimeout(() => setCopiedMarkdown(false), 2000);
+        }}
+      />
+      <ToolbarButton
+        label={t("Duplicate note")}
+        icon={ICONS.duplicate}
+        className="notes-duplicate-note"
+        variant="ui-button--ghost"
+        hint="Ctrl+D"
+        disabled={!draftContent.trim()}
+        onClick={() => {
+          setMoreOpen(false);
+          void store.getState().duplicateNote();
+        }}
+      />
+    </>
+  );
+
+  const deleteButton = (
+    <ToolbarButton
+      label={deleteArmed ? t("Confirm delete") : t("Delete")}
+      icon={ICONS.trash}
+      className={`notes-delete${deleteArmed ? " notes-delete-armed" : ""}`}
+      variant="ui-button--danger"
+      onClick={() => {
+        if (deleteArmed) setMoreOpen(false);
+        armedDelete();
+      }}
+    />
+  );
+
   return (
     <section className="notes-editor">
       <div className="notes-editor-toolbar">
@@ -1632,86 +1747,78 @@ function NoteEditor({ store }: { store: NotesStore }) {
         </div>
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla note actions */}
         <div className="notes-editor-actions" role="group" aria-label={t("Note actions")}>
-          <ToolbarButton
-            label={t("Discuss in Chat")}
-            icon={ICONS.chat}
-            className="notes-use-in-chat"
-            variant="ui-button--secondary"
-            hint={`Ctrl+Enter · ${t("Selected text or whole note")}`}
-            disabled={!draftContent.trim()}
-            onClick={() => {
-              void store.getState().discussInChat(
-                note,
-                selection() || currentSelectionRef.current,
-              );
-            }}
-          />
-          <ToolbarButton
-            label={t("Attach")}
-            icon={ICONS.attach}
-            className="notes-attach"
-            variant="ui-button--ghost"
-            onClick={() => void store.getState().attachFile()}
-          />
-          <ToolbarButton
-            label={t("Download Markdown")}
-            icon={ICONS.download}
-            className="notes-download-note"
-            variant="ui-button--ghost"
-            hint="Ctrl+Shift+D"
-            onClick={() => void store.getState().downloadNote()}
-          />
-          <ToolbarButton
-            label={copiedMarkdown ? t("Copied") : t("Copy Markdown")}
-            icon={ICONS.copy}
-            className="notes-copy-note"
-            variant="ui-button--ghost"
-            hint="Ctrl+Shift+C"
-            disabled={!draftContent.trim()}
-            onClick={() => {
-              void store.getState().copyNote();
-              setCopiedMarkdown(true);
-              if (copyTimer.current) clearTimeout(copyTimer.current);
-              copyTimer.current = setTimeout(() => setCopiedMarkdown(false), 2000);
-            }}
-          />
-          <ToolbarButton
-            label={t("Duplicate note")}
-            icon={ICONS.duplicate}
-            className="notes-duplicate-note"
-            variant="ui-button--ghost"
-            hint="Ctrl+D"
-            disabled={!draftContent.trim()}
-            onClick={() => void store.getState().duplicateNote()}
-          />
-          <ToolbarButton
-            label={t("Save")}
-            icon={ICONS.save}
-            className="notes-save"
-            variant="ui-button--primary"
-            disabled={saveDisabled || !dirty}
-            busy={saveState === "saving"}
-            hint="Ctrl+S"
-            onClick={() => void store.getState().saveEditor()}
-          />
-          <span className="notes-save-state" data-save-state={saveState} aria-live="polite">
-            {saveState === "saving"
-              ? t("Saving…")
-              : saveState === "saved"
-                ? t("Saved")
-                : saveState === "dirty"
-                  ? t("Unsaved changes")
-                  : ""}
-          </span>
-          <ToolbarButton
-            label={deleteArmed ? t("Confirm delete") : t("Delete")}
-            icon={ICONS.trash}
-            className={`notes-delete${deleteArmed ? " notes-delete-armed" : ""}`}
-            variant="ui-button--danger"
-            onClick={armedDelete}
-          />
+          {isNarrow ? (
+            <>
+              <ToolbarButton
+                label={t("Save")}
+                icon={ICONS.save}
+                className="notes-save"
+                variant="ui-button--primary"
+                disabled={saveDisabled || !dirty}
+                busy={saveState === "saving"}
+                hint="Ctrl+S"
+                onClick={() => void store.getState().saveEditor()}
+              />
+              <span className="notes-save-state" data-save-state={saveState} aria-live="polite">
+                {saveState === "saving"
+                  ? t("Saving…")
+                  : saveState === "saved"
+                    ? t("Saved")
+                    : saveState === "dirty"
+                      ? t("Unsaved changes")
+                      : ""}
+              </span>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost notes-more-btn"
+                aria-label={t("More actions")}
+                aria-expanded={moreOpen}
+                aria-controls="notes-more-menu"
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                <Icon svg={ICONS.more} />
+                <span className="notes-btn-label">{t("More")}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              {secondaryActions}
+              <ToolbarButton
+                label={t("Save")}
+                icon={ICONS.save}
+                className="notes-save"
+                variant="ui-button--primary"
+                disabled={saveDisabled || !dirty}
+                busy={saveState === "saving"}
+                hint="Ctrl+S"
+                onClick={() => void store.getState().saveEditor()}
+              />
+              <span className="notes-save-state" data-save-state={saveState} aria-live="polite">
+                {saveState === "saving"
+                  ? t("Saving…")
+                  : saveState === "saved"
+                    ? t("Saved")
+                    : saveState === "dirty"
+                      ? t("Unsaved changes")
+                      : ""}
+              </span>
+              {deleteButton}
+            </>
+          )}
         </div>
       </div>
+      {isNarrow && moreOpen ? (
+        <div
+          id="notes-more-menu"
+          className="notes-more-menu"
+          role="menu"
+          aria-label={t("More actions")}
+          ref={moreMenuRef}
+        >
+          {secondaryActions}
+          {deleteButton}
+        </div>
+      ) : null}
       {error ? (
         <div className="notes-error-banner" role="alert">
           {(error as Error & { code?: string }).code === "version_conflict"

@@ -1416,6 +1416,36 @@ describe("notes React components", () => {
     );
   });
 
+  it("collapses secondary actions into a More menu on narrow screens", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    render(<NotesContent store={store} />);
+
+    const moreButton = await waitFor(
+      () => document.querySelector(".notes-more-btn") as HTMLButtonElement,
+    );
+    expect(moreButton.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector(".notes-more-menu")).toBeNull();
+    expect(document.querySelector(".notes-editor-actions .notes-attach")).toBeNull();
+
+    moreButton.click();
+    await waitFor(() =>
+      expect(document.querySelector(".notes-more-menu")).toBeTruthy(),
+    );
+    expect(document.querySelector(".notes-more-menu .notes-attach")).toBeTruthy();
+    expect(document.querySelector(".notes-more-menu .notes-delete")).toBeTruthy();
+  });
+
   it("focuses and selects the title when a new note is created", async () => {
     const store = storeWithGateway();
     await store.getState().load();

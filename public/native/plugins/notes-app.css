@@ -18,6 +18,28 @@
   font-size: var(--font-size-sm);
 }
 
+.notes-more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-solid);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+}
+
+.notes-more-menu .ui-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.notes-more-menu .notes-btn-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .notes-save-state[data-save-state="saved"] {
   color: var(--success);
 }

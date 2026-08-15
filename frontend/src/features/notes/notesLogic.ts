@@ -133,6 +133,8 @@ export const ICONS: Record<string, string> = {
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.8 2.8l2.4 2.4-6.6 6.6-3 .6.6-3 6.6-6.6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
   close:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  more:
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="13" cy="8" r="1.2" fill="currentColor"/></svg>',
   pin: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5l4 4-1.5 1.5-2.5-.5-3.5 3.5v2L3 16l-.5-3H0l4-4-.5-2.5L5 2.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 
