@@ -2759,8 +2759,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), NotesError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        compact_change_log, content_hash, now_iso, snippet_for, NoteChange, NoteSource,
-        NotesVault, VaultExportBundle,
+        compact_change_log, content_hash, now_iso, snippet_for, NoteChange, NoteSource, NotesVault,
+        VaultExportBundle,
     };
     use std::fs;
     use std::path::PathBuf;

@@ -86,16 +86,16 @@ describe("finance workbench", () => {
     const sceneButton = content.querySelector<HTMLButtonElement>(
       ".finance-scene-guard .ui-button--secondary",
     );
-    expect(sceneButton).toBeTruthy();
-    fireEvent.click(sceneButton!);
+    if (!sceneButton) throw new Error("missing scene-settings button");
+    fireEvent.click(sceneButton);
     expect(openSceneSettings).toHaveBeenCalledTimes(1);
     expect(openConfiguration).not.toHaveBeenCalled();
 
     const sessionButton = content.querySelector<HTMLButtonElement>(
       ".finance-scene-guard .ui-button--primary",
     );
-    expect(sessionButton).toBeTruthy();
-    fireEvent.click(sessionButton!);
+    if (!sessionButton) throw new Error("missing new-session button");
+    fireEvent.click(sessionButton);
     expect(createFinanceSession).toHaveBeenCalledTimes(1);
   });
 
