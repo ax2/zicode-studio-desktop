@@ -1830,6 +1830,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           autoComplete="off"
           autoCapitalize="sentences"
           spellCheck
+          wrap="soft"
           onChange={(event) => setDraft({ content: event.target.value })}
           onSelect={() => {
             currentSelectionRef.current = selection();
