@@ -1546,6 +1546,23 @@ function NoteEditor({ store }: { store: NotesStore }) {
   }, [moreOpen]);
 
   useEffect(() => {
+    const flushAutosave = () => {
+      void store.getState().saveIfDirty();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushAutosave();
+    };
+    window.addEventListener("blur", flushAutosave);
+    window.addEventListener("pagehide", flushAutosave);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("blur", flushAutosave);
+      window.removeEventListener("pagehide", flushAutosave);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [store]);
+
+  useEffect(() => {
     if (preview && previewRef.current) {
       previewRef.current.innerHTML = renderMarkdown(draftContent);
       rewriteAttachmentUrls(previewRef.current, store);
