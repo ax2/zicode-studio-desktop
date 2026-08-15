@@ -483,7 +483,13 @@ function JsonForm({
       }
       return null;
     } catch (error) {
-      return error instanceof SyntaxError ? t("Invalid JSON") : (error instanceof Error ? error.message : String(error));
+      if (error instanceof SyntaxError) {
+        const position = error.message.match(/position (\d+)/)?.[1];
+        return position
+          ? t("Invalid JSON at position {n}").replace("{n}", position)
+          : t("Invalid JSON");
+      }
+      return error instanceof Error ? error.message : String(error);
     }
   }, [value]);
   return (

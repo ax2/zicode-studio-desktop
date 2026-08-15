@@ -937,6 +937,7 @@ const zhCN = {
   "Must be a JSON object": "必须是 JSON 对象",
   "Valid JSON": "JSON 有效",
   "Invalid JSON": "JSON 无效",
+  "Invalid JSON at position {n}": "JSON 无效（位置 {n}）",
   "Configuration must be a JSON object.": "配置必须是 JSON 对象。",
   "'providers' must be an object.": "providers 必须是对象。",
   "Run backtest": "运行回测",
