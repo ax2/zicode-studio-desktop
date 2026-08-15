@@ -1660,6 +1660,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
+  const [activeLinkIndex, setActiveLinkIndex] = useState(0);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1825,9 +1826,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
     if (match) {
       setLinkQuery(match[1]);
       setLinkOpen(true);
+      setActiveLinkIndex(0);
     } else {
       setLinkQuery("");
       setLinkOpen(false);
+      setActiveLinkIndex(0);
     }
   };
 
@@ -1842,6 +1845,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
     setDraft({ content: next });
     setLinkQuery("");
     setLinkOpen(false);
+    setActiveLinkIndex(0);
     const cursorAfter = start + title.length + 4;
     window.requestAnimationFrame(() => {
       const el = contentRef.current;
@@ -2201,16 +2205,25 @@ function NoteEditor({ store }: { store: NotesStore }) {
               if (linkOpen) {
                 setLinkOpen(false);
                 setLinkQuery("");
+                setActiveLinkIndex(0);
               } else {
                 (event.target as HTMLTextAreaElement).blur();
               }
+            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowDown") {
+              event.preventDefault();
+              setActiveLinkIndex((current) => (current + 1) % linkSuggestions.length);
+            } else if (linkOpen && linkSuggestions.length > 0 && event.key === "ArrowUp") {
+              event.preventDefault();
+              setActiveLinkIndex(
+                (current) => (current - 1 + linkSuggestions.length) % linkSuggestions.length,
+              );
             } else if (
               linkOpen &&
               linkSuggestions.length > 0 &&
               (event.key === "Tab" || event.key === "Enter")
             ) {
               event.preventDefault();
-              insertLink(linkSuggestions[0].title);
+              insertLink(linkSuggestions[activeLinkIndex]?.title ?? linkSuggestions[0].title);
             } else if (event.key === "Tab") {
               event.preventDefault();
               const textarea = event.currentTarget as HTMLTextAreaElement;
@@ -2279,13 +2292,17 @@ function NoteEditor({ store }: { store: NotesStore }) {
             role="listbox"
             aria-label={t("Link to note")}
           >
-            {linkSuggestions.map((suggestion) => (
+            {linkSuggestions.map((suggestion, index) => (
               <button
                 key={suggestion.id}
                 type="button"
-                className="notes-link-suggestion"
+                className={`notes-link-suggestion${
+                  index === activeLinkIndex ? " is-active" : ""
+                }`}
                 role="option"
+                aria-selected={index === activeLinkIndex}
                 onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveLinkIndex(index)}
                 onClick={() => insertLink(suggestion.title)}
               >
                 <span className="notes-link-suggestion-icon" aria-hidden="true">

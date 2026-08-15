@@ -1404,7 +1404,8 @@
 }
 
 .notes-link-suggestion:hover,
-.notes-link-suggestion:focus-visible {
+.notes-link-suggestion:focus-visible,
+.notes-link-suggestion.is-active {
   background: var(--accent-subtle);
 }
 
