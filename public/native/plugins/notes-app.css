@@ -33,6 +33,7 @@
 .notes-more-menu .ui-button {
   width: 100%;
   justify-content: flex-start;
+  min-height: var(--control-height-lg);
 }
 
 .notes-more-menu .notes-btn-icon {
