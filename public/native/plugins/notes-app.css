@@ -486,6 +486,7 @@
   color: var(--text-dim);
   font-size: var(--font-size-sm);
   cursor: grab;
+  touch-action: none;
   opacity: 0;
 }
 
@@ -1590,6 +1591,12 @@ body.notes-dragging .notes-result-item {
 
   .notes-move-btn {
     opacity: 1;
+  }
+
+  .notes-drag-handle {
+    opacity: 0.55;
+    padding: var(--space-1);
+    font-size: var(--font-size-md);
   }
 
   .notes-editor-toolbar {
