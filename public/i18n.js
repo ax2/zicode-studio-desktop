@@ -157,6 +157,8 @@ const zhCN = {
   "Habit color": "习惯颜色",
   "{streak}-day streak": "连续 {streak} 天",
   "No habits yet": "还没有习惯",
+  "Previous week": "上一周",
+  "Next week": "下一周",
   "Habit added": "已添加习惯",
   "Habit updated": "已更新习惯",
   "Delete this habit and its history? This cannot be undone.":

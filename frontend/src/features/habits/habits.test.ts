@@ -42,6 +42,11 @@ describe("habits logic", () => {
   it("formats a stable date key", () => {
     expect(toDateKey(new Date(2026, 0, 5))).toBe("2026-01-05");
   });
+
+  it("shifts the date window backward with an offset", () => {
+    expect(lastDates(7, 0)[0]).toBe(lastDates(1)[0]);
+    expect(lastDates(7, 7)[0]).toBe(lastDates(8)[7]);
+  });
 });
 
 describe("habits store", () => {

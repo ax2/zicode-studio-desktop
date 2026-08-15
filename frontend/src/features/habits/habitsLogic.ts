@@ -22,11 +22,15 @@ export function toDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function lastDates(days: number): string[] {
+export function lastDates(days: number, offsetDays = 0): string[] {
   const now = new Date();
   const result: string[] = [];
   for (let index = 0; index < days; index += 1) {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - index);
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - index - offsetDays,
+    );
     result.push(toDateKey(date));
   }
   return result;

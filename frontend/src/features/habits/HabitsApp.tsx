@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
@@ -37,7 +37,8 @@ function HabitsMain({ store }: { store: HabitsStore }) {
     void store.getState().load();
   }, [store]);
 
-  const dates = useMemo(() => lastDates(7), []);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const dates = useMemo(() => lastDates(7, weekOffset), [weekOffset]);
   const done = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const entry of entries) {
@@ -110,7 +111,30 @@ function HabitsMain({ store }: { store: HabitsStore }) {
 
       <section className="ui-card habits-list">
         {habits.length > 0 ? (
-          <ul className="habits-items">
+          <>
+            <div className="habits-history-nav">
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                aria-label={t("Previous week")}
+                onClick={() => setWeekOffset((offset) => offset + 7)}
+              >
+                ←
+              </button>
+              <span className="habits-history-range">
+                {dates[dates.length - 1]} – {dates[0]}
+              </span>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                aria-label={t("Next week")}
+                disabled={weekOffset === 0}
+                onClick={() => setWeekOffset((offset) => Math.max(0, offset - 7))}
+              >
+                →
+              </button>
+            </div>
+            <ul className="habits-items">
             {habits.map((habit) => {
               const streak = currentStreak(entries, habit.id);
               const habitDates = done.get(habit.id) ?? new Set<string>();
@@ -221,7 +245,8 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                 </li>
               );
             })}
-          </ul>
+            </ul>
+          </>
         ) : (
           <p className="idphoto-result-empty">{t("No habits yet")}</p>
         )}
