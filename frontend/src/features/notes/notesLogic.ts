@@ -240,7 +240,8 @@ export function conversationNoteTitle(value: string): string {
     .map((part) => part.trim())
     .filter(Boolean)[0];
   if (!line) return t("Conversation");
-  return line.length > 60 ? `${line.slice(0, 60)}…` : line;
+  const title = line.replace(/^#{1,6}\s+/, "");
+  return title.length > 60 ? `${title.slice(0, 60)}…` : title;
 }
 
 export function safeFileName(value: string): string {

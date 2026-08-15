@@ -110,6 +110,8 @@ describe("notes logic", () => {
     expect(formatDate("2026-07-31T08:00:00Z")).toBeTruthy();
     expect(conversationNoteTitle("First line\nSecond")).toBe("First line");
     expect(conversationNoteTitle("x".repeat(80))).toHaveLength(61);
+    expect(conversationNoteTitle("# Heading\nBody")).toBe("Heading");
+    expect(conversationNoteTitle("## Deep heading\nBody")).toBe("Deep heading");
     expect(safeFileName('a/b:c')).toBe("a-b-c");
     expect(tagIcon("idea")).toBe("💡");
     expect(tagIcon("custom")).toBe("🏷️");
