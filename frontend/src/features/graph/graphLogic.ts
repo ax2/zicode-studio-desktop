@@ -61,6 +61,11 @@ export function noteKey(notebookId: string, noteId: string): string {
   return `${notebookId}\u0000${noteId}`;
 }
 
+export function pairTitles(left: string, right: string): string {
+  const same = left.trim().toLowerCase() === right.trim().toLowerCase();
+  return same ? `${left} ×2` : `${left} ↔ ${right}`;
+}
+
 export function buildGraph(data: GraphKnowledge): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const nodeMap = new Map<string, GraphNode>();
   const ensureNode = (notebookId: string, noteId: string, title: string): GraphNode => {

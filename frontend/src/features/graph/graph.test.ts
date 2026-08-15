@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildGraph, layoutGraph, noteKey } from "./graphLogic";
+import { buildGraph, layoutGraph, noteKey, pairTitles } from "./graphLogic";
 
 describe("graph logic", () => {
+  it("collapses identical pair titles instead of showing a self-arrow", () => {
+    expect(pairTitles("Example Domain", "Example Domain")).toBe("Example Domain ×2");
+    expect(pairTitles("Example Domain", " example domain ")).toBe("Example Domain ×2");
+    expect(pairTitles("Alpha", "Beta")).toBe("Alpha ↔ Beta");
+  });
+
   it("builds a deduplicated graph from links and similar pairs", () => {
     const { nodes, edges } = buildGraph({
       links: [
@@ -48,10 +54,10 @@ describe("graph logic", () => {
     for (const node of nodes) {
       const point = positions.get(node.id);
       expect(point).toBeDefined();
-      expect(point!.x).toBeGreaterThanOrEqual(0);
-      expect(point!.x).toBeLessThanOrEqual(900);
-      expect(point!.y).toBeGreaterThanOrEqual(0);
-      expect(point!.y).toBeLessThanOrEqual(560);
+      expect(point?.x).toBeGreaterThanOrEqual(0);
+      expect(point?.x).toBeLessThanOrEqual(900);
+      expect(point?.y).toBeGreaterThanOrEqual(0);
+      expect(point?.y).toBeLessThanOrEqual(560);
     }
   });
 

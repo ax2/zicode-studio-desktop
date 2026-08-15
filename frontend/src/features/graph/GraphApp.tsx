@@ -5,7 +5,7 @@ import { t } from "../../shared/i18n";
 import {
   buildGraph,
   layoutGraph,
-  type GraphKnowledge,
+  pairTitles,
   type GraphNode,
 } from "./graphLogic";
 import { createGraphStore, type GraphOptions, type GraphStore } from "./graphStore";
@@ -154,9 +154,12 @@ function GraphMain({ store }: { store: GraphStore }) {
               <section className="ui-card graph-side-card">
                 <h2>{t("Conflicts")}</h2>
                 <ul className="graph-conflict-list">
-                  {data?.conflicts.map((conflict, index) => (
-                    <li key={index} className="graph-conflict">
-                      <strong>{conflict.leftTitle} ↔ {conflict.rightTitle}</strong>
+                  {data?.conflicts.map((conflict) => (
+                    <li
+                      key={`${conflict.leftNoteId}-${conflict.rightNoteId}-${conflict.reason}`}
+                      className="graph-conflict"
+                    >
+                      <strong>{pairTitles(conflict.leftTitle, conflict.rightTitle)}</strong>
                       <span>{conflictReasonLabel(conflict.reason)}</span>
                     </li>
                   ))}
@@ -168,9 +171,12 @@ function GraphMain({ store }: { store: GraphStore }) {
               <section className="ui-card graph-side-card">
                 <h2>{t("Similar notes")}</h2>
                 <ul className="graph-conflict-list">
-                  {data?.similar.map((pair, index) => (
-                    <li key={index} className="graph-conflict">
-                      <strong>{pair.leftTitle} ↔ {pair.rightTitle}</strong>
+                  {data?.similar.map((pair) => (
+                    <li
+                      key={`${pair.leftNoteId}-${pair.rightNoteId}`}
+                      className="graph-conflict"
+                    >
+                      <strong>{pairTitles(pair.leftTitle, pair.rightTitle)}</strong>
                       <span>{pair.sharedTags.join(", ")}</span>
                     </li>
                   ))}
