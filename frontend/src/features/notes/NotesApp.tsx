@@ -1901,7 +1901,7 @@ function rewriteAttachmentUrls(container: HTMLElement, store: NotesStore) {
     const value = target.getAttribute(attribute);
     if (!value?.startsWith(prefix)) continue;
     const attachmentId = value.slice(prefix.length);
-    if (!/^[0-9a-f-]{36}\.(png|jpg|gif|webp|pdf|txt|md|csv|json)$/.test(attachmentId)) continue;
+    if (!/^[0-9a-f-]{36}\.(png|jpg|gif|webp|pdf|txt|md|csv|json)$/i.test(attachmentId)) continue;
     const url = store.getState().attachmentUrl(note, attachmentId);
     if (attribute === "href") {
       target.setAttribute("href", url);
