@@ -1123,6 +1123,7 @@ function TagEditor({
         className="notes-tag-input"
         placeholder={t("Add tag")}
         aria-label={t("Add tag")}
+        aria-expanded={showSuggestions && pool.length > 0}
         autoComplete="off"
         value={input}
         onFocus={() => setShowSuggestions(true)}
@@ -1147,6 +1148,8 @@ function TagEditor({
               key={name}
               type="button"
               className="notes-tag-suggestion"
+              role="option"
+              aria-selected={false}
               onPointerDown={(event) => event.preventDefault()}
               onClick={() => addTag(name)}
             >
