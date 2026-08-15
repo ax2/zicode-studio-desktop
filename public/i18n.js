@@ -876,8 +876,6 @@ const zhCN = {
     "下方凭据和模型渠道仅属于当前会话场景。",
   "Open scene settings": "打开场景设置",
   "Select finance scene": "选择金融场景",
-  "Finance scene selected. Start a new session to open the workbench.":
-    "已选择金融场景。请新建会话以进入金融工作台。",
   "Click to configure new sessions.": "点击配置后续新会话。",
   "Each scene has isolated model channels, credentials, extensions, and sessions. The selection applies when you create the next session.":
     "每个场景拥有隔离的模型渠道、凭据、扩展和会话。该选择将在创建下一个会话时生效。",
@@ -890,8 +888,8 @@ const zhCN = {
   Data: "数据",
   Analysis: "分析",
   "Finance requires a Finance scene": "金融工作台需要金融场景",
-  "Create or open a Finance scene to keep data, credentials, tools, and ledgers isolated.":
-    "请创建或打开金融场景，以隔离数据、凭据、工具和模拟账本。",
+  "Select the Finance scene below, then start a new session to open the Finance workbench. Data, credentials, tools, and ledgers stay isolated per scene.":
+    "请选择金融场景，然后新建一个会话以进入金融工作台。数据、凭据、工具和模拟账本按场景隔离。",
   "Close Finance Workbench": "关闭金融工作台",
   "QVeris financial data": "QVeris 金融数据",
   "Live and historical capabilities": "实时与历史数据能力",

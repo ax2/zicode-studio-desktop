@@ -692,7 +692,6 @@ export function FinanceContentApp({
   const inputValue = (key: string) => jsonInputs[key] ?? "";
   const setInputValue = (key: string, value: string) =>
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
-  const [financeSceneSelected, setFinanceSceneSelected] = useState(false);
 
 
   if (sceneId !== "finance") {
@@ -701,24 +700,16 @@ export function FinanceContentApp({
         <h1>{t("Finance requires a Finance scene")}</h1>
         <p>
           {t(
-            "Create or open a Finance scene to keep data, credentials, tools, and ledgers isolated.",
+            "Select the Finance scene below, then start a new session to open the Finance workbench. Data, credentials, tools, and ledgers stay isolated per scene.",
           )}
         </p>
         <button
           type="button"
           className="ui-button ui-button--primary"
-          onClick={() => {
-            controller.openSceneSettings();
-            setFinanceSceneSelected(true);
-          }}
+          onClick={() => controller.openSceneSettings()}
         >
           {t("Select finance scene")}
         </button>
-        {financeSceneSelected ? (
-          <p className="finance-scene-hint" role="status">
-            {t("Finance scene selected. Start a new session to open the workbench.")}
-          </p>
-        ) : null}
       </section>
     );
   }
