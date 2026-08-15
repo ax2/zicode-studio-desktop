@@ -969,6 +969,7 @@ const zhCN = {
   "Isolated simulation ledger; never sends real orders.": "隔离的模拟账本，绝不会发送真实订单。",
   Refresh: "刷新",
   "Account name": "账户名称",
+  Currency: "币种",
   "Create account": "创建账户",
   "Record simulated order": "记录模拟订单",
   "Manage limit order": "管理限价单",

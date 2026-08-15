@@ -1082,13 +1082,24 @@ export function FinanceContentApp({
             <input
               className="ui-input"
               placeholder={t("Account name")}
+              aria-label={t("Account name")}
               required
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={Boolean(busy.paperAccount)}
               value={inputValue("paperName")}
               onChange={(event) => setInputValue("paperName", event.target.value)}
             />
             <input
               className="ui-input"
+              placeholder={t("Currency")}
+              aria-label={t("Currency")}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={Boolean(busy.paperAccount)}
               value={inputValue("paperCurrency") || "CNY"}
               onChange={(event) => setInputValue("paperCurrency", event.target.value)}
