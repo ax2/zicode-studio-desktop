@@ -86,6 +86,47 @@ export function sampleSnapshot(): Record<string, unknown> {
   };
 }
 
+export function samplePaperOrder(): Record<string, unknown> {
+  return {
+    accountId: "paper-account-id",
+    symbol: "600519.SH",
+    side: "buy",
+    quantity: 100,
+    snapshot: {
+      price: 1400,
+      asOf: new Date().toISOString(),
+      source: "QVeris execution id",
+    },
+  };
+}
+
+export function samplePaperLimit(): Record<string, unknown> {
+  return {
+    action: "place",
+    accountId: "paper-account-id",
+    symbol: "600519.SH",
+    side: "buy",
+    quantity: 100,
+    limitPrice: 1380,
+    currency: "CNY",
+  };
+}
+
+export function samplePaperMark(): Record<string, unknown> {
+  return {
+    accountId: "paper-account-id",
+    quotes: [
+      {
+        symbol: "600519.SH",
+        price: 1410,
+        asOf: new Date().toISOString(),
+        source: "QVeris exec_...",
+        currency: "CNY",
+      },
+    ],
+  };
+}
+
 export interface FinanceViewDefinition {
   id: string;
   labelKey: string;

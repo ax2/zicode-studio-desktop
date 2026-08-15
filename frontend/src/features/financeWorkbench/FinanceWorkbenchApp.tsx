@@ -8,6 +8,9 @@ import {
   number,
   percent,
   sampleBacktest,
+  samplePaperLimit,
+  samplePaperMark,
+  samplePaperOrder,
   sampleScreening,
   sampleSnapshot,
   type FinanceViewDefinition,
@@ -1054,7 +1057,7 @@ export function FinanceContentApp({
           {paperAccounts ? <PaperAccountsResults response={paperAccounts} /> : null}
           <JsonForm
             busy={Boolean(busy.paperOrder)}
-            sample={undefined}
+            sample={samplePaperOrder()}
             submitLabel={t("Record simulated order")}
             value={inputValue("paperOrder")}
             onChange={(value) => setInputValue("paperOrder", value)}
@@ -1064,7 +1067,7 @@ export function FinanceContentApp({
           {paperOrder ? <ResultMessage value={paperOrder as string} /> : null}
           <JsonForm
             busy={Boolean(busy.paperLimit)}
-            sample={undefined}
+            sample={samplePaperLimit()}
             submitLabel={t("Manage limit order")}
             value={inputValue("paperLimit")}
             onChange={(value) => setInputValue("paperLimit", value)}
@@ -1074,7 +1077,7 @@ export function FinanceContentApp({
           {paperLimit ? <LimitOrderResults response={paperLimit} /> : null}
           <JsonForm
             busy={Boolean(busy.paperMark)}
-            sample={undefined}
+            sample={samplePaperMark()}
             submitLabel={t("Mark portfolio")}
             value={inputValue("paperMark")}
             onChange={(value) => setInputValue("paperMark", value)}
