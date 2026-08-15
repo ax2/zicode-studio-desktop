@@ -1706,6 +1706,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           enterKeyHint="next"
           autoComplete="off"
           autoCapitalize="sentences"
+          spellCheck
           onChange={(event) => setDraft({ title: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !preview) {
