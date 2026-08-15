@@ -115,7 +115,12 @@ function ModelDropdownMenu({
         ref={searchRef}
         className="model-dropdown-search"
         placeholder={t("Search models…")}
+        aria-label={t("Search models…")}
         type="text"
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
         onKeyDown={(event) => {

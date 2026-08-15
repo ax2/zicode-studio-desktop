@@ -59,6 +59,10 @@ export function CommandPaletteApp({
         className="command-palette-search"
         placeholder={t("Filter commands")}
         aria-label={t("Filter commands")}
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={onKeyDown}

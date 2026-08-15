@@ -158,7 +158,10 @@ export function SessionSearchDialogApp({
             type="text"
             className="session-search-dialog-input"
             placeholder={t("Search tasks and messages…")}
+            aria-label={t("Search tasks and messages…")}
             autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
             spellCheck={false}
             value={query}
             onInput={(event) => controller.setQuery(event.currentTarget.value)}
