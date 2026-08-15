@@ -135,6 +135,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     startPolling() {
       get().stopPolling();
       pollTimer = setInterval(() => void get().load({ quiet: true }), pollIntervalMs);
+      void get().load({ quiet: true });
     },
 
     stopPolling() {

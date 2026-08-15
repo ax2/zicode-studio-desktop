@@ -150,4 +150,12 @@ describe("task center store host errors", () => {
     );
     store.getState().destroy();
   });
+
+  it("loads immediately when polling starts", async () => {
+    const call = vi.fn(async () => ({ ok: true, data: { tasks: [] } }));
+    const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
+    store.getState().startPolling();
+    await vi.waitFor(() => expect(call).toHaveBeenCalled());
+    store.getState().destroy();
+  });
 });
