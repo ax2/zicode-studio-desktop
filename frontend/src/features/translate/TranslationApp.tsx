@@ -138,6 +138,7 @@ function TranslationMain({ store }: { store: TranslationStore }) {
             <textarea
               className="translate-result-text"
               value={editedText}
+              aria-label={t("Result")}
               onChange={(event) => store.getState().setEditedText(event.target.value)}
             />
             <p className="translate-result-meta">

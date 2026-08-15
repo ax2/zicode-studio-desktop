@@ -162,6 +162,7 @@ function OcrMain({ store }: { store: OcrStore }) {
             <textarea
               className="ocr-result-text"
               value={editedText}
+              aria-label={t("Result")}
               onChange={(event) => store.getState().setEditedText(event.target.value)}
             />
             <p className="ocr-result-meta">
