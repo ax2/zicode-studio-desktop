@@ -149,6 +149,15 @@ describe("renderMarkdown", () => {
     expect(image.alt).toContain("onerror");
   });
 
+  it("escapes raw HTML in the markdown body", () => {
+    const html = renderMarkdown('<img src=x onerror="alert(1)"> and <script>alert(2)</script>');
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    expect(template.content.querySelector("img")).toBeNull();
+    expect(template.content.querySelector("script")).toBeNull();
+    expect(html).toContain("&lt;img");
+  });
+
   it("renders fenced code blocks whose language contains a hyphen", () => {
     const html = renderMarkdown('```acceptance-report\n{"criteriaSatisfied": []}\n```');
 

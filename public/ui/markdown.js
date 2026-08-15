@@ -292,11 +292,17 @@ export function renderUserMarkdown(text) {
 }
 
 function renderInline(text) {
+  // Escape HTML entities up front so raw `<script>` / `<img onerror>` text
+  // cannot be injected through the rendered preview. Markdown syntax (`*`,
+  // `_`, `~`, `` ` ``, `[]()`, `!`) does not use these characters, so the
+  // inline rules below keep working on the already-escaped text.
+  text = escapeHtml(text);
+
   // Inline code (must come first to protect content)
   const codeSpans = [];
   text = text.replace(/`([^`]+)`/g, (_, code) => {
     const idx = codeSpans.length;
-    codeSpans.push(`<code>${escapeHtml(code)}</code>`);
+    codeSpans.push(`<code>${code}</code>`);
     return `%%ICODE${idx}%%`;
   });
 
@@ -304,7 +310,7 @@ function renderInline(text) {
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_, alt, src) =>
-      `<img src="${escapeHtml(safeUrl(src))}" alt="${escapeHtml(alt)}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
+      `<img src="${safeUrl(src)}" alt="${alt}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
   );
 
   // Bold + italic
@@ -325,14 +331,14 @@ function renderInline(text) {
   text = text.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_, label, href) =>
-      `<a href="${escapeHtml(safeUrl(href))}" target="_blank" rel="noopener">${label}</a>`,
+      `<a href="${safeUrl(href)}" target="_blank" rel="noopener">${label}</a>`,
   );
 
   // Auto-link bare URLs
   text = text.replace(
     /(^|[^"'])(https?:\/\/[^\s<]+)/g,
     (_, prefix, url) =>
-      `${prefix}<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`,
+      `${prefix}<a href="${url}" target="_blank" rel="noopener">${url}</a>`,
   );
 
   // Restore inline code
