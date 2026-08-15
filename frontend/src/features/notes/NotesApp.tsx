@@ -1,4 +1,4 @@
-import { cloneElement, useEffect, useRef, useState } from "react";
+import { cloneElement, useEffect, useId, useRef, useState } from "react";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
@@ -1078,6 +1078,7 @@ function TagEditor({
   onChange(tags: string[]): void;
 }) {
   const snapshotTags = store((state) => state.snapshot.tags);
+  const suggestionsId = useId();
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const pool = allTagSuggestions(snapshotTags).filter(
@@ -1124,6 +1125,7 @@ function TagEditor({
         placeholder={t("Add tag")}
         aria-label={t("Add tag")}
         aria-expanded={showSuggestions && pool.length > 0}
+        aria-controls={suggestionsId}
         autoComplete="off"
         value={input}
         onFocus={() => setShowSuggestions(true)}
@@ -1147,7 +1149,7 @@ function TagEditor({
         }
       />
       {showSuggestions && pool.length > 0 ? (
-        <div className="notes-tag-suggestions" role="listbox" aria-label={t("Add tag")}>
+        <div id={suggestionsId} className="notes-tag-suggestions" role="listbox" aria-label={t("Add tag")}>
           {pool.slice(0, 16).map((name) => (
             <button
               key={name}
