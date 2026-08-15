@@ -147,7 +147,12 @@ export function formatDate(value: unknown): string {
   if (!value) return "";
   const date = new Date(String(value));
   if (!Number.isFinite(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
 }
 
 /** Rough reading-time estimate for the editor footer (chars → minutes). */
