@@ -492,6 +492,7 @@ function JsonForm({
       <textarea
         className="ui-textarea"
         placeholder={placeholder}
+        aria-label={t("JSON input")}
         rows={5}
         spellCheck={false}
         disabled={busy}
