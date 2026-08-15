@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
 import { ArtifactMain, ArtifactNav } from "./ArtifactApp";
+import { formatBytes } from "./logic";
 import { createArtifactStore } from "./store";
 
 const DESCRIPTOR = {
@@ -62,6 +63,14 @@ afterEach(() => {
 });
 
 describe("artifacts React app", () => {
+  it("formats byte sizes including numeric strings from the backend", () => {
+    expect(formatBytes(128)).toBe("128 B");
+    expect(formatBytes("2048")).toBe("2.0 KiB");
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(null)).toBe("");
+    expect(formatBytes("")).toBe("");
+  });
+
   it("lists scene artifacts and renders content with provenance in the main view", async () => {
     setLocale("en");
     const gateway = createGateway();

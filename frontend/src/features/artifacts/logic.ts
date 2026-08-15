@@ -58,10 +58,13 @@ export function formatDateTime(value: string): string {
   );
 }
 
-export function formatBytes(value: number): string {
-  if (!Number.isFinite(value)) return "";
-  if (value < 1024) return `${value} B`;
-  return `${(value / 1024).toFixed(value < 10 * 1024 ? 1 : 0)} KiB`;
+export function formatBytes(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" && value.trim() === "") return "";
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes)) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KiB`;
 }
 
 export function markdownContent(artifact: ArtifactDocument): string | null {
