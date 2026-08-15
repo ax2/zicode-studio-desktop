@@ -777,12 +777,10 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
 function buildDragGhost(note: NoteSummary): HTMLElement {
   const ghost = document.createElement("div");
   ghost.className = "notes-drag-ghost";
-  if (note.icon) {
-    const icon = document.createElement("span");
-    icon.className = "notes-note-icon";
-    icon.textContent = note.icon;
-    ghost.append(icon);
-  }
+  const icon = document.createElement("span");
+  icon.className = "notes-note-icon";
+  icon.textContent = note.icon || DEFAULT_NOTE_ICON;
+  ghost.append(icon);
   const main = document.createElement("span");
   main.className = "notes-list-item-main";
   const title = document.createElement("strong");
