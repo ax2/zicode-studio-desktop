@@ -1491,6 +1491,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
+  const outlineListRef = useRef<HTMLOListElement | null>(null);
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
@@ -1535,6 +1536,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
       if (frame) cancelAnimationFrame(frame);
     };
   }, [preview, outline]);
+
+  useEffect(() => {
+    if (!activeOutlineId) return;
+    const item = Array.from(
+      outlineListRef.current?.querySelectorAll<HTMLElement>("li[data-outline-id]") ?? [],
+    ).find(
+      (entry) => entry.getAttribute("data-outline-id") === activeOutlineId,
+    );
+    item?.scrollIntoView?.({ block: "nearest" });
+  }, [activeOutlineId]);
 
   useEffect(() => {
     if (store.getState().focusTitleOnNextRender) {
@@ -1781,10 +1792,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
           {outline.length > 0 ? (
             <nav className="notes-outline" aria-label={t("Outline")}>
               <h2>{t("Outline")}</h2>
-              <ol>
+              <ol ref={outlineListRef}>
                 {outline.map((entry) => (
                   <li
                     key={entry.id}
+                    data-outline-id={entry.id}
                     className={`notes-outline-level-${entry.level}${
                       entry.id === activeOutlineId ? " active" : ""
                     }`}
