@@ -1646,6 +1646,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
   }, [isNarrow]);
 
   useEffect(() => {
+    return () => {
+      if (deleteTimer.current) clearTimeout(deleteTimer.current);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
     const flushAutosave = () => {
       void store.getState().saveIfDirty();
     };
