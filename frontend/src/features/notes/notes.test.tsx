@@ -887,7 +887,7 @@ describe("notes store", () => {
       downloadFile,
     });
     await store.getState().load();
-    store.getState().selectNotebook("book-1");
+    await store.getState().selectNotebook("book-1");
     await store.getState().exportBackup();
     expect(downloadFile).toHaveBeenCalledOnce();
     const [fileName, content] = downloadFile.mock.calls[0];

@@ -194,7 +194,7 @@ interface NotesState {
   applyFilter(options?: { tag?: string | null; sourceOnly?: boolean }): Promise<void>;
   selectNote(summary: NoteSummary): Promise<void>;
   openNote(notebookId: string, noteId: string): Promise<void>;
-  selectNotebook(id: string): void;
+  selectNotebook(id: string): Promise<void>;
   resolveRecentNotes(): Promise<void>;
   resolvePinnedNotes(): Promise<void>;
   togglePinned(noteId: string): void;
@@ -453,7 +453,8 @@ export function createNotesStore(options: NotesStoreOptions) {
       void get().resolvePinnedNotes();
     },
 
-    selectNotebook(id) {
+    async selectNotebook(id) {
+      await get().saveIfDirty();
       set({ selectedNotebookId: id, selectedTag: null, sourceOnly: false, mode: "library" });
     },
 
