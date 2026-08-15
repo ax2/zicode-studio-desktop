@@ -450,8 +450,11 @@ export function SessionSidebarApp({
       >
         {/* biome-ignore lint/a11y/noStaticElementInteractions: project header collapse/new-chat pattern preserved from the vanilla sidebar */}
         {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard activation handled by the sidebar container's roving keydown */}
+        {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: disclosure state exposed on a roving-tabindex header without a native role */}
         <div
           className={`project-header project-group-header${collapsed ? " collapsed" : ""}`}
+          data-project-path={project.path}
+          aria-expanded={!collapsed}
           tabIndex={-1}
           onClick={() => controller.toggleProjectCollapsed(project.path)}
           onContextMenu={(event) => controller.showProjectContextMenu(event, project)}

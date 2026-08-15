@@ -191,6 +191,21 @@ export class SessionSidebar implements SessionSidebarController {
       return;
     }
     if (!this.container.contains(target)) return;
+    if (
+      target.matches(".project-header") &&
+      target.dataset.projectPath &&
+      (event.key === "ArrowRight" || event.key === "ArrowLeft")
+    ) {
+      const collapsed = target.classList.contains("collapsed");
+      if (event.key === "ArrowRight" && collapsed) {
+        event.preventDefault();
+        this.toggleProjectCollapsed(target.dataset.projectPath);
+      } else if (event.key === "ArrowLeft" && !collapsed) {
+        event.preventDefault();
+        this.toggleProjectCollapsed(target.dataset.projectPath);
+      }
+      return;
+    }
     if (!["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "].includes(event.key)) {
       return;
     }

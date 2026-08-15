@@ -906,7 +906,34 @@ describe("SessionSidebar.render", () => {
       container
         .querySelector(".project-group.current-project .project-sessions")
         .classList.contains("collapsed"),
-    ).toBe(true);
+      ).toBe(true);
+  });
+
+  it("expands and collapses a project header with left/right arrows", async () => {
+    const { sidebar, container } = makeSidebar([
+      { id: "s-a", timestamp: new Date().toISOString(), name: "Alpha" },
+    ]);
+    document.body.appendChild(container);
+    await sidebar.load();
+
+    const header = container.querySelector(
+      ".project-group.current-project .project-header",
+    );
+    const list = container.querySelector(
+      ".project-group.current-project .project-sessions",
+    );
+    expect(list.classList.contains("collapsed")).toBe(false);
+
+    header.focus();
+    header.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+    );
+    expect(list.classList.contains("collapsed")).toBe(true);
+
+    header.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    expect(list.classList.contains("collapsed")).toBe(false);
   });
 
   it("does not hijack keys focused on buttons inside session items", async () => {
