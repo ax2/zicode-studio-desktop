@@ -1351,6 +1351,23 @@ describe("notes store", () => {
     );
   });
 
+  it("does not download an empty note", async () => {
+    const downloadFile = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub({
+        get: vi.fn(async () => ({ note: { ...NOTE, content: "" } })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    await store.getState().load();
+    await store.getState().selectNote({ ...SNAPSHOT.notes[0] });
+    await store.getState().downloadNote();
+    expect(downloadFile).not.toHaveBeenCalled();
+  });
+
   it("moves a note to another notebook", async () => {
     const moveNote = vi.fn(async () => ({}));
     const store = storeWithGateway({ moveNote });

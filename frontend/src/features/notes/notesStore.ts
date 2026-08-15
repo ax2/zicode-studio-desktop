@@ -1121,6 +1121,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       await get().saveIfDirty();
       const note = get().selectedNote;
       if (!note) return;
+      if (!get().draftContent.trim()) return;
       const title = get().draftTitle.trim() || note.title || "note";
       const tags = parseTags(get().draftTags.join(", "));
       downloadFile(
@@ -1134,6 +1135,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       await get().saveIfDirty();
       const note = get().selectedNote;
       if (!note) return;
+      if (!get().draftContent.trim()) return;
       try {
         if (typeof navigator.clipboard?.writeText !== "function") {
           throw new Error(t("Clipboard access is not available"));
