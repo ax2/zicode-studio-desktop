@@ -139,6 +139,7 @@ function DiscoveryResults({ response }: { response: unknown }) {
           <code>{String(item.tool_id || "")}</code>
         </div>
       ))}
+      <CopyResultButton response={response} />
     </>
   );
 }
