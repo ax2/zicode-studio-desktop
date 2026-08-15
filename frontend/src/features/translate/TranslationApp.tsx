@@ -142,7 +142,9 @@ function TranslationMain({ store }: { store: TranslationStore }) {
               onChange={(event) => store.getState().setEditedText(event.target.value)}
             />
             <p className="translate-result-meta">
-              {result.sourceLang ? `${result.sourceLang} → ${result.targetLang}` : result.targetLang}
+              {result.sourceLang
+                ? `${result.sourceLang} → ${result.targetLang}`
+                : `${t("Auto-detect")} → ${result.targetLang}`}
               {" · "}
               {result.model} · {editedText.length} {t("characters")}
             </p>
