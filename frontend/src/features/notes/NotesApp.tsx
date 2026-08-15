@@ -1840,6 +1840,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onMouseUp={() => {
             currentSelectionRef.current = selection();
           }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              (event.target as HTMLTextAreaElement).blur();
+            }
+          }}
         ></textarea>
       )}
     </section>
