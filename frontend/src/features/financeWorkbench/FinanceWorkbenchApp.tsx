@@ -744,10 +744,17 @@ export function FinanceContentApp({
   const startEditResearchCard = (card: Record<string, unknown>) => {
     setInputValue("researchSymbol", String(card.symbol ?? ""));
     setInputValue("researchTitle", String(card.title ?? ""));
-    setInputValue(
-      "researchEvent",
-      card.eventAt ? new Date(String(card.eventAt)).toISOString().slice(0, 16) : "",
-    );
+    if (card.eventAt) {
+      const eventDate = new Date(String(card.eventAt));
+      const local = new Date(
+        eventDate.getTime() - eventDate.getTimezoneOffset() * 60_000,
+      )
+        .toISOString()
+        .slice(0, 16);
+      setInputValue("researchEvent", local);
+    } else {
+      setInputValue("researchEvent", "");
+    }
     setInputValue("researchThesis", String(card.thesis ?? ""));
     setInputValue("researchBull", String(card.bullCase ?? ""));
     setInputValue("researchBear", String(card.bearCase ?? ""));
