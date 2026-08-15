@@ -112,6 +112,7 @@ export function NotesNav({ store }: { store: NotesStore }) {
       <div className="notes-search-wrap">
         <input
           type="search"
+          enterKeyHint="search"
           className="notes-search-input"
           placeholder={t("Search notes")}
           aria-label={t("Search notes")}

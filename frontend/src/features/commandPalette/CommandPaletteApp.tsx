@@ -55,6 +55,7 @@ export function CommandPaletteApp({
       <input
         ref={inputRef}
         type="search"
+        enterKeyHint="search"
         className="command-palette-search"
         placeholder={t("Filter commands")}
         aria-label={t("Filter commands")}

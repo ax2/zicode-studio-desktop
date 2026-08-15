@@ -274,6 +274,7 @@ export function ComposerApp({
             placeholder={t("Type a message, or use / to call a skill…")}
             aria-label={t("Message input")}
             autoComplete="off"
+            enterKeyHint="send"
             rows={2}
             aria-autocomplete="list"
             aria-controls="skill-slash-menu"
