@@ -459,12 +459,14 @@ function JsonForm({
   };
   const clearInput = () => {
     onChange("");
+    textareaRef.current?.focus();
   };
   const formatInput = () => {
     try {
       const parsed = JSON.parse(value);
       if (parsed !== null && typeof parsed === "object") {
         onChange(JSON.stringify(parsed, null, 2));
+        textareaRef.current?.focus();
       }
     } catch {
       // Invalid JSON is left as-is; the inline error already reports it.
