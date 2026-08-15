@@ -1125,7 +1125,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       const tags = parseTags(get().draftTags.join(", "));
       downloadFile(
         `${safeFileName(title)}.md`,
-        `${noteFrontmatter(title, tags)}${get().draftContent}`,
+        `${noteFrontmatter(title, tags, note.source?.url)}${get().draftContent}`,
         "text/markdown",
       );
     },
@@ -1141,7 +1141,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         const title = get().draftTitle.trim() || note.title || "note";
         const tags = parseTags(get().draftTags.join(", "));
         await navigator.clipboard.writeText(
-          `${noteFrontmatter(title, tags)}${get().draftContent}`,
+          `${noteFrontmatter(title, tags, note.source?.url)}${get().draftContent}`,
         );
         notify(t("Copied"));
       } catch (error) {

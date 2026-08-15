@@ -116,6 +116,9 @@ describe("notes logic", () => {
     expect(noteFrontmatter("Roadmap", ["plugin"])).toContain('title: "Roadmap"');
     expect(noteFrontmatter("Roadmap", ["plugin"])).toContain("  - plugin");
     expect(noteFrontmatter("Roadmap", [])).not.toContain("tags:");
+    expect(noteFrontmatter("Roadmap", [], "https://example.com/article")).toContain(
+      'source: "https://example.com/article"',
+    );
     expect(safeFileName('a/b:c')).toBe("a-b-c");
     expect(tagIcon("idea")).toBe("💡");
     expect(tagIcon("custom")).toBe("🏷️");
