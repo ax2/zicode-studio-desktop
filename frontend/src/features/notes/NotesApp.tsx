@@ -1703,6 +1703,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           value={draftTitle}
           placeholder={t("Note title")}
           aria-label={t("Note title")}
+          enterKeyHint="next"
           onChange={(event) => setDraft({ title: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !preview) {
