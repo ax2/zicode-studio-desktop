@@ -428,6 +428,32 @@ describe("notes store", () => {
     expect(document.activeElement?.matches(".notes-tree-note")).toBe(true);
   });
 
+  it("expands and collapses a notebook with left/right arrow keys", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-notebook-summary")).toBeTruthy(),
+    );
+
+    const summary = container.querySelector(
+      ".notes-notebook-summary",
+    ) as HTMLElement;
+    const branch = summary.closest("details") as HTMLDetailsElement;
+    expect(branch.open).toBe(false);
+
+    summary.focus();
+    summary.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await waitFor(() => expect(branch.open).toBe(true));
+
+    summary.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+    );
+    await waitFor(() => expect(branch.open).toBe(false));
+  });
+
   it("drags a note to another notebook with a live ghost and drop highlight", async () => {
     const moveNote = vi.fn(
       async (

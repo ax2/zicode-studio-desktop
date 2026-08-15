@@ -104,8 +104,22 @@ export function NotesNav({ store }: { store: NotesStore }) {
     void store.getState().deleteSelectedNotes();
   };
   const handleNavKeydown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     const target = event.target as HTMLElement;
+    if (
+      target.matches(".notes-notebook-summary") &&
+      (event.key === "ArrowRight" || event.key === "ArrowLeft")
+    ) {
+      const branch = target.closest(".notes-notebook-branch");
+      const notebookId = (branch as HTMLElement | null)?.dataset.notebookId;
+      if (branch && notebookId) {
+        event.preventDefault();
+        store
+          .getState()
+          .toggleNotebookExpanded(notebookId, event.key === "ArrowRight");
+      }
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     if (!target.matches(".notes-notebook-summary, .notes-tree-note")) return;
     event.preventDefault();
     const items = Array.from(
