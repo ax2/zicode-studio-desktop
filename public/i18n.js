@@ -1195,6 +1195,7 @@ const zhCN = {
   "Notebook name": "笔记本名称",
   "My Notes": "我的笔记",
   "Capture web page": "采集网页",
+  "Capturing…": "正在采集…",
   "ZiCode retrieves readable public content without sending cookies or authorization headers.":
     "ZiCode 仅获取公开可读内容，不会发送 Cookie 或身份验证请求头。",
   "Page URL": "网页地址",

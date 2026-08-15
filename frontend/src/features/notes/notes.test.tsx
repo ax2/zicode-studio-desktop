@@ -884,6 +884,24 @@ describe("notes store", () => {
     expect(store.getState().pinnedNoteIds).toEqual(["note-1"]);
   });
 
+  it("clears the capturing flag and surfaces a localized capture error", async () => {
+    const capture = vi.fn(async () => {
+      throw new Error("Page is unreachable: timeout");
+    });
+    const store = storeWithGateway({ capture });
+    await store.getState().load();
+    await expect(
+      store.getState().captureUrl({
+        url: "https://example.com",
+        title: "",
+        notebookId: "book-1",
+        tags: [],
+      }),
+    ).rejects.toThrow();
+    expect(store.getState().capturing).toBe(false);
+    expect(store.getState().error).toBeTruthy();
+  });
+
   it("exports a readable backup through the download hook", async () => {
     const downloadFile = vi.fn();
     const store = createNotesStore({

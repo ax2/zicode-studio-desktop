@@ -161,6 +161,7 @@ interface NotesState {
   selectedNotebookId: string | null;
   selectedNote: Note | null;
   loading: boolean;
+  capturing: boolean;
   error: Error | null;
   trash: TrashEntry[];
   trashLoading: boolean;
@@ -275,6 +276,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     selectedNotebookId: null,
     selectedNote: null,
     loading: false,
+    capturing: false,
     error: null,
     trash: [],
     trashLoading: false,
@@ -1268,7 +1270,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       if (!/^https?:\/\//i.test(normalizedUrl)) {
         normalizedUrl = `https://${normalizedUrl}`;
       }
-      set({ error: null });
+      set({ error: null, capturing: true });
       try {
         const response = await gateway.capture(sceneId(), workspaceId(), notebookId, {
           url: normalizedUrl,
@@ -1280,7 +1282,11 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().selectNote(response.note);
         await get().load();
       } catch (error) {
-        set({ error: localizeNotesHostError(error) });
+        const friendly = localizeNotesHostError(error);
+        set({ error: friendly });
+        throw friendly;
+      } finally {
+        set({ capturing: false });
       }
     },
 

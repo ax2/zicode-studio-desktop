@@ -996,6 +996,7 @@ function CaptureForm({ store }: { store: NotesStore }) {
   const [error, setError] = useState<string | null>(null);
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
+  const capturing = store((state) => state.capturing);
   const urlRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     urlRef.current?.focus();
@@ -1043,8 +1044,8 @@ function CaptureForm({ store }: { store: NotesStore }) {
           <button type="button" className="ui-button ui-button--secondary" onClick={() => store.getState().setMode("library")}>
             {t("Cancel")}
           </button>
-          <button type="submit" className="ui-button ui-button--primary">
-            {t("Capture")}
+          <button type="submit" className="ui-button ui-button--primary" disabled={capturing} aria-busy={capturing}>
+            {capturing ? t("Capturing…") : t("Capture")}
           </button>
         </div>
       </form>
