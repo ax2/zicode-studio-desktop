@@ -1352,6 +1352,15 @@ function FilterResultsView({ store }: { store: NotesStore }) {
           {t("Show all notes")}
         </button>
       </div>
+      {snapshot.notes.length === 0 ? (
+        <p className="notes-results-empty">
+          {selectedTag
+            ? t("No notes match this tag yet.")
+            : sourceOnly
+              ? t("No web clips yet. Capture a public page to collect it here.")
+              : t("No notes match your search.")}
+        </p>
+      ) : null}
       <div className="notes-results-list">
         {snapshot.notes.map((note) => (
           // biome-ignore lint/a11y/useSemanticElements: ARIA button pattern preserved from the vanilla results list

@@ -682,6 +682,11 @@
   font-size: var(--font-size-sm);
 }
 
+.notes-results-empty {
+  padding: var(--space-4) 0;
+  color: var(--text-dim);
+}
+
 .notes-results-list {
   display: grid;
   gap: var(--space-2);
