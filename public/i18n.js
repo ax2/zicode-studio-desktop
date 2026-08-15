@@ -41,6 +41,10 @@ const zhCN = {
   Result: "结果",
   "Open / Print": "打开 / 打印",
   "Open in new tab": "在新标签页打开",
+  "Attachment preview": "附件预览",
+  "Could not load this attachment": "无法加载此附件",
+  "This file type can't be previewed here. Download it or open it in a new tab.":
+    "此文件类型无法在此预览。请下载或在新的标签页中打开。",
   "Generate a layout to preview the printable sheet here.":
     "生成排版后，这里会显示可打印的纸张预览。",
   "Pasted photo": "粘贴的照片",

@@ -1515,6 +1515,42 @@ describe("notes React components", () => {
     (document.querySelector(".image-lightbox-close") as HTMLButtonElement).click();
   });
 
+  it("renders non-image attachments as preview/download chips", async () => {
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          content:
+            "# Plan\n\n[report](/attachments/note-1/00000000-0000-0000-0000-000000000000.pdf)",
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const link = await waitFor(
+      () => container.querySelector("a.notes-attachment-link") as HTMLAnchorElement,
+    );
+    expect(link.getAttribute("data-attachment-view")).toBe("1");
+    expect(link.getAttribute("data-attachment-kind")).toBe("pdf");
+    expect(link.querySelector(".notes-attachment-icon")?.textContent).toBe("📕");
+    expect(link.querySelector(".notes-attachment-label")?.textContent).toBe("report");
+
+    link.click();
+    await waitFor(() =>
+      expect(
+        document.querySelector(".attachment-viewer-overlay")?.classList.contains("open"),
+      ).toBe(true),
+    );
+    expect(
+      document.querySelector(".attachment-viewer-name")?.textContent,
+    ).toBe("report");
+    expect(
+      (document.querySelector(".attachment-viewer-open") as HTMLButtonElement).hidden,
+    ).toBe(false);
+    (document.querySelector(".attachment-viewer-close") as HTMLButtonElement).click();
+  });
+
   it("shows the last-edited date for a note with a timestamp", async () => {
     const store = storeWithGateway();
     await store.getState().load();

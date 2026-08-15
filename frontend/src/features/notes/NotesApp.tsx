@@ -3,6 +3,8 @@ import { cloneElement, useEffect, useId, useRef, useState } from "react";
 import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
 import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
+// @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
+import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 import { t } from "../../shared/i18n";
 import {
   allTagSuggestions,
@@ -1503,6 +1505,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
       previewRef.current.innerHTML = renderMarkdown(draftContent);
       rewriteAttachmentUrls(previewRef.current, store);
       initImageLightbox(previewRef.current);
+      initAttachmentViewer(previewRef.current);
       initCodeCopyDelegation(previewRef.current);
       setOutline(buildHeadingOutline(previewRef.current));
     }
@@ -1904,9 +1907,24 @@ function rewriteAttachmentUrls(container: HTMLElement, store: NotesStore) {
     if (!/^[0-9a-f-]{36}\.(png|jpg|gif|webp|pdf|txt|md|csv|json)$/i.test(attachmentId)) continue;
     const url = store.getState().attachmentUrl(note, attachmentId);
     if (attribute === "href") {
+      const kind = (attachmentId.split(".").pop() || "").toLowerCase();
+      const name = (target.textContent || "").trim() || `attachment.${kind}`;
       target.setAttribute("href", url);
-      target.setAttribute("target", "_blank");
-      target.setAttribute("rel", "noreferrer");
+      target.setAttribute("data-attachment-view", "1");
+      target.setAttribute("data-attachment-name", name);
+      target.setAttribute("data-attachment-kind", kind);
+      target.removeAttribute("target");
+      target.removeAttribute("rel");
+      target.classList.add("notes-attachment-link");
+      target.textContent = "";
+      const icon = document.createElement("span");
+      icon.className = "notes-attachment-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = attachmentIconFor(kind);
+      const label = document.createElement("span");
+      label.className = "notes-attachment-label";
+      label.textContent = name;
+      target.append(icon, label);
     } else {
       target.setAttribute("src", url);
       target.addEventListener("error", () => {
