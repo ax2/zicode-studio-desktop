@@ -70,6 +70,18 @@ function useIsNarrowViewport() {
   return isNarrow;
 }
 
+function isTreeItemVisible(item: HTMLElement): boolean {
+  if (item.classList.contains("notes-notebook-summary")) {
+    const ownBranch = item.closest(".notes-notebook-branch");
+    const ancestorBranch = ownBranch?.parentElement?.closest(
+      "details.notes-notebook-branch",
+    );
+    return !(ancestorBranch instanceof HTMLDetailsElement) || ancestorBranch.open;
+  }
+  const branch = item.closest("details.notes-notebook-branch");
+  return !(branch instanceof HTMLDetailsElement) || branch.open;
+}
+
 export function NotesNav({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
   const setQuery = store((state) => state.setQuery);
@@ -91,8 +103,24 @@ export function NotesNav({ store }: { store: NotesStore }) {
     setBatchDeleteArmed(false);
     void store.getState().deleteSelectedNotes();
   };
+  const handleNavKeydown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const target = event.target as HTMLElement;
+    if (!target.matches(".notes-notebook-summary, .notes-tree-note")) return;
+    event.preventDefault();
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        ".notes-notebook-summary, .notes-tree-note",
+      ),
+    ).filter(isTreeItemVisible);
+    const index = items.indexOf(target);
+    if (index === -1) return;
+    const next = items[index + (event.key === "ArrowDown" ? 1 : -1)];
+    if (next) next.focus();
+  };
   return (
-    <div className="notes-nav">
+    // biome-ignore lint/a11y/noStaticElementInteractions: arrow-key navigation container for the tree; items remain individually keyboard-activatable
+    <div className="notes-nav" onKeyDown={handleNavKeydown}>
       <div className="notes-nav-actions">
         <button
           type="button"

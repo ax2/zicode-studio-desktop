@@ -403,6 +403,31 @@ describe("notes store", () => {
     await waitFor(() => expect(section.open).toBe(true));
   });
 
+  it("moves focus between notebook summaries and notes with arrow keys", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-notebook-summary")).toBeTruthy(),
+    );
+
+    const summary = container.querySelector(
+      ".notes-notebook-summary",
+    ) as HTMLElement;
+    summary.click();
+    await waitFor(() =>
+      expect(
+        (summary.closest("details") as HTMLDetailsElement).open,
+      ).toBe(true),
+    );
+
+    summary.focus();
+    summary.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(document.activeElement?.matches(".notes-tree-note")).toBe(true);
+  });
+
   it("drags a note to another notebook with a live ghost and drop highlight", async () => {
     const moveNote = vi.fn(
       async (
