@@ -350,19 +350,17 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
             {selected?.description || ""}
           </span>
         </span>
-        <select
-          className="ui-input scene-profile-select"
+        <Select
           id="scene-profile-select"
-          aria-label={t("Scene for the next session")}
           value={selectedId}
-          onChange={(event) => widgets.getState().setSceneSelected(event.target.value)}
-        >
-          {profiles.map((profile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.name}
-            </option>
-          ))}
-        </select>
+          label={t("Scene for the next session")}
+          className="scene-profile-select"
+          options={profiles.map((profile) => ({
+            value: profile.id,
+            label: profile.name,
+          }))}
+          onChange={(value) => widgets.getState().setSceneSelected(value)}
+        />
       </div>
       <div className="scene-profile-actions">
         <button

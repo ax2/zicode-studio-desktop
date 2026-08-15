@@ -184,10 +184,7 @@ describe("settings widgets React render", () => {
     expect(document.getElementById("scene-profile-select")).toBeTruthy();
     expect(document.getElementById("scene-profile-select")?.getAttribute("aria-label")).toBeTruthy();
     await waitFor(() =>
-      expect(
-        (document.getElementById("scene-profile-select") as HTMLSelectElement | null)?.options
-          .length,
-      ).toBeGreaterThan(0),
+      expect(widgets.getState().sceneProfiles.length).toBeGreaterThan(0),
     );
     act(() => widgets.getState().toggle("auto-compact"));
     expect(
@@ -198,10 +195,7 @@ describe("settings widgets React render", () => {
   it("opens the scene editor form and updates fields", async () => {
     const { widgets } = renderGeneral();
     await waitFor(() =>
-      expect(
-        (document.getElementById("scene-profile-select") as HTMLSelectElement | null)?.options
-          .length,
-      ).toBeGreaterThan(0),
+      expect(widgets.getState().sceneProfiles.length).toBeGreaterThan(0),
     );
     act(() => widgets.getState().openSceneEditor());
     expect(document.getElementById("scene-profile-editor")).toBeTruthy();

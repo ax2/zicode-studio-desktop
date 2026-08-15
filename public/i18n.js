@@ -72,6 +72,7 @@ const zhCN = {
   Resize: "缩放",
   Width: "宽度",
   Height: "高度",
+  Fit: "适配",
   Quality: "质量",
   Rotate: "旋转",
   Flip: "翻转",

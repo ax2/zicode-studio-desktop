@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import {
   downscaleImage,
   formatResultSize,
@@ -375,18 +376,19 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
             <div className="idphoto-slots">
               {slots.map((slot, index) => (
                 <div key={index} className="idphoto-slot">
-                  <select
+                  <Select
+                    id={`idphoto-slot-template-${index}`}
                     value={slot.template}
-                    onChange={(event) =>
-                      updateSlot(index, event.target.value, slot.count)
+                    label={t("Template")}
+                    className="idphoto-slot-template"
+                    options={IDPHOTO_TEMPLATES.map((candidate) => ({
+                      value: candidate.id,
+                      label: t(candidate.name),
+                    }))}
+                    onChange={(value) =>
+                      updateSlot(index, value, slot.count)
                     }
-                  >
-                    {IDPHOTO_TEMPLATES.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {t(candidate.name)}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <input
                     type="number"
                     min={1}
@@ -416,46 +418,46 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
               </button>
             </div>
           ) : (
-            <label className="settings-field">
+            <div className="settings-field">
               <span>{t("Template")}</span>
-              <select
+              <Select
+                id="idphoto-template"
                 value={templateId}
-                onChange={(event) => store.getState().setTemplate(event.target.value)}
-              >
-                {IDPHOTO_TEMPLATES.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {t(candidate.name)} · {candidate.widthMm}×{candidate.heightMm}mm
-                  </option>
-                ))}
-              </select>
-            </label>
+                label={t("Template")}
+                options={IDPHOTO_TEMPLATES.map((candidate) => ({
+                  value: candidate.id,
+                  label: `${t(candidate.name)} · ${candidate.widthMm}×${candidate.heightMm}mm`,
+                }))}
+                onChange={(value) => store.getState().setTemplate(value)}
+              />
+            </div>
           )}
-          <label className="settings-field">
+          <div className="settings-field">
             <span>{t("Print sheet")}</span>
-            <select
+            <Select
+              id="idphoto-sheet"
               value={sheetId}
-              onChange={(event) => store.getState().setSheet(event.target.value)}
-            >
-              {IDPHOTO_SHEETS.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {t(candidate.name)} · {candidate.widthMm}×{candidate.heightMm}mm
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="settings-field">
+              label={t("Print sheet")}
+              options={IDPHOTO_SHEETS.map((candidate) => ({
+                value: candidate.id,
+                label: `${t(candidate.name)} · ${candidate.widthMm}×${candidate.heightMm}mm`,
+              }))}
+              onChange={(value) => store.getState().setSheet(value)}
+            />
+          </div>
+          <div className="settings-field">
             <span>{t("Background")}</span>
-            <select
+            <Select
+              id="idphoto-background"
               value={background}
-              onChange={(event) => store.getState().setBackground(event.target.value)}
-            >
-              {IDPHOTO_BACKGROUNDS.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {t(candidate.name)}
-                </option>
-              ))}
-            </select>
-          </label>
+              label={t("Background")}
+              options={IDPHOTO_BACKGROUNDS.map((candidate) => ({
+                value: candidate.id,
+                label: t(candidate.name),
+              }))}
+              onChange={(value) => store.getState().setBackground(value)}
+            />
+          </div>
           {background !== "keep" ? (
             <label className="settings-field">
               <span>

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import {
   downscaleImage,
   FIT_MODES,
@@ -195,33 +196,34 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
                     aria-label={t("Height")}
                     onChange={(event) => setOption({ height: Number(event.target.value) || 0 })}
                   />
-                  <select
+                  <Select
+                    id="imagetools-fit"
                     value={fit}
-                    onChange={(event) => setOption({ fit: event.target.value })}
-                  >
-                    {FIT_MODES.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.name}
-                      </option>
-                    ))}
-                  </select>
+                    label={t("Fit")}
+                    className="imagetools-fit-select"
+                    options={FIT_MODES.map((candidate) => ({
+                      value: candidate.id,
+                      label: candidate.name,
+                    }))}
+                    onChange={(value) => setOption({ fit: value })}
+                  />
                 </div>
               ) : null}
-              <label className="settings-field">
+              <div className="settings-field">
                 <span>{t("Format")}</span>
-                <select
+                <Select
+                  id="imagetools-format"
                   value={format}
-                  onChange={(event) => setOption({ format: event.target.value })}
-                >
-                  {OUTPUT_FORMATS.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  label={t("Format")}
+                  options={OUTPUT_FORMATS.map((candidate) => ({
+                    value: candidate.id,
+                    label: candidate.name,
+                  }))}
+                  onChange={(value) => setOption({ format: value })}
+                />
+              </div>
               {format !== "png" ? (
-                <label className="settings-field">
+                <div className="settings-field">
                   <span>
                     {t("Quality")}: {quality}
                   </span>
@@ -230,36 +232,36 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
                     min={1}
                     max={100}
                     value={quality}
-                    onChange={(event) => setOption({ quality: Number(event.target.value) })}
+                      onChange={(event) => setOption({ quality: Number(event.target.value) })}
                   />
-                </label>
+                </div>
               ) : null}
-              <label className="settings-field">
+              <div className="settings-field">
                 <span>{t("Rotate")}</span>
-                <select
+                <Select
+                  id="imagetools-rotate"
                   value={String(rotate)}
-                  onChange={(event) => setOption({ rotate: Number(event.target.value) })}
-                >
-                  {ROTATIONS.map((degrees) => (
-                    <option key={degrees} value={degrees}>
-                      {degrees === 0 ? "0°" : `${degrees}°`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="settings-field">
+                  label={t("Rotate")}
+                  options={ROTATIONS.map((degrees) => ({
+                    value: String(degrees),
+                    label: degrees === 0 ? "0°" : `${degrees}°`,
+                  }))}
+                  onChange={(value) => setOption({ rotate: Number(value) })}
+                />
+              </div>
+              <div className="settings-field">
                 <span>{t("Flip")}</span>
-                <select
+                <Select
+                  id="imagetools-flip"
                   value={flip}
-                  onChange={(event) => setOption({ flip: event.target.value })}
-                >
-                  {FLIPS.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {t(candidate.name)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  label={t("Flip")}
+                  options={FLIPS.map((candidate) => ({
+                    value: candidate.id,
+                    label: t(candidate.name),
+                  }))}
+                  onChange={(value) => setOption({ flip: value })}
+                />
+              </div>
             </>
           ) : (
             <>

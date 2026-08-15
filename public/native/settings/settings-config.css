@@ -126,7 +126,7 @@
   }
 }
 
-.scene-profile-select {
+.app-select.scene-profile-select {
   width: min(240px, 45%);
 }
 
