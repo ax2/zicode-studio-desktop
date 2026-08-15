@@ -1793,6 +1793,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         className="notes-download-note"
         variant="ui-button--ghost"
         hint="Ctrl+Shift+D"
+        disabled={!draftContent.trim()}
         onClick={() => {
           setMoreOpen(false);
           void store.getState().downloadNote();
