@@ -1544,6 +1544,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             icon={ICONS.download}
             className="notes-download-note"
             variant="ui-button--ghost"
+            hint="Ctrl+Shift+D"
             onClick={() => void store.getState().downloadNote()}
           />
           <ToolbarButton

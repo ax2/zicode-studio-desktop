@@ -83,6 +83,11 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       void store.getState().copyNote();
       return;
     }
+    if (event.shiftKey && key === "d") {
+      event.preventDefault();
+      void store.getState().downloadNote();
+      return;
+    }
     if (event.shiftKey && key === "t") {
       event.preventDefault();
       void store.getState().loadTrash();

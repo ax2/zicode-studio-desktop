@@ -739,6 +739,45 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("downloads the current note with Ctrl+Shift+D", async () => {
+    const downloadFile = vi.fn();
+    const app = setupNotesApp({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      downloadFile,
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+
+    const notebookBranch = [...nav.querySelectorAll(".notes-notebook-branch")].find((branch) =>
+      (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Projects"),
+    );
+    (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "d",
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(downloadFile).toHaveBeenCalledTimes(1));
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("toggles edit and preview with Ctrl+E", async () => {
     const app = setupNotesApp({
       gateway: gatewayStub(),
