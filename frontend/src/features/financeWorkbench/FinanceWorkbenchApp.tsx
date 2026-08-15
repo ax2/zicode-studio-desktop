@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import {
   asArray,
@@ -451,8 +451,11 @@ function JsonForm({
   placeholder: string;
   onSubmit(input: string): void;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const insertSample = () => {
-    if (sample !== undefined) onChange(JSON.stringify(sample, null, 2));
+    if (sample === undefined) return;
+    onChange(JSON.stringify(sample, null, 2));
+    textareaRef.current?.focus();
   };
   const clearInput = () => {
     onChange("");
@@ -490,6 +493,7 @@ function JsonForm({
       }}
     >
       <textarea
+        ref={textareaRef}
         className="ui-textarea"
         placeholder={placeholder}
         aria-label={t("JSON input")}
