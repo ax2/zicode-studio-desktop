@@ -12,6 +12,7 @@ export interface NoteSummary {
   icon?: string;
   updatedAt?: string;
   source?: { url?: string };
+  snippet?: string;
   version?: number;
   tags?: string[];
 }

@@ -1369,6 +1369,9 @@ function FilterResultsView({ store }: { store: NotesStore }) {
               <strong>
                 <HighlightedText text={note.title} query={query} />
               </strong>
+              {note.snippet ? (
+                <span className="notes-result-snippet">{note.snippet}</span>
+              ) : null}
               <span>{formatDate(note.updatedAt)}</span>
             </span>
             <PinButton store={store} note={note} />

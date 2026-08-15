@@ -71,6 +71,8 @@ pub struct NoteSummary {
     pub tags: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<NoteSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snippet: Option<String>,
     pub version: String,
 }
 
@@ -273,6 +275,25 @@ pub struct NotesVault {
     system_root: Option<PathBuf>,
 }
 
+fn snippet_for(content: &str, needle: &str) -> Option<String> {
+    let needle = needle.trim();
+    if needle.is_empty() {
+        return None;
+    }
+    let lower = content.to_lowercase();
+    let index = lower.find(&needle.to_lowercase())?;
+    let start = index.saturating_sub(40);
+    let end = (index + needle.len() + 80).min(content.len());
+    let mut snippet = content[start..end].trim().to_string();
+    if start > 0 {
+        snippet.insert(0, '…');
+    }
+    if end < content.len() {
+        snippet.push('…');
+    }
+    Some(snippet)
+}
+
 impl NotesVault {
     pub fn new(plugin_root: PathBuf) -> Result<Self, String> {
         let root = plugin_root
@@ -464,7 +485,7 @@ impl NotesVault {
             if selected.as_ref().is_some_and(|id| id != &notebook.id) {
                 continue;
             }
-            for note in self.scan_notebook_notes(&notebook.id)? {
+            for mut note in self.scan_notebook_notes(&notebook.id)? {
                 for candidate in &note.tags {
                     tags.insert(candidate.clone());
                 }
@@ -499,6 +520,7 @@ impl NotesVault {
                     {
                         continue;
                     }
+                    note.snippet = snippet_for(&document.content, needle);
                 }
                 notes.push(note);
                 if notes.len() >= MAX_NOTES {
@@ -864,6 +886,7 @@ impl NotesVault {
             updated_at: now,
             tags,
             source,
+            snippet: None,
             version: String::new(),
         };
         let document = NoteDocument {
@@ -920,6 +943,7 @@ impl NotesVault {
                 updated_at: now_iso(),
                 tags: normalize_tags(tags)?,
                 source: existing.summary.source,
+                snippet: None,
                 version: String::new(),
             },
             content: {
@@ -1518,6 +1542,7 @@ impl NotesVault {
                         updated_at: document.summary.updated_at,
                         tags: normalize_tags(document.summary.tags)?,
                         source: document.summary.source,
+                        snippet: None,
                         version: String::new(),
                     },
                     content: normalize_newlines(&document.content),
@@ -1539,6 +1564,7 @@ impl NotesVault {
                         updated_at: trashed.note.summary.updated_at,
                         tags: normalize_tags(trashed.note.summary.tags)?,
                         source: trashed.note.summary.source,
+                        snippet: None,
                         version: String::new(),
                     },
                     content: normalize_newlines(&trashed.note.content),
@@ -2369,6 +2395,7 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             updated_at: required_frontmatter_string(frontmatter, "updatedAt")?,
             tags,
             source,
+            snippet: None,
             version: version_for(&bytes),
         },
         content: content.to_string(),
@@ -2732,8 +2759,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), NotesError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        compact_change_log, content_hash, now_iso, NoteChange, NoteSource, NotesVault,
-        VaultExportBundle,
+        compact_change_log, content_hash, now_iso, snippet_for, NoteChange, NoteSource,
+        NotesVault, VaultExportBundle,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -2748,6 +2775,19 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ))
+    }
+
+    #[test]
+    fn extracts_a_readable_snippet_around_the_query() {
+        let content = "A long note body with many words. ".repeat(4)
+            + "The unique needle lives here in the middle of the text and is surrounded by other content. "
+            + &"More trailing text after the match. ".repeat(4);
+        let snippet = snippet_for(&content, "unique needle").unwrap();
+        assert!(snippet.contains("unique needle"));
+        assert!(snippet.starts_with('…'));
+        assert!(snippet.ends_with('…'));
+        assert_eq!(snippet_for("", "needle"), None);
+        assert_eq!(snippet_for("body", ""), None);
     }
 
     #[test]
