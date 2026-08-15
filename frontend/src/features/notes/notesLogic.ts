@@ -297,6 +297,19 @@ export function safeFileName(value: string): string {
     .slice(0, 120);
 }
 
+export function stripMarkdown(text: string): string {
+  return String(text || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Minimal YAML frontmatter for a portable single-note Markdown export. */
 export function noteFrontmatter(title: string, tags: string[], source?: string): string {
   const lines = ["---", `title: ${JSON.stringify(title)}`];

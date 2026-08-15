@@ -14,6 +14,7 @@ import {
   noteFrontmatter,
   parseTags,
   safeFileName,
+  stripMarkdown,
   tagIcon,
 } from "./notesLogic";
 import { NotesContent, NotesNav, wikilinkMarkdown } from "./NotesApp";
@@ -120,6 +121,13 @@ describe("notes logic", () => {
     expect(wikilinkMarkdown("Inline `[[a, b]]` and [[Design]]")).toBe(
       "Inline `[[a, b]]` and [Design](zicode-note://Design)",
     );
+  });
+
+  it("strips markdown syntax from search snippets", () => {
+    expect(stripMarkdown("# Heading\n\nSome **bold** and `code` with [a link](https://x)")).toBe(
+      "Heading Some bold and code with a link",
+    );
+    expect(stripMarkdown("- item one\n- item two")).toBe("item one item two");
   });
 
   it("parses tags, dates, titles, and file names", () => {

@@ -19,6 +19,7 @@ import {
   formatDate,
   formatRelativeTime,
   ICONS,
+  stripMarkdown,
   TAG_ICON_FALLBACK,
   tagIcon,
   highlightSegments,
@@ -1371,7 +1372,7 @@ function FilterResultsView({ store }: { store: NotesStore }) {
               </strong>
               {note.snippet ? (
                 <span className="notes-result-snippet">
-                  <HighlightedText text={note.snippet} query={query} />
+                  <HighlightedText text={stripMarkdown(note.snippet)} query={query} />
                 </span>
               ) : null}
               <span>{formatDate(note.updatedAt)}</span>
