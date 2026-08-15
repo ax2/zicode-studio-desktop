@@ -36,6 +36,18 @@ describe("ocr store", () => {
     expect(notify).toHaveBeenCalledWith("Text extracted");
   });
 
+  it("extracts immediately when an image is selected", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    await store.getState().extractImage("data:image/png;base64,AAAA", "shot.png");
+    expect(gateway.extract).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "ws-1" },
+      "data:image/png;base64,AAAA",
+      undefined,
+    );
+    expect(store.getState().result?.text).toBe("Hello world");
+  });
+
   it("does not run without an image", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);

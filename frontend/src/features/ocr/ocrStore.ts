@@ -60,6 +60,7 @@ export interface OcrState {
   busy: boolean;
   error: string;
   setImage(image: string, fileName: string): void;
+  extractImage(image: string, fileName: string): Promise<void>;
   clear(): void;
   setEditedText(value: string): void;
   setLanguage(value: string): void;
@@ -89,6 +90,11 @@ export function createOcrStore(options: OcrOptions) {
 
     setImage(image, fileName) {
       set({ image, fileName, result: null, editedText: "", error: "" });
+    },
+
+    async extractImage(image, fileName) {
+      set({ image, fileName, result: null, editedText: "", error: "" });
+      await get().run();
     },
 
     clear() {

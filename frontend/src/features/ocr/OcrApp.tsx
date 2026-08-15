@@ -40,7 +40,7 @@ function OcrMain({ store }: { store: OcrStore }) {
       return;
     }
     downscaleImage(file)
-      .then((dataUrl) => store.getState().setImage(dataUrl, file.name))
+      .then((dataUrl) => void store.getState().extractImage(dataUrl, file.name))
       .catch((reason: unknown) => {
         store.setState({ error: reason instanceof Error ? reason.message : String(reason) });
       });
