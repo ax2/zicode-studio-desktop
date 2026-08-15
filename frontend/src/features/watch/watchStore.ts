@@ -206,17 +206,22 @@ export function createWatchStore(options: WatchOptions) {
       const { items, busy } = get();
       if (busy || items.length === 0) return;
       set({ busy: true, checking: true, error: "" });
+      // Check watchers in parallel so a long list does not have to wait for
+      // each URL sequentially. One unreachable watcher still must not discard
+      // the other results, so each outcome is handled independently.
+      const settled = await Promise.allSettled(
+        items.map((item) => gateway.check(getTarget(), item.id)),
+      );
       const results: Record<string, WatchCheckResult> = {};
       let firstError = "";
-      for (const item of items) {
-        try {
-          results[item.id] = await gateway.check(getTarget(), item.id);
-        } catch (error) {
-          // Keep checking the rest so one unreachable watcher does not
-          // discard every other result.
-          if (!firstError) firstError = friendlyPluginError(error);
+      items.forEach((item, index) => {
+        const outcome = settled[index];
+        if (outcome.status === "fulfilled") {
+          results[item.id] = outcome.value;
+        } else if (!firstError) {
+          firstError = friendlyPluginError(outcome.reason);
         }
-      }
+      });
       set((state) => ({
         results: { ...state.results, ...results },
         busy: false,
