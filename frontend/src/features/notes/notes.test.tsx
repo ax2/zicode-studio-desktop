@@ -909,6 +909,31 @@ describe("notes store", () => {
     await waitFor(() => expect(store.getState().draftContent).toBe("ab"));
   });
 
+  it("indents the selected line with Tab instead of replacing the selection", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "abc" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(1, 2);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("  abc"));
+  });
+
   it("does not discuss an empty note with Ctrl+Enter", async () => {
     const onUseInChat = vi.fn();
     const app = setupNotesApp({

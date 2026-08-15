@@ -2092,31 +2092,60 @@ function NoteEditor({ store }: { store: NotesStore }) {
               const textarea = event.currentTarget as HTMLTextAreaElement;
               const start = textarea.selectionStart;
               const end = textarea.selectionEnd;
-              if (event.shiftKey) {
-                const lineStart = draftContent.lastIndexOf("\n", start - 1) + 1;
-                const leading = draftContent
-                  .slice(lineStart)
-                  .match(/^ {1,2}/)?.[0]?.length ?? 0;
-                if (leading > 0) {
+              if (start === end) {
+                if (event.shiftKey) {
+                  const lineStart = draftContent.lastIndexOf("\n", start - 1) + 1;
+                  const leading =
+                    draftContent
+                      .slice(lineStart)
+                      .match(/^ {1,2}/)?.[0]?.length ?? 0;
+                  if (leading > 0) {
+                    setDraft({
+                      content: `${draftContent.slice(
+                        0,
+                        lineStart,
+                      )}${draftContent.slice(lineStart + leading)}`,
+                    });
+                    const cursor = Math.max(lineStart, start - leading);
+                    window.setTimeout(() => {
+                      textarea.selectionStart = textarea.selectionEnd = cursor;
+                    }, 0);
+                  }
+                } else {
                   setDraft({
-                    content: `${draftContent.slice(0, lineStart)}${draftContent.slice(
-                      lineStart + leading,
-                    )}`,
+                    content: `${draftContent.slice(0, start)}  ${draftContent.slice(start)}`,
                   });
-                  const cursor = Math.max(lineStart, start - leading);
+                  const cursor = start + 2;
                   window.setTimeout(() => {
                     textarea.selectionStart = textarea.selectionEnd = cursor;
                   }, 0);
                 }
-              } else {
-                setDraft({
-                  content: `${draftContent.slice(0, start)}  ${draftContent.slice(end)}`,
-                });
-                const cursor = start + 2;
-                window.setTimeout(() => {
-                  textarea.selectionStart = textarea.selectionEnd = cursor;
-                }, 0);
+                return;
               }
+              const blockStart = draftContent.lastIndexOf("\n", start - 1) + 1;
+              const lineEnd = draftContent.indexOf("\n", end);
+              const blockEnd = lineEnd === -1 ? draftContent.length : lineEnd;
+              const block = draftContent.slice(blockStart, blockEnd);
+              const nextBlock = event.shiftKey
+                ? block
+                    .split("\n")
+                    .map((line) => line.replace(/^ {1,2}/, ""))
+                    .join("\n")
+                : block
+                    .split("\n")
+                    .map((line) => `  ${line}`)
+                    .join("\n");
+              setDraft({
+                content: `${draftContent.slice(0, blockStart)}${nextBlock}${draftContent.slice(
+                  blockEnd,
+                )}`,
+              });
+              const cursor = event.shiftKey
+                ? Math.max(blockStart, start - 2)
+                : start + 2;
+              window.setTimeout(() => {
+                textarea.selectionStart = textarea.selectionEnd = cursor;
+              }, 0);
             }
           }}
         ></textarea>
