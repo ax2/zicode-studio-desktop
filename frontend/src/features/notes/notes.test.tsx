@@ -130,6 +130,7 @@ describe("notes logic", () => {
     expect(estimateReadingMinutes("")).toBe(0);
     expect(estimateReadingMinutes("word ".repeat(200))).toBe(1);
     expect(estimateReadingMinutes("你好世界".repeat(100))).toBe(1);
+    expect(estimateReadingMinutes("こんにちは".repeat(100))).toBe(1);
   });
 
   it("splits text into highlighted segments case-insensitively", () => {

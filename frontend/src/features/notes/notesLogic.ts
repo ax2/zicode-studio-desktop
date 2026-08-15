@@ -180,7 +180,9 @@ export function formatRelativeTime(value: unknown): string {
 /** Rough reading-time estimate for the editor footer (content → minutes). */
 export function estimateReadingMinutes(content: string): number {
   if (!content) return 0;
-  const cjkCount = (content.match(/[\u3400-\u9fff]/g) ?? []).length;
+  const cjkCount = (
+    content.match(/[\u3040-\u30ff\u3400-\u9fff]/g) ?? []
+  ).length;
   const wordCount = content.split(/\s+/).filter(Boolean).length;
   const minutes = cjkCount / 400 + wordCount / 200;
   if (minutes <= 0) return 0;
