@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { Select } from "../../shared/Select";
 import {
   AUTOMATION_FILTERS,
   filterLabel,
@@ -172,16 +173,17 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
         />
       </LabeledField>
       <LabeledField label={t("Schedule")} htmlFor="automation-schedule">
-        <select
+        <Select
           id="automation-schedule"
-          className="ui-select"
           value={schedule}
-          onChange={(e) => setSchedule(e.target.value)}
-        >
-          <option value="manual">{t("Manual")}</option>
-          <option value="interval">{t("Every hour")}</option>
-          <option value="daily">{t("Daily at 09:00")}</option>
-        </select>
+          label={t("Schedule")}
+          options={[
+            { value: "manual", label: t("Manual") },
+            { value: "interval", label: t("Every hour") },
+            { value: "daily", label: t("Daily at 09:00") },
+          ]}
+          onChange={setSchedule}
+        />
       </LabeledField>
       <div className="automation-form-limits">
         <LabeledField label={t("Maximum cost per run")} htmlFor="automation-max-cost">

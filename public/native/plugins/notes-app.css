@@ -846,7 +846,8 @@
   max-width: 680px;
 }
 
-.notes-form label {
+.notes-form label,
+.notes-form .notes-form-field {
   display: grid;
   gap: var(--space-1);
   color: var(--text-secondary);

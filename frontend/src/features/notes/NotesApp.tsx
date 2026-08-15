@@ -6,6 +6,7 @@ import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import {
   allTagSuggestions,
   buildChildrenByParent,
@@ -936,7 +937,6 @@ function NotebookForm({ store }: { store: NotesStore }) {
   const [parentId, setParentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const snapshot = store((state) => state.snapshot);
-  const selectedNotebookId = store((state) => state.selectedNotebookId);
   const loading = store((state) => state.loading);
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -979,17 +979,22 @@ function NotebookForm({ store }: { store: NotesStore }) {
             />
           </div>
         </label>
-        <label>
+        <div className="notes-form-field">
           <span>{t("Parent notebook")}</span>
-          <select defaultValue={selectedNotebookId || ""} value={parentId} onChange={(event) => setParentId(event.target.value)}>
-            <option value="">{t("Top level")}</option>
-            {snapshot.notebooks.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.title}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            id="notes-parent-notebook"
+            value={parentId}
+            label={t("Parent notebook")}
+            options={[
+              { value: "", label: t("Top level") },
+              ...snapshot.notebooks.map((candidate) => ({
+                value: candidate.id,
+                label: candidate.title,
+              })),
+            ]}
+            onChange={setParentId}
+          />
+        </div>
         {error ? <p className="notes-form-error">{error}</p> : null}
         <div className="notes-form-actions">
           <button type="button" className="ui-button ui-button--secondary" onClick={() => store.getState().setMode("library")}>
@@ -1045,16 +1050,19 @@ function CaptureForm({ store }: { store: NotesStore }) {
           <input className="notes-field-input" value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
         <TagEditor store={store} tags={tags} onChange={setTags} />
-        <label>
+        <div className="notes-form-field">
           <span>{t("Notebook")}</span>
-          <select value={notebookId || selectedNotebookId || ""} onChange={(event) => setNotebookId(event.target.value)}>
-            {snapshot.notebooks.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.title}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            id="notes-capture-notebook"
+            value={notebookId || selectedNotebookId || ""}
+            label={t("Notebook")}
+            options={snapshot.notebooks.map((candidate) => ({
+              value: candidate.id,
+              label: candidate.title,
+            }))}
+            onChange={setNotebookId}
+          />
+        </div>
         {error ? <p className="notes-form-error">{error}</p> : null}
         <div className="notes-form-actions">
           <button type="button" className="ui-button ui-button--secondary" onClick={() => store.getState().setMode("library")}>
