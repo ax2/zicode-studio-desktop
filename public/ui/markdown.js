@@ -303,7 +303,8 @@ function renderInline(text) {
   // Images (before links so ![...](...) isn't caught by link regex)
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
-    '<img src="$2" alt="$1" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">',
+    (_, alt, src) =>
+      `<img src="${escapeHtml(safeUrl(src))}" alt="${escapeHtml(alt)}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
   );
 
   // Bold + italic
@@ -323,13 +324,15 @@ function renderInline(text) {
   // Links
   text = text.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" target="_blank" rel="noopener">$1</a>',
+    (_, label, href) =>
+      `<a href="${escapeHtml(safeUrl(href))}" target="_blank" rel="noopener">${label}</a>`,
   );
 
   // Auto-link bare URLs
   text = text.replace(
     /(^|[^"'])(https?:\/\/[^\s<]+)/g,
-    '$1<a href="$2" target="_blank" rel="noopener">$2</a>',
+    (_, prefix, url) =>
+      `${prefix}<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`,
   );
 
   // Restore inline code
@@ -344,6 +347,17 @@ function escapeHtml(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/**
+ * Reject executable URL schemes so a markdown link/image cannot smuggle
+ * `javascript:` or non-image `data:` payloads into rendered HTML.
+ */
+function safeUrl(value) {
+  const url = String(value ?? "").trim();
+  if (/^(javascript|vbscript):/i.test(url)) return "";
+  if (/^data:/i.test(url) && !/^data:image\//i.test(url)) return "";
+  return url;
 }
 
 /**

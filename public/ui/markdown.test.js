@@ -133,6 +133,22 @@ describe("renderMarkdown", () => {
     expect(image.alt).toBe("Architecture");
   });
 
+  it("rejects executable URL schemes in markdown links and images", () => {
+    const html = renderMarkdown("[click](javascript:alert(1)) ![x](javascript:alert(2))");
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain('href=""');
+  });
+
+  it("escapes image alt text so attribute payloads cannot be injected", () => {
+    const html = renderMarkdown('![x" onerror="alert(1)](https://example.test/a.png)');
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const image = template.content.querySelector("img");
+    expect(image).toBeTruthy();
+    expect(image.getAttribute("onerror")).toBeNull();
+    expect(image.alt).toContain("onerror");
+  });
+
   it("renders fenced code blocks whose language contains a hyphen", () => {
     const html = renderMarkdown('```acceptance-report\n{"criteriaSatisfied": []}\n```');
 
