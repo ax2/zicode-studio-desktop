@@ -132,6 +132,11 @@
   line-height: var(--line-height-relaxed);
 }
 
+.finance-scene-guard .finance-scene-hint {
+  color: var(--accent-text);
+  font-size: var(--font-size-sm);
+}
+
 .finance-section-heading {
   display: flex;
   align-items: flex-start;
