@@ -531,7 +531,7 @@ function JsonForm({
         </p>
       ) : value.trim() ? (
         <p className="finance-json-ok" role="status">
-          ✓ {t("Valid JSON")}
+          ✓ {t("Valid JSON")} · {value.length} {t("characters")}
         </p>
       ) : null}
       <div className="finance-form-actions">
