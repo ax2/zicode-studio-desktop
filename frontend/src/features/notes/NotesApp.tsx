@@ -1749,6 +1749,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             if (event.key === "Enter" && !preview) {
               contentRef.current?.focus();
             } else if (event.key === "Escape") {
+              event.preventDefault();
               (event.target as HTMLInputElement).blur();
             }
           }}
@@ -1843,6 +1844,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
+              event.preventDefault();
               (event.target as HTMLTextAreaElement).blur();
             }
           }}
