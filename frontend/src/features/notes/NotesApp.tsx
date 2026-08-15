@@ -1748,6 +1748,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onKeyDown={(event) => {
             if (event.key === "Enter" && !preview) {
               contentRef.current?.focus();
+            } else if (event.key === "Escape") {
+              (event.target as HTMLInputElement).blur();
             }
           }}
         />
