@@ -895,6 +895,10 @@ export function FinanceContentApp({
               className="ui-input"
               placeholder={t("Symbol")}
               required
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={Boolean(busy.research)}
               value={inputValue("researchSymbol")}
               onChange={(event) => setInputValue("researchSymbol", event.target.value)}
@@ -951,6 +955,10 @@ export function FinanceContentApp({
               className="ui-textarea"
               rows={3}
               placeholder={t("Source URLs or execution IDs, one per line")}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={Boolean(busy.research)}
               value={inputValue("researchSources")}
               onChange={(event) => setInputValue("researchSources", event.target.value)}
