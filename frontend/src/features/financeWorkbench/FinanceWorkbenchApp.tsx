@@ -465,7 +465,7 @@ function JsonForm({
   const formatInput = () => {
     try {
       const parsed = JSON.parse(value);
-      if (parsed !== null && typeof parsed === "object") {
+      if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
         onChange(JSON.stringify(parsed, null, 2));
         textareaRef.current?.focus();
       }
