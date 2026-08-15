@@ -9,6 +9,7 @@ import type { CostDashboardStore } from "./costDashboardStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
 import { PackageBrowseTab } from "./PackageBrowseTab";
 import type { PackageBrowseStore } from "./packageBrowseStore";
+import { PreferenceSelect } from "./PreferenceSelect";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import type { RemoteAccessStore } from "./remoteAccessStore";
 import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
@@ -176,44 +177,42 @@ function AppearancePreferences() {
   const currentTheme = getCurrentTheme();
   const locale = getLocale();
   const [themeId, setThemeId] = useState(currentTheme);
+  const themeOptions = Object.entries(
+    themes as Record<string, { name: Record<string, string> }>,
+  ).map(([id, theme]) => ({
+    value: id,
+    label: theme.name[locale] || theme.name.en,
+  }));
+  const languageOptions = Object.entries(supportedLocales).map(([id, name]) => ({
+    value: id,
+    label: String(name),
+  }));
   return (
     <div className="settings-section">
       <div className="settings-section-title">{t("Appearance")}</div>
-      <label className="settings-row" htmlFor="theme-select">
+      <div className="settings-row">
         <span className="settings-label">{t("Theme")}</span>
-        <select
-          className="ui-select settings-preference-select"
+        <PreferenceSelect
           id="theme-select"
           value={themeId}
-          onChange={(event) => {
-            applyTheme(event.target.value);
-            setThemeId(event.target.value);
+          options={themeOptions}
+          label={t("Theme")}
+          onChange={(value) => {
+            applyTheme(value);
+            setThemeId(value);
           }}
-        >
-          {Object.entries(themes as Record<string, { name: Record<string, string> }>).map(
-            ([id, theme]) => (
-            <option key={id} value={id}>
-              {theme.name[locale] || theme.name.en}
-            </option>
-            ),
-          )}
-        </select>
-      </label>
-      <label className="settings-row" htmlFor="language-select">
+        />
+      </div>
+      <div className="settings-row">
         <span className="settings-label">{t("Language")}</span>
-        <select
-          className="ui-select settings-preference-select"
+        <PreferenceSelect
           id="language-select"
           value={locale}
-          onChange={(event) => setLocale(event.target.value)}
-        >
-          {Object.entries(supportedLocales).map(([id, name]) => (
-            <option key={id} value={id}>
-              {String(name)}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={languageOptions}
+          label={t("Language")}
+          onChange={(value) => setLocale(value)}
+        />
+      </div>
     </div>
   );
 }
