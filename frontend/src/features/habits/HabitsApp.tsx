@@ -208,6 +208,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                       <button
                         type="button"
                         className="ui-button ui-button--ghost ui-button--sm"
+                        aria-label={`${t("Edit")} ${habit.name}`}
                         onClick={() => store.getState().startEdit(habit)}
                       >
                         {t("Edit")}
@@ -215,6 +216,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                       <button
                         type="button"
                         className="ui-button ui-button--ghost ui-button--sm habits-delete"
+                        aria-label={`${t("Delete")} ${habit.name}`}
                         onClick={async () => {
                           if (await globalThis.confirm?.(t("Delete this habit and its history? This cannot be undone."))) {
                             void store.getState().remove(habit.id);

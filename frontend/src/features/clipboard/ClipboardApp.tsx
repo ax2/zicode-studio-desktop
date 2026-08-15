@@ -105,6 +105,7 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
                   <button
                     type="button"
                     className="ui-button ui-button--ghost ui-button--sm"
+                    aria-label={`${t("Copy")} ${item.text.slice(0, 40)}`}
                     onClick={() => void store.getState().copyItem(item.text)}
                   >
                     {t("Copy")}
@@ -112,6 +113,7 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
                   <button
                     type="button"
                     className="ui-button ui-button--secondary ui-button--sm"
+                    aria-label={`${t("Send to note")} ${item.text.slice(0, 40)}`}
                     onClick={() => void store.getState().sendToNote(item.text)}
                   >
                     {t("Send to note")}
@@ -119,6 +121,7 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
                   <button
                     type="button"
                     className="ui-button ui-button--ghost ui-button--sm"
+                    aria-label={`${t("Delete")} ${item.text.slice(0, 40)}`}
                     onClick={() => void store.getState().remove(item.id)}
                   >
                     {t("Delete")}

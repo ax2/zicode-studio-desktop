@@ -153,6 +153,7 @@ function WatchMain({ store }: { store: WatchStore }) {
                         <button
                           type="button"
                           className="ui-button ui-button--ghost ui-button--sm"
+                          aria-label={`${t("Edit")} ${item.name}`}
                           onClick={() => store.getState().startEdit(item)}
                         >
                           {t("Edit")}
@@ -162,6 +163,7 @@ function WatchMain({ store }: { store: WatchStore }) {
                         type="button"
                         className="ui-button ui-button--secondary ui-button--sm"
                         disabled={busy}
+                        aria-label={`${t("Check now")} ${item.name}`}
                         onClick={() => void store.getState().check(item.id)}
                       >
                         {checking ? t("Checking…") : t("Check now")}
@@ -169,6 +171,7 @@ function WatchMain({ store }: { store: WatchStore }) {
                       <button
                         type="button"
                         className="ui-button ui-button--ghost ui-button--sm"
+                        aria-label={`${t("Delete")} ${item.name}`}
                         onClick={async () => {
                           if (await globalThis.confirm?.(t("Delete this watcher? This cannot be undone."))) {
                             void store.getState().remove(item.id);
