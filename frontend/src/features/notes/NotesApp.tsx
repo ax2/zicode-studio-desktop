@@ -1784,6 +1784,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           value={draftContent}
           placeholder={t("Write Markdown…")}
           aria-label={t("Note content")}
+          autoComplete="off"
+          autoCapitalize="sentences"
           onChange={(event) => setDraft({ content: event.target.value })}
           onSelect={() => {
             currentSelectionRef.current = selection();
