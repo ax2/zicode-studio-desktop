@@ -244,7 +244,12 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
         <input type="checkbox" checked={requireApproval} onChange={(e) => setRequireApproval(e.target.checked)} />
         {t("Require approval before every run")}
       </label>
-      <button type="submit" className="ui-button ui-button--primary" disabled={submitting}>
+      <button
+        type="submit"
+        className="ui-button ui-button--primary"
+        disabled={submitting}
+        aria-busy={submitting}
+      >
         {t("Create automation")}
       </button>
     </form>
