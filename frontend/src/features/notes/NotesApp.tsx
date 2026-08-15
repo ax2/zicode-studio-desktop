@@ -298,7 +298,9 @@ function NotebookBranch({
           <span className="notes-folder-glyph">{expanded ? "📂" : "📁"}</span>
           {notebook.icon ? <span className="notes-notebook-icon-badge">{notebook.icon}</span> : null}
         </span>
-        <span className="notes-notebook-title">{notebook.title}</span>
+        <span className="notes-notebook-title" title={notebook.title}>
+          {notebook.title}
+        </span>
         <small>{String(notebook.noteCount ?? notes.length)}</small>
         <NotebookActions store={store} notebook={notebook} />
       </summary>
@@ -761,7 +763,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
       ) : null}
       <span className="notes-note-icon">{note.icon || DEFAULT_NOTE_ICON}</span>
       <span className="notes-list-item-main">
-        <strong>
+        <strong title={note.title}>
           <HighlightedText text={note.title} query={query} />
         </strong>
         <span>
