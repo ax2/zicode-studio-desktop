@@ -1198,6 +1198,7 @@ const zhCN = {
   "No notes match your search.": "没有匹配的笔记。",
   "Loading notes…": "正在加载笔记…",
   "No notes found": "未找到笔记",
+  Backlinks: "反向链接",
   "Web clip": "网页剪藏",
   "Each notebook is a readable Astro-compatible Markdown vault.":
     "每个笔记本都是可直接阅读、兼容 Astro 的 Markdown 内容库。",

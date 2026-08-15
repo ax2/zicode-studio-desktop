@@ -1591,12 +1591,19 @@ function TrashView({ store }: { store: NotesStore }) {
   );
 }
 
+function backlinkKindLabel(kind: string): string {
+  if (kind === "wikilink") return t("Wiki link");
+  if (kind === "reference") return t("Note reference");
+  return kind;
+}
+
 function NoteEditor({ store }: { store: NotesStore }) {
   const note = store((state) => state.selectedNote) as Note;
   const draftTitle = store((state) => state.draftTitle);
   const draftIcon = store((state) => state.draftIcon);
   const draftContent = store((state) => state.draftContent);
   const draftTags = store((state) => state.draftTags);
+  const backlinks = store((state) => state.backlinks);
   const preview = store((state) => state.preview);
   const dirty = store((state) => state.dirty);
   const saveDisabled = store((state) => state.saveDisabled);
@@ -1605,6 +1612,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const error = store((state) => state.error);
   const setDraft = store((state) => state.setDraft);
   const setPreview = store((state) => state.setPreview);
+  const openNote = store((state) => state.openNote);
   const setDeleteArmed = store((state) => state.setDeleteArmed);
   const resetDeleteArmed = store((state) => state.resetDeleteArmed);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
@@ -2158,6 +2166,28 @@ function NoteEditor({ store }: { store: NotesStore }) {
           }}
         ></textarea>
       )}
+      {backlinks.length > 0 ? (
+        <nav className="notes-backlinks" aria-label={t("Backlinks")}>
+          <h2>{t("Backlinks")}</h2>
+          <ul>
+            {backlinks.map((backlink) => (
+              <li key={`${backlink.notebookId}-${backlink.noteId}`}>
+                <button
+                  type="button"
+                  className="notes-backlink"
+                  title={backlink.title}
+                  onClick={() => void openNote(backlink.notebookId, backlink.noteId)}
+                >
+                  <span className="notes-backlink-title">{backlink.title}</span>
+                  <span className="notes-backlink-kind">
+                    {backlinkKindLabel(backlink.kind)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
     </section>
   );
 }

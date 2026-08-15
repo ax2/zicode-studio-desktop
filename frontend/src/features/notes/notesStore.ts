@@ -112,6 +112,19 @@ function defaultChooseFile(accept: string): Promise<File | null> {
 export interface NotesGatewayLike {
   list(sceneId: string, workspaceId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
   get(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
+  knowledge(sceneId: string, workspaceId: string): Promise<{
+    snapshot?: {
+      links?: Array<{
+        fromNotebookId: string;
+        fromNoteId: string;
+        fromTitle: string;
+        toNotebookId: string;
+        toNoteId: string;
+        toTitle: string;
+        kind: string;
+      }>;
+    };
+  }>;
   createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
   updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string; parentId?: string | null }): Promise<unknown>;
   deleteNotebook(sceneId: string, workspaceId: string, notebookId: string): Promise<unknown>;
@@ -132,6 +145,13 @@ export interface NotesGatewayLike {
   restoreTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
   purgeTrash(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<unknown>;
   emptyTrash(sceneId: string, workspaceId: string, notebookId?: string): Promise<{ emptied: number }>;
+}
+
+export interface NoteBacklink {
+  notebookId: string;
+  noteId: string;
+  title: string;
+  kind: string;
 }
 
 export interface NotesStoreOptions {
@@ -189,11 +209,13 @@ interface NotesState {
   draftIcon: string;
   draftContent: string;
   draftTags: string[];
+  backlinks: NoteBacklink[];
   deleteArmed: boolean;
   saveDisabled: boolean;
   load(options?: { preserveSelection?: boolean }): Promise<void>;
   applyFilter(options?: { tag?: string | null; sourceOnly?: boolean }): Promise<void>;
   selectNote(summary: NoteSummary): Promise<void>;
+  loadBacklinks(note: Note): Promise<void>;
   openNote(notebookId: string, noteId: string): Promise<void>;
   selectNotebook(id: string): Promise<void>;
   resolveRecentNotes(): Promise<void>;
@@ -304,6 +326,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     draftIcon: "",
     draftContent: "",
     draftTags: [],
+    backlinks: [],
     deleteArmed: false,
     saveDisabled: true,
 
@@ -399,10 +422,38 @@ export function createNotesStore(options: NotesStoreOptions) {
         expanded.add(note.notebookId);
         set({ expandedNotebookIds: expanded });
         get().syncDraftFromNote();
+        void get().loadBacklinks(note);
       } catch (error) {
         set({ error: localizeNotesHostError(error) });
       } finally {
         set({ loading: false });
+      }
+    },
+
+    async loadBacklinks(note) {
+      const targetNotebookId = note.notebookId;
+      const targetNoteId = note.id;
+      try {
+        const response = await gateway.knowledge(sceneId(), workspaceId());
+        const links = response.snapshot?.links ?? [];
+        const backlinks: NoteBacklink[] = [];
+        for (const link of links) {
+          if (
+            link.toNotebookId === targetNotebookId &&
+            link.toNoteId === targetNoteId &&
+            !(link.fromNotebookId === targetNotebookId && link.fromNoteId === targetNoteId)
+          ) {
+            backlinks.push({
+              notebookId: link.fromNotebookId,
+              noteId: link.fromNoteId,
+              title: link.fromTitle,
+              kind: link.kind,
+            });
+          }
+        }
+        set({ backlinks });
+      } catch {
+        // Backlinks are a navigation convenience; keep the previous list on failure.
       }
     },
 

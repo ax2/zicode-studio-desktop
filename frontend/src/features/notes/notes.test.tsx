@@ -68,6 +68,7 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
   return {
     list: vi.fn(async () => ({ snapshot: SNAPSHOT })),
     get: vi.fn(async () => ({ note: NOTE })),
+    knowledge: vi.fn(async () => ({ snapshot: { links: [] } })),
     createNotebook: vi.fn(async () => ({ notebook: { id: "book-9", title: "New" } })),
     updateNotebook: vi.fn(async () => ({})),
     deleteNotebook: vi.fn(async () => ({})),
@@ -211,6 +212,48 @@ describe("notes store", () => {
 
     const unknown = new Error("Unrelated failure");
     expect(localizeNotesHostError(unknown)).toBe(unknown);
+  });
+
+  it("loads backlinks for the selected note and skips self-links", async () => {
+    const store = storeWithGateway({
+      knowledge: vi.fn(async () => ({
+        snapshot: {
+          links: [
+            {
+              fromNotebookId: "book-2",
+              fromNoteId: "note-2",
+              fromTitle: "Source Note",
+              toNotebookId: "book-1",
+              toNoteId: "note-1",
+              toTitle: "Roadmap",
+              kind: "wikilink",
+            },
+            {
+              fromNotebookId: "book-1",
+              fromNoteId: "note-1",
+              fromTitle: "Roadmap",
+              toNotebookId: "book-1",
+              toNoteId: "note-1",
+              toTitle: "Roadmap",
+              kind: "reference",
+            },
+            {
+              fromNotebookId: "book-3",
+              fromNoteId: "note-3",
+              fromTitle: "Other",
+              toNotebookId: "book-9",
+              toNoteId: "note-9",
+              toTitle: "Other",
+              kind: "wikilink",
+            },
+          ],
+        },
+      })),
+    });
+    await store.getState().loadBacklinks(NOTE);
+    expect(store.getState().backlinks).toEqual([
+      { notebookId: "book-2", noteId: "note-2", title: "Source Note", kind: "wikilink" },
+    ]);
   });
 
   it("closes the mobile function-area drawer when a note is selected", async () => {
