@@ -75,6 +75,7 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     }
     if (!event.shiftKey && key === "d") {
       event.preventDefault();
+      if (!store.getState().draftContent.trim()) return;
       void store.getState().duplicateNote();
       return;
     }
