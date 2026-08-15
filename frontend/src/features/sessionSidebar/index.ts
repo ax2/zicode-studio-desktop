@@ -247,11 +247,20 @@ export class SessionSidebar implements SessionSidebarController {
 
   toggleArchived(id: string): void {
     const state = this.store.getState();
-    const archived = state.archived.includes(id)
+    const wasArchived = state.archived.includes(id);
+    const archived = wasArchived
       ? state.archived.filter((entry) => entry !== id)
       : [...state.archived, id];
-    this.commit({ archived });
+    this.commit({
+      archived,
+      // Reveal the archived group right after archiving so the action is
+      // visible and can be undone in one click.
+      ...(wasArchived ? {} : { archivedCollapsed: false }),
+    });
     localStorage.setItem(STORAGE.archived, JSON.stringify(archived));
+    if (!wasArchived) {
+      localStorage.setItem(STORAGE.archivedCollapsed, "false");
+    }
     this.render();
   }
 

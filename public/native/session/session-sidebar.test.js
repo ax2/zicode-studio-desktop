@@ -375,6 +375,15 @@ describe("SessionSidebar.render", () => {
     ).toBeTruthy();
   });
 
+  it("expands the archived group after archiving a session", () => {
+    const { sidebar } = makeSidebar([
+      { id: "s-arc", timestamp: new Date().toISOString(), name: "Arc" },
+    ]);
+    expect(sidebar.store.getState().archivedCollapsed).toBe(true);
+    sidebar.toggleArchived("s-arc");
+    expect(sidebar.store.getState().archivedCollapsed).toBe(false);
+  });
+
   it("archives every session in a project from the project header context menu", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-fav", timestamp: new Date().toISOString(), name: "Fav" },
