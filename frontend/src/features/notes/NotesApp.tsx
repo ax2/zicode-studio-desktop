@@ -1,6 +1,6 @@
 import { cloneElement, useEffect, useId, useRef, useState } from "react";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
-import { renderMarkdown } from "../../../../public/ui/markdown.js";
+import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
 import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 import { t } from "../../shared/i18n";
@@ -1476,6 +1476,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
       previewRef.current.innerHTML = renderMarkdown(draftContent);
       rewriteAttachmentUrls(previewRef.current, store);
       initImageLightbox(previewRef.current);
+      initCodeCopyDelegation(previewRef.current);
       setOutline(buildHeadingOutline(previewRef.current));
     }
   }, [preview, draftContent, store]);
