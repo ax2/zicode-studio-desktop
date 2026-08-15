@@ -53,7 +53,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
       return;
     }
     readFileAsDataUrl(file)
-      .then((dataUrl) => store.getState().setFile(file.name, dataUrl))
+      .then((dataUrl) => void store.getState().importFile(file.name, dataUrl))
       .catch((reason: unknown) => {
         store.setState({ error: reason instanceof Error ? reason.message : String(reason) });
       });

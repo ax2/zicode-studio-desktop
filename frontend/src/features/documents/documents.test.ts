@@ -52,6 +52,22 @@ describe("documents store", () => {
     expect(notify).toHaveBeenCalledWith("Document imported");
   });
 
+  it("imports immediately when a file is selected", async () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    await store.getState().importFile(
+      "report.docx",
+      "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA",
+    );
+    expect(gateway.import).toHaveBeenCalledWith({
+      sceneId: "programming",
+      workspaceId: "ws-1",
+      document: expect.stringContaining("data:"),
+      fileName: "report.docx",
+    });
+    expect(store.getState().result?.markdown).toContain("# Introduction");
+  });
+
   it("localizes runtime-disconnected errors when saving to notes", async () => {
     setLocale("zh-CN");
     const gateway = stubGateway();

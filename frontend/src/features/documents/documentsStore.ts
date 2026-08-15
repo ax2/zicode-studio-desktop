@@ -74,6 +74,7 @@ export interface DocumentsState {
   notebooks: NotebookRef[];
   selectedNotebookId: string;
   setFile(name: string, document: string): void;
+  importFile(name: string, document: string): Promise<void>;
   clear(): void;
   setPreview(mode: PreviewMode): void;
   loadNotebooks(): Promise<void>;
@@ -113,6 +114,11 @@ export function createDocumentsStore(options: DocumentsOptions) {
 
     setFile(name, document) {
       set({ fileName: name, document, result: null, error: "" });
+    },
+
+    async importFile(name, document) {
+      set({ fileName: name, document, result: null, error: "" });
+      await get().run();
     },
 
     clear() {
