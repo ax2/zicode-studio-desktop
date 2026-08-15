@@ -926,8 +926,10 @@ function NotebookForm({ store }: { store: NotesStore }) {
   const [title, setTitle] = useState("");
   const [icon, setIcon] = useState(DEFAULT_NOTEBOOK_ICON);
   const [parentId, setParentId] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
+  const loading = store((state) => state.loading);
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     inputRef.current?.focus();
@@ -936,9 +938,14 @@ function NotebookForm({ store }: { store: NotesStore }) {
     <Panel title={t("Create notebook")} description={t("Each notebook is a readable Astro-compatible Markdown vault.")}>
       <form
         className="notes-form"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
-          void store.getState().createNotebook(title, icon, parentId || null);
+          setError(null);
+          try {
+            await store.getState().createNotebook(title, icon, parentId || null);
+          } catch (createError) {
+            setError(createError instanceof Error ? createError.message : String(createError));
+          }
         }}
       >
         <label>
@@ -975,11 +982,12 @@ function NotebookForm({ store }: { store: NotesStore }) {
             ))}
           </select>
         </label>
+        {error ? <p className="notes-form-error">{error}</p> : null}
         <div className="notes-form-actions">
           <button type="button" className="ui-button ui-button--secondary" onClick={() => store.getState().setMode("library")}>
             {t("Cancel")}
           </button>
-          <button type="submit" className="ui-button ui-button--primary">
+          <button type="submit" className="ui-button ui-button--primary" disabled={loading} aria-busy={loading}>
             {t("Create notebook")}
           </button>
         </div>

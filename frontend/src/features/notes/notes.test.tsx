@@ -902,6 +902,19 @@ describe("notes store", () => {
     expect(store.getState().error).toBeTruthy();
   });
 
+  it("surfaces a localized notebook-creation error instead of swallowing it", async () => {
+    const createNotebook = vi.fn(async () => {
+      throw new Error("Notes backup contains too many notes");
+    });
+    const store = storeWithGateway({ createNotebook });
+    await store.getState().load();
+    await expect(
+      store.getState().createNotebook("Projects", "🚀"),
+    ).rejects.toThrow();
+    expect(store.getState().error).toBeTruthy();
+    expect(store.getState().loading).toBe(false);
+  });
+
   it("exports a readable backup through the download hook", async () => {
     const downloadFile = vi.fn();
     const store = createNotesStore({
