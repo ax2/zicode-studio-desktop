@@ -858,6 +858,31 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("indents the note content with Tab", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "ab" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(1, 1);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("a  b"));
+  });
+
   it("does not discuss an empty note with Ctrl+Enter", async () => {
     const onUseInChat = vi.fn();
     const app = setupNotesApp({

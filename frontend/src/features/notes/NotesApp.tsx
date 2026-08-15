@@ -2087,6 +2087,18 @@ function NoteEditor({ store }: { store: NotesStore }) {
             if (event.key === "Escape") {
               event.preventDefault();
               (event.target as HTMLTextAreaElement).blur();
+            } else if (event.key === "Tab") {
+              event.preventDefault();
+              const textarea = event.currentTarget as HTMLTextAreaElement;
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              setDraft({
+                content: `${draftContent.slice(0, start)}  ${draftContent.slice(end)}`,
+              });
+              const cursor = start + 2;
+              window.setTimeout(() => {
+                textarea.selectionStart = textarea.selectionEnd = cursor;
+              }, 0);
             }
           }}
         ></textarea>
