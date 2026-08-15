@@ -725,6 +725,7 @@ export function FinanceContentApp({
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
   const [creatingSession, setCreatingSession] = useState(false);
   const [editingResearchCardId, setEditingResearchCardId] = useState<string | null>(null);
+  const researchFormRef = useRef<HTMLFormElement | null>(null);
 
   const startEditResearchCard = (card: Record<string, unknown>) => {
     setInputValue("researchSymbol", String(card.symbol ?? ""));
@@ -739,6 +740,9 @@ export function FinanceContentApp({
     setInputValue("researchInvalidation", String(card.invalidation ?? ""));
     setInputValue("researchSources", asArray(card.sources).join("\n"));
     setEditingResearchCardId(String(card.id ?? ""));
+    requestAnimationFrame(() => {
+      researchFormRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
   };
 
   const clearResearchForm = () => {
@@ -916,6 +920,7 @@ export function FinanceContentApp({
             </button>
           </div>
           <form
+            ref={researchFormRef}
             className="finance-form"
             aria-busy={Boolean(busy.research)}
             onSubmit={(event) => {
