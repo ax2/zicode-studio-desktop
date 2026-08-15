@@ -708,7 +708,7 @@ export function FinanceContentApp({
           className="ui-button ui-button--primary"
           onClick={() => controller.openSceneSettings()}
         >
-          {t("Open scene settings")}
+          {t("Select finance scene")}
         </button>
       </section>
     );

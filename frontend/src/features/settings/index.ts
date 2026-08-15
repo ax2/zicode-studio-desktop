@@ -43,6 +43,7 @@ export interface SettingsPanelHandle {
   deactivate(): void;
   thinkingControl: { updateUI(level: string): void };
   setTarget(target: unknown): void;
+  selectScene(id: string): void;
 }
 
 export function setupSettingsPanel(options: SettingsPanelOptions = {}): SettingsPanelHandle {
@@ -224,6 +225,9 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     },
     setTarget(target) {
       controller.setTarget(target);
+    },
+    selectScene(id) {
+      widgetsStore.getState().setSceneSelected(id);
     },
   };
 }

@@ -670,6 +670,7 @@ const financeWorkbench = setupFinanceWorkbench({
   openConfiguration: () => settingsPanel?.openSettings("configuration"),
   openSceneSettings: () => {
     settingsPanel?.openSettings("general");
+    settingsPanel?.selectScene?.("finance");
     requestAnimationFrame(() => {
       document
         .getElementById("scene-profile-section")
