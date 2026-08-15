@@ -541,7 +541,12 @@ function JsonForm({
         >
           {t("Format JSON")}
         </button>
-        <button type="submit" className="ui-button ui-button--primary" disabled={busy}>
+        <button
+          type="submit"
+          className="ui-button ui-button--primary"
+          disabled={busy}
+          aria-busy={busy}
+        >
           {submitLabel}
         </button>
       </div>
@@ -739,7 +744,7 @@ export function FinanceContentApp({
               >
                 {t("Clear")}
               </button>
-              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.discovery)}>
+              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.discovery)} aria-busy={Boolean(busy.discovery)}>
                 {t("Discover")}
               </button>
             </div>
@@ -933,7 +938,7 @@ export function FinanceContentApp({
               >
                 {t("Clear")}
               </button>
-              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)}>
+              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)} aria-busy={Boolean(busy.research)}>
                 {t("Save research card")}
               </button>
             </div>
@@ -1005,7 +1010,7 @@ export function FinanceContentApp({
               >
                 {t("Clear")}
               </button>
-              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.paperAccount)}>
+              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.paperAccount)} aria-busy={Boolean(busy.paperAccount)}>
                 {t("Create account")}
               </button>
             </div>
