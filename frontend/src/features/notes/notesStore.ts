@@ -9,6 +9,7 @@ import {
   noteFrontmatter,
   parseTags,
   safeFileName,
+  sortNotesByRelevance,
   type Note,
   type NotesMode,
   type NotesSnapshot,
@@ -360,6 +361,9 @@ export function createNotesStore(options: NotesStoreOptions) {
           sourceOnly: state.sourceOnly,
         });
         const snapshot = response.snapshot ?? { notebooks: [], notes: [], tags: [] };
+        if (state.query.trim()) {
+          snapshot.notes = sortNotesByRelevance(snapshot.notes, state.query);
+        }
         let selectedNotebookId = state.selectedNotebookId;
         if (selectedNotebookId && !snapshot.notebooks.some((n) => n.id === selectedNotebookId)) {
           selectedNotebookId = null;

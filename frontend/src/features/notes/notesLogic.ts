@@ -310,6 +310,19 @@ export function stripMarkdown(text: string): string {
     .trim();
 }
 
+export function sortNotesByRelevance<T extends { title: string }>(
+  notes: T[],
+  query: string,
+): T[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return notes;
+  return [...notes].sort((left, right) => {
+    const leftTitle = left.title.toLowerCase().includes(needle) ? 0 : 1;
+    const rightTitle = right.title.toLowerCase().includes(needle) ? 0 : 1;
+    return leftTitle - rightTitle;
+  });
+}
+
 /** Minimal YAML frontmatter for a portable single-note Markdown export. */
 export function noteFrontmatter(title: string, tags: string[], source?: string): string {
   const lines = ["---", `title: ${JSON.stringify(title)}`];

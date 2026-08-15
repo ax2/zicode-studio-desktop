@@ -14,6 +14,7 @@ import {
   noteFrontmatter,
   parseTags,
   safeFileName,
+  sortNotesByRelevance,
   stripMarkdown,
   tagIcon,
 } from "./notesLogic";
@@ -128,6 +129,19 @@ describe("notes logic", () => {
       "Heading Some bold and code with a link",
     );
     expect(stripMarkdown("- item one\n- item two")).toBe("item one item two");
+  });
+
+  it("ranks title matches above content-only matches", () => {
+    const notes = [
+      { title: "Changelog" },
+      { title: "Roadmap" },
+      { title: "Design" },
+    ];
+    expect(sortNotesByRelevance(notes, "road").map((note) => note.title)).toEqual([
+      "Roadmap",
+      "Changelog",
+      "Design",
+    ]);
   });
 
   it("parses tags, dates, titles, and file names", () => {
