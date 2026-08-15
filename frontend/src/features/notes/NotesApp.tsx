@@ -741,7 +741,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
           {isSelected ? "✓" : ""}
         </span>
       ) : null}
-      {note.icon ? <span className="notes-note-icon">{note.icon}</span> : null}
+      <span className="notes-note-icon">{note.icon || DEFAULT_NOTE_ICON}</span>
       <span className="notes-list-item-main">
         <strong>
           <HighlightedText text={note.title} query={query} />
