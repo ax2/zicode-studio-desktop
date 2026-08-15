@@ -371,8 +371,8 @@ export function SessionSidebarApp({
             {showArchiveButton ? (
               <button
                 className="session-archive-btn"
-                title={archiveLabel}
-                aria-label={archiveLabel}
+                title={`${archiveLabel} ${title}`}
+                aria-label={`${archiveLabel} ${title}`}
                 onClick={(event) => {
                   event.stopPropagation();
                   controller.toggleArchived(session.id);
@@ -383,8 +383,8 @@ export function SessionSidebarApp({
             ) : null}
             <button
               className="session-more-btn"
-              title={t("More actions")}
-              aria-label={t("More actions")}
+              title={`${t("More actions")} ${title}`}
+              aria-label={`${t("More actions")} ${title}`}
               onClick={(event) => {
                 event.stopPropagation();
                 controller.showSessionMenuFromButton(
