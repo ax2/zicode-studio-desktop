@@ -100,6 +100,29 @@ function CopyResultButton({ response }: { response: unknown }) {
   );
 }
 
+function CopyAccountIdButton({ accountId }: { accountId: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      if (typeof navigator.clipboard?.writeText !== "function") return;
+      await navigator.clipboard.writeText(accountId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable; keep the label as "Copy ID".
+    }
+  };
+  return (
+    <button
+      type="button"
+      className="ui-button ui-button--ghost ui-button--sm"
+      onClick={() => void copy()}
+    >
+      {copied ? t("Copied") : t("Copy ID")}
+    </button>
+  );
+}
+
 function MetricGrid({
   entries,
   percentLabels = [],
@@ -394,6 +417,7 @@ function PaperAccountsResults({
             )} ${number(account.positionCount)}`}
           </span>
           <code>{String(account.id)}</code>
+          <CopyAccountIdButton accountId={String(account.id)} />
           <button
             type="button"
             className="ui-button ui-button--ghost ui-button--sm"

@@ -934,6 +934,7 @@ const zhCN = {
   "Format JSON": "格式化 JSON",
   "JSON input": "JSON 输入",
   "Copy result": "复制结果",
+  "Copy ID": "复制 ID",
   "Must be a JSON object": "必须是 JSON 对象",
   "Valid JSON": "JSON 有效",
   "Invalid JSON": "JSON 无效",
