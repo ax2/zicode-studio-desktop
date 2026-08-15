@@ -58,7 +58,11 @@ export function replaceTemporarySessionRoute(
 ) {
   if (!validId(temporarySessionId)) throw new Error("Invalid temporary sessionId");
   const path = appRoutePath({ name: "session", workspaceId, sessionId: formalSessionId });
-  history.replaceState(null, "", path);
+  // Preserve the existing history state (notably the active plugin id written
+  // by the plugin shell). Replacing it with `null` would drop that state and
+  // make a later Back navigation (for example, closing the mobile "More" app
+  // menu) fall back to Chat instead of staying on the current app.
+  history.replaceState(history.state, "", path);
 }
 
 export function resolveHistoryNavigation(currentTarget, pathname) {
