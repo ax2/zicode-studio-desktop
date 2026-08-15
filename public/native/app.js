@@ -680,7 +680,7 @@ const financeWorkbench = setupFinanceWorkbench({
   },
   createFinanceSession: () => {
     settingsPanel?.selectScene?.("finance");
-    void createSessionInApp({
+    return createSessionInApp({
       data,
       workspaceId: target.workspaceId,
       sceneId: "finance",

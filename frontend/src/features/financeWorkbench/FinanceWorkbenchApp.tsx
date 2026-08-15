@@ -24,7 +24,7 @@ export interface FinanceWorkbenchController {
   selectView(id: string): void;
   openConfiguration(): void;
   openSceneSettings(): void;
-  createFinanceSession(): void;
+  createFinanceSession(): Promise<unknown>;
   runUsage(): void;
   runDiscovery(query: string): void;
   saveSnapshot(input: string): void;
@@ -693,6 +693,7 @@ export function FinanceContentApp({
   const inputValue = (key: string) => jsonInputs[key] ?? "";
   const setInputValue = (key: string, value: string) =>
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
+  const [creatingSession, setCreatingSession] = useState(false);
 
 
   if (sceneId !== "finance") {
@@ -708,9 +709,18 @@ export function FinanceContentApp({
           <button
             type="button"
             className="ui-button ui-button--primary"
-            onClick={() => controller.createFinanceSession()}
+            disabled={creatingSession}
+            aria-busy={creatingSession}
+            onClick={async () => {
+              setCreatingSession(true);
+              try {
+                await controller.createFinanceSession();
+              } finally {
+                setCreatingSession(false);
+              }
+            }}
           >
-            {t("New Finance session")}
+            {creatingSession ? t("Starting session…") : t("New Finance session")}
           </button>
           <button
             type="button"

@@ -25,7 +25,7 @@ export interface FinanceWorkbenchOptions {
   getTarget?(): { sceneId?: string; workspaceId?: string } | null;
   openConfiguration?(): void;
   openSceneSettings?(): void;
-  createFinanceSession?(): void;
+  createFinanceSession?(): Promise<unknown>;
   openFinanceApp?(): void;
   artifactGateway?: {
     create(
@@ -53,7 +53,7 @@ export function setupFinanceWorkbench({
   getTarget = () => null,
   openConfiguration = () => {},
   openSceneSettings = () => {},
-  createFinanceSession = () => {},
+  createFinanceSession = async () => {},
   openFinanceApp = () => {},
   artifactGateway = null,
   notify = () => {},
@@ -188,7 +188,7 @@ export function setupFinanceWorkbench({
     },
     openConfiguration: () => openConfiguration?.(),
     openSceneSettings: () => openSceneSettings?.(),
-    createFinanceSession: () => createFinanceSession?.(),
+    createFinanceSession: () => createFinanceSession(),
     async runUsage() {
       setBusy("usage", true);
       setResult("usage", { ok: false, error: t("Loading usage audit…") });
