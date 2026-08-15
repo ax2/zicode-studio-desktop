@@ -165,6 +165,9 @@ export function createDocumentsStore(options: DocumentsOptions) {
       try {
         await saveToNotes(selectedNotebookId, result.fileName, result.markdown);
         set({ saving: false });
+        // Saving may auto-create the fallback notebook when none existed, so
+        // refresh the target list to reflect it.
+        await get().loadNotebooks();
         notify(t("Saved to notes"));
       } catch (error) {
         set({ saving: false, error: localizeHostError(error).message });
