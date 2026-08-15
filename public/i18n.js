@@ -1407,7 +1407,6 @@ const zhCN = {
   "Clear search": "清除搜索",
   "Search tasks": "搜索任务",
   "Search tasks and messages…": "搜索任务和消息…",
-  "Search results": "搜索结果",
   "Recent tasks": "最近任务",
   "Message matches": "消息匹配",
   buy: "买入",

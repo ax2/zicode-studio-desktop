@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
-import { localizeHostError } from "../../shared/hostErrors.js";
+import { isRuntimeProcessClosedError, localizeHostError } from "../../shared/hostErrors.js";
 import {
   isAutomationDue,
   nextAutomationRun,
@@ -27,6 +27,7 @@ export interface AutomationAppOptions {
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
   confirmRemove?: (message: string) => boolean | Promise<boolean>;
   pollIntervalMs?: number;
+  retryDelayMs?: number;
 }
 
 interface AutomationState {
@@ -54,6 +55,7 @@ export function createAutomationStore(options: AutomationAppOptions) {
     options.confirmRemove ??
     ((message: string) => globalThis.confirm?.(message) ?? false);
   const pollIntervalMs = options.pollIntervalMs ?? 60_000;
+  const retryDelayMs = options.retryDelayMs ?? 1000;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let ticking = false;
 
@@ -79,11 +81,7 @@ export function createAutomationStore(options: AutomationAppOptions) {
       if (get().loading || typeof call !== "function") return get().workflows;
       set({ loading: true });
       try {
-        const response = await call("automation_workspace", { action: "list" });
-        if (!response?.ok) {
-          throw new Error(response?.error || t("Automation service is unavailable"));
-        }
-        const workflows = response.data?.workflows ?? [];
+        const workflows = await listWorkflowsWithRetry(call, retryDelayMs);
         set({ workflows, error: null });
         return workflows;
       } catch (reason) {
@@ -200,6 +198,34 @@ export function createAutomationStore(options: AutomationAppOptions) {
       pollTimer = null;
     },
   }));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function listWorkflowsWithRetry(
+  call: AutomationAppOptions["call"],
+  retryDelayMs: number,
+): Promise<AutomationWorkflow[]> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await call("automation_workspace", { action: "list" });
+      if (!response?.ok) {
+        throw new Error(response?.error || t("Automation service is unavailable"));
+      }
+      return response.data?.workflows ?? [];
+    } catch (reason) {
+      lastError = reason;
+      if (attempt < 2 && isRuntimeProcessClosedError(reason)) {
+        await sleep(retryDelayMs);
+        continue;
+      }
+      throw reason;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 interface StoreRefs {

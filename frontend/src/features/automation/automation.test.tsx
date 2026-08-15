@@ -109,11 +109,29 @@ describe("automation store host errors", () => {
     const call = vi.fn(async () => {
       throw new Error("Pi RPC request failed: ProcessClosed");
     });
-    const store = createAutomationStore({ call });
+    const store = createAutomationStore({ call, retryDelayMs: 0 });
     await store.getState().load();
     expect(store.getState().error?.message).toBe(
       "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
     );
+    store.getState().destroy();
+  });
+
+  it("retries briefly when the Pi runtime is still starting", async () => {
+    setLocale("zh-CN");
+    let attempts = 0;
+    const call = vi.fn(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error("Pi RPC request failed: ProcessClosed");
+      }
+      return { ok: true, data: { workflows: [WORKFLOW] } };
+    });
+    const store = createAutomationStore({ call, retryDelayMs: 0 });
+    const workflows = await store.getState().load();
+    expect(workflows).toEqual([WORKFLOW]);
+    expect(store.getState().error).toBeNull();
+    expect(call).toHaveBeenCalledTimes(2);
     store.getState().destroy();
   });
 
