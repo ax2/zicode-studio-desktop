@@ -1411,7 +1411,7 @@ describe("notes React components", () => {
     );
     expect(document.querySelector(".notes-content-input")).toBeTruthy();
     expect(document.querySelectorAll(".notes-tag-chip").length).toBe(1);
-    expect(document.querySelector(".notes-char-count")?.textContent).toContain(
+    expect(document.querySelector(".notes-editor-stats")?.textContent).toContain(
       String(NOTE.content.length),
     );
   });

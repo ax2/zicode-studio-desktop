@@ -1703,14 +1703,6 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   ? t("Unsaved changes")
                   : ""}
           </span>
-          <span className="notes-char-count" title={t("Character count")}>
-            {draftContent.length} {t("characters")}
-          </span>
-          {estimateReadingMinutes(draftContent) > 0 ? (
-            <span className="notes-char-count" title={t("Reading time")}>
-              ≈ {estimateReadingMinutes(draftContent)} {t("min read")}
-            </span>
-          ) : null}
           <ToolbarButton
             label={deleteArmed ? t("Confirm delete") : t("Delete")}
             icon={ICONS.trash}
@@ -1767,6 +1759,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
         />
         <PinButton store={store} note={note} />
       </div>
+      <p className="notes-editor-stats">
+        <span title={t("Character count")}>
+          {draftContent.length} {t("characters")}
+        </span>
+        {estimateReadingMinutes(draftContent) > 0 ? (
+          <span title={t("Reading time")}>
+            {" · "}≈ {estimateReadingMinutes(draftContent)} {t("min read")}
+          </span>
+        ) : null}
+      </p>
       <TagEditor
         store={store}
         tags={draftTags}

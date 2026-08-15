@@ -12,11 +12,10 @@
   white-space: nowrap;
 }
 
-.notes-char-count {
-  align-self: center;
+.notes-editor-stats {
+  margin: 0 0 var(--space-2);
   color: var(--text-dim);
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
+  font-size: var(--font-size-sm);
 }
 
 .notes-save-state[data-save-state="saved"] {
