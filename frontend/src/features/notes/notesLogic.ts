@@ -217,7 +217,7 @@ export function buildHeadingOutline(root: ParentNode): OutlineEntry[] {
       .slice(0, 60) || "heading";
     const occurrence = seen.get(base) ?? 0;
     seen.set(base, occurrence + 1);
-    const id = occurrence === 0 ? base : `${base}-${occurrence + 1}`;
+    const id = `note-h-${occurrence === 0 ? base : `${base}-${occurrence + 1}`}`;
     heading.id = id;
     return { id, level: Number(heading.tagName.slice(1)), text: raw };
   });

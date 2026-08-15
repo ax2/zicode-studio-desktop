@@ -152,10 +152,10 @@ describe("notes logic", () => {
     root.innerHTML =
       "<h1>Intro</h1><p>x</p><h2>Setup</h2><h2>Setup</h2><h3>Deep</h3><h4>Ignored</h4>";
     expect(buildHeadingOutline(root)).toEqual([
-      { id: "intro", level: 1, text: "Intro" },
-      { id: "setup", level: 2, text: "Setup" },
-      { id: "setup-2", level: 2, text: "Setup" },
-      { id: "deep", level: 3, text: "Deep" },
+      { id: "note-h-intro", level: 1, text: "Intro" },
+      { id: "note-h-setup", level: 2, text: "Setup" },
+      { id: "note-h-setup-2", level: 2, text: "Setup" },
+      { id: "note-h-deep", level: 3, text: "Deep" },
     ]);
     expect(root.querySelector("h4")?.id).toBe("");
   });
