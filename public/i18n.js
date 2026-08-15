@@ -76,6 +76,7 @@ const zhCN = {
   "Processing…": "处理中…",
   "Run a process to preview the result here.": "执行处理后，这里会显示结果预览。",
   "Image processed": "图片已处理",
+  "Clear images": "清空图片",
   Contain: "等比缩放（留边）",
   Cover: "等比裁剪（填满）",
   Stretch: "拉伸",

@@ -105,7 +105,7 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
                 className="ui-button ui-button--ghost ui-button--sm"
                 onClick={() => store.getState().clearImages()}
               >
-                {t("Clear all")}
+                {t("Clear images")}
               </button>
             ) : null}
           </div>
