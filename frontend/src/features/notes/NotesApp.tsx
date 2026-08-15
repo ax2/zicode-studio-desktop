@@ -378,6 +378,7 @@ function IconAction({
 function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: Notebook }) {
   const [title, setTitle] = useState(notebook.title);
   const [icon, setIcon] = useState(notebook.icon || DEFAULT_NOTEBOOK_ICON);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     inputRef.current?.focus();
@@ -385,9 +386,14 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
   return (
     <form
       className="notes-notebook-edit-form"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
-        void store.getState().updateNotebook(notebook.id, title, icon);
+        setError(null);
+        try {
+          await store.getState().updateNotebook(notebook.id, title, icon);
+        } catch (updateError) {
+          setError(updateError instanceof Error ? updateError.message : String(updateError));
+        }
       }}
     >
       <label htmlFor="notes-edit-icon">
@@ -419,6 +425,7 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
+      {error ? <p className="notes-form-error">{error}</p> : null}
       <div className="notes-form-actions">
         <button
           type="button"

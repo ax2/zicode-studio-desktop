@@ -696,7 +696,9 @@ export function createNotesStore(options: NotesStoreOptions) {
         await get().load({ preserveSelection: true });
         notify(t("Notebook saved"));
       } catch (error) {
-        set({ error: localizeNotesHostError(error), loading: false });
+        const friendly = localizeNotesHostError(error);
+        set({ error: friendly, loading: false });
+        throw friendly;
       }
     },
 

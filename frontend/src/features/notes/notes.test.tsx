@@ -915,6 +915,19 @@ describe("notes store", () => {
     expect(store.getState().loading).toBe(false);
   });
 
+  it("surfaces a localized notebook-rename error instead of swallowing it", async () => {
+    const updateNotebook = vi.fn(async () => {
+      throw new Error("Notebook not found");
+    });
+    const store = storeWithGateway({ updateNotebook });
+    await store.getState().load();
+    await expect(
+      store.getState().updateNotebook("book-1", "Renamed", "🚀"),
+    ).rejects.toThrow();
+    expect(store.getState().error).toBeTruthy();
+    expect(store.getState().loading).toBe(false);
+  });
+
   it("exports a readable backup through the download hook", async () => {
     const downloadFile = vi.fn();
     const store = createNotesStore({
