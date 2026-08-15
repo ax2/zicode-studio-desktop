@@ -1392,6 +1392,15 @@ function FilterResultsView({ store }: { store: NotesStore }) {
                   <HighlightedText text={stripMarkdown(note.snippet)} query={query} />
                 </span>
               ) : null}
+              {note.tags && note.tags.length > 0 ? (
+                <span className="notes-result-tags">
+                  {note.tags.map((tag) => (
+                    <span key={tag} className="notes-result-tag">
+                      {tagIcon(tag)} {tag}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
               <span>{formatDate(note.updatedAt)}</span>
             </span>
             <PinButton store={store} note={note} />

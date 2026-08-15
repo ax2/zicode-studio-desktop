@@ -747,6 +747,17 @@
   font-size: var(--font-size-xs);
 }
 
+.notes-result-main .notes-result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.notes-result-main .notes-result-tag {
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+}
+
 .notes-state-panel {
   width: min(var(--app-content-max-width), 100%);
   margin: auto;
