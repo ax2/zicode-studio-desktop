@@ -1527,7 +1527,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
   useEffect(() => {
     if (!moreOpen) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!moreMenuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const onMoreButton =
+        target instanceof Element && !!target.closest(".notes-more-btn");
+      if (!moreMenuRef.current?.contains(target) && !onMoreButton) {
         setMoreOpen(false);
       }
     };

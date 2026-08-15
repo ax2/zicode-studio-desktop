@@ -1444,6 +1444,11 @@ describe("notes React components", () => {
     );
     expect(document.querySelector(".notes-more-menu .notes-attach")).toBeTruthy();
     expect(document.querySelector(".notes-more-menu .notes-delete")).toBeTruthy();
+
+    moreButton.click();
+    await waitFor(() =>
+      expect(document.querySelector(".notes-more-menu")).toBeNull(),
+    );
   });
 
   it("focuses and selects the title when a new note is created", async () => {
