@@ -152,6 +152,10 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           type="text"
           placeholder={t("Name")}
           required
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
@@ -162,6 +166,10 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           className="ui-input"
           type="text"
           placeholder={t("Target project")}
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={targetProject}
           onChange={(e) => setTargetProject(e.target.value)}
         />
