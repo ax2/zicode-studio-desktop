@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { Select } from "../../shared/Select";
 import {
   projectName,
   type ProjectTarget,
@@ -222,16 +223,17 @@ function ContextEditor({ store }: { store: ProjectStore }) {
         />
       </Field>
       <Field label={t("Default scene")} htmlFor="project-scene">
-        <select
+        <Select
           id="project-scene"
-          className="ui-select"
           value={draft.defaultScene}
-          onChange={(event) => setContextDraft({ defaultScene: event.target.value })}
-        >
-          <option value="programming">{t("Programming")}</option>
-          <option value="finance">{t("Finance")}</option>
-          <option value="creative">{t("Creative")}</option>
-        </select>
+          label={t("Default scene")}
+          options={[
+            { value: "programming", label: t("Programming") },
+            { value: "finance", label: t("Finance") },
+            { value: "creative", label: t("Creative") },
+          ]}
+          onChange={(value) => setContextDraft({ defaultScene: value })}
+        />
       </Field>
       <Field label={t("Session budget")} htmlFor="project-budget">
         <input

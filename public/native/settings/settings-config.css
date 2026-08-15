@@ -107,7 +107,8 @@
   display: none;
 }
 
-.provider-channel-editor label {
+.provider-channel-editor label,
+.provider-channel-editor .config-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);

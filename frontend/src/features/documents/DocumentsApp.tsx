@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
 import { isSupportedDocument, readFileAsDataUrl } from "./documentsLogic";
@@ -166,19 +167,20 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
             )}
             <div className="idphoto-result-actions">
               {notebooks.length > 0 ? (
-                <label className="settings-field documents-notebook">
+                <div className="settings-field documents-notebook">
                   <span>{t("Save to notebook")}</span>
-                  <select
+                  <Select
+                    id="documents-notebook"
                     value={selectedNotebookId}
-                    onChange={(event) => store.getState().setNotebook(event.target.value)}
-                  >
-                    {notebooks.map((notebook) => (
-                      <option key={notebook.id} value={notebook.id}>
-                        {notebook.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    label={t("Save to notebook")}
+                    className="documents-notebook-select"
+                    options={notebooks.map((notebook) => ({
+                      value: notebook.id,
+                      label: notebook.title,
+                    }))}
+                    onChange={(value) => store.getState().setNotebook(value)}
+                  />
+                </div>
               ) : null}
               <button
                 type="button"

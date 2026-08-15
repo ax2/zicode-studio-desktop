@@ -1,4 +1,5 @@
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import type {
   ConfigModel,
   ConfigProvider,
@@ -543,20 +544,21 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
           onChange={(event) => setForm({ baseUrl: event.target.value })}
         />
       </label>
-      <label>
+      <div className="config-field">
         <span>{t("API protocol")}</span>
-        <select
-          className="ui-input"
+        <Select
           id="provider-channel-api"
           value={form.api}
-          onChange={(event) => setForm({ api: event.target.value })}
-        >
-          <option value="openai-completions">OpenAI Chat Completions</option>
-          <option value="openai-responses">OpenAI Responses</option>
-          <option value="anthropic-messages">Anthropic Messages</option>
-          <option value="google-generative-ai">Google Generative AI</option>
-        </select>
-      </label>
+          label={t("API protocol")}
+          options={[
+            { value: "openai-completions", label: "OpenAI Chat Completions" },
+            { value: "openai-responses", label: "OpenAI Responses" },
+            { value: "anthropic-messages", label: "Anthropic Messages" },
+            { value: "google-generative-ai", label: "Google Generative AI" },
+          ]}
+          onChange={(value) => setForm({ api: value })}
+        />
+      </div>
       <label>
         <span>{t("API key")}</span>
         <input
