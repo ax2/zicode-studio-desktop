@@ -1150,7 +1150,7 @@ function CaptureForm({ store }: { store: NotesStore }) {
       >
         <label>
           <span>{t("Page URL")}</span>
-          <input ref={urlRef} className="notes-field-input" type="url" required placeholder="https://example.com/article" value={url} onChange={(event) => setUrl(event.target.value)} />
+          <input ref={urlRef} className="notes-field-input" type="url" required autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="https://example.com/article" value={url} onChange={(event) => setUrl(event.target.value)} />
         </label>
         <label>
           <span>{t("Title override (optional)")}</span>

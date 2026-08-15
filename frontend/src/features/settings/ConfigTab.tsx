@@ -543,6 +543,10 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
           id="provider-channel-base-url"
           required
           type="url"
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="https://models.example.com/v1"
           value={form.baseUrl}
           onChange={(event) => setForm({ baseUrl: event.target.value })}

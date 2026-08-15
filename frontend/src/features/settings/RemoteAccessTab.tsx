@@ -158,6 +158,8 @@ function PublicSection({ store }: { store: RemoteAccessStore }) {
             type="url"
             spellCheck={false}
             autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
             value={publicUrlInput}
             placeholder="https://www.zicode.com:39010"
             onChange={(event) => setInputs(event.target.value, publicEnrollmentInput)}
@@ -169,6 +171,8 @@ function PublicSection({ store }: { store: RemoteAccessStore }) {
             type="url"
             spellCheck={false}
             autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
             value={publicEnrollmentInput}
             placeholder="http://www.zicode.com:39011"
             onChange={(event) => setInputs(publicUrlInput, event.target.value)}
@@ -285,6 +289,8 @@ function RelaySection({ store }: { store: RemoteAccessStore }) {
             type="url"
             spellCheck={false}
             autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
             value={relayUrlInput}
             placeholder="wss://relay.zicode.com"
             onChange={(event) => setRelayUrlInput(event.target.value)}

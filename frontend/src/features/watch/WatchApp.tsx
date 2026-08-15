@@ -56,6 +56,10 @@ function WatchMain({ store }: { store: WatchStore }) {
             placeholder={t("Page URL")}
             aria-label={t("Page URL")}
             type="url"
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             onChange={(event) => store.getState().setDraft({ draftUrl: event.target.value })}
           />
           <button
@@ -109,6 +113,10 @@ function WatchMain({ store }: { store: WatchStore }) {
                           value={draftUrl}
                           aria-label={t("Page URL")}
                           type="url"
+                          autoComplete="off"
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          spellCheck={false}
                           onChange={(event) =>
                             store.getState().setDraft({ draftUrl: event.target.value })
                           }
