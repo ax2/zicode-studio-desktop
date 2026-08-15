@@ -1742,6 +1742,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
             onKeyUp={() => {
               currentSelectionRef.current = selection();
             }}
+            onTouchEnd={() => {
+              currentSelectionRef.current = selection();
+            }}
           />
           {outline.length > 0 ? (
             <nav className="notes-outline" aria-label={t("Outline")}>
