@@ -484,10 +484,17 @@ function JsonForm({
       return null;
     } catch (error) {
       if (error instanceof SyntaxError) {
-        const position = error.message.match(/position (\d+)/)?.[1];
-        return position
-          ? t("Invalid JSON at position {n}").replace("{n}", position)
-          : t("Invalid JSON");
+        const position = Number(error.message.match(/position (\d+)/)?.[1]);
+        if (Number.isFinite(position)) {
+          const before = text.slice(0, position);
+          const lines = before.split("\n");
+          const line = lines.length;
+          const column = lines[lines.length - 1].length + 1;
+          return t("Invalid JSON at line {line}, column {column}")
+            .replace("{line}", String(line))
+            .replace("{column}", String(column));
+        }
+        return t("Invalid JSON");
       }
       return error instanceof Error ? error.message : String(error);
     }
