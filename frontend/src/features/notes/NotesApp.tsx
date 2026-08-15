@@ -1198,6 +1198,7 @@ function TagEditor({
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const pool = allTagSuggestions(snapshotTags).filter(
     (name) => !tags.includes(name) && (!input.trim() || name.toLowerCase().includes(input.trim().toLowerCase())),
   );
@@ -1240,6 +1241,7 @@ function TagEditor({
         ))}
       </div>
       <input
+        ref={inputRef}
         className="notes-tag-input"
         placeholder={t("Add tag")}
         aria-label={t("Add tag")}
@@ -1308,7 +1310,10 @@ function TagEditor({
               aria-selected={index === activeIndex}
               onPointerDown={(event) => event.preventDefault()}
               onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => addTag(name)}
+              onClick={() => {
+                addTag(name);
+                inputRef.current?.focus();
+              }}
             >
               <span className="notes-tag-chip-icon">{tagIcon(name)}</span>
               <span>{name}</span>
