@@ -6,13 +6,22 @@ export interface FinanceResponse {
   data?: Record<string, unknown>;
 }
 
+function toFiniteNumber(value: unknown): number {
+  if (value === null || value === undefined) return Number.NaN;
+  if (typeof value === "string" && value.trim() === "") return Number.NaN;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : Number.NaN;
+}
+
 export function percent(value: unknown): string {
-  return Number.isFinite(value) ? `${((value as number) * 100).toFixed(2)}%` : "—";
+  const numeric = toFiniteNumber(value);
+  return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(2)}%` : "—";
 }
 
 export function number(value: unknown): string {
-  return Number.isFinite(value)
-    ? new Intl.NumberFormat().format(value as number)
+  const numeric = toFiniteNumber(value);
+  return Number.isFinite(numeric)
+    ? new Intl.NumberFormat().format(numeric)
     : "—";
 }
 

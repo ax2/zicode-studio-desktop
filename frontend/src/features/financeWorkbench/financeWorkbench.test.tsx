@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { setupFinanceWorkbench } from "./index";
+import { number, percent } from "./financeWorkbenchLogic";
 
 function mountWorkbench(
   target: { sceneId: string } = { sceneId: "finance" },
@@ -38,6 +39,18 @@ afterEach(() => {
 });
 
 describe("finance workbench", () => {
+  it("formats percentages and numbers even when the backend returns numeric strings", () => {
+    expect(percent(0.1234)).toBe("12.34%");
+    expect(percent("0.05")).toBe("5.00%");
+    expect(percent("not-a-number")).toBe("—");
+    expect(percent(null)).toBe("—");
+
+    expect(number(1234.5)).not.toBe("—");
+    expect(number("9876")).not.toBe("—");
+    expect(number("")).toBe("—");
+    expect(number(undefined)).toBe("—");
+  });
+
   it("renders Finance navigation and one exclusive main view with a scene guard", () => {
     const targetRef = { current: { sceneId: "finance" } };
     const { navigation, content, workbench } = mountWorkbench(undefined, {
