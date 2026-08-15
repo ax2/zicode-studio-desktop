@@ -1318,6 +1318,25 @@ describe("notes store", () => {
     expect(store.getState().saveState).toBe("saved");
   });
 
+  it("notifies only on manual save, not on autosave", async () => {
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+
+    store.getState().setDraft({ content: "Silent autosave" });
+    await store.getState().saveEditor(true);
+    expect(notify).not.toHaveBeenCalledWith(t("Note saved"));
+
+    store.getState().setDraft({ content: "Manual save" });
+    await store.getState().saveEditor();
+    expect(notify).toHaveBeenCalledWith(t("Note saved"));
+  });
+
   it("flushes a pending autosave when the window loses focus", async () => {
     const save = vi.fn(async (_sceneId: string, _workspaceId: string, note: Note) => ({
       note: { ...note, id: "note-1" },

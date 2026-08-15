@@ -162,7 +162,7 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       return store.getState().captureChatExchange(input);
     },
     async canDeactivate() {
-      await store.getState().saveEditor();
+      await store.getState().saveEditor(true);
       return true;
     },
     destroy() {

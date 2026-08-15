@@ -213,7 +213,7 @@ interface NotesState {
   restoreFromTrash(entry: TrashEntry): Promise<void>;
   purgeFromTrash(entry: TrashEntry): Promise<void>;
   emptyTrash(): Promise<void>;
-  saveEditor(): Promise<void>;
+  saveEditor(silent?: boolean): Promise<void>;
   saveIfDirty(): Promise<void>;
   markDirty(): void;
   scheduleAutosave(): void;
@@ -338,7 +338,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async applyFilter({ tag = null, sourceOnly: clipOnly = false } = {}) {
-      await get().saveEditor();
+      await get().saveEditor(true);
       // "Show all notes" (no tag, no web-clip filter) also clears an active
       // search query so the results list returns to the full library. A
       // tag/clip filter keeps the query so the two can be combined.
@@ -357,7 +357,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async selectNote(summary) {
-      await get().saveEditor();
+      await get().saveEditor(true);
       set({ loading: true, error: null });
       try {
         const response = await gateway.get(
@@ -475,7 +475,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async newNote() {
-      await get().saveEditor();
+      await get().saveEditor(true);
       const notebookId = get().selectedNotebookId ?? get().snapshot.notebooks[0]?.id;
       if (!notebookId) {
         set({ mode: "new-notebook" });
@@ -549,7 +549,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async startCapture() {
-      await get().saveEditor();
+      await get().saveEditor(true);
       if (!get().selectedNotebookId && get().snapshot.notebooks.length === 0) {
         set({ mode: "new-notebook" });
       } else {
@@ -770,7 +770,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
     },
 
-    async saveEditor() {
+    async saveEditor(silent = false) {
       const note = get().selectedNote;
       if (!note) return;
       if (autosaveTimer) {
@@ -801,7 +801,7 @@ export function createNotesStore(options: NotesStoreOptions) {
           dirty: false,
           saveState: "saved",
         });
-        notify(t("Note saved"));
+        if (!silent) notify(t("Note saved"));
         setTimeout(() => {
           if (get().saveState === "saved") set({ saveState: "idle" });
         }, 2000);
@@ -818,7 +818,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     async saveIfDirty() {
       if (get().dirty) {
         try {
-          await get().saveEditor();
+          await get().saveEditor(true);
         } catch {
           // Preserve the primary action even if the pending save fails.
         }
@@ -832,7 +832,7 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     scheduleAutosave() {
       if (autosaveTimer) clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(() => void get().saveEditor(), AUTOSAVE_DELAY_MS);
+      autosaveTimer = setTimeout(() => void get().saveEditor(true), AUTOSAVE_DELAY_MS);
     },
 
     cancelAutosave() {
@@ -906,7 +906,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
 
     async moveNoteTo(sourceNotebookId, noteId, targetNotebookId) {
-      await get().saveEditor();
+      await get().saveEditor(true);
       const summary = get().snapshot.notes.find(
         (candidate) => candidate.id === noteId && candidate.notebookId === sourceNotebookId,
       );
@@ -951,7 +951,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         (candidate) => selected.includes(candidate.id) && candidate.notebookId !== targetNotebookId,
       );
       if (summaries.length === 0 || !targetNotebookId) return;
-      await get().saveEditor();
+      await get().saveEditor(true);
       set({ loading: true, error: null });
       let firstError: Error | null = null;
       let movedCount = 0;
@@ -990,7 +990,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         selected.includes(candidate.id),
       );
       if (summaries.length === 0) return;
-      await get().saveEditor();
+      await get().saveEditor(true);
       set({ loading: true, error: null });
       let firstError: Error | null = null;
       let deletedCount = 0;
@@ -1042,7 +1042,7 @@ export function createNotesStore(options: NotesStoreOptions) {
         get().setDraft({
           content: `${current}${separator}${response.attachment.markdown}\n`,
         });
-        void get().saveEditor();
+        void get().saveEditor(true);
         notify(t("Attachment added"));
       } catch (error) {
         set({ error: localizeNotesHostError(error) });
