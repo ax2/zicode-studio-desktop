@@ -92,14 +92,27 @@ export function NotesNav({ store }: { store: NotesStore }) {
           {selectMode ? t("Done") : t("Select")}
         </button>
       </div>
-      <input
-        type="search"
-        className="notes-search-input"
-        placeholder={t("Search notes")}
-        aria-label={t("Search notes")}
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
+      <div className="notes-search-wrap">
+        <input
+          type="search"
+          className="notes-search-input"
+          placeholder={t("Search notes")}
+          aria-label={t("Search notes")}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {query ? (
+          <button
+            type="button"
+            className="notes-search-clear"
+            aria-label={t("Clear search")}
+            title={t("Clear search")}
+            onClick={() => setQuery("")}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
       {selectMode && selectedNoteIds.length > 0 ? (
         batchOpen ? (
           <div className="notes-batch-move">
