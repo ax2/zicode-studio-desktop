@@ -905,6 +905,27 @@ export function FinanceContentApp({
               onChange={(event) => setInputValue("researchSources", event.target.value)}
             />
             <div className="finance-form-actions">
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                disabled={Boolean(busy.research)}
+                onClick={() => {
+                  for (const key of [
+                    "researchSymbol",
+                    "researchTitle",
+                    "researchEvent",
+                    "researchThesis",
+                    "researchBull",
+                    "researchBear",
+                    "researchInvalidation",
+                    "researchSources",
+                  ]) {
+                    setInputValue(key, "");
+                  }
+                }}
+              >
+                {t("Clear")}
+              </button>
               <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)}>
                 {t("Save research card")}
               </button>
