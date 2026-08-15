@@ -167,6 +167,7 @@ function SnapshotsResults({ response }: { response: unknown }) {
           </span>
         </div>
       ))}
+      <CopyResultButton response={response} />
     </>
   );
 }
