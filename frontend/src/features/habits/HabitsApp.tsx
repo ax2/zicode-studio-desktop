@@ -235,8 +235,9 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                             key={date}
                             type="button"
                             className={`habits-day${checked ? " is-done" : ""}${isToday ? " is-today" : ""}`}
-                            aria-label={date}
-                            title={date}
+                            aria-pressed={checked}
+                            aria-label={`${date} ${checked ? t("Done") : t("Not done")}`}
+                            title={`${date} · ${checked ? t("Done") : t("Not done")}`}
                             style={checked ? { background: habit.color } : undefined}
                             onClick={() => void store.getState().toggle(habit.id, date)}
                           />
