@@ -193,7 +193,7 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
           className="ui-button ui-button--secondary"
           onClick={() => setRevealAll(!revealAll)}
         >
-          {revealAll ? "Show configured only" : "Show all providers"}
+          {revealAll ? t("Show configured only") : t("Show all providers")}
         </button>
       </div>
       <div
