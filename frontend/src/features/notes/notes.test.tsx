@@ -1190,6 +1190,20 @@ describe("notes store", () => {
     expect(store.getState().saveState).toBe("saved");
   });
 
+  it("returns to the dirty state after a failed save instead of staying on saving", async () => {
+    const save = vi.fn(async () => {
+      throw new Error("save failed");
+    });
+    const store = storeWithGateway({ save });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ title: "Renamed" });
+    await store.getState().saveEditor();
+    expect(store.getState().saveState).toBe("dirty");
+    expect(store.getState().dirty).toBe(true);
+    expect(store.getState().error).toBeTruthy();
+  });
+
   it("captures a chat exchange into a conversation note", async () => {
     const create = vi.fn(async () => ({ note: { ...NOTE, id: "note-chat", title: "Question" } }));
     const store = storeWithGateway({ create });

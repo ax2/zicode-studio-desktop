@@ -794,7 +794,9 @@ export function createNotesStore(options: NotesStoreOptions) {
         }, 2000);
         await get().load();
       } catch (error) {
-        set({ error: localizeNotesHostError(error) });
+        // A failed save leaves the note unsaved; reflect that in the indicator
+        // instead of leaving it stuck on "saving…".
+        set({ error: localizeNotesHostError(error), saveState: "dirty" });
       } finally {
         set({ saveDisabled: false });
       }
