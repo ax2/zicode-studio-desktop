@@ -10,6 +10,7 @@ import {
   findActiveOutlineId,
   formatDate,
   highlightSegments,
+  noteFrontmatter,
   parseTags,
   safeFileName,
   tagIcon,
@@ -112,6 +113,9 @@ describe("notes logic", () => {
     expect(conversationNoteTitle("x".repeat(80))).toHaveLength(61);
     expect(conversationNoteTitle("# Heading\nBody")).toBe("Heading");
     expect(conversationNoteTitle("## Deep heading\nBody")).toBe("Deep heading");
+    expect(noteFrontmatter("Roadmap", ["plugin"])).toContain('title: "Roadmap"');
+    expect(noteFrontmatter("Roadmap", ["plugin"])).toContain("  - plugin");
+    expect(noteFrontmatter("Roadmap", [])).not.toContain("tags:");
     expect(safeFileName('a/b:c')).toBe("a-b-c");
     expect(tagIcon("idea")).toBe("💡");
     expect(tagIcon("custom")).toBe("🏷️");
@@ -1208,7 +1212,7 @@ describe("notes store", () => {
 
     expect(downloadFile).toHaveBeenCalledWith(
       "Roadmap.md",
-      NOTE.content,
+      expect.stringContaining('title: "Roadmap"'),
       "text/markdown",
     );
   });
@@ -1229,7 +1233,7 @@ describe("notes store", () => {
 
     expect(downloadFile).toHaveBeenCalledWith(
       "Draft title.md",
-      "Draft body",
+      expect.stringContaining("Draft body"),
       "text/markdown",
     );
   });

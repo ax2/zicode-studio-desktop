@@ -252,6 +252,17 @@ export function safeFileName(value: string): string {
     .slice(0, 120);
 }
 
+/** Minimal YAML frontmatter for a portable single-note Markdown export. */
+export function noteFrontmatter(title: string, tags: string[]): string {
+  const lines = ["---", `title: ${JSON.stringify(title)}`];
+  if (tags.length > 0) {
+    lines.push("tags:");
+    for (const tag of tags) lines.push(`  - ${tag}`);
+  }
+  lines.push("---", "");
+  return lines.join("\n");
+}
+
 export function buildChildrenByParent(notebooks: Notebook[]): Map<string | null, Notebook[]> {
   const childrenByParent = new Map<string | null, Notebook[]>();
   for (const notebook of notebooks) {

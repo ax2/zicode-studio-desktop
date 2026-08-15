@@ -6,6 +6,7 @@ import {
   conversationNoteTitle,
   DEFAULT_NOTEBOOK_ICON,
   DEFAULT_NOTE_ICON,
+  noteFrontmatter,
   parseTags,
   safeFileName,
   type Note,
@@ -1106,9 +1107,11 @@ export function createNotesStore(options: NotesStoreOptions) {
       await get().saveIfDirty();
       const note = get().selectedNote;
       if (!note) return;
+      const title = get().draftTitle.trim() || note.title || "note";
+      const tags = parseTags(get().draftTags.join(", "));
       downloadFile(
-        `${safeFileName(get().draftTitle || note.title || "note")}.md`,
-        get().draftContent,
+        `${safeFileName(title)}.md`,
+        `${noteFrontmatter(title, tags)}${get().draftContent}`,
         "text/markdown",
       );
     },
