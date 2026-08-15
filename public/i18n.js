@@ -876,6 +876,7 @@ const zhCN = {
     "下方凭据和模型渠道仅属于当前会话场景。",
   "Open scene settings": "打开场景设置",
   "Select finance scene": "选择金融场景",
+  "New Finance session": "新建金融会话",
   "Click to configure new sessions.": "点击配置后续新会话。",
   "Each scene has isolated model channels, credentials, extensions, and sessions. The selection applies when you create the next session.":
     "每个场景拥有隔离的模型渠道、凭据、扩展和会话。该选择将在创建下一个会话时生效。",

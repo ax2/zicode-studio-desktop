@@ -132,6 +132,12 @@
   line-height: var(--line-height-relaxed);
 }
 
+.finance-scene-guard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .finance-section-heading {
   display: flex;
   align-items: flex-start;

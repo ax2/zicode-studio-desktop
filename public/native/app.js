@@ -677,6 +677,10 @@ const financeWorkbench = setupFinanceWorkbench({
         ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
   },
+  createFinanceSession: () => {
+    settingsPanel?.selectScene?.("finance");
+    document.getElementById("new-session-btn")?.click();
+  },
   openFinanceApp: () => pluginShell?.activate("com.zicode.finance"),
   artifactGateway,
   notify: notifications.notify,

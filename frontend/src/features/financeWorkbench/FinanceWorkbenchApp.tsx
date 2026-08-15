@@ -24,6 +24,7 @@ export interface FinanceWorkbenchController {
   selectView(id: string): void;
   openConfiguration(): void;
   openSceneSettings(): void;
+  createFinanceSession(): void;
   runUsage(): void;
   runDiscovery(query: string): void;
   saveSnapshot(input: string): void;
@@ -703,13 +704,22 @@ export function FinanceContentApp({
             "Select the Finance scene below, then start a new session to open the Finance workbench. Data, credentials, tools, and ledgers stay isolated per scene.",
           )}
         </p>
-        <button
-          type="button"
-          className="ui-button ui-button--primary"
-          onClick={() => controller.openSceneSettings()}
-        >
-          {t("Select finance scene")}
-        </button>
+        <div className="finance-scene-guard-actions">
+          <button
+            type="button"
+            className="ui-button ui-button--primary"
+            onClick={() => controller.createFinanceSession()}
+          >
+            {t("New Finance session")}
+          </button>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            onClick={() => controller.openSceneSettings()}
+          >
+            {t("Select finance scene")}
+          </button>
+        </div>
       </section>
     );
   }
