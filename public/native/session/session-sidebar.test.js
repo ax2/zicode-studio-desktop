@@ -411,6 +411,7 @@ describe("SessionSidebar.render", () => {
     expect(sidebar.isArchived("s-keep")).toBe(true);
     expect(sidebar.isArchived("s-other")).toBe(false);
     expect(sidebar.isFavourite("s-fav")).toBe(false);
+    expect(sidebar.store.getState().archivedCollapsed).toBe(false);
     expect(
       container.querySelectorAll(".archived-group > .project-sessions > .session-item"),
     ).toHaveLength(2);

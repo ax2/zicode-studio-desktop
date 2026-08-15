@@ -277,9 +277,10 @@ export class SessionSidebar implements SessionSidebarController {
     const projectIds = new Set(ids);
     const archived = [...new Set([...state.archived, ...ids])];
     const favourites = state.favourites.filter((id) => !projectIds.has(id));
-    this.commit({ archived, favourites });
+    this.commit({ archived, favourites, archivedCollapsed: false });
     localStorage.setItem(STORAGE.archived, JSON.stringify(archived));
     localStorage.setItem(STORAGE.favourites, JSON.stringify(favourites));
+    localStorage.setItem(STORAGE.archivedCollapsed, "false");
     this.render();
   }
 
