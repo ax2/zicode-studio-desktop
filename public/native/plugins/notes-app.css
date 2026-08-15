@@ -1593,6 +1593,10 @@ body.notes-dragging .notes-result-item {
     opacity: 1;
   }
 
+  .notes-pin-btn {
+    opacity: 0.6;
+  }
+
   .notes-drag-handle {
     opacity: 0.55;
     padding: var(--space-1);
