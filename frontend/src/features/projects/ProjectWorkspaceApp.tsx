@@ -390,6 +390,10 @@ function SearchView({ store }: { store: ProjectStore }) {
           <input
             className="ui-input"
             type="search"
+            enterKeyHint="search"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             value={query}
             placeholder={t("Search conversations, notes, files, and artifacts")}
             onChange={(event) => setQuery(event.target.value)}

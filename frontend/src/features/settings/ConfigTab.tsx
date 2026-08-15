@@ -178,6 +178,10 @@ function ApiKeysPanel({ store }: { store: ConfigStore }) {
           type="search"
           id="provider-auth-search"
           className="ui-input"
+          enterKeyHint="search"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder={t("Search providers…")}
           aria-label={t("Search providers")}
           value={search}

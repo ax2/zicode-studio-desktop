@@ -51,6 +51,10 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
         <input
           className="artifacts-search"
           type="search"
+          enterKeyHint="search"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={search}
           placeholder={t("Search artifacts")}
           onChange={(event) => setSearch(event.target.value)}

@@ -62,6 +62,9 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
             className="pkg-browse-search"
             placeholder={t("Search packages...")}
             autoComplete="off"
+            enterKeyHint="search"
+            autoCapitalize="off"
+            autoCorrect="off"
             spellCheck={false}
             value={searchQuery}
             onChange={(event) => store.getState().setSearch(event.target.value)}

@@ -45,6 +45,10 @@ export function HelpNav({ store }: { store: HelpStore }) {
         <span aria-hidden="true">⌕</span>
         <input
           type="search"
+          enterKeyHint="search"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={searchQuery}
           placeholder={isEn ? "Filter documentation" : "筛选帮助内容"}
           aria-label={isEn ? "Filter documentation" : "筛选帮助内容"}
