@@ -328,6 +328,63 @@ describe("notes store", () => {
     ]);
   });
 
+  it("suggests and inserts a wikilink while typing [[", async () => {
+    const twoNoteSnapshot: NotesSnapshot = {
+      notebooks: [{ id: "book-1", title: "Projects", icon: "🚀", noteCount: 2 }],
+      notes: [
+        { id: "note-1", notebookId: "book-1", title: "Roadmap", updatedAt: "2026-07-31T08:00:00Z" },
+        { id: "note-2", notebookId: "book-1", title: "Design", updatedAt: "2026-07-31T09:00:00Z" },
+      ],
+      tags: [],
+    };
+    const app = setupNotesApp({
+      gateway: gatewayStub({
+        list: vi.fn(async () => ({ snapshot: twoNoteSnapshot })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() =>
+      expect(nav.querySelector(".notes-list-item.notes-tree-note")).toBeTruthy(),
+    );
+    (nav.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+
+    (content.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-content-input")).toBeTruthy());
+    const textarea = content.querySelector(".notes-content-input") as HTMLTextAreaElement;
+    textarea.focus();
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    if (!setter) throw new Error("textarea value setter missing");
+    setter.call(textarea, "See [[Des");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await waitFor(() => {
+      expect(content.querySelector(".notes-link-suggestions")).toBeTruthy();
+    });
+    const suggestion = [...content.querySelectorAll(".notes-link-suggestion")].find((button) =>
+      (button.textContent ?? "").includes("Design"),
+    ) as HTMLButtonElement;
+    suggestion.click();
+
+    await waitFor(() => {
+      expect((content.querySelector(".notes-content-input") as HTMLTextAreaElement).value).toBe(
+        "See [[Design]]",
+      );
+    });
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("closes the mobile function-area drawer when a note is selected", async () => {
     const store = storeWithGateway();
     const requests: Array<{ open?: boolean }> = [];

@@ -1605,6 +1605,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const draftTags = store((state) => state.draftTags);
   const backlinks = store((state) => state.backlinks);
   const similarNotes = store((state) => state.similarNotes);
+  const snapshotNotes = store((state) => state.snapshot.notes);
   const preview = store((state) => state.preview);
   const dirty = store((state) => state.dirty);
   const saveDisabled = store((state) => state.saveDisabled);
@@ -1626,6 +1627,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [linkQuery, setLinkQuery] = useState("");
+  const [linkOpen, setLinkOpen] = useState(false);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -1774,6 +1777,47 @@ function NoteEditor({ store }: { store: NotesStore }) {
     }
     resetDeleteArmed();
     void store.getState().deleteSelectedNote();
+  };
+
+  const linkSuggestions = linkOpen
+    ? snapshotNotes
+        .filter((candidate) => candidate.id !== note.id)
+        .filter((candidate) => {
+          const needle = linkQuery.trim().toLowerCase();
+          return !needle || candidate.title.toLowerCase().includes(needle);
+        })
+        .slice(0, 8)
+    : [];
+
+  const detectLink = (value: string, cursor: number) => {
+    const match = value.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
+    if (match) {
+      setLinkQuery(match[1]);
+      setLinkOpen(true);
+    } else {
+      setLinkQuery("");
+      setLinkOpen(false);
+    }
+  };
+
+  const insertLink = (title: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const cursor = textarea.selectionStart ?? 0;
+    const match = draftContent.slice(0, cursor).match(/\[\[([^\]\n]*)$/);
+    if (!match) return;
+    const start = cursor - match[0].length;
+    const next = `${draftContent.slice(0, start)}[[${title}]]${draftContent.slice(cursor)}`;
+    setDraft({ content: next });
+    setLinkQuery("");
+    setLinkOpen(false);
+    const cursorAfter = start + title.length + 4;
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(cursorAfter, cursorAfter);
+    });
   };
 
   const secondaryActions = (
@@ -2080,6 +2124,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           ) : null}
         </div>
       ) : (
+        <>
         <textarea
           ref={contentRef}
           className="notes-content-input"
@@ -2090,7 +2135,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
           autoCapitalize="sentences"
           spellCheck
           wrap="soft"
-          onChange={(event) => setDraft({ content: event.target.value })}
+          onChange={(event) => {
+            const textarea = event.target as HTMLTextAreaElement;
+            setDraft({ content: textarea.value });
+            detectLink(textarea.value, textarea.selectionStart ?? 0);
+          }}
           onSelect={() => {
             currentSelectionRef.current = selection();
           }}
@@ -2103,7 +2152,19 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
-              (event.target as HTMLTextAreaElement).blur();
+              if (linkOpen) {
+                setLinkOpen(false);
+                setLinkQuery("");
+              } else {
+                (event.target as HTMLTextAreaElement).blur();
+              }
+            } else if (
+              linkOpen &&
+              linkSuggestions.length > 0 &&
+              (event.key === "Tab" || event.key === "Enter")
+            ) {
+              event.preventDefault();
+              insertLink(linkSuggestions[0].title);
             } else if (event.key === "Tab") {
               event.preventDefault();
               const textarea = event.currentTarget as HTMLTextAreaElement;
@@ -2166,6 +2227,30 @@ function NoteEditor({ store }: { store: NotesStore }) {
             }
           }}
         ></textarea>
+        {linkOpen && linkSuggestions.length > 0 ? (
+          <div
+            className="notes-link-suggestions"
+            role="listbox"
+            aria-label={t("Link to note")}
+          >
+            {linkSuggestions.map((suggestion) => (
+              <button
+                key={suggestion.id}
+                type="button"
+                className="notes-link-suggestion"
+                role="option"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insertLink(suggestion.title)}
+              >
+                <span className="notes-link-suggestion-icon" aria-hidden="true">
+                  {suggestion.icon || DEFAULT_NOTE_ICON}
+                </span>
+                <span>{suggestion.title}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        </>
       )}
       {backlinks.length > 0 ? (
         <nav className="notes-backlinks" aria-label={t("Backlinks")}>
