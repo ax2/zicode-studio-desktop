@@ -1922,10 +1922,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
         </div>
       </div>
       {isNarrow && moreOpen ? (
+        // biome-ignore lint/a11y/useSemanticElements: popover group of action buttons; role=group is the closest generic landmark
         <div
           id="notes-more-menu"
           className="notes-more-menu"
-          role="menu"
+          role="group"
           aria-label={t("More actions")}
           ref={moreMenuRef}
         >
