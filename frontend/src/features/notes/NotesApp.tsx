@@ -1143,7 +1143,7 @@ function TagEditor({
       />
       {showSuggestions && pool.length > 0 ? (
         <div className="notes-tag-suggestions" role="listbox" aria-label={t("Add tag")}>
-          {pool.slice(0, 8).map((name) => (
+          {pool.slice(0, 16).map((name) => (
             <button
               key={name}
               type="button"

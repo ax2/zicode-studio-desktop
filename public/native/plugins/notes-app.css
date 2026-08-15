@@ -1130,6 +1130,8 @@
   border-radius: var(--radius-md);
   background: var(--bg-solid);
   box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .notes-tag-suggestion {
