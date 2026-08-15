@@ -478,12 +478,12 @@ function EmojiPicker({
       })}
       {open ? (
         <div ref={containerRef} className="notes-emoji-picker" role="dialog" aria-label={label}>
-          <div className="notes-emoji-categories">
+          <div className="notes-emoji-tabs">
             {EMOJI_GROUPS.map(([name], index) => (
               <button
                 key={name}
                 type="button"
-                className={`notes-emoji-category${index === category ? " active" : ""}`}
+                className={`notes-emoji-tab${index === category ? " active" : ""}`}
                 onClick={() => setCategory(index)}
               >
                 {t(name)}
@@ -495,7 +495,7 @@ function EmojiPicker({
               <button
                 key={emoji}
                 type="button"
-                className="notes-emoji-item"
+                className="notes-emoji-cell"
                 onClick={() => {
                   onPick(emoji);
                   setOpen(false);
