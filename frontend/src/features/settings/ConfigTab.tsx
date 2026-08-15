@@ -124,7 +124,7 @@ export function ConfigTab({
 }
 
 function inlinePath(editor: { path: string; loading: boolean }): string {
-  if (editor.loading) return "Loading…";
+  if (editor.loading) return t("Loading…");
   return editor.path;
 }
 
@@ -616,7 +616,7 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
           id="provider-channel-save"
           disabled={saving}
         >
-          {saving ? "Saving…" : t("Save channel")}
+          {saving ? t("Saving…") : t("Save channel")}
         </button>
       </div>
     </form>
@@ -685,7 +685,7 @@ function InlineEditor({
             disabled={editor.saving}
             onClick={() => void saveAction()}
           >
-            {editor.saving ? "Saving…" : t("Save")}
+            {editor.saving ? t("Saving…") : t("Save")}
           </button>
         </div>
       </div>

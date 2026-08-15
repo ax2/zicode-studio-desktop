@@ -467,7 +467,7 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
               id="scene-profile-save"
               disabled={saving}
             >
-              {saving ? "Saving…" : t("Save scene")}
+              {saving ? t("Saving…") : t("Save scene")}
             </button>
           </div>
         </form>
