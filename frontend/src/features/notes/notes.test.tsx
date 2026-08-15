@@ -763,6 +763,50 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("discusses only the selected text with Ctrl+Enter in edit mode", async () => {
+    const onUseInChat = vi.fn();
+    const app = setupNotesApp({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      onUseInChat,
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() => expect(content.querySelector(".notes-empty-library")).toBeTruthy());
+
+    const notebookBranch = [...nav.querySelectorAll(".notes-notebook-branch")].find((branch) =>
+      (branch.querySelector(".notes-notebook-title")?.textContent ?? "").includes("Projects"),
+    );
+    (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+    (content.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-content-input")).toBeTruthy());
+    const textarea = content.querySelector(".notes-content-input") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(2, 6);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(onUseInChat).toHaveBeenCalledTimes(1));
+    expect(onUseInChat.mock.calls[0][1]).toBe("Plan");
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("does not discuss an empty note with Ctrl+Enter", async () => {
     const onUseInChat = vi.fn();
     const app = setupNotesApp({

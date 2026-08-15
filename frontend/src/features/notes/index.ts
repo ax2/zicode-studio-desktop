@@ -100,7 +100,29 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       if (!note) return;
       if (!store.getState().draftContent.trim()) return;
       event.preventDefault();
-      void store.getState().discussInChat(note, "");
+      let selection = "";
+      if (store.getState().preview) {
+        const windowSelection = window.getSelection();
+        const preview = document.querySelector(".notes-preview");
+        if (
+          windowSelection &&
+          preview &&
+          windowSelection.anchorNode &&
+          preview.contains(windowSelection.anchorNode)
+        ) {
+          selection = windowSelection.toString().trim();
+        }
+      } else {
+        const textarea = document.querySelector<HTMLTextAreaElement>(
+          ".notes-content-input",
+        );
+        if (textarea) {
+          selection = textarea.value
+            .slice(textarea.selectionStart, textarea.selectionEnd)
+            .trim();
+        }
+      }
+      void store.getState().discussInChat(note, selection);
     }
   };
   document.addEventListener("keydown", handleKeydown);
