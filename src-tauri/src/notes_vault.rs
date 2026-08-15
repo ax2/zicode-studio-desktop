@@ -712,13 +712,41 @@ impl NotesVault {
         notebook_id: &str,
         title: Option<String>,
         icon: Option<String>,
+        parent_id: Option<String>,
     ) -> Result<NotebookDescriptor, NotesError> {
-        let mut notebook = self.read_notebook(notebook_id)?;
+        let notebook_id = validate_opaque_id(notebook_id)?;
+        let mut notebook = self.read_notebook(&notebook_id)?;
         if let Some(title) = title {
             notebook.title = validate_title(&title)?;
         }
         if let Some(icon) = icon {
             notebook.icon = validate_icon(Some(icon))?;
+        }
+        if let Some(parent) = parent_id {
+            let trimmed = parent.trim();
+            notebook.parent_id = if trimmed.is_empty() {
+                None
+            } else {
+                let new_parent = validate_opaque_id(trimmed)?;
+                self.read_notebook(&new_parent)?;
+                // Reject nesting a notebook inside itself or one of its own
+                // descendants, which would create an unreachable cycle.
+                let notebooks = self.list_notebooks()?;
+                let mut cursor = Some(new_parent.as_str());
+                while let Some(id) = cursor {
+                    if id == notebook_id {
+                        return Err(NotesError::new(
+                            "invalid_parent",
+                            "A notebook cannot be nested inside itself or one of its own children",
+                        ));
+                    }
+                    cursor = notebooks
+                        .iter()
+                        .find(|entry| entry.id == id)
+                        .and_then(|entry| entry.parent_id.as_deref());
+                }
+                Some(new_parent)
+            };
         }
         notebook.updated_at = now_iso();
         let metadata = VaultMetadata {
@@ -732,7 +760,7 @@ impl NotesVault {
         };
         atomic_json_write(
             &self
-                .vault_root(notebook_id)?
+                .vault_root(&notebook_id)?
                 .join(".zicode")
                 .join("vault.json"),
             &metadata,
@@ -2783,6 +2811,40 @@ mod tests {
         let loaded = vault.get_note(&notebook.id, &note.summary.id).unwrap();
         assert_eq!(loaded.content, "# Roadmap\n\nCapability broker.");
         assert_eq!(loaded.summary.tags, vec!["plugin", "roadmap"]);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rejects_reparenting_a_notebook_into_its_own_descendant() {
+        let root = root();
+        let vault = NotesVault::new(root.join("plugins")).unwrap();
+        let parent = vault.create_notebook("Parent", None, None).unwrap();
+        let child = vault
+            .create_notebook("Child", None, Some(parent.id.clone()))
+            .unwrap();
+        let grandchild = vault
+            .create_notebook("Grandchild", None, Some(child.id.clone()))
+            .unwrap();
+
+        // Moving a notebook under its own descendant would create a cycle.
+        let cycle = vault
+            .update_notebook(&parent.id, None, None, Some(grandchild.id.clone()))
+            .unwrap_err();
+        assert_eq!(cycle.code, "invalid_parent");
+
+        // Moving a notebook under itself is also rejected.
+        let self_parent = vault
+            .update_notebook(&child.id, None, None, Some(child.id.clone()))
+            .unwrap_err();
+        assert_eq!(self_parent.code, "invalid_parent");
+
+        // Moving to an unrelated notebook still works.
+        let sibling = vault.create_notebook("Sibling", None, None).unwrap();
+        let updated = vault
+            .update_notebook(&grandchild.id, None, None, Some(sibling.id.clone()))
+            .unwrap();
+        assert_eq!(updated.parent_id.as_deref(), Some(sibling.id.as_str()));
+
         let _ = fs::remove_dir_all(root);
     }
 

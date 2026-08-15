@@ -415,7 +415,8 @@
   background: var(--bg-glass);
 }
 
-.notes-notebook-edit-form label {
+.notes-notebook-edit-form label,
+.notes-notebook-edit-form .notes-field {
   display: grid;
   gap: var(--space-1);
   color: var(--text-secondary);

@@ -979,6 +979,18 @@ describe("notes store", () => {
     expect(store.getState().loading).toBe(false);
   });
 
+  it("passes the parent id when re-parenting a notebook", async () => {
+    const updateNotebook = vi.fn(async () => ({}));
+    const store = storeWithGateway({ updateNotebook });
+    await store.getState().load();
+    await store.getState().updateNotebook("book-1", "Renamed", "🚀", "book-2");
+    expect(updateNotebook).toHaveBeenCalledWith(
+      "programming",
+      "ws-1",
+      expect.objectContaining({ notebookId: "book-1", parentId: "book-2" }),
+    );
+  });
+
   it("exports a readable backup through the download hook", async () => {
     const downloadFile = vi.fn();
     const store = createNotesStore({

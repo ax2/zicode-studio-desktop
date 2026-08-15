@@ -1296,6 +1296,8 @@ struct UpdateNotebookRequest {
     title: Option<String>,
     #[serde(default)]
     icon: Option<String>,
+    #[serde(default)]
+    parent_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1681,7 +1683,12 @@ async fn update_notebook(
         .scoped(&request.workspace_id)
         .map_err(notes_api_error)?;
     let notebook = scoped
-        .update_notebook(&request.notebook_id, request.title, request.icon)
+        .update_notebook(
+            &request.notebook_id,
+            request.title,
+            request.icon,
+            request.parent_id,
+        )
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "notebook": notebook })))
 }

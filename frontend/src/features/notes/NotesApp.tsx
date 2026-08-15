@@ -398,11 +398,28 @@ function IconAction({
 function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: Notebook }) {
   const [title, setTitle] = useState(notebook.title);
   const [icon, setIcon] = useState(notebook.icon || DEFAULT_NOTEBOOK_ICON);
+  const [parentId, setParentId] = useState(notebook.parentId ?? "");
   const [error, setError] = useState<string | null>(null);
+  const snapshot = store((state) => state.snapshot);
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+  const childrenByParent = buildChildrenByParent(snapshot.notebooks);
+  const descendants = new Set<string>();
+  const collectDescendants = (id: string) => {
+    for (const child of childrenByParent.get(id) ?? []) {
+      descendants.add(child.id);
+      collectDescendants(child.id);
+    }
+  };
+  collectDescendants(notebook.id);
+  const parentOptions = [
+    { value: "", label: t("Top level") },
+    ...snapshot.notebooks
+      .filter((candidate) => candidate.id !== notebook.id && !descendants.has(candidate.id))
+      .map((candidate) => ({ value: candidate.id, label: candidate.title })),
+  ];
   return (
     <form
       className="notes-notebook-edit-form"
@@ -410,7 +427,12 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
         event.preventDefault();
         setError(null);
         try {
-          await store.getState().updateNotebook(notebook.id, title, icon);
+          await store.getState().updateNotebook(
+            notebook.id,
+            title,
+            icon,
+            parentId || null,
+          );
         } catch (updateError) {
           setError(updateError instanceof Error ? updateError.message : String(updateError));
         }
@@ -445,6 +467,16 @@ function NotebookEditForm({ store, notebook }: { store: NotesStore; notebook: No
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
+      <div className="notes-field">
+        <span>{t("Parent notebook")}</span>
+        <Select
+          id="notes-edit-parent-notebook"
+          value={parentId}
+          label={t("Parent notebook")}
+          options={parentOptions}
+          onChange={setParentId}
+        />
+      </div>
       {error ? <p className="notes-form-error">{error}</p> : null}
       <div className="notes-form-actions">
         <button

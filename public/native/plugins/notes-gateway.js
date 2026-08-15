@@ -62,13 +62,14 @@ export class NotesGateway {
     });
   }
 
-  updateNotebook(sceneId, workspaceId, { notebookId, title, icon } = {}) {
+  updateNotebook(sceneId, workspaceId, { notebookId, title, icon, parentId } = {}) {
     return this.#post("/v2/notes/notebooks/update", {
       sceneId,
       workspaceId,
       notebookId,
       title,
       icon,
+      parentId,
     });
   }
 

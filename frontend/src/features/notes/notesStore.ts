@@ -113,7 +113,7 @@ export interface NotesGatewayLike {
   list(sceneId: string, workspaceId: string, filters: { notebookId?: string | null; query?: string; tag?: string | null; sourceOnly?: boolean }): Promise<{ snapshot?: NotesSnapshot }>;
   get(sceneId: string, workspaceId: string, notebookId: string, noteId: string): Promise<{ note: Note }>;
   createNotebook(sceneId: string, workspaceId: string, params: { title: string; icon?: string; parentId?: string | null }): Promise<{ notebook: Notebook }>;
-  updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string }): Promise<unknown>;
+  updateNotebook(sceneId: string, workspaceId: string, params: { notebookId: string; title: string; icon: string; parentId?: string | null }): Promise<unknown>;
   deleteNotebook(sceneId: string, workspaceId: string, notebookId: string): Promise<unknown>;
   create(sceneId: string, workspaceId: string, notebookId: string, params: { title: string; content?: string; tags?: string[]; icon?: string }): Promise<{ note: Note }>;
   save(sceneId: string, workspaceId: string, note: Note): Promise<{ note: Note }>;
@@ -207,7 +207,7 @@ interface NotesState {
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<Note>;
   createNotebook(title: string, icon: string, parentId?: string | null): Promise<void>;
   deleteNotebook(notebookId: string): Promise<void>;
-  updateNotebook(notebookId: string, title: string, icon: string): Promise<void>;
+  updateNotebook(notebookId: string, title: string, icon: string, parentId?: string | null): Promise<void>;
   deleteSelectedNote(): Promise<void>;
   loadTrash(): Promise<void>;
   restoreFromTrash(entry: TrashEntry): Promise<void>;
@@ -682,7 +682,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       }
     },
 
-    async updateNotebook(notebookId, title, icon) {
+    async updateNotebook(notebookId, title, icon, parentId = null) {
       const normalizedTitle = String(title).trim();
       if (!normalizedTitle) return;
       set({ loading: true, error: null });
@@ -691,6 +691,7 @@ export function createNotesStore(options: NotesStoreOptions) {
           notebookId,
           title: normalizedTitle,
           icon: String(icon).trim() || DEFAULT_NOTEBOOK_ICON,
+          parentId: parentId ?? null,
         });
         set({ editingNotebookId: null });
         await get().load({ preserveSelection: true });
