@@ -18,7 +18,7 @@ import {
   stripMarkdown,
   tagIcon,
 } from "./notesLogic";
-import { NotesContent, NotesNav, wikilinkMarkdown } from "./NotesApp";
+import { NotesContent, NotesNav, markUnresolvedWikilinks, wikilinkMarkdown } from "./NotesApp";
 import { setupNotesApp } from "./index";
 import {
   createNotesStore,
@@ -142,6 +142,19 @@ describe("notes logic", () => {
       "Changelog",
       "Design",
     ]);
+  });
+
+  it("marks wikilinks to non-existent notes as unresolved", () => {
+    const root = document.createElement("div");
+    root.innerHTML =
+      '<a href="zicode-note://Roadmap">Roadmap</a><a href="zicode-note://Missing">Missing</a>';
+    markUnresolvedWikilinks(root, [
+      { id: "note-1", notebookId: "book-1", title: "Roadmap" },
+    ]);
+    expect(root.querySelector('a[href="zicode-note://Roadmap"]')?.className).toBe("");
+    expect(root.querySelector('a[href="zicode-note://Missing"]')?.className).toContain(
+      "notes-wikilink-unresolved",
+    );
   });
 
   it("parses tags, dates, titles, and file names", () => {

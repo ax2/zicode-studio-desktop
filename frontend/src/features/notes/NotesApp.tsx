@@ -1636,6 +1636,20 @@ export function wikilinkMarkdown(content: string): string {
   return result.join("\n");
 }
 
+export function markUnresolvedWikilinks(root: HTMLElement, notes: NoteSummary[]): void {
+  const titles = new Set(notes.map((note) => note.title.toLowerCase()));
+  for (const anchor of root.querySelectorAll<HTMLAnchorElement>(
+    'a[href^="zicode-note://"]',
+  )) {
+    const raw = anchor.getAttribute("href")?.replace("zicode-note://", "") ?? "";
+    const title = decodeURIComponent(raw).toLowerCase();
+    if (!titles.has(title)) {
+      anchor.classList.add("notes-wikilink-unresolved");
+      anchor.title = t("This note does not exist yet");
+    }
+  }
+}
+
 function NoteEditor({ store }: { store: NotesStore }) {
   const note = store((state) => state.selectedNote) as Note;
   const draftTitle = store((state) => state.draftTitle);
@@ -1728,9 +1742,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
       initImageLightbox(previewRef.current);
       initAttachmentViewer(previewRef.current);
       initCodeCopyDelegation(previewRef.current);
+      markUnresolvedWikilinks(previewRef.current, snapshotNotes);
       setOutline(buildHeadingOutline(previewRef.current));
     }
-  }, [preview, draftContent, store]);
+  }, [preview, draftContent, store, snapshotNotes]);
 
   useEffect(() => {
     if (!preview) return;

@@ -1424,6 +1424,11 @@
   overflow-wrap: break-word;
 }
 
+.notes-preview a.notes-wikilink-unresolved {
+  color: var(--text-dim);
+  text-decoration-style: dashed;
+}
+
 .notes-preview > :first-child {
   margin-top: 0;
 }
