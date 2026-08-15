@@ -44,6 +44,7 @@ function TranslationMain({ store }: { store: TranslationStore }) {
           className="translate-textarea"
           value={text}
           placeholder={t("Source text")}
+          aria-label={t("Source text")}
           rows={6}
           onChange={(event) => store.getState().setText(event.target.value)}
         />

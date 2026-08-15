@@ -47,12 +47,14 @@ function WatchMain({ store }: { store: WatchStore }) {
             className="watch-name-input"
             value={draftName}
             placeholder={t("Watch name")}
+            aria-label={t("Watch name")}
             onChange={(event) => store.getState().setDraft({ draftName: event.target.value })}
           />
           <input
             className="watch-url-input"
             value={draftUrl}
             placeholder={t("Page URL")}
+            aria-label={t("Page URL")}
             type="url"
             onChange={(event) => store.getState().setDraft({ draftUrl: event.target.value })}
           />

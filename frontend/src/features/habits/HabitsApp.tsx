@@ -63,6 +63,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
             className="habits-name-input"
             value={draftName}
             placeholder={t("Habit name")}
+            aria-label={t("Habit name")}
             onChange={(event) => store.getState().setDraft({ draftName: event.target.value })}
           />
           <button

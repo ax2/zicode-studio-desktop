@@ -42,6 +42,7 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
           className="clipboard-textarea"
           value={draft}
           placeholder={t("Type or paste text")}
+          aria-label={t("Type or paste text")}
           rows={3}
           onChange={(event) => store.getState().setDraft(event.target.value)}
         />
