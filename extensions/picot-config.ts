@@ -1078,6 +1078,9 @@ export async function handlePicotConfig(
             }),
           };
         }
+        if (action === "remove") {
+          return { ok: true, data: ledger.removeAccount(asString(params.accountId)) };
+        }
         throw new Error("unsupported paper account action");
       }
 

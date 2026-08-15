@@ -105,6 +105,14 @@ export class PaperTradingLedger {
     return accountView(this.requireAccount(this.read(), accountId));
   }
 
+  removeAccount(accountId: string) {
+    const file = this.read();
+    this.requireAccount(file, accountId);
+    delete file.accounts[accountId];
+    this.write(file);
+    return { removed: true };
+  }
+
   markToMarket(input: {
     accountId: string;
     quotes: PositionQuote[];

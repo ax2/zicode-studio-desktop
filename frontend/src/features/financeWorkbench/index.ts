@@ -310,6 +310,22 @@ export function setupFinanceWorkbench({
       }
       await loadPaperAccounts();
     },
+    async removePaperAccount(accountId) {
+      if (!(await confirmRemove(t("Remove this paper account? This cannot be undone.")))) {
+        return;
+      }
+      setBusy("paperAccount", true);
+      const result = await call("finance_paper_accounts", { action: "remove", accountId });
+      setBusy("paperAccount", false);
+      if (!result?.ok) {
+        setResult("paperAccounts", {
+          ok: false,
+          error: result?.error || t("Could not remove paper account."),
+        });
+        return;
+      }
+      await loadPaperAccounts();
+    },
     async recordPaperOrder(input) {
       const parsed = parseJsonInput(input, "paperOrder", "Paper order input must be valid JSON.");
       if (!parsed) return;

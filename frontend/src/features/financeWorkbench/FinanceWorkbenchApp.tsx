@@ -43,6 +43,7 @@ export interface FinanceWorkbenchController {
     baseCurrency: string;
     initialCash: number;
   }): void;
+  removePaperAccount(accountId: string): void;
   recordPaperOrder(input: string): void;
   manageLimitOrder(input: string): void;
   markPortfolio(input: string): void;
@@ -367,7 +368,13 @@ function ResearchResults({
   );
 }
 
-function PaperAccountsResults({ response }: { response: unknown }) {
+function PaperAccountsResults({
+  response,
+  onRemove,
+}: {
+  response: unknown;
+  onRemove(accountId: string): void;
+}) {
   const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not load paper accounts.")} />;
@@ -387,6 +394,13 @@ function PaperAccountsResults({ response }: { response: unknown }) {
             )} ${number(account.positionCount)}`}
           </span>
           <code>{String(account.id)}</code>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            onClick={() => onRemove(String(account.id))}
+          >
+            {t("Remove")}
+          </button>
         </div>
       ))}
     </>
@@ -1099,7 +1113,12 @@ export function FinanceContentApp({
               </button>
             </div>
           </form>
-          {paperAccounts ? <PaperAccountsResults response={paperAccounts} /> : null}
+          {paperAccounts ? (
+            <PaperAccountsResults
+              response={paperAccounts}
+              onRemove={controller.removePaperAccount}
+            />
+          ) : null}
           <JsonForm
             busy={Boolean(busy.paperOrder)}
             sample={samplePaperOrder()}

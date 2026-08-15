@@ -55,6 +55,15 @@ describe("paper trading ledger", () => {
     ]);
   });
 
+  it("removes a paper account by id", () => {
+    const store = ledger();
+    const account = store.createAccount({ name: "remove me", initialCash: 100 });
+    expect(store.listAccounts()).toHaveLength(1);
+    expect(store.removeAccount(account.id)).toEqual({ removed: true });
+    expect(store.listAccounts()).toHaveLength(0);
+    expect(() => store.removeAccount(account.id)).toThrow("paper account not found");
+  });
+
   it("rejects orders that exceed simulated cash or positions", () => {
     const store = ledger();
     const account = store.createAccount({ name: "test", initialCash: 100 });

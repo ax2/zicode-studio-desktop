@@ -984,6 +984,8 @@ const zhCN = {
   "Missing quotes": "缺失报价",
   "Loading paper accounts…": "正在加载模拟账户…",
   "Could not create paper account.": "无法创建模拟账户。",
+  "Could not remove paper account.": "无法移除模拟账户。",
+  "Remove this paper account? This cannot be undone.": "移除这个模拟账户？此操作无法撤销。",
   "Paper order input must be valid JSON.": "模拟订单输入必须是有效 JSON。",
   "Recording simulated order…": "正在记录模拟订单…",
   "Could not record simulated order.": "无法记录模拟订单。",

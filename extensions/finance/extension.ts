@@ -404,6 +404,10 @@ export function setupFinanceTools(pi: ExtensionAPI, client = new QVerisClient())
         baseCurrency: Type.Optional(Type.String()),
         initialCash: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
       }),
+      Type.Object({
+        action: Type.Literal("remove"),
+        accountId: Type.String(),
+      }),
     ]),
     async execute(_id, params) {
       if (params.action === "list") return toolResult({ accounts: paperLedger.listAccounts() });
@@ -416,6 +420,9 @@ export function setupFinanceTools(pi: ExtensionAPI, client = new QVerisClient())
             maxAgeMinutes: params.maxAgeMinutes,
           }),
         );
+      }
+      if (params.action === "remove") {
+        return toolResult(paperLedger.removeAccount(params.accountId));
       }
       return toolResult(
         paperLedger.createAccount({
