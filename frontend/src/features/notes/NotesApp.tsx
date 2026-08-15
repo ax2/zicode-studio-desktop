@@ -1141,12 +1141,16 @@ function TagEditor({
             (event.target as HTMLInputElement).blur();
           }
         }}
-        onBlur={() =>
-          window.setTimeout(() => {
-            setShowSuggestions(false);
-            if (input.trim()) addTag(input);
-          }, 120)
-        }
+        onBlur={() => {
+          // Commit the typed tag synchronously so a concurrent action (such as
+          // clicking Save) sees it; otherwise the delayed commit would land
+          // after the save and lose the tag.
+          if (input.trim()) {
+            addTag(input);
+          } else {
+            window.setTimeout(() => setShowSuggestions(false), 120);
+          }
+        }}
       />
       {showSuggestions && pool.length > 0 ? (
         <div id={suggestionsId} className="notes-tag-suggestions" role="listbox" aria-label={t("Add tag")}>
