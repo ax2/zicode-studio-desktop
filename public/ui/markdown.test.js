@@ -26,7 +26,8 @@ describe("renderStreamingMarkdown", () => {
   it("renders an unterminated code fence as a code block", () => {
     const html = renderStreamingMarkdown("```js\nconst a = 1;\nconst b");
     expect(html).toContain("code-block-wrapper");
-    expect(html).toContain("const a = 1;");
+    expect(html).toContain('code-token--keyword">const</span>');
+    expect(html).toContain('code-token--number">1</span>');
     expect(html).not.toContain("```");
   });
 
@@ -47,7 +48,8 @@ describe("renderStreamingMarkdown", () => {
     const html = renderStreamingMarkdown(markdown);
 
     expect(html).toContain("code-block-wrapper");
-    expect(html).toContain("const answer = 42;");
+    expect(html).toContain('code-token--keyword">const</span>');
+    expect(html).toContain('code-token--number">42</span>');
     expect(html).not.toContain("%%CODEBLOCK_");
   });
 
@@ -76,6 +78,14 @@ describe("renderMarkdown", () => {
     expect(button.type).toBe("button");
     expect(button.getAttribute("aria-label")).toBe("复制代码");
     expect(template.content.querySelector(".code-copy-status").getAttribute("role")).toBe("status");
+  });
+
+  it("syntax-highlights code blocks without leaking unescaped HTML", () => {
+    const html = renderMarkdown("```js\nconst answer = 42; // note\n```");
+    expect(html).toContain('class="code-token code-token--keyword">const</span>');
+    expect(html).toContain('class="code-token code-token--number">42</span>');
+    expect(html).toContain('class="code-token code-token--comment">// note</span>');
+    expect(html).not.toContain("<script");
   });
 
   it("announces successful code copies and restores the action", async () => {
@@ -172,7 +182,7 @@ describe("renderMarkdown", () => {
       const html = renderMarkdown(`${marker} \`\`\`sh\necho ok\n\`\`\``);
 
       expect(html).toContain("code-block-wrapper");
-      expect(html).toContain("echo ok");
+      expect(html).toContain('code-token--keyword">echo</span>');
       expect(html).not.toContain("%%CODEBLOCK_");
     }
   });

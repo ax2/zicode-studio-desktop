@@ -219,6 +219,24 @@ pre code {
   border: none;
 }
 
+.code-token--comment {
+  color: color-mix(in srgb, #6b7280 72%, var(--text-primary));
+  font-style: italic;
+}
+
+.code-token--string {
+  color: color-mix(in srgb, #10b981 78%, var(--text-primary));
+}
+
+.code-token--keyword {
+  color: color-mix(in srgb, #818cf8 82%, var(--text-primary));
+  font-weight: 600;
+}
+
+.code-token--number {
+  color: color-mix(in srgb, #f59e0b 82%, var(--text-primary));
+}
+
 /* biome-ignore lint/style/noDescendingSpecificity: base code styles; scoped .settings-help code defined earlier intentionally */
 code {
   background: var(--bg-glass-strong);

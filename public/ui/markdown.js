@@ -111,7 +111,7 @@ export function renderMarkdown(text) {
       const langLabel = block.lang || "code";
       html += `<div class="code-block-wrapper">`;
       html += `<div class="code-block-header"><span class="code-language">${escapeHtml(langLabel)}</span><div class="code-copy-actions"><span class="code-copy-status" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="copy-btn" data-copy-code aria-label="${t("Copy code")}" title="${t("Copy code")}">${t("Copy")}</button></div></div>`;
-      html += `<pre><code>${escapeHtml(block.code)}</code></pre></div>`;
+      html += `<pre><code>${highlightCode(block.code, block.lang)}</code></pre></div>`;
       continue;
     }
 
@@ -353,6 +353,239 @@ function escapeHtml(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+const HIGHLIGHT_LANG_ALIASES = {
+  js: "javascript",
+  javascript: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  jsx: "javascript",
+  ts: "typescript",
+  typescript: "typescript",
+  tsx: "typescript",
+  json: "json",
+  sh: "shell",
+  shell: "shell",
+  bash: "shell",
+  zsh: "shell",
+  py: "python",
+  python: "python",
+  python3: "python",
+  sql: "sql",
+};
+
+const HIGHLIGHT_KEYWORDS = {
+  javascript: [
+    "const",
+    "let",
+    "var",
+    "function",
+    "return",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "class",
+    "extends",
+    "import",
+    "export",
+    "from",
+    "new",
+    "this",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "async",
+    "await",
+    "try",
+    "catch",
+    "finally",
+    "throw",
+    "typeof",
+    "instanceof",
+    "in",
+    "of",
+    "switch",
+    "case",
+    "break",
+    "continue",
+  ],
+  typescript: [
+    "const",
+    "let",
+    "var",
+    "function",
+    "return",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "class",
+    "extends",
+    "implements",
+    "interface",
+    "type",
+    "enum",
+    "import",
+    "export",
+    "from",
+    "new",
+    "this",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "async",
+    "await",
+    "try",
+    "catch",
+    "finally",
+    "throw",
+    "typeof",
+    "instanceof",
+    "in",
+    "of",
+    "switch",
+    "case",
+    "break",
+    "continue",
+  ],
+  json: ["true", "false", "null"],
+  shell: [
+    "if",
+    "then",
+    "else",
+    "elif",
+    "fi",
+    "for",
+    "do",
+    "done",
+    "while",
+    "case",
+    "esac",
+    "function",
+    "return",
+    "echo",
+    "export",
+    "cd",
+    "local",
+  ],
+  python: [
+    "def",
+    "return",
+    "if",
+    "elif",
+    "else",
+    "for",
+    "while",
+    "import",
+    "from",
+    "class",
+    "try",
+    "except",
+    "finally",
+    "with",
+    "as",
+    "lambda",
+    "not",
+    "and",
+    "or",
+    "in",
+    "is",
+    "None",
+    "True",
+    "False",
+    "pass",
+    "break",
+    "continue",
+    "yield",
+    "async",
+    "await",
+  ],
+  sql: [
+    "select",
+    "from",
+    "where",
+    "and",
+    "or",
+    "not",
+    "insert",
+    "into",
+    "values",
+    "update",
+    "set",
+    "delete",
+    "create",
+    "table",
+    "drop",
+    "join",
+    "left",
+    "right",
+    "inner",
+    "outer",
+    "on",
+    "group",
+    "by",
+    "order",
+    "having",
+    "limit",
+    "offset",
+    "as",
+    "null",
+    "true",
+    "false",
+  ],
+};
+
+/**
+ * Lightweight, dependency-free syntax highlighting for fenced code blocks.
+ * Tokenizes the raw code and escapes each token before wrapping it, so the
+ * output stays injection-safe. Unknown languages fall back to plain escaped
+ * text.
+ */
+function highlightCode(code, lang) {
+  const language = HIGHLIGHT_LANG_ALIASES[(lang || "").toLowerCase()];
+  const keywords = language ? HIGHLIGHT_KEYWORDS[language] : null;
+  if (!keywords || !code) return escapeHtml(code);
+
+  const keywordPattern = `(?:${keywords.join("|")})`;
+  const rules = [
+    { type: "comment", re: /\/\*[\s\S]*?\*\// },
+    { type: "comment", re: /\/\/[^\n]*/ },
+    { type: "comment", re: /#[^\n]*/ },
+    { type: "string", re: /"(?:\\.|[^"\\])*"/ },
+    { type: "string", re: /'(?:\\.|[^'\\])*'/ },
+    { type: "string", re: /`(?:\\.|[^`\\])*`/ },
+    { type: "number", re: /\b\d[\w.]*(?:[eE][+-]?\d+)?/ },
+    { type: "keyword", re: new RegExp(`\\b${keywordPattern}\\b`) },
+  ];
+
+  let output = "";
+  let index = 0;
+  while (index < code.length) {
+    const remaining = code.slice(index);
+    let matched = false;
+    for (const { type, re } of rules) {
+      const match = re.exec(remaining);
+      if (match && match.index === 0) {
+        output += `<span class="code-token code-token--${type}">${escapeHtml(
+          match[0],
+        )}</span>`;
+        index += match[0].length;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      output += escapeHtml(code[index]);
+      index += 1;
+    }
+  }
+  return output;
 }
 
 /**
