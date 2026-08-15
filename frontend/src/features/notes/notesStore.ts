@@ -1361,5 +1361,10 @@ export function localizeNotesHostError(error: unknown): Error {
   if (code === "quota_exceeded" && /too many notes/i.test(error.message)) {
     return new Error(t("Notes backup contains too many notes"));
   }
+  if (code === "invalid_parent") {
+    return new Error(
+      t("A notebook cannot be nested inside itself or one of its own children"),
+    );
+  }
   return error;
 }
