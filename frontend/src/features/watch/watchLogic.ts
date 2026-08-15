@@ -40,6 +40,15 @@ export function formatTime(value: string | undefined): string {
       String(Math.floor(deltaMs / (60 * 60 * 1000))),
     );
   }
+  const now = new Date();
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  if (
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate()
+  ) {
+    return t("Yesterday");
+  }
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
