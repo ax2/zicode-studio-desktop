@@ -1788,6 +1788,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           aria-label={t("Note content")}
           autoComplete="off"
           autoCapitalize="sentences"
+          spellCheck
           onChange={(event) => setDraft({ content: event.target.value })}
           onSelect={() => {
             currentSelectionRef.current = selection();
