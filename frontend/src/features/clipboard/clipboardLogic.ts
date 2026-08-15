@@ -1,5 +1,7 @@
 // Shared helpers for the Clipboard inbox feature.
 
+import { t } from "../../shared/i18n";
+
 export interface ClipboardItem {
   id: string;
   text: string;
@@ -10,5 +12,20 @@ export interface ClipboardItem {
 
 export function formatCreatedAt(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  if (Number.isNaN(date.getTime())) return value;
+  const deltaMs = Date.now() - date.getTime();
+  if (deltaMs < 60 * 1000) return t("Just now");
+  if (deltaMs < 60 * 60 * 1000) {
+    return t("{count}m ago").replace(
+      "{count}",
+      String(Math.floor(deltaMs / (60 * 1000))),
+    );
+  }
+  if (deltaMs < 24 * 60 * 60 * 1000) {
+    return t("{count}h ago").replace(
+      "{count}",
+      String(Math.floor(deltaMs / (60 * 60 * 1000))),
+    );
+  }
+  return date.toLocaleString();
 }
