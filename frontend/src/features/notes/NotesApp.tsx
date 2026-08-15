@@ -1274,7 +1274,7 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
               <button
                 type="button"
                 className="ui-button ui-button--primary"
-                title={t("New note") + " (Ctrl+N)"}
+                title={`${t("New note")} (Ctrl+N)`}
                 onClick={() => void newNote()}
               >
                 {t("New note")}
