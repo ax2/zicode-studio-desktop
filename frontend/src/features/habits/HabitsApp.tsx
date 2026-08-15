@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
-import { currentStreak, lastDates } from "./habitsLogic";
+import { currentStreak, lastDates, toDateKey } from "./habitsLogic";
 import { createHabitsStore, type HabitsOptions, type HabitsStore } from "./habitsStore";
 
 export type HabitsAppApi = {
@@ -39,6 +39,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
 
   const [weekOffset, setWeekOffset] = useState(0);
   const dates = useMemo(() => lastDates(7, weekOffset), [weekOffset]);
+  const todayKey = useMemo(() => toDateKey(new Date()), []);
   const done = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const entry of entries) {
@@ -227,7 +228,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                     <div className="habits-grid">
                       {dates.map((date, index) => {
                         const checked = habitDates.has(date);
-                        const isToday = index === 0;
+                        const isToday = date === todayKey;
                         return (
                           <button
                             key={date}
