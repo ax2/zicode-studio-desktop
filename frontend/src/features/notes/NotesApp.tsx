@@ -2207,6 +2207,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
           onMouseUp={() => {
             currentSelectionRef.current = selection();
           }}
+          onBlur={() => {
+            window.setTimeout(() => {
+              setLinkOpen(false);
+              setLinkQuery("");
+              setActiveLinkIndex(0);
+            }, 120);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
