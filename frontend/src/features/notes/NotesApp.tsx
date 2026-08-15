@@ -815,7 +815,12 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         onClick={(event) => {
           event.stopPropagation();
           const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-          setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.max(8, Math.round(rect.left)) });
+          const popoverWidth = Math.min(280, window.innerWidth - 16);
+          const left = Math.max(
+            8,
+            Math.min(rect.left, window.innerWidth - popoverWidth - 8),
+          );
+          setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.round(left) });
           openMovePopover(note);
         }}
       >
