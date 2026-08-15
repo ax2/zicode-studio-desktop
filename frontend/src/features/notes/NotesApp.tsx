@@ -346,7 +346,9 @@ function NotebookBranch({
         <span className="notes-notebook-title" title={notebook.title}>
           {notebook.title}
         </span>
-        <small>{String(notebook.noteCount ?? notes.length)}</small>
+        <small title={`${notebook.noteCount ?? notes.length} ${t("notes")}`}>
+          {String(notebook.noteCount ?? notes.length)}
+        </small>
         <NotebookActions store={store} notebook={notebook} />
       </summary>
       {editingNotebookId === notebook.id ? <NotebookEditForm store={store} notebook={notebook} /> : null}
