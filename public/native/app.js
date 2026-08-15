@@ -713,11 +713,13 @@ const notesApp = setupNotesApp({
       Array.isArray(note.tags) && note.tags.length > 0
         ? `笔记标签：${note.tags.join("、")}`
         : "";
+    const sourceLine = note.source?.url ? `来源：${note.source.url}` : "";
     let prompt;
     if (selection) {
       prompt = [
         `请基于笔记“${note.title}”中的以下选中文字继续讨论，只围绕这段文字，不要依赖过期上下文：`,
         tagsLine,
+        sourceLine,
         "",
         selection,
         "",
@@ -732,6 +734,7 @@ const notesApp = setupNotesApp({
         `请先调用 notes_get，参数 notebookId=${note.notebookId}、noteId=${note.id}，不要依赖过期的聊天上下文。`,
         `笔记引用：${reference}`,
         tagsLine,
+        sourceLine,
         "\n我希望继续：",
       ]
         .filter(Boolean)
