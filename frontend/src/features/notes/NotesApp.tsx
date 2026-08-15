@@ -1139,7 +1139,12 @@ function TagEditor({
             (event.target as HTMLInputElement).blur();
           }
         }}
-        onBlur={() => window.setTimeout(() => setShowSuggestions(false), 120)}
+        onBlur={() =>
+          window.setTimeout(() => {
+            setShowSuggestions(false);
+            if (input.trim()) addTag(input);
+          }, 120)
+        }
       />
       {showSuggestions && pool.length > 0 ? (
         <div className="notes-tag-suggestions" role="listbox" aria-label={t("Add tag")}>
