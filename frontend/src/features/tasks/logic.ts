@@ -104,7 +104,22 @@ export function retryLimitReached(task: SuperAgentTask): boolean {
 export function formatDate(value?: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  if (Number.isNaN(date.getTime())) return String(value);
+  const deltaMs = Date.now() - date.getTime();
+  if (deltaMs < 60 * 1000) return t("Just now");
+  if (deltaMs < 60 * 60 * 1000) {
+    return t("{count}m ago").replace(
+      "{count}",
+      String(Math.floor(deltaMs / (60 * 1000))),
+    );
+  }
+  if (deltaMs < 24 * 60 * 60 * 1000) {
+    return t("{count}h ago").replace(
+      "{count}",
+      String(Math.floor(deltaMs / (60 * 60 * 1000))),
+    );
+  }
+  return date.toLocaleString();
 }
 
 export function taskProject(task: SuperAgentTask): string {

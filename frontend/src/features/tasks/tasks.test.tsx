@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
 import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
+import { formatDate } from "./logic";
 
 function mockCall(tasks: unknown[]) {
   return vi.fn(async (operation: string, _params?: unknown) => {
@@ -35,6 +36,12 @@ afterEach(() => {
 });
 
 describe("task center React app", () => {
+  it("formats recent task timestamps as relative time", () => {
+    expect(formatDate(new Date().toISOString())).toBeTruthy();
+    expect(formatDate(null)).toBe("—");
+    expect(formatDate("invalid")).toBe("invalid");
+  });
+
   it("groups tasks and exposes recoverable actions", async () => {
     setLocale("en");
     const call = mockCall([
