@@ -1124,7 +1124,11 @@ export function createNotesStore(options: NotesStoreOptions) {
         if (typeof navigator.clipboard?.writeText !== "function") {
           throw new Error(t("Clipboard access is not available"));
         }
-        await navigator.clipboard.writeText(get().draftContent);
+        const title = get().draftTitle.trim() || note.title || "note";
+        const tags = parseTags(get().draftTags.join(", "));
+        await navigator.clipboard.writeText(
+          `${noteFrontmatter(title, tags)}${get().draftContent}`,
+        );
         notify(t("Copied"));
       } catch (error) {
         set({ error: error instanceof Error ? error : new Error(String(error)) });

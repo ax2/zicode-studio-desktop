@@ -1086,7 +1086,10 @@ describe("notes store", () => {
     await store.getState().load();
     await store.getState().selectNote(SNAPSHOT.notes[0]);
     await store.getState().copyNote();
-    expect(writeText).toHaveBeenCalledWith("# Plan\n\nSafe content");
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringContaining("# Plan\n\nSafe content"),
+    );
+    expect(String(writeText.mock.calls[0][0])).toContain('title: "Roadmap"');
     expect(notify).toHaveBeenCalledWith(t("Copied"));
   });
 
