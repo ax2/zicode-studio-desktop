@@ -18,6 +18,7 @@ const HOST = process.env.ZICODE_HOST || "http://127.0.0.1:57620";
 const PORT = Number(process.env.CDP_PORT || 9224);
 const WAIT_MS = Number(process.env.WAIT_MS || 6000);
 const ASSETS = process.env.QA_ASSETS || join(ROOT, "scripts", "fixtures");
+const RUN_ID = process.env.QA_RUN_ID || Date.now().toString(36);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,6 +156,52 @@ async function postJson(path, body) {
   return response.json();
 }
 
+async function getJson(path) {
+  const response = await fetch(`${HOST}${path}`);
+  if (!response.ok) throw new Error(`${path} -> ${response.status}`);
+  return response.json();
+}
+
+// Remove the items this run added so repeated acceptance runs do not
+// accumulate test data in the workspace.
+async function cleanup(ws) {
+  const sceneId = process.env.QA_SCENE || "programming";
+  const base = `sceneId=${encodeURIComponent(sceneId)}&workspaceId=${encodeURIComponent(ws)}`;
+
+  const habits = await getJson(`/v2/habits?${base}`).catch(() => ({ habits: [] }));
+  for (const habit of habits.habits ?? []) {
+    if (String(habit.name ?? "").includes(RUN_ID)) {
+      await postJson("/v2/habits/remove", {
+        sceneId,
+        workspaceId: ws,
+        habitId: habit.id,
+      }).catch(() => {});
+    }
+  }
+
+  const watchers = await getJson(`/v2/watch?${base}`).catch(() => ({ items: [] }));
+  for (const item of watchers.items ?? []) {
+    if (String(item.name ?? "").includes(RUN_ID)) {
+      await postJson("/v2/watch/remove", {
+        sceneId,
+        workspaceId: ws,
+        id: item.id,
+      }).catch(() => {});
+    }
+  }
+
+  const clips = await getJson(`/v2/clipboard?${base}`).catch(() => ({ items: [] }));
+  for (const item of clips.items ?? []) {
+    if (String(item.text ?? "").includes(RUN_ID)) {
+      await postJson("/v2/clipboard/remove", {
+        sceneId,
+        workspaceId: ws,
+        id: item.id,
+      }).catch(() => {});
+    }
+  }
+}
+
 // The headless file-input path cannot reliably wake React's onChange, so the
 // file-backed plugins are additionally verified against their host APIs. This
 // exercises the real extraction/import/layout/processing pipeline.
@@ -232,18 +279,22 @@ async function runPlugin(cdp, name, url, ws) {
           return true;
         })()`,
       );
-      await sleep(4000);
-      const state = await evaluate(
-        cdp,
-        `(() => ({
-          result: (document.querySelector(".translate-result-text")?.value || "").trim(),
-          error: document.querySelector("[role='alert']")?.innerText?.trim() || null,
-        }))()`,
-      );
+      let state = { result: "", error: null };
+      for (let i = 0; i < 60; i++) {
+        await sleep(500);
+        state = await evaluate(
+          cdp,
+          `(() => ({
+            result: (document.querySelector(".translate-result-text")?.value || "").trim(),
+            error: document.querySelector("[role='alert']")?.innerText?.trim() || null,
+          }))()`,
+        );
+        if (state.result || state.error) break;
+      }
       result.ok = clicked && Boolean(state.result || state.error);
       result.detail = { pre, clicked, ...state };
     } else if (name === "habits") {
-      await evaluate(cdp, `${SET_VALUE}(".habits-name-input", "晨跑")`);
+      await evaluate(cdp, `${SET_VALUE}(".habits-name-input", "晨跑-${RUN_ID}")`);
       const clicked = await evaluate(cdp, `${CLICK_BY_TEXT}(null, "添加习惯")`);
       await sleep(1200);
       const items = await evaluate(
@@ -252,10 +303,10 @@ async function runPlugin(cdp, name, url, ws) {
           (el.textContent || "").trim()
         )`,
       );
-      result.ok = clicked && items.some((text) => text.includes("晨跑"));
+      result.ok = clicked && items.some((text) => text.includes(RUN_ID));
       result.detail = { clicked, items };
     } else if (name === "watch") {
-      await evaluate(cdp, `${SET_VALUE}(".watch-name-input", "QA 示例页")`);
+      await evaluate(cdp, `${SET_VALUE}(".watch-name-input", "QA 示例页-${RUN_ID}")`);
       await evaluate(cdp, `${SET_VALUE}(".watch-url-input", "https://example.com/")`);
       const clicked = await evaluate(cdp, `${CLICK_BY_TEXT}(null, "添加监控")`);
       await sleep(1500);
@@ -265,10 +316,10 @@ async function runPlugin(cdp, name, url, ws) {
           (el.textContent || "").trim()
         )`,
       );
-      result.ok = clicked && items.some((text) => text.includes("QA 示例页"));
+      result.ok = clicked && items.some((text) => text.includes(RUN_ID));
       result.detail = { clicked, items };
     } else if (name === "clipboard") {
-      await evaluate(cdp, `${SET_VALUE}(".clipboard-textarea", "这是一条验收文本")`);
+      await evaluate(cdp, `${SET_VALUE}(".clipboard-textarea", "这是一条验收文本-${RUN_ID}")`);
       const clicked = await evaluate(cdp, `${CLICK_BY_TEXT}(null, "添加到收件箱")`);
       await sleep(1200);
       const items = await evaluate(
@@ -277,7 +328,7 @@ async function runPlugin(cdp, name, url, ws) {
           (el.textContent || "").trim()
         )`,
       );
-      result.ok = clicked && items.some((text) => text.includes("验收文本"));
+      result.ok = clicked && items.some((text) => text.includes(RUN_ID));
       result.detail = { clicked, items };
     } else if (name === "ocr") {
       const set = await setFile(
@@ -412,6 +463,9 @@ async function main() {
       report.push(result);
       console.log(JSON.stringify(result));
     }
+    await cleanup(ws).catch((error) => {
+      console.log(`cleanup warning: ${String(error?.message || error)}`);
+    });
     const failed = report.filter((item) => !item.ok).map((item) => item.name);
     console.log(`\nACCEPTANCE: ${report.length - failed.length}/${report.length} passed`);
     if (failed.length) console.log(`FAILED: ${failed.join(", ")}`);
