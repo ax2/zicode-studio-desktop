@@ -1592,6 +1592,8 @@ const zhCN = {
   Manual: "手动",
   "Every hour": "每小时",
   "Daily at 09:00": "每天 09:00",
+  "Interval (minutes)": "间隔（分钟）",
+  "Run at": "运行时间",
   "Require approval before every run": "每次运行前均需审批",
   "Create automation": "创建自动化",
   "Automation created": "自动化已创建",

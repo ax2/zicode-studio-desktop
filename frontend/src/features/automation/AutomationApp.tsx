@@ -93,6 +93,8 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
   const [targetProject, setTargetProject] = useState(getTarget()?.cwd ?? "");
   const [prompt, setPrompt] = useState("");
   const [schedule, setSchedule] = useState("manual");
+  const [intervalMinutes, setIntervalMinutes] = useState("60");
+  const [dailyTime, setDailyTime] = useState("09:00");
   const [requireApproval, setRequireApproval] = useState(true);
   const [maxCost, setMaxCost] = useState("");
   const [maxRetries, setMaxRetries] = useState("2");
@@ -108,8 +110,9 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
         targetProject,
         prompt,
         schedule: schedule as AutomationWorkflow["schedule"],
-        intervalMinutes: schedule === "interval" ? 60 : null,
-        dailyTime: schedule === "daily" ? "09:00" : null,
+        intervalMinutes:
+          schedule === "interval" ? Math.max(5, Number(intervalMinutes) || 60) : null,
+        dailyTime: schedule === "daily" ? dailyTime || "09:00" : null,
         requireApproval,
         maxCost: maxCost ? Number(maxCost) : null,
         maxRetries: Number(maxRetries || 0),
@@ -122,6 +125,8 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
       setTargetProject(getTarget()?.cwd ?? "");
       setPrompt("");
       setSchedule("manual");
+      setIntervalMinutes("60");
+      setDailyTime("09:00");
       setRequireApproval(true);
       setMaxCost("");
       setMaxRetries("2");
@@ -185,6 +190,32 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           onChange={setSchedule}
         />
       </LabeledField>
+      {schedule === "interval" ? (
+        <LabeledField
+          label={t("Interval (minutes)")}
+          htmlFor="automation-interval-minutes"
+        >
+          <input
+            id="automation-interval-minutes"
+            className="ui-input"
+            type="number"
+            min={5}
+            value={intervalMinutes}
+            onChange={(event) => setIntervalMinutes(event.target.value)}
+          />
+        </LabeledField>
+      ) : null}
+      {schedule === "daily" ? (
+        <LabeledField label={t("Run at")} htmlFor="automation-daily-time">
+          <input
+            id="automation-daily-time"
+            className="ui-input"
+            type="time"
+            value={dailyTime}
+            onChange={(event) => setDailyTime(event.target.value)}
+          />
+        </LabeledField>
+      ) : null}
       <div className="automation-form-limits">
         <LabeledField label={t("Maximum cost per run")} htmlFor="automation-max-cost">
           <input
