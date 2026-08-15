@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
-import { renderMarkdown } from "../../../../public/ui/markdown.js";
+import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
 import { isSupportedDocument, readFileAsDataUrl } from "./documentsLogic";
 import {
   createDocumentsStore,
@@ -37,7 +37,12 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
   const notebooks = store((state) => state.notebooks);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const previewRef = useRef<HTMLElement | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (previewRef.current) initCodeCopyDelegation(previewRef.current);
+  }, [result]);
 
   const pickFiles = (files: FileList | null) => {
     const file = files && files[0];
@@ -154,6 +159,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
               <pre className="documents-markdown-source">{result.markdown}</pre>
             ) : (
               <article
+                ref={previewRef}
                 className="markdown-body documents-preview"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(result.markdown) }}
               />
