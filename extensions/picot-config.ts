@@ -484,7 +484,11 @@ function readModelsDocument(): {
       ? (parsed.providers as Record<string, Record<string, unknown>>)
       : {};
   const qveris = providers[QVERIS_PROVIDER_ID] || {};
-  const qverisBaseUrl = asString(qveris.baseUrl) || QVERIS_MODEL_GATEWAY_BASE_URL;
+  // Default the built-in QVeris model gateway to the desktop's local proxy
+  // (which forwards through the system proxy) so the model catalog also works
+  // on networks where aigateway.qveris.ai is only reachable via proxy.
+  const qverisBaseUrl =
+    asString(qveris.baseUrl) || "http://127.0.0.1:57620/v2/model-gateway";
   return {
     ...parsed,
     providers: {

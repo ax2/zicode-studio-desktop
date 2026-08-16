@@ -416,7 +416,7 @@ describe("structured provider channels", () => {
         channels: expect.arrayContaining([
           expect.objectContaining({
             provider: "qveris",
-            baseUrl: "https://aigateway.qveris.ai/v1",
+            baseUrl: "http://127.0.0.1:57620/v2/model-gateway",
             builtIn: true,
           }),
           expect.objectContaining({
