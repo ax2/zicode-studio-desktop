@@ -59,6 +59,24 @@ describe("remote auth", () => {
     expect(replaceState).toHaveBeenCalledWith(null, "", "/app/workspaces/a/sessions/b#hash");
   });
 
+  it("mirrors the paired device token into a cookie for resource loads", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ deviceToken: "cookie-device-token" }),
+    }));
+
+    await resolveRemoteAuth({
+      location: {
+        href: "http://192.168.1.10:9000/app?pairingToken=pair-1",
+      },
+      history: { replaceState: vi.fn() },
+      storage: storage(),
+      fetchImpl,
+    });
+
+    expect(document.cookie).toContain("zicode_device_token=cookie-device-token");
+  });
+
   it("reuses a stable remote device id", () => {
     const localStorage = storage();
     const first = remoteDeviceId(localStorage);
