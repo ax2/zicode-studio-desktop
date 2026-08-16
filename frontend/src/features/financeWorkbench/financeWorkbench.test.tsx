@@ -68,6 +68,8 @@ describe("finance workbench", () => {
     targetRef.current = { sceneId: "programming" };
     workbench.setTarget();
     expect(content.textContent).toContain("金融工作台需要金融场景");
+    expect(content.textContent).toContain("打开金融工作台");
+    expect(content.textContent).toContain("选择金融场景");
     expect(
       navigation.querySelector<HTMLButtonElement>(".finance-nav-item")?.disabled,
     ).toBe(true);
