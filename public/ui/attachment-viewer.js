@@ -133,9 +133,20 @@ function getOrCreateOverlay() {
     if (event.target === overlay) close();
   });
   closeBtn.addEventListener("click", close);
-  openBtn.addEventListener("click", () => {
+  openBtn.addEventListener("click", async () => {
     const url = overlay.dataset.url;
-    if (url) window.open(url, "_blank", "noopener");
+    if (!url) return;
+    // Fetch with the device token/cookie first so the binary can be opened as
+    // a local blob (works on mobile/relay clients and desktop WebView alike).
+    try {
+      const response = await hostFetch(url);
+      if (!response.ok) throw new Error(String(response.status));
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, "_blank", "noopener");
+    } catch {
+      window.open(url, "_blank", "noopener");
+    }
   });
   downloadBtn.addEventListener("click", () => {
     const url = overlay.dataset.url;
