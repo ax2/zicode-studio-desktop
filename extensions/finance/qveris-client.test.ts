@@ -94,4 +94,21 @@ describe("QVeris client", () => {
       expect.objectContaining({ method: "GET", body: undefined }),
     );
   });
+
+  it("honors a custom base URL for proxied or self-hosted deployments", async () => {
+    configureKey();
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ search_id: "srch", results: [] })),
+    );
+    const client = new QVerisClient({
+      fetchImpl,
+      baseUrl: "https://gateway.example.com/api/v1/",
+    });
+
+    await client.discover({ query: "stock quote" });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://gateway.example.com/api/v1/search",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });
