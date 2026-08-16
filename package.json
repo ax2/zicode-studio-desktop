@@ -53,7 +53,7 @@
     "check:design:fix": "bun scripts/check-design-css.mjs --fix",
     "check:permissions": "bun run scripts/check-tauri-permissions.js",
     "check:windows-subprocesses": "bun run scripts/check-windows-subprocesses.js",
-    "check:rust": "bash scripts/check-rust.sh"
+    "check:rust": "node scripts/check-rust.mjs"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.72.0",
