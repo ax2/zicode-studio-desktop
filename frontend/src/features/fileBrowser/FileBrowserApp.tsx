@@ -43,19 +43,17 @@ export function FileBrowserApp({
     <>
       {entries.map((entry) => {
         const isDirectory = entry.kind === "directory";
-        return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: file item click pattern preserved from the vanilla browser
-          // biome-ignore lint/a11y/useKeyWithClickEvents: directory rows are mouse-driven in the vanilla file browser
-          <div
-            className={`file-item${isDirectory ? " directory" : ""}${
-              highlightPath && entry.relativePath === highlightPath ? " is-highlighted" : ""
-            }`}
-            data-path={entry.relativePath}
-            data-name={entry.name}
-            data-is-directory={String(isDirectory)}
-            key={entry.relativePath}
-            onClick={isDirectory ? () => onOpenDirectory(entry.relativePath) : undefined}
-          >
+        const itemClass = `file-item${isDirectory ? " directory" : ""}${
+          highlightPath && entry.relativePath === highlightPath ? " is-highlighted" : ""
+        }`;
+        const commonProps = {
+          className: itemClass,
+          "data-path": entry.relativePath,
+          "data-name": entry.name,
+          "data-is-directory": String(isDirectory),
+        };
+        const children = (
+          <>
             <span className="file-icon" aria-hidden="true">
               {fileIcon(entry)}
             </span>
@@ -65,6 +63,23 @@ export function FileBrowserApp({
             {!isDirectory && entry.size != null ? (
               <span className="file-size">{formatSize(entry.size)}</span>
             ) : null}
+          </>
+        );
+        if (isDirectory) {
+          return (
+            <button
+              key={entry.relativePath}
+              type="button"
+              {...commonProps}
+              onClick={() => onOpenDirectory(entry.relativePath)}
+            >
+              {children}
+            </button>
+          );
+        }
+        return (
+          <div key={entry.relativePath} {...commonProps}>
+            {children}
           </div>
         );
       })}
