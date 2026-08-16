@@ -264,8 +264,8 @@ const zhCN = {
   Disconnected: "已断开",
   "Runtime disconnected": "运行时连接已断开",
   "Start a new session to reconnect": "新建会话即可恢复连接",
-  "Pi runtime is disconnected. Start a new session to reconnect.":
-    "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+  "Pi runtime is disconnected. Try again or start a new session.":
+    "Pi 运行时连接已断开。请重试或新建一个会话。",
   "The file could not be decoded.": "无法解码该文件。",
   "This file type is not supported.": "不支持此文件类型。",
   "The file is too large.": "文件过大。",

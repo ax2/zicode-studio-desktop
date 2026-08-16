@@ -146,7 +146,7 @@ describe("task center store host errors", () => {
     const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
     await store.getState().load();
     expect(store.getState().error?.message).toBe(
-      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+      "Pi 运行时连接已断开。请重试或新建一个会话。",
     );
     store.getState().destroy();
   });

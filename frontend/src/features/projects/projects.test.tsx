@@ -252,7 +252,7 @@ describe("project workspace host errors", () => {
       expect(document.querySelector(".project-workspace-warning")).toBeTruthy(),
     );
     expect(store.getState().snapshot.warnings).toContain(
-      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+      "Pi 运行时连接已断开。请重试或新建一个会话。",
     );
     store.getState().setTarget(null);
   });

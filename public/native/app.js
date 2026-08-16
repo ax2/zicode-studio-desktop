@@ -2181,7 +2181,7 @@ function showError(error) {
   // connection listener owns "Connected"/"Disconnected". Showing an error
   // must not pretend the WebSocket went down.
   const message = isRuntimeProcessClosedError(error)
-    ? t("Pi runtime is disconnected. Start a new session to reconnect.")
+    ? t("Pi runtime is disconnected. Try again or start a new session.")
     : error?.message || String(error);
   messageRenderer.renderError(message);
 }

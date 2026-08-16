@@ -251,7 +251,7 @@ async function writeChatConfig(content) {
 function messageFromError(error) {
   const message = error instanceof Error ? error.message : String(error);
   if (/ProcessClosed|process\s+(is\s+)?closed/i.test(message)) {
-    return t("Pi runtime is disconnected. Start a new session to reconnect.");
+    return t("Pi runtime is disconnected. Try again or start a new session.");
   }
   return message;
 }

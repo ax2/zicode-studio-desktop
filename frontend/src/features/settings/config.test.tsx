@@ -60,7 +60,7 @@ describe("settings config store", () => {
     await store.getState().loadApiKeys();
     expect(store.getState().apiStatus).toBe("error");
     expect(store.getState().apiError).toBe(
-      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+      "Pi 运行时连接已断开。请重试或新建一个会话。",
     );
   });
 
@@ -75,7 +75,7 @@ describe("settings config store", () => {
     await store.getState().loadChannels();
     expect(store.getState().channelStatus).toBe("error");
     expect(store.getState().channelError).toBe(
-      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+      "Pi 运行时连接已断开。请重试或新建一个会话。",
     );
   });
 

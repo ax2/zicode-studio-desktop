@@ -112,7 +112,7 @@ describe("automation store host errors", () => {
     const store = createAutomationStore({ call, retryDelayMs: 0 });
     await store.getState().load();
     expect(store.getState().error?.message).toBe(
-      "Pi 运行时连接已断开。新建一个会话即可恢复连接。",
+      "Pi 运行时连接已断开。请重试或新建一个会话。",
     );
     store.getState().destroy();
   });

@@ -19,7 +19,7 @@ export function isRuntimeProcessClosedError(error: unknown): boolean {
 export function localizeHostError(error: unknown): Error {
   if (isRuntimeProcessClosedError(error)) {
     return new Error(
-      t("Pi runtime is disconnected. Start a new session to reconnect."),
+      t("Pi runtime is disconnected. Try again or start a new session."),
     );
   }
   return error instanceof Error ? error : new Error(String(error));

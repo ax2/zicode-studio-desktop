@@ -235,7 +235,7 @@ describe("notes store", () => {
   it("maps a closed Pi runtime to the localized recovery message", () => {
     const closed = new Error("Pi RPC request failed: ProcessClosed");
     expect(localizeNotesHostError(closed).message).toBe(
-      t("Pi runtime is disconnected. Start a new session to reconnect."),
+      t("Pi runtime is disconnected. Try again or start a new session."),
     );
   });
 
