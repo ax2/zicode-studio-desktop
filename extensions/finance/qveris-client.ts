@@ -8,15 +8,18 @@ type FetchLike = typeof globalThis.fetch;
 type QVerisClientOptions = {
   fetchImpl?: FetchLike;
   timeoutMs?: number;
+  baseUrl?: string;
 };
 
 export class QVerisClient {
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
+  private readonly baseUrl: string;
 
   constructor(options: QVerisClientOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.timeoutMs = options.timeoutMs ?? 10_000;
+    this.baseUrl = (options.baseUrl ?? QVERIS_CAPABILITY_BASE_URL).replace(/\/+$/, "");
   }
 
   credentialStatus(): { configured: boolean; source: string } {
@@ -144,7 +147,7 @@ export class QVerisClient {
     const abort = () => controller.abort(externalSignal?.reason);
     externalSignal?.addEventListener("abort", abort, { once: true });
     try {
-      const response = await this.fetchImpl(`${QVERIS_CAPABILITY_BASE_URL}${endpoint}`, {
+      const response = await this.fetchImpl(`${this.baseUrl}${endpoint}`, {
         method,
         headers: {
           Authorization: `Bearer ${apiKey}`,
