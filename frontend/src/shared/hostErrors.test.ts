@@ -113,6 +113,30 @@ describe("host error localization", () => {
     expect(friendlyPluginError(new Error("QVeris request failed (401): Unauthorized"))).toBe(
       "QVeris 请求失败。",
     );
+    expect(friendlyPluginError(new Error("At least one image is required"))).toBe(
+      "输入为空或不完整。",
+    );
+    expect(friendlyPluginError(new Error("Clipboard text is empty"))).toBe("剪贴板为空");
+    expect(friendlyPluginError(new Error("Habit name is required"))).toBe("输入为空或不完整。");
+    expect(
+      friendlyPluginError(new Error("The maximum of 100 habits has been reached")),
+    ).toBe("已达到习惯数量上限。");
+    expect(friendlyPluginError(new Error("Habit date must use YYYY-MM-DD format"))).toBe(
+      "日期必须使用 YYYY-MM-DD 格式。",
+    );
+    expect(friendlyPluginError(new Error("Cannot prepare image for OCR"))).toBe(
+      "此设备上的文字提取服务不可用。",
+    );
+    expect(friendlyPluginError(new Error("Windows OCR failed"))).toBe(
+      "此设备上的文字提取服务不可用。",
+    );
+    expect(
+      friendlyPluginError(
+        new Error(
+          "No text could be extracted from this document. It may be a scanned image without a text layer.",
+        ),
+      ),
+    ).toBe("未能从该文档中提取到文字。");
     expect(
       friendlyPluginError(new Error("Text exceeds the 50000 character translation limit")),
     ).toBe("文本过长。");

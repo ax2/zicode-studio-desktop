@@ -126,8 +126,30 @@ export function friendlyPluginError(error: unknown): string {
   if (/no text was recognized/.test(lowered)) {
     return t("No text was recognized in the image");
   }
-  if (/ocr is only available|cannot start windows ocr/.test(lowered)) {
+  if (
+    /ocr is only available|cannot start windows ocr|cannot prepare image for ocr|windows ocr failed/.test(
+      lowered,
+    )
+  ) {
     return t("The text extraction service is unavailable on this device.");
+  }
+  // Image / clipboard / habits: missing required input.
+  if (/at least one image is required|habit name is required/.test(lowered)) {
+    return t("The input is empty or incomplete.");
+  }
+  if (/clipboard text is empty/.test(lowered)) {
+    return t("Clipboard is empty");
+  }
+  // Habits: count and date limits.
+  if (/maximum of \d+ habits has been reached/.test(lowered)) {
+    return t("The maximum number of habits has been reached.");
+  }
+  if (/habit date must use yyyy-mm-dd/.test(lowered)) {
+    return t("The date must use the YYYY-MM-DD format.");
+  }
+  // Documents: a scanned PDF without a text layer.
+  if (/no text could be extracted from this document/.test(lowered)) {
+    return t("No text could be extracted from this document.");
   }
   if (/cannot create|cannot serialize|cannot save|cannot encode/.test(lowered)) {
     return t("The operation could not be completed.");
