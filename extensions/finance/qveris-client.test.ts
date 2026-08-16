@@ -140,4 +140,19 @@ describe("QVeris client", () => {
       expect.objectContaining({ method: "POST" }),
     );
   });
+
+  it("honors the QVERIS_CAPABILITY_BASE_URL environment override", async () => {
+    configureKey();
+    vi.stubEnv("QVERIS_CAPABILITY_BASE_URL", "https://proxy.example.com/api/v1/");
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ search_id: "srch", results: [] })),
+    );
+    const client = new QVerisClient({ fetchImpl });
+
+    await client.discover({ query: "stock quote" });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://proxy.example.com/api/v1/search",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });
