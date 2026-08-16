@@ -42,6 +42,12 @@ export function attachmentIconFor(kind) {
       return "📝";
     case "txt":
       return "📄";
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "gif":
+    case "webp":
+      return "🖼️";
     default:
       return "📎";
   }
