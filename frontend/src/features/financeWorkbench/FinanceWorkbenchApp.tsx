@@ -855,7 +855,7 @@ export function FinanceContentApp({
         <h1>{t("Finance requires a Finance scene")}</h1>
         <p>
           {t(
-            "Select the Finance scene below, then start a new session to open the Finance workbench. Data, credentials, tools, and ledgers stay isolated per scene.",
+            "Create a new session in the Finance scene to open the workbench. Data, credentials, tools, and ledgers stay isolated per scene.",
           )}
         </p>
         <div className="finance-scene-guard-actions">

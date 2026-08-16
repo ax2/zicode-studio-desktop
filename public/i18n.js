@@ -902,8 +902,8 @@ const zhCN = {
   Data: "数据",
   Analysis: "分析",
   "Finance requires a Finance scene": "金融工作台需要金融场景",
-  "Select the Finance scene below, then start a new session to open the Finance workbench. Data, credentials, tools, and ledgers stay isolated per scene.":
-    "请选择金融场景，然后新建一个会话以进入金融工作台。数据、凭据、工具和模拟账本按场景隔离。",
+  "Create a new session in the Finance scene to open the workbench. Data, credentials, tools, and ledgers stay isolated per scene.":
+    "在金融场景中新建一个会话以打开工作台。数据、凭据、工具和模拟账本按场景隔离。",
   "Close Finance Workbench": "关闭金融工作台",
   "QVeris financial data": "QVeris 金融数据",
   "Live and historical capabilities": "实时与历史数据能力",
