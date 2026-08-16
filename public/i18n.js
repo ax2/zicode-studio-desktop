@@ -922,6 +922,7 @@ const zhCN = {
     "历史每日复权股价与公司基本面",
   Discover: "发现",
   "Checking…": "正在检查…",
+  "Key configured": "已配置密钥",
   "Key required": "需要配置密钥",
   "Discovering capabilities…": "正在发现数据能力…",
   "Capability discovery failed.": "数据能力发现失败。",

@@ -677,7 +677,7 @@ function OverviewView({
   const busy = store((state) => state.busy);
   const statusText =
     status?.state === "connected"
-      ? t("Connected")
+      ? t("Key configured")
       : status?.state === "missing"
         ? t("Key required")
         : status?.state === "unavailable"

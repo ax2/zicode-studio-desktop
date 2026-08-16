@@ -114,7 +114,7 @@ describe("finance workbench", () => {
     const { content, workbench } = mountWorkbench({ sceneId: "finance" }, { call });
 
     await workbench.openPanel();
-    await vi.waitFor(() => expect(content.textContent).toContain("已连接"));
+    await vi.waitFor(() => expect(content.textContent).toContain("已配置密钥"));
   });
 
   it("renders discovered capabilities and deterministic backtest metrics", async () => {
