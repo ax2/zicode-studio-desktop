@@ -86,6 +86,22 @@ describe("QVeris client", () => {
     );
   });
 
+  it("maps abort/timeout failures to the QVeris timeout message", async () => {
+    configureKey();
+    const abortError = Object.assign(new Error("The operation was aborted"), {
+      name: "AbortError",
+    });
+    const client = new QVerisClient({
+      fetchImpl: vi.fn(async () => {
+        throw abortError;
+      }),
+    });
+
+    await expect(client.discover({ query: "stock quote" })).rejects.toThrow(
+      "QVeris request timed out",
+    );
+  });
+
   it("uses authenticated context-safe GET queries for billing audit", async () => {
     configureKey();
     const fetchImpl = vi.fn(async () =>
