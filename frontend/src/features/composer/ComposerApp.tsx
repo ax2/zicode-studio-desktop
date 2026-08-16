@@ -413,7 +413,6 @@ export function ComposerApp({
                 aria-label={t("Attach image")}
                 aria-haspopup="dialog"
                 aria-expanded={imagePickerOpen}
-                tabIndex={-1}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19" />
@@ -426,7 +425,6 @@ export function ComposerApp({
                 id="command-btn"
                 title={t("Commands (Ctrl+Shift+P)")}
                 aria-label={t("Open commands")}
-                tabIndex={-1}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22v-5" />
@@ -444,7 +442,6 @@ export function ComposerApp({
                   className="ui-button ui-button--sm ui-button--ghost model-dropdown-btn"
                   id="model-dropdown-btn"
                   title={t("Switch model")}
-                  tabIndex={-1}
                 >
                   <span className="model-dropdown-label" id="model-dropdown-label">
                     model
@@ -461,7 +458,6 @@ export function ComposerApp({
                 id="thinking-btn"
                 title={t("Thinking effort controls reasoning depth. Click to cycle.")}
                 aria-label={t("Thinking effort: off. Click to cycle reasoning depth.")}
-                tabIndex={-1}
               >
                 {t("Think off")}
               </button>
@@ -490,7 +486,6 @@ export function ComposerApp({
                 aria-pressed={listening}
                 disabled={!SpeechRecognitionApi}
                 onClick={startVoiceInput}
-                tabIndex={-1}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
@@ -503,7 +498,6 @@ export function ComposerApp({
                 id="send-btn"
                 title={t("Send message")}
                 aria-label={t("Send message")}
-                tabIndex={-1}
               >
                 <span className="send-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -518,7 +512,6 @@ export function ComposerApp({
                 className="hidden"
                 title={t("Abort (Esc)")}
                 aria-label={t("Abort (Esc)")}
-                tabIndex={-1}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="4" y="4" width="16" height="16" rx="2" />

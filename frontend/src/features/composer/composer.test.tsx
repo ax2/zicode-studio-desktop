@@ -238,6 +238,24 @@ describe("composer React shell", () => {
     handle.dispose();
   });
 
+  it("keeps the composer toolbar controls keyboard-focusable", () => {
+    const { handle } = mountComposerWithSlashMenu([]);
+    const ids = [
+      "attach-btn",
+      "command-btn",
+      "model-dropdown-btn",
+      "thinking-btn",
+      "mic-btn",
+      "send-btn",
+    ];
+    for (const id of ids) {
+      const element = document.getElementById(id);
+      expect(element).toBeTruthy();
+      expect(element?.getAttribute("tabindex")).not.toBe("-1");
+    }
+    handle.dispose();
+  });
+
   it("renders image previews from the feed and removes them", async () => {
     const handle = mountComposer();
     if (!handle) throw new Error("composer mount failed");
