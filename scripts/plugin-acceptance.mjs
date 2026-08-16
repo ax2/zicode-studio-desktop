@@ -19,6 +19,13 @@ const PORT = Number(process.env.CDP_PORT || 9224);
 const WAIT_MS = Number(process.env.WAIT_MS || 6000);
 const ASSETS = process.env.QA_ASSETS || join(ROOT, "scripts", "fixtures");
 const RUN_ID = process.env.QA_RUN_ID || Date.now().toString(36);
+// Stable prefixes shared by every run so cleanup can also remove test data
+// left behind by a previous interrupted/older run, not just this run's items.
+const TEST_PREFIXES = {
+  habit: "晨跑",
+  watch: "QA 示例页",
+  clipboard: "这是一条验收文本",
+};
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -170,7 +177,7 @@ async function cleanup(ws) {
 
   const habits = await getJson(`/v2/habits?${base}`).catch(() => ({ habits: [] }));
   for (const habit of habits.habits ?? []) {
-    if (String(habit.name ?? "").includes(RUN_ID)) {
+    if (String(habit.name ?? "").startsWith(TEST_PREFIXES.habit)) {
       await postJson("/v2/habits/remove", {
         sceneId,
         workspaceId: ws,
@@ -181,7 +188,7 @@ async function cleanup(ws) {
 
   const watchers = await getJson(`/v2/watch?${base}`).catch(() => ({ items: [] }));
   for (const item of watchers.items ?? []) {
-    if (String(item.name ?? "").includes(RUN_ID)) {
+    if (String(item.name ?? "").startsWith(TEST_PREFIXES.watch)) {
       await postJson("/v2/watch/remove", {
         sceneId,
         workspaceId: ws,
@@ -192,7 +199,7 @@ async function cleanup(ws) {
 
   const clips = await getJson(`/v2/clipboard?${base}`).catch(() => ({ items: [] }));
   for (const item of clips.items ?? []) {
-    if (String(item.text ?? "").includes(RUN_ID)) {
+    if (String(item.text ?? "").startsWith(TEST_PREFIXES.clipboard)) {
       await postJson("/v2/clipboard/remove", {
         sceneId,
         workspaceId: ws,
@@ -457,6 +464,10 @@ async function main() {
     if (!page) throw new Error("No page target found");
     const cdp = await connect(page.webSocketDebuggerUrl);
 
+    // Clear residue from any previous run before adding fresh items.
+    await cleanup(ws).catch((error) => {
+      console.log(`pre-clean warning: ${String(error?.message || error)}`);
+    });
     const report = [];
     for (const [name, pluginId] of targets) {
       const result = await runPlugin(cdp, name, `${sessionUrl}?app=${pluginId}`, ws);
