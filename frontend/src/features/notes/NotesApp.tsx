@@ -1908,6 +1908,33 @@ function NoteEditor({ store }: { store: NotesStore }) {
     });
   };
 
+  const wrapSelection = (wrapper: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = draftContent.slice(start, end);
+    setDraft({
+      content: `${draftContent.slice(0, start)}${wrapper}${selected}${wrapper}${draftContent.slice(
+        end,
+      )}`,
+    });
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      if (selected) {
+        el.setSelectionRange(
+          start + wrapper.length,
+          start + wrapper.length + selected.length,
+        );
+      } else {
+        const cursor = start + wrapper.length;
+        el.setSelectionRange(cursor, cursor);
+      }
+    });
+  };
+
   const secondaryActions = (
     <>
       <ToolbarButton
@@ -2260,7 +2287,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
             }, 120);
           }}
           onKeyDown={(event) => {
-            if (event.key === "Escape") {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+              event.preventDefault();
+              wrapSelection("**");
+            } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
+              event.preventDefault();
+              wrapSelection("*");
+            } else if (event.key === "Escape") {
               event.preventDefault();
               if (linkOpen) {
                 setLinkOpen(false);
