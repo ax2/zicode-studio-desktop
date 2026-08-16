@@ -22,6 +22,7 @@
     "tauri": "tauri",
     "dev": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
     "sync:vendor": "bun run scripts/sync-vendor.js",
+    "bundle-css": "node scripts/bundle-css.js",
     "update:pi:lock": "bun run scripts/update-pi-version.js --lock-only",
     "update:pi": "bun run scripts/update-pi-version.js",
     "fetch:pi": "bun run scripts/fetch-pi-binary.js",
