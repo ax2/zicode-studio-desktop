@@ -985,6 +985,7 @@ const zhCN = {
   "Portfolio equity": "组合权益",
   "Market value": "持仓市值",
   "Unrealized P&L": "未实现盈亏",
+  "Realized P&L": "已实现盈亏",
   "Missing quotes": "缺失报价",
   "Loading paper accounts…": "正在加载模拟账户…",
   "Could not create paper account.": "无法创建模拟账户。",

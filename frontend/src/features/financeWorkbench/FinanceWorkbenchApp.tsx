@@ -449,7 +449,9 @@ function PaperAccountsResults({
           <span>
             {`${account.baseCurrency || ""} · ${t("Cash")} ${number(account.cash)} · ${t(
               "Positions",
-            )} ${number(account.positionCount)}`}
+            )} ${number(account.positionCount)} · ${t("Realized P&L")} ${number(
+              account.realizedPnl,
+            )}`}
           </span>
           <code>{String(account.id)}</code>
           <CopyAccountIdButton accountId={String(account.id)} />
