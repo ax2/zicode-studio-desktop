@@ -587,6 +587,30 @@ describe("notes store", () => {
     expect(source.textContent).toContain("剪藏于");
   });
 
+  it("copies the captured source URL", async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      clipboard: { writeText },
+    });
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          source: { url: "https://example.com/article" },
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const copy = await waitFor(
+      () => container.querySelector(".notes-source-copy") as HTMLButtonElement,
+    );
+    copy.click();
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://example.com/article"));
+  });
+
   it("clears the search query when showing all notes", async () => {
     const store = storeWithGateway();
     await store.getState().load();
