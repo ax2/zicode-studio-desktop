@@ -100,6 +100,7 @@ describe("SessionSidebar.render", () => {
     expect(container.textContent).not.toContain("Failed to load sessions");
 
     await vi.advanceTimersByTimeAsync(250);
+    await Promise.resolve();
 
     expect(data.listAllSessions).toHaveBeenCalledTimes(2);
     expect(container.querySelectorAll(".session-item")).toHaveLength(1);
