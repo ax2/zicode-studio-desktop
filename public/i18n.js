@@ -385,6 +385,7 @@ const zhCN = {
   "A new answer is available. Use Latest to jump to the end.":
     "收到新回答。使用“最新消息”按钮回到末尾。",
   Settings: "设置",
+  New: "新建",
   General: "通用",
   Extensions: "扩展",
   Usage: "用量",

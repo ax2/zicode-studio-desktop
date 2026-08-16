@@ -27,4 +27,19 @@ describe("desktop localization", () => {
     expect(document.querySelector("button").textContent).toBe("Settings");
     expect(document.querySelector("span").textContent).toBe("Programming");
   });
+
+  it("localizes builtin slash-command labels", () => {
+    document.body.innerHTML = `
+      <button>New</button>
+      <button>Settings</button>
+      <button>Help</button>
+    `;
+    setLocale("zh-CN");
+    translateDocument();
+    expect([...document.querySelectorAll("button")].map((item) => item.textContent)).toEqual([
+      "新建",
+      "设置",
+      "帮助",
+    ]);
+  });
 });
