@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { Select } from "../../shared/Select";
 import {
   asArray,
   FINANCE_VIEWS,
@@ -16,6 +17,8 @@ import {
   type FinanceViewDefinition,
 } from "./financeWorkbenchLogic";
 import type { FinanceWorkbenchStoreHook } from "./financeWorkbenchStore";
+
+const PAPER_CURRENCIES = ["CNY", "USD", "EUR", "GBP", "JPY", "HKD"];
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
@@ -1116,17 +1119,15 @@ export function FinanceContentApp({
               value={inputValue("paperName")}
               onChange={(event) => setInputValue("paperName", event.target.value)}
             />
-            <input
-              className="ui-input"
-              placeholder={t("Currency")}
-              aria-label={t("Currency")}
-              autoComplete="off"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              disabled={Boolean(busy.paperAccount)}
+            <Select
+              id="paper-currency"
               value={inputValue("paperCurrency") || "CNY"}
-              onChange={(event) => setInputValue("paperCurrency", event.target.value)}
+              label={t("Currency")}
+              options={PAPER_CURRENCIES.map((currency) => ({
+                value: currency,
+                label: currency,
+              }))}
+              onChange={(value) => setInputValue("paperCurrency", value)}
             />
             <input
               className="ui-input"
