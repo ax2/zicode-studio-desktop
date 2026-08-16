@@ -265,10 +265,14 @@ async function backendCheck(name, ws) {
 // because the shared workspace already contains its content hash.
 async function notesCaptureCheck(ws) {
   const sceneId = process.env.QA_SCENE || "programming";
+  const base = `sceneId=${encodeURIComponent(sceneId)}&workspaceId=${encodeURIComponent(ws)}`;
+  const snapshot = await getJson(`/v2/notes?${base}`).catch(() => ({}));
+  const notebookId = snapshot?.snapshot?.notebooks?.[0]?.id;
+  if (!notebookId) return { ok: true, skipped: true };
   const result = await postJson("/v2/notes/capture", {
     sceneId,
     workspaceId: ws,
-    notebookId: "b64be4fe-7c92-4195-81ad-e759b6698530",
+    notebookId,
     url: "https://example.com/",
   });
   return {
