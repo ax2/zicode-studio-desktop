@@ -612,4 +612,23 @@ mod tests {
         let article = extract(html, "https://example.com/");
         assert!(article.content_markdown.contains("documentation examples"));
     }
+
+    #[test]
+    fn recognizes_pinyin_class_names_for_chinese_pages() {
+        let html = r#"<html><body>
+          <div class="daohang"><a>首页</a><a>分类导航</a></div>
+          <div class="zhengwen">
+            <h1>拼音正文标题</h1>
+            <p>这是正文内容，用于验证拼音 class 名能被正确识别为正文，并保留下来。</p>
+          </div>
+          <div class="guanggao">广告内容</div>
+          <div class="pinglun">评论内容</div>
+        </body></html>"#;
+        let article = extract(html, "https://example.com/pinyin");
+        assert!(article.content_markdown.contains("拼音正文标题"));
+        assert!(article.content_markdown.contains("拼音 class 名"));
+        assert!(!article.content_markdown.contains("广告内容"));
+        assert!(!article.content_markdown.contains("评论内容"));
+        assert!(!article.content_markdown.contains("首页"));
+    }
 }
