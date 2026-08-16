@@ -1166,6 +1166,58 @@ describe("notes store", () => {
     await waitFor(() => expect(store.getState().draftContent).toBe("a  b"));
   });
 
+  it("wraps the selected note content in bold with Ctrl+B", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "ab" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(0, 2);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "b",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("**ab**"));
+  });
+
+  it("wraps the selected note content in italics with Ctrl+I", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "ab" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(0, 2);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "i",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("*ab*"));
+  });
+
   it("dedents the note content with Shift+Tab", async () => {
     const store = storeWithGateway();
     await store.getState().load();
