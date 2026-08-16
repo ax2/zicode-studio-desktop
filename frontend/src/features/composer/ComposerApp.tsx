@@ -470,14 +470,18 @@ export function ComposerApp({
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn"
                 id="mic-btn"
                 title={
-                  voiceError
+                  !SpeechRecognitionApi
+                    ? t("Voice input unavailable")
+                    : voiceError
                     ? t("Voice input failed")
                     : listening
                       ? t("Listening")
                       : t("Voice input")
                 }
                 aria-label={
-                  voiceError
+                  !SpeechRecognitionApi
+                    ? t("Voice input unavailable")
+                    : voiceError
                     ? t("Voice input failed")
                     : listening
                       ? t("Listening")
