@@ -53,9 +53,18 @@ export function friendlyPluginError(error: unknown): string {
   if (/translation model key is not configured/.test(lowered)) {
     return t("The translation model is not configured for this scene.");
   }
-  // Translation: unreachable or empty model gateway response.
+  // Translation: the gateway could not be reached at the network level. This is
+  // almost always a proxy/offline problem, so point the user there instead of
+  // implying the service itself is down.
+  if (/model gateway is unreachable|cannot build model client/.test(lowered)) {
+    return t(
+      "Cannot reach the translation service. Check your network or proxy settings.",
+    );
+  }
+  // Translation: the gateway answered but rejected the request, or returned an
+  // empty result.
   if (
-    /model gateway is unreachable|cannot build model client|model gateway error|cannot read model response|model returned an empty/.test(
+    /model gateway error|cannot read model response|model returned an empty/.test(
       lowered,
     )
   ) {

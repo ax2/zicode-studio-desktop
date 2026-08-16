@@ -91,7 +91,7 @@ describe("host error localization", () => {
       friendlyPluginError(new Error("Translation model key is not configured for this scene")),
     ).toBe("当前场景尚未配置翻译模型。");
     expect(friendlyPluginError(new Error("Model gateway is unreachable: timeout"))).toBe(
-      "翻译服务暂时不可用，请稍后重试。",
+      "无法连接翻译服务，请检查网络或代理设置。",
     );
     expect(
       friendlyPluginError(new Error("Text exceeds the 50000 character translation limit")),

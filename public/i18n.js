@@ -272,6 +272,7 @@ const zhCN = {
   "The text is too long.": "文本过长。",
   "The item was not found.": "找不到该条目。",
   "The translation model is not configured for this scene.": "当前场景尚未配置翻译模型。",
+  "Cannot reach the translation service. Check your network or proxy settings.": "无法连接翻译服务，请检查网络或代理设置。",
   "The translation service is temporarily unavailable.": "翻译服务暂时不可用，请稍后重试。",
   "App ID": "应用 ID",
   "App Secret": "应用密钥",
