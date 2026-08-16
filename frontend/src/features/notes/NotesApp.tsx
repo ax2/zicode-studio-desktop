@@ -164,6 +164,12 @@ export function NotesNav({ store }: { store: NotesStore }) {
           spellCheck={false}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && query) {
+              event.preventDefault();
+              setQuery("");
+            }
+          }}
         />
         {query ? (
           <button
