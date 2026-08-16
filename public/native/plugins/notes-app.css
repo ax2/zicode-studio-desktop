@@ -1699,6 +1699,10 @@ body.notes-dragging .notes-result-item {
   flex-shrink: 0;
 }
 
+.notes-source-copy:hover {
+  text-decoration: underline;
+}
+
 .notes-error-banner {
   margin-bottom: var(--space-3);
   padding: var(--space-3);
