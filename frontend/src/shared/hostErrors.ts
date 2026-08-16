@@ -33,9 +33,9 @@ export function localizeHostError(error: unknown): Error {
 export function friendlyPluginError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const lowered = message.toLowerCase();
-  // Web Watch: URL validation.
+  // Web Watch / Notes capture: URL validation.
   if (
-    /url is invalid|only http and https|url has no host|url host cannot be resolved|url host resolves to a private/.test(
+    /url is invalid|only http and https|url has no host|url host cannot be resolved|url host resolves to a private|enter a valid http/.test(
       lowered,
     )
   ) {
@@ -48,6 +48,20 @@ export function friendlyPluginError(error: unknown): string {
     )
   ) {
     return t("The page could not be reached.");
+  }
+  // Notes web capture: network-level failure reaching the page (proxy/offline).
+  if (
+    /cannot retrieve the web page|cannot initialize web capture|cannot resolve the web page host|web page download failed/.test(
+      lowered,
+    )
+  ) {
+    return t("Cannot retrieve the page. Check your network or proxy settings.");
+  }
+  // Notes web capture: the URL points at a private/loopback address.
+  if (/loopback and private network|only credential-free http/.test(lowered)) {
+    return t(
+      "This URL is not allowed. Internal and private network addresses cannot be captured.",
+    );
   }
   // Translation: missing model key.
   if (/translation model key is not configured/.test(lowered)) {

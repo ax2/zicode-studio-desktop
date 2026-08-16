@@ -93,6 +93,15 @@ describe("host error localization", () => {
     expect(friendlyPluginError(new Error("Model gateway is unreachable: timeout"))).toBe(
       "无法连接翻译服务，请检查网络或代理设置。",
     );
+    expect(friendlyPluginError(new Error("Cannot retrieve the web page"))).toBe(
+      "无法访问该网页，请检查网络或代理设置。",
+    );
+    expect(
+      friendlyPluginError(new Error("Loopback and private network URLs are not allowed")),
+    ).toBe("该网址不允许采集，本机与内网地址不可访问。");
+    expect(friendlyPluginError(new Error("Enter a valid HTTP(S) URL"))).toBe(
+      "该网址无效或无法访问。",
+    );
     expect(
       friendlyPluginError(new Error("Text exceeds the 50000 character translation limit")),
     ).toBe("文本过长。");

@@ -258,6 +258,14 @@ describe("notes store", () => {
       t("Notes backup contains too many notes"),
     );
 
+    const captureFailed = new Error("Cannot retrieve the web page") as Error & {
+      code?: string;
+    };
+    captureFailed.code = "capture_failed";
+    expect(localizeNotesHostError(captureFailed).message).toBe(
+      t("Cannot retrieve the page. Check your network or proxy settings."),
+    );
+
     const unknown = new Error("Unrelated failure");
     expect(localizeNotesHostError(unknown)).toBe(unknown);
   });

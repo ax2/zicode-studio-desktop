@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
-import { localizeHostError } from "../../shared/hostErrors";
+import { friendlyPluginError, localizeHostError } from "../../shared/hostErrors";
 import {
   AUTOSAVE_DELAY_MS,
   buildChildrenByParent,
@@ -1479,5 +1479,6 @@ export function localizeNotesHostError(error: unknown): Error {
       t("A notebook cannot be nested inside itself or one of its own children"),
     );
   }
-  return error;
+  const friendly = friendlyPluginError(error);
+  return friendly !== error.message ? new Error(friendly) : error;
 }

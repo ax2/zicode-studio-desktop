@@ -269,6 +269,8 @@ const zhCN = {
   "The file could not be read.": "无法读取该文件。",
   "The URL is invalid or cannot be accessed.": "该网址无效或无法访问。",
   "The page could not be reached.": "无法访问该网页。",
+  "Cannot retrieve the page. Check your network or proxy settings.": "无法访问该网页，请检查网络或代理设置。",
+  "This URL is not allowed. Internal and private network addresses cannot be captured.": "该网址不允许采集，本机与内网地址不可访问。",
   "The text is too long.": "文本过长。",
   "The item was not found.": "找不到该条目。",
   "The translation model is not configured for this scene.": "当前场景尚未配置翻译模型。",
