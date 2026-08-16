@@ -670,15 +670,22 @@ const artifactGateway = new ArtifactGateway({
   location: window.location,
 });
 async function findExistingFinanceSession() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
     const response = await hostFetch(
       `/v2/sessions?workspaceId=${encodeURIComponent(target.workspaceId)}`,
+      { signal: controller.signal },
     );
     if (!response.ok) return null;
     const payload = await response.json();
     return findFinanceSession(payload.sessions, target.sessionId);
   } catch {
+    // A slow or unreachable session listing must not block the workbench; the
+    // caller falls back to creating a fresh session.
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 const financeWorkbench = setupFinanceWorkbench({
