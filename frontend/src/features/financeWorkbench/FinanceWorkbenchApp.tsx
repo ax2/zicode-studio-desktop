@@ -1119,16 +1119,19 @@ export function FinanceContentApp({
               value={inputValue("paperName")}
               onChange={(event) => setInputValue("paperName", event.target.value)}
             />
-            <Select
-              id="paper-currency"
-              value={inputValue("paperCurrency") || "CNY"}
-              label={t("Currency")}
-              options={PAPER_CURRENCIES.map((currency) => ({
-                value: currency,
-                label: currency,
-              }))}
-              onChange={(value) => setInputValue("paperCurrency", value)}
-            />
+            <div className="finance-field">
+              <span>{t("Currency")}</span>
+              <Select
+                id="paper-currency"
+                value={inputValue("paperCurrency") || "CNY"}
+                label={t("Currency")}
+                options={PAPER_CURRENCIES.map((currency) => ({
+                  value: currency,
+                  label: currency,
+                }))}
+                onChange={(value) => setInputValue("paperCurrency", value)}
+              />
+            </div>
             <input
               className="ui-input"
               type="number"
