@@ -3,6 +3,7 @@ import { t } from "../../shared/i18n";
 import { localizeHostError } from "../../shared/hostErrors";
 import {
   AUTOSAVE_DELAY_MS,
+  buildChildrenByParent,
   conversationNoteTitle,
   DEFAULT_NOTEBOOK_ICON,
   DEFAULT_NOTE_ICON,
@@ -754,18 +755,25 @@ export function createNotesStore(options: NotesStoreOptions) {
         (candidate) => candidate.id === notebookId,
       );
       if (!notebook) return;
-      const children = get().snapshot.notebooks.filter(
-        (candidate) => candidate.parentId === notebookId,
-      );
+      const childrenByParent = buildChildrenByParent(get().snapshot.notebooks);
+      const descendantIds = new Set<string>();
+      const collectDescendants = (id: string) => {
+        for (const child of childrenByParent.get(id) ?? []) {
+          descendantIds.add(child.id);
+          collectDescendants(child.id);
+        }
+      };
+      collectDescendants(notebookId);
+      const descendantCount = descendantIds.size;
       const notesInNotebook = get().snapshot.notes.filter(
-        (note) => note.notebookId === notebookId,
+        (note) => note.notebookId === notebookId || descendantIds.has(note.notebookId),
       ).length;
       const parts = [notebook.title];
-      if (children.length > 0) parts.push(`${children.length} ${t("sub-notebooks")}`);
+      if (descendantCount > 0) parts.push(`${descendantCount} ${t("sub-notebooks")}`);
       if (notesInNotebook > 0) parts.push(`${notesInNotebook} ${t("notes")}`);
       const scope = parts.join(" · ");
       const message =
-        children.length === 0 && notesInNotebook === 0
+        descendantCount === 0 && notesInNotebook === 0
           ? `${t("Delete notebook")} “${notebook.title}”?`
           : `${t("Delete notebook")} “${scope}”? ${t(
               "Child notebooks and notes will also move to trash.",
