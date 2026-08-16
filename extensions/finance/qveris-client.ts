@@ -19,7 +19,11 @@ export class QVerisClient {
   constructor(options: QVerisClientOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.timeoutMs = options.timeoutMs ?? 10_000;
-    this.baseUrl = (options.baseUrl ?? QVERIS_CAPABILITY_BASE_URL).replace(/\/+$/, "");
+    this.baseUrl = (
+      options.baseUrl ??
+      process.env.QVERIS_CAPABILITY_BASE_URL ??
+      QVERIS_CAPABILITY_BASE_URL
+    ).replace(/\/+$/, "");
   }
 
   credentialStatus(): { configured: boolean; source: string } {
