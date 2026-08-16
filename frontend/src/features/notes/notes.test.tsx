@@ -2239,6 +2239,40 @@ describe("notes React components", () => {
     (document.querySelector(".attachment-viewer-close") as HTMLButtonElement).click();
   });
 
+  it("opens a binary attachment through the authenticated fetch", async () => {
+    const hostFetchMock = vi.fn(async () =>
+      new Response(new Blob(["%PDF-1.4"]), { status: 200 }),
+    );
+    vi.stubGlobal("__zicodeHostFetch", hostFetchMock);
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          content:
+            "# Plan\n\n[report](/attachments/note-1/00000000-0000-0000-0000-000000000000.pdf)",
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const link = await waitFor(
+      () => container.querySelector("a.notes-attachment-link") as HTMLAnchorElement,
+    );
+    link.click();
+    const openBtn = await waitFor(
+      () => document.querySelector(".attachment-viewer-open") as HTMLButtonElement,
+    );
+    vi.stubGlobal("open", vi.fn());
+    openBtn.click();
+    await waitFor(() =>
+      expect(hostFetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/attachments/x"),
+      ),
+    );
+    (document.querySelector(".attachment-viewer-close") as HTMLButtonElement).click();
+  });
+
   it("ignores a stale text fetch after opening a newer attachment", async () => {
     const pendingResolvers: Array<(value: unknown) => void> = [];
     const fetchMock = vi.fn((_url: string) => {
