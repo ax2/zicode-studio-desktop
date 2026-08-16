@@ -3,6 +3,7 @@ import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { createElement } from "react";
 import { t } from "../../shared/i18n";
+import { friendlyPluginError } from "../../shared/hostErrors";
 import {
   FinanceContentApp,
   FinanceNavApp,
@@ -73,6 +74,9 @@ export function setupFinanceWorkbench({
     flushSync(() => {});
   };
 
+  const localizeFinanceError = (value: unknown): string =>
+    friendlyPluginError(value instanceof Error ? value : new Error(String(value ?? "")));
+
   const call = (
     method: string,
     params?: Record<string, unknown>,
@@ -80,9 +84,14 @@ export function setupFinanceWorkbench({
   ): Promise<FinanceResponse> =>
     configGateway
       .call(method, params, options)
+      .then((result) =>
+        result?.ok === false && result.error
+          ? { ...result, error: localizeFinanceError(result.error) }
+          : result,
+      )
       .catch((error: unknown): FinanceResponse => ({
         ok: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: localizeFinanceError(error),
       }));
 
   const setBusy = (key: string, busy: boolean) => {

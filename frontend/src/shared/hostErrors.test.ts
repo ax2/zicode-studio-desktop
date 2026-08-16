@@ -103,6 +103,17 @@ describe("host error localization", () => {
       "该网址无效或无法访问。",
     );
     expect(
+      friendlyPluginError(
+        new Error("QVeris API Key is not configured for this scene. Open Settings."),
+      ),
+    ).toBe("当前场景尚未配置 QVeris API Key。");
+    expect(friendlyPluginError(new Error("QVeris request timed out"))).toBe(
+      "QVeris 请求超时，请稍后重试。",
+    );
+    expect(friendlyPluginError(new Error("QVeris request failed (401): Unauthorized"))).toBe(
+      "QVeris 请求失败。",
+    );
+    expect(
       friendlyPluginError(new Error("Text exceeds the 50000 character translation limit")),
     ).toBe("文本过长。");
     expect(friendlyPluginError(new Error("Watcher not found"))).toBe("找不到该条目。");

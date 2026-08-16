@@ -88,6 +88,22 @@ export function friendlyPluginError(error: unknown): string {
   if (/character (translation )?limit|text exceeds/.test(lowered)) {
     return t("The text is too long.");
   }
+  // Finance: QVeris backend errors surface through the workbench gateway.
+  if (/qveris api key is not configured/.test(lowered)) {
+    return t("The QVeris API key is not configured for this scene.");
+  }
+  if (/qveris request timed out/.test(lowered)) {
+    return t("The QVeris request timed out. Please try again.");
+  }
+  if (/qveris request failed/.test(lowered)) {
+    return t("The QVeris request failed.");
+  }
+  if (/qveris returned an invalid/.test(lowered)) {
+    return t("QVeris returned an invalid response.");
+  }
+  if (/qveris response exceeded/.test(lowered)) {
+    return t("The QVeris response exceeded the safety limit.");
+  }
   // Watch/Habits: missing record.
   if (/watcher not found|habit not found/.test(lowered)) {
     return t("The item was not found.");
