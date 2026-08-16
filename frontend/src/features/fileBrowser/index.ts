@@ -40,7 +40,10 @@ export class NativeFileBrowser {
       this.root.render(
         createElement(FileBrowserBridge, {
           store: this.store,
-          onOpenDirectory: (path) => this.load(path),
+          onOpenDirectory: (path) => {
+            this.setHighlight(null);
+            this.load(path);
+          },
         }),
       );
     });
@@ -72,6 +75,10 @@ export class NativeFileBrowser {
     }
   }
 
+  setHighlight(relativePath: string | null): void {
+    this.commit({ highlightPath: relativePath });
+  }
+
   getParentPath(): string | null {
     if (this.currentPath === null || this.currentPath === "") return null;
     const parts = this.currentPath.split("/").filter(Boolean);
@@ -85,5 +92,6 @@ function createFileBrowserStore() {
     status: "idle",
     entries: [],
     error: null,
+    highlightPath: null,
   }));
 }

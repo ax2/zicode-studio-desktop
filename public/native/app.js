@@ -1143,13 +1143,17 @@ window.addEventListener("zicode:open-files", (event) => {
   pluginShell?.activate("core.chat");
   const fileSidebar = document.getElementById("file-sidebar");
   if (fileSidebar) fileSidebar.classList.remove("collapsed");
-  const relativePath = event.detail?.path;
+  const relativePath = event.detail?.path ? String(event.detail.path) : null;
   if (relativePath && fileBrowserInstance) {
-    const parts = String(relativePath).split("/").filter(Boolean);
+    const parts = relativePath.split("/").filter(Boolean);
     parts.pop();
+    fileBrowserInstance.setHighlight(relativePath);
     fileBrowserInstance.load(parts.join("/")).catch(showError);
-  } else if (fileBrowserInstance && fileBrowserInstance.currentPath === null) {
-    fileBrowserInstance.load("").catch(showError);
+  } else if (fileBrowserInstance) {
+    fileBrowserInstance.setHighlight(null);
+    if (fileBrowserInstance.currentPath === null) {
+      fileBrowserInstance.load("").catch(showError);
+    }
   }
 });
 convNav.mount();
@@ -1759,7 +1763,6 @@ async function enforceProjectBudget(prompt) {
 
 function runBuiltin(action) {
   if (action === "open_settings") settingsPanel?.openSettings("general");
-  else if (action === "open_tree") document.dispatchEvent(new CustomEvent("picot:open-tree"));
   else if (action === "show_help") {
     void helpCenter?.open();
   }

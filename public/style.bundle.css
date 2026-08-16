@@ -4221,6 +4221,11 @@ code {
   opacity: 0.5;
 }
 
+.file-item.is-highlighted {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .file-icon {
   font-size: var(--font-size-md);
   width: 20px;

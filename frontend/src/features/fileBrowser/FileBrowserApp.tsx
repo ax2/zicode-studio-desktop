@@ -8,6 +8,7 @@ export interface FileBrowserStore {
   status: FileBrowserStatus;
   entries: FileEntry[];
   error: string | null;
+  highlightPath: string | null;
 }
 
 export type FileBrowserStoreHook = UseBoundStore<StoreApi<FileBrowserStore>>;
@@ -20,11 +21,13 @@ export function FileBrowserApp({
   status,
   entries,
   error,
+  highlightPath,
   onOpenDirectory,
 }: {
   status: FileBrowserStatus;
   entries: FileEntry[];
   error: string | null;
+  highlightPath: string | null;
   onOpenDirectory(path: string): void;
 }) {
   if (status === "loading" || status === "idle") {
@@ -44,7 +47,9 @@ export function FileBrowserApp({
           // biome-ignore lint/a11y/noStaticElementInteractions: file item click pattern preserved from the vanilla browser
           // biome-ignore lint/a11y/useKeyWithClickEvents: directory rows are mouse-driven in the vanilla file browser
           <div
-            className={`file-item${isDirectory ? " directory" : ""}`}
+            className={`file-item${isDirectory ? " directory" : ""}${
+              highlightPath && entry.relativePath === highlightPath ? " is-highlighted" : ""
+            }`}
             data-path={entry.relativePath}
             data-name={entry.name}
             data-is-directory={String(isDirectory)}
@@ -77,11 +82,13 @@ export function FileBrowserBridge({
   const status = store((state) => state.status);
   const entries = store((state) => state.entries);
   const error = store((state) => state.error);
+  const highlightPath = store((state) => state.highlightPath);
   return (
     <FileBrowserApp
       status={status}
       entries={entries}
       error={error}
+      highlightPath={highlightPath}
       onOpenDirectory={onOpenDirectory}
     />
   );

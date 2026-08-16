@@ -95,4 +95,24 @@ describe("NativeFileBrowser", () => {
 
     expect(container.textContent).toContain("outside the registered workspace");
   });
+
+  it("highlights a specific entry and clears it with a null highlight", async () => {
+    const gateway = fakeGateway(async () => ({
+      entries: [
+        { name: "a.txt", relativePath: "docs/a.txt", kind: "file" },
+        { name: "b.txt", relativePath: "docs/b.txt", kind: "file" },
+      ],
+    }));
+    const browser = new NativeFileBrowser(container, pathEl, gateway, "workspace-a");
+    await browser.load("docs");
+
+    browser.setHighlight("docs/b.txt");
+    let highlighted = container.querySelectorAll(".file-item.is-highlighted");
+    expect(highlighted.length).toBe(1);
+    expect(highlighted[0].textContent).toContain("b.txt");
+
+    browser.setHighlight(null);
+    highlighted = container.querySelectorAll(".file-item.is-highlighted");
+    expect(highlighted.length).toBe(0);
+  });
 });
