@@ -89,6 +89,8 @@ export class QVerisClient {
         respond_with: input.respondWith || "full",
       },
       signal,
+      "POST",
+      30_000,
     );
   }
 
@@ -139,6 +141,7 @@ export class QVerisClient {
     body?: Record<string, unknown>,
     externalSignal?: AbortSignal,
     method: "GET" | "POST" = "POST",
+    timeoutMs = this.timeoutMs,
   ): Promise<Record<string, unknown>> {
     const apiKey = readQVerisApiKey();
     if (!apiKey) {
@@ -147,7 +150,10 @@ export class QVerisClient {
       );
     }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error("QVeris request timed out")), this.timeoutMs);
+    const timeout = setTimeout(
+      () => controller.abort(new Error("QVeris request timed out")),
+      timeoutMs,
+    );
     const abort = () => controller.abort(externalSignal?.reason);
     externalSignal?.addEventListener("abort", abort, { once: true });
     try {
