@@ -260,6 +260,24 @@ async function backendCheck(name, ws) {
   return { ok: true };
 }
 
+// The notes capture path is network-backed (proxy + SSRF + source dedupe), so
+// exercise it against the host API as well. Capturing example.com is idempotent
+// because the shared workspace already contains its content hash.
+async function notesCaptureCheck(ws) {
+  const sceneId = process.env.QA_SCENE || "programming";
+  const result = await postJson("/v2/notes/capture", {
+    sceneId,
+    workspaceId: ws,
+    notebookId: "b64be4fe-7c92-4195-81ad-e759b6698530",
+    url: "https://example.com/",
+  });
+  return {
+    ok: result?.duplicate === true || result?.note != null,
+    duplicate: result?.duplicate === true,
+    title: result?.note?.title ?? null,
+  };
+}
+
 async function runPlugin(cdp, name, url, ws) {
   await openPage(cdp, url);
   const result = { name, ok: false, detail: null };
@@ -477,6 +495,12 @@ async function main() {
       report.push(result);
       console.log(JSON.stringify(result));
     }
+    const capture = await notesCaptureCheck(ws).catch((error) => ({
+      ok: false,
+      error: String(error?.message || error),
+    }));
+    report.push({ name: "notes-capture", ...capture });
+    console.log(JSON.stringify({ name: "notes-capture", ...capture }));
     await cleanup(ws).catch((error) => {
       console.log(`cleanup warning: ${String(error?.message || error)}`);
     });
