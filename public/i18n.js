@@ -577,6 +577,7 @@ const zhCN = {
   Abort: "中止",
   "Paste API key…": "粘贴 API Key…",
   "Skill slash commands": "技能斜杠命令",
+  "Slash commands": "斜杠命令",
   "Extension question": "扩展提问",
   "Type a custom answer": "输入自定义回答",
   "Dismiss notification": "关闭通知",

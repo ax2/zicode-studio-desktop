@@ -161,7 +161,7 @@ describe("composer React shell", () => {
     const menu = document.getElementById("skill-slash-menu");
     expect(menu?.classList.contains("hidden")).toBe(false);
     expect(menu?.querySelectorAll(".skill-slash-option").length).toBe(2);
-    expect(menu?.textContent).toMatch(/Skills|技能|ZiCode Studio Desktop/);
+    expect(menu?.textContent).toMatch(/Commands|命令|ZiCode Studio Desktop/);
     expect(menu?.textContent).toContain("Research");
     expect(menu?.textContent).toContain("Settings");
     expect(menu?.textContent).not.toContain("Review");

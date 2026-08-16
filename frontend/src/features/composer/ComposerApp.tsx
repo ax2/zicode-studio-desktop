@@ -261,11 +261,11 @@ export function ComposerApp({
             className={`skill-slash-menu${slash.open ? "" : " hidden"}`}
             id="skill-slash-menu"
             role="listbox"
-            aria-label={t("Skill slash commands")}
+            aria-label={t("Slash commands")}
           >
-            <div className="skill-slash-heading">{t("Skills")}</div>
+            <div className="skill-slash-heading">{t("Commands")}</div>
             {slash.matches.length === 0 ? (
-              <div className="skill-slash-empty">{t("No matching skills")}</div>
+              <div className="skill-slash-empty">{t("No matching commands")}</div>
             ) : (
               slash.matches.map((command, index) => (
                 <button
