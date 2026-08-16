@@ -1417,6 +1417,7 @@ const zhCN = {
   "Pi task finished": "Pi 任务已完成",
   "Open ZiCode to review the result.": "打开 ZiCode 查看结果。",
   "Voice input": "语音输入",
+  "Voice input failed": "语音输入失败",
   "Search...": "搜索…",
   "Clear search": "清除搜索",
   "Search tasks": "搜索任务",

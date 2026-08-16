@@ -109,6 +109,7 @@ export function ComposerApp({
     );
 
   const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState(false);
   const recognitionRef = useRef<{ abort(): void } | null>(null);
   const speechGlobals = globalThis as unknown as {
     SpeechRecognition?: new () => SpeechRecognitionInstance;
@@ -154,6 +155,8 @@ export function ComposerApp({
     recognition.onerror = () => {
       recognitionRef.current = null;
       setListening(false);
+      setVoiceError(true);
+      setTimeout(() => setVoiceError(false), 3000);
     };
     recognitionRef.current = recognition;
     setListening(true);
@@ -466,8 +469,20 @@ export function ComposerApp({
                 type="button"
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn"
                 id="mic-btn"
-                title={listening ? t("Listening") : t("Voice input")}
-                aria-label={listening ? t("Listening") : t("Voice input")}
+                title={
+                  voiceError
+                    ? t("Voice input failed")
+                    : listening
+                      ? t("Listening")
+                      : t("Voice input")
+                }
+                aria-label={
+                  voiceError
+                    ? t("Voice input failed")
+                    : listening
+                      ? t("Listening")
+                      : t("Voice input")
+                }
                 aria-pressed={listening}
                 disabled={!SpeechRecognitionApi}
                 onClick={startVoiceInput}
