@@ -202,10 +202,23 @@ const NOISE_HINTS: &[&str] = &[
     "modal",
     "popup",
     "aside",
+    // Common pinyin class names on Chinese pages.
+    "guanggao",
+    "daohang",
+    "pinglun",
+    "xiangguan",
+    "tuijian",
+    "cebianlan",
+    "yejiao",
+    "yemei",
+    "fenxiang",
+    "dingyue",
 ];
 
 const POSITIVE_HINTS: &[&str] = &[
     "article", "post", "content", "main", "entry", "story", "body", "news", "text",
+    // Common pinyin class names for the main body on Chinese pages.
+    "zhengwen", "neirong", "wenzhang",
 ];
 
 fn is_noise(el: &ElementRef) -> bool {
