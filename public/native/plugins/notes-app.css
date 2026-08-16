@@ -1656,11 +1656,19 @@ body.notes-dragging .notes-result-item {
 
 .notes-source {
   margin-bottom: var(--space-3);
-  overflow: hidden;
   color: var(--text-dim);
   font-size: var(--font-size-sm);
+}
+
+.notes-source p {
+  margin: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.notes-source-meta {
+  margin-top: var(--space-1);
 }
 
 .notes-source a {

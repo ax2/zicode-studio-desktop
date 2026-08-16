@@ -5,13 +5,23 @@ export const DEFAULT_NOTEBOOK_ICON = "📓";
 export const DEFAULT_NOTE_ICON = "📝";
 export const AUTOSAVE_DELAY_MS = 2500;
 
+export interface NoteSource {
+  url?: string;
+  author?: string;
+  publishedAt?: string;
+  capturedAt?: string;
+  siteName?: string;
+  contentHash?: string;
+  image?: string;
+}
+
 export interface NoteSummary {
   id: string;
   notebookId: string;
   title: string;
   icon?: string;
   updatedAt?: string;
-  source?: { url?: string };
+  source?: NoteSource;
   snippet?: string;
   version?: number;
   tags?: string[];

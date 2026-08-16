@@ -2190,12 +2190,29 @@ function NoteEditor({ store }: { store: NotesStore }) {
         </p>
       ) : null}
       {note.source?.url ? (
-        <p className="notes-source">
-          {t("Source")}:{" "}
-          <a href={note.source.url} target="_blank" rel="noreferrer">
-            {note.source.url}
-          </a>
-        </p>
+        <div className="notes-source">
+          <p>
+            {t("Source")}:{" "}
+            <a href={note.source.url} target="_blank" rel="noreferrer">
+              {note.source.url}
+            </a>
+          </p>
+          {[note.source.siteName, note.source.author].filter(Boolean).length > 0 ? (
+            <p className="notes-source-meta">
+              {[note.source.siteName, note.source.author].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
+          {note.source.publishedAt ? (
+            <p className="notes-source-meta">
+              {t("Published")}: {formatDate(note.source.publishedAt)}
+            </p>
+          ) : null}
+          {note.source.capturedAt ? (
+            <p className="notes-source-meta">
+              {t("Captured")}: {formatDate(note.source.capturedAt)}
+            </p>
+          ) : null}
+        </div>
       ) : null}
       {preview ? (
         <div className="notes-preview-wrap">
