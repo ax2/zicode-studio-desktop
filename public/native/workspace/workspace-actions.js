@@ -118,6 +118,25 @@ export async function openSessionInProjectViaHost(session, fetchImpl = globalThi
 }
 
 /**
+ * Pick the finance session a user should be taken back to, if any.
+ * The session list carries `target.sceneId` and an `isCurrentWorkspace` flag;
+ * we ignore sessions from other workspaces and the currently active session.
+ *
+ * @param {Array<{ target?: { sceneId?: string }, isCurrentWorkspace?: boolean, id?: string }>} sessions
+ * @param {string} currentSessionId
+ */
+export function findFinanceSession(sessions, currentSessionId) {
+  return (
+    (Array.isArray(sessions) ? sessions : []).find(
+      (session) =>
+        session?.target?.sceneId === "finance" &&
+        session?.isCurrentWorkspace !== false &&
+        session?.id !== currentSessionId,
+    ) ?? null
+  );
+}
+
+/**
  * Wire the "+ New Session" button to open a fresh session in the current
  * workspace. On native Tauri it calls `open_new_session_in_workspace`; on
  * LAN/remote clients it falls back to the host HTTP API (`POST /v2/new-session`).

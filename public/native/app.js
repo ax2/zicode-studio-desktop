@@ -105,6 +105,7 @@ import {
   openSessionInProjectViaHost,
   resolveWorkspaceViaHost,
   createSessionInApp,
+  findFinanceSession,
   setupNewSessionButton,
   setupWorkspaceSwitcher,
   spawnSessionViaHost,
@@ -672,15 +673,7 @@ async function findExistingFinanceSession() {
     );
     if (!response.ok) return null;
     const payload = await response.json();
-    const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
-    return (
-      sessions.find(
-        (session) =>
-          session?.target?.sceneId === "finance" &&
-          session?.isCurrentWorkspace !== false &&
-          session?.id !== target.sessionId,
-      ) ?? null
-    );
+    return findFinanceSession(payload.sessions, target.sessionId);
   } catch {
     return null;
   }

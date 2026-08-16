@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSessionInApp,
+  findFinanceSession,
   setupNewSessionButton,
   setupWorkspaceSwitcher,
 } from "./workspace-actions.js";
@@ -102,6 +103,23 @@ describe("workspace actions", () => {
 
     await Promise.resolve();
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("finds the finance session a user should be taken back to", () => {
+    const sessions = [
+      { id: "current", target: { sceneId: "programming" }, isCurrentWorkspace: true },
+      { id: "finance-1", target: { sceneId: "finance" }, isCurrentWorkspace: true },
+      { id: "finance-other", target: { sceneId: "finance" }, isCurrentWorkspace: false },
+    ];
+    expect(findFinanceSession(sessions, "current")?.id).toBe("finance-1");
+    expect(findFinanceSession(sessions, "finance-1")).toBeNull();
+    expect(findFinanceSession([], "current")).toBeNull();
+    expect(
+      findFinanceSession(
+        [{ id: "other", target: { sceneId: "finance" }, isCurrentWorkspace: false }],
+        "current",
+      ),
+    ).toBeNull();
   });
 
   it("opens a new session in a requested plugin", async () => {
