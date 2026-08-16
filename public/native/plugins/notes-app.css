@@ -1667,6 +1667,19 @@ body.notes-dragging .notes-result-item {
   white-space: nowrap;
 }
 
+.notes-source p:first-child {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.notes-source p:first-child a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .notes-source-meta {
   margin-top: var(--space-1);
 }
@@ -1683,6 +1696,7 @@ body.notes-dragging .notes-result-item {
   color: var(--accent-text);
   font-size: inherit;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .notes-error-banner {
