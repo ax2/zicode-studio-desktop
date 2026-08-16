@@ -1675,6 +1675,16 @@ body.notes-dragging .notes-result-item {
   color: var(--accent-text);
 }
 
+.notes-source-copy {
+  margin-left: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font-size: inherit;
+  cursor: pointer;
+}
+
 .notes-error-banner {
   margin-bottom: var(--space-3);
   padding: var(--space-3);

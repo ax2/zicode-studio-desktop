@@ -1267,6 +1267,7 @@ const zhCN = {
   "Note title": "笔记标题",
   "Tags separated by commas": "标签，以逗号分隔",
   Source: "来源",
+  "Copy source URL": "复制来源链接",
   Published: "发布于",
   Captured: "剪藏于",
   "Write Markdown…": "使用 Markdown 编写…",

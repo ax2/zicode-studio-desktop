@@ -1714,6 +1714,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
+  const [copiedSource, setCopiedSource] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
@@ -2196,6 +2197,22 @@ function NoteEditor({ store }: { store: NotesStore }) {
             <a href={note.source.url} target="_blank" rel="noreferrer">
               {note.source.url}
             </a>
+            <button
+              type="button"
+              className="notes-source-copy"
+              aria-label={t("Copy source URL")}
+              onClick={() => {
+                void navigator.clipboard
+                  ?.writeText(note.source?.url ?? "")
+                  .then(() => {
+                    setCopiedSource(true);
+                    window.setTimeout(() => setCopiedSource(false), 1600);
+                  })
+                  .catch(() => {});
+              }}
+            >
+              {copiedSource ? t("Copied") : t("Copy")}
+            </button>
           </p>
           {[note.source.siteName, note.source.author].filter(Boolean).length > 0 ? (
             <p className="notes-source-meta">
