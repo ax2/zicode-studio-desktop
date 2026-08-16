@@ -163,6 +163,19 @@ export class QVerisClient {
         );
       }
       return payload;
+    } catch (error) {
+      // Normalize transport failures into the stable QVeris error vocabulary
+      // so the frontend can localize them instead of showing a raw "fetch failed".
+      if (error instanceof Error && error.message.startsWith("QVeris")) {
+        throw error;
+      }
+      if (
+        (error as { name?: string } | null)?.name === "AbortError" ||
+        String((error as Error | null)?.message ?? "").includes("timed out")
+      ) {
+        throw new Error("QVeris request timed out");
+      }
+      throw new Error(`QVeris request failed: ${(error as Error | null)?.message ?? error}`);
     } finally {
       clearTimeout(timeout);
       externalSignal?.removeEventListener("abort", abort);
