@@ -40,7 +40,9 @@ export function getModelSearchText(model: ModelLike): string {
 interface ModelMenuState {
   snapshot: ModelDropdownSnapshot;
   filter: string;
+  selectedIndex: number;
   setFilter(filter: string): void;
+  setSelectedIndex(index: number): void;
 }
 
 type ModelMenuStore = UseBoundStore<StoreApi<ModelMenuState>>;
@@ -53,8 +55,12 @@ export function createModelDropdownFeed(
   const store = create<ModelMenuState>()((set) => ({
     snapshot: getState(),
     filter: "",
+    selectedIndex: 0,
     setFilter(filter) {
-      set({ filter });
+      set({ filter, selectedIndex: 0 });
+    },
+    setSelectedIndex(index) {
+      set({ selectedIndex: index });
     },
   }));
   let root: Root | null = null;
@@ -88,7 +94,9 @@ function ModelDropdownMenu({
 }) {
   const snapshot = store((state) => state.snapshot);
   const filter = store((state) => state.filter);
+  const selectedIndex = store((state) => state.selectedIndex);
   const setFilter = store((state) => state.setFilter);
+  const setSelectedIndex = store((state) => state.setSelectedIndex);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -108,6 +116,15 @@ function ModelDropdownMenu({
   const lowestCostModelKey = lowestCostModel
     ? `${lowestCostModel.provider || ""}/${lowestCostModel.id}`
     : null;
+  const effectiveIndex = Math.min(
+    selectedIndex,
+    Math.max(matchingModels.length - 1, 0),
+  );
+
+  const selectHighlighted = () => {
+    const model = matchingModels[effectiveIndex];
+    if (model) callbacks.onSelect(model);
+  };
 
   return (
     <>
@@ -123,10 +140,33 @@ function ModelDropdownMenu({
         spellCheck={false}
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
+        aria-activedescendant={
+          matchingModels.length > 0
+            ? `model-dropdown-item-${effectiveIndex}`
+            : undefined
+        }
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.stopPropagation();
             callbacks.onClose();
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setSelectedIndex(
+              matchingModels.length
+                ? (effectiveIndex + 1) % matchingModels.length
+                : 0,
+            );
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setSelectedIndex(
+              matchingModels.length
+                ? (effectiveIndex - 1 + matchingModels.length) %
+                    matchingModels.length
+                : 0,
+            );
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            selectHighlighted();
           }
         }}
       />
@@ -163,11 +203,15 @@ function ModelDropdownMenu({
         ) : matchingModels.length === 0 ? (
           <div className="model-dropdown-empty">{t("No models match your search.")}</div>
         ) : (
-          matchingModels.map((model) => (
+          matchingModels.map((model, index) => (
             <button
               key={`${model.provider || ""}/${model.id}`}
               type="button"
-              className={`model-dropdown-item${model.id === snapshot.currentModelId ? " active" : ""}`}
+              id={`model-dropdown-item-${index}`}
+              className={`model-dropdown-item${
+                index === effectiveIndex ? " selected" : ""
+              }${model.id === snapshot.currentModelId ? " active" : ""}`}
+              onMouseEnter={() => setSelectedIndex(index)}
               onClick={() => callbacks.onSelect(model)}
             >
               <span className="model-dropdown-item-name">

@@ -13175,6 +13175,11 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   background: var(--bg-glass-hover);
 }
 
+.model-dropdown-item.selected {
+  background: var(--bg-glass-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .model-dropdown-item.active {
   background: var(--accent-subtle);
   color: var(--accent-text);

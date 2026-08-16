@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { fireEvent } from "@testing-library/react";
 import { t } from "../../shared/i18n";
 import {
   createModelDropdownFeed,
@@ -91,6 +92,28 @@ describe("model dropdown feed", () => {
     });
     feed.render();
     (container.querySelectorAll(".model-dropdown-item")[1] as HTMLButtonElement).click();
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "gpt-5.2" }));
+  });
+
+  it("navigates with arrow keys and selects with Enter", async () => {
+    const container = makeContainer();
+    const onSelect = vi.fn();
+    const feed = createModelDropdownFeed(container, () => SNAPSHOT, {
+      onSelect,
+      onOpenSettings: vi.fn(),
+      onRetry: vi.fn(),
+      onClose: vi.fn(),
+    });
+    feed.render();
+    const search = container.querySelector(".model-dropdown-search") as HTMLInputElement;
+
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(container.querySelector(".model-dropdown-item.selected")?.textContent).toContain(
+      "gpt-5.2",
+    );
+
+    fireEvent.keyDown(search, { key: "Enter" });
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "gpt-5.2" }));
   });
 
