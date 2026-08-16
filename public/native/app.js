@@ -692,7 +692,6 @@ const financeWorkbench = setupFinanceWorkbench({
     });
   },
   createFinanceSession: async () => {
-    settingsPanel?.selectScene?.("finance");
     const existing = await findExistingFinanceSession();
     if (existing?.id && existing?.projectPath) {
       try {
@@ -708,6 +707,10 @@ const financeWorkbench = setupFinanceWorkbench({
         showError(error instanceof Error ? error : new Error(String(error)));
       }
     }
+    // Only change the persistent "next session" scene when we actually create
+    // a finance session. Reopening an existing one should not move the user's
+    // default scene out from under them.
+    settingsPanel?.selectScene?.("finance");
     return createSessionInApp({
       data,
       workspaceId: target.workspaceId,
