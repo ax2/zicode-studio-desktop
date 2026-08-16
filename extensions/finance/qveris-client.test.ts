@@ -73,6 +73,19 @@ describe("QVeris client", () => {
     );
   });
 
+  it("normalizes transport failures into the QVeris error vocabulary", async () => {
+    configureKey();
+    const client = new QVerisClient({
+      fetchImpl: vi.fn(async () => {
+        throw new Error("fetch failed");
+      }),
+    });
+
+    await expect(client.discover({ query: "stock quote" })).rejects.toThrow(
+      "QVeris request failed",
+    );
+  });
+
   it("uses authenticated context-safe GET queries for billing audit", async () => {
     configureKey();
     const fetchImpl = vi.fn(async () =>
