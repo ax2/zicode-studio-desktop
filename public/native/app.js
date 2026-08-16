@@ -765,31 +765,37 @@ const notesApp = setupNotesApp({
     pluginShell?.activate("core.chat");
     const tagsLine =
       Array.isArray(note.tags) && note.tags.length > 0
-        ? `笔记标签：${note.tags.join("、")}`
+        ? `${t("Note tags")}: ${note.tags.join(", ")}`
         : "";
-    const sourceLine = note.source?.url ? `来源：${note.source.url}` : "";
+    const sourceLine = note.source?.url ? `${t("Source")}: ${note.source.url}` : "";
     let prompt;
     if (selection) {
       prompt = [
-        `请基于笔记“${note.title}”中的以下选中文字继续讨论，只围绕这段文字，不要依赖过期上下文：`,
+        t(
+          'Discuss the selected text from note "{title}", only around this text, ignoring stale context:',
+        ).replace("{title}", note.title),
         tagsLine,
         sourceLine,
         "",
         selection,
         "",
-        "我希望继续：",
+        `${t("I want to continue")}:`,
       ]
         .filter(Boolean)
         .join("\n");
     } else {
       const reference = `zicode-note://${note.notebookId}/${note.id}`;
       prompt = [
-        `请基于笔记“${note.title}”继续讨论。`,
-        `请先调用 notes_get，参数 notebookId=${note.notebookId}、noteId=${note.id}，不要依赖过期的聊天上下文。`,
-        `笔记引用：${reference}`,
+        t('Discuss note "{title}" and continue.').replace("{title}", note.title),
+        t(
+          "First call notes_get with notebookId={notebookId}, noteId={noteId}, ignoring stale chat context.",
+        )
+          .replace("{notebookId}", note.notebookId)
+          .replace("{noteId}", note.id),
+        `${t("Note reference")}: ${reference}`,
         tagsLine,
         sourceLine,
-        "\n我希望继续：",
+        `\n${t("I want to continue")}:`,
       ]
         .filter(Boolean)
         .join("\n");
@@ -821,9 +827,13 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
       .join("、");
     input.value = [
       compare
-        ? "请比较以下笔记，指出冲突、时间差异、来源差异和可验证结论。"
-        : "请综合以下上下文包继续分析。",
-      `请先分别调用 ${instructions}，不要依赖过期聊天上下文。`,
+        ? t(
+            "Compare these notes and point out conflicts, time differences, source differences, and verifiable conclusions.",
+          )
+        : t("Synthesize the following context pack and continue the analysis."),
+      t(
+        "First call {instructions} separately, ignoring stale chat context.",
+      ).replace("{instructions}", instructions),
       references,
       "",
       input.value.trim(),

@@ -1270,6 +1270,20 @@ const zhCN = {
   "Note title": "笔记标题",
   "Tags separated by commas": "标签，以逗号分隔",
   Source: "来源",
+  "Note tags": "笔记标签",
+  "I want to continue": "我希望继续",
+  'Discuss the selected text from note "{title}", only around this text, ignoring stale context:':
+    "请基于笔记“{title}”中的以下选中文字继续讨论，只围绕这段文字，不要依赖过期上下文：",
+  'Discuss note "{title}" and continue.':
+    "请基于笔记“{title}”继续讨论。",
+  "First call notes_get with notebookId={notebookId}, noteId={noteId}, ignoring stale chat context.":
+    "请先调用 notes_get，参数 notebookId={notebookId}、noteId={noteId}，不要依赖过期的聊天上下文。",
+  "Compare these notes and point out conflicts, time differences, source differences, and verifiable conclusions.":
+    "请比较以下笔记，指出冲突、时间差异、来源差异和可验证结论。",
+  "Synthesize the following context pack and continue the analysis.":
+    "请综合以下上下文包继续分析。",
+  "First call {instructions} separately, ignoring stale chat context.":
+    "请先分别调用 {instructions}，不要依赖过期聊天上下文。",
   "Copy source URL": "复制来源链接",
   Published: "发布于",
   Captured: "剪藏于",
