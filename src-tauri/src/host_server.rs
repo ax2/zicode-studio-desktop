@@ -4942,8 +4942,12 @@ async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError>
         let host = url
             .host_str()
             .ok_or_else(|| NotesError::new("capture_blocked", "URL host is missing"))?;
+        // Prefer the configured system proxy so web capture also works on
+        // networks where outbound HTTPS must be proxied. `validate_capture_url`
+        // above still resolves the host and rejects loopback/private addresses,
+        // and `resolve_to_addrs` below keeps the direct (no-proxy) path pinned
+        // to that validated address against DNS rebinding.
         let mut builder = reqwest::Client::builder()
-            .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(20))
             .user_agent("ZiCode-Notes-Capture/1.0");
