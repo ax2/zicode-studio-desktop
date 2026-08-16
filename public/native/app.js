@@ -1,4 +1,4 @@
-import { initializeI18n, t } from "../i18n.js";
+import { getLocale, initializeI18n, t } from "../i18n.js";
 import { reconcileSnapshotTarget } from "../session/bootstrap-target.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
@@ -660,7 +660,10 @@ const settingsPanel = setupSettingsPanel({
   onError: showError,
   notify: notifications.notify,
 });
-const helpCenter = setupHelpCenter();
+const helpCenter = setupHelpCenter({
+  getLocaleImpl: () => getLocale(),
+  translateImpl: (source) => t(source),
+});
 const sceneIndicator = setupSceneIndicator({
   getTarget: () => target,
   openSettings: showSceneSettings,
