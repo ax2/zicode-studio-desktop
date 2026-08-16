@@ -14,6 +14,15 @@ import { t } from "../i18n.js";
 
 const TEXT_KINDS = new Set(["txt", "md", "csv", "json"]);
 
+// Prefer the bootstrap's authenticated host fetch so attachment previews and
+// downloads still work for mobile clients whose requests must carry the device
+// token; fall back to plain fetch inside the desktop WebView.
+function hostFetch(input, init) {
+  const authed = globalThis.__zicodeHostFetch;
+  const fn = typeof authed === "function" ? authed : fetch;
+  return init == null ? fn(input) : fn(input, init);
+}
+
 let overlay = null;
 let lastFocused = null;
 // Incremented on every open; guards against a slow fetch for a previous
@@ -157,7 +166,7 @@ function getOrCreateOverlay() {
 
 async function downloadAttachment(url, fileName) {
   try {
-    const response = await fetch(url);
+    const response = await hostFetch(url);
     if (!response.ok) throw new Error(String(response.status));
     const blob = await response.blob();
     const objectUrl = URL.createObjectURL(blob);
@@ -203,7 +212,7 @@ function openViewer({ url, name, kind }) {
       status.className = "attachment-viewer-status";
       status.textContent = t("Loading…");
       body.appendChild(status);
-      fetch(url)
+      hostFetch(url)
         .then((response) => {
           if (!response.ok) throw new Error(String(response.status));
           return response.text();

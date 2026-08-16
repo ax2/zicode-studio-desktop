@@ -290,6 +290,9 @@ const hostFetch = createAuthenticatedHostFetch({
   location: window.location,
   fetchImpl: window.fetch.bind(window),
 });
+// Shared by standalone viewers (e.g. note attachment preview/download) that
+// fetch same-origin host resources without importing this bootstrap module.
+window.__zicodeHostFetch = hostFetch;
 
 let iceServers = [];
 try {
