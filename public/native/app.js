@@ -694,13 +694,19 @@ const financeWorkbench = setupFinanceWorkbench({
   createFinanceSession: async () => {
     settingsPanel?.selectScene?.("finance");
     const existing = await findExistingFinanceSession();
-    if (existing) {
-      await openSessionInProject({
-        id: existing.id,
-        projectPath: existing.projectPath,
-        workspaceId: existing.workspaceId || target.workspaceId,
-      }).catch(showError);
-      return;
+    if (existing?.id && existing?.projectPath) {
+      try {
+        await openSessionInProject({
+          id: existing.id,
+          projectPath: existing.projectPath,
+          workspaceId: existing.workspaceId || target.workspaceId,
+        });
+        return;
+      } catch (error) {
+        // A stale/broken session should not block the user from reaching the
+        // workbench; fall through and create a fresh one instead.
+        showError(error instanceof Error ? error : new Error(String(error)));
+      }
     }
     return createSessionInApp({
       data,
