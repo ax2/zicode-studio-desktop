@@ -892,18 +892,33 @@ fn remote_http_authorized(
 }
 
 fn http_bearer_authorized(auth: &Arc<Mutex<RemoteAuth>>, headers: &HeaderMap) -> bool {
-    let Some(token) = headers
+    let token = headers
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .filter(|value| !value.is_empty())
-    else {
+        .map(str::to_owned)
+        .or_else(|| device_token_cookie(headers));
+    let Some(token) = token else {
         return false;
     };
     auth.lock()
         .ok()
-        .and_then(|mut auth| auth.authorize(token).ok())
+        .and_then(|mut auth| auth.authorize(&token).ok())
         .unwrap_or(false)
+}
+
+/// Read the paired device token from the `zicode_device_token` cookie. The
+/// mobile client mirrors its bearer token there so `<img>`/`<a>` resource loads
+/// (which cannot attach an Authorization header) still authenticate.
+fn device_token_cookie(headers: &HeaderMap) -> Option<String> {
+    let value = headers
+        .get(axum::http::header::COOKIE)
+        .and_then(|value| value.to_str().ok())?;
+    value.split(';').find_map(|pair| {
+        let (name, value) = pair.trim().split_once('=')?;
+        (name == "zicode_device_token" && !value.is_empty()).then(|| value.to_string())
+    })
 }
 
 async fn authorize_remote_http(
@@ -5458,6 +5473,19 @@ mod tests {
             format!("Bearer {token}").parse().unwrap(),
         );
         assert!(remote_http_authorized(&auth, remote, &headers));
+        // The paired device-token cookie authenticates resource loads (e.g.
+        // <img src="/v2/...">) that cannot attach an Authorization header.
+        let mut cookie_headers = axum::http::HeaderMap::new();
+        cookie_headers.insert(
+            axum::http::header::COOKIE,
+            format!("zicode_device_token={token}").parse().unwrap(),
+        );
+        assert!(remote_http_authorized(&auth, remote, &cookie_headers));
+        cookie_headers.insert(
+            axum::http::header::COOKIE,
+            "zicode_device_token=wrong".parse().unwrap(),
+        );
+        assert!(!remote_http_authorized(&auth, remote, &cookie_headers));
         assert!(public_remote_path("/health"));
         assert!(public_remote_path("/v2/auth/exchange"));
         assert!(!public_remote_path("/v2/bootstrap"));

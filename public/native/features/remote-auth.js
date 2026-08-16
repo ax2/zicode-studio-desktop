@@ -54,6 +54,24 @@ function storePinnedE2eeKey(storage, value) {
   }
 }
 
+// Mirror the device token into a cookie so plain <img>/<a> resource loads
+// (which cannot attach an Authorization header) still authenticate against the
+// host on mobile/relay clients. The server accepts either the Bearer header or
+// this cookie.
+function syncDeviceTokenCookie(deviceToken) {
+  try {
+    const doc = globalThis.document;
+    if (!doc) return;
+    if (deviceToken) {
+      doc.cookie = `zicode_device_token=${encodeURIComponent(deviceToken)}; Path=/; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}`;
+    } else {
+      doc.cookie = "zicode_device_token=; Path=/; SameSite=Lax; Max-Age=0";
+    }
+  } catch {
+    // Cookie access can be unavailable in private mode or sandboxed frames.
+  }
+}
+
 export async function resolveRemoteAuth({
   location = globalThis.location,
   history = globalThis.history,
@@ -97,9 +115,11 @@ export async function resolveRemoteAuth({
       throw remoteAuthError("pairing_failed", "Mobile pairing did not return a device token.");
     }
     storage.setItem(DEVICE_TOKEN_KEY, body.deviceToken);
+    syncDeviceTokenCookie(body.deviceToken);
   }
 
   const deviceToken = storage.getItem(DEVICE_TOKEN_KEY) || "";
+  syncDeviceTokenCookie(deviceToken);
   if (isLoopbackHost(url.hostname)) {
     return { clientType: "desktop", deviceToken: "" };
   }
