@@ -197,6 +197,15 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     shortcutActive = shortcutResult?.result?.value ?? null;
+    // Switch back to chat so the final layout diagnostic measures the chat
+    // view instead of the project view the shortcut just opened.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "1", ctrlKey: true, bubbles: true, cancelable: true }));
+        return true;
+      })()`,
+    });
+    await sleep(700);
   }
   // For the automation app, verify the create-workflow form is fully rendered
   // and the schedule selector exposes its options.
