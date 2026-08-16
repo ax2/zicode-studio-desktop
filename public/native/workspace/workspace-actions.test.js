@@ -120,6 +120,25 @@ describe("workspace actions", () => {
         "current",
       ),
     ).toBeNull();
+    expect(
+      findFinanceSession(
+        [
+          {
+            id: "finance-old",
+            target: { sceneId: "finance" },
+            isCurrentWorkspace: true,
+            modifiedAtMs: 1000,
+          },
+          {
+            id: "finance-new",
+            target: { sceneId: "finance" },
+            isCurrentWorkspace: true,
+            modifiedAtMs: 2000,
+          },
+        ],
+        "current",
+      )?.id,
+    ).toBe("finance-new");
   });
 
   it("opens a new session in a requested plugin", async () => {

@@ -126,14 +126,19 @@ export async function openSessionInProjectViaHost(session, fetchImpl = globalThi
  * @param {string} currentSessionId
  */
 export function findFinanceSession(sessions, currentSessionId) {
-  return (
-    (Array.isArray(sessions) ? sessions : []).find(
-      (session) =>
-        session?.target?.sceneId === "finance" &&
-        session?.isCurrentWorkspace !== false &&
-        session?.id !== currentSessionId,
-    ) ?? null
+  const candidates = (Array.isArray(sessions) ? sessions : []).filter(
+    (session) =>
+      session?.target?.sceneId === "finance" &&
+      session?.isCurrentWorkspace !== false &&
+      session?.id !== currentSessionId,
   );
+  if (candidates.length === 0) return null;
+  // Prefer the most recently modified finance session when several exist.
+  return candidates.sort((left, right) => {
+    const a = Number(left?.modifiedAtMs) || 0;
+    const b = Number(right?.modifiedAtMs) || 0;
+    return b - a;
+  })[0];
 }
 
 /**
