@@ -388,7 +388,7 @@ function NotebookActions({ store, notebook }: { store: NotesStore; notebook: Not
       />
       <IconAction
         label={t("New sub-notebook")}
-        icon={ICONS.plus}
+        icon={ICONS.folderPlus}
         className="notes-notebook-new-sub"
         onClick={() => void store.getState().startNewNotebook(notebook.id)}
       />
