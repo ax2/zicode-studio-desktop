@@ -321,6 +321,31 @@ function ResearchSection({
   );
 }
 
+function SourcesSection({ sources }: { sources: unknown }) {
+  const list = asArray(sources)
+    .map((entry) => String(entry ?? "").trim())
+    .filter(Boolean);
+  if (list.length === 0) return null;
+  return (
+    <section className="finance-research-evidence">
+      <strong>{t("Sources")}</strong>
+      <ul className="finance-research-sources">
+        {list.map((source) => (
+          <li key={source}>
+            {/^https?:\/\//i.test(source) ? (
+              <a href={source} target="_blank" rel="noreferrer">
+                {source}
+              </a>
+            ) : (
+              <span>{source}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function ResearchResults({
   response,
   controller,
@@ -393,12 +418,7 @@ function ResearchResults({
               value={card.invalidation}
               tone="warning"
             />
-            {asArray(card.sources).length > 0 ? (
-              <ResearchSection
-                label={t("Sources")}
-                value={asArray(card.sources).join("\n")}
-              />
-            ) : null}
+            <SourcesSection sources={card.sources} />
           </article>
         ))}
       </div>

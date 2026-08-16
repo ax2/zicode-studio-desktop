@@ -241,6 +241,18 @@
   font-size: var(--font-size-xs);
 }
 
+.finance-research-sources {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.finance-research-sources a {
+  color: var(--accent-text, #4f8cff);
+}
+
 .finance-form-actions {
   display: flex;
   justify-content: flex-end;
