@@ -25,7 +25,7 @@ describe("slash menu logic", () => {
     expect(titleCaseCommandName("/skill:research")).toBe("Research");
   });
 
-  it("normalizes skill commands and drops disabled ones", () => {
+  it("normalizes skill and builtin commands and drops disabled ones", () => {
     const commands = normalizeCommands([
       { name: "settings", type: "builtin" },
       { name: "skill:research", type: "skill", scope: "user" },
@@ -37,6 +37,7 @@ describe("slash menu logic", () => {
       { name: "review", source: "skill" },
     ]);
     expect(commands).toEqual([
+      { name: "settings", type: "builtin", command: "/settings" },
       { name: "skill:research", type: "skill", scope: "user", command: "/skill:research" },
       { name: "review", source: "skill", command: "/review" },
     ]);

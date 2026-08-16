@@ -1296,6 +1296,11 @@ async function hydrateSnapshot() {
 async function loadCommands() {
   const result = await runtime.request({ type: "get_commands" }, target);
   commandCatalog = buildCommandCatalog({
+    builtIns: [
+      { name: "new", action: "new_session" },
+      { name: "settings", action: "open_settings" },
+      { name: "help", action: "show_help" },
+    ],
     nativeCommands: result.response?.data?.commands ?? [],
   });
 }
@@ -1763,6 +1768,7 @@ async function enforceProjectBudget(prompt) {
 
 function runBuiltin(action) {
   if (action === "open_settings") settingsPanel?.openSettings("general");
+  else if (action === "new_session") document.getElementById("new-session-btn")?.click();
   else if (action === "show_help") {
     void helpCenter?.open();
   }

@@ -149,7 +149,7 @@ describe("composer React shell", () => {
     handle.dispose();
   });
 
-  it("opens the slash menu on a slash query and lists skill commands only", async () => {
+  it("opens the slash menu on a slash query and lists skills and builtins", async () => {
     const { handle } = mountComposerWithSlashMenu([
       { name: "settings", description: "Open settings", type: "builtin" },
       { name: "review", description: "Review files", type: "extension" },
@@ -160,10 +160,10 @@ describe("composer React shell", () => {
 
     const menu = document.getElementById("skill-slash-menu");
     expect(menu?.classList.contains("hidden")).toBe(false);
-    expect(menu?.querySelectorAll(".skill-slash-option").length).toBe(1);
-    expect(menu?.textContent).toMatch(/Skills|技能/);
+    expect(menu?.querySelectorAll(".skill-slash-option").length).toBe(2);
+    expect(menu?.textContent).toMatch(/Skills|技能|ZiCode Studio Desktop/);
     expect(menu?.textContent).toContain("Research");
-    expect(menu?.textContent).not.toContain("Settings");
+    expect(menu?.textContent).toContain("Settings");
     expect(menu?.textContent).not.toContain("Review");
     expect(handle.input.getAttribute("aria-activedescendant")).toBe("skill-slash-option-0");
     handle.dispose();

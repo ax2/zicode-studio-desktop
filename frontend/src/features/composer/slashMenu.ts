@@ -71,7 +71,7 @@ export function normalizeCommands(
   commands: Iterable<Partial<SlashCommand>>,
 ): SlashCommand[] {
   return Array.from(commands ?? [])
-    .filter(isSkillCommand)
+    .filter((command) => isSkillCommand(command) || command.type === "builtin")
     .map((command) => ({ ...command, command: commandInvocation(command) }))
     .filter((command) => command.command && command.capabilityState !== "disabled");
 }
