@@ -558,6 +558,35 @@ describe("notes store", () => {
     store.getState().setQuery("");
   });
 
+  it("surfaces captured source metadata in the preview", async () => {
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          source: {
+            url: "https://example.com/article",
+            siteName: "Example Site",
+            author: "Alice",
+            publishedAt: "2026-07-30T00:00:00Z",
+            capturedAt: "2026-07-31T08:00:00Z",
+          },
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const source = await waitFor(() => {
+      const element = container.querySelector(".notes-source");
+      expect(element).toBeTruthy();
+      return element as HTMLElement;
+    });
+    expect(source.textContent).toContain("Example Site");
+    expect(source.textContent).toContain("Alice");
+    expect(source.textContent).toContain("发布于");
+    expect(source.textContent).toContain("剪藏于");
+  });
+
   it("clears the search query when showing all notes", async () => {
     const store = storeWithGateway();
     await store.getState().load();
