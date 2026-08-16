@@ -665,6 +665,26 @@ const artifactGateway = new ArtifactGateway({
   fetchImpl: hostFetch,
   location: window.location,
 });
+async function findExistingFinanceSession() {
+  try {
+    const response = await hostFetch(
+      `/v2/sessions?workspaceId=${encodeURIComponent(target.workspaceId)}`,
+    );
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
+    return (
+      sessions.find(
+        (session) =>
+          session?.target?.sceneId === "finance" &&
+          session?.isCurrentWorkspace !== false &&
+          session?.id !== target.sessionId,
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
 const financeWorkbench = setupFinanceWorkbench({
   configGateway: config,
   getTarget: () => target,
@@ -678,8 +698,17 @@ const financeWorkbench = setupFinanceWorkbench({
         ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
   },
-  createFinanceSession: () => {
+  createFinanceSession: async () => {
     settingsPanel?.selectScene?.("finance");
+    const existing = await findExistingFinanceSession();
+    if (existing) {
+      await openSessionInProject({
+        id: existing.id,
+        projectPath: existing.projectPath,
+        workspaceId: existing.workspaceId || target.workspaceId,
+      }).catch(showError);
+      return;
+    }
     return createSessionInApp({
       data,
       workspaceId: target.workspaceId,

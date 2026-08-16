@@ -855,7 +855,7 @@ export function FinanceContentApp({
         <h1>{t("Finance requires a Finance scene")}</h1>
         <p>
           {t(
-            "Create a new session in the Finance scene to open the workbench. Data, credentials, tools, and ledgers stay isolated per scene.",
+            "Open the workbench in the Finance scene. Data, credentials, tools, and ledgers stay isolated per scene.",
           )}
         </p>
         <div className="finance-scene-guard-actions">
@@ -873,7 +873,7 @@ export function FinanceContentApp({
               }
             }}
           >
-            {creatingSession ? t("Starting session…") : t("New Finance session")}
+            {creatingSession ? t("Opening workbench…") : t("Open Finance Workbench")}
           </button>
           <button
             type="button"
