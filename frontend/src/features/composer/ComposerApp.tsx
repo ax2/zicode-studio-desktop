@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { StoreApi, UseBoundStore } from "zustand";
-import { t } from "../../shared/i18n";
+import { getLocale, t } from "../../shared/i18n";
 import type { ImageItem } from "./imageLogic";
 import {
   activeSlashQuery,
@@ -13,6 +13,17 @@ import {
   type SlashCommand,
   type SlashMenuState,
 } from "./slashMenu";
+
+type SpeechRecognitionInstance = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: unknown) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start(): void;
+  abort(): void;
+};
 
 export interface QueuedMessages {
   steering?: string[];
@@ -96,6 +107,58 @@ export function ComposerApp({
         (event as React.KeyboardEvent & { keyCode?: number })?.keyCode === 229 ||
         composingRef.current,
     );
+
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<{ abort(): void } | null>(null);
+  const speechGlobals = globalThis as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+  };
+  const SpeechRecognitionApi =
+    speechGlobals.SpeechRecognition ?? speechGlobals.webkitSpeechRecognition;
+
+  const startVoiceInput = () => {
+    if (!SpeechRecognitionApi) return;
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+      setListening(false);
+      return;
+    }
+    const recognition = new SpeechRecognitionApi();
+    recognition.lang = getLocale() === "zh-CN" ? "zh-CN" : "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const results = (
+        event as {
+          results?: Array<Array<{ transcript?: string }>>;
+        }
+      ).results;
+      const transcript = results?.[0]?.[0]?.transcript;
+      if (transcript && inputRef.current) {
+        const cursor =
+          inputRef.current.selectionStart ?? inputRef.current.value.length;
+        inputRef.current.value =
+          inputRef.current.value.slice(0, cursor) +
+          transcript +
+          inputRef.current.value.slice(cursor);
+        inputRef.current.dispatchEvent(new Event("input", { bubbles: true }));
+        inputRef.current.focus();
+      }
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setListening(false);
+    };
+    recognition.onerror = () => {
+      recognitionRef.current = null;
+      setListening(false);
+    };
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  };
 
   const queueItems = [
     ...(queue.steering ?? [])
@@ -403,8 +466,11 @@ export function ComposerApp({
                 type="button"
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn"
                 id="mic-btn"
-                title={t("Voice input")}
-                aria-label={t("Voice input")}
+                title={listening ? t("Listening") : t("Voice input")}
+                aria-label={listening ? t("Listening") : t("Voice input")}
+                aria-pressed={listening}
+                disabled={!SpeechRecognitionApi}
+                onClick={startVoiceInput}
                 tabIndex={-1}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
