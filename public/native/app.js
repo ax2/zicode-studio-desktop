@@ -243,6 +243,7 @@ let lastRetryableRequest = null;
 let mobileDrafts = null;
 let mobileSendLater = null;
 let imageAttachments = null;
+let fileBrowserInstance = null;
 let historyWindow = null;
 let historyWindowTargetKey = "";
 let currentHistoryMessages = [];
@@ -1136,6 +1137,21 @@ window.addEventListener("zicode:open-session", (event) => {
     switchSession(sessionId).catch(showError);
   }
 });
+window.addEventListener("zicode:open-files", (event) => {
+  // The Files panel belongs to the Chat surface, so switch back to Chat
+  // first, then reveal the panel and navigate to the requested directory.
+  pluginShell?.activate("core.chat");
+  const fileSidebar = document.getElementById("file-sidebar");
+  if (fileSidebar) fileSidebar.classList.remove("collapsed");
+  const relativePath = event.detail?.path;
+  if (relativePath && fileBrowserInstance) {
+    const parts = String(relativePath).split("/").filter(Boolean);
+    parts.pop();
+    fileBrowserInstance.load(parts.join("/")).catch(showError);
+  } else if (fileBrowserInstance && fileBrowserInstance.currentPath === null) {
+    fileBrowserInstance.load("").catch(showError);
+  }
+});
 convNav.mount();
 
 try {
@@ -1625,6 +1641,7 @@ function setupFileBrowser() {
       if (upBtn) upBtn.disabled = path === "";
     },
   });
+  fileBrowserInstance = browser;
 
   document.getElementById("file-sidebar-finder")?.addEventListener("click", async () => {
     try {

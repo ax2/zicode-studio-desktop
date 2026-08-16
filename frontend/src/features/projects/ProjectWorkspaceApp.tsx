@@ -97,7 +97,7 @@ function Overview({ store }: { store: ProjectStore }) {
     [
       snapshot.files.length,
       "Files",
-      () => document.dispatchEvent(new CustomEvent("picot:open-tree")),
+      () => window.dispatchEvent(new CustomEvent("zicode:open-files")),
     ],
     [snapshot.taskCount, "Tasks", () => openApp("com.zicode.tasks")],
     [snapshot.automationCount, "Automations", () => openApp("com.zicode.automation")],

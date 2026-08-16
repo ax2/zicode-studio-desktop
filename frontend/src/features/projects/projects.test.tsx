@@ -224,6 +224,17 @@ describe("project workspace React app", () => {
     expect(dispatched).toEqual([
       'zicode:open-note:{"notebookId":"book-1","noteId":"note-1"}',
     ]);
+    const fileDispatched: string[] = [];
+    const fileListener = (event: Event) =>
+      fileDispatched.push(
+        `${event.type}:${JSON.stringify((event as CustomEvent).detail ?? {})}`,
+      );
+    window.addEventListener("zicode:open-files", fileListener);
+    store.getState().openResult({ kind: "File", path: "docs/roadmap.md" });
+    window.removeEventListener("zicode:open-files", fileListener);
+    expect(fileDispatched).toEqual([
+      'zicode:open-files:{"path":"docs/roadmap.md"}',
+    ]);
     store.getState().setTarget(null);
   });
 });

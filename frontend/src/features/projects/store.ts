@@ -290,7 +290,11 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
         return;
       }
       if (kind === t("File")) {
-        window.dispatchEvent(new CustomEvent("picot:open-tree"));
+        window.dispatchEvent(
+          new CustomEvent("zicode:open-files", {
+            detail: { path: result.path },
+          }),
+        );
         return;
       }
       if (kind === t("Conversation")) {
