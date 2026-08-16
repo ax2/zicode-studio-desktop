@@ -286,8 +286,11 @@ async function runPlugin(cdp, name, url, ws) {
           return true;
         })()`,
       );
+      // The host translate request has a 60s timeout. Poll past that window so
+      // a slow-but-successful gateway or a late error is not misread as a
+      // silent hang.
       let state = { result: "", error: null };
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 180; i++) {
         await sleep(500);
         state = await evaluate(
           cdp,
