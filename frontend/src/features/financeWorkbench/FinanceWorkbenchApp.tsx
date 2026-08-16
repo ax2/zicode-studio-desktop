@@ -18,7 +18,19 @@ import {
 } from "./financeWorkbenchLogic";
 import type { FinanceWorkbenchStoreHook } from "./financeWorkbenchStore";
 
-const PAPER_CURRENCIES = ["CNY", "USD", "EUR", "GBP", "JPY", "HKD"];
+const PAPER_CURRENCIES = [
+  "CNY",
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "HKD",
+  "AUD",
+  "CAD",
+  "CHF",
+  "SGD",
+  "KRW",
+];
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
