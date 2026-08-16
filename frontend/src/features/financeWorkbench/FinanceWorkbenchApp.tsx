@@ -390,6 +390,11 @@ function ResearchResults({
               <div>
                 <span className="ui-badge">{String(card.symbol)}</span>
                 <h4>{String(card.title || card.symbol)}</h4>
+                {card.eventAt ? (
+                  <time className="finance-research-card-time" dateTime={String(card.eventAt)}>
+                    {new Date(String(card.eventAt)).toLocaleString()}
+                  </time>
+                ) : null}
               </div>
               <div className="finance-research-card-actions">
                 <button

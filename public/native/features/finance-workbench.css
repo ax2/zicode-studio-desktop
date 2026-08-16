@@ -210,6 +210,12 @@
   min-width: 0;
 }
 
+.finance-research-card-time {
+  display: block;
+  color: var(--text-dim, #888);
+  font-size: var(--font-size-xs);
+}
+
 .finance-json-error,
 .finance-json-ok {
   margin: var(--space-1) 0 0;
