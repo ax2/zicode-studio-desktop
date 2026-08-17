@@ -348,7 +348,7 @@ function NotebookBranch({
     .filter((note) => note.notebookId === notebook.id)
     .sort((left, right) =>
       sortMode === "title"
-        ? left.title.localeCompare(right.title)
+        ? left.title.localeCompare(right.title, undefined, { sensitivity: "base" })
         : String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? "")),
     );
   const children = childrenByParent.get(notebook.id) ?? [];
