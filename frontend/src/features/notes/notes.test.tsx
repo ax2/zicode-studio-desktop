@@ -3230,6 +3230,26 @@ describe("notes React components", () => {
     await waitFor(() => expect(document.activeElement).toBe(last));
   });
 
+  it("offers a refresh action when a note has a version conflict", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.setState({
+      error: Object.assign(new Error("conflict"), { code: "version_conflict" }),
+    });
+    const selectSpy = vi.spyOn(store.getState(), "selectNote");
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-error-banner")).toBeTruthy(),
+    );
+    const refresh = container.querySelector(
+      ".notes-error-banner button",
+    ) as HTMLButtonElement | null;
+    expect(refresh).toBeTruthy();
+    refresh?.click();
+    expect(selectSpy).toHaveBeenCalled();
+  });
+
   it("keeps nested note action buttons independent from the row Enter handler", async () => {
     const store = storeWithGateway();
     await store.getState().load();

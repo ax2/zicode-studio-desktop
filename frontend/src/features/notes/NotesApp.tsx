@@ -2413,9 +2413,20 @@ function NoteEditor({ store }: { store: NotesStore }) {
       ) : null}
       {error ? (
         <div className="notes-error-banner" role="alert">
-          {(error as Error & { code?: string }).code === "version_conflict"
-            ? t("This note changed elsewhere. Reload it before editing again.")
-            : error.message}
+          {(error as Error & { code?: string }).code === "version_conflict" ? (
+            <span className="notes-error-inline">
+              {t("This note changed elsewhere. Reload it before editing again.")}
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => void store.getState().selectNote(note)}
+              >
+                {t("Refresh")}
+              </button>
+            </span>
+          ) : (
+            error.message
+          )}
         </div>
       ) : null}
       <div className="notes-title-row">
