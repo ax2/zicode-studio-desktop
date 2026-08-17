@@ -1780,6 +1780,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [activeLinkIndex, setActiveLinkIndex] = useState(0);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const composingRef = useRef(false);
+  const isImeComposing = (event?: React.KeyboardEvent) =>
+    Boolean(
+      (event as React.KeyboardEvent & { isComposing?: boolean; keyCode?: number })
+        ?.isComposing ||
+        (event as React.KeyboardEvent & { keyCode?: number })?.keyCode === 229 ||
+        composingRef.current,
+    );
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -2410,7 +2418,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
               setActiveLinkIndex(0);
             }, 120);
           }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+          }}
           onKeyDown={(event) => {
+            if (isImeComposing(event)) return;
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
               event.preventDefault();
               wrapSelection("**");
