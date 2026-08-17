@@ -2448,6 +2448,42 @@ function NoteEditor({ store }: { store: NotesStore }) {
             ) {
               event.preventDefault();
               insertLink(linkSuggestions[activeLinkIndex]?.title ?? linkSuggestions[0].title);
+            } else if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !(event.ctrlKey || event.metaKey)
+            ) {
+              const textarea = event.currentTarget as HTMLTextAreaElement;
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              if (start !== end) return;
+              const lineStart = draftContent.lastIndexOf("\n", start - 1) + 1;
+              const line = draftContent.slice(lineStart, start);
+              const listMatch = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+              if (!listMatch) return;
+              const [, indent, marker, content] = listMatch;
+              event.preventDefault();
+              if (!content) {
+                setDraft({
+                  content: `${draftContent.slice(0, lineStart)}${draftContent.slice(start)}`,
+                });
+                window.setTimeout(() => {
+                  textarea.selectionStart = textarea.selectionEnd = lineStart;
+                }, 0);
+                return;
+              }
+              const numbered = /^\d+/.test(marker);
+              const nextMarker = numbered
+                ? `${(Number(marker.match(/\d+/)?.[0]) ?? 0) + 1}.`
+                : marker;
+              const inserted = `\n${indent}${nextMarker} `;
+              setDraft({
+                content: `${draftContent.slice(0, start)}${inserted}${draftContent.slice(end)}`,
+              });
+              const cursor = start + inserted.length;
+              window.setTimeout(() => {
+                textarea.selectionStart = textarea.selectionEnd = cursor;
+              }, 0);
             } else if (event.key === "Tab") {
               event.preventDefault();
               const textarea = event.currentTarget as HTMLTextAreaElement;
