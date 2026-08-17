@@ -370,6 +370,8 @@ const zhCN = {
   error: "错误",
   "Expand tool details": "展开工具详情",
   "Collapse tool details": "收起工具详情",
+  "Expand outline": "展开大纲",
+  "Collapse outline": "收起大纲",
   "Copy output": "复制输出",
   "Tool output copied": "工具输出已复制",
   "Unable to copy tool output. Check browser clipboard permission.":

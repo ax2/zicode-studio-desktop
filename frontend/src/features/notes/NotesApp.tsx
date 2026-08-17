@@ -1948,6 +1948,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
+  const [outlineCollapsed, setOutlineCollapsed] = useState(false);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const [copiedSource, setCopiedSource] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -2572,30 +2573,47 @@ function NoteEditor({ store }: { store: NotesStore }) {
           />
           {outline.length > 0 ? (
             <nav className="notes-outline" aria-label={t("Outline")}>
-              <h2>{t("Outline")}</h2>
-              <ol ref={outlineListRef}>
-                {outline.map((entry) => (
-                  <li
-                    key={entry.id}
-                    data-outline-id={entry.id}
-                    className={`notes-outline-level-${entry.level}${
-                      entry.id === activeOutlineId ? " active" : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      aria-current={entry.id === activeOutlineId ? "location" : undefined}
-                      onClick={() =>
-                        document
-                          .getElementById(entry.id)
-                          ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
-                      }
+              <div className="notes-outline-header">
+                <h2>{t("Outline")}</h2>
+                <button
+                  type="button"
+                  className="notes-outline-toggle"
+                  aria-expanded={!outlineCollapsed}
+                  aria-label={
+                    outlineCollapsed ? t("Expand outline") : t("Collapse outline")
+                  }
+                  onClick={() => setOutlineCollapsed((value) => !value)}
+                >
+                  <span className="notes-outline-chevron" aria-hidden="true">
+                    {outlineCollapsed ? "▸" : "▾"}
+                  </span>
+                </button>
+              </div>
+              {!outlineCollapsed ? (
+                <ol ref={outlineListRef}>
+                  {outline.map((entry) => (
+                    <li
+                      key={entry.id}
+                      data-outline-id={entry.id}
+                      className={`notes-outline-level-${entry.level}${
+                        entry.id === activeOutlineId ? " active" : ""
+                      }`}
                     >
-                      {entry.text}
-                    </button>
-                  </li>
-                ))}
-              </ol>
+                      <button
+                        type="button"
+                        aria-current={entry.id === activeOutlineId ? "location" : undefined}
+                        onClick={() =>
+                          document
+                            .getElementById(entry.id)
+                            ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+                        }
+                      >
+                        {entry.text}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
             </nav>
           ) : null}
         </div>

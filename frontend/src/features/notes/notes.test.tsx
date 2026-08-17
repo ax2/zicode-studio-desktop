@@ -2594,12 +2594,42 @@ describe("notes React components", () => {
         expect(container.querySelector(".notes-outline")).toBeTruthy(),
       );
       expect(container.querySelector(".notes-outline li.active")).toBeTruthy();
-      expect(container.querySelector(".notes-outline button")?.textContent).toBe("Plan");
-      (container.querySelector(".notes-outline button") as HTMLButtonElement).click();
+      const headingButton = container.querySelector(
+        ".notes-outline ol button",
+      ) as HTMLButtonElement;
+      expect(headingButton?.textContent).toBe("Plan");
+      headingButton.click();
       expect(scrollIntoView).toHaveBeenCalled();
     } finally {
       Element.prototype.scrollIntoView = original;
     }
+  });
+
+  it("collapses and expands the heading outline", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-outline")).toBeTruthy(),
+    );
+    const toggle = container.querySelector(
+      ".notes-outline-toggle",
+    ) as HTMLButtonElement;
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector(".notes-outline ol")).toBeTruthy();
+
+    toggle.click();
+    await waitFor(() =>
+      expect(toggle.getAttribute("aria-expanded")).toBe("false"),
+    );
+    expect(container.querySelector(".notes-outline ol")).toBeNull();
+
+    toggle.click();
+    await waitFor(() =>
+      expect(toggle.getAttribute("aria-expanded")).toBe("true"),
+    );
+    expect(container.querySelector(".notes-outline ol")).toBeTruthy();
   });
 
   it("opens the image lightbox from an inline note image in preview", async () => {
