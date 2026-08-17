@@ -100,4 +100,26 @@ describe("app keyboard shortcuts", () => {
 
     expect(openCommandPalette).toHaveBeenCalledTimes(1);
   });
+
+  it("opens the model dropdown with Ctrl+M and cycles thinking with Ctrl+T", () => {
+    const openModelDropdown = vi.fn();
+    const cycleThinking = vi.fn();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      openModelDropdown,
+      cycleThinking,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "m", ctrlKey: true, cancelable: true }),
+    );
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "t", ctrlKey: true, cancelable: true }),
+    );
+
+    expect(openModelDropdown).toHaveBeenCalledTimes(1);
+    expect(cycleThinking).toHaveBeenCalledTimes(1);
+  });
 });

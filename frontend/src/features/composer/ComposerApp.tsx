@@ -441,7 +441,7 @@ export function ComposerApp({
                   type="button"
                   className="ui-button ui-button--sm ui-button--ghost model-dropdown-btn"
                   id="model-dropdown-btn"
-                  title={t("Switch model")}
+                  title={`${t("Switch model")} (Ctrl+M)`}
                 >
                   <span className="model-dropdown-label" id="model-dropdown-label">
                     model
@@ -456,7 +456,7 @@ export function ComposerApp({
                 type="button"
                 className="thinking-tag off"
                 id="thinking-btn"
-                title={t("Thinking effort controls reasoning depth. Click to cycle.")}
+                title={`${t("Thinking effort controls reasoning depth. Click to cycle.")} (Ctrl+T)`}
                 aria-label={t("Thinking effort: off. Click to cycle reasoning depth.")}
               >
                 {t("Think off")}

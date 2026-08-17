@@ -22,6 +22,8 @@ export function setupAppKeyboardShortcuts({
   abort,
   isWorking,
   openCommandPalette,
+  openModelDropdown,
+  cycleThinking,
 }) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -41,6 +43,16 @@ export function setupAppKeyboardShortcuts({
     if (meta && key === "p" && event.shiftKey) {
       event.preventDefault();
       openCommandPalette?.();
+      return;
+    }
+    if (meta && key === "m") {
+      event.preventDefault();
+      openModelDropdown?.();
+      return;
+    }
+    if (meta && key === "t") {
+      event.preventDefault();
+      cycleThinking?.();
       return;
     }
 

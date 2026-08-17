@@ -1124,6 +1124,8 @@ setupAppKeyboardShortcuts({
   abort: abortCurrentRun,
   isWorking: () => store.lifecycle === "working",
   openCommandPalette: () => commandButton?.click(),
+  openModelDropdown: () => openModelDropdown(),
+  cycleThinking: () => thinkingBtn?.click(),
 });
 window.addEventListener("zicode:open-note", (event) => {
   const { notebookId, noteId } = event.detail ?? {};
@@ -2252,7 +2254,9 @@ function updateComposerThinking(level) {
     const translatedLevel = t(currentThinkingLevel);
     thinkingBtn.textContent = `${t("Think")} ${translatedLevel}`;
     thinkingBtn.className = `thinking-tag${currentThinkingLevel === "off" ? " off" : ""}`;
-    thinkingBtn.title = t("Thinking effort controls reasoning depth. Click to cycle.");
+    thinkingBtn.title = `${t(
+      "Thinking effort controls reasoning depth. Click to cycle.",
+    )} (Ctrl+T)`;
     thinkingBtn.setAttribute(
       "aria-label",
       t("Thinking effort: {level}. Click to cycle reasoning depth.").replace(
