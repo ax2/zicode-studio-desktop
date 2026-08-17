@@ -632,7 +632,29 @@ function EmojiPicker({
       }
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const picker = containerRef.current;
+      if (!picker) return;
+      const focusables = Array.from(
+        picker.querySelectorAll<HTMLElement>("button:not([disabled])"),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !picker.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !picker.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKey);

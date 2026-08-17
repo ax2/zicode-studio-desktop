@@ -3189,6 +3189,45 @@ describe("notes React components", () => {
     expect(document.activeElement).toBe(iconInput);
   });
 
+  it("traps Tab focus within the emoji picker", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const iconInput = container.querySelector(
+      ".notes-icon-input",
+    ) as HTMLInputElement | null;
+    iconInput?.focus();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-emoji-picker")).toBeTruthy(),
+    );
+    const focusables = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        ".notes-emoji-picker button:not([disabled])",
+      ),
+    );
+    expect(focusables.length).toBeGreaterThan(1);
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    last.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(first));
+
+    first.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(last));
+  });
+
   it("keeps nested note action buttons independent from the row Enter handler", async () => {
     const store = storeWithGateway();
     await store.getState().load();
