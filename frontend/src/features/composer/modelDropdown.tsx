@@ -164,6 +164,12 @@ function ModelDropdownMenu({
                     matchingModels.length
                 : 0,
             );
+          } else if (event.key === "Home") {
+            event.preventDefault();
+            setSelectedIndex(0);
+          } else if (event.key === "End") {
+            event.preventDefault();
+            setSelectedIndex(Math.max(matchingModels.length - 1, 0));
           } else if (event.key === "Enter") {
             event.preventDefault();
             selectHighlighted();
