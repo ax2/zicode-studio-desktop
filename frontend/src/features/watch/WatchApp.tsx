@@ -20,7 +20,7 @@ function WatchNav() {
   return <nav className="watch-nav" aria-label={t("Web Watch")} />;
 }
 
-function WatchMain({ store }: { store: WatchStore }) {
+export function WatchMain({ store }: { store: WatchStore }) {
   const items = store((state) => state.items);
   const results = store((state) => state.results);
   const busy = store((state) => state.busy);
@@ -42,7 +42,15 @@ function WatchMain({ store }: { store: WatchStore }) {
       </header>
 
       <section className="ui-card watch-composer">
-        <div className="watch-composer-row">
+        <form
+          className="watch-composer-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!busy && draftName.trim() && draftUrl.trim()) {
+              void store.getState().add();
+            }
+          }}
+        >
           <input
             className="watch-name-input"
             value={draftName}
@@ -63,14 +71,13 @@ function WatchMain({ store }: { store: WatchStore }) {
             onChange={(event) => store.getState().setDraft({ draftUrl: event.target.value })}
           />
           <button
-            type="button"
+            type="submit"
             className="ui-button ui-button--primary ui-button--sm"
             disabled={busy || !draftName.trim() || !draftUrl.trim()}
-            onClick={() => void store.getState().add()}
           >
             {t("Add watcher")}
           </button>
-        </div>
+        </form>
         {error ? (
           <p className="idphoto-error" role="alert">
             {error}
@@ -99,7 +106,15 @@ function WatchMain({ store }: { store: WatchStore }) {
                 return (
                   <li key={item.id} className="watch-item">
                     {editing ? (
-                      <div className="watch-edit">
+                      <form
+                        className="watch-edit"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (!busy && draftName.trim() && draftUrl.trim()) {
+                            void store.getState().saveEdit();
+                          }
+                        }}
+                      >
                         <input
                           className="watch-name-input"
                           value={draftName}
@@ -123,10 +138,9 @@ function WatchMain({ store }: { store: WatchStore }) {
                         />
                         <div className="watch-edit-actions">
                           <button
-                            type="button"
+                            type="submit"
                             className="ui-button ui-button--primary ui-button--sm"
                             disabled={busy || !draftName.trim() || !draftUrl.trim()}
-                            onClick={() => void store.getState().saveEdit()}
                           >
                             {t("Save")}
                           </button>
@@ -138,7 +152,7 @@ function WatchMain({ store }: { store: WatchStore }) {
                             {t("Cancel")}
                           </button>
                         </div>
-                      </div>
+                      </form>
                     ) : (
                       <div className="watch-item-body">
                         <strong className="watch-item-name">{item.name}</strong>

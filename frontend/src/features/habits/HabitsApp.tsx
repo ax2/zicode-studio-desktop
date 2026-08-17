@@ -23,7 +23,7 @@ function HabitsNav() {
   return <nav className="habits-nav" aria-label={t("Habits")} />;
 }
 
-function HabitsMain({ store }: { store: HabitsStore }) {
+export function HabitsMain({ store }: { store: HabitsStore }) {
   const habits = store((state) => state.habits);
   const entries = store((state) => state.entries);
   const busy = store((state) => state.busy);
@@ -58,7 +58,13 @@ function HabitsMain({ store }: { store: HabitsStore }) {
       </header>
 
       <section className="ui-card habits-composer">
-        <div className="habits-composer-row">
+        <form
+          className="habits-composer-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!busy && draftName.trim()) void store.getState().addHabit();
+          }}
+        >
           <input
             className="habits-name-input"
             value={draftName}
@@ -67,14 +73,13 @@ function HabitsMain({ store }: { store: HabitsStore }) {
             onChange={(event) => store.getState().setDraft({ draftName: event.target.value })}
           />
           <button
-            type="button"
+            type="submit"
             className="ui-button ui-button--primary ui-button--sm"
             disabled={busy || !draftName.trim()}
-            onClick={() => void store.getState().addHabit()}
           >
             {t("Add habit")}
           </button>
-        </div>
+        </form>
         <div className="habits-pickers">
           <div className="habits-picker" role="radiogroup" aria-label={t("Habit emoji")}>
             {EMOJIS.map((emoji) => (
@@ -144,7 +149,13 @@ function HabitsMain({ store }: { store: HabitsStore }) {
               return (
                 <li key={habit.id} className="habits-item">
                   {editing ? (
-                    <div className="habits-edit">
+                    <form
+                      className="habits-edit"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!busy && draftName.trim()) void store.getState().saveEdit();
+                      }}
+                    >
                       <input
                         className="habits-name-input"
                         value={draftName}
@@ -180,10 +191,9 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                       </div>
                       <div className="habits-edit-actions">
                         <button
-                          type="button"
+                          type="submit"
                           className="ui-button ui-button--primary ui-button--sm"
                           disabled={busy || !draftName.trim()}
-                          onClick={() => void store.getState().saveEdit()}
                         >
                           {t("Save")}
                         </button>
@@ -195,7 +205,7 @@ function HabitsMain({ store }: { store: HabitsStore }) {
                           {t("Cancel")}
                         </button>
                       </div>
-                    </div>
+                    </form>
                   ) : (
                     <div className="habits-item-head">
                       <span className="habits-item-icon" style={{ background: habit.color }}>
