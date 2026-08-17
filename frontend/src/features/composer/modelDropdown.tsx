@@ -135,6 +135,9 @@ function ModelDropdownMenu({
         className="model-dropdown-search"
         placeholder={t("Search models…")}
         aria-label={t("Search models…")}
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="model-dropdown-items"
         type="text"
         autoComplete="off"
         autoCapitalize="off"
@@ -185,7 +188,12 @@ function ModelDropdownMenu({
           }
         }}
       />
-      <div className="model-dropdown-items">
+      <div
+        className="model-dropdown-items"
+        id="model-dropdown-items"
+        role="listbox"
+        aria-label={t("Models")}
+      >
         {snapshot.loading && models.length === 0 ? (
           <div className="model-dropdown-empty">
             <div className="model-dropdown-empty-title">{t("Loading models…")}</div>
@@ -223,6 +231,8 @@ function ModelDropdownMenu({
               key={`${model.provider || ""}/${model.id}`}
               type="button"
               id={`model-dropdown-item-${index}`}
+              role="option"
+              aria-selected={model.id === snapshot.currentModelId}
               className={`model-dropdown-item${
                 index === effectiveIndex ? " selected" : ""
               }${model.id === snapshot.currentModelId ? " active" : ""}`}

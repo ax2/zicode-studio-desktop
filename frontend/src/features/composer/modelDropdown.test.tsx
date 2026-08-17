@@ -42,6 +42,26 @@ describe("model dropdown feed", () => {
     expect(container.querySelector(".model-dropdown-search")).toBeTruthy();
   });
 
+  it("exposes the model list with listbox and option roles", () => {
+    const container = makeContainer();
+    const feed = createModelDropdownFeed(container, () => SNAPSHOT, {
+      onSelect: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onRetry: vi.fn(),
+      onClose: vi.fn(),
+    });
+    feed.render();
+    expect(
+      container.querySelector(".model-dropdown-items")?.getAttribute("role"),
+    ).toBe("listbox");
+    expect(
+      container.querySelector(".model-dropdown-search")?.getAttribute("role"),
+    ).toBe("combobox");
+    const active = container.querySelector(".model-dropdown-item.active");
+    expect(active?.getAttribute("role")).toBe("option");
+    expect(active?.getAttribute("aria-selected")).toBe("true");
+  });
+
   it("renders empty, loading, and error states", () => {
     const container = makeContainer();
     const callbacks = {
