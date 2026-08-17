@@ -2850,6 +2850,32 @@ describe("notes React components", () => {
     expect(document.activeElement).toBe(moveBtn);
   });
 
+  it("returns focus to the icon input when the emoji picker closes", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const iconInput = container.querySelector(
+      ".notes-icon-input",
+    ) as HTMLInputElement | null;
+    expect(iconInput).toBeTruthy();
+    iconInput?.focus();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-emoji-picker")).toBeTruthy(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement?.matches(".notes-emoji-cell")).toBe(true),
+    );
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector(".notes-emoji-picker")).toBeNull(),
+    );
+    expect(document.activeElement).toBe(iconInput);
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({

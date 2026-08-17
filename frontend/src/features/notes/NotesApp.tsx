@@ -590,13 +590,18 @@ function EmojiPicker({
 }: {
   onPick(emoji: string): void;
   label: string;
-  trigger: React.ReactElement<{ onFocus?: () => void; onClick?: () => void }>;
+  trigger: React.ReactElement<{
+    onFocus?: (event: React.FocusEvent<HTMLElement>) => void;
+    onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  }>;
 }) {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const restoringFocusRef = useRef(false);
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -618,6 +623,11 @@ function EmojiPicker({
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKey);
+      restoringFocusRef.current = true;
+      triggerRef.current?.focus();
+      window.setTimeout(() => {
+        restoringFocusRef.current = false;
+      }, 0);
     };
   }, [open]);
   const emojis = EMOJI_GROUPS[category]?.[1] ?? [];
@@ -640,8 +650,14 @@ function EmojiPicker({
   return (
     <>
       {cloneElement(trigger, {
-        onFocus: () => setOpen(true),
-        onClick: () => setOpen(true),
+        onFocus: (event: React.FocusEvent<HTMLElement>) => {
+          triggerRef.current = event.currentTarget;
+          if (!restoringFocusRef.current) setOpen(true);
+        },
+        onClick: (event: React.MouseEvent<HTMLElement>) => {
+          triggerRef.current = event.currentTarget;
+          setOpen(true);
+        },
       })}
       {open ? (
         <div ref={containerRef} className="notes-emoji-picker" role="dialog" aria-label={label}>
