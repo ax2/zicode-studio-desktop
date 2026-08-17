@@ -117,6 +117,31 @@ describe("model dropdown feed", () => {
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "gpt-5.2" }));
   });
 
+  it("does not select a model while an IME composition is in progress", () => {
+    const container = makeContainer();
+    const onSelect = vi.fn();
+    const feed = createModelDropdownFeed(container, () => SNAPSHOT, {
+      onSelect,
+      onOpenSettings: vi.fn(),
+      onRetry: vi.fn(),
+      onClose: vi.fn(),
+    });
+    feed.render();
+    const search = container.querySelector(
+      ".model-dropdown-search",
+    ) as HTMLInputElement;
+
+    search.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        keyCode: 229,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("formats model names", () => {
     expect(formatModelName({ id: "claude-sonnet-4-20250805", name: "claude-sonnet-4-20250805" })).toBe(
       "sonnet-4",

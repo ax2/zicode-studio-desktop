@@ -5,6 +5,7 @@ import { create, type StoreApi, type UseBoundStore } from "zustand";
 // @ts-expect-error plain JS module without type declarations
 import { findLowestCostModel, formatModelPricing } from "../../../../public/native/models/model-routing.js";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 
 export interface ModelLike {
   id: string;
@@ -98,6 +99,7 @@ function ModelDropdownMenu({
   const setFilter = store((state) => state.setFilter);
   const setSelectedIndex = store((state) => state.setSelectedIndex);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const composingRef = useRef(false);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -140,12 +142,19 @@ function ModelDropdownMenu({
         spellCheck={false}
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
+        onCompositionStart={() => {
+          composingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          composingRef.current = false;
+        }}
         aria-activedescendant={
           matchingModels.length > 0
             ? `model-dropdown-item-${effectiveIndex}`
             : undefined
         }
         onKeyDown={(event) => {
+          if (isImeComposing(event, composingRef.current)) return;
           if (event.key === "Escape") {
             event.stopPropagation();
             callbacks.onClose();
