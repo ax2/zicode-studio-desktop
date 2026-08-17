@@ -1927,7 +1927,29 @@ function NoteEditor({ store }: { store: NotesStore }) {
       }
     };
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setMoreOpen(false);
+      if (event.key === "Escape") {
+        setMoreOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const menu = moreMenuRef.current;
+      if (!menu) return;
+      const focusables = Array.from(
+        menu.querySelectorAll<HTMLElement>("button:not([disabled])"),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !menu.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !menu.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
