@@ -2461,6 +2461,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           enterKeyHint="next"
           autoComplete="off"
           autoCapitalize="sentences"
+          maxLength={200}
           spellCheck
           onChange={(event) => setDraft({ title: event.target.value })}
           onCompositionStart={() => {

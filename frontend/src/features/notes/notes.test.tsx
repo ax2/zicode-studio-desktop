@@ -2600,6 +2600,17 @@ describe("notes React components", () => {
     await waitFor(() => expect(document.activeElement).toBe(titleInput));
   });
 
+  it("caps the note title length to the backend limit", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    render(<NotesContent store={store} />);
+    const titleInput = document.querySelector(
+      ".notes-title-input",
+    ) as HTMLInputElement;
+    expect(titleInput.getAttribute("maxlength")).toBe("200");
+  });
+
   it("switches to preview mode and renders markdown", async () => {
     const store = storeWithGateway();
     await store.getState().load();
