@@ -18,7 +18,14 @@ import {
   stripMarkdown,
   tagIcon,
 } from "./notesLogic";
-import { NotesContent, NotesNav, markUnresolvedWikilinks, wikilinkMarkdown } from "./NotesApp";
+import {
+  NotesContent,
+  NotesNav,
+  buildDragGhost,
+  dropTargetIdAt,
+  markUnresolvedWikilinks,
+  wikilinkMarkdown,
+} from "./NotesApp";
 import { setupNotesApp } from "./index";
 import {
   createNotesStore,
@@ -234,6 +241,32 @@ describe("notes logic", () => {
     expect(map.get(null)?.map((n) => n.id)).toEqual(["book-1"]);
     expect(map.get("book-1")?.map((n) => n.id)).toEqual(["book-2"]);
     expect(allTagSuggestions(["custom"])).toContain("inbox");
+  });
+
+  it("builds a drag ghost with the note title and icon", () => {
+    const ghost = buildDragGhost({
+      id: "n1",
+      notebookId: "book-1",
+      title: "Roadmap",
+      icon: "🚀",
+      updatedAt: "2026-07-31T08:00:00Z",
+    });
+    expect(ghost.className).toBe("notes-drag-ghost");
+    expect(ghost.querySelector(".notes-note-icon")?.textContent).toBe("🚀");
+    expect(ghost.querySelector("strong")?.textContent).toBe("Roadmap");
+  });
+
+  it("resolves the notebook id under the pointer for a drop target", () => {
+    const branch = document.createElement("details");
+    branch.className = "notes-notebook-branch";
+    branch.dataset.notebookId = "book-2";
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => branch;
+    try {
+      expect(dropTargetIdAt(120, 340)).toBe("book-2");
+    } finally {
+      document.elementFromPoint = original;
+    }
   });
 });
 

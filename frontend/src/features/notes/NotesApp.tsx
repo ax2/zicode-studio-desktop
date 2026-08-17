@@ -1023,7 +1023,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
   );
 }
 
-function buildDragGhost(note: NoteSummary): HTMLElement {
+export function buildDragGhost(note: NoteSummary): HTMLElement {
   const ghost = document.createElement("div");
   ghost.className = "notes-drag-ghost";
   const icon = document.createElement("span");
@@ -1041,7 +1041,7 @@ function buildDragGhost(note: NoteSummary): HTMLElement {
   return ghost;
 }
 
-function dropTargetIdAt(x: number, y: number): string | null {
+export function dropTargetIdAt(x: number, y: number): string | null {
   const target = document.elementFromPoint(x, y);
   const branch = target?.closest?.(".notes-notebook-branch");
   return (branch as HTMLElement | null)?.dataset?.notebookId ?? null;
