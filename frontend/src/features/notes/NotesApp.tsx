@@ -609,6 +609,8 @@ function EmojiPicker({
   trigger: React.ReactElement<{
     onFocus?: (event: React.FocusEvent<HTMLElement>) => void;
     onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+    "aria-haspopup"?: string;
+    "aria-expanded"?: boolean;
   }>;
 }) {
   const [open, setOpen] = useState(false);
@@ -688,6 +690,8 @@ function EmojiPicker({
   return (
     <>
       {cloneElement(trigger, {
+        "aria-haspopup": "dialog",
+        "aria-expanded": open,
         onFocus: (event: React.FocusEvent<HTMLElement>) => {
           triggerRef.current = event.currentTarget;
           if (!restoringFocusRef.current) setOpen(true);

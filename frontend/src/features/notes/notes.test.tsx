@@ -3172,10 +3172,12 @@ describe("notes React components", () => {
       ".notes-icon-input",
     ) as HTMLInputElement | null;
     expect(iconInput).toBeTruthy();
+    expect(iconInput?.getAttribute("aria-haspopup")).toBe("dialog");
     iconInput?.focus();
     await waitFor(() =>
       expect(container.querySelector(".notes-emoji-picker")).toBeTruthy(),
     );
+    expect(iconInput?.getAttribute("aria-expanded")).toBe("true");
     await waitFor(() =>
       expect(document.activeElement?.matches(".notes-emoji-cell")).toBe(true),
     );
