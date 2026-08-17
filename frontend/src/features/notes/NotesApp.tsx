@@ -2251,7 +2251,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
           autoCapitalize="sentences"
           spellCheck
           onChange={(event) => setDraft({ title: event.target.value })}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+          }}
           onKeyDown={(event) => {
+            if (isImeComposing(event)) return;
             if (event.key === "Enter" && !preview) {
               contentRef.current?.focus();
             } else if (event.key === "Escape") {

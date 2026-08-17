@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 // @ts-expect-error plain JS modules without type declarations (public/)
 import { isSuperAgentProjectPath } from "../../../../public/super-agent/session.js";
 // @ts-expect-error plain JS module without type declarations (public/)
@@ -152,6 +153,7 @@ export function SessionSidebarApp({
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const composingRef = useRef(false);
 
   const unreadSet = new Set(unread);
   const streamingSet = new Set(streaming);
@@ -352,7 +354,14 @@ export function SessionSidebarApp({
               onBlur={(event) =>
                 controller.commitRename(session.id, event.currentTarget.value)
               }
+              onCompositionStart={() => {
+                composingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                composingRef.current = false;
+              }}
               onKeyDown={(event) => {
+                if (isImeComposing(event, composingRef.current)) return;
                 if (event.key === "Enter") {
                   event.preventDefault();
                   event.currentTarget.blur();

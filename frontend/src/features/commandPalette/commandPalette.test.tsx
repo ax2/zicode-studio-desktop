@@ -128,6 +128,32 @@ describe("command palette (React)", () => {
     expect(openNotes).not.toHaveBeenCalled();
   });
 
+  it("does not run a command while an IME composition is in progress", () => {
+    const { button, palette, overlay, list } = mount();
+    const run = vi.fn();
+    setupCommandPalette({
+      button,
+      palette,
+      overlay,
+      list,
+      commands: [{ label: "Notes", desc: "Open notes", action: run }],
+    });
+
+    button.click();
+    const input = list.querySelector(
+      ".command-palette-search",
+    ) as HTMLInputElement;
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        keyCode: 229,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("shows the global keyboard shortcut hint in a footer", () => {
     const { button, palette, overlay, list } = mount();
     setupCommandPalette({

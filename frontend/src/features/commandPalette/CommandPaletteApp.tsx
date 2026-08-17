@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 import type { PaletteCommand } from "./commandPaletteLogic";
 
 export function CommandPaletteApp({
@@ -12,6 +13,7 @@ export function CommandPaletteApp({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -34,6 +36,7 @@ export function CommandPaletteApp({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isImeComposing(event, composingRef.current)) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setSelectedIndex((index) =>
@@ -65,6 +68,12 @@ export function CommandPaletteApp({
         spellCheck={false}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
+        onCompositionStart={() => {
+          composingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          composingRef.current = false;
+        }}
         onKeyDown={onKeyDown}
       />
       <div className="command-palette-results">
