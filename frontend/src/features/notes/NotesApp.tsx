@@ -2413,6 +2413,24 @@ function NoteEditor({ store }: { store: NotesStore }) {
           role="group"
           aria-label={t("More actions")}
           ref={moreMenuRef}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+            const items = Array.from(
+              moreMenuRef.current?.querySelectorAll<HTMLButtonElement>(
+                "button:not([disabled])",
+              ) ?? [],
+            );
+            if (items.length === 0) return;
+            event.preventDefault();
+            const current = items.indexOf(
+              document.activeElement as HTMLButtonElement,
+            );
+            const next =
+              event.key === "ArrowDown"
+                ? (current + 1) % items.length
+                : (current - 1 + items.length) % items.length;
+            items[next]?.focus();
+          }}
         >
           {secondaryActions}
           {deleteButton}

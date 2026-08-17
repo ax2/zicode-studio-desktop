@@ -2584,6 +2584,53 @@ describe("notes React components", () => {
     await waitFor(() => expect(document.activeElement).toBe(last));
   });
 
+  it("navigates the More menu with arrow keys", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    render(<NotesContent store={store} />);
+
+    const moreButton = await waitFor(
+      () => document.querySelector(".notes-more-btn") as HTMLButtonElement,
+    );
+    moreButton.click();
+    await waitFor(() =>
+      expect(document.querySelector(".notes-more-menu")).toBeTruthy(),
+    );
+    const buttons = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        ".notes-more-menu button:not([disabled])",
+      ),
+    );
+    buttons[0].focus();
+    document.querySelector(".notes-more-menu")?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(buttons[1]));
+
+    document.querySelector(".notes-more-menu")?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(buttons[0]));
+  });
+
   it("focuses and selects the title when a new note is created", async () => {
     const store = storeWithGateway();
     await store.getState().load();
