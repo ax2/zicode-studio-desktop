@@ -399,6 +399,7 @@ export function SessionSidebarApp({
             <input
               ref={renameInputRef}
               className="session-rename-input"
+              aria-label={t("Rename")}
               defaultValue={title}
               onBlur={(event) =>
                 controller.commitRename(session.id, event.currentTarget.value)

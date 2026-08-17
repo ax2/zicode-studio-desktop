@@ -4,6 +4,7 @@ import {
   SessionSidebarApp,
   type SessionSidebarController,
 } from "./SessionSidebarApp";
+import { t } from "../../shared/i18n";
 import type { SessionSummary } from "./sessionSidebarLogic";
 import { createSidebarStore } from "./sessionSidebarStore";
 
@@ -194,5 +195,41 @@ describe("session sidebar delete-all confirmation", () => {
     expect(
       document.querySelector(".archived-header")?.getAttribute("aria-expanded"),
     ).toBe("true");
+  });
+
+  it("labels the session rename input for assistive tech", async () => {
+    const store = createSidebarStore({ activeSessionId: null });
+    const controller = makeController();
+    const container = document.createElement("div");
+    document.body.append(container);
+    store.setState({
+      sessions: [
+        {
+          id: "s1",
+          name: "Test session",
+          projectPath: "/ws",
+          isCurrentWorkspace: true,
+        },
+      ],
+      renamingId: "s1",
+      phase: "ready",
+    });
+
+    render(
+      <SessionSidebarApp
+        controller={controller}
+        store={store}
+        container={container}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".session-rename-input")).toBeTruthy(),
+    );
+    expect(
+      document
+        .querySelector(".session-rename-input")
+        ?.getAttribute("aria-label"),
+    ).toBe(t("Rename"));
   });
 });
