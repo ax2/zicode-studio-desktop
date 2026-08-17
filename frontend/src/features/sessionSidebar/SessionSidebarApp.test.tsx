@@ -127,4 +127,37 @@ describe("session sidebar delete-all confirmation", () => {
     );
     expect(document.activeElement?.matches(".sidebar-confirm-yes")).toBe(true);
   });
+
+  it("marks the active session with aria-current", async () => {
+    const store = createSidebarStore({ activeSessionId: "s1" });
+    const controller = makeController();
+    const container = document.createElement("div");
+    document.body.append(container);
+    store.setState({
+      sessions: [
+        {
+          id: "s1",
+          name: "Test session",
+          projectPath: "/ws",
+          isCurrentWorkspace: true,
+        },
+      ],
+      phase: "ready",
+    });
+
+    render(
+      <SessionSidebarApp
+        controller={controller}
+        store={store}
+        container={container}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".session-item")).toBeTruthy(),
+    );
+    expect(
+      document.querySelector(".session-item")?.getAttribute("aria-current"),
+    ).toBe("true");
+  });
 });

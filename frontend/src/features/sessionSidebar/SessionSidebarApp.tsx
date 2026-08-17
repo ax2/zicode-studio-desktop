@@ -390,6 +390,7 @@ export function SessionSidebarApp({
         data-session-id={session.id}
         tabIndex={-1}
         key={session.id}
+        aria-current={isActive ? "true" : undefined}
         onClick={() => controller.selectSession(session)}
         onContextMenu={(event) => controller.showContextMenu(event, session)}
       >
@@ -570,6 +571,9 @@ export function SessionSidebarApp({
                   data-session-id={result.sessionId}
                   tabIndex={-1}
                   key={result.sessionId}
+                  aria-current={
+                    result.sessionId === activeSessionId ? "true" : undefined
+                  }
                   onClick={() =>
                     controller.selectSession({
                       id: result.sessionId,
