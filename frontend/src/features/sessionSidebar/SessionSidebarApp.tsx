@@ -662,6 +662,7 @@ export function SessionSidebarApp({
             className={`project-header archived-header${
               archivedCollapsed ? " collapsed" : ""
             }`}
+            aria-expanded={!archivedCollapsed}
             tabIndex={-1}
             onClick={() => controller.toggleArchivedCollapsed()}
           >

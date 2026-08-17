@@ -160,4 +160,39 @@ describe("session sidebar delete-all confirmation", () => {
       document.querySelector(".session-item")?.getAttribute("aria-current"),
     ).toBe("true");
   });
+
+  it("exposes the archived group collapse state with aria-expanded", async () => {
+    const store = createSidebarStore({ activeSessionId: null });
+    const controller = makeController();
+    const container = document.createElement("div");
+    document.body.append(container);
+    store.setState({
+      sessions: [
+        {
+          id: "s1",
+          name: "Archived session",
+          projectPath: "/ws",
+          isCurrentWorkspace: true,
+        },
+      ],
+      archived: ["s1"],
+      archivedCollapsed: false,
+      phase: "ready",
+    });
+
+    render(
+      <SessionSidebarApp
+        controller={controller}
+        store={store}
+        container={container}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".archived-header")).toBeTruthy(),
+    );
+    expect(
+      document.querySelector(".archived-header")?.getAttribute("aria-expanded"),
+    ).toBe("true");
+  });
 });
