@@ -92,6 +92,7 @@ export function HeaderOpenApp({
             className={`header-open-app-menu-item${app.id === selectedId ? " active" : ""}`}
             title={`Open in ${app.label}`}
             aria-label={`Open in ${app.label}`}
+            aria-current={app.id === selectedId ? "true" : undefined}
             key={app.id}
             onClick={(event) => {
               event.stopPropagation();
