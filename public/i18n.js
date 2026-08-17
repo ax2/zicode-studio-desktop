@@ -652,6 +652,7 @@ const zhCN = {
   "External tasks · Feishu / WeCom": "外部任务 · 飞书 / 企业微信",
   "New Session": "新建会话",
   "New session": "新建会话",
+  "New session (Ctrl+Shift+N)": "新建会话 (Ctrl+Shift+N)",
   "Start a new conversation": "开始新对话",
   "Switch workspace": "切换工作区",
   "Open the workspace switcher": "打开工作区切换器",

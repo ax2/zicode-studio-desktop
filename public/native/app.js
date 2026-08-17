@@ -1126,6 +1126,7 @@ setupAppKeyboardShortcuts({
   openCommandPalette: () => commandButton?.click(),
   openModelDropdown: () => openModelDropdown(),
   cycleThinking: () => thinkingBtn?.click(),
+  newSession: () => document.getElementById("new-session-btn")?.click(),
 });
 window.addEventListener("zicode:open-note", (event) => {
   const { notebookId, noteId } = event.detail ?? {};

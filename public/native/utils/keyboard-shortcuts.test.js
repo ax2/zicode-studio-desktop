@@ -122,4 +122,20 @@ describe("app keyboard shortcuts", () => {
     expect(openModelDropdown).toHaveBeenCalledTimes(1);
     expect(cycleThinking).toHaveBeenCalledTimes(1);
   });
+
+  it("starts a new session with Ctrl+Shift+N", () => {
+    const newSession = vi.fn();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      newSession,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "N", ctrlKey: true, shiftKey: true, cancelable: true }),
+    );
+
+    expect(newSession).toHaveBeenCalledTimes(1);
+  });
 });
