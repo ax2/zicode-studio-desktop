@@ -47,6 +47,13 @@
   background: var(--bg-glass-hover);
 }
 
+.skill-slash-option--first-skill {
+  border-top: 1px solid var(--border);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: var(--space-1);
+}
+
 .skill-slash-icon {
   display: flex;
   color: var(--text-secondary);

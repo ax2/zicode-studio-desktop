@@ -267,24 +267,32 @@ export function ComposerApp({
             {slash.matches.length === 0 ? (
               <div className="skill-slash-empty">{t("No matching commands")}</div>
             ) : (
-              slash.matches.map((command, index) => (
-                <button
-                  type="button"
-                  key={command.command}
-                  id={`skill-slash-option-${index}`}
-                  className={`skill-slash-option${index === slash.selectedIndex ? " selected" : ""}`}
-                  role="option"
-                  aria-selected={index === slash.selectedIndex}
-                  onMouseEnter={() =>
-                    store.getState().setSlash({ selectedIndex: index })
-                  }
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    if (inputRef.current) {
-                      selectSlashCommand(index, inputRef.current);
+              slash.matches.map((command, index) => {
+                const isFirstSkill =
+                  command.type === "skill" &&
+                  index > 0 &&
+                  slash.matches[index - 1]?.type !== "skill";
+                return (
+                  <button
+                    type="button"
+                    key={command.command}
+                    id={`skill-slash-option-${index}`}
+                    data-type={command.type}
+                    className={`skill-slash-option${
+                      index === slash.selectedIndex ? " selected" : ""
+                    }${isFirstSkill ? " skill-slash-option--first-skill" : ""}`}
+                    role="option"
+                    aria-selected={index === slash.selectedIndex}
+                    onMouseEnter={() =>
+                      store.getState().setSlash({ selectedIndex: index })
                     }
-                  }}
-                >
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      if (inputRef.current) {
+                        selectSlashCommand(index, inputRef.current);
+                      }
+                    }}
+                  >
                   <span className="skill-slash-icon" aria-hidden="true">
                     {command.icon ?? (
                       <svg viewBox="0 0 24 24">
@@ -302,8 +310,9 @@ export function ComposerApp({
                   <span className="skill-slash-scope">
                     {scopeLabel(command.scope)}
                   </span>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
           <div
