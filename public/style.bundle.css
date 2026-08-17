@@ -7924,7 +7924,8 @@ body[data-active-plugin="core.help"] .help-center-navigation {
 }
 
 .notes-emoji-cell:hover,
-.notes-emoji-cell:focus-visible {
+.notes-emoji-cell:focus-visible,
+.notes-emoji-cell.active {
   background: var(--accent-subtle);
 }
 

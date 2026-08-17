@@ -571,7 +571,9 @@ function EmojiPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -595,6 +597,23 @@ function EmojiPicker({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+  const emojis = EMOJI_GROUPS[category]?.[1] ?? [];
+  useEffect(() => {
+    if (!open) return;
+    gridRef.current
+      ?.querySelectorAll<HTMLButtonElement>(".notes-emoji-cell")[activeIndex]
+      ?.focus();
+  }, [open, activeIndex]);
+  const onGridKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (emojis.length === 0) return;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => (index + 1) % emojis.length);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => (index - 1 + emojis.length) % emojis.length);
+    }
+  };
   return (
     <>
       {cloneElement(trigger, {
@@ -609,18 +628,35 @@ function EmojiPicker({
                 key={name}
                 type="button"
                 className={`notes-emoji-tab${index === category ? " active" : ""}`}
-                onClick={() => setCategory(index)}
+                onClick={() => {
+                  setCategory(index);
+                  setActiveIndex(0);
+                  requestAnimationFrame(() => {
+                    gridRef.current
+                      ?.querySelector<HTMLButtonElement>(".notes-emoji-cell")
+                      ?.focus();
+                  });
+                }}
               >
                 {t(name)}
               </button>
             ))}
           </div>
-          <div className="notes-emoji-grid">
-            {EMOJI_GROUPS[category]?.[1].map((emoji) => (
+          <div
+            ref={gridRef}
+            className="notes-emoji-grid"
+            role="listbox"
+            aria-label={label}
+            onKeyDown={onGridKeyDown}
+          >
+            {emojis.map((emoji, index) => (
               <button
                 key={emoji}
                 type="button"
-                className="notes-emoji-cell"
+                role="option"
+                aria-selected={index === activeIndex}
+                className={`notes-emoji-cell${index === activeIndex ? " active" : ""}`}
+                tabIndex={index === activeIndex ? 0 : -1}
                 onClick={() => {
                   onPick(emoji);
                   setOpen(false);
