@@ -3545,4 +3545,13 @@ describe("notes React components", () => {
     expect(document.querySelector(".notes-empty-quickstart")).toBeTruthy();
     expect(document.body.textContent).toContain(t("Quick start"));
   });
+
+  it("hides the first-run quick start when notebooks already exist", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    render(<NotesContent store={store} />);
+    expect(document.querySelector(".notes-empty-library")).toBeTruthy();
+    expect(document.body.textContent).toContain(t("No note selected"));
+    expect(document.querySelector(".notes-empty-quickstart")).toBeNull();
+  });
 });

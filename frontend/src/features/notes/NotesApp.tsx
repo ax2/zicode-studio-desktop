@@ -1733,29 +1733,31 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
           )}
         </div>
       </div>
-      <aside className="notes-empty-quickstart" aria-label={t("Quick start")}>
-        <h2>{t("Quick start")}</h2>
-        <ul>
-          <li>
-            <span className="notes-empty-step-icon" aria-hidden="true">
-              📝
-            </span>
-            <span>{t("Create or open a note from the notebook tree")}</span>
-          </li>
-          <li>
-            <span className="notes-empty-step-icon" aria-hidden="true">
-              🌐
-            </span>
-            <span>{t("Capture a public web page into a note")}</span>
-          </li>
-          <li>
-            <span className="notes-empty-step-icon" aria-hidden="true">
-              💬
-            </span>
-            <span>{t("Discuss a note or selection in Chat")}</span>
-          </li>
-        </ul>
-      </aside>
+      {!snapshot.notebooks.length ? (
+        <aside className="notes-empty-quickstart" aria-label={t("Quick start")}>
+          <h2>{t("Quick start")}</h2>
+          <ul>
+            <li>
+              <span className="notes-empty-step-icon" aria-hidden="true">
+                📝
+              </span>
+              <span>{t("Create or open a note from the notebook tree")}</span>
+            </li>
+            <li>
+              <span className="notes-empty-step-icon" aria-hidden="true">
+                🌐
+              </span>
+              <span>{t("Capture a public web page into a note")}</span>
+            </li>
+            <li>
+              <span className="notes-empty-step-icon" aria-hidden="true">
+                💬
+              </span>
+              <span>{t("Discuss a note or selection in Chat")}</span>
+            </li>
+          </ul>
+        </aside>
+      ) : null}
     </section>
   );
 }
