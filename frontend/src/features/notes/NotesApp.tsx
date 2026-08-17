@@ -1529,7 +1529,7 @@ function FilterResultsView({ store }: { store: NotesStore }) {
         {title}
       </h1>
       <div className="notes-results-meta">
-        <span>
+        <span aria-live="polite">
           {snapshot.notes.length} {t("notes")}
         </span>
         <button

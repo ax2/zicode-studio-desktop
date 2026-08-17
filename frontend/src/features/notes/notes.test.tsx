@@ -581,6 +581,21 @@ describe("notes store", () => {
     store.getState().setQuery("");
   });
 
+  it("announces the filtered result count to assistive tech", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().applyFilter({ tag: "idea" });
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() => {
+      expect(container.querySelector(".notes-results-meta > span")).toBeTruthy();
+    });
+    expect(
+      container
+        .querySelector(".notes-results-meta > span")
+        ?.getAttribute("aria-live"),
+    ).toBe("polite");
+  });
+
   it("surfaces captured source metadata in the preview", async () => {
     const store = storeWithGateway({
       get: vi.fn(async () => ({
