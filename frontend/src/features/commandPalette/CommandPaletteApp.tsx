@@ -62,6 +62,14 @@ export function CommandPaletteApp({
         className="command-palette-search"
         placeholder={t("Filter commands")}
         aria-label={t("Filter commands")}
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="command-palette-results"
+        aria-activedescendant={
+          filtered.length > 0
+            ? `command-item-${effectiveIndex}`
+            : undefined
+        }
         autoComplete="off"
         autoCapitalize="off"
         autoCorrect="off"
@@ -76,12 +84,20 @@ export function CommandPaletteApp({
         }}
         onKeyDown={onKeyDown}
       />
-      <div className="command-palette-results">
+      <div
+        className="command-palette-results"
+        id="command-palette-results"
+        role="listbox"
+        aria-label={t("Filter commands")}
+      >
         {filtered.map((command, index) => (
           <button
             type="button"
             // biome-ignore lint/suspicious/noArrayIndexKey: command catalog has no stable ids
             key={index}
+            id={`command-item-${index}`}
+            role="option"
+            aria-selected={index === effectiveIndex}
             className={`command-item${index === effectiveIndex ? " selected" : ""}`}
             disabled={Boolean(command.disabled)}
             onMouseEnter={() => setSelectedIndex(index)}

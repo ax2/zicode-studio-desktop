@@ -154,6 +154,31 @@ describe("command palette (React)", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("exposes the command list with listbox and option roles", () => {
+    const { button, palette, overlay, list } = mount();
+    setupCommandPalette({
+      button,
+      palette,
+      overlay,
+      list,
+      commands: [{ label: "Notes", desc: "Open notes", action: vi.fn() }],
+    });
+
+    button.click();
+    expect(
+      list.querySelector(".command-palette-results")?.getAttribute("role"),
+    ).toBe("listbox");
+    expect(
+      list.querySelector(".command-palette-search")?.getAttribute("role"),
+    ).toBe("combobox");
+    expect(
+      list.querySelector(".command-item")?.getAttribute("role"),
+    ).toBe("option");
+    expect(
+      list.querySelector(".command-item")?.getAttribute("aria-selected"),
+    ).toBe("true");
+  });
+
   it("shows the global keyboard shortcut hint in a footer", () => {
     const { button, palette, overlay, list } = mount();
     setupCommandPalette({
