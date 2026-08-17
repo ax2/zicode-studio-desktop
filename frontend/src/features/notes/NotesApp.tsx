@@ -928,7 +928,11 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         const target = event.target as HTMLElement;
         if (target.closest?.("button")) return;
         event.preventDefault();
-        void selectNote(note);
+        if (selectMode) {
+          store.getState().toggleNoteSelected(note.id);
+        } else {
+          void selectNote(note);
+        }
       }}
     >
       {selectMode ? (

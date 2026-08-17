@@ -2948,6 +2948,34 @@ describe("notes React components", () => {
     selectSpy.mockRestore();
   });
 
+  it("toggles a note selection with the keyboard in select mode", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const selectSpy = vi.spyOn(store.getState(), "selectNote");
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-list-item")).toBeTruthy(),
+    );
+    (container.querySelector(".notes-select-mode") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-select-check")).toBeTruthy(),
+    );
+    const item = container.querySelector(
+      ".notes-list-item",
+    ) as HTMLElement;
+    item.focus();
+    item.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(selectSpy).not.toHaveBeenCalled();
+    expect(store.getState().selectedNoteIds).toContain("note-1");
+    selectSpy.mockRestore();
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({
