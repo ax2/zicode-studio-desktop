@@ -33,6 +33,7 @@ export function ConvNavTrack({
             key={index}
             className={`conv-nav-dot${index === activeIdx ? " active" : ""}`}
             aria-label={`${t("Jump to conversation")} ${index + 1}`}
+            aria-current={index === activeIdx ? "true" : undefined}
             style={style}
             onClick={() => onDotClick(index)}
             onMouseEnter={() => onDotEnter(index)}

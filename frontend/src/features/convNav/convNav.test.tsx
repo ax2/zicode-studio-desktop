@@ -24,6 +24,8 @@ describe("conversation navigator (React)", () => {
     const dots = container.querySelectorAll(".conv-nav-dot");
     expect(dots).toHaveLength(3);
     expect(dots[1].classList.contains("active")).toBe(true);
+    expect(dots[1].getAttribute("aria-current")).toBe("true");
+    expect(dots[0].getAttribute("aria-current")).toBeNull();
     (dots[2] as HTMLElement).click();
     expect(onDotClick).toHaveBeenCalledWith(2);
   });
