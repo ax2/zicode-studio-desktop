@@ -2472,9 +2472,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
                 }, 0);
                 return;
               }
-              const numbered = /^\d+/.test(marker);
+              const numbered = marker.match(/^(\d+)([.)])$/);
               const nextMarker = numbered
-                ? `${(Number(marker.match(/\d+/)?.[0]) ?? 0) + 1}.`
+                ? `${Number(numbered[1]) + 1}${numbered[2]}`
                 : marker;
               const inserted = `\n${indent}${nextMarker} `;
               setDraft({

@@ -1330,6 +1330,157 @@ describe("notes store", () => {
     await waitFor(() => expect(store.getState().draftContent).toBe("  abc"));
   });
 
+  it("continues a bullet list on Enter", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "- item" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(6, 6);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("- item\n- "));
+  });
+
+  it("continues an asterisk bullet list on Enter with the same marker", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "* todo" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(6, 6);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("* todo\n* "));
+  });
+
+  it("increments a numbered list on Enter", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "1. first" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(8, 8);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("1. first\n2. "));
+  });
+
+  it("increments a parenthesized numbered list on Enter", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "1) step" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(7, 7);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("1) step\n2) "));
+  });
+
+  it("ends a list when Enter is pressed on an empty bullet", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "- " });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(2, 2);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe(""));
+  });
+
+  it("keeps Shift+Enter as a plain newline instead of continuing a list", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setDraft({ content: "- item" });
+    const { container } = render(<NotesContent store={store} />);
+    (container.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-content-input")).toBeTruthy(),
+    );
+    const textarea = container.querySelector(
+      ".notes-content-input",
+    ) as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(6, 6);
+    textarea.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(store.getState().draftContent).toBe("- item"));
+  });
+
   it("does not discuss an empty note with Ctrl+Enter", async () => {
     const onUseInChat = vi.fn();
     const app = setupNotesApp({
