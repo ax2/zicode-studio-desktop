@@ -1914,9 +1914,15 @@ function NoteEditor({ store }: { store: NotesStore }) {
   };
 
   const currentSelectionRef = useRef("");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selection's only state dependency is preview, which is listed; the function is recreated each render so the captured copy is current.
   useEffect(() => {
-    currentSelectionRef.current = selection();
-  });
+    const sync = () => {
+      currentSelectionRef.current = selection();
+    };
+    sync();
+    document.addEventListener("selectionchange", sync);
+    return () => document.removeEventListener("selectionchange", sync);
+  }, [preview]);
 
   const armedDelete = () => {
     if (!deleteArmed) {
