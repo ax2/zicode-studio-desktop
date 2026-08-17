@@ -350,11 +350,13 @@ export function ComposerApp({
             id="message-input"
             placeholder={t("Type a message, or use / to call a skill…")}
             aria-label={t("Message input")}
+            role="combobox"
             autoComplete="off"
             enterKeyHint="send"
             rows={2}
             aria-autocomplete="list"
             aria-controls="skill-slash-menu"
+            aria-expanded={slash.open}
             aria-activedescendant={
               slash.open && slash.matches.length > 0
                 ? `skill-slash-option-${slash.selectedIndex}`
