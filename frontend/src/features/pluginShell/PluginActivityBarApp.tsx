@@ -183,6 +183,7 @@ function ActivityButton({
 }) {
   const badge = item.badge && item.badge.count > 0 ? item.badge : null;
   const title = shortcut ? `${item.label} (${shortcut})` : item.label;
+  const ariaKeyshortcuts = shortcut ? shortcut.replace(/^Ctrl/, "Control") : undefined;
   return (
     <button
       type="button"
@@ -192,6 +193,7 @@ function ActivityButton({
       data-plugin-id={item.id}
       title={title}
       aria-label={item.label}
+      aria-keyshortcuts={ariaKeyshortcuts}
       aria-current={isActive ? "page" : undefined}
       onClick={() => onActivate(item)}
     >
