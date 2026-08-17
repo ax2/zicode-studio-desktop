@@ -2822,6 +2822,34 @@ describe("notes React components", () => {
     await waitFor(() => expect(container.querySelector(".notes-move-popover")).toBeNull());
   });
 
+  it("moves focus into the move popover and restores it on close", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    const moveBtn = container.querySelector(
+      ".notes-move-btn",
+    ) as HTMLButtonElement | null;
+    expect(moveBtn).toBeTruthy();
+    moveBtn?.focus();
+    moveBtn?.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement?.matches(".notes-move-popover-item")).toBe(
+        true,
+      ),
+    );
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector(".notes-move-popover")).toBeNull(),
+    );
+    expect(document.activeElement).toBe(moveBtn);
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({

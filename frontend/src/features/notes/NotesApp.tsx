@@ -994,6 +994,13 @@ function MovePopover({
   const snapshot = store((state) => state.snapshot);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    ref.current
+      ?.querySelector<HTMLButtonElement>(".notes-move-popover-item")
+      ?.focus();
     const onPointerDown = (event: PointerEvent) => {
       if (!ref.current?.contains(event.target as Node)) {
         onClose();
@@ -1011,6 +1018,7 @@ function MovePopover({
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus();
     };
   }, [onClose, store]);
   return (
