@@ -1,5 +1,6 @@
 export interface SlashCommand {
   name?: string;
+  icon?: string;
   description?: string;
   type?: string;
   source?: string;

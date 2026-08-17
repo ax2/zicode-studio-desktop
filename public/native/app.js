@@ -1314,9 +1314,9 @@ async function loadCommands() {
   const result = await runtime.request({ type: "get_commands" }, target);
   commandCatalog = buildCommandCatalog({
     builtIns: [
-      { name: "new", action: "new_session" },
-      { name: "settings", action: "open_settings" },
-      { name: "help", action: "show_help" },
+      { name: "new", action: "new_session", icon: "+" },
+      { name: "settings", action: "open_settings", icon: "⚙" },
+      { name: "help", action: "show_help", icon: "?" },
     ],
     nativeCommands: result.response?.data?.commands ?? [],
   });

@@ -285,11 +285,13 @@ export function ComposerApp({
                     }
                   }}
                 >
-                  <span className="skill-slash-icon">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4l8-4.6Z" />
-                      <path d="m4.3 7.6 7.7 4.5 7.7-4.5M12 12.1v8.7M8 5.1l8 4.6" />
-                    </svg>
+                  <span className="skill-slash-icon" aria-hidden="true">
+                    {command.icon ?? (
+                      <svg viewBox="0 0 24 24">
+                        <path d="m12 2.8 8 4.6v9.2l-8 4.6-8-4.6V7.4l8-4.6Z" />
+                        <path d="m4.3 7.6 7.7 4.5 7.7-4.5M12 12.1v8.7M8 5.1l8 4.6" />
+                      </svg>
+                    )}
                   </span>
                   <span className="skill-slash-name">
                     {titleCaseCommandName(command.name)}
