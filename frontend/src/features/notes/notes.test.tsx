@@ -3619,4 +3619,18 @@ describe("notes React components", () => {
     expect(document.body.textContent).toContain(t("No note selected"));
     expect(document.querySelector(".notes-empty-quickstart")).toBeNull();
   });
+
+  it("offers a retry action when loading the trash fails", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    store.setState({ mode: "trash", trashError: "failed to load" });
+    const loadTrash = vi.spyOn(store.getState(), "loadTrash");
+    render(<NotesContent store={store} />);
+    const banner = document.querySelector(".notes-error-banner");
+    expect(banner).toBeTruthy();
+    const retry = banner?.querySelector("button") as HTMLButtonElement;
+    expect(retry).toBeTruthy();
+    retry.click();
+    expect(loadTrash).toHaveBeenCalled();
+  });
 });

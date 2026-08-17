@@ -1823,7 +1823,16 @@ function TrashView({ store }: { store: NotesStore }) {
       </div>
       {trashError ? (
         <div className="notes-error-banner" role="alert">
-          {trashError}
+          <span className="notes-error-inline">
+            {trashError}
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              onClick={() => void store.getState().loadTrash()}
+            >
+              {t("Retry")}
+            </button>
+          </span>
         </div>
       ) : null}
       {trashLoading ? <p className="notes-nav-message">{t("Loading trash…")}</p> : null}
