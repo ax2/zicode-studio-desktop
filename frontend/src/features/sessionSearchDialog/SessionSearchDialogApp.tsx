@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from "react";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 import type { SessionSummary } from "../sessionSidebar/sessionSidebarLogic";
 import {
   buildMessageRows,
@@ -34,6 +35,7 @@ export function SessionSearchDialogApp({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const composingRef = useRef(false);
 
   const titleRows = buildTitleRows(controller.getSessions() ?? [], query);
   const messageRows = buildMessageRows(messageMatches);
@@ -165,7 +167,14 @@ export function SessionSearchDialogApp({
             spellCheck={false}
             value={query}
             onInput={(event) => controller.setQuery(event.currentTarget.value)}
+            onCompositionStart={() => {
+              composingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false;
+            }}
             onKeyDown={(event) => {
+              if (isImeComposing(event, composingRef.current)) return;
               if (event.key === "Escape") {
                 event.preventDefault();
                 controller.close({ restoreFocus: true });

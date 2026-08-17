@@ -131,6 +131,30 @@ describe("session search dialog", () => {
     handle.dispose();
   });
 
+  it("does not select a result while an IME composition is in progress", () => {
+    const onSelect = vi.fn();
+    const { triggerInput, handle } = mountDialog({
+      getSessions: () => [{ id: "s1", name: "Alpha" }],
+      onSelect,
+    });
+
+    triggerInput.value = "alpha";
+    triggerInput.focus();
+    const input = document.querySelector(
+      ".session-search-dialog-input",
+    ) as HTMLInputElement;
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        keyCode: 229,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+    handle.dispose();
+  });
+
   it("closes on document escape without clearing the search input", () => {
     const { triggerInput } = mountDialog({
       getSessions: () => [{ id: "s1", name: "AI task" }],
