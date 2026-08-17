@@ -212,6 +212,7 @@ interface NotesState {
   query: string;
   selectedTag: string | null;
   sourceOnly: boolean;
+  sortMode: "updated" | "title";
   focusTitleOnNextRender: boolean;
   editingNotebookId: string | null;
   recentNoteIds: string[];
@@ -261,6 +262,7 @@ interface NotesState {
   scheduleAutosave(): void;
   cancelAutosave(): void;
   setQuery(query: string): void;
+  setSortMode(mode: "updated" | "title"): void;
   setMode(mode: NotesMode): void;
   startNewNotebook(parentId: string): void;
   setEditingNotebook(id: string | null): void;
@@ -332,6 +334,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     query: "",
     selectedTag: null,
     sourceOnly: false,
+    sortMode: "updated",
     focusTitleOnNextRender: false,
     editingNotebookId: null,
     newNotebookParentId: null,
@@ -955,6 +958,10 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ query });
       if (searchTimer) clearTimeout(searchTimer);
       searchTimer = setTimeout(() => void get().load({ preserveSelection: true }), 180);
+    },
+
+    setSortMode(mode) {
+      set({ sortMode: mode });
     },
 
     setMode(mode) {

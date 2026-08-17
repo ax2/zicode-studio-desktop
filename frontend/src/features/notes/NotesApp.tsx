@@ -85,6 +85,7 @@ function isTreeItemVisible(item: HTMLElement): boolean {
 
 export function NotesNav({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
+  const sortMode = store((state) => state.sortMode);
   const setQuery = store((state) => state.setQuery);
   const setMode = store((state) => state.setMode);
   const selectMode = store((state) => state.selectMode);
@@ -182,6 +183,21 @@ export function NotesNav({ store }: { store: NotesStore }) {
             ×
           </button>
         ) : null}
+      </div>
+      <div className="notes-sort-wrap">
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm notes-sort-btn"
+          aria-pressed={sortMode === "title"}
+          title={t("Sort notes")}
+          onClick={() =>
+            store
+              .getState()
+              .setSortMode(sortMode === "updated" ? "title" : "updated")
+          }
+        >
+          {sortMode === "updated" ? t("Sort: recently updated") : t("Sort: title")}
+        </button>
       </div>
       {selectMode && selectedNoteIds.length > 0 ? (
         batchOpen ? (
@@ -327,7 +343,14 @@ function NotebookBranch({
   );
   const editingNotebookId = store((state) => state.editingNotebookId);
   const dragTargetId = store((state) => state.dragTargetId);
-  const notes = snapshot.notes.filter((note) => note.notebookId === notebook.id);
+  const sortMode = store((state) => state.sortMode);
+  const notes = snapshot.notes
+    .filter((note) => note.notebookId === notebook.id)
+    .sort((left, right) =>
+      sortMode === "title"
+        ? left.title.localeCompare(right.title)
+        : String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? "")),
+    );
   const children = childrenByParent.get(notebook.id) ?? [];
   return (
     <details

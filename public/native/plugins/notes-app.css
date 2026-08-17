@@ -130,6 +130,15 @@
   margin: 0 var(--space-2) var(--space-2);
 }
 
+.notes-sort-wrap {
+  margin: 0 var(--space-2) var(--space-2);
+}
+
+.notes-sort-btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+
 .notes-search-input {
   width: 100%;
   min-height: var(--control-height-sm);
