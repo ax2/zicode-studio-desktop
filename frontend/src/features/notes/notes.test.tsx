@@ -2926,6 +2926,28 @@ describe("notes React components", () => {
     selectSpy.mockRestore();
   });
 
+  it("keeps the results pin button independent from the result row Enter handler", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().applyFilter({ tag: "plugin" });
+    const selectSpy = vi.spyOn(store.getState(), "selectNote");
+    const { container } = render(<NotesContent store={store} />);
+    const pinButton = container.querySelector(
+      ".notes-result-item .notes-pin-btn",
+    ) as HTMLButtonElement | null;
+    expect(pinButton).toBeTruthy();
+    pinButton?.focus();
+    pinButton?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(selectSpy).not.toHaveBeenCalled();
+    selectSpy.mockRestore();
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({

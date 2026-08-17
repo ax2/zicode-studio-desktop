@@ -1481,10 +1481,10 @@ function FilterResultsView({ store }: { store: NotesStore }) {
             className="notes-result-item"
             onClick={() => void selectNote(note)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                void selectNote(note);
-              }
+              if (event.key !== "Enter" && event.key !== " ") return;
+              if ((event.target as HTMLElement).closest?.("button")) return;
+              event.preventDefault();
+              void selectNote(note);
             }}
           >
             {note.icon ? <span className="notes-result-icon">{note.icon}</span> : null}
