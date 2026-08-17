@@ -1477,7 +1477,21 @@ function FilterResultsView({ store }: { store: NotesStore }) {
               : t("No notes match your search.")}
         </p>
       ) : null}
-      <div className="notes-results-list">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: arrow-key navigation container for the results list; items remain individually keyboard-activatable */}
+      <div
+        className="notes-results-list"
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          if (!(event.target as HTMLElement).matches(".notes-result-item")) return;
+          event.preventDefault();
+          const items = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(".notes-result-item"),
+          );
+          const index = items.indexOf(event.target as HTMLElement);
+          if (index === -1) return;
+          items[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
+        }}
+      >
         {snapshot.notes.map((note) => (
           // biome-ignore lint/a11y/useSemanticElements: ARIA button pattern preserved from the vanilla results list
           <div

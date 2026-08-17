@@ -3045,6 +3045,39 @@ describe("notes React components", () => {
     );
   });
 
+  it("navigates filtered results with arrow keys", async () => {
+    const store = storeWithGateway({
+      list: vi.fn(async () => ({
+        snapshot: {
+          notebooks: [{ id: "book-1", title: "Projects" }],
+          notes: [
+            { id: "note-1", notebookId: "book-1", title: "Alpha", updatedAt: "2026-01-01T00:00:00Z" },
+            { id: "note-2", notebookId: "book-1", title: "Beta", updatedAt: "2026-01-02T00:00:00Z" },
+          ],
+          tags: ["plugin"],
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().applyFilter({ tag: "plugin" });
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelectorAll(".notes-result-item")).toHaveLength(2),
+    );
+    const first = container.querySelector(
+      ".notes-result-item",
+    ) as HTMLElement;
+    first.focus();
+    first.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement?.textContent).toContain("Beta");
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({
