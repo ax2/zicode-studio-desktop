@@ -921,7 +921,8 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         void selectNote(note);
       }}
       onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest?.(".notes-move-btn")) return;
+        if ((event.target as HTMLElement).closest?.(".notes-move-btn, .notes-pin-btn"))
+          return;
         beginPointerDrag(event);
       }}
       onKeyDown={(event) => {

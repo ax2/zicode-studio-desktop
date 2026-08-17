@@ -900,6 +900,47 @@ describe("notes store", () => {
     }
   });
 
+  it("does not start a drag from the nested pin button", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-tree-note .notes-pin-btn")).toBeTruthy(),
+    );
+    const pinButton = container.querySelector(
+      ".notes-tree-note .notes-pin-btn",
+    ) as HTMLButtonElement;
+    pinButton.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: 10,
+        clientY: 10,
+        button: 0,
+        buttons: 1,
+        pointerId: 1,
+        pointerType: "mouse",
+        isPrimary: true,
+      }),
+    );
+    document.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: 30,
+        clientY: 10,
+        button: 0,
+        buttons: 1,
+        pointerId: 1,
+        pointerType: "mouse",
+        isPrimary: true,
+      }),
+    );
+    expect(document.body.classList.contains("notes-dragging")).toBe(false);
+  });
+
   it("lists trash and restores or purges trashed notes", async () => {
     const listTrash = vi.fn(async () => ({
       trash: [
