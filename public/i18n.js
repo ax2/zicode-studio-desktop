@@ -1096,6 +1096,7 @@ const zhCN = {
   "Choose an option": "选择一个选项",
   Answer: "回答",
   "Discuss in Chat": "带入对话",
+  "Discuss selection": "讨论选中内容",
   "Selected text or whole note": "选中文字或整篇笔记",
   "Download Markdown": "下载 Markdown",
   "Conversation saved to Notes": "对话内容已沉淀到笔记",

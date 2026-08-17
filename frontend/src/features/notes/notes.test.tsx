@@ -2630,6 +2630,28 @@ describe("notes React components", () => {
     expect(discuss.disabled).toBe(true);
   });
 
+  it("labels Discuss-in-Chat as a selection when text is selected", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    store.getState().setDraft({ content: "alpha beta" });
+    render(<NotesContent store={store} />);
+    const textarea = await waitFor(
+      () =>
+        document.querySelector(".notes-content-input") as HTMLTextAreaElement,
+    );
+    textarea.focus();
+    textarea.setSelectionRange(0, 5);
+    document.dispatchEvent(new Event("selectionchange"));
+    await waitFor(() => {
+      const discuss = document.querySelector(
+        ".notes-use-in-chat",
+      ) as HTMLButtonElement;
+      expect(discuss.getAttribute("aria-label")).toContain(t("Discuss selection"));
+    });
+  });
+
   it("preserves unsaved edits when toggling to preview", async () => {
     const store = storeWithGateway();
     await store.getState().load();

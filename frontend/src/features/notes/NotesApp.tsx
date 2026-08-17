@@ -2118,10 +2118,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
   };
 
   const currentSelectionRef = useRef("");
+  const [hasSelection, setHasSelection] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: selection's only state dependency is preview, which is listed; the function is recreated each render so the captured copy is current.
   useEffect(() => {
     const sync = () => {
-      currentSelectionRef.current = selection();
+      const value = selection();
+      currentSelectionRef.current = value;
+      setHasSelection(Boolean(value));
     };
     sync();
     document.addEventListener("selectionchange", sync);
@@ -2233,7 +2236,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const secondaryActions = (
     <>
       <ToolbarButton
-        label={t("Discuss in Chat")}
+        label={hasSelection ? t("Discuss selection") : t("Discuss in Chat")}
         icon={ICONS.chat}
         className="notes-use-in-chat"
         variant="ui-button--secondary"
