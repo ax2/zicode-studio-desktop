@@ -13637,6 +13637,7 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   outline: none;
   resize: none;
   max-height: 160px;
+  field-sizing: content;
   line-height: 1.45;
   overflow-y: auto;
   overscroll-behavior: contain;
