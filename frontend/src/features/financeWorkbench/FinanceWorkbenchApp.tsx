@@ -903,6 +903,12 @@ export function FinanceContentApp({
           >
             <input
               className="ui-input"
+              type="text"
+              enterKeyHint="search"
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               disabled={Boolean(busy.discovery)}
               placeholder={t("historical daily adjusted equity prices and company fundamentals")}
               aria-label={t("historical daily adjusted equity prices and company fundamentals")}
