@@ -2976,6 +2976,34 @@ describe("notes React components", () => {
     selectSpy.mockRestore();
   });
 
+  it("exposes the selection state with aria-pressed in select mode", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-list-item")).toBeTruthy(),
+    );
+    (container.querySelector(".notes-select-mode") as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-select-check")).toBeTruthy(),
+    );
+    const item = container.querySelector(
+      ".notes-list-item",
+    ) as HTMLElement;
+    expect(item.getAttribute("aria-pressed")).toBe("false");
+    item.focus();
+    item.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(item.getAttribute("aria-pressed")).toBe("true"),
+    );
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({

@@ -908,6 +908,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
     <div
       role="button"
       tabIndex={0}
+      aria-pressed={selectMode ? isSelected : undefined}
       className={`notes-list-item notes-tree-note${selectedNote?.id === note.id ? " active" : ""}${
         isSelected ? " notes-selected" : ""
       }`}
