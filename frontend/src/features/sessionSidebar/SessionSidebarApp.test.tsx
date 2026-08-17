@@ -232,4 +232,37 @@ describe("session sidebar delete-all confirmation", () => {
         ?.getAttribute("aria-label"),
     ).toBe(t("Rename"));
   });
+
+  it("marks the session More button as a menu trigger", async () => {
+    const store = createSidebarStore({ activeSessionId: null });
+    const controller = makeController();
+    const container = document.createElement("div");
+    document.body.append(container);
+    store.setState({
+      sessions: [
+        {
+          id: "s1",
+          name: "Test session",
+          projectPath: "/ws",
+          isCurrentWorkspace: true,
+        },
+      ],
+      phase: "ready",
+    });
+
+    render(
+      <SessionSidebarApp
+        controller={controller}
+        store={store}
+        container={container}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".session-more-btn")).toBeTruthy(),
+    );
+    expect(
+      document.querySelector(".session-more-btn")?.getAttribute("aria-haspopup"),
+    ).toBe("menu");
+  });
 });

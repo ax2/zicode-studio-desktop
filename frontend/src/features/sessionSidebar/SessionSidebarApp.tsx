@@ -444,6 +444,7 @@ export function SessionSidebarApp({
               className="session-more-btn"
               title={`${t("More actions")} ${title}`}
               aria-label={`${t("More actions")} ${title}`}
+              aria-haspopup="menu"
               onClick={(event) => {
                 event.stopPropagation();
                 controller.showSessionMenuFromButton(
