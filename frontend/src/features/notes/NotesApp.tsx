@@ -122,6 +122,20 @@ export function NotesNav({ store }: { store: NotesStore }) {
       }
       return;
     }
+    if (
+      (event.key === "Home" || event.key === "End") &&
+      target.matches(".notes-notebook-summary, .notes-tree-note")
+    ) {
+      event.preventDefault();
+      const items = Array.from(
+        event.currentTarget.querySelectorAll<HTMLElement>(
+          ".notes-notebook-summary, .notes-tree-note",
+        ),
+      ).filter(isTreeItemVisible);
+      if (items.length === 0) return;
+      (event.key === "Home" ? items[0] : items[items.length - 1])?.focus();
+      return;
+    }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     if (!target.matches(".notes-notebook-summary, .notes-tree-note")) return;
     event.preventDefault();

@@ -772,6 +772,37 @@ describe("notes store", () => {
     expect(document.activeElement?.matches(".notes-tree-note")).toBe(true);
   });
 
+  it("jumps to the first and last tree item with Home and End", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-notebook-summary")).toBeTruthy(),
+    );
+
+    const firstSummary = container.querySelector(
+      ".notes-notebook-summary",
+    ) as HTMLElement;
+    firstSummary.click();
+    await waitFor(() =>
+      expect(
+        (firstSummary.closest("details") as HTMLDetailsElement).open,
+      ).toBe(true),
+    );
+
+    const note = container.querySelector(".notes-tree-note") as HTMLElement;
+    note.focus();
+    note.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement?.textContent).toContain("Journal");
+
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Home", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(firstSummary);
+  });
+
   it("expands and collapses a notebook with left/right arrow keys", async () => {
     const store = storeWithGateway();
     await store.getState().load();
