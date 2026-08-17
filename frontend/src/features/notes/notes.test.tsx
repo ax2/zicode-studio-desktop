@@ -3111,6 +3111,57 @@ describe("notes React components", () => {
     expect(document.activeElement).toBe(moveBtn);
   });
 
+  it("traps Tab focus within the move popover", async () => {
+    const store = storeWithGateway({
+      list: vi.fn(async () => ({
+        snapshot: {
+          notebooks: [
+            { id: "book-1", title: "Projects", icon: "🚀", noteCount: 1 },
+            { id: "book-2", title: "Journal" },
+            { id: "book-3", title: "Archive" },
+          ],
+          notes: [{ ...SNAPSHOT.notes[0], notebookId: "book-1" }],
+          tags: [],
+        },
+      })),
+    });
+    await store.getState().load();
+    const { container } = render(<NotesNav store={store} />);
+    const moveBtn = container.querySelector(
+      ".notes-move-btn",
+    ) as HTMLButtonElement | null;
+    expect(moveBtn).toBeTruthy();
+    moveBtn?.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-move-popover")).toBeTruthy(),
+    );
+    const buttons = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        ".notes-move-popover-item:not([disabled])",
+      ),
+    );
+    expect(buttons.length).toBe(2);
+    const first = buttons[0];
+    const last = buttons[1];
+
+    last.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(first));
+
+    first.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(last));
+  });
+
   it("returns focus to the icon input when the emoji picker closes", async () => {
     const store = storeWithGateway();
     await store.getState().load();

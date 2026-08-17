@@ -1052,6 +1052,24 @@ function MovePopover({
       if (event.key === "Escape") {
         onClose();
         store.getState().closeMovePopover();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusables = Array.from(
+        ref.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [],
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !ref.current?.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !ref.current?.contains(active)) {
+        event.preventDefault();
+        first.focus();
       }
     };
     document.addEventListener("pointerdown", onPointerDown);
