@@ -2604,15 +2604,25 @@ function NoteEditor({ store }: { store: NotesStore }) {
                 <ol
                   ref={outlineListRef}
                   onKeyDown={(event) => {
-                    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
-                      return;
-                    }
                     const items = Array.from(
                       outlineListRef.current?.querySelectorAll<HTMLButtonElement>(
                         "button",
                       ) ?? [],
                     );
                     if (items.length === 0) return;
+                    if (event.key === "Home") {
+                      event.preventDefault();
+                      items[0]?.focus();
+                      return;
+                    }
+                    if (event.key === "End") {
+                      event.preventDefault();
+                      items[items.length - 1]?.focus();
+                      return;
+                    }
+                    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+                      return;
+                    }
                     event.preventDefault();
                     const current = items.indexOf(
                       document.activeElement as HTMLButtonElement,

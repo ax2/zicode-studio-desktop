@@ -2750,6 +2750,24 @@ describe("notes React components", () => {
       }),
     );
     await waitFor(() => expect(document.activeElement).toBe(buttons[1]));
+
+    container.querySelector(".notes-outline ol")?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Home",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(buttons[0]));
+
+    container.querySelector(".notes-outline ol")?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "End",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(buttons[1]));
   });
 
   it("opens the image lightbox from an inline note image in preview", async () => {
