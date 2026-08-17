@@ -924,10 +924,11 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         beginPointerDrag(event);
       }}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          void selectNote(note);
-        }
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const target = event.target as HTMLElement;
+        if (target.closest?.("button")) return;
+        event.preventDefault();
+        void selectNote(note);
       }}
     >
       {selectMode ? (

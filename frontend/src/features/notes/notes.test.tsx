@@ -2905,6 +2905,27 @@ describe("notes React components", () => {
     expect(document.activeElement).toBe(iconInput);
   });
 
+  it("keeps nested note action buttons independent from the row Enter handler", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    const selectSpy = vi.spyOn(store.getState(), "selectNote");
+    const { container } = render(<NotesNav store={store} />);
+    const pinButton = container.querySelector(
+      ".notes-tree-note .notes-pin-btn",
+    ) as HTMLButtonElement | null;
+    expect(pinButton).toBeTruthy();
+    pinButton?.focus();
+    pinButton?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(selectSpy).not.toHaveBeenCalled();
+    selectSpy.mockRestore();
+  });
+
   it("renders the empty library when no notebook exists", async () => {
     const store = createNotesStore({
       gateway: gatewayStub({
