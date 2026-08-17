@@ -271,6 +271,13 @@ describe("notes logic", () => {
 });
 
 describe("notes store", () => {
+  it("auto-expands root notebooks on first load", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    expect(store.getState().expandedNotebookIds.has("book-1")).toBe(true);
+    expect(store.getState().expandedNotebookIds.has("book-2")).toBe(false);
+  });
+
   it("maps a closed Pi runtime to the localized recovery message", () => {
     const closed = new Error("Pi RPC request failed: ProcessClosed");
     expect(localizeNotesHostError(closed).message).toBe(
@@ -820,11 +827,10 @@ describe("notes store", () => {
     ) as HTMLElement;
 
     summary.click();
-    await waitFor(() => expect(branch.open).toBe(true));
+    await waitFor(() => expect(branch.open).toBe(false));
 
     summary.click();
-    await waitFor(() => expect(branch.open).toBe(false));
-    expect(branch.open).toBe(false);
+    await waitFor(() => expect(branch.open).toBe(true));
   });
 
   it("collapses and re-expands a nav section from its summary", async () => {
@@ -859,12 +865,6 @@ describe("notes store", () => {
     const summary = container.querySelector(
       ".notes-notebook-summary",
     ) as HTMLElement;
-    summary.click();
-    await waitFor(() =>
-      expect(
-        (summary.closest("details") as HTMLDetailsElement).open,
-      ).toBe(true),
-    );
 
     summary.focus();
     summary.dispatchEvent(
@@ -884,12 +884,6 @@ describe("notes store", () => {
     const firstSummary = container.querySelector(
       ".notes-notebook-summary",
     ) as HTMLElement;
-    firstSummary.click();
-    await waitFor(() =>
-      expect(
-        (firstSummary.closest("details") as HTMLDetailsElement).open,
-      ).toBe(true),
-    );
 
     const note = container.querySelector(".notes-tree-note") as HTMLElement;
     note.focus();
@@ -916,18 +910,18 @@ describe("notes store", () => {
       ".notes-notebook-summary",
     ) as HTMLElement;
     const branch = summary.closest("details") as HTMLDetailsElement;
-    expect(branch.open).toBe(false);
+    expect(branch.open).toBe(true);
 
     summary.focus();
-    summary.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
-    );
-    await waitFor(() => expect(branch.open).toBe(true));
-
     summary.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
     );
     await waitFor(() => expect(branch.open).toBe(false));
+
+    summary.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await waitFor(() => expect(branch.open).toBe(true));
   });
 
   it("drags a note to another notebook with a live ghost and drop highlight", async () => {

@@ -400,7 +400,15 @@ export function createNotesStore(options: NotesStoreOptions) {
         if (!(preserveSelection && selectedNote && snapshot.notes.some((n) => n.id === selectedNoteId))) {
           if (!state.dirty) selectedNote = null;
         }
-        set({ snapshot, selectedNotebookId, selectedNote });
+        let expandedNotebookIds = get().expandedNotebookIds;
+        if (expandedNotebookIds.size === 0) {
+          expandedNotebookIds = new Set(
+            snapshot.notebooks
+              .filter((notebook) => notebook.parentId == null)
+              .map((notebook) => notebook.id),
+          );
+        }
+        set({ snapshot, selectedNotebookId, selectedNote, expandedNotebookIds });
       } catch (error) {
         set({ error: localizeNotesHostError(error) });
       } finally {
