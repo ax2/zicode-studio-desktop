@@ -2424,6 +2424,7 @@ describe("notes React components", () => {
       () => document.querySelector(".notes-more-btn") as HTMLButtonElement,
     );
     expect(moreButton.getAttribute("aria-expanded")).toBe("false");
+    expect(moreButton.getAttribute("aria-haspopup")).toBe("true");
     expect(document.querySelector(".notes-more-menu")).toBeNull();
     expect(document.querySelector(".notes-editor-actions .notes-attach")).toBeNull();
 
