@@ -138,4 +138,20 @@ describe("app keyboard shortcuts", () => {
 
     expect(newSession).toHaveBeenCalledTimes(1);
   });
+
+  it("opens the workspace switcher with Ctrl+Shift+O", () => {
+    const switchWorkspace = vi.fn();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      switchWorkspace,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "O", ctrlKey: true, shiftKey: true, cancelable: true }),
+    );
+
+    expect(switchWorkspace).toHaveBeenCalledTimes(1);
+  });
 });

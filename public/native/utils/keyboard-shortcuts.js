@@ -25,6 +25,7 @@ export function setupAppKeyboardShortcuts({
   openModelDropdown,
   cycleThinking,
   newSession,
+  switchWorkspace,
 }) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -59,6 +60,11 @@ export function setupAppKeyboardShortcuts({
     if (meta && key === "n" && event.shiftKey) {
       event.preventDefault();
       newSession?.();
+      return;
+    }
+    if (meta && key === "o" && event.shiftKey) {
+      event.preventDefault();
+      switchWorkspace?.();
       return;
     }
 

@@ -1127,6 +1127,7 @@ setupAppKeyboardShortcuts({
   openModelDropdown: () => openModelDropdown(),
   cycleThinking: () => thinkingBtn?.click(),
   newSession: () => document.getElementById("new-session-btn")?.click(),
+  switchWorkspace: () => document.getElementById("workspace-switcher-btn")?.click(),
 });
 window.addEventListener("zicode:open-note", (event) => {
   const { notebookId, noteId } = event.detail ?? {};
