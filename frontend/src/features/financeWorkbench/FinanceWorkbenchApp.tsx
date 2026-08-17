@@ -1024,7 +1024,10 @@ export function FinanceContentApp({
                 bullCase: inputValue("researchBull"),
                 bearCase: inputValue("researchBear"),
                 invalidation: inputValue("researchInvalidation"),
-                sources: inputValue("researchSources").split(/\r?\n/),
+                sources: inputValue("researchSources")
+                  .split(/\r?\n/)
+                  .map((entry) => entry.trim())
+                  .filter(Boolean),
               });
               clearResearchForm();
             }}
