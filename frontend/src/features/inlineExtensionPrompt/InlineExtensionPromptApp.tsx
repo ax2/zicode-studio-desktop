@@ -195,6 +195,7 @@ export function InlineExtensionPromptCard({
             className="inline-prompt-input"
             type="text"
             placeholder={t("Type a custom answer")}
+            aria-label={t("Type a custom answer")}
             disabled={answered !== null}
             onChange={(event) => setCustomActive(event.currentTarget.value.trim().length > 0)}
           />
@@ -205,6 +206,7 @@ export function InlineExtensionPromptCard({
           className="inline-prompt-input"
           type="text"
           placeholder={request.placeholder || ""}
+          aria-label={request.placeholder || t("Extension question")}
           disabled={answered !== null}
         />
       )}
@@ -216,6 +218,7 @@ export function InlineExtensionPromptCard({
             className="inline-prompt-input"
             type="text"
             placeholder={t("Type a custom answer")}
+            aria-label={t("Type a custom answer")}
             disabled={answered !== null}
           />
           <div className="inline-prompt-actions">

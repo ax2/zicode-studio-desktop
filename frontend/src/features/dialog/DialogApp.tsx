@@ -99,6 +99,7 @@ export function NativeDialogApp({
               className="dialog-textarea"
               defaultValue={store.prefill}
               placeholder={store.placeholder}
+              aria-label={store.placeholder || titleText}
             />
           ) : (
             <input
@@ -106,6 +107,7 @@ export function NativeDialogApp({
               className="dialog-input"
               defaultValue={store.prefill}
               placeholder={store.placeholder}
+              aria-label={store.placeholder || titleText}
             />
           )}
         </>

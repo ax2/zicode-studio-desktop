@@ -61,6 +61,7 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
             id="pkg-browse-search"
             className="pkg-browse-search"
             placeholder={t("Search packages...")}
+            aria-label={t("Search packages...")}
             autoComplete="off"
             enterKeyHint="search"
             autoCapitalize="off"

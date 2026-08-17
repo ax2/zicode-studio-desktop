@@ -315,6 +315,7 @@ function ApiKeyEditor({ store, provider }: { store: ConfigStore; provider: Confi
         autoComplete="off"
         spellCheck={false}
         placeholder={t("Paste API key…")}
+        aria-label={t("API key")}
         value={input}
         onChange={(event) => setInput(event.target.value)}
         onKeyDown={(event) => {
@@ -652,6 +653,9 @@ function InlineEditor({
         autoCorrect="off"
         autoCapitalize="off"
         placeholder={kind === "models" ? '{ "providers": { ... } }' : undefined}
+        aria-label={
+          kind === "config" ? t("Agent config file") : t("Providers file")
+        }
         value={editor.content}
         onChange={(event) =>
           store.setState({
