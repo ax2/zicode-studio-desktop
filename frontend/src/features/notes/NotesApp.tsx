@@ -2598,7 +2598,29 @@ function NoteEditor({ store }: { store: NotesStore }) {
                 </button>
               </div>
               {!outlineCollapsed ? (
-                <ol ref={outlineListRef}>
+                <ol
+                  ref={outlineListRef}
+                  onKeyDown={(event) => {
+                    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+                      return;
+                    }
+                    const items = Array.from(
+                      outlineListRef.current?.querySelectorAll<HTMLButtonElement>(
+                        "button",
+                      ) ?? [],
+                    );
+                    if (items.length === 0) return;
+                    event.preventDefault();
+                    const current = items.indexOf(
+                      document.activeElement as HTMLButtonElement,
+                    );
+                    const next =
+                      event.key === "ArrowDown"
+                        ? (current + 1) % items.length
+                        : (current - 1 + items.length) % items.length;
+                    items[next]?.focus();
+                  }}
+                >
                   {outline.map((entry) => (
                     <li
                       key={entry.id}

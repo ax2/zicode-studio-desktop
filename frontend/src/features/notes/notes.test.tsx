@@ -2717,6 +2717,36 @@ describe("notes React components", () => {
     expect(container.querySelector(".notes-outline ol")).toBeTruthy();
   });
 
+  it("navigates the heading outline with arrow keys", async () => {
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          content: "# Plan\n\nbody\n\n# Second heading\n\nmore",
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-outline")).toBeTruthy(),
+    );
+    const buttons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(".notes-outline ol button"),
+    );
+    expect(buttons.length).toBe(2);
+    buttons[0].focus();
+    container.querySelector(".notes-outline ol")?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(buttons[1]));
+  });
+
   it("opens the image lightbox from an inline note image in preview", async () => {
     const store = storeWithGateway({
       get: vi.fn(async () => ({
