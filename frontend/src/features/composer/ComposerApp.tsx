@@ -400,6 +400,15 @@ export function ComposerApp({
                   state.setSlash({ selectedIndex: next });
                   return;
                 }
+                if (event.key === "Home" || event.key === "End") {
+                  event.preventDefault();
+                  if (state.slash.matches.length === 0) return;
+                  state.setSlash({
+                    selectedIndex:
+                      event.key === "Home" ? 0 : state.slash.matches.length - 1,
+                  });
+                  return;
+                }
                 if (
                   (event.key === "Enter" || event.key === "Tab") &&
                   state.slash.matches.length > 0
