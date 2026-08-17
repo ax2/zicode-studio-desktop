@@ -20,7 +20,7 @@ function ClipboardNav() {
   return <nav className="clipboard-nav" aria-label={t("Clipboard")} />;
 }
 
-function ClipboardMain({ store }: { store: ClipboardStore }) {
+export function ClipboardMain({ store }: { store: ClipboardStore }) {
   const items = store((state) => state.items);
   const draft = store((state) => state.draft);
   const busy = store((state) => state.busy);
@@ -45,6 +45,12 @@ function ClipboardMain({ store }: { store: ClipboardStore }) {
           aria-label={t("Type or paste text")}
           rows={3}
           onChange={(event) => store.getState().setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+              event.preventDefault();
+              if (!busy && draft.trim()) void store.getState().add();
+            }
+          }}
         />
         <div className="clipboard-composer-actions">
           <button

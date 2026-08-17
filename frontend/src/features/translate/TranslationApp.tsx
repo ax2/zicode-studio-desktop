@@ -23,7 +23,7 @@ function TranslationNav() {
   return <nav className="translate-nav" aria-label={t("Translate")} />;
 }
 
-function TranslationMain({ store }: { store: TranslationStore }) {
+export function TranslationMain({ store }: { store: TranslationStore }) {
   const text = store((state) => state.text);
   const sourceLang = store((state) => state.sourceLang);
   const targetLang = store((state) => state.targetLang);
@@ -47,6 +47,12 @@ function TranslationMain({ store }: { store: TranslationStore }) {
           aria-label={t("Source text")}
           rows={6}
           onChange={(event) => store.getState().setText(event.target.value)}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+              event.preventDefault();
+              if (!busy && text.trim()) void store.getState().run();
+            }
+          }}
         />
         <div className="translate-controls">
           <div className="settings-field">
