@@ -1242,6 +1242,17 @@ function CaptureForm({ store }: { store: NotesStore }) {
   const [tags, setTags] = useState<string[]>([]);
   const [notebookId, setNotebookId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{
+    title: string;
+    markdown: string;
+    finalUrl: string;
+    author?: string;
+    publishedAt?: string;
+    siteName?: string;
+    image?: string;
+    duplicate: boolean;
+  } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
   const capturing = store((state) => state.capturing);
@@ -1249,6 +1260,22 @@ function CaptureForm({ store }: { store: NotesStore }) {
   useEffect(() => {
     urlRef.current?.focus();
   }, []);
+  const previewUrl = async () => {
+    setError(null);
+    setPreviewing(true);
+    try {
+      setPreview(await store.getState().capturePreviewUrl(url));
+    } catch (previewError) {
+      setError(
+        previewError instanceof Error
+          ? previewError.message
+          : String(previewError),
+      );
+      setPreview(null);
+    } finally {
+      setPreviewing(false);
+    }
+  };
   return (
     <Panel title={t("Capture web page")} description={t("ZiCode retrieves readable public content without sending cookies or authorization headers.")}>
       <form
@@ -1290,10 +1317,38 @@ function CaptureForm({ store }: { store: NotesStore }) {
             onChange={setNotebookId}
           />
         </div>
+        {preview ? (
+          <section className="notes-capture-preview" aria-label={t("Capture preview")}>
+            <h2>{t("Extracted content")}</h2>
+            {preview.duplicate ? (
+              <p className="notes-capture-preview-note" role="status">
+                {t("This page is already in your notes")}
+              </p>
+            ) : null}
+            <strong>{preview.title}</strong>
+            {[preview.siteName, preview.author].filter(Boolean).length > 0 ? (
+              <p className="notes-capture-preview-meta">
+                {[preview.siteName, preview.author].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
+            <p className="notes-capture-preview-excerpt">
+              {stripMarkdown(preview.markdown).slice(0, 320)}
+            </p>
+          </section>
+        ) : null}
         {error ? <p className="notes-form-error">{error}</p> : null}
         <div className="notes-form-actions">
           <button type="button" className="ui-button ui-button--secondary" onClick={() => store.getState().setMode("library")}>
             {t("Cancel")}
+          </button>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            disabled={previewing || !url.trim()}
+            aria-busy={previewing}
+            onClick={() => void previewUrl()}
+          >
+            {previewing ? t("Fetching preview…") : t("Preview")}
           </button>
           <button type="submit" className="ui-button ui-button--primary" disabled={capturing} aria-busy={capturing}>
             {capturing ? t("Capturing…") : t("Capture")}

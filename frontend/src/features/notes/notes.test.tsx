@@ -79,6 +79,12 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
     delete: vi.fn(async () => ({})),
     moveNote: vi.fn(async () => ({})),
     capture: vi.fn(async () => ({ note: NOTE })),
+    capturePreview: vi.fn(async () => ({
+      title: "Example",
+      markdown: "# Example",
+      finalUrl: "https://example.com/",
+      duplicate: false,
+    })),
     uploadAttachment: vi.fn(async () => ({ attachment: { markdown: "![img](/attachments/x)" } })),
     attachmentUrl: vi.fn(() => "/api/attachments/x"),
     importMarkdown: vi.fn(async () => ({ note: NOTE })),
@@ -1809,6 +1815,24 @@ describe("notes store", () => {
       tags: [],
     });
     expect(notify).toHaveBeenCalledWith(t("Web page captured"));
+  });
+
+  it("previews a web page without saving it", async () => {
+    const capturePreview = vi.fn(async () => ({
+      title: "Example Domain",
+      markdown: "# Example Domain",
+      finalUrl: "https://example.com/",
+      duplicate: false,
+    }));
+    const store = storeWithGateway({ capturePreview });
+    await store.getState().load();
+    const preview = await store.getState().capturePreviewUrl(
+      "https://example.com/",
+    );
+    expect(preview.title).toBe("Example Domain");
+    expect(capturePreview).toHaveBeenCalledWith("programming", "ws-1", {
+      url: "https://example.com/",
+    });
   });
 
   it("surfaces a localized notebook-creation error instead of swallowing it", async () => {

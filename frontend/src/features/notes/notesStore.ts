@@ -144,6 +144,16 @@ export interface NotesGatewayLike {
   delete(sceneId: string, workspaceId: string, note: NoteSummary): Promise<unknown>;
   moveNote(sceneId: string, workspaceId: string, params: { notebookId: string; noteId: string; targetNotebookId: string; expectedVersion?: number }): Promise<unknown>;
   capture(sceneId: string, workspaceId: string, notebookId: string, params: { url: string; title?: string; tags?: string[] }): Promise<{ note: Note; duplicate?: boolean }>;
+  capturePreview(sceneId: string, workspaceId: string, params: { url: string }): Promise<{
+    title: string;
+    markdown: string;
+    finalUrl: string;
+    author?: string;
+    publishedAt?: string;
+    siteName?: string;
+    image?: string;
+    duplicate: boolean;
+  }>;
   uploadAttachment(sceneId: string, workspaceId: string, note: Note, params: { fileName: string; mimeType: string; dataBase64: string }): Promise<{ attachment: { markdown: string } }>;
   attachmentUrl(sceneId: string, workspaceId: string, note: Note, attachmentId: string): string;
   importMarkdown(sceneId: string, workspaceId: string, notebookId: string, fileName: string, markdown: string): Promise<{ note: Note }>;
@@ -291,6 +301,16 @@ interface NotesState {
   rebuildIndex(): Promise<void>;
   publishAstro(): Promise<void>;
   captureUrl(input: { url: string; title: string; notebookId: string; tags: string[] }): Promise<void>;
+  capturePreviewUrl(url: string): Promise<{
+    title: string;
+    markdown: string;
+    finalUrl: string;
+    author?: string;
+    publishedAt?: string;
+    siteName?: string;
+    image?: string;
+    duplicate: boolean;
+  }>;
   setTarget(): Promise<void>;
   setProject(project: ProjectInfo | null): void;
   resetDeleteArmed(): void;
@@ -1419,6 +1439,19 @@ export function createNotesStore(options: NotesStoreOptions) {
       } finally {
         set({ capturing: false });
       }
+    },
+
+    async capturePreviewUrl(url) {
+      let normalizedUrl = String(url).trim();
+      if (!normalizedUrl) {
+        throw new Error(t("The URL is invalid or cannot be accessed."));
+      }
+      if (!/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = `https://${normalizedUrl}`;
+      }
+      return gateway.capturePreview(sceneId(), workspaceId(), {
+        url: normalizedUrl,
+      });
     },
 
     async setTarget() {

@@ -177,6 +177,14 @@ export class NotesGateway {
     });
   }
 
+  capturePreview(sceneId, workspaceId, { url }) {
+    return this.#post("/v2/notes/capture-preview", {
+      sceneId,
+      workspaceId,
+      url,
+    });
+  }
+
   uploadAttachment(sceneId, workspaceId, note, { fileName, mimeType, dataBase64 }) {
     return this.#post("/v2/notes/attachments", {
       sceneId,

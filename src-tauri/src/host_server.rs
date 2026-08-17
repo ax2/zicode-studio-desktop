@@ -353,6 +353,7 @@ impl HostServer {
             .route("/v2/notes/trash/purge", post(purge_trashed_note))
             .route("/v2/notes/trash/empty", post(empty_trash))
             .route("/v2/notes/capture", post(capture_note))
+            .route("/v2/notes/capture-preview", post(capture_preview_note))
             .route(
                 "/v2/notes/attachments",
                 post(upload_note_attachment)
@@ -1390,6 +1391,14 @@ struct CaptureNoteRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct CapturePreviewRequest {
+    workspace_id: String,
+    scene_id: String,
+    url: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AttachmentRequest {
     workspace_id: String,
     scene_id: String,
@@ -1874,6 +1883,36 @@ async fn capture_note(
         )
         .map_err(notes_api_error)?;
     Ok(Json(json!({ "duplicate": false, "note": note })))
+}
+
+async fn capture_preview_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<CapturePreviewRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, true)?;
+    ensure_notes_network_permission(&state, &request.scene_id)?;
+    let captured = fetch_capture_source(&request.url)
+        .await
+        .map_err(notes_api_error)?;
+    let hash = content_hash(&captured.markdown);
+    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
+    let scoped = notes
+        .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    let duplicate = scoped
+        .find_source_duplicate(&hash)
+        .map_err(notes_api_error)?
+        .is_some();
+    Ok(Json(json!({
+        "title": captured.title,
+        "markdown": captured.markdown,
+        "finalUrl": captured.final_url,
+        "author": captured.author,
+        "publishedAt": captured.published_at,
+        "siteName": captured.site_name,
+        "image": captured.image,
+        "duplicate": duplicate,
+    })))
 }
 
 async fn upload_note_attachment(
