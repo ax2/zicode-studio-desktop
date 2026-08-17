@@ -353,10 +353,6 @@ function NotebookBranch({
   const sourceOnly = store((state) => state.sourceOnly);
   const query = store((state) => state.query);
   const loading = store((state) => state.loading);
-  const expanded = store((state) =>
-    state.expandedNotebookIds.has(notebook.id) ||
-    Boolean(query || selectedTag || sourceOnly),
-  );
   const editingNotebookId = store((state) => state.editingNotebookId);
   const dragTargetId = store((state) => state.dragTargetId);
   const sortMode = store((state) => state.sortMode);
@@ -368,6 +364,10 @@ function NotebookBranch({
         : String(right.updatedAt ?? "").localeCompare(String(left.updatedAt ?? "")),
     );
   const children = childrenByParent.get(notebook.id) ?? [];
+  const expanded = store((state) =>
+    state.expandedNotebookIds.has(notebook.id) ||
+    (Boolean(query || selectedTag || sourceOnly) && (notes.length > 0 || children.length > 0)),
+  );
   return (
     <details
       className={`notes-notebook-branch${dragTargetId === notebook.id ? " drop-target" : ""}`}

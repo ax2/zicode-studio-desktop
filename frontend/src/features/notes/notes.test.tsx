@@ -551,6 +551,23 @@ describe("notes store", () => {
     store.getState().setQuery("");
   });
 
+  it("keeps matchless notebooks collapsed while searching", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    store.getState().setQuery("road");
+    const { container } = render(<NotesNav store={store} />);
+    await waitFor(() => {
+      expect(container.querySelectorAll(".notes-notebook-branch").length).toBe(2);
+    });
+    const branch = (id: string) =>
+      container.querySelector(
+        `.notes-notebook-branch[data-notebook-id="${id}"]`,
+      ) as HTMLDetailsElement | null;
+    expect(branch("book-1")?.hasAttribute("open")).toBe(true);
+    expect(branch("book-2")?.hasAttribute("open")).toBe(false);
+    store.getState().setQuery("");
+  });
+
   it("highlights query matches in filtered results", async () => {
     const store = storeWithGateway();
     await store.getState().load();
