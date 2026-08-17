@@ -184,6 +184,12 @@ export function SessionSearchDialogApp({
               } else if (event.key === "ArrowUp") {
                 event.preventDefault();
                 controller.moveActive(-1);
+              } else if (event.key === "Home") {
+                event.preventDefault();
+                controller.moveActive(-Infinity);
+              } else if (event.key === "End") {
+                event.preventDefault();
+                controller.moveActive(Infinity);
               } else if (event.key === "Enter") {
                 event.preventDefault();
                 controller.selectActive();
