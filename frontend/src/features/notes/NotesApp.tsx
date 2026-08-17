@@ -1553,12 +1553,18 @@ function FilterResultsView({ store }: { store: NotesStore }) {
       <div
         className="notes-results-list"
         onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
           if (!(event.target as HTMLElement).matches(".notes-result-item")) return;
-          event.preventDefault();
           const items = Array.from(
             event.currentTarget.querySelectorAll<HTMLElement>(".notes-result-item"),
           );
+          if (event.key === "Home" || event.key === "End") {
+            event.preventDefault();
+            if (items.length === 0) return;
+            (event.key === "Home" ? items[0] : items[items.length - 1])?.focus();
+            return;
+          }
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
           const index = items.indexOf(event.target as HTMLElement);
           if (index === -1) return;
           items[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
