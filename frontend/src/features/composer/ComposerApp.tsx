@@ -485,7 +485,9 @@ export function ComposerApp({
               </button>
               <button
                 type="button"
-                className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn"
+                className={`ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-mic-btn${
+                  listening ? " recording" : ""
+                }`}
                 id="mic-btn"
                 title={
                   !SpeechRecognitionApi
