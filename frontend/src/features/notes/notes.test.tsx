@@ -682,6 +682,36 @@ describe("notes store", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://example.com/article"));
   });
 
+  it("shows a failed state when copying the source URL fails", async () => {
+    const writeText = vi.fn(async () => {
+      throw new Error("denied");
+    });
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      clipboard: { writeText },
+    });
+    const store = storeWithGateway({
+      get: vi.fn(async () => ({
+        note: {
+          ...NOTE,
+          source: { url: "https://example.com/article" },
+        },
+      })),
+    });
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    const { container } = render(<NotesContent store={store} />);
+    const copy = await waitFor(
+      () => container.querySelector(".notes-source-copy") as HTMLButtonElement,
+    );
+    copy.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-source-copy")?.textContent).toBe(
+        t("Copy failed"),
+      ),
+    );
+  });
+
   it("clears the search query when showing all notes", async () => {
     const store = storeWithGateway();
     await store.getState().load();

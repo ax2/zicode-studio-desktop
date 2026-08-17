@@ -1951,6 +1951,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [outlineCollapsed, setOutlineCollapsed] = useState(false);
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const [copiedSource, setCopiedSource] = useState(false);
+  const [copySourceError, setCopySourceError] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [linkQuery, setLinkQuery] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
@@ -2513,12 +2514,16 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   ?.writeText(note.source?.url ?? "")
                   .then(() => {
                     setCopiedSource(true);
+                    setCopySourceError(false);
                     window.setTimeout(() => setCopiedSource(false), 1600);
                   })
-                  .catch(() => {});
+                  .catch(() => {
+                    setCopySourceError(true);
+                    window.setTimeout(() => setCopySourceError(false), 1600);
+                  });
               }}
             >
-              {copiedSource ? t("Copied") : t("Copy")}
+              {copiedSource ? t("Copied") : copySourceError ? t("Copy failed") : t("Copy")}
             </button>
           </p>
           {[note.source.siteName, note.source.author].filter(Boolean).length > 0 ? (
