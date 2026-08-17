@@ -249,7 +249,31 @@ export function SessionSidebarApp({
       ?.querySelector<HTMLButtonElement>(".sidebar-confirm-no")
       ?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") controller.cancelDeleteAll();
+      if (event.key === "Escape") {
+        controller.cancelDeleteAll();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = confirmDialogRef.current;
+      if (!dialog) return;
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !dialog.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

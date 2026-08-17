@@ -74,4 +74,57 @@ describe("session sidebar delete-all confirmation", () => {
     );
     expect(cancelDeleteAll).toHaveBeenCalledTimes(1);
   });
+
+  it("traps Tab focus within the confirmation dialog", async () => {
+    const store = createSidebarStore({ activeSessionId: null });
+    const controller = makeController();
+    const container = document.createElement("div");
+    document.body.append(container);
+    const session: SessionSummary = {
+      id: "s1",
+      name: "Test session",
+      projectPath: "/ws",
+      isCurrentWorkspace: true,
+    };
+    store.setState({
+      sessions: [session],
+      phase: "ready",
+      confirmDeleteCount: 2,
+    });
+
+    render(
+      <SessionSidebarApp
+        controller={controller}
+        store={store}
+        container={container}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(document.activeElement?.matches(".sidebar-confirm-no")).toBe(true),
+    );
+
+    const deleteButton = document.querySelector(
+      ".sidebar-confirm-yes",
+    ) as HTMLButtonElement;
+    deleteButton.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement?.matches(".sidebar-confirm-no")).toBe(true);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement?.matches(".sidebar-confirm-yes")).toBe(true);
+  });
 });
