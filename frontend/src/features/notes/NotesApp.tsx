@@ -326,6 +326,7 @@ function NotebookSection({ store }: { store: NotesStore }) {
       <button
         type="button"
         className={`notes-nav-button${!selectedNotebookId && !sourceOnly && !selectedTag ? " active" : ""}`}
+        aria-pressed={!selectedNotebookId && !sourceOnly && !selectedTag}
         onClick={() => void applyFilter({})}
       >
         {t("All notes")}
@@ -772,6 +773,7 @@ function QuickAccessSection({ store }: { store: NotesStore }) {
       <button
         type="button"
         className={`notes-nav-button${sourceOnly ? " active" : ""}`}
+        aria-pressed={sourceOnly}
         onClick={() => void applyFilter({ sourceOnly: true })}
       >
         {t("Web clips")}
@@ -792,6 +794,7 @@ function TagsSection({ store }: { store: NotesStore }) {
           key={tag}
           type="button"
           className={`notes-nav-button${selectedTag === tag ? " active" : ""}`}
+          aria-pressed={selectedTag === tag}
           onClick={() => void applyFilter({ tag })}
         >
           <span className="notes-nav-item-icon">{tagIcon(tag)}</span>

@@ -36,6 +36,7 @@ function ImageToolsNav({ store }: { store: ImageToolsStore }) {
       <button
         type="button"
         className={`imagetools-nav-item${mode === "process" ? " active" : ""}`}
+        aria-pressed={mode === "process"}
         onClick={() => setMode("process")}
       >
         {t("Single image")}
@@ -43,6 +44,7 @@ function ImageToolsNav({ store }: { store: ImageToolsStore }) {
       <button
         type="button"
         className={`imagetools-nav-item${mode === "concat" ? " active" : ""}`}
+        aria-pressed={mode === "concat"}
         onClick={() => setMode("concat")}
       >
         {t("Concat grid")}

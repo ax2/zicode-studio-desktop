@@ -29,6 +29,7 @@ export function AutomationNav({ store }: { store: AutomationStore }) {
             key={id}
             type="button"
             className={`automation-nav-item${filter === id ? " active" : ""}`}
+            aria-pressed={filter === id}
             onClick={() => setFilter(id)}
           >
             {t(filterLabel(id))}

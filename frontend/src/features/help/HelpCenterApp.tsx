@@ -118,6 +118,7 @@ function NavLink({
       type="button"
       className={`help-center-nav-link${page.id === activePage ? " active" : ""}`}
       data-help-page={page.id}
+      aria-current={page.id === activePage ? "page" : undefined}
       onClick={() => onSelect(page.id)}
     >
       {page.title}
