@@ -2230,6 +2230,35 @@ describe("notes React components", () => {
     );
   });
 
+  it("does not add a tag while an IME composition is in progress", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    const { container } = render(<NotesContent store={store} />);
+    await waitFor(() =>
+      expect(container.querySelector(".notes-tag-input")).toBeTruthy(),
+    );
+    const input = container.querySelector(
+      ".notes-tag-input",
+    ) as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, "测试");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        keyCode: 229,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(store.getState().draftTags).toEqual(["plugin"]);
+  });
+
   it("collapses secondary actions into a More menu on narrow screens", async () => {
     vi.stubGlobal(
       "matchMedia",

@@ -6,6 +6,7 @@ import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 import { Select } from "../../shared/Select";
 import {
   allTagSuggestions,
@@ -1294,6 +1295,7 @@ function TagEditor({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const composingRef = useRef(false);
   const pool = allTagSuggestions(snapshotTags).filter(
     (name) => !tags.includes(name) && (!input.trim() || name.toLowerCase().includes(input.trim().toLowerCase())),
   );
@@ -1357,7 +1359,14 @@ function TagEditor({
           setInput(event.target.value);
           setActiveIndex(-1);
         }}
+        onCompositionStart={() => {
+          composingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          composingRef.current = false;
+        }}
         onKeyDown={(event) => {
+          if (isImeComposing(event, composingRef.current)) return;
           if (event.key === "Enter" || event.key === ",") {
             event.preventDefault();
             if (activeIndex >= 0 && visiblePool[activeIndex]) {
@@ -1805,13 +1814,6 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
   const composingRef = useRef(false);
-  const isImeComposing = (event?: React.KeyboardEvent) =>
-    Boolean(
-      (event as React.KeyboardEvent & { isComposing?: boolean; keyCode?: number })
-        ?.isComposing ||
-        (event as React.KeyboardEvent & { keyCode?: number })?.keyCode === 229 ||
-        composingRef.current,
-    );
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -2282,7 +2284,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             composingRef.current = false;
           }}
           onKeyDown={(event) => {
-            if (isImeComposing(event)) return;
+            if (isImeComposing(event, composingRef.current)) return;
             if (event.key === "Enter" && !preview) {
               contentRef.current?.focus();
             } else if (event.key === "Escape") {
@@ -2456,7 +2458,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             composingRef.current = false;
           }}
           onKeyDown={(event) => {
-            if (isImeComposing(event)) return;
+            if (isImeComposing(event, composingRef.current)) return;
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
               event.preventDefault();
               wrapSelection("**");
