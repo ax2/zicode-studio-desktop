@@ -31,6 +31,7 @@ export function ProjectNav({ store }: { store: ProjectStore }) {
           key={id}
           type="button"
           className={`project-workspace-nav-item${activeView === id ? " active" : ""}`}
+          aria-pressed={activeView === id}
           onClick={() => setActiveView(id)}
         >
           {t(label)}

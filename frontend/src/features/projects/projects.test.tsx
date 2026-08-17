@@ -87,6 +87,17 @@ describe("project workspace React app", () => {
     store.getState().setTarget(null);
   });
 
+  it("marks the active project view with aria-pressed", async () => {
+    setLocale("en");
+    renderStore();
+    await waitFor(() => expect(screen.getByText("Report")).toBeTruthy());
+    const items = document.querySelectorAll(
+      ".project-workspace-nav-item",
+    ) as NodeListOf<HTMLButtonElement>;
+    expect(items[0].getAttribute("aria-pressed")).toBe("true");
+    expect(items[1].getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("uses the project-authoritative configuration plane when available", async () => {
     setLocale("en");
     const call = vi.fn(async (operation: string, params?: unknown) => {
