@@ -154,6 +154,8 @@ export function SessionSidebarApp({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const renameInputRef = useRef<HTMLInputElement | null>(null);
   const composingRef = useRef(false);
+  const confirmDialogRef = useRef<HTMLDivElement | null>(null);
+  const confirmTriggerRef = useRef<HTMLElement | null>(null);
 
   const unreadSet = new Set(unread);
   const streamingSet = new Set(streaming);
@@ -230,6 +232,28 @@ export function SessionSidebarApp({
     renameInputRef.current?.focus();
     renameInputRef.current?.select();
   }, [renamingId]);
+
+  // Focus the cancel action when the delete-all confirmation opens and return
+  // focus to the trigger when it closes. Escape cancels the destructive dialog.
+  useLayoutEffect(() => {
+    if (confirmDeleteCount == null) {
+      confirmTriggerRef.current?.focus();
+      confirmTriggerRef.current = null;
+      return;
+    }
+    confirmTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    confirmDialogRef.current
+      ?.querySelector<HTMLButtonElement>(".sidebar-confirm-no")
+      ?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") controller.cancelDeleteAll();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [confirmDeleteCount, controller]);
 
   // Roving tabindex: anchor on the active session, else the first item.
   useLayoutEffect(() => {
@@ -674,6 +698,7 @@ export function SessionSidebarApp({
         ? createPortal(
             <div className="sidebar-confirm-overlay">
               <div
+                ref={confirmDialogRef}
                 className="sidebar-confirm-dialog"
                 role="dialog"
                 aria-modal="true"
