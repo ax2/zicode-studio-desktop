@@ -2366,6 +2366,44 @@ describe("notes React components", () => {
     );
   });
 
+  it("focuses the more menu and restores focus to its trigger", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    render(<NotesContent store={store} />);
+
+    const moreButton = await waitFor(
+      () => document.querySelector(".notes-more-btn") as HTMLButtonElement,
+    );
+    moreButton.focus();
+    moreButton.click();
+    await waitFor(() =>
+      expect(document.querySelector(".notes-more-menu")).toBeTruthy(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement?.matches(".notes-more-menu button")).toBe(
+        true,
+      ),
+    );
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await waitFor(() =>
+      expect(document.querySelector(".notes-more-menu")).toBeNull(),
+    );
+    expect(document.activeElement).toBe(moreButton);
+  });
+
   it("focuses and selects the title when a new note is created", async () => {
     const store = storeWithGateway();
     await store.getState().load();

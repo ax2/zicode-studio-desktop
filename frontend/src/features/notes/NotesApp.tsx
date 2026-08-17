@@ -1848,10 +1848,12 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const [activeLinkIndex, setActiveLinkIndex] = useState(0);
   const isNarrow = useIsNarrowViewport();
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const composingRef = useRef(false);
 
   useEffect(() => {
     if (!moreOpen) return;
+    moreMenuRef.current?.querySelector<HTMLElement>("button")?.focus();
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       const onMoreButton =
@@ -1868,6 +1870,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      moreButtonRef.current?.focus();
     };
   }, [moreOpen]);
 
@@ -2225,6 +2228,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                       : ""}
               </span>
               <button
+                ref={moreButtonRef}
                 type="button"
                 className="ui-button ui-button--ghost notes-more-btn"
                 aria-label={t("More actions")}
