@@ -1387,6 +1387,7 @@ const zhCN = {
   "Local Markdown": "本地 Markdown",
   "Readable files remain the source of truth.": "可读文件始终作为事实来源。",
   "Web capture": "网页采集",
+  "Web page captured": "网页已采集",
   "URL content becomes sourced Markdown without saving credentials.":
     "将网址内容转为带来源的 Markdown，不保存凭据。",
   "Astro vault": "Astro 内容库",

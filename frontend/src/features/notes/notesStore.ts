@@ -1405,7 +1405,11 @@ export function createNotesStore(options: NotesStoreOptions) {
           tags,
         });
         set({ selectedNotebookId: response.note.notebookId });
-        if (response.duplicate) notify(t("This page is already in your notes"));
+        if (response.duplicate) {
+          notify(t("This page is already in your notes"));
+        } else {
+          notify(t("Web page captured"));
+        }
         await get().selectNote(response.note);
         await get().load();
       } catch (error) {

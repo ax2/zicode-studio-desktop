@@ -1793,6 +1793,24 @@ describe("notes store", () => {
     expect(store.getState().error).toBeTruthy();
   });
 
+  it("notifies after a successful web capture", async () => {
+    const notify = vi.fn();
+    const store = createNotesStore({
+      gateway: gatewayStub(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      getProject: () => ({ id: "ws-1", path: "C:/work", name: "work" }),
+      notify,
+    });
+    await store.getState().load();
+    await store.getState().captureUrl({
+      url: "https://example.com",
+      title: "",
+      notebookId: "book-1",
+      tags: [],
+    });
+    expect(notify).toHaveBeenCalledWith(t("Web page captured"));
+  });
+
   it("surfaces a localized notebook-creation error instead of swallowing it", async () => {
     const createNotebook = vi.fn(async () => {
       throw new Error("Notes backup contains too many notes");
