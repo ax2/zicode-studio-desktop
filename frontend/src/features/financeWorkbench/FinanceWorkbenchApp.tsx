@@ -905,6 +905,7 @@ export function FinanceContentApp({
               className="ui-input"
               disabled={Boolean(busy.discovery)}
               placeholder={t("historical daily adjusted equity prices and company fundamentals")}
+              aria-label={t("historical daily adjusted equity prices and company fundamentals")}
               value={inputValue("discovery")}
               onChange={(event) => setInputValue("discovery", event.target.value)}
             />
@@ -1031,6 +1032,7 @@ export function FinanceContentApp({
             <input
               className="ui-input"
               placeholder={t("Symbol")}
+              aria-label={t("Symbol")}
               required
               autoComplete="off"
               autoCapitalize="off"
@@ -1043,6 +1045,7 @@ export function FinanceContentApp({
             <input
               className="ui-input"
               placeholder={t("Research title")}
+              aria-label={t("Research title")}
               disabled={Boolean(busy.research)}
               value={inputValue("researchTitle")}
               onChange={(event) => setInputValue("researchTitle", event.target.value)}
@@ -1059,6 +1062,7 @@ export function FinanceContentApp({
               className="ui-textarea"
               rows={3}
               placeholder={t("Investment thesis")}
+              aria-label={t("Investment thesis")}
               required
               disabled={Boolean(busy.research)}
               value={inputValue("researchThesis")}
@@ -1068,6 +1072,7 @@ export function FinanceContentApp({
               className="ui-textarea"
               rows={4}
               placeholder={t("Bull case and supporting evidence")}
+              aria-label={t("Bull case and supporting evidence")}
               disabled={Boolean(busy.research)}
               value={inputValue("researchBull")}
               onChange={(event) => setInputValue("researchBull", event.target.value)}
@@ -1076,6 +1081,7 @@ export function FinanceContentApp({
               className="ui-textarea"
               rows={4}
               placeholder={t("Bear case and counter-evidence")}
+              aria-label={t("Bear case and counter-evidence")}
               disabled={Boolean(busy.research)}
               value={inputValue("researchBear")}
               onChange={(event) => setInputValue("researchBear", event.target.value)}
@@ -1084,6 +1090,7 @@ export function FinanceContentApp({
               className="ui-textarea"
               rows={3}
               placeholder={t("What would invalidate the thesis?")}
+              aria-label={t("What would invalidate the thesis?")}
               disabled={Boolean(busy.research)}
               value={inputValue("researchInvalidation")}
               onChange={(event) => setInputValue("researchInvalidation", event.target.value)}
@@ -1092,6 +1099,7 @@ export function FinanceContentApp({
               className="ui-textarea"
               rows={3}
               placeholder={t("Source URLs or execution IDs, one per line")}
+              aria-label={t("Source URLs or execution IDs, one per line")}
               autoComplete="off"
               autoCapitalize="off"
               autoCorrect="off"
