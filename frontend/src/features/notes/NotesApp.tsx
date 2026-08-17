@@ -2007,6 +2007,25 @@ function NoteEditor({ store }: { store: NotesStore }) {
     });
   };
 
+  const wrapCodeBlock = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = draftContent.slice(start, end);
+    const next = `${draftContent.slice(0, start)}${"```"}\n${
+      selected || "\n"
+    }\n${"```"}${draftContent.slice(end)}`;
+    setDraft({ content: next });
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      const cursor = selected ? start + selected.length + 4 : start + 4;
+      el.setSelectionRange(cursor, cursor);
+    });
+  };
+
   const secondaryActions = (
     <>
       <ToolbarButton
@@ -2398,6 +2417,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
             } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "i") {
               event.preventDefault();
               wrapSelection("*");
+            } else if (
+              (event.ctrlKey || event.metaKey) &&
+              event.shiftKey &&
+              event.key.toLowerCase() === "k"
+            ) {
+              event.preventDefault();
+              wrapCodeBlock();
             } else if (event.key === "Escape") {
               event.preventDefault();
               if (linkOpen) {
