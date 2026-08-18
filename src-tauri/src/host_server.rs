@@ -2795,63 +2795,21 @@ async fn wechat_sync_article_http(
     let article = crate::articles::read(&system_root, &request.slug)
         .map_err(|error| plugin_api_error(StatusCode::NOT_FOUND, "article_not_found", &error))?;
 
-    let content = crate::article_markdown::markdown_to_html(&crate::articles::markdown_body(
-        &article.markdown,
-    ));
-    let digest = if article.summary.description.trim().is_empty() {
-        crate::article_markdown::html_to_plain_text(&content)
-            .chars()
-            .take(120)
-            .collect::<String>()
-    } else {
-        article
-            .summary
-            .description
-            .chars()
-            .take(120)
-            .collect::<String>()
-    };
-    let source_url = format!(
-        "{}/blog/{}/",
-        config.wechat.site_url.trim_end_matches('/'),
-        article.summary.slug
-    );
-
-    let token = crate::wechat_publish::get_access_token(&config.wechat)
-        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?;
-
-    let thumb_media_id = if let Some(hero) = article.summary.hero_image.as_deref() {
-        resolve_article_thumb(&config, hero)
-            .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "thumb_failed", &error))?
-            .and_then(|(bytes, filename, mime)| {
-                crate::wechat_publish::upload_thumb_image(&token, &bytes, &filename, &mime).ok()
-            })
-            .unwrap_or_default()
-    } else {
-        String::new()
-    };
-
-    let draft = crate::wechat_publish::WechatDraftArticle {
-        title: article.summary.title,
-        author: config.wechat.author,
-        digest,
-        content,
-        content_source_url: source_url,
-        thumb_media_id,
-        need_open_comment: config.wechat.open_comment,
-        only_fans_can_comment: config.wechat.fans_can_comment,
-    };
-
-    let media_id = match article.summary.wechat_draft_media_id.as_deref() {
-        Some(existing) if !existing.is_empty() => {
-            crate::wechat_publish::update_draft(&token, existing, 0, &draft).map_err(|error| {
-                plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error)
-            })?;
-            existing.to_string()
-        }
-        _ => crate::wechat_publish::create_draft(&token, &draft)
-            .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?,
-    };
+    let sync_config = config.clone();
+    let sync_article = article.clone();
+    let sync_publish = request.publish;
+    let (media_id, publish_id) = tokio::task::spawn_blocking(move || {
+        sync_article_to_wechat(&sync_config, &sync_article, sync_publish)
+    })
+    .await
+    .map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "wechat_task_failed",
+            &error.to_string(),
+        )
+    })?
+    .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?;
 
     crate::articles::upsert_frontmatter_field(
         &system_root,
@@ -2867,23 +2825,15 @@ async fn wechat_sync_article_http(
         )
     })?;
 
-    let mut publish_id: Option<String> = None;
-    if request.publish {
-        publish_id = Some(
-            crate::wechat_publish::publish(&token, &media_id).map_err(|error| {
-                plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error)
-            })?,
-        );
-        if let Some(id) = publish_id.as_deref() {
-            if !id.is_empty() {
-                crate::articles::upsert_frontmatter_field(
-                    &system_root,
-                    &request.slug,
-                    "wechatPublishId",
-                    id,
-                )
-                .ok();
-            }
+    if let Some(id) = publish_id.as_deref() {
+        if !id.is_empty() {
+            crate::articles::upsert_frontmatter_field(
+                &system_root,
+                &request.slug,
+                "wechatPublishId",
+                id,
+            )
+            .ok();
         }
     }
 
@@ -2972,6 +2922,67 @@ async fn blog_publish_articles_http(
     .await
     .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "blog_publish_failed", &error))?;
     Ok(Json(json!({ "ok": true, "uploaded": uploaded })))
+}
+
+fn sync_article_to_wechat(
+    config: &crate::articles_config::ArticlePublishingConfig,
+    article: &crate::articles::Article,
+    publish: bool,
+) -> Result<(String, Option<String>), String> {
+    let content = crate::article_markdown::markdown_to_html(&crate::articles::markdown_body(
+        &article.markdown,
+    ));
+    let digest = if article.summary.description.trim().is_empty() {
+        crate::article_markdown::html_to_plain_text(&content)
+            .chars()
+            .take(120)
+            .collect::<String>()
+    } else {
+        article
+            .summary
+            .description
+            .chars()
+            .take(120)
+            .collect::<String>()
+    };
+    let source_url = format!(
+        "{}/blog/{}/",
+        config.wechat.site_url.trim_end_matches('/'),
+        article.summary.slug
+    );
+    let token = crate::wechat_publish::get_access_token(&config.wechat)?;
+    let thumb_media_id = if let Some(hero) = article.summary.hero_image.as_deref() {
+        resolve_article_thumb(config, hero)?
+            .and_then(|(bytes, filename, mime)| {
+                crate::wechat_publish::upload_thumb_image(&token, &bytes, &filename, &mime).ok()
+            })
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+    let draft = crate::wechat_publish::WechatDraftArticle {
+        title: article.summary.title.clone(),
+        author: config.wechat.author.clone(),
+        digest,
+        content,
+        content_source_url: source_url,
+        thumb_media_id,
+        need_open_comment: config.wechat.open_comment,
+        only_fans_can_comment: config.wechat.fans_can_comment,
+    };
+    let media_id = match article.summary.wechat_draft_media_id.as_deref() {
+        Some(existing) if !existing.is_empty() => {
+            crate::wechat_publish::update_draft(&token, existing, 0, &draft)?;
+            existing.to_string()
+        }
+        _ => crate::wechat_publish::create_draft(&token, &draft)?,
+    };
+    let publish_id = if publish {
+        Some(crate::wechat_publish::publish(&token, &media_id)?)
+    } else {
+        None
+    };
+    Ok((media_id, publish_id))
 }
 
 /// Resolve an article hero image (absolute URL or a local public asset path)
