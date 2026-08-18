@@ -1460,6 +1460,17 @@ function TagEditor({
           </span>
         ))}
       </div>
+      {tags.length > 0 ? (
+        <button
+          type="button"
+          className="notes-tag-clear-all"
+          title={t("Clear all")}
+          aria-label={t("Clear all")}
+          onClick={() => onChange([])}
+        >
+          {t("Clear all")}
+        </button>
+      ) : null}
       <input
         ref={inputRef}
         className="notes-tag-input"

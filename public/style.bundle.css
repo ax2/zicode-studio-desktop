@@ -8030,6 +8030,23 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   height: 10px;
 }
 
+.notes-tag-clear-all {
+  flex: 0 0 auto;
+  padding: 0 var(--space-2);
+  min-height: var(--control-height-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.notes-tag-clear-all:hover {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
 .notes-tag-input-icon {
   color: var(--text-dim);
   font-size: var(--font-size-sm);

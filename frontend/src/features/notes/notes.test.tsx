@@ -2433,6 +2433,24 @@ describe("notes React components", () => {
     );
   });
 
+  it("clears all tags with the clear-all action", async () => {
+    const store = storeWithGateway();
+    await store.getState().load();
+    await store.getState().selectNote(SNAPSHOT.notes[0]);
+    store.getState().setPreview(false);
+    render(<NotesContent store={store} />);
+    expect(document.querySelectorAll(".notes-tag-chip").length).toBe(1);
+    const clearAll = document.querySelector(
+      ".notes-tag-clear-all",
+    ) as HTMLButtonElement;
+    expect(clearAll).toBeTruthy();
+    clearAll.click();
+    await waitFor(() =>
+      expect(document.querySelectorAll(".notes-tag-chip").length).toBe(0),
+    );
+    expect(document.querySelector(".notes-tag-clear-all")).toBeNull();
+  });
+
   it("does not add a tag while an IME composition is in progress", async () => {
     const store = storeWithGateway();
     await store.getState().load();
