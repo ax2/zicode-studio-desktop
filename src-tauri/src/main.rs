@@ -6,6 +6,7 @@ mod articles;
 mod articles_config;
 mod artifact_store;
 mod backup_store;
+mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
 mod document_import;

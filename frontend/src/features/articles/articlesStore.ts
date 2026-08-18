@@ -90,6 +90,7 @@ export interface ArticlesGateway {
     publish: boolean,
   ): Promise<{ mediaId: string; publishId: string | null }>;
   wechatPublish(scope: ArticlesScope, slug: string): Promise<{ publishId: string }>;
+  blogPublish(scope: ArticlesScope): Promise<{ uploaded: number }>;
 }
 
 export class ArticlesHttpGateway implements ArticlesGateway {
@@ -210,6 +211,13 @@ export class ArticlesHttpGateway implements ArticlesGateway {
       body: JSON.stringify({ sceneId: scope.sceneId, slug }),
     }) as Promise<{ publishId: string }>;
   }
+
+  blogPublish(scope: ArticlesScope) {
+    return this.#request("/v2/articles/blog/publish", {
+      method: "POST",
+      body: JSON.stringify({ sceneId: scope.sceneId }),
+    }) as Promise<{ uploaded: number }>;
+  }
 }
 
 export interface ArticlesState {
@@ -230,6 +238,7 @@ export interface ArticlesState {
   syncFromSource(sourceDir: string): Promise<void>;
   syncWechat(publish: boolean): Promise<void>;
   publishWechat(): Promise<void>;
+  publishBlog(): Promise<void>;
   clearError(): void;
 }
 
@@ -349,6 +358,19 @@ export function createArticlesStore({
         try {
           await resolvedGateway.wechatPublish(getTarget(), draftSlug.trim());
           notify?.({ message: t("WeChat publish submitted"), type: "success" });
+          set({ busy: false });
+        } catch (error) {
+          set({ busy: false, error: fail(error) });
+        }
+      },
+      async publishBlog() {
+        set({ busy: true, error: "" });
+        try {
+          const { uploaded } = await resolvedGateway.blogPublish(getTarget());
+          notify?.({
+            message: t("Published {count} files to blog").replace("{count}", String(uploaded)),
+            type: "success",
+          });
           set({ busy: false });
         } catch (error) {
           set({ busy: false, error: fail(error) });

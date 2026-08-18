@@ -424,6 +424,10 @@ impl HostServer {
                 "/v2/articles/wechat/publish",
                 post(wechat_publish_article_http),
             )
+            .route(
+                "/v2/articles/blog/publish",
+                post(blog_publish_articles_http),
+            )
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2924,6 +2928,43 @@ async fn wechat_publish_article_http(
         .ok();
     }
     Ok(Json(json!({ "ok": true, "publishId": publish_id })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BlogPublishArticlesRequest {
+    scene_id: String,
+}
+
+async fn blog_publish_articles_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<BlogPublishArticlesRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    let config = crate::articles_config::load(&system_root).map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "config_unavailable",
+            &error,
+        )
+    })?;
+    if config.blog.remote_dir.is_empty() {
+        return Err(plugin_api_error(
+            StatusCode::PRECONDITION_FAILED,
+            "blog_not_configured",
+            "Blog server remote directory is not configured",
+        ));
+    }
+    let local_dir = crate::articles::article_dir(&system_root);
+    let uploaded = crate::blog_deploy::upload_directory(
+        &config.blog,
+        &local_dir,
+        config.blog.remote_dir.trim_end_matches('/'),
+    )
+    .await
+    .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "blog_publish_failed", &error))?;
+    Ok(Json(json!({ "ok": true, "uploaded": uploaded })))
 }
 
 /// Resolve an article hero image (absolute URL or a local public asset path)

@@ -1118,6 +1118,8 @@ const zhCN = {
   "Sync to WeChat draft": "同步到公众号草稿",
   "Sync and publish to WeChat": "同步并发布到公众号",
   "Publish existing WeChat draft": "发布已有公众号草稿",
+  "Publish to blog": "发布到博客",
+  "Published {count} files to blog": "已发布 {count} 个文件到博客",
   "Astro source directory": "Astro 源目录",
   "Sync from source": "从源目录同步",
   "Publishing settings": "发布设置",

@@ -166,6 +166,14 @@ function ArticlesMain({
         >
           {t("Publish existing WeChat draft")}
         </button>
+        <button
+          type="button"
+          className="ui-button ui-button--secondary ui-button--sm"
+          disabled={busy}
+          onClick={() => void store.getState().publishBlog()}
+        >
+          {t("Publish to blog")}
+        </button>
       </section>
 
       <section className="ui-card articles-sync">
