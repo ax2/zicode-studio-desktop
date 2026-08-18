@@ -2757,19 +2757,25 @@ describe("notes React components", () => {
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
     expect(toggle?.getAttribute("title")).toBe(t("Collapse outline"));
     expect(toggle?.getAttribute("aria-controls")).toBe("notes-outline-list");
-    expect(container.querySelector(".notes-outline ol")).toBeTruthy();
+    expect(
+      (container.querySelector(".notes-outline ol") as HTMLElement).hidden,
+    ).toBe(false);
 
     toggle.click();
     await waitFor(() =>
       expect(toggle.getAttribute("aria-expanded")).toBe("false"),
     );
-    expect(container.querySelector(".notes-outline ol")).toBeNull();
+    expect(
+      (container.querySelector(".notes-outline ol") as HTMLElement).hidden,
+    ).toBe(true);
 
     toggle.click();
     await waitFor(() =>
       expect(toggle.getAttribute("aria-expanded")).toBe("true"),
     );
-    expect(container.querySelector(".notes-outline ol")).toBeTruthy();
+    expect(
+      (container.querySelector(".notes-outline ol") as HTMLElement).hidden,
+    ).toBe(false);
   });
 
   it("navigates the heading outline with arrow keys", async () => {

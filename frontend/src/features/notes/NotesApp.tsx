@@ -2632,11 +2632,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   </span>
                 </button>
               </div>
-              {!outlineCollapsed ? (
-                <ol
-                  id="notes-outline-list"
-                  ref={outlineListRef}
-                  onKeyDown={(event) => {
+              <ol
+                id="notes-outline-list"
+                ref={outlineListRef}
+                hidden={outlineCollapsed}
+                onKeyDown={(event) => {
                     const items = Array.from(
                       outlineListRef.current?.querySelectorAll<HTMLButtonElement>(
                         "button",
@@ -2666,30 +2666,29 @@ function NoteEditor({ store }: { store: NotesStore }) {
                         : (current - 1 + items.length) % items.length;
                     items[next]?.focus();
                   }}
-                >
-                  {outline.map((entry) => (
-                    <li
-                      key={entry.id}
-                      data-outline-id={entry.id}
-                      className={`notes-outline-level-${entry.level}${
-                        entry.id === activeOutlineId ? " active" : ""
-                      }`}
+              >
+                {outline.map((entry) => (
+                  <li
+                    key={entry.id}
+                    data-outline-id={entry.id}
+                    className={`notes-outline-level-${entry.level}${
+                      entry.id === activeOutlineId ? " active" : ""
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      aria-current={entry.id === activeOutlineId ? "location" : undefined}
+                      onClick={() =>
+                        document
+                          .getElementById(entry.id)
+                          ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
+                      }
                     >
-                      <button
-                        type="button"
-                        aria-current={entry.id === activeOutlineId ? "location" : undefined}
-                        onClick={() =>
-                          document
-                            .getElementById(entry.id)
-                            ?.scrollIntoView?.({ behavior: "smooth", block: "start" })
-                        }
-                      >
-                        {entry.text}
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
+                      {entry.text}
+                    </button>
+                  </li>
+                ))}
+              </ol>
             </nav>
           ) : null}
         </div>
