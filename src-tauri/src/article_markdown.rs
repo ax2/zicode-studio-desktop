@@ -215,6 +215,26 @@ pub fn markdown_to_html(markdown: &str) -> String {
             index += 1;
             continue;
         }
+        if let Some((checked, text)) = line.trim_start().strip_prefix("- [").and_then(|rest| {
+            rest.find(']')
+                .map(|end| (&rest[..end], rest[end + 1..].trim_start()))
+        }) {
+            // Task list item: `- [ ] text` or `- [x] text`.
+            let checked = matches!(checked.trim(), "x" | "X");
+            close_paragraph(&mut html, &mut in_paragraph);
+            if !matches!(list_stack.last(), Some(false)) {
+                close_lists(&mut html, &mut list_stack);
+                list_stack.push(false);
+                html.push_str("<ul class=\"task-list\">");
+            }
+            html.push_str(&format!(
+                "<li class=\"task-list-item\"><input type=\"checkbox\" disabled{}> {}</li>",
+                if checked { " checked" } else { "" },
+                render_inline(text)
+            ));
+            index += 1;
+            continue;
+        }
         let unordered = line
             .trim_start()
             .strip_prefix("- ")
@@ -330,5 +350,17 @@ mod tests {
         assert!(html.contains("<table><thead><tr><th>名称</th><th>值</th></tr></thead><tbody>"));
         assert!(html.contains("<tr><td>a</td><td>1</td></tr>"));
         assert!(html.contains("<tr><td>b</td><td>2</td></tr>"));
+    }
+
+    #[test]
+    fn renders_task_lists() {
+        let html = markdown_to_html("- [ ] 未完成\n- [x] 已完成\n");
+        assert!(html.contains("<ul class=\"task-list\">"));
+        assert!(html.contains(
+            "<li class=\"task-list-item\"><input type=\"checkbox\" disabled> 未完成</li>"
+        ));
+        assert!(html.contains(
+            "<li class=\"task-list-item\"><input type=\"checkbox\" disabled checked> 已完成</li>"
+        ));
     }
 }
