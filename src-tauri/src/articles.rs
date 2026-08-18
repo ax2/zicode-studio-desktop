@@ -207,23 +207,36 @@ fn file_updated_at_ms(path: &Path) -> Option<u64> {
         .map(|duration| duration.as_millis() as u64)
 }
 
-pub fn list(system_root: &Path) -> Result<Vec<ArticleSummary>, String> {
+fn walk_markdown_files(system_root: &Path) -> Result<Vec<PathBuf>, String> {
     let dir = article_dir(system_root);
-    if !dir.is_dir() {
-        return Ok(Vec::new());
-    }
-    let mut articles = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|error| error.to_string())? {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+    let mut files = Vec::new();
+    let mut stack = vec![dir];
+    while let Some(current) = stack.pop() {
+        if !current.is_dir() {
             continue;
         }
-        let Some(slug) = path.file_stem().and_then(|stem| stem.to_str()) else {
-            continue;
-        };
+        for entry in fs::read_dir(&current).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+                files.push(path);
+            }
+        }
+    }
+    Ok(files)
+}
+
+pub fn list(system_root: &Path) -> Result<Vec<ArticleSummary>, String> {
+    let mut articles = Vec::new();
+    for path in walk_markdown_files(system_root)? {
+        let fallback = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("article");
         let markdown = fs::read_to_string(&path).unwrap_or_default();
-        let summary = summary_from_markdown(slug, &markdown, file_updated_at_ms(&path));
+        let summary = summary_from_markdown(fallback, &markdown, file_updated_at_ms(&path));
         articles.push(summary);
     }
     articles.sort_by(|a, b| {
@@ -235,7 +248,7 @@ pub fn list(system_root: &Path) -> Result<Vec<ArticleSummary>, String> {
     Ok(articles)
 }
 
-fn resolve_article_path(system_root: &Path, slug: &str) -> Result<PathBuf, String> {
+fn validate_slug(slug: &str) -> Result<(), String> {
     if slug.is_empty()
         || slug.contains('/')
         || slug.contains('\\')
@@ -244,7 +257,26 @@ fn resolve_article_path(system_root: &Path, slug: &str) -> Result<PathBuf, Strin
     {
         return Err("Article slug is invalid".to_string());
     }
-    Ok(article_dir(system_root).join(format!("{slug}.md")))
+    Ok(())
+}
+
+fn resolve_article_path(system_root: &Path, slug: &str) -> Result<PathBuf, String> {
+    validate_slug(slug)?;
+    let direct = article_dir(system_root).join(format!("{slug}.md"));
+    if direct.is_file() {
+        return Ok(direct);
+    }
+    for path in walk_markdown_files(system_root)? {
+        let markdown = fs::read_to_string(&path).unwrap_or_default();
+        let values = split_frontmatter(&markdown)
+            .map(|(frontmatter, _)| parse_frontmatter(&frontmatter))
+            .unwrap_or_default();
+        let frontmatter_slug = str_field(&values, "slug").or_else(|| str_field(&values, "urlSlug"));
+        if frontmatter_slug.as_deref() == Some(slug) {
+            return Ok(path);
+        }
+    }
+    Err(format!("Article {slug} does not exist"))
 }
 
 pub fn read(system_root: &Path, slug: &str) -> Result<Article, String> {
@@ -256,7 +288,14 @@ pub fn read(system_root: &Path, slug: &str) -> Result<Article, String> {
 }
 
 pub fn save(system_root: &Path, slug: &str, markdown: &str) -> Result<(), String> {
-    let path = resolve_article_path(system_root, slug)?;
+    let path = match resolve_article_path(system_root, slug) {
+        Ok(existing) => existing,
+        Err(error) if error.contains("does not exist") => {
+            validate_slug(slug)?;
+            article_dir(system_root).join(format!("{slug}.md"))
+        }
+        Err(error) => return Err(error),
+    };
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
@@ -333,17 +372,28 @@ pub fn sync_from_dir(system_root: &Path, source_dir: &str) -> Result<usize, Stri
     let destination = article_dir(system_root);
     fs::create_dir_all(&destination).map_err(|error| error.to_string())?;
     let mut copied = 0usize;
-    for entry in fs::read_dir(&source).map_err(|error| error.to_string())? {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let path = entry.path();
-        if !path.is_file() || path.extension().and_then(|ext| ext.to_str()) != Some("md") {
-            continue;
+    let mut stack = vec![source.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir).map_err(|error| error.to_string())? {
+            let entry = entry.map_err(|error| error.to_string())?;
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if !path.is_file() || path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(&source)
+                .map_err(|error| error.to_string())?;
+            let dest_path = destination.join(relative);
+            if let Some(parent) = dest_path.parent() {
+                fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+            }
+            fs::copy(&path, &dest_path).map_err(|error| error.to_string())?;
+            copied += 1;
         }
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        fs::copy(&path, destination.join(name)).map_err(|error| error.to_string())?;
-        copied += 1;
     }
     Ok(copied)
 }
@@ -414,9 +464,12 @@ wechatDraftMediaId: "qAewqDXX"
         fs::write(source.join("a.md"), SAMPLE).unwrap();
         fs::write(source.join("b.md"), SAMPLE).unwrap();
         fs::write(source.join("ignore.txt"), "x").unwrap();
+        fs::create_dir_all(source.join("en")).unwrap();
+        fs::write(source.join("en").join("c.en.md"), SAMPLE).unwrap();
         let copied = sync_from_dir(&root, source.to_str().unwrap()).unwrap();
-        assert_eq!(copied, 2);
-        assert_eq!(list(&root).unwrap().len(), 2);
+        assert_eq!(copied, 3);
+        assert_eq!(list(&root).unwrap().len(), 3);
+        assert!(article_dir(&root).join("en").join("c.en.md").is_file());
         std::fs::remove_dir_all(&root).ok();
     }
 
