@@ -151,6 +151,37 @@ export function friendlyPluginError(error: unknown): string {
   if (/no text could be extracted from this document/.test(lowered)) {
     return t("No text could be extracted from this document.");
   }
+  // Article publishing: WeChat / blog configuration and connectivity.
+  if (/wechat appid or appsecret is not configured/.test(lowered)) {
+    return t("The WeChat AppID or AppSecret is not configured.");
+  }
+  if (/blog server host, username, and password are not configured/.test(lowered)) {
+    return t("The blog server host, username, or password is not configured.");
+  }
+  if (/blog server remote directory is not configured/.test(lowered)) {
+    return t("The blog server remote directory is not configured.");
+  }
+  if (/article has not been synced to a wechat draft yet/.test(lowered)) {
+    return t("The article has not been synced to a WeChat draft yet.");
+  }
+  if (/blog server rejected the username or password/.test(lowered)) {
+    return t("The blog server rejected the username or password.");
+  }
+  if (/blog server authentication failed/.test(lowered)) {
+    return t("Blog server authentication failed.");
+  }
+  if (/cannot connect to blog server/.test(lowered)) {
+    return t("Cannot connect to the blog server.");
+  }
+  if (/source blog directory does not exist/.test(lowered)) {
+    return t("The blog source directory does not exist.");
+  }
+  if (/wechat error \d+/.test(lowered) || /wechat request failed/.test(lowered)) {
+    return t("The WeChat request failed. Check the AppID/AppSecret and network.");
+  }
+  if (/article publishing is not enabled|plugin_not_enabled/.test(lowered)) {
+    return t("Enable the Articles plugin to use publishing.");
+  }
   if (/cannot create|cannot serialize|cannot save|cannot encode/.test(lowered)) {
     return t("The operation could not be completed.");
   }

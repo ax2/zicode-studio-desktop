@@ -1132,6 +1132,18 @@ const zhCN = {
   "Synced to WeChat draft": "已同步到公众号草稿",
   "WeChat publish submitted": "公众号发布已提交",
   "WeChat draft": "微信草稿",
+  "The WeChat AppID or AppSecret is not configured.": "公众号 AppID 或 AppSecret 未配置。",
+  "The blog server host, username, or password is not configured.":
+    "博客服务器主机、用户名或密码未配置。",
+  "The blog server remote directory is not configured.": "博客服务器远程目录未配置。",
+  "The article has not been synced to a WeChat draft yet.": "文章尚未同步到公众号草稿。",
+  "The blog server rejected the username or password.": "博客服务器拒绝了用户名或密码。",
+  "Blog server authentication failed.": "博客服务器认证失败。",
+  "Cannot connect to the blog server.": "无法连接博客服务器。",
+  "The blog source directory does not exist.": "博客源目录不存在。",
+  "The WeChat request failed. Check the AppID/AppSecret and network.":
+    "公众号请求失败，请检查 AppID/AppSecret 和网络。",
+  "Enable the Articles plugin to use publishing.": "请先启用文章创作插件以使用发布功能。",
   "Article Publishing": "文章发布",
   "Enable the Articles plugin to configure WeChat and blog publishing.":
     "请先启用文章创作插件，再配置公众号与博客发布。",
