@@ -5086,8 +5086,7 @@ async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError>
             }
             bytes.extend_from_slice(&chunk);
         }
-        let text = String::from_utf8(bytes)
-            .map_err(|_| NotesError::new("capture_failed", "The web page is not UTF-8 text"))?;
+        let text = crate::web_extract::decode_html_bytes(&bytes, &content_type);
         let is_plain = content_type.starts_with("text/plain");
         let article = if is_plain {
             None
