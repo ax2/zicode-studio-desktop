@@ -303,7 +303,11 @@ pub fn save(system_root: &Path, slug: &str, markdown: &str) -> Result<(), String
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
-    fs::write(&path, markdown).map_err(|error| error.to_string())
+    fs::write(&path, markdown).map_err(|error| error.to_string())?;
+    // Keep the frontmatter slug in sync with the file slug so a newly created
+    // article with an empty `slug:` field resolves correctly after reload.
+    upsert_frontmatter_field(system_root, slug, "slug", slug).ok();
+    Ok(())
 }
 
 pub fn delete(system_root: &Path, slug: &str) -> Result<bool, String> {
@@ -459,6 +463,17 @@ draft: false
 "#;
         let summary = summary_from_markdown("new-post", markdown, None);
         assert_eq!(summary.slug, "new-post");
+    }
+
+    #[test]
+    fn save_syncs_the_frontmatter_slug_with_the_file_name() {
+        let root = tmp_root();
+        let markdown = "---\ntitle: \"\"\nslug: \"\"\ndraft: false\ntags: []\n---\n\n正文";
+        save(&root, "my-post", markdown).unwrap();
+        let article = read(&root, "my-post").unwrap();
+        assert_eq!(article.summary.slug, "my-post");
+        assert!(article.markdown.contains("slug: \"my-post\""));
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]
