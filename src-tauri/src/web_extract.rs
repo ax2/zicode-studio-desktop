@@ -2,7 +2,7 @@
 //! 引用/代码/表格结构，输出可读 Markdown。采集笔记与 Pi 工具共用。
 
 use ego_tree::NodeRef;
-use encoding_rs::{Encoding, GB18030};
+use encoding_rs::{Encoding, GB18030, UTF_16BE, UTF_16LE};
 use scraper::{ElementRef, Html, Node, Selector};
 use serde::Serialize;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
@@ -115,6 +115,14 @@ fn detect_meta_charset(prefix: &str) -> Option<String> {
 pub fn decode_html_bytes(bytes: &[u8], content_type: &str) -> String {
     if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
         return String::from_utf8_lossy(&bytes[3..]).into_owned();
+    }
+    if bytes.starts_with(&[0xFF, 0xFE]) {
+        let (text, _, _) = UTF_16LE.decode(&bytes[2..]);
+        return text.into_owned();
+    }
+    if bytes.starts_with(&[0xFE, 0xFF]) {
+        let (text, _, _) = UTF_16BE.decode(&bytes[2..]);
+        return text.into_owned();
     }
     if let Some(label) = parse_charset_from_content_type(content_type) {
         if let Some(encoding) = Encoding::for_label(label.as_bytes()) {
@@ -717,6 +725,18 @@ mod tests {
     fn decodes_gbk_body_without_declared_charset() {
         let (gbk_bytes, _, _) = encoding_rs::GBK.encode("中文正文内容");
         let decoded = decode_html_bytes(&gbk_bytes, "");
+        assert!(decoded.contains("中文正文内容"));
+    }
+
+    #[test]
+    fn decodes_utf16le_bom_body() {
+        let utf16_bytes: Vec<u8> = "中文正文内容"
+            .encode_utf16()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect();
+        let mut bytes = vec![0xFF, 0xFE];
+        bytes.extend_from_slice(&utf16_bytes);
+        let decoded = decode_html_bytes(&bytes, "");
         assert!(decoded.contains("中文正文内容"));
     }
 }
