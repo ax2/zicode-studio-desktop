@@ -331,6 +331,18 @@ fn meta_content(document: &Html, names: &[&str]) -> Option<String> {
     None
 }
 
+fn decode_html_entities(value: &str) -> String {
+    value
+        .replace("&nbsp;", " ")
+        .replace("&#160;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&#39;", "'")
+}
+
 fn resolve_url(base: &str, href: &str) -> Option<String> {
     let absolute = reqwest::Url::parse(base).ok()?.join(href).ok()?;
     if !matches!(absolute.scheme(), "http" | "https") {
@@ -599,11 +611,19 @@ pub fn extract(html: &str, base_url: &str) -> WebArticle {
                 .and_then(|selector| document.select(&selector).next())
                 .map(|element| element.text().collect::<String>())
         })
-        .map(|value| value.trim().chars().take(200).collect::<String>())
+        .map(|value| {
+            decode_html_entities(value.trim())
+                .chars()
+                .take(200)
+                .collect::<String>()
+        })
         .unwrap_or_default();
-    let byline = meta_content(&document, &["author", "article:author"]);
-    let site_name = meta_content(&document, &["og:site_name"]);
+    let byline = meta_content(&document, &["author", "article:author"])
+        .map(|value| decode_html_entities(&value));
+    let site_name =
+        meta_content(&document, &["og:site_name"]).map(|value| decode_html_entities(&value));
     let image = meta_content(&document, &["og:image", "twitter:image"])
+        .map(|value| decode_html_entities(&value))
         .and_then(|value| resolve_url(base_url, &value));
 
     let root = document.root_element();
@@ -759,5 +779,20 @@ mod tests {
         let decoded = decode_html_bytes(&bytes, "");
         assert!(decoded.contains("文正文内容"));
         assert!(!decoded.contains("中文正文内容"));
+    }
+
+    #[test]
+    fn decodes_html_entities_in_meta_title_and_site_name() {
+        let html = r#"<html><head>
+          <meta property="og:title" content="Rock &amp; Roll &amp; More">
+          <meta property="og:site_name" content="A &amp; B">
+          <title>Fallback Title</title>
+        </head><body><article>
+          <h1>Heading</h1>
+          <p>Some readable content text goes here for scoring.</p>
+        </article></body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert_eq!(article.title, "Rock & Roll & More");
+        assert_eq!(article.site_name.as_deref(), Some("A & B"));
     }
 }
