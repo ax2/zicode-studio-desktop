@@ -2617,6 +2617,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   type="button"
                   className="notes-outline-toggle"
                   aria-expanded={!outlineCollapsed}
+                  title={
+                    outlineCollapsed ? t("Expand outline") : t("Collapse outline")
+                  }
                   aria-label={
                     outlineCollapsed ? t("Expand outline") : t("Collapse outline")
                   }
