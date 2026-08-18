@@ -675,7 +675,7 @@ export function SessionSidebarApp({
               className="archived-delete-all-btn"
               tabIndex={0}
               title={t("Delete all archived sessions")}
-              aria-label={t("Delete all archived sessions")}
+              aria-label={`${t("Delete all archived sessions")} (${archivedSessions.length})`}
               onClick={(event) => {
                 event.stopPropagation();
                 controller.requestDeleteAllArchived();

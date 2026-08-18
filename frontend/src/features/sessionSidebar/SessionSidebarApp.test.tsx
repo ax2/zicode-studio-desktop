@@ -195,6 +195,11 @@ describe("session sidebar delete-all confirmation", () => {
     expect(
       document.querySelector(".archived-header")?.getAttribute("aria-expanded"),
     ).toBe("true");
+    expect(
+      document
+        .querySelector(".archived-delete-all-btn")
+        ?.getAttribute("aria-label"),
+    ).toContain("(1)");
   });
 
   it("labels the session rename input for assistive tech", async () => {
