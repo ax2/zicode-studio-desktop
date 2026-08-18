@@ -75,7 +75,11 @@ function ArticlesNav({ store }: { store: ArticlesStore }) {
                 onClick={() => void store.getState().open(article.slug)}
               >
                 <span className="articles-item-title">{article.title || article.slug}</span>
-                {article.wechatDraftMediaId ? (
+                {article.wechatPublishId ? (
+                  <span className="articles-item-badge articles-item-badge--published">
+                    {t("Published")}
+                  </span>
+                ) : article.wechatDraftMediaId ? (
                   <span className="articles-item-badge">{t("WeChat draft")}</span>
                 ) : null}
               </button>

@@ -67,6 +67,11 @@
   font-size: var(--font-size-xs);
 }
 
+.articles-item-badge--published {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+
 .articles-main {
   width: min(var(--app-content-max-width), 100%);
   margin: 0 auto;
