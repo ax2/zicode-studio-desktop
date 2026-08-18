@@ -2730,6 +2730,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   >
                     <button
                       type="button"
+                      title={entry.text}
                       aria-current={entry.id === activeOutlineId ? "location" : undefined}
                       onClick={() =>
                         document
