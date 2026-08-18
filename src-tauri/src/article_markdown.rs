@@ -205,6 +205,23 @@ pub fn markdown_to_html(markdown: &str) -> String {
                 continue;
             }
         }
+        let trimmed_for_rule = line.trim();
+        if !trimmed_for_rule.is_empty()
+            && trimmed_for_rule
+                .chars()
+                .filter(|c| *c == '-' || *c == '*' || *c == '_')
+                .count()
+                >= 3
+            && trimmed_for_rule
+                .chars()
+                .all(|c| matches!(c, '-' | '*' | '_' | ' ' | '\t'))
+        {
+            close_paragraph(&mut html, &mut in_paragraph);
+            close_lists(&mut html, &mut list_stack);
+            html.push_str("<hr>");
+            index += 1;
+            continue;
+        }
         if let Some(quote) = line.strip_prefix('>') {
             close_paragraph(&mut html, &mut in_paragraph);
             close_lists(&mut html, &mut list_stack);
@@ -362,5 +379,11 @@ mod tests {
         assert!(html.contains(
             "<li class=\"task-list-item\"><input type=\"checkbox\" disabled checked> 已完成</li>"
         ));
+    }
+
+    #[test]
+    fn renders_horizontal_rules() {
+        let html = markdown_to_html("段落\n\n---\n\n下一段\n");
+        assert!(html.contains("<hr>"));
     }
 }
