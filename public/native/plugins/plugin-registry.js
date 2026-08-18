@@ -113,7 +113,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Visualize note links, backlinks, similar notes and conflicts.",
     icon: "graph",
     order: 106,
-    enabledByDefault: true,
+    enabledByDefault: false,
     sidebarViews: [
       {
         id: "graph.sidebar",
@@ -145,7 +145,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Track daily habits and metrics with streaks and history.",
     icon: "habits",
     order: 108,
-    enabledByDefault: true,
+    enabledByDefault: false,
     sidebarViews: [
       {
         id: "habits.sidebar",
@@ -161,7 +161,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Detect when public web pages change with content hash checks.",
     icon: "watch",
     order: 109,
-    enabledByDefault: true,
+    enabledByDefault: false,
     sidebarViews: [
       {
         id: "watch.sidebar",
@@ -177,7 +177,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Extract text from screenshots and images using the system OCR engine.",
     icon: "ocr",
     order: 110,
-    enabledByDefault: true,
+    enabledByDefault: false,
     sidebarViews: [
       {
         id: "ocr.sidebar",

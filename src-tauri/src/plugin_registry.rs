@@ -1918,7 +1918,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            false,
         ),
         (
             json!({
@@ -2002,7 +2002,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            false,
         ),
         (
             json!({
@@ -2138,7 +2138,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            false,
         ),
         (
             json!({
@@ -2163,7 +2163,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            false,
         ),
         (
             json!({
@@ -2632,7 +2632,7 @@ mod tests {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
         assert_eq!(registry.list("programming").len(), 17);
-        assert_eq!(registry.capabilities("programming").len(), 16);
+        assert_eq!(registry.capabilities("programming").len(), 11);
         assert!(registry
             .pi_tools("programming")
             .iter()
