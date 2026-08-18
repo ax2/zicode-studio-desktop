@@ -2482,6 +2482,7 @@ describe("notes React components", () => {
     );
     expect(moreButton.getAttribute("aria-expanded")).toBe("false");
     expect(moreButton.getAttribute("aria-haspopup")).toBe("true");
+    expect(moreButton.getAttribute("title")).toBe(t("More actions"));
     expect(document.querySelector(".notes-more-menu")).toBeNull();
     expect(document.querySelector(".notes-editor-actions .notes-attach")).toBeNull();
 

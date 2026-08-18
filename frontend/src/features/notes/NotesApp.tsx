@@ -2378,6 +2378,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                 type="button"
                 className="ui-button ui-button--ghost notes-more-btn"
                 aria-label={t("More actions")}
+                title={t("More actions")}
                 aria-haspopup="true"
                 aria-expanded={moreOpen}
                 aria-controls="notes-more-menu"
