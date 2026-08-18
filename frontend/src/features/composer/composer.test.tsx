@@ -84,6 +84,11 @@ describe("composer React shell", () => {
     expect(elements?.input).toBe(document.getElementById("message-input"));
     expect(elements?.composerCard).toBe(document.getElementById("composer-card"));
     expect((elements?.abortButton as HTMLButtonElement)?.classList.contains("hidden")).toBe(true);
+    expect(
+      document
+        .getElementById("model-dropdown-btn")
+        ?.getAttribute("aria-haspopup"),
+    ).toBe("listbox");
   });
 
   it("clears the draft with the clear button", async () => {

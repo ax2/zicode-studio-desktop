@@ -486,6 +486,8 @@ export function ComposerApp({
                   className="ui-button ui-button--sm ui-button--ghost model-dropdown-btn"
                   id="model-dropdown-btn"
                   title={`${t("Switch model")} (Ctrl+M)`}
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
                 >
                   <span className="model-dropdown-label" id="model-dropdown-label">
                     model
