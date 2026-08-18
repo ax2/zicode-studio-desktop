@@ -2639,7 +2639,22 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   onClick={() => setOutlineCollapsed((value) => !value)}
                 >
                   <span className="notes-outline-chevron" aria-hidden="true">
-                    {outlineCollapsed ? "▸" : "▾"}
+                    <svg
+                      viewBox="0 0 12 12"
+                      width="12"
+                      height="12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {outlineCollapsed ? (
+                        <path d="M4 2l4 4-4 4" />
+                      ) : (
+                        <path d="M2 4l4 4 4-4" />
+                      )}
+                    </svg>
                   </span>
                 </button>
               </div>

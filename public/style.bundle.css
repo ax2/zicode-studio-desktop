@@ -8228,8 +8228,9 @@ body[data-active-plugin="core.help"] .help-center-navigation {
 }
 
 .notes-outline-chevron {
-  font-size: var(--font-size-sm);
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .notes-outline ol {
