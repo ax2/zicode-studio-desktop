@@ -31,6 +31,21 @@ export interface ArticlesAppApi {
 function ArticlesNav({ store }: { store: ArticlesStore }) {
   const articles = store((state) => state.articles);
   const current = store((state) => state.current);
+  const [query, setQuery] = useState("");
+  const normalized = query.trim().toLowerCase();
+  const filtered = normalized
+    ? articles.filter((article) => {
+        const haystack = [
+          article.title,
+          article.slug,
+          article.category ?? "",
+          ...article.tags,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(normalized);
+      })
+    : articles;
   return (
     <nav className="articles-nav" aria-label={t("Articles")}>
       <button
@@ -40,11 +55,19 @@ function ArticlesNav({ store }: { store: ArticlesStore }) {
       >
         {t("New article")}
       </button>
+      <input
+        className="ui-input articles-search"
+        type="search"
+        value={query}
+        placeholder={t("Search articles")}
+        aria-label={t("Search articles")}
+        onChange={(event) => setQuery(event.target.value)}
+      />
       <ul className="articles-list">
-        {articles.length === 0 ? (
+        {filtered.length === 0 ? (
           <li className="articles-empty">{t("No articles yet")}</li>
         ) : (
-          articles.map((article) => (
+          filtered.map((article) => (
             <li key={article.slug}>
               <button
                 type="button"

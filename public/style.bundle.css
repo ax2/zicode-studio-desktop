@@ -10606,6 +10606,15 @@ body.notes-dragging .notes-result-item {
   padding: var(--space-3);
 }
 
+.articles-search {
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+
 .articles-list {
   list-style: none;
   margin: 0;

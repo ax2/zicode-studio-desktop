@@ -1113,6 +1113,7 @@ const zhCN = {
   "Open Article Studio": "打开文章创作",
   "New article": "新建文章",
   "No articles yet": "还没有文章",
+  "Search articles": "搜索文章",
   Slug: "链接标识",
   "Markdown content": "Markdown 内容",
   "Sync to WeChat draft": "同步到公众号草稿",
