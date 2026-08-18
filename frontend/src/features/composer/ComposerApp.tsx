@@ -433,8 +433,8 @@ export function ComposerApp({
                 <button
                   type="button"
                   className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-clear-btn"
-                  title={t("Clear all")}
-                  aria-label={t("Clear all")}
+                  title={t("Clear input")}
+                  aria-label={t("Clear input")}
                   onClick={() => {
                     if (inputRef.current) {
                       inputRef.current.value = "";

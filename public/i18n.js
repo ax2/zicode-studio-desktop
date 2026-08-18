@@ -131,6 +131,7 @@ const zhCN = {
   "Add to inbox": "添加到收件箱",
   "Paste from clipboard": "从剪贴板粘贴",
   "Clear all": "清空全部",
+  "Clear input": "清空输入",
   "Clear the clipboard inbox? This cannot be undone.":
     "清空剪贴板收件箱？此操作无法撤销。",
   "No captured items yet": "还没有捕获的内容",
