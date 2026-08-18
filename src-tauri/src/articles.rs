@@ -44,6 +44,32 @@ pub fn article_dir(system_root: &Path) -> PathBuf {
     system_root.join("articles").join("blog")
 }
 
+/// Translate a WSL Linux path into the Windows-accessible UNC path. On Windows,
+/// `PathBuf::from("/home/alex/...")` does not reach the WSL filesystem, so a
+/// source directory pasted from the WSL shell must be mapped to
+/// `\\wsl.localhost\Ubuntu\home\alex\...`. `/mnt/<drive>/...` maps to the
+/// corresponding Windows drive.
+pub fn translate_source_dir(input: &str) -> String {
+    let trimmed = input.trim();
+    #[cfg(windows)]
+    {
+        if let Some(rest) = trimmed.strip_prefix("/mnt/") {
+            let mut chars = rest.chars();
+            if let Some(drive) = chars.next() {
+                return format!(
+                    "{}:{}",
+                    drive.to_ascii_uppercase(),
+                    chars.as_str().replace('/', "\\")
+                );
+            }
+        }
+        if trimmed.starts_with('/') {
+            return format!("\\\\wsl.localhost\\Ubuntu{}", trimmed.replace('/', "\\"));
+        }
+    }
+    trimmed.to_string()
+}
+
 /// Split a document into (frontmatter_text, body). The frontmatter text is the
 /// raw content between the first two `---` fences (without the fences).
 fn split_frontmatter(text: &str) -> Option<(String, String)> {
@@ -300,7 +326,7 @@ fn rewrite_frontmatter(
 /// directory (for example the WSL `astro-site/src/content/blog` path) into the
 /// article store. Returns the number of copied posts.
 pub fn sync_from_dir(system_root: &Path, source_dir: &str) -> Result<usize, String> {
-    let source = PathBuf::from(source_dir);
+    let source = PathBuf::from(translate_source_dir(source_dir));
     if !source.is_dir() {
         return Err("Source blog directory does not exist".to_string());
     }
@@ -392,5 +418,19 @@ wechatDraftMediaId: "qAewqDXX"
         assert_eq!(copied, 2);
         assert_eq!(list(&root).unwrap().len(), 2);
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn translates_wsl_paths_to_windows_unc_paths() {
+        assert_eq!(
+            translate_source_dir("/home/alex/work/www.zicode.com"),
+            "\\\\wsl.localhost\\Ubuntu\\home\\alex\\work\\www.zicode.com"
+        );
+        assert_eq!(translate_source_dir("/mnt/c/Users/alex"), "C:\\Users\\alex");
+        assert_eq!(
+            translate_source_dir("C:\\already\\windows"),
+            "C:\\already\\windows"
+        );
     }
 }

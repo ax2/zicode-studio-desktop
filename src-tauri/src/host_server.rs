@@ -2995,7 +2995,7 @@ fn resolve_article_thumb(
         .as_deref()
         .ok_or_else(|| "Blog source directory is not configured".to_string())?;
     let relative = hero.trim_start_matches('/');
-    let candidate = std::path::Path::new(source_dir)
+    let candidate = std::path::Path::new(&crate::articles::translate_source_dir(source_dir))
         .join("public")
         .join(relative);
     if !candidate.is_file() {
