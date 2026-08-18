@@ -396,13 +396,36 @@ async function main() {
     }
     const sessionUrl = `${HOST}/app/workspaces/${ws}/sessions/${session}`;
 
+    // Finance is scene-gated: opening it in a non-finance session renders the
+    // scene guard instead of the research/paper/backtest forms. Create a
+    // finance-scene session here so the QA pass exercises the real workbench
+    // rather than always reporting `sceneGuard: true`. If creating the session
+    // fails, fall back to the original URL so the guard diagnostic is still
+    // captured.
+    let financeUrl = `${sessionUrl}?app=com.zicode.finance`;
+    try {
+      const financeResponse = await fetch(`${HOST}/v2/new-session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspaceId: ws, sceneId: "finance" }),
+      });
+      if (financeResponse.ok) {
+        const financeTarget = await financeResponse.json();
+        if (financeTarget?.sessionId) {
+          financeUrl = `${HOST}/app/workspaces/${ws}/sessions/${financeTarget.sessionId}?app=com.zicode.finance`;
+        }
+      }
+    } catch {
+      // Keep the scene-guard URL; the existing diagnostic remains useful.
+    }
+
     const allApps = [
       ["chat", `${sessionUrl}`],
       ["notes", `${sessionUrl}?app=com.zicode.notes`],
       ["projects", `${sessionUrl}?app=com.zicode.projects`],
       ["tasks", `${sessionUrl}?app=com.zicode.tasks`],
       ["automation", `${sessionUrl}?app=com.zicode.automation`],
-      ["finance", `${sessionUrl}?app=com.zicode.finance`],
+      ["finance", financeUrl],
       ["graph", `${sessionUrl}?app=com.zicode.graph`],
       ["translate", `${sessionUrl}?app=com.zicode.translate`],
       ["habits", `${sessionUrl}?app=com.zicode.habits`],
