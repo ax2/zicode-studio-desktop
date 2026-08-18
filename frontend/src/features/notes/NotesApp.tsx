@@ -2659,7 +2659,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
                     outlineCollapsed ? t("Expand outline") : t("Collapse outline")
                   }
                   aria-label={
-                    outlineCollapsed ? t("Expand outline") : t("Collapse outline")
+                    outlineCollapsed
+                      ? `${t("Expand outline")} (${outline.length})`
+                      : `${t("Collapse outline")} (${outline.length})`
                   }
                   onClick={() => setOutlineCollapsed((value) => !value)}
                 >
