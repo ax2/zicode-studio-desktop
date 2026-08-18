@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
 
+const AUTOSAVE_DELAY_MS = 1200;
+
 export interface ArticlesScope {
   sceneId: string;
   workspaceId: string;
@@ -233,7 +235,7 @@ export interface ArticlesState {
   newArticle(): void;
   setMarkdown(markdown: string): void;
   setSlug(slug: string): void;
-  save(): Promise<void>;
+  save(silent?: boolean): Promise<void>;
   remove(slug: string): Promise<void>;
   syncFromSource(sourceDir: string): Promise<void>;
   syncWechat(publish: boolean): Promise<void>;
@@ -254,6 +256,18 @@ export function createArticlesStore({
   const resolvedGateway = gateway ?? new ArticlesHttpGateway();
   return create<ArticlesState>((set, get) => {
     const fail = (error: unknown) => friendlyPluginError(error instanceof Error ? error : new Error(String(error)));
+    let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearAutosave = () => {
+      if (autosaveTimer) {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+      }
+    };
+    const scheduleAutosave = () => {
+      clearAutosave();
+      if (!get().draftSlug.trim()) return;
+      autosaveTimer = setTimeout(() => void get().save(true), AUTOSAVE_DELAY_MS);
+    };
     return {
       articles: [],
       current: null,
@@ -272,6 +286,7 @@ export function createArticlesStore({
         }
       },
       async open(slug) {
+        clearAutosave();
         set({ busy: true, error: "" });
         try {
           const article = await resolvedGateway.read(getTarget(), slug);
@@ -281,32 +296,39 @@ export function createArticlesStore({
         }
       },
       newArticle() {
+        clearAutosave();
         const markdown = "---\ntitle: \"\"\ndescription: \"\"\npubDate: \"\"\nslug: \"\"\ndraft: false\ntags: []\n---\n\n";
         set({ current: null, draftMarkdown: markdown, draftSlug: "", error: "" });
       },
       setMarkdown(markdown) {
         set({ draftMarkdown: markdown });
+        scheduleAutosave();
       },
       setSlug(slug) {
         set({ draftSlug: slug });
+        scheduleAutosave();
       },
-      async save() {
+      async save(silent = false) {
+        clearAutosave();
         const { draftSlug, draftMarkdown } = get();
         if (!draftSlug.trim()) {
-          set({ error: t("Article slug is required.") });
+          if (!silent) set({ error: t("Article slug is required.") });
           return;
         }
-        set({ busy: true, error: "" });
+        if (!silent) set({ busy: true, error: "" });
         try {
           await resolvedGateway.save(getTarget(), draftSlug.trim(), draftMarkdown);
-          notify?.({ message: t("Article saved"), type: "success" });
-          await get().load();
-          set({ busy: false });
+          if (!silent) {
+            notify?.({ message: t("Article saved"), type: "success" });
+            await get().load();
+            set({ busy: false });
+          }
         } catch (error) {
           set({ busy: false, error: fail(error) });
         }
       },
       async remove(slug) {
+        clearAutosave();
         set({ busy: true, error: "" });
         try {
           await resolvedGateway.delete(getTarget(), slug);
