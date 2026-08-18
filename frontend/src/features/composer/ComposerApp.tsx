@@ -110,6 +110,7 @@ export function ComposerApp({
 
   const [listening, setListening] = useState(false);
   const [voiceError, setVoiceError] = useState(false);
+  const [hasText, setHasText] = useState(false);
   const recognitionRef = useRef<{ abort(): void } | null>(null);
   const speechGlobals = globalThis as unknown as {
     SpeechRecognition?: new () => SpeechRecognitionInstance;
@@ -374,6 +375,7 @@ export function ComposerApp({
               }, 0);
             }}
             onInput={(event) => {
+              setHasText(Boolean(event.currentTarget.value));
               updateSlashFromInput(event.currentTarget);
             }}
             onClick={(event) => {
@@ -427,6 +429,26 @@ export function ComposerApp({
           ></textarea>
           <div className="composer-toolbar">
             <div className="composer-toolbar-left">
+              {hasText ? (
+                <button
+                  type="button"
+                  className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-clear-btn"
+                  title={t("Clear all")}
+                  aria-label={t("Clear all")}
+                  onClick={() => {
+                    if (inputRef.current) {
+                      inputRef.current.value = "";
+                      inputRef.current.dispatchEvent(
+                        new Event("input", { bubbles: true }),
+                      );
+                      inputRef.current.focus();
+                      setHasText(false);
+                    }
+                  }}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="ui-icon-button ui-icon-button--sm ui-icon-button--ghost input-icon-btn"

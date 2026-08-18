@@ -86,6 +86,20 @@ describe("composer React shell", () => {
     expect((elements?.abortButton as HTMLButtonElement)?.classList.contains("hidden")).toBe(true);
   });
 
+  it("clears the draft with the clear button", async () => {
+    const elements = mountComposer();
+    const input = elements?.input as HTMLTextAreaElement;
+    await typeSlash(input, "hello");
+    const clear = document.querySelector(
+      ".input-clear-btn",
+    ) as HTMLButtonElement;
+    expect(clear).toBeTruthy();
+    clear.click();
+    expect(input.value).toBe("");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector(".input-clear-btn")).toBeNull();
+  });
+
   it("returns null when the composer root is absent", () => {
     expect(setupComposer()).toBeNull();
   });
