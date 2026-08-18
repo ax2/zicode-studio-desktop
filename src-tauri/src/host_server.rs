@@ -2628,6 +2628,8 @@ struct BlogConfigPatch {
     remote_dir: String,
     #[serde(default)]
     source_dir: Option<String>,
+    #[serde(default)]
+    reset_host_key: bool,
 }
 
 #[derive(Deserialize)]
@@ -2773,7 +2775,11 @@ async fn save_articles_config_http(
         password,
         remote_dir: request.blog.remote_dir,
         source_dir: request.blog.source_dir,
-        host_key_fingerprint: existing.blog.host_key_fingerprint.clone(),
+        host_key_fingerprint: if request.blog.reset_host_key {
+            None
+        } else {
+            existing.blog.host_key_fingerprint.clone()
+        },
     };
     crate::articles_config::save(&system_root, &updated)
         .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "config_save_failed", &error))?;

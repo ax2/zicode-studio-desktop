@@ -53,7 +53,7 @@ export function ArticlesConfigTab({ getSceneId }: { getSceneId: () => string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function save() {
+  async function save(resetHostKey = false) {
     setBusy(true);
     setError("");
     try {
@@ -75,6 +75,7 @@ export function ArticlesConfigTab({ getSceneId }: { getSceneId: () => string }) 
             password,
             remoteDir: config.blog.remoteDir,
             sourceDir: config.blog.sourceDir,
+            resetHostKey,
           },
         },
       );
@@ -227,6 +228,14 @@ export function ArticlesConfigTab({ getSceneId }: { getSceneId: () => string }) 
         onClick={() => void save()}
       >
         {t("Save")}
+      </button>
+      <button
+        type="button"
+        className="ui-button ui-button--ghost"
+        disabled={busy || !config.blog.host}
+        onClick={() => void save(true)}
+      >
+        {t("Reset host key")}
       </button>
     </div>
   );

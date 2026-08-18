@@ -75,6 +75,7 @@ export interface SaveArticlesConfig {
     password: string;
     remoteDir: string;
     sourceDir: string | null;
+    resetHostKey?: boolean;
   };
 }
 
@@ -195,6 +196,7 @@ export class ArticlesHttpGateway implements ArticlesGateway {
           password: config.blog.password,
           remoteDir: config.blog.remoteDir,
           sourceDir: config.blog.sourceDir,
+          resetHostKey: config.blog.resetHostKey === true,
         },
       }),
     }) as Promise<{ ok: boolean }>;

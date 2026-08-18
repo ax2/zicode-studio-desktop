@@ -1160,6 +1160,7 @@ const zhCN = {
   Password: "密码",
   Configured: "已配置",
   "Remote directory": "远程目录",
+  "Reset host key": "重置主机密钥",
   Help: "帮助",
   Command: "命令",
   Commands: "命令",
