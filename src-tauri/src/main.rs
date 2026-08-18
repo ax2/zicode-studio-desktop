@@ -1,6 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_paths;
+mod article_markdown;
+mod articles;
+mod articles_config;
 mod artifact_store;
 mod backup_store;
 mod clipboard_inbox;
@@ -39,6 +42,7 @@ mod translation;
 mod turn_probe;
 mod web_extract;
 mod web_watch;
+mod wechat_publish;
 
 use host_server::HostServer;
 use metadata_store::MetadataStore;

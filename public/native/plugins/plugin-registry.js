@@ -272,6 +272,22 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     ],
     commands: [{ id: "artifacts.export", label: "Export", icon: "export" }],
   },
+  {
+    id: "com.zicode.articles",
+    name: "Articles",
+    description: "Create and publish articles to the Astro blog and WeChat Official Account.",
+    icon: "articles",
+    order: 270,
+    enabledByDefault: false,
+    sidebarViews: [
+      {
+        id: "articles.posts",
+        title: "Posts",
+        description: "Your synced blog posts will appear here.",
+      },
+    ],
+    commands: [{ id: "articles.open", label: "Open Article Studio", icon: "open" }],
+  },
 ]);
 
 export class BuiltinPluginRegistry {

@@ -31,6 +31,7 @@ describe("BuiltinPluginRegistry", () => {
       "com.zicode.clipboard",
       "com.zicode.documents",
       "com.zicode.artifacts",
+      "com.zicode.articles",
     ]);
     await expect(registry.setEnabled("core.chat", false)).rejects.toThrow("required core plugin");
   });

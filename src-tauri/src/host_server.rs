@@ -410,6 +410,20 @@ impl HostServer {
                 "/v2/ocr/extract",
                 post(extract_text_http).layer(DefaultBodyLimit::max(MAX_IDPHOTO_HTTP_BODY_BYTES)),
             )
+            .route("/v2/articles", get(list_articles_http))
+            .route("/v2/articles/article", get(read_article_http))
+            .route("/v2/articles/save", post(save_article_http))
+            .route("/v2/articles/delete", post(delete_article_http))
+            .route("/v2/articles/sync", post(sync_articles_http))
+            .route(
+                "/v2/articles/config",
+                get(get_articles_config_http).post(save_articles_config_http),
+            )
+            .route("/v2/articles/wechat/sync", post(wechat_sync_article_http))
+            .route(
+                "/v2/articles/wechat/publish",
+                post(wechat_publish_article_http),
+            )
             .route("/v2/artifacts", get(list_artifacts))
             .route("/v2/artifacts/item", get(get_artifact))
             .route("/v2/artifacts/create", post(create_artifact))
@@ -2533,6 +2547,446 @@ async fn translate_http(
             "Cannot serialize translation result",
         )
     })?))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArticlesSceneQuery {
+    scene_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReadArticleQuery {
+    scene_id: String,
+    slug: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveArticleRequest {
+    scene_id: String,
+    slug: String,
+    markdown: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteArticleRequest {
+    scene_id: String,
+    slug: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncArticlesRequest {
+    scene_id: String,
+    source_dir: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveArticlesConfigRequest {
+    scene_id: String,
+    wechat: WechatConfigPatch,
+    blog: BlogConfigPatch,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WechatConfigPatch {
+    #[serde(default)]
+    app_id: String,
+    #[serde(default)]
+    app_secret: String,
+    #[serde(default)]
+    site_url: String,
+    #[serde(default)]
+    author: String,
+    #[serde(default)]
+    thumb_image_path: Option<String>,
+    #[serde(default)]
+    open_comment: bool,
+    #[serde(default)]
+    fans_can_comment: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BlogConfigPatch {
+    #[serde(default)]
+    host: String,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
+    password: String,
+    #[serde(default)]
+    remote_dir: String,
+    #[serde(default)]
+    source_dir: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WechatSyncArticleRequest {
+    scene_id: String,
+    slug: String,
+    #[serde(default)]
+    publish: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WechatPublishArticleRequest {
+    scene_id: String,
+    slug: String,
+}
+
+fn articles_system_root() -> Result<PathBuf, (StatusCode, Json<Value>)> {
+    crate::app_paths::system_root()
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "system root unavailable"))
+}
+
+async fn list_articles_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ArticlesSceneQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &query.scene_id)?;
+    let system_root = articles_system_root()?;
+    let articles = crate::articles::list(&system_root).map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "articles_unavailable",
+            &error,
+        )
+    })?;
+    Ok(Json(json!({ "articles": articles })))
+}
+
+async fn read_article_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ReadArticleQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &query.scene_id)?;
+    let system_root = articles_system_root()?;
+    let article = crate::articles::read(&system_root, &query.slug)
+        .map_err(|error| plugin_api_error(StatusCode::NOT_FOUND, "article_not_found", &error))?;
+    Ok(Json(serde_json::to_value(article).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize article",
+        )
+    })?))
+}
+
+async fn save_article_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<SaveArticleRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    crate::articles::save(&system_root, &request.slug, &request.markdown)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "invalid_article", &error))?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn delete_article_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<DeleteArticleRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    let deleted = crate::articles::delete(&system_root, &request.slug)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "invalid_article", &error))?;
+    Ok(Json(json!({ "deleted": deleted })))
+}
+
+async fn sync_articles_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<SyncArticlesRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    let copied = crate::articles::sync_from_dir(&system_root, &request.source_dir)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "sync_failed", &error))?;
+    Ok(Json(json!({ "copied": copied })))
+}
+
+async fn get_articles_config_http(
+    State(state): State<Arc<HostState>>,
+    Query(query): Query<ArticlesSceneQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &query.scene_id)?;
+    let system_root = articles_system_root()?;
+    let config = crate::articles_config::load(&system_root).map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "config_unavailable",
+            &error,
+        )
+    })?;
+    Ok(Json(crate::articles_config::redacted(&config)))
+}
+
+async fn save_articles_config_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<SaveArticlesConfigRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    let existing = crate::articles_config::load(&system_root).map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "config_unavailable",
+            &error,
+        )
+    })?;
+
+    let app_secret = if request.wechat.app_secret.is_empty() {
+        existing.wechat.app_secret
+    } else {
+        request.wechat.app_secret
+    };
+    let password = if request.blog.password.is_empty() {
+        existing.blog.password
+    } else {
+        request.blog.password
+    };
+
+    let mut updated = crate::articles_config::ArticlePublishingConfig::default();
+    updated.wechat = crate::articles_config::WechatConfig {
+        app_id: request.wechat.app_id,
+        app_secret,
+        site_url: request.wechat.site_url,
+        author: request.wechat.author,
+        thumb_image_path: request.wechat.thumb_image_path,
+        open_comment: request.wechat.open_comment,
+        fans_can_comment: request.wechat.fans_can_comment,
+    };
+    updated.blog = crate::articles_config::BlogServerConfig {
+        host: request.blog.host,
+        username: request.blog.username,
+        password,
+        remote_dir: request.blog.remote_dir,
+        source_dir: request.blog.source_dir,
+    };
+    crate::articles_config::save(&system_root, &updated)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "config_save_failed", &error))?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn wechat_sync_article_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<WechatSyncArticleRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    let config = crate::articles_config::load(&system_root).map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "config_unavailable",
+            &error,
+        )
+    })?;
+    let article = crate::articles::read(&system_root, &request.slug)
+        .map_err(|error| plugin_api_error(StatusCode::NOT_FOUND, "article_not_found", &error))?;
+
+    let content = crate::article_markdown::markdown_to_html(&crate::articles::markdown_body(
+        &article.markdown,
+    ));
+    let digest = article
+        .summary
+        .description
+        .chars()
+        .take(120)
+        .collect::<String>();
+    let source_url = format!(
+        "{}/blog/{}/",
+        config.wechat.site_url.trim_end_matches('/'),
+        article.summary.slug
+    );
+
+    let token = crate::wechat_publish::get_access_token(&config.wechat)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?;
+
+    let thumb_media_id = if let Some(hero) = article.summary.hero_image.as_deref() {
+        resolve_article_thumb(&config, hero)
+            .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "thumb_failed", &error))?
+            .and_then(|(bytes, filename, mime)| {
+                crate::wechat_publish::upload_thumb_image(&token, &bytes, &filename, &mime).ok()
+            })
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let draft = crate::wechat_publish::WechatDraftArticle {
+        title: article.summary.title,
+        author: config.wechat.author,
+        digest,
+        content,
+        content_source_url: source_url,
+        thumb_media_id,
+        need_open_comment: config.wechat.open_comment,
+        only_fans_can_comment: config.wechat.fans_can_comment,
+    };
+
+    let media_id = match article.summary.wechat_draft_media_id.as_deref() {
+        Some(existing) if !existing.is_empty() => {
+            crate::wechat_publish::update_draft(&token, existing, 0, &draft).map_err(|error| {
+                plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error)
+            })?;
+            existing.to_string()
+        }
+        _ => crate::wechat_publish::create_draft(&token, &draft)
+            .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?,
+    };
+
+    crate::articles::upsert_frontmatter_field(
+        &system_root,
+        &request.slug,
+        "wechatDraftMediaId",
+        &media_id,
+    )
+    .map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "frontmatter_update_failed",
+            &error,
+        )
+    })?;
+
+    let mut publish_id: Option<String> = None;
+    if request.publish {
+        publish_id = Some(
+            crate::wechat_publish::publish(&token, &media_id).map_err(|error| {
+                plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error)
+            })?,
+        );
+        if let Some(id) = publish_id.as_deref() {
+            if !id.is_empty() {
+                crate::articles::upsert_frontmatter_field(
+                    &system_root,
+                    &request.slug,
+                    "wechatPublishId",
+                    id,
+                )
+                .ok();
+            }
+        }
+    }
+
+    Ok(Json(json!({
+        "ok": true,
+        "mediaId": media_id,
+        "publishId": publish_id,
+    })))
+}
+
+async fn wechat_publish_article_http(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<WechatPublishArticleRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_articles_authorized(&state, &request.scene_id)?;
+    let system_root = articles_system_root()?;
+    let config = crate::articles_config::load(&system_root).map_err(|error| {
+        plugin_api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "config_unavailable",
+            &error,
+        )
+    })?;
+    let article = crate::articles::read(&system_root, &request.slug)
+        .map_err(|error| plugin_api_error(StatusCode::NOT_FOUND, "article_not_found", &error))?;
+    let media_id = article
+        .summary
+        .wechat_draft_media_id
+        .as_deref()
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::PRECONDITION_FAILED,
+                "wechat_draft_missing",
+                "Article has not been synced to a WeChat draft yet",
+            )
+        })?;
+    let token = crate::wechat_publish::get_access_token(&config.wechat)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?;
+    let publish_id = crate::wechat_publish::publish(&token, media_id)
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "wechat_failed", &error))?;
+    if !publish_id.is_empty() {
+        crate::articles::upsert_frontmatter_field(
+            &system_root,
+            &request.slug,
+            "wechatPublishId",
+            &publish_id,
+        )
+        .ok();
+    }
+    Ok(Json(json!({ "ok": true, "publishId": publish_id })))
+}
+
+/// Resolve an article hero image (absolute URL or a local public asset path)
+/// to (bytes, filename, mime) for the WeChat cover upload.
+fn resolve_article_thumb(
+    config: &crate::articles_config::ArticlePublishingConfig,
+    hero: &str,
+) -> Result<Option<(Vec<u8>, String, String)>, String> {
+    if hero.starts_with("http://") || hero.starts_with("https://") {
+        let response = reqwest::blocking::get(hero)
+            .map_err(|error| format!("Cannot download hero image: {error}"))?;
+        if !response.status().is_success() {
+            return Ok(None);
+        }
+        let bytes = response
+            .bytes()
+            .map_err(|error| format!("Cannot read hero image: {error}"))?
+            .to_vec();
+        let filename = hero.rsplit('/').next().unwrap_or("cover.png").to_string();
+        let mime = image_mime_from_name(&filename)
+            .unwrap_or("image/png")
+            .to_string();
+        return Ok(Some((bytes, filename, mime)));
+    }
+    let source_dir = config
+        .blog
+        .source_dir
+        .as_deref()
+        .ok_or_else(|| "Blog source directory is not configured".to_string())?;
+    let relative = hero.trim_start_matches('/');
+    let candidate = std::path::Path::new(source_dir)
+        .join("public")
+        .join(relative);
+    if !candidate.is_file() {
+        return Ok(None);
+    }
+    let bytes =
+        std::fs::read(&candidate).map_err(|error| format!("Cannot read hero image: {error}"))?;
+    let filename = candidate
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("cover.png")
+        .to_string();
+    let mime = image_mime_from_name(&filename)
+        .unwrap_or("image/png")
+        .to_string();
+    Ok(Some((bytes, filename, mime)))
+}
+
+fn image_mime_from_name(name: &str) -> Option<&'static str> {
+    match std::path::Path::new(name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
 }
 
 #[derive(Deserialize)]
@@ -4833,6 +5287,40 @@ fn ensure_watch_authorized(
     Ok(())
 }
 
+fn ensure_articles_authorized(
+    state: &HostState,
+    scene_id: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let plugin = registry
+        .list(scene_id)
+        .into_iter()
+        .find(|plugin| plugin.manifest.id == "com.zicode.articles")
+        .filter(|plugin| plugin.enabled)
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "plugin_not_enabled",
+                "Article Publishing is not enabled in this scene",
+            )
+        })?;
+    if !plugin
+        .permission_grants
+        .get("network.fetch")
+        .copied()
+        .unwrap_or(false)
+    {
+        return Err(plugin_api_error(
+            StatusCode::FORBIDDEN,
+            "permission_denied",
+            "Article Publishing network permission is not granted",
+        ));
+    }
+    Ok(())
+}
+
 fn ensure_ocr_authorized(
     state: &HostState,
     scene_id: &str,
@@ -5710,7 +6198,7 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 16);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 17);
         assert!(before["plugins"]
             .as_array()
             .unwrap()

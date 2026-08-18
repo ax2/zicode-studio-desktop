@@ -57,6 +57,7 @@ import { setupHabitsApp } from "./react/habits.js";
 import { setupTranslationApp } from "./react/translate.js";
 import { setupWatchApp } from "./react/watch.js";
 import { setupOcrApp } from "./react/ocr.js";
+import { setupArticlesApp } from "./react/articles.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
 import { setupComposer } from "./react/composer.js";
@@ -988,6 +989,14 @@ const ocrApp = setupOcrApp({
     });
   },
 });
+const articlesApp = setupArticlesApp({
+  getTarget: () => ({
+    sceneId: target.sceneId,
+    workspaceId: target.workspaceId,
+  }),
+  notify: notifications.notify,
+  openSettings: (tab) => settingsPanel?.openSettings(tab ?? "articles"),
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   capabilityGateway: pluginCapabilityGateway,
@@ -1014,6 +1023,7 @@ pluginShell = setupPluginShell({
     "com.zicode.translate": translationApp,
     "com.zicode.watch": watchApp,
     "com.zicode.ocr": ocrApp,
+    "com.zicode.articles": articlesApp,
   },
   pluginViewHost,
   openCommandPalette: () => commandButton?.click(),

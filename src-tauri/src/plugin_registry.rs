@@ -2555,6 +2555,30 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
             false,
             true,
         ),
+        (
+            json!({
+                "schemaVersion": 1,
+                "id": "com.zicode.articles",
+                "name": "Articles",
+                "description": "Create and publish articles to the Astro blog and WeChat Official Account.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "pluginApi": "^1.0.0" },
+                "activationEvents": ["onView:articles.library"],
+                "contributes": {
+                    "activities": [{ "id": "articles", "title": "Articles", "order": 270 }],
+                    "views": [
+                        { "id": "articles.library", "activity": "articles", "location": "main", "title": "Articles" }
+                    ],
+                    "commands": [{ "id": "articles.open", "title": "Open Article Studio" }]
+                },
+                "permissions": {
+                    "required": [{ "name": "network.fetch", "reason": "Publish to WeChat and upload the blog" }]
+                }
+            }),
+            false,
+            false,
+        ),
     ]
 }
 
@@ -2607,7 +2631,7 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 16);
+        assert_eq!(registry.list("programming").len(), 17);
         assert_eq!(registry.capabilities("programming").len(), 16);
         assert!(registry
             .pi_tools("programming")
