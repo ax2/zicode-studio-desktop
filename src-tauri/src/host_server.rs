@@ -2773,6 +2773,7 @@ async fn save_articles_config_http(
         password,
         remote_dir: request.blog.remote_dir,
         source_dir: request.blog.source_dir,
+        host_key_fingerprint: existing.blog.host_key_fingerprint.clone(),
     };
     crate::articles_config::save(&system_root, &updated)
         .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "config_save_failed", &error))?;
@@ -2899,7 +2900,7 @@ async fn blog_publish_articles_http(
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     ensure_articles_authorized(&state, &request.scene_id)?;
     let system_root = articles_system_root()?;
-    let config = crate::articles_config::load(&system_root).map_err(|error| {
+    let mut config = crate::articles_config::load(&system_root).map_err(|error| {
         plugin_api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "config_unavailable",
@@ -2914,13 +2915,23 @@ async fn blog_publish_articles_http(
         ));
     }
     let local_dir = crate::articles::article_dir(&system_root);
-    let uploaded = crate::blog_deploy::upload_directory(
+    let (uploaded, new_fingerprint) = crate::blog_deploy::upload_directory(
         &config.blog,
         &local_dir,
         config.blog.remote_dir.trim_end_matches('/'),
     )
     .await
     .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "blog_publish_failed", &error))?;
+    if let Some(fingerprint) = new_fingerprint {
+        config.blog.host_key_fingerprint = Some(fingerprint);
+        crate::articles_config::save(&system_root, &config).map_err(|error| {
+            plugin_api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "config_save_failed",
+                &error,
+            )
+        })?;
+    }
     Ok(Json(json!({ "ok": true, "uploaded": uploaded })))
 }
 

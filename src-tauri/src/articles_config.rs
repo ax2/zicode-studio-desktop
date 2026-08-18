@@ -71,6 +71,10 @@ pub struct BlogServerConfig {
     /// Local directory containing the Astro source to copy for initial sync.
     #[serde(default)]
     pub source_dir: Option<String>,
+    /// Trust-on-first-use SSH host key fingerprint (SHA-256 hex). Empty until
+    /// the first successful connection.
+    #[serde(default)]
+    pub host_key_fingerprint: Option<String>,
 }
 
 pub fn config_path(system_root: &Path) -> PathBuf {
@@ -154,6 +158,7 @@ mod tests {
                 password: "password-value".to_string(),
                 remote_dir: "/work/zicode-astro".to_string(),
                 source_dir: None,
+                host_key_fingerprint: Some("abc123".to_string()),
             },
         };
         save(&root, &config).unwrap();

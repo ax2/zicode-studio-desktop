@@ -5,35 +5,61 @@
 use crate::articles_config::BlogServerConfig;
 use russh::client;
 use russh_sftp::client::SftpSession;
+use sha2::{Digest, Sha256};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-struct ClientHandler;
+fn host_key_fingerprint(key: &russh::keys::PublicKey) -> Option<String> {
+    let openssh = key.to_openssh().ok()?;
+    Some(format!("{:x}", Sha256::digest(openssh.as_bytes())))
+}
+
+struct ClientHandler {
+    expected_fingerprint: Option<String>,
+    observed_fingerprint: Arc<Mutex<Option<String>>>,
+}
 
 impl client::Handler for ClientHandler {
     type Error = russh::Error;
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::PublicKey,
+        server_public_key: &russh::keys::PublicKey,
     ) -> Result<bool, Self::Error> {
-        // Accept-any matches the reference script's paramiko AutoAddPolicy.
-        Ok(true)
+        let fingerprint = host_key_fingerprint(server_public_key);
+        if let Ok(mut observed) = self.observed_fingerprint.lock() {
+            *observed = fingerprint.clone();
+        }
+        match (&self.expected_fingerprint, fingerprint) {
+            // Trust on first use: no pinned fingerprint yet.
+            (None, _) => Ok(true),
+            (Some(expected), Some(actual)) => Ok(actual == *expected),
+            (Some(_), None) => Ok(false),
+        }
     }
 }
 
-async fn connect(config: &BlogServerConfig) -> Result<SftpSession, String> {
+async fn connect(config: &BlogServerConfig) -> Result<(SftpSession, Option<String>), String> {
     if config.host.is_empty() || config.username.is_empty() || config.password.is_empty() {
         return Err("Blog server host, username, and password are not configured".to_string());
     }
-    let handler = ClientHandler;
+    let observed = Arc::new(Mutex::new(None));
+    let handler = ClientHandler {
+        expected_fingerprint: config.host_key_fingerprint.clone(),
+        observed_fingerprint: observed.clone(),
+    };
     let mut session = client::connect(
         Arc::new(client::Config::default()),
         (config.host.as_str(), 22),
         handler,
     )
     .await
-    .map_err(|error| format!("Cannot connect to blog server {}: {error}", config.host))?;
+    .map_err(|error| {
+        format!(
+            "Cannot connect to blog server {} (host key may have changed): {error}",
+            config.host
+        )
+    })?;
 
     let auth = session
         .authenticate_password(&config.username, &config.password)
@@ -51,9 +77,18 @@ async fn connect(config: &BlogServerConfig) -> Result<SftpSession, String> {
         .request_subsystem(true, "sftp")
         .await
         .map_err(|error| format!("Blog server does not provide SFTP: {error}"))?;
-    SftpSession::new(channel.into_stream())
+    let sftp = SftpSession::new(channel.into_stream())
         .await
-        .map_err(|error| format!("Cannot initialize SFTP: {error}"))
+        .map_err(|error| format!("Cannot initialize SFTP: {error}"))?;
+    let new_fingerprint = if config.host_key_fingerprint.is_none() {
+        observed
+            .lock()
+            .ok()
+            .and_then(|fingerprint| fingerprint.clone())
+    } else {
+        None
+    };
+    Ok((sftp, new_fingerprint))
 }
 
 async fn ensure_remote_dir(sftp: &SftpSession, remote_dir: &str) -> Result<(), String> {
@@ -72,11 +107,11 @@ pub async fn upload_directory(
     config: &BlogServerConfig,
     local_dir: &Path,
     remote_dir: &str,
-) -> Result<usize, String> {
+) -> Result<(usize, Option<String>), String> {
     if !local_dir.is_dir() {
         return Err("Local directory to publish does not exist".to_string());
     }
-    let sftp = connect(config).await?;
+    let (sftp, new_fingerprint) = connect(config).await?;
     ensure_remote_dir(&sftp, remote_dir).await?;
 
     let mut uploaded = 0usize;
@@ -114,5 +149,5 @@ pub async fn upload_directory(
             }
         }
     }
-    Ok(uploaded)
+    Ok((uploaded, new_fingerprint))
 }
