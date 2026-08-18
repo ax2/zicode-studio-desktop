@@ -2751,6 +2751,7 @@ describe("notes React components", () => {
     render(<NotesContent store={store} />);
     const discuss = document.querySelector(".notes-use-in-chat") as HTMLButtonElement;
     expect(discuss.disabled).toBe(true);
+    expect(discuss.title).toBe(t("The input is empty or incomplete."));
   });
 
   it("labels Discuss-in-Chat as a selection when text is selected", async () => {

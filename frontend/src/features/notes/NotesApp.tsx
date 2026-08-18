@@ -2281,6 +2281,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
         role={role}
         hint={`Ctrl+Enter · ${t("Selected text or whole note")}`}
         disabled={!draftContent.trim()}
+        title={
+          !draftContent.trim() ? t("The input is empty or incomplete.") : undefined
+        }
         onClick={() => {
           setMoreOpen(false);
           void store.getState().discussInChat(
@@ -3003,6 +3006,7 @@ function ToolbarButton({
   busy,
   hint,
   role,
+  title,
   onClick,
 }: {
   label: string;
@@ -3014,6 +3018,7 @@ function ToolbarButton({
   busy?: boolean;
   hint?: string;
   role?: string;
+  title?: string;
   onClick(): void;
 }) {
   return (
@@ -3025,7 +3030,7 @@ function ToolbarButton({
       aria-pressed={ariaPressed}
       aria-busy={busy}
       aria-label={hint ? `${label} (${hint})` : label}
-      title={hint ? `${label} (${hint})` : label}
+      title={title ?? (hint ? `${label} (${hint})` : label)}
       onClick={onClick}
     >
       <Icon svg={icon} />
