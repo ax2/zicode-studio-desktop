@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+// @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
+import { renderMarkdown } from "../../../../public/ui/markdown.js";
 import {
   createArticlesStore,
   type ArticlesGateway,
@@ -76,6 +78,7 @@ function ArticlesMain({
   const error = store((state) => state.error);
   const notice = store((state) => state.notice);
   const [sourceDir, setSourceDir] = useState("");
+  const [preview, setPreview] = useState(false);
 
   return (
     <div className="articles-main">
@@ -108,13 +111,39 @@ function ArticlesMain({
       </section>
 
       <section className="ui-card articles-editor">
-        <textarea
-          className="articles-textarea"
-          value={draftMarkdown}
-          aria-label={t("Markdown content")}
-          rows={20}
-          onChange={(event) => store.getState().setMarkdown(event.target.value)}
-        />
+        <div className="articles-editor-toolbar">
+          <button
+            type="button"
+            className={`ui-button ui-button--ghost ui-button--sm${preview ? "" : " active"}`}
+            aria-pressed={!preview}
+            onClick={() => setPreview(false)}
+          >
+            {t("Edit")}
+          </button>
+          <button
+            type="button"
+            className={`ui-button ui-button--ghost ui-button--sm${preview ? " active" : ""}`}
+            aria-pressed={preview}
+            onClick={() => setPreview(true)}
+          >
+            {t("Preview")}
+          </button>
+        </div>
+        {preview ? (
+          <div
+            className="markdown-body articles-preview"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: renderMarkdown escapes HTML before returning the preview
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(draftMarkdown) }}
+          />
+        ) : (
+          <textarea
+            className="articles-textarea"
+            value={draftMarkdown}
+            aria-label={t("Markdown content")}
+            rows={20}
+            onChange={(event) => store.getState().setMarkdown(event.target.value)}
+          />
+        )}
       </section>
 
       {error ? (

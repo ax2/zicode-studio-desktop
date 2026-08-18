@@ -122,6 +122,27 @@
   resize: vertical;
 }
 
+.articles-editor-toolbar {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.articles-editor-toolbar .ui-button.active {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.articles-preview {
+  min-height: 320px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+  overflow-wrap: break-word;
+}
+
 .articles-actions {
   display: flex;
   flex-wrap: wrap;
