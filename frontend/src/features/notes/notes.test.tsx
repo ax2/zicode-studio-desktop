@@ -2756,6 +2756,7 @@ describe("notes React components", () => {
     ) as HTMLButtonElement;
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
     expect(toggle?.getAttribute("title")).toBe(t("Collapse outline"));
+    expect(toggle?.getAttribute("aria-controls")).toBe("notes-outline-list");
     expect(container.querySelector(".notes-outline ol")).toBeTruthy();
 
     toggle.click();

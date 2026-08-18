@@ -2618,6 +2618,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   type="button"
                   className="notes-outline-toggle"
                   aria-expanded={!outlineCollapsed}
+                  aria-controls="notes-outline-list"
                   title={
                     outlineCollapsed ? t("Expand outline") : t("Collapse outline")
                   }
@@ -2633,6 +2634,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
               </div>
               {!outlineCollapsed ? (
                 <ol
+                  id="notes-outline-list"
                   ref={outlineListRef}
                   onKeyDown={(event) => {
                     const items = Array.from(
