@@ -157,8 +157,12 @@ fn parse_frontmatter(text: &str) -> HashMap<String, FmValue> {
 
 fn str_field(values: &HashMap<String, FmValue>, key: &str) -> Option<String> {
     match values.get(key) {
-        Some(FmValue::Str(value)) => Some(value.clone()),
-        Some(FmValue::List(items)) => items.first().cloned(),
+        Some(FmValue::Str(value)) if !value.trim().is_empty() => Some(value.clone()),
+        Some(FmValue::Str(_)) => None,
+        Some(FmValue::List(items)) => items
+            .first()
+            .filter(|item| !item.trim().is_empty())
+            .cloned(),
         None => None,
     }
 }
@@ -439,6 +443,22 @@ wechatDraftMediaId: "qAewqDXX"
         );
         assert_eq!(summary.wechat_draft_media_id.as_deref(), Some("qAewqDXX"));
         assert!(!summary.draft);
+    }
+
+    #[test]
+    fn falls_back_to_file_stem_when_slug_is_empty() {
+        let markdown = r#"---
+title: ""
+description: ""
+pubDate: "2026-03-25"
+slug: ""
+draft: false
+---
+
+正文内容。
+"#;
+        let summary = summary_from_markdown("new-post", markdown, None);
+        assert_eq!(summary.slug, "new-post");
     }
 
     #[test]
