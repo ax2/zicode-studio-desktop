@@ -196,6 +196,17 @@ export function SessionSearchDialogApp({
               }
             }}
           />
+          {query ? (
+            <button
+              type="button"
+              className="session-search-clear"
+              aria-label={t("Clear search")}
+              title={t("Clear search")}
+              onClick={() => controller.setQuery("")}
+            >
+              ×
+            </button>
+          ) : null}
         </div>
         <div
           ref={listRef}

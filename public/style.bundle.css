@@ -4358,6 +4358,27 @@ code {
   color: var(--text-dim);
 }
 
+.session-search-clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.session-search-clear:hover {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
 .session-search-results {
   min-height: 0;
   overflow-y: auto;

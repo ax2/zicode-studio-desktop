@@ -131,6 +131,29 @@ describe("session search dialog", () => {
     handle.dispose();
   });
 
+  it("clears the query with the in-dialog clear button", async () => {
+    const { triggerInput, handle } = mountDialog({
+      getSessions: () => [{ id: "s1", name: "Alpha" }],
+    });
+
+    triggerInput.focus();
+    const input = document.querySelector(
+      ".session-search-dialog-input",
+    ) as HTMLInputElement;
+    input.value = "alpha";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const clear = document.querySelector(
+      ".session-search-clear",
+    ) as HTMLButtonElement;
+    expect(clear).toBeTruthy();
+    clear.click();
+
+    expect(input.value).toBe("");
+    expect(document.querySelector(".session-search-clear")).toBeNull();
+    handle.dispose();
+  });
+
   it("does not select a result while an IME composition is in progress", () => {
     const onSelect = vi.fn();
     const { triggerInput, handle } = mountDialog({
