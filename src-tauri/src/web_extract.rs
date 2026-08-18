@@ -141,6 +141,18 @@ pub fn decode_html_bytes(bytes: &[u8], content_type: &str) -> String {
     if let Ok(text) = std::str::from_utf8(bytes) {
         return text.to_string();
     }
+    // A page that is almost entirely valid UTF-8 (a few corrupt bytes) should
+    // keep its UTF-8 content with replacement characters, not be reinterpreted
+    // wholesale as GB18030, which would garble every valid UTF-8 sequence.
+    let lossy = String::from_utf8_lossy(bytes);
+    if lossy
+        .chars()
+        .filter(|character| *character == '\u{FFFD}')
+        .count()
+        <= 8
+    {
+        return lossy.into_owned();
+    }
     let (text, _, _) = GB18030.decode(bytes);
     text.into_owned()
 }
@@ -738,5 +750,14 @@ mod tests {
         bytes.extend_from_slice(&utf16_bytes);
         let decoded = decode_html_bytes(&bytes, "");
         assert!(decoded.contains("中文正文内容"));
+    }
+
+    #[test]
+    fn preserves_mostly_utf8_when_a_few_bytes_are_corrupt() {
+        let mut bytes = "中文正文内容".as_bytes().to_vec();
+        bytes[1] = 0xFF; // corrupt the second byte of the first UTF-8 char
+        let decoded = decode_html_bytes(&bytes, "");
+        assert!(decoded.contains("文正文内容"));
+        assert!(!decoded.contains("中文正文内容"));
     }
 }
