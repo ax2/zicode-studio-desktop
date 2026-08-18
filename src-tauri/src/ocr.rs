@@ -13,6 +13,10 @@ const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 
 const WINDOWS_OCR_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
+# PowerShell 5.1 encodes redirected stdout with the console code page (GBK on
+# Chinese systems) by default, which corrupts non-ASCII OCR output when Rust
+# reads it as UTF-8. Force UTF-8 so recognized CJK text round-trips cleanly.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
 $null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Foundation, ContentType = WindowsRuntime]
@@ -201,5 +205,14 @@ mod tests {
         assert!(path.exists());
         assert!(path.extension().map(|ext| ext == "png").unwrap_or(false));
         std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn windows_ocr_script_forces_utf8_stdout() {
+        // PowerShell 5.1 defaults to the OEM code page for redirected output,
+        // which turns CJK OCR results into mojibake. Guard the explicit UTF-8
+        // override so a future edit cannot silently regress this.
+        assert!(WINDOWS_OCR_SCRIPT
+            .contains("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8"));
     }
 }
