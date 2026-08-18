@@ -2271,13 +2271,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
     });
   };
 
-  const secondaryActions = (
+  const renderSecondaryActions = (role?: string) => (
     <>
       <ToolbarButton
         label={hasSelection ? t("Discuss selection") : t("Discuss in Chat")}
         icon={ICONS.chat}
         className="notes-use-in-chat"
         variant="ui-button--secondary"
+        role={role}
         hint={`Ctrl+Enter · ${t("Selected text or whole note")}`}
         disabled={!draftContent.trim()}
         onClick={() => {
@@ -2293,6 +2294,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         icon={ICONS.attach}
         className="notes-attach"
         variant="ui-button--ghost"
+        role={role}
         onClick={() => {
           setMoreOpen(false);
           void store.getState().attachFile();
@@ -2304,6 +2306,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         className="notes-download-note"
         variant="ui-button--ghost"
         hint="Ctrl+Shift+D"
+        role={role}
         disabled={!draftContent.trim()}
         onClick={() => {
           setMoreOpen(false);
@@ -2316,6 +2319,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         className="notes-copy-note"
         variant="ui-button--ghost"
         hint="Ctrl+Shift+C"
+        role={role}
         disabled={!draftContent.trim()}
         onClick={() => {
           setMoreOpen(false);
@@ -2331,6 +2335,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         className="notes-duplicate-note"
         variant="ui-button--ghost"
         hint="Ctrl+D"
+        role={role}
         disabled={!draftContent.trim()}
         onClick={() => {
           setMoreOpen(false);
@@ -2340,12 +2345,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
     </>
   );
 
-  const deleteButton = (
+  const renderDeleteButton = (role?: string) => (
     <ToolbarButton
       label={deleteArmed ? t("Confirm delete") : t("Delete")}
       icon={ICONS.trash}
       className={`notes-delete${deleteArmed ? " notes-delete-armed" : ""}`}
       variant="ui-button--danger"
+      role={role}
       onClick={() => {
         if (deleteArmed) setMoreOpen(false);
         armedDelete();
@@ -2406,7 +2412,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                 className="ui-button ui-button--ghost notes-more-btn"
                 aria-label={t("More actions")}
                 title={t("More actions")}
-                aria-haspopup="true"
+                aria-haspopup="menu"
                 aria-expanded={moreOpen}
                 aria-controls="notes-more-menu"
                 onClick={() => setMoreOpen((open) => !open)}
@@ -2417,7 +2423,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
             </>
           ) : (
             <>
-              {secondaryActions}
+              {renderSecondaryActions()}
               <ToolbarButton
                 label={t("Save")}
                 icon={ICONS.save}
@@ -2437,7 +2443,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                       ? t("Unsaved changes")
                       : ""}
               </span>
-              {deleteButton}
+              {renderDeleteButton()}
             </>
           )}
         </div>
@@ -2447,7 +2453,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         <div
           id="notes-more-menu"
           className="notes-more-menu"
-          role="group"
+          role="menu"
           aria-label={t("More actions")}
           ref={moreMenuRef}
           onKeyDown={(event) => {
@@ -2469,8 +2475,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
             items[next]?.focus();
           }}
         >
-          {secondaryActions}
-          {deleteButton}
+          {renderSecondaryActions("menuitem")}
+          {renderDeleteButton("menuitem")}
         </div>
       ) : null}
       {error ? (
@@ -2996,6 +3002,7 @@ function ToolbarButton({
   ariaPressed,
   busy,
   hint,
+  role,
   onClick,
 }: {
   label: string;
@@ -3006,11 +3013,13 @@ function ToolbarButton({
   ariaPressed?: boolean;
   busy?: boolean;
   hint?: string;
+  role?: string;
   onClick(): void;
 }) {
   return (
     <button
       type="button"
+      role={role}
       className={`ui-button ${variant} ${className}`.trim()}
       disabled={disabled}
       aria-pressed={ariaPressed}

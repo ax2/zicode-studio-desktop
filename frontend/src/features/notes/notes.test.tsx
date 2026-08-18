@@ -2543,7 +2543,7 @@ describe("notes React components", () => {
       () => document.querySelector(".notes-more-btn") as HTMLButtonElement,
     );
     expect(moreButton.getAttribute("aria-expanded")).toBe("false");
-    expect(moreButton.getAttribute("aria-haspopup")).toBe("true");
+    expect(moreButton.getAttribute("aria-haspopup")).toBe("menu");
     expect(moreButton.getAttribute("title")).toBe(t("More actions"));
     expect(document.querySelector(".notes-more-menu")).toBeNull();
     expect(document.querySelector(".notes-editor-actions .notes-attach")).toBeNull();
@@ -2552,6 +2552,14 @@ describe("notes React components", () => {
     await waitFor(() =>
       expect(document.querySelector(".notes-more-menu")).toBeTruthy(),
     );
+    expect(
+      document.querySelector(".notes-more-menu")?.getAttribute("role"),
+    ).toBe("menu");
+    expect(
+      document
+        .querySelector(".notes-more-menu .notes-attach")
+        ?.getAttribute("role"),
+    ).toBe("menuitem");
     expect(document.querySelector(".notes-more-menu .notes-attach")).toBeTruthy();
     expect(document.querySelector(".notes-more-menu .notes-delete")).toBeTruthy();
 
