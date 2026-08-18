@@ -212,7 +212,8 @@ mod tests {
         // PowerShell 5.1 defaults to the OEM code page for redirected output,
         // which turns CJK OCR results into mojibake. Guard the explicit UTF-8
         // override so a future edit cannot silently regress this.
-        assert!(WINDOWS_OCR_SCRIPT
-            .contains("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8"));
+        assert!(
+            WINDOWS_OCR_SCRIPT.contains("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8")
+        );
     }
 }

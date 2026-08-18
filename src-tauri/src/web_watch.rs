@@ -109,6 +109,12 @@ fn fetch_page(url: &reqwest::Url) -> Result<(Vec<u8>, Option<String>), String> {
     if !response.status().is_success() {
         return Err(format!("Page returned HTTP {}", response.status()));
     }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .to_string();
     let bytes = response
         .bytes()
         .map_err(|error| format!("Cannot read page body: {error}"))?;
@@ -118,7 +124,8 @@ fn fetch_page(url: &reqwest::Url) -> Result<(Vec<u8>, Option<String>), String> {
             "Page exceeds the {MAX_BODY_BYTES} byte watch limit"
         ));
     }
-    let title = crate::web_extract::extract(&String::from_utf8_lossy(&bytes), url.as_str()).title;
+    let text = crate::web_extract::decode_html_bytes(&bytes, &content_type);
+    let title = crate::web_extract::extract(&text, url.as_str()).title;
     Ok((bytes, Some(title)))
 }
 

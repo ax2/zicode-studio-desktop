@@ -10038,6 +10038,7 @@ dependencies = [
  "dirs 5.0.1",
  "ed25519-dalek",
  "ego-tree",
+ "encoding_rs",
  "fix-path-env",
  "futures-util",
  "hmac",

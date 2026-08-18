@@ -57,6 +57,7 @@ rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
 rustls = { version = "0.23", features = ["aws-lc-rs"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 scraper = "0.21"
+encoding_rs = "0.8"
 ego-tree = "0.9"
 pdf-extract = "0.7.3"
 quick-xml = "0.37"

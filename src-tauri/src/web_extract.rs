@@ -2,6 +2,7 @@
 //! 引用/代码/表格结构，输出可读 Markdown。采集笔记与 Pi 工具共用。
 
 use ego_tree::NodeRef;
+use encoding_rs::{Encoding, GB18030};
 use scraper::{ElementRef, Html, Node, Selector};
 use serde::Serialize;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
@@ -77,6 +78,65 @@ fn validate_public_url(url: &reqwest::Url) -> Result<(), String> {
     Ok(())
 }
 
+fn parse_charset_from_content_type(content_type: &str) -> Option<String> {
+    let marker = "charset=";
+    let idx = content_type.to_ascii_lowercase().find(marker)?;
+    let rest = &content_type[idx + marker.len()..];
+    rest.split([';', ' ', '"', '\''])
+        .find(|part| !part.is_empty())
+        .map(str::to_string)
+}
+
+/// Best-effort charset sniff from the first `<meta charset=...>` /
+/// `<meta http-equiv="Content-Type" content="...charset=...">` tag.
+fn detect_meta_charset(prefix: &str) -> Option<String> {
+    let lower = prefix.to_ascii_lowercase();
+    let mut rest = lower.as_str();
+    while let Some(start) = rest.find("<meta") {
+        rest = &rest[start + "<meta".len()..];
+        let end = rest.find('>').unwrap_or(rest.len());
+        let tag = &rest[..end];
+        rest = &rest[end..];
+        if let Some(charset) = tag.split("charset=").nth(1).and_then(|value| {
+            value
+                .split(['"', '\'', ' ', '/', '>'])
+                .find(|part| !part.is_empty())
+        }) {
+            return Some(charset.to_string());
+        }
+    }
+    None
+}
+
+/// Decode a captured page body using the charset declared by a BOM, the HTTP
+/// `Content-Type` header, an HTML `<meta>` tag, or a conservative fallback for
+/// legacy GBK/GB2312 pages. Returns lossy UTF-8 so callers never hit a hard
+/// "not UTF-8" failure for a valid non-UTF-8 page.
+pub fn decode_html_bytes(bytes: &[u8], content_type: &str) -> String {
+    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        return String::from_utf8_lossy(&bytes[3..]).into_owned();
+    }
+    if let Some(label) = parse_charset_from_content_type(content_type) {
+        if let Some(encoding) = Encoding::for_label(label.as_bytes()) {
+            let (text, _, _) = encoding.decode(bytes);
+            return text.into_owned();
+        }
+    }
+    let prefix_len = bytes.len().min(2048);
+    let prefix = String::from_utf8_lossy(&bytes[..prefix_len]);
+    if let Some(label) = detect_meta_charset(&prefix) {
+        if let Some(encoding) = Encoding::for_label(label.as_bytes()) {
+            let (text, _, _) = encoding.decode(bytes);
+            return text.into_owned();
+        }
+    }
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_string();
+    }
+    let (text, _, _) = GB18030.decode(bytes);
+    text.into_owned()
+}
+
 /// 阻塞式抓取 + 正文提取，供 Pi 工具与无需异步运行时的调用方使用。
 pub fn fetch_and_extract(raw_url: &str) -> Result<WebArticle, String> {
     const MAX_BYTES: usize = 2 * 1024 * 1024;
@@ -145,8 +205,7 @@ pub fn fetch_and_extract(raw_url: &str) -> Result<WebArticle, String> {
         if bytes.len() > MAX_BYTES {
             return Err("The web page exceeds the 2 MiB capture limit".to_string());
         }
-        let text = String::from_utf8(bytes.to_vec())
-            .map_err(|_| "The web page is not UTF-8 text".to_string())?;
+        let text = decode_html_bytes(&bytes, &content_type);
         let article = if is_plain {
             WebArticle {
                 title: url
@@ -630,5 +689,34 @@ mod tests {
         assert!(!article.content_markdown.contains("广告内容"));
         assert!(!article.content_markdown.contains("评论内容"));
         assert!(!article.content_markdown.contains("首页"));
+    }
+
+    #[test]
+    fn decodes_utf8_body_unchanged() {
+        let text = "中文正文内容 Example";
+        assert_eq!(decode_html_bytes(text.as_bytes(), ""), text);
+    }
+
+    #[test]
+    fn decodes_gbk_body_from_content_type_charset() {
+        let (gbk_bytes, _, _) = encoding_rs::GBK.encode("这是一段中文正文内容");
+        let decoded = decode_html_bytes(&gbk_bytes, "text/html; charset=gbk");
+        assert!(decoded.contains("这是一段中文正文内容"));
+    }
+
+    #[test]
+    fn decodes_gbk_body_from_meta_charset() {
+        let mut bytes = b"<html><head><meta charset=\"gbk\"></head><body>".to_vec();
+        let (gbk_body, _, _) = encoding_rs::GBK.encode("中文正文内容");
+        bytes.extend_from_slice(&gbk_body);
+        let decoded = decode_html_bytes(&bytes, "");
+        assert!(decoded.contains("中文正文内容"));
+    }
+
+    #[test]
+    fn decodes_gbk_body_without_declared_charset() {
+        let (gbk_bytes, _, _) = encoding_rs::GBK.encode("中文正文内容");
+        let decoded = decode_html_bytes(&gbk_bytes, "");
+        assert!(decoded.contains("中文正文内容"));
     }
 }
