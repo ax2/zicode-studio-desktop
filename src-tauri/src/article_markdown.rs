@@ -82,6 +82,28 @@ fn render_inline(text: &str) -> String {
     out
 }
 
+fn is_table_separator(line: &str) -> bool {
+    let trimmed = line.trim();
+    if !trimmed.contains('|') {
+        return false;
+    }
+    trimmed
+        .split('|')
+        .filter(|cell| !cell.trim().is_empty())
+        .all(|cell| {
+            let cell = cell.trim();
+            cell.chars().all(|c| c == '-' || c == ':' || c == ' ')
+        })
+}
+
+fn split_table_row(line: &str) -> Vec<String> {
+    let trimmed = line.trim().trim_start_matches('|').trim_end_matches('|');
+    trimmed
+        .split('|')
+        .map(|cell| cell.trim().to_string())
+        .collect::<Vec<_>>()
+}
+
 pub fn markdown_to_html(markdown: &str) -> String {
     let markdown = markdown.replace("\r\n", "\n").replace("<!-- more -->", "");
     let mut html = String::new();
@@ -103,7 +125,10 @@ pub fn markdown_to_html(markdown: &str) -> String {
         }
     }
 
-    for raw in markdown.lines() {
+    let lines: Vec<&str> = markdown.lines().collect();
+    let mut index = 0usize;
+    while index < lines.len() {
+        let raw = lines[index];
         let line = raw.trim_end();
         if line.trim_start().starts_with("```") {
             if in_code {
@@ -126,16 +151,47 @@ pub fn markdown_to_html(markdown: &str) -> String {
                 close_lists(&mut html, &mut list_stack);
                 in_code = true;
             }
+            index += 1;
             continue;
         }
         if in_code {
             code_buffer.push_str(line);
             code_buffer.push('\n');
+            index += 1;
             continue;
         }
         if line.trim().is_empty() {
             close_paragraph(&mut html, &mut in_paragraph);
             close_lists(&mut html, &mut list_stack);
+            index += 1;
+            continue;
+        }
+        if line.trim_start().starts_with('|')
+            && index + 1 < lines.len()
+            && is_table_separator(lines[index + 1])
+        {
+            close_paragraph(&mut html, &mut in_paragraph);
+            close_lists(&mut html, &mut list_stack);
+            let header = split_table_row(line);
+            let columns = header.len();
+            html.push_str("<table><thead><tr>");
+            for cell in &header {
+                html.push_str(&format!("<th>{}</th>", render_inline(cell)));
+            }
+            html.push_str("</tr></thead><tbody>");
+            let mut next = index + 2;
+            while next < lines.len() && lines[next].trim_start().starts_with('|') {
+                let row = split_table_row(lines[next].trim_end());
+                html.push_str("<tr>");
+                for column in 0..columns {
+                    let cell = row.get(column).map(String::as_str).unwrap_or("");
+                    html.push_str(&format!("<td>{}</td>", render_inline(cell)));
+                }
+                html.push_str("</tr>");
+                next += 1;
+            }
+            html.push_str("</tbody></table>");
+            index = next;
             continue;
         }
         if line.trim_start().starts_with('#') {
@@ -145,6 +201,7 @@ pub fn markdown_to_html(markdown: &str) -> String {
                 close_paragraph(&mut html, &mut in_paragraph);
                 close_lists(&mut html, &mut list_stack);
                 html.push_str(&format!("<h{level}>{}</h{level}>", render_inline(text)));
+                index += 1;
                 continue;
             }
         }
@@ -155,6 +212,7 @@ pub fn markdown_to_html(markdown: &str) -> String {
                 "<blockquote>{}</blockquote>",
                 render_inline(quote.trim_start())
             ));
+            index += 1;
             continue;
         }
         let unordered = line
@@ -188,6 +246,7 @@ pub fn markdown_to_html(markdown: &str) -> String {
                 }
             }
             html.push_str(&format!("<li>{}</li>", render_inline(item.trim())));
+            index += 1;
             continue;
         }
         close_lists(&mut html, &mut list_stack);
@@ -198,6 +257,7 @@ pub fn markdown_to_html(markdown: &str) -> String {
             html.push('\n');
         }
         html.push_str(&render_inline(line));
+        index += 1;
     }
     if in_code && !code_buffer.is_empty() {
         html.push_str(&format!(
@@ -262,5 +322,13 @@ mod tests {
     fn extracts_plain_text_from_html() {
         let text = html_to_plain_text("<h1>标题</h1><p>正文 &amp; 内容</p>");
         assert_eq!(text, "标题 正文 & 内容");
+    }
+
+    #[test]
+    fn renders_markdown_tables() {
+        let html = markdown_to_html("| 名称 | 值 |\n| --- | --- |\n| a | 1 |\n| b | 2 |\n");
+        assert!(html.contains("<table><thead><tr><th>名称</th><th>值</th></tr></thead><tbody>"));
+        assert!(html.contains("<tr><td>a</td><td>1</td></tr>"));
+        assert!(html.contains("<tr><td>b</td><td>2</td></tr>"));
     }
 }
