@@ -689,6 +689,50 @@ describe("notes store", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://example.com/article"));
   });
 
+  it("copies the extracted markdown from the capture preview", async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal("navigator", {
+      ...globalThis.navigator,
+      clipboard: { writeText },
+    });
+    const store = storeWithGateway({
+      capturePreview: vi.fn(async () => ({
+        title: "Example",
+        markdown: "# Example\n\nbody",
+        finalUrl: "https://example.com/",
+        duplicate: false,
+      })),
+    });
+    await store.getState().load();
+    store.getState().setMode("capture");
+    const { container } = render(<NotesContent store={store} />);
+    const urlInput = container.querySelector(
+      'input[type="url"]',
+    ) as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(urlInput, "https://example.com/");
+    urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const previewButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        ".notes-form-actions button",
+      ),
+    ).find((button) => button.textContent?.includes(t("Preview")));
+    previewButton?.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-capture-preview")).toBeTruthy(),
+    );
+    const copyButton = container.querySelector(
+      ".notes-capture-copy",
+    ) as HTMLButtonElement;
+    copyButton.click();
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("# Example\n\nbody"),
+    );
+  });
+
   it("shows a failed state when copying the source URL fails", async () => {
     const writeText = vi.fn(async () => {
       throw new Error("denied");

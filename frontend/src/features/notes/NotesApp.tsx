@@ -1297,6 +1297,7 @@ function CaptureForm({ store }: { store: NotesStore }) {
     duplicate: boolean;
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [copiedPreview, setCopiedPreview] = useState(false);
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
   const capturing = store((state) => state.capturing);
@@ -1378,6 +1379,21 @@ function CaptureForm({ store }: { store: NotesStore }) {
             <p className="notes-capture-preview-excerpt">
               {stripMarkdown(preview.markdown).slice(0, 320)}
             </p>
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm notes-capture-copy"
+              onClick={() => {
+                void navigator.clipboard
+                  ?.writeText(preview.markdown)
+                  .then(() => {
+                    setCopiedPreview(true);
+                    window.setTimeout(() => setCopiedPreview(false), 1600);
+                  })
+                  .catch(() => {});
+              }}
+            >
+              {copiedPreview ? t("Copied") : t("Copy Markdown")}
+            </button>
           </section>
         ) : null}
         {error ? <p className="notes-form-error">{error}</p> : null}
