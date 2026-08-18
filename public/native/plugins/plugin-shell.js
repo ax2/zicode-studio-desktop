@@ -289,7 +289,14 @@ export function setupPluginShell({
   }
 
   function renderActivities() {
-    const visiblePlugins = registry.list().filter((plugin) => plugin.enabled && plugin.hasActivity !== false);
+    const visiblePlugins = registry
+      .list()
+      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false)
+      .sort(
+        (left, right) =>
+          (left.order ?? 1000) - (right.order ?? 1000) ||
+          left.name.localeCompare(right.name),
+      );
     const activitiesItems = visiblePlugins.map((plugin) => ({
       id: plugin.id,
       label: t(plugin.name),
@@ -661,7 +668,12 @@ export function setupPluginShell({
   function activityPluginForDigit(digit) {
     const visible = registry
       .list()
-      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false);
+      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false)
+      .sort(
+        (left, right) =>
+          (left.order ?? 1000) - (right.order ?? 1000) ||
+          left.name.localeCompare(right.name),
+      );
     return visible[digit - 1]?.id ?? null;
   }
 
