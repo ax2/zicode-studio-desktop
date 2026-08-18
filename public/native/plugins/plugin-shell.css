@@ -336,7 +336,12 @@ body[data-active-plugin] .plugin-sidebar-project {
 .plugin-main-view {
   flex: 1;
   min-height: 0;
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  /* The session header is absolutely positioned over the main view and is
+     ~39px tall on desktop (taller when it wraps on narrow windows). Give the
+     scroll container a uniform top inset so every plugin's first row clears
+     the header instead of requiring each app to add its own padding. */
+  padding: calc(var(--control-height-lg) + var(--space-3)) var(--space-6)
+    var(--space-6);
   overflow-y: auto;
   background: radial-gradient(circle at 80% 10%, var(--accent-glow), transparent 35%), var(--bg);
 }
@@ -621,10 +626,6 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   .plugin-activity-button svg {
     width: var(--space-5);
     height: var(--space-5);
-  }
-
-  .plugin-main-view {
-    padding-top: calc(var(--control-height-lg) + var(--space-3));
   }
 
   .plugin-main-hero {

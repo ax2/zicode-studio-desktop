@@ -10,6 +10,8 @@ target/
 src-tauri/target/
 # Generated visual-QA screenshots (regenerate with scripts/visual-qa.mjs)
 docs/screenshots/
+# Temporary ad-hoc QA screenshots
+.qa-shots/
 src-tauri/gen/
 
 # Pi extension bundles (produced by scripts/build-extensions.js)
