@@ -436,6 +436,7 @@ async function main() {
       ["clipboard", `${sessionUrl}?app=com.zicode.clipboard`],
       ["documents", `${sessionUrl}?app=com.zicode.documents`],
       ["artifacts", `${sessionUrl}?app=com.zicode.artifacts`],
+      ["articles", `${sessionUrl}?app=com.zicode.articles`],
       ["settings", `${sessionUrl}?app=core.settings`],
       ["help", `${sessionUrl}?app=core.help`],
     ];
