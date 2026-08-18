@@ -188,6 +188,17 @@ function ModelDropdownMenu({
           }
         }}
       />
+      {filter ? (
+        <button
+          type="button"
+          className="model-dropdown-clear"
+          aria-label={t("Clear search")}
+          title={t("Clear search")}
+          onClick={() => setFilter("")}
+        >
+          ×
+        </button>
+      ) : null}
       <div
         className="model-dropdown-items"
         id="model-dropdown-items"

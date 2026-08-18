@@ -162,6 +162,33 @@ describe("model dropdown feed", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("clears the search filter with the clear button", async () => {
+    const container = makeContainer();
+    const feed = createModelDropdownFeed(container, () => SNAPSHOT, {
+      onSelect: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onRetry: vi.fn(),
+      onClose: vi.fn(),
+    });
+    feed.render();
+    const search = container.querySelector(
+      ".model-dropdown-search",
+    ) as HTMLInputElement;
+    fireEvent.change(search, { target: { value: "gpt" } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const clear = container.querySelector(
+      ".model-dropdown-clear",
+    ) as HTMLButtonElement;
+    expect(clear).toBeTruthy();
+    clear.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      (container.querySelector(".model-dropdown-search") as HTMLInputElement)
+        .value,
+    ).toBe("");
+    expect(container.querySelector(".model-dropdown-clear")).toBeNull();
+  });
+
   it("formats model names", () => {
     expect(formatModelName({ id: "claude-sonnet-4-20250805", name: "claude-sonnet-4-20250805" })).toBe(
       "sonnet-4",
