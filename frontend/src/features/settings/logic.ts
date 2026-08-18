@@ -4,7 +4,8 @@ export type SettingsTabKey =
   | "usage"
   | "configuration"
   | "remote-access"
-  | "chat";
+  | "chat"
+  | "articles";
 
 export interface SettingsTabDef {
   key: SettingsTabKey;
@@ -19,6 +20,7 @@ export const SETTINGS_TABS: SettingsTabDef[] = [
   { key: "configuration", label: "Configuration" },
   { key: "remote-access", label: "Remote access" },
   { key: "chat", label: "Agent Inbox" },
+  { key: "articles", label: "Article Publishing" },
 ];
 
 const VALID_TAB_KEYS = new Set<string>(SETTINGS_TABS.map((tab) => tab.key));

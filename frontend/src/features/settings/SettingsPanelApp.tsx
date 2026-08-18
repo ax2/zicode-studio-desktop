@@ -4,6 +4,7 @@ import { applyTheme, getCurrentTheme, themes } from "themes";
 import { t } from "../../shared/i18n";
 import { ConfigTab } from "./ConfigTab";
 import type { ConfigStore } from "./configStore";
+import { ArticlesConfigTab } from "./ArticlesConfigTab";
 import { CostDashboardTab } from "./CostDashboardTab";
 import type { CostDashboardStore } from "./costDashboardStore";
 import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
@@ -30,6 +31,7 @@ export interface SettingsController {
   packageBrowseStore: PackageBrowseStore;
   widgetsStore: SettingsWidgetsStore;
   getWorkspaceId?: () => string | undefined;
+  getSceneId?: () => string;
   loadForTab(tab: SettingsTabKey): void;
   wireVanilla(): void;
   reloadVisibleConfiguration(): void;
@@ -162,6 +164,14 @@ export function SettingsContent({
         className={`settings-tab${activeTab === "chat" ? " active" : ""}`}
         data-settings-panel="chat"
       />
+      <div
+        className={`settings-tab${activeTab === "articles" ? " active" : ""}`}
+        data-settings-panel="articles"
+      >
+        {activeTab === "articles" ? (
+          <ArticlesConfigTab getSceneId={controller.getSceneId ?? (() => "")} />
+        ) : null}
+      </div>
     </section>
   );
 }

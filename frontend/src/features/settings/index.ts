@@ -117,6 +117,8 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     packageBrowseStore,
     widgetsStore,
     getWorkspaceId: options.getWorkspaceId,
+    getSceneId: () =>
+      (getTarget() as { sceneId?: string } | null)?.sceneId ?? "programming",
     wireVanilla() {},
     loadForTab(tab) {
       if (tab === "general") {

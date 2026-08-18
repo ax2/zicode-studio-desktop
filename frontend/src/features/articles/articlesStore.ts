@@ -57,6 +57,25 @@ export interface ArticlesConfig {
   };
 }
 
+export interface SaveArticlesConfig {
+  wechat: {
+    appId: string;
+    appSecret: string;
+    siteUrl: string;
+    author: string;
+    thumbImagePath: string | null;
+    openComment: boolean;
+    fansCanComment: boolean;
+  };
+  blog: {
+    host: string;
+    username: string;
+    password: string;
+    remoteDir: string;
+    sourceDir: string | null;
+  };
+}
+
 export interface ArticlesGateway {
   list(scope: ArticlesScope): Promise<{ articles: ArticleSummary[] }>;
   read(scope: ArticlesScope, slug: string): Promise<Article>;
@@ -64,7 +83,7 @@ export interface ArticlesGateway {
   delete(scope: ArticlesScope, slug: string): Promise<{ deleted: boolean }>;
   sync(scope: ArticlesScope, sourceDir: string): Promise<{ copied: number }>;
   getConfig(scope: ArticlesScope): Promise<ArticlesConfig>;
-  saveConfig(scope: ArticlesScope, config: ArticlesConfig): Promise<{ ok: boolean }>;
+  saveConfig(scope: ArticlesScope, config: SaveArticlesConfig): Promise<{ ok: boolean }>;
   wechatSync(
     scope: ArticlesScope,
     slug: string,
@@ -153,14 +172,14 @@ export class ArticlesHttpGateway implements ArticlesGateway {
     return response.json() as Promise<ArticlesConfig>;
   }
 
-  saveConfig(scope: ArticlesScope, config: ArticlesConfig) {
+  saveConfig(scope: ArticlesScope, config: SaveArticlesConfig) {
     return this.#request("/v2/articles/config", {
       method: "POST",
       body: JSON.stringify({
         sceneId: scope.sceneId,
         wechat: {
           appId: config.wechat.appId,
-          appSecret: "",
+          appSecret: config.wechat.appSecret,
           siteUrl: config.wechat.siteUrl,
           author: config.wechat.author,
           thumbImagePath: config.wechat.thumbImagePath,
@@ -170,7 +189,7 @@ export class ArticlesHttpGateway implements ArticlesGateway {
         blog: {
           host: config.blog.host,
           username: config.blog.username,
-          password: "",
+          password: config.blog.password,
           remoteDir: config.blog.remoteDir,
           sourceDir: config.blog.sourceDir,
         },
