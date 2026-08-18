@@ -2798,12 +2798,19 @@ async fn wechat_sync_article_http(
     let content = crate::article_markdown::markdown_to_html(&crate::articles::markdown_body(
         &article.markdown,
     ));
-    let digest = article
-        .summary
-        .description
-        .chars()
-        .take(120)
-        .collect::<String>();
+    let digest = if article.summary.description.trim().is_empty() {
+        crate::article_markdown::html_to_plain_text(&content)
+            .chars()
+            .take(120)
+            .collect::<String>()
+    } else {
+        article
+            .summary
+            .description
+            .chars()
+            .take(120)
+            .collect::<String>()
+    };
     let source_url = format!(
         "{}/blog/{}/",
         config.wechat.site_url.trim_end_matches('/'),

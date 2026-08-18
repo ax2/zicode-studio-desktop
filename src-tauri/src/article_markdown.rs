@@ -210,6 +210,34 @@ pub fn markdown_to_html(markdown: &str) -> String {
     html
 }
 
+/// Strip tags from rendered HTML and collapse whitespace, used to derive a
+/// plain-text digest when an article has no explicit description.
+pub fn html_to_plain_text(html: &str) -> String {
+    let mut text = String::new();
+    let mut in_tag = false;
+    for character in html.chars() {
+        match character {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                if !text.is_empty() && !text.ends_with(' ') {
+                    text.push(' ');
+                }
+            }
+            _ if !in_tag => text.push(character),
+            _ => {}
+        }
+    }
+    let decoded = text
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ");
+    decoded.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,5 +256,11 @@ mod tests {
         assert!(html.contains("<pre>"));
         assert!(html.contains("let x = 1;"));
         assert!(html.contains("<a href=\"https://example.com\">链接</a>"));
+    }
+
+    #[test]
+    fn extracts_plain_text_from_html() {
+        let text = html_to_plain_text("<h1>标题</h1><p>正文 &amp; 内容</p>");
+        assert_eq!(text, "标题 正文 & 内容");
     }
 }
