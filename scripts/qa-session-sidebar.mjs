@@ -196,6 +196,18 @@ async function main() {
     console.log(
       "IMPORTMAP_DOM: " + JSON.stringify(importMapDom?.result?.value ?? null),
     );
+    const hookTest = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const before = (window.__qaConsole ?? []).length;
+        console.error("qa-hook-test");
+        const after = (window.__qaConsole ?? []).length;
+        return { before, after, captured: after > before };
+      })()`,
+      returnByValue: true,
+    });
+    console.log(
+      "HOOK_TEST: " + JSON.stringify(hookTest?.result?.value ?? null),
+    );
     await cdp.send("DOM.enable");
 
     const samples = [];
@@ -243,24 +255,34 @@ async function main() {
         const fiberInfo = (() => {
           try {
             if (!fiber) return null;
-            const summary = (node) =>
-              node
-                ? {
-                    tag: node.tag,
-                    elementType: node.elementType?.name ?? node.elementType ?? null,
-                    child: Boolean(node.child),
-                    sibling: Boolean(node.sibling),
-                    flags: node.flags,
-                    hasError: Boolean(node.memoizedState?.hasError ?? false),
-                  }
-                : null;
-            const queue = fiber.memoizedState;
+            const walk = [];
+            const visit = (node, depth) => {
+              if (!node || depth > 8 || walk.length > 20) return;
+              const state = node.memoizedState;
+              const maybeError =
+                state && typeof state === "object"
+                  ? state.error ?? state.message ?? null
+                  : null;
+              walk.push({
+                depth,
+                tag: node.tag,
+                type:
+                  node.elementType?.name ??
+                  node.type?.name ??
+                  node.elementType ??
+                  node.type ??
+                  null,
+                flags: node.flags,
+                hasError: Boolean(state?.hasError),
+                errorValue:
+                  maybeError != null ? String(maybeError).slice(0, 120) : null,
+              });
+              visit(node.child, depth + 1);
+              visit(node.sibling, depth);
+            };
+            visit(fiber.child, 0);
             return {
-              rootTag: fiber.tag,
-              rootChild: summary(fiber.child),
-              rootMemoizedState:
-                queue?.queue?.pending?.memoizedState?.hasError ?? false,
-              rootUpdateQueueLength: queue?.queue?.pending?.updateQueue?.length ?? -1,
+              fibers: walk,
             };
           } catch (error) {
             return { inspectError: String(error?.message || error) };
