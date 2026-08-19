@@ -38,4 +38,15 @@ adds the new rule to the list immediately. On phones, these fields use a 16px in
 at least 40px high to avoid focus zoom and missed taps. Every field retains a visible label after entry,
 and tapping that label focuses the associated control.
 
+### When automation runs on its own
+
+- Workflows created without "Require approval before every run" dispatch
+  automatically to the target project when due; no manual Approve click is
+  needed in the task center. The creation form shows a matching hint.
+- Workflows that require approval stop in "needs approval" state when due and
+  only start after you approve them in the Agent Inbox runtime panel.
+- The scheduler runs for the whole time the app is open, regardless of which
+  view you are on. Nothing runs while the app is completely closed (an
+  unattended background runner is planned for a later release).
+
 > Automation never bypasses scene isolation, plugin permissions, or model budgets.
