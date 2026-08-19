@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-20 数据呈现 QA（qa-data）与应用数据审计
+
+- 依据 Articles 空列表教训新增 `scripts/qa-data-presence.mjs`
+  （`bun run qa:data`）：全新档案逐个加载数据型应用，把 UI 渲染条目数
+  与宿主 API 计数交叉核对（articles 严格相等、notes/artifacts/tasks
+  按 API 计数断言、finance 断言表单或场景守卫存在），带启动失败哨兵，
+  可捕获「应用打开但列表为空」类回归。
+- 审计结果：articles UI 456 = API 456（修复后）；notes 3 项（API 1 个
+  笔记本 + 分支/子项）；artifacts 0 = 0（API 确认无产物，空态正确）；
+  tasks 2 张任务卡（任务中心真实数据）；finance 场景守卫/表单 28 个
+  交互元素（编程场景无金融数据为设计行为）。5/5 通过，无其他应用存在
+  Articles 类缺陷。
+
 ## 2026-08-20 修复 Articles 列表首次打开为空
 
 - 真实缺陷：Articles 应用挂载时从不加载文章列表（`load()` 只挂在

@@ -57,7 +57,8 @@
     "check:rust": "node scripts/check-rust.mjs",
     "qa:console": "node scripts/qa-console-errors.mjs",
     "qa:keyboard": "node scripts/qa-keyboard.mjs",
-    "qa:locale": "node scripts/qa-locale.mjs"
+    "qa:locale": "node scripts/qa-locale.mjs",
+    "qa:data": "node scripts/qa-data-presence.mjs"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.72.0",
