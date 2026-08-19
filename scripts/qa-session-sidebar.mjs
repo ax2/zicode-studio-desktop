@@ -240,20 +240,27 @@ async function main() {
           : [];
         const containerKey = keys.find((k) => k.startsWith("__reactContainer$"));
         const fiber = containerKey ? list[containerKey] : null;
-        const internalRoot = fiber?._internalRoot;
-        const current = internalRoot?.current;
-        const errorInfo = (() => {
+        const fiberInfo = (() => {
           try {
-            if (!current) return null;
-            const stateNode = current.stateNode;
-            const memoizedState = current.memoizedState;
-            const value = memoizedState?.memoizedState;
+            if (!fiber) return null;
+            const summary = (node) =>
+              node
+                ? {
+                    tag: node.tag,
+                    elementType: node.elementType?.name ?? node.elementType ?? null,
+                    child: Boolean(node.child),
+                    sibling: Boolean(node.sibling),
+                    flags: node.flags,
+                    hasError: Boolean(node.memoizedState?.hasError ?? false),
+                  }
+                : null;
+            const queue = fiber.memoizedState;
             return {
-              tag: current.tag,
-              hasError: current.memoizedState?.hasError ?? false,
-              errorValue: value !== null && typeof value === "object"
-                ? String(value.message || JSON.stringify(value)).slice(0, 200)
-                : String(value ?? "").slice(0, 200),
+              rootTag: fiber.tag,
+              rootChild: summary(fiber.child),
+              rootMemoizedState:
+                queue?.queue?.pending?.memoizedState?.hasError ?? false,
+              rootUpdateQueueLength: queue?.queue?.pending?.updateQueue?.length ?? -1,
             };
           } catch (error) {
             return { inspectError: String(error?.message || error) };
@@ -263,9 +270,7 @@ async function main() {
           exists: Boolean(list),
           reactKeys: keys.slice(0, 5),
           children: list?.childElementCount ?? -1,
-          hasInternalRoot: Boolean(internalRoot),
-          hasCurrentFiber: Boolean(current),
-          errorInfo,
+          fiberInfo,
         };
       })()`,
       awaitPromise: true,
