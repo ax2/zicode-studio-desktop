@@ -689,6 +689,24 @@ function OverviewView({
         : status?.state === "unavailable"
           ? t("Unavailable")
           : t("Checking…");
+  const steps: Array<{ label: string; action: () => void }> = [
+    {
+      label: t("Configure the data key and check usage."),
+      action: () => controller.openConfiguration(),
+    },
+    {
+      label: t("Create a research card for a symbol."),
+      action: () => controller.selectView("research"),
+    },
+    {
+      label: t("Backtest a strategy or run the screener."),
+      action: () => controller.selectView("backtest"),
+    },
+    {
+      label: t("Track results in a paper account."),
+      action: () => controller.selectView("paper"),
+    },
+  ];
   return (
     <section
       className="ui-card finance-status-card finance-plugin-section"
@@ -719,6 +737,21 @@ function OverviewView({
         </button>
       </div>
       {usage ? <UsageResults response={usage} /> : null}
+      <div className="finance-quickstart">
+        <h4>{t("How to start")}</h4>
+        <ol>
+          {steps.map((step) => (
+            <li key={step.label}>
+              <button type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={step.action}>
+                {step.label}
+              </button>
+            </li>
+          ))}
+        </ol>
+        <p className="finance-quickstart-note">
+          {t("Every saved result also lands in Artifacts automatically.")}
+        </p>
+      </div>
     </section>
   );
 }

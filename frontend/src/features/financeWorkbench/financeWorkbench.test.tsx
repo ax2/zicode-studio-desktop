@@ -117,6 +117,24 @@ describe("finance workbench", () => {
     await vi.waitFor(() => expect(content.textContent).toContain("已配置密钥"));
   });
 
+  it("shows a beginner quick-start path in the finance scene", async () => {
+    const call = vi.fn(async (op: string) => {
+      if (op === "finance_status") {
+        return { ok: true, data: { qveris: { configured: true } } };
+      }
+      if (op === "finance_paper_accounts" || op === "finance_research_workspace") {
+        return { ok: true, data: {} };
+      }
+      return { ok: true, data: {} };
+    });
+    const { content, workbench } = mountWorkbench({ sceneId: "finance" }, { call });
+
+    await workbench.openPanel();
+    await vi.waitFor(() => expect(content.textContent).toContain("如何开始"));
+    expect(content.textContent).toContain("为标的创建一张研究卡。");
+    expect(content.textContent).toContain("用模拟账户跟踪结果。");
+  });
+
   it("renders discovered capabilities and deterministic backtest metrics", async () => {
     const call = vi.fn(async (op: string) => {
       if (op === "finance_discover") {

@@ -938,6 +938,13 @@ const zhCN = {
     "在金融场景中打开工作台。数据、凭据、工具和模拟账本按场景隔离。",
   "Close Finance Workbench": "关闭金融工作台",
   "QVeris financial data": "QVeris 金融数据",
+  "How to start": "如何开始",
+  "Configure the data key and check usage.": "配置数据 Key 并查看用量。",
+  "Create a research card for a symbol.": "为标的创建一张研究卡。",
+  "Backtest a strategy or run the screener.": "回测策略或运行选股器。",
+  "Track results in a paper account.": "用模拟账户跟踪结果。",
+  "Every saved result also lands in Artifacts automatically.":
+    "每次保存的结果也会自动进入产物库。",
   "Live and historical capabilities": "实时与历史数据能力",
   "Configure data key": "配置数据密钥",
   "Usage & credits": "用量与积分",

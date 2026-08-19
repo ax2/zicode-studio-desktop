@@ -265,6 +265,35 @@
   gap: var(--space-2);
 }
 
+.finance-quickstart {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.finance-quickstart h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.finance-quickstart ol {
+  margin: 0;
+  padding-left: 1.4em;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 2;
+}
+
+.finance-quickstart .ui-button {
+  font-size: var(--font-size-sm);
+}
+
+.finance-quickstart-note {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 .finance-results {
   display: grid;
   gap: var(--space-2);
