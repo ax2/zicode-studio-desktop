@@ -534,6 +534,83 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     appForm = researchResult?.result?.value ?? null;
+    // Create a research card through the form, verify it appears, then remove
+    // it (confirm stubbed) so the workspace stays clean.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const form = document.querySelector('[data-finance-view="research"] form');
+        if (!form) return false;
+        const inputs = Array.from(form.querySelectorAll("input"));
+        const textareas = Array.from(form.querySelectorAll("textarea"));
+        const setValue = (element, value) => {
+          const prototype =
+            element.tagName === "TEXTAREA"
+              ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype;
+          Object.getOwnPropertyDescriptor(prototype, "value").set.call(
+            element,
+            value,
+          );
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+        };
+        // Fields are positional (Symbol, Research title, …) so the diagnostic
+        // works regardless of the active UI language.
+        setValue(inputs[0], "QA.TEST");
+        setValue(inputs[1], "QA 研究卡片");
+        setValue(textareas[0], "这是自动化回归创建的测试论点。");
+        return inputs.length >= 2 && textareas.length >= 1;
+      })()`,
+    });
+    await sleep(300);
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const submit = document.querySelector(
+          '[data-finance-view="research"] form button[type="submit"]',
+        );
+        submit?.click();
+        return Boolean(submit);
+      })()`,
+    });
+    await sleep(1800);
+    const researchCard = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        cardFound: Array.from(
+          document.querySelectorAll(".finance-research-card h4"),
+        ).some((node) => node.textContent?.includes("QA 研究卡片")),
+        notifications: Array.from(
+          document.querySelectorAll(".native-notification"),
+        ).map((node) => node.innerText.replace(/\\s+/g, " ").trim()),
+        error: document.querySelector(".finance-research-error")?.textContent ?? "",
+      }))()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        globalThis.confirm = () => true;
+        const card = Array.from(
+          document.querySelectorAll(".finance-research-card"),
+        ).find((node) => (node.textContent || "").includes("QA 研究卡片"));
+        const remove = Array.from(
+          card?.querySelectorAll("button") ?? [],
+        ).find((button) => /Remove|删除|移除/.test(button.textContent || ""));
+        remove?.click();
+        return Boolean(remove);
+      })()`,
+    });
+    await sleep(1200);
+    const researchRemoved = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        cardGone: !Array.from(
+          document.querySelectorAll(".finance-research-card h4"),
+        ).some((node) => node.textContent?.includes("QA 研究卡片")),
+      }))()`,
+      returnByValue: true,
+    });
+    appForm = {
+      ...(appForm ?? {}),
+      researchCard: researchCard?.result?.value ?? null,
+      researchRemoved: researchRemoved?.result?.value ?? null,
+    };
     // Also verify the paper-trading "Create account" form.
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
