@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-20 lint 警告清理（可安全项清零）
+
+- 清理 Biome 可安全修复的警告：useTemplate 7 处（bundle-css/qa-notes-flow/
+  qa-session-sidebar 的字符串拼接改模板字面量）、useConst 1 处、
+  noNonNullAssertion 1 处（Articles 删除按钮改为 `if (current)` 守卫）、
+  noUnusedVariables 1 处（qa-a11y 移除未用 map）、noDocumentCookie 2 处
+  （remote-auth 设备令牌 cookie 写入属有意行为，补说明性 ignore）。
+- 剩余 noDescendingSpecificity 18 处为 CSS 特异性顺序提示：style.bundle.css
+  是生成产物不可手改，源码重排存在视觉回归风险，且当前视觉 QA 全绿，
+  故保留并记录为有意状态。
+- 验证：i18n 覆盖 4 项、全量 `bun run test`、qa-notes-flow/qa-session-sidebar/
+  qa-a11y 复跑全部通过；产物已同步安装目录。
+
 ## 2026-08-20 清理死路由（launcher）
 
 - 排查发现 `launcher` 路由是死代码：`parseAppRoute`/`appRoutePath` 支持

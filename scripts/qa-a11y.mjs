@@ -196,7 +196,6 @@ async function main() {
 
       const tree = await cdp.send("Accessibility.getFullAXTree");
       const nodes = tree?.nodes ?? [];
-      const byId = new Map(nodes.map((node) => [node.nodeId, node]));
       const unnamed = [];
       const seen = new Set();
       for (const node of nodes) {

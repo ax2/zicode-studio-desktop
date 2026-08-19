@@ -208,7 +208,9 @@ function ArticlesMain({
           type="button"
           className="ui-button ui-button--ghost ui-button--sm"
           disabled={busy || !current}
-          onClick={() => void store.getState().remove(current!.slug)}
+          onClick={() => {
+            if (current) void store.getState().remove(current.slug);
+          }}
         >
           {t("Delete")}
         </button>

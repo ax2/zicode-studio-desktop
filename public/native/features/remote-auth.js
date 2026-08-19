@@ -63,8 +63,10 @@ function syncDeviceTokenCookie(deviceToken) {
     const doc = globalThis.document;
     if (!doc) return;
     if (deviceToken) {
+      // biome-ignore lint/suspicious/noDocumentCookie: the device token must persist across reloads as a cookie for relay/mobile clients.
       doc.cookie = `zicode_device_token=${encodeURIComponent(deviceToken)}; Path=/; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}`;
     } else {
+      // biome-ignore lint/suspicious/noDocumentCookie: clearing the persisted device token.
       doc.cookie = "zicode_device_token=; Path=/; SameSite=Lax; Max-Age=0";
     }
   } catch {

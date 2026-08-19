@@ -208,7 +208,7 @@ async function main() {
       returnByValue: true,
     });
     console.log(
-      "IMPORTMAP_DOM: " + JSON.stringify(importMapDom?.result?.value ?? null),
+      `IMPORTMAP_DOM: ${JSON.stringify(importMapDom?.result?.value ?? null)}`,
     );
     const hookTest = await cdp.send("Runtime.evaluate", {
       expression: `(() => {
@@ -220,10 +220,10 @@ async function main() {
       returnByValue: true,
     });
     console.log(
-      "HOOK_TEST: " + JSON.stringify(hookTest?.result?.value ?? null),
+      `HOOK_TEST: ${JSON.stringify(hookTest?.result?.value ?? null)}`,
     );
     console.log(
-      "RUNTIME_EXCEPTIONS: " + JSON.stringify(runtimeExceptions.slice(0, 6)),
+      `RUNTIME_EXCEPTIONS: ${JSON.stringify(runtimeExceptions.slice(0, 6))}`,
     );
     await cdp.send("DOM.enable");
 
@@ -342,7 +342,7 @@ async function main() {
       returnByValue: true,
     });
     console.log(
-      "REACT_ROOT: " + JSON.stringify(reactRootCheck?.result?.value ?? null),
+      `REACT_ROOT: ${JSON.stringify(reactRootCheck?.result?.value ?? null)}`,
     );
     const postDup = await cdp.send("Runtime.evaluate", {
       expression: `(() => {
@@ -359,7 +359,7 @@ async function main() {
       returnByValue: true,
     });
     console.log(
-      "POST_DUP: " + JSON.stringify(postDup?.result?.value ?? null),
+      `POST_DUP: ${JSON.stringify(postDup?.result?.value ?? null)}`,
     );
     cdp.close();
     console.log(JSON.stringify({ samples }, null, 2));

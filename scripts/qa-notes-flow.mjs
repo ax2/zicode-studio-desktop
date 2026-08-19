@@ -74,7 +74,7 @@ async function evaluate(cdp, expression) {
     throw new Error(
       response.exceptionDetails.exception?.description ||
         response.exceptionDetails.text ||
-        "evaluation failed" + JSON.stringify(response.exceptionDetails).slice(0, 800),
+        `evaluation failed ${JSON.stringify(response.exceptionDetails).slice(0, 800)}`,
     );
   }
   return response.result?.value;
