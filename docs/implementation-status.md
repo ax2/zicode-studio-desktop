@@ -1,5 +1,26 @@
 # 实现状态
 
+## 2026-08-19 可用性验收清单（用户需求 → 验证证据）
+
+| 用户需求 | 实现 | 验证证据 |
+| --- | --- | --- |
+| 笔记 6 项初始任务（遮挡/移动端/预览默认/新建布局/图标/标签快捷） | 全部落地 | qa-notes-flow PASS + 全表面 visual-qa |
+| 笔记 11 项细化（自动保存/图标/标签/带入对话选中文字/Markdown 渲染/删除确认/附件自动保存/定期保存/移动端附件/侧边栏） | 全部落地 | qa-notes-flow、qa-notes-attachment PASS |
+| 笔记本/笔记图标与多级目录、跨笔记本拖拽 | 已实现 | qa-notes-flow drag: movedToTarget=true |
+| 网页采集去噪（导航/页眉页脚/广告/侧边栏）并保留样式 | web_extract 增强 | 19 项单测 + Wikipedia/阮一峰/sspai 真实页冒烟 |
+| 使用 Pi 的能力处理网页 | `/v2/notes/summarize` + notes_extract_web | 真实调用模型网关返回结构化摘要 |
+| 证件照混合排版（1寸+2寸）与源照片裁剪 | idphoto 混合排版 + 交互裁剪 | visual-qa idphoto mixed 通过 |
+| 8 个插件真机验收 | 验收 harness | plugin-acceptance 6/6（启用子集） |
+| 不完善插件先禁用 | Projects/Tasks/Automation 默认禁用 | 运行实例 API 状态确认 + 单测 |
+| 自动化全自动 | 调度器全页面运行 + 非审批自动派发 | 活实例写入 autoDispatch 任务自动转出 pending |
+| 布局问题清单（对话间距/图标沉底/help/笔记遮挡/主题下拉/任务空） | 全部修复 | 全表面双视口 visual-qa 全绿 |
+| 工作区切换/会话按工作区隔离/配置入 ~/.zicode | 已实现 | 早期轮次验收记录 |
+| M2 P2P / M3 端到端加密 | 已基本闭环 | 文档验收记录（coturn 公网验收待服务器） |
+| 帮助文档与新增功能同步 | 采集预览/Pi 提炼/自动化边界已入档 | layout-contract 68 项 PASS |
+
+运行基线：19:11 release（exe 47,808,000 B）已重启激活，`/health` 200、
+公网中继 dev-ax2-01 在线；Rust 245 项 + 前端全量 + 插件验收全绿。
+
 ## 2026-08-19 运行实例重启激活全部暂存改进并完成真实验收
 
 - 运行实例（8/18 启动的旧 exe）确认完全空闲后按计划重启：优雅关闭旧进程、
