@@ -955,6 +955,73 @@ async function diagnose(cdp, name, url, viewport) {
     }
     appForm = idPhoto;
   }
+  // For the documents app, attach a real DOCX through the file input and
+  // verify the UI imports it and renders the Markdown preview.
+  if (name === "documents") {
+    let documents = null;
+    let tmpDocx = null;
+    try {
+      const { zipSync, strToU8 } = await import("fflate");
+      const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>UI 导入测试标题</w:t></w:r></w:p>
+    <w:p><w:r><w:t>这是 UI 导入回归的正文。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`;
+      const docxBytes = zipSync({ "word/document.xml": strToU8(xml) });
+      tmpDocx = join(tmpdir(), `qa-ui-docx-${Date.now()}.docx`);
+      writeFileSync(tmpDocx, Buffer.from(docxBytes));
+
+      const doc = await cdp.send("DOM.getDocument", { depth: -1 });
+      const node = await cdp.send("DOM.querySelector", {
+        nodeId: doc.root.nodeId,
+        selector: '.documents-main input[type="file"]',
+      });
+      if (!node.nodeId) {
+        documents = { fileInputFound: false };
+      } else {
+        await cdp.send("DOM.setFileInputFiles", {
+          nodeId: node.nodeId,
+          files: [tmpDocx],
+        });
+        await sleep(2500);
+        const result = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const header = document.querySelector(".documents-result-header");
+            const markdown = document.querySelector(
+              ".documents-markdown, .markdown-body",
+            );
+            return {
+              fileName: header?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+              hasMarkdown: Boolean(markdown),
+              contentShown:
+                (markdown?.textContent ?? "").includes("UI 导入测试标题") ||
+                (document.querySelector(".documents-result")?.textContent ?? "")
+                  .includes("UI 导入测试标题"),
+              error: document.querySelector(".documents-error")?.textContent ?? "",
+            };
+          })()`,
+          returnByValue: true,
+        });
+        documents = {
+          fileInputFound: true,
+          result: result?.result?.value ?? null,
+        };
+      }
+    } catch (error) {
+      documents = { error: String(error?.message || error) };
+    } finally {
+      if (tmpDocx) {
+        try {
+          rmSync(tmpDocx, { force: true });
+        } catch {
+          // Best-effort cleanup.
+        }
+      }
+    }
+    appForm = documents;
+  }
   // For the clipboard app, capture text into the inbox and send it to a note;
   // the created note is then removed through the notes API.
   if (name === "clipboard") {
