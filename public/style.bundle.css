@@ -8782,6 +8782,24 @@ body.notes-dragging .notes-result-item {
   font-size: var(--font-size-sm);
 }
 
+.notes-capture-preview-full {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.notes-capture-expand {
+  margin-top: var(--space-2);
+}
+
 
 /* --- inlined: native/plugins/idphoto-app.css --- */
 .idphoto-nav {

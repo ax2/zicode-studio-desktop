@@ -726,6 +726,21 @@ describe("notes store", () => {
     );
     const stats = container.querySelector(".notes-capture-preview-stats");
     expect(stats?.textContent).toContain("11");
+    expect(container.querySelector(".notes-capture-preview-full")).toBeNull();
+    const expand = container.querySelector(
+      ".notes-capture-expand",
+    ) as HTMLButtonElement;
+    expand.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-capture-preview-full")).toBeTruthy(),
+    );
+    expect(
+      container.querySelector(".notes-capture-preview-full")?.textContent,
+    ).toContain("Example");
+    expand.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-capture-preview-full")).toBeNull(),
+    );
     const copyButton = container.querySelector(
       ".notes-capture-copy",
     ) as HTMLButtonElement;

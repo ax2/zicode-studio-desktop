@@ -1298,6 +1298,7 @@ function CaptureForm({ store }: { store: NotesStore }) {
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
   const capturing = store((state) => state.capturing);
@@ -1382,9 +1383,22 @@ function CaptureForm({ store }: { store: NotesStore }) {
                 stripMarkdown(preview.markdown).replace(/\s+/g, "").length.toLocaleString(),
               )}
             </p>
-            <p className="notes-capture-preview-excerpt">
-              {stripMarkdown(preview.markdown).slice(0, 320)}
-            </p>
+            {previewExpanded ? (
+              <pre className="notes-capture-preview-full">
+                {stripMarkdown(preview.markdown)}
+              </pre>
+            ) : (
+              <p className="notes-capture-preview-excerpt">
+                {stripMarkdown(preview.markdown).slice(0, 320)}
+              </p>
+            )}
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm notes-capture-expand"
+              onClick={() => setPreviewExpanded((expanded) => !expanded)}
+            >
+              {previewExpanded ? t("Show less") : t("Show full content")}
+            </button>
             <button
               type="button"
               className="ui-button ui-button--ghost ui-button--sm notes-capture-copy"

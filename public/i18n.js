@@ -1285,6 +1285,8 @@ const zhCN = {
   "Capture preview": "采集预览",
   "Extracted content": "提取到的内容",
   "About {count} readable characters": "约 {count} 字可读正文",
+  "Show full content": "查看完整内容",
+  "Show less": "收起",
   "Fetching preview…": "正在获取预览…",
   "Delete note": "删除笔记",
   "Note deleted": "笔记已删除",
