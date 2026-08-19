@@ -1,5 +1,28 @@
 # 实现状态
 
+## 2026-08-19 网页采集正文提取增强
+
+- 按用户反馈「从网页生成笔记需要去除导航/页眉页脚/广告/侧边栏，保留正文与
+  原文样式」，增强 `src-tauri/src/web_extract.rs`（笔记采集与 `notes_extract_web`
+  Pi 工具共用同一提取器）。
+- 语义去噪：`nav`/`footer`/`aside` 标签、`role=banner/navigation/
+  complementary/contentinfo/search`、`aria-hidden="true"`、`hidden`、
+  `data-nosnippet` 直接剔除；补充广告/弹窗/工具栏/登录注册/排行/关注/下载等
+  英文与拼音类名提示；`body`/`html` 不再因站点级 class（如
+  `skin-vector-search-vue`）整体误判为噪声；噪声匹配改为词边界感知，避免
+  `research` 误伤 `search`、`loader` 误伤 `ad`。
+- 正文选择：`article`/`main` 标签加分，容器按段落数与标题数加分，正文容器
+  能胜过同文本量的导航/推荐列表。
+- 样式保留：标题内联链接/代码、表格单元格内联链接、图片标题（figure +
+  figcaption 斜体）、定义列表（dl/dt/dd）、水平线、折叠块（details/summary）、
+  删除线、行内代码（code/kbd/samp/var）、引用引号、音视频源链接；嵌套列表
+  递归缩进渲染；输出折叠多余空行并去除行尾空白。
+- 验证：`web_extract` 19 项单测通过（新增语义去噪、嵌套列表、样式保留、
+  表格内联、正文优先、Cookie 横幅、边界匹配等）；全量 Rust 242 项、Clippy
+  `-D warnings`、`cargo fmt --check`、前端全量 vitest + 权限/子进程策略全绿；
+ 真实页面冒烟（Wikipedia 英文文章、阮一峰中文周刊）正文完整、导航/捐赠/
+  页脚零泄漏（冒烟测试默认忽略，`ZICODE_SMOKE_URL` 可指定其他页面）。
+
 ## 2026-08-19 未完善插件默认禁用
 
 - 按用户决策，将尚未完善且暂不继续开发的三个内置插件默认禁用：Projects

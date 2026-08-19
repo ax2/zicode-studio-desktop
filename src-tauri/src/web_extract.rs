@@ -252,22 +252,40 @@ pub fn fetch_and_extract(raw_url: &str) -> Result<WebArticle, String> {
 
 const NOISE_TAGS: &[&str] = &[
     "script", "style", "noscript", "iframe", "svg", "canvas", "form", "button", "input",
-    "textarea", "select", "dialog",
+    "textarea", "select", "dialog", "nav", "footer", "aside",
 ];
 
 const NOISE_HINTS: &[&str] = &[
     "advert",
     "ad-",
     "-ad",
+    "adsbygoogle",
+    "adsense",
+    "doubleclick",
+    "google-ads",
+    "ad-slot",
+    "adslot",
+    "dfp",
     "banner",
+    "masthead",
+    "topbar",
+    "navbar",
+    "subnav",
     "cookie",
+    "cookie-consent",
+    "cookiewall",
+    "consent",
     "share",
     "social",
     "related",
+    "related-posts",
+    "recommendations",
     "recommend",
     "comment",
     "sidebar",
     "menu",
+    "breadcrumbs",
+    "crumb",
     "pagination",
     "breadcrumb",
     "newsletter",
@@ -280,7 +298,46 @@ const NOISE_HINTS: &[&str] = &[
     "tracking",
     "modal",
     "popup",
+    "overlay",
+    "lightbox",
+    "toolbar",
     "aside",
+    "search",
+    "tag-cloud",
+    "tags-cloud",
+    "taglist",
+    "archive",
+    "category",
+    "author-box",
+    "author-bio",
+    "profile-card",
+    "user-info",
+    "login",
+    "register",
+    "signup",
+    "download",
+    "app-download",
+    "qrcode",
+    "weixin",
+    "wechat",
+    "gongzhonghao",
+    "follow",
+    "feedback",
+    "survey",
+    "poll",
+    "ranking",
+    "hotlist",
+    "trending",
+    "toplist",
+    "skip-link",
+    "visually-hidden",
+    "sr-only",
+    "screen-reader",
+    "noindex",
+    "sticky",
+    "toast",
+    "snackbar",
+    "site-header",
     // Common pinyin class names on Chinese pages.
     "guanggao",
     "daohang",
@@ -292,6 +349,18 @@ const NOISE_HINTS: &[&str] = &[
     "yemei",
     "fenxiang",
     "dingyue",
+    "tiepian",
+    "dibu",
+    "redu",
+    "paixing",
+    "remen",
+    "sousuo",
+    "denglu",
+    "zhuce",
+    "xiaza",
+    "guanzhu",
+    "banquan",
+    "mianze",
 ];
 
 const POSITIVE_HINTS: &[&str] = &[
@@ -300,15 +369,66 @@ const POSITIVE_HINTS: &[&str] = &[
     "zhengwen", "neirong", "wenzhang",
 ];
 
+/// 边界感知的噪声提示匹配：只接受出现在词首/词尾或与分隔符相邻的命中，
+/// 避免把 `research` 当成 `search`、把 `loader` 当成 `ad` 这类误伤。
+fn hint_matches(haystack: &str, hint: &str) -> bool {
+    if hint.is_empty() || haystack.is_empty() {
+        return false;
+    }
+    let bytes = haystack.as_bytes();
+    let needle = hint.as_bytes();
+    // `ad-`/`-ad` 这类前后缀提示只要求在词首/词尾；普通单词提示要求命中
+    // 必须位于一个词的开始（允许词尾继续扩展，如 advertisement ⊃ advert），
+    // 从而避免 research ⊃ search、loader ⊃ ad 这类误伤。
+    let requires_after_boundary = hint.starts_with('-');
+    let mut from = 0;
+    while let Some(relative) = haystack[from..].find(hint) {
+        let absolute = from + relative;
+        let before_ok = absolute == 0 || !bytes[absolute - 1].is_ascii_alphanumeric();
+        let after = absolute + needle.len();
+        let after_ok = after >= bytes.len() || !bytes[after].is_ascii_alphanumeric();
+        let matched = if requires_after_boundary {
+            after_ok
+        } else {
+            before_ok
+        };
+        if matched {
+            return true;
+        }
+        from = absolute + 1;
+    }
+    false
+}
+
 fn is_noise(el: &ElementRef) -> bool {
     let tag = el.value().name().to_ascii_lowercase();
+    // body/html 的 class 常包含皮肤/站点级标记（如
+    // skin-vector-search-vue），不能因提示词把整页判为噪声。
+    if tag == "body" || tag == "html" {
+        return false;
+    }
     if NOISE_TAGS.contains(&tag.as_str()) {
+        return true;
+    }
+    if el
+        .attr("aria-hidden")
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+        || el.attr("hidden").is_some()
+        || el.attr("data-nosnippet").is_some()
+    {
+        return true;
+    }
+    let role = el.attr("role").unwrap_or("").to_ascii_lowercase();
+    if matches!(
+        role.as_str(),
+        "banner" | "navigation" | "complementary" | "contentinfo" | "search" | "dialog" | "alert"
+    ) {
         return true;
     }
     let class = el.attr("class").unwrap_or("").to_ascii_lowercase();
     let id = el.attr("id").unwrap_or("").to_ascii_lowercase();
     let haystack = format!("{class} {id}");
-    NOISE_HINTS.iter().any(|hint| haystack.contains(hint))
+    NOISE_HINTS.iter().any(|hint| hint_matches(&haystack, hint))
 }
 
 fn meta_content(document: &Html, names: &[&str]) -> Option<String> {
@@ -343,6 +463,12 @@ fn decode_html_entities(value: &str) -> String {
         .replace("&#39;", "'")
 }
 
+fn escape_link_label(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
+}
+
 fn resolve_url(base: &str, href: &str) -> Option<String> {
     let absolute = reqwest::Url::parse(base).ok()?.join(href).ok()?;
     if !matches!(absolute.scheme(), "http" | "https") {
@@ -363,13 +489,18 @@ fn element_score(el: &ElementRef) -> f64 {
     let haystack = format!("{class} {id}");
     let mut score = len / 25.0;
     score += text.matches(',').count() as f64;
+    match el.value().name().to_ascii_lowercase().as_str() {
+        "article" => score += 15.0,
+        "main" => score += 10.0,
+        _ => {}
+    }
     for hint in POSITIVE_HINTS {
         if haystack.contains(hint) {
             score += 25.0;
         }
     }
     for hint in NOISE_HINTS {
-        if haystack.contains(hint) {
+        if hint_matches(&haystack, hint) {
             score -= 25.0;
         }
     }
@@ -400,7 +531,8 @@ fn walk_score<'a>(
         _ => return 0.0,
     };
     let tag = element.name().to_ascii_lowercase();
-    if NOISE_TAGS.contains(&tag.as_str()) {
+    let wrapped = ElementRef::wrap(node).expect("element");
+    if is_noise(&wrapped) {
         return 0.0;
     }
     let is_leaf = matches!(
@@ -415,13 +547,25 @@ fn walk_score<'a>(
         total += walk_score(child, best);
     }
     if tag != "body" && tag != "html" {
-        let text = ElementRef::wrap(node)
-            .map(|element| element.text().collect::<String>())
-            .unwrap_or_default();
+        let text = wrapped.text().collect::<String>();
         let len = text_len(&text);
+        // 容器加分：article/main 语义与段落、标题数量，帮助正文容器胜过
+        // 同样文本量的导航/推荐列表。
+        let mut container_bonus = 0.0;
+        match tag.as_str() {
+            "article" => container_bonus += 15.0,
+            "main" => container_bonus += 10.0,
+            _ => {}
+        }
+        let paragraph_count = wrapped.select(&Selector::parse("p").unwrap()).count();
+        let heading_count = wrapped
+            .select(&Selector::parse("h1,h2,h3,h4,h5,h6").unwrap())
+            .count();
+        container_bonus += paragraph_count as f64 * 2.0 + heading_count as f64 * 2.0;
+        let candidate = total + container_bonus;
         // 更高分优先；同分取更“窄”（文本更少）的容器，避免选到 body。
-        if total > best.0 || (total == best.0 && len > 0 && len < best.1) {
-            *best = (total, len, Some(node));
+        if candidate > best.0 || (candidate == best.0 && len > 0 && len < best.1) {
+            *best = (candidate, len, Some(node));
         }
     }
     total
@@ -443,23 +587,48 @@ fn inline_markdown(node: NodeRef<scraper::Node>, base: &str, out: &mut String) {
                         inline_markdown(child, base, out);
                         out.push_str("**");
                     }
-                    "em" | "i" => {
+                    "em" | "i" | "cite" => {
                         out.push('*');
                         inline_markdown(child, base, out);
                         out.push('*');
                     }
-                    "code" => {
+                    "code" | "kbd" | "samp" | "var" => {
                         out.push('`');
                         inline_markdown(child, base, out);
                         out.push('`');
+                    }
+                    "del" | "s" | "strike" => {
+                        out.push_str("~~");
+                        inline_markdown(child, base, out);
+                        out.push_str("~~");
+                    }
+                    "q" => {
+                        out.push('“');
+                        inline_markdown(child, base, out);
+                        out.push('”');
                     }
                     "a" => {
-                        let text = el.text().collect::<String>().trim().to_string();
                         let href = el.attr("href").unwrap_or("");
+                        let resolved = resolve_url(base, href).unwrap_or_else(|| href.to_string());
+                        let linked_image = el
+                            .select(&Selector::parse("img").unwrap())
+                            .next()
+                            .and_then(|image| {
+                                image
+                                    .attr("src")
+                                    .and_then(|src| resolve_url(base, src))
+                                    .map(|src| {
+                                        let alt = image.attr("alt").unwrap_or("");
+                                        format!("![{alt}]({src})")
+                                    })
+                            });
+                        if let Some(label) = linked_image {
+                            out.push_str(&format!("[{label}]({resolved})"));
+                            continue;
+                        }
+                        let text = el.text().collect::<String>().trim().to_string();
                         if !text.is_empty() {
-                            let resolved =
-                                resolve_url(base, href).unwrap_or_else(|| href.to_string());
-                            out.push_str(&format!("[{text}]({resolved})"));
+                            out.push_str(&format!("[{}]({resolved})", escape_link_label(&text)));
                         }
                     }
                     "img" => {
@@ -469,6 +638,9 @@ fn inline_markdown(node: NodeRef<scraper::Node>, base: &str, out: &mut String) {
                         }
                     }
                     "br" => out.push('\n'),
+                    "ul" | "ol" => {
+                        // 嵌套列表由块级渲染器负责缩进，内联阶段跳过避免重复。
+                    }
                     _ => inline_markdown(child, base, out),
                 }
             }
@@ -496,7 +668,9 @@ fn block_markdown(node: NodeRef<scraper::Node>, base: &str, out: &mut String) {
                 match tag.as_str() {
                     "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
                         let level = tag.as_bytes()[1] - b'0';
-                        let text = el.text().collect::<String>().trim().to_string();
+                        let mut text = String::new();
+                        inline_markdown(child, base, &mut text);
+                        let text = text.trim();
                         if !text.is_empty() {
                             out.push_str(&format!("\n\n{} {text}\n\n", "#".repeat(level as usize)));
                         }
@@ -525,33 +699,77 @@ fn block_markdown(node: NodeRef<scraper::Node>, base: &str, out: &mut String) {
                         let code = el.text().collect::<String>();
                         out.push_str(&format!("\n\n```\n{code}\n```\n\n"));
                     }
-                    "ul" | "ol" => {
-                        let ordered = tag == "ol";
-                        let mut index = 1;
-                        for li in child.children() {
-                            if !matches!(li.value(), Node::Element(e) if e.name() == "li") {
+                    "ul" | "ol" => render_list(child, base, out, 0),
+                    "table" => {
+                        render_table(&el, base, out);
+                    }
+                    "img" => {
+                        if let Some(src) = el.attr("src").and_then(|s| resolve_url(base, s)) {
+                            let alt = el.attr("alt").unwrap_or("");
+                            out.push_str(&format!("![{alt}]({src})\n\n"));
+                        }
+                    }
+                    "figcaption" => {
+                        let mut caption = String::new();
+                        inline_markdown(child, base, &mut caption);
+                        let caption = caption.trim();
+                        if !caption.is_empty() {
+                            out.push_str(&format!("*{caption}*\n\n"));
+                        }
+                    }
+                    "figure" => {
+                        let mut figure = String::new();
+                        block_markdown(child, base, &mut figure);
+                        let figure = figure.trim();
+                        if !figure.is_empty() {
+                            out.push_str(&format!("\n\n{figure}\n\n"));
+                        }
+                    }
+                    "hr" => out.push_str("\n\n---\n\n"),
+                    "summary" => {
+                        let mut summary = String::new();
+                        inline_markdown(child, base, &mut summary);
+                        let summary = summary.trim();
+                        if !summary.is_empty() {
+                            out.push_str(&format!("**{summary}**\n\n"));
+                        }
+                    }
+                    "dl" => {
+                        for term_or_def in child.children() {
+                            let Some(entry) = ElementRef::wrap(term_or_def) else {
                                 continue;
-                            }
-                            let mut content = String::new();
-                            inline_markdown(li, base, &mut content);
-                            let content = content.trim();
-                            if content.is_empty() {
-                                continue;
-                            }
-                            let marker = if ordered {
-                                format!("{index}. ")
-                            } else {
-                                "- ".to_string()
                             };
-                            out.push_str(&format!("{marker}{content}\n"));
-                            if ordered {
-                                index += 1;
+                            match entry.value().name().to_ascii_lowercase().as_str() {
+                                "dt" => {
+                                    let mut term = String::new();
+                                    inline_markdown(term_or_def, base, &mut term);
+                                    let term = term.trim();
+                                    if !term.is_empty() {
+                                        out.push_str(&format!("**{term}**\n\n"));
+                                    }
+                                }
+                                "dd" => {
+                                    let mut definition = String::new();
+                                    block_markdown(term_or_def, base, &mut definition);
+                                    let definition = definition.trim();
+                                    if !definition.is_empty() {
+                                        out.push_str(&format!(": {definition}\n\n"));
+                                    }
+                                }
+                                _ => {}
                             }
                         }
-                        out.push('\n');
                     }
-                    "table" => {
-                        render_table(&el, out);
+                    "video" | "audio" => {
+                        let source = el.attr("src").map(str::to_string).or_else(|| {
+                            el.select(&Selector::parse("source").unwrap())
+                                .next()
+                                .and_then(|source| source.attr("src").map(str::to_string))
+                        });
+                        if let Some(source) = source.and_then(|src| resolve_url(base, &src)) {
+                            let label = if tag == "video" { "video" } else { "audio" };
+                            out.push_str(&format!("[{label}: {source}]({source})\n\n"));
+                        }
                     }
                     _ => block_markdown(child, base, out),
                 }
@@ -561,13 +779,66 @@ fn block_markdown(node: NodeRef<scraper::Node>, base: &str, out: &mut String) {
     }
 }
 
-fn render_table(table: &ElementRef, out: &mut String) {
+fn render_list(node: NodeRef<scraper::Node>, base: &str, out: &mut String, depth: usize) {
+    let ordered = matches!(
+        node.value(),
+        Node::Element(element) if element.name().eq_ignore_ascii_case("ol")
+    );
+    let mut index = 1;
+    let indent = "  ".repeat(depth);
+    for child in node.children() {
+        let Some(li) = ElementRef::wrap(child) else {
+            continue;
+        };
+        if !li.value().name().eq_ignore_ascii_case("li") {
+            continue;
+        }
+        let mut content = String::new();
+        inline_markdown(child, base, &mut content);
+        let content = content.trim();
+        if !content.is_empty() {
+            let marker = if ordered {
+                format!("{index}. ")
+            } else {
+                "- ".to_string()
+            };
+            out.push_str(&format!("{indent}{marker}{content}\n"));
+        }
+        for nested in child.children() {
+            if matches!(
+                nested.value(),
+                Node::Element(element)
+                    if element.name().eq_ignore_ascii_case("ul")
+                        || element.name().eq_ignore_ascii_case("ol")
+            ) {
+                render_list(nested, base, out, depth + 1);
+            }
+        }
+        if ordered {
+            index += 1;
+        }
+    }
+    if depth == 0 {
+        out.push('\n');
+    }
+}
+
+fn render_table(table: &ElementRef, base: &str, out: &mut String) {
     let mut rows: Vec<Vec<String>> = Vec::new();
     for tr in table.select(&Selector::parse("tr").unwrap()) {
-        let cells = tr
-            .select(&Selector::parse("th,td").unwrap())
-            .map(|cell| cell.text().collect::<String>().trim().replace('\n', " "))
-            .collect::<Vec<_>>();
+        let mut cells = Vec::new();
+        for cell in tr.select(&Selector::parse("th,td").unwrap()) {
+            let mut content = String::new();
+            inline_markdown(*cell, base, &mut content);
+            cells.push(
+                content
+                    .trim()
+                    .replace(['\n', '\r'], " ")
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            );
+        }
         if !cells.is_empty() {
             rows.push(cells);
         }
@@ -594,6 +865,28 @@ fn render_table(table: &ElementRef, out: &mut String) {
         out.push_str(&format!("| {} |\n", cells.join(" | ")));
     }
     out.push('\n');
+}
+
+/// 折叠多余空行、去掉行尾空白，让 Markdown 输出更紧凑可读。
+fn normalize_markdown(markdown: String) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    let mut blank = 0usize;
+    for line in markdown.lines() {
+        let trimmed = line.trim_end();
+        if trimmed.trim().is_empty() {
+            blank += 1;
+            if blank <= 1 {
+                lines.push(String::new());
+            }
+            continue;
+        }
+        blank = 0;
+        lines.push(trimmed.to_string());
+    }
+    while lines.last().is_some_and(|line| line.trim().is_empty()) {
+        lines.pop();
+    }
+    lines.join("\n")
 }
 
 pub fn extract(html: &str, base_url: &str) -> WebArticle {
@@ -635,6 +928,7 @@ pub fn extract(html: &str, base_url: &str) -> WebArticle {
     if let Some(candidate) = best.2 {
         block_markdown(candidate, base_url, &mut content_markdown);
     }
+    let content_markdown = normalize_markdown(content_markdown);
     let text_length = text_len(&content_markdown);
 
     WebArticle {
@@ -794,5 +1088,172 @@ mod tests {
         let article = extract(html, "https://example.com/");
         assert_eq!(article.title, "Rock & Roll & More");
         assert_eq!(article.site_name.as_deref(), Some("A & B"));
+    }
+
+    #[test]
+    fn removes_semantic_noise_regions_without_class_hints() {
+        let html = r#"<html><head><title>Semantic</title></head><body>
+          <header role="banner"><p>站点名</p></header>
+          <nav><ul><li><a>首页</a></li><li><a>分类</a></li></ul></nav>
+          <main>
+            <article>
+              <h1>正文标题</h1>
+              <p>这里是正文的第一段，包含足够多的文字用于评分，介绍背景与上下文。</p>
+              <p>第二段补充更多细节，继续展开论述，让内容更完整。</p>
+            </article>
+          </main>
+          <footer><p>版权所有</p></footer>
+          <aside><p>相关推荐</p></aside>
+          <div aria-hidden="true"><p>隐藏内容</p></div>
+        </body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert!(article.content_markdown.contains("正文标题"));
+        assert!(article.content_markdown.contains("第一段"));
+        assert!(!article.content_markdown.contains("站点名"));
+        assert!(!article.content_markdown.contains("首页"));
+        assert!(!article.content_markdown.contains("分类"));
+        assert!(!article.content_markdown.contains("版权所有"));
+        assert!(!article.content_markdown.contains("相关推荐"));
+        assert!(!article.content_markdown.contains("隐藏内容"));
+    }
+
+    #[test]
+    fn renders_nested_lists_with_indentation() {
+        let html = r#"<html><body><article>
+          <h1>列表标题</h1>
+          <p>列表前的正文，文字量足够，用于说明下面的结构。</p>
+          <ul>
+            <li>第一层项目一</li>
+            <li>第一层项目二
+              <ul>
+                <li>第二层项目一</li>
+                <li>第二层项目二</li>
+              </ul>
+            </li>
+            <li>第一层项目三</li>
+          </ul>
+        </article></body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert!(article
+            .content_markdown
+            .contains("- 第一层项目二\n  - 第二层项目一\n  - 第二层项目二\n- 第一层项目三"));
+    }
+
+    #[test]
+    fn preserves_figure_styles_and_definition_lists() {
+        let html = r#"<html><body><article>
+          <h1>样式标题</h1>
+          <p>正文包含<del>删除内容</del>与<q>引用片段</q>，以及<kbd>Ctrl</kbd>键。</p>
+          <figure>
+            <img src="/photo.png" alt="示意图">
+            <figcaption>图 1：示例</figcaption>
+          </figure>
+          <dl>
+            <dt>术语</dt>
+            <dd>定义内容</dd>
+          </dl>
+          <hr>
+          <p>结尾段落，补充说明。</p>
+        </article></body></html>"#;
+        let article = extract(html, "https://example.com/");
+        let markdown = &article.content_markdown;
+        assert!(markdown.contains("~~删除内容~~"));
+        assert!(markdown.contains("“引用片段”"));
+        assert!(markdown.contains("`Ctrl`"));
+        assert!(markdown.contains("![示意图](https://example.com/photo.png)"));
+        assert!(markdown.contains("*图 1：示例*"));
+        assert!(markdown.contains("**术语**"));
+        assert!(markdown.contains(": 定义内容"));
+        assert!(markdown.contains("---"));
+    }
+
+    #[test]
+    fn renders_inline_markdown_inside_headings_and_table_cells() {
+        let html = r#"<html><body><article>
+          <h1>标题</h1>
+          <p>表格前的说明文字，确保有足够正文用于选择容器。</p>
+          <h2>查看<a href="/docs">文档</a></h2>
+          <table>
+            <tr><th>名称</th><th>链接</th></tr>
+            <tr><td>示例</td><td><a href="/x">打开</a></td></tr>
+          </table>
+        </article></body></html>"#;
+        let article = extract(html, "https://example.com/base/page.html");
+        assert!(article
+            .content_markdown
+            .contains("## 查看[文档](https://example.com/docs)"));
+        assert!(article
+            .content_markdown
+            .contains("| [打开](https://example.com/x) |"));
+    }
+
+    #[test]
+    fn prefers_article_container_over_navigation_lists() {
+        let html = r#"<html><body>
+          <div class="nav-list">
+            <a>导航一</a><a>导航二</a><a>导航三</a><a>导航四</a><a>导航五</a><a>导航六</a>
+          </div>
+          <div>
+            <h1>文章标题</h1>
+            <p>正文第一段，包含丰富的内容描述，用来介绍主题背景和写作动机。</p>
+            <p>正文第二段，进一步说明细节，并给出结论和后续展望。</p>
+          </div>
+        </body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert!(article.content_markdown.contains("文章标题"));
+        assert!(article.content_markdown.contains("正文第一段"));
+        assert!(!article.content_markdown.contains("导航一"));
+    }
+
+    #[test]
+    fn removes_cookie_consent_banner() {
+        let html = r#"<html><body>
+          <div id="cookie-consent" role="dialog"><p>接受 Cookie</p></div>
+          <main><article>
+            <h1>标题</h1>
+            <p>正文第一段，内容足够用于评分，说明页面主题。</p>
+          </article></main>
+        </body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert!(article.content_markdown.contains("标题"));
+        assert!(!article.content_markdown.contains("接受 Cookie"));
+    }
+
+    #[test]
+    fn does_not_treat_research_as_search_noise() {
+        let html = r#"<html><body><article>
+          <h1>研究方法</h1>
+          <p>本小节介绍研究内容，包含足够的文字用于正文评分，并且没有广告噪声。</p>
+          <div class="research-note">
+            <p>研究笔记段落，展示边界匹配不会把 research 误判为 search。</p>
+          </div>
+        </article></body></html>"#;
+        let article = extract(html, "https://example.com/");
+        assert!(article.content_markdown.contains("研究笔记段落"));
+    }
+
+    #[test]
+    #[ignore = "network smoke: fetch a real article and report extraction quality"]
+    fn real_page_extraction_smoke() {
+        let url = std::env::var("ZICODE_SMOKE_URL")
+            .unwrap_or_else(|_| "https://en.wikipedia.org/wiki/Web_scraping".to_string());
+        let article = fetch_and_extract(&url).unwrap();
+        eprintln!("TITLE: {}", article.title);
+        eprintln!("TEXT_LENGTH: {}", article.text_length);
+        eprintln!(
+            "MARKDOWN_HEAD: {}",
+            article
+                .content_markdown
+                .chars()
+                .take(1200)
+                .collect::<String>()
+        );
+        let lower = article.content_markdown.to_ascii_lowercase();
+        if url.contains("wikipedia.org") {
+            for noise in ["main page", "random article", "donate", "about wikipedia"] {
+                assert!(!lower.contains(noise), "noise leaked: {noise}");
+            }
+            assert!(lower.contains("web scraping"));
+        }
     }
 }
