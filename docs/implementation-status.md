@@ -112,6 +112,8 @@
   `-D warnings`、`cargo fmt --check`、前端全量 vitest + 权限/子进程策略全绿；
   真实页面冒烟（Wikipedia 英文文章、阮一峰中文周刊）正文完整、导航/捐赠/
   页脚零泄漏（冒烟测试默认忽略，`ZICODE_SMOKE_URL` 可指定其他页面）。
+  2026-08-19 追加验证 sspai.com 文章页（含侧边栏/图片水印参数），正文、
+  链接、图片、加粗标题均完整保留。
 - 交付：重建 release（`target/release/zicode-studio-desktop.exe`
   47,776,256 B / NSIS 安装包 348,682,991 B，2026-08-19 16:19），
   public/extensions 已同步到安装目录；运行中实例占用旧 exe，采用
