@@ -2,6 +2,11 @@
 
 Projects group a goal, tasks expose execution state, and automations trigger recurring work. Together they turn an isolated chat into a sustainable workflow.
 
+> Current default state: **Tasks** is enabled and ready to use; **Projects**
+> and **Automation** plugins are disabled by default. Enable them in Plugin
+> Manager first, after which they appear in the More menu. The project and
+> automation rules below apply once enabled.
+
 ## When to create a project
 
 Create a project when work spans multiple sessions, stages, or deliverables. A project brings its conversations, task progress, artifacts, and recent activity together.
