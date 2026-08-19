@@ -113,6 +113,7 @@ async function main() {
       sceneId: scene,
       title: "__qa_flow_tgt__",
       icon: "🗂️",
+      parentId: notebook.id,
     }),
   });
   if (!targetNotebookResponse.ok) {
@@ -212,8 +213,17 @@ async function main() {
         item?.click();
         await wait(900);
         const editor = document.querySelector(".notes-editor");
+        const parentBranch = document.querySelector(
+          '.notes-notebook-branch[data-notebook-id="${notebook.id}"]',
+        );
+        const childNested = Boolean(
+          parentBranch?.querySelector(
+            '.notes-notebook-children .notes-notebook-branch[data-notebook-id="${targetNotebook.id}"]',
+          ),
+        );
         return {
           opened: !!editor,
+          childNested,
           editTab: !!document.querySelector(".notes-edit-tab"),
           previewTab: !!document.querySelector(".notes-preview-tab"),
           title: document.querySelector(".notes-title-input")?.value ?? null,
@@ -479,6 +489,7 @@ async function main() {
       tagFilter: tagFilterResult,
       drag: { ...dragResult, movedToTarget },
       pass:
+        openResult.childNested &&
         afterAutosave.title === "QA 交互标题 已改" &&
         afterAutosave.icon === "⭐" &&
         afterAutosave.tags.includes("qa-flow") &&
