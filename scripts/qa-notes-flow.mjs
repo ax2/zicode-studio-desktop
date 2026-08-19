@@ -96,7 +96,7 @@ async function main() {
     body: JSON.stringify({
       workspaceId: wsId,
       sceneId: scene,
-      title: "__qa_flow__",
+      title: "__qa_flow_src__",
       icon: "📒",
     }),
   });
@@ -104,6 +104,21 @@ async function main() {
     throw new Error(`create notebook failed: ${notebookResponse.status}`);
   }
   const notebook = (await notebookResponse.json()).notebook;
+
+  const targetNotebookResponse = await fetch(`${HOST}/v2/notes/notebooks`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      workspaceId: wsId,
+      sceneId: scene,
+      title: "__qa_flow_tgt__",
+      icon: "🗂️",
+    }),
+  });
+  if (!targetNotebookResponse.ok) {
+    throw new Error(`create target notebook failed: ${targetNotebookResponse.status}`);
+  }
+  const targetNotebook = (await targetNotebookResponse.json()).notebook;
 
   const noteResponse = await fetch(`${HOST}/v2/notes/create`, {
     method: "POST",
@@ -187,7 +202,7 @@ async function main() {
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         // Expand the seeded notebook and open the seeded note.
         const branch = Array.from(document.querySelectorAll(".notes-notebook-branch")).find(
-          (node) => (node.textContent || "").includes("__qa_flow__"),
+          (node) => (node.textContent || "").includes("__qa_flow_src__"),
         );
         if (branch && !branch.open) branch.querySelector("summary")?.click();
         await wait(600);
@@ -283,7 +298,7 @@ async function main() {
       `(async () => {
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         const branch = Array.from(document.querySelectorAll(".notes-notebook-branch")).find(
-          (node) => (node.textContent || "").includes("__qa_flow__"),
+          (node) => (node.textContent || "").includes("__qa_flow_src__"),
         );
         if (branch && !branch.open) branch.querySelector("summary")?.click();
         await wait(600);
@@ -356,6 +371,103 @@ async function main() {
       })()`,
     );
 
+    // Drag the note from the source notebook onto the target notebook row.
+    // This exercises the pointer-event drag/drop that was reported broken.
+    const dragResult = await evaluate(
+      cdp,
+      `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        // Reset to the full library so the notebook tree is visible.
+        const allNotes = Array.from(
+          document.querySelectorAll(".notes-nav-button"),
+        ).find((node) => (node.textContent || "").includes("全部笔记"));
+        allNotes?.click();
+        await wait(900);
+        const sourceBranch = Array.from(
+          document.querySelectorAll(".notes-notebook-branch"),
+        ).find((node) => (node.textContent || "").includes("__qa_flow_src__"));
+        if (sourceBranch && !sourceBranch.open) {
+          sourceBranch.querySelector("summary")?.click();
+        }
+        await wait(600);
+        const noteRow = Array.from(
+          document.querySelectorAll(".notes-tree-note"),
+        ).find((node) => (node.textContent || "").includes("QA 交互标题"));
+        const targetSummary = Array.from(
+          document.querySelectorAll(".notes-notebook-summary"),
+        ).find((node) =>
+          (node.closest(".notes-notebook-branch")?.dataset?.notebookId || "") === "__qa_flow_tgt__" ||
+          (node.textContent || "").includes("__qa_flow_tgt__"),
+        );
+        if (!noteRow || !targetSummary) {
+          return {
+            found: Boolean(noteRow && targetSummary),
+            noteRow: Boolean(noteRow),
+            targetSummary: Boolean(targetSummary),
+          };
+        }
+        const noteRect = noteRow.getBoundingClientRect();
+        const startX = noteRect.left + noteRect.width / 2;
+        const startY = noteRect.top + noteRect.height / 2;
+        noteRow.dispatchEvent(
+          new PointerEvent("pointerdown", {
+            clientX: startX,
+            clientY: startY,
+            button: 0,
+            pointerId: 1,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        document.dispatchEvent(
+          new PointerEvent("pointermove", {
+            clientX: startX + 40,
+            clientY: startY,
+            pointerId: 1,
+            bubbles: true,
+          }),
+        );
+        await wait(250);
+        const targetRect = targetSummary.getBoundingClientRect();
+        const dropX = targetRect.left + Math.min(30, targetRect.width / 2);
+        const dropY = targetRect.top + Math.max(4, targetRect.height / 2);
+        document.dispatchEvent(
+          new PointerEvent("pointermove", {
+            clientX: dropX,
+            clientY: dropY,
+            pointerId: 1,
+            bubbles: true,
+          }),
+        );
+        await wait(250);
+        document.dispatchEvent(
+          new PointerEvent("pointerup", {
+            clientX: dropX,
+            clientY: dropY,
+            pointerId: 1,
+            bubbles: true,
+          }),
+        );
+        await wait(1800);
+        return { found: true, noteRow: true, targetSummary: true, dropped: true };
+      })()`,
+    );
+
+    // Verify through the backend that the note actually moved notebooks.
+    let movedToTarget = false;
+    try {
+      const listResponse = await fetch(
+        `${HOST}/v2/notes?workspaceId=${wsId}&sceneId=${scene}&query=${encodeURIComponent("QA 交互标题")}`,
+      );
+      const listBody = await listResponse.json();
+      const movedNote = (listBody?.snapshot?.notes || []).find((entry) =>
+        (entry.title || "").includes("QA 交互标题"),
+      );
+      movedToTarget = movedNote?.notebookId === targetNotebook.id;
+    } catch {
+      movedToTarget = false;
+    }
+
     cdp.close();
 
     const report = {
@@ -365,6 +477,7 @@ async function main() {
       reload: reloadResult,
       preview: previewResult,
       tagFilter: tagFilterResult,
+      drag: { ...dragResult, movedToTarget },
       pass:
         afterAutosave.title === "QA 交互标题 已改" &&
         afterAutosave.icon === "⭐" &&
@@ -378,7 +491,9 @@ async function main() {
         previewResult.hasList &&
         previewResult.hasQuote &&
         tagFilterResult.active.includes("qa-flow") &&
-        tagFilterResult.results.some((title) => title.includes("QA 交互标题")),
+        tagFilterResult.results.some((title) => title.includes("QA 交互标题")) &&
+        dragResult.found &&
+        movedToTarget,
     };
     console.log(JSON.stringify(report, null, 2));
     process.exitCode = report.pass ? 0 : 1;
@@ -387,28 +502,41 @@ async function main() {
     await sleep(300);
     // Best-effort cleanup of the seeded data.
     try {
-      const noteBody = JSON.stringify({
-        workspaceId: wsId,
-        sceneId: scene,
-        notebookId: notebook.id,
-        noteId: note.id,
-        expectedVersion: note.version,
-      });
-      await fetch(`${HOST}/v2/notes/delete`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: noteBody,
-      });
-      const nbBody = JSON.stringify({
-        workspaceId: wsId,
-        sceneId: scene,
-        notebookId: notebook.id,
-      });
-      await fetch(`${HOST}/v2/notes/notebooks/delete`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: nbBody,
-      });
+      // The note may have moved notebooks during the drag scenario, so
+      // resolve its current location before deleting it.
+      const listResponse = await fetch(
+        `${HOST}/v2/notes?workspaceId=${wsId}&sceneId=${scene}&query=${encodeURIComponent("QA 交互标题")}`,
+      );
+      const listBody = await listResponse.json();
+      const currentNote = (listBody?.snapshot?.notes || []).find((entry) =>
+        (entry.title || "").includes("QA 交互标题"),
+      );
+      if (currentNote?.id && currentNote?.notebookId) {
+        const noteBody = JSON.stringify({
+          workspaceId: wsId,
+          sceneId: scene,
+          notebookId: currentNote.notebookId,
+          noteId: currentNote.id,
+          expectedVersion: currentNote.version ?? "",
+        });
+        await fetch(`${HOST}/v2/notes/delete`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: noteBody,
+        });
+      }
+      for (const notebookId of [notebook.id, targetNotebook.id]) {
+        const nbBody = JSON.stringify({
+          workspaceId: wsId,
+          sceneId: scene,
+          notebookId,
+        });
+        await fetch(`${HOST}/v2/notes/notebooks/delete`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: nbBody,
+        });
+      }
     } catch {
       // Cleanup is best-effort; the seeded note is harmless if it remains.
     }
