@@ -527,6 +527,59 @@ async function diagnose(cdp, name, url, viewport) {
         image: imagePreview,
       },
     };
+    // Optional: send a real message and wait for the model reply (opt-in via
+    // QA_SEND_MESSAGE=1 so routine sweeps stay fast and token-light).
+    if (process.env.QA_SEND_MESSAGE === "1") {
+      await cdp.send("Runtime.evaluate", {
+        expression: `(() => {
+          const input = document.querySelector("#message-input");
+          Object.getOwnPropertyDescriptor(
+            window.HTMLTextAreaElement.prototype,
+            "value",
+          ).set.call(input, "请回复 ok");
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          return true;
+        })()`,
+      });
+      await sleep(300);
+      await cdp.send("Runtime.evaluate", {
+        expression: `(() => {
+          document.querySelector("#send-btn")?.click();
+          return true;
+        })()`,
+      });
+      let sendResult = { userSent: false, replyReceived: false, replyText: "" };
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await sleep(1000);
+        const state = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const text = document.querySelector(".messages")?.textContent ?? "";
+            const messages = Array.from(
+              document.querySelectorAll(".messages .message"),
+            ).map((node) => node.textContent?.replace(/\\s+/g, " ").trim() ?? "");
+            return {
+              userSent: messages.some((msg) => msg.includes("请回复 ok")),
+              replyReceived: messages.some(
+                (msg) => /ok|好的|明白/.test(msg) && msg.length < 120,
+              ),
+              textLength: text.length,
+            };
+          })()`,
+          returnByValue: true,
+        });
+        const value = state?.result?.value ?? {};
+        sendResult = {
+          userSent: value.userSent,
+          replyReceived: value.replyReceived,
+          replyText: "",
+        };
+        if (value.userSent && value.replyReceived) break;
+      }
+      appForm = {
+        ...(appForm ?? {}),
+        realSend: sendResult,
+      };
+    }
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true, cancelable: true }));
