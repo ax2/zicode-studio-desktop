@@ -353,6 +353,74 @@ async function diagnose(cdp, name, url, viewport) {
         executed: paletteExecuted?.result?.value ?? null,
       },
     };
+    // Session search dialog: Ctrl+K opens it, a query returns results, and
+    // Escape closes it.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "k",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      })()`,
+    });
+    await sleep(500);
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector(".session-search-dialog-input");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        ).set.call(input, "你好");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return Boolean(input);
+      })()`,
+    });
+    await sleep(1200);
+    const sessionSearch = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const dialog = document.querySelector("#session-search-dialog");
+        const dialogByClass = document.querySelector(".session-search-dialog");
+        const results = document.querySelectorAll(".session-search-result");
+        return {
+          open: Boolean(dialogByClass || (dialog && !dialog.classList.contains("hidden"))),
+          resultCount: results.length,
+          sample: results[0]?.textContent?.replace(/\\s+/g, " ").trim().slice(0, 80) ?? "",
+        };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        return true;
+      })()`,
+    });
+    await sleep(300);
+    const sessionSearchClosed = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        closed:
+          !document.querySelector(".session-search-dialog") ?? null,
+      }))()`,
+      returnByValue: true,
+    });
+    appForm = {
+      ...(appForm ?? {}),
+      sessionSearch: {
+        opened: sessionSearch?.result?.value ?? null,
+        closed: sessionSearchClosed?.result?.value ?? null,
+      },
+    };
     // Composer: typing enables send, "/" opens the skill menu, and attaching
     // an image renders a preview.
     const composerInput = await cdp.send("Runtime.evaluate", {
