@@ -218,6 +218,57 @@ async function diagnose(cdp, name, url, viewport) {
   }
   // For the chat app, exercise the Ctrl/Cmd+digit app-switch shortcut.
   if (name === "chat") {
+    // Open the file browser panel and confirm it paints above the message
+    // history rather than being covered by it (works in the normal chat
+    // surface; the super-agent runtime replaces the panel in SA mode).
+    const toggleVisible = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const toggle = document.querySelector("#file-sidebar-toggle");
+        return Boolean(
+          toggle &&
+            getComputedStyle(toggle).display !== "none" &&
+            toggle.getBoundingClientRect().height > 0,
+        );
+      })()`,
+      returnByValue: true,
+    });
+    if (toggleVisible?.result?.value) {
+      await cdp.send("Runtime.evaluate", {
+        expression: `(() => {
+          document.querySelector("#file-sidebar-toggle")?.click();
+          return true;
+        })()`,
+      });
+      await sleep(500);
+      const filePanelResult = await cdp.send("Runtime.evaluate", {
+        expression: `(() => {
+          const panel = document.querySelector(".file-sidebar");
+          if (!panel || panel.classList.contains("collapsed")) {
+            return { open: false };
+          }
+          const pr = panel.getBoundingClientRect();
+          const list = panel.querySelector(".file-list");
+          const listRect = list?.getBoundingClientRect();
+          const sampleX = Math.round(pr.left + pr.width / 2);
+          const sampleY = Math.round((listRect?.top ?? pr.top) + 10);
+          const topmost = document
+            .elementsFromPoint(sampleX, sampleY)
+            .slice(0, 3)
+            .map((el) => (el.tagName + "." + el.className).slice(0, 40));
+          return {
+            open: true,
+            panelLeft: Math.round(pr.left),
+            panelWidth: Math.round(pr.width),
+            listTop: listRect ? Math.round(listRect.top) : null,
+            topmost,
+          };
+        })()`,
+        returnByValue: true,
+      });
+      appForm = filePanelResult?.result?.value ?? null;
+    } else {
+      appForm = { toggleHidden: true };
+    }
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true, cancelable: true }));
