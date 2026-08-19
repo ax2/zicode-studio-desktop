@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
 import { downscaleImage, OCR_LANGUAGES } from "./ocrLogic";
 import { createOcrStore, type OcrOptions, type OcrStore } from "./ocrStore";
@@ -52,6 +53,18 @@ function OcrMain({ store }: { store: OcrStore }) {
         <h1>{t("Text Extraction")}</h1>
         <p>{t("Extract text from screenshots and images using the system OCR engine.")}</p>
       </header>
+
+      <FirstRunGuide
+        storageKey="ocr"
+        title={t("Extract text from images")}
+        steps={[
+          t("Choose or drop a screenshot or image."),
+          t("Pick the recognition language if needed."),
+          t("Copy, download, or send the extracted text to a note."),
+        ]}
+        ctaLabel={t("Choose an image")}
+        onCta={() => fileRef.current?.click()}
+      />
 
       <section className="ui-card ocr-source">
         <input

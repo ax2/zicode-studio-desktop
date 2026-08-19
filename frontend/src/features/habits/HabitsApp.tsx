@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { currentStreak, lastDates, toDateKey } from "./habitsLogic";
 import { createHabitsStore, type HabitsOptions, type HabitsStore } from "./habitsStore";
 
@@ -56,6 +57,18 @@ export function HabitsMain({ store }: { store: HabitsStore }) {
         <h1>{t("Habit Tracker")}</h1>
         <p>{t("Track your daily habits and keep a streak.")}</p>
       </header>
+
+      <FirstRunGuide
+        storageKey="habits"
+        title={t("Build daily habits")}
+        steps={[
+          t("Add a habit with a name, emoji, and color."),
+          t("Mark it done each day."),
+          t("Keep your streak and review history."),
+        ]}
+        ctaLabel={t("Add a habit")}
+        onCta={() => document.querySelector<HTMLElement>(".habits-name-input")?.focus()}
+      />
 
       <section className="ui-card habits-composer">
         <form

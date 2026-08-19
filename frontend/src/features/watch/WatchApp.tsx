@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { formatTime } from "./watchLogic";
 import { createWatchStore, type WatchOptions, type WatchStore } from "./watchStore";
 
@@ -40,6 +41,18 @@ export function WatchMain({ store }: { store: WatchStore }) {
         <h1>{t("Web Watch")}</h1>
         <p>{t("Detect when public web pages change with content hash checks.")}</p>
       </header>
+
+      <FirstRunGuide
+        storageKey="watch"
+        title={t("Watch pages for changes")}
+        steps={[
+          t("Add a public web page you care about."),
+          t("Check it to capture the current content."),
+          t("ZiCode flags the page when its content changes."),
+        ]}
+        ctaLabel={t("Add a watcher")}
+        onCta={() => document.querySelector<HTMLElement>(".watch-name-input")?.focus()}
+      />
 
       <section className="ui-card watch-composer">
         <form

@@ -957,6 +957,7 @@ const graphApp = setupGraphApp({
     return response?.snapshot ?? { links: [], similar: [], conflicts: [] };
   },
   notify: notifications.notify,
+  openApp: (pluginId) => pluginShell?.activate(pluginId),
 });
 const habitsApp = setupHabitsApp({
   getTarget: () => ({

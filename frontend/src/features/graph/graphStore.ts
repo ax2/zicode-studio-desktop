@@ -11,9 +11,10 @@ export interface GraphState {
 }
 
 export interface GraphOptions {
-  loadKnowledge(): Promise<GraphKnowledge>;
-  notify(message: string): void;
-}
+    loadKnowledge(): Promise<GraphKnowledge>;
+    notify(message: string): void;
+    openApp?: (pluginId: string) => void;
+  }
 
 export function createGraphStore(options: GraphOptions) {
     const { loadKnowledge } = options;

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import {
   buildGraph,
   layoutGraph,
@@ -45,7 +46,13 @@ function GraphNav() {
   return <nav className="graph-nav" aria-label={t("Knowledge Graph")} />;
 }
 
-function GraphMain({ store }: { store: GraphStore }) {
+function GraphMain({
+  store,
+  openApp,
+}: {
+  store: GraphStore;
+  openApp?: (pluginId: string) => void;
+}) {
   const data = store((state) => state.data);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
@@ -65,6 +72,18 @@ function GraphMain({ store }: { store: GraphStore }) {
         <h1>{t("Knowledge Graph")}</h1>
         <p>{t("Visualize note links, backlinks, similar notes and conflicts.")}</p>
       </header>
+
+      <FirstRunGuide
+        storageKey="graph"
+        title={t("See how your notes connect")}
+        steps={[
+          t("Write backlinks or share tags in your notes."),
+          t("Open the graph to see links, backlinks, and conflicts."),
+          t("Click a node to jump to its note."),
+        ]}
+        ctaLabel={t("Open Notes")}
+        onCta={() => openApp?.("com.zicode.notes")}
+      />
 
       {error ? (
         <p className="idphoto-error" role="alert">
@@ -204,7 +223,11 @@ export function createGraphApp(options: GraphOptions): GraphAppApi {
       navRoot = mountPluginSurface(container, <GraphNav />, navRoot);
     },
     renderContent(container) {
-      contentRoot = mountPluginSurface(container, <GraphMain store={store} />, contentRoot);
+      contentRoot = mountPluginSurface(
+        container,
+        <GraphMain store={store} openApp={options.openApp} />,
+        contentRoot,
+      );
     },
     deactivate() {},
     destroy() {
