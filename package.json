@@ -56,7 +56,8 @@
     "check:windows-subprocesses": "bun run scripts/check-windows-subprocesses.js",
     "check:rust": "node scripts/check-rust.mjs",
     "qa:console": "node scripts/qa-console-errors.mjs",
-    "qa:keyboard": "node scripts/qa-keyboard.mjs"
+    "qa:keyboard": "node scripts/qa-keyboard.mjs",
+    "qa:locale": "node scripts/qa-locale.mjs"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.72.0",
