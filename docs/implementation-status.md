@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-19 核心回归全绿与验收脚本适配
+
+- 对运行实例跑通全部核心回归：`qa-notes-flow`（编辑/自动保存/标签/图标/
+  多级拖拽/带入对话选中文字/标签筛选）、`qa-notes-attachment`（移动端附件
+  预览与直链）、`qa-artifacts-flow`（创建/查看/删除）、`qa-session-backup`
+  （会话导出/导入往返）、`qa-web-capture`（网页采集→笔记，含来源与标签），
+  全部 `pass: true`；跑完检查无 QA 数据残留（剪贴板收件箱为空、无 QA 命名
+  笔记/产物）。
+- `plugin-acceptance.mjs` 适配默认禁用状态：Habits/Watch/OCR 深链现在按
+  预期回退到对话，验收遍历改为按 host 启用状态过滤（`PLUGIN_FILTER` 仍可
+  强制单测），实测 6/6 通过（Translate/ID Photo/Image Tools/Clipboard/
+  Documents/采集防护）。
+- 设置「文章发布」页在 Articles 插件禁用时已显示「启用 Articles 插件后可
+  配置」的引导文案，无需改动。
+
 ## 2026-08-19 插件引导重复 setTarget 竞态修复
 
 - 上一轮的水合等待修复仍有竞态：app.js 会话引导会在 `setupPluginShell`
