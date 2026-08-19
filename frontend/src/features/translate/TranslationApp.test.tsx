@@ -22,6 +22,18 @@ afterEach(() => {
 });
 
 describe("translate composer", () => {
+  it("shows the first-run guide until dismissed", () => {
+    localStorage.clear();
+    const store = createTranslationStore({
+      gateway: stubGateway(),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const { container } = render(<TranslationMain store={store} />);
+    expect(container.querySelector("[data-first-run-guide]")).toBeTruthy();
+    expect(container.textContent).toContain("开始翻译");
+  });
+
   it("runs translation with Ctrl+Enter", async () => {
     const gateway = stubGateway();
     const store = createTranslationStore({

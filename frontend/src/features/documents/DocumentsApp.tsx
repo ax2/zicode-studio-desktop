@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
@@ -65,6 +66,18 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
         <h1>{t("Document Import")}</h1>
         <p>{t("Import PDF and DOCX files as readable Markdown. Preview, copy, or save the result into a notebook.")}</p>
       </header>
+
+      <FirstRunGuide
+        storageKey="documents"
+        title={t("Turn documents into editable notes")}
+        steps={[
+          t("Choose a PDF or DOCX file."),
+          t("Import it as readable Markdown."),
+          t("Preview, copy, or save the result into a notebook."),
+        ]}
+        ctaLabel={t("Choose a file")}
+        onCta={() => fileRef.current?.click()}
+      />
 
       <section className="ui-card documents-source">
         <input

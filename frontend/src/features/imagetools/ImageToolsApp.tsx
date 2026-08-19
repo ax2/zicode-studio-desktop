@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
 import {
   downscaleImage,
@@ -97,6 +98,18 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
         <h1>{t("Image Tools")}</h1>
         <p>{t("Resize, convert, rotate, flip or arrange images into a grid. Download the result or open it in a new tab.")}</p>
       </header>
+
+      <FirstRunGuide
+        storageKey="imagetools"
+        title={t("Process one image or many")}
+        steps={[
+          t("Choose or drop images."),
+          t("Set resize, format, rotation, or grid options."),
+          t("Process, then download or open the result."),
+        ]}
+        ctaLabel={t("Choose images")}
+        onCta={() => fileRef.current?.click()}
+      />
 
       <div className="imagetools-workspace">
         <section className="ui-card imagetools-source">

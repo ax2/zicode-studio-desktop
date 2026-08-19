@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { formatCreatedAt } from "./clipboardLogic";
 import { createClipboardStore, type ClipboardOptions, type ClipboardStore } from "./clipboardStore";
 
@@ -25,6 +26,7 @@ export function ClipboardMain({ store }: { store: ClipboardStore }) {
   const draft = store((state) => state.draft);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     void store.getState().load();
@@ -37,8 +39,21 @@ export function ClipboardMain({ store }: { store: ClipboardStore }) {
         <p>{t("Capture text and URLs before you organize them. Send any item to a note when you're ready.")}</p>
       </header>
 
+      <FirstRunGuide
+        storageKey="clipboard"
+        title={t("A scratchpad before you organize")}
+        steps={[
+          t("Paste or type text, or a URL."),
+          t("Add it to the inbox."),
+          t("Send any item to a note when you're ready."),
+        ]}
+        ctaLabel={t("Start capturing")}
+        onCta={() => inputRef.current?.focus()}
+      />
+
       <section className="ui-card clipboard-composer">
         <textarea
+          ref={inputRef}
           className="clipboard-textarea"
           value={draft}
           placeholder={t("Type or paste text")}

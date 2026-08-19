@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
 import {
   downscaleImage,
@@ -282,6 +283,18 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
           {t("Reset")}
         </button>
       </header>
+
+      <FirstRunGuide
+        storageKey="idphoto"
+        title={t("Make a printable ID photo sheet")}
+        steps={[
+          t("Add a portrait photo."),
+          t("Choose a template and print sheet."),
+          t("Generate, then download or open the printable PNG."),
+        ]}
+        ctaLabel={t("Add a photo")}
+        onCta={() => fileRef.current?.click()}
+      />
 
       <div className="idphoto-workspace">
         <section className="ui-card idphoto-source">

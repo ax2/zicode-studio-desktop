@@ -1,6 +1,8 @@
 import type { Root } from "react-dom/client";
+import { useRef } from "react";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
 import { TARGET_LANGUAGES } from "./translationLogic";
 import {
@@ -31,6 +33,7 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
   const editedText = store((state) => state.editedText);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   return (
     <div className="translate-main">
@@ -43,8 +46,21 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
         </p>
       </header>
 
+      <FirstRunGuide
+        storageKey="translate"
+        title={t("Translate text in seconds")}
+        steps={[
+          t("Paste or type the text to translate."),
+          t("Pick the target language."),
+          t("Translate, then copy or download the result."),
+        ]}
+        ctaLabel={t("Start translating")}
+        onCta={() => inputRef.current?.focus()}
+      />
+
       <section className="ui-card translate-source">
         <textarea
+          ref={inputRef}
           className="translate-textarea"
           value={text}
           placeholder={t("Source text")}
