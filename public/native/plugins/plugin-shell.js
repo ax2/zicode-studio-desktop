@@ -364,6 +364,7 @@ export function setupPluginShell({
       ...secondaryPlugins.map((plugin) => ({
         id: plugin.id,
         label: t(plugin.name),
+        description: t(plugin.description),
         icon: plugin.icon,
         onClick: () => activateFromNavigation(plugin.id),
       })),
