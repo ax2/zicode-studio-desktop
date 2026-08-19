@@ -1,5 +1,19 @@
 # 实现状态
 
+## 2026-08-19 欢迎页快捷入口跟随插件启用状态
+
+- 欢迎页快捷入口原为硬编码列表，禁用插件（Projects/Tasks/Automation）后
+  仍显示按钮、点击静默回到对话。现改为从 Plugin Shell 读取已启用应用，
+  按注册表顺序取前四个展示（始终保留「新建对话」）；用户在 Plugin Manager
+  开关插件后列表自动适配。
+- 实现：`ChatMessageList`/`ChatFeed`/`MessageRenderer` 新增
+  `getEnabledAppIds` 选项，`app.js` 惰性读取 `pluginShell.registry`；
+  新增过滤单测（17 项聊天测试通过），并重建 `public/native/react/chat.js`。
+- 端到端验证：新建空会话后无头浏览器实测欢迎页仅显示
+  新对话/任务/笔记/翻译/金融 5 个入口（Tasks 为运行实例中用户手动
+  重新启用的应用，Projects/Automation 不再出现），活动栏同步正确；
+  新前端已同步到安装目录，应用刷新即生效。
+
 ## 2026-08-19 网页采集正文提取增强
 
 - 按用户反馈「从网页生成笔记需要去除导航/页眉页脚/广告/侧边栏，保留正文与
