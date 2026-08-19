@@ -1,5 +1,5 @@
 {
-  "sections": ["开始使用", "对话与效率", "场景与配置", "插件", "笔记", "金融工作台", "产物库", "支持与安全", "参考"],
+  "sections": ["开始使用", "对话与效率", "场景与配置", "插件", "文章创作", "笔记", "金融工作台", "产物库", "支持与安全", "参考"],
   "pages": [
     {
       "id": "getting-started",
@@ -70,6 +70,14 @@
       "section": "插件",
       "file": "plugins.md",
       "summary": "安装、权限审查、签名与 WASI 沙箱"
+    },
+    {
+      "id": "articles",
+      "title": "文章创作",
+      "section": "文章创作",
+      "file": "articles.md",
+      "summary": "用 Markdown 创作并发布到 Astro 博客和微信公众号",
+      "keywords": ["文章", "公众号", "博客", "发布"]
     },
     {
       "id": "notes",

@@ -1,5 +1,5 @@
 {
-  "sections": ["Getting started", "Chat and productivity", "Scenes and configuration", "Plugins", "Notes", "Finance Workbench", "Artifacts", "Support and security", "Reference"],
+  "sections": ["Getting started", "Chat and productivity", "Scenes and configuration", "Plugins", "Article Publishing", "Notes", "Finance Workbench", "Artifacts", "Support and security", "Reference"],
   "pages": [
     {
       "id": "getting-started",
@@ -65,6 +65,14 @@
       "section": "Plugins",
       "file": "plugins.md",
       "summary": "Installation, permissions, signatures, and the WASI sandbox"
+    },
+    {
+      "id": "articles",
+      "title": "Article Publishing",
+      "section": "Article Publishing",
+      "file": "articles.md",
+      "summary": "Write Markdown and publish to your Astro blog and WeChat Official Account",
+      "keywords": ["articles", "WeChat", "blog", "publish"]
     },
     {
       "id": "notes",
