@@ -55,7 +55,8 @@
     "check:permissions": "bun run scripts/check-tauri-permissions.js",
     "check:windows-subprocesses": "bun run scripts/check-windows-subprocesses.js",
     "check:rust": "node scripts/check-rust.mjs",
-    "qa:console": "node scripts/qa-console-errors.mjs"
+    "qa:console": "node scripts/qa-console-errors.mjs",
+    "qa:keyboard": "node scripts/qa-keyboard.mjs"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.72.0",

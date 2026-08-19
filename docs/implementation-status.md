@@ -1,14 +1,19 @@
 # 实现状态
 
-## 2026-08-20 控制台错误全视图审计与三处潜在缺陷修复
+## 2026-08-20 键盘可达性审计与 QA URL 修复
 
-- 新增 `scripts/qa-console-errors.mjs`（`bun run qa:console`）：驱动无头
-  Chrome + CDP 逐个打开全部已启用应用视图（桌面/移动视口可切换），采集
-  `console.error/warn` 与未捕获异常，过滤已知良性噪声（favicon、React
-  DevTools 提示、aborted 请求），任一视图有错误即非零退出；临时目录清理
-  失败按 Windows 惯例兜底。
-- 审计结果：桌面 1440×900 与移动 390×844 均为 13/13 视图零控制台错误、
-  零警告；同步修复 Biome 存量 3 处错误（均为真实可用性隐患）：
+- 新增 `scripts/qa-keyboard.mjs`（`bun run qa:keyboard`）：逐视图 Tab
+  走查（焦点卡死/落在隐藏元素检测）+ 全局快捷键验证（Ctrl+K 打开会话
+  搜索、Esc 关闭）。结果：桌面 13/13 视图 Tab 可达 20–25 个元素、无焦点
+  卡死、无隐藏焦点，Ctrl+K/Esc 全视图正常。
+- 修正 `scripts/qa-console-errors.mjs` 会话 URL：此前误用裸
+  `/sessionId` 路径（`parseAppRoute` 判为 `not_found`，页面渲染启动失败
+  屏），首轮「13/13 干净」结论无效；改为
+  `/app/workspaces/<wsId>/sessions/<sessionId>` 后复扫，并在两个 QA 脚本
+  加入启动失败哨兵（页面处于 `startup-failed` 一律计为错误，防止再次
+  出现「失败屏还报干净」）。修正后桌面与移动 390×844 均为 13/13 视图
+  零控制台错误、零警告。
+- 本轮同时确认此前修复的 Biome 存量 3 处错误（真实可用性隐患）：
   - 会话侧栏「已归档」分组头补 `role="button"`（`aria-expanded` 语义
     合法；因内嵌删除全部按钮保持 div + 显式 role）；
   - 笔记采集预览「收起」改用独立键 `Collapse`（此前重复键覆盖导致侧栏
@@ -16,7 +21,7 @@
   - 文章发布配置的挂载加载 effect 补充意图说明，消除依赖告警。
 - 验证：相关单测 241 项 + i18n 覆盖 4 项全绿，全量 `bun run test`（vitest
   + Tauri 权限 + Windows 子进程策略）、typecheck、Biome lint 0 错误全绿；
-  前端产物已同步安装目录（刷新即生效），运行实例控制台复扫 13/13 干净。
+  前端产物已同步安装目录（刷新即生效）。
 
 ## 2026-08-20 临时会话空闲运行时自动回收
 

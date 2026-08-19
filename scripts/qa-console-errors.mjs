@@ -89,7 +89,7 @@ async function main() {
     // Plugin state is optional; walk everything when unavailable.
   }
 
-  const sessionUrl = `${HOST}/${sessionId}`;
+  const sessionUrl = `${HOST}/app/workspaces/${wsId}/sessions/${sessionId}`;
   const candidates = [
     ["chat", `${sessionUrl}`],
     ["notes", `${sessionUrl}?app=com.zicode.notes`],
@@ -200,6 +200,20 @@ async function main() {
     for (const [name, url] of apps) {
       await cdp.send("Page.navigate", { url });
       await sleep(WAIT_MS);
+      const boot = await cdp.send("Runtime.evaluate", {
+        expression: `document.body?.classList.contains("startup-failed") ?? false`,
+        returnByValue: true,
+      });
+      if (boot?.result?.value === true) {
+        const entry = {
+          name,
+          errors: ["page rendered the startup-failure screen (session route not loaded)"],
+          warnings: [],
+        };
+        report.push(entry);
+        console.log(JSON.stringify({ ...entry, pass: false }));
+        continue;
+      }
       const result = await cdp.send("Runtime.evaluate", {
         expression: "window.__qaConsole ?? []",
         returnByValue: true,
