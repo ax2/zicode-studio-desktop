@@ -241,6 +241,9 @@ impl NativePiManager {
                 reaped += 1;
             }
         }
+        if reaped > 0 {
+            log::info!("[picot-native] reaped {reaped} stale temporary runtime(s)");
+        }
         reaped
     }
 
