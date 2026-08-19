@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-20 插件视图错误边界与 vendor React 约束
+
+- 此前插件视图渲染抛错会留下空白表面，无提示、无恢复动作。现在
+  `mountPluginSurface` 为所有插件应用包上 React 错误边界：崩溃时显示
+  「此视图遇到了意外错误。」+ 「重试」按钮，重试重新渲染（应用自身
+  store 错误 UI 可接管）；新增单测覆盖崩溃回退与重试恢复，全量测试、
+  typecheck、Biome 通过，控制台 14/14 确认应用正常启动。
+- 关键约束（已写入 `reactMount.tsx` 注释）：自研 React vendor bundle
+  仅以 default 导出完整 React 对象，命名导出不含 `Component`——类组件
+  必须用 default 导入的 `React.Component` 定义（本轮曾因此导致全应用
+  启动失败，已定位修复）。
+
 ## 2026-08-20 用量区间切换与移动双语审计
 
 - 实测用量面板区间切换：点 90d 后 `aria-pressed` 正确更新（7d/30d 复位、
