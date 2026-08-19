@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-20 QA 脚本正确性警告清零
+
+- 清理 Biome 剩余的 4 处正确性警告（均在脚本层）：`qa-notes-flow` 创建
+  笔记后补响应断言（id 存在 + 标题一致，让「未使用变量」变成有效校验）；
+  `qa-artifacts-flow` 删除未使用的调试捕获；`qa-data-presence` 与
+  `bundle-css` 修正未使用参数。
+- 验证：Biome 4 文件 0 错误；`qa-notes-flow`（含新断言）、`qa-artifacts-flow`
+  、`qa-data-presence` 5/5 复跑全部通过。
+
 ## 2026-08-20 帮助中心新增「文章创作」双语指南
 
 - Articles 恢复默认启用后，帮助中心仍无对应条目（此前 14 页，覆盖笔记/

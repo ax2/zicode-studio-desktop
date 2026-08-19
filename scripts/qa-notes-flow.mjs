@@ -138,6 +138,9 @@ async function main() {
     throw new Error(`create note failed: ${noteResponse.status}`);
   }
   const note = (await noteResponse.json()).note;
+  if (!note?.id || note.title !== "__qa_flow_note__") {
+    throw new Error("create note response was malformed");
+  }
 
   const profile = mkdtempSync(join(tmpdir(), "zicode-qa-notes-"));
   const chrome = spawn(

@@ -15,7 +15,7 @@ const IMPORT_RE = /@import\s+url\(\s*"([^"]+)"\s*\)\s*;/g;
 
 function inlineImports(absolutePath, stack) {
   let source = readFileSync(absolutePath, "utf8");
-  return source.replace(IMPORT_RE, (match, spec) => {
+  return source.replace(IMPORT_RE, (_, spec) => {
     const target = path.resolve(path.dirname(absolutePath), spec);
     if (stack.includes(target)) {
       throw new Error(`Circular @import detected: ${target}`);

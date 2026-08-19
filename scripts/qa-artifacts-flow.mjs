@@ -169,20 +169,6 @@ async function main() {
     await cdp.send("Page.navigate", { url });
     await sleep(WAIT_MS);
 
-    // Capture what the app actually loaded by reading its state UI.
-    const state = await evaluate(
-      cdp,
-      `(() => ({
-        navText: document
-          .querySelector(".artifacts-nav-section")
-          ?.textContent?.replace(/\\s+/g, " ")
-          .trim() ?? "",
-        mainText: document
-          .querySelector(".artifacts-main, .plugin-main-view")
-          ?.textContent?.replace(/\\s+/g, " ")
-          .slice(0, 200) ?? "",
-      }))()`,
-    );
     const fetchLog = await evaluate(
       cdp,
       `(() => window.__qaArtifactFetch ?? [])()`,

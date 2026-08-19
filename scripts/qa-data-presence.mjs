@@ -144,7 +144,7 @@ const VIEWS = [
     url: (sessionUrl) => `${sessionUrl}?app=com.zicode.finance`,
     api: async () => null,
     uiSelector: "form, .research-form, textarea, input, .scene-guard",
-    check: (uiCount, apiCount) => ({
+    check: (uiCount) => ({
       pass: uiCount > 0,
       detail: `interactive/guard elements ${uiCount}`,
     }),
