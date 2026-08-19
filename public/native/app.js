@@ -827,6 +827,7 @@ const artifactApp = setupArtifactApp({
   gateway: artifactGateway,
   getTarget: () => target,
   notify: notifications.notify,
+  openApp: (pluginId) => pluginShell?.activate(pluginId),
 });
 const projectWorkspaceApp = setupProjectWorkspaceApp({
   notesGateway,

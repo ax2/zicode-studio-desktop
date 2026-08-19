@@ -1343,6 +1343,11 @@ const zhCN = {
     "插件创建的报告、数据集和文件会连同来源信息显示在这里。",
   "Reports, datasets, and files are collected here automatically. Ask Pi for a chart or report in a conversation, export a note, or save a Finance research result — everything lands in this library with its source.":
     "报告、数据集和文件会自动汇总到这里。在对话中请 Pi 生成图表或报告、导出笔记、或在金融应用中保存研究结果，都会连同来源一起进入这个产物库。",
+  "Collect results automatically": "自动汇总结果",
+  "Ask Pi for a chart, report, or dataset in a conversation.": "在对话中请 Pi 生成图表、报告或数据集。",
+  "Export a note, or save a Finance research result.": "导出笔记，或在金融应用中保存研究结果。",
+  "Everything lands here with its source, ready to open or export.": "所有结果连同来源自动汇入这里，可随时打开或导出。",
+  "Go to Chat": "去对话",
   "Delete artifact": "删除产物",
   "Artifact deleted": "产物已删除",
   "Select an artifact to export": "请先选择要导出的产物",

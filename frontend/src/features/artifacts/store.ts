@@ -24,6 +24,7 @@ export interface ArtifactAppOptions {
   gateway: ArtifactGatewayLike;
   getTarget?: () => { sceneId?: string; workspaceId?: string } | null;
   notify?: (message: string) => void;
+  openApp?: (pluginId: string) => void;
   confirmDelete?: (message: string) => boolean | Promise<boolean>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   chooseFile?: (accept: string) => Promise<File | null>;

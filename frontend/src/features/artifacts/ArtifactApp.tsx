@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
 import {
@@ -167,7 +168,13 @@ function FilterSection({
   );
 }
 
-export function ArtifactMain({ store }: { store: ArtifactStore }) {
+export function ArtifactMain({
+  store,
+  openApp,
+}: {
+  store: ArtifactStore;
+  openApp?: (pluginId: string) => void;
+}) {
   const selected = store((state) => state.selected);
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
@@ -186,12 +193,25 @@ export function ArtifactMain({ store }: { store: ArtifactStore }) {
       ) : loading && !selected ? (
         <StatePanel title={t("Loading artifacts…")} description="" />
       ) : !selected ? (
-        <StatePanel
-          title={t("Artifacts")}
-          description={t(
-            "Reports, datasets, and files are collected here automatically. Ask Pi for a chart or report in a conversation, export a note, or save a Finance research result — everything lands in this library with its source.",
-          )}
-        />
+        <>
+          <FirstRunGuide
+            storageKey="artifacts"
+            title={t("Collect results automatically")}
+            steps={[
+              t("Ask Pi for a chart, report, or dataset in a conversation."),
+              t("Export a note, or save a Finance research result."),
+              t("Everything lands here with its source, ready to open or export."),
+            ]}
+            ctaLabel={t("Go to Chat")}
+            onCta={() => openApp?.("core.chat")}
+          />
+          <StatePanel
+            title={t("Artifacts")}
+            description={t(
+              "Reports, datasets, and files are collected here automatically. Ask Pi for a chart or report in a conversation, export a note, or save a Finance research result — everything lands in this library with its source.",
+            )}
+          />
+        </>
       ) : (
         <ArtifactDocumentView
           selected={selected}
@@ -323,7 +343,7 @@ export function createArtifactApp(options: ArtifactAppOptions): ArtifactAppApi {
     renderContent(container) {
       contentRoot = mountPluginSurface(
         container,
-        <ArtifactMain store={store} />,
+        <ArtifactMain store={store} openApp={options.openApp} />,
         contentRoot,
       );
     },
