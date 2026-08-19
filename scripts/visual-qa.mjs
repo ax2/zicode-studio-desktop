@@ -1017,6 +1017,73 @@ async function diagnose(cdp, name, url, viewport) {
           fileInputFound: true,
           result: result?.result?.value ?? null,
         };
+        // Mixed layout: enable the toggle, add a slot, switch it to 2-inch,
+        // and generate again so the printable sheet combines two templates.
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const checkbox = document.querySelector(
+              ".idphoto-options .idphoto-grid-auto input[type='checkbox']",
+            );
+            checkbox?.click();
+            return Boolean(checkbox);
+          })()`,
+        });
+        await sleep(400);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const add = Array.from(
+              document.querySelectorAll(".idphoto-slots .ui-button"),
+            ).find((button) => /Add template|添加模板/.test(button.textContent || ""));
+            add?.click();
+            return Boolean(add);
+          })()`,
+        });
+        await sleep(400);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const trigger = document.querySelector("#idphoto-slot-template-1");
+            trigger?.click();
+            return Boolean(trigger);
+          })()`,
+        });
+        await sleep(300);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const option = Array.from(
+              document.querySelectorAll(
+                "#idphoto-slot-template-1-listbox .app-select-option",
+              ),
+            ).find((node) => /2-inch|二寸/.test(node.textContent || ""));
+            option?.click();
+            return Boolean(option);
+          })()`,
+        });
+        await sleep(300);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const button = document.querySelector(
+              ".plugin-main-view .idphoto-generate-row .ui-button",
+            );
+            button?.click();
+            return Boolean(button);
+          })()`,
+        });
+        await sleep(3000);
+        const mixedResult = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const meta = document.querySelector(".idphoto-result-meta");
+            return {
+              meta: meta?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+              hasMixed: (meta?.textContent ?? "").includes("二寸") || (meta?.textContent ?? "").includes("2-inch"),
+              error: document.querySelector(".idphoto-error")?.textContent ?? "",
+            };
+          })()`,
+          returnByValue: true,
+        });
+        idPhoto = {
+          ...idPhoto,
+          mixed: mixedResult?.result?.value ?? null,
+        };
       }
     } catch (error) {
       idPhoto = { error: String(error?.message || error) };
