@@ -279,6 +279,12 @@ const WelcomeItem = memo(function WelcomeItem({
           <span>
             <kbd>Esc</kbd> {t("Abort")}
           </span>
+          <span>
+            <kbd>Ctrl+Shift+P</kbd> {t("Commands")}
+          </span>
+          <span>
+            <kbd>Ctrl+K</kbd> {t("Search sessions")}
+          </span>
         </div>
       </div>
     </div>
