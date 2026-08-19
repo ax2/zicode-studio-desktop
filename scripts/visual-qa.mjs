@@ -347,6 +347,51 @@ async function diagnose(cdp, name, url, viewport) {
     });
     appForm = { ...(appForm ?? {}), ...(backtestResult?.result?.value ?? {}) };
   }
+  // For the settings app, exercise the theme dropdown: it must render its
+  // options in-DOM (not vanish until hover) and the trigger label must follow
+  // the selection immediately.
+  if (name === "settings") {
+    const themeResult = await cdp.send("Runtime.evaluate", {
+      expression: `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const trigger = document.querySelector("#theme-select");
+        if (!trigger) return { found: false };
+        const before = trigger.querySelector(".app-select-value")?.textContent?.trim();
+        trigger.click();
+        await wait(400);
+        const menu = document.querySelector("#theme-select-listbox");
+        const rect = menu?.getBoundingClientRect();
+        const options = Array.from(menu?.querySelectorAll(".app-select-option") ?? []);
+        const visible =
+          !!menu && rect && rect.height > 0 && options.length > 0;
+        const current = trigger.querySelector(".app-select-value")?.textContent?.trim();
+        const target = options.find((option) => option.textContent?.trim() !== current);
+        const beforeTheme = document.documentElement.dataset.theme ?? "";
+        target?.click();
+        await wait(500);
+        const after = trigger.querySelector(".app-select-value")?.textContent?.trim();
+        const afterTheme = document.documentElement.dataset.theme ?? "";
+        const cookie = document.cookie;
+        return {
+          found: true,
+          before,
+          menuVisible: visible,
+          optionCount: options.length,
+          menuRect: rect && {
+            top: Math.round(rect.top),
+            height: Math.round(rect.height),
+          },
+          switched: before !== after,
+          labelFollowed: Boolean(after && after !== before),
+          themeChanged: beforeTheme !== afterTheme,
+          cookiePersisted: cookie.includes("pi-studio-theme="),
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    appForm = themeResult?.result?.value ?? null;
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
