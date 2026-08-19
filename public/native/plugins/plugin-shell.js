@@ -617,6 +617,10 @@ export function setupPluginShell({
         message: `${t(plugin?.name ?? pendingDisabledPluginId)} · ${t(
           "This plugin is disabled. Enable it in Plugin Manager to use this link.",
         )}`,
+        action: {
+          label: t("Open Plugin Manager"),
+          run: () => activateFromNavigation(MANAGER_VIEW_ID),
+        },
       });
       pendingDisabledPluginId = null;
     }

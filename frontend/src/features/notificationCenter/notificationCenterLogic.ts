@@ -6,6 +6,7 @@ export interface NotificationInput {
   detail?: string;
   type?: NotificationKind;
   duration?: number;
+  action?: { label: string; run: () => void };
 }
 
 export function normalizeNotification(

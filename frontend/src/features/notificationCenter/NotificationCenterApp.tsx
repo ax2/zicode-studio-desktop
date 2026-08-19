@@ -10,6 +10,7 @@ export interface NotificationItem {
   message?: string;
   detail?: string;
   duration: number;
+  action?: { label: string; run: () => void };
 }
 
 export interface NotificationStore {
@@ -89,6 +90,18 @@ function NotificationCard({
         ) : null}
         {item.detail ? (
           <div className="native-notification-detail">{item.detail}</div>
+        ) : null}
+        {item.action ? (
+          <button
+            type="button"
+            className="native-notification-action"
+            onClick={() => {
+              item.action?.run();
+              onDismiss();
+            }}
+          >
+            {item.action.label}
+          </button>
         ) : null}
       </div>
       <button

@@ -48,6 +48,7 @@ export function createNotificationCenter({
       message: notification.message,
       detail: notification.detail,
       duration: notification.duration ?? duration,
+      action: notification.action,
     };
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;

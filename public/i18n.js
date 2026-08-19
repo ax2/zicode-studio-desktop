@@ -1241,6 +1241,7 @@ const zhCN = {
   More: "更多",
   "All applications": "全部应用",
   "Manage plugins": "管理插件",
+  "Open Plugin Manager": "打开管理插件",
   "Plugin views": "插件功能区",
   "Plugin Manager": "插件管理",
   "Plugin manager": "插件管理",

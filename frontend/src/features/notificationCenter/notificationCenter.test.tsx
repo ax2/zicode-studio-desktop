@@ -50,4 +50,26 @@ describe("notification center (React)", () => {
     expect(notification.element.textContent).toContain("通知");
     expect(notification.element.textContent).not.toContain("Notification");
   });
+
+  it("renders an action button that runs and dismisses the notification", () => {
+    const center = createNotificationCenter({ duration: 0 });
+    const run = vi.fn();
+    const notification = center.notify({
+      type: "warning",
+      title: "Plugin not enabled",
+      message: "This plugin is disabled.",
+      action: { label: "Open Plugin Manager", run },
+    });
+
+    const actionButton = notification.element.querySelector(
+      ".native-notification-action",
+    );
+    expect(actionButton).not.toBeNull();
+    expect(actionButton?.textContent).toContain("Open Plugin Manager");
+
+    actionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".native-notification")).toBeNull();
+  });
 });
