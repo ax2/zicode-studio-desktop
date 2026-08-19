@@ -1080,6 +1080,77 @@ async function diagnose(cdp, name, url, viewport) {
       removed: removed?.result?.value ?? null,
     };
   }
+  // For the task center, verify the list renders and the status filters
+  // actually narrow the visible cards (read-only; no task mutation).
+  if (name === "tasks") {
+    // Give the async load a moment, then capture any error state too.
+    await sleep(1500);
+    const initial = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const cards = Array.from(
+          document.querySelectorAll(".task-center-card"),
+        );
+        const statePanel = document.querySelector(".task-center-state");
+        const errorPanel = document.querySelector(".task-center-error");
+        const summary = Array.from(
+          document.querySelectorAll(".task-center-summary-card"),
+        ).map((node) => ({
+          count: node.querySelector("strong")?.textContent?.trim() ?? "",
+          label: node.querySelector("span")?.textContent?.trim() ?? "",
+        }));
+        return {
+          cardCount: cards.length,
+          statuses: cards.map((card) =>
+            Array.from(card.classList)
+              .find((name) => name.startsWith("status-"))
+              ?.slice(7) ?? "",
+          ),
+          summary,
+          stateText: statePanel?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+          errorText: errorPanel?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+        };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const running = Array.from(
+          document.querySelectorAll(".task-center-filter"),
+        ).find((button) =>
+          /Running|运行中/.test(button.textContent || ""),
+        );
+        running?.click();
+        return Boolean(running);
+      })()`,
+    });
+    await sleep(800);
+    const filtered = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const cards = Array.from(
+          document.querySelectorAll(".task-center-card"),
+        );
+        return {
+          cardCount: cards.length,
+          activeFilter:
+            document
+              .querySelector(".task-center-filter[aria-pressed='true']")
+              ?.textContent?.replace(/\\s+/g, " ")
+              .trim() ?? "",
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = {
+      initial: initial?.result?.value ?? null,
+      filtered: filtered?.result?.value ?? null,
+      // The task list needs a live Pi runtime; in headless sessions the
+      // connection can be unavailable, in which case the app must show the
+      // graceful error state instead of a blank list.
+      graceful: (initial?.result?.value?.cardCount ?? 0) > 0 ||
+        (initial?.result?.value?.stateText ?? "").includes("运行时连接已断开") ||
+        (initial?.result?.value?.stateText ?? "").includes("Task service"),
+    };
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
