@@ -1790,6 +1790,7 @@ const zhCN = {
   "Help page could not be loaded": "无法加载帮助页面",
   "Up to date": "已是最新",
   "Check failed": "检查失败",
+  "Update check unavailable": "更新检查不可用（当前为手动安装版本，请关注项目发布页）",
   "Downloading…": "下载中…",
   "Downloading {percent}%…": "下载中 {percent}%…",
   "Version {version} available": "版本 {version} 可用",

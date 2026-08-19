@@ -165,7 +165,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     } catch (error) {
       if (!silent) {
         set({
-          status: t("Check failed"),
+          status: t("Update check unavailable"),
           button: t("Check now"),
           disabled: false,
         });
