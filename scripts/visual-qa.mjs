@@ -443,6 +443,80 @@ async function diagnose(cdp, name, url, viewport) {
     });
     appForm = themeResult?.result?.value ?? null;
   }
+  // For the plugin manager, exercise the enable/disable toggle on a
+  // disabled-by-default plugin (Articles) and confirm the state round-trips
+  // through the backend before restoring it.
+  if (name === "plugin-manager") {
+    const toggle = async (expression) => {
+      const response = await cdp.send("Runtime.evaluate", {
+        expression,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      return response?.result?.value ?? null;
+    };
+    const initial = await toggle(`(async () => {
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const card = Array.from(document.querySelectorAll(".plugin-manager-card")).find(
+        (node) => (node.textContent || "").includes("com.zicode.articles"),
+      );
+      if (!card) return { found: false };
+      const button = card.querySelector(".plugin-manager-card-actions button");
+      return {
+        found: true,
+        pressed: button?.getAttribute("aria-pressed") ?? null,
+        label: button?.textContent?.trim() ?? "",
+      };
+    })()`);
+    let enabledAfterToggle = null;
+    let restored = null;
+    if (initial?.found) {
+      await toggle(`(() => {
+        const card = Array.from(document.querySelectorAll(".plugin-manager-card")).find(
+          (node) => (node.textContent || "").includes("com.zicode.articles"),
+        );
+        card?.querySelector(".plugin-manager-card-actions button")?.click();
+        return true;
+      })()`);
+      await sleep(1600);
+      enabledAfterToggle = await toggle(`(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const card = Array.from(document.querySelectorAll(".plugin-manager-card")).find(
+          (node) => (node.textContent || "").includes("com.zicode.articles"),
+        );
+        const button = card?.querySelector(".plugin-manager-card-actions button");
+        return {
+          pressed: button?.getAttribute("aria-pressed") ?? null,
+          label: button?.textContent?.trim() ?? "",
+        };
+      })()`);
+      // Restore the original state.
+      await toggle(`(() => {
+        const card = Array.from(document.querySelectorAll(".plugin-manager-card")).find(
+          (node) => (node.textContent || "").includes("com.zicode.articles"),
+        );
+        card?.querySelector(".plugin-manager-card-actions button")?.click();
+        return true;
+      })()`);
+      await sleep(1600);
+      restored = await toggle(`(() => {
+        const card = Array.from(document.querySelectorAll(".plugin-manager-card")).find(
+          (node) => (node.textContent || "").includes("com.zicode.articles"),
+        );
+        return {
+          pressed:
+            card?.querySelector(".plugin-manager-card-actions button")?.getAttribute(
+              "aria-pressed",
+            ) ?? null,
+        };
+      })()`);
+    }
+    appForm = {
+      initial,
+      enabledAfterToggle,
+      restored,
+    };
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
@@ -570,6 +644,7 @@ async function main() {
       ["documents", `${sessionUrl}?app=com.zicode.documents`],
       ["artifacts", `${sessionUrl}?app=com.zicode.artifacts`],
       ["articles", `${sessionUrl}?app=com.zicode.articles`],
+      ["plugin-manager", `${sessionUrl}?app=core.pluginManager`],
       ["settings", `${sessionUrl}?app=core.settings`],
       ["help", `${sessionUrl}?app=core.help`],
     ];
