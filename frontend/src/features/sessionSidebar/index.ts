@@ -24,6 +24,7 @@ import {
   LOAD_RETRY_DELAYS_MS,
   mergeSessionSummary,
   readArray,
+  readBoolean,
   readObject,
   readSessionCache,
   sessionListSignature,
@@ -122,6 +123,7 @@ export class SessionSidebar implements SessionSidebarController {
     this.commit({
       favourites: readArray(STORAGE.favourites),
       archived: readArray(STORAGE.archived),
+      archivedCollapsed: readBoolean(STORAGE.archivedCollapsed, true),
       projectsCollapsed: readObject(STORAGE.projectsCollapsed) as Record<
         string,
         boolean

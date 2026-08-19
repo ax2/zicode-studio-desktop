@@ -58,6 +58,15 @@ export function readArray(key: string): string[] {
   }
 }
 
+export function readBoolean(key: string, fallback: boolean): boolean {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value === "true";
+  } catch {
+    return fallback;
+  }
+}
+
 export function sessionCacheKey(workspaceId: string): string {
   return `${STORAGE.sessionCache}:${workspaceId}`;
 }

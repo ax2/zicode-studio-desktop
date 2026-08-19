@@ -385,6 +385,21 @@ describe("SessionSidebar.render", () => {
     expect(sidebar.store.getState().archivedCollapsed).toBe(false);
   });
 
+  it("restores a previously expanded archived group on relaunch", () => {
+    localStorage.setItem("picot-archived-collapsed", "false");
+    const { sidebar } = makeSidebar([
+      { id: "s-arc", timestamp: new Date().toISOString(), name: "Arc" },
+    ]);
+    expect(sidebar.store.getState().archivedCollapsed).toBe(false);
+  });
+
+  it("keeps the archived group collapsed by default when unset", () => {
+    const { sidebar } = makeSidebar([
+      { id: "s-arc", timestamp: new Date().toISOString(), name: "Arc" },
+    ]);
+    expect(sidebar.store.getState().archivedCollapsed).toBe(true);
+  });
+
   it("archives every session in a project from the project header context menu", async () => {
     const { sidebar, container } = makeSidebar([
       { id: "s-fav", timestamp: new Date().toISOString(), name: "Fav" },
