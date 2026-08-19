@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
 import {
@@ -124,6 +125,18 @@ function ArticlesMain({
           </button>
         </div>
       </header>
+
+      <FirstRunGuide
+        storageKey="articles"
+        title={t("Write, publish, sync")}
+        steps={[
+          t("Write a Markdown article and save it."),
+          t("Sync it to a WeChat Official Account draft or publish directly."),
+          t("Publish to the Astro blog or sync existing posts from the source directory."),
+        ]}
+        ctaLabel={t("New article")}
+        onCta={() => store.getState().newArticle()}
+      />
 
       <section className="ui-card articles-slug">
         <label className="articles-field">

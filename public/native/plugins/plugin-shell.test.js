@@ -96,10 +96,10 @@ describe("setupPluginShell", () => {
 
   it("explains why a disabled plugin deep link fell back to Chat", async () => {
     history.replaceState(
-      null,
-      "",
-      "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.articles",
-    );
+        null,
+        "",
+        "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.projects",
+      );
     const notify = vi.fn();
     const shell = setupPluginShell({ registry: registry(), notify });
 
@@ -109,10 +109,10 @@ describe("setupPluginShell", () => {
         type: "warning",
         title: "Plugin not enabled",
       }),
-    );
-    const message = notify.mock.calls[0][0].message;
-    expect(message).toContain("Articles");
-    expect(message).toContain("Plugin Manager");
+      );
+      const message = notify.mock.calls[0][0].message;
+      expect(message).toContain("Projects");
+      expect(message).toContain("Plugin Manager");
   });
 
   it("waits for host hydration before resolving the initial deep link", async () => {
