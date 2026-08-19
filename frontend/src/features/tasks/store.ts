@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
 import { localizeHostError } from "../../shared/hostErrors.js";
 // @ts-expect-error plain JS module without type declarations
-import { markTaskCancelled, markTaskPaused, normalizeSuperAgentTasks } from "../../../../public/super-agent/task-state.js";
+import { markTaskCancelled, markTaskForDispatch, markTaskPaused, normalizeSuperAgentTasks } from "../../../../public/super-agent/task-state.js";
 import { childTarget, type SuperAgentTask, type TaskFilter } from "./logic";
 
 export interface TaskCenterOptions {
@@ -34,6 +34,7 @@ interface TaskCenterState {
     updater: (task: SuperAgentTask) => SuperAgentTask,
     successMessage?: string,
   ): Promise<void>;
+  approveTask(task: SuperAgentTask): Promise<void>;
   pauseTask(task: SuperAgentTask): Promise<void>;
   cancelTask(task: SuperAgentTask): Promise<void>;
   startPolling(): void;
@@ -96,6 +97,30 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not update task"),
+          message: localizeHostError(reason).message,
+          type: "error",
+        });
+      }
+    },
+
+    async approveTask(task) {
+      const index = get().tasks.findIndex((candidate) => candidate.id === task.id);
+      if (index < 0) return;
+      const next = [...get().tasks];
+      next[index] = markTaskForDispatch(next[index]);
+      try {
+        const response = await call("write_super_agent_tasks", { tasks: next });
+        if (!response?.ok) throw new Error(t("Could not approve task"));
+        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        // Same path as the Agent Inbox runtime panel: the host listens for
+        // sa-dispatch and hands the task to a project agent.
+        document.dispatchEvent(
+          new CustomEvent("sa-dispatch", { detail: next[index], bubbles: true }),
+        );
+        notify({ title: t("Task approved and dispatched"), type: "success" });
+      } catch (reason) {
+        notify({
+          title: t("Could not approve task"),
           message: localizeHostError(reason).message,
           type: "error",
         });

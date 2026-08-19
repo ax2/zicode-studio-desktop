@@ -60,7 +60,10 @@ class SuperAgentRuntime extends HTMLElement {
   _render() {
     this.innerHTML = `
       <div class="runtime-header app-side-panel-header" id="runtime-header">
-        <span class="runtime-title">${t("Tasks")}</span>
+        <span class="runtime-title">${t("Agent Inbox")}</span>
+        <button type="button" class="ui-button ui-button--ghost ui-button--sm" data-open-tasks>
+          ${t("Manage in Task app")}
+        </button>
         <button class="icon-btn app-side-panel-close-btn" data-collapse-btn title="${t("Close")}" aria-label="${t("Close activity panel")}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -92,6 +95,9 @@ class SuperAgentRuntime extends HTMLElement {
         b.classList.toggle("active", b === btn);
       });
       this._renderTasks();
+    });
+    this.querySelector("[data-open-tasks]")?.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("zicode:open-tasks", { bubbles: true }));
     });
   }
 
@@ -351,7 +357,9 @@ class SuperAgentRuntime extends HTMLElement {
     if (filtered.length === 0) {
       const emptyMessage =
         this._filter === "all"
-          ? t("No tasks in this view")
+          ? t("Tasks from external messages and automations are approved here.") +
+            " " +
+            t("Manage everything in the Task app.")
           : t('No tasks with status "{status}"…').replace(
               "{status}",
               ({ pending: t("Pending"), running: t("Running"), done: t("Done") })[this._filter] ??

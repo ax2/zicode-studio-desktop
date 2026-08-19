@@ -420,6 +420,10 @@ const zhCN = {
   healthy: "健康",
   issues: "异常",
   "Agent Inbox": "智能收件箱",
+  "Manage in Task app": "在任务应用中管理",
+  "Tasks from external messages and automations are approved here.":
+    "来自外部消息与自动化的任务在这里审批。",
+  "Manage everything in the Task app.": "所有任务可在任务应用中统一管理。",
   "Back to chat": "返回对话",
   "Toggle sidebar": "切换侧边栏",
   "Refresh sessions": "刷新会话",
@@ -1267,6 +1271,8 @@ const zhCN = {
   "Could not load artifacts": "无法加载产物",
   "Reports, datasets, and files created by plugins appear here with their provenance.":
     "插件创建的报告、数据集和文件会连同来源信息显示在这里。",
+  "Reports, datasets, and files are collected here automatically. Ask Pi for a chart or report in a conversation, export a note, or save a Finance research result — everything lands in this library with its source.":
+    "报告、数据集和文件会自动汇总到这里。在对话中请 Pi 生成图表或报告、导出笔记、或在金融应用中保存研究结果，都会连同来源一起进入这个产物库。",
   "Delete artifact": "删除产物",
   "Artifact deleted": "产物已删除",
   "Select an artifact to export": "请先选择要导出的产物",
@@ -1617,6 +1623,8 @@ const zhCN = {
   "Task filters": "任务筛选",
   "Monitor background work, recover failures, and return to results.":
     "监控后台工作、恢复失败任务并快速返回结果。",
+  "Background work from automations and the Agent Inbox lands here. Approve pending tasks, pause or retry running ones, and reopen finished results.":
+    "自动化与智能收件箱产生的后台任务都会汇总到这里：审批待运行任务、暂停或重试运行中的任务，并重新打开已完成的结果。",
   "Task service is unavailable": "任务服务不可用",
   "Could not update task": "无法更新任务",
   "Could not load tasks": "无法加载任务",
@@ -1740,6 +1748,8 @@ const zhCN = {
   "Automation needs approval": "自动化需要审批",
   "Approval required": "需要审批",
   "Approve and run": "批准并运行",
+  "Task approved and dispatched": "任务已批准并派发",
+  "Could not approve task": "无法批准任务",
   "Run now": "立即运行",
   Disable: "禁用",
   Enable: "启用",

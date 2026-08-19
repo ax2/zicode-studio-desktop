@@ -96,7 +96,9 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
   const [schedule, setSchedule] = useState("manual");
   const [intervalMinutes, setIntervalMinutes] = useState("60");
   const [dailyTime, setDailyTime] = useState("09:00");
-  const [requireApproval, setRequireApproval] = useState(true);
+  // Scheduled tasks should run automatically out of the box; approval is an
+  // opt-in guard for workflows that must wait for a human before dispatching.
+  const [requireApproval, setRequireApproval] = useState(false);
   const [maxCost, setMaxCost] = useState("");
   const [maxRetries, setMaxRetries] = useState("2");
   const [submitting, setSubmitting] = useState(false);

@@ -55,7 +55,11 @@ export function TaskMain({ store }: { store: TaskStore }) {
       <header className="task-center-header">
         <div>
           <h1>{t("Task center")}</h1>
-          <p>{t("Monitor background work, recover failures, and return to results.")}</p>
+          <p>
+            {t(
+              "Background work from automations and the Agent Inbox lands here. Approve pending tasks, pause or retry running ones, and reopen finished results.",
+            )}
+          </p>
         </div>
         <button
           type="button"
@@ -136,6 +140,7 @@ function StatePanel({
 
 function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const updateTask = store((state) => state.updateTask);
+  const approveTask = store((state) => state.approveTask);
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
   const openApp = store((state) => state.openApp);
@@ -152,6 +157,15 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
           <h2>{task.title || t("Untitled task")}</h2>
         </div>
         <div className="task-center-actions">
+          {task.status === "pending" && task.targetProject ? (
+            <button
+              type="button"
+              className="ui-button ui-button--primary ui-button--sm"
+              onClick={() => void approveTask(task)}
+            >
+              {t("Approve and run")}
+            </button>
+          ) : null}
           {task.dispatch?.childSessionId ? (
             <button
               type="button"

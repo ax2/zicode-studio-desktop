@@ -189,7 +189,7 @@ export function ArtifactMain({ store }: { store: ArtifactStore }) {
         <StatePanel
           title={t("Artifacts")}
           description={t(
-            "Reports, datasets, and files created by plugins appear here with their provenance.",
+            "Reports, datasets, and files are collected here automatically. Ask Pi for a chart or report in a conversation, export a note, or save a Finance research result — everything lands in this library with its source.",
           )}
         />
       ) : (

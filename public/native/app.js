@@ -1172,6 +1172,9 @@ window.addEventListener("zicode:open-artifact", (event) => {
   pluginShell?.activate("com.zicode.artifacts");
   artifactApp?.openArtifact?.(artifactId).catch(showError);
 });
+window.addEventListener("zicode:open-tasks", () => {
+  pluginShell?.activate("com.zicode.tasks");
+});
 window.addEventListener("zicode:open-session", (event) => {
   const { sessionId, workspaceId, projectPath } = event.detail ?? {};
   if (!sessionId) return;

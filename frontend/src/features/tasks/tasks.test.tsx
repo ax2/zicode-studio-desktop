@@ -76,6 +76,36 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("approves a pending task and dispatches it to the project agent", async () => {
+    setLocale("en");
+    const call = mockCall([
+      {
+        id: "pending-1",
+        title: "Pending task",
+        status: "pending",
+        targetProject: "C:/work/project",
+      },
+    ]);
+    const dispatches: string[] = [];
+    document.addEventListener("sa-dispatch", (event) => {
+      dispatches.push((event as CustomEvent<{ id: string }>).detail.id);
+    });
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Approve and run")).toBeTruthy());
+    fireEvent.click(screen.getByText("Approve and run"));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith(
+        "write_super_agent_tasks",
+        expect.objectContaining({ tasks: expect.any(Array) }),
+      ),
+    );
+    const write = call.mock.calls.find(([operation]) => operation === "write_super_agent_tasks");
+    const tasks = (write?.[1] as { tasks: Array<{ id: string; status: string }> }).tasks;
+    expect(tasks.find((task) => task.id === "pending-1")?.status).toBe("running");
+    expect(dispatches).toContain("pending-1");
+    store.getState().destroy();
+  });
+
   it("aborts the bound child runtime before pausing a running task", async () => {
     setLocale("en");
     const running = {

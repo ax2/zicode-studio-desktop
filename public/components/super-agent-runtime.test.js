@@ -381,6 +381,22 @@ describe("super-agent-runtime", () => {
     expect(written).toContainEqual(expect.objectContaining({ id: "manual-1", status: "pending" }));
   });
 
+  it("links from the Agent Inbox panel to the Task app", async () => {
+    const call = mockConfig({ tasks: [] });
+    const opened = [];
+    document.addEventListener("zicode:open-tasks", () => opened.push(true));
+    const Runtime = customElements.get("super-agent-runtime");
+    const runtime = new Runtime();
+    document.body.appendChild(runtime);
+    await Promise.resolve();
+    await Promise.resolve();
+    const manage = runtime.querySelector("[data-open-tasks]");
+    expect(manage).not.toBeNull();
+    manage.click();
+    expect(opened.length).toBe(1);
+    expect(call).toBeDefined();
+  });
+
   it("shows quick actions on collapsed cards", async () => {
     const Runtime = customElements.get("super-agent-runtime");
     const runtime = new Runtime();

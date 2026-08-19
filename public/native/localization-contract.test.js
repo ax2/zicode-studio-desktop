@@ -30,7 +30,8 @@ describe("vanilla UI localization contract", () => {
   it("keeps super-agent task panel labels inside the shared t() pipeline", () => {
     const source = read("public/components/super-agent-runtime.js");
     for (const key of [
-      "Tasks",
+      "Agent Inbox",
+      "Manage in Task app",
       "All",
       "Pending",
       "Running",
@@ -115,7 +116,8 @@ describe("vanilla UI localization contract", () => {
 
     const runtime = read("public/components/super-agent-runtime.js");
     expect(runtime).toContain('t("Connecting...")');
-    expect(runtime).toContain('t("No tasks in this view")');
+    expect(runtime).toContain('t("Tasks from external messages and automations are approved here.")');
+    expect(runtime).toContain('t("Manage everything in the Task app.")');
     expect(runtime).toContain('t(\'No tasks with status "{status}"…\')');
     expect(runtime).toContain("t(event.type");
     expect(runtime).toContain("t(event.message");

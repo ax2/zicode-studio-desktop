@@ -283,11 +283,12 @@ describe("automation React app", () => {
     const { container } = render(<AutomationMain store={store} />);
     const hint = () =>
       container.querySelector(".automation-checkbox-hint")?.textContent?.trim() ?? "";
-    expect(hint()).toContain("waits for your approval");
-    fireEvent.click(screen.getByText("Require approval before every run"));
+    // Scheduled tasks run automatically by default; approval is opt-in.
     expect(hint()).toContain("Runs automatically when due");
     fireEvent.click(screen.getByText("Require approval before every run"));
     expect(hint()).toContain("waits for your approval");
+    fireEvent.click(screen.getByText("Require approval before every run"));
+    expect(hint()).toContain("Runs automatically when due");
   });
 
   it("approves and queues an automation through the task store", async () => {
