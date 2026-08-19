@@ -103,8 +103,9 @@ export interface ClipboardOptions {
 }
 
 export function createClipboardStore(options: ClipboardOptions) {
-  const { gateway = new ClipboardHttpGateway(), getTarget, notify, saveToNote } = options;
-  return create<ClipboardState>()((set, get) => ({
+    const { gateway = new ClipboardHttpGateway(), getTarget, notify, saveToNote } = options;
+    let loadSeq = 0;
+    return create<ClipboardState>()((set, get) => ({
     items: [],
     draft: "",
     busy: false,
@@ -114,15 +115,18 @@ export function createClipboardStore(options: ClipboardOptions) {
       set({ draft: value, error: "" });
     },
 
-    async load() {
-      set({ busy: true, error: "" });
-      try {
-        const result = await gateway.list(getTarget());
-        set({ items: result.items, busy: false });
-      } catch (error) {
-        set({ busy: false, error: friendlyPluginError(error) });
-      }
-    },
+      async load() {
+        const seq = ++loadSeq;
+        set({ busy: true, error: "" });
+        try {
+          const result = await gateway.list(getTarget());
+          if (seq !== loadSeq) return;
+          set({ items: result.items, busy: false });
+        } catch (error) {
+          if (seq !== loadSeq) return;
+          set({ busy: false, error: friendlyPluginError(error) });
+        }
+      },
 
     async add() {
       const { draft, busy } = get();

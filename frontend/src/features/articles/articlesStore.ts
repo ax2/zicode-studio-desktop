@@ -254,9 +254,10 @@ export function createArticlesStore({
   gateway?: ArticlesGateway;
   getTarget: () => ArticlesScope;
   notify?: (message: { message: string; type?: string }) => void;
-}) {
-  const resolvedGateway = gateway ?? new ArticlesHttpGateway();
-  return create<ArticlesState>((set, get) => {
+  }) {
+    const resolvedGateway = gateway ?? new ArticlesHttpGateway();
+    let loadSeq = 0;
+    return create<ArticlesState>((set, get) => {
     const fail = (error: unknown) => friendlyPluginError(error instanceof Error ? error : new Error(String(error)));
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
     const clearAutosave = () => {
@@ -278,15 +279,18 @@ export function createArticlesStore({
       busy: false,
       error: "",
       notice: "",
-      async load() {
-        set({ busy: true, error: "" });
-        try {
-          const { articles } = await resolvedGateway.list(getTarget());
-          set({ articles, busy: false });
-        } catch (error) {
-          set({ busy: false, error: fail(error) });
-        }
-      },
+        async load() {
+          const seq = ++loadSeq;
+          set({ busy: true, error: "" });
+          try {
+            const { articles } = await resolvedGateway.list(getTarget());
+            if (seq !== loadSeq) return;
+            set({ articles, busy: false });
+          } catch (error) {
+            if (seq !== loadSeq) return;
+            set({ busy: false, error: fail(error) });
+          }
+        },
       async open(slug) {
         clearAutosave();
         set({ busy: true, error: "" });
