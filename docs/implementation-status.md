@@ -1,5 +1,22 @@
 # 实现状态
 
+## 2026-08-19 网页采集「用 Pi 提炼要点」与发布重建
+
+- 完成用户「使用 pi 的能力」的明确需求：新增 `POST /v2/notes/summarize`
+  （复用场景 QVeris 凭据与模型网关，与 translate 同一调用模式），采集预览
+  增加「用 Pi 提炼要点」按钮，把提取到的正文交给模型生成结构化摘要
+  （一句话摘要 + 要点 + 结论），在预览中以卡片展示，支持复制/收起；保存的
+  笔记仍保留完整原文。
+- 新增 `src-tauri/src/summary.rs`（提示词构建、响应提取、长度校验，3 项单测）；
+  NotesGatewayLike/NotesGateway/notes store 增加 summarize 通道；前端新增
+  UI 测试（模拟网关返回摘要并断言展示与参数），notes 144 项测试通过。
+- 全量验证：Rust 245 项、Clippy `-D warnings`、fmt、前端全量 vitest +
+  Tauri 权限 + 子进程策略、typecheck 全绿。
+- 交付：重建 release（exe 47,808,000 B / NSIS 348,679,022 B，2026-08-19
+  19:11），新 exe 已暂存到安装目录（运行实例占用旧 `.prev`，重启后生效，
+  届时 `/v2/notes/summarize` 与完整新提取器同时可用）；public/extensions
+  已同步。
+
 ## 2026-08-19 会话侧边栏 headless 渲染问题调查（排除三项假设）
 
 - 背景：headless Chrome 下 `#session-list` 的 React 根有 fiber 但无 DOM
