@@ -4,6 +4,7 @@ import { create } from "zustand";
 export interface PluginActivityItem {
   id: string;
   label: string;
+  description?: string;
   icon: string;
   badge?: { count: number; tone: string } | null;
   system?: boolean;

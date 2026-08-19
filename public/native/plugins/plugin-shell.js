@@ -301,6 +301,7 @@ export function setupPluginShell({
     const activitiesItems = visiblePlugins.map((plugin) => ({
       id: plugin.id,
       label: t(plugin.name),
+      description: t(plugin.description),
       icon: plugin.icon,
       badge: activityBadges.get(plugin.id) ?? null,
     }));

@@ -186,7 +186,9 @@ function ActivityButton({
   onActivate(item: PluginActivityItem): void;
 }) {
   const badge = item.badge && item.badge.count > 0 ? item.badge : null;
-  const title = shortcut ? `${item.label} (${shortcut})` : item.label;
+  const title = shortcut
+    ? `${item.label} — ${item.description ?? ""} (${shortcut})`
+    : `${item.label}${item.description ? ` — ${item.description}` : ""}`;
   const ariaKeyshortcuts = shortcut ? shortcut.replace(/^Ctrl/, "Control") : undefined;
   return (
     <button
