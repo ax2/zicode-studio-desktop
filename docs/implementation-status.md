@@ -1,5 +1,24 @@
 # 实现状态
 
+## 2026-08-19 自动化调度全页面运行与非审批任务自动派发
+
+- 修复「任务不能做到全自动」的两个实际缺口：
+  1) 自动化调度器此前只在自动化中心打开时启动，用户停留在对话等页面时定时
+     工作流不会触发；现在随页面启动运行（`automationApp.startScheduler()`），
+     整个页面生命周期持续 tick，与其他应用视图无关。
+  2) 非审批自动化入队的任务此前仍停在 pending，必须在 Agent Inbox 运行时
+     面板手动点「批准」才派发；现在入队时写入
+     `automation.autoDispatch=true`（由工作流 `requireApproval` 决定），
+     运行时轮询发现此类任务自动 `markTaskForDispatch` 并触发 `sa-dispatch`，
+     与手动批准走同一派发链路；需审批的工作流保持等待人工批准。
+- 验证：自动化 store 新增 autoDispatch 标记单测（审批/非审批两分支）、
+  运行时自动派发单测（仅 autoDispatch 任务被派发、manual 任务保持 pending），
+  automation 11 项 + super-agent-runtime 17 项测试通过；全量 vitest + Tauri
+  权限 + Windows 子进程策略、typecheck 通过；chat 引导冒烟无控制台错误；
+  public 已同步安装目录，刷新页面即生效。
+- 边界：应用关闭后的无人值守执行仍依赖后台 Host Runner（路线图非目标），
+  本轮覆盖「应用打开期间」的自动调度与自动派发。
+
 ## 2026-08-19 核心回归全绿与验收脚本适配
 
 - 对运行实例跑通全部核心回归：`qa-notes-flow`（编辑/自动保存/标签/图标/
