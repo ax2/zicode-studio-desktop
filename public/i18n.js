@@ -726,6 +726,7 @@ const zhCN = {
   Unavailable: "不可用",
   Unknown: "未知",
   Retry: "重试",
+  "This view hit an unexpected error.": "此视图遇到了意外错误。",
   "Network unavailable. ZiCode will reconnect automatically.":
     "网络不可用，ZiCode 将在网络恢复后自动重连。",
   "Reconnecting to your ZiCode desktop…": "正在重新连接你的 ZiCode 桌面端…",
