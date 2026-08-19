@@ -63,7 +63,7 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
     <div className="documents-main">
       <header className="documents-header">
         <h1>{t("Document Import")}</h1>
-        <p>{t("Import PDF and DOCX files as readable Markdown.")}</p>
+        <p>{t("Import PDF and DOCX files as readable Markdown. Preview, copy, or save the result into a notebook.")}</p>
       </header>
 
       <section className="ui-card documents-source">

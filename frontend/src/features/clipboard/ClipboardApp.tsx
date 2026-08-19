@@ -34,7 +34,7 @@ export function ClipboardMain({ store }: { store: ClipboardStore }) {
     <div className="clipboard-main">
       <header className="clipboard-header">
         <h1>{t("Clipboard Inbox")}</h1>
-        <p>{t("Capture text and URLs before you organize them.")}</p>
+        <p>{t("Capture text and URLs before you organize them. Send any item to a note when you're ready.")}</p>
       </header>
 
       <section className="ui-card clipboard-composer">

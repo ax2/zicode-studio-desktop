@@ -95,7 +95,7 @@ function ImageToolsMain({ store }: { store: ImageToolsStore }) {
     <div className="imagetools-main">
       <header className="imagetools-header">
         <h1>{t("Image Tools")}</h1>
-        <p>{t("Resize, convert, rotate, flip or arrange images into a grid.")}</p>
+        <p>{t("Resize, convert, rotate, flip or arrange images into a grid. Download the result or open it in a new tab.")}</p>
       </header>
 
       <div className="imagetools-workspace">

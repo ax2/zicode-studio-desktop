@@ -1809,7 +1809,9 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
         <p>
           {snapshot.notebooks.length
             ? t("Choose a note from the function area or create a new one.")
-            : t("Create a notebook to start a readable Markdown and Astro-compatible vault.")}
+            : t(
+                "Create a notebook to start your local-first Markdown library: write notes, capture web pages, organize with tags, bring notes into a conversation, or publish them as a blog.",
+              )}
         </p>
         <div className="notes-empty-actions">
           {snapshot.notebooks.length ? (

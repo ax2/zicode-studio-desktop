@@ -20,6 +20,8 @@ const zhCN = {
   "ID Photo Layout": "证件照排版",
   "Choose a template and print sheet, optionally replace the background, then generate a ready-to-print sheet.":
     "选择证件照模板与打印纸，可按需替换底色，一键生成可直接打印的排版。",
+  "Choose a template and print sheet, optionally replace the background, then generate a ready-to-print sheet. Download the PNG or open it in a new tab.":
+    "选择证件照模板与打印纸，可按需替换底色，一键生成可直接打印的排版；结果可下载 PNG 或在新标签页打开。",
   "Source photo": "源照片",
   Replace: "替换",
   Remove: "移除",
@@ -62,6 +64,8 @@ const zhCN = {
   "Image tools": "图片工具",
   "Resize, convert, rotate, flip or arrange images into a grid.":
     "缩放、转换格式、旋转、翻转图片，或将多张图片拼成网格。",
+  "Resize, convert, rotate, flip or arrange images into a grid. Download the result or open it in a new tab.":
+    "缩放、转换格式、旋转、翻转图片，或将多张图片拼成网格；结果可下载或在新标签页打开。",
   "Single image": "单张图片",
   "Concat grid": "拼接网格",
   Images: "图片",
@@ -93,6 +97,8 @@ const zhCN = {
   "Document Import": "文档导入",
   "Import PDF and DOCX files as readable Markdown.":
     "将 PDF 和 DOCX 文件转换为可读的 Markdown。",
+  "Import PDF and DOCX files as readable Markdown. Preview, copy, or save the result into a notebook.":
+    "将 PDF 和 DOCX 文件转换为可读的 Markdown；结果可预览、复制或保存到笔记本。",
   "Choose or drop a PDF or DOCX": "选择或拖入 PDF / DOCX 文件",
   "PDF / DOCX": "PDF / DOCX 格式",
   "Importing…": "导入中…",
@@ -126,6 +132,8 @@ const zhCN = {
     "用于整理前的文本和链接快速收件箱。",
   "Capture text and URLs before you organize them.":
     "先把文本和链接收进来，稍后再整理。",
+  "Capture text and URLs before you organize them. Send any item to a note when you're ready.":
+    "先把文本和链接收进来，稍后再整理；随时可以把某条内容发送到笔记。",
   "Open Clipboard Inbox": "打开剪贴板收件箱",
   "Type or paste text": "输入或粘贴文本",
   "Add to inbox": "添加到收件箱",
@@ -177,6 +185,8 @@ const zhCN = {
   Translation: "翻译",
   "Translate text between languages using the configured model.":
     "使用已配置的模型在不同语言之间翻译文本。",
+  "Translate text between languages using the configured model. Copy the result or download it.":
+    "使用已配置的模型在不同语言之间翻译文本；结果可复制或下载。",
   "Translate text between languages.": "在不同语言之间翻译文本。",
   "Open Translation": "打开翻译",
   "Source text": "源文本",
@@ -1388,6 +1398,8 @@ const zhCN = {
   "Choose a note from the function area or create a new one.": "从功能区选择一篇笔记，或新建笔记。",
   "Create a notebook to start a readable Markdown and Astro-compatible vault.":
     "创建笔记本，以开始使用可读的 Markdown 与 Astro 兼容内容库。",
+  "Create a notebook to start your local-first Markdown library: write notes, capture web pages, organize with tags, bring notes into a conversation, or publish them as a blog.":
+    "创建笔记本，开始你的本地优先 Markdown 笔记库：写笔记、采集网页、用标签组织、把笔记带入对话，或发布成博客。",
   "Quick start": "快速开始",
   "Create or open a note from the notebook tree": "从左侧笔记本树创建或打开笔记",
   "Capture a public web page into a note": "把公开网页采集为笔记",
@@ -1704,6 +1716,8 @@ const zhCN = {
   "Remove this research card? This cannot be undone.": "移除这张研究卡片？此操作无法撤销。",
   "Loading research workspace…": "正在加载研究工作区…",
   "No research cards yet": "暂无研究卡片",
+  "No research cards yet. Use the form below to capture a symbol, thesis, bull/bear cases, and invalidation; saved cards stay here and their results also appear in Artifacts.":
+    "暂无研究卡片。用下方表单录入标的、论点、正反证据与失效条件；保存的卡片会留在这里，相关结果也会进入产物库。",
 "Upcoming events": "近期事件",
 "Upcoming event": "近期事件",
   Thesis: "投资逻辑",

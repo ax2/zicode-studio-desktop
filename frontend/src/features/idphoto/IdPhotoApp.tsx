@@ -270,7 +270,7 @@ function IdPhotoMain({ store }: { store: IdPhotoStore }) {
           <h1>{t("ID Photo Layout")}</h1>
           <p>
             {t(
-              "Choose a template and print sheet, optionally replace the background, then generate a ready-to-print sheet.",
+              "Choose a template and print sheet, optionally replace the background, then generate a ready-to-print sheet. Download the PNG or open it in a new tab.",
             )}
           </p>
         </div>

@@ -36,7 +36,11 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
     <div className="translate-main">
       <header className="translate-header">
         <h1>{t("Translation")}</h1>
-        <p>{t("Translate text between languages using the configured model.")}</p>
+        <p>
+          {t(
+            "Translate text between languages using the configured model. Copy the result or download it.",
+          )}
+        </p>
       </header>
 
       <section className="ui-card translate-source">

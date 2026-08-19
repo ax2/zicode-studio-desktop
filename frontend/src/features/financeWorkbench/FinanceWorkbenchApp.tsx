@@ -361,7 +361,13 @@ function ResearchResults({
   }
   const cards = asArray(result.data?.cards);
   if (!cards.length) {
-    return <ResultMessage value={t("No research cards yet")} />;
+    return (
+      <ResultMessage
+        value={t(
+          "No research cards yet. Use the form below to capture a symbol, thesis, bull/bear cases, and invalidation; saved cards stay here and their results also appear in Artifacts.",
+        )}
+      />
+    );
   }
   const upcoming = cards
     .filter((card) => card.eventAt && new Date(String(card.eventAt)).getTime() >= Date.now())
