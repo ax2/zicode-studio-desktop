@@ -20,8 +20,13 @@
 - 验证：`web_extract` 19 项单测通过（新增语义去噪、嵌套列表、样式保留、
   表格内联、正文优先、Cookie 横幅、边界匹配等）；全量 Rust 242 项、Clippy
   `-D warnings`、`cargo fmt --check`、前端全量 vitest + 权限/子进程策略全绿；
- 真实页面冒烟（Wikipedia 英文文章、阮一峰中文周刊）正文完整、导航/捐赠/
+  真实页面冒烟（Wikipedia 英文文章、阮一峰中文周刊）正文完整、导航/捐赠/
   页脚零泄漏（冒烟测试默认忽略，`ZICODE_SMOKE_URL` 可指定其他页面）。
+- 交付：重建 release（`target/release/zicode-studio-desktop.exe`
+  47,777,256 B / NSIS 安装包 348,682,991 B，2026-08-19 16:19），
+  public/extensions 已同步到安装目录；运行中实例占用旧 exe，采用
+  「重命名 `.prev` + 复制新 exe」方式暂存，应用下次重启即使用新版正文
+  提取器；`.prev` 文件在重启后可直接删除。
 
 ## 2026-08-19 未完善插件默认禁用
 
