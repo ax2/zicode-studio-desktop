@@ -185,6 +185,16 @@ export class NotesGateway {
     });
   }
 
+  summarize(sceneId, workspaceId, { text, title, model }) {
+    return this.#post("/v2/notes/summarize", {
+      sceneId,
+      workspaceId,
+      text,
+      title,
+      model,
+    });
+  }
+
   uploadAttachment(sceneId, workspaceId, note, { fileName, mimeType, dataBase64 }) {
     return this.#post("/v2/notes/attachments", {
       sceneId,

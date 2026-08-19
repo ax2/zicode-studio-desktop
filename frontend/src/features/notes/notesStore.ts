@@ -154,6 +154,11 @@ export interface NotesGatewayLike {
     image?: string;
     duplicate: boolean;
   }>;
+  summarize(
+    sceneId: string,
+    workspaceId: string,
+    params: { text: string; title?: string; model?: string },
+  ): Promise<{ summary: string; model: string; charCount: number }>;
   uploadAttachment(sceneId: string, workspaceId: string, note: Note, params: { fileName: string; mimeType: string; dataBase64: string }): Promise<{ attachment: { markdown: string } }>;
   attachmentUrl(sceneId: string, workspaceId: string, note: Note, attachmentId: string): string;
   importMarkdown(sceneId: string, workspaceId: string, notebookId: string, fileName: string, markdown: string): Promise<{ note: Note }>;
@@ -215,6 +220,8 @@ interface NotesState {
   trashLoading: boolean;
   trashError: string | null;
   mode: NotesMode;
+  summary: string | null;
+  summarizing: boolean;
   newNotebookParentId: string | null;
   dirty: boolean;
   saveState: "idle" | "dirty" | "saving" | "saved";
@@ -257,6 +264,8 @@ interface NotesState {
   newNote(): Promise<void>;
   duplicateNote(): Promise<void>;
   startCapture(): Promise<void>;
+  summarizeText(text: string, title?: string): Promise<string | null>;
+  clearSummary(): void;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<Note>;
   createNotebook(title: string, icon: string, parentId?: string | null): Promise<void>;
   deleteNotebook(notebookId: string): Promise<void>;
@@ -348,6 +357,8 @@ export function createNotesStore(options: NotesStoreOptions) {
     trashLoading: false,
     trashError: null,
     mode: "library",
+    summary: null,
+    summarizing: false,
     dirty: false,
     saveState: "idle",
     preview: false,
@@ -691,6 +702,30 @@ export function createNotesStore(options: NotesStoreOptions) {
           mode: "capture",
         });
       }
+    },
+
+    async summarizeText(text, title) {
+      const normalized = String(text ?? "").trim();
+      if (!normalized) return null;
+      set({ summarizing: true });
+      try {
+        const result = await gateway.summarize(sceneId(), workspaceId(), {
+          text: normalized,
+          title,
+        });
+        set({ summary: result.summary });
+        return result.summary;
+      } catch (reason) {
+        const error =
+          reason instanceof Error ? reason : new Error(String(reason));
+        throw localizeNotesHostError(error);
+      } finally {
+        set({ summarizing: false });
+      }
+    },
+
+    clearSummary() {
+      set({ summary: null });
     },
 
     async captureChatExchange({ question = "", answer = "", sessionId = "" }) {

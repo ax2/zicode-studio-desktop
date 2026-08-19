@@ -92,6 +92,11 @@ function gatewayStub(overrides: Partial<NotesGatewayLike> = {}): NotesGatewayLik
       finalUrl: "https://example.com/",
       duplicate: false,
     })),
+    summarize: vi.fn(async () => ({
+      summary: "摘要内容",
+      model: "deepseek-v4-flash",
+      charCount: 4,
+    })),
     uploadAttachment: vi.fn(async () => ({ attachment: { markdown: "![img](/attachments/x)" } })),
     attachmentUrl: vi.fn(() => "/api/attachments/x"),
     importMarkdown: vi.fn(async () => ({ note: NOTE })),
@@ -747,6 +752,51 @@ describe("notes store", () => {
     copyButton.click();
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith("# Example\n\nbody"),
+    );
+  });
+
+  it("summarizes the captured article with Pi and shows the digest", async () => {
+    const summarize = vi.fn(async () => ({
+      summary: "要点一\n要点二",
+      model: "deepseek-v4-flash",
+      charCount: 7,
+    }));
+    const store = storeWithGateway({ summarize });
+    await store.getState().load();
+    store.getState().setMode("capture");
+    const { container } = render(<NotesContent store={store} />);
+    const urlInput = container.querySelector(
+      'input[type="url"]',
+    ) as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(urlInput, "https://example.com/");
+    urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const previewButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        ".notes-form-actions button",
+      ),
+    ).find((button) => button.textContent?.includes(t("Preview")));
+    previewButton?.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-capture-preview")).toBeTruthy(),
+    );
+    const summarizeButton = container.querySelector(
+      ".notes-capture-summarize",
+    ) as HTMLButtonElement;
+    summarizeButton.click();
+    await waitFor(() =>
+      expect(container.querySelector(".notes-capture-summary")).toBeTruthy(),
+    );
+    expect(
+      container.querySelector(".notes-capture-summary pre")?.textContent,
+    ).toContain("要点一");
+    expect(summarize).toHaveBeenCalledWith(
+      "programming",
+      "ws-1",
+      expect.objectContaining({ title: "Example" }),
     );
   });
 

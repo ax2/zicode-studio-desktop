@@ -354,6 +354,7 @@ impl HostServer {
             .route("/v2/notes/trash/empty", post(empty_trash))
             .route("/v2/notes/capture", post(capture_note))
             .route("/v2/notes/capture-preview", post(capture_preview_note))
+            .route("/v2/notes/summarize", post(summarize_note))
             .route(
                 "/v2/notes/attachments",
                 post(upload_note_attachment)
@@ -2549,6 +2550,66 @@ async fn translate_http(
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Cannot serialize translation result",
+        )
+    })?))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SummarizeNoteRequest {
+    scene_id: String,
+    workspace_id: String,
+    text: String,
+    #[serde(default)]
+    title: Option<String>,
+    #[serde(default)]
+    model: Option<String>,
+}
+
+async fn summarize_note(
+    State(state): State<Arc<HostState>>,
+    Json(request): Json<SummarizeNoteRequest>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    ensure_notes_authorized(&state, &request.scene_id, false)?;
+    if request.workspace_id.trim().is_empty() {
+        return Err(plugin_api_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_parameters",
+            "Workspace is required",
+        ));
+    }
+    let system_root = crate::app_paths::system_root()
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "system root unavailable"))?;
+    let credentials =
+        crate::credential_broker::scene_provider_credentials(&system_root, &request.scene_id)
+            .map_err(|error| {
+                plugin_api_error(
+                    StatusCode::PRECONDITION_FAILED,
+                    "credential_unavailable",
+                    &error,
+                )
+            })?;
+    let api_key = credentials
+        .iter()
+        .find(|(provider, _)| provider == "qveris")
+        .map(|(_, key)| key.clone())
+        .ok_or_else(|| {
+            plugin_api_error(
+                StatusCode::PRECONDITION_FAILED,
+                "credential_unavailable",
+                "Summarization model key is not configured for this scene",
+            )
+        })?;
+    let input = crate::summary::SummarizeRequest {
+        text: request.text,
+        model: request.model,
+    };
+    let result = crate::summary::summarize(&input, &api_key, request.title.as_deref())
+        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "summarize_failed", &error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Cannot serialize summarization result",
         )
     })?))
 }

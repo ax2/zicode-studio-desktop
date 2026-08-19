@@ -1298,10 +1298,13 @@ function CaptureForm({ store }: { store: NotesStore }) {
   } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [copiedPreview, setCopiedPreview] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const snapshot = store((state) => state.snapshot);
   const selectedNotebookId = store((state) => state.selectedNotebookId);
   const capturing = store((state) => state.capturing);
+  const summarizing = store((state) => state.summarizing);
+  const summary = store((state) => state.summary);
   const urlRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     urlRef.current?.focus();
@@ -1414,6 +1417,56 @@ function CaptureForm({ store }: { store: NotesStore }) {
             >
               {copiedPreview ? t("Copied") : t("Copy Markdown")}
             </button>
+            {summary ? (
+              <section className="notes-capture-summary" aria-label={t("Pi summary")}>
+                <h3>{t("Pi summary")}</h3>
+                <pre>{summary}</pre>
+                <button
+                  type="button"
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  onClick={() => {
+                    void navigator.clipboard
+                      ?.writeText(summary)
+                      .then(() => {
+                        setCopiedSummary(true);
+                        window.setTimeout(() => setCopiedSummary(false), 1600);
+                      })
+                      .catch(() => {});
+                  }}
+                >
+                  {copiedSummary ? t("Copied") : t("Copy summary")}
+                </button>
+                <button
+                  type="button"
+                  className="ui-button ui-button--ghost ui-button--sm"
+                  onClick={() => store.getState().clearSummary()}
+                >
+                  {t("Dismiss")}
+                </button>
+              </section>
+            ) : (
+              <button
+                type="button"
+                className="ui-button ui-button--secondary ui-button--sm notes-capture-summarize"
+                disabled={summarizing}
+                aria-busy={summarizing}
+                onClick={() => {
+                  setError(null);
+                  void store
+                    .getState()
+                    .summarizeText(stripMarkdown(preview.markdown), preview.title)
+                    .catch((summarizeError) =>
+                      setError(
+                        summarizeError instanceof Error
+                          ? summarizeError.message
+                          : String(summarizeError),
+                      ),
+                    );
+                }}
+              >
+                {summarizing ? t("Summarizing…") : t("Summarize with Pi")}
+              </button>
+            )}
           </section>
         ) : null}
         {error ? <p className="notes-form-error">{error}</p> : null}

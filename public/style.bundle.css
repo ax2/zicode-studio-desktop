@@ -8800,6 +8800,31 @@ body.notes-dragging .notes-result-item {
   margin-top: var(--space-2);
 }
 
+.notes-capture-summary {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.notes-capture-summary h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.notes-capture-summary pre {
+  margin: 0 0 var(--space-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.notes-capture-summary .ui-button {
+  margin-right: var(--space-2);
+}
+
 
 /* --- inlined: native/plugins/idphoto-app.css --- */
 .idphoto-nav {
