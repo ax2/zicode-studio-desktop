@@ -469,9 +469,29 @@ async function main() {
     ["documents", "com.zicode.documents"],
   ];
   const filter = process.env.PLUGIN_FILTER;
-  const targets = filter
-    ? plugins.filter(([name]) => name === filter)
-    : plugins;
+  // Skip plugins that are currently disabled in the host (Habits/Watch/OCR
+  // are disabled by default) so the acceptance walk does not report the
+  // intended "disabled plugin" fallback as a failure. PLUGIN_FILTER still
+  // forces a single plugin so developers can test disabled ones explicitly.
+  let enabledPluginIds = null;
+  try {
+    const pluginResponse = await fetch(`${HOST}/v2/plugins?sceneId=programming`);
+    if (pluginResponse.ok) {
+      const pluginBody = await pluginResponse.json();
+      enabledPluginIds = new Set(
+        (pluginBody.plugins ?? [])
+          .filter((plugin) => plugin.enabled)
+          .map((plugin) => plugin.id),
+      );
+    }
+  } catch {
+    // The host may not expose plugin state; walk everything.
+  }
+  const targets = plugins.filter(([name, pluginId]) => {
+    if (filter) return name === filter;
+    if (!enabledPluginIds) return true;
+    return enabledPluginIds.has(pluginId);
+  });
 
   const profile = mkdtempSync(join(tmpdir(), "zicode-plugin-accept-"));
   const chrome = spawn(
