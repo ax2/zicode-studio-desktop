@@ -1,5 +1,13 @@
 # 实现状态
 
+## 2026-08-20 移动 PWA 表面静态验证
+
+- manifest.json 有效：standalone 显示、theme_color、4 个图标（含
+  maskable 512）；service-worker.js（9.7 KB）存在，注册点在
+  `mobile-pwa-lifecycle.js`（远程客户端，`updateViaCache: none`），
+  移动端更新检查逻辑完整。PWA 安装/离线表面在静态层验证通过
+  （真机安装走查仍属外部项）。
+
 ## 2026-08-20 四个完整插件真实验收 9/9
 
 - 临时启用 OCR/习惯/网页监控（知识图谱）后跑 `plugin-acceptance`：
