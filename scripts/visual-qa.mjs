@@ -110,6 +110,16 @@ const DIAGNOSTICS = `(() => {
   const notifications = Array.from(
     document.querySelectorAll(".native-notification"),
   ).map((notification) => notification.innerText.replace(/\\s+/g, " ").trim());
+  const messages = document.querySelector(".messages");
+  const lastMessage = messages?.lastElementChild;
+  const inputArea = document.querySelector(".input-area");
+  const chatGap =
+    lastMessage && inputArea
+      ? Math.round(
+          inputArea.getBoundingClientRect().top -
+            lastMessage.getBoundingClientRect().bottom,
+        )
+      : null;
   // First button anywhere in the document, to detect top clipping generally.
   const firstButton = document.querySelector(".plugin-main-view button, main button, .app-main button, .plugin-app-mount button, .notes-editor-toolbar button");
   const firstButtonRect = firstButton ? firstButton.getBoundingClientRect() : null;
@@ -148,6 +158,8 @@ const DIAGNOSTICS = `(() => {
     clippedAtViewportTop,
     notesToolbarRect: notesToolbarRect && { top: Math.round(notesToolbarRect.top), bottom: Math.round(notesToolbarRect.bottom), height: Math.round(notesToolbarRect.height) },
     notifications,
+    chatGap,
+    messagesBottomAligned: messages?.classList.contains("messages-bottom-aligned") ?? null,
     firstButtonRect: firstButtonRect && { top: Math.round(firstButtonRect.top), bottom: Math.round(firstButtonRect.bottom), left: Math.round(firstButtonRect.left), width: Math.round(firstButtonRect.width) },
     clippedByHeader: Math.round(clippedByHeader),
     containers,
@@ -524,6 +536,8 @@ async function main() {
             headerBottom: result.headerRect?.bottom ?? null,
             notesToolbarTop: result.notesToolbarRect?.top ?? null,
             notifications: result.notifications ?? [],
+            chatGap: result.chatGap ?? null,
+            messagesBottomAligned: result.messagesBottomAligned ?? null,
             bodyText: result.bodyText,
             activityList: result.activityListInfo,
             shortcutActive: result.shortcutActive,
