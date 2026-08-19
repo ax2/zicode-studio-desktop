@@ -23,7 +23,7 @@
   真实页面冒烟（Wikipedia 英文文章、阮一峰中文周刊）正文完整、导航/捐赠/
   页脚零泄漏（冒烟测试默认忽略，`ZICODE_SMOKE_URL` 可指定其他页面）。
 - 交付：重建 release（`target/release/zicode-studio-desktop.exe`
-  47,777,256 B / NSIS 安装包 348,682,991 B，2026-08-19 16:19），
+  47,776,256 B / NSIS 安装包 348,682,991 B，2026-08-19 16:19），
   public/extensions 已同步到安装目录；运行中实例占用旧 exe，采用
   「重命名 `.prev` + 复制新 exe」方式暂存，应用下次重启即使用新版正文
   提取器；`.prev` 文件在重启后可直接删除。
