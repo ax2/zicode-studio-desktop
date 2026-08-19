@@ -1003,6 +1003,83 @@ async function diagnose(cdp, name, url, viewport) {
       noteCreated,
     };
   }
+  // For the automation app, create a workflow through the form, confirm it
+  // appears in the list, then remove it (with confirm stubbed) so the run
+  // history stays untouched.
+  if (name === "automation") {
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const setValue = (element, value) => {
+          const prototype =
+            element.tagName === "TEXTAREA"
+              ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype;
+          Object.getOwnPropertyDescriptor(prototype, "value").set.call(
+            element,
+            value,
+          );
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+        };
+        setValue(document.querySelector("#automation-name"), "QA 自动化回归");
+        setValue(
+          document.querySelector("#automation-prompt"),
+          "测试自动化任务说明",
+        );
+        return true;
+      })()`,
+    });
+    await sleep(300);
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const button = document.querySelector(
+          ".automation-form button[type='submit']",
+        );
+        button?.click();
+        return Boolean(button);
+      })()`,
+    });
+    await sleep(1800);
+    const created = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        cardFound: Array.from(
+          document.querySelectorAll(".automation-card h2"),
+        ).some((node) => node.textContent?.includes("QA 自动化回归")),
+        notifications: Array.from(
+          document.querySelectorAll(".native-notification"),
+        ).map((node) => node.innerText.replace(/\\s+/g, " ").trim()),
+      }))()`,
+      returnByValue: true,
+    });
+    // Remove every QA card (including any leftovers from earlier runs).
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        globalThis.confirm = () => true;
+        const cards = Array.from(
+          document.querySelectorAll(".automation-card"),
+        ).filter((node) => (node.textContent || "").includes("QA 自动化回归"));
+        for (const card of cards) {
+          const remove = Array.from(
+            card.querySelectorAll("button"),
+          ).find((button) => /Remove|删除|移除/.test(button.textContent || ""));
+          remove?.click();
+        }
+        return cards.length;
+      })()`,
+    });
+    await sleep(1500);
+    const removed = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        cardGone: !Array.from(
+          document.querySelectorAll(".automation-card h2"),
+        ).some((node) => node.textContent?.includes("QA 自动化回归")),
+      }))()`,
+      returnByValue: true,
+    });
+    appForm = {
+      created: created?.result?.value ?? null,
+      removed: removed?.result?.value ?? null,
+    };
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
