@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-20 qa-locale 增加实时语言切换验证
+
+- `qa-locale` 在泄漏扫描之外增加活体验证：通过设置 UI 把语言切到英语，
+  断言界面 chrome 变为英文且写入 `zicode-studio-locale=en`，再恢复简体
+  中文；任一步失败即非零退出。选项标签随当前语言本地化（中文界面显示
+  「英语」、英文界面显示「English」），匹配逻辑按候选标签兼容。
+- 实测：设置里「语言」切换在活实例上工作正常——选英语后 cookie 写入
+  `en`、设置页全部变英文（Appearance/Theme/Language/…），恢复中文后
+  界面还原；此前一次「未切换」为探针正则未匹配「英语」所致，非应用缺陷。
+- 泄漏扫描补充任务中心容器排除（`.task-center-card/.task-center-list`，
+  任务名为用户内容）：桌面 13/13 视图零泄漏，切换验证通过；Biome 全绿。
+
 ## 2026-08-20 英文界面泄漏扫描（qa-locale）与全量视觉回归
 
 - 新增 `scripts/qa-locale.mjs`（`bun run qa:locale`）：设置 en cookie 后

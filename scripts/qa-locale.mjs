@@ -164,7 +164,8 @@ async function main() {
             ".session-item", ".plugin-sidebar-surface",
             ".notes-tree", ".notes-list", ".notes-list-item",
             ".notes-notebook-branch", ".notes-result-list", ".trash-list",
-            ".task-card", ".task-list", ".artifact-list", ".artifact-item",
+            ".task-card", ".task-list", ".task-center-card", ".task-center-list",
+            ".artifact-list", ".artifact-item",
             ".runtime-task-card", ".runtime-task-list", ".super-agent-runtime",
             ".plugin-manager-permission", ".plugin-manager-permissions",
             ".watch-item", ".habit-item", ".inbox-item", ".transcript",
@@ -210,13 +211,85 @@ async function main() {
     }
 
     const failures = report.filter((entry) => !entry.pass);
+
+    // Live switch verification: change the language through the Settings UI,
+    // assert the chrome flips to English, then restore Simplified Chinese.
+    let switchResult = { ok: false, error: null };
+    try {
+      const settingsUrl = `${sessionUrl}?app=core.settings`;
+      await cdp.send("Page.navigate", { url: settingsUrl });
+      await sleep(WAIT_MS);
+      const pickOption = async (labels) => {
+        const candidates = Array.isArray(labels) ? labels : [labels];
+        await cdp.send("Runtime.evaluate", {
+          expression: `document.querySelector("#language-select")?.click(); true`,
+        });
+        await sleep(400);
+        const clicked = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const option = Array.from(document.querySelectorAll(".app-select-option"))
+              .find((button) => ${JSON.stringify(candidates)}
+                .includes(button.textContent.trim()));
+            if (!option) return false;
+            option.click();
+            return true;
+          })()`,
+          returnByValue: true,
+        });
+        await sleep(1200);
+        return clicked?.result?.value === true;
+      };
+      const switched = await pickOption(["英语", "English"]);
+      if (!switched) {
+        switchResult = { ok: false, error: "English option not found in the language menu" };
+      } else {
+        const english = await cdp.send("Runtime.evaluate", {
+          expression: `/Appearance|Theme|Language/i.test(
+            document.querySelector(".plugin-main-view")?.textContent ?? "",
+          )`,
+          returnByValue: true,
+        });
+        const cookie = await cdp.send("Runtime.evaluate", {
+          expression: "document.cookie",
+          returnByValue: true,
+        });
+        const localeSet =
+          english?.result?.value === true &&
+          /zicode-studio-locale=en/.test(String(cookie?.result?.value ?? ""));
+        if (!localeSet) {
+          switchResult = {
+            ok: false,
+            error: "settings did not flip the UI/cookie to English",
+          };
+        } else {
+          const restored = await pickOption("简体中文");
+          switchResult = {
+            ok: restored,
+            error: restored ? null : "could not restore Simplified Chinese",
+          };
+        }
+      }
+    } catch (error) {
+      switchResult = {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    console.log(
+      JSON.stringify({
+        switch: switchResult.ok
+          ? { ok: true, note: "settings language switch → English and back works" }
+          : switchResult,
+      }),
+    );
     console.log(
       `LOCALE SWEEP: ${report.length - failures.length}/${report.length} views clean` +
         (failures.length > 0
           ? ` (${failures.map((entry) => entry.name).join(", ")} have leaks)`
           : ""),
     );
-    process.exitCode = failures.length > 0 ? 1 : 0;
+    process.exitCode = failures.length > 0 || !switchResult.ok ? 1 : 0;
     cdp.close();
   } finally {
     chrome.kill();
