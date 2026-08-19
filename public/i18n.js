@@ -715,6 +715,19 @@ const zhCN = {
   "Open ZiCode like an app and keep it one tap away.": "像应用一样打开 ZiCode，轻点一下即可进入。",
   Install: "安装",
   "Got it": "知道了",
+  "Your local Markdown library": "你的本地 Markdown 笔记库",
+  "Create a notebook, then write or capture notes.": "创建笔记本后，写笔记或采集网页。",
+  "Organize with tags and folders, or drag notes between notebooks.":
+    "用标签和文件夹组织，或在笔记本之间拖拽笔记。",
+  "Bring notes into a conversation, export, or publish them.":
+    "把笔记带入对话、导出或发布。",
+  "Start writing": "开始写笔记",
+  "One place for background work": "后台工作的统一入口",
+  "Approve pending tasks to dispatch them to a project agent.":
+    "批准待运行任务，派发给项目代理。",
+  "Pause, cancel, or retry running tasks.": "暂停、取消或重试运行中的任务。",
+  "Open finished results in their session.": "在会话中打开已完成的结果。",
+  "View tasks": "查看任务",
   "Translate text in seconds": "几秒钟完成翻译",
   "Paste or type the text to translate.": "粘贴或输入要翻译的文本。",
   "Pick the target language.": "选择目标语言。",

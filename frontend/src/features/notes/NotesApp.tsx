@@ -7,6 +7,7 @@ import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 import { t } from "../../shared/i18n";
 import { isImeComposing } from "../../shared/ime";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
 import {
   allTagSuggestions,
@@ -1800,6 +1801,21 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
     );
   }
   return (
+    <>
+      <FirstRunGuide
+        storageKey="notes"
+        title={t("Your local Markdown library")}
+        steps={[
+          t("Create a notebook, then write or capture notes."),
+          t("Organize with tags and folders, or drag notes between notebooks."),
+          t("Bring notes into a conversation, export, or publish them."),
+        ]}
+        ctaLabel={t("Start writing")}
+        onCta={() => {
+          if (snapshot.notebooks.length) void newNote();
+          else setMode("new-notebook");
+        }}
+      />
     <section className="notes-state-panel notes-empty-library ui-card">
       <div className="notes-empty-hero">
         <span className="notes-empty-hero-icon" aria-hidden="true">
@@ -1861,6 +1877,7 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
         </aside>
       ) : null}
     </section>
+    </>
   );
 }
 

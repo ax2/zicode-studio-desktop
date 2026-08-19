@@ -57,6 +57,14 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("shows the first-run guide on first visit", async () => {
+    localStorage.clear();
+    const call = mockCall([]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelector("[data-first-run-guide]")).toBeTruthy());
+    store.getState().destroy();
+  });
+
   it("returns a failed task to pending", async () => {
     setLocale("en");
     const call = mockCall([{ id: "fail", title: "Failed report", status: "failed" }]);

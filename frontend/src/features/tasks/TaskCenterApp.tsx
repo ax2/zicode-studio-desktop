@@ -1,6 +1,7 @@
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
 import {
@@ -46,6 +47,7 @@ export function TaskNav({ store }: { store: TaskStore }) {
 export function TaskMain({ store }: { store: TaskStore }) {
   const tasks = store((state) => state.tasks);
   const filter = store((state) => state.filter);
+  const setFilter = store((state) => state.setFilter);
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
@@ -70,6 +72,17 @@ export function TaskMain({ store }: { store: TaskStore }) {
           {t("Refresh")}
         </button>
       </header>
+      <FirstRunGuide
+        storageKey="tasks"
+        title={t("One place for background work")}
+        steps={[
+          t("Approve pending tasks to dispatch them to a project agent."),
+          t("Pause, cancel, or retry running tasks."),
+          t("Open finished results in their session."),
+        ]}
+        ctaLabel={t("View tasks")}
+        onCta={() => setFilter("all")}
+      />
       <TaskSummary store={store} />
       {error ? (
         <StatePanel

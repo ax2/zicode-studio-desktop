@@ -755,6 +755,14 @@ describe("notes store", () => {
     );
   });
 
+  it("shows the first-run guide on the empty library", async () => {
+    localStorage.clear();
+    const store = storeWithGateway();
+    await store.getState().load();
+    const { container } = render(<NotesContent store={store} />);
+    expect(container.querySelector("[data-first-run-guide]")).toBeTruthy();
+  });
+
   it("summarizes the captured article with Pi and shows the digest", async () => {
     const summarize = vi.fn(async () => ({
       summary: "要点一\n要点二",
