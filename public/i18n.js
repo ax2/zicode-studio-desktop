@@ -1706,6 +1706,10 @@ const zhCN = {
   "Could not load automations": "无法加载自动化",
   "Could not remove automation": "无法移除自动化",
   "All automations": "全部自动化",
+  "Each run waits for your approval in the task center.":
+    "每次运行都会在任务中心等待你的批准。",
+  "Runs automatically when due; no manual approval needed.":
+    "到期后自动派发到目标项目，无需手动批准。",
   "Needs approval": "需要审批",
   "Run history": "运行历史",
   "No automations in this view": "当前视图没有自动化",

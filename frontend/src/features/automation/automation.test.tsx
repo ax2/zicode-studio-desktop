@@ -276,6 +276,20 @@ describe("automation React app", () => {
     });
   });
 
+  it("explains the approval mode with a contextual form hint", async () => {
+    setLocale("en");
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    const { container } = render(<AutomationMain store={store} />);
+    const hint = () =>
+      container.querySelector(".automation-checkbox-hint")?.textContent?.trim() ?? "";
+    expect(hint()).toContain("waits for your approval");
+    fireEvent.click(screen.getByText("Require approval before every run"));
+    expect(hint()).toContain("Runs automatically when due");
+    fireEvent.click(screen.getByText("Require approval before every run"));
+    expect(hint()).toContain("waits for your approval");
+  });
+
   it("approves and queues an automation through the task store", async () => {
     setLocale("en");
     const call = mockCall();

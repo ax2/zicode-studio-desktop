@@ -253,6 +253,11 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
         <input type="checkbox" checked={requireApproval} onChange={(e) => setRequireApproval(e.target.checked)} />
         {t("Require approval before every run")}
       </label>
+      <p className="automation-checkbox-hint" role="note">
+        {requireApproval
+          ? t("Each run waits for your approval in the task center.")
+          : t("Runs automatically when due; no manual approval needed.")}
+      </p>
       <button
         type="submit"
         className="ui-button ui-button--primary"
