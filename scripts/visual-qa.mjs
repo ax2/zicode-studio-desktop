@@ -353,6 +353,112 @@ async function diagnose(cdp, name, url, viewport) {
         executed: paletteExecuted?.result?.value ?? null,
       },
     };
+    // Composer: typing enables send, "/" opens the skill menu, and attaching
+    // an image renders a preview.
+    const composerInput = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector("#message-input");
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        ).set;
+        setter.call(input, "你好，这是一条测试消息");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`,
+      returnByValue: true,
+    });
+    await sleep(300);
+    const sendEnabled = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const send = document.querySelector("#send-btn");
+        return {
+          disabled: send?.hasAttribute("disabled") ?? null,
+          ariaDisabled: send?.getAttribute("aria-disabled") ?? null,
+        };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector("#message-input");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        ).set.call(input, "/");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`,
+    });
+    await sleep(400);
+    const slashMenu = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const menu = document.querySelector("#skill-slash-menu");
+        return {
+          visible: Boolean(menu && !menu.classList.contains("hidden")),
+          optionCount: document.querySelectorAll(".skill-slash-option").length,
+        };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector("#message-input");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        ).set.call(input, "");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`,
+    });
+    let imagePreview = null;
+    try {
+      const doc = await cdp.send("DOM.getDocument", { depth: -1 });
+      const node = await cdp.send("DOM.querySelector", {
+        nodeId: doc.root.nodeId,
+        selector: "#image-input",
+      });
+      if (node.nodeId) {
+        const sampleImage = join(
+          process.cwd(),
+          "public",
+          "icons",
+          "app-192.png",
+        );
+        await cdp.send("DOM.setFileInputFiles", {
+          nodeId: node.nodeId,
+          files: [sampleImage],
+        });
+        await sleep(1800);
+        imagePreview = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const previews = document.querySelectorAll(
+              ".composer-image-preview, .image-preview-item, [class*='image-preview'] img",
+            );
+            return {
+              previewCount: previews.length,
+              hasImage: Boolean(
+                document.querySelector("[class*='image-preview'] img, [class*='preview'] img"),
+              ),
+            };
+          })()`,
+          returnByValue: true,
+        });
+        imagePreview = imagePreview?.result?.value ?? null;
+      }
+    } catch {
+      imagePreview = { error: "image attach not testable" };
+    }
+    appForm = {
+      ...(appForm ?? {}),
+      composer: {
+        typed: Boolean(composerInput?.result?.value),
+        send: sendEnabled?.result?.value ?? null,
+        slash: slashMenu?.result?.value ?? null,
+        image: imagePreview,
+      },
+    };
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true, cancelable: true }));
