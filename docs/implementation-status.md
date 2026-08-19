@@ -1,5 +1,21 @@
 # 实现状态
 
+## 2026-08-20 Articles 文章创作插件恢复默认启用
+
+- 背景：用户明确要求的文章创作/公众号/博客发布插件（Articles）此前
+  一直处于默认禁用，活动栏与「更多」菜单不展示，用户请求的功能被隐藏。
+- 改动：Rust `builtin_manifests()` 与前端 `plugin-registry.js` 的
+  Articles `enabled_by_default` 均改为 `true`；通过 `/v2/plugins/enablement`
+  在当前 programming 场景即时启用。
+- 验证：活实例 Articles 应用真实加载（activePlugin=com.zicode.articles，
+  主视图显示完整文章创作 UI：编辑/预览/保存/删除、同步公众号草稿、
+  同步并发布到公众号、发布已有草稿、博客 Astro 源目录同步）；全视图
+  控制台扫描 14/14 零错误（新增 Articles 视图）；Rust 12 项 registry 测试、
+  Clippy `-D warnings`、fmt、前端 registry 5 项全绿。
+- 交付：重建 release（exe 47,805,440 B，2026-08-20 02:20，含 Articles
+  默认启用），已按「重命名 `.prev` + 复制」暂存；运行实例不受影响，
+  下次重启后新装场景/全新安装默认启用 Articles，`.prev` 确认稳定后可删。
+
 ## 2026-08-20 任务预算通知增加「打开任务」直达动作
 
 - 「Task budget reached」警告此前只有金额文案，需自行前往任务中心查看

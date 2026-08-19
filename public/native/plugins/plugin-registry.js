@@ -281,7 +281,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Create and publish articles to the Astro blog and WeChat Official Account.",
     icon: "articles",
     order: 270,
-    enabledByDefault: false,
+    enabledByDefault: true,
     sidebarViews: [
       {
         id: "articles.posts",

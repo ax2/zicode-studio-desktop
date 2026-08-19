@@ -2580,7 +2580,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            false,
+            true,
         ),
     ]
 }
