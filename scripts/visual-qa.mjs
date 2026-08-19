@@ -1707,6 +1707,17 @@ async function main() {
     }
     const sessionUrl = `${HOST}/app/workspaces/${ws}/sessions/${session}`;
 
+    // Optional theme override: seed the theme cookie before any app view loads
+    // so layout/readability can be verified in light themes too (e.g. clean).
+    const theme = process.env.THEME;
+    if (theme) {
+      await cdp.send("Page.navigate", { url: `${HOST}/` });
+      await sleep(1500);
+      await cdp.send("Runtime.evaluate", {
+        expression: `document.cookie = "pi-studio-theme=${theme}; Path=/; SameSite=Lax"; true`,
+      });
+    }
+
     // Finance is scene-gated: opening it in a non-finance session renders the
     // scene guard instead of the research/paper/backtest forms. Create a
     // finance-scene session here so the QA pass exercises the real workbench
