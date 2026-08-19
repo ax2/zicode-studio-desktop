@@ -1090,6 +1090,54 @@ async function diagnose(cdp, name, url, viewport) {
     }
     appForm = documents;
   }
+  // For the translate app, run a real translation through the configured
+  // model and verify a result renders.
+  if (name === "translate") {
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector(".translate-textarea");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        ).set.call(input, "Hello, how are you today?");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return Boolean(input);
+      })()`,
+    });
+    await sleep(300);
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const translate = document.querySelector(
+          ".translate-controls .ui-button--primary, .translate-result ~ button",
+        );
+        const buttons = Array.from(
+          document.querySelectorAll(".translate-controls button"),
+        );
+        const primary = buttons.find(
+          (button) =>
+            /Translate|翻译/.test(button.textContent || "") &&
+            !/Clear|清除/.test(button.textContent || ""),
+        );
+        primary?.click();
+        return Boolean(primary);
+      })()`,
+    });
+    await sleep(8000);
+    const result = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const resultNode = document.querySelector(".translate-result");
+        return {
+          hasResult: Boolean(
+            resultNode && !resultNode.classList.contains("translate-result--empty"),
+          ),
+          text: resultNode?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+          error: document.querySelector(".translate-error")?.textContent ?? "",
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = result?.result?.value ?? null;
+  }
   // For the clipboard app, capture text into the inbox and send it to a note;
   // the created note is then removed through the notes API.
   if (name === "clipboard") {
