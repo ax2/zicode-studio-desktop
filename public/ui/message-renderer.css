@@ -25,6 +25,13 @@
   display: none;
 }
 
+.welcome-orientation {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
 .welcome-icon {
   font-size: var(--font-size-2xl);
   opacity: 1;

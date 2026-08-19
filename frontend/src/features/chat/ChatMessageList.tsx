@@ -236,6 +236,11 @@ const WelcomeItem = memo(function WelcomeItem({
         </button>
       </div>
       <div className="welcome-panel">
+        <p className="welcome-orientation" role="note">
+          {t(
+            "Left icons switch apps · the top bar switches workspaces · right panels hold files and background tasks",
+          )}
+        </p>
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of app shortcuts kept as a plain div like the shortcuts-hint row */}
         <div className="welcome-quick-actions" role="group" aria-label={t("Quick actions")}>
           <button

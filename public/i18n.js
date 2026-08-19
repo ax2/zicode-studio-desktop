@@ -335,6 +335,8 @@ const zhCN = {
   "Keyboard shortcuts": "键盘快捷键",
   "Focus input": "聚焦输入框",
   "Quick actions": "快捷入口",
+  "Left icons switch apps · the top bar switches workspaces · right panels hold files and background tasks":
+    "左侧图标切换应用 · 顶部切换工作区 · 右侧面板放文件与后台任务",
   "Retry request": "重试请求",
   "Request cannot be retried yet": "暂时无法重试请求",
   "Wait for the current task to finish.": "请等待当前任务完成。",
