@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-19 会话侧边栏 headless 渲染问题调查（排除三项假设）
+
+- 背景：headless Chrome 下 `#session-list` 的 React 根有 fiber 但无 DOM
+  提交（0 子元素）；真机/桌面正常。本轮补充证据并排除三个假设：
+  1) `SessionSidebarApp` 对 skeleton/loading/error/empty 均有早退渲染，
+     空 DOM 说明提交确实被跳过，而非「空数据渲染为空」；
+  2) 构造器 `flushSync(() => root.render(...))` 改为普通 render 后 headless
+     仍无提交——外层 flushSync 不是原因；
+  3) 挂载推迟到 `setTimeout(0)` 宏任务后仍无提交——引导同步阶段冲突不是原因。
+- 另外确认：headless 页面内 `fetch`/`window.__zicodeHostFetch` 请求
+  `/v2/sessions` 均 200 且返回 16 个会话（数据路径正常）；`listAllSessions`
+  在引导时即被调用。剩余假设指向 React 19 调度器在该根上的提交被跳过
+  （可能与 `useSyncExternalStore`/zustand 快照契约或 headless 环境差异有关），
+  需真机/真实浏览器对照确认，本仓库不再重复这三项实验。
+
 ## 2026-08-19 自动化调度全页面运行与非审批任务自动派发
 
 - 修复「任务不能做到全自动」的两个实际缺口：
