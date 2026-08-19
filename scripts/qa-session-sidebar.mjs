@@ -196,6 +196,7 @@ async function main() {
     console.log(
       "IMPORTMAP_DOM: " + JSON.stringify(importMapDom?.result?.value ?? null),
     );
+    await cdp.send("DOM.enable");
 
     const samples = [];
     for (let second = 0; second < 12; second += 1) {
@@ -229,6 +230,67 @@ async function main() {
         ...(evaluated?.result?.value ?? {}),
       });
     }
+    // Post-load listener + duplication checks (the sidebar is fully booted
+    // after the sampling window).
+    const reactRootCheck = await cdp.send("Runtime.evaluate", {
+      expression: `(async () => {
+        const list = document.querySelector("#session-list");
+        const keys = list
+          ? Object.keys(list).filter((k) => k.includes("react") || k.includes("__"))
+          : [];
+        const containerKey = keys.find((k) => k.startsWith("__reactContainer$"));
+        const fiber = containerKey ? list[containerKey] : null;
+        const internalRoot = fiber?._internalRoot;
+        const current = internalRoot?.current;
+        const errorInfo = (() => {
+          try {
+            if (!current) return null;
+            const stateNode = current.stateNode;
+            const memoizedState = current.memoizedState;
+            const value = memoizedState?.memoizedState;
+            return {
+              tag: current.tag,
+              hasError: current.memoizedState?.hasError ?? false,
+              errorValue: value !== null && typeof value === "object"
+                ? String(value.message || JSON.stringify(value)).slice(0, 200)
+                : String(value ?? "").slice(0, 200),
+            };
+          } catch (error) {
+            return { inspectError: String(error?.message || error) };
+          }
+        })();
+        return {
+          exists: Boolean(list),
+          reactKeys: keys.slice(0, 5),
+          children: list?.childElementCount ?? -1,
+          hasInternalRoot: Boolean(internalRoot),
+          hasCurrentFiber: Boolean(current),
+          errorInfo,
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    console.log(
+      "REACT_ROOT: " + JSON.stringify(reactRootCheck?.result?.value ?? null),
+    );
+    const postDup = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const all = document.querySelectorAll("[id='session-list']");
+        const sidebar = document.querySelector("#sidebar");
+        return {
+          count: all.length,
+          sidebarChildren: sidebar?.childElementCount ?? -1,
+          sidebarText: (sidebar?.textContent ?? "")
+            .replace(/\\s+/g, " ")
+            .slice(0, 100),
+        };
+      })()`,
+      returnByValue: true,
+    });
+    console.log(
+      "POST_DUP: " + JSON.stringify(postDup?.result?.value ?? null),
+    );
     cdp.close();
     console.log(JSON.stringify({ samples }, null, 2));
   } finally {
