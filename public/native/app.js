@@ -1674,6 +1674,11 @@ async function recordDispatchedTaskUsage(frame) {
     title: t("Task budget reached"),
     message: `$${Number(budget).toFixed(2)}`,
     type: "warning",
+    action: {
+      label: t("Open tasks"),
+      run: () =>
+        window.dispatchEvent(new CustomEvent("zicode:open-tasks")),
+    },
   });
   pluginShell?.setActivityBadge("com.zicode.tasks", { count: 1, tone: "warning" });
 }

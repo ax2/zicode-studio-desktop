@@ -1839,6 +1839,7 @@ const zhCN = {
   Retries: "重试次数",
   "Retry limit reached": "已达到重试上限",
   "Task budget reached": "任务预算已达到",
+  "Open tasks": "打开任务",
   "Task budget reached; the child run was stopped.": "任务预算已达到，子任务运行已停止。",
   "Task completed": "任务已完成",
   "Automatically queued for retry": "已自动加入重试队列",
