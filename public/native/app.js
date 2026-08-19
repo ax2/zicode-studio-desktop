@@ -2250,6 +2250,10 @@ function markRuntimeDisconnected() {
       title: t("Runtime disconnected"),
       message: t("Start a new session to reconnect"),
       type: "warning",
+      action: {
+        label: t("New session"),
+        run: () => document.getElementById("new-session-btn")?.click(),
+      },
     });
   }
 }
