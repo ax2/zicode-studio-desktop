@@ -350,6 +350,54 @@ async function main() {
       })()`,
     );
 
+    // "Discuss in Chat" with a text selection must carry only the selected
+    // text into the composer, not the whole note.
+    const discussResult = await evaluate(
+      cdp,
+      `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        document.querySelector(".notes-edit-tab")?.click();
+        await wait(400);
+        const textarea = document.querySelector(".notes-content-input");
+        const content = textarea?.value ?? "";
+        const start = content.indexOf("正文段落");
+        const selected = "正文段落 **加粗** 内容";
+        if (start >= 0) {
+          textarea.focus();
+          textarea.setSelectionRange(start, start + selected.length);
+        }
+        document.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Enter",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        await wait(1800);
+        const chatInput = document.querySelector("#chat-form textarea");
+        const value = chatInput?.value ?? "";
+        return {
+          chatActive: document.body.dataset.activePlugin ?? null,
+          inputValue: value,
+          hasSelection: value.includes(selected),
+          hasWholeNote: value.includes("# 大标题"),
+          selectionApplied: start >= 0,
+        };
+      })()`,
+    );
+
+    // "Discuss in Chat" switched to Chat; return to Notes for the remaining
+    // sidebar/filter checks.
+    await evaluate(
+      cdp,
+      `(() => {
+        document.querySelector('[data-plugin-id="com.zicode.notes"]')?.click();
+        return true;
+      })()`,
+    );
+    await sleep(1500);
+
     // Click the tag in the sidebar; the results list must filter to notes
     // carrying that tag (previously reported as broken).
     const tagFilterResult = await evaluate(
@@ -486,6 +534,7 @@ async function main() {
       afterAutosave,
       reload: reloadResult,
       preview: previewResult,
+      discuss: discussResult,
       tagFilter: tagFilterResult,
       drag: { ...dragResult, movedToTarget },
       pass:
@@ -501,6 +550,10 @@ async function main() {
         previewResult.hasBold &&
         previewResult.hasList &&
         previewResult.hasQuote &&
+        discussResult.selectionApplied &&
+        discussResult.chatActive === "core.chat" &&
+        discussResult.hasSelection &&
+        !discussResult.hasWholeNote &&
         tagFilterResult.active.includes("qa-flow") &&
         tagFilterResult.results.some((title) => title.includes("QA 交互标题")) &&
         dragResult.found &&
