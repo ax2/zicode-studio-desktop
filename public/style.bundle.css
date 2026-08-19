@@ -16233,6 +16233,24 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     height: var(--space-6);
   }
 
+  .plugin-mobile-activity-menu-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.25;
+  }
+
+  .plugin-mobile-activity-menu-description {
+    max-width: 120px;
+    color: var(--text-dim);
+    font-size: 11px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .plugin-mobile-activity-menu-item span {
     max-width: 100%;
     overflow: hidden;

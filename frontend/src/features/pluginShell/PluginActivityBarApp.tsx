@@ -364,7 +364,14 @@ export function PluginActivityBarApp({
                 onClick={() => onMenuItemClick(item)}
               >
                 <PluginIcon name={item.icon} />
-                <span>{item.label}</span>
+                <span className="plugin-mobile-activity-menu-label">
+                  <span>{item.label}</span>
+                  {item.description ? (
+                    <small className="plugin-mobile-activity-menu-description">
+                      {item.description}
+                    </small>
+                  ) : null}
+                </span>
               </button>
             );
           })}
