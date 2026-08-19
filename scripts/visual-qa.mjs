@@ -269,6 +269,90 @@ async function diagnose(cdp, name, url, viewport) {
     } else {
       appForm = { toggleHidden: true };
     }
+    // Command palette: open, filter by a query, and run a filtered command.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.querySelector("#command-btn")?.click();
+        return true;
+      })()`,
+    });
+    await sleep(500);
+    const paletteOpen = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const panel = document.querySelector("#command-palette");
+        return {
+          visible: Boolean(panel && !panel.classList.contains("hidden")),
+          itemCount: document.querySelectorAll(".command-item").length,
+        };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector(".command-palette-search");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        ).set.call(input, "笔记");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`,
+    });
+    await sleep(400);
+    const paletteFiltered = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const items = Array.from(
+          document.querySelectorAll(".command-item .command-label"),
+        ).map((node) => node.textContent?.trim() ?? "");
+        return { count: items.length, items };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector(".command-palette-search");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        ).set.call(input, "任务");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`,
+    });
+    await sleep(400);
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document
+          .querySelector(".command-palette-search")
+          ?.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        return true;
+      })()`,
+    });
+    await sleep(1200);
+    const paletteExecuted = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        paletteHidden:
+          document
+            .querySelector("#command-palette")
+            ?.classList.contains("hidden") ?? null,
+        activePlugin: document.body.dataset.activePlugin ?? null,
+      }))()`,
+      returnByValue: true,
+    });
+    appForm = {
+      ...(appForm ?? {}),
+      commandPalette: {
+        open: paletteOpen?.result?.value ?? null,
+        filtered: paletteFiltered?.result?.value ?? null,
+        executed: paletteExecuted?.result?.value ?? null,
+      },
+    };
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true, cancelable: true }));
