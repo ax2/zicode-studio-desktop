@@ -27,6 +27,7 @@ export interface ArticlesAppApi {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
+  setTarget(): Promise<void>;
 }
 
 function ArticlesNav({ store }: { store: ArticlesStore }) {
@@ -296,6 +297,9 @@ export function createArticlesApp(options: ArticlesOptions): ArticlesAppApi {
     },
     executeCommand() {},
     refresh() {
+      return store.getState().load();
+    },
+    setTarget() {
       return store.getState().load();
     },
   };
