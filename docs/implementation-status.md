@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-19 运行实例重启激活全部暂存改进并完成真实验收
+
+- 运行实例（8/18 启动的旧 exe）确认完全空闲后按计划重启：优雅关闭旧进程、
+  删除 `.prev`、启动 19:11 新构建，`/health` 200、公网中继 dev-ax2-01 在线。
+- 新 exe 生效后完成端到端验收：
+  - `POST /v2/notes/summarize` 真实调用模型网关返回结构化摘要
+    （一句话摘要 + 要点 + 结论，deepseek-v4-flash）；
+  - 网页采集（新提取器）qa-web-capture PASS；
+  - 核心回归 qa-notes-flow / qa-notes-attachment / qa-artifacts-flow /
+    qa-session-backup 全部 PASS；
+  - 插件验收 6/6 PASS。
+- 重启同时清掉了此前 QA 会话累积的数十个空闲 Pi 运行时进程。
+
 ## 2026-08-19 网页采集「用 Pi 提炼要点」与发布重建
 
 - 完成用户「使用 pi 的能力」的明确需求：新增 `POST /v2/notes/summarize`
