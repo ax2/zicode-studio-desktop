@@ -8,6 +8,7 @@
 // Usage (app must be running on localhost):
 //   node scripts/qa-a11y.mjs <workspaceId> <sessionId>
 //   APP_FILTER=notes node scripts/qa-a11y.mjs <ws> <session>
+//   VIEWPORT=390x844 node scripts/qa-a11y.mjs <ws> <session>
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -161,6 +162,17 @@ async function main() {
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Accessibility.enable");
+
+    const viewport = process.env.VIEWPORT;
+    if (viewport) {
+      const [width, height] = viewport.split("x").map(Number);
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: width < 700,
+      });
+    }
 
     const report = [];
     for (const [name, url] of apps) {

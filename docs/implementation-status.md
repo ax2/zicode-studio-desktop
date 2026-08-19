@@ -1,5 +1,11 @@
 # 实现状态
 
+## 2026-08-20 qa-a11y 支持移动视口
+
+- `qa-a11y` 增加 `VIEWPORT` 参数（与 console/locale 一致），移动端
+  390×844 全视图 AX 树审计 14/14 零无名称交互控件——桌面与移动壳的
+  无障碍名称覆盖均得到确认。
+
 ## 2026-08-20 无障碍名称审计（qa-a11y，第八层 QA）
 
 - 新增 `scripts/qa-a11y.mjs`（`bun run qa:a11y`）：通过 CDP Accessibility
