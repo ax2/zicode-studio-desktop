@@ -442,6 +442,45 @@ async function diagnose(cdp, name, url, viewport) {
       returnByValue: true,
     });
     appForm = themeResult?.result?.value ?? null;
+    // Remote-access tab: the E2EE identity and CA fingerprint must surface so
+    // mobile users can verify the connection.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.querySelector("#settings-remote-access")?.click();
+        return true;
+      })()`,
+    });
+    await sleep(900);
+    const remoteResult = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const rows = Array.from(
+          document.querySelectorAll(".remote-access-relay-device"),
+        ).map((node) => ({
+          label: node.querySelector("span")?.textContent?.trim() ?? "",
+          value: node.querySelector("code")?.textContent?.trim() ?? "",
+        }));
+        const fingerprint =
+          document
+            .querySelector(".remote-access-fingerprint")
+            ?.textContent?.replace(/\\s+/g, " ")
+            .trim() ?? "";
+        return {
+          tabOpen: document.querySelectorAll(".remote-access-relay-device").length > 0,
+          rows,
+          fingerprint,
+          e2eeRow:
+            rows.find(
+              (row) => row.label.includes("E2EE") || row.label.includes("端到端"),
+            ) ?? null,
+          caFingerprintShown: fingerprint.includes("CA") && fingerprint.length > 12,
+        };
+      })()`,
+      returnByValue: true,
+    });
+    appForm = {
+      ...(appForm ?? {}),
+      remote: remoteResult?.result?.value ?? null,
+    };
   }
   // For the plugin manager, exercise the enable/disable toggle on a
   // disabled-by-default plugin (Articles) and confirm the state round-trips
