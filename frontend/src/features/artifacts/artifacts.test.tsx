@@ -53,7 +53,6 @@ function renderStore(gateway: ReturnType<typeof createGateway>, options: Record<
       <ArtifactMain store={store} />
     </div>,
   );
-  void store.getState().load();
   return store;
 }
 
@@ -63,6 +62,19 @@ afterEach(() => {
 });
 
 describe("artifacts React app", () => {
+  it("loads the artifact list automatically on mount", async () => {
+    const gateway = createGateway();
+    const store = createArtifactStore({
+      gateway,
+      getTarget: () => ({ sceneId: "finance", workspaceId: "ws-finance" }),
+    });
+    render(<ArtifactNav store={store} />);
+    await waitFor(() => expect(gateway.list).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByText("Deterministic backtest")).toBeTruthy(),
+    );
+  });
+
   it("formats byte sizes including numeric strings from the backend", () => {
     expect(formatBytes(128)).toBe("128 B");
     expect(formatBytes("2048")).toBe("2.0 KiB");

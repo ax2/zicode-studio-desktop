@@ -34,6 +34,13 @@ export function ArtifactNav({ store }: { store: ArtifactStore }) {
   const [search, setSearch] = useState(store.getState().query);
 
   useEffect(() => {
+    // Load the artifact list as soon as the app opens; without this the
+    // sidebar shows the empty snapshot until the user hits refresh or changes
+    // a filter, which made existing artifacts appear missing.
+    void store.getState().load();
+  }, [store]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       const current = store.getState();
       if (current.query !== search.trim()) {
