@@ -172,6 +172,26 @@ describe("P2P transport signaling", () => {
     expect(transport.send("early")).toBe(false);
   });
 
+  it("does not report connected until the data channel opens (browser event order)", async () => {
+    const { transport, states } = makeTransport();
+    transport.start();
+    await vi.waitFor(() => expect(FakePeerConnection.instances).toHaveLength(1));
+    const pc = FakePeerConnection.instances[0];
+    // Real browsers fire the peer-connection state change before the data
+    // channel opens; CONNECTED must wait for the channel so send() succeeds
+    // on the very first message.
+    pc.emitConnectionState("connected");
+    expect(transport.getState()).toBe(P2P_STATE.NEGOTIATING);
+    expect(transport.send("early")).toBe(false);
+    pc.dc.emitOpen();
+    expect(transport.getState()).toBe(P2P_STATE.CONNECTED);
+    expect(
+      states.filter((entry) => entry.state === P2P_STATE.CONNECTED),
+    ).toHaveLength(1);
+    expect(transport.send("now")).toBe(true);
+    expect(pc.dc.sent).toEqual(["now"]);
+  });
+
   it("fails after the negotiation timeout so the caller can fall back", () => {
     vi.useFakeTimers();
     const { transport, states } = makeTransport();

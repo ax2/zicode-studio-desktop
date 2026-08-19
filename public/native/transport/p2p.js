@@ -167,8 +167,12 @@ export class P2pTransport {
     this.#pc.onconnectionstatechange = () => {
       const state = this.#pc.connectionState;
       if (state === "connected") {
+        // The peer connection being connected is not enough: the transport
+        // can only send once the data channel is open, and browsers order the
+        // two events differently (connectionstatechange usually fires first).
+        // Leave the state as NEGOTIATING so CONNECTED is only reported from
+        // the data channel's onopen, when send() can actually succeed.
         this.#clearNegotiationTimer();
-        this.#setState(P2P_STATE.CONNECTED);
       } else if (state === "failed") {
         this.#clearNegotiationTimer();
         this.#fail("peer connection failed");
@@ -183,10 +187,8 @@ export class P2pTransport {
   #wireDataChannel(dc) {
     this.#dc = dc;
     dc.onopen = () => {
-      if (this.#state === P2P_STATE.NEGOTIATING) {
-        this.#clearNegotiationTimer();
-        this.#setState(P2P_STATE.CONNECTED);
-      }
+      this.#clearNegotiationTimer();
+      this.#setState(P2P_STATE.CONNECTED);
     };
     dc.onmessage = (event) => this.#onData(event.data);
     dc.onclose = () => {
