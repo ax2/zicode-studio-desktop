@@ -21,6 +21,18 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Timed out after ${ms}ms: ${label}`)),
+        ms,
+      ),
+    ),
+  ]);
+}
+
 async function waitForJson(url, timeout = 20000) {
   const start = Date.now();
   while (Date.now() - start < timeout) {
@@ -81,7 +93,12 @@ const DIAGNOSTICS = `(() => {
   const activePluginId = activePlugin ? activePlugin.getAttribute("data-plugin-id") : null;
   const main = document.querySelector(".plugin-main-view, #chat-main, main, .app-main, .plugin-app-mount");
   const mainRect = main ? main.getBoundingClientRect() : null;
-  const header = document.querySelector(".app-header, .plugin-app-header, header, .topbar, .header");
+  // Prefer the actual session header class over any bare header element
+  // (e.g. the hidden help-center header), so the clipping diagnostic measures
+  // against the visible toolbar instead of a zero-height node.
+  const header = document.querySelector(
+    ".header.session-header, .header, .app-header, .plugin-app-header, .topbar",
+  );
   const headerVisible =
     header &&
     getComputedStyle(header).display !== "none" &&
@@ -404,11 +421,15 @@ async function main() {
     // captured.
     let financeUrl = `${sessionUrl}?app=com.zicode.finance`;
     try {
+      const controller = new AbortController();
+      const financeTimer = setTimeout(() => controller.abort(), 8000);
       const financeResponse = await fetch(`${HOST}/v2/new-session`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ workspaceId: ws, sceneId: "finance" }),
+        signal: controller.signal,
       });
+      clearTimeout(financeTimer);
       if (financeResponse.ok) {
         const financeTarget = await financeResponse.json();
         if (financeTarget?.sessionId) {
@@ -465,7 +486,25 @@ async function main() {
         mobile: viewport.width < 700,
       });
       for (const [name, url] of apps) {
-        const result = await diagnose(cdp, name, url, viewport);
+        let result;
+        try {
+          result = await withTimeout(
+            diagnose(cdp, name, url, viewport),
+            30000,
+            `diagnose ${name}`,
+          );
+        } catch (error) {
+          result = {
+            name,
+            viewport,
+            error: error instanceof Error ? error.message : String(error),
+            startupFailure: null,
+            activePluginId: null,
+            overflowX: null,
+            clippedByHeader: null,
+            clippedAtViewportTop: null,
+          };
+        }
         report.push(result);
         console.log(
           JSON.stringify({
