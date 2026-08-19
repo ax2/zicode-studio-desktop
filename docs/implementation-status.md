@@ -1,5 +1,13 @@
 # 实现状态
 
+## 2026-08-20 模型选择流程端到端验证
+
+- Ctrl+M 打开模型下拉，列出 8 个真实模型（sonnet/deepseek-v4-flash/
+  v4-pro/gemini/glm/gpt-4o/gpt-4o-mini/kimi，含定价）；选择 deepseek-
+  v4-pro 后模型按钮即时更新，且选择持久化到会话（全新档案加载同一
+  会话时已显示所选模型）。验证后已将 QA 会话模型恢复为
+  deepseek-v4-flash。
+
 ## 2026-08-20 全局快捷键实测与键盘审计增强
 
 - 实测帮助页声明的全局快捷键：Ctrl+Shift+P 命令面板、Ctrl+M 模型下拉、
