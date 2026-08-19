@@ -107,6 +107,9 @@ const DIAGNOSTICS = `(() => {
   // Notes-specific toolbar (the top button row that was reported as clipped).
   const notesToolbar = document.querySelector(".notes-editor-toolbar");
   const notesToolbarRect = notesToolbar ? notesToolbar.getBoundingClientRect() : null;
+  const notifications = Array.from(
+    document.querySelectorAll(".native-notification"),
+  ).map((notification) => notification.innerText.replace(/\\s+/g, " ").trim());
   // First button anywhere in the document, to detect top clipping generally.
   const firstButton = document.querySelector(".plugin-main-view button, main button, .app-main button, .plugin-app-mount button, .notes-editor-toolbar button");
   const firstButtonRect = firstButton ? firstButton.getBoundingClientRect() : null;
@@ -144,6 +147,7 @@ const DIAGNOSTICS = `(() => {
     headerRect: headerRect && { top: Math.round(headerRect.top), bottom: Math.round(headerRect.bottom) },
     clippedAtViewportTop,
     notesToolbarRect: notesToolbarRect && { top: Math.round(notesToolbarRect.top), bottom: Math.round(notesToolbarRect.bottom), height: Math.round(notesToolbarRect.height) },
+    notifications,
     firstButtonRect: firstButtonRect && { top: Math.round(firstButtonRect.top), bottom: Math.round(firstButtonRect.bottom), left: Math.round(firstButtonRect.left), width: Math.round(firstButtonRect.width) },
     clippedByHeader: Math.round(clippedByHeader),
     containers,
@@ -519,6 +523,7 @@ async function main() {
             firstButtonTop: result.firstButtonRect?.top ?? null,
             headerBottom: result.headerRect?.bottom ?? null,
             notesToolbarTop: result.notesToolbarRect?.top ?? null,
+            notifications: result.notifications ?? [],
             bodyText: result.bodyText,
             activityList: result.activityListInfo,
             shortcutActive: result.shortcutActive,

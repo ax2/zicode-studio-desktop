@@ -62,6 +62,7 @@ export function setupPluginShell({
     document.getElementById("file-sidebar"),
   ].filter(Boolean);
   const surfaceStates = new WeakMap();
+  let pendingDisabledPluginId = null;
   const applicationViews = new Map(
     Object.entries({
       "com.zicode.notes": notesApp,
@@ -380,6 +381,9 @@ export function setupPluginShell({
     if (!requested) return CHAT_PLUGIN_ID;
     if (SHELL_VIEW_IDS.has(requested)) return requested;
     if (registry.isEnabled(requested)) return requested;
+    // A known-but-disabled plugin deep link silently landing on Chat is
+    // confusing; remember it so we can explain what happened after boot.
+    if (registry.get(requested)) pendingDisabledPluginId = requested;
     return CHAT_PLUGIN_ID;
   }
 
@@ -697,6 +701,17 @@ export function setupPluginShell({
   renderActivities();
   const initialPlugin = initialAppPluginId();
   activate(initialPlugin, { focus: false });
+  if (pendingDisabledPluginId) {
+    const plugin = registry.get(pendingDisabledPluginId);
+    notify({
+      type: "warning",
+      title: t("Plugin not enabled"),
+      message: `${t(plugin?.name ?? pendingDisabledPluginId)} · ${t(
+        "This plugin is disabled. Enable it in Plugin Manager to use this link.",
+      )}`,
+    });
+    pendingDisabledPluginId = null;
+  }
   writePluginHistory(initialPlugin);
   settingsApp?.setOpenHandler?.((tab) => {
     if (tab === null) {

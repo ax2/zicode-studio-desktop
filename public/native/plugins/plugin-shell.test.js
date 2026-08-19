@@ -94,6 +94,27 @@ describe("setupPluginShell", () => {
     await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
   });
 
+  it("explains why a disabled plugin deep link fell back to Chat", async () => {
+    history.replaceState(
+      null,
+      "",
+      "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.articles",
+    );
+    const notify = vi.fn();
+    const shell = setupPluginShell({ registry: registry(), notify });
+
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.chat"));
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "warning",
+        title: "Plugin not enabled",
+      }),
+    );
+    const message = notify.mock.calls[0][0].message;
+    expect(message).toContain("Articles");
+    expect(message).toContain("Plugin Manager");
+  });
+
   it("switches to an exclusive plugin main view and makes Chat inert", async () => {
     const shell = setupPluginShell({ registry: registry() });
 

@@ -1171,6 +1171,9 @@ const zhCN = {
   "Plugin views": "插件功能区",
   "Plugin Manager": "插件管理",
   "Plugin manager": "插件管理",
+  "Plugin not enabled": "插件未启用",
+  "This plugin is disabled. Enable it in Plugin Manager to use this link.":
+    "此插件未启用。如需使用该链接，请在“管理插件”中启用。",
   Plugins: "插件",
   "Application extensions": "应用扩展",
   "Manage application plugins independently from Pi extensions. State and permissions are scoped to the current scene.":
