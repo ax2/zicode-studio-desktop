@@ -19,7 +19,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function connect(wsUrl) {
+function connect(wsUrl, onEvent = () => {}) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
     let id = 0;
@@ -33,6 +33,10 @@ function connect(wsUrl) {
         });
       ws.addEventListener("message", (event) => {
         const message = JSON.parse(event.data);
+        if (!message.id && message.method) {
+          onEvent(message);
+          return;
+        }
         if (message.id && pending.has(message.id)) {
           const entry = pending.get(message.id);
           pending.delete(message.id);
@@ -99,7 +103,17 @@ async function main() {
       }
     }
     if (!target) throw new Error("Could not discover a Chrome page target");
-    const cdp = await connect(target.webSocketDebuggerUrl);
+    const runtimeExceptions = [];
+    const cdp = await connect(target.webSocketDebuggerUrl, (message) => {
+      if (message.method === "Runtime.exceptionThrown") {
+        const detail = message.params?.exceptionDetails;
+        runtimeExceptions.push(
+          detail?.exception?.description ||
+            detail?.text ||
+            "exception",
+        );
+      }
+    });
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -208,6 +222,9 @@ async function main() {
     console.log(
       "HOOK_TEST: " + JSON.stringify(hookTest?.result?.value ?? null),
     );
+    console.log(
+      "RUNTIME_EXCEPTIONS: " + JSON.stringify(runtimeExceptions.slice(0, 6)),
+    );
     await cdp.send("DOM.enable");
 
     const samples = [];
@@ -255,6 +272,30 @@ async function main() {
         const fiberInfo = (() => {
           try {
             if (!fiber) return null;
+            const rootState = fiber.memoizedState;
+            const rootStateDump = (() => {
+              try {
+                if (rootState == null) return null;
+                const value = rootState.memoizedState;
+                if (value == null) return null;
+                return String(
+                  value.message ?? value.error ?? JSON.stringify(value),
+                ).slice(0, 200);
+              } catch {
+                return "unserializable";
+              }
+            })();
+            const alternateDump = (() => {
+              try {
+                const alt = fiber.alternate;
+                const v = alt?.memoizedState?.memoizedState;
+                return v == null
+                  ? null
+                  : String(v.message ?? v.error ?? JSON.stringify(v)).slice(0, 200);
+              } catch {
+                return "unserializable";
+              }
+            })();
             const walk = [];
             const visit = (node, depth) => {
               if (!node || depth > 8 || walk.length > 20) return;
@@ -283,6 +324,8 @@ async function main() {
             visit(fiber.child, 0);
             return {
               fibers: walk,
+              rootStateDump,
+              alternateDump,
             };
           } catch (error) {
             return { inspectError: String(error?.message || error) };
