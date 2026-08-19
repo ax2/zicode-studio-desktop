@@ -600,6 +600,7 @@ export function setupPluginShell({
   // scene hydration; without a gateway the registry resolves synchronously
   // so existing unit tests keep their immediate assertions.
   let booted = false;
+  let hydrationPending = false;
   function finishBoot() {
     if (booted) return;
     booted = true;
@@ -626,20 +627,29 @@ export function setupPluginShell({
     if (activePluginId !== CHAT_PLUGIN_ID) renderMain(activePluginId);
     const sceneId = nextTarget?.sceneId || "programming";
     if (sceneId === registrySceneId) {
-      finishBoot();
+      // A second setTarget for the same scene (e.g. the app bootstrap after
+      // setupPluginShell) must not finish the boot while the initial host
+      // hydration is still in flight, or the deep link would be resolved
+      // against catalog defaults instead of the host's real enablement.
+      if (!hydrationPending) finishBoot();
       return;
     }
     registrySceneId = sceneId;
+    hydrationPending = true;
     const scenePromise = registry.setScene?.(sceneId) ?? Promise.resolve();
+    const completeHydration = () => {
+      hydrationPending = false;
+      finishBoot();
+    };
     if (registry.hostBacked) {
       Promise.resolve(scenePromise)
-        .then(finishBoot)
+        .then(completeHydration)
         .catch((error) => {
           notify(`Plugin Host unavailable: ${error?.message ?? String(error)}`);
-          finishBoot();
+          completeHydration();
         });
     } else {
-      finishBoot();
+      completeHydration();
     }
   }
 

@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-19 插件引导重复 setTarget 竞态修复
+
+- 上一轮的水合等待修复仍有竞态：app.js 会话引导会在 `setupPluginShell`
+  之后再次调用 `pluginShell?.setTarget(target)`，同一 scene 命中
+  `sceneId === registrySceneId` 守卫并立即 `finishBoot()`，赶在首次 host
+  水合完成前就用目录默认值决定了初始深链，导致用户手动启用的 Tasks 深链
+  在部分时序下静默回退到对话（桌面端 tasks 遍历偶发/持续失败，移动端正常）。
+- 修复：新增 `hydrationPending` 状态，水合进行中重复 setTarget 不提前完成
+  引导，等首次 `setScene` 落定后再解析初始应用；无 gateway 路径保持同步。
+  新增「水合期间重复 setTarget」回归测试（plugin-shell 28 项通过），
+  无头浏览器 + visual-qa 连续 3 次桌面 tasks 深链均正确打开任务中心，
+  全表面双视口回归无启动失败/横向溢出。
+
 ## 2026-08-19 插件引导水合时序修复与视觉回归工具改进
 
 - 修复插件深度链接竞态：引导时 `registry.setScene` 异步水合 host 启用状态

@@ -174,6 +174,73 @@ describe("setupPluginShell", () => {
     expect(hostGateway.list).toHaveBeenCalledWith("programming");
   });
 
+  it("does not resolve the deep link early when setTarget repeats during hydration", async () => {
+    let resolveList;
+    const hostGateway = {
+      list: vi.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolveList = resolve;
+        }),
+      ),
+      setEnabled: vi.fn(),
+    };
+    const testRegistry = new BuiltinPluginRegistry({
+      storage: { getItem: () => null, setItem: () => {} },
+      hostGateway,
+    });
+    history.replaceState(
+      null,
+      "",
+      "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.tasks",
+    );
+    const shell = setupPluginShell({ registry: testRegistry });
+    // The app bootstrap calls setTarget again with the same target while the
+    // initial host hydration is still pending. The deep link must not be
+    // resolved against catalog defaults (Tasks disabled) in that window.
+    shell.setTarget({ sceneId: "programming", workspaceId: "w", sessionId: "s" });
+    expect(shell.getActivePluginId()).toBe("core.chat");
+    resolveList({
+      schemaVersion: 1,
+      sceneId: "programming",
+      plugins: [
+        {
+          schemaVersion: 1,
+          id: "core.chat",
+          name: "Chat",
+          description: "Chat",
+          version: "1.0.0",
+          publisher: "zicode",
+          core: true,
+          enabled: true,
+          origin: "builtIn",
+          contributes: {},
+          permissions: { required: [], optional: [] },
+          permissionGrants: {},
+        },
+        {
+          schemaVersion: 1,
+          id: "com.zicode.tasks",
+          name: "Tasks",
+          description: "Task center",
+          version: "0.1.0",
+          publisher: "zicode",
+          core: false,
+          enabled: true,
+          origin: "builtIn",
+          contributes: {
+            activities: [{ id: "tasks", title: "Tasks", order: 75 }],
+            views: [],
+            commands: [],
+          },
+          permissions: { required: [], optional: [] },
+          permissionGrants: {},
+        },
+      ],
+      diagnostics: [],
+    });
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.tasks"));
+  });
+
   it("switches to an exclusive plugin main view and makes Chat inert", async () => {
     const shell = setupPluginShell({ registry: registry() });
 
