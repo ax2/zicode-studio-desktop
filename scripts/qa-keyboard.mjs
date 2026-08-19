@@ -303,6 +303,62 @@ async function main() {
         shortcut = { opened: false, error: "shortcut probe failed" };
       }
 
+      // Other documented global shortcuts (palette, model dropdown). The
+      // workspace switcher (Ctrl+Shift+O) and new-session (Ctrl+Shift+N) rely
+      // on the Tauri invoke bridge, so they are exercised on the real window
+      // (bench-desktop-ui) rather than in headless Chrome.
+      const globalShortcuts = [];
+      try {
+        const paletteOpen = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+            return true;
+          })()`,
+        });
+        await sleep(500);
+        const paletteVisible = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const panel = document.querySelector("#command-palette");
+            return Boolean(panel && getComputedStyle(panel).display !== "none");
+          })()`,
+          returnByValue: true,
+        });
+        globalShortcuts.push({
+          name: "Ctrl+Shift+P palette",
+          ok: paletteVisible?.result?.value === true,
+        });
+        await cdp.send("Runtime.evaluate", {
+          expression: `document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); true`,
+        });
+        await sleep(400);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "m", ctrlKey: true, bubbles: true, cancelable: true }));
+            return true;
+          })()`,
+        });
+        await sleep(500);
+        const modelVisible = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const menu = document.getElementById("model-dropdown-menu");
+            return Boolean(menu && !menu.classList.contains("hidden"));
+          })()`,
+          returnByValue: true,
+        });
+        globalShortcuts.push({
+          name: "Ctrl+M model dropdown",
+          ok: modelVisible?.result?.value === true,
+        });
+        await cdp.send("Runtime.evaluate", {
+          expression: `document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); true`,
+        });
+      } catch {
+        globalShortcuts.push({ name: "global shortcuts probe failed", ok: false });
+      }
+      for (const probe of globalShortcuts) {
+        if (!probe.ok) issues.push(`${probe.name} did not open`);
+      }
+
       const firstFocus = walk.find((entry) => entry.tag !== null && entry.tag !== "body");
       report.push({
         name,

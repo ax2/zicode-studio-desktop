@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-20 全局快捷键实测与键盘审计增强
+
+- 实测帮助页声明的全局快捷键：Ctrl+Shift+P 命令面板、Ctrl+M 模型下拉、
+  Ctrl+T 思考切换、Ctrl+Shift+N 新会话均正常；Ctrl+Shift+O 工作区
+  切换器依赖 Tauri invoke 桥（无头 Chrome 无此桥、按钮隐藏），真实
+  窗口的 bench-desktop-ui 已验证可用。
+- `qa-keyboard` 常驻审计新增 Ctrl+Shift+P 与 Ctrl+M 探测，14/14 全绿；
+  Biome 通过。
+
 ## 2026-08-20 设置标签页与当前构建回归确认
 
 - 实测「智能收件箱」与「配置」设置标签页正常渲染（无启动失败、含各自
