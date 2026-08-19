@@ -746,6 +746,79 @@ async function diagnose(cdp, name, url, viewport) {
       restored,
     };
   }
+  // For the image tools app, attach a real image and run a process so the
+  // frontend downscale, thumbnail render, backend processing and result
+  // preview are exercised end-to-end.
+  if (name === "imagetools") {
+    let imageTools = null;
+    try {
+      const doc = await cdp.send("DOM.getDocument", { depth: -1 });
+      const node = await cdp.send("DOM.querySelector", {
+        nodeId: doc.root.nodeId,
+        selector: '.plugin-main-view input[type="file"]',
+      });
+      if (!node.nodeId) {
+        imageTools = { fileInputFound: false };
+      } else {
+        const sampleImage = join(
+          process.cwd(),
+          "public",
+          "icons",
+          "app-192.png",
+        );
+        await cdp.send("DOM.setFileInputFiles", {
+          nodeId: node.nodeId,
+          files: [sampleImage],
+        });
+        await sleep(1500);
+        const thumb = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const imgs = document.querySelectorAll(".imagetools-thumb img");
+            return {
+              thumbCount: imgs.length,
+              loaded: Array.from(imgs).some(
+                (img) => img.complete && img.naturalWidth > 0,
+              ),
+            };
+          })()`,
+          returnByValue: true,
+        });
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const button = document.querySelector(
+              ".plugin-main-view .idphoto-generate-row .ui-button",
+            );
+            button?.click();
+            return Boolean(button);
+          })()`,
+        });
+        await sleep(2500);
+        const result = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const img = document.querySelector(".imagetools-result-image");
+            const meta = document.querySelector(".imagetools-result-meta");
+            return {
+              hasResultImage: Boolean(img && img.src),
+              resultLoaded: Boolean(
+                img && img.complete && img.naturalWidth > 0,
+              ),
+              meta: meta?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+              error: document.querySelector(".idphoto-error")?.textContent ?? "",
+            };
+          })()`,
+          returnByValue: true,
+        });
+        imageTools = {
+          fileInputFound: true,
+          thumb: thumb?.result?.value ?? null,
+          result: result?.result?.value ?? null,
+        };
+      }
+    } catch (error) {
+      imageTools = { error: String(error?.message || error) };
+    }
+    appForm = imageTools;
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
