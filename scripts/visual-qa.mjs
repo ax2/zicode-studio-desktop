@@ -574,6 +574,10 @@ async function diagnose(cdp, name, url, viewport) {
             .slice(0, 120) ?? "";
         const sidebarClass =
           document.querySelector("#session-list")?.className ?? "";
+        const errorHookType = typeof globalThis.__qaErrors;
+        const errorHookLength = Array.isArray(globalThis.__qaErrors)
+          ? globalThis.__qaErrors.length
+          : -1;
         const target = items.find((node) =>
           (node.textContent || "").trim().length > 0,
         );
@@ -585,6 +589,8 @@ async function diagnose(cdp, name, url, viewport) {
             allItems: allItems.slice(0, 6),
             sidebarText,
             sidebarClass,
+            errorHookType,
+            errorHookLength,
             environmentLimited:
               allItems.length === 0 &&
               document.querySelector("#session-list")?.childElementCount === 0,
