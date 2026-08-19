@@ -34,6 +34,16 @@ Choose **Attach** in the editor to add PNG, JPEG, GIF, WebP, PDF, text, Markdown
 
 Choose **Capture URL**, then select a notebook and a public HTTP(S) page. ZiCode does not send Cookie or Authorization headers, rejects local and private network addresses, removes active content such as scripts, and records the source URL, capture time, and content digest. Capturing the same body again returns the existing note.
 
+### Capture preview and Pi digest
+
+Click **Preview** to see how many readable characters were extracted and expand
+the full text with **Show full content**, confirming that navigation, headers,
+footers, ads, and sidebars were removed. To digest the article quickly, click
+**Summarize with Pi**; the app asks the scene's configured model for a
+structured digest (a one-line summary, key points, and conclusions) that you
+can copy or dismiss. The digest is only for preview — the saved note keeps the
+full original text.
+
 ## Pi tools
 
 When the plugin is enabled and the active scene grants `pi.tools.register`, Pi can search, read, or create notes. The tools are restricted to Notes-managed vaults, and their audit metadata excludes note bodies and credentials.
