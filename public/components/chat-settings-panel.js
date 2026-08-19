@@ -8,6 +8,22 @@ class ChatSettingsPanel extends HTMLElement {
     this.innerHTML = `
       <div class="settings-body">
         <div class="settings-section">
+          <div class="settings-section-title">${t("What is the Agent Inbox?")}</div>
+          <p class="settings-help">
+            ${t(
+              "Messages your Feishu or WeCom bot receives become pending tasks on the desktop. You approve each one, and a project agent runs it locally.",
+            )}
+          </p>
+          <ol class="chat-settings-steps">
+            <li>${t("Connect a bot below.")}</li>
+            <li>${t("Send it a message from your account.")}</li>
+            <li>${t("Approve the task and open the result.")}</li>
+          </ol>
+          <button type="button" class="ui-button ui-button--ghost ui-button--sm" data-open-inbox-guide>
+            ${t("Read the Agent Inbox guide")}
+          </button>
+        </div>
+        <div class="settings-section">
           <div class="settings-section-title chat-settings-title-row">
             Agent Inbox <span class="ui-badge chat-settings-beta-badge">${t("Beta")}</span>
           </div>
@@ -65,6 +81,14 @@ class ChatSettingsPanel extends HTMLElement {
     this._statusEl = this.querySelector("[data-status]");
     this._accountsEl = this.querySelector("[data-accounts-list]");
     this._setupSuperAgentToggle();
+    this.querySelector("[data-open-inbox-guide]")?.addEventListener("click", () => {
+      document.dispatchEvent(
+        new CustomEvent("zicode:open-help", {
+          detail: { pageId: "inbox" },
+          bubbles: true,
+        }),
+      );
+    });
     this.addEventListener("click", (event) => {
       const button = event.target.closest("[data-action]");
       if (!button) return;

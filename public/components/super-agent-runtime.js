@@ -64,6 +64,9 @@ class SuperAgentRuntime extends HTMLElement {
         <button type="button" class="ui-button ui-button--ghost ui-button--sm" data-open-tasks>
           ${t("Manage in Task app")}
         </button>
+        <button type="button" class="ui-button ui-button--ghost ui-button--sm" data-open-inbox-guide title="${t("How to use the Agent Inbox")}">
+          ${t("How to use")}
+        </button>
         <button class="icon-btn app-side-panel-close-btn" data-collapse-btn title="${t("Close")}" aria-label="${t("Close activity panel")}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -98,6 +101,11 @@ class SuperAgentRuntime extends HTMLElement {
     });
     this.querySelector("[data-open-tasks]")?.addEventListener("click", () => {
       document.dispatchEvent(new CustomEvent("zicode:open-tasks", { bubbles: true }));
+    });
+    this.querySelector("[data-open-inbox-guide]")?.addEventListener("click", () => {
+      document.dispatchEvent(
+        new CustomEvent("zicode:open-help", { detail: { pageId: "inbox" }, bubbles: true }),
+      );
     });
   }
 

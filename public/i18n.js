@@ -420,6 +420,16 @@ const zhCN = {
   healthy: "健康",
   issues: "异常",
   "Agent Inbox": "智能收件箱",
+  "What is the Agent Inbox?": "智能收件箱是什么？",
+  "Messages your Feishu or WeCom bot receives become pending tasks on the desktop. You approve each one, and a project agent runs it locally.":
+    "飞书或企业微信机器人收到的消息，会变成桌面端待办任务；你逐个批准后，项目代理会在本机执行。",
+  "Connect a bot below.": "第一步：接入一个机器人（见下方配置）。",
+  "Send it a message from your account.": "第二步：用你的账号给它发一条消息。",
+  "Approve the task and open the result.": "第三步：批准任务并打开执行结果。",
+  "Read the Agent Inbox guide": "查看智能收件箱使用指南",
+  "External messages become tasks here": "外部消息在这里变成待办任务",
+  "How to use the Agent Inbox": "智能收件箱怎么用",
+  "How to use": "怎么用",
   "Manage in Task app": "在任务应用中管理",
   "Tasks from external messages and automations are approved here.":
     "来自外部消息与自动化的任务在这里审批。",

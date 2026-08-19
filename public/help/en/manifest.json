@@ -39,6 +39,13 @@
       "summary": "Turn goals into trackable and recoverable workflows"
     },
     {
+      "id": "inbox",
+      "title": "Agent Inbox",
+      "section": "Chat and productivity",
+      "file": "inbox.md",
+      "summary": "Turn Feishu/WeCom messages into tasks you approve before agents run"
+    },
+    {
       "id": "scenes",
       "title": "Scenes and isolation",
       "section": "Scenes and configuration",

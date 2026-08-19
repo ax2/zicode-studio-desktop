@@ -65,6 +65,14 @@
   text-transform: uppercase;
 }
 
+.chat-settings-steps {
+  margin: var(--space-2) 0;
+  padding-left: 1.4em;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.8;
+}
+
 @media (max-width: 640px) {
   .chat-platform-form {
     grid-template-columns: 1fr;
