@@ -77,6 +77,19 @@ function connect(wsUrl) {
 async function openPage(cdp, url) {
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      window.__qaErrors = [];
+      window.addEventListener("error", (event) => {
+        window.__qaErrors.push(String(event.message || "page error"));
+      });
+      window.addEventListener("unhandledrejection", (event) => {
+        window.__qaErrors.push(
+          String(event.reason?.message || event.reason || "unhandled rejection"),
+        );
+      });
+    })()`,
+  });
   await cdp.send("Page.navigate", { url });
   await sleep(WAIT_MS);
 }
@@ -160,6 +173,9 @@ const DIAGNOSTICS = `(() => {
     notifications,
     chatGap,
     messagesBottomAligned: messages?.classList.contains("messages-bottom-aligned") ?? null,
+    pageErrors: Array.isArray(globalThis.__qaErrors)
+      ? globalThis.__qaErrors.slice(0, 8)
+      : [],
     firstButtonRect: firstButtonRect && { top: Math.round(firstButtonRect.top), bottom: Math.round(firstButtonRect.bottom), left: Math.round(firstButtonRect.left), width: Math.round(firstButtonRect.width) },
     clippedByHeader: Math.round(clippedByHeader),
     containers,
@@ -218,6 +234,7 @@ async function diagnose(cdp, name, url, viewport) {
   }
   // For the chat app, exercise the Ctrl/Cmd+digit app-switch shortcut.
   if (name === "chat") {
+    appForm = {};
     // Open the file browser panel and confirm it paints above the message
     // history rather than being covered by it (works in the normal chat
     // surface; the super-agent runtime replaces the panel in SA mode).
@@ -526,6 +543,77 @@ async function diagnose(cdp, name, url, viewport) {
         slash: slashMenu?.result?.value ?? null,
         image: imagePreview,
       },
+    };
+    // Session switching: click a different session in the sidebar and confirm
+    // the URL and active item follow.
+    // Re-activate Chat first: the command-palette test above ran a command
+    // that switched to another app, which correctly hides the session list.
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        document.querySelector('[data-plugin-id="core.chat"]')?.click();
+        return true;
+      })()`,
+    });
+    await sleep(900);
+    const switchResult = await cdp.send("Runtime.evaluate", {
+      expression: `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const currentId = window.location.pathname.split("/").at(-1);
+        const allItems = Array.from(
+          document.querySelectorAll(".session-item[data-session-id]"),
+        ).map((node) => node.dataset.sessionId);
+        const items = Array.from(
+          document.querySelectorAll(".session-item[data-session-id]"),
+        ).filter(
+          (node) => node.dataset.sessionId !== currentId,
+        );
+        const sidebarText =
+          document
+            .querySelector("#session-list")
+            ?.textContent?.replace(/\\s+/g, " ")
+            .slice(0, 120) ?? "";
+        const sidebarClass =
+          document.querySelector("#session-list")?.className ?? "";
+        const target = items.find((node) =>
+          (node.textContent || "").trim().length > 0,
+        );
+        if (!target) {
+          return {
+            switchable: false,
+            currentId,
+            allItemCount: allItems.length,
+            allItems: allItems.slice(0, 6),
+            sidebarText,
+            sidebarClass,
+            environmentLimited:
+              allItems.length === 0 &&
+              document.querySelector("#session-list")?.childElementCount === 0,
+          };
+        }
+        const targetId = target.dataset.sessionId;
+        target.click();
+        await wait(2500);
+        return {
+          switchable: true,
+          currentId,
+          allItemCount: allItems.length,
+          targetId,
+          urlNow: window.location.pathname,
+          urlUpdated: window.location.pathname.endsWith(targetId),
+          activeUpdated:
+            document
+              .querySelector(
+                '.session-item[data-session-id="' + targetId + '"]',
+              )
+              ?.classList.contains("active") || false,
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    appForm = {
+      ...(appForm ?? {}),
+      sessionSwitch: switchResult?.result?.value ?? null,
     };
     // Optional: send a real message and wait for the model reply (opt-in via
     // QA_SEND_MESSAGE=1 so routine sweeps stay fast and token-light).
