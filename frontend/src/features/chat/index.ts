@@ -26,6 +26,7 @@ export class MessageRenderer {
       onOpenSceneSettings?: () => void;
       onRevealHistory?: () => void;
       openApp?: (pluginId: string) => void;
+      getEnabledAppIds?: () => string[] | null;
     } = {},
   ) {
     this.feed = feedFor(container, options);

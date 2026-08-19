@@ -150,6 +150,20 @@ const messageRenderer = new MessageRenderer(messagesElement, {
   onOpenSceneSettings: showSceneSettings,
   onRevealHistory: revealEarlierHistory,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
+  // 欢迎页快捷入口只展示已启用的应用；禁用插件不留下无效按钮。
+  getEnabledAppIds: () => {
+    const registry = pluginShell?.registry;
+    if (!registry) return null;
+    return registry
+      .list()
+      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false)
+      .sort(
+        (left, right) =>
+          (left.order ?? 1000) - (right.order ?? 1000) ||
+          left.name.localeCompare(right.name),
+      )
+      .map((plugin) => plugin.id);
+  },
 });
 const toolRenderer = new ToolCardRenderer(messagesElement);
 const composer = setupComposer({

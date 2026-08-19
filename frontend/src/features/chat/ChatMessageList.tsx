@@ -42,12 +42,14 @@ export function ChatMessageList({
   onOpenSceneSettings,
   onRevealHistory,
   openApp,
+  getEnabledAppIds,
 }: {
   store: ChatStore;
   container: HTMLElement;
   onOpenSceneSettings?: () => void;
   onRevealHistory?: () => void;
   openApp?: (pluginId: string) => void;
+  getEnabledAppIds?: () => string[] | null;
 }) {
   const items = useChatStore(store);
   return (
@@ -61,6 +63,7 @@ export function ChatMessageList({
           onOpenSceneSettings={onOpenSceneSettings}
           onRevealHistory={onRevealHistory}
           openApp={openApp}
+          getEnabledAppIds={getEnabledAppIds}
         />
       ))}
     </>
@@ -74,6 +77,7 @@ function ChatItem({
   onOpenSceneSettings,
   onRevealHistory,
   openApp,
+  getEnabledAppIds,
 }: {
   item: ChatFeedItem;
   container: HTMLElement;
@@ -81,6 +85,7 @@ function ChatItem({
   onOpenSceneSettings?: () => void;
   onRevealHistory?: () => void;
   openApp?: (pluginId: string) => void;
+  getEnabledAppIds?: () => string[] | null;
 }) {
   switch (item.kind) {
     case "welcome":
@@ -91,6 +96,7 @@ function ChatItem({
           scene={item.scene}
           onOpenSceneSettings={onOpenSceneSettings}
           openApp={openApp}
+          getEnabledAppIds={getEnabledAppIds}
         />
       );
     case "user":
@@ -147,23 +153,52 @@ const WelcomeItem = memo(function WelcomeItem({
   scene,
   onOpenSceneSettings,
   openApp,
+  getEnabledAppIds,
 }: {
   workspacePath?: string;
   scene: WelcomeScene | null;
   onOpenSceneSettings?: () => void;
   openApp?: (pluginId: string) => void;
+  getEnabledAppIds?: () => string[] | null;
 }) {
   const sceneId = scene?.id ?? "programming";
   const sceneName = scene ? t(scene.name) : "Programming";
   const sceneDescription = scene
     ? t(scene.description)
     : "Engineering workflows for coding, debugging, repository changes, and reproducible verification.";
-  const quickActions: Array<{ pluginId: string; label: string; icon: string }> = [
+  // The welcome quick actions only show enabled applications that have an
+  // activity; the first four in registry order are kept so disabled plugins
+  // never leave dead buttons.
+  const defaultQuickActions: Array<{ pluginId: string; label: string; icon: string }> = [
     { pluginId: "com.zicode.projects", label: t("Projects"), icon: "📁" },
     { pluginId: "com.zicode.notes", label: t("Notes"), icon: "📝" },
     { pluginId: "com.zicode.tasks", label: t("Tasks"), icon: "✅" },
     { pluginId: "com.zicode.automation", label: t("Automation"), icon: "⚙️" },
   ];
+  const quickAppCatalog: Record<string, { labelKey: string; icon: string }> = {
+    "com.zicode.projects": { labelKey: "Projects", icon: "📁" },
+    "com.zicode.notes": { labelKey: "Notes", icon: "📝" },
+    "com.zicode.tasks": { labelKey: "Tasks", icon: "✅" },
+    "com.zicode.automation": { labelKey: "Automation", icon: "⚙️" },
+    "com.zicode.finance": { labelKey: "Finance", icon: "📈" },
+    "com.zicode.translate": { labelKey: "Translate", icon: "🌐" },
+    "com.zicode.idphoto": { labelKey: "ID Photo", icon: "🪪" },
+    "com.zicode.imagetools": { labelKey: "Image Tools", icon: "🖼️" },
+    "com.zicode.clipboard": { labelKey: "Clipboard", icon: "📋" },
+    "com.zicode.documents": { labelKey: "Documents", icon: "📄" },
+    "com.zicode.artifacts": { labelKey: "Artifacts", icon: "🗂️" },
+  };
+  const enabledIds = getEnabledAppIds?.() ?? null;
+  const quickActions = enabledIds
+    ? enabledIds
+        .filter((pluginId) => quickAppCatalog[pluginId])
+        .slice(0, 4)
+        .map((pluginId) => ({
+          pluginId,
+          label: t(quickAppCatalog[pluginId].labelKey),
+          icon: quickAppCatalog[pluginId].icon,
+        }))
+    : defaultQuickActions;
   return (
     <div className="welcome">
       <div className="welcome-hero">

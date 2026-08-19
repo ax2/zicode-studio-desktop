@@ -138,6 +138,50 @@ describe("chat feed renderers", () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 
+  it("filters welcome quick actions to enabled applications", async () => {
+    const container = makeContainer();
+    const openApp = vi.fn();
+    const renderer = new MessageRenderer(container, {
+      openApp,
+      getEnabledAppIds: () => [
+        "core.chat",
+        "com.zicode.notes",
+        "com.zicode.translate",
+        "com.zicode.finance",
+        "com.zicode.idphoto",
+        "com.zicode.projects",
+      ],
+    });
+    renderer.renderWelcome();
+    await flush();
+
+    expect(
+      container.querySelector('[data-quick-action="com.zicode.notes"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-quick-action="com.zicode.translate"]'),
+    ).not.toBeNull();
+    // Only the first four enabled applications are shown; disabled
+    // Tasks/Automation and Projects (outside the top four) stay hidden.
+    expect(
+      container.querySelector('[data-quick-action="com.zicode.projects"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-quick-action="com.zicode.tasks"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-quick-action="com.zicode.automation"]'),
+    ).toBeNull();
+    expect(container.querySelectorAll(".welcome-quick-action").length).toBe(5);
+
+    (
+      container.querySelector(
+        '[data-quick-action="com.zicode.translate"]',
+      ) as HTMLElement | null
+    )?.click();
+    expect(openApp).toHaveBeenCalledWith("com.zicode.translate");
+  });
+
   it("renders history window notices and loaded status from the feed", async () => {
     const container = makeContainer();
     const onRevealHistory = vi.fn();
