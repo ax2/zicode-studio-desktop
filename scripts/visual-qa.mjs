@@ -878,6 +878,131 @@ async function diagnose(cdp, name, url, viewport) {
     }
     appForm = idPhoto;
   }
+  // For the clipboard app, capture text into the inbox and send it to a note;
+  // the created note is then removed through the notes API.
+  if (name === "clipboard") {
+    const wsMatch = url.match(/\/workspaces\/([^/]+)/);
+    const clipWorkspace = wsMatch?.[1];
+    const clipText = "QA 剪贴板回归内容";
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const input = document.querySelector(".clipboard-textarea");
+        Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        ).set.call(input, ${JSON.stringify(clipText)});
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`,
+    });
+    await sleep(300);
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const add = Array.from(
+          document.querySelectorAll(".clipboard-composer-actions button"),
+        ).find((button) =>
+          /Add to inbox|添加到收件箱/.test(button.textContent || ""),
+        );
+        add?.click();
+        return Boolean(add);
+      })()`,
+    });
+    await sleep(1200);
+    const added = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const items = Array.from(
+          document.querySelectorAll(".clipboard-item-text"),
+        ).map((node) => node.textContent?.trim() ?? "");
+        return {
+          count: items.length,
+          hasItem: items.includes("QA 剪贴板回归内容"),
+          actionButtons:
+            document.querySelectorAll(".clipboard-item-actions button").length,
+        };
+      })()`,
+      returnByValue: true,
+    });
+    await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const send = Array.from(
+          document.querySelectorAll(".clipboard-item-actions button"),
+        ).find((button) =>
+          /Send to note|发送到笔记/.test(button.textContent || ""),
+        );
+        send?.click();
+        return Boolean(send);
+      })()`,
+    });
+    await sleep(1500);
+    const sendState = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        error:
+          document.querySelector(".clipboard-main .idphoto-error")?.textContent ??
+          "",
+        notifications: Array.from(
+          document.querySelectorAll(".native-notification"),
+        ).map((node) => node.innerText.replace(/\\s+/g, " ").trim()),
+        items: Array.from(
+          document.querySelectorAll(".clipboard-item-text"),
+        ).map((node) => node.textContent?.trim() ?? ""),
+      }))()`,
+      returnByValue: true,
+    });
+    // Confirm the note was created through the backend, then clean up.
+    let noteCreated = false;
+    try {
+      if (clipWorkspace) {
+        const noteList = await fetch(
+          `${HOST}/v2/notes?workspaceId=${clipWorkspace}&sceneId=programming&query=${encodeURIComponent("QA 剪贴板回归内容")}`,
+        );
+        const noteBody = await noteList.json();
+        noteCreated = (noteBody?.snapshot?.notes || []).some((note) =>
+          (note.title || "").includes("QA 剪贴板回归内容"),
+        );
+      }
+    } catch {
+      noteCreated = false;
+    }
+    try {
+      if (clipWorkspace) {
+        const noteList = await fetch(
+          `${HOST}/v2/notes?workspaceId=${clipWorkspace}&sceneId=programming&query=${encodeURIComponent("QA 剪贴板回归内容")}`,
+        );
+        const noteBody = await noteList.json();
+        const note = (noteBody?.snapshot?.notes || []).find((entry) =>
+          (entry.title || "").includes("QA 剪贴板回归内容"),
+        );
+        if (note?.id && note?.notebookId) {
+          await fetch(`${HOST}/v2/notes/delete`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              workspaceId: clipWorkspace,
+              sceneId: "programming",
+              notebookId: note.notebookId,
+              noteId: note.id,
+              expectedVersion: note.version ?? "",
+            }),
+          });
+        }
+        await fetch(`${HOST}/v2/clipboard/clear`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            workspaceId: clipWorkspace,
+            sceneId: "programming",
+          }),
+        });
+      }
+    } catch {
+      // Cleanup is best-effort.
+    }
+    appForm = {
+      added: added?.result?.value ?? null,
+      sendState: sendState?.result?.value ?? null,
+      noteCreated,
+    };
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
