@@ -819,6 +819,65 @@ async function diagnose(cdp, name, url, viewport) {
     }
     appForm = imageTools;
   }
+  // For the ID photo app, attach a real photo, generate a layout, and verify
+  // the printable sheet result renders (exercises the Rust idphoto pipeline).
+  if (name === "idphoto") {
+    let idPhoto = null;
+    try {
+      const doc = await cdp.send("DOM.getDocument", { depth: -1 });
+      const node = await cdp.send("DOM.querySelector", {
+        nodeId: doc.root.nodeId,
+        selector: '.plugin-main-view input[type="file"]',
+      });
+      if (!node.nodeId) {
+        idPhoto = { fileInputFound: false };
+      } else {
+        const sampleImage = join(
+          process.cwd(),
+          "public",
+          "icons",
+          "app-192.png",
+        );
+        await cdp.send("DOM.setFileInputFiles", {
+          nodeId: node.nodeId,
+          files: [sampleImage],
+        });
+        await sleep(1500);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const button = document.querySelector(
+              ".plugin-main-view .idphoto-generate-row .ui-button",
+            );
+            button?.click();
+            return Boolean(button);
+          })()`,
+        });
+        await sleep(3000);
+        const result = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const img = document.querySelector(".idphoto-result-image");
+            const meta = document.querySelector(".idphoto-result-meta");
+            return {
+              hasResultImage: Boolean(img && img.src),
+              resultLoaded: Boolean(
+                img && img.complete && img.naturalWidth > 0,
+              ),
+              meta: meta?.textContent?.replace(/\\s+/g, " ").trim() ?? "",
+              error: document.querySelector(".idphoto-error")?.textContent ?? "",
+            };
+          })()`,
+          returnByValue: true,
+        });
+        idPhoto = {
+          fileInputFound: true,
+          result: result?.result?.value ?? null,
+        };
+      }
+    } catch (error) {
+      idPhoto = { error: String(error?.message || error) };
+    }
+    appForm = idPhoto;
+  }
   // On the mobile shell, exercise the "More" application menu.
   if (viewport.width < 700) {
     await cdp.send("Runtime.evaluate", {
