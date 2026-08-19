@@ -112,8 +112,9 @@ export interface HabitsOptions {
 }
 
 export function createHabitsStore(options: HabitsOptions) {
-  const { gateway = new HabitsHttpGateway(), getTarget, notify } = options;
-  return create<HabitsState>()((set, get) => ({
+    const { gateway = new HabitsHttpGateway(), getTarget, notify } = options;
+    let loadSeq = 0;
+    return create<HabitsState>()((set, get) => ({
     habits: [],
     entries: [],
     busy: false,
@@ -127,15 +128,18 @@ export function createHabitsStore(options: HabitsOptions) {
       set({ ...patch, error: "" });
     },
 
-    async load() {
-      set({ busy: true, error: "" });
-      try {
-        const result = await gateway.list(getTarget());
-        set({ habits: result.habits, entries: result.entries, busy: false });
-      } catch (error) {
-        set({ busy: false, error: friendlyPluginError(error) });
-      }
-    },
+      async load() {
+        const seq = ++loadSeq;
+        set({ busy: true, error: "" });
+        try {
+          const result = await gateway.list(getTarget());
+          if (seq !== loadSeq) return;
+          set({ habits: result.habits, entries: result.entries, busy: false });
+        } catch (error) {
+          if (seq !== loadSeq) return;
+          set({ busy: false, error: friendlyPluginError(error) });
+        }
+      },
 
     async addHabit() {
       const { draftName, draftEmoji, draftColor, busy } = get();

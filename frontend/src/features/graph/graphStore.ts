@@ -16,22 +16,26 @@ export interface GraphOptions {
 }
 
 export function createGraphStore(options: GraphOptions) {
-  const { loadKnowledge } = options;
-  return create<GraphState>()((set) => ({
+    const { loadKnowledge } = options;
+    let loadSeq = 0;
+    return create<GraphState>()((set) => ({
     data: null,
     busy: false,
     error: "",
     selectedId: null,
 
-    async load() {
-      set({ busy: true, error: "" });
-      try {
-        const data = await loadKnowledge();
-        set({ data, busy: false });
-      } catch (error) {
-        set({ busy: false, error: error instanceof Error ? error.message : String(error) });
-      }
-    },
+      async load() {
+        const seq = ++loadSeq;
+        set({ busy: true, error: "" });
+        try {
+          const data = await loadKnowledge();
+          if (seq !== loadSeq) return;
+          set({ data, busy: false });
+        } catch (error) {
+          if (seq !== loadSeq) return;
+          set({ busy: false, error: error instanceof Error ? error.message : String(error) });
+        }
+      },
 
     select(id) {
       set({ selectedId: id });

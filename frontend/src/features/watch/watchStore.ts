@@ -122,8 +122,9 @@ export interface WatchOptions {
 }
 
 export function createWatchStore(options: WatchOptions) {
-  const { gateway = new WatchHttpGateway(), getTarget, notify } = options;
-  return create<WatchState>()((set, get) => ({
+    const { gateway = new WatchHttpGateway(), getTarget, notify } = options;
+    let loadSeq = 0;
+    return create<WatchState>()((set, get) => ({
     items: [],
     results: {},
     busy: false,
@@ -137,15 +138,18 @@ export function createWatchStore(options: WatchOptions) {
       set({ ...patch, error: "" });
     },
 
-    async load() {
-      set({ busy: true, error: "" });
-      try {
-        const result = await gateway.list(getTarget());
-        set({ items: result.items, busy: false });
-      } catch (error) {
-        set({ busy: false, error: friendlyPluginError(error) });
-      }
-    },
+      async load() {
+        const seq = ++loadSeq;
+        set({ busy: true, error: "" });
+        try {
+          const result = await gateway.list(getTarget());
+          if (seq !== loadSeq) return;
+          set({ items: result.items, busy: false });
+        } catch (error) {
+          if (seq !== loadSeq) return;
+          set({ busy: false, error: friendlyPluginError(error) });
+        }
+      },
 
     async add() {
       const { draftName, draftUrl, busy } = get();
