@@ -7,9 +7,7 @@ import {
 } from "./router.js";
 
 describe("app router", () => {
-  it("round-trips opaque launcher and session routes", () => {
-    const launcher = { name: "launcher", workspaceId: "workspace_A-1" };
-    expect(parseAppRoute(appRoutePath(launcher))).toEqual(launcher);
+  it("round-trips opaque session routes", () => {
     const session = {
       name: "session",
       workspaceId: "workspace_A-1",

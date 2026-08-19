@@ -12,15 +12,6 @@ export function parseAppRoute(pathname) {
   if (pathname === "/app/settings") return { name: "settings" };
   const segments = pathname.split("/");
   if (
-    segments.length === 5 &&
-    segments[1] === "app" &&
-    segments[2] === "workspaces" &&
-    validId(segments[3]) &&
-    segments[4] === "launcher"
-  ) {
-    return { name: "launcher", workspaceId: segments[3] };
-  }
-  if (
     segments.length === 6 &&
     segments[1] === "app" &&
     segments[2] === "workspaces" &&
@@ -35,9 +26,6 @@ export function parseAppRoute(pathname) {
 
 export function appRoutePath(route) {
   switch (route.name) {
-    case "launcher":
-      if (!validId(route.workspaceId)) throw new Error("Invalid workspaceId");
-      return `/app/workspaces/${route.workspaceId}/launcher`;
     case "session":
       if (!validId(route.workspaceId) || !validId(route.sessionId)) {
         throw new Error("Invalid workspaceId or sessionId");
