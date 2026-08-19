@@ -193,6 +193,18 @@
   border-radius: var(--radius-md);
 }
 
+.plugin-crash-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.plugin-crash-fallback p {
+  margin: 0;
+}
+
 .first-run-guide {
   display: flex;
   align-items: flex-start;
