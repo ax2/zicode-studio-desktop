@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-20 真实对话链路端到端验收
+
+- 在最新运行实例（PID 46356）上以真实模型调用验证核心用户流程：
+  `visual-qa` 开启 `QA_SEND_MESSAGE=1`，桌面 1440×900 与移动 390×844
+  双视口均完成「发送消息 → 模型回复」闭环（`userSent=true,
+  replyReceived=true`）。
+- 佐证：`[model-gateway]` 日志记录两次真实 `POST /chat/completions`
+  （deepseek-v4-flash），上游均 200 OK，无失败/重试；对话区无布局
+  异常（chatGap 12–13px，历史与输入间距正常）。
+
 ## 2026-08-20 产物库首次引导卡（启用应用引导全覆盖）
 
 - 核查发现：产物库是唯一没有 `FirstRunGuide` 的启用应用（仅有空态文案）。
