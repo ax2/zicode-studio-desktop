@@ -17,6 +17,10 @@ use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 
 const MAX_RPC_FRAME_BYTES: usize = 16 * 1024 * 1024;
+/// Runtimes for abandoned `temporary-*` sessions (created by the host for
+/// new-session probes and QA) are reaped after this idle grace period so they
+/// do not accumulate on the user's machine.
+const TEMP_RUNTIME_GRACE: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Debug, Clone)]
 pub struct NativeLaunchSpec {
@@ -66,6 +70,7 @@ struct ManagedRuntime {
     bridge: PiRpcBridge,
     process: Option<PiRpcProcess>,
     launch: Option<NativeLaunchSpec>,
+    spawned_at: Instant,
 }
 
 struct NativePiManagerInner {
@@ -113,6 +118,9 @@ impl NativePiManager {
     }
 
     pub fn spawn(&self, target: RuntimeTarget, spec: NativeLaunchSpec) -> Result<(), String> {
+        // Each new session may abandon an older temporary runtime; clear the
+        // stale ones before spawning so the process table does not grow.
+        let _ = self.reap_stale_temporary_runtimes(TEMP_RUNTIME_GRACE);
         let launch = spec.command_description();
         let mut command = new_command(&launch.program);
         command
@@ -148,6 +156,7 @@ impl NativePiManager {
                     bridge: bridge.clone(),
                     process: Some(process),
                     launch: Some(launch_spec),
+                    spawned_at: Instant::now(),
                 },
             );
         self.start_event_pump(target, bridge);
@@ -177,10 +186,71 @@ impl NativePiManager {
                     bridge: bridge.clone(),
                     process: None,
                     launch: None,
+                    spawned_at: Instant::now(),
                 },
             );
         self.start_event_pump(target, bridge);
         Ok(process)
+    }
+
+    /// Stop runtimes for `temporary-*` sessions that are older than `grace`
+    /// and are not actively working. Runtimes in Starting/Working state are
+    /// never touched; permanent sessions are never touched.
+    pub fn reap_stale_temporary_runtimes(&self, grace: Duration) -> usize {
+        let states: HashMap<String, RuntimeState> = self
+            .inner
+            .coordinator
+            .lock()
+            .map(|coordinator| {
+                coordinator
+                    .statuses()
+                    .into_iter()
+                    .map(|status| (status.target.instance_id.clone(), status.state))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let targets = self
+            .inner
+            .runtimes
+            .lock()
+            .map(|runtimes| {
+                runtimes
+                    .values()
+                    .filter_map(|runtime| {
+                        let target = runtime.target.lock().ok()?.clone();
+                        if !target.session_id.starts_with("temporary-") {
+                            return None;
+                        }
+                        if runtime.spawned_at.elapsed() <= grace {
+                            return None;
+                        }
+                        let reapable = matches!(
+                            states.get(&target.instance_id),
+                            Some(
+                                RuntimeState::Idle | RuntimeState::Ready | RuntimeState::Suspended
+                            )
+                        );
+                        reapable.then_some(target)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let mut reaped = 0;
+        for target in targets {
+            if self.stop(&target).is_ok() {
+                reaped += 1;
+            }
+        }
+        reaped
+    }
+
+    #[cfg(test)]
+    fn backdate_runtime(&self, instance_id: &str, at: Instant) {
+        if let Ok(mut runtimes) = self.inner.runtimes.lock() {
+            if let Some(runtime) = runtimes.get_mut(instance_id) {
+                runtime.spawned_at = at;
+            }
+        }
     }
 
     fn start_event_pump(&self, target: RuntimeTarget, bridge: PiRpcBridge) {
@@ -633,7 +703,7 @@ mod tests {
     use serde_json::json;
     use std::collections::BTreeMap;
     use std::path::PathBuf;
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     #[test]
     fn launch_spec_has_no_tcp_port_and_resumes_only_at_process_start() {
@@ -659,6 +729,33 @@ mod tests {
             .args
             .iter()
             .any(|argument| argument.parse::<u16>().is_ok()));
+    }
+
+    #[tokio::test]
+    async fn reaps_abandoned_temporary_runtimes_after_grace() {
+        let manager = NativePiManager::in_memory(8);
+        let temp = RuntimeTarget::new("ws-1", "temporary-abc", "inst-temp");
+        manager.register_in_memory(temp.clone()).unwrap();
+        let real = RuntimeTarget::new("ws-1", "real-session", "inst-real");
+        manager.register_in_memory(real.clone()).unwrap();
+
+        // A brand-new temporary runtime stays alive (within the grace period).
+        assert_eq!(
+            manager.reap_stale_temporary_runtimes(Duration::from_secs(15 * 60)),
+            0
+        );
+
+        // After the grace period, the abandoned temporary runtime is reaped
+        // while the permanent session runtime is untouched.
+        manager.backdate_runtime("inst-temp", Instant::now() - Duration::from_secs(60 * 60));
+        assert_eq!(
+            manager.reap_stale_temporary_runtimes(Duration::from_secs(15 * 60)),
+            1
+        );
+        assert!(manager
+            .target_for_session("ws-1", "temporary-abc")
+            .is_none());
+        assert!(manager.target_for_session("ws-1", "real-session").is_some());
     }
 
     #[tokio::test]
