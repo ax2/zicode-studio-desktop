@@ -192,6 +192,48 @@ describe("automation store host errors", () => {
   });
 });
 
+describe("automation auto-dispatch flag", () => {
+  it("marks non-approval workflow tasks for automatic dispatch", async () => {
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    await store
+      .getState()
+      .runWorkflow({ ...WORKFLOW, requireApproval: false }, "schedule");
+    const write = call.mock.calls.find(
+      ([operation, params]) =>
+        operation === "write_super_agent_tasks" &&
+        (params as { tasks?: unknown[] })?.tasks !== undefined,
+    );
+    const written = (write?.[1] as { tasks: Array<Record<string, unknown>> }).tasks;
+    const task = written.find((item) => {
+      const source = (item.source ?? {}) as { channel?: string };
+      return source.channel === "automation";
+    });
+    expect(task?.automation).toMatchObject({ autoDispatch: true });
+    store.getState().destroy();
+  });
+
+  it("keeps approval workflows pending for manual approval", async () => {
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    await store
+      .getState()
+      .runWorkflow({ ...WORKFLOW, requireApproval: true }, "schedule");
+    const write = call.mock.calls.find(
+      ([operation, params]) =>
+        operation === "write_super_agent_tasks" &&
+        (params as { tasks?: unknown[] })?.tasks !== undefined,
+    );
+    const written = (write?.[1] as { tasks: Array<Record<string, unknown>> }).tasks;
+    const task = written.find((item) => {
+      const source = (item.source ?? {}) as { channel?: string };
+      return source.channel === "automation";
+    });
+    expect(task?.automation).toMatchObject({ autoDispatch: false });
+    store.getState().destroy();
+  });
+});
+
 describe("automation React app", () => {
   it("renders workflows from the workspace and shows approval actions", async () => {
     setLocale("en");

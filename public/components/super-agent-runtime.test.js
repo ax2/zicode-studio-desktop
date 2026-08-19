@@ -341,6 +341,46 @@ describe("super-agent-runtime", () => {
     expect(written.some((task) => task.id === "done-1")).toBe(false);
   });
 
+  it("auto-dispatches non-approval automation tasks without a click", async () => {
+    const call = mockConfig({
+      tasks: [
+        {
+          id: "auto-1",
+          status: "pending",
+          title: "Daily digest",
+          description: "Generate the daily digest.",
+          targetProject: "/Users/me/project",
+          source: { channel: "automation", conversationId: "wf-1" },
+          automation: { workflowId: "wf-1", trigger: "schedule", autoDispatch: true },
+        },
+        {
+          id: "manual-1",
+          status: "pending",
+          title: "Manual approval",
+          description: "Needs a human approve click.",
+          targetProject: "/Users/me/project",
+          source: { channel: "automation", conversationId: "wf-2" },
+          automation: { workflowId: "wf-2", trigger: "schedule", autoDispatch: false },
+        },
+      ],
+    });
+
+    const Runtime = customElements.get("super-agent-runtime");
+    const runtime = new Runtime();
+    const dispatches = [];
+    runtime.addEventListener("sa-dispatch", (event) => dispatches.push(event.detail.id));
+    document.body.appendChild(runtime);
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(dispatches).toEqual(["auto-1"]);
+    const written = lastWrittenTasks(call);
+    expect(written).toContainEqual(expect.objectContaining({ id: "auto-1", status: "running" }));
+    expect(written).toContainEqual(expect.objectContaining({ id: "manual-1", status: "pending" }));
+  });
+
   it("shows quick actions on collapsed cards", async () => {
     const Runtime = customElements.get("super-agent-runtime");
     const runtime = new Runtime();

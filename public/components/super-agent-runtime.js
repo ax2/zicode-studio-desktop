@@ -159,9 +159,36 @@ class SuperAgentRuntime extends HTMLElement {
       const json = JSON.stringify(result.data?.tasks || []);
       this._hasLoadedOnce = true;
       this._retryDelay = 400;
+      const tasks = normalizeSuperAgentTasks(result.data?.tasks || []);
+      // Auto-dispatch tasks queued by non-approval automations: their
+      // approval was already given when the workflow was created, so they
+      // must not wait for a manual "Approve" click in the Runtime panel.
+      const autoDispatchable = tasks.filter(
+        (task) =>
+          task.status === "pending" &&
+          task.automation?.autoDispatch === true &&
+          isDispatchableProjectPath(task.targetProject),
+      );
+      if (autoDispatchable.length > 0) {
+        const autoIds = new Set(autoDispatchable.map((task) => task.id));
+        this._tasks = tasks.map((task) =>
+          autoIds.has(task.id) ? markTaskForDispatch(task) : task,
+        );
+        await this._save();
+        for (const task of this._tasks) {
+          if (autoIds.has(task.id)) {
+            this.dispatchEvent(
+              new CustomEvent("sa-dispatch", { detail: task, bubbles: true }),
+            );
+          }
+        }
+        this._lastJson = null;
+        this._renderAll();
+        return;
+      }
       if (json === this._lastJson) return;
       this._lastJson = json;
-      this._tasks = normalizeSuperAgentTasks(result.data?.tasks || []);
+      this._tasks = tasks;
       this._renderAll();
     } catch {
       this._scheduleRetry();

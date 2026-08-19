@@ -392,6 +392,8 @@ export interface AutomationAppApi {
   executeCommand(): void;
   refresh(): Promise<AutomationWorkflow[]>;
   tick(): Promise<void>;
+  startScheduler(): void;
+  stopScheduler(): void;
   destroy(): void;
 }
 
@@ -429,6 +431,12 @@ export function createAutomationApp(options: AutomationAppOptions): AutomationAp
     },
     tick() {
       return store.getState().tick();
+    },
+    startScheduler() {
+      store.getState().startScheduler();
+    },
+    stopScheduler() {
+      store.getState().destroy();
     },
     destroy() {
       store.getState().destroy();

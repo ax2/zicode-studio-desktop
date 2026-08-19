@@ -1067,6 +1067,10 @@ pluginShell = setupPluginShell({
     : null,
   notify: notifications.notify,
 });
+// The automation scheduler must run for the whole page lifetime, not only
+// while the Automation center is open, so scheduled workflows fire while the
+// user stays in Chat or another app.
+automationApp.startScheduler?.();
 
 window.addEventListener("popstate", () => {
   const navigation = resolveHistoryNavigation(target, window.location.pathname);

@@ -282,7 +282,13 @@ async function enqueue(
       userId: null,
       messageId: null,
     },
-    automation: { workflowId: workflow.id, trigger },
+    automation: {
+      workflowId: workflow.id,
+      trigger,
+      // Non-approval workflows are approved when created; the Agent Inbox
+      // runtime auto-dispatches these without a manual click.
+      autoDispatch: !workflow.requireApproval,
+    },
     budget: workflow.maxCost || null,
     maxRetries: workflow.maxRetries ?? 2,
     retryCount: 0,
