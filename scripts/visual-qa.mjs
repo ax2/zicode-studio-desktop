@@ -1757,9 +1757,28 @@ async function main() {
       ["help", `${sessionUrl}?app=core.help`],
     ];
     const filter = process.env.APP_FILTER;
-    const apps = filter
-      ? allApps.filter(([name]) => name === filter)
-      : allApps;
+    // Skip plugins that are currently disabled in the host so the walk does
+    // not report the intended "disabled plugin" fallback as a failure.
+    let enabledPluginIds = null;
+    try {
+      const pluginResponse = await fetch(`${HOST}/v2/plugins?sceneId=programming`);
+      if (pluginResponse.ok) {
+        const pluginBody = await pluginResponse.json();
+        enabledPluginIds = new Set(
+          (pluginBody.plugins ?? [])
+            .filter((plugin) => plugin.enabled)
+            .map((plugin) => plugin.id),
+        );
+      }
+    } catch {
+      // The host may not expose plugin state (tests/stubs); walk everything.
+    }
+    const apps = allApps.filter(([name, url]) => {
+      if (filter && name !== filter) return false;
+      if (!enabledPluginIds) return true;
+      const pluginId = new URL(url, HOST).searchParams.get("app");
+      return !pluginId || pluginId.startsWith("core.") || enabledPluginIds.has(pluginId);
+    });
 
     const viewportOverride = process.env.VIEWPORT;
     const viewports = viewportOverride

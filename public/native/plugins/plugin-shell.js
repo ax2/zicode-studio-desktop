@@ -595,16 +595,52 @@ export function setupPluginShell({
     }
   }
 
+  // The initial deep link and activity bar must see the host's real
+  // enablement state. In host-backed mode, boot waits for the async
+  // scene hydration; without a gateway the registry resolves synchronously
+  // so existing unit tests keep their immediate assertions.
+  let booted = false;
+  function finishBoot() {
+    if (booted) return;
+    booted = true;
+    renderActivities();
+    const initialPlugin = initialAppPluginId();
+    activate(initialPlugin, { focus: false });
+    if (pendingDisabledPluginId) {
+      const plugin = registry.get(pendingDisabledPluginId);
+      notify({
+        type: "warning",
+        title: t("Plugin not enabled"),
+        message: `${t(plugin?.name ?? pendingDisabledPluginId)} · ${t(
+          "This plugin is disabled. Enable it in Plugin Manager to use this link.",
+        )}`,
+      });
+      pendingDisabledPluginId = null;
+    }
+    writePluginHistory(initialPlugin);
+  }
+
   function setTarget(nextTarget = getTarget?.()) {
     for (const application of applicationViews.values()) application.setTarget?.(nextTarget);
     pluginViewHost?.setTarget?.(nextTarget);
     if (activePluginId !== CHAT_PLUGIN_ID) renderMain(activePluginId);
     const sceneId = nextTarget?.sceneId || "programming";
-    if (sceneId === registrySceneId) return;
+    if (sceneId === registrySceneId) {
+      finishBoot();
+      return;
+    }
     registrySceneId = sceneId;
-    registry.setScene?.(sceneId)?.catch((error) => {
-      notify(`Plugin Host unavailable: ${error?.message ?? String(error)}`);
-    });
+    const scenePromise = registry.setScene?.(sceneId) ?? Promise.resolve();
+    if (registry.hostBacked) {
+      Promise.resolve(scenePromise)
+        .then(finishBoot)
+        .catch((error) => {
+          notify(`Plugin Host unavailable: ${error?.message ?? String(error)}`);
+          finishBoot();
+        });
+    } else {
+      finishBoot();
+    }
   }
 
   function getCommandPaletteEntries() {
@@ -698,21 +734,6 @@ export function setupPluginShell({
   }
   document.addEventListener("keydown", handleActivityShortcut);
 
-  renderActivities();
-  const initialPlugin = initialAppPluginId();
-  activate(initialPlugin, { focus: false });
-  if (pendingDisabledPluginId) {
-    const plugin = registry.get(pendingDisabledPluginId);
-    notify({
-      type: "warning",
-      title: t("Plugin not enabled"),
-      message: `${t(plugin?.name ?? pendingDisabledPluginId)} · ${t(
-        "This plugin is disabled. Enable it in Plugin Manager to use this link.",
-      )}`,
-    });
-    pendingDisabledPluginId = null;
-  }
-  writePluginHistory(initialPlugin);
   settingsApp?.setOpenHandler?.((tab) => {
     if (tab === null) {
       activate(CHAT_PLUGIN_ID, { focus: false });

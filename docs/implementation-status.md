@@ -1,5 +1,19 @@
 # 实现状态
 
+## 2026-08-19 插件引导水合时序修复与视觉回归工具改进
+
+- 修复插件深度链接竞态：引导时 `registry.setScene` 异步水合 host 启用状态
+  （fire-and-forget），初始深度链接与应用栏在完成前用本地默认值判断，导致
+  用户手动启用、但目录默认禁用的插件（如 Tasks）深链静默回退到对话。现在
+  host 模式下引导等待水合完成再解析初始应用；无 gateway 的测试路径保持同步。
+  新增 `BuiltinPluginRegistry.hostBacked` 与回归测试（27 项 plugin-shell 测试
+  通过），并用无头浏览器 + visual-qa 实测 `?app=com.zicode.tasks` 正确打开
+  任务中心。
+- `scripts/visual-qa.mjs` 改为按 host 当前启用状态过滤待遍历应用，避免把
+  「禁用插件深链回退」当作失败误报；系统入口（chat/settings/help/plugin
+  manager）始终遍历。桌面 + 移动双视口全表面回归通过（tasks 显示真实任务，
+  其余应用无启动失败/横向溢出/控制台错误）。
+
 ## 2026-08-19 欢迎页快捷入口跟随插件启用状态
 
 - 欢迎页快捷入口原为硬编码列表，禁用插件（Projects/Tasks/Automation）后

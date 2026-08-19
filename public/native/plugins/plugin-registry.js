@@ -325,6 +325,10 @@ export class BuiltinPluginRegistry {
     }));
   }
 
+  get hostBacked() {
+    return Boolean(this.#gateway);
+  }
+
   get(pluginId) {
     if (this.#hostPlugins) {
       const plugin = this.#hostPlugins.find((candidate) => candidate.id === pluginId);

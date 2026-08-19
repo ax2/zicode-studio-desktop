@@ -115,6 +115,65 @@ describe("setupPluginShell", () => {
     expect(message).toContain("Plugin Manager");
   });
 
+  it("waits for host hydration before resolving the initial deep link", async () => {
+    const hostGateway = {
+      list: vi.fn().mockResolvedValue({
+        schemaVersion: 1,
+        sceneId: "programming",
+        plugins: [
+          {
+            schemaVersion: 1,
+            id: "core.chat",
+            name: "Chat",
+            description: "Chat",
+            version: "1.0.0",
+            publisher: "zicode",
+            core: true,
+            enabled: true,
+            origin: "builtIn",
+            contributes: {},
+            permissions: { required: [], optional: [] },
+            permissionGrants: {},
+          },
+          {
+            schemaVersion: 1,
+            id: "com.zicode.tasks",
+            name: "Tasks",
+            description: "Task center",
+            version: "0.1.0",
+            publisher: "zicode",
+            core: false,
+            enabled: true,
+            origin: "builtIn",
+            contributes: {
+              activities: [{ id: "tasks", title: "Tasks", order: 75 }],
+              views: [],
+              commands: [],
+            },
+            permissions: { required: [], optional: [] },
+            permissionGrants: {},
+          },
+        ],
+        diagnostics: [],
+      }),
+      setEnabled: vi.fn(),
+    };
+    const testRegistry = new BuiltinPluginRegistry({
+      storage: { getItem: () => null, setItem: () => {} },
+      hostGateway,
+    });
+    history.replaceState(
+      null,
+      "",
+      "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.tasks",
+    );
+    const shell = setupPluginShell({ registry: testRegistry });
+    // The deep link must resolve after the host reports Tasks enabled even
+    // though the local catalog default is disabled.
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.tasks"));
+    expect(hostGateway.list).toHaveBeenCalledWith("programming");
+  });
+
   it("switches to an exclusive plugin main view and makes Chat inert", async () => {
     const shell = setupPluginShell({ registry: registry() });
 
