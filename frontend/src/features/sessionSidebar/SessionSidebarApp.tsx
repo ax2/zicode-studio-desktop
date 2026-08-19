@@ -660,10 +660,12 @@ export function SessionSidebarApp({
         >
           {/* biome-ignore lint/a11y/noStaticElementInteractions: archived header collapse pattern preserved from the vanilla sidebar */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard activation handled by the sidebar container's roving keydown */}
+          {/* biome-ignore lint/a11y/useSemanticElements: the header nests the delete-all button, so it stays a div with an explicit button role */}
           <div
             className={`project-header archived-header${
               archivedCollapsed ? " collapsed" : ""
             }`}
+            role="button"
             aria-expanded={!archivedCollapsed}
             tabIndex={-1}
             onClick={() => controller.toggleArchivedCollapsed()}

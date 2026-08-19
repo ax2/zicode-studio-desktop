@@ -1401,7 +1401,7 @@ function CaptureForm({ store }: { store: NotesStore }) {
               className="ui-button ui-button--ghost ui-button--sm notes-capture-expand"
               onClick={() => setPreviewExpanded((expanded) => !expanded)}
             >
-              {previewExpanded ? t("Show less") : t("Show full content")}
+              {previewExpanded ? t("Collapse") : t("Show full content")}
             </button>
             <button
               type="button"

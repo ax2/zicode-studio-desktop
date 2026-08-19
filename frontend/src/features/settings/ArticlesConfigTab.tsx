@@ -48,6 +48,7 @@ export function ArticlesConfigTab({ getSceneId }: { getSceneId: () => string }) 
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: config loads once on mount by design.
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
