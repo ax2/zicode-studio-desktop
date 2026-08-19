@@ -159,6 +159,44 @@ async function main() {
     const url = `${HOST}/app/workspaces/${wsId}/sessions/${sessionId}`;
     await cdp.send("Page.navigate", { url });
 
+    const importMapTest = await cdp.send("Runtime.evaluate", {
+      expression: `(async () => {
+        try {
+          const mod = await import("react-dom");
+          return {
+            reactDomResolved: true,
+            hasFlushSync: typeof mod.flushSync === "function",
+          };
+        } catch (error) {
+          return {
+            reactDomResolved: false,
+            error: String(error?.message || error),
+          };
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    console.log(
+      "IMPORTMAP_TEST: " +
+        JSON.stringify(importMapTest?.result?.value ?? null),
+    );
+    const importMapDom = await cdp.send("Runtime.evaluate", {
+      expression: `(() => {
+        const scripts = Array.from(
+          document.querySelectorAll('script[type="importmap"]'),
+        );
+        return {
+          count: scripts.length,
+          content: scripts[0]?.textContent?.slice(0, 300) ?? "",
+        };
+      })()`,
+      returnByValue: true,
+    });
+    console.log(
+      "IMPORTMAP_DOM: " + JSON.stringify(importMapDom?.result?.value ?? null),
+    );
+
     const samples = [];
     for (let second = 0; second < 12; second += 1) {
       await sleep(1000);
