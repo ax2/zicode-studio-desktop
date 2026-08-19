@@ -1899,3 +1899,10 @@ body.notes-dragging .notes-result-item {
     min-height: min(46dvh, 360px);
   }
 }
+
+.notes-capture-preview-meta,
+.notes-capture-preview-stats {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}

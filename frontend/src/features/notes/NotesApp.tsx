@@ -1376,6 +1376,12 @@ function CaptureForm({ store }: { store: NotesStore }) {
                 {[preview.siteName, preview.author].filter(Boolean).join(" · ")}
               </p>
             ) : null}
+            <p className="notes-capture-preview-stats">
+              {t("About {count} readable characters").replace(
+                "{count}",
+                stripMarkdown(preview.markdown).replace(/\s+/g, "").length.toLocaleString(),
+              )}
+            </p>
             <p className="notes-capture-preview-excerpt">
               {stripMarkdown(preview.markdown).slice(0, 320)}
             </p>

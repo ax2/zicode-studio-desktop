@@ -724,6 +724,8 @@ describe("notes store", () => {
     await waitFor(() =>
       expect(container.querySelector(".notes-capture-preview")).toBeTruthy(),
     );
+    const stats = container.querySelector(".notes-capture-preview-stats");
+    expect(stats?.textContent).toContain("11");
     const copyButton = container.querySelector(
       ".notes-capture-copy",
     ) as HTMLButtonElement;

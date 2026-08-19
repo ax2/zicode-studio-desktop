@@ -8775,6 +8775,13 @@ body.notes-dragging .notes-result-item {
   }
 }
 
+.notes-capture-preview-meta,
+.notes-capture-preview-stats {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
 
 /* --- inlined: native/plugins/idphoto-app.css --- */
 .idphoto-nav {
