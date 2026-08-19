@@ -1674,7 +1674,8 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            // Incomplete: project create/edit/delete is not implemented yet.
+            false,
         ),
         (
             json!({
@@ -1700,7 +1701,8 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            // Incomplete: no background Host Runner yet, so the task list stays empty.
+            false,
         ),
         (
             json!({
@@ -2498,7 +2500,8 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            true,
+            // Incomplete: unattended execution needs a background Host Runner.
+            false,
         ),
         (
             json!({
@@ -2633,6 +2636,21 @@ mod tests {
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
         assert_eq!(registry.list("programming").len(), 17);
         assert_eq!(registry.capabilities("programming").len(), 11);
+        for plugin_id in [
+            "com.zicode.projects",
+            "com.zicode.tasks",
+            "com.zicode.automation",
+        ] {
+            assert!(
+                !registry
+                    .list("programming")
+                    .into_iter()
+                    .find(|plugin| plugin.manifest.id == plugin_id)
+                    .unwrap()
+                    .enabled,
+                "{plugin_id} should be disabled by default until it is complete"
+            );
+        }
         assert!(registry
             .pi_tools("programming")
             .iter()

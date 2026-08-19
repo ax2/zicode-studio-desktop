@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-19 未完善插件默认禁用
+
+- 按用户决策，将尚未完善且暂不继续开发的三个内置插件默认禁用：Projects
+  （缺少项目新建/修改/删除）、Tasks（缺少后台 Host Runner，任务列表长期为空）、
+  Automation（无人值守执行依赖后台 Host Runner）。代码与数据全部保留，用户可在
+  Plugin Manager 中随时重新启用。
+- 同步修改 Rust `builtin_manifests()` 与前端 `plugin-registry.js` 的
+  `enabledByDefault`，并通过 `/v2/plugins/enablement` 在运行实例中立即禁用
+  （programming 场景）；前端与 Rust 回归测试覆盖新默认值。
+- 当前默认启用的内置插件：Chat、Notes、Finance、Artifacts、Translate、
+  ID Photo、Image Tools、Clipboard、Documents；Articles、OCR、Web Watch、
+  Habits、Knowledge Graph 维持默认禁用。
+- 验证：前端全量 vitest + Tauri 权限 + Windows 子进程策略通过，TypeScript
+  typecheck 通过，Rust `plugin_registry` 12 项测试通过。
+
 ## 2026-08-02 QVeris 凭据读取与 API Key 前缀
 
 - 修复 QVeris Key 已设置但仍提示“尚未配置 API Key”的问题。根因：Rust Credential

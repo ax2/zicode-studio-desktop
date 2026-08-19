@@ -24,7 +24,8 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Persistent workspaces that connect conversations, notes, files, and artifacts.",
     icon: "projects",
     order: 50,
-    enabledByDefault: true,
+    // Incomplete: project create/edit/delete is not implemented yet.
+    enabledByDefault: false,
     sidebarViews: [],
     commands: [{ id: "projects.open", label: "Open project overview", icon: "open" }],
   },
@@ -34,7 +35,8 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "One place to monitor, recover, pause, and review background work.",
     icon: "tasks",
     order: 75,
-    enabledByDefault: true,
+    // Incomplete: no background Host Runner yet, so the task list stays empty.
+    enabledByDefault: false,
     sidebarViews: [],
     commands: [{ id: "tasks.open", label: "Open task center", icon: "open" }],
   },
@@ -74,7 +76,8 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Scheduled, approval-aware workflows with retries and auditable history.",
     icon: "automation",
     order: 150,
-    enabledByDefault: true,
+    // Incomplete: unattended execution needs a background Host Runner.
+    enabledByDefault: false,
     sidebarViews: [],
     commands: [{ id: "automation.open", label: "Open automations", icon: "open" }],
   },

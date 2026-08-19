@@ -110,6 +110,10 @@ Astro Content Collection 兼容目录并由内置预览器展示；在打包受�
 - 后台执行需要独立于 WebView 的 Host Runner，不能在第一阶段用隐藏 iframe 冒充；
 - 任何自动 Prompt、网络发布或文件写入都需要单独权限和审计。
 
+当前状态（2026-08-19）：Tasks 与 Automation 与 Projects 一起默认禁用
+（`enabledByDefault=false`），代码与数据保留；待后台 Host Runner 与项目
+CRUD 完成后重新启用。
+
 ### Research Library（建议后续合并评估）
 
 网页、PDF、数据集和引用的统一资料库。第一版先作为 Notes 的“资料”View，只有在数据

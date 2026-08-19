@@ -14,6 +14,13 @@ describe("BuiltinPluginRegistry", () => {
     const registry = new BuiltinPluginRegistry({ storage: memoryStorage() });
 
     expect(registry.get("core.chat")).toMatchObject({ core: true, enabled: true });
+    // Incomplete plugins (no project CRUD, no background Host Runner) are
+    // disabled by default and can be re-enabled from the Plugin Manager.
+    expect(registry.get("com.zicode.projects")).toMatchObject({ enabled: false });
+    expect(registry.get("com.zicode.tasks")).toMatchObject({ enabled: false });
+    expect(registry.get("com.zicode.automation")).toMatchObject({ enabled: false });
+    expect(registry.get("com.zicode.notes")).toMatchObject({ enabled: true });
+    expect(registry.get("com.zicode.finance")).toMatchObject({ enabled: true });
     expect(registry.list().map((plugin) => plugin.id)).toEqual([
       "core.chat",
       "com.zicode.projects",
