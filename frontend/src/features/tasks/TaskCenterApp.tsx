@@ -168,7 +168,9 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const canRetryAndRun =
     ["failed", "blocked"].includes(task.status) && Boolean(task.targetProject);
   const rerunWorkflowId =
-    ["done", "cancelled"].includes(task.status) ? task.automation?.workflowId : undefined;
+    ["done", "cancelled", "failed"].includes(task.status)
+      ? task.automation?.workflowId
+      : undefined;
   const retryConfirmText = t(
     "The automatic retry limit has been reached. Retry this task manually?",
   );

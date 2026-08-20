@@ -208,6 +208,12 @@ describe("task center React app", () => {
         status: "done",
         automation: { workflowId: "wf-1", trigger: "schedule" },
       },
+      {
+        id: "failed-auto",
+        title: "Failed automation",
+        status: "failed",
+        automation: { workflowId: "wf-2", trigger: "schedule" },
+      },
       { id: "done-plain", title: "Plain done", status: "done" },
     ]);
     const reruns: string[] = [];
@@ -216,10 +222,12 @@ describe("task center React app", () => {
     });
     const store = renderStore(call);
     await waitFor(() => expect(screen.getByText("Daily blog post")).toBeTruthy());
-    const button = screen.getByText("Run again");
-    expect(button).toBeTruthy();
-    fireEvent.click(button);
+    const buttons = screen.getAllByText("Run again");
+    expect(buttons.length).toBe(2);
+    fireEvent.click(buttons[0]);
     expect(reruns).toEqual(["wf-1"]);
+    fireEvent.click(buttons[1]);
+    expect(reruns).toEqual(["wf-1", "wf-2"]);
     store.getState().destroy();
   });
 
