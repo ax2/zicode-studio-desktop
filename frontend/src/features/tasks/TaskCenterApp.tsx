@@ -56,7 +56,9 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
+  const clearDoneTasks = store((state) => state.clearDoneTasks);
   const visible = filteredTasks(tasks, filter);
+  const doneCount = filteredTasks(tasks, "done").length;
   return (
     <div className="task-center-main">
       <header className="task-center-header">
@@ -68,14 +70,35 @@ export function TaskMain({ store }: { store: TaskStore }) {
             )}
           </p>
         </div>
-        <button
-          type="button"
-          className="ui-button ui-button--secondary"
-          disabled={loading}
-          onClick={() => void load()}
-        >
-          {t("Refresh")}
-        </button>
+        <div className="task-center-header-actions">
+          {doneCount > 0 ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              disabled={loading}
+              onClick={() => {
+                if (
+                  globalThis.confirm?.(
+                    t("Clear {count} completed tasks?").replace("{count}", String(doneCount)),
+                  ) === false
+                ) {
+                  return;
+                }
+                void clearDoneTasks();
+              }}
+            >
+              {t("Clear completed")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            {t("Refresh")}
+          </button>
+        </div>
       </header>
       <FirstRunGuide
         storageKey="tasks"

@@ -213,6 +213,32 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("clears all completed tasks from the card header", async () => {
+    setLocale("en");
+    const confirmSpy = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmSpy);
+    try {
+      const call = mockCall([
+        { id: "done-1", title: "Finished A", status: "done" },
+        { id: "done-2", title: "Finished B", status: "done" },
+        { id: "run", title: "Running task", status: "running" },
+      ]);
+      const store = renderStore(call);
+      await waitFor(() => expect(screen.getByText("Finished A")).toBeTruthy());
+      fireEvent.click(screen.getByText("Clear completed"));
+      expect(confirmSpy).toHaveBeenCalledWith("Clear 2 completed tasks?");
+      await waitFor(() => expect(screen.queryByText("Finished A")).toBeNull());
+      const write = call.mock.calls.find(
+        ([operation]) => operation === "write_super_agent_tasks",
+      )?.[1] as { tasks?: Array<{ status: string }> } | undefined;
+      expect(write?.tasks?.every((task) => task.status !== "done")).toBe(true);
+      expect(screen.getByText("Running task")).toBeTruthy();
+      store.getState().destroy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("re-runs a finished automation task from the card", async () => {
     setLocale("en");
     const call = mockCall([

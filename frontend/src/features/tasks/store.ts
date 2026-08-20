@@ -41,6 +41,7 @@ interface TaskCenterState {
     successMessage?: string,
   ): Promise<void>;
   removeTask(taskId: string): Promise<void>;
+  clearDoneTasks(): Promise<void>;
   answerTask(task: SuperAgentTask, answer: string): Promise<void>;
   approveTask(task: SuperAgentTask): Promise<void>;
   retryAndRunTask(task: SuperAgentTask): Promise<void>;
@@ -141,6 +142,28 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         const response = await call("write_super_agent_tasks", { tasks: next });
         if (!response?.ok) throw new Error(t("Could not update task"));
         set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+      } catch (reason) {
+        notify({
+          title: t("Could not update task"),
+          message: localizeHostError(reason).message,
+          type: "error",
+        });
+      }
+    },
+
+    async clearDoneTasks() {
+      const doneIds = new Set(
+        get()
+          .tasks.filter((task) => task.status === "done")
+          .map((task) => task.id),
+      );
+      if (doneIds.size === 0) return;
+      const next = get().tasks.filter((task) => !doneIds.has(task.id));
+      try {
+        const response = await call("write_super_agent_tasks", { tasks: next });
+        if (!response?.ok) throw new Error(t("Could not update task"));
+        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        notify({ title: t("Cleared completed tasks"), type: "success" });
       } catch (reason) {
         notify({
           title: t("Could not update task"),

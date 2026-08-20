@@ -1885,6 +1885,9 @@ const zhCN = {
   "Retry and run": "重试并运行",
   "Task retried and dispatched": "任务已重试并派发",
   "Run again": "再次运行",
+  "Clear completed": "清空已完成",
+  "Cleared completed tasks": "已清空已完成任务",
+  "Clear {count} completed tasks?": "清空 {count} 条已完成任务？",
   "Queue a fresh run of the owning automation workflow":
     "重新排队所属自动化工作流的新一轮运行",
   "Could not approve task": "无法批准任务",
