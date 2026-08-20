@@ -32,6 +32,36 @@
   color: var(--text-secondary);
 }
 
+/* Long automation prompts made task cards towering; clamp the description
+   to four lines with an explicit expand/collapse toggle for the full text. */
+.task-center-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.task-center-description.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.task-center-description-toggle {
+  margin-top: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.task-center-description-toggle:hover,
+.task-center-description-toggle:focus-visible {
+  text-decoration: underline;
+}
+
 .task-center-navigation {
   display: grid;
   gap: var(--space-1);

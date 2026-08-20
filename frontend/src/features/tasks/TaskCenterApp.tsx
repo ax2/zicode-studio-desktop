@@ -1,4 +1,5 @@
 import type { Root } from "react-dom/client";
+import { useState } from "react";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 import { friendlyTaskDispatchError } from "../../shared/hostErrors";
@@ -161,6 +162,7 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const limitReached = retryLimitReached(task);
   const rawSummary = taskSummaryText(task);
   const summary = friendlyTaskDispatchError(rawSummary);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const openSession = () => {
     document.dispatchEvent(new CustomEvent("sa-view-session", { detail: task }));
     openApp?.("core.chat");
@@ -262,7 +264,25 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
           ) : null}
         </div>
       </header>
-      {task.description ? <p className="task-center-description">{task.description}</p> : null}
+      {task.description ? (
+        <>
+          <p
+            className={`task-center-description${descriptionExpanded ? " expanded" : ""}`}
+            title={task.description}
+          >
+            {task.description}
+          </p>
+          {task.description.length > 180 ? (
+            <button
+              type="button"
+              className="task-center-description-toggle"
+              onClick={() => setDescriptionExpanded((value) => !value)}
+            >
+              {descriptionExpanded ? t("Show less") : t("Show more")}
+            </button>
+          ) : null}
+        </>
+      ) : null}
       <dl>
         <Detail term={t("Project")} value={taskProject(task)} />
         <Detail term={t("Started")} value={formatDate(task.dispatch?.startedAt)} />

@@ -143,6 +143,36 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("collapses long task descriptions behind a show-more toggle", async () => {
+    setLocale("zh-CN");
+    const call = mockCall([
+      {
+        id: "long",
+        title: "每日技术博客文章生成",
+        status: "failed",
+        description: "一、收集（最近 1 天）\n1. 浏览最近 24 小时的主要技术站点。\n".repeat(20),
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelector(".task-center-card")).toBeTruthy());
+    const description = document.querySelector(".task-center-description");
+    expect(description?.className).not.toContain("expanded");
+    const toggle = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent === "显示更多",
+    );
+    expect(toggle).toBeTruthy();
+    fireEvent.click(toggle as HTMLElement);
+    expect(document.querySelector(".task-center-description")?.className).toContain(
+      "expanded",
+    );
+    expect(
+      Array.from(document.querySelectorAll("button")).some(
+        (button) => button.textContent === "显示更少",
+      ),
+    ).toBe(true);
+    store.getState().destroy();
+  });
+
   it("approves a pending task and dispatches it to the project agent", async () => {
     setLocale("en");
     const call = mockCall([
