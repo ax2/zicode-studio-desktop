@@ -252,6 +252,7 @@ describe("task center React app", () => {
         instanceId: "instance-a",
         sessionId: "session-a",
       },
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
     );
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith(

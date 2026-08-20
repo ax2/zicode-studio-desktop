@@ -7,9 +7,11 @@ import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
 import {
   buildTaskComposerPrompt,
   findDispatchedTaskByInstanceId,
+  looksLikeQuestion,
   markTaskChildSessionBound,
   markTaskAnswered,
   markTaskFinished,
+  markTaskNeedsInput,
   shouldCompleteDispatchedRun,
 } from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
@@ -312,6 +314,12 @@ const dispatchedInstances = new Map();
 // re-subscribe after the runtime upgrades its temporary session id (see
 // bindDispatchedChildSession).
 const dispatchedTargets = new Map();
+// Sequence of the last end/settled event already processed for a dispatched
+// instance. A run emits agent_end followed by agent_settled; processing both
+// would re-mark the task (e.g. re-flag needs_input after the user answered).
+// The entry is cleared on the next agent_start, so each run is finalized
+// exactly once while later runs complete normally.
+const dispatchedProcessedEndSequences = new Map();
 // Last assistant text per dispatched child instance, used as the completion
 // summary when the child runtime ends (`agent_end`).
 const dispatchedSummaries = new Map();
@@ -1738,6 +1746,7 @@ async function handleBackgroundRuntimeEvent(frame) {
       if (pluginShell?.getActivePluginId() !== "core.chat") {
         pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "warning" });
       }
+      dispatchedProcessedEndSequences.delete(frame.target?.instanceId);
       break;
     case "agent_settled":
     case "agent_end":
@@ -1747,7 +1756,7 @@ async function handleBackgroundRuntimeEvent(frame) {
         pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "success" });
       }
       if (shouldCompleteDispatchedRun(frame.event?.type, frame.event?.willRetry)) {
-        await completeDispatchedTask(frame.target?.instanceId, null);
+        await completeDispatchedTask(frame.target?.instanceId, null, frame.sequence);
       }
       break;
     case "message_end":
@@ -1783,11 +1792,15 @@ async function handleBackgroundRuntimeEvent(frame) {
 // Falls back to the durable task record when the in-memory dispatch map was
 // lost (for example after the host page reloads mid-run), so a task never
 // stays "running" forever just because the webview restarted.
-async function completeDispatchedTask(instanceId, completionMessage) {
+async function completeDispatchedTask(instanceId, completionMessage, sequence) {
   if (!instanceId) return;
+  if (dispatchedProcessedEndSequences.has(instanceId)) return;
+  // Claim the end/settled event synchronously: agent_end is immediately
+  // followed by agent_settled, and both handlers run concurrently. Without
+  // this, the trailing settled can re-mark the task (or complete it with a
+  // stale summary) while the first handler is still awaiting its task write.
+  dispatchedProcessedEndSequences.set(instanceId, Number(sequence) || 0);
   const mappedTaskId = dispatchedInstances.get(instanceId);
-  dispatchedInstances.delete(instanceId);
-  dispatchedTargets.delete(instanceId);
   const summary = dispatchedSummaries.get(instanceId) || null;
   dispatchedSummaries.delete(instanceId);
   const taskId =
@@ -1804,14 +1817,34 @@ async function completeDispatchedTask(instanceId, completionMessage) {
   let marked = false;
   let taskTitle = "";
   let taskTargetProject = "";
+  let finalStatus = null;
   await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) => {
     if (task.status !== "running" && task.status !== "pending") return task;
     marked = true;
     taskTitle = task.title || t("Untitled task");
     taskTargetProject = task.targetProject || task.dispatch?.targetProject || "";
-    return markTaskFinished(task, { summary: completionText });
+    // A dispatched run that finishes by asking the user a question should
+    // wait for an answer instead of being marked done: the reply box in the
+    // task center / Runtime panel then targets the still-alive child session.
+    const next = looksLikeQuestion(completionText)
+      ? markTaskNeedsInput(task, { question: completionText })
+      : markTaskFinished(task, { summary: completionText });
+    // A task waiting for input stays tracked: the user's answer triggers a
+    // new run whose message/end events still need the dispatch mapping (for
+    // summary capture and the final completion). Only terminal states drop
+    // the mapping.
+    if (next.status !== "needs_input" && next.status !== "blocked") {
+      dispatchedInstances.delete(instanceId);
+      dispatchedTargets.delete(instanceId);
+    }
+    finalStatus = next.status;
+    return next;
   }).catch((error) =>
-    console.warn("[SuperAgent] failed to mark dispatched task done:", error),
+    {
+      // Roll back the claim so a later event can retry the completion.
+      dispatchedProcessedEndSequences.delete(instanceId);
+      console.warn("[SuperAgent] failed to mark dispatched task done:", error);
+    },
   );
   if (!marked) return;
   const notificationMessage =
@@ -1838,7 +1871,10 @@ async function completeDispatchedTask(instanceId, completionMessage) {
           (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
       )[0];
   notifications.notify({
-    title: t("Task completed"),
+    title:
+      finalStatus === "needs_input"
+        ? t("Task needs input")
+        : t("Task completed"),
     message: `${taskTitle}：${notificationMessage}`,
     type: "success",
     action: {

@@ -1,5 +1,31 @@
 # 实现状态
 
+## 2026-08-20 智能收件箱「提问 → 回答」闭环打通（needs_input 全链路）
+
+- 缺口：此前没有任何机制把派发任务推进到 needs_input——代理提示词要求
+  "需要澄清时提问并等待"，但应用侧不检测、代理侧无标记工具，回复框
+  永远等不到自然出现的 needs_input 任务。帮助文档承诺的"代理提问 → 你
+  回答"闭环实际不可达。
+- 修复（app.js + task-state）：
+  - 新增 `looksLikeQuestion` 保守启发式（≤240 字符且以 ?/？ 结尾的最终
+    回复视为提问），派发子运行时完成事件（agent_end/agent_settled）若
+    最终回复是提问，则标记 needs_input 而非完成，回复框随即可用；
+  - 任务中心 `answerTask` 发送 prompt 时补上 idempotencyKey（此前被
+    RuntimeGateway 以 "Runtime mutation prompt requires idempotencyKey"
+    拒绝，回复从未真正送达子代理）；
+  - 完成处理加并发守卫：agent_end 与紧随的 agent_settled 是两个并发
+    async 调用，若不做同步"认领"，尾随的 settled 会用过期摘要把回答后的
+    任务错误改回 needs_input 或提前完成；
+  - needs_input 时保留 dispatch 映射（仅终态删除），用户回答后的新一轮
+    message_end 摘要捕获与最终完成才能正常工作。
+- 验证：`.qa-shots/ask-answer-live.cjs` 端到端全绿——代理提问（任务变
+  needs_input，回复框出现）→ 用户在任务中心输入并发送回答 → 代理继续 →
+  任务完成，摘要为代理真实回复（如"已确认：输出目录使用 A…"），无页面
+  报错、数据精确清理。`.qa-shots/task-loop-live.cjs` 同步复跑通过。
+- 全量 `bun run test`（50/50）、typecheck、Biome 通过；app.js /
+  task-state.js / i18n.js 已同步安装目录；桌面端已重启（PID 50340，
+  `/health` ok）。
+
 ## 2026-08-20 任务闭环收尾：结果摘要捕获 + 首开重试退避
 
 - 摘要丢失修复：`message_end` 处理里用量记账（`recordDispatchedTaskUsage`，

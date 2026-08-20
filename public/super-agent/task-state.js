@@ -248,6 +248,18 @@ export function shouldCompleteDispatchedRun(type, willRetry) {
   return type === "agent_settled";
 }
 
+/**
+ * Conservative heuristic for a dispatched run that finished by asking the
+ * user a question instead of reporting a result. Only short final messages
+ * ending in `?` / `？` qualify, so ordinary summaries (which end in a period
+ * or a longer closing statement) are still treated as done.
+ */
+export function looksLikeQuestion(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed || trimmed.length > 240) return false;
+  return /[?？]\s*$/.test(trimmed);
+}
+
 export function markTaskFinished(
   task,
   { status = "done", summary = null, failReason = null, now } = {},

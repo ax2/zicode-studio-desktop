@@ -14,7 +14,13 @@ export interface TaskCenterOptions {
     error?: string;
     data?: { tasks?: unknown[] };
   }>;
-  runtime?: { request?: (message: unknown, target: unknown) => Promise<unknown> };
+  runtime?: {
+    request?: (
+      message: unknown,
+      target: unknown,
+      options?: { idempotencyKey?: string },
+    ) => Promise<unknown>;
+  };
   cancelRuntimeUi?: (target: unknown) => Promise<void>;
   openApp?: (pluginId: string) => void;
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
@@ -158,7 +164,11 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       }
       try {
         if (runtime?.request) {
-          await runtime.request({ type: "prompt", message: text }, target);
+          await runtime.request(
+            { type: "prompt", message: text },
+            target,
+            { idempotencyKey: `answer-${task.id}-${Date.now()}` },
+          );
         }
         await get().updateTask(
           task.id,

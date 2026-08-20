@@ -6,6 +6,7 @@ import {
   buildSuperAgentNotificationPrompt,
   buildTaskComposerPrompt,
   findDispatchedTaskByInstanceId,
+  looksLikeQuestion,
   markTaskAnswered,
   markTaskFinished,
   markTaskForDispatch,
@@ -17,6 +18,16 @@ import {
 } from "./task-state.js";
 
 describe("super-agent task state", () => {
+  it("detects short question-style final messages", () => {
+    expect(looksLikeQuestion("请确认输出目录？")).toBe(true);
+    expect(looksLikeQuestion("Use directory A or B?")).toBe(true);
+    expect(looksLikeQuestion("用 A？ ")).toBe(true);
+    expect(looksLikeQuestion("已生成 3 篇文章，请查看。")).toBe(false);
+    expect(looksLikeQuestion("OK")).toBe(false);
+    expect(looksLikeQuestion("")).toBe(false);
+    expect(looksLikeQuestion(`${"长".repeat(241)}？`)).toBe(false);
+  });
+
   it("completes dispatched runs only on a final agent_end or full settle", () => {
     expect(shouldCompleteDispatchedRun("agent_end", false)).toBe(true);
     expect(shouldCompleteDispatchedRun("agent_end", undefined)).toBe(true);

@@ -1912,6 +1912,7 @@ const zhCN = {
   "Open tasks": "打开任务",
   "Task budget reached; the child run was stopped.": "任务预算已达到，子任务运行已停止。",
   "Task completed": "任务已完成",
+  "Task needs input": "任务需要输入",
   "Project agent ended. Review the child session for details.":
     "项目代理已结束，请打开子会话查看详情。",
   "Automatically queued for retry": "已自动加入重试队列",
