@@ -95,6 +95,11 @@ description = "Allow checking whether a scene provider credential exists without
 commands.allow = ["scene_credential_status"]
 
 [[permission]]
+identifier = "allow-send-desktop-notification"
+description = "Allow showing a Windows system notification for background work."
+commands.allow = ["send_desktop_notification"]
+
+[[permission]]
 identifier = "allow-publish-notes-notebook"
 description = "Allow explicitly building a local Notes notebook as an Astro static site."
 commands.allow = ["publish_notes_notebook"]
@@ -145,6 +150,7 @@ permissions = [
   "allow-store-scene-credential",
   "allow-delete-scene-credential",
   "allow-scene-credential-status",
+  "allow-send-desktop-notification",
   "allow-publish-notes-notebook",
   "allow-list-workspaces",
   "allow-create-workspace-backup",

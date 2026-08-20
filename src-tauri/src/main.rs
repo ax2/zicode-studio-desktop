@@ -75,6 +75,43 @@ fn store_scene_credential(
     credential_broker::store_scene_credential(&scene_id, &provider, &secret)
 }
 
+/// Show a Windows system notification for background work (for example a
+/// dispatched task completing while the window is minimized or hidden).
+/// Best-effort: failures are logged and never surface to the caller.
+#[tauri::command]
+fn send_desktop_notification(title: String, body: String) {
+    let _ = std::thread::spawn(move || {
+        if let Err(error) = notify_rust::Notification::new()
+            .appname("ZiCode Studio Desktop")
+            .summary(&title)
+            .body(&body)
+            .show()
+        {
+            log::warn!("[notification] failed to show desktop notification: {error}");
+        }
+    });
+}
+
+#[cfg(test)]
+mod desktop_notification_tests {
+    #[test]
+    fn notification_backend_is_available_on_host() {
+        // Smoke test: the Windows toast backend must accept a notification on
+        // this machine. Failing here means the toast plumbing is broken (for
+        // example no AppUserModelID), which the command would otherwise only
+        // surface as a log warning at runtime.
+        let result = notify_rust::Notification::new()
+            .appname("ZiCode Studio Desktop")
+            .summary("ZiCode Studio Desktop")
+            .body("Desktop notification backend smoke test")
+            .show();
+        assert!(
+            result.is_ok(),
+            "desktop notification backend failed: {result:?}",
+        );
+    }
+}
+
 #[tauri::command]
 fn delete_scene_credential(scene_id: String, provider: String) -> Result<(), String> {
     credential_broker::delete_scene_credential(&scene_id, &provider)
@@ -1275,6 +1312,7 @@ fn main() {
             store_scene_credential,
             delete_scene_credential,
             scene_credential_status,
+            send_desktop_notification,
             publish_notes_notebook,
             check_beta_update,
             install_beta_update

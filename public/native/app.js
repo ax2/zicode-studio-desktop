@@ -1892,10 +1892,29 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
       },
     },
   });
+  notifyDesktop(
+    finalStatus === "needs_input" ? t("Task needs input") : t("Task completed"),
+    `${taskTitle}：${notificationMessage}`,
+  );
   pluginShell?.setActivityBadge("com.zicode.tasks", {
     count: 1,
     tone: "success",
   });
+}
+
+// Best-effort Windows system notification for background work: surfaces even
+// when the window is minimized or hidden. No-op outside the Tauri shell.
+function notifyDesktop(title, message) {
+  try {
+    const invoke = globalThis.__TAURI__?.core?.invoke;
+    if (typeof invoke !== "function") return;
+    void invoke("send_desktop_notification", {
+      title: String(title ?? "").slice(0, 120),
+      body: String(message ?? "").slice(0, 240),
+    }).catch(() => {});
+  } catch {
+    // Never let a notification failure affect task processing.
+  }
 }
 
 // When a dispatched child runtime binds its persisted session id, upgrade the

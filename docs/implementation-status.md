@@ -1,5 +1,24 @@
 # 实现状态
 
+## 2026-08-20 桌面系统通知（任务完成/需要输入时弹 Windows 通知）
+
+- 场景：窗口最小化或切到其它应用时，派发任务完成/需要输入只有应用内
+  toast，看不到。现在任务进入终态（完成）或需要输入时，额外调用
+  `notify-rust` 弹 Windows 系统通知（标题 + 摘要），桌面端真实生效，
+  非 Tauri 环境（远程浏览器）自动跳过。
+- 实现：
+  - Rust：新增 `send_desktop_notification` Tauri 命令（notify-rust，
+    锁定 4.11.4 以兼容 rustc 1.88），在独立线程 best-effort 弹出，
+    失败仅记日志；
+  - 权限：`permissions/default.toml` 声明 `allow-send-desktop-notification`
+    并加入 [default] 集合（tauri 权限检查 25 命令全绿）；
+  - 前端：`completeDispatchedTask` 完成/需要输入通知后调用
+    `notifyDesktop`（`__TAURI__.core.invoke` 守卫）。
+- 验证：`cargo test` 247 通过（含桌面通知后端冒烟测试，本机 `show()`
+  成功）；`cargo clippy`、`cargo build --release`、`bun run test`、
+  typecheck、Biome 全绿；release EXE 已部署到安装目录并重启（PID 42964，
+  `/health` ok）。
+
 ## 2026-08-20 收件箱面板重试上限确认守卫
 
 - 一致性补齐：任务中心的「重试并运行」在达到自动重试上限时会先弹确认
