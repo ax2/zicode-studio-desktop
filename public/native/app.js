@@ -10,6 +10,7 @@ import {
   markTaskChildSessionBound,
   markTaskAnswered,
   markTaskFinished,
+  shouldCompleteDispatchedRun,
 } from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
 import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
@@ -1740,17 +1741,9 @@ async function handleBackgroundRuntimeEvent(frame) {
       if (pluginShell?.getActivePluginId() !== "core.chat") {
         pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "success" });
       }
-      // `agent_end` fires per low-level run and may be followed by an
-      // automatic retry, so only treat it as final when no retry is queued.
-      // `agent_settled` means the whole run settled with no automatic
-      // continuation left, which is the reliable completion signal for a
-      // dispatched background task. It also fires when the agent waits for
-      // input, but then the task is already `needs_input` / `blocked` and the
-      // completion guard inside `completeDispatchedTask` skips it.
-      if (frame.event?.type === "agent_end" && frame.event?.willRetry === true) {
-        break;
+      if (shouldCompleteDispatchedRun(frame.event?.type, frame.event?.willRetry)) {
+        await completeDispatchedTask(frame.target?.instanceId, null);
       }
-      await completeDispatchedTask(frame.target?.instanceId, null);
       break;
     case "message_end":
       if (frame.event.message?.role === "assistant") {

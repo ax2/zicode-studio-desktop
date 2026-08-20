@@ -234,6 +234,13 @@ describe("task center React app", () => {
     ]);
     const store = renderStore(call, { runtime: { request } });
     await waitFor(() => expect(document.querySelector(".task-center-reply")).toBeTruthy());
+    // The reply box is the primary action for a needs-input task; keep the
+    // "Retry" affordance secondary so the hierarchy is obvious.
+    const retry = Array.from(document.querySelectorAll(".task-center-actions button")).find(
+      (button) => button.textContent === "重试",
+    );
+    expect(retry?.className).toContain("ui-button--secondary");
+    expect(retry?.className).not.toContain("ui-button--primary");
     const input = document.querySelector(".task-center-reply-input") as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "用 /tmp/out 目录" } });
     fireEvent.click(document.querySelector(".task-center-reply button") as HTMLElement);

@@ -232,7 +232,9 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
             <button
               type="button"
               className={`ui-button ui-button--sm${
-                limitReached ? " ui-button--secondary" : " ui-button--primary"
+                task.status === "needs_input" || limitReached
+                  ? " ui-button--secondary"
+                  : " ui-button--primary"
               }`}
               title={limitReached ? retryConfirmText : undefined}
               onClick={() => {

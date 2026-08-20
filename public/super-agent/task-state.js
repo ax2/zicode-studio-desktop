@@ -232,6 +232,22 @@ export async function findDispatchedTaskByInstanceId(readTasks, instanceId) {
   }
 }
 
+/**
+ * Decide whether a runtime event marks a dispatched background task as done.
+ *
+ * `agent_end` fires per low-level run and may be followed by an automatic
+ * retry (`willRetry: true`), so only a non-retrying end is final.
+ * `agent_settled` means the whole run settled with no automatic continuation
+ * left; for a dispatched task that is still running this is the reliable
+ * completion signal (it also fires when the agent waits for input, but then
+ * the task is already `needs_input` / `blocked` and the completion guard in
+ * the caller skips it).
+ */
+export function shouldCompleteDispatchedRun(type, willRetry) {
+  if (type === "agent_end") return willRetry !== true;
+  return type === "agent_settled";
+}
+
 export function markTaskFinished(
   task,
   { status = "done", summary = null, failReason = null, now } = {},

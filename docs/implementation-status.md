@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-20 任务闭环细节打磨
+
+- 完成判定抽成纯函数 `shouldCompleteDispatchedRun(type, willRetry)` 并加
+  单测：`agent_end` 仅在 `willRetry !== true` 时完成，`agent_settled`
+  始终视为可完成信号（调用方再用任务状态守卫），防止自动重试场景提前
+  完成。
+- 需要输入（needs_input）任务卡片的按钮层级修正：「发送回复」是主操作，
+  「重试」降为次级样式，避免用户误把重试当主路径（重试会丢弃待回答的
+  问题重新派发）。
+- 全量 `bun run test`（47/47）、typecheck、Biome 通过；tasks bundle 与
+  app.js / task-state.js 已同步安装目录；桌面端已重启（PID 72824，
+  `/health` ok）。
+
 ## 2026-08-20 派发任务完成态自愈（agent_settled + 持久化兜底）
 
 - 真机验证暴露问题：「每日技术博客文章生成」子代理在 14:23 完成全部工作

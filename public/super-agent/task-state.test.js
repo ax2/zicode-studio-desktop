@@ -13,9 +13,20 @@ import {
   markTaskPaused,
   markTaskResumed,
   normalizeSuperAgentTasks,
+  shouldCompleteDispatchedRun,
 } from "./task-state.js";
 
 describe("super-agent task state", () => {
+  it("completes dispatched runs only on a final agent_end or full settle", () => {
+    expect(shouldCompleteDispatchedRun("agent_end", false)).toBe(true);
+    expect(shouldCompleteDispatchedRun("agent_end", undefined)).toBe(true);
+    expect(shouldCompleteDispatchedRun("agent_end", true)).toBe(false);
+    expect(shouldCompleteDispatchedRun("agent_settled", true)).toBe(true);
+    expect(shouldCompleteDispatchedRun("agent_settled", undefined)).toBe(true);
+    expect(shouldCompleteDispatchedRun("agent_start", false)).toBe(false);
+    expect(shouldCompleteDispatchedRun("message_end", false)).toBe(false);
+  });
+
   it("finds a dispatched task by its persisted child instance id", async () => {
     const readTasks = async () => ({
       ok: true,
