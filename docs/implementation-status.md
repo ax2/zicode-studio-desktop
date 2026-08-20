@@ -1,5 +1,26 @@
 # 实现状态
 
+## 2026-08-20 任务派发修复运行态复核（getSelectedSceneId）
+
+- 用户复测反馈「每日技术博客文章生成」运行仍报 `getSelectedSceneId is
+  not defined`。复核结论：修复代码与安装目录在 13:46 已同步，但桌面实例
+  是当天 4:24 启动的，webview 内存中仍是旧 bundle，点「运行」走的是
+  旧 `sa-dispatch` 处理器，因此报错复现。
+- 验证 1（静态）：`settings-import-contract.test.js` 契约测试通过，
+  全量 `bun run test` 43/43、typecheck、Biome 均绿。
+- 验证 2（服务端）：127.0.0.1:57620 返回的 `native/app.js` 已含
+  `getSelectedSceneId` 导入及调用点。
+- 验证 3（端到端）：新增 `.qa-shots/dispatch-qa.cjs` 回归脚本——向任务
+  中心注入一条临时 pending 任务，模拟用户点击「批准并运行」，任务进入
+  running、绑定子会话 id、failReason 为空、页面零报错；测试任务已精确
+  清理（不触碰真实博客任务）。
+- 处置：桌面实例已重启（新 PID，`/health` ok、pi 0.84.2），现在运行在
+  修复后的 bundle 上。明早 09:00 定时任务与手动重试均走修复路径。
+- 遗留：应用内回复 needs_input 任务的闭环（上一项工作）单测全绿、
+  bundle 已同步；无头环境复核回复框时受会话 runtime 绑定限制
+  （`Runtime request rejected: UnknownInstance`），属环境约束而非代码
+  问题，待桌面端人工确认。
+
 ## 2026-08-20 运行态复核（提交 7488c46b）
 
 - 实例稳定（内存约 299 MB）、`/health` ok、pi 0.84.2、main 与 origin

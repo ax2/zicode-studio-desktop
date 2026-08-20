@@ -454,6 +454,21 @@ class SuperAgentRuntime extends HTMLElement {
             task.result?.failReason || task.failReason || t("Waiting for input."),
           ),
         )}</div>`;
+        if (
+          (task.status === "needs_input" || task.status === "blocked") &&
+          (task.dispatch?.childSessionId || task.dispatch?.childPort)
+        ) {
+          body += `
+            <div class="runtime-reply-row" data-reply-row data-task-id="${escAttr(task.id)}">
+              <textarea
+                class="runtime-reply-input"
+                rows="2"
+                placeholder="${escAttr(t("Answer the agent's question"))}"
+                aria-label="${escAttr(t("Answer the agent's question"))}"
+              ></textarea>
+              <button class="sa-btn sa-btn-approve" data-action="answer" data-task-id="${escAttr(task.id)}" type="button">${t("Send answer")}</button>
+            </div>`;
+        }
         if (hasTargetProject) {
           body += `<div class="runtime-task-target">${t("Project")}: <strong>${esc(projectName)}</strong></div>`;
           body += `
@@ -611,6 +626,19 @@ class SuperAgentRuntime extends HTMLElement {
           const task = this._tasks.find((item) => item.id === taskId);
           if (task) {
             this.dispatchEvent(new CustomEvent("sa-view-session", { detail: task, bubbles: true }));
+          }
+        } else if (action === "answer") {
+          const row = el.closest("[data-reply-row]");
+          const input = row?.querySelector(".runtime-reply-input");
+          const task = this._tasks.find((item) => item.id === taskId);
+          const answer = input?.value?.trim();
+          if (task && answer) {
+            this.dispatchEvent(
+              new CustomEvent("sa-answer-task", {
+                detail: { task, answer },
+                bubbles: true,
+              }),
+            );
           }
         } else if (action === "toggle-history") {
           if (this._historyTaskIds.has(taskId)) {

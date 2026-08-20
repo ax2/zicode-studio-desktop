@@ -121,6 +121,46 @@ describe("super-agent-runtime", () => {
     expect(error?.textContent).not.toContain("getSelectedSceneId");
   });
 
+  it("offers a reply box for needs-input tasks with a child session", async () => {
+    setLocale("zh-CN");
+    mockConfig({
+      tasks: [
+        {
+          id: "task-ask",
+          status: "needs_input",
+          title: "需要确认",
+          targetProject: "/Users/me/project",
+          failReason: "请确认输出目录",
+          dispatch: {
+            childWorkspaceId: "workspace-a",
+            childInstanceId: "instance-a",
+            childSessionId: "session-a",
+          },
+        },
+      ],
+    });
+    const Runtime = customElements.get("super-agent-runtime");
+    const runtime = new Runtime();
+    const answered = vi.fn();
+    runtime.addEventListener("sa-answer-task", answered);
+    document.body.appendChild(runtime);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const card = runtime.querySelector(".runtime-task-card");
+    card.click();
+    const replyRow = runtime.querySelector(".runtime-reply-row");
+    expect(replyRow).not.toBeNull();
+    const input = replyRow?.querySelector(".runtime-reply-input");
+    input.value = "用 /tmp/out";
+    replyRow?.querySelector('[data-action="answer"]')?.click();
+    expect(answered).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: expect.objectContaining({ answer: "用 /tmp/out" }),
+      }),
+    );
+  });
+
   it("starts collapsed by default unless the user explicitly left it open", () => {
     const Runtime = customElements.get("super-agent-runtime");
     const runtime = new Runtime();

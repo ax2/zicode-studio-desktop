@@ -217,6 +217,48 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("answers a needs-input task from the card", async () => {
+    setLocale("zh-CN");
+    const request = vi.fn().mockResolvedValue(undefined);
+    const call = mockCall([
+      {
+        id: "ask",
+        title: "需要确认",
+        status: "needs_input",
+        dispatch: {
+          childWorkspaceId: "workspace-a",
+          childInstanceId: "instance-a",
+          childSessionId: "session-a",
+        },
+      },
+    ]);
+    const store = renderStore(call, { runtime: { request } });
+    await waitFor(() => expect(document.querySelector(".task-center-reply")).toBeTruthy());
+    const input = document.querySelector(".task-center-reply-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "用 /tmp/out 目录" } });
+    fireEvent.click(document.querySelector(".task-center-reply button") as HTMLElement);
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(request).toHaveBeenCalledWith(
+      { type: "prompt", message: "用 /tmp/out 目录" },
+      {
+        workspaceId: "workspace-a",
+        instanceId: "instance-a",
+        sessionId: "session-a",
+      },
+    );
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith(
+        "write_super_agent_tasks",
+        expect.objectContaining({ tasks: expect.any(Array) }),
+      ),
+    );
+    const written = call.mock.calls.find(
+      ([operation]) => operation === "write_super_agent_tasks",
+    )?.[1] as { tasks?: Array<{ status: string }> } | undefined;
+    expect(written?.tasks?.[0].status).toBe("running");
+    store.getState().destroy();
+  });
+
   it("approves a pending task and dispatches it to the project agent", async () => {
     setLocale("en");
     const call = mockCall([

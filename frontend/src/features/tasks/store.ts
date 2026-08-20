@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { t } from "../../shared/i18n.js";
 import { localizeHostError } from "../../shared/hostErrors.js";
 // @ts-expect-error plain JS module without type declarations
-import { markTaskCancelled, markTaskForDispatch, markTaskPaused, normalizeSuperAgentTasks } from "../../../../public/super-agent/task-state.js";
+import { markTaskAnswered, markTaskCancelled, markTaskForDispatch, markTaskPaused, normalizeSuperAgentTasks } from "../../../../public/super-agent/task-state.js";
 import { childTarget, type SuperAgentTask, type TaskFilter } from "./logic";
 
 export interface TaskCenterOptions {
@@ -35,6 +35,7 @@ interface TaskCenterState {
     successMessage?: string,
   ): Promise<void>;
   removeTask(taskId: string): Promise<void>;
+  answerTask(task: SuperAgentTask, answer: string): Promise<void>;
   approveTask(task: SuperAgentTask): Promise<void>;
   pauseTask(task: SuperAgentTask): Promise<void>;
   cancelTask(task: SuperAgentTask): Promise<void>;
@@ -113,6 +114,36 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not update task"),
+          message: localizeHostError(reason).message,
+          type: "error",
+        });
+      }
+    },
+
+    async answerTask(task, answer) {
+      const text = String(answer || "").trim();
+      if (!text) return;
+      const target = childTarget(task);
+      if (!target) {
+        notify({
+          title: t("Task cannot be answered"),
+          message: t("The task is not attached to a running session yet."),
+          type: "warning",
+        });
+        return;
+      }
+      try {
+        if (runtime?.request) {
+          await runtime.request({ type: "prompt", message: text }, target);
+        }
+        await get().updateTask(
+          task.id,
+          (current) => markTaskAnswered(current),
+          t("Answer sent to the project agent."),
+        );
+      } catch (reason) {
+        notify({
+          title: t("Could not send the answer"),
           message: localizeHostError(reason).message,
           type: "error",
         });

@@ -580,6 +580,18 @@ body.super-agent-active .file-sidebar {
   padding: var(--space-1) var(--space-2);
 }
 
+.runtime-reply-row {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.runtime-reply-input {
+  width: 100%;
+  min-height: var(--space-12);
+  resize: vertical;
+}
+
 .runtime-project-picker {
   display: grid;
   gap: var(--space-1);
@@ -11326,6 +11338,21 @@ body.notes-dragging .notes-result-item {
 .task-center-result-copy:focus-visible {
   border-color: var(--border-hover);
   color: var(--text-primary);
+}
+
+.task-center-reply {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+}
+
+.task-center-reply-input {
+  width: 100%;
+  min-height: var(--space-12);
+  resize: vertical;
 }
 
 .task-center-navigation {

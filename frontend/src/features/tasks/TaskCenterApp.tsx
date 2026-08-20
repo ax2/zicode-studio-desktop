@@ -161,12 +161,14 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
   const removeTask = store((state) => state.removeTask);
+  const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
   const limitReached = retryLimitReached(task);
   const rawSummary = taskSummaryText(task);
   const summary = friendlyTaskDispatchError(rawSummary);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [reply, setReply] = useState("");
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -303,6 +305,30 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
             </button>
           ) : null}
         </>
+      ) : null}
+      {["needs_input", "blocked"].includes(task.status) &&
+      task.dispatch?.childSessionId ? (
+        <div className="task-center-reply">
+          <textarea
+            className="task-center-reply-input"
+            rows={2}
+            value={reply}
+            aria-label={t("Answer the agent's question")}
+            placeholder={t("Answer the agent's question")}
+            onChange={(event) => setReply(event.target.value)}
+          />
+          <button
+            type="button"
+            className="ui-button ui-button--primary ui-button--sm"
+            disabled={!reply.trim()}
+            onClick={() => {
+              void answerTask(task, reply);
+              setReply("");
+            }}
+          >
+            {t("Send answer")}
+          </button>
+        </div>
       ) : null}
       <dl>
         <Detail term={t("Project")} value={taskProject(task)} />

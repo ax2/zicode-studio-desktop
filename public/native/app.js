@@ -7,6 +7,7 @@ import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
 import {
   buildTaskComposerPrompt,
   markTaskChildSessionBound,
+  markTaskAnswered,
   markTaskFinished,
 } from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
@@ -1627,6 +1628,56 @@ document.addEventListener("sa-dispatch", (event) => {
       });
     },
   }).catch(showError);
+});
+
+// Answer a `needs_input` / `blocked` task from the Runtime panel: send the
+// reply as a prompt to the already-running child session, then return the
+// task to "running" instead of re-dispatching it.
+document.addEventListener("sa-answer-task", async (event) => {
+  const { task, answer } = event.detail ?? {};
+  if (!task?.id || typeof answer !== "string" || !answer.trim()) return;
+  const dispatch = task.dispatch || {};
+  const childTarget =
+    dispatch.childWorkspaceId &&
+    dispatch.childInstanceId &&
+    dispatch.childSessionId
+      ? {
+          workspaceId: dispatch.childWorkspaceId,
+          instanceId: dispatch.childInstanceId,
+          sessionId: dispatch.childSessionId,
+        }
+      : null;
+  if (!childTarget) {
+    notifications.notify({
+      title: t("Task cannot be answered"),
+      message: t("The task is not attached to a running session yet."),
+      type: "warning",
+    });
+    return;
+  }
+  try {
+    await runtime.request(
+      { type: "prompt", message: answer.trim() },
+      childTarget,
+      { idempotencyKey: randomId() },
+    );
+    await updateSuperAgentTask(window.__picotConfigCall, task.id, (current) =>
+      markTaskAnswered(current),
+    ).catch((error) =>
+      console.warn("[SuperAgent] failed to mark task answered:", error),
+    );
+    notifications.notify({
+      title: t("Answer sent to the project agent."),
+      message: task.title || t("Untitled task"),
+      type: "success",
+    });
+  } catch (error) {
+    notifications.notify({
+      title: t("Could not send the answer"),
+      message: error instanceof Error ? error.message : String(error),
+      type: "error",
+    });
+  }
 });
 
 async function handleSuperAgentStartupSessions(sessions) {

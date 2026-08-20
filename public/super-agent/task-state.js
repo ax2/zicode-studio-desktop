@@ -185,6 +185,33 @@ export function markTaskNeedsInput(task, { question, now } = {}) {
   };
 }
 
+// Record that the user answered a `needs_input` / `blocked` task. The answer
+// is sent to the already-running child session as a prompt; the task returns
+// to "running" instead of being re-dispatched.
+export function markTaskAnswered(task, { now } = {}) {
+  const timestamp = now || new Date().toISOString();
+  const normalized = normalizeSuperAgentTask(task);
+  return {
+    ...normalized,
+    status: "running",
+    result: {
+      ...normalized.result,
+      status: "running",
+      failReason: null,
+    },
+    failReason: null,
+    events: [
+      ...normalized.events,
+      {
+        at: timestamp,
+        type: "answered",
+        status: "running",
+        message: t("Answer sent to the project agent."),
+      },
+    ],
+  };
+}
+
 export function markTaskFinished(
   task,
   { status = "done", summary = null, failReason = null, now } = {},

@@ -5,6 +5,7 @@ import {
   buildProjectAgentPrompt,
   buildSuperAgentNotificationPrompt,
   buildTaskComposerPrompt,
+  markTaskAnswered,
   markTaskFinished,
   markTaskForDispatch,
   markTaskNeedsInput,
@@ -14,6 +15,26 @@ import {
 } from "./task-state.js";
 
 describe("super-agent task state", () => {
+  it("marks a needs-input task as answered and returns it to running", () => {
+    const input = normalizeSuperAgentTasks([
+      {
+        id: "task-ask",
+        status: "needs_input",
+        title: "Clarify",
+        failReason: "需要确认目标目录",
+        dispatch: { childSessionId: "session-1", childInstanceId: "instance-1" },
+      },
+    ])[0];
+    const answered = markTaskAnswered(input);
+    expect(answered.status).toBe("running");
+    expect(answered.failReason).toBeNull();
+    expect(answered.result.status).toBe("running");
+    expect(answered.events.at(-1)).toMatchObject({
+      type: "answered",
+      status: "running",
+    });
+  });
+
   it("normalizes legacy tasks with source, result, dispatch, and event fields", () => {
     const [task] = normalizeSuperAgentTasks([
       {
