@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { t } from "../../shared/i18n";
+// @ts-expect-error plain JS module without type declarations
+import { copyText } from "../../../../public/ui/copy.js";
 import type { StoreApi, UseBoundStore } from "zustand";
 import {
   fingerprintLines,
@@ -36,6 +39,7 @@ export function LanQrModalApp({
   onOpenLink(): void;
 }) {
   const kind = store.kind;
+  const [copied, setCopied] = useState(false);
   return (
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop click-catcher closes the dialog (vanilla behavior) */}
@@ -112,6 +116,20 @@ export function LanQrModalApp({
           <code className={`lan-qr-address${store.url ? "" : " hidden"}`} id="lan-qr-address">
             {store.url}
           </code>
+          <button
+            type="button"
+            className={`ui-button ui-button--secondary ui-button--sm lan-qr-copy${
+              store.url ? "" : " hidden"
+            }`}
+            id="lan-qr-copy"
+            onClick={() => {
+              void copyText(store.url);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1600);
+            }}
+          >
+            {copied ? t("Copied") : t("Copy link")}
+          </button>
           <div
             className={`lan-qr-meta${store.expiryText ? "" : " hidden"}${
               kind === "setup" ? " is-fingerprint" : ""

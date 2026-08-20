@@ -43,6 +43,7 @@ const zhCN = {
   Result: "结果",
   "Open / Print": "打开 / 打印",
   "Open in new tab": "在新标签页打开",
+  "Copy link": "复制链接",
   "Attachment preview": "附件预览",
   "Could not load this attachment": "无法加载此附件",
   "This file type can't be previewed here. Download it or open it in a new tab.":
