@@ -158,6 +158,7 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const approveTask = store((state) => state.approveTask);
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
+  const removeTask = store((state) => state.removeTask);
   const openApp = store((state) => state.openApp);
   const limitReached = retryLimitReached(task);
   const rawSummary = taskSummaryText(task);
@@ -260,6 +261,16 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
               onClick={() => void cancelTask(task)}
             >
               {t("Cancel")}
+            </button>
+          ) : null}
+          {["done", "failed", "cancelled"].includes(task.status) ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              title={t("Remove this task from the list")}
+              onClick={() => void removeTask(task.id)}
+            >
+              {t("Dismiss")}
             </button>
           ) : null}
         </div>

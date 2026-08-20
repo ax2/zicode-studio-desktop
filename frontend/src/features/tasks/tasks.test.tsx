@@ -173,6 +173,32 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("dismisses a finished task from the list", async () => {
+    setLocale("zh-CN");
+    const call = mockCall([
+      { id: "done-1", title: "已完成任务", status: "done" },
+      { id: "keep", title: "运行中任务", status: "running" },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelectorAll(".task-center-card").length).toBe(2));
+    const dismiss = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent === "忽略",
+    );
+    expect(dismiss).toBeTruthy();
+    fireEvent.click(dismiss as HTMLElement);
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith(
+        "write_super_agent_tasks",
+        expect.objectContaining({ tasks: expect.any(Array) }),
+      ),
+    );
+    const written = call.mock.calls.find(
+      ([operation]) => operation === "write_super_agent_tasks",
+    )?.[1] as { tasks?: Array<{ id: string }> } | undefined;
+    expect(written?.tasks?.map((task) => task.id)).toEqual(["keep"]);
+    store.getState().destroy();
+  });
+
   it("approves a pending task and dispatches it to the project agent", async () => {
     setLocale("en");
     const call = mockCall([

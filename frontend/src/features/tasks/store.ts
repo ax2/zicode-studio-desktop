@@ -34,6 +34,7 @@ interface TaskCenterState {
     updater: (task: SuperAgentTask) => SuperAgentTask,
     successMessage?: string,
   ): Promise<void>;
+  removeTask(taskId: string): Promise<void>;
   approveTask(task: SuperAgentTask): Promise<void>;
   pauseTask(task: SuperAgentTask): Promise<void>;
   cancelTask(task: SuperAgentTask): Promise<void>;
@@ -94,6 +95,21 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         if (!response?.ok) throw new Error(t("Could not update task"));
         set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
         if (successMessage) notify({ title: successMessage, type: "success" });
+      } catch (reason) {
+        notify({
+          title: t("Could not update task"),
+          message: localizeHostError(reason).message,
+          type: "error",
+        });
+      }
+    },
+
+    async removeTask(taskId) {
+      const next = get().tasks.filter((task) => task.id !== taskId);
+      try {
+        const response = await call("write_super_agent_tasks", { tasks: next });
+        if (!response?.ok) throw new Error(t("Could not update task"));
+        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
       } catch (reason) {
         notify({
           title: t("Could not update task"),

@@ -1782,6 +1782,7 @@ const zhCN = {
   "Session budget reached": "已达到会话预算",
   "Increase the project budget or start a new session.": "请提高项目预算或开始新会话。",
   "Task returned to pending": "任务已返回等待队列",
+  "Remove this task from the list": "从列表中移除该任务",
   "Task cancelled": "任务已取消",
   "Task paused": "任务已暂停",
   "Task resumed": "任务已恢复",
