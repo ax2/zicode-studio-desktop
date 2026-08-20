@@ -260,6 +260,17 @@ class SuperAgentRuntime extends HTMLElement {
   async _retryAndRun(taskId) {
     const task = this._tasks.find((t) => t.id === taskId);
     if (!task || !isDispatchableProjectPath(task.targetProject)) return;
+    const limitReached =
+      Number.isFinite(Number(task.maxRetries)) &&
+      Number(task.retryCount || 0) >= Number(task.maxRetries);
+    if (
+      limitReached &&
+      globalThis.confirm?.(
+        t("The automatic retry limit has been reached. Retry this task manually?"),
+      ) === false
+    ) {
+      return;
+    }
     const index = this._tasks.findIndex((t) => t.id === taskId);
     this._tasks[index] = markTaskForDispatch({
       ...this._tasks[index],

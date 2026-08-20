@@ -161,6 +161,46 @@ describe("super-agent-runtime", () => {
     expect(updated.failReason).toBeNull();
   });
 
+  it("confirms before retrying a task at the retry limit", async () => {
+    const confirmSpy = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmSpy);
+    try {
+      const call = mockConfig({
+        tasks: [
+          {
+            id: "task-fail",
+            status: "failed",
+            title: "Daily blog post",
+            targetProject: "/Users/me/project",
+            failReason: "timeout",
+            retryCount: 2,
+            maxRetries: 2,
+          },
+        ],
+      });
+      const Runtime = customElements.get("super-agent-runtime");
+      const runtime = new Runtime();
+      const dispatches = [];
+      runtime.addEventListener("sa-dispatch", (event) => dispatches.push(event.detail.id));
+      document.body.appendChild(runtime);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      runtime.querySelector(".runtime-task-card").click();
+      const retry = runtime.querySelector('[data-action="retry-and-run"]');
+      expect(retry).not.toBeNull();
+      retry.click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(dispatches).toEqual([]);
+      expect(lastWrittenTasks(call)).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("offers a reply box for needs-input tasks with a child session", async () => {
     setLocale("zh-CN");
     mockConfig({
