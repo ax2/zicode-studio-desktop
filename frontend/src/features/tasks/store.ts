@@ -53,6 +53,8 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
   const pollIntervalMs = options.pollIntervalMs ?? 3000;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let runtimeRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  let runtimeRetryAttempts = 0;
+  const runtimeRetryDelays = [1200, 2000, 3000, 5000, 8000, 12000];
 
   return create<TaskCenterState>()((set, get) => ({
     tasks: [],
@@ -77,6 +79,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         if (!response?.ok) throw new Error(t("Task service is unavailable"));
         const tasks = normalizeSuperAgentTasks(response.data?.tasks ?? []) as SuperAgentTask[];
         set({ tasks, error: null });
+        runtimeRetryAttempts = 0;
       } catch (reason) {
         const raw = reason instanceof Error ? reason.message : String(reason);
         set({
@@ -86,16 +89,21 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         });
         // A fresh session can race runtime readiness: the first load fails
         // with "unknown instance" before the runtime finishes booting. Retry
-        // once automatically so the user does not have to notice and click
-        // "Retry" on an empty error state.
+        // automatically with backoff so the user does not have to notice and
+        // click "Retry" on an empty error state.
         if (
           !runtimeRetryTimer &&
           /unknown_instance|UnknownInstance|runtime unavailable/i.test(raw)
         ) {
+          const delay =
+            runtimeRetryDelays[
+              Math.min(runtimeRetryAttempts, runtimeRetryDelays.length - 1)
+            ] ?? 1200;
+          runtimeRetryAttempts += 1;
           runtimeRetryTimer = setTimeout(() => {
             runtimeRetryTimer = null;
             void get().load({ quiet: true });
-          }, 1200);
+          }, delay);
         }
       } finally {
         set({ loading: false });

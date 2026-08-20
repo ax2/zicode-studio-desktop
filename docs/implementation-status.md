@@ -1,5 +1,23 @@
 # 实现状态
 
+## 2026-08-20 任务闭环收尾：结果摘要捕获 + 首开重试退避
+
+- 摘要丢失修复：`message_end` 处理里用量记账（`recordDispatchedTaskUsage`，
+  内部有一次 config 读写）排在摘要捕获之前，该调用一旦瞬时失败
+  （如 UnknownInstance）会抛错并跳过摘要捕获，导致任务完成卡片显示通用
+  文案而非代理的真实回复。现在先捕获最终 assistant 文本作为摘要，用量
+  记账移到其后并捕获异常（非致命）。
+- 首开稳定性：任务中心 store 对 runtime 未就绪（unknown_instance /
+  UnknownInstance / runtime unavailable）的自动重试从单次 1.2s 改为带
+  退避的多重重试（1.2s→2s→3s→5s→8s→12s，成功后清零），慢启动/冷启动
+  场景不再需要用户手动点「重试」。
+- 验证：`.qa-shots/task-loop-live.cjs` 端到端全绿——批准并运行 → 真实
+  派发 → 子代理回复 → `agent_end`/`agent_settled` 到达 → 任务自动完成，
+  且完成摘要为子代理真实回复（"OK"），无 failReason、无页面报错、临时
+  任务精确清理。新增多重退避单测；全量 `bun run test`、typecheck、Biome
+  通过；app.js 与 tasks bundle 已同步安装目录；桌面端已重启（PID 32860，
+  `/health` ok）。
+
 ## 2026-08-20 派发任务完成事件断流根因修复（session_bound 后重订阅）
 
 - 端到端 live 复现（`.qa-shots/task-loop-live.cjs`）：任务中心「批准并

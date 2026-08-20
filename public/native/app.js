@@ -1753,7 +1753,9 @@ async function handleBackgroundRuntimeEvent(frame) {
     case "message_end":
       if (frame.event.message?.role === "assistant") {
         sidebar?.markUnread(sessionId);
-        await recordDispatchedTaskUsage(frame);
+        // Capture the final assistant text as the task summary before any
+        // fallible usage bookkeeping: a transient config-call failure must
+        // not silently drop the result summary.
         const instanceId = frame.target?.instanceId;
         if (instanceId && dispatchedInstances.has(instanceId)) {
           const blocks = Array.isArray(frame.event.message?.content)
@@ -1766,6 +1768,9 @@ async function handleBackgroundRuntimeEvent(frame) {
             .trim();
           if (text) dispatchedSummaries.set(instanceId, text);
         }
+        await recordDispatchedTaskUsage(frame).catch((error) =>
+          console.warn("[SuperAgent] failed to record dispatched task usage:", error),
+        );
       }
       break;
     case "session_bound":

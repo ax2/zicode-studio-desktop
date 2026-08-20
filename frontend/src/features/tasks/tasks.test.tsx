@@ -443,4 +443,30 @@ describe("task center store host errors", () => {
     expect(store.getState().error).toBeNull();
     store.getState().destroy();
   });
+
+  it("keeps retrying with backoff while the runtime is not ready", async () => {
+    vi.useFakeTimers();
+    try {
+      const call = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Runtime request rejected: UnknownInstance"))
+        .mockRejectedValueOnce(new Error("Runtime request rejected: UnknownInstance"))
+        .mockRejectedValueOnce(new Error("Runtime request rejected: UnknownInstance"))
+        .mockResolvedValueOnce({
+          ok: true,
+          data: { tasks: [{ id: "run", title: "Running research", status: "running" }] },
+        });
+      const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
+      await store.getState().load();
+      expect(store.getState().error).toBeTruthy();
+      // Backoff delays: 1200 + 2000 + 3000 ms; the 4th attempt succeeds.
+      await vi.advanceTimersByTimeAsync(7000);
+      expect(call).toHaveBeenCalledTimes(4);
+      expect(store.getState().tasks.length).toBe(1);
+      expect(store.getState().error).toBeNull();
+      store.getState().destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
