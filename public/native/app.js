@@ -906,6 +906,7 @@ const automationApp = setupAutomationApp({
   getTarget: () => target,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   notify: notifications.notify,
+  notifySystem: (title, message) => notifyDesktop(title, message),
 });
 const idphotoApp = setupIdPhotoApp({
   getTarget: () => ({

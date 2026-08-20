@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-20 需要审批的自动化触发时也弹 Windows 系统通知
+
+- 延伸：桌面系统通知此前只覆盖任务完成/需要输入；现在「每次运行前要求
+  批准」的自动化到期时，除应用内 toast 外也会弹系统通知（标题 + 工作流
+  名），用户不在应用前也能看到待审批项。
+- 实现：automation store 增加 `notifySystem` 回调（tick 审批分支调用），
+  app.js 传入 `notifyDesktop`；新增单测断言审批 tick 会调用系统通知。
+- 全量 `bun run test`、typecheck、Biome 通过；automation bundle 与 app.js
+  已同步安装目录；桌面端已重启（PID 64380，`/health` ok）。
+
 ## 2026-08-20 需要审批的定时工作流不再"只记历史不建任务"
 
 - 真实缺口：调度器 tick 对 `requireApproval` 的到期工作流只调用

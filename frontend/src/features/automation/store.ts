@@ -25,6 +25,7 @@ export interface AutomationAppOptions {
   getTarget?: () => { sceneId?: string; cwd?: string } | null;
   openApp?: (pluginId: string) => void;
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
+  notifySystem?: (title: string, message: string) => void;
   confirmRemove?: (message: string) => boolean | Promise<boolean>;
   pollIntervalMs?: number;
   retryDelayMs?: number;
@@ -161,6 +162,7 @@ export function createAutomationStore(options: AutomationAppOptions) {
                 message: workflow.title,
                 type: "warning",
               });
+              options.notifySystem?.(t("Automation needs approval"), workflow.title);
             }
           } catch {
             // Keep scheduling the remaining due workflows; a single broken

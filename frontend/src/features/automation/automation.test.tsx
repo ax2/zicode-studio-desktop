@@ -193,7 +193,8 @@ describe("automation store host errors", () => {
 
   it("creates an approval task when a due workflow requires approval", async () => {
     const call = mockCall();
-    const store = createAutomationStore({ call });
+    const notifySystem = vi.fn();
+    const store = createAutomationStore({ call, notifySystem });
     call.mockImplementation(async (operation: string, params?: unknown) => {
       const p = (params ?? {}) as Record<string, unknown>;
       if (operation === "automation_workspace" && p.action === "list") {
@@ -240,6 +241,10 @@ describe("automation store host errors", () => {
       autoDispatch: false,
     });
     expect(task?.status).toBe("pending");
+    expect(notifySystem).toHaveBeenCalledWith(
+      expect.any(String),
+      "Daily report",
+    );
     store.getState().destroy();
   });
 });
