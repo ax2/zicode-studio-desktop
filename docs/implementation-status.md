@@ -1,5 +1,25 @@
 # 实现状态
 
+## 2026-08-20 Automation 恢复默认启用后的加载守卫补位
+
+- 背景：上一项把 Automation 翻为默认启用后，文档此前标注的「Automation
+  存在同类潜在竞态，启用前再补守卫」变为现实义务。复核 `store.ts`：
+  其 `load()` 只有 loading 互斥，无序号守卫——早到的 403/unknown instance
+  失败若晚返回会覆盖成功状态；且调度器在应用启动即 tick 加载，若运行时
+  尚未就绪，首次打开自动化中心会显示错误横幅直到 60s 后的下一次 tick。
+- 改动（`frontend/src/features/automation/store.ts`）：
+  - `load()` 增加 `loadSeq` 序号守卫：过期请求的结果（成功或失败）一律
+    丢弃，与习惯/网页监控/知识图谱/剪贴板/文章创作一致；
+  - 失败且匹配运行时就绪类错误（unknown_instance / UnknownInstance /
+    runtime unavailable / not ready / 403）时，按 1.2s→2s→3s→5s→8s→12s
+    退避自动重试（与任务中心同款），首次打开自愈，不再等下一次 tick；
+  - `destroy()` 清理重试定时器，防止切场景后残留触发。
+- 验证：新增 2 项 store 单测（退避重试收敛、过期失败不覆盖新结果）；
+  自动化测试 15/15、全量 158 文件 / 1143 用例全绿，typecheck 通过，
+  改动文件 Biome 干净（全仓 109 条既有 warning 与此无关）；automation
+  bundle 已重建并同步安装目录；无头 UI 复测自动化/文章创作渲染正常、
+  零控制台报错。
+
 ## 2026-08-20 Tasks 与 Automation 恢复默认启用（使用闭环已完备）
 
 - 背景：08-19 因「缺少后台 Host Runner」将 Tasks/Automation 默认禁用；08-20
