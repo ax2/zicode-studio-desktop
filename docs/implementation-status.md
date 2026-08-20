@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-20 智能收件箱面板错误文案统一（共享映射）
+
+- 任务中心与自动化历史此前已显示友好错误文案，但智能收件箱运行时面板的
+  失败卡片仍直接展示原始 JS 报错（如 `getSelectedSceneId is not defined`）。
+- 把 `friendlyTaskDispatchError` 抽成公共模块 `public/super-agent/
+  friendly-errors.js`，面板失败卡片与 app.js 派发失败通知统一走该映射；
+  实测面板显示「任务派发失败：程序内部错误，请重试。」，无原始标识符。
+- 新增面板单测覆盖友好文案渲染；全量 `bun run test`、typecheck、Biome
+  通过；组件与 app.js 已同步安装目录。
+
 ## 2026-08-20 移动端补上文件浏览入口
 
 - 此前文件浏览器的切换按钮在顶栏右侧（`.header-right`），移动端整个

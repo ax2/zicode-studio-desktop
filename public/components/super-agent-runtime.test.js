@@ -95,6 +95,32 @@ describe("super-agent-runtime", () => {
     ).not.toBeNull();
   });
 
+  it("shows a friendly reason for internal dispatch errors", async () => {
+    setLocale("zh-CN");
+    mockConfig({
+      tasks: [
+        {
+          id: "task-fail",
+          status: "failed",
+          title: "每日技术博客文章生成",
+          targetProject: "/Users/me/project",
+          failReason: "getSelectedSceneId is not defined",
+        },
+      ],
+    });
+    const Runtime = customElements.get("super-agent-runtime");
+    const runtime = new Runtime();
+    document.body.appendChild(runtime);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const card = runtime.querySelector(".runtime-task-card");
+    card.click();
+    const error = runtime.querySelector(".runtime-task-error");
+    expect(error?.textContent).toContain("任务派发失败");
+    expect(error?.textContent).not.toContain("getSelectedSceneId");
+  });
+
   it("starts collapsed by default unless the user explicitly left it open", () => {
     const Runtime = customElements.get("super-agent-runtime");
     const runtime = new Runtime();

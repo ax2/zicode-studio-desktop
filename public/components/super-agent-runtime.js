@@ -20,6 +20,7 @@ import {
 } from "../super-agent/task-state.js";
 import { setupResizablePanel } from "../ui/resizable-panel.js";
 import { t } from "../i18n.js";
+import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 
 class SuperAgentRuntime extends HTMLElement {
   connectedCallback() {
@@ -448,7 +449,11 @@ class SuperAgentRuntime extends HTMLElement {
         task.status === "blocked" ||
         task.status === "needs_input"
       ) {
-        body += `<div class="runtime-task-error">${esc(task.result?.failReason || task.failReason || t("Waiting for input."))}</div>`;
+        body += `<div class="runtime-task-error">${esc(
+          friendlyTaskDispatchError(
+            task.result?.failReason || task.failReason || t("Waiting for input."),
+          ),
+        )}</div>`;
         if (hasTargetProject) {
           body += `<div class="runtime-task-target">${t("Project")}: <strong>${esc(projectName)}</strong></div>`;
           body += `

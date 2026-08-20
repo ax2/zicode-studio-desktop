@@ -10,6 +10,7 @@ import {
   markTaskFinished,
 } from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
+import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { applyTheme, getCurrentTheme } from "../themes.js";
 import { ConvNav } from "./react/conv-nav.js";
 import { setupMessagesInsets } from "../ui/layout-insets.js";
@@ -1603,11 +1604,7 @@ document.addEventListener("sa-dispatch", (event) => {
     },
     onDispatchError: (task, error) => {
       const raw = error instanceof Error ? error.message : String(error || "");
-      const message = /(?:is not defined|ReferenceError|TypeError|SyntaxError|undefined is not a function|cannot read properties of (?:undefined|null)|unexpected token)/i.test(
-        raw,
-      )
-        ? t("Task dispatch failed due to an internal error")
-        : raw;
+      const message = friendlyTaskDispatchError(raw);
       notifications.notify({
         title: t("Task failed"),
         message: `${task.title || t("Untitled task")}：${message}`,
