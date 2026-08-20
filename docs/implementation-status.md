@@ -1,5 +1,26 @@
 # 实现状态
 
+## 2026-08-20 派发任务完成事件断流根因修复（session_bound 后重订阅）
+
+- 端到端 live 复现（`.qa-shots/task-loop-live.cjs`）：任务中心「批准并
+  运行」→ 真实派发 → 子代理回复 OK，但任务一直停留在 running。抓
+  websocket 帧后发现：子运行时的 `message_end` 到了，而 `agent_end` /
+  `agent_settled` 始终不到。
+- 根因：host 只把运行时事件转发给 target 完全匹配的订阅。派发时订阅的
+  是临时 sessionId（temporary-xxx）；子运行时会话绑定后 sessionId 升级
+  为持久 id，后续事件（含 agent_end/agent_settled）与旧订阅不再匹配，
+  被 host 过滤掉——任务因此永远卡在 running（桌面端每日博客任务同样是
+  这个原因，之前 agent_settled 自愈也救不回来，因为事件根本没到）。
+- 修复：`bindDispatchedChildSession` 在绑定持久 sessionId 后，用新
+  sessionId 对同一 instance 重新 `adapter.subscribeTarget`（记录原始
+  dispatch target 于 `dispatchedTargets`，完成后清理）。完成后事件恢复
+  送达，任务自动标记 done 并弹通知。
+- 验证：重跑 task-loop-live 全绿——帧中出现 `agent_end` / `agent_settled`
+  （各 3 次），任务 pending → running → done（`completed:done`、无
+  failReason、finishedAt 有值），临时任务精确清理、页面零报错。
+- 全量 `bun run test`、typecheck、Biome 通过；app.js 已同步安装目录；
+  桌面端已重启（PID 68848，`/health` ok）。
+
 ## 2026-08-20 任务中心首开自动重试 + 帮助文档补全 + live 验证解锁
 
 - 问题：新建会话后首次打开任务中心，store 的初始加载偶发与 runtime 就绪

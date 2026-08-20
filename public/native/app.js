@@ -308,6 +308,10 @@ let superAgentEnsureInFlight = null;
 // caused a "Cannot access 'dispatchedInstances' before initialization" TDZ
 // crash that could abort session creation on fresh installs.
 const dispatchedInstances = new Map();
+// Keep the original dispatch target per child instance so the client can
+// re-subscribe after the runtime upgrades its temporary session id (see
+// bindDispatchedChildSession).
+const dispatchedTargets = new Map();
 // Last assistant text per dispatched child instance, used as the completion
 // summary when the child runtime ends (`agent_end`).
 const dispatchedSummaries = new Map();
@@ -1610,6 +1614,7 @@ document.addEventListener("sa-dispatch", (event) => {
       updateSuperAgentTask(window.__picotConfigCall, taskId, updater),
     registerDispatchTarget: (dispatchTarget, taskId) => {
       dispatchedInstances.set(dispatchTarget.instanceId, taskId);
+      dispatchedTargets.set(dispatchTarget.instanceId, dispatchTarget);
       adapter.subscribeTarget?.(dispatchTarget);
     },
     onDispatchError: (task, error) => {
@@ -1777,6 +1782,7 @@ async function completeDispatchedTask(instanceId, completionMessage) {
   if (!instanceId) return;
   const mappedTaskId = dispatchedInstances.get(instanceId);
   dispatchedInstances.delete(instanceId);
+  dispatchedTargets.delete(instanceId);
   const summary = dispatchedSummaries.get(instanceId) || null;
   dispatchedSummaries.delete(instanceId);
   const taskId =
@@ -1865,6 +1871,16 @@ async function bindDispatchedChildSession(instanceId, boundSessionId) {
   await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
     markTaskChildSessionBound(task, { childSessionId: boundSessionId }),
   ).catch((error) => console.warn("[SuperAgent] failed to bind child session:", error));
+  // The host forwards runtime events only to subscriptions whose target
+  // matches the event target exactly. The child runtime upgrades its
+  // temporary session id to the persisted one on `session_bound`, so the
+  // original temporary-session subscription would miss every later event
+  // (agent_end / agent_settled) and the task would stay "running" forever.
+  // Re-subscribe with the bound id to keep receiving completion events.
+  const dispatchTarget = dispatchedTargets.get(instanceId);
+  if (dispatchTarget?.workspaceId && dispatchTarget?.instanceId) {
+    adapter.subscribeTarget?.({ ...dispatchTarget, sessionId: boundSessionId });
+  }
 }
 
 async function recordDispatchedTaskUsage(frame) {
