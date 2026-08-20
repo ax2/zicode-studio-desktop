@@ -918,9 +918,10 @@ export function GeneralTab({
               onClick={() => {
                 if (!updater.enabled) {
                   // Auto-updates are not configured for this build; send the
-                  // user to the GitHub Releases page through the global
-                  // external-link handler instead of an inert disabled button.
-                  const url = "https://github.com/ax2/zicode-studio-desktop/releases";
+                  // user to the project homepage (the repo has no GitHub
+                  // Releases channel; /releases would 404) instead of an
+                  // inert disabled button.
+                  const url = "https://github.com/ax2/zicode-studio-desktop";
                   const anchor = document.createElement("a");
                   anchor.href = url;
                   anchor.target = "_blank";
