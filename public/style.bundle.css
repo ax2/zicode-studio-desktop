@@ -11296,6 +11296,38 @@ body.notes-dragging .notes-result-item {
   text-decoration: underline;
 }
 
+.task-center-result-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.task-center-result-row .task-center-result {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-center-result-copy {
+  flex: 0 0 auto;
+  min-width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-center-result-copy:hover,
+.task-center-result-copy:focus-visible {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
 .task-center-navigation {
   display: grid;
   gap: var(--space-1);

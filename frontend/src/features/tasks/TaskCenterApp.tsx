@@ -1,9 +1,11 @@
 import type { Root } from "react-dom/client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 import { friendlyTaskDispatchError } from "../../shared/hostErrors";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+// @ts-expect-error plain JS module without type declarations
+import { copyText } from "../../../../public/ui/copy.js";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
 import {
@@ -164,6 +166,14 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const rawSummary = taskSummaryText(task);
   const summary = friendlyTaskDispatchError(rawSummary);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    },
+    [],
+  );
   const openSession = () => {
     document.dispatchEvent(new CustomEvent("sa-view-session", { detail: task }));
     openApp?.("core.chat");
@@ -311,12 +321,28 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
       </dl>
       {limitReached ? <p className="task-center-result">{t("Retry limit reached")}</p> : null}
       {summary ? (
-        <p
-          className="task-center-result"
-          title={rawSummary !== summary ? rawSummary : undefined}
-        >
-          {summary}
-        </p>
+        <div className="task-center-result-row">
+          <p
+            className="task-center-result"
+            title={rawSummary !== summary ? rawSummary : undefined}
+          >
+            {summary}
+          </p>
+          <button
+            type="button"
+            className="task-center-result-copy"
+            aria-label={t("Copy")}
+            title={t("Copy")}
+            onClick={() => {
+              void copyText(rawSummary);
+              setCopied(true);
+              if (copyTimer.current) clearTimeout(copyTimer.current);
+              copyTimer.current = setTimeout(() => setCopied(false), 1600);
+            }}
+          >
+            {copied ? t("Copied") : "⧉"}
+          </button>
+        </div>
       ) : null}
       {task.events?.length ? (
         <details className="task-center-history">

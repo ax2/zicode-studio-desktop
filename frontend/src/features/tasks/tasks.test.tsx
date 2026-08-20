@@ -199,6 +199,24 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("copies the task result summary", async () => {
+    setLocale("zh-CN");
+    const call = mockCall([
+      {
+        id: "done-summary",
+        title: "每日技术博客文章生成",
+        status: "done",
+        result: { status: "done", summary: "已生成 3 篇技术文章：Cerebras / Turbovec / GLM" },
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelector(".task-center-result-copy")).toBeTruthy());
+    const copy = document.querySelector(".task-center-result-copy") as HTMLElement;
+    fireEvent.click(copy);
+    expect(copy.textContent).toContain("已复制");
+    store.getState().destroy();
+  });
+
   it("approves a pending task and dispatches it to the project agent", async () => {
     setLocale("en");
     const call = mockCall([
