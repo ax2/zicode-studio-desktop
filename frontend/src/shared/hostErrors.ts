@@ -187,3 +187,18 @@ export function friendlyPluginError(error: unknown): string {
   }
   return message;
 }
+
+// Background task dispatch (Agent Inbox / automations) can fail with raw
+// client-side JavaScript errors such as "getSelectedSceneId is not defined"
+// (a forgotten import) or a TypeError from a stale bundle. Those messages are
+// meaningless to end users, so the task center and automation history map them
+// to a friendly retry prompt while keeping the technical detail available for
+// support (the original string is preserved in the task data and tooltips).
+const INTERNAL_DISPATCH_ERROR = /(?:is not defined|ReferenceError|TypeError|SyntaxError|undefined is not a function|cannot read properties of (?:undefined|null)|unexpected token)/i;
+
+export function friendlyTaskDispatchError(reason: string): string {
+  if (!reason) return "";
+  return INTERNAL_DISPATCH_ERROR.test(reason)
+    ? t("Task dispatch failed due to an internal error")
+    : reason;
+}

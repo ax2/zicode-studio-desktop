@@ -1,6 +1,7 @@
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { friendlyTaskDispatchError } from "../../shared/hostErrors";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
@@ -158,6 +159,8 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const cancelTask = store((state) => state.cancelTask);
   const openApp = store((state) => state.openApp);
   const limitReached = retryLimitReached(task);
+  const rawSummary = taskSummaryText(task);
+  const summary = friendlyTaskDispatchError(rawSummary);
   const openSession = () => {
     document.dispatchEvent(new CustomEvent("sa-view-session", { detail: task }));
     openApp?.("core.chat");
@@ -257,8 +260,13 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
         ) : null}
       </dl>
       {limitReached ? <p className="task-center-result">{t("Retry limit reached")}</p> : null}
-      {taskSummaryText(task) ? (
-        <p className="task-center-result">{taskSummaryText(task)}</p>
+      {summary ? (
+        <p
+          className="task-center-result"
+          title={rawSummary !== summary ? rawSummary : undefined}
+        >
+          {summary}
+        </p>
       ) : null}
       {task.events?.length ? (
         <details className="task-center-history">
@@ -269,8 +277,17 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
             {[...task.events].reverse().slice(0, 12).map((event) => (
               <li key={event.at ?? `${event.status}-${event.message}`}>
                 <time>{formatDate(event.at)}</time>
-                <span>
-                  {t(event.message || (event.status ? statusLabel(event.status) : "event"))}
+                <span
+                  title={
+                    event.message &&
+                    friendlyTaskDispatchError(event.message) !== event.message
+                      ? event.message
+                      : undefined
+                  }
+                >
+                  {friendlyTaskDispatchError(
+                    t(event.message || (event.status ? statusLabel(event.status) : "event")),
+                  )}
                 </span>
               </li>
             ))}

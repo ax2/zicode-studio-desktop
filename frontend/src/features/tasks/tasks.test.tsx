@@ -84,6 +84,24 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("shows a friendly message for internal dispatch errors", async () => {
+    setLocale("zh-CN");
+    const call = mockCall([
+      {
+        id: "fail",
+        title: "每日技术博客文章生成",
+        status: "failed",
+        failReason: "getSelectedSceneId is not defined",
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelector(".task-center-card")).toBeTruthy());
+    const result = document.querySelector(".task-center-result");
+    expect(result?.textContent).toContain("任务派发失败");
+    expect(result?.getAttribute("title")).toBe("getSelectedSceneId is not defined");
+    store.getState().destroy();
+  });
+
   it("approves a pending task and dispatches it to the project agent", async () => {
     setLocale("en");
     const call = mockCall([

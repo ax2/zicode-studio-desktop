@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-20 任务派发失败文案友好化
+
+- 承接 `getSelectedSceneId` 修复：任务中心/自动化历史此前会把原始 JS
+  错误串（如 `getSelectedSceneId is not defined`）直接展示给用户，费解
+  且无恢复提示。新增 `friendlyTaskDispatchError`（`shared/hostErrors.ts`）：
+  把 ReferenceError/TypeError/SyntaxError 等客户端内部错误映射为
+  「任务派发失败：程序内部错误，请重试。」，其余可读信息保持原样。
+- 任务卡片与运行历史均应用该映射；原始技术细节保留在元素 `title`
+  悬停提示和持久化数据中，便于排查。中英文案走共享 i18n。
+- 实测：任务中心那条 08-20 失败任务现显示友好文案 + 原始报错 tooltip；
+  新增单测覆盖映射与卡片渲染；全量 `bun run test`、typecheck、Biome
+  通过；bundle 已同步安装目录。
+
 ## 2026-08-20 任务派发 ReferenceError 修复（getSelectedSceneId 未导入）
 
 - 用户实测：任务中心的「每日技术博客文章生成」运行时报

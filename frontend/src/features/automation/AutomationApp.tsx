@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { friendlyTaskDispatchError } from "../../shared/hostErrors";
 import { Select } from "../../shared/Select";
 import {
   AUTOMATION_FILTERS,
@@ -372,7 +373,16 @@ function WorkflowCard({
               <li key={run.taskId ?? `${run.startedAt ?? "run"}-${run.status}`}>
                 <time>{formatDate(run.startedAt)}</time>
                 <span className="ui-badge">{t(run.status)}</span>
-                <span>{run.message || run.taskId || ""}</span>
+                <span
+                  title={
+                    run.message &&
+                    friendlyTaskDispatchError(run.message) !== run.message
+                      ? run.message
+                      : undefined
+                  }
+                >
+                  {friendlyTaskDispatchError(t(run.message || run.taskId || ""))}
+                </span>
               </li>
             ))}
           </ol>

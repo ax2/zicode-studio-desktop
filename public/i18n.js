@@ -1869,6 +1869,8 @@ const zhCN = {
   "Approve and run": "批准并运行",
   "Task approved and dispatched": "任务已批准并派发",
   "Could not approve task": "无法批准任务",
+  "Task dispatch failed due to an internal error":
+    "任务派发失败：程序内部错误，请重试。",
   "Run now": "立即运行",
   Disable: "禁用",
   Enable: "启用",

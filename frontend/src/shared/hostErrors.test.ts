@@ -2,11 +2,28 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "./i18n.js";
 import {
   friendlyPluginError,
+  friendlyTaskDispatchError,
   isRuntimeProcessClosedError,
   localizeHostError,
 } from "./hostErrors.js";
 
 describe("host error localization", () => {
+  it("maps raw client-side dispatch errors to a friendly retry message", () => {
+    setLocale("zh-CN");
+    expect(friendlyTaskDispatchError("getSelectedSceneId is not defined")).toBe(
+      "任务派发失败：程序内部错误，请重试。",
+    );
+    expect(friendlyTaskDispatchError("ReferenceError: x is not defined")).toBe(
+      "任务派发失败：程序内部错误，请重试。",
+    );
+    expect(friendlyTaskDispatchError("TypeError: Cannot read properties of undefined")).toBe(
+      "任务派发失败：程序内部错误，请重试。",
+    );
+    // Non-internal failures keep their readable message.
+    expect(friendlyTaskDispatchError("timeout")).toBe("timeout");
+    expect(friendlyTaskDispatchError("")).toBe("");
+  });
+
   it("recognizes runtime process-closed errors in every phrasing the host emits", () => {
     expect(isRuntimeProcessClosedError(new Error("Pi RPC request failed: ProcessClosed"))).toBe(
       true,
