@@ -304,6 +304,9 @@ let superAgentEnsureInFlight = null;
 // caused a "Cannot access 'dispatchedInstances' before initialization" TDZ
 // crash that could abort session creation on fresh installs.
 const dispatchedInstances = new Map();
+// Last assistant text per dispatched child instance, used as the completion
+// summary when the child runtime ends (`agent_end`).
+const dispatchedSummaries = new Map();
 
 const remoteAuth = await resolveRemoteAuth();
 const hostFetch = createAuthenticatedHostFetch({
@@ -1660,12 +1663,67 @@ async function handleBackgroundRuntimeEvent(frame) {
       if (pluginShell?.getActivePluginId() !== "core.chat") {
         pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "success" });
       }
-      if (frame.event?.type === "agent_end") dispatchedInstances.delete(frame.target?.instanceId);
+      if (frame.event?.type === "agent_end") {
+        const instanceId = frame.target?.instanceId;
+        const taskId = dispatchedInstances.get(instanceId);
+        dispatchedInstances.delete(instanceId);
+        const summary = dispatchedSummaries.get(instanceId) || null;
+        dispatchedSummaries.delete(instanceId);
+        if (taskId) {
+          // The project agent finished: mark the owning task completed so it
+          // does not stay "running" forever, and tell the user the outcome.
+          const completionMessage =
+            summary || t("Project agent ended. Review the child session for details.");
+          let marked = false;
+          let taskTitle = "";
+          await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
+            {
+              if (task.status !== "running" && task.status !== "pending") return task;
+              marked = true;
+              taskTitle = task.title || t("Untitled task");
+              return markTaskFinished(task, { summary: completionMessage });
+            },
+          ).catch((error) =>
+            console.warn("[SuperAgent] failed to mark dispatched task done:", error),
+          );
+          if (marked) {
+            const notificationMessage =
+              completionMessage.length > 160
+                ? `${completionMessage.slice(0, 160)}…`
+                : completionMessage;
+            notifications.notify({
+              title: t("Task completed"),
+              message: `${taskTitle}：${notificationMessage}`,
+              type: "success",
+              action: {
+                label: t("Open tasks"),
+                run: () => window.dispatchEvent(new CustomEvent("zicode:open-tasks")),
+              },
+            });
+            pluginShell?.setActivityBadge("com.zicode.tasks", {
+              count: 1,
+              tone: "success",
+            });
+          }
+        }
+      }
       break;
     case "message_end":
       if (frame.event.message?.role === "assistant") {
         sidebar?.markUnread(sessionId);
         await recordDispatchedTaskUsage(frame);
+        const instanceId = frame.target?.instanceId;
+        if (instanceId && dispatchedInstances.has(instanceId)) {
+          const blocks = Array.isArray(frame.event.message?.content)
+            ? frame.event.message.content
+            : [];
+          const text = blocks
+            .filter((block) => block?.type === "text" && typeof block.text === "string")
+            .map((block) => block.text)
+            .join("\n")
+            .trim();
+          if (text) dispatchedSummaries.set(instanceId, text);
+        }
       }
       break;
     case "session_bound":
