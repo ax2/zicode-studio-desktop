@@ -1694,11 +1694,14 @@ async function handleBackgroundRuntimeEvent(frame) {
             summary || t("Project agent ended. Review the child session for details.");
           let marked = false;
           let taskTitle = "";
+          let taskTargetProject = "";
           await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
             {
               if (task.status !== "running" && task.status !== "pending") return task;
               marked = true;
               taskTitle = task.title || t("Untitled task");
+              taskTargetProject =
+                task.targetProject || task.dispatch?.targetProject || "";
               return markTaskFinished(task, { summary: completionMessage });
             },
           ).catch((error) =>
@@ -1709,13 +1712,46 @@ async function handleBackgroundRuntimeEvent(frame) {
               completionMessage.length > 160
                 ? `${completionMessage.slice(0, 160)}…`
                 : completionMessage;
+            // Land in the target project's most recent session so generated
+            // output is one click away; fall back to the task center when the
+            // project has no session yet.
+            const normalize = (value) =>
+              String(value || "")
+                .replace(/^\\\\\?\\/, "")
+                .replace(/^\\\?\\/, "")
+                .replace(/[\\/]+/g, "/")
+                .replace(/\/+$/, "");
+            const normalizedTarget = normalize(taskTargetProject);
+            const targetSession =
+              taskTargetProject &&
+              (sidebar?.sessions ?? [])
+                .filter(
+                  (session) =>
+                    session.projectPath &&
+                    normalize(session.projectPath) === normalizedTarget,
+                )
+                .sort(
+                  (left, right) =>
+                    (Number(right.modifiedAtMs) || 0) -
+                    (Number(left.modifiedAtMs) || 0),
+                )[0];
             notifications.notify({
               title: t("Task completed"),
               message: `${taskTitle}：${notificationMessage}`,
               type: "success",
               action: {
-                label: t("Open tasks"),
-                run: () => window.dispatchEvent(new CustomEvent("zicode:open-tasks")),
+                label: targetSession ? t("Open workspace") : t("Open tasks"),
+                run: () => {
+                  if (!targetSession) {
+                    window.dispatchEvent(new CustomEvent("zicode:open-tasks"));
+                    return;
+                  }
+                  void openSessionInProject({
+                    id: targetSession.id,
+                    projectPath: targetSession.projectPath,
+                    workspaceId: targetSession.workspaceId,
+                  }).catch(showError);
+                },
               },
             });
             pluginShell?.setActivityBadge("com.zicode.tasks", {
