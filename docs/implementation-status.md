@@ -1,5 +1,22 @@
 # 实现状态
 
+## 2026-08-20 需要审批的定时工作流不再"只记历史不建任务"
+
+- 真实缺口：调度器 tick 对 `requireApproval` 的到期工作流只调用
+  `record_run`（写一条 approval_required 历史），从不创建任务——任务中心
+  永远等不到可批准的审批任务，与帮助文档"到期后任务停在需要批准状态"
+  不符。
+- 修复：tick 对到期工作流统一走 `enqueue`（创建 pending 任务 +
+  autoDispatch=false + 记录 queued 历史），需要审批时额外弹「自动化需要
+  审批」通知。非审批路径行为不变（enqueue + autoDispatch=true，运行时
+  面板自动派发）。
+- 验证：新增单测（tick 对需审批到期工作流写入 autoDispatch=false 的
+  pending 任务）；`.qa-shots/scheduler-live.cjs` 端到端通过——种入到期
+  审批工作流 → 调度器 tick 生成任务（trigger=schedule、status=pending）→
+  nextRunAt 推进、approvalPending=false → 精确清理。
+- 全量 `bun run test`、typecheck、Biome 通过；automation bundle 已重建
+  并同步安装目录；桌面端已重启（PID 58852，`/health` ok）。
+
 ## 2026-08-20 桌面系统通知（任务完成/需要输入时弹 Windows 通知）
 
 - 场景：窗口最小化或切到其它应用时，派发任务完成/需要输入只有应用内

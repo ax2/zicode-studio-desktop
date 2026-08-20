@@ -190,6 +190,58 @@ describe("automation store host errors", () => {
     expect(readTasks).toHaveBeenCalledTimes(2);
     store.getState().destroy();
   });
+
+  it("creates an approval task when a due workflow requires approval", async () => {
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    call.mockImplementation(async (operation: string, params?: unknown) => {
+      const p = (params ?? {}) as Record<string, unknown>;
+      if (operation === "automation_workspace" && p.action === "list") {
+        return {
+          ok: true,
+          data: {
+            workflows: [
+              {
+                ...WORKFLOW,
+                id: "wf-approve",
+                enabled: true,
+                schedule: "daily",
+                dailyTime: "00:00",
+                requireApproval: true,
+                approvalPending: false,
+                nextRunAt: new Date(Date.now() - 60_000).toISOString(),
+              },
+            ],
+          },
+        };
+      }
+      if (operation === "read_super_agent_tasks") {
+        return { ok: true, data: { tasks: [] } };
+      }
+      if (operation === "automation_workspace" && p.action === "record_run") {
+        return { ok: true, data: {} };
+      }
+      return { ok: true, data: {} };
+    });
+    await store.getState().tick();
+    const write = call.mock.calls.find(
+      ([operation, params]) =>
+        operation === "write_super_agent_tasks" &&
+        (params as { tasks?: unknown[] })?.tasks !== undefined,
+    );
+    const tasks = (write?.[1] as { tasks: Array<Record<string, unknown>> }).tasks;
+    const task = tasks.find((item) => {
+      const source = (item.source ?? {}) as { channel?: string };
+      return source.channel === "automation";
+    });
+    expect(task?.automation).toMatchObject({
+      workflowId: "wf-approve",
+      trigger: "schedule",
+      autoDispatch: false,
+    });
+    expect(task?.status).toBe("pending");
+    store.getState().destroy();
+  });
 });
 
 describe("automation auto-dispatch flag", () => {
