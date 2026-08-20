@@ -37,6 +37,7 @@ interface TaskCenterState {
   removeTask(taskId: string): Promise<void>;
   answerTask(task: SuperAgentTask, answer: string): Promise<void>;
   approveTask(task: SuperAgentTask): Promise<void>;
+  retryAndRunTask(task: SuperAgentTask): Promise<void>;
   pauseTask(task: SuperAgentTask): Promise<void>;
   cancelTask(task: SuperAgentTask): Promise<void>;
   startPolling(): void;
@@ -168,6 +169,37 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not approve task"),
+          message: localizeHostError(reason).message,
+          type: "error",
+        });
+      }
+    },
+
+    async retryAndRunTask(task) {
+      const index = get().tasks.findIndex((candidate) => candidate.id === task.id);
+      if (index < 0) return;
+      const next = [...get().tasks];
+      const reset = {
+        ...next[index],
+        status: "pending",
+        retryCount: Number(next[index].retryCount || 0) + 1,
+        result: { status: null, summary: null, completedAt: null, failReason: null },
+        failReason: null,
+      };
+      next[index] = markTaskForDispatch(reset);
+      try {
+        const response = await call("write_super_agent_tasks", { tasks: next });
+        if (!response?.ok) throw new Error(t("Could not update task"));
+        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        // Same path as approveTask: the host listens for sa-dispatch and hands
+        // the task to a project agent in one step.
+        document.dispatchEvent(
+          new CustomEvent("sa-dispatch", { detail: next[index], bubbles: true }),
+        );
+        notify({ title: t("Task retried and dispatched"), type: "success" });
+      } catch (reason) {
+        notify({
+          title: t("Could not update task"),
           message: localizeHostError(reason).message,
           type: "error",
         });

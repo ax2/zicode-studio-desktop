@@ -1882,6 +1882,8 @@ const zhCN = {
   "Approval required": "需要审批",
   "Approve and run": "批准并运行",
   "Task approved and dispatched": "任务已批准并派发",
+  "Retry and run": "重试并运行",
+  "Task retried and dispatched": "任务已重试并派发",
   "Could not approve task": "无法批准任务",
   "Task dispatch failed due to an internal error":
     "任务派发失败：程序内部错误，请重试。",

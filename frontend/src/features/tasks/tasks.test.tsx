@@ -289,6 +289,53 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("retries and dispatches a failed task in one action", async () => {
+    setLocale("en");
+    const call = mockCall([
+      {
+        id: "fail-1",
+        title: "Daily blog post",
+        status: "failed",
+        targetProject: "C:/Users/me/blog",
+        failReason: "timeout",
+        retryCount: 0,
+      },
+    ]);
+    const dispatches: string[] = [];
+    document.addEventListener("sa-dispatch", (event) => {
+      dispatches.push((event as CustomEvent<{ id: string }>).detail.id);
+    });
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Retry and run")).toBeTruthy());
+    fireEvent.click(screen.getByText("Retry and run"));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith(
+        "write_super_agent_tasks",
+        expect.objectContaining({ tasks: expect.any(Array) }),
+      ),
+    );
+    const write = call.mock.calls.find(([operation]) => operation === "write_super_agent_tasks");
+    const tasks = (write?.[1] as {
+      tasks: Array<{ id: string; status: string; retryCount: number }>;
+    }).tasks;
+    const updated = tasks.find((task) => task.id === "fail-1");
+    expect(updated?.status).toBe("running");
+    expect(updated?.retryCount).toBe(1);
+    expect(dispatches).toContain("fail-1");
+    store.getState().destroy();
+  });
+
+  it("keeps a plain retry when a failed task has no project", async () => {
+    setLocale("en");
+    const call = mockCall([
+      { id: "fail-2", title: "Failed report", status: "failed", failReason: "timeout" },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Retry")).toBeTruthy());
+    expect(screen.queryByText("Retry and run")).toBeNull();
+    store.getState().destroy();
+  });
+
   it("aborts the bound child runtime before pausing a running task", async () => {
     setLocale("en");
     const running = {

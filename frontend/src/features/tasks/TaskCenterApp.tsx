@@ -158,12 +158,18 @@ function StatePanel({
 function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const updateTask = store((state) => state.updateTask);
   const approveTask = store((state) => state.approveTask);
+  const retryAndRunTask = store((state) => state.retryAndRunTask);
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
   const removeTask = store((state) => state.removeTask);
   const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
   const limitReached = retryLimitReached(task);
+  const canRetryAndRun =
+    ["failed", "blocked"].includes(task.status) && Boolean(task.targetProject);
+  const retryConfirmText = t(
+    "The automatic retry limit has been reached. Retry this task manually?",
+  );
   const rawSummary = taskSummaryText(task);
   const summary = friendlyTaskDispatchError(rawSummary);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -206,27 +212,33 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
               {t("Open session")}
             </button>
           ) : null}
-          {["failed", "blocked", "needs_input"].includes(task.status) ? (
+          {canRetryAndRun ? (
             <button
               type="button"
               className={`ui-button ui-button--sm${
                 limitReached ? " ui-button--secondary" : " ui-button--primary"
               }`}
-              title={
-                limitReached
-                  ? t(
-                      "The automatic retry limit has been reached. Retry this task manually?",
-                    )
-                  : undefined
-              }
+              title={limitReached ? retryConfirmText : undefined}
+              onClick={() => {
+                if (limitReached && globalThis.confirm?.(retryConfirmText) === false) {
+                  return;
+                }
+                void retryAndRunTask(task);
+              }}
+            >
+              {t("Retry and run")}
+            </button>
+          ) : ["failed", "blocked", "needs_input"].includes(task.status) ? (
+            <button
+              type="button"
+              className={`ui-button ui-button--sm${
+                limitReached ? " ui-button--secondary" : " ui-button--primary"
+              }`}
+              title={limitReached ? retryConfirmText : undefined}
               onClick={() => {
                 if (
                   limitReached &&
-                  globalThis.confirm?.(
-                    t(
-                      "The automatic retry limit has been reached. Retry this task manually?",
-                    ),
-                  ) === false
+                  globalThis.confirm?.(retryConfirmText) === false
                 ) {
                   return;
                 }
