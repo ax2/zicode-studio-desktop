@@ -52,6 +52,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
   const notify = options.notify ?? (() => {});
   const pollIntervalMs = options.pollIntervalMs ?? 3000;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let runtimeRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   return create<TaskCenterState>()((set, get) => ({
     tasks: [],
@@ -77,11 +78,25 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         const tasks = normalizeSuperAgentTasks(response.data?.tasks ?? []) as SuperAgentTask[];
         set({ tasks, error: null });
       } catch (reason) {
+        const raw = reason instanceof Error ? reason.message : String(reason);
         set({
           error: localizeHostError(
             reason instanceof Error ? reason : new Error(String(reason)),
           ),
         });
+        // A fresh session can race runtime readiness: the first load fails
+        // with "unknown instance" before the runtime finishes booting. Retry
+        // once automatically so the user does not have to notice and click
+        // "Retry" on an empty error state.
+        if (
+          !runtimeRetryTimer &&
+          /unknown_instance|UnknownInstance|runtime unavailable/i.test(raw)
+        ) {
+          runtimeRetryTimer = setTimeout(() => {
+            runtimeRetryTimer = null;
+            void get().load({ quiet: true });
+          }, 1200);
+        }
       } finally {
         set({ loading: false });
       }

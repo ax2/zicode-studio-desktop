@@ -1,5 +1,28 @@
 # 实现状态
 
+## 2026-08-20 任务中心首开自动重试 + 帮助文档补全 + live 验证解锁
+
+- 问题：新建会话后首次打开任务中心，store 的初始加载偶发与 runtime 就绪
+  竞争，直接报 `UnknownInstance`，界面显示「无法加载任务」直到用户手动
+  点「重试」。
+- 修复：任务中心 store 对 `unknown_instance / UnknownInstance /
+  runtime unavailable` 类失败自动延迟 1.2s 重试一次（仅一次，避免抖动），
+  新会话首开不再需要人工干预；新增单测覆盖。
+- 帮助文档补全（public/help）：`projects-tasks.md` 增加「回答代理的
+  问题」「一键重试并运行」章节并更新任务状态表；`inbox.md` 的日常使用
+  增加「回答」与一键重试条目。已同步安装目录并确认线上服务返回新内容。
+- QA 基础设施突破：此前无头 Chrome 对任务中心的验证一直被
+  `UnknownInstance` 挡住（无头客户端无法访问桌面端持有的会话 runtime）。
+  现在先调 `POST /v2/new-session` 给无头客户端分配专属临时 runtime，
+  再导航到该会话，`__picotConfigCall` 即可正常读写任务。新增
+  `.qa-shots/task-center-live.cjs` live 巡检并通过：
+  - 需要输入任务渲染回复框 + 「发送回复」，且「重试」为次级样式；
+  - 失败任务渲染「重试并运行」主按钮；
+  - 首开错误状态自动恢复（无手动点击）；
+  - 清理写入校验（`write.ok`）防止 QA 数据残留。
+- 全量 `bun run test`（48/48）、typecheck、Biome 通过；tasks bundle 已
+  重建并同步安装目录。
+
 ## 2026-08-20 任务闭环细节打磨
 
 - 完成判定抽成纯函数 `shouldCompleteDispatchedRun(type, willRetry)` 并加

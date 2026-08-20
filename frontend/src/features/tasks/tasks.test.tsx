@@ -425,4 +425,22 @@ describe("task center store host errors", () => {
     await vi.waitFor(() => expect(call).toHaveBeenCalled());
     store.getState().destroy();
   });
+
+  it("auto-retries once after a runtime-readiness failure", async () => {
+    const call = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Runtime request rejected: UnknownInstance"))
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { tasks: [{ id: "run", title: "Running research", status: "running" }] },
+      });
+    const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
+    await store.getState().load();
+    expect(store.getState().error).toBeTruthy();
+    await vi.waitFor(() => expect(store.getState().tasks.length).toBe(1), {
+      timeout: 3_000,
+    });
+    expect(store.getState().error).toBeNull();
+    store.getState().destroy();
+  });
 });
