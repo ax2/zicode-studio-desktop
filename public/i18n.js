@@ -1871,6 +1871,7 @@ const zhCN = {
   "Could not approve task": "无法批准任务",
   "Task dispatch failed due to an internal error":
     "任务派发失败：程序内部错误，请重试。",
+  "Task failed": "任务失败",
   "The automatic retry limit has been reached. Retry this task manually?":
     "已超过自动重试上限，仍要手动重试此任务吗？",
   "Run now": "立即运行",

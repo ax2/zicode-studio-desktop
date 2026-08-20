@@ -112,4 +112,26 @@ describe("dispatchSuperAgentTaskNative", () => {
     expect(result).toBeNull();
     expect(updates.at(-1)).toMatchObject({ status: "failed", failReason: "No active session" });
   });
+
+  it("reports dispatch failures through onDispatchError", async () => {
+    const onDispatchError = vi.fn();
+    const error = new Error("getSelectedSceneId is not defined");
+    await dispatchSuperAgentTaskNative({
+      task: makeTask(),
+      resolveWorkspace: vi.fn().mockResolvedValue("workspace-a"),
+      spawnSession: vi.fn().mockRejectedValue(error),
+      sendPrompt: vi.fn(),
+      updateTask: vi.fn(async (_taskId, updater) =>
+        updater(makeTask({ dispatch: { childWorkspaceId: "workspace-a" } })),
+      ),
+      onDispatchError,
+      logger: { error: vi.fn(), warn: vi.fn() },
+    });
+
+    expect(onDispatchError).toHaveBeenCalledTimes(1);
+    expect(onDispatchError).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "task-1" }),
+      error,
+    );
+  });
 });

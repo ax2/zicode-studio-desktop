@@ -53,5 +53,9 @@ and tapping that label focuses the associated control.
 - The scheduler runs for the whole time the app is open, regardless of which
   view you are on. Nothing runs while the app is completely closed (an
   unattended background runner is planned for a later release).
+- Tasks dispatched to the target project are marked completed automatically
+  when the project agent finishes, with a notification that includes the
+  result summary; failures notify too, and can be retried from the Task
+  center.
 
 > Automation never bypasses scene isolation, plugin permissions, or model budgets.

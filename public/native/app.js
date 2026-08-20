@@ -1601,6 +1601,27 @@ document.addEventListener("sa-dispatch", (event) => {
       dispatchedInstances.set(dispatchTarget.instanceId, taskId);
       adapter.subscribeTarget?.(dispatchTarget);
     },
+    onDispatchError: (task, error) => {
+      const raw = error instanceof Error ? error.message : String(error || "");
+      const message = /(?:is not defined|ReferenceError|TypeError|SyntaxError|undefined is not a function|cannot read properties of (?:undefined|null)|unexpected token)/i.test(
+        raw,
+      )
+        ? t("Task dispatch failed due to an internal error")
+        : raw;
+      notifications.notify({
+        title: t("Task failed"),
+        message: `${task.title || t("Untitled task")}：${message}`,
+        type: "error",
+        action: {
+          label: t("Open tasks"),
+          run: () => window.dispatchEvent(new CustomEvent("zicode:open-tasks")),
+        },
+      });
+      pluginShell?.setActivityBadge("com.zicode.tasks", {
+        count: 1,
+        tone: "danger",
+      });
+    },
   }).catch(showError);
 });
 

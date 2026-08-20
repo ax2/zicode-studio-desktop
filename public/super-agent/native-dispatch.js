@@ -31,6 +31,7 @@ export async function dispatchSuperAgentTaskNative({
   updateTask,
   registerDispatchTarget = null,
   idempotencyKey = null,
+  onDispatchError = null,
   logger = console,
 }) {
   if (!task) return null;
@@ -83,6 +84,7 @@ export async function dispatchSuperAgentTaskNative({
     ).catch((updateError) => {
       logger?.warn?.("[SuperAgent] failed to mark dispatch failed:", updateError);
     });
+    onDispatchError?.(task, error);
     return null;
   }
 }
