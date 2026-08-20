@@ -359,7 +359,11 @@ export function setupPluginShell({
     const secondaryPlugins = visiblePlugins.filter(
       (plugin) => !MOBILE_PRIMARY_ACTIVITY_IDS.has(plugin.id),
     );
-    const secondarySystemItems = systemItems.filter((item) => item.id !== "core.files");
+    // Keep every system action in the mobile overflow menu, including the
+    // Files panel (only present while Chat is active). The desktop bar offers
+    // Files as a direct button; on phones the header toggle plus this menu
+    // entry make the panel reachable either way.
+    const secondarySystemItems = systemItems;
     const secondaryItems = [
       ...secondaryPlugins.map((plugin) => ({
         id: plugin.id,
