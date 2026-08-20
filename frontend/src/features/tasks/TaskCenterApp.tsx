@@ -167,6 +167,8 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   const limitReached = retryLimitReached(task);
   const canRetryAndRun =
     ["failed", "blocked"].includes(task.status) && Boolean(task.targetProject);
+  const rerunWorkflowId =
+    ["done", "cancelled"].includes(task.status) ? task.automation?.workflowId : undefined;
   const retryConfirmText = t(
     "The automatic retry limit has been reached. Retry this task manually?",
   );
@@ -297,6 +299,23 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
               onClick={() => void removeTask(task.id)}
             >
               {t("Dismiss")}
+            </button>
+          ) : null}
+          {rerunWorkflowId ? (
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              title={t("Queue a fresh run of the owning automation workflow")}
+              onClick={() => {
+                document.dispatchEvent(
+                  new CustomEvent("sa-rerun-workflow", {
+                    detail: { workflowId: rerunWorkflowId },
+                    bubbles: true,
+                  }),
+                );
+              }}
+            >
+              {t("Run again")}
             </button>
           ) : null}
         </div>

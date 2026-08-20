@@ -1,5 +1,23 @@
 # 实现状态
 
+## 2026-08-20 任务中心「再次运行」：已完成自动化任务一键重新排队
+
+- 缺口：帮助文档承诺已完成任务可"再次运行"，但任务中心卡片只有
+  「忽略」，没有重新运行入口——用户要重跑每日博客任务只能去禁用的自动化
+  面板或等下一次定时。
+- 实现：
+  - `AutomationAppApi` 暴露 `runWorkflow`；app.js 新增
+    `sa-rerun-workflow` 监听（按 workflowId 从工作流列表找到定义 →
+    手动重新排队，生成一条全新任务而非复活旧任务）；
+  - 任务中心对已完成/已取消且带 `automation.workflowId` 的任务显示
+    「再次运行」按钮；`SuperAgentTask` 类型补充 `automation` 字段。
+- 验证：新增单测（带 workflowId 的已完成任务显示并派发事件）；live
+  回归 `rerun-live.cjs` 通过——种入临时工作流 + 已完成任务 → 点击「再次
+  运行」→ 生成新 pending 任务（trigger=manual）→ 精确清理。
+- 全量 `bun run test`（54/54）、typecheck、Biome 通过；tasks/automation
+  bundle 与 app.js/i18n.js 已同步安装目录；桌面端已重启（PID 69280，
+  `/health` ok）。
+
 ## 2026-08-20 帮助文档补齐遗漏的键盘效率快捷键
 
 - 可发现性：快捷键文档此前缺 Ctrl+M（切换模型）、Ctrl+T（循环思考

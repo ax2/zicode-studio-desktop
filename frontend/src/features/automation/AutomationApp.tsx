@@ -408,6 +408,7 @@ export interface AutomationAppApi {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<AutomationWorkflow[]>;
+  runWorkflow(workflow: AutomationWorkflow, trigger?: string): Promise<void>;
   tick(): Promise<void>;
   startScheduler(): void;
   stopScheduler(): void;
@@ -445,6 +446,9 @@ export function createAutomationApp(options: AutomationAppOptions): AutomationAp
     },
     refresh() {
       return store.getState().load();
+    },
+    runWorkflow(workflow, trigger) {
+      return store.getState().runWorkflow(workflow, trigger);
     },
     tick() {
       return store.getState().tick();

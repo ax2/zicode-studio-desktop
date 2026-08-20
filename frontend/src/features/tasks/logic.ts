@@ -33,6 +33,11 @@ export interface SuperAgentTask {
     startedAt?: string | null;
     finishedAt?: string | null;
   };
+  automation?: {
+    workflowId?: string;
+    trigger?: string;
+    autoDispatch?: boolean;
+  };
   events?: Array<{ at?: string; type?: string; status?: string; message?: string }>;
 }
 

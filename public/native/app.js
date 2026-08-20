@@ -1646,6 +1646,28 @@ document.addEventListener("sa-dispatch", (event) => {
   }).catch(showError);
 });
 
+// Re-run a finished automation task from the task center: queue a fresh run
+// of the owning workflow (creates a new task instead of resurrecting the old
+// one).
+document.addEventListener("sa-rerun-workflow", async (event) => {
+  const workflowId = event.detail?.workflowId;
+  if (!workflowId) return;
+  try {
+    const workflows = await automationApp.refresh();
+    const workflow = workflows.find((item) => item.id === workflowId);
+    if (!workflow) {
+      notifications.notify({
+        title: t("Could not run automation"),
+        type: "error",
+      });
+      return;
+    }
+    await automationApp.runWorkflow(workflow, "manual");
+  } catch (error) {
+    showError(error);
+  }
+});
+
 // Answer a `needs_input` / `blocked` task from the Runtime panel: send the
 // reply as a prompt to the already-running child session, then return the
 // task to "running" instead of re-dispatching it.

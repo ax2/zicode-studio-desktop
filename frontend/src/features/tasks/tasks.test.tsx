@@ -199,6 +199,30 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("re-runs a finished automation task from the card", async () => {
+    setLocale("en");
+    const call = mockCall([
+      {
+        id: "done-auto",
+        title: "Daily blog post",
+        status: "done",
+        automation: { workflowId: "wf-1", trigger: "schedule" },
+      },
+      { id: "done-plain", title: "Plain done", status: "done" },
+    ]);
+    const reruns: string[] = [];
+    document.addEventListener("sa-rerun-workflow", (event) => {
+      reruns.push((event as CustomEvent<{ workflowId: string }>).detail.workflowId);
+    });
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Daily blog post")).toBeTruthy());
+    const button = screen.getByText("Run again");
+    expect(button).toBeTruthy();
+    fireEvent.click(button);
+    expect(reruns).toEqual(["wf-1"]);
+    store.getState().destroy();
+  });
+
   it("copies the task result summary", async () => {
     setLocale("zh-CN");
     const call = mockCall([

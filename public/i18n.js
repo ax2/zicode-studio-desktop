@@ -1884,6 +1884,9 @@ const zhCN = {
   "Task approved and dispatched": "任务已批准并派发",
   "Retry and run": "重试并运行",
   "Task retried and dispatched": "任务已重试并派发",
+  "Run again": "再次运行",
+  "Queue a fresh run of the owning automation workflow":
+    "重新排队所属自动化工作流的新一轮运行",
   "Could not approve task": "无法批准任务",
   "Task dispatch failed due to an internal error":
     "任务派发失败：程序内部错误，请重试。",
