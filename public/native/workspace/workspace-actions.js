@@ -229,7 +229,7 @@ function isTypingTarget(target) {
  * reachable without a dedicated button. Falls back to a hidden control on
  * remote/browser clients that cannot invoke native window navigation.
  */
-export function setupWorkspaceSwitcher({ onError } = {}) {
+export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath } = {}) {
   const button = document.getElementById("workspace-switcher-btn");
   const menu = document.getElementById("workspace-switcher-menu");
   const label = document.getElementById("workspace-bar-label");
@@ -238,11 +238,6 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
   if (!button || !menu || !label) return false;
 
   const invoke = resolveInvoke();
-  if (!invoke) {
-    button.style.setProperty("display", "none");
-    label.style.setProperty("display", "none");
-    return false;
-  }
 
   const currentWorkspaceId = () => {
     const match = window.location.pathname.match(/^\/app\/workspaces\/([^/]+)\//);
@@ -267,24 +262,40 @@ export function setupWorkspaceSwitcher({ onError } = {}) {
   const activePluginId = () =>
     document.body.dataset.activePlugin || "core.chat";
 
+  const setLabel = (path) => {
+    if (nameEl) nameEl.textContent = projectName(path);
+    if (pathEl) pathEl.textContent = displayPath(path);
+    label.title = displayPath(path);
+  };
+
   const refreshWorkspaceLabel = async () => {
     const current = currentWorkspaceId();
+    if (!invoke) {
+      // LAN/mobile clients have no Tauri `list_workspaces`; resolve the
+      // current workspace from the caller-provided path source (the sidebar
+      // session list) so the label stays visible instead of disappearing.
+      const path = resolveWorkspacePath?.(current);
+      if (path) setLabel(path);
+      return;
+    }
     try {
       const workspaces = (await invoke("list_workspaces")) ?? [];
-      const active = workspaces.find((workspace) => workspace.id === current);
+      const active =
+        workspaces.find((workspace) => workspace.id === current) ??
+        (workspaces.length > 0 ? workspaces[0] : null);
       if (active) {
-        if (nameEl) nameEl.textContent = projectName(active.path);
-        if (pathEl) pathEl.textContent = displayPath(active.path);
-        label.title = displayPath(active.path);
-      } else if (workspaces.length > 0) {
-        if (nameEl) nameEl.textContent = projectName(workspaces[0].path);
-        if (pathEl) pathEl.textContent = displayPath(workspaces[0].path);
-        label.title = displayPath(workspaces[0].path);
+        setLabel(active.path);
       }
     } catch {
       // Keep the placeholder; the switcher still lists workspaces on open.
     }
   };
+
+  if (!invoke) {
+    button.style.setProperty("display", "none");
+    void refreshWorkspaceLabel();
+    return { refreshWorkspaceLabel };
+  }
 
   const openMenu = async () => {
     button.setAttribute("aria-expanded", "true");

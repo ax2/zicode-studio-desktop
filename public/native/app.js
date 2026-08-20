@@ -256,6 +256,7 @@ let commandCatalog = buildCommandCatalog({});
 let streamingElement = null;
 let pendingOrganizeNote = null;
 let sidebar = null;
+let workspaceBar = null;
 let pluginShell = null;
 let activeSearchQuery = "";
 let lastRetryableRequest = null;
@@ -1151,7 +1152,13 @@ setupNewSessionButton({
   onError: showError,
   fetchImpl: hostFetch,
 });
-setupWorkspaceSwitcher({ onError: showError });
+workspaceBar = setupWorkspaceSwitcher({
+  onError: showError,
+  resolveWorkspacePath: (workspaceId) =>
+    sidebar?.sessions?.find(
+      (session) => session.workspaceId === workspaceId && session.projectPath,
+    )?.projectPath ?? null,
+});
 setupLanQr({ control });
 setupAppKeyboardShortcuts({
   input,
@@ -1516,6 +1523,9 @@ function subscribeToLiveSessions(sessions) {
   ) {
     messageRenderer.renderWelcome({ workspacePath: workspaceSession.projectPath });
   }
+  // LAN/mobile clients have no Tauri list_workspaces; once the session list
+  // arrives the workspace label can resolve the current workspace path.
+  workspaceBar?.refreshWorkspaceLabel?.().catch?.(() => {});
   handleSuperAgentStartupSessions(sessions).catch(showError);
 }
 

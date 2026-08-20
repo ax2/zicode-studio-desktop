@@ -227,6 +227,43 @@ describe("workspace actions", () => {
     expect(document.getElementById("workspace-bar-label").tagName).toBe("DIV");
   });
 
+  it("keeps the workspace label visible on clients without Tauri invoke", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    const workspaceBar = setupWorkspaceSwitcher({
+      onError: vi.fn(),
+      resolveWorkspacePath: (workspaceId) =>
+        workspaceId === "ws-remote" ? "/home/user/agent-inbox" : null,
+    });
+
+    // The switcher button needs Tauri; the passive label must stay visible
+    // and resolve the current workspace from the caller-provided path.
+    expect(document.getElementById("workspace-switcher-btn").style.display).toBe("none");
+    expect(document.getElementById("workspace-bar-label").style.display).not.toBe("none");
+
+    window.history.replaceState(
+      {},
+      "",
+      "/app/workspaces/ws-remote/sessions/s-1",
+    );
+    await workspaceBar.refreshWorkspaceLabel();
+    expect(document.getElementById("workspace-bar-name").textContent).toBe("agent-inbox");
+    expect(document.getElementById("workspace-bar-path").textContent).toBe(
+      "/home/user/agent-inbox",
+    );
+    expect(document.getElementById("workspace-bar-label").title).toBe(
+      "/home/user/agent-inbox",
+    );
+  });
+
   it("opens the native folder picker from the switcher menu", async () => {
     document.body.innerHTML = `
       <div class="workspace-bar" id="workspace-bar">
