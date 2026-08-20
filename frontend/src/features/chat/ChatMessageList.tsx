@@ -181,7 +181,7 @@ const WelcomeItem = memo(function WelcomeItem({
           <p>{t("Agent Inbox")}</p>
           <p className="hint">
             {t(
-              "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to this conversation.",
+              "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to the inbox panel and task center.",
             )}
           </p>
         </div>

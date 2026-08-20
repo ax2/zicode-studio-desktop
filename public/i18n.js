@@ -462,8 +462,8 @@ const zhCN = {
   "External messages become tasks here": "外部消息在这里变成待办任务",
   "How to use the Agent Inbox": "智能收件箱怎么用",
   "How to use": "怎么用",
-  "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to this conversation.":
-    "飞书或企业微信机器人收到的消息会在这里变成待办任务；你批准后，项目代理在本机执行，结果回到这段对话。",
+  "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to the inbox panel and task center.":
+    "飞书或企业微信机器人收到的消息会在这里变成待办任务；你批准后，项目代理在本机执行，结果回到智能收件箱面板和任务中心。",
   "Inbox flow": "收件箱流程",
   "External message": "外部消息",
   "Pending task": "待办任务",
