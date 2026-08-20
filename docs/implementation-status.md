@@ -1,5 +1,33 @@
 # 实现状态
 
+## 2026-08-20 Tasks 与 Automation 恢复默认启用（使用闭环已完备）
+
+- 背景：08-19 因「缺少后台 Host Runner」将 Tasks/Automation 默认禁用；08-20
+  已把任务中心（派发/恢复/完成/通知）与自动化调度（到期建任务/审批/系统
+  通知/再次运行）全部闭环并真实验收，但 Rust `builtin_manifests()` 与前端
+  `plugin-registry.js` 的默认值仍是 false——全新场景/新安装会看不到这两个
+  核心应用。同时发现运行实例 registry.json 里 Articles 也被改回 false
+  （尽管 02:21 的 `27dc2e2b` 已恢复默认启用），文章创作入口被隐藏。
+- 改动：
+  - `src-tauri/src/plugin_registry.rs` 与 `public/native/plugins/plugin-registry.js`：
+    Tasks、Automation `enabled_by_default` 均翻为 true（Projects 仍 false，
+    无项目 CRUD）；同步更新 Rust 注册表测试与前端注册表测试断言。
+  - 中英帮助页 `projects-tasks.md`：改为「任务与自动化已启用；仅项目需在
+    管理插件中启用」。
+  - 运行实例编程场景经 `/v2/plugins/enablement` 启用 Automation 与
+    Articles（Tasks 本就启用），registry.json 已持久化。
+- 验证：
+  - 前端全量 158 文件 / 1141 用例全绿（含 plugin-registry 断言）；
+    Rust `plugin_registry` 12/12 全绿。
+  - 无头 UI 实测（`.qa-shots/plugin-enable-qa.cjs`）：活动栏出现
+    「自动化/文章创作/任务」；Automation 主视图列出 2 个工作流（含每日
+    博客）、Articles 主视图列出已有文章；页面零控制台报错。
+- 部署：release 重建（`target/release/zicode-studio-desktop.exe`
+  47,872,512 B，21:21:59），按「运行中 exe 改名 `.prev` + 复制新版」暂存，
+  下次重启后新装场景/全新安装默认启用 Tasks/Automation；安装目录
+  plugin-registry.js 与帮助页已同步（刷新即生效）。旧 `.prev`
+  （08-20 02:20 残留）已移到 `%TEMP%`，重启确认稳定后删除 `.prev` 即可。
+
 ## 2026-08-20 晚间复核：任务派发修复在线 + 端到端回归通过
 
 - 用户复测「每日技术博客文章生成」运行仍报 `getSelectedSceneId is not
