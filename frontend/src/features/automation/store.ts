@@ -59,8 +59,34 @@ export function createAutomationStore(options: AutomationAppOptions) {
   const retryDelayMs = options.retryDelayMs ?? 1000;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let ticking = false;
+  let loadSeq = 0;
+  let runtimeRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  let runtimeRetryAttempts = 0;
+  const runtimeRetryDelays = [1200, 2000, 3000, 5000, 8000, 12000];
 
-  return create<AutomationState>()((set, get) => ({
+  return create<AutomationState>()((set, get) => {
+    function scheduleReadinessRetry(raw: string) {
+      if (runtimeRetryTimer) return;
+      // A fresh scene/runtime can reject the first workflow read before it
+      // finishes booting. Retry with backoff so the first open of the
+      // Automation app heals itself instead of showing a stale error banner
+      // until the next scheduler tick.
+      if (
+        !/unknown_instance|UnknownInstance|runtime unavailable|not ready|403/i.test(raw)
+      ) {
+        return;
+      }
+      const delay =
+        runtimeRetryDelays[Math.min(runtimeRetryAttempts, runtimeRetryDelays.length - 1)] ??
+        1200;
+      runtimeRetryAttempts += 1;
+      runtimeRetryTimer = setTimeout(() => {
+        runtimeRetryTimer = null;
+        void get().load();
+      }, delay);
+    }
+
+    return {
     workflows: [],
     filter: "all",
     loading: false,
@@ -79,18 +105,23 @@ export function createAutomationStore(options: AutomationAppOptions) {
     },
 
     async load() {
-      if (get().loading || typeof call !== "function") return get().workflows;
+      if (typeof call !== "function") return get().workflows;
+      const seq = ++loadSeq;
       set({ loading: true });
       try {
         const workflows = await listWorkflowsWithRetry(call, retryDelayMs);
+        if (seq !== loadSeq) return get().workflows;
+        runtimeRetryAttempts = 0;
         set({ workflows, error: null });
         return workflows;
       } catch (reason) {
+        if (seq !== loadSeq) return get().workflows;
         const error = reason instanceof Error ? reason : new Error(String(reason));
         set({ error: localizeHostError(error) });
+        scheduleReadinessRetry(error.message);
         return get().workflows;
       } finally {
-        set({ loading: false });
+        if (seq === loadSeq) set({ loading: false });
       }
     },
 
@@ -182,11 +213,14 @@ export function createAutomationStore(options: AutomationAppOptions) {
       void get().tick();
     },
 
-    destroy() {
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = null;
-    },
-  }));
+      destroy() {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = null;
+        if (runtimeRetryTimer) clearTimeout(runtimeRetryTimer);
+        runtimeRetryTimer = null;
+      },
+    };
+  });
 }
 
 function sleep(ms: number): Promise<void> {

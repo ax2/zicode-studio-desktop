@@ -135,6 +135,56 @@ describe("automation store host errors", () => {
     store.getState().destroy();
   });
 
+  it("auto-retries with backoff when the runtime is not ready yet", async () => {
+    vi.useFakeTimers();
+    setLocale("zh-CN");
+    let attempts = 0;
+    const call = vi.fn(async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        throw new Error("Runtime request rejected: UnknownInstance");
+      }
+      return { ok: true, data: { workflows: [WORKFLOW] } };
+    });
+    const store = createAutomationStore({ call, retryDelayMs: 0 });
+    await store.getState().load();
+    expect(attempts).toBe(1);
+    expect(store.getState().error).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(attempts).toBe(2);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(attempts).toBe(3);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.getState().error).toBeNull();
+    expect(store.getState().workflows).toEqual([WORKFLOW]);
+    vi.useRealTimers();
+    store.getState().destroy();
+  });
+
+  it("ignores a stale failing load once a newer load has started", async () => {
+    setLocale("zh-CN");
+    let releaseFirst!: (value?: unknown) => void;
+    const firstGate = new Promise((resolve) => {
+      releaseFirst = resolve;
+    });
+    const call = vi.fn(async () => {
+      if (call.mock.calls.length === 1) {
+        await firstGate;
+        throw new Error("workflow service failed (403)");
+      }
+      return { ok: true, data: { workflows: [WORKFLOW] } };
+    });
+    const store = createAutomationStore({ call, retryDelayMs: 0 });
+    const first = store.getState().load();
+    const second = store.getState().load();
+    releaseFirst?.();
+    await Promise.all([first, second]);
+    expect(store.getState().error).toBeNull();
+    expect(store.getState().workflows).toEqual([WORKFLOW]);
+    store.getState().destroy();
+  });
+
   it("skips removing a workflow when the confirmation is declined", async () => {
     const call = mockCall();
     const store = createAutomationStore({ call, confirmRemove: () => false });
