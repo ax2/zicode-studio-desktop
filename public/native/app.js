@@ -668,6 +668,12 @@ setupCommandPalette({
       desc: t("Show composer shortcuts"),
       action: () => runBuiltin("show_help"),
     },
+    {
+      icon: "📁",
+      label: t("Files"),
+      desc: t("Open file browser"),
+      action: () => runBuiltin("open_files"),
+    },
     ...(pluginShell?.getCommandPaletteEntries() ?? []),
   ],
   onError: showError,
@@ -1368,6 +1374,7 @@ async function loadCommands() {
       { name: "new", action: "new_session", icon: "+", description: t("Start a new conversation") },
       { name: "settings", action: "open_settings", icon: "⚙", description: t("Open Settings") },
       { name: "help", action: "show_help", icon: "?", description: t("Show composer shortcuts") },
+      { name: "files", action: "open_files", icon: "📁", description: t("Open file browser") },
     ],
     nativeCommands: result.response?.data?.commands ?? [],
   });
@@ -1983,6 +1990,10 @@ function runBuiltin(action) {
   else if (action === "new_session") document.getElementById("new-session-btn")?.click();
   else if (action === "show_help") {
     void helpCenter?.open();
+  } else if (action === "open_files") {
+    // The Files panel belongs to the Chat surface; switch back and reveal it.
+    pluginShell?.activate("core.chat");
+    document.getElementById("file-sidebar")?.classList.remove("collapsed");
   }
 }
 

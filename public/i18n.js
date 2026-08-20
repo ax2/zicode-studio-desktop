@@ -1695,6 +1695,7 @@ const zhCN = {
   "One place to monitor, recover, pause, and review background work.":
     "集中监控、恢复并复查后台工作。",
   "Open project overview": "打开项目概览",
+  "Open file browser": "打开文件浏览器",
   "Open task center": "打开任务中心",
   "Open automations": "打开自动化",
   "Scheduled, approval-aware workflows with retries and auditable history.":
