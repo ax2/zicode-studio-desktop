@@ -1,5 +1,28 @@
 # 实现状态
 
+## 2026-08-20 晚间复核：任务派发修复在线 + 端到端回归通过
+
+- 用户复测「每日技术博客文章生成」运行仍报 `getSelectedSceneId is not
+  defined`，对修复状态做运行态复核。结论：修复已生效，无新失败。
+  证据链：
+  1. 安装目录与仓库的 `public/native/app.js`（19:28）一致，均含
+     `getSelectedSceneId` 导入；运行实例（PID 69204，20:23 启动）在
+     57620 端口提供的 `/native/app.js` 同样含导入，webview 内存为修复后
+     bundle。
+  2. 任务数据（agent-inbox tasks.json）：08-20 01:00 UTC 定时任务连败 3
+     次（修复前）；06:10 UTC（14:10 +08）手动重跑成功，14:41 完成并出
+     3 篇文章摘要，failReason 为空；此后无任何新失败事件。
+  3. 端到端回归（`.qa-shots/dispatch-qa.cjs`）：先修正脚本——此前用固定
+     旧会话打开任务中心无法渲染卡片导致误报，改为 `/v2/new-session` 创建
+     全新会话并轮询卡片渲染。当前实例实测：注入临时 pending 任务 → 点击
+     「批准并运行」→ 任务进入 running、绑定子会话（01a01f36）→ 页面零
+     报错（无 ReferenceError）→ 子代理按指令回复 OK 正常结束。
+- 清理：临时任务已移除，tasks.json 恢复 3 条 done；workflows.json 不变
+  （2 个工作流，每日博客 enabled、daily 09:00、nextRunAt=08-21 01:00
+  UTC）；剪贴板 QA 残留清 0。
+- 遗留：明早 09:00 定时任务为最终时间驱动验证；若失败先查
+  `%LOCALAPPDATA%\zicode\logs\` 与 agent-inbox tasks.json。
+
 ## 2026-08-20 收件箱面板「再次运行」与任务中心一致
 
 - 一致性补齐：任务中心已完成/已取消/失败的自动化任务有「再次运行」；
