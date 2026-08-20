@@ -473,6 +473,12 @@ class SuperAgentRuntime extends HTMLElement {
             <button class="sa-btn sa-btn-dismiss" data-action="force-cancel" data-task-id="${escAttr(task.id)}">${t("Force Cancel")}</button>
           </div>`;
         }
+        if (task.automation?.workflowId && task.status === "done") {
+          body += `
+            <div class="runtime-approve-row">
+              <button class="sa-btn sa-btn-approve" data-action="rerun" data-task-id="${escAttr(task.id)}">${t("Run again")}</button>
+            </div>`;
+        }
       } else if (
         task.status === "failed" ||
         task.status === "blocked" ||
@@ -509,6 +515,12 @@ class SuperAgentRuntime extends HTMLElement {
               }
               <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">${t("Dismiss")}</button>
             </div>`;
+          if (task.automation?.workflowId && task.status === "failed") {
+            body += `
+              <div class="runtime-approve-row">
+                <button class="sa-btn sa-btn-approve" data-action="rerun" data-task-id="${escAttr(task.id)}">${t("Run again")}</button>
+              </div>`;
+          }
         } else {
           body += `
             <div class="runtime-task-missing-target">${t("Choose a project when creating this task.")}</div>
@@ -644,6 +656,16 @@ class SuperAgentRuntime extends HTMLElement {
           this._approve(taskId);
         } else if (action === "retry-and-run") {
           this._retryAndRun(taskId);
+        } else if (action === "rerun") {
+          const task = this._tasks.find((item) => item.id === taskId);
+          if (task?.automation?.workflowId) {
+            this.dispatchEvent(
+              new CustomEvent("sa-rerun-workflow", {
+                detail: { workflowId: task.automation.workflowId },
+                bubbles: true,
+              }),
+            );
+          }
         } else if (action === "dismiss") {
           this._dismiss(taskId);
         } else if (action === "prompt-task") {

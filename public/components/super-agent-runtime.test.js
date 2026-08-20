@@ -161,6 +161,49 @@ describe("super-agent-runtime", () => {
     expect(updated.failReason).toBeNull();
   });
 
+  it("re-runs a finished automation task from the panel", async () => {
+    setLocale("en");
+    const call = mockConfig({
+      tasks: [
+        {
+          id: "done-auto",
+          status: "done",
+          title: "Daily blog post",
+          targetProject: "/Users/me/project",
+          automation: { workflowId: "wf-1", trigger: "schedule" },
+        },
+        {
+          id: "failed-auto",
+          status: "failed",
+          title: "Failed automation",
+          targetProject: "/Users/me/project",
+          automation: { workflowId: "wf-2", trigger: "schedule" },
+        },
+      ],
+    });
+    const Runtime = customElements.get("super-agent-runtime");
+    const runtime = new Runtime();
+    const reruns = [];
+    runtime.addEventListener("sa-rerun-workflow", (event) => {
+      reruns.push(event.detail.workflowId);
+    });
+    document.body.appendChild(runtime);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    for (const card of runtime.querySelectorAll(".runtime-task-card")) {
+      card.click();
+    }
+    // Re-query after re-render: the previous NodeList is detached.
+    for (const card of runtime.querySelectorAll(".runtime-task-card")) {
+      const btn = card.querySelector('[data-action="rerun"]');
+      expect(btn).not.toBeNull();
+      btn.click();
+    }
+    await Promise.resolve();
+    expect(reruns.sort()).toEqual(["wf-1", "wf-2"]);
+  });
+
   it("confirms before retrying a task at the retry limit", async () => {
     const confirmSpy = vi.fn(() => false);
     vi.stubGlobal("confirm", confirmSpy);
