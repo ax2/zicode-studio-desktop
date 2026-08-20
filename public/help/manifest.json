@@ -1,5 +1,5 @@
 {
-  "sections": ["开始使用", "对话与效率", "场景与配置", "插件", "文章创作", "笔记", "金融工作台", "产物库", "支持与安全", "参考"],
+  "sections": ["开始使用", "对话与效率", "场景与配置", "插件", "文章创作", "笔记", "工具应用", "金融工作台", "产物库", "支持与安全", "参考"],
   "pages": [
     {
       "id": "getting-started",
@@ -85,6 +85,41 @@
       "section": "笔记",
       "file": "notes.md",
       "summary": "对话联动、知识关系与静态站点发布"
+    },
+    {
+      "id": "idphoto",
+      "title": "证件照",
+      "section": "工具应用",
+      "file": "idphoto.md",
+      "summary": "裁剪、换底与混合排版，生成可打印的证件照版面"
+    },
+    {
+      "id": "imagetools",
+      "title": "图片工具",
+      "section": "工具应用",
+      "file": "imagetools.md",
+      "summary": "缩放、格式转换、旋转翻转与多图拼接网格"
+    },
+    {
+      "id": "clipboard",
+      "title": "剪贴板收件箱",
+      "section": "工具应用",
+      "file": "clipboard.md",
+      "summary": "先收集文本与链接，稍后整理成笔记"
+    },
+    {
+      "id": "documents",
+      "title": "文档导入",
+      "section": "工具应用",
+      "file": "documents.md",
+      "summary": "把 PDF / DOCX 转换为可读 Markdown"
+    },
+    {
+      "id": "translate",
+      "title": "翻译",
+      "section": "工具应用",
+      "file": "translate.md",
+      "summary": "使用已配置模型在多种语言之间翻译文本"
     },
     {
       "id": "finance",

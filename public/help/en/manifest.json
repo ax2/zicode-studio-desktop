@@ -1,5 +1,5 @@
 {
-  "sections": ["Getting started", "Chat and productivity", "Scenes and configuration", "Plugins", "Article Publishing", "Notes", "Finance Workbench", "Artifacts", "Support and security", "Reference"],
+  "sections": ["Getting started", "Chat and productivity", "Scenes and configuration", "Plugins", "Article Publishing", "Notes", "Utility apps", "Finance Workbench", "Artifacts", "Support and security", "Reference"],
   "pages": [
     {
       "id": "getting-started",
@@ -80,6 +80,41 @@
       "section": "Notes",
       "file": "notes.md",
       "summary": "Chat links, knowledge relationships, and static publishing"
+    },
+    {
+      "id": "idphoto",
+      "title": "ID Photo Layout",
+      "section": "Utility apps",
+      "file": "idphoto.md",
+      "summary": "Crop, recolor, and arrange printable ID photo sheets"
+    },
+    {
+      "id": "imagetools",
+      "title": "Image Tools",
+      "section": "Utility apps",
+      "file": "imagetools.md",
+      "summary": "Resize, convert, rotate, flip, and arrange images into a grid"
+    },
+    {
+      "id": "clipboard",
+      "title": "Clipboard Inbox",
+      "section": "Utility apps",
+      "file": "clipboard.md",
+      "summary": "Capture text and links now, organize them into notes later"
+    },
+    {
+      "id": "documents",
+      "title": "Document Import",
+      "section": "Utility apps",
+      "file": "documents.md",
+      "summary": "Convert PDF and DOCX files into readable Markdown"
+    },
+    {
+      "id": "translate",
+      "title": "Translation",
+      "section": "Utility apps",
+      "file": "translate.md",
+      "summary": "Translate text between languages with the configured model"
     },
     {
       "id": "finance",
