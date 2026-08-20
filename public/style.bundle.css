@@ -13360,6 +13360,13 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   -webkit-app-region: no-drag;
 }
 
+/* Mobile-only file browser toggle: the desktop toggle lives in the hidden
+   header-right region on phones, so this button appears only in the mobile
+   shell (display:none on desktop). */
+.mobile-file-toggle {
+  display: none;
+}
+
 .sidebar-toggle,
 .settings-btn {
   background: none;
@@ -16149,6 +16156,19 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   .header-left > :not(.sidebar-toggle),
   .header-right {
     display: none !important;
+  }
+
+  /* Keep the file browser reachable on phones: a dedicated toggle button in
+     the mobile header-left (the desktop toggle is inside header-right, which
+     this shell hides). */
+  .header-left > .mobile-file-toggle {
+    display: inline-flex !important;
+    width: var(--space-11);
+    min-width: var(--space-11);
+    height: var(--space-11);
+    border: 1px solid var(--border);
+    background: var(--bg-solid);
+    box-shadow: var(--shadow-sm);
   }
 
   .sidebar-toggle {

@@ -1836,10 +1836,17 @@ function setupFileBrowser() {
     }
   });
 
-  document.getElementById("file-sidebar-toggle")?.addEventListener("click", () => {
-    const isCollapsed = sidebar.classList.toggle("collapsed");
-    if (!isCollapsed && browser.currentPath === null) browser.load().catch(showError);
-  });
+  // The desktop toggle lives in the header-right; mobile hides that region,
+  // so a second toggle button in the header-left keeps files reachable on
+  // phones (both share the same open/close behavior).
+  for (const toggle of document.querySelectorAll(
+    "#file-sidebar-toggle, [data-file-toggle]",
+  )) {
+    toggle.addEventListener("click", () => {
+      const isCollapsed = sidebar.classList.toggle("collapsed");
+      if (!isCollapsed && browser.currentPath === null) browser.load().catch(showError);
+    });
+  }
   document.getElementById("file-sidebar-close")?.addEventListener("click", () => {
     sidebar.classList.add("collapsed");
   });

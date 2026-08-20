@@ -49,6 +49,13 @@
   -webkit-app-region: no-drag;
 }
 
+/* Mobile-only file browser toggle: the desktop toggle lives in the hidden
+   header-right region on phones, so this button appears only in the mobile
+   shell (display:none on desktop). */
+.mobile-file-toggle {
+  display: none;
+}
+
 .sidebar-toggle,
 .settings-btn {
   background: none;

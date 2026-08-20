@@ -35,6 +35,19 @@
     display: none !important;
   }
 
+  /* Keep the file browser reachable on phones: a dedicated toggle button in
+     the mobile header-left (the desktop toggle is inside header-right, which
+     this shell hides). */
+  .header-left > .mobile-file-toggle {
+    display: inline-flex !important;
+    width: var(--space-11);
+    min-width: var(--space-11);
+    height: var(--space-11);
+    border: 1px solid var(--border);
+    background: var(--bg-solid);
+    box-shadow: var(--shadow-sm);
+  }
+
   .sidebar-toggle {
     width: var(--space-12);
     height: var(--space-12);
