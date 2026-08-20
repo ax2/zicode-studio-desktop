@@ -297,7 +297,7 @@ async function enqueue(
         at: now,
         type: "queued",
         status: "pending",
-        message: `Queued by automation (${trigger}).`,
+        message: t(`Queued by automation (${trigger}).`),
       },
     ],
   };

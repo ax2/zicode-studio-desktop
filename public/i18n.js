@@ -1793,6 +1793,7 @@ const zhCN = {
   "The running task has not published a controllable session yet.":
     "运行中的任务尚未发布可控制的子会话。",
   "Manually cancelled from Task center.": "已从任务中心手动取消。",
+  "Manually cancelled from Runtime panel.": "已从智能收件箱面板手动取消。",
   Project: "项目",
   "Not assigned": "未分配",
   Started: "开始时间",
@@ -1865,6 +1866,8 @@ const zhCN = {
   "Automation created": "自动化已创建",
   "Automation queued": "自动化已投递",
   "Automation needs approval": "自动化需要审批",
+  "Queued by automation (manual).": "已由自动化（手动）投递。",
+  "Queued by automation (schedule).": "已由自动化（定时）投递。",
   "Approval required": "需要审批",
   "Approve and run": "批准并运行",
   "Task approved and dispatched": "任务已批准并派发",

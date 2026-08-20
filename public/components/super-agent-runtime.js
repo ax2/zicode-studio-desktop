@@ -286,7 +286,7 @@ class SuperAgentRuntime extends HTMLElement {
     if (index < 0) return;
     this._tasks[index] = markTaskFinished(this._tasks[index], {
       status: "failed",
-      failReason: "Manually cancelled from Runtime panel.",
+      failReason: t("Manually cancelled from Runtime panel."),
     });
     await this._save();
     this._renderAll();
