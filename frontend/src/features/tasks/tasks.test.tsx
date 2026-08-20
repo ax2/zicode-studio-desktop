@@ -102,6 +102,47 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("still allows a manual retry after the automatic retry limit", async () => {
+    setLocale("zh-CN");
+    const confirmSpy = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmSpy);
+    const call = mockCall([
+      {
+        id: "fail",
+        title: "每日技术博客文章生成",
+        status: "failed",
+        maxRetries: 2,
+        retryCount: 2,
+        failReason: "getSelectedSceneId is not defined",
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelector(".task-center-card")).toBeTruthy());
+    const retry = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent === "重试",
+    );
+    expect(retry).toBeTruthy();
+    expect(document.querySelector(".task-center-result")?.textContent).toContain(
+      "已达到重试上限",
+    );
+    fireEvent.click(retry as HTMLElement);
+    expect(confirmSpy).toHaveBeenCalledWith(
+      "已超过自动重试上限，仍要手动重试此任务吗？",
+    );
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith(
+        "write_super_agent_tasks",
+        expect.objectContaining({ tasks: expect.any(Array) }),
+      ),
+    );
+    const written = call.mock.calls.find(
+      ([operation]) => operation === "write_super_agent_tasks",
+    )?.[1] as { tasks?: Array<{ status: string }> } | undefined;
+    expect(written?.tasks?.[0].status).toBe("pending");
+    vi.unstubAllGlobals();
+    store.getState().destroy();
+  });
+
   it("approves a pending task and dispatches it to the project agent", async () => {
     setLocale("en");
     const call = mockCall([

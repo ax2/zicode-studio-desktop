@@ -191,11 +191,30 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
               {t("Open session")}
             </button>
           ) : null}
-          {["failed", "blocked", "needs_input"].includes(task.status) && !limitReached ? (
+          {["failed", "blocked", "needs_input"].includes(task.status) ? (
             <button
               type="button"
-              className="ui-button ui-button--primary ui-button--sm"
-              onClick={() =>
+              className={`ui-button ui-button--sm${
+                limitReached ? " ui-button--secondary" : " ui-button--primary"
+              }`}
+              title={
+                limitReached
+                  ? t(
+                      "The automatic retry limit has been reached. Retry this task manually?",
+                    )
+                  : undefined
+              }
+              onClick={() => {
+                if (
+                  limitReached &&
+                  globalThis.confirm?.(
+                    t(
+                      "The automatic retry limit has been reached. Retry this task manually?",
+                    ),
+                  ) === false
+                ) {
+                  return;
+                }
                 void updateTask(
                   task.id,
                   (current) => ({
@@ -206,8 +225,8 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
                     failReason: null,
                   }),
                   t("Task returned to pending"),
-                )
-              }
+                );
+              }}
             >
               {t("Retry")}
             </button>
