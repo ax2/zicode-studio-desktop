@@ -257,6 +257,21 @@ const WelcomeItem = memo(function WelcomeItem({
             "Nothing runs without your approval; tasks execute only in your local project.",
           )}
         </p>
+        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
+        <div className="shortcuts-hint" role="group" aria-label={t("Keyboard shortcuts")}>
+          <span>
+            <kbd>/</kbd> {t("Focus input")}
+          </span>
+          <span>
+            <kbd>Esc</kbd> {t("Abort")}
+          </span>
+          <span>
+            <kbd>Ctrl+Shift+P</kbd> {t("Commands")}
+          </span>
+          <span>
+            <kbd>Ctrl+K</kbd> {t("Search sessions")}
+          </span>
+        </div>
       </div>
     );
   }
