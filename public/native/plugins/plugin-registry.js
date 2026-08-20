@@ -35,8 +35,9 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "One place to monitor, recover, pause, and review background work.",
     icon: "tasks",
     order: 75,
-    // Incomplete: no background Host Runner yet, so the task list stays empty.
-    enabledByDefault: false,
+    // Task center: dispatch, recovery, completion, and notifications are
+    // complete and verified end-to-end (2026-08-20).
+    enabledByDefault: true,
     sidebarViews: [],
     commands: [{ id: "tasks.open", label: "Open task center", icon: "open" }],
   },
@@ -76,8 +77,9 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Scheduled, approval-aware workflows with retries and auditable history.",
     icon: "automation",
     order: 150,
-    // Incomplete: unattended execution needs a background Host Runner.
-    enabledByDefault: false,
+    // Scheduler: enqueue, approval, system notifications, and run-again are
+    // complete and verified end-to-end (2026-08-20).
+    enabledByDefault: true,
     sidebarViews: [],
     commands: [{ id: "automation.open", label: "Open automations", icon: "open" }],
   },

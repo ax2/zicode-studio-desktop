@@ -1701,8 +1701,9 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            // Incomplete: no background Host Runner yet, so the task list stays empty.
-            false,
+            // Task center: dispatch, recovery, completion, and notifications are
+            // complete and verified end-to-end (2026-08-20).
+            true,
         ),
         (
             json!({
@@ -2500,8 +2501,9 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            // Incomplete: unattended execution needs a background Host Runner.
-            false,
+            // Scheduler: enqueue, approval, system notifications, and run-again
+            // are complete and verified end-to-end (2026-08-20).
+            true,
         ),
         (
             json!({
@@ -2636,19 +2638,24 @@ mod tests {
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
         assert_eq!(registry.list("programming").len(), 17);
         assert_eq!(registry.capabilities("programming").len(), 11);
-        for plugin_id in [
-            "com.zicode.projects",
-            "com.zicode.tasks",
-            "com.zicode.automation",
-        ] {
+        // Projects is still incomplete (no project CRUD) and stays disabled;
+        // Tasks and Automation have complete, verified usage loops and ship
+        // enabled by default for fresh scenes.
+        assert!(!registry
+            .list("programming")
+            .into_iter()
+            .find(|plugin| plugin.manifest.id == "com.zicode.projects")
+            .unwrap()
+            .enabled);
+        for plugin_id in ["com.zicode.tasks", "com.zicode.automation"] {
             assert!(
-                !registry
+                registry
                     .list("programming")
                     .into_iter()
                     .find(|plugin| plugin.manifest.id == plugin_id)
                     .unwrap()
                     .enabled,
-                "{plugin_id} should be disabled by default until it is complete"
+                "{plugin_id} should be enabled by default now that its loop is complete"
             );
         }
         assert!(registry
