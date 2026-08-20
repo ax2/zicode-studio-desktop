@@ -79,7 +79,11 @@ import { createSessionSelectionHandler } from "./session/session-navigation.js";
 import { setupSessionSearchDialog } from "./react/session-search-dialog.js";
 import { SessionSidebar } from "./react/session-sidebar.js";
 import { createSessionStore, reduceSessionState } from "./session/session-store.js";
-import { setupAppUpdater, setupSettingsPanel } from "./react/settings.js";
+import {
+  getSelectedSceneId,
+  setupAppUpdater,
+  setupSettingsPanel,
+} from "./react/settings.js";
 import { resolveBootstrapTarget } from "./transport/bootstrap-target.js";
 import { ConfigGateway } from "./transport/config-gateway.js";
 import {

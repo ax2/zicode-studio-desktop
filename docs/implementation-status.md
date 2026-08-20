@@ -1,5 +1,22 @@
 # 实现状态
 
+## 2026-08-20 任务派发 ReferenceError 修复（getSelectedSceneId 未导入）
+
+- 用户实测：任务中心的「每日技术博客文章生成」运行时报
+  `getSelectedSceneId is not defined`。定位：`public/native/app.js` 的
+  `sa-dispatch` 处理器调用 `spawnSessionViaHost(workspaceId,
+  getSelectedSceneId(), hostFetch)`，但文件顶部从未导入该函数（settings
+  构建产物 `settings.js` 实际有导出，纯属缺 import），任务批准派发路径一
+  走到就抛未绑定标识符错误。
+- 修复：在 `app.js` 的 `./react/settings.js` 导入中补上
+  `getSelectedSceneId`；安装目录已同步，控制台回归 14/14 干净（若导入
+  仍缺，应用模块会在启动阶段直接失败）。
+- 新增静态契约测试 `public/native/settings-import-contract.test.js`：
+  校验 app.js / workspace-actions.js 从 settings 构建产物导入的每个
+  命名导出都真实存在、且用到 `getSelectedSceneId` 的位置都有对应导入，
+  防止此类「调用未导入」的引用错误再次漏过（此前 QA 未覆盖任务派发路径）。
+- 全量 `bun run test`、typecheck、Biome 通过。
+
 ## 2026-08-20 智能收件箱新手引导（空会话欢迎页）
 
 - 针对此前「智能收件箱是个很奇怪的东西」的反馈：Agent Inbox 会话在
