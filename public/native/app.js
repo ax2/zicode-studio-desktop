@@ -1497,6 +1497,21 @@ function subscribeToLiveSessions(sessions) {
     }
   }
   updateSuperAgentActiveState((sessions ?? []).find((session) => session.id === target.sessionId));
+  // A freshly created Agent Inbox session is not in the list yet, so the
+  // id-based active-state check above cannot flag it. Resolve the workspace
+  // path from any listed session in the current workspace and specialize the
+  // empty welcome when it belongs to the Agent Inbox workspace.
+  const workspaceSession = (sessions ?? []).find(
+    (session) =>
+      session.workspaceId === target.workspaceId && session.projectPath,
+  );
+  if (
+    workspaceSession?.projectPath &&
+    currentHistoryMessages.length === 0 &&
+    isSuperAgentProjectPath(workspaceSession.projectPath)
+  ) {
+    messageRenderer.renderWelcome({ workspacePath: workspaceSession.projectPath });
+  }
   handleSuperAgentStartupSessions(sessions).catch(showError);
 }
 
@@ -1506,6 +1521,12 @@ function updateSuperAgentActiveState(session = null) {
   document.getElementById("super-agent-chat-header")?.classList.toggle("hidden", !active);
   if (active && localStorage.getItem("sa-runtime-collapsed") === "0") {
     document.querySelector("super-agent-runtime")?.classList.remove("collapsed");
+  }
+  // A freshly adopted Agent Inbox session may render the generic welcome
+  // before the session list arrives. Re-render the empty state with the
+  // project path so newcomers see the inbox-specific onboarding.
+  if (active && currentHistoryMessages.length === 0) {
+    messageRenderer.renderWelcome({ workspacePath: session?.projectPath });
   }
 }
 
@@ -2093,7 +2114,12 @@ function renderHistory(messages, { preserveScroll = false } = {}) {
   messageRenderer.clear();
   toolRenderer.clear();
   if (source.length === 0) {
-    messageRenderer.renderWelcome();
+    const workspacePath =
+      sidebar?.sessions?.find(
+        (session) =>
+          session.workspaceId === target.workspaceId && session.projectPath,
+      )?.projectPath ?? null;
+    messageRenderer.renderWelcome({ workspacePath });
     sceneIndicator?.render();
     applyActiveSearchHighlight({ scrollToFirst: false });
     return;
@@ -2267,6 +2293,10 @@ function markRuntimeDisconnected() {
 
 messagesElement.addEventListener("openmodelsettings", () => {
   settingsPanel?.openSettings("configuration");
+});
+
+messagesElement.addEventListener("openinboxsettings", () => {
+  settingsPanel?.openSettings("chat");
 });
 
 messagesElement.addEventListener("retrylastrequest", () => {

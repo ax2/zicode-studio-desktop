@@ -92,6 +92,7 @@ function ChatItem({
       return (
         <WelcomeItem
           key={item.seq}
+          container={container}
           workspacePath={item.workspacePath}
           scene={item.scene}
           onOpenSceneSettings={onOpenSceneSettings}
@@ -149,18 +150,116 @@ function Markdown({ html }: { html: string }) {
 }
 
 const WelcomeItem = memo(function WelcomeItem({
+  container,
   workspacePath,
   scene,
   onOpenSceneSettings,
   openApp,
   getEnabledAppIds,
 }: {
+  container: HTMLElement;
   workspacePath?: string;
   scene: WelcomeScene | null;
   onOpenSceneSettings?: () => void;
   openApp?: (pluginId: string) => void;
   getEnabledAppIds?: () => string[] | null;
 }) {
+  // The native app toggles `super-agent-active` on <body> whenever the
+  // current session lives in the Agent Inbox workspace (the same signal the
+  // chat header and sidebar use), so the welcome can specialize even when
+  // the workspace path is not passed down.
+  const isInboxSession =
+    isAgentInboxPath(workspacePath) ||
+    document.body.classList.contains("super-agent-active");
+  if (isInboxSession) {
+    return (
+      <div className="welcome welcome-inbox" data-welcome-kind="inbox">
+        <div className="welcome-hero">
+          <div className="welcome-icon" aria-hidden="true">
+            📥
+          </div>
+          <p>{t("Agent Inbox")}</p>
+          <p className="hint">
+            {t(
+              "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to this conversation.",
+            )}
+          </p>
+        </div>
+        <ol className="welcome-inbox-flow" aria-label={t("Inbox flow")}>
+          <li>{t("External message")}</li>
+          <li aria-hidden="true">→</li>
+          <li>{t("Pending task")}</li>
+          <li aria-hidden="true">→</li>
+          <li>{t("You approve")}</li>
+          <li aria-hidden="true">→</li>
+          <li>{t("Agent executes")}</li>
+          <li aria-hidden="true">→</li>
+          <li>{t("Result returns")}</li>
+        </ol>
+        <div className="welcome-inbox-steps">
+          <h2>{t("Three steps to start")}</h2>
+          <ol>
+            <li>
+              {t(
+                "Connect a bot in Settings → Agent Inbox (Feishu or WeCom).",
+              )}
+            </li>
+            <li>
+              {t(
+                "Send the bot a message, for example: organize this week's project progress.",
+              )}
+            </li>
+            <li>
+              {t(
+                "Approve and run it in the Task center; the result comes back here.",
+              )}
+            </li>
+          </ol>
+        </div>
+        <div className="welcome-inbox-actions">
+          <button
+            type="button"
+            className="ui-button ui-button--primary"
+            data-inbox-action="settings"
+            onClick={() => {
+              container.dispatchEvent(
+                new CustomEvent("openinboxsettings", { bubbles: true }),
+              );
+            }}
+          >
+            {t("Configure the inbox")}
+          </button>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            data-inbox-action="tasks"
+            onClick={() => openApp?.("com.zicode.tasks")}
+          >
+            {t("Open task center")}
+          </button>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost"
+            data-inbox-action="help"
+            onClick={() => {
+              globalThis.dispatchEvent?.(
+                new CustomEvent("zicode:open-help", {
+                  detail: { pageId: "inbox" },
+                }),
+              );
+            }}
+          >
+            {t("Learn about the inbox")}
+          </button>
+        </div>
+        <p className="welcome-inbox-security" role="note">
+          {t(
+            "Nothing runs without your approval; tasks execute only in your local project.",
+          )}
+        </p>
+      </div>
+    );
+  }
   const sceneId = scene?.id ?? "programming";
   const sceneName = scene ? t(scene.name) : "Programming";
   const sceneDescription = scene
@@ -290,6 +389,17 @@ const WelcomeItem = memo(function WelcomeItem({
     </div>
   );
 });
+
+function isAgentInboxPath(workspacePath?: string): boolean {
+  if (!workspacePath) return false;
+  // Match the canonical Agent Inbox workspace suffix used by
+  // public/super-agent/session.js so drive letters and slashes do not matter.
+  return workspacePath
+    .replaceAll("\\", "/")
+    .replace(/\/+$/, "")
+    .toLowerCase()
+    .endsWith("/zicode/workspaces/agent-inbox");
+}
 
 function imageItems(message: UserMessageLike): Array<{ data?: string; mimeType?: string }> {
   const items: Array<{ data?: string; mimeType?: string }> = [];

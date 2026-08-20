@@ -182,6 +182,58 @@ describe("chat feed renderers", () => {
     expect(openApp).toHaveBeenCalledWith("com.zicode.translate");
   });
 
+  it("renders an onboarding welcome for the Agent Inbox session", async () => {
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    renderer.renderWelcome({
+      workspacePath: "C:\\Users\\me\\zicode\\workspaces\\agent-inbox",
+    });
+    await flush();
+    expect(container.querySelector('[data-welcome-kind="inbox"]')).toBeTruthy();
+    expect(container.querySelector(".welcome-inbox-steps")).toBeTruthy();
+    expect(container.querySelector(".welcome-workspace")).toBeNull();
+
+    // Normal workspaces keep the generic welcome.
+    const generic = makeContainer();
+    const genericRenderer = new MessageRenderer(generic);
+    genericRenderer.renderWelcome({ workspacePath: "/home/test" });
+    await flush();
+    expect(generic.querySelector('[data-welcome-kind="inbox"]')).toBeNull();
+    expect(generic.querySelector(".welcome")).toBeTruthy();
+  });
+
+  it("routes Agent Inbox welcome actions to settings, tasks, and help", async () => {
+    const container = makeContainer();
+    const openApp = vi.fn();
+    const renderer = new MessageRenderer(container, { openApp });
+    renderer.renderWelcome({
+      workspacePath: "/Users/me/zicode/workspaces/agent-inbox",
+    });
+    await flush();
+
+    const settingsSpy = vi.fn();
+    container.addEventListener("openinboxsettings", settingsSpy);
+    (
+      container.querySelector('[data-inbox-action="settings"]') as HTMLElement | null
+    )?.click();
+    expect(settingsSpy).toHaveBeenCalledTimes(1);
+
+    (
+      container.querySelector('[data-inbox-action="tasks"]') as HTMLElement | null
+    )?.click();
+    expect(openApp).toHaveBeenCalledWith("com.zicode.tasks");
+
+    const helpSpy = vi.fn();
+    window.addEventListener("zicode:open-help", helpSpy);
+    (
+      container.querySelector('[data-inbox-action="help"]') as HTMLElement | null
+    )?.click();
+    expect(helpSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: { pageId: "inbox" } }),
+    );
+    window.removeEventListener("zicode:open-help", helpSpy);
+  });
+
   it("renders history window notices and loaded status from the feed", async () => {
     const container = makeContainer();
     const onRevealHistory = vi.fn();

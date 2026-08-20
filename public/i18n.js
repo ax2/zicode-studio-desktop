@@ -462,6 +462,25 @@ const zhCN = {
   "External messages become tasks here": "外部消息在这里变成待办任务",
   "How to use the Agent Inbox": "智能收件箱怎么用",
   "How to use": "怎么用",
+  "Messages sent to your Feishu or WeCom bot land here as tasks. Approve them and a project agent executes the work on your machine; results come back to this conversation.":
+    "飞书或企业微信机器人收到的消息会在这里变成待办任务；你批准后，项目代理在本机执行，结果回到这段对话。",
+  "Inbox flow": "收件箱流程",
+  "External message": "外部消息",
+  "Pending task": "待办任务",
+  "You approve": "你批准",
+  "Agent executes": "代理执行",
+  "Result returns": "结果回传",
+  "Three steps to start": "三步开始",
+  "Connect a bot in Settings → Agent Inbox (Feishu or WeCom).":
+    "在“设置 → 智能收件箱”接入飞书或企业微信机器人。",
+  "Send the bot a message, for example: organize this week's project progress.":
+    "给机器人发一条消息，例如：整理本周项目进度。",
+  "Approve and run it in the Task center; the result comes back here.":
+    "在任务中心点“批准并运行”；结果回到这里。",
+  "Configure the inbox": "配置智能收件箱",
+  "Learn about the inbox": "了解智能收件箱",
+  "Nothing runs without your approval; tasks execute only in your local project.":
+    "未经你批准不会执行任何任务；任务只在你本机的项目里运行。",
   "Manage in Task app": "在任务应用中管理",
   "Tasks from external messages and automations are approved here.":
     "来自外部消息与自动化的任务在这里审批。",
