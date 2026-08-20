@@ -52,9 +52,16 @@ export function RemoteAccessTab({ store }: { store: RemoteAccessStore }) {
     };
     window.addEventListener("focus", refreshWhenVisible);
     document.addEventListener("visibilitychange", refreshWhenVisible);
+    // Keep the relay/device status live while the tab stays open so an
+    // outage (relay drop, device disconnect) shows up without reopening the
+    // settings tab or clicking refresh. Quiet loads avoid loading flicker.
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load({ quiet: true });
+    }, 15000);
     return () => {
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.clearInterval(poll);
     };
   }, [load]);
 

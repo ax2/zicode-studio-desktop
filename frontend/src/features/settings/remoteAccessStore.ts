@@ -70,7 +70,7 @@ interface RemoteAccessState {
   turnProbeDetail: string;
   relaySaveStatus: string;
   loadError: string | null;
-  load(): Promise<void>;
+  load(options?: { quiet?: boolean }): Promise<void>;
   toggleEnabled(): Promise<void>;
   savePublic(): Promise<void>;
   setPublicInputs(publicUrl: string, publicEnrollment: string): void;
@@ -111,9 +111,9 @@ export function createRemoteAccessStore(gateway: RemoteAccessGateway | null) {
     relaySaveStatus: "",
     loadError: null,
 
-    async load() {
+    async load({ quiet = false } = {}) {
       if (get().loading) return;
-      set({ loading: true });
+      if (!quiet) set({ loading: true });
       try {
         if (!gateway) throw new Error(t("Remote access controls are unavailable."));
         const [status, devices] = await Promise.all([
