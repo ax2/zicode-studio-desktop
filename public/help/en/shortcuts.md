@@ -6,6 +6,9 @@
 - `Enter` sends or steers.
 - `Alt+Enter` queues a follow-up.
 - `Escape` aborts the current run.
+- `Ctrl+M` switches the model (model dropdown next to the composer).
+- `Ctrl+T` cycles thinking effort (the "Think" tag next to the composer).
+- `Ctrl+1` through `Ctrl+9` switch applications by activity-bar order.
 
 ## Commands
 
@@ -32,6 +35,11 @@ expand/collapse-all tool actions.
 
 - `Ctrl+S` saves the current note while the notes editor is focused.
 - `Ctrl+N` creates a new note.
+- `Ctrl+E` toggles edit/preview.
+- `Ctrl+Shift+D` downloads Markdown.
+- `Ctrl+Shift+C` copies Markdown.
+- `Ctrl+D` creates a copy.
+- `Ctrl+Enter` brings the selection or whole note into chat.
 - `Ctrl+Shift+T` opens the trash.
 
 ## Navigation
