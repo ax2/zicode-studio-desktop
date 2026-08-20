@@ -1625,8 +1625,10 @@ async function diagnose(cdp, name, url, viewport) {
         (initial?.result?.value?.stateText ?? "").includes("Task service"),
     };
   }
-  // On the mobile shell, exercise the "More" application menu.
-  if (viewport.width < 700) {
+  // On the mobile shell, exercise the "More" application menu. The mobile
+  // shell kicks in at max-width: 768px, so the boundary band (700-768px)
+  // must be covered too, not just phone-sized viewports.
+  if (viewport.width <= 768) {
     await cdp.send("Runtime.evaluate", {
       expression: `(() => {
         document.querySelector("[data-mobile-activity-more]")?.click();

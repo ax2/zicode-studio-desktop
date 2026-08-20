@@ -2207,8 +2207,20 @@ function NoteEditor({ store }: { store: NotesStore }) {
 
   useEffect(() => {
     if (!activeOutlineId) return;
+    const list = outlineListRef.current;
+    if (!list) return;
+    // Only follow the active heading inside an independently scrollable
+    // outline panel (the desktop sticky sidebar). On narrow layouts the
+    // outline is a static block below the article, so scrolling it into
+    // view on open would yank the reader away from the note toolbar and
+    // content (the toolbar ends up tucked under the session header).
+    const listStyle = getComputedStyle(list);
+    const independentlyScrollable =
+      list.scrollHeight > list.clientHeight + 1 &&
+      (listStyle.overflowY === "auto" || listStyle.overflowY === "scroll");
+    if (!independentlyScrollable) return;
     const item = Array.from(
-      outlineListRef.current?.querySelectorAll<HTMLElement>("li[data-outline-id]") ?? [],
+      list.querySelectorAll<HTMLElement>("li[data-outline-id]"),
     ).find(
       (entry) => entry.getAttribute("data-outline-id") === activeOutlineId,
     );
