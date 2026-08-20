@@ -57,6 +57,20 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("filters tasks by clicking a summary card", async () => {
+    setLocale("en");
+    const call = mockCall([
+      { id: "fail", title: "Failed report", status: "failed" },
+      { id: "done", title: "Finished report", status: "done" },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Failed report")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Failed: 1"));
+    expect(screen.getByText("Failed report")).toBeTruthy();
+    expect(screen.queryByText("Finished report")).toBeNull();
+    store.getState().destroy();
+  });
+
   it("shows the first-run guide on first visit", async () => {
     localStorage.clear();
     const call = mockCall([]);

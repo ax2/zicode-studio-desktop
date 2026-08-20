@@ -11390,6 +11390,23 @@ body.notes-dragging .notes-result-item {
   gap: var(--space-1);
 }
 
+button.task-center-summary-card {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+button.task-center-summary-card:hover,
+button.task-center-summary-card:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
 .task-center-summary-card strong {
   font-size: var(--font-size-2xl);
 }

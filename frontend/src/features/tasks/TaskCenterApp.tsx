@@ -18,6 +18,7 @@ import {
   taskProject,
   taskSummaryText,
   type SuperAgentTask,
+  type TaskFilter,
 } from "./logic";
 import { createTaskCenterStore, type TaskCenterOptions } from "./store";
 
@@ -112,22 +113,26 @@ export function TaskMain({ store }: { store: TaskStore }) {
 
 function TaskSummary({ store }: { store: TaskStore }) {
   const tasks = store((state) => state.tasks);
-  const cards: Array<[string, number, string]> = [
-    ["Running", filteredTasks(tasks, "running").length, "running"],
-    ["Needs input", filteredTasks(tasks, "needs_input").length, "warning"],
-    ["Failed", filteredTasks(tasks, "failed").length, "danger"],
-    ["Completed", filteredTasks(tasks, "done").length, "success"],
+  const setFilter = store((state) => state.setFilter);
+  const cards: Array<[string, number, string, TaskFilter]> = [
+    ["Running", filteredTasks(tasks, "running").length, "running", "running"],
+    ["Needs input", filteredTasks(tasks, "needs_input").length, "warning", "needs_input"],
+    ["Failed", filteredTasks(tasks, "failed").length, "danger", "failed"],
+    ["Completed", filteredTasks(tasks, "done").length, "success", "done"],
   ];
   return (
     <div className="task-center-summary">
-      {cards.map(([label, count, tone]) => (
-        <article
+      {cards.map(([label, count, tone, filter]) => (
+        <button
           key={label}
+          type="button"
           className={`ui-card task-center-summary-card task-center-summary-card--${tone}`}
+          aria-label={`${t(label)}: ${count}`}
+          onClick={() => setFilter(filter)}
         >
           <strong>{count}</strong>
           <span>{t(label)}</span>
-        </article>
+        </button>
       ))}
     </div>
   );
