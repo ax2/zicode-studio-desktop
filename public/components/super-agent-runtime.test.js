@@ -121,6 +121,46 @@ describe("super-agent-runtime", () => {
     expect(error?.textContent).not.toContain("getSelectedSceneId");
   });
 
+  it("retries and dispatches a failed task in one click", async () => {
+    setLocale("en");
+    const call = mockConfig({
+      tasks: [
+        {
+          id: "task-fail",
+          status: "failed",
+          title: "Daily blog post",
+          targetProject: "/Users/me/project",
+          failReason: "timeout",
+          retryCount: 0,
+          maxRetries: 2,
+        },
+      ],
+    });
+    const Runtime = customElements.get("super-agent-runtime");
+    const runtime = new Runtime();
+    const dispatches = [];
+    runtime.addEventListener("sa-dispatch", (event) => dispatches.push(event.detail.id));
+    document.body.appendChild(runtime);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const card = runtime.querySelector(".runtime-task-card");
+    card.click();
+    const retry = runtime.querySelector('[data-action="retry-and-run"]');
+    expect(retry).not.toBeNull();
+    expect(retry?.textContent).toContain("Retry and run");
+    retry.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(dispatches).toEqual(["task-fail"]);
+    const written = lastWrittenTasks(call);
+    const updated = written.find((task) => task.id === "task-fail");
+    expect(updated.status).toBe("running");
+    expect(updated.retryCount).toBe(1);
+    expect(updated.failReason).toBeNull();
+  });
+
   it("offers a reply box for needs-input tasks with a child session", async () => {
     setLocale("zh-CN");
     mockConfig({

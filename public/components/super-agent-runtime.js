@@ -257,6 +257,24 @@ class SuperAgentRuntime extends HTMLElement {
     );
   }
 
+  async _retryAndRun(taskId) {
+    const task = this._tasks.find((t) => t.id === taskId);
+    if (!task || !isDispatchableProjectPath(task.targetProject)) return;
+    const index = this._tasks.findIndex((t) => t.id === taskId);
+    this._tasks[index] = markTaskForDispatch({
+      ...this._tasks[index],
+      status: "pending",
+      retryCount: Number(this._tasks[index].retryCount || 0) + 1,
+      result: { status: null, summary: null, completedAt: null, failReason: null },
+      failReason: null,
+    });
+    await this._save();
+    this._renderAll();
+    this.dispatchEvent(
+      new CustomEvent("sa-dispatch", { detail: this._tasks[index], bubbles: true }),
+    );
+  }
+
   _selectProject(taskId, targetProject) {
     const index = this._tasks.findIndex((t) => t.id === taskId);
     if (index < 0) return;
@@ -473,7 +491,11 @@ class SuperAgentRuntime extends HTMLElement {
           body += `<div class="runtime-task-target">${t("Project")}: <strong>${esc(projectName)}</strong></div>`;
           body += `
             <div class="runtime-approve-row">
-              <button class="sa-btn sa-btn-approve" data-action="retry" data-task-id="${task.id}">${t("Retry")}</button>
+              ${
+                task.status === "failed" || task.status === "blocked"
+                  ? `<button class="sa-btn sa-btn-approve" data-action="retry-and-run" data-task-id="${escAttr(task.id)}">${t("Retry and run")}</button>`
+                  : `<button class="sa-btn sa-btn-approve" data-action="retry" data-task-id="${escAttr(task.id)}">${t("Retry")}</button>`
+              }
               <button class="sa-btn sa-btn-dismiss" data-action="dismiss" data-task-id="${task.id}">${t("Dismiss")}</button>
             </div>`;
         } else {
@@ -609,6 +631,8 @@ class SuperAgentRuntime extends HTMLElement {
         const { action, taskId } = el.dataset;
         if (action === "approve" || action === "retry") {
           this._approve(taskId);
+        } else if (action === "retry-and-run") {
+          this._retryAndRun(taskId);
         } else if (action === "dismiss") {
           this._dismiss(taskId);
         } else if (action === "prompt-task") {
