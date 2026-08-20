@@ -212,6 +212,26 @@ export function markTaskAnswered(task, { now } = {}) {
   };
 }
 
+/**
+ * Find a dispatched task by its persisted child instance id.
+ *
+ * The in-memory dispatch map (`instanceId -> taskId`) is lost when the host
+ * page reloads mid-run, so completion events must be able to fall back to the
+ * durable task record. Returns the task id, or null when no task owns the
+ * instance (for example ordinary background sessions).
+ */
+export async function findDispatchedTaskByInstanceId(readTasks, instanceId) {
+  if (!instanceId) return null;
+  try {
+    const read = await readTasks();
+    const tasks = read?.data?.tasks ?? [];
+    const match = tasks.find((task) => task.dispatch?.childInstanceId === instanceId);
+    return match?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function markTaskFinished(
   task,
   { status = "done", summary = null, failReason = null, now } = {},

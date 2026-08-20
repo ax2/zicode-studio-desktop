@@ -1,5 +1,25 @@
 # 实现状态
 
+## 2026-08-20 派发任务完成态自愈（agent_settled + 持久化兜底）
+
+- 真机验证暴露问题：「每日技术博客文章生成」子代理在 14:23 完成全部工作
+  （3 篇文章 + 封面 + 完成汇报），但任务一直停留在 running——完成标记
+  只依赖 `agent_end` 事件，一旦该事件未送达/内存映射丢失，任务就永久
+  “运行中”。
+- 修复：
+  - `agent_end` 仅在 `willRetry !== true` 时视为最终完成（避免提前把
+    自动重试中的任务标成完成）；
+  - `agent_settled`（整轮运行彻底结束、无自动延续）同样触发完成标记，
+    任务已为 needs_input/blocked 时跳过；
+  - 完成与 `session_bound` 绑定都增加持久化兜底：从任务记录按
+    `dispatch.childInstanceId` 反查归属任务（新增
+    `findDispatchedTaskByInstanceId`，webview 中途重载也不丢）。
+- 当前卡住的任务已按子会话真实结果手工对账为完成（summary 含 3 篇文章
+  标题）；桌面端已重启加载修复（PID 70780，`/health` ok）。
+- 新增单测覆盖按 childInstanceId 反查与失败兜底；全量 `bun run test`
+  （46/46）、typecheck、Biome 通过；app.js / task-state.js 已同步安装
+  目录。
+
 ## 2026-08-20 失败任务一键「重试并运行」
 
 - 此前失败/阻塞任务要两步才能重新跑：先「重试」（回到待运行），再

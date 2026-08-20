@@ -6,6 +6,7 @@ import { isSuperAgentEnabled } from "../super-agent/settings.js";
 import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
 import {
   buildTaskComposerPrompt,
+  findDispatchedTaskByInstanceId,
   markTaskChildSessionBound,
   markTaskAnswered,
   markTaskFinished,
@@ -1739,86 +1740,17 @@ async function handleBackgroundRuntimeEvent(frame) {
       if (pluginShell?.getActivePluginId() !== "core.chat") {
         pluginShell?.setActivityBadge("core.chat", { count: 1, tone: "success" });
       }
-      if (frame.event?.type === "agent_end") {
-        const instanceId = frame.target?.instanceId;
-        const taskId = dispatchedInstances.get(instanceId);
-        dispatchedInstances.delete(instanceId);
-        const summary = dispatchedSummaries.get(instanceId) || null;
-        dispatchedSummaries.delete(instanceId);
-        if (taskId) {
-          // The project agent finished: mark the owning task completed so it
-          // does not stay "running" forever, and tell the user the outcome.
-          const completionMessage =
-            summary || t("Project agent ended. Review the child session for details.");
-          let marked = false;
-          let taskTitle = "";
-          let taskTargetProject = "";
-          await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
-            {
-              if (task.status !== "running" && task.status !== "pending") return task;
-              marked = true;
-              taskTitle = task.title || t("Untitled task");
-              taskTargetProject =
-                task.targetProject || task.dispatch?.targetProject || "";
-              return markTaskFinished(task, { summary: completionMessage });
-            },
-          ).catch((error) =>
-            console.warn("[SuperAgent] failed to mark dispatched task done:", error),
-          );
-          if (marked) {
-            const notificationMessage =
-              completionMessage.length > 160
-                ? `${completionMessage.slice(0, 160)}…`
-                : completionMessage;
-            // Land in the target project's most recent session so generated
-            // output is one click away; fall back to the task center when the
-            // project has no session yet.
-            const normalize = (value) =>
-              String(value || "")
-                .replace(/^\\\\\?\\/, "")
-                .replace(/^\\\?\\/, "")
-                .replace(/[\\/]+/g, "/")
-                .replace(/\/+$/, "");
-            const normalizedTarget = normalize(taskTargetProject);
-            const targetSession =
-              taskTargetProject &&
-              (sidebar?.sessions ?? [])
-                .filter(
-                  (session) =>
-                    session.projectPath &&
-                    normalize(session.projectPath) === normalizedTarget,
-                )
-                .sort(
-                  (left, right) =>
-                    (Number(right.modifiedAtMs) || 0) -
-                    (Number(left.modifiedAtMs) || 0),
-                )[0];
-            notifications.notify({
-              title: t("Task completed"),
-              message: `${taskTitle}：${notificationMessage}`,
-              type: "success",
-              action: {
-                label: targetSession ? t("Open workspace") : t("Open tasks"),
-                run: () => {
-                  if (!targetSession) {
-                    window.dispatchEvent(new CustomEvent("zicode:open-tasks"));
-                    return;
-                  }
-                  void openSessionInProject({
-                    id: targetSession.id,
-                    projectPath: targetSession.projectPath,
-                    workspaceId: targetSession.workspaceId,
-                  }).catch(showError);
-                },
-              },
-            });
-            pluginShell?.setActivityBadge("com.zicode.tasks", {
-              count: 1,
-              tone: "success",
-            });
-          }
-        }
+      // `agent_end` fires per low-level run and may be followed by an
+      // automatic retry, so only treat it as final when no retry is queued.
+      // `agent_settled` means the whole run settled with no automatic
+      // continuation left, which is the reliable completion signal for a
+      // dispatched background task. It also fires when the agent waits for
+      // input, but then the task is already `needs_input` / `blocked` and the
+      // completion guard inside `completeDispatchedTask` skips it.
+      if (frame.event?.type === "agent_end" && frame.event?.willRetry === true) {
+        break;
       }
+      await completeDispatchedTask(frame.target?.instanceId, null);
       break;
     case "message_end":
       if (frame.event.message?.role === "assistant") {
@@ -1844,11 +1776,98 @@ async function handleBackgroundRuntimeEvent(frame) {
   }
 }
 
+// Mark the owning task completed when a dispatched child runtime finishes.
+// Falls back to the durable task record when the in-memory dispatch map was
+// lost (for example after the host page reloads mid-run), so a task never
+// stays "running" forever just because the webview restarted.
+async function completeDispatchedTask(instanceId, completionMessage) {
+  if (!instanceId) return;
+  const mappedTaskId = dispatchedInstances.get(instanceId);
+  dispatchedInstances.delete(instanceId);
+  const summary = dispatchedSummaries.get(instanceId) || null;
+  dispatchedSummaries.delete(instanceId);
+  const taskId =
+    mappedTaskId ||
+    (await findDispatchedTaskByInstanceId(
+      () => window.__picotConfigCall("read_super_agent_tasks"),
+      instanceId,
+    ));
+  if (!taskId) return;
+  const completionText =
+    completionMessage ||
+    summary ||
+    t("Project agent ended. Review the child session for details.");
+  let marked = false;
+  let taskTitle = "";
+  let taskTargetProject = "";
+  await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) => {
+    if (task.status !== "running" && task.status !== "pending") return task;
+    marked = true;
+    taskTitle = task.title || t("Untitled task");
+    taskTargetProject = task.targetProject || task.dispatch?.targetProject || "";
+    return markTaskFinished(task, { summary: completionText });
+  }).catch((error) =>
+    console.warn("[SuperAgent] failed to mark dispatched task done:", error),
+  );
+  if (!marked) return;
+  const notificationMessage =
+    completionText.length > 160 ? `${completionText.slice(0, 160)}…` : completionText;
+  // Land in the target project's most recent session so generated output is
+  // one click away; fall back to the task center when the project has no
+  // session yet.
+  const normalize = (value) =>
+    String(value || "")
+      .replace(/^\\\\\?\\/, "")
+      .replace(/^\\\?\\/, "")
+      .replace(/[\\/]+/g, "/")
+      .replace(/\/+$/, "");
+  const normalizedTarget = normalize(taskTargetProject);
+  const targetSession =
+    taskTargetProject &&
+    (sidebar?.sessions ?? [])
+      .filter(
+        (session) =>
+          session.projectPath && normalize(session.projectPath) === normalizedTarget,
+      )
+      .sort(
+        (left, right) =>
+          (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
+      )[0];
+  notifications.notify({
+    title: t("Task completed"),
+    message: `${taskTitle}：${notificationMessage}`,
+    type: "success",
+    action: {
+      label: targetSession ? t("Open workspace") : t("Open tasks"),
+      run: () => {
+        if (!targetSession) {
+          window.dispatchEvent(new CustomEvent("zicode:open-tasks"));
+          return;
+        }
+        void openSessionInProject({
+          id: targetSession.id,
+          projectPath: targetSession.projectPath,
+          workspaceId: targetSession.workspaceId,
+        }).catch(showError);
+      },
+    },
+  });
+  pluginShell?.setActivityBadge("com.zicode.tasks", {
+    count: 1,
+    tone: "success",
+  });
+}
+
 // When a dispatched child runtime binds its persisted session id, upgrade the
 // owning Agent Inbox task so "View Session ->" navigates to the real session.
 async function bindDispatchedChildSession(instanceId, boundSessionId) {
   if (!instanceId || !boundSessionId) return;
-  const taskId = dispatchedInstances.get(instanceId);
+  const taskId =
+    dispatchedInstances.get(instanceId) ||
+    (await findDispatchedTaskByInstanceId(
+      () => window.__picotConfigCall("read_super_agent_tasks"),
+      instanceId,
+    ));
   if (!taskId) return;
   await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
     markTaskChildSessionBound(task, { childSessionId: boundSessionId }),

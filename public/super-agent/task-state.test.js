@@ -5,6 +5,7 @@ import {
   buildProjectAgentPrompt,
   buildSuperAgentNotificationPrompt,
   buildTaskComposerPrompt,
+  findDispatchedTaskByInstanceId,
   markTaskAnswered,
   markTaskFinished,
   markTaskForDispatch,
@@ -15,6 +16,35 @@ import {
 } from "./task-state.js";
 
 describe("super-agent task state", () => {
+  it("finds a dispatched task by its persisted child instance id", async () => {
+    const readTasks = async () => ({
+      ok: true,
+      data: {
+        tasks: [
+          { id: "task-other", status: "done" },
+          {
+            id: "task-child",
+            status: "running",
+            dispatch: { childInstanceId: "instance-42", childSessionId: "session-42" },
+          },
+        ],
+      },
+    });
+    await expect(findDispatchedTaskByInstanceId(readTasks, "instance-42")).resolves.toBe(
+      "task-child",
+    );
+    await expect(findDispatchedTaskByInstanceId(readTasks, "instance-unknown")).resolves.toBeNull();
+    await expect(findDispatchedTaskByInstanceId(readTasks, "")).resolves.toBeNull();
+    await expect(
+      findDispatchedTaskByInstanceId(
+        async () => {
+          throw new Error("runtime unavailable");
+        },
+        "instance-42",
+      ),
+    ).resolves.toBeNull();
+  });
+
   it("marks a needs-input task as answered and returns it to running", () => {
     const input = normalizeSuperAgentTasks([
       {
