@@ -378,7 +378,7 @@ function Detail({ term, value }: { term: string; value: string }) {
   return (
     <>
       <dt>{term}</dt>
-      <dd>{value || "—"}</dd>
+      <dd title={value || undefined}>{value || "—"}</dd>
     </>
   );
 }
