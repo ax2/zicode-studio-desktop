@@ -64,6 +64,7 @@ import { setupTranslationApp } from "./react/translate.js";
 import { setupWatchApp } from "./react/watch.js";
 import { setupOcrApp } from "./react/ocr.js";
 import { mergeMemoryEntries, parseMemoryExtractAnswer } from "./memory-extract.js";
+import { isFileWritingTool, toolFilePath } from "./tool-guard.js";
 import { setupArticlesApp } from "./react/articles.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
@@ -2316,15 +2317,8 @@ function setupFileBrowser() {
   fileResultViews = {
     recordTool(event) {
       const toolName = String(event?.toolName || "");
-      const lower = toolName.toLowerCase();
-      const writeLike = ["write", "edit", "create", "patch", "append"].some((token) =>
-        lower.includes(token),
-      );
-      if (!writeLike) return;
-      const args = event?.args || event?.arguments || {};
-      const filePath = String(
-        args.path || args.file_path || args.filePath || args.target || "",
-      ).trim();
+      if (!isFileWritingTool(toolName)) return;
+      const filePath = toolFilePath(event?.args || event?.arguments || {});
       if (!filePath) return;
       changes.set(filePath, {
         path: filePath,
@@ -2584,6 +2578,18 @@ async function handleRuntimeEvent(event) {
     case "tool_execution_start":
       toolRenderer.createToolCard({ ...event, status: "pending" });
       fileResultViews?.recordTool(event);
+      if (
+        document.getElementById("composer-mode")?.value === "ask" &&
+        isFileWritingTool(event.toolName)
+      ) {
+        notifications.notify({
+          title: t("Ask mode detected a file write"),
+          message: t(
+            "The agent is about to modify files even though Ask mode should only answer. Stop it or switch to Craft.",
+          ),
+          type: "warning",
+        });
+      }
       break;
     case "tool_execution_update":
       toolRenderer.updateToolCard({

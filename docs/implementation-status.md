@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-21 问一问模式写文件警告（工作模式边界可视化）
+
+- Ask 模式保护增强：若模型在问一问模式下仍尝试写文件（write/edit/create/
+  patch 等），宿主在工具开始时弹出警告「问一问模式下检测到文件写入」并
+  建议停止或切换到做一做——模式边界从"指令约束"升级为"可见保护"。
+- 工具分类（`isFileWritingTool`/`toolFilePath`）独立成
+  `public/native/tool-guard.js`，结果区文件变更与 Ask 警告共用，消除重复
+  逻辑；2 项单测全绿（写类工具分类、路径字段兼容）。
+- 验证：i18n 覆盖、typecheck、Biome 通过；全量 158 文件用例全绿；bundle
+  与 i18n 已同步安装目录。Ask 模式发送注入与文件变更记录链路此前已有
+  WebSocket 帧级与双视口 QA 覆盖。
+
 ## 2026-08-21 交付卫生：安装目录 public 全量同步
 
 - 发现并修复同步缺口：`build:react` 每次重编**所有** React bundle（bundle
