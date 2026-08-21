@@ -1906,6 +1906,8 @@ const zhCN = {
   Enable: "启用",
   Schedule: "计划",
   "Next run": "下次运行",
+  Runs: "已运行",
+  "Last run": "上次运行",
   "Current project": "当前项目",
   Every: "每",
   minutes: "分钟",

@@ -144,6 +144,23 @@ export function scheduleDescription(task: SuperAgentTask): string {
   return t("Manual");
 }
 
+export function scheduledTaskStats(
+  template: SuperAgentTask,
+  tasks: SuperAgentTask[],
+): { runCount: number; lastRunAt: string | null } {
+  const instances = tasks.filter((task) => task.scheduledFrom === template.id);
+  let lastRunAt: string | null = null;
+  for (const instance of instances) {
+    const candidate =
+      instance.result?.completedAt ||
+      instance.dispatch?.startedAt ||
+      instance.events?.at(-1)?.at ||
+      null;
+    if (candidate && (!lastRunAt || candidate > lastRunAt)) lastRunAt = candidate;
+  }
+  return { runCount: instances.length, lastRunAt };
+}
+
 export function childTarget(task: SuperAgentTask) {
   const dispatch = task?.dispatch || {};
   if (!dispatch.childWorkspaceId || !dispatch.childSessionId || !dispatch.childInstanceId) {

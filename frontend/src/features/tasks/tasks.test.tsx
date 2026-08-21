@@ -3,7 +3,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
 import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
-import { formatDate, isScheduledTemplate, nextTaskRunAt } from "./logic";
+import {
+  formatDate,
+  isScheduledTemplate,
+  nextTaskRunAt,
+  scheduledTaskStats,
+} from "./logic";
 
 function mockCall(tasks: unknown[]) {
   return vi.fn(async (operation: string, _params?: unknown) => {
@@ -738,5 +743,35 @@ describe("task center task management", () => {
     expect(isScheduledTemplate({ schedule: "manual" } as never)).toBe(false);
     const next = nextTaskRunAt({ schedule: "interval", intervalMinutes: 30 });
     expect(next).toBeTruthy();
+  });
+
+  it("summarizes a scheduled template's spawned instances", () => {
+    const template = {
+      id: "tpl",
+      title: "Daily",
+      status: "pending",
+      schedule: "daily",
+      dailyTime: "09:00",
+      enabled: true,
+    };
+    const instances = [
+      {
+        id: "i1",
+        scheduledFrom: "tpl",
+        status: "done",
+        dispatch: { startedAt: "2026-08-20T01:00:00.000Z" },
+        result: { completedAt: "2026-08-20T01:30:00.000Z" },
+      },
+      {
+        id: "i2",
+        scheduledFrom: "tpl",
+        status: "running",
+        dispatch: { startedAt: "2026-08-21T01:00:00.000Z" },
+      },
+      { id: "other", scheduledFrom: "other-tpl" },
+    ];
+    const stats = scheduledTaskStats(template as never, instances as never);
+    expect(stats.runCount).toBe(2);
+    expect(stats.lastRunAt).toBe("2026-08-21T01:00:00.000Z");
   });
 });

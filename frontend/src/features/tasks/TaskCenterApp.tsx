@@ -16,6 +16,7 @@ import {
   nextTaskRunAt,
   retryLimitReached,
   scheduleDescription,
+  scheduledTaskStats,
   statusLabel,
   TASK_FILTERS,
   taskProject,
@@ -425,6 +426,7 @@ function TaskCard({
   const removeTask = store((state) => state.removeTask);
   const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
+  const allTasks = store((state) => state.tasks);
   const limitReached = retryLimitReached(task);
   const canRetryAndRun =
     ["failed", "blocked"].includes(task.status) && Boolean(task.targetProject);
@@ -438,6 +440,7 @@ function TaskCard({
   const rawSummary = taskSummaryText(task);
   const summary = friendlyTaskDispatchError(rawSummary);
   const scheduledTemplate = isScheduledTemplate(task);
+  const scheduledStats = scheduledTemplate ? scheduledTaskStats(task, allTasks) : null;
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reply, setReply] = useState("");
@@ -694,6 +697,11 @@ function TaskCard({
             <Detail
               term={t("Next run")}
               value={formatDate(task.nextRunAt || nextTaskRunAt(task))}
+            />
+            <Detail term={t("Runs")} value={String(scheduledStats?.runCount ?? 0)} />
+            <Detail
+              term={t("Last run")}
+              value={formatDate(scheduledStats?.lastRunAt ?? null)}
             />
           </>
         ) : null}
