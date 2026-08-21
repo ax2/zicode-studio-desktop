@@ -2246,7 +2246,11 @@ function setupFileBrowser() {
         metaEl.textContent = [kind, created].filter(Boolean).join(" · ");
         row.append(titleEl, metaEl);
         row.addEventListener("click", () => {
-          pluginShell?.activate("com.zicode.artifacts");
+          window.dispatchEvent(
+            new CustomEvent("zicode:open-artifact", {
+              detail: { artifactId: item.id },
+            }),
+          );
         });
         artifactsPane.append(row);
       }
