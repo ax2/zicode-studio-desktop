@@ -63,6 +63,7 @@ import { setupHabitsApp } from "./react/habits.js";
 import { setupTranslationApp } from "./react/translate.js";
 import { setupWatchApp } from "./react/watch.js";
 import { setupOcrApp } from "./react/ocr.js";
+import { mergeMemoryEntries, parseMemoryExtractAnswer } from "./memory-extract.js";
 import { setupArticlesApp } from "./react/articles.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
@@ -274,6 +275,7 @@ let navigationGeneration = 0;
 let commandCatalog = buildCommandCatalog({});
 let streamingElement = null;
 let pendingOrganizeNote = null;
+let pendingMemoryExtract = false;
 let sidebar = null;
 let workspaceBar = null;
 let pluginShell = null;
@@ -1440,6 +1442,7 @@ async function loadCommands() {
       { name: "settings", action: "open_settings", icon: "⚙", description: t("Open Settings") },
       { name: "help", action: "show_help", icon: "?", description: t("Show composer shortcuts") },
       { name: "files", action: "open_files", icon: "📁", description: t("Open file browser") },
+      { name: "memory", action: "extract_memory", icon: "🧠", description: t("Extract memory from this conversation") },
     ],
     nativeCommands: result.response?.data?.commands ?? [],
   });
@@ -2441,6 +2444,41 @@ function runBuiltin(action) {
     // The Files panel belongs to the Chat surface; switch back and reveal it.
     pluginShell?.activate("core.chat");
     document.getElementById("file-sidebar")?.classList.remove("collapsed");
+  } else if (action === "extract_memory") {
+    void extractMemoryFromConversation();
+  }
+}
+
+async function extractMemoryFromConversation() {
+  if (pendingMemoryExtract) return;
+  try {
+    const skillResponse = await fetch("/skills/memory-extract/SKILL.md", {
+      cache: "no-store",
+    });
+    if (!skillResponse.ok) {
+      throw new Error(t("The memory-extract skill could not be loaded"));
+    }
+    const skillText = await skillResponse.text();
+    const transcript = buildConversationTranscript(currentHistoryMessages);
+    if (!transcript.trim()) {
+      throw new Error(t("There is no conversation to extract memory from"));
+    }
+    const prompt = [
+      t("Extract memory from this conversation"),
+      t("Use the memory-extract skill below and output only the JSON array."),
+      "",
+      `===== SKILL =====\n${skillText}`,
+      `===== CONVERSATION =====\n${transcript}`,
+    ].join("\n\n");
+    pendingMemoryExtract = true;
+    await runtime.request(
+      { type: "prompt", message: prompt },
+      target,
+      { idempotencyKey: randomId() },
+    );
+  } catch (error) {
+    pendingMemoryExtract = false;
+    showError(error);
   }
 }
 
@@ -2500,6 +2538,41 @@ async function handleRuntimeEvent(event) {
             } catch (error) {
               showError(error);
             }
+          }
+        }
+        if (pendingMemoryExtract) {
+          pendingMemoryExtract = false;
+          const answer = fullMessageText(event.message?.content ?? []);
+          try {
+            const entries = parseMemoryExtractAnswer(answer);
+            if (entries.length === 0) {
+              notifications.notify({
+                title: t("No memory worth saving"),
+                message: t("Nothing stable was found in this conversation."),
+                type: "info",
+              });
+              break;
+            }
+            const read = await config.call("read_memory");
+            const current = read?.data ?? { enabled: true, entries: [] };
+            const merged = mergeMemoryEntries(current.entries ?? [], entries);
+            const write = await config.call("write_memory", {
+              enabled: current.enabled !== false,
+              entries: merged,
+            });
+            if (!write?.ok) throw new Error(write?.error || t("Could not save memory"));
+            await refreshMemoryCache();
+            window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
+            notifications.notify({
+              title: t("Memory updated"),
+              message: t("Added {count} memory entries").replace(
+                "{count}",
+                String(merged.length - (current.entries ?? []).length),
+              ),
+              type: "success",
+            });
+          } catch (error) {
+            showError(error);
           }
         }
       }

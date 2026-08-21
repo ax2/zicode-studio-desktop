@@ -512,6 +512,15 @@ const zhCN = {
   Memory: "记忆",
   Add: "添加",
   "Could not save memory": "无法保存记忆",
+  "Extract memory from this conversation": "从这段对话提取记忆",
+  "The memory-extract skill could not be loaded": "无法加载 memory-extract 技能",
+  "There is no conversation to extract memory from": "没有可提取记忆的对话",
+  "Use the memory-extract skill below and output only the JSON array.":
+    "使用下面的 memory-extract 技能，只输出 JSON 数组。",
+  "No memory worth saving": "没有值得保存的记忆",
+  "Nothing stable was found in this conversation.": "这段对话中没有发现稳定的记忆点。",
+  "Memory updated": "记忆已更新",
+  "Added {count} memory entries": "已添加 {count} 条记忆",
   "Remember your preferences and facts; entries are injected into new messages unless disabled.":
     "记住你的偏好和事实；启用后这些条目会注入到新消息中，可随时关闭。",
   "Use memory": "使用记忆",

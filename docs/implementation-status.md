@@ -1,5 +1,19 @@
 # 实现状态
 
+## 2026-08-21 记忆自动抽取（/memory 命令，参考 WorkBuddy 记忆提取）
+
+- 新增 `memory-extract` skill（从对话提炼稳定事实/偏好/跟进事项，输出 JSON
+  数组）与 `/memory` 快捷命令（🧠）：输入 `/` 选择「从这段对话提取记忆」或
+  直接输入 `/memory`，触发后携带 skill 与完整对话记录请求模型，回答解析后
+  与现有记忆去重合并写入 `read/write_memory`，完成时通知并刷新注入缓存。
+- 解析与合并逻辑独立成 `public/native/memory-extract.js`（容错 JSON/代码块/
+  列表行，去重含包含关系匹配），5 项单测全绿。
+- 验证：全量 158 文件用例全绿、i18n 覆盖、typecheck、Biome 通过；实况
+  `memory-extract-qa.cjs` 桌面 1440 + 移动 390 通过——WebSocket 帧确认
+  skill 完整下发，且**模型真实从对话提取出「用户偏好中文回复，内容简洁」
+  并发出 write_memory 写入帧**。运行实例仍加载旧扩展（write_memory 返回
+  Unknown operation 为预期降级），下次重启后写入生效。
+
 ## 2026-08-21 结果区「文件变更」点击跳转端到端验证 + P2-6 项目上下文确认
 
 - 补全结果区闭环验证：变更列表项点击后切回「文件」视图并定位（此前只验证
