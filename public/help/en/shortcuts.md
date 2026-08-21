@@ -18,6 +18,19 @@ Common palette commands include **New session**, **Switch workspace**,
 **Compact** (compress the current conversation's context), and
 expand/collapse-all tool actions.
 
+## Slash commands
+
+Type `/` in the composer to see and pick commands. Common slash commands:
+
+| Command | Action |
+| --- | --- |
+| `/new` | Start a new conversation |
+| `/settings` | Open Settings |
+| `/help` | Show composer shortcuts |
+| `/files` | Open the file browser |
+| `/memory` | Extract memory from the current conversation (also available as a welcome-page action) |
+| `/mode` | Cycle work mode (Ask / Craft / Plan) |
+
 ## Workspaces
 
 - Open a folder as a workspace: click the workspace name in the workspace bar.
