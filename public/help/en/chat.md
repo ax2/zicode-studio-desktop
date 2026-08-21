@@ -29,6 +29,8 @@ next message:
 
 The selected mode prepends a matching instruction to the message. Daily use
 stays on the default **Craft**.
+Set the initial mode for every conversation under Settings → General →
+Agent → **Default work mode**; the composer follows changes immediately.
 
 ## Extract memory
 
