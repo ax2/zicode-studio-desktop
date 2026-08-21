@@ -35,6 +35,7 @@ function mockCall() {
         workflows?: AutomationWorkflow[];
         workflow?: AutomationWorkflow;
         tasks?: unknown[];
+        projects?: Array<{ cwd?: string; path?: string }>;
         workspace?: { workflows?: AutomationWorkflow[] };
       };
     }> => {
@@ -57,6 +58,14 @@ function mockCall() {
       }
       if (operation === "read_super_agent_tasks") {
         return { ok: true, data: { tasks: [] } };
+      }
+      if (operation === "list_super_agent_projects") {
+        return {
+          ok: true,
+          data: {
+            projects: [{ cwd: "C:/work/project-a" }, { cwd: "C:/work/project-b" }],
+          },
+        };
       }
       if (operation === "write_super_agent_tasks") {
         return { ok: true, data: { tasks: p.tasks as unknown[] } };
@@ -104,6 +113,18 @@ describe("automation logic", () => {
 });
 
 describe("automation store host errors", () => {
+  it("lists registered project paths plus workflow targets", async () => {
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    const paths = await store.getState().listProjects();
+    expect(paths).toEqual([
+      "C:/work/project-a",
+      "C:/work/project-b",
+      "C:/work/project",
+    ]);
+    store.getState().destroy();
+  });
+
   it("localizes a closed Pi runtime in the error state", async () => {
     setLocale("zh-CN");
     const call = vi.fn(async () => {

@@ -19,6 +19,7 @@ export interface AutomationAppOptions {
       workflows?: AutomationWorkflow[];
       workflow?: AutomationWorkflow;
       tasks?: unknown[];
+      projects?: Array<{ cwd?: string; path?: string }>;
       workspace?: { workflows?: AutomationWorkflow[] };
     };
   }>;
@@ -39,6 +40,7 @@ interface AutomationState {
   notify(payload: { title: string; message?: string; type?: string }): void;
   getTarget(): { sceneId?: string; cwd?: string } | null;
   setFilter(filter: AutomationFilter): void;
+  listProjects(): Promise<string[]>;
   load(): Promise<AutomationWorkflow[]>;
   saveWorkflow(workflow: AutomationWorkflow): Promise<AutomationWorkflow | undefined>;
   removeWorkflow(id: string): Promise<void>;
@@ -102,6 +104,30 @@ export function createAutomationStore(options: AutomationAppOptions) {
 
     setFilter(filter) {
       set({ filter });
+    },
+
+    async listProjects() {
+      if (typeof call !== "function") return [];
+      const paths = new Set<string>();
+      try {
+        const response = await call("list_super_agent_projects");
+        for (const project of response?.data?.projects ?? []) {
+          const path = String(project?.cwd || project?.path || "").trim();
+          if (path) paths.add(path);
+        }
+      } catch {
+        // Fall through to workflow-derived suggestions.
+      }
+      try {
+        const response = await call("automation_workspace", { action: "list" });
+        for (const workflow of response?.data?.workflows ?? []) {
+          const path = String(workflow?.targetProject || "").trim();
+          if (path) paths.add(path);
+        }
+      } catch {
+        // Suggestions are best-effort.
+      }
+      return [...paths];
     },
 
     async load() {

@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
@@ -91,6 +91,7 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
   const saveWorkflow = store((state) => state.saveWorkflow);
   const notify = store((state) => state.notify);
   const getTarget = store((state) => state.getTarget);
+  const listProjects = store((state) => state.listProjects);
   const [title, setTitle] = useState("");
   const [targetProject, setTargetProject] = useState(getTarget()?.cwd ?? "");
   const [prompt, setPrompt] = useState("");
@@ -103,6 +104,17 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
   const [maxCost, setMaxCost] = useState("");
   const [maxRetries, setMaxRetries] = useState("2");
   const [submitting, setSubmitting] = useState(false);
+  const [projectPaths, setProjectPaths] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listProjects().then((paths) => {
+      if (!cancelled) setProjectPaths(paths);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [listProjects]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -169,6 +181,7 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           id="automation-target"
           className="ui-input"
           type="text"
+          list="automation-project-paths"
           placeholder={t("Target project")}
           autoComplete="off"
           autoCapitalize="off"
@@ -177,6 +190,11 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           value={targetProject}
           onChange={(e) => setTargetProject(e.target.value)}
         />
+        <datalist id="automation-project-paths">
+          {projectPaths.map((path) => (
+            <option key={path} value={path} />
+          ))}
+        </datalist>
       </LabeledField>
       <LabeledField label={t("Task instructions")} htmlFor="automation-prompt">
         <textarea
