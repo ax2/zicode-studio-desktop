@@ -90,6 +90,7 @@ struct HostState {
 
 pub struct HostServer {
     origin: String,
+    reaper_task: Option<tokio::task::JoinHandle<()>>,
     shutdown: Option<oneshot::Sender<()>>,
     lan_shutdown: Option<axum_server::Handle<SocketAddr>>,
     enrollment_shutdown: Option<oneshot::Sender<()>>,
@@ -300,6 +301,20 @@ impl HostServer {
             allowed_origin: loopback_origin.clone(),
             allowed_origins,
             remote_access,
+        });
+        // Reap stale temporary runtimes periodically, not only when a new
+        // runtime is spawned: a long-running session would otherwise keep
+        // every abandoned `temporary-*` pi.exe alive until the app restarts.
+        let reaper_state = state.clone();
+        let reaper_task = tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticker.tick().await;
+                reaper_state
+                    .runtimes
+                    .reap_stale_temporary_runtimes(std::time::Duration::from_secs(15 * 60));
+            }
         });
         let index = static_dir.join("index.html");
         let static_service = ServeDir::new(static_dir).fallback(ServeFile::new(index));
@@ -569,6 +584,7 @@ impl HostServer {
         });
         Ok(Self {
             origin: loopback_origin,
+            reaper_task: Some(reaper_task),
             shutdown: Some(shutdown_tx),
             lan_shutdown,
             enrollment_shutdown,
@@ -732,6 +748,12 @@ fn configure_plugin_broker_for_state(
 
 impl Drop for HostServer {
     fn drop(&mut self) {
+        // Abort the periodic runtime reaper so it releases its Arc<HostState>;
+        // otherwise the state (and its temp directory) outlives the server in
+        // tests and the cleanup assertion fails on locked files.
+        if let Some(reaper) = self.reaper_task.take() {
+            reaper.abort();
+        }
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
         }
