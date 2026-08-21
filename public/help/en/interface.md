@@ -48,6 +48,14 @@ workspace name and full path:
   `<workspace>/.zicode/{sessions,notes,tasks,automation,finance,artifacts}/`,
   so switching workspace switches the data.
 
+## Memory
+
+Settings → General → **Memory** stores long-lived preferences and facts: add,
+edit, and delete entries, or switch **Use memory** off. When enabled, new
+messages carry **Relevant memory**; type `/memory` in a conversation to distill
+the current chat into memory entries (see Chat workflow → Extract memory).
+Memory lives on this machine and is not scoped to a workspace.
+
 ## Switching applications
 
 1. Select an application from the activity rail.

@@ -16,6 +16,28 @@ Chat is both a conversation surface and an entry point to projects, notes, and a
 | `Alt+Enter` | Queue a follow-up |
 | `//text` | Send ordinary text that begins with `/` |
 
+## Work mode
+
+The composer's **Work mode** selector decides the execution boundary for the
+next message:
+
+- **Ask**: answer and inform only — never create, modify, or delete files,
+  and run no side effects;
+- **Craft (default)**: execute the task and modify files directly;
+- **Plan**: first propose an execution plan (steps, files to change, expected
+  output) and do not modify any files until you confirm.
+
+The selected mode prepends a matching instruction to the message. Daily use
+stays on the default **Craft**.
+
+## Extract memory
+
+Type `/memory` (or `/` and choose **Extract memory from this conversation**)
+to distill stable facts, preferences, and follow-ups into memory entries,
+deduplicated against what you already saved. New messages then carry
+**Relevant memory** automatically; manage, edit, delete, or disable this in
+Settings → General → Memory.
+
 ## Add photos on a phone
 
 Use **Attach image** below the composer to choose **Take photo** or **Choose from photos**.
