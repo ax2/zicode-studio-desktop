@@ -11252,6 +11252,39 @@ body.notes-dragging .notes-result-item {
   padding: var(--space-8);
 }
 
+/* New-task / edit-task form: a self-contained card so the task app can
+   manage tasks (title, instructions, target, trigger and time) directly. */
+.task-center-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.task-center-form h2 {
+  margin: 0;
+}
+
+.task-form-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.task-form-field > span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.task-form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.task-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
 .task-center-header,
 .task-center-card > header {
   display: flex;

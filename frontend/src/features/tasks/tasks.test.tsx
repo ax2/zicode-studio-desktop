@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
 import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
-import { formatDate } from "./logic";
+import { formatDate, isScheduledTemplate, nextTaskRunAt } from "./logic";
 
 function mockCall(tasks: unknown[]) {
   return vi.fn(async (operation: string, _params?: unknown) => {
@@ -541,5 +541,156 @@ describe("task center store host errors", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("task center task management", () => {
+  function managementStore(initial: unknown[] = []) {
+    const calls: Array<{ operation: string; params?: unknown }> = [];
+    const call = vi.fn(async (operation: string, params?: unknown) => {
+      calls.push({ operation, params });
+      if (operation === "read_super_agent_tasks") {
+        return { ok: true, data: { tasks: initial } };
+      }
+      if (operation === "write_super_agent_tasks") {
+        return { ok: true, data: { tasks: (params as { tasks?: unknown[] })?.tasks ?? [] } };
+      }
+      return { ok: false, error: `unhandled ${operation}` };
+    });
+    const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
+    return { store, call, calls };
+  }
+
+  it("creates a manual task that auto-dispatches", async () => {
+    const { store, calls } = managementStore();
+    await store.getState().createTask({
+      title: "Review PR",
+      description: "Check the diff",
+      targetProject: "C:/repo",
+      schedule: "manual",
+    });
+    const write = calls.find((entry) => entry.operation === "write_super_agent_tasks");
+    const tasks = (write?.params as { tasks: Array<Record<string, unknown>> }).tasks;
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe("Review PR");
+    expect(tasks[0].status).toBe("pending");
+    expect(tasks[0].automation).toMatchObject({ autoDispatch: true, trigger: "manual" });
+    expect(store.getState().tasks[0].title).toBe("Review PR");
+  });
+
+  it("creates a daily scheduled template that waits for its first run", async () => {
+    const { store, calls } = managementStore();
+    await store.getState().createTask({
+      title: "Daily digest",
+      description: "Summarize the news",
+      targetProject: "C:/blog",
+      schedule: "daily",
+      dailyTime: "09:00",
+      requireApproval: true,
+    });
+    const write = calls.find((entry) => entry.operation === "write_super_agent_tasks");
+    const tasks = (write?.params as { tasks: Array<Record<string, unknown>> }).tasks;
+    expect(tasks[0].schedule).toBe("daily");
+    expect(tasks[0].dailyTime).toBe("09:00");
+    expect(tasks[0].automation).toMatchObject({ autoDispatch: false, trigger: "schedule" });
+    expect(String(tasks[0].nextRunAt)).toContain("T01:00:00");
+    expect(store.getState().tasks[0].nextRunAt).toBeTruthy();
+  });
+
+  it("edits a task's title, instructions, target, and schedule", async () => {
+    const template = {
+      id: "tpl-1",
+      title: "Old title",
+      description: "Old instructions",
+      targetProject: "C:/old",
+      status: "pending",
+      schedule: "interval",
+      intervalMinutes: 60,
+      nextRunAt: "2099-01-01T00:00:00.000Z",
+      enabled: true,
+      automation: { trigger: "schedule", autoDispatch: false },
+    };
+    const { store, calls } = managementStore([template]);
+    await store.getState().load();
+    await store.getState().updateTaskMeta("tpl-1", {
+      title: "New title",
+      description: "New instructions",
+      targetProject: "C:/new",
+      schedule: "daily",
+      dailyTime: "10:30",
+    });
+    const updated = store.getState().tasks.find((task) => task.id === "tpl-1");
+    expect(updated?.title).toBe("New title");
+    expect(updated?.description).toBe("New instructions");
+    expect(updated?.targetProject).toBe("C:/new");
+    expect(updated?.schedule).toBe("daily");
+    expect(updated?.dailyTime).toBe("10:30");
+    expect(String(updated?.nextRunAt)).toContain("T02:30:00");
+    expect(calls.some((entry) => entry.operation === "write_super_agent_tasks")).toBe(true);
+  });
+
+  it("spawns an instance from a due template and advances its next run", async () => {
+    const due = {
+      id: "tpl-due",
+      title: "Every 5 min",
+      description: "",
+      targetProject: "C:/work",
+      status: "pending",
+      schedule: "interval",
+      intervalMinutes: 5,
+      nextRunAt: new Date(Date.now() - 1000).toISOString(),
+      enabled: true,
+      requireApproval: false,
+      automation: { trigger: "schedule", autoDispatch: false },
+      events: [],
+    };
+    const { store } = managementStore([due]);
+    await store.getState().load();
+    await store.getState().tick();
+    const tasks = store.getState().tasks;
+    expect(tasks).toHaveLength(2);
+    const instance = tasks.find((task) => task.scheduledFrom === "tpl-due");
+    expect(instance).toBeTruthy();
+    expect(instance?.schedule).toBeNull();
+    expect(instance?.status).toBe("pending");
+    expect(instance?.automation).toMatchObject({ autoDispatch: true, trigger: "schedule" });
+    const template = tasks.find((task) => task.id === "tpl-due");
+    expect(new Date(template?.nextRunAt ?? "").getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("skips disabled or not-yet-due templates", async () => {
+    const disabled = {
+      id: "tpl-off",
+      title: "Paused",
+      status: "pending",
+      schedule: "daily",
+      dailyTime: "09:00",
+      nextRunAt: new Date(Date.now() - 1000).toISOString(),
+      enabled: false,
+      automation: { trigger: "schedule", autoDispatch: false },
+    };
+    const future = {
+      id: "tpl-future",
+      title: "Future",
+      status: "pending",
+      schedule: "daily",
+      dailyTime: "09:00",
+      nextRunAt: new Date(Date.now() + 60_000).toISOString(),
+      enabled: true,
+      automation: { trigger: "schedule", autoDispatch: false },
+    };
+    const { store } = managementStore([disabled, future]);
+    await store.getState().load();
+    await store.getState().tick();
+    expect(store.getState().tasks).toHaveLength(2);
+  });
+
+  it("labels scheduled templates and computes their next run", () => {
+    expect(
+      isScheduledTemplate({ schedule: "daily", dailyTime: "09:00" } as never),
+    ).toBe(true);
+    expect(isScheduledTemplate({ schedule: "manual" } as never)).toBe(false);
+    const next = nextTaskRunAt({ schedule: "interval", intervalMinutes: 30 });
+    expect(next).toBeTruthy();
   });
 });

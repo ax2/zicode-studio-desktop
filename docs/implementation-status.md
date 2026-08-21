@@ -1,5 +1,32 @@
 # 实现状态
 
+## 2026-08-21 任务应用升级为自包含的任务管理产品
+
+- 用户反馈：任务与智能收件箱/对话耦合、不好用；所有任务管理都应放进
+  任务应用，能新建任务并修改标题、说明、触发方式和时间；应用间可打通
+  但用户视角应相对独立。
+- 实现（任务中心自成闭环，无需进收件箱/自动化面板）：
+  - 数据模型：`SuperAgentTask` 增加 `schedule`（manual/interval/daily）、
+    `intervalMinutes`、`dailyTime`、`nextRunAt`、`enabled`、
+    `requireApproval`、`scheduledFrom` 字段；`normalizeSuperAgentTask`
+    展开保留，持久化安全。
+  - Store：`createTask(draft)`（手动任务直接 pending+autoDispatch；定时
+    任务建为模板，autoDispatch=false 等待首次触发）、
+    `updateTaskMeta(id, patch)`（改标题/说明/目标/触发方式/时间/审批，
+    自动重算 nextRunAt）、`tick()` 任务级调度器（到期为模板生成无 schedule
+    的新实例，推进 nextRunAt，实例按 requireApproval 决定自动派发）。
+  - UI：任务中心头部「新建任务」按钮 + 表单（标题/说明/目标项目/触发方式/
+    间隔或时间/每次运行前审批/最大重试）；定时任务卡片显示「定时」徽标、
+    计划与下次运行，支持编辑/暂停定时/删除；一次性任务卡片支持「编辑」。
+    新增「定时任务」筛选；运行中/失败等计数排除模板。
+  - 调度器随任务应用挂载启动（renderContent startScheduler，
+    deactivate/destroy 停止），与自动化调度器互不干扰。
+- 验证：任务单测 28/28（新增创建/编辑/调度 6 项）、全量 158 文件 /
+  1150 用例全绿、typecheck 通过、i18n 覆盖全绿；实况
+  `task-manage-qa.cjs` 通过——新建每日定时任务 → 卡片「定时」徽标 +
+  下次运行 + 编辑 → 改标题保存 → 页面零报错 → 精确清理；tasks.json
+  恢复 5 条无残留。bundle 与 CSS 已同步安装目录（57620 端口确认）。
+
 ## 2026-08-21 失败任务通知修正（不再误报“任务已完成”）
 
 - 真实缺陷：派发任务完成时，桌面/应用内通知的标题只区分 needs_input 与

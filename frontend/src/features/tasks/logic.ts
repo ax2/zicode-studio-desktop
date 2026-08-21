@@ -2,6 +2,7 @@ import { t } from "../../shared/i18n.js";
 
 export type TaskFilter =
   | "all"
+  | "scheduled"
   | "running"
   | "paused"
   | "needs_input"
@@ -38,11 +39,22 @@ export interface SuperAgentTask {
     trigger?: string;
     autoDispatch?: boolean;
   };
+  // User-managed scheduling. A task with a non-manual schedule acts as a
+  // recurring template: the task center's scheduler spawns a fresh instance
+  // (without schedule fields) each time `nextRunAt` passes.
+  schedule?: "manual" | "interval" | "daily" | null;
+  intervalMinutes?: number | null;
+  dailyTime?: string | null;
+  nextRunAt?: string | null;
+  enabled?: boolean;
+  requireApproval?: boolean;
+  scheduledFrom?: string | null;
   events?: Array<{ at?: string; type?: string; status?: string; message?: string }>;
 }
 
 export const TASK_FILTERS: TaskFilter[] = [
   "all",
+  "scheduled",
   "running",
   "paused",
   "needs_input",
@@ -54,6 +66,7 @@ export const TASK_FILTERS: TaskFilter[] = [
 export function filterLabel(filter: TaskFilter): string {
   const labels: Record<TaskFilter, string> = {
     all: "All tasks",
+    scheduled: "Scheduled",
     running: "Running",
     paused: "Paused",
     needs_input: "Needs input",
@@ -80,11 +93,55 @@ export function statusLabel(status: string): string {
 
 export function filteredTasks(tasks: SuperAgentTask[], id: TaskFilter): SuperAgentTask[] {
   if (id === "all") return tasks;
-  if (id === "running") return tasks.filter((task) => ["running", "pending"].includes(task.status));
-  if (id === "needs_input") {
-    return tasks.filter((task) => ["needs_input", "blocked"].includes(task.status));
+  if (id === "scheduled") return tasks.filter((task) => isScheduledTemplate(task));
+  if (id === "running") {
+    return tasks.filter(
+      (task) => !isScheduledTemplate(task) && ["running", "pending"].includes(task.status),
+    );
   }
-  return tasks.filter((task) => task.status === id);
+  if (id === "needs_input") {
+    return tasks.filter(
+      (task) => !isScheduledTemplate(task) && ["needs_input", "blocked"].includes(task.status),
+    );
+  }
+  return tasks.filter((task) => !isScheduledTemplate(task) && task.status === id);
+}
+
+export function isScheduledTemplate(task: SuperAgentTask): boolean {
+  return Boolean(task?.schedule && task.schedule !== "manual");
+}
+
+export function nextTaskRunAt(
+  task: Pick<SuperAgentTask, "schedule" | "intervalMinutes" | "dailyTime">,
+  now: Date = new Date(),
+): string | null {
+  if (task?.schedule === "interval") {
+    const minutes = Math.max(5, Number(task.intervalMinutes) || 60);
+    return new Date(now.getTime() + minutes * 60_000).toISOString();
+  }
+  if (task?.schedule === "daily") {
+    const [hours, minutes] = String(task.dailyTime || "09:00")
+      .split(":")
+      .map(Number);
+    const next = new Date(now);
+    next.setHours(Number.isFinite(hours) ? hours : 9, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+    if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+    return next.toISOString();
+  }
+  return null;
+}
+
+export function scheduleDescription(task: SuperAgentTask): string {
+  if (task?.schedule === "interval") {
+    return t("Every {count} minutes").replace(
+      "{count}",
+      String(Math.max(5, Number(task.intervalMinutes) || 60)),
+    );
+  }
+  if (task?.schedule === "daily") {
+    return t("Daily at {time}").replace("{time}", String(task.dailyTime || "09:00"));
+  }
+  return t("Manual");
 }
 
 export function childTarget(task: SuperAgentTask) {

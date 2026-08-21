@@ -12,7 +12,10 @@ import {
   filterLabel,
   filteredTasks,
   formatDate,
+  isScheduledTemplate,
+  nextTaskRunAt,
   retryLimitReached,
+  scheduleDescription,
   statusLabel,
   TASK_FILTERS,
   taskProject,
@@ -20,7 +23,11 @@ import {
   type SuperAgentTask,
   type TaskFilter,
 } from "./logic";
-import { createTaskCenterStore, type TaskCenterOptions } from "./store";
+import {
+  createTaskCenterStore,
+  type TaskCenterOptions,
+  type TaskDraft,
+} from "./store";
 
 type TaskStore = ReturnType<typeof createTaskCenterStore>;
 
@@ -57,8 +64,11 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const error = store((state) => state.error);
   const load = store((state) => state.load);
   const clearDoneTasks = store((state) => state.clearDoneTasks);
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<SuperAgentTask | null>(null);
   const visible = filteredTasks(tasks, filter);
   const doneCount = filteredTasks(tasks, "done").length;
+  const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
   return (
     <div className="task-center-main">
       <header className="task-center-header">
@@ -71,6 +81,17 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </p>
         </div>
         <div className="task-center-header-actions">
+          <button
+            type="button"
+            className="ui-button ui-button--primary"
+            disabled={loading || Boolean(formTask)}
+            onClick={() => {
+              setCreating(true);
+              setEditing(null);
+            }}
+          >
+            {t("New task")}
+          </button>
           {doneCount > 0 ? (
             <button
               type="button"
@@ -100,6 +121,16 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </button>
         </div>
       </header>
+      {formTask ? (
+        <TaskForm
+          store={store}
+          task={editing ?? undefined}
+          onClose={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+        />
+      ) : null}
       <FirstRunGuide
         storageKey="tasks"
         title={t("One place for background work")}
@@ -126,7 +157,15 @@ export function TaskMain({ store }: { store: TaskStore }) {
       ) : (
         <div className="task-center-list">
           {visible.map((task) => (
-            <TaskCard key={task.id} store={store} task={task} />
+            <TaskCard
+              key={task.id}
+              store={store}
+              task={task}
+              onEdit={() => {
+                setEditing(task);
+                setCreating(false);
+              }}
+            />
           ))}
         </div>
       )}
@@ -183,7 +222,179 @@ function StatePanel({
   );
 }
 
-function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
+function TaskForm({
+  store,
+  task,
+  onClose,
+}: {
+  store: TaskStore;
+  task?: SuperAgentTask;
+  onClose: () => void;
+}) {
+  const createTask = store((state) => state.createTask);
+  const updateTaskMeta = store((state) => state.updateTaskMeta);
+  const template = task && isScheduledTemplate(task);
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [description, setDescription] = useState(task?.description ?? "");
+  const [target, setTarget] = useState(task?.targetProject ?? "");
+  const [schedule, setSchedule] = useState<"manual" | "interval" | "daily">(
+    template ? (task.schedule as "interval" | "daily") : "manual",
+  );
+  const [intervalMinutes, setIntervalMinutes] = useState(
+    String(task?.intervalMinutes ?? 60),
+  );
+  const [dailyTime, setDailyTime] = useState(task?.dailyTime ?? "09:00");
+  const [requireApproval, setRequireApproval] = useState(
+    Boolean(task?.requireApproval),
+  );
+  const [maxRetries, setMaxRetries] = useState(String(task?.maxRetries ?? 2));
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!title.trim() || saving) return;
+    const draft: TaskDraft = {
+      title,
+      description,
+      targetProject: target,
+      schedule,
+      intervalMinutes:
+        schedule === "interval" ? Math.max(5, Number(intervalMinutes) || 60) : null,
+      dailyTime: schedule === "daily" ? dailyTime || "09:00" : null,
+      requireApproval,
+      maxRetries: Number(maxRetries) || 0,
+    };
+    setSaving(true);
+    try {
+      if (task) {
+        await updateTaskMeta(task.id, draft);
+      } else {
+        await createTask(draft);
+      }
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className="ui-panel task-center-form" onSubmit={submit}>
+      <h2>{task ? t("Edit task") : t("New task")}</h2>
+      <label className="task-form-field">
+        <span>{t("Title")}</span>
+        <input
+          className="ui-input"
+          required
+          autoComplete="off"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+      </label>
+      <label className="task-form-field">
+        <span>{t("Instructions")}</span>
+        <textarea
+          className="ui-textarea"
+          rows={3}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+        />
+      </label>
+      <label className="task-form-field">
+        <span>{t("Target project")}</span>
+        <input
+          className="ui-input"
+          autoComplete="off"
+          placeholder="C:/work/project"
+          value={target}
+          onChange={(event) => setTarget(event.target.value)}
+        />
+      </label>
+      <label className="task-form-field">
+        <span>{t("Trigger")}</span>
+        <select
+          className="ui-input"
+          value={schedule}
+          onChange={(event) =>
+            setSchedule(event.target.value as "manual" | "interval" | "daily")
+          }
+        >
+          <option value="manual">{t("Manual")}</option>
+          <option value="interval">{t("Every N minutes")}</option>
+          <option value="daily">{t("Daily at")}</option>
+        </select>
+      </label>
+      {schedule === "interval" ? (
+        <label className="task-form-field">
+          <span>{t("Interval (minutes)")}</span>
+          <input
+            className="ui-input"
+            type="number"
+            min={5}
+            value={intervalMinutes}
+            onChange={(event) => setIntervalMinutes(event.target.value)}
+          />
+        </label>
+      ) : null}
+      {schedule === "daily" ? (
+        <label className="task-form-field">
+          <span>{t("Run at")}</span>
+          <input
+            className="ui-input"
+            type="time"
+            value={dailyTime}
+            onChange={(event) => setDailyTime(event.target.value)}
+          />
+        </label>
+      ) : null}
+      <label className="task-form-checkbox">
+        <input
+          type="checkbox"
+          checked={requireApproval}
+          onChange={(event) => setRequireApproval(event.target.checked)}
+        />
+        {t("Require approval before every run")}
+      </label>
+      <label className="task-form-field">
+        <span>{t("Maximum retries")}</span>
+        <input
+          className="ui-input"
+          type="number"
+          min={0}
+          max={10}
+          value={maxRetries}
+          onChange={(event) => setMaxRetries(event.target.value)}
+        />
+      </label>
+      <div className="task-form-actions">
+        <button
+          type="button"
+          className="ui-button ui-button--ghost"
+          onClick={onClose}
+        >
+          {t("Cancel")}
+        </button>
+        <button
+          type="submit"
+          className="ui-button ui-button--primary"
+          disabled={saving || !title.trim()}
+          aria-busy={saving}
+        >
+          {saving ? t("Saving…") : task ? t("Save changes") : t("Create task")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TaskCard({
+  store,
+  task,
+  onEdit,
+}: {
+  store: TaskStore;
+  task: SuperAgentTask;
+  onEdit: () => void;
+}) {
   const updateTask = store((state) => state.updateTask);
   const approveTask = store((state) => state.approveTask);
   const retryAndRunTask = store((state) => state.retryAndRunTask);
@@ -204,6 +415,7 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
   );
   const rawSummary = taskSummaryText(task);
   const summary = friendlyTaskDispatchError(rawSummary);
+  const scheduledTemplate = isScheduledTemplate(task);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reply, setReply] = useState("");
@@ -222,11 +434,13 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
     <article className={`ui-panel task-center-card status-${task.status}`}>
       <header>
         <div>
-          <span className="task-center-status">{t(statusLabel(task.status))}</span>
+          <span className="task-center-status">
+            {scheduledTemplate ? t("Scheduled") : t(statusLabel(task.status))}
+          </span>
           <h2>{task.title || t("Untitled task")}</h2>
         </div>
         <div className="task-center-actions">
-          {task.status === "pending" && task.targetProject ? (
+          {!scheduledTemplate && task.status === "pending" && task.targetProject ? (
             <button
               type="button"
               className="ui-button ui-button--primary ui-button--sm"
@@ -312,13 +526,70 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
               {t("Pause")}
             </button>
           ) : null}
-          {["pending", "running", "needs_input", "blocked"].includes(task.status) ? (
+          {!scheduledTemplate &&
+          ["pending", "running", "needs_input", "blocked"].includes(task.status) ? (
             <button
               type="button"
               className="ui-button ui-button--danger ui-button--sm"
               onClick={() => void cancelTask(task)}
             >
               {t("Cancel")}
+            </button>
+          ) : null}
+          {!scheduledTemplate &&
+          !["running", "needs_input", "blocked"].includes(task.status) ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              onClick={onEdit}
+            >
+              {t("Edit")}
+            </button>
+          ) : null}
+          {scheduledTemplate ? (
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              onClick={onEdit}
+            >
+              {t("Edit")}
+            </button>
+          ) : null}
+          {scheduledTemplate ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              onClick={() =>
+                void updateTask(
+                  task.id,
+                  (current) => ({ ...current, enabled: !current.enabled }),
+                  task.enabled === false ? t("Scheduled task enabled") : t("Scheduled task paused"),
+                )
+              }
+            >
+              {task.enabled === false ? t("Enable") : t("Pause schedule")}
+            </button>
+          ) : null}
+          {scheduledTemplate ? (
+            <button
+              type="button"
+              className="ui-button ui-button--danger ui-button--sm"
+              title={t("Delete this scheduled task")}
+              onClick={() => {
+                if (
+                  globalThis.confirm?.(
+                    t("Delete the scheduled task “{title}”?").replace(
+                      "{title}",
+                      task.title || t("Untitled task"),
+                    ),
+                  ) === false
+                ) {
+                  return;
+                }
+                void removeTask(task.id);
+              }}
+            >
+              {t("Delete")}
             </button>
           ) : null}
           {["done", "failed", "cancelled"].includes(task.status) ? (
@@ -395,6 +666,15 @@ function TaskCard({ store, task }: { store: TaskStore; task: SuperAgentTask }) {
       ) : null}
       <dl>
         <Detail term={t("Project")} value={taskProject(task)} />
+        {scheduledTemplate ? (
+          <>
+            <Detail term={t("Schedule")} value={scheduleDescription(task)} />
+            <Detail
+              term={t("Next run")}
+              value={formatDate(task.nextRunAt || nextTaskRunAt(task))}
+            />
+          </>
+        ) : null}
         <Detail term={t("Started")} value={formatDate(task.dispatch?.startedAt)} />
         <Detail
           term={t("Updated")}
@@ -498,12 +778,15 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
         contentRoot,
       );
       store.getState().startPolling();
+      store.getState().startScheduler();
     },
     deactivate() {
       store.getState().stopPolling();
+      store.getState().stopScheduler();
     },
     destroy() {
       store.getState().destroy();
+      store.getState().stopScheduler();
       navRoot?.unmount();
       contentRoot?.unmount();
       navRoot = null;
