@@ -467,6 +467,20 @@ describe("automation React app", () => {
     store.getState().destroy();
   });
 
+  it("shows the first-run guide on first visit", async () => {
+    localStorage.clear();
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    render(<AutomationMain store={store} />);
+    await waitFor(() =>
+      expect(document.querySelector("[data-first-run-guide]")).toBeTruthy(),
+    );
+    expect(
+      document.querySelector("[data-first-run-guide]")?.textContent,
+    ).toContain("重复工作的统一入口");
+    store.getState().destroy();
+  });
+
   it("approves and queues an automation through the task store", async () => {
     setLocale("en");
     const call = mockCall();

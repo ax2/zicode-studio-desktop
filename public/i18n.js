@@ -724,6 +724,14 @@ const zhCN = {
   "Run automatically (full access)": "自动运行（完全访问）",
   "Confirm before every run (default permission)": "每次运行前确认（默认权限）",
   "Start from a template": "从模板开始",
+  "One place for repeatable work": "重复工作的统一入口",
+  "Create a workflow from a template or from scratch.":
+    "从模板或空白创建一条工作流。",
+  "Run it now, or let a schedule trigger it automatically.":
+    "立即运行，或让定时计划自动触发。",
+  "Track runs and history in the task center.":
+    "在任务中心跟踪运行与历史。",
+  "View automations": "查看自动化",
   "Use custom": "使用自定义",
   "Daily tech brief": "每日技术简报",
   "Collect yesterday's tech news and write a short brief.":

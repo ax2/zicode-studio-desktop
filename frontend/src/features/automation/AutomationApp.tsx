@@ -4,6 +4,7 @@ import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
 import { friendlyTaskDispatchError } from "../../shared/hostErrors";
 import { Select } from "../../shared/Select";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import {
   AUTOMATION_FILTERS,
   filterLabel,
@@ -62,6 +63,17 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
           {t("Refresh")}
         </button>
       </header>
+      <FirstRunGuide
+        storageKey="automation"
+        title={t("One place for repeatable work")}
+        steps={[
+          t("Create a workflow from a template or from scratch."),
+          t("Run it now, or let a schedule trigger it automatically."),
+          t("Track runs and history in the task center."),
+        ]}
+        ctaLabel={t("View automations")}
+        onCta={() => {}}
+      />
       <WorkflowForm
         store={store}
         key={editing?.id ?? "new"}
