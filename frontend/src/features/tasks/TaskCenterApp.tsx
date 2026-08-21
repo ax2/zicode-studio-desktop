@@ -256,6 +256,7 @@ function TaskForm({
 }) {
   const createTask = store((state) => state.createTask);
   const updateTaskMeta = store((state) => state.updateTaskMeta);
+  const listProjects = store((state) => state.listProjects);
   const template = task && isScheduledTemplate(task);
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -272,6 +273,17 @@ function TaskForm({
   );
   const [maxRetries, setMaxRetries] = useState(String(task?.maxRetries ?? 2));
   const [saving, setSaving] = useState(false);
+  const [projectPaths, setProjectPaths] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listProjects().then((paths) => {
+      if (!cancelled) setProjectPaths(paths);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [listProjects]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -327,10 +339,16 @@ function TaskForm({
         <input
           className="ui-input"
           autoComplete="off"
+          list="task-project-paths"
           placeholder="C:/work/project"
           value={target}
           onChange={(event) => setTarget(event.target.value)}
         />
+        <datalist id="task-project-paths">
+          {projectPaths.map((path) => (
+            <option key={path} value={path} />
+          ))}
+        </datalist>
       </label>
       <label className="task-form-field">
         <span>{t("Trigger")}</span>

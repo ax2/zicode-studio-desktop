@@ -587,6 +587,17 @@ describe("task center task management", () => {
       if (operation === "write_super_agent_tasks") {
         return { ok: true, data: { tasks: (params as { tasks?: unknown[] })?.tasks ?? [] } };
       }
+      if (operation === "list_super_agent_projects") {
+        return {
+          ok: true,
+          data: {
+            projects: [
+              { cwd: "C:/work/project-a" },
+              { cwd: "C:/work/project-b" },
+            ],
+          },
+        };
+      }
       return { ok: false, error: `unhandled ${operation}` };
     });
     const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
@@ -608,6 +619,37 @@ describe("task center task management", () => {
     expect(tasks[0].status).toBe("pending");
     expect(tasks[0].automation).toMatchObject({ autoDispatch: true, trigger: "manual" });
     expect(store.getState().tasks[0].title).toBe("Review PR");
+  });
+
+  it("lists registered project paths for the target field", async () => {
+    const { store } = managementStore([
+      { id: "t1", targetProject: "C:/used/project" },
+    ]);
+    const paths = await store.getState().listProjects();
+    expect(paths).toEqual([
+      "C:/work/project-a",
+      "C:/work/project-b",
+      "C:/used/project",
+    ]);
+  });
+
+  it("renders project path suggestions in the task form", async () => {
+    setLocale("en");
+    const { store } = managementStore();
+    render(
+      <div>
+        <TaskMain store={store} />
+      </div>,
+    );
+    fireEvent.click(screen.getAllByText("New task")[0]);
+    await waitFor(() => {
+      expect(document.querySelector("datalist#task-project-paths option")).toBeTruthy();
+    });
+    const options = Array.from(
+      document.querySelectorAll("datalist#task-project-paths option"),
+    ).map((node) => node.getAttribute("value"));
+    expect(options).toEqual(["C:/work/project-a", "C:/work/project-b"]);
+    store.getState().destroy();
   });
 
   it("creates a daily scheduled template that waits for its first run", async () => {

@@ -13,7 +13,10 @@ export interface TaskCenterOptions {
   ) => Promise<{
     ok?: boolean;
     error?: string;
-    data?: { tasks?: unknown[] };
+    data?: {
+      tasks?: unknown[];
+      projects?: Array<{ cwd?: string; path?: string }>;
+    };
   }>;
   runtime?: {
     request?: (
@@ -49,6 +52,7 @@ interface TaskCenterState {
   openApp(pluginId: string): void;
   setFilter(filter: TaskFilter): void;
   load(options?: { quiet?: boolean }): Promise<void>;
+  listProjects(): Promise<string[]>;
   createTask(draft: TaskDraft): Promise<void>;
   updateTaskMeta(
     taskId: string,
@@ -103,6 +107,32 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
 
     setFilter(filter) {
       set({ filter });
+    },
+
+    async listProjects() {
+      if (typeof call !== "function") return [];
+      const paths = new Set<string>();
+      try {
+        const response = await call("list_super_agent_projects");
+        for (const project of response?.data?.projects ?? []) {
+          const path = String(project?.cwd || project?.path || "").trim();
+          if (path) paths.add(path);
+        }
+      } catch {
+        // Fall through to task-derived suggestions.
+      }
+      try {
+        const tasksResponse = await call("read_super_agent_tasks");
+        for (const task of tasksResponse?.data?.tasks ?? []) {
+          const path = String(
+            (task as { targetProject?: unknown })?.targetProject || "",
+          ).trim();
+          if (path) paths.add(path);
+        }
+      } catch {
+        // Suggestions are best-effort.
+      }
+      return [...paths];
     },
 
     async load({ quiet = false } = {}) {
