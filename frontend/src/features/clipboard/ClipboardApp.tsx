@@ -3,7 +3,7 @@ import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
-import { formatCreatedAt } from "./clipboardLogic";
+import { formatCreatedAt, openableUrl } from "./clipboardLogic";
 import { createClipboardStore, type ClipboardOptions, type ClipboardStore } from "./clipboardStore";
 
 export type ClipboardAppApi = {
@@ -123,6 +123,19 @@ export function ClipboardMain({ store }: { store: ClipboardStore }) {
                   <p className="clipboard-item-text">{item.text}</p>
                 </div>
                 <div className="clipboard-item-actions">
+                  {openableUrl(item.text) ? (
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary ui-button--sm"
+                      aria-label={`${t("Open link")} ${item.text.slice(0, 40)}`}
+                      onClick={() => {
+                        const url = openableUrl(item.text);
+                        if (url) globalThis.open(url, "_blank", "noopener,noreferrer");
+                      }}
+                    >
+                      {t("Open link")}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="ui-button ui-button--ghost ui-button--sm"

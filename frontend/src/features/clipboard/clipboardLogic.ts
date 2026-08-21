@@ -10,6 +10,15 @@ export interface ClipboardItem {
   createdAt: string;
 }
 
+export function isOpenableUrl(text: string): boolean {
+  return /^https?:\/\/[^\s]+$/i.test(String(text ?? "").trim());
+}
+
+export function openableUrl(text: string): string | null {
+  const value = String(text ?? "").trim();
+  return isOpenableUrl(value) ? value : null;
+}
+
 export function formatCreatedAt(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;

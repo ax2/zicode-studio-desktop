@@ -94,4 +94,51 @@ describe("clipboard composer", () => {
     expect(onUseInChat).toHaveBeenCalledWith("captured link https://example.com");
     expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Added to chat|已添加到对话/));
   });
+
+  it("offers an open-link action for URL items", async () => {
+    const gateway = stubGateway({
+      list: vi.fn(async () => ({
+        items: [
+          {
+            id: "url-1",
+            text: "https://example.com",
+            kind: "url",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+          {
+            id: "txt-1",
+            text: "just a note",
+            kind: "text",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+        ],
+      })),
+    });
+    const openSpy = vi.spyOn(globalThis, "open").mockImplementation(() => null);
+    const store = createClipboardStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    render(<ClipboardMain store={store} />);
+    await waitFor(() =>
+      expect(store.getState().items.some((item) => item.id === "url-1")).toBe(true),
+    );
+    const buttons = Array.from(document.querySelectorAll("button"))
+      .filter(
+        (node) =>
+          (node.textContent || "").includes("Open link") ||
+          (node.textContent || "").includes("打开链接"),
+      );
+    expect(buttons.length).toBe(1);
+    buttons[0].click();
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://example.com",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
+  });
 });

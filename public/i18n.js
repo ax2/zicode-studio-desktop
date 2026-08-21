@@ -147,6 +147,7 @@ const zhCN = {
   "Added to inbox": "已添加到收件箱",
   "Send to note": "发送到笔记",
   "Add to chat": "添加到对话",
+  "Open link": "打开链接",
   "Artifact content:": "产物内容：",
   "Could not load artifact": "无法加载产物",
   'Discuss the artifact "{title}" and continue.': '讨论产物“{title}”并继续。',
