@@ -58,6 +58,7 @@ interface TaskCenterState {
     taskId: string,
     patch: Partial<TaskDraft> & { enabled?: boolean },
   ): Promise<void>;
+  runTaskNow(task: SuperAgentTask): Promise<void>;
   updateTask(
     taskId: string,
     updater: (task: SuperAgentTask) => SuperAgentTask,
@@ -305,6 +306,51 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch (reason) {
         notify({
           title: t("Could not update task"),
+          message: localizeHostError(reason).message,
+          type: "error",
+        });
+      }
+    },
+
+    async runTaskNow(task) {
+      if (!isScheduledTemplate(task)) return;
+      const timestamp = new Date().toISOString();
+      const instance = {
+        ...task,
+        id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        schedule: null,
+        intervalMinutes: null,
+        dailyTime: null,
+        nextRunAt: null,
+        scheduledFrom: task.id,
+        enabled: true,
+        status: "pending",
+        retryCount: 0,
+        failReason: null,
+        result: { status: null, summary: null, completedAt: null, failReason: null },
+        automation: {
+          ...(task.automation || {}),
+          trigger: "manual",
+          autoDispatch: !task.requireApproval,
+        },
+        events: [
+          {
+            at: timestamp,
+            type: "queued",
+            status: "pending",
+            message: t("Created by running the scheduled task now."),
+          },
+        ],
+      };
+      const tasks = [...get().tasks, instance];
+      try {
+        const response = await call("write_super_agent_tasks", { tasks });
+        if (!response?.ok) throw new Error(response?.error || t("Could not run task"));
+        set({ tasks: normalizeSuperAgentTasks(tasks) as SuperAgentTask[] });
+        notify({ title: t("Task queued and running"), type: "success" });
+      } catch (reason) {
+        notify({
+          title: t("Could not run task"),
           message: localizeHostError(reason).message,
           type: "error",
         });

@@ -671,6 +671,35 @@ describe("task center task management", () => {
     expect(store.getState().tasks[0].nextRunAt).toBeTruthy();
   });
 
+  it("runs a scheduled template immediately without disturbing its next run", async () => {
+    const template = {
+      id: "tpl-run",
+      title: "Daily digest",
+      description: "",
+      targetProject: "C:/work",
+      status: "pending",
+      schedule: "daily",
+      dailyTime: "09:00",
+      nextRunAt: "2099-01-01T00:00:00.000Z",
+      enabled: true,
+      requireApproval: false,
+      automation: { workflowId: null, trigger: "schedule", autoDispatch: false },
+      events: [],
+    };
+    const { store } = managementStore([template]);
+    await store.getState().load();
+    await store.getState().runTaskNow(template as never);
+    const tasks = store.getState().tasks;
+    expect(tasks).toHaveLength(2);
+    const instance = tasks.find((task) => task.scheduledFrom === "tpl-run");
+    expect(instance).toBeTruthy();
+    expect(instance?.schedule).toBeNull();
+    expect(instance?.status).toBe("pending");
+    expect(instance?.automation).toMatchObject({ trigger: "manual", autoDispatch: true });
+    const tpl = tasks.find((task) => task.id === "tpl-run");
+    expect(tpl?.nextRunAt).toBe("2099-01-01T00:00:00.000Z");
+  });
+
   it("edits a task's title, instructions, target, and schedule", async () => {
     const template = {
       id: "tpl-1",

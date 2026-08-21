@@ -444,6 +444,7 @@ function TaskCard({
   const updateTask = store((state) => state.updateTask);
   const approveTask = store((state) => state.approveTask);
   const retryAndRunTask = store((state) => state.retryAndRunTask);
+  const runTaskNow = store((state) => state.runTaskNow);
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
   const removeTask = store((state) => state.removeTask);
@@ -594,6 +595,15 @@ function TaskCard({
               onClick={onEdit}
             >
               {t("Edit")}
+            </button>
+          ) : null}
+          {scheduledTemplate ? (
+            <button
+              type="button"
+              className="ui-button ui-button--primary ui-button--sm"
+              onClick={() => void runTaskNow(task)}
+            >
+              {t("Run now")}
             </button>
           ) : null}
           {scheduledTemplate ? (
