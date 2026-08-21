@@ -14335,6 +14335,13 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   color: var(--text-primary);
 }
 
+.composer-mode-select.is-non-default {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-weight: 600;
+}
+
 .composer-mode-select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;

@@ -132,6 +132,10 @@ export function ComposerApp({
     return () =>
       window.removeEventListener("zicode:work-mode-changed", onWorkModeChanged);
   }, []);
+  useEffect(() => {
+    const select = document.getElementById("composer-mode");
+    select?.classList.toggle("is-non-default", mode !== "craft");
+  }, [mode]);
   const recognitionRef = useRef<{ abort(): void } | null>(null);
   const speechGlobals = globalThis as unknown as {
     SpeechRecognition?: new () => SpeechRecognitionInstance;
