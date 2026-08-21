@@ -16,6 +16,18 @@ ZiCode uses one consistent three-region workspace for Chat, Notes, Projects, Set
 
 The main-view header keeps a file manager button for browsing the current workspace and opening generated files. Full local paths and the “Open in…” menu do not occupy the header.
 
+The chat's right-hand **Result panel** has three tabs so you can review
+outputs in one place:
+
+- **Files**: browse the current workspace with the directory tree, enter
+  subdirectories, go up, or reveal a file in the system file manager.
+- **Artifacts**: list artifacts produced in the current workspace (reports,
+  charts, files, …); clicking any entry opens the Artifacts app for details.
+- **File changes**: tracks files written by tools in this session (write /
+  edit / create / patch, …); clicking an entry switches back to the Files view
+  and locates that file, so you can check the changes before accepting the
+  result.
+
 ## Workspaces
 
 The function area (left rail) always shows the workspace bar with the current

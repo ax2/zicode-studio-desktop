@@ -43,8 +43,10 @@ The task center is not just an inbox for background work: you can create and
 manage tasks directly, without going through a conversation or the inbox first.
 
 - **New task**: fill in the title, instructions, and target project; choose a
-  trigger — manual, every N minutes, or daily at HH:MM; optionally require
-  approval before every run and set the retry limit.
+  trigger — manual, every N minutes, or daily at HH:MM; choose an
+  **execution mode** — run automatically (full access, executes when due) or
+  confirm before every run (default permission, waits for your approval in the
+  task center) — and set the retry limit.
 - **Manual tasks** appear in the list after creation; they either run
   automatically or wait for your **Approve and run** click, depending on the
   approval setting.
@@ -55,6 +57,12 @@ manage tasks directly, without going through a conversation or the inbox first.
   trigger and time, pause the schedule, or delete the template.
 - **Edit tasks**: every one-off and scheduled task card has an **Edit** entry;
   saving applies immediately and scheduled tasks recompute their next run.
+- **Group by workspace**: the list header toggle groups tasks by their target
+  project, with the project path and count in each group header (a default
+  group holds tasks without a project).
+- **Pin**: every task card can be pinned so it stays at the top of every list.
+- **Continue**: tasks with a bound child session show a primary **Continue**
+  button that opens that task's conversation so you can keep working.
 - **Scheduled filter**: the left navigation shows only scheduled templates, so
   you can manage them together.
 
@@ -63,18 +71,22 @@ manage tasks directly, without going through a conversation or the inbox first.
 Automations suit recurring summaries, stable prompts, and repeated research. Define the trigger, scene and model policy, output location, and failure behavior before enabling a rule.
 
 In **More → Automation**, enter a name, target project, and task instructions; choose a manual, hourly,
-or daily schedule; then set the per-run cost, retry limit, and approval requirement. **Create automation**
-adds the new rule to the list immediately. On phones, these fields use a 16px input font and touch targets
-at least 40px high to avoid focus zoom and missed taps. Every field retains a visible label after entry,
-and tapping that label focuses the associated control.
+or daily schedule; then set the per-run cost, retry limit, and execution mode. The new-workflow form
+also has a **Start from a template** grid: built-in templates (daily tech brief, weekly work report,
+daily study plan, code review sweep, news digest) prefill the name, prompt and schedule in one click,
+and you can adjust them or reset with **Use custom**. **Create automation** adds the new rule to the
+list immediately. On phones, these fields use a 16px input font and touch targets at least 40px high
+to avoid focus zoom and missed taps. Every field retains a visible label after entry, and tapping that
+label focuses the associated control.
 
 ### When automation runs on its own
 
-- Workflows created without "Require approval before every run" dispatch
-  automatically to the target project when due; no manual Approve click is
-  needed in the task center. The creation form shows a matching hint.
-- Workflows that require approval stop in "needs approval" state when due and
-  only start after you approve them in the Agent Inbox runtime panel.
+- Workflows with **Run automatically (full access)** dispatch automatically to
+  the target project when due; no manual Approve click is needed in the task
+  center.
+- Workflows with **Confirm before every run (default permission)** stop in
+  "needs approval" state when due and only start after you approve them in the
+  task center.
 - The scheduler runs for the whole time the app is open, regardless of which
   view you are on. Nothing runs while the app is completely closed (an
   unattended background runner is planned for a later release).
