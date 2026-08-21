@@ -488,6 +488,7 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
 
 function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const backups = store((state) => state.backups);
+  const backupAvailable = store((state) => state.available);
   const loading = store((state) => state.loading);
   const creating = store((state) => state.creating);
   const deletingId = store((state) => state.deletingId);
@@ -511,15 +512,21 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
             )}
           </span>
         </span>
-        <button
-          type="button"
-          id="create-workspace-backup"
-          className="ui-button ui-button--secondary settings-value-btn"
-          disabled={creating}
-          onClick={() => void createBackup()}
-        >
-          {creating ? t("Backing up…") : t("Back up now")}
-        </button>
+        {backupAvailable ? (
+          <button
+            type="button"
+            id="create-workspace-backup"
+            className="ui-button ui-button--secondary settings-value-btn"
+            disabled={creating}
+            onClick={() => void createBackup()}
+          >
+            {creating ? t("Backing up…") : t("Back up now")}
+          </button>
+        ) : (
+          <span className="settings-help" role="note">
+            {t("Workspace backups are available in the desktop app.")}
+          </span>
+        )}
       </div>
       <p
         className="settings-help"

@@ -20,6 +20,7 @@ export interface BackupStoreOptions {
 
 interface BackupState {
   backups: WorkspaceBackup[];
+  available: boolean;
   loading: boolean;
   creating: boolean;
   deletingId: string | null;
@@ -50,6 +51,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
 
   return create<BackupState>()((set, get) => ({
     backups: [],
+    available: Boolean(invoke),
     loading: false,
     creating: false,
     deletingId: null,

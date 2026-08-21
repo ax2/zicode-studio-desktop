@@ -2,6 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import { createBackupStore, formatBackupSize } from "./backupStore";
 
 describe("workspace backup store", () => {
+  it("reports availability only when a Tauri invoke is present", () => {
+    const withInvoke = createBackupStore({
+      invoke: vi.fn(async () => []),
+      getWorkspaceId: () => "ws-1",
+    });
+    expect(withInvoke.getState().available).toBe(true);
+    const withoutInvoke = createBackupStore({ getWorkspaceId: () => "ws-1" });
+    expect(withoutInvoke.getState().available).toBe(false);
+  });
+
   it("loads workspace backups through invoke", async () => {
     const invoke = vi.fn(async () => [
       {

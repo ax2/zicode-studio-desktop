@@ -1557,6 +1557,8 @@ const zhCN = {
   "Imported {imported}, skipped {skipped}": "已导入 {imported} 项，跳过 {skipped} 项",
   "Import failed": "导入失败",
   "Workspace data backup": "工作区数据备份",
+  "Workspace backups are available in the desktop app.":
+    "工作区备份仅在桌面版可用。",
   "Back up this workspace": "备份当前工作区",
   "Snapshots notes, conversations, artifacts, tasks and automations into ~/.zicode/backups. Startup auto-backup runs at most once per day; the newest 7 are kept.":
     "将笔记、对话、产物、任务与自动化快照到 ~/.zicode/backups。启动时自动备份每天最多一次，最多保留最近 7 份。",
