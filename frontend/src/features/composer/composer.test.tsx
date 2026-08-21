@@ -46,6 +46,7 @@ function pressKey(input: HTMLTextAreaElement, key: string) {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  localStorage.removeItem("picot-work-mode");
   delete (window as { matchMedia?: unknown }).matchMedia;
 });
 
@@ -98,6 +99,13 @@ describe("composer React shell", () => {
     expect(select?.value).toBe("craft");
     const options = Array.from(select?.options ?? []).map((option) => option.value);
     expect(options).toEqual(["ask", "craft", "plan"]);
+  });
+
+  it("respects a saved default work mode", () => {
+    localStorage.setItem("picot-work-mode", "plan");
+    mountComposer();
+    const select = document.getElementById("composer-mode") as HTMLSelectElement | null;
+    expect(select?.value).toBe("plan");
   });
 
   it("clears the draft with the clear button", async () => {

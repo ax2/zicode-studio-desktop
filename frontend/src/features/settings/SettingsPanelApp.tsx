@@ -762,6 +762,14 @@ export function GeneralTab({
   const [sessionImportState, setSessionImportState] = useState<
     "idle" | "busy" | "done" | "error"
   >("idle");
+  const [workMode, setWorkMode] = useState(() => {
+    try {
+      const saved = globalThis.localStorage?.getItem("picot-work-mode");
+      return saved === "ask" || saved === "plan" ? saved : "craft";
+    } catch {
+      return "craft";
+    }
+  });
   const [sessionImportMessage, setSessionImportMessage] = useState("");
   const sessionImportInputRef = useRef<HTMLInputElement | null>(null);
   const exportSessions = async () => {
@@ -865,6 +873,28 @@ export function GeneralTab({
             <span className="settings-label-sub">{t("Reasoning depth")}</span>
           </span>
           <ThinkingEffortControl widgets={widgets} level={thinkingLevel} />
+        </div>
+        <div className="settings-row" id="setting-work-mode">
+          <span className="settings-label">{t("Default work mode")}</span>
+          <Select
+            id="setting-default-work-mode"
+            value={workMode}
+            label={t("Default work mode")}
+            options={[
+              { value: "ask", label: t("Ask") },
+              { value: "craft", label: t("Craft") },
+              { value: "plan", label: t("Plan") },
+            ]}
+            onChange={(value) => {
+              setWorkMode(value);
+              try {
+                globalThis.localStorage?.setItem("picot-work-mode", value);
+              } catch {
+                // Persisting the preference is best-effort.
+              }
+              window.dispatchEvent(new CustomEvent("zicode:work-mode-changed"));
+            }}
+          />
         </div>
         <div className="settings-row">
           <span className="settings-label">{t("Show thinking")}</span>

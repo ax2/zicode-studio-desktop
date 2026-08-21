@@ -533,6 +533,7 @@ const zhCN = {
   "No memory entries yet": "暂无记忆条目",
   "Relevant memory": "相关记忆",
   "Work mode": "工作模式",
+  "Default work mode": "默认工作模式",
   "Work mode: Ask answers only, Craft executes, Plan proposes before changing files.":
     "工作模式：问一问只回答，做一做直接执行，想一想先出计划再改文件。",
   Ask: "问一问",

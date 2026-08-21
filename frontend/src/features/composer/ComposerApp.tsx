@@ -111,6 +111,27 @@ export function ComposerApp({
   const [listening, setListening] = useState(false);
   const [voiceError, setVoiceError] = useState(false);
   const [hasText, setHasText] = useState(false);
+  const [mode, setMode] = useState(() => {
+    try {
+      const saved = globalThis.localStorage?.getItem("picot-work-mode");
+      return saved === "ask" || saved === "plan" ? saved : "craft";
+    } catch {
+      return "craft";
+    }
+  });
+  useEffect(() => {
+    const onWorkModeChanged = () => {
+      try {
+        const saved = globalThis.localStorage?.getItem("picot-work-mode");
+        if (saved === "ask" || saved === "plan" || saved === "craft") setMode(saved);
+      } catch {
+        // Ignore storage errors; keep the current mode.
+      }
+    };
+    window.addEventListener("zicode:work-mode-changed", onWorkModeChanged);
+    return () =>
+      window.removeEventListener("zicode:work-mode-changed", onWorkModeChanged);
+  }, []);
   const recognitionRef = useRef<{ abort(): void } | null>(null);
   const speechGlobals = globalThis as unknown as {
     SpeechRecognition?: new () => SpeechRecognitionInstance;
@@ -483,7 +504,15 @@ export function ComposerApp({
               <select
                 className="composer-mode-select"
                 id="composer-mode"
-                defaultValue="craft"
+                value={mode}
+                onChange={(event) => {
+                  setMode(event.target.value);
+                  try {
+                    globalThis.localStorage?.setItem("picot-work-mode", event.target.value);
+                  } catch {
+                    // Persisting the preference is best-effort.
+                  }
+                }}
                 aria-label={t("Work mode")}
                 title={t(
                   "Work mode: Ask answers only, Craft executes, Plan proposes before changing files.",

@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-21 默认工作模式设置（工作模式易用性）
+
+- 设置 → 一般 → Agent 新增「默认工作模式」选择（问一问/做一做/想一想）：
+  保存到本机（`picot-work-mode`），Composer 初始模式跟随；设置页修改通过
+  事件即时同步到已挂载的 Composer，无需重启。
+- 验证：composer 19 项（新增默认模式读取）、settingsWidgets 11 项（新增
+  设置修改 + 事件通知）全绿；typecheck、Biome 通过；全量 158 文件用例全
+  绿；实况 `work-mode-default-qa.cjs` 桌面 1440 + 移动 390 通过（设置选
+  Plan → 持久化 → Composer 模式变为 Plan，零溢出、零报错）。bundle 与
+  i18n 已同步安装目录。顺带修复 settingsWidgets 测试缺 afterEach 清理的
+  潜在串扰。
+
 ## 2026-08-21 移动端全面回归（7 项关键 QA，390×844）
 
 - 新增 `run-all-mobile.cjs` 一键移动回归：结果区多视图、工作模式（含

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, waitFor } from "@testing-library/react";
 import { GeneralTab } from "./SettingsPanelApp";
 import { createSettingsStore } from "./store";
@@ -18,6 +18,11 @@ const controllerStub = {
     call: async () => ({ ok: false, error: "unavailable" }),
   }),
 } as unknown as SettingsController;
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  localStorage.clear();
+});
 
 function renderGeneral(widgets?: ReturnType<typeof createSettingsWidgetsStore>) {
   localStorage.clear();
@@ -178,6 +183,37 @@ describe("settings widgets store", () => {
 });
 
 describe("settings widgets React render", () => {
+  it("changes the default work mode and notifies the composer", async () => {
+    localStorage.removeItem("picot-work-mode");
+    const onEvent = vi.fn();
+    window.addEventListener("zicode:work-mode-changed", onEvent);
+    const { view } = renderGeneral();
+    const select = view.container.querySelector(
+      "#setting-default-work-mode",
+    ) as HTMLButtonElement;
+    expect(select).toBeTruthy();
+    select.click();
+    await waitFor(() => {
+      expect(
+        view.container.querySelector("#setting-default-work-mode-listbox"),
+      ).toBeTruthy();
+    });
+    const option = Array.from(
+      view.container.querySelectorAll<HTMLElement>(
+        "#setting-default-work-mode-listbox button",
+      ),
+    ).find(
+      (node) =>
+        node.textContent === "Plan" ||
+        node.textContent === "想一想",
+    );
+    expect(option).toBeTruthy();
+    option?.click();
+    expect(localStorage.getItem("picot-work-mode")).toBe("plan");
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    window.removeEventListener("zicode:work-mode-changed", onEvent);
+  });
+
   it("renders toggles, thinking effort, and scene profiles in the general tab", async () => {
     const { widgets } = renderGeneral();
     expect(document.getElementById("toggle-auto-compact")).toBeTruthy();
