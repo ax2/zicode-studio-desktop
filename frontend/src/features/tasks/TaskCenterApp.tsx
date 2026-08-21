@@ -585,10 +585,11 @@ function TaskCard({
           {task.dispatch?.childSessionId ? (
             <button
               type="button"
-              className="ui-button ui-button--secondary ui-button--sm"
+              className="ui-button ui-button--primary ui-button--sm"
+              title={t("Open this task's conversation and keep working")}
               onClick={openSession}
             >
-              {t("Open session")}
+              {t("Continue")}
             </button>
           ) : null}
           {canRetryAndRun ? (

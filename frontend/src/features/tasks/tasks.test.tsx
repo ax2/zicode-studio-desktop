@@ -526,6 +526,31 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("offers a Continue entry for tasks with a bound child session", async () => {
+    setLocale("en");
+    const openApp = vi.fn();
+    const dispatched = {
+      id: "run",
+      title: "Running research",
+      status: "running",
+      dispatch: {
+        childWorkspaceId: "workspace-a",
+        childSessionId: "session-a",
+        childInstanceId: "instance-a",
+      },
+    };
+    const call = mockCall([dispatched]);
+    const store = renderStore(call, { openApp });
+    await waitFor(() => expect(screen.getByText("Running research")).toBeTruthy());
+    const listener = vi.fn();
+    document.addEventListener("sa-view-session", listener);
+    fireEvent.click(screen.getByText("Continue"));
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(openApp).toHaveBeenCalledWith("core.chat");
+    document.removeEventListener("sa-view-session", listener);
+    store.getState().destroy();
+  });
+
   it("re-renders its main view after the shell clears the shared container", async () => {
     setLocale("en");
     const call = mockCall([{ id: "run", title: "Running research", status: "running" }]);
