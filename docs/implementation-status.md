@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-21 交付卫生：安装目录 public 全量同步
+
+- 发现并修复同步缺口：`build:react` 每次重编**所有** React bundle（bundle
+  内嵌完整 i18n 字典，任何新增文案都会改变全部产物），此前手动只复制改动
+  bundle 导致 5 个运行时文件（articles/documents/help/notes bundle 与
+  message-renderer.css）落后。
+- 全量对比：仓库 public 341 个文件 vs 安装目录，排除测试文件后
+  **零差异**（测试文件不部署到运行实例）。约定：`build:react` 后全量
+  复制 `public/native/react/*.js`，避免逐文件同步遗漏。
+
 ## 2026-08-21 欢迎页「沉淀记忆」入口（/memory 的可见化）
 
 - 对话欢迎页（普通与 Agent 收件箱两种形态）新增「沉淀这段对话的记忆」
