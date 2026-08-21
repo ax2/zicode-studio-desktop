@@ -14,7 +14,8 @@
       "title": "Interface and navigation",
       "section": "Getting started",
       "file": "interface.md",
-      "summary": "Activity rail, function area, main view, and file manager"
+      "summary": "Activity rail, function area, main view, and file manager",
+      "keywords": ["memory", "default work mode"]
     },
     {
       "id": "mobile-access",
@@ -29,14 +30,16 @@
       "title": "Chat workflow",
       "section": "Chat and productivity",
       "file": "chat.md",
-      "summary": "Sessions, context, error recovery, and Notes integration"
+      "summary": "Sessions, context, error recovery, and Notes integration",
+      "keywords": ["work mode", "Ask", "Craft", "Plan", "memory", "extract"]
     },
     {
       "id": "projects-tasks",
       "title": "Projects, tasks, and automation",
       "section": "Chat and productivity",
       "file": "projects-tasks.md",
-      "summary": "Turn goals into trackable and recoverable workflows"
+      "summary": "Turn goals into trackable and recoverable workflows",
+      "keywords": ["template", "execution mode", "schedule", "approval"]
     },
     {
       "id": "inbox",
@@ -100,7 +103,8 @@
       "title": "Clipboard Inbox",
       "section": "Utility apps",
       "file": "clipboard.md",
-      "summary": "Capture text and links now, organize them into notes later"
+      "summary": "Capture text and links now, organize them into notes later",
+      "keywords": ["clipboard", "inbox", "notes", "add to chat"]
     },
     {
       "id": "documents",
@@ -128,7 +132,8 @@
       "title": "Artifacts",
       "section": "Artifacts",
       "file": "artifacts.md",
-      "summary": "Browse files produced by chats and plugins"
+      "summary": "Browse files produced by chats and plugins",
+      "keywords": ["artifacts", "reports", "datasets", "add to chat"]
     },
     {
       "id": "security-data",

@@ -15,7 +15,7 @@
       "section": "开始使用",
       "file": "interface.md",
       "summary": "导航、功能区、主视图和文件管理",
-      "keywords": ["三栏", "应用", "布局"]
+      "keywords": ["三栏", "应用", "布局", "记忆", "默认工作模式"]
     },
     {
       "id": "mobile-access",
@@ -31,7 +31,7 @@
       "section": "对话与效率",
       "file": "chat.md",
       "summary": "会话、上下文、错误恢复与笔记联动",
-      "keywords": ["消息", "重试", "上下文"]
+      "keywords": ["消息", "重试", "上下文", "工作模式", "问一问", "做一做", "想一想", "记忆", "提取", "Ask", "Craft", "Plan"]
     },
     {
       "id": "projects-tasks",
@@ -39,7 +39,7 @@
       "section": "对话与效率",
       "file": "projects-tasks.md",
       "summary": "把目标拆成可跟踪、可恢复的执行工作流",
-      "keywords": ["项目", "任务", "暂停", "自动化"]
+      "keywords": ["项目", "任务", "暂停", "自动化", "模板", "执行模式", "定时", "审批"]
     },
     {
       "id": "inbox",
@@ -105,7 +105,8 @@
       "title": "剪贴板收件箱",
       "section": "工具应用",
       "file": "clipboard.md",
-      "summary": "先收集文本与链接，稍后整理成笔记"
+      "summary": "先收集文本与链接，稍后整理成笔记",
+      "keywords": ["剪贴板", "收件箱", "笔记", "添加到对话", "带入对话"]
     },
     {
       "id": "documents",
@@ -133,7 +134,8 @@
       "title": "产物库",
       "section": "产物库",
       "file": "artifacts.md",
-      "summary": "统一浏览对话和插件生成的文件"
+      "summary": "统一浏览对话和插件生成的文件",
+      "keywords": ["产物", "报告", "数据集", "添加到对话", "带入对话"]
     },
     {
       "id": "security-data",
