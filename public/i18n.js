@@ -1871,6 +1871,8 @@ const zhCN = {
   "Create a workflow to turn repeated prompts into auditable tasks.":
     "创建工作流，将重复提示转化为可审计任务。",
   "New automation": "新建自动化",
+  "Edit automation": "编辑自动化",
+  "Automation updated": "自动化已更新",
   Name: "名称",
   "Target project": "目标项目",
   "Task instructions": "任务说明",

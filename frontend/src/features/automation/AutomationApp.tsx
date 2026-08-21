@@ -11,6 +11,7 @@ import {
   formatDate,
   nextAutomationRun,
   scheduleLabel,
+  type AutomationSchedule,
   type AutomationWorkflow,
 } from "./logic";
 import { createAutomationStore, type AutomationAppOptions } from "./store";
@@ -47,6 +48,7 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
   const filter = store((state) => state.filter);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
+  const [editing, setEditing] = useState<AutomationWorkflow | null>(null);
   const visible = filterWorkflows(workflows, filter);
   return (
     <div className="automation-main">
@@ -59,7 +61,12 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
           {t("Refresh")}
         </button>
       </header>
-      <WorkflowForm store={store} />
+      <WorkflowForm
+        store={store}
+        key={editing?.id ?? "new"}
+        initial={editing ?? undefined}
+        onDone={() => setEditing(null)}
+      />
       {error ? (
         <StatePanel title={t("Could not load automations")} description={error.message} />
       ) : visible.length === 0 ? (
@@ -70,7 +77,12 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
       ) : (
         <div className="automation-list">
           {visible.map((workflow) => (
-            <WorkflowCard key={workflow.id} store={store} workflow={workflow} />
+            <WorkflowCard
+              key={workflow.id}
+              store={store}
+              workflow={workflow}
+              onEdit={setEditing}
+            />
           ))}
         </div>
       )}
@@ -87,22 +99,40 @@ function StatePanel({ title, description }: { title: string; description: string
   );
 }
 
-function WorkflowForm({ store }: { store: AutomationStore }) {
+function WorkflowForm({
+  store,
+  initial,
+  onDone,
+}: {
+  store: AutomationStore;
+  initial?: AutomationWorkflow;
+  onDone?: () => void;
+}) {
   const saveWorkflow = store((state) => state.saveWorkflow);
   const notify = store((state) => state.notify);
   const getTarget = store((state) => state.getTarget);
   const listProjects = store((state) => state.listProjects);
-  const [title, setTitle] = useState("");
-  const [targetProject, setTargetProject] = useState(getTarget()?.cwd ?? "");
-  const [prompt, setPrompt] = useState("");
-  const [schedule, setSchedule] = useState("manual");
-  const [intervalMinutes, setIntervalMinutes] = useState("60");
-  const [dailyTime, setDailyTime] = useState("09:00");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [targetProject, setTargetProject] = useState(
+    initial?.targetProject ?? getTarget()?.cwd ?? "",
+  );
+  const [prompt, setPrompt] = useState(initial?.prompt ?? "");
+  const [schedule, setSchedule] = useState(initial?.schedule ?? "manual");
+  const [intervalMinutes, setIntervalMinutes] = useState(
+    String(initial?.intervalMinutes ?? 60),
+  );
+  const [dailyTime, setDailyTime] = useState(initial?.dailyTime ?? "09:00");
   // Scheduled tasks should run automatically out of the box; approval is an
   // opt-in guard for workflows that must wait for a human before dispatching.
-  const [requireApproval, setRequireApproval] = useState(false);
-  const [maxCost, setMaxCost] = useState("");
-  const [maxRetries, setMaxRetries] = useState("2");
+  const [requireApproval, setRequireApproval] = useState(
+    Boolean(initial?.requireApproval),
+  );
+  const [maxCost, setMaxCost] = useState(
+    initial?.maxCost != null ? String(initial.maxCost) : "",
+  );
+  const [maxRetries, setMaxRetries] = useState(
+    String(initial?.maxRetries ?? 2),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [projectPaths, setProjectPaths] = useState<string[]>([]);
 
@@ -121,7 +151,7 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
     setSubmitting(true);
     try {
       const saved = await saveWorkflow({
-        id: "",
+        id: initial?.id ?? "",
         title,
         targetProject,
         prompt,
@@ -132,7 +162,7 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
         requireApproval,
         maxCost: maxCost ? Number(maxCost) : null,
         maxRetries: Number(maxRetries || 0),
-        enabled: true,
+        enabled: initial?.enabled ?? true,
       });
       if (saved && saved.schedule !== "manual" && !saved.nextRunAt) {
         await saveWorkflow({ ...saved, nextRunAt: nextAutomationRun(saved) });
@@ -146,7 +176,11 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
       setRequireApproval(true);
       setMaxCost("");
       setMaxRetries("2");
-      notify({ title: t("Automation created"), type: "success" });
+      notify({
+        title: initial ? t("Automation updated") : t("Automation created"),
+        type: "success",
+      });
+      onDone?.();
     } catch (reason) {
       notify({
         title: t("Could not save automation"),
@@ -160,7 +194,7 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
 
   return (
     <form className="ui-panel automation-form" onSubmit={handleSubmit}>
-      <h2>{t("New automation")}</h2>
+      <h2>{initial ? t("Edit automation") : t("New automation")}</h2>
       <LabeledField label={t("Name")} htmlFor="automation-name">
         <input
           id="automation-name"
@@ -217,7 +251,7 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
             { value: "interval", label: t("By interval") },
             { value: "daily", label: t("Daily") },
           ]}
-          onChange={setSchedule}
+          onChange={(value) => setSchedule(value as AutomationSchedule)}
         />
       </LabeledField>
       {schedule === "interval" ? (
@@ -279,14 +313,25 @@ function WorkflowForm({ store }: { store: AutomationStore }) {
           ? t("Each run waits for your approval in the task center.")
           : t("Runs automatically when due; no manual approval needed.")}
       </p>
-      <button
-        type="submit"
-        className="ui-button ui-button--primary"
-        disabled={submitting}
-        aria-busy={submitting}
-      >
-        {t("Create automation")}
-      </button>
+      <div className="automation-form-actions">
+        {initial ? (
+          <button
+            type="button"
+            className="ui-button ui-button--ghost"
+            onClick={onDone}
+          >
+            {t("Cancel")}
+          </button>
+        ) : null}
+        <button
+          type="submit"
+          className="ui-button ui-button--primary"
+          disabled={submitting}
+          aria-busy={submitting}
+        >
+          {initial ? t("Save changes") : t("Create automation")}
+        </button>
+      </div>
     </form>
   );
 }
@@ -311,9 +356,11 @@ function LabeledField({
 function WorkflowCard({
   store,
   workflow,
+  onEdit,
 }: {
   store: AutomationStore;
   workflow: AutomationWorkflow;
+  onEdit: (workflow: AutomationWorkflow) => void;
 }) {
   const saveWorkflow = store((state) => state.saveWorkflow);
   const removeWorkflow = store((state) => state.removeWorkflow);
@@ -362,6 +409,13 @@ function WorkflowCard({
             }
           >
             {t(workflow.enabled ? "Disable" : "Enable")}
+          </button>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            onClick={() => onEdit(workflow)}
+          >
+            {t("Edit")}
           </button>
           <button
             type="button"

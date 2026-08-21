@@ -404,6 +404,31 @@ describe("automation React app", () => {
     });
   });
 
+  it("edits an existing workflow through the form", async () => {
+    setLocale("en");
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    await store.getState().load();
+    render(<AutomationMain store={store} />);
+    await waitFor(() => expect(screen.getByText("Daily report")).toBeTruthy());
+    fireEvent.click(screen.getByText("Edit"));
+    expect(screen.getByText("Edit automation")).toBeTruthy();
+    const nameInput = screen.getByPlaceholderText("Name") as HTMLInputElement;
+    expect(nameInput.value).toBe("Daily report");
+    fireEvent.input(nameInput, { target: { value: "Daily report v2" } });
+    fireEvent.click(screen.getByText("Save changes"));
+    await waitFor(() => {
+      const upsert = call.mock.calls.find(
+        ([operation, params]) =>
+          operation === "automation_workspace" &&
+          (params as Record<string, unknown>)?.action === "upsert",
+      );
+      const workflow = (upsert?.[1] as { workflow?: AutomationWorkflow })?.workflow;
+      expect(workflow?.id).toBe("workflow-1");
+      expect(workflow?.title).toBe("Daily report v2");
+    });
+  });
+
   it("explains the approval mode with a contextual form hint", async () => {
     setLocale("en");
     const call = mockCall();
