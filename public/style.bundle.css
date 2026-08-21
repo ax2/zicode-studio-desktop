@@ -11454,6 +11454,55 @@ button.task-center-summary-card:focus-visible {
   gap: var(--space-3);
 }
 
+.task-center-workspace-group {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.task-center-workspace-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-md);
+}
+
+.task-center-workspace-icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.task-center-workspace-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.task-center-workspace-count {
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-hover);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: var(--space-5);
+}
+
+.task-center-workspace-tasks {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ui-button.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .task-center-card,
 .task-center-state {
   display: grid;
@@ -16488,14 +16537,14 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: var(--space-0-5);
     line-height: 1.25;
   }
 
   .plugin-mobile-activity-menu-description {
     max-width: 120px;
     color: var(--text-dim);
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     text-align: center;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -17166,6 +17215,93 @@ body[data-active-plugin]:not([data-active-plugin="core.chat"]) #file-sidebar-tog
   text-overflow: ellipsis;
   direction: rtl;
   text-align: left;
+}
+
+.file-sidebar-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.file-sidebar-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.file-sidebar-tab {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--space-5);
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.file-sidebar-tab:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.file-sidebar-tab.is-active {
+  background: var(--surface-hover);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.file-sidebar-pane {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1-5) var(--space-2);
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+}
+
+.file-sidebar-empty {
+  padding: var(--space-5) var(--space-3);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.file-sidebar-item {
+  display: grid;
+  gap: var(--space-0-5);
+  min-width: 0;
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-sidebar-item:hover,
+.file-sidebar-item:focus-visible {
+  background: var(--surface-hover);
+}
+
+.file-sidebar-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-md);
+}
+
+.file-sidebar-item-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
 }
 
 .file-list {

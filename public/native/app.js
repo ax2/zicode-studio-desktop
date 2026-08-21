@@ -270,6 +270,7 @@ let mobileDrafts = null;
 let mobileSendLater = null;
 let imageAttachments = null;
 let fileBrowserInstance = null;
+let fileResultViews = null;
 let historyWindow = null;
 let historyWindowTargetKey = "";
 let currentHistoryMessages = [];
@@ -2095,6 +2096,173 @@ function setupFileBrowser() {
     const parent = browser.getParentPath();
     if (parent !== null) browser.load(parent).catch(showError);
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Result panel views: Files / Artifacts / Changes. The Files view keeps
+  // the original browser; Artifacts lists the session's produced files via
+  // the artifact gateway; Changes collects files written by tools in this
+  // conversation and lets you jump back to them in the file browser.
+  // ─────────────────────────────────────────────────────────────────────
+  const fileListEl = fileList;
+  const pathElEl = pathEl;
+  const artifactsPane = document.getElementById("file-sidebar-artifacts");
+  const changesPane = document.getElementById("file-sidebar-changes");
+  const tabButtons = Array.from(document.querySelectorAll("[data-result-view]"));
+  const changes = new Map();
+  let resultView = "files";
+
+  function paneEmpty(message) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "file-sidebar-empty";
+    wrapper.textContent = message;
+    return wrapper;
+  }
+
+  function renderFilesView() {
+    fileListEl.hidden = false;
+    pathElEl.hidden = false;
+    artifactsPane.hidden = true;
+    changesPane.hidden = true;
+    for (const element of document.querySelectorAll("[data-files-only]")) {
+      element.hidden = false;
+    }
+    if (browser.currentPath === null) browser.load().catch(showError);
+  }
+
+  async function renderArtifactsView() {
+    fileListEl.hidden = true;
+    pathElEl.hidden = true;
+    artifactsPane.hidden = false;
+    changesPane.hidden = true;
+    for (const element of document.querySelectorAll("[data-files-only]")) {
+      element.hidden = true;
+    }
+    artifactsPane.textContent = "";
+    artifactsPane.append(paneEmpty(t("Loading…")));
+    try {
+      const result = await artifactGateway.list(target.sceneId, target.workspaceId, {});
+      const items = Array.isArray(result?.snapshot?.artifacts)
+        ? result.snapshot.artifacts
+        : [];
+      artifactsPane.textContent = "";
+      if (items.length === 0) {
+        artifactsPane.append(paneEmpty(t("No artifacts yet")));
+        return;
+      }
+      for (const item of items.slice(0, 200)) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "file-sidebar-item";
+        row.title = item.title || item.handle || item.id;
+        const titleEl = document.createElement("span");
+        titleEl.className = "file-sidebar-item-title";
+        titleEl.textContent = item.title || item.handle || item.id;
+        const metaEl = document.createElement("span");
+        metaEl.className = "file-sidebar-item-meta";
+        const kind = String(item.kind || t("Files"));
+        const created = item.createdAt
+          ? new Intl.DateTimeFormat(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date(item.createdAt))
+          : "";
+        metaEl.textContent = [kind, created].filter(Boolean).join(" · ");
+        row.append(titleEl, metaEl);
+        row.addEventListener("click", () => {
+          pluginShell?.activate("com.zicode.artifacts");
+        });
+        artifactsPane.append(row);
+      }
+    } catch (error) {
+      artifactsPane.textContent = "";
+      artifactsPane.append(
+        paneEmpty(error instanceof Error ? error.message : t("Failed to load")),
+      );
+    }
+  }
+
+  function renderChangesView() {
+    fileListEl.hidden = true;
+    pathElEl.hidden = true;
+    artifactsPane.hidden = true;
+    changesPane.hidden = false;
+    for (const element of document.querySelectorAll("[data-files-only]")) {
+      element.hidden = true;
+    }
+    changesPane.textContent = "";
+    if (changes.size === 0) {
+      changesPane.append(paneEmpty(t("No files changed in this session yet")));
+      return;
+    }
+    const rows = [...changes.values()].reverse();
+    for (const change of rows) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "file-sidebar-item";
+      const fileName = String(change.path).split("/").filter(Boolean).pop() || change.path;
+      const titleEl = document.createElement("span");
+      titleEl.className = "file-sidebar-item-title";
+      titleEl.textContent = fileName;
+      const metaEl = document.createElement("span");
+      metaEl.className = "file-sidebar-item-meta";
+      metaEl.textContent = change.path;
+      row.append(titleEl, metaEl);
+      row.addEventListener("click", () => {
+        setResultView("files");
+        const parts = String(change.path).split("/").filter(Boolean);
+        const fileNamePart = parts.pop() || "";
+        const dir = parts.join("/");
+        browser
+          .load(dir)
+          .then(() => browser.setHighlight(change.path))
+          .catch(showError);
+      });
+      changesPane.append(row);
+    }
+  }
+
+  function setResultView(view) {
+    resultView = view;
+    for (const button of tabButtons) {
+      const active = button.dataset.resultView === view;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+    }
+    if (view === "files") renderFilesView();
+    else if (view === "artifacts") void renderArtifactsView();
+    else renderChangesView();
+  }
+
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => setResultView(button.dataset.resultView));
+  }
+
+  fileResultViews = {
+    recordTool(event) {
+      const toolName = String(event?.toolName || "");
+      const lower = toolName.toLowerCase();
+      const writeLike = ["write", "edit", "create", "patch", "append"].some((token) =>
+        lower.includes(token),
+      );
+      if (!writeLike) return;
+      const args = event?.args || event?.arguments || {};
+      const filePath = String(
+        args.path || args.file_path || args.filePath || args.target || "",
+      ).trim();
+      if (!filePath) return;
+      changes.set(filePath, {
+        path: filePath,
+        toolName,
+        at: new Date().toISOString(),
+      });
+      if (resultView === "changes") renderChangesView();
+    },
+    openChanges() {
+      setResultView("changes");
+    },
+  };
 }
 
 async function sendComposerInput({ altKey, retried = false } = {}) {
@@ -2260,6 +2428,7 @@ async function handleRuntimeEvent(event) {
       break;
     case "tool_execution_start":
       toolRenderer.createToolCard({ ...event, status: "pending" });
+      fileResultViews?.recordTool(event);
       break;
     case "tool_execution_update":
       toolRenderer.updateToolCard({
@@ -2823,6 +2992,9 @@ window.__picotNative = {
   runtime,
   data,
   adapter,
+  get fileResultViews() {
+    return fileResultViews;
+  },
   get target() {
     return target;
   },

@@ -433,9 +433,43 @@
                     <span class="file-sidebar-title" id="file-sidebar-title"
                         >Files</span
                     >
+                    <div
+                        class="file-sidebar-tabs"
+                        role="tablist"
+                        aria-label="Result panel views"
+                    >
+                        <button
+                            type="button"
+                            class="file-sidebar-tab is-active"
+                            data-result-view="files"
+                            role="tab"
+                            aria-selected="true"
+                        >
+                            Files
+                        </button>
+                        <button
+                            type="button"
+                            class="file-sidebar-tab"
+                            data-result-view="artifacts"
+                            role="tab"
+                            aria-selected="false"
+                        >
+                            Artifacts
+                        </button>
+                        <button
+                            type="button"
+                            class="file-sidebar-tab"
+                            data-result-view="changes"
+                            role="tab"
+                            aria-selected="false"
+                        >
+                            File changes
+                        </button>
+                    </div>
                     <button
                         class="ui-icon-button ui-icon-button--sm ui-icon-button--ghost icon-btn"
                         id="file-sidebar-up"
+                        data-files-only
                         title="Parent directory"
                     >
                         <svg
@@ -455,6 +489,7 @@
                     <button
                         class="ui-icon-button ui-icon-button--sm ui-icon-button--ghost icon-btn"
                         id="file-sidebar-finder"
+                        data-files-only
                         title="Open in file manager"
                     >
                         <svg
@@ -496,9 +531,20 @@
                 <div
                     class="file-sidebar-path"
                     id="file-sidebar-path"
+                    data-files-only
                     title=""
                 ></div>
                 <div class="file-list" id="file-list"></div>
+                <div
+                    class="file-sidebar-pane"
+                    id="file-sidebar-artifacts"
+                    hidden
+                ></div>
+                <div
+                    class="file-sidebar-pane"
+                    id="file-sidebar-changes"
+                    hidden
+                ></div>
             </div>
         </div>
 
