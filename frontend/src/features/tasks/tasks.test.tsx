@@ -8,6 +8,7 @@ import {
   isScheduledTemplate,
   nextTaskRunAt,
   scheduledTaskStats,
+  sortTaskList,
 } from "./logic";
 
 function mockCall(tasks: unknown[]) {
@@ -296,9 +297,17 @@ describe("task center React app", () => {
     await waitFor(() => expect(screen.getByText("Daily blog post")).toBeTruthy());
     const buttons = screen.getAllByText("Run again");
     expect(buttons.length).toBe(2);
-    fireEvent.click(buttons[0]);
+    const cardButton = (title: string) => {
+      const card = Array.from(document.querySelectorAll(".task-center-card")).find((node) =>
+        (node.textContent || "").includes(title),
+      );
+      return Array.from(card?.querySelectorAll("button") ?? []).find(
+        (button) => button.textContent === "Run again",
+      );
+    };
+    fireEvent.click(cardButton("Daily blog post") as HTMLElement);
     expect(reruns).toEqual(["wf-1"]);
-    fireEvent.click(buttons[1]);
+    fireEvent.click(cardButton("Failed automation") as HTMLElement);
     expect(reruns).toEqual(["wf-1", "wf-2"]);
     store.getState().destroy();
   });
@@ -871,5 +880,23 @@ describe("task center task management", () => {
     const stats = scheduledTaskStats(template as never, instances as never);
     expect(stats.runCount).toBe(2);
     expect(stats.lastRunAt).toBe("2026-08-21T01:00:00.000Z");
+  });
+
+  it("sorts templates and active tasks ahead of finished history", () => {
+    const tasks = [
+      { id: "old-done", title: "Old done", status: "done", events: [{ at: "2026-08-19T00:00:00Z" }] },
+      { id: "pending-1", title: "Pending", status: "pending", events: [{ at: "2026-08-21T02:00:00Z" }] },
+      { id: "tpl-later", title: "Later template", status: "pending", schedule: "daily", nextRunAt: "2099-01-01T00:00:00Z", enabled: true },
+      { id: "recent-done", title: "Recent done", status: "done", events: [{ at: "2026-08-21T01:00:00Z" }] },
+      { id: "tpl-soon", title: "Soon template", status: "pending", schedule: "daily", nextRunAt: "2026-08-22T01:00:00Z", enabled: true },
+    ];
+    const sorted = sortTaskList(tasks as never);
+    expect(sorted.map((t) => t.id)).toEqual([
+      "tpl-soon",
+      "tpl-later",
+      "pending-1",
+      "recent-done",
+      "old-done",
+    ]);
   });
 });

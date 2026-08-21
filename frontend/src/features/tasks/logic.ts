@@ -92,19 +92,63 @@ export function statusLabel(status: string): string {
 }
 
 export function filteredTasks(tasks: SuperAgentTask[], id: TaskFilter): SuperAgentTask[] {
-  if (id === "all") return tasks;
-  if (id === "scheduled") return tasks.filter((task) => isScheduledTemplate(task));
-  if (id === "running") {
-    return tasks.filter(
+  let base: SuperAgentTask[];
+  if (id === "all") base = tasks;
+  else if (id === "scheduled") base = tasks.filter((task) => isScheduledTemplate(task));
+  else if (id === "running") {
+    base = tasks.filter(
       (task) => !isScheduledTemplate(task) && ["running", "pending"].includes(task.status),
     );
-  }
-  if (id === "needs_input") {
-    return tasks.filter(
+  } else if (id === "needs_input") {
+    base = tasks.filter(
       (task) => !isScheduledTemplate(task) && ["needs_input", "blocked"].includes(task.status),
     );
+  } else {
+    base = tasks.filter((task) => !isScheduledTemplate(task) && task.status === id);
   }
-  return tasks.filter((task) => !isScheduledTemplate(task) && task.status === id);
+  return sortTaskList(base);
+}
+
+// Keep the active/important work on top: scheduled templates (soonest next run
+// first), then pending/running/needs-input/failed/paused tasks, then history
+// by most recent activity. Without this, old finished runs bury new work.
+const ACTIVE_TASK_STATUSES = new Set([
+  "pending",
+  "running",
+  "needs_input",
+  "blocked",
+  "failed",
+  "paused",
+]);
+
+function taskActivityMs(task: SuperAgentTask): number {
+  const candidate =
+    task.events?.at(-1)?.at ||
+    task.result?.completedAt ||
+    task.dispatch?.startedAt ||
+    "";
+  const time = new Date(candidate).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+export function sortTaskList(tasks: SuperAgentTask[]): SuperAgentTask[] {
+  return [...tasks].sort((a, b) => {
+    const aTemplate = isScheduledTemplate(a);
+    const bTemplate = isScheduledTemplate(b);
+    if (aTemplate !== bTemplate) return aTemplate ? -1 : 1;
+    if (aTemplate && bTemplate) {
+      const aNext = new Date(a.nextRunAt ?? "0").getTime();
+      const bNext = new Date(b.nextRunAt ?? "0").getTime();
+      return (
+        (Number.isFinite(aNext) ? aNext : Number.MAX_SAFE_INTEGER) -
+        (Number.isFinite(bNext) ? bNext : Number.MAX_SAFE_INTEGER)
+      );
+    }
+    const aActive = ACTIVE_TASK_STATUSES.has(a.status) ? 0 : 1;
+    const bActive = ACTIVE_TASK_STATUSES.has(b.status) ? 0 : 1;
+    if (aActive !== bActive) return aActive - bActive;
+    return taskActivityMs(b) - taskActivityMs(a);
+  });
 }
 
 export function isScheduledTemplate(task: SuperAgentTask): boolean {
