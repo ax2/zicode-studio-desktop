@@ -151,8 +151,21 @@ export function TaskMain({ store }: { store: TaskStore }) {
         />
       ) : visible.length === 0 ? (
         <StatePanel
-          title={t("No tasks in this view")}
-          detail={t("Background and delegated work will appear here automatically.")}
+          title={
+            filter === "scheduled"
+              ? t("No scheduled tasks")
+              : t("No tasks in this view")
+          }
+          detail={
+            filter === "scheduled"
+              ? t("Create a scheduled task to run work on a timer.")
+              : t("Create a task, or wait for work from automations and the Agent Inbox.")
+          }
+          actionLabel={t("New task")}
+          onAction={() => {
+            setCreating(true);
+            setEditing(null);
+          }}
         />
       ) : (
         <div className="task-center-list">
@@ -204,10 +217,14 @@ function StatePanel({
   title,
   detail,
   retry,
+  actionLabel,
+  onAction,
 }: {
   title: string;
   detail: string;
   retry?: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   return (
     <section className="ui-panel task-center-state">
@@ -216,6 +233,11 @@ function StatePanel({
       {retry ? (
         <button type="button" className="ui-button ui-button--primary" onClick={retry}>
           {t("Retry")}
+        </button>
+      ) : null}
+      {actionLabel && onAction ? (
+        <button type="button" className="ui-button ui-button--primary" onClick={onAction}>
+          {actionLabel}
         </button>
       ) : null}
     </section>

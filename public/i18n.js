@@ -1748,6 +1748,11 @@ const zhCN = {
   "Could not update task": "无法更新任务",
   "Could not load tasks": "无法加载任务",
   "No tasks in this view": "当前视图没有任务",
+  "No scheduled tasks": "暂无定时任务",
+  "Create a scheduled task to run work on a timer.":
+    "创建定时任务，让工作按计划自动执行。",
+  "Create a task, or wait for work from automations and the Agent Inbox.":
+    "创建新任务，或等待自动化与智能收件箱带来的工作。",
   'No tasks with status "{status}"…': '没有"{status}"状态的任务…',
   "Background and delegated work will appear here automatically.":
     "后台任务和委派工作会自动显示在这里。",
