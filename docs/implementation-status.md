@@ -1,18 +1,39 @@
 # 实现状态
 
-## 2026-08-21 每日博客定时任务真实运行验证（睡眠唤醒后 5 秒补触发）
+## 2026-08-21 每日博客定时任务真实运行验证（睡眠唤醒补触发 + 两轮结果）
 
 - 时间驱动验证完成：08-21 09:00 的「每日技术博客文章生成」定时任务在
-  09:54:06 被调度器创建、09:54:09 绑定子会话并开始执行，无
-  `getSelectedSceneId` 或任何 ReferenceError，任务进入 running 后持续
-  产生模型调用（每 ~90s 一次，DeepSeek 网关）。
+  09:54:06 被调度器创建、09:54:09 绑定子会话，无 `getSelectedSceneId`
+  或任何 ReferenceError——派发修复在真实定时链路中彻底验证通过。
 - 延迟根因排查：09:00 未准时触发并非调度器/定时器节流缺陷。Windows
   Kernel-Power 事件确认电脑自 08-20 21:38 进入睡眠，08-21 09:54:04 才
-  唤醒（唤醒源 Unknown）。唤醒后 5 秒内调度器即完成补触发——`isDue`
-  + nextRunAt 的追赶逻辑正确，无需改动。09:54:05 的 relay DNS 告警是
-  唤醒后网络恢复的瞬时现象，随后自动重连。
-- 结论：任务派发修复（`getSelectedSceneId` 导入）在真实定时链路中彻底
-  验证通过；剩余只需等子会话完成文章产出（预计与 08-20 一轮类似时长）。
+  唤醒。唤醒后 5 秒内调度器即完成补触发——`isDue` + nextRunAt 的追赶
+  逻辑正确。09:54:05 的 relay DNS 告警是唤醒后网络恢复的瞬时现象。
+- 第一轮（09:54 派发，自动）结果异常：唤醒后模型网关尚不可达，4 次
+  调用全部 `502 model_gateway_unreachable`，子会话零产出却被标记为
+  done（摘要为通用“项目代理已结束”），工作流历史记录成 completed。
+- 第二轮（10:02 手动「再次运行」）**成功**：10:12 完成，产出 3 篇文章
+  （20260821-aliexpress-webaudio-fingerprinting / rust-arrayref-supply-chain /
+  github-aug17-outage），每篇含 index.html + images/cover.png，摘要完整、
+  来源真实可核验（HN Algolia API + 原文抓取，ID 均已核实），无敏感信息。
+
+## 2026-08-21 零产出运行误判为成功的修复
+
+- 承接上一轮发现：子会话因模型网关不可达（网络未就绪）全报错结束时，
+  完成判定没有错误感知——`message_end` 只捕获正常文本作摘要，零产出时
+  落到通用文案并标 done，用户看到“成功”却没有文章，调度器也不会重试。
+- 修复（`public/native/app.js`）：
+  - 新增 `dispatchedErrors` 映射：`message_end` 时从 assistant 消息的
+    `errorMessage` 字段按子实例记录运行错误；
+  - `completeDispatchedTask` 在「无 completionMessage/summary 且有记录
+    错误」时用 `markTaskFinished(status:"failed", failReason)` 标记失败，
+    模型网关类错误映射为友好中文「模型服务不可用，本轮未产出内容，请
+    重试。」，其余保留原始错误串；
+  - 任务标记失败后，自动化 reconcileRuns 的自动重试（retryCount <
+    maxRetries）可接管，用户侧也有「再次运行/重试并运行」入口。
+- 验证：新增 markTaskFinished failed 状态单测；task-state/i18n 覆盖/
+  本地化契约 26 项、全量 158 文件 / 1144 用例全绿、typecheck 通过；
+  app.js + i18n.js 已同步安装目录（运行实例 57620 端口返回新 bundle）。
 
 ## 2026-08-21 自动化启用后的 QA 覆盖补齐
 
