@@ -147,6 +147,7 @@ const WORKSPACE_APP_DIR = resolveWorkspaceAppDir();
 const SUPER_AGENT_TASKS_PATH = path.join(WORKSPACE_APP_DIR, "tasks", "tasks.json");
 const FINANCE_RESEARCH_PATH = path.join(WORKSPACE_APP_DIR, "finance", "research.json");
 const AUTOMATION_WORKSPACE_PATH = path.join(WORKSPACE_APP_DIR, "automation", "workflows.json");
+const MEMORY_PATH = path.join(process.env.LOCALAPPDATA ?? "", "zicode", "memory.json");
 const PISTUDIO_INSTANCES_DIR = process.env.PI_DESKTOP_INSTANCE_DIR
   ? path.join(path.resolve(process.env.PI_DESKTOP_INSTANCE_DIR), "super-agent")
   : path.join(path.dirname(PI_AGENT_ROOT), "instances");
@@ -1308,6 +1309,60 @@ export async function handlePicotConfig(
           tasks = [];
         }
         return { ok: true, data: { tasks } };
+      }
+
+      case "read_memory": {
+        const fallback = { version: 1, enabled: true, entries: [] as unknown[] };
+        if (!fs.existsSync(MEMORY_PATH)) return { ok: true, data: fallback };
+        try {
+          const parsed = JSON.parse(fs.readFileSync(MEMORY_PATH, "utf8")) as {
+            enabled?: boolean;
+            entries?: unknown[];
+          };
+          return {
+            ok: true,
+            data: {
+              version: 1,
+              enabled: parsed.enabled !== false,
+              entries: Array.isArray(parsed.entries)
+                ? parsed.entries.filter(
+                    (entry) =>
+                      entry &&
+                      typeof entry === "object" &&
+                      typeof (entry as { text?: unknown }).text === "string",
+                  )
+                : [],
+            },
+          };
+        } catch {
+          return { ok: true, data: fallback };
+        }
+      }
+
+      case "write_memory": {
+        const entries = Array.isArray(params.entries)
+          ? params.entries
+              .map((entry) => {
+                const text = asString((entry as { text?: unknown })?.text).trim();
+                if (!text) return null;
+                return {
+                  id: asString((entry as { id?: unknown })?.id) ||
+                    `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  text: text.slice(0, 2_000),
+                  updatedAt: asString((entry as { updatedAt?: unknown })?.updatedAt) ||
+                    new Date().toISOString(),
+                };
+              })
+              .filter(Boolean)
+          : [];
+        const payload = {
+          version: 1,
+          enabled: params.enabled !== false,
+          entries,
+        };
+        fs.mkdirSync(path.dirname(MEMORY_PATH), { recursive: true });
+        fs.writeFileSync(MEMORY_PATH, JSON.stringify(payload, null, 2), "utf8");
+        return { ok: true, data: payload };
       }
 
       case "write_super_agent_tasks": {

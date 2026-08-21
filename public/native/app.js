@@ -400,6 +400,23 @@ const control = new HostControlGateway(adapter);
 const remoteAccessGateway = new RemoteAccessGateway(adapter);
 const config = new ConfigGateway({ runtime, getTarget: () => target });
 window.__picotConfigCall = (op, params, options) => config.call(op, params, options);
+
+let memoryCache = { enabled: true, entries: [] };
+async function refreshMemoryCache() {
+  try {
+    const result = await config.call("read_memory");
+    const data = result?.data ?? {};
+    memoryCache = {
+      enabled: data.enabled !== false,
+      entries: Array.isArray(data.entries) ? data.entries : [],
+    };
+  } catch {
+    // Memory is best-effort; sending must never depend on it.
+  }
+}
+window.addEventListener("zicode:memory-changed", () => {
+  void refreshMemoryCache();
+});
 const contextUsage = setupContextUsage();
 const sessionCostEl = document.getElementById("session-cost");
 let sessionTotalCost = 0;
@@ -1412,6 +1429,7 @@ async function hydrateSnapshot() {
   await hydrateFromSnapshot(snapshot);
   configGatewayTargetReady = true;
   signalConfigGatewayReady();
+  void refreshMemoryCache();
 }
 
 async function loadCommands() {
@@ -2343,6 +2361,12 @@ async function sendComposerInput({ altKey, retried = false } = {}) {
   const modePrompt = WORK_MODE_PROMPTS[mode];
   if (modePrompt && intent.command?.message) {
     intent.command.message = `${modePrompt}\n\n${intent.command.message}`;
+  }
+  if (memoryCache.enabled && memoryCache.entries.length > 0 && intent.command?.message) {
+    const memoryText = memoryCache.entries
+      .map((entry) => `- ${entry.text}`)
+      .join("\n");
+    intent.command.message = `${t("Relevant memory")}:\n${memoryText}\n\n${intent.command.message}`;
   }
   await enforceProjectBudget(value);
   lastRetryableRequest = { value, images: [...images], altKey: Boolean(altKey) };

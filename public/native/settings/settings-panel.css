@@ -190,6 +190,61 @@
   font-size: var(--font-size-sm);
 }
 
+.settings-description {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.settings-error {
+  margin: 0 0 var(--space-2);
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.memory-composer {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.memory-composer .ui-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.memory-list {
+  display: grid;
+  gap: var(--space-1-5);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.memory-item-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  overflow-wrap: anywhere;
+}
+
+.memory-item .ui-input {
+  flex: 1;
+  min-width: 0;
+}
+
 .settings-toggle {
   width: calc(var(--control-height-lg) + var(--space-2));
   height: var(--control-height-lg);

@@ -4,6 +4,7 @@ import { GeneralTab } from "./SettingsPanelApp";
 import { createSettingsStore } from "./store";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { createBackupStore } from "./backupStore";
+import { createMemoryStore } from "./memoryStore";
 import { fallbackSceneProfiles, getSelectedSceneId } from "./sceneProfiles";
 import type { SettingsController } from "./SettingsPanelApp";
 
@@ -13,6 +14,9 @@ const controllerStub = {
   reloadVisibleConfiguration: vi.fn(),
   setTarget: vi.fn(),
   backupStore: createBackupStore({ getWorkspaceId: () => "workspace-a" }),
+  memoryStore: createMemoryStore({
+    call: async () => ({ ok: false, error: "unavailable" }),
+  }),
 } as unknown as SettingsController;
 
 function renderGeneral(widgets?: ReturnType<typeof createSettingsWidgetsStore>) {

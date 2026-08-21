@@ -879,6 +879,37 @@ describe("workspace-scoped app data", () => {
     expect(existsSync(automationPath)).toBe(true);
   });
 
+  it("persists and reads memory entries with a toggle", async () => {
+    const { workspace, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const written = await handlePicotConfig(
+      "write_memory",
+      {
+        enabled: true,
+        entries: [
+          { id: "m1", text: "I prefer Chinese replies", updatedAt: "2026-08-21T00:00:00.000Z" },
+          { id: "m2", text: "   " },
+        ],
+      },
+      {},
+    );
+    expect(written).toMatchObject({ ok: true });
+    const read = await handlePicotConfig("read_memory", {}, {});
+    expect(read).toMatchObject({
+      ok: true,
+      data: {
+        enabled: true,
+        entries: [{ id: "m1", text: "I prefer Chinese replies" }],
+      },
+    });
+    await handlePicotConfig(
+      "write_memory",
+      { enabled: false, entries: [{ id: "m1", text: "I prefer Chinese replies" }] },
+      {},
+    );
+    const disabled = await handlePicotConfig("read_memory", {}, {});
+    expect(disabled.data).toMatchObject({ enabled: false });
+  });
+
   it("migrates legacy scene-scoped app data into the workspace on first load", async () => {
     const root = mkdtempSync(join(tmpdir(), "picot-config-migrate-"));
     const workspace = join(root, "workspace");

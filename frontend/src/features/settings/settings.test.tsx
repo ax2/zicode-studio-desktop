@@ -12,6 +12,7 @@ import { createCostDashboardStore } from "./costDashboardStore";
 import { createPackageBrowseStore } from "./packageBrowseStore";
 import { createRemoteAccessStore } from "./remoteAccessStore";
 import { createBackupStore } from "./backupStore";
+import { createMemoryStore } from "./memoryStore";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
 import { createSettingsStore, type SettingsStore } from "./store";
@@ -21,6 +22,9 @@ function controllerStub(): SettingsController {
     configStore: createConfigStore({
       configGateway: { call: async () => ({ ok: false, error: "unavailable" }) },
       confirmImpl: () => false,
+    }),
+    memoryStore: createMemoryStore({
+      call: async () => ({ ok: false, error: "unavailable" }),
     }),
     remoteAccessStore: createRemoteAccessStore(null),
     backupStore: createBackupStore({ getWorkspaceId: () => "workspace-a" }),

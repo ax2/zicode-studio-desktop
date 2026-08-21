@@ -4,6 +4,7 @@ import { applyTheme, getCurrentTheme, themes } from "themes";
 import { t } from "../../shared/i18n";
 import { ConfigTab } from "./ConfigTab";
 import type { ConfigStore } from "./configStore";
+import type { MemoryStore } from "./memoryStore";
 import { ArticlesConfigTab } from "./ArticlesConfigTab";
 import { CostDashboardTab } from "./CostDashboardTab";
 import type { CostDashboardStore } from "./costDashboardStore";
@@ -25,6 +26,7 @@ import {
 
 export interface SettingsController {
   configStore: ConfigStore;
+  memoryStore: MemoryStore;
   remoteAccessStore: RemoteAccessStore;
   backupStore: BackupStore;
   costDashboardStore: CostDashboardStore;
@@ -250,6 +252,137 @@ function SettingsToggle({
       aria-label={ariaLabel}
       onClick={onChange}
     ></button>
+  );
+}
+
+function MemorySection({ memory }: { memory: MemoryStore }) {
+  const entries = memory((state) => state.entries);
+  const enabled = memory((state) => state.enabled);
+  const loading = memory((state) => state.loading);
+  const error = memory((state) => state.error);
+  const [draft, setDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
+  useEffect(() => {
+    void memory.getState().load();
+  }, [memory]);
+
+  const submit = () => {
+    void memory.getState().add(draft);
+    setDraft("");
+  };
+
+  return (
+    <div className="settings-section" id="memory-section">
+      <div className="settings-section-title">{t("Memory")}</div>
+      <p className="settings-description">
+        {t(
+          "Remember your preferences and facts; entries are injected into new messages unless disabled.",
+        )}
+      </p>
+      <div className="settings-row">
+        <span className="settings-label">{t("Use memory")}</span>
+        <SettingsToggle
+          id="toggle-memory"
+          enabled={enabled}
+          ariaLabel={t("Use memory")}
+          onChange={() => void memory.getState().setEnabled(!enabled)}
+        />
+      </div>
+      {error ? (
+        <p className="settings-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="memory-composer">
+        <input
+          className="ui-input"
+          value={draft}
+          placeholder={t("e.g. I prefer concise Chinese replies")}
+          aria-label={t("New memory entry")}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) submit();
+          }}
+        />
+        <button
+          type="button"
+          className="ui-button ui-button--primary ui-button--sm"
+          disabled={!draft.trim() || loading}
+          onClick={submit}
+        >
+          {t("Add")}
+        </button>
+      </div>
+      {entries.length === 0 ? (
+        <p className="settings-description">{t("No memory entries yet")}</p>
+      ) : (
+        <ul className="memory-list">
+          {entries.map((entry) => (
+            <li key={entry.id} className="memory-item">
+              {editingId === entry.id ? (
+                <>
+                  <input
+                    className="ui-input"
+                    value={editText}
+                    aria-label={t("Edit memory entry")}
+                    onChange={(event) => setEditText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                        void memory.getState().update(entry.id, editText);
+                        setEditingId(null);
+                      } else if (event.key === "Escape") {
+                        setEditingId(null);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="ui-button ui-button--primary ui-button--sm"
+                    disabled={!editText.trim()}
+                    onClick={() => {
+                      void memory.getState().update(entry.id, editText);
+                      setEditingId(null);
+                    }}
+                  >
+                    {t("Save")}
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-button ui-button--ghost ui-button--sm"
+                    onClick={() => setEditingId(null)}
+                  >
+                    {t("Cancel")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="memory-item-text">{entry.text}</span>
+                  <button
+                    type="button"
+                    className="ui-button ui-button--ghost ui-button--sm"
+                    onClick={() => {
+                      setEditingId(entry.id);
+                      setEditText(entry.text);
+                    }}
+                  >
+                    {t("Edit")}
+                  </button>
+                  <button
+                    type="button"
+                    className="ui-button ui-button--danger ui-button--sm"
+                    onClick={() => void memory.getState().remove(entry.id)}
+                  >
+                    {t("Delete")}
+                  </button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -743,6 +876,7 @@ export function GeneralTab({
           />
         </div>
       </div>
+      <MemorySection memory={controller.memoryStore} />
       <div
         className={`settings-section${taskNotifications.hidden ? " hidden" : ""}`}
         id="mobile-task-notification-section"

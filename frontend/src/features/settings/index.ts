@@ -2,6 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { createConfigStore, type ConfigGatewayLike } from "./configStore";
+import { createMemoryStore } from "./memoryStore";
 import { createCostDashboardStore, type CostDashboardData } from "./costDashboardStore";
 import { createBackupStore } from "./backupStore";
 import type { SettingsTabKey } from "./logic";
@@ -63,6 +64,12 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       __TAURI__?: { core?: { invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown> } };
     }).__TAURI__?.core?.invoke,
   });
+  const memoryStore = createMemoryStore(
+    (options.configGateway as ConfigGatewayLike | undefined) ??
+      ({
+        call: async () => ({ ok: false, error: "Configuration gateway unavailable." }),
+      } as ConfigGatewayLike),
+  );
   const remoteAccessStore = createRemoteAccessStore(
     (options.remoteAccessGateway as RemoteAccessGateway | null | undefined) ?? null,
   );
@@ -111,6 +118,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
 
   const controller: SettingsController = {
     configStore,
+    memoryStore,
     remoteAccessStore,
     backupStore,
     costDashboardStore,
@@ -124,6 +132,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
       if (tab === "general") {
         void widgetsStore.getState().loadSceneProfiles();
         void backupStore.getState().load();
+        void memoryStore.getState().load();
       } else if (tab === "usage") {
         if (options.data && options.getWorkspaceId) {
           void costDashboardStore

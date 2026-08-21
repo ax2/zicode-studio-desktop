@@ -509,6 +509,17 @@ const zhCN = {
   "No files changed in this session yet": "本次会话还没有文件变更",
   "No artifacts yet": "暂无产物",
   "Usage guide": "使用指南",
+  Memory: "记忆",
+  Add: "添加",
+  "Could not save memory": "无法保存记忆",
+  "Remember your preferences and facts; entries are injected into new messages unless disabled.":
+    "记住你的偏好和事实；启用后这些条目会注入到新消息中，可随时关闭。",
+  "Use memory": "使用记忆",
+  "e.g. I prefer concise Chinese replies": "例如：我喜欢简洁的中文回复",
+  "New memory entry": "新增记忆条目",
+  "Edit memory entry": "编辑记忆条目",
+  "No memory entries yet": "暂无记忆条目",
+  "Relevant memory": "相关记忆",
   "Work mode": "工作模式",
   "Work mode: Ask answers only, Craft executes, Plan proposes before changing files.":
     "工作模式：问一问只回答，做一做直接执行，想一想先出计划再改文件。",
