@@ -44,6 +44,7 @@ interface TaskCenterState {
   tasks: SuperAgentTask[];
   filter: TaskFilter;
   loading: boolean;
+  loadedOnce: boolean;
   error: Error | null;
   openApp(pluginId: string): void;
   setFilter(filter: TaskFilter): void;
@@ -83,14 +84,17 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let schedulerTimer: ReturnType<typeof setInterval> | null = null;
   let runtimeRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  let tickRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let runtimeRetryAttempts = 0;
   let ticking = false;
+  let inFlightLoad: Promise<void> | null = null;
   const runtimeRetryDelays = [1200, 2000, 3000, 5000, 8000, 12000];
 
   return create<TaskCenterState>()((set, get) => ({
     tasks: [],
     filter: "all",
     loading: false,
+    loadedOnce: false,
     error: null,
 
     openApp(pluginId) {
@@ -102,42 +106,55 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async load({ quiet = false } = {}) {
-      if (get().loading || typeof call !== "function") return;
-      set({ loading: true });
-      if (!quiet) set({});
-      try {
-        const response = await call("read_super_agent_tasks");
-        if (!response?.ok) throw new Error(t("Task service is unavailable"));
-        const tasks = normalizeSuperAgentTasks(response.data?.tasks ?? []) as SuperAgentTask[];
-        set({ tasks, error: null });
-        runtimeRetryAttempts = 0;
-      } catch (reason) {
-        const raw = reason instanceof Error ? reason.message : String(reason);
-        set({
-          error: localizeHostError(
-            reason instanceof Error ? reason : new Error(String(reason)),
-          ),
-        });
-        // A fresh session can race runtime readiness: the first load fails
-        // with "unknown instance" before the runtime finishes booting. Retry
-        // automatically with backoff so the user does not have to notice and
-        // click "Retry" on an empty error state.
-        if (
-          !runtimeRetryTimer &&
-          /unknown_instance|UnknownInstance|runtime unavailable/i.test(raw)
-        ) {
-          const delay =
-            runtimeRetryDelays[
-              Math.min(runtimeRetryAttempts, runtimeRetryDelays.length - 1)
-            ] ?? 1200;
-          runtimeRetryAttempts += 1;
-          runtimeRetryTimer = setTimeout(() => {
-            runtimeRetryTimer = null;
-            void get().load({ quiet: true });
-          }, delay);
+      if (typeof call !== "function") return;
+      // Concurrent callers (polling + scheduler boot) wait for the in-flight
+      // load instead of skipping it, so the scheduler never ticks against an
+      // empty store right after the app opens.
+      if (inFlightLoad) return inFlightLoad;
+      inFlightLoad = (async () => {
+        set({ loading: true });
+        if (!quiet) set({});
+        try {
+          const response = await call("read_super_agent_tasks");
+          if (!response?.ok) throw new Error(t("Task service is unavailable"));
+          const tasks = normalizeSuperAgentTasks(
+            response.data?.tasks ?? [],
+          ) as SuperAgentTask[];
+          set({ tasks, error: null, loadedOnce: true });
+          runtimeRetryAttempts = 0;
+        } catch (reason) {
+          const raw = reason instanceof Error ? reason.message : String(reason);
+          set({
+            error: localizeHostError(
+              reason instanceof Error ? reason : new Error(String(reason)),
+            ),
+          });
+          // A fresh session can race runtime readiness: the first load fails
+          // with "unknown instance" before the runtime finishes booting. Retry
+          // automatically with backoff so the user does not have to notice and
+          // click "Retry" on an empty error state.
+          if (
+            !runtimeRetryTimer &&
+            /unknown_instance|UnknownInstance|runtime unavailable/i.test(raw)
+          ) {
+            const delay =
+              runtimeRetryDelays[
+                Math.min(runtimeRetryAttempts, runtimeRetryDelays.length - 1)
+              ] ?? 1200;
+            runtimeRetryAttempts += 1;
+            runtimeRetryTimer = setTimeout(() => {
+              runtimeRetryTimer = null;
+              void get().load({ quiet: true });
+            }, delay);
+          }
+        } finally {
+          set({ loading: false });
         }
+      })();
+      try {
+        return await inFlightLoad;
       } finally {
-        set({ loading: false });
+        inFlightLoad = null;
       }
     },
 
@@ -443,6 +460,24 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       if (ticking || typeof call !== "function") return;
       ticking = true;
       try {
+        // The scheduler can boot before the first poll completes; wait for
+        // the task list so a due template is caught immediately instead of
+        // on the next interval tick.
+        if (!get().loadedOnce) {
+          await get().load({ quiet: true });
+          if (!get().loadedOnce) {
+            // The first read failed (e.g. the runtime was still booting).
+            // The store's readiness retry reloads shortly; re-check soon
+            // instead of waiting a full scheduler interval.
+            if (!tickRetryTimer) {
+              tickRetryTimer = setTimeout(() => {
+                tickRetryTimer = null;
+                void get().tick();
+              }, 2000);
+            }
+            return;
+          }
+        }
         const tasks = [...get().tasks];
         const now = Date.now();
         let changed = false;
@@ -515,6 +550,8 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     stopScheduler() {
       if (schedulerTimer) clearInterval(schedulerTimer);
       schedulerTimer = null;
+      if (tickRetryTimer) clearTimeout(tickRetryTimer);
+      tickRetryTimer = null;
     },
 
     destroy() {

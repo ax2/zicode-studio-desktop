@@ -1,5 +1,24 @@
 # 实现状态
 
+## 2026-08-21 任务定时调度首开修复（load 就绪等待 + 失败快速重试）
+
+- 实况验证发现：任务应用首次打开时，调度器的立即 tick 会先于首次
+  `read_super_agent_tasks` 完成前执行（store 为空），且首次读取若因运行时
+  尚未就绪失败，下一次 tick 要等整个调度周期（60s）——到期的定时任务
+  首开最多延迟 60 秒才生成实例。
+- 修复（`frontend/src/features/tasks/store.ts`）：
+  - `load()` 改为并发等待：进行中的加载由 `inFlightLoad` 共享，轮询与
+    调度器启动并发调用时后者等待前者完成，而不是跳过；
+  - 新增 `loadedOnce` 状态；`tick()` 在数据未加载时先 `await load()`，
+    若加载失败（如 UnknownInstance）则安排 2s 重试再走调度，不再空跑；
+  - `stopScheduler`/`destroy` 清理重试定时器。
+- 验证：新增「首次加载失败后重试并生成实例」单测，任务测试 29/29、
+  全量 158 文件 / 1151 用例全绿、typecheck 通过；实况
+  `task-scheduler-qa.cjs` 通过——种入到期模板 → 打开任务应用约 3 秒内
+  生成实例（scheduledFrom 指向模板、pending、autoDispatch 按审批设置）并
+  推进 nextRunAt，文件监视确认写入与清理；`task-manage-qa.cjs` 复跑通过。
+  期间发现的无头环境 28s 运行时就绪抖动为环境因素，非代码缺陷。
+
 ## 2026-08-21 任务应用升级为自包含的任务管理产品
 
 - 用户反馈：任务与智能收件箱/对话耦合、不好用；所有任务管理都应放进

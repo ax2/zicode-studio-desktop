@@ -685,6 +685,52 @@ describe("task center task management", () => {
     expect(store.getState().tasks).toHaveLength(2);
   });
 
+  it("re-ticks after a failed first load so a due template still spawns", async () => {
+    vi.useFakeTimers();
+    const due = {
+      id: "tpl-boot",
+      title: "Boot template",
+      status: "pending",
+      schedule: "interval",
+      intervalMinutes: 5,
+      nextRunAt: new Date(Date.now() - 1000).toISOString(),
+      enabled: true,
+      requireApproval: true,
+      automation: { trigger: "schedule", autoDispatch: false },
+      events: [],
+    };
+    let reads = 0;
+    const call = vi.fn(async (operation: string) => {
+      if (operation === "read_super_agent_tasks") {
+        reads += 1;
+        if (reads === 1) {
+          return { ok: false, error: "Runtime request rejected: UnknownInstance" };
+        }
+        return { ok: true, data: { tasks: [due] } };
+      }
+      if (operation === "write_super_agent_tasks") {
+        return { ok: true };
+      }
+      return { ok: false };
+    });
+    const store = createTaskCenterStore({
+      call,
+      pollIntervalMs: 60_000,
+      schedulerIntervalMs: 60_000,
+    });
+    await store.getState().tick();
+    expect(reads).toBe(1);
+    // The store's readiness retry (1.2s) reloads, then the tick retry (2s)
+    // proceeds and spawns the instance.
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(store.getState().tasks.some((task) => task.scheduledFrom === "tpl-boot")).toBe(
+      true,
+    );
+    vi.useRealTimers();
+    store.getState().destroy();
+  });
+
   it("labels scheduled templates and computes their next run", () => {
     expect(
       isScheduledTemplate({ schedule: "daily", dailyTime: "09:00" } as never),
