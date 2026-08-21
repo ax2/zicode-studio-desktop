@@ -1,5 +1,19 @@
 # 实现状态
 
+## 2026-08-21 release exe 重建（含快照/记忆/工作模式等全部改动）
+
+- `cargo build --release`（Rust 未变，仅重嵌资源）产出
+  `target/release/zicode-studio-desktop.exe` 47,917,568 B
+  （SHA-256 `91034368…`，21:12:13）；跳过 NSIS 打包（此前 makensis 卡死）。
+- 校验：release 资源含最新扩展（`picot-bridge.mjs` 含 `read_memory`/
+  `write_memory`/`snapshotFileBeforeWrite`）与最新前端（app.js 含
+  `extractMemoryFromConversation`/`composer-mode`，settings.js 含
+  `memory-section`，composer.js 含工作模式选择）。
+- 暂存：旧 `.prev`（17:52 版）移入 `%TEMP%`；新 exe 以 `.prev` 暂存，
+  运行实例不受影响，下次重启后快照/记忆/收件箱扩展与全部前端改动完整
+  生效。运行实例仍加载旧扩展期间的降级行为（记忆读写 Unknown operation）
+  已在文档说明。
+
 ## 2026-08-21 记忆自动抽取（/memory 命令，参考 WorkBuddy 记忆提取）
 
 - 新增 `memory-extract` skill（从对话提炼稳定事实/偏好/跟进事项，输出 JSON
