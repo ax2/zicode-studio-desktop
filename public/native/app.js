@@ -1470,17 +1470,21 @@ async function switchSession(sessionId, { updateHistory = true } = {}) {
 
   await adoptTarget(nextTarget, { updateRoute: false });
   if (updateHistory) {
+    // Keep the current query string (the plugin shell's `?app=` deep link)
+    // when rewriting the session route, so switching/upgrading the session
+    // does not drop the active application from the URL.
+    const nextPath = `${appRoutePath({
+      name: "session",
+      workspaceId: target.workspaceId,
+      sessionId: target.sessionId,
+    })}${globalThis.location?.search || ""}`;
     history.pushState(
       {
         ...(history.state && typeof history.state === "object" ? history.state : {}),
         [PLUGIN_HISTORY_STATE_KEY]: pluginShell?.getActivePluginId() || "core.chat",
       },
       "",
-      appRoutePath({
-        name: "session",
-        workspaceId: target.workspaceId,
-        sessionId: target.sessionId,
-      }),
+      nextPath,
     );
   }
   // Authoritative re-check: whatever the caller passed to

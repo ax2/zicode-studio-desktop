@@ -47,6 +47,26 @@ describe("app router", () => {
     expect(calls).toEqual([[state, "", "/app/workspaces/workspace-a/sessions/session-formal"]]);
   });
 
+  it("keeps the app deep link when upgrading the temporary session route", () => {
+    const calls = [];
+    const state = { zicodePluginId: "com.zicode.notes" };
+    const history = { state, replaceState: (...args) => calls.push(args) };
+    replaceTemporarySessionRoute(
+      history,
+      "workspace-a",
+      "temporary-1",
+      "session-formal",
+      "?app=com.zicode.notes",
+    );
+    expect(calls).toEqual([
+      [
+        state,
+        "",
+        "/app/workspaces/workspace-a/sessions/session-formal?app=com.zicode.notes",
+      ],
+    ]);
+  });
+
   it("routes browser Back to an in-workspace session switch or a cross-workspace reload", () => {
     const current = { workspaceId: "workspace-a", sessionId: "session-2" };
     expect(

@@ -1,5 +1,22 @@
 # 实现状态
 
+## 2026-08-21 修复：会话绑定升级丢失应用深链（刷新回退到对话）
+
+- 真实缺陷（qa-notes-flow reload 长期失败根因）：会话从临时 id 升级为
+  持久 id 时，`replaceTemporarySessionRoute` 与 `switchSession` 都用不含
+  查询参数的路由重写 URL，把插件壳写入的 `?app=<pluginId>` 深链丢掉。
+  任何应用页（笔记/任务/设置等）在会话绑定后刷新，都会因失去 `?app=`
+  回退到对话，笔记树不渲染、打不开。
+- 修复：
+  - `public/native/utils/router.js`：`replaceTemporarySessionRoute` 重写
+    URL 时保留当前 search（可传入 search 便于测试）；
+  - `public/native/app.js`：`switchSession` 的 pushState 同样保留当前
+    search；
+  - 新增 router 单测（保留 `?app=` 深链）。
+- 验证：router 测试 6/6；qa-notes-flow 全流程通过（此前稳定失败于
+  reload——现在重载后 URL 含 `?app=com.zicode.notes`、笔记应用恢复、树
+  渲染、笔记可打开）；全量 158 文件 / 1153 用例全绿；已同步安装目录。
+
 ## 2026-08-21 定时任务模板卡片运行统计
 
 - 缺口：定时任务模板卡片只显示计划与下次运行，看不到它已跑过多少轮、
