@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-21 新版 exe 全量 live 回归
+
+- 应用重启后运行新版构建（Tasks/Automation 默认启用），跑全量
+  `run-all-live.cjs` 6/6 通过（task-center / task-loop / ask-answer /
+  scheduler / rerun / util-apps）——新构建端到端无回归。QA 残留已清理
+  （剪贴板清 0、tasks 5 条、无 QA 笔记）。
+- 复核「带入对话只带选中文字」：笔记编辑器有选择时按钮变为「带入选中
+  文字」（`discussInChat` 传选中文本），qa-notes-flow 的
+  selectionApplied 检查通过。
+
 ## 2026-08-21 智能收件箱设置页新手指引复核
 
 - 你早期觉得「智能收件箱很奇怪」，新手引导已实现。实况复核设置 → 智能
