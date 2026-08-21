@@ -190,6 +190,38 @@ describe("super-agent task state", () => {
     });
   });
 
+  it("records a failed run with the fail reason and no output summary", () => {
+    const task = markTaskFinished(
+      {
+        id: "task-2",
+        status: "running",
+        title: "Daily blog",
+        source: { channel: "automation", conversationId: "wf-1" },
+        dispatch: { targetProject: "/blog", startedAt: "2026-07-10T12:00:00.000Z" },
+      },
+      {
+        status: "failed",
+        summary: null,
+        failReason: "The model service was unreachable and the run produced no output. Please retry.",
+        now: "2026-07-10T12:05:00.000Z",
+      },
+    );
+
+    expect(task.status).toBe("failed");
+    expect(task.failReason).toContain("model service was unreachable");
+    expect(task.result).toMatchObject({
+      status: "failed",
+      summary: null,
+      failReason: "The model service was unreachable and the run produced no output. Please retry.",
+      completedAt: "2026-07-10T12:05:00.000Z",
+    });
+    expect(task.events.at(-1)).toMatchObject({
+      type: "failed",
+      status: "failed",
+      message: "The model service was unreachable and the run produced no output. Please retry.",
+    });
+  });
+
   it("pauses and resumes through an auditable fresh dispatch", () => {
     const paused = markTaskPaused(
       {

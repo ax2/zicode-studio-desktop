@@ -323,6 +323,12 @@ const dispatchedProcessedEndSequences = new Map();
 // Last assistant text per dispatched child instance, used as the completion
 // summary when the child runtime ends (`agent_end`).
 const dispatchedSummaries = new Map();
+// Last model/run error per dispatched child instance. When a run ends with
+// errors and produced no assistant text (for example the model gateway was
+// unreachable right after the machine woke from sleep), the task must be
+// marked failed instead of "done", so the user sees a recoverable failure
+// and the automation scheduler can auto-retry it.
+const dispatchedErrors = new Map();
 
 const remoteAuth = await resolveRemoteAuth();
 const hostFetch = createAuthenticatedHostFetch({
@@ -1799,6 +1805,8 @@ async function handleBackgroundRuntimeEvent(frame) {
             .join("\n")
             .trim();
           if (text) dispatchedSummaries.set(instanceId, text);
+          const rawError = frame.event.message?.errorMessage;
+          if (rawError) dispatchedErrors.set(instanceId, String(rawError));
         }
         await recordDispatchedTaskUsage(frame).catch((error) =>
           console.warn("[SuperAgent] failed to record dispatched task usage:", error),
@@ -1809,6 +1817,17 @@ async function handleBackgroundRuntimeEvent(frame) {
       await bindDispatchedChildSession(frame.target?.instanceId, frame.event?.sessionId);
       break;
   }
+}
+
+// Map a child-run error to text the user can act on. Model-gateway failures
+// (e.g. the machine just woke up and the network was still coming back) are
+// transient and recoverable, so the fail reason tells the user to retry
+// instead of showing a raw "502 model_gateway_unreachable".
+function friendlyDispatchedRunError(raw) {
+  const text = String(raw || "");
+  return /model[_ ]gateway[_ ]unreachable|502/i.test(text)
+    ? t("The model service was unreachable and the run produced no output. Please retry.")
+    : text;
 }
 
 // Mark the owning task completed when a dispatched child runtime finishes.
@@ -1826,6 +1845,8 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
   const mappedTaskId = dispatchedInstances.get(instanceId);
   const summary = dispatchedSummaries.get(instanceId) || null;
   dispatchedSummaries.delete(instanceId);
+  const runError = dispatchedErrors.get(instanceId) || null;
+  dispatchedErrors.delete(instanceId);
   const taskId =
     mappedTaskId ||
     (await findDispatchedTaskByInstanceId(
@@ -1833,6 +1854,7 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
       instanceId,
     ));
   if (!taskId) return;
+  const failedWithoutOutput = !completionMessage && !summary && runError;
   const completionText =
     completionMessage ||
     summary ||
@@ -1851,7 +1873,12 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
     // task center / Runtime panel then targets the still-alive child session.
     const next = looksLikeQuestion(completionText)
       ? markTaskNeedsInput(task, { question: completionText })
-      : markTaskFinished(task, { summary: completionText });
+      : markTaskFinished(
+          task,
+          failedWithoutOutput
+            ? { status: "failed", failReason: friendlyDispatchedRunError(runError) }
+            : { summary: completionText },
+        );
     // A task waiting for input stays tracked: the user's answer triggers a
     // new run whose message/end events still need the dispatch mapping (for
     // summary capture and the final completion). Only terminal states drop

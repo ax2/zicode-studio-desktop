@@ -1921,6 +1921,8 @@ const zhCN = {
   "Task needs input": "任务需要输入",
   "Project agent ended. Review the child session for details.":
     "项目代理已结束，请打开子会话查看详情。",
+  "The model service was unreachable and the run produced no output. Please retry.":
+    "模型服务不可用，本轮未产出内容，请重试。",
   "Automatically queued for retry": "已自动加入重试队列",
   completed: "已完成",
   retry_queued: "已加入重试",
