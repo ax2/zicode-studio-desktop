@@ -104,6 +104,39 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("shows run history on the scheduled template card", async () => {
+    setLocale("en");
+    const call = mockCall([
+      {
+        id: "tpl",
+        title: "Daily digest",
+        status: "pending",
+        schedule: "daily",
+        dailyTime: "09:00",
+        enabled: true,
+      },
+      {
+        id: "i1",
+        title: "Daily digest run",
+        status: "done",
+        scheduledFrom: "tpl",
+        dispatch: { startedAt: "2026-08-20T01:00:00.000Z" },
+        result: { status: "done", summary: "ok", completedAt: "2026-08-20T01:30:00.000Z" },
+        events: [{ at: "2026-08-20T01:30:00.000Z", type: "completed", status: "done", message: "ok" }],
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Daily digest")).toBeTruthy());
+    const history = Array.from(document.querySelectorAll(".task-center-history summary"))
+      .find((node) => /Run history/.test(node.textContent || ""));
+    expect(history).toBeTruthy();
+    expect(history?.textContent).toContain("1");
+    fireEvent.click(history as HTMLElement);
+    const historyList = history?.closest(".task-center-history");
+    expect(historyList?.textContent).toContain("Completed");
+    store.getState().destroy();
+  });
+
   it("shows the first-run guide on first visit", async () => {
     localStorage.clear();
     const call = mockCall([]);

@@ -814,6 +814,40 @@ function TaskCard({
           </ol>
         </details>
       ) : null}
+      {scheduledTemplate && (scheduledStats?.runCount ?? 0) > 0 ? (
+        <details className="task-center-history">
+          <summary>
+            {t("Run history")} ({scheduledStats?.runCount})
+          </summary>
+          <ol>
+            {allTasks
+              .filter((candidate) => candidate.scheduledFrom === task.id)
+              .sort((a, b) => {
+                const timeOf = (candidate: SuperAgentTask) =>
+                  new Date(
+                    candidate.events?.at(-1)?.at ||
+                      candidate.result?.completedAt ||
+                      candidate.dispatch?.startedAt ||
+                      "",
+                  ).getTime() || 0;
+                return timeOf(b) - timeOf(a);
+              })
+              .slice(0, 12)
+              .map((instance) => (
+                <li key={instance.id}>
+                  <time>
+                    {formatDate(
+                      instance.events?.at(-1)?.at ||
+                        instance.result?.completedAt ||
+                        instance.dispatch?.startedAt,
+                    )}
+                  </time>
+                  <span>{t(statusLabel(instance.status))}</span>
+                </li>
+              ))}
+          </ol>
+        </details>
+      ) : null}
     </article>
   );
 }
