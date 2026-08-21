@@ -15,6 +15,7 @@ import {
   type AutomationWorkflow,
 } from "./logic";
 import { createAutomationStore, type AutomationAppOptions } from "./store";
+import { AUTOMATION_TEMPLATES } from "./templates";
 
 type AutomationStore = ReturnType<typeof createAutomationStore>;
 
@@ -135,6 +136,7 @@ function WorkflowForm({
   );
   const [submitting, setSubmitting] = useState(false);
   const [projectPaths, setProjectPaths] = useState<string[]>([]);
+  const [templateId, setTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +197,52 @@ function WorkflowForm({
   return (
     <form className="ui-panel automation-form" onSubmit={handleSubmit}>
       <h2>{initial ? t("Edit automation") : t("New automation")}</h2>
+      {!initial ? (
+        <div className="automation-templates">
+          <div className="automation-templates-heading">
+            <span>{t("Start from a template")}</span>
+            {templateId ? (
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={() => {
+                  setTemplateId(null);
+                  setTitle("");
+                  setPrompt("");
+                  setSchedule("manual");
+                  setIntervalMinutes("60");
+                  setDailyTime("09:00");
+                }}
+              >
+                {t("Use custom")}
+              </button>
+            ) : null}
+          </div>
+          <div className="automation-template-grid">
+            {AUTOMATION_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className={`automation-template-card${
+                  templateId === template.id ? " is-active" : ""
+                }`}
+                aria-pressed={templateId === template.id}
+                onClick={() => {
+                  setTemplateId(template.id);
+                  setTitle(t(template.titleKey));
+                  setPrompt(template.prompt);
+                  setSchedule(template.schedule);
+                  setIntervalMinutes(String(template.intervalMinutes ?? 60));
+                  setDailyTime(template.dailyTime ?? "09:00");
+                }}
+              >
+                <strong>{t(template.titleKey)}</strong>
+                <span>{t(template.descriptionKey)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <LabeledField label={t("Name")} htmlFor="automation-name">
         <input
           id="automation-name"

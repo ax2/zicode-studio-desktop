@@ -444,6 +444,29 @@ describe("automation React app", () => {
     expect(hint()).toContain("Runs automatically when due");
   });
 
+  it("prefills the new workflow form from a built-in template", async () => {
+    setLocale("zh-CN");
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    render(<AutomationMain store={store} />);
+    await waitFor(() => expect(screen.getByText("从模板开始")).toBeTruthy());
+    expect(screen.getByText("每日技术简报")).toBeTruthy();
+    expect(screen.getByText("周报汇总")).toBeTruthy();
+    fireEvent.click(screen.getByText("每日技术简报"));
+    const name = document.getElementById("automation-name") as HTMLInputElement;
+    const prompt = document.getElementById("automation-prompt") as HTMLTextAreaElement;
+    const schedule = document.getElementById("automation-schedule") as HTMLButtonElement;
+    const dailyTime = document.getElementById("automation-daily-time") as HTMLInputElement;
+    expect(name.value).toBe("每日技术简报");
+    expect(prompt.value).toContain("每日技术简报");
+    expect(schedule.textContent).toContain("每天");
+    expect(dailyTime.value).toBe("09:00");
+    fireEvent.click(screen.getByText("使用自定义"));
+    expect(name.value).toBe("");
+    expect(prompt.value).toBe("");
+    store.getState().destroy();
+  });
+
   it("approves and queues an automation through the task store", async () => {
     setLocale("en");
     const call = mockCall();

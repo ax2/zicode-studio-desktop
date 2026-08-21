@@ -689,6 +689,23 @@ const zhCN = {
   "Execution mode": "执行模式",
   "Run automatically (full access)": "自动运行（完全访问）",
   "Confirm before every run (default permission)": "每次运行前确认（默认权限）",
+  "Start from a template": "从模板开始",
+  "Use custom": "使用自定义",
+  "Daily tech brief": "每日技术简报",
+  "Collect yesterday's tech news and write a short brief.":
+    "收集昨天的技术新闻并生成一份简短简报。",
+  "Weekly work report": "周报汇总",
+  "Summarize the week's work into a structured report.":
+    "把本周工作汇总成结构化周报。",
+  "Daily study plan": "每日学习计划",
+  "Plan today's learning session with a clear focus.":
+    "规划今天有明确重点的学习安排。",
+  "Code review sweep": "代码巡检",
+  "Scan the project for common issues and summarize findings.":
+    "扫描项目常见问题并汇总发现。",
+  "News digest": "新闻摘要",
+  "Aggregate subscribed sources into a morning digest.":
+    "把订阅来源汇总成晨间摘要。",
   "Pin this task to the top": "将此任务置顶",
   "Unpin this task": "取消置顶",
   "Task pinned": "任务已置顶",

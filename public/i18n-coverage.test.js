@@ -98,7 +98,8 @@ describe("Chinese translation coverage", () => {
     // Files that legitimately contain Han characters: the zh-CN dictionary,
     // bilingual pairs (offline/service-worker/themes), internal model-error
     // matching regexes, help icon keywords, the Help center's isEn branches,
-    // code comments, and the Chinese model prompt templates in app.js.
+    // code comments, and the Chinese model prompt templates (app.js and the
+    // automation template library).
     // Anything else is a hardcoded Chinese UI string that breaks the English
     // interface (e.g. the emoji categories or the Agent Inbox panel).
     const allowed = new Set([
@@ -109,6 +110,7 @@ describe("Chinese translation coverage", () => {
       join(process.cwd(), "public", "native", "features", "remote-auth.js"),
       join(process.cwd(), "public", "native", "transport", "e2ee.js"),
       join(process.cwd(), "public", "native", "app.js"),
+      join(process.cwd(), "frontend", "src", "features", "automation", "templates.ts"),
       join(process.cwd(), "frontend", "src", "features", "chat", "chatLogic.ts"),
       join(process.cwd(), "frontend", "src", "features", "help", "logic.ts"),
       join(process.cwd(), "frontend", "src", "features", "help", "HelpCenterApp.tsx"),
