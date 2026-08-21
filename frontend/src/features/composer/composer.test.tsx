@@ -71,6 +71,7 @@ describe("composer React shell", () => {
       "mic-btn",
       "send-btn",
       "abort-btn",
+      "composer-mode",
     ];
     for (const id of expectedIds) {
       expect(document.getElementById(id), `missing #${id}`).toBeTruthy();
@@ -89,6 +90,14 @@ describe("composer React shell", () => {
         .getElementById("model-dropdown-btn")
         ?.getAttribute("aria-haspopup"),
     ).toBe("listbox");
+  });
+
+  it("defaults the work mode to Craft and offers Ask and Plan", () => {
+    mountComposer();
+    const select = document.getElementById("composer-mode") as HTMLSelectElement | null;
+    expect(select?.value).toBe("craft");
+    const options = Array.from(select?.options ?? []).map((option) => option.value);
+    expect(options).toEqual(["ask", "craft", "plan"]);
   });
 
   it("clears the draft with the clear button", async () => {

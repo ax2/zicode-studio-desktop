@@ -480,6 +480,19 @@ export function ComposerApp({
               <input type="file" id="image-input" accept="image/*" multiple style={{ display: "none" }} />
             </div>
             <div className="composer-toolbar-right">
+              <select
+                className="composer-mode-select"
+                id="composer-mode"
+                defaultValue="craft"
+                aria-label={t("Work mode")}
+                title={t(
+                  "Work mode: Ask answers only, Craft executes, Plan proposes before changing files.",
+                )}
+              >
+                <option value="ask">{t("Ask")}</option>
+                <option value="craft">{t("Craft")}</option>
+                <option value="plan">{t("Plan")}</option>
+              </select>
               <div className="model-dropdown" id="model-dropdown">
                 <button
                   type="button"

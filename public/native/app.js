@@ -216,6 +216,19 @@ let currentModelId = null;
 let currentModelContextWindow = 0;
 let availableModels = [];
 let modelsLoading = false;
+// Work modes mirror WorkBuddy's Ask / Craft / Plan. Craft (default) runs
+// directly; Ask and Plan prepend a behavioral instruction to the message so
+// the agent answers without changing files, or proposes before touching
+// anything.
+const WORK_MODE_PROMPTS = {
+  ask: t(
+    "Answer only; do not create, modify, or delete any files, and do not run side effects.",
+  ),
+  craft: null,
+  plan: t(
+    "First propose an execution plan (steps, files to change, expected output). Do not modify any files until the user confirms the plan.",
+  ),
+};
 let modelLoadError = "";
 let modelLoadPromise = null;
 const modelDropdownFeed = createModelDropdownFeed(
@@ -2325,6 +2338,11 @@ async function sendComposerInput({ altKey, retried = false } = {}) {
   if (intent.kind === "builtin") {
     runBuiltin(intent.action);
     return;
+  }
+  const mode = document.getElementById("composer-mode")?.value;
+  const modePrompt = WORK_MODE_PROMPTS[mode];
+  if (modePrompt && intent.command?.message) {
+    intent.command.message = `${modePrompt}\n\n${intent.command.message}`;
   }
   await enforceProjectBudget(value);
   lastRetryableRequest = { value, images: [...images], altKey: Boolean(altKey) };

@@ -509,6 +509,16 @@ const zhCN = {
   "No files changed in this session yet": "本次会话还没有文件变更",
   "No artifacts yet": "暂无产物",
   "Usage guide": "使用指南",
+  "Work mode": "工作模式",
+  "Work mode: Ask answers only, Craft executes, Plan proposes before changing files.":
+    "工作模式：问一问只回答，做一做直接执行，想一想先出计划再改文件。",
+  Ask: "问一问",
+  Craft: "做一做",
+  Plan: "想一想",
+  "Answer only; do not create, modify, or delete any files, and do not run side effects.":
+    "【仅问答】请只回答问题和提供信息，不要创建、修改或删除任何文件，也不要执行有副作用的操作。",
+  "First propose an execution plan (steps, files to change, expected output). Do not modify any files until the user confirms the plan.":
+    "【先计划】请先输出执行计划（步骤、要修改的文件、预期结果），在用户确认计划前不要修改任何文件。",
   "Toggle file browser": "切换文件浏览器",
   "Close file browser": "关闭文件浏览器",
   "Parent directory": "上级目录",

@@ -167,6 +167,28 @@
   gap: var(--space-1);
 }
 
+.composer-mode-select {
+  max-width: 96px;
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.composer-mode-select:hover {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+}
+
+.composer-mode-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Toolbar variants of model/thinking pills — flatter to sit inside the card */
 .composer-toolbar .model-dropdown-btn {
   background: transparent;
