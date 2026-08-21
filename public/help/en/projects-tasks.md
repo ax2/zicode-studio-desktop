@@ -22,12 +22,16 @@ hide useful context. Results always remain scoped to the active project.
 
 | State | Meaning | Actions |
 |---|---|---|
+| Scheduled | A recurring template waiting for its next trigger | Edit, pause schedule, delete |
+| Pending | Created or approved, waiting to be dispatched | Approve and run, cancel |
 | Running | The agent is executing | Pause, cancel |
 | Paused | State is preserved | Resume, cancel |
 | Failed | Execution hit an error | Inspect, retry |
 | Completed | A result was produced | Open artifacts, run again |
 
 Pause, resume, cancel, and retry operate on the real background task, not just its visual label.
+A scheduled template never runs by itself; when due, the task app spawns a
+fresh “Pending” instance.
 
 On phones, Task Center arranges running, needs-input, failed, and completed summaries in a 2×2 grid.
 Task actions use equal-width buttons, and the history heading has a full touch target. Long project names,
