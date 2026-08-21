@@ -6,6 +6,10 @@
   无副作用：`run-all-live.cjs` 6/6 通过（task-center / task-loop /
   ask-answer / scheduler / rerun / util-apps），任务中心新「定时」筛选、
   派发→完成、提问→回答、到期建任务、再次运行全部正常。
+- 其余功能 QA 批次全部通过：qa-notes-flow（重载恢复，此前稳定失败）、
+  qa-notes-attachment、qa-keyboard 14/14、qa-session-sidebar、
+  qa-artifacts-flow、qa-web-capture——路由修复对笔记/键盘/侧边栏/产物/
+  网页采集无回归。
 - 移动端任务管理端到端（390×844，`task-manage-mobile-qa.cjs`）：新建每日
   定时任务 → 卡片「定时」徽标 + 编辑入口 + 无横向溢出 → 编辑改标题保存 →
   页面零报错 → 精确清理。移动端与桌面端任务管理行为一致。
