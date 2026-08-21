@@ -141,6 +141,14 @@ export function ClipboardMain({ store }: { store: ClipboardStore }) {
                   </button>
                   <button
                     type="button"
+                    className="ui-button ui-button--primary ui-button--sm"
+                    aria-label={`${t("Add to chat")} ${item.text.slice(0, 40)}`}
+                    onClick={() => void store.getState().discussInChat(item.text)}
+                  >
+                    {t("Add to chat")}
+                  </button>
+                  <button
+                    type="button"
                     className="ui-button ui-button--ghost ui-button--sm"
                     aria-label={`${t("Delete")} ${item.text.slice(0, 40)}`}
                     onClick={() => void store.getState().remove(item.id)}

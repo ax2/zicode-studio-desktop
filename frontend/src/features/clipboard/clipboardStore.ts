@@ -93,6 +93,7 @@ export interface ClipboardState {
   paste(): Promise<void>;
   sendToNote(text: string): Promise<void>;
   copyItem(text: string): Promise<void>;
+  discussInChat(text: string): Promise<void>;
 }
 
 export interface ClipboardOptions {
@@ -100,10 +101,12 @@ export interface ClipboardOptions {
   getTarget(): ClipboardScope;
   notify(message: string): void;
   saveToNote?(text: string): Promise<void>;
+  /** Switch to Chat and prefill the composer with this item. */
+  onUseInChat?(text: string): void;
 }
 
 export function createClipboardStore(options: ClipboardOptions) {
-    const { gateway = new ClipboardHttpGateway(), getTarget, notify, saveToNote } = options;
+    const { gateway = new ClipboardHttpGateway(), getTarget, notify, saveToNote, onUseInChat } = options;
     let loadSeq = 0;
     return create<ClipboardState>()((set, get) => ({
     items: [],
@@ -205,6 +208,12 @@ export function createClipboardStore(options: ClipboardOptions) {
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });
       }
+    },
+
+    async discussInChat(text) {
+      if (!onUseInChat || !text.trim()) return;
+      onUseInChat(text.trim());
+      notify(t("Added to chat"));
     },
   }));
 }

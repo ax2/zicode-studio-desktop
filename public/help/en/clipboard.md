@@ -7,8 +7,9 @@ A temporary inbox for text and links before you organize them into notes.
 1. Paste or type text/links and click "Add to inbox" (or "Paste from clipboard"
    to grab the system clipboard directly).
 2. Entries are listed by time.
-3. When you are ready, send an item "to note"; the app creates a note and keeps
-   the source traceable.
+3. When you are ready, send an item "to note" (the app creates a note and keeps
+   the source traceable), or "add to chat" (switches back to Chat and brings
+   the item into the composer so you can follow up immediately).
 4. "Clear all" removes every entry at once (with confirmation).
 
 ## When to use it

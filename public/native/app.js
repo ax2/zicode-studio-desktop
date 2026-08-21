@@ -855,9 +855,7 @@ const notesApp = setupNotesApp({
         .filter(Boolean)
         .join("\n");
     }
-    input.value = `${prompt}${input.value.trim() ? `\n${input.value.trim()}` : ""}`;
-    mobileDrafts?.sync();
-    input.focus();
+    prefillComposer(prompt);
   },
 });
 const artifactApp = setupArtifactApp({
@@ -966,6 +964,18 @@ const clipboardApp = setupClipboardApp({
     workspaceId: target.workspaceId,
   }),
   notify: notifications.notify,
+  onUseInChat: (text) => {
+    const prompt = [
+      t('Discuss this captured item and continue:'),
+      "",
+      text,
+      "",
+      t("I want to continue"),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    prefillComposer(prompt);
+  },
   saveToNote: async (text) => {
     const { sceneId, workspaceId } = target;
     const list = await notesGateway.list(sceneId, workspaceId);
@@ -2039,6 +2049,31 @@ async function recordDispatchedTaskUsage(frame) {
     },
   });
   pluginShell?.setActivityBadge("com.zicode.tasks", { count: 1, tone: "warning" });
+}
+
+// Switch to Chat and prefill the composer with a prompt built from another
+// app (Notes selection, Clipboard Inbox item, …). Activating a plugin view
+// can rebuild the composer DOM, so re-resolve the input after the switch
+// instead of writing into a stale node.
+function prefillComposer(prompt) {
+  const apply = () => {
+    const target = document.getElementById("message-input");
+    if (!target) return false;
+    target.value = `${prompt}${target.value.trim() ? `\n${target.value.trim()}` : ""}`;
+    mobileDrafts?.sync();
+    target.focus();
+    return true;
+  };
+  if (apply()) return;
+  void Promise.resolve(pluginShell?.activate("core.chat")).then(() => {
+    let attempts = 0;
+    const tryFill = () => {
+      if (apply()) return;
+      attempts += 1;
+      if (attempts < 40) setTimeout(tryFill, 50);
+    };
+    setTimeout(tryFill, 0);
+  });
 }
 
 function setupFileBrowser() {

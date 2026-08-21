@@ -56,4 +56,42 @@ describe("clipboard composer", () => {
 
     await waitFor(() => expect(gateway.add).toHaveBeenCalled());
   });
+
+  it("sends an inbox item into the chat composer", async () => {
+    const gateway = stubGateway({
+      list: vi.fn(async () => ({
+        items: [
+          {
+            id: "item-1",
+            text: "captured link https://example.com",
+            kind: "url",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+        ],
+      })),
+    });
+    const onUseInChat = vi.fn();
+    const notify = vi.fn();
+    const store = createClipboardStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+      onUseInChat,
+    });
+    render(<ClipboardMain store={store} />);
+    await waitFor(() =>
+      expect(store.getState().items.some((item) => item.id === "item-1")).toBe(true),
+    );
+    const button = Array.from(document.querySelectorAll("button"))
+      .find(
+        (node) =>
+          (node.textContent || "").includes("Add to chat") ||
+          (node.textContent || "").includes("添加到对话"),
+      );
+    expect(button).toBeTruthy();
+    button?.click();
+    expect(onUseInChat).toHaveBeenCalledWith("captured link https://example.com");
+    expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Added to chat|已添加到对话/));
+  });
 });

@@ -14,5 +14,6 @@ export function setupClipboardApp(options: ClipboardOptions) {
     getTarget: options.getTarget,
     notify: options.notify,
     saveToNote: options.saveToNote,
+    onUseInChat: options.onUseInChat,
   });
 }
