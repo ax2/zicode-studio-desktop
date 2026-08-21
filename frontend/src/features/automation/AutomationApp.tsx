@@ -304,10 +304,27 @@ function WorkflowForm({
           />
         </LabeledField>
       </div>
-      <label className="automation-checkbox">
-        <input type="checkbox" checked={requireApproval} onChange={(e) => setRequireApproval(e.target.checked)} />
-        {t("Require approval before every run")}
-      </label>
+      <fieldset className="automation-checkbox">
+        <legend>{t("Execution mode")}</legend>
+        <label className="automation-radio">
+          <input
+            type="radio"
+            name="automation-execution-mode"
+            checked={!requireApproval}
+            onChange={() => setRequireApproval(false)}
+          />
+          {t("Run automatically (full access)")}
+        </label>
+        <label className="automation-radio">
+          <input
+            type="radio"
+            name="automation-execution-mode"
+            checked={requireApproval}
+            onChange={() => setRequireApproval(true)}
+          />
+          {t("Confirm before every run (default permission)")}
+        </label>
+      </fieldset>
       <p className="automation-checkbox-hint" role="note">
         {requireApproval
           ? t("Each run waits for your approval in the task center.")

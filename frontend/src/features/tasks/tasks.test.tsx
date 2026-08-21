@@ -697,6 +697,28 @@ describe("task center task management", () => {
     store.getState().destroy();
   });
 
+  it("switches execution mode between automatic and confirmation", async () => {
+    setLocale("en");
+    const { store } = managementStore([]);
+    render(
+      <div>
+        <TaskMain store={store} />
+      </div>,
+    );
+    fireEvent.click(screen.getAllByText("New task")[0]);
+    const form = document.querySelector(".task-center-form");
+    expect(form?.textContent).toContain("Execution mode");
+    const checked = () =>
+      form?.querySelector('input[name="task-execution-mode"]:checked')?.closest("label")
+        ?.textContent ?? "";
+    expect(checked()).toContain("Run automatically (full access)");
+    fireEvent.click(screen.getByText("Confirm before every run (default permission)"));
+    expect(checked()).toContain("Confirm before every run (default permission)");
+    fireEvent.click(screen.getByText("Run automatically (full access)"));
+    expect(checked()).toContain("Run automatically (full access)");
+    store.getState().destroy();
+  });
+
   it("creates a daily scheduled template that waits for its first run", async () => {
     const { store, calls } = managementStore();
     await store.getState().createTask({

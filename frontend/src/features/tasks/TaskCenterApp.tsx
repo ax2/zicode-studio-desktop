@@ -444,14 +444,27 @@ function TaskForm({
           />
         </label>
       ) : null}
-      <label className="task-form-checkbox">
-        <input
-          type="checkbox"
-          checked={requireApproval}
-          onChange={(event) => setRequireApproval(event.target.checked)}
-        />
-        {t("Require approval before every run")}
-      </label>
+      <fieldset className="task-form-mode">
+        <legend>{t("Execution mode")}</legend>
+        <label className="task-form-radio">
+          <input
+            type="radio"
+            name="task-execution-mode"
+            checked={!requireApproval}
+            onChange={() => setRequireApproval(false)}
+          />
+          {t("Run automatically (full access)")}
+        </label>
+        <label className="task-form-radio">
+          <input
+            type="radio"
+            name="task-execution-mode"
+            checked={requireApproval}
+            onChange={() => setRequireApproval(true)}
+          />
+          {t("Confirm before every run (default permission)")}
+        </label>
+      </fieldset>
       <p className="automation-checkbox-hint" role="note">
         {requireApproval
           ? t("Each run waits for your approval in the task center.")

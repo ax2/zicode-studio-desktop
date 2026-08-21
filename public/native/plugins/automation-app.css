@@ -67,9 +67,30 @@
 }
 
 .automation-checkbox {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.automation-checkbox legend {
+  margin-bottom: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.automation-radio {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: var(--control-height-md);
+}
+
+.automation-radio input {
+  min-width: 16px;
+  min-height: 16px;
 }
 
 .automation-checkbox-hint {

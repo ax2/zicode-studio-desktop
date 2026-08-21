@@ -33,6 +33,33 @@
   gap: var(--space-3);
 }
 
+.task-form-mode {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.task-form-mode legend {
+  margin-bottom: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.task-form-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height-md);
+}
+
+.task-form-radio input {
+  min-width: 16px;
+  min-height: 16px;
+}
+
 .task-form-actions {
   display: flex;
   justify-content: flex-end;
