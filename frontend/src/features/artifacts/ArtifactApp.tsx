@@ -181,6 +181,7 @@ export function ArtifactMain({
   const load = store((state) => state.load);
   const deleteSelected = store((state) => state.deleteSelected);
   const exportSelected = store((state) => state.exportSelected);
+  const discussInChat = store((state) => state.discussInChat);
 
   return (
     <div className="artifacts-main">
@@ -217,6 +218,7 @@ export function ArtifactMain({
           selected={selected}
           exportSelected={exportSelected}
           deleteSelected={deleteSelected}
+          discussInChat={discussInChat}
         />
       )}
     </div>
@@ -227,10 +229,12 @@ function ArtifactDocumentView({
   selected,
   exportSelected,
   deleteSelected,
+  discussInChat,
 }: {
   selected: ArtifactDocument;
   exportSelected: () => boolean;
   deleteSelected: () => Promise<void>;
+  discussInChat: (descriptor: ArtifactDocument) => Promise<void>;
 }) {
   const markdown = markdownContent(selected);
   return (
@@ -244,6 +248,13 @@ function ArtifactDocumentView({
           {selected.summary ? <p>{selected.summary}</p> : null}
         </div>
         <div className="artifacts-document-actions">
+          <button
+            type="button"
+            className="ui-button ui-button--primary"
+            onClick={() => void discussInChat(selected)}
+          >
+            {t("Add to chat")}
+          </button>
           <button type="button" className="ui-button ui-button--secondary" onClick={exportSelected}>
             {t("Export")}
           </button>

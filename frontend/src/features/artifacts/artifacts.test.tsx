@@ -315,4 +315,23 @@ describe("artifact bulk import", () => {
     expect(notify).toHaveBeenCalledWith("Artifact bundle is not valid JSON");
     store.getState().destroy();
   });
+
+  it("sends the selected artifact into the chat composer", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const onUseInChat = vi.fn();
+    const store = renderStore(gateway, { onUseInChat });
+    await waitFor(() =>
+      expect(screen.getByText("Deterministic backtest")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByText("Deterministic backtest"));
+    await waitFor(() => expect(screen.getByText("Add to chat")).toBeTruthy());
+    fireEvent.click(screen.getByText("Add to chat"));
+    await waitFor(() => expect(onUseInChat).toHaveBeenCalled());
+    const prompt = String(onUseInChat.mock.calls[0][0]);
+    expect(prompt).toContain("Discuss the artifact");
+    expect(prompt).toContain("Deterministic backtest");
+    expect(prompt).toContain("totalReturn");
+    store.getState().destroy();
+  });
 });

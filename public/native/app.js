@@ -895,6 +895,7 @@ const artifactApp = setupArtifactApp({
   getTarget: () => target,
   notify: notifications.notify,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
+  onUseInChat: (text) => prefillComposer(text),
 });
 const projectWorkspaceApp = setupProjectWorkspaceApp({
   notesGateway,

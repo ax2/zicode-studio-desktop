@@ -4,7 +4,9 @@ import { localizeHostError } from "../../shared/hostErrors.js";
 import {
   defaultDownloadFile,
   EMPTY_ARTIFACT_SNAPSHOT,
+  markdownContent,
   safeFileName,
+  stringifyContent,
   type ArtifactDescriptor,
   type ArtifactDocument,
 } from "./logic";
@@ -28,6 +30,8 @@ export interface ArtifactAppOptions {
   confirmDelete?: (message: string) => boolean | Promise<boolean>;
   downloadFile?: (fileName: string, content: string, type: string) => void;
   chooseFile?: (accept: string) => Promise<File | null>;
+  /** Switch to Chat and prefill the composer with this artifact's content. */
+  onUseInChat?: (text: string) => void;
 }
 
 interface ArtifactSnapshot {
@@ -51,6 +55,7 @@ interface ArtifactState {
   selectArtifact(descriptor: ArtifactDescriptor): Promise<void>;
   openArtifact(artifactId: string): Promise<void>;
   deleteSelected(): Promise<void>;
+  discussInChat(descriptor: ArtifactDescriptor): Promise<void>;
   exportSelected(): boolean;
   exportAll(): Promise<void>;
   importAll(): Promise<void>;
@@ -84,6 +89,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
   const confirmDelete = options.confirmDelete ?? ((message: string) => globalThis.confirm?.(message) ?? false);
   const downloadFile = options.downloadFile ?? defaultDownloadFile;
   const chooseFile = options.chooseFile ?? defaultChooseFile;
+  const onUseInChat = options.onUseInChat;
   let requestSequence = 0;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
@@ -227,6 +233,37 @@ export function createArtifactStore(options: ArtifactAppOptions) {
       );
       notify(t("Artifact exported"));
       return true;
+    },
+
+    async discussInChat(descriptor) {
+      if (!onUseInChat) return;
+      try {
+        const response = await gateway.get(sceneId(), workspaceId(), descriptor.id);
+        const artifact = response.artifact;
+        if (!artifact) throw new Error(t("Could not load artifact"));
+        const content =
+          markdownContent(artifact) ?? stringifyContent(artifact.content ?? "");
+        const prompt = [
+          t('Discuss the artifact "{title}" and continue.').replace(
+            "{title}",
+            artifact.title,
+          ),
+          t("Artifact content:"),
+          "",
+          content,
+          "",
+          t("I want to continue"),
+        ]
+          .filter(Boolean)
+          .join("\n");
+        onUseInChat(prompt);
+      } catch (error) {
+        set({
+          error: localizeHostError(
+            error instanceof Error ? error : new Error(String(error)),
+          ),
+        });
+      }
     },
 
     async exportAll() {
