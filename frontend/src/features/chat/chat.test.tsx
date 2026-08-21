@@ -136,6 +136,14 @@ describe("chat feed renderers", () => {
 
     (container.querySelector('[data-quick-action="new-chat"]') as HTMLElement | null)?.click();
     expect(focusSpy).toHaveBeenCalled();
+
+    const dispatched = vi.fn();
+    window.addEventListener("zicode:extract-memory", dispatched);
+    (
+      container.querySelector('[data-quick-action="extract-memory"]') as HTMLElement | null
+    )?.click();
+    expect(dispatched).toHaveBeenCalledTimes(1);
+    window.removeEventListener("zicode:extract-memory", dispatched);
   });
 
   it("filters welcome quick actions to enabled applications", async () => {
@@ -172,7 +180,7 @@ describe("chat feed renderers", () => {
     expect(
       container.querySelector('[data-quick-action="com.zicode.automation"]'),
     ).toBeNull();
-    expect(container.querySelectorAll(".welcome-quick-action").length).toBe(5);
+    expect(container.querySelectorAll(".welcome-quick-action").length).toBe(6);
 
     (
       container.querySelector(

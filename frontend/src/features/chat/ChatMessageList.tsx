@@ -251,6 +251,16 @@ const WelcomeItem = memo(function WelcomeItem({
           >
             {t("Learn about the inbox")}
           </button>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost"
+            data-inbox-action="memory"
+            onClick={() => {
+              globalThis.dispatchEvent?.(new CustomEvent("zicode:extract-memory"));
+            }}
+          >
+            {t("Save memory from this chat")}
+          </button>
         </div>
         <p className="welcome-inbox-security" role="note">
           {t(
@@ -369,6 +379,19 @@ const WelcomeItem = memo(function WelcomeItem({
               ✨
             </span>
             <span>{t("Start a new conversation")}</span>
+          </button>
+          <button
+            type="button"
+            className="welcome-quick-action"
+            data-quick-action="extract-memory"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("zicode:extract-memory"));
+            }}
+          >
+            <span className="welcome-quick-action-icon" aria-hidden="true">
+              🧠
+            </span>
+            <span>{t("Save memory from this chat")}</span>
           </button>
           {quickActions.map((action) => (
             <button

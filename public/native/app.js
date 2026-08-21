@@ -1268,6 +1268,9 @@ window.addEventListener("zicode:open-help", (event) => {
   pluginShell?.activate("core.help");
   helpCenter?.open(event.detail?.pageId);
 });
+window.addEventListener("zicode:extract-memory", () => {
+  void extractMemoryFromConversation();
+});
 window.addEventListener("zicode:open-session", (event) => {
   const { sessionId, workspaceId, projectPath } = event.detail ?? {};
   if (!sessionId) return;

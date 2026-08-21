@@ -806,6 +806,7 @@ const zhCN = {
   "New session": "新建会话",
   "New session (Ctrl+Shift+N)": "新建会话 (Ctrl+Shift+N)",
   "Start a new conversation": "开始新对话",
+  "Save memory from this chat": "沉淀这段对话的记忆",
   "Switch workspace": "切换工作区",
   "Switch workspace (Ctrl+Shift+O)": "切换工作区 (Ctrl+Shift+O)",
   "Open the workspace switcher": "打开工作区切换器",
