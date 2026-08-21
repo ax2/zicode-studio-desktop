@@ -208,6 +208,55 @@ button.task-center-summary-card:focus-visible {
   gap: var(--space-3);
 }
 
+.task-center-workspace-group {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.task-center-workspace-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-md);
+}
+
+.task-center-workspace-icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.task-center-workspace-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.task-center-workspace-count {
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-hover);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: var(--space-5);
+}
+
+.task-center-workspace-tasks {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ui-button.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .task-center-card,
 .task-center-state {
   display: grid;

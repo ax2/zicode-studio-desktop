@@ -469,6 +469,47 @@ function writeConfigFile(filePath: string, content: unknown): void {
   fs.writeFileSync(filePath, content, "utf8");
 }
 
+/**
+ * Keep a small rolling history of a workspace state file before it is
+ * overwritten, so an accidental bad write (a buggy client, a stale QA run, a
+ * crash mid-write) always has a recent recovery point even when the daily
+ * startup backup has not run yet. Snapshots are best-effort: a failure here
+ * must never block the primary write.
+ */
+function snapshotFileBeforeWrite(filePath: string, keep = 7): void {
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const historyDir = path.join(path.dirname(filePath), ".history");
+    fs.mkdirSync(historyDir, { recursive: true });
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .replace("T", "_")
+      .slice(0, 23);
+    const target = path.join(
+      historyDir,
+      `snapshot-${stamp}-${Math.random().toString(36).slice(2, 8)}.json`,
+    );
+    fs.copyFileSync(filePath, target);
+    const entries = fs
+      .readdirSync(historyDir)
+      .filter((name) => name.startsWith("snapshot-") && name.endsWith(".json"))
+      .sort();
+    while (entries.length > keep) {
+      const oldest = entries.shift();
+      if (oldest) {
+        try {
+          fs.rmSync(path.join(historyDir, oldest), { force: true });
+        } catch {
+          // Ignore per-file prune failures; the history is best-effort.
+        }
+      }
+    }
+  } catch {
+    // Snapshotting is best-effort; the primary write must not fail because of it.
+  }
+}
+
 function readModelsDocument(): {
   providers: Record<string, Record<string, unknown>>;
   [key: string]: unknown;
@@ -1275,6 +1316,7 @@ export async function handlePicotConfig(
           SUPER_AGENT_TASKS_PATH,
           path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"),
         );
+        snapshotFileBeforeWrite(tasksPath);
         fs.mkdirSync(path.dirname(tasksPath), { recursive: true });
         fs.writeFileSync(tasksPath, JSON.stringify({ tasks }, null, 2), "utf8");
         return { ok: true, data: { count: tasks.length } };
@@ -1377,6 +1419,7 @@ function writeAutomationWorkspace(workspace: AutomationWorkspace): void {
     AUTOMATION_WORKSPACE_PATH,
     path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
   );
+  snapshotFileBeforeWrite(target);
   writeConfigFile(target, JSON.stringify(workspace, null, 2));
 }
 

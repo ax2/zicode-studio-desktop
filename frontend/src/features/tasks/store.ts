@@ -64,6 +64,7 @@ interface TaskCenterState {
     updater: (task: SuperAgentTask) => SuperAgentTask,
     successMessage?: string,
   ): Promise<void>;
+  togglePinned(taskId: string): Promise<void>;
   removeTask(taskId: string): Promise<void>;
   clearDoneTasks(): Promise<void>;
   answerTask(task: SuperAgentTask, answer: string): Promise<void>;
@@ -374,6 +375,17 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
           type: "error",
         });
       }
+    },
+
+    async togglePinned(taskId) {
+      const task = get().tasks.find((candidate) => candidate.id === taskId);
+      if (!task) return;
+      const pinning = !Boolean(task.pinned);
+      await get().updateTask(
+        taskId,
+        (current) => ({ ...current, pinned: pinning }),
+        pinning ? t("Task pinned") : t("Task unpinned"),
+      );
     },
 
     async removeTask(taskId) {

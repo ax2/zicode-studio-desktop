@@ -1,6 +1,14 @@
 // @vitest-environment node
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -810,6 +818,65 @@ describe("workspace-scoped app data", () => {
     const tasksPath = join(workspace, ".zicode", "tasks", "tasks.json");
     expect(existsSync(tasksPath)).toBe(true);
     expect(JSON.parse(readFileSync(tasksPath, "utf8")).tasks[0].title).toBe("Ship round 385");
+  });
+
+  it("keeps rolling snapshots before overwriting tasks and automations", async () => {
+    const { workspace, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const tasksPath = join(workspace, ".zicode", "tasks", "tasks.json");
+    const historyDir = join(workspace, ".zicode", "tasks", ".history");
+    await handlePicotConfig(
+      "write_super_agent_tasks",
+      { tasks: [{ id: "task-1", title: "First" }] },
+      {},
+    );
+    await handlePicotConfig(
+      "write_super_agent_tasks",
+      { tasks: [{ id: "task-2", title: "Second" }] },
+      {},
+    );
+    const snapshots = readdirSync(historyDir).filter((name) => name.startsWith("snapshot-"));
+    expect(snapshots.length).toBe(1);
+    expect(
+      JSON.parse(readFileSync(join(historyDir, snapshots[0]), "utf8")).tasks[0].id,
+    ).toBe("task-1");
+
+    for (let i = 0; i < 10; i += 1) {
+      await handlePicotConfig(
+        "write_super_agent_tasks",
+        { tasks: [{ id: `task-${i}` }] },
+        {},
+      );
+    }
+    expect(
+      readdirSync(historyDir).filter((name) => name.startsWith("snapshot-")).length,
+    ).toBeLessThanOrEqual(7);
+
+    const automationPath = join(workspace, ".zicode", "automation", "workflows.json");
+    await handlePicotConfig(
+      "automation_workspace",
+      {
+        action: "upsert",
+        workflow: { id: "wf-1", title: "First workflow" },
+      },
+      {},
+    );
+    await handlePicotConfig(
+      "automation_workspace",
+      {
+        action: "upsert",
+        workflow: { id: "wf-2", title: "Second workflow" },
+      },
+      {},
+    );
+    const automationSnapshots = readdirSync(
+      join(workspace, ".zicode", "automation", ".history"),
+    ).filter((name) => name.startsWith("snapshot-"));
+    expect(automationSnapshots.length).toBe(1);
+    expect(
+      JSON.parse(readFileSync(join(workspace, ".zicode", "automation", ".history", automationSnapshots[0]), "utf8"))
+        .workflows[0].id,
+    ).toBe("wf-1");
+    expect(existsSync(automationPath)).toBe(true);
   });
 
   it("migrates legacy scene-scoped app data into the workspace on first load", async () => {

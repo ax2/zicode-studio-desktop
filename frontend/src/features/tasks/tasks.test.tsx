@@ -5,10 +5,13 @@ import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
 import {
   formatDate,
+  groupTasksByWorkspace,
+  isDefaultWorkspace,
   isScheduledTemplate,
   nextTaskRunAt,
   scheduledTaskStats,
   sortTaskList,
+  taskLastActivity,
 } from "./logic";
 
 function mockCall(tasks: unknown[]) {
@@ -931,5 +934,86 @@ describe("task center task management", () => {
       "recent-done",
       "old-done",
     ]);
+  });
+
+  it("keeps pinned tasks above every other list group", () => {
+    const tasks = [
+      { id: "old-done", title: "Old done", status: "done" },
+      { id: "pinned-history", title: "Pinned history", status: "done", pinned: true },
+      { id: "pending-1", title: "Pending", status: "pending" },
+      { id: "pinned-template", title: "Pinned template", status: "pending", schedule: "daily", nextRunAt: "2099-01-01T00:00:00Z", enabled: true, pinned: true },
+      { id: "tpl-soon", title: "Soon template", status: "pending", schedule: "daily", nextRunAt: "2026-08-22T01:00:00Z", enabled: true },
+    ];
+    const sorted = sortTaskList(tasks as never);
+    expect(sorted.map((t) => t.id).slice(0, 2)).toEqual([
+      "pinned-template",
+      "pinned-history",
+    ]);
+    expect(sorted.map((t) => t.id).slice(-3)).toEqual([
+      "tpl-soon",
+      "pending-1",
+      "old-done",
+    ]);
+  });
+
+  it("groups tasks by workspace preserving list order", () => {
+    const tasks = [
+      { id: "a", title: "A", status: "pending", targetProject: "C:/work/a" },
+      { id: "b", title: "B", status: "done" },
+      { id: "c", title: "C", status: "failed", dispatch: { targetProject: "C:/work/a" } },
+      { id: "d", title: "D", status: "done", targetProject: "C:/work/b" },
+    ];
+    const groups = groupTasksByWorkspace(tasks as never);
+    expect(groups.map((g) => g.workspace)).toEqual([
+      "C:/work/a",
+      "__default__",
+      "C:/work/b",
+    ]);
+    expect(groups[0].tasks.map((t) => t.id)).toEqual(["a", "c"]);
+    expect(isDefaultWorkspace(groups[1].workspace)).toBe(true);
+    expect(taskLastActivity({ events: [{ at: "2026-08-21T01:00:00Z" }] } as never)).toBe(
+      "2026-08-21T01:00:00Z",
+    );
+    expect(taskLastActivity({} as never)).toBeNull();
+  });
+
+  it("groups the visible list by workspace from the header toggle", async () => {
+    setLocale("en");
+    const call = mockCall([
+      { id: "a", title: "Alpha task", status: "pending", targetProject: "C:/work/a" },
+      { id: "b", title: "Beta task", status: "done" },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Alpha task")).toBeTruthy());
+    fireEvent.click(screen.getByText("Group by workspace"));
+    const groups = document.querySelectorAll(".task-center-workspace-group");
+    expect(groups.length).toBe(2);
+    expect(groups[0].textContent).toContain("C:/work/a");
+    expect(groups[0].textContent).toContain("Alpha task");
+    expect(groups[1].textContent).toContain("Default workspace");
+    expect(groups[1].textContent).toContain("Beta task");
+    store.getState().destroy();
+  });
+
+  it("pins and unpins a task through the card action", async () => {
+    setLocale("en");
+    const call = mockCall([{ id: "t1", title: "Alpha task", status: "done" }]);
+    const store = renderStore(call);
+    await waitFor(() => expect(document.querySelector(".task-center-card")).toBeTruthy());
+    fireEvent.click(screen.getByText("Pin"));
+    await waitFor(() => expect(call).toHaveBeenCalledWith("write_super_agent_tasks", expect.anything()));
+    const written = call.mock.calls.find(
+      ([operation]) => operation === "write_super_agent_tasks",
+    )?.[1] as { tasks?: Array<{ pinned?: boolean }> } | undefined;
+    expect(written?.tasks?.[0].pinned).toBe(true);
+    fireEvent.click(screen.getByText("Unpin"));
+    await waitFor(() => {
+      const latest = call.mock.calls.filter(
+        ([operation]) => operation === "write_super_agent_tasks",
+      );
+      const last = latest.at(-1)?.[1] as { tasks?: Array<{ pinned?: boolean }> } | undefined;
+      expect(last?.tasks?.[0].pinned).toBe(false);
+    });
+    store.getState().destroy();
   });
 });

@@ -12,6 +12,8 @@ import {
   filterLabel,
   filteredTasks,
   formatDate,
+  groupTasksByWorkspace,
+  isDefaultWorkspace,
   isScheduledTemplate,
   nextTaskRunAt,
   retryLimitReached,
@@ -67,9 +69,11 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const clearDoneTasks = store((state) => state.clearDoneTasks);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SuperAgentTask | null>(null);
+  const [grouped, setGrouped] = useState(false);
   const visible = filteredTasks(tasks, filter);
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
+  const groups = grouped ? groupTasksByWorkspace(visible) : null;
   return (
     <div className="task-center-main">
       <header className="task-center-header">
@@ -82,6 +86,17 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </p>
         </div>
         <div className="task-center-header-actions">
+          <button
+            type="button"
+            className={`ui-button ui-button--ghost ui-button--sm${
+              grouped ? " is-active" : ""
+            }`}
+            aria-pressed={grouped}
+            title={t("Group tasks by workspace")}
+            onClick={() => setGrouped((value) => !value)}
+          >
+            {grouped ? t("By workspace") : t("Group by workspace")}
+          </button>
           <button
             type="button"
             className="ui-button ui-button--primary"
@@ -170,17 +185,59 @@ export function TaskMain({ store }: { store: TaskStore }) {
         />
       ) : (
         <div className="task-center-list">
-          {visible.map((task) => (
-            <TaskCard
-              key={task.id}
-              store={store}
-              task={task}
-              onEdit={() => {
-                setEditing(task);
-                setCreating(false);
-              }}
-            />
-          ))}
+          {groups ? (
+            groups.map((group) => (
+              <section
+                key={group.workspace}
+                className="task-center-workspace-group"
+                aria-label={t("Workspace: {name}").replace(
+                  "{name}",
+                  isDefaultWorkspace(group.workspace)
+                    ? t("Default workspace")
+                    : group.workspace,
+                )}
+              >
+                <h2 className="task-center-workspace-group-title">
+                  <span className="task-center-workspace-icon" aria-hidden="true">
+                    📁
+                  </span>
+                  <span className="task-center-workspace-name">
+                    {isDefaultWorkspace(group.workspace)
+                      ? t("Default workspace")
+                      : group.workspace}
+                  </span>
+                  <span className="task-center-workspace-count">
+                    {String(group.tasks.length)}
+                  </span>
+                </h2>
+                <div className="task-center-workspace-tasks">
+                  {group.tasks.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      store={store}
+                      task={task}
+                      onEdit={() => {
+                        setEditing(task);
+                        setCreating(false);
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))
+          ) : (
+            visible.map((task) => (
+              <TaskCard
+                key={task.id}
+                store={store}
+                task={task}
+                onEdit={() => {
+                  setEditing(task);
+                  setCreating(false);
+                }}
+              />
+            ))
+          )}
         </div>
       )}
     </div>
@@ -448,6 +505,7 @@ function TaskCard({
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
   const removeTask = store((state) => state.removeTask);
+  const togglePinned = store((state) => state.togglePinned);
   const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
   const setFilter = store((state) => state.setFilter);
@@ -491,6 +549,17 @@ function TaskCard({
           <h2>{task.title || t("Untitled task")}</h2>
         </div>
         <div className="task-center-actions">
+          <button
+            type="button"
+            className={`ui-button ui-button--ghost ui-button--sm${
+              task.pinned ? " is-active" : ""
+            }`}
+            aria-pressed={Boolean(task.pinned)}
+            title={task.pinned ? t("Unpin this task") : t("Pin this task to the top")}
+            onClick={() => void togglePinned(task.id)}
+          >
+            {task.pinned ? t("Unpin") : t("Pin")}
+          </button>
           {!scheduledTemplate && task.status === "pending" && task.targetProject ? (
             <button
               type="button"

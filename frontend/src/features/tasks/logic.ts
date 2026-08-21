@@ -49,6 +49,8 @@ export interface SuperAgentTask {
   enabled?: boolean;
   requireApproval?: boolean;
   scheduledFrom?: string | null;
+  // User-facing pin: pinned tasks stay at the top of every list view.
+  pinned?: boolean;
   events?: Array<{ at?: string; type?: string; status?: string; message?: string }>;
 }
 
@@ -133,6 +135,9 @@ function taskActivityMs(task: SuperAgentTask): number {
 
 export function sortTaskList(tasks: SuperAgentTask[]): SuperAgentTask[] {
   return [...tasks].sort((a, b) => {
+    const aPinned = Boolean(a.pinned);
+    const bPinned = Boolean(b.pinned);
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
     const aTemplate = isScheduledTemplate(a);
     const bTemplate = isScheduledTemplate(b);
     if (aTemplate !== bTemplate) return aTemplate ? -1 : 1;
@@ -149,6 +154,57 @@ export function sortTaskList(tasks: SuperAgentTask[]): SuperAgentTask[] {
     if (aActive !== bActive) return aActive - bActive;
     return taskActivityMs(b) - taskActivityMs(a);
   });
+}
+
+/**
+ * Workspace a task belongs to. Tasks created from a scheduled template or an
+ * Agent Inbox entry keep the project they were launched against; everything
+ * else falls back to the default workspace label.
+ */
+export function taskWorkspace(task: SuperAgentTask): string {
+  const path =
+    String(task?.targetProject || task?.dispatch?.targetProject || "").trim() || "";
+  return path || "__default__";
+}
+
+export function defaultWorkspaceKey(): string {
+  return "__default__";
+}
+
+export function isDefaultWorkspace(key: string): boolean {
+  return key === "__default__";
+}
+
+/**
+ * Group a sorted task list by workspace, preserving the first-seen order so
+ * active/pinned work stays above historical groups.
+ */
+export function groupTasksByWorkspace(
+  tasks: SuperAgentTask[],
+): Array<{ workspace: string; tasks: SuperAgentTask[] }> {
+  const groups: Array<{ workspace: string; tasks: SuperAgentTask[] }> = [];
+  const index = new Map<string, number>();
+  for (const task of tasks) {
+    const key = taskWorkspace(task);
+    const existing = index.get(key);
+    if (existing !== undefined) {
+      groups[existing].tasks.push(task);
+    } else {
+      index.set(key, groups.length);
+      groups.push({ workspace: key, tasks: [task] });
+    }
+  }
+  return groups;
+}
+
+export function taskLastActivity(task: SuperAgentTask): string | null {
+  const candidate =
+    task?.events?.at(-1)?.at ||
+    task?.result?.completedAt ||
+    task?.dispatch?.startedAt ||
+    task?.dispatch?.finishedAt ||
+    null;
+  return candidate && new Date(candidate).getTime() > 0 ? candidate : null;
 }
 
 export function isScheduledTemplate(task: SuperAgentTask): boolean {
