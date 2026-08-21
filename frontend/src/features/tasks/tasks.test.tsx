@@ -76,6 +76,33 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("jumps from a scheduled instance to its template via the scheduled filter", async () => {
+    setLocale("en");
+    const call = mockCall([
+      {
+        id: "tpl",
+        title: "Daily digest",
+        status: "pending",
+        schedule: "daily",
+        dailyTime: "09:00",
+        enabled: true,
+      },
+      {
+        id: "inst",
+        title: "Daily digest run",
+        status: "done",
+        scheduledFrom: "tpl",
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Daily digest run")).toBeTruthy());
+    const jump = screen.getByText("View scheduled task");
+    fireEvent.click(jump);
+    expect(screen.getByText("Daily digest")).toBeTruthy();
+    expect(screen.queryByText("Daily digest run")).toBeNull();
+    store.getState().destroy();
+  });
+
   it("shows the first-run guide on first visit", async () => {
     localStorage.clear();
     const call = mockCall([]);

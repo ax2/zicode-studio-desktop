@@ -1908,6 +1908,9 @@ const zhCN = {
   "Next run": "下次运行",
   Runs: "已运行",
   "Last run": "上次运行",
+  "View scheduled task": "查看定时任务",
+  "Open the scheduled task this instance came from":
+    "打开生成此实例的定时任务",
   "Current project": "当前项目",
   Every: "每",
   minutes: "分钟",

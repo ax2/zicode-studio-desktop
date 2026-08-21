@@ -426,6 +426,7 @@ function TaskCard({
   const removeTask = store((state) => state.removeTask);
   const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
+  const setFilter = store((state) => state.setFilter);
   const allTasks = store((state) => state.tasks);
   const limitReached = retryLimitReached(task);
   const canRetryAndRun =
@@ -441,6 +442,7 @@ function TaskCard({
   const summary = friendlyTaskDispatchError(rawSummary);
   const scheduledTemplate = isScheduledTemplate(task);
   const scheduledStats = scheduledTemplate ? scheduledTaskStats(task, allTasks) : null;
+  const scheduledInstanceOf = task.scheduledFrom || null;
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reply, setReply] = useState("");
@@ -578,6 +580,16 @@ function TaskCard({
               onClick={onEdit}
             >
               {t("Edit")}
+            </button>
+          ) : null}
+          {scheduledInstanceOf ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              title={t("Open the scheduled task this instance came from")}
+              onClick={() => setFilter("scheduled")}
+            >
+              {t("View scheduled task")}
             </button>
           ) : null}
           {scheduledTemplate ? (
