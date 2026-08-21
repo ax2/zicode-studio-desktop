@@ -33,6 +33,27 @@ On phones, Task Center arranges running, needs-input, failed, and completed summ
 Task actions use equal-width buttons, and the history heading has a full touch target. Long project names,
 timestamps, and other values wrap instead of hiding important information behind an ellipsis.
 
+## Creating and managing tasks in the task center
+
+The task center is not just an inbox for background work: you can create and
+manage tasks directly, without going through a conversation or the inbox first.
+
+- **New task**: fill in the title, instructions, and target project; choose a
+  trigger — manual, every N minutes, or daily at HH:MM; optionally require
+  approval before every run and set the retry limit.
+- **Manual tasks** appear in the list after creation; they either run
+  automatically or wait for your **Approve and run** click, depending on the
+  approval setting.
+- **Scheduled tasks** are shown as “Scheduled” template cards with their
+  schedule (for example “Daily at 09:00”) and next run time. When due, the task
+  app spawns a fresh instance automatically and runs it (auto-dispatch depends
+  on the approval setting). You can edit the title, instructions, target,
+  trigger and time, pause the schedule, or delete the template.
+- **Edit tasks**: every one-off and scheduled task card has an **Edit** entry;
+  saving applies immediately and scheduled tasks recompute their next run.
+- **Scheduled filter**: the left navigation shows only scheduled templates, so
+  you can manage them together.
+
 ## Automation rules
 
 Automations suit recurring summaries, stable prompts, and repeated research. Define the trigger, scene and model policy, output location, and failure behavior before enabling a rule.

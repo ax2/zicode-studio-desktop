@@ -1935,6 +1935,14 @@ const zhCN = {
   "Pause schedule": "暂停定时",
   "Delete this scheduled task": "删除此定时任务",
   "Delete the scheduled task “{title}”?": "删除定时任务「{title}」？",
+  "Create and schedule tasks here; work from automations and the Agent Inbox lands in the same list. Approve, pause, retry, and reopen results.":
+    "在这里创建与定时任务；自动化与智能收件箱产生的任务也会汇入同一列表。可批准、暂停、重试并查看结果。",
+  "Create a one-off or scheduled task, or approve pending work.":
+    "创建一次性或定时任务，或批准待运行任务。",
+  "Edit a task's title, instructions, trigger, and schedule.":
+    "编辑任务的标题、说明、触发方式和计划。",
+  "Pause, retry, and reopen finished results.":
+    "暂停、重试并重新打开已完成的结果。",
   Budget: "预算",
   Retries: "重试次数",
   "Retry limit reached": "已达到重试上限",

@@ -76,7 +76,7 @@ export function TaskMain({ store }: { store: TaskStore }) {
           <h1>{t("Task center")}</h1>
           <p>
             {t(
-              "Background work from automations and the Agent Inbox lands here. Approve pending tasks, pause or retry running ones, and reopen finished results.",
+              "Create and schedule tasks here; work from automations and the Agent Inbox lands in the same list. Approve, pause, retry, and reopen results.",
             )}
           </p>
         </div>
@@ -135,9 +135,9 @@ export function TaskMain({ store }: { store: TaskStore }) {
         storageKey="tasks"
         title={t("One place for background work")}
         steps={[
-          t("Approve pending tasks to dispatch them to a project agent."),
-          t("Pause, cancel, or retry running tasks."),
-          t("Open finished results in their session."),
+          t("Create a one-off or scheduled task, or approve pending work."),
+          t("Edit a task's title, instructions, trigger, and schedule."),
+          t("Pause, retry, and reopen finished results."),
         ]}
         ctaLabel={t("View tasks")}
         onCta={() => setFilter("all")}
