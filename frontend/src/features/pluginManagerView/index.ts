@@ -38,6 +38,7 @@ export interface PluginManagerViewOptions {
   onFilterChange?(filter: PluginManagerFilter): void;
   confirmUninstall?(message: string): boolean | Promise<boolean>;
   confirmPublisher?(message: string): boolean | Promise<boolean>;
+  openHelp?(pageId: string): void;
 }
 
 export function renderPluginManagerView(options: PluginManagerViewOptions): void {
@@ -68,6 +69,7 @@ export function renderPluginManagerView(options: PluginManagerViewOptions): void
         installSignedPlugin: rest.installSignedPlugin,
         rollbackSignedPlugin: rest.rollbackSignedPlugin,
         revokePublisher: rest.revokePublisher,
+        openHelp: rest.openHelp,
         initialFilter: rest.initialFilter,
         onFilterChange: rest.onFilterChange,
         confirmUninstall: rest.confirmUninstall,

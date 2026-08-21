@@ -508,6 +508,7 @@ const zhCN = {
   "File changes": "文件变更",
   "No files changed in this session yet": "本次会话还没有文件变更",
   "No artifacts yet": "暂无产物",
+  "Usage guide": "使用指南",
   "Toggle file browser": "切换文件浏览器",
   "Close file browser": "关闭文件浏览器",
   "Parent directory": "上级目录",

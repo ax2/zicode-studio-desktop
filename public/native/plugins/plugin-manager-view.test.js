@@ -65,6 +65,7 @@ function setup(overrides = {}) {
     initialFilter: overrides.initialFilter,
     onFilterChange: overrides.onFilterChange,
     confirmUninstall: overrides.confirmUninstall ?? (() => true),
+    openHelp: overrides.openHelp,
   });
   return { registry, installDeveloperPlugin };
 }
@@ -200,5 +201,25 @@ describe("renderPluginManagerView", () => {
     expect(document.querySelector(".plugin-main-hero").textContent).toContain("插件管理");
     expect(button("安装本地插件")).toBeTruthy();
     expect(button("开发者")).toBeTruthy();
+  });
+
+  it("opens the matching help page from a built-in plugin's usage guide", () => {
+    setLocale("zh-CN");
+    const openHelp = vi.fn();
+    setup({
+      registry: {
+        list: vi.fn(() => [
+          { ...BUILTIN, id: "com.zicode.notes", name: "Notes", origin: "builtIn" },
+          { ...BUILTIN, id: "com.zicode.habits", name: "Habits", origin: "builtIn" },
+        ]),
+      },
+      openHelp,
+    });
+    const guideButtons = [...document.querySelectorAll("button")].filter(
+      (candidate) => candidate.textContent === "使用指南",
+    );
+    expect(guideButtons.length).toBe(1);
+    guideButtons[0].click();
+    expect(openHelp).toHaveBeenCalledWith("notes");
   });
 });

@@ -520,6 +520,11 @@ export function setupPluginShell({
         revokePublisher,
         confirmUninstall: (message) => globalThis.confirm?.(message) ?? false,
         confirmPublisher: (message) => globalThis.confirm?.(message) ?? false,
+        openHelp: (pageId) => {
+          document.dispatchEvent(
+            new CustomEvent("zicode:open-help", { detail: { pageId } }),
+          );
+        },
         initialFilter: managerFilter,
         onFilterChange: (filter) => {
           managerFilter = filter;

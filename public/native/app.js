@@ -1232,6 +1232,7 @@ window.addEventListener("zicode:open-tasks", () => {
   pluginShell?.activate("com.zicode.tasks");
 });
 window.addEventListener("zicode:open-help", (event) => {
+  pluginShell?.activate("core.help");
   helpCenter?.open(event.detail?.pageId);
 });
 window.addEventListener("zicode:open-session", (event) => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { t } from "../../shared/i18n";
 import {
+  helpPageForPlugin,
   MANAGER_FILTERS,
   matchesFilter,
   type ManagedPlugin,
@@ -65,6 +66,7 @@ export function PluginManagerViewApp({
   onFilterChange,
   confirmUninstall,
   confirmPublisher,
+  openHelp,
 }: {
   registry: PluginManagerRegistry;
   getTarget?(): { sceneId?: string } | null;
@@ -88,6 +90,8 @@ export function PluginManagerViewApp({
   onFilterChange?(filter: PluginManagerFilter): void;
   confirmUninstall?(message: string): boolean | Promise<boolean>;
   confirmPublisher?(message: string): boolean | Promise<boolean>;
+  /** Open the Help center page that explains this plugin (when available). */
+  openHelp?(pageId: string): void;
 }) {
   const [activeFilter, setActiveFilter] = useState<PluginManagerFilter>(initialFilter);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
@@ -127,6 +131,7 @@ export function PluginManagerViewApp({
   const renderCard = (plugin: ManagedPlugin) => {
     const isDeveloperOrSigned =
       plugin.origin === "developer" || plugin.origin === "signed";
+    const helpPage = helpPageForPlugin(plugin.id);
     const permissions = [
       ...(plugin.permissionDetails?.required ?? []),
       ...(plugin.permissionDetails?.optional ?? []),
@@ -157,6 +162,13 @@ export function PluginManagerViewApp({
           <p>{t(plugin.description)}</p>
         </div>
         <div className="plugin-manager-card-actions">
+          {helpPage && openHelp ? (
+            <ActionButton
+              label={t("Usage guide")}
+              variant="ui-button--ghost"
+              onClick={() => openHelp(helpPage)}
+            />
+          ) : null}
           <ActionButton
             label={t(
               plugin.core ? "Required" : plugin.enabled ? "Enabled" : "Disabled",

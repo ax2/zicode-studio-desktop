@@ -494,7 +494,10 @@ describe("setupPluginShell", () => {
       card.textContent.includes("com.zicode.notes"),
     );
 
-    notesCard.querySelector("button").click();
+    const toggle = [...notesCard.querySelectorAll("button")].find((button) =>
+      /Enabled|Disabled|启用|禁用/.test(button.textContent),
+    );
+    toggle?.click();
 
     expect(shell.registry.isEnabled("com.zicode.notes")).toBe(false);
     expect(document.querySelector('[data-plugin-id="com.zicode.notes"]')).toBeNull();
