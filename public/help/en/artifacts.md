@@ -16,6 +16,12 @@ its field name.
 
 An `artifact:<id>` handle contains no local file path. Applications and conversations can refer to it without copying a large object or exposing the data directory.
 
+## Bring into chat
+
+Click **Add to chat** on the artifact detail to bring its content (Markdown or
+structured JSON) into the composer with its title, so you can follow up on the
+artifact directly — the same entry point as Notes and the Clipboard Inbox.
+
 ## Export and delete
 
 Export creates a readable `.zicode-artifact.json` document containing both content and provenance. Delete uses optimistic version checking; a changed artifact must be reloaded instead of being overwritten.
