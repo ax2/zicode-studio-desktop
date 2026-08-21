@@ -395,6 +395,11 @@ function TaskForm({
         />
         {t("Require approval before every run")}
       </label>
+      <p className="automation-checkbox-hint" role="note">
+        {requireApproval
+          ? t("Each run waits for your approval in the task center.")
+          : t("Runs automatically; no manual approval needed.")}
+      </p>
       <label className="task-form-field">
         <span>{t("Maximum retries")}</span>
         <input

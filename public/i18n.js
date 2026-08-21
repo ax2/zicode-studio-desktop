@@ -1861,6 +1861,8 @@ const zhCN = {
     "每次运行都会在任务中心等待你的批准。",
   "Runs automatically when due; no manual approval needed.":
     "到期后自动派发到目标项目，无需手动批准。",
+  "Runs automatically; no manual approval needed.":
+    "创建后自动运行（定时任务到期自动运行），无需手动批准。",
   "Needs approval": "需要审批",
   "Run history": "运行历史",
   "No automations in this view": "当前视图没有自动化",
