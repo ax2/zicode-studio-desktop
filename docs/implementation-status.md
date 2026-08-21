@@ -1,5 +1,28 @@
 # 实现状态
 
+## 2026-08-21 每日博客定时任务真实运行验证（睡眠唤醒后 5 秒补触发）
+
+- 时间驱动验证完成：08-21 09:00 的「每日技术博客文章生成」定时任务在
+  09:54:06 被调度器创建、09:54:09 绑定子会话并开始执行，无
+  `getSelectedSceneId` 或任何 ReferenceError，任务进入 running 后持续
+  产生模型调用（每 ~90s 一次，DeepSeek 网关）。
+- 延迟根因排查：09:00 未准时触发并非调度器/定时器节流缺陷。Windows
+  Kernel-Power 事件确认电脑自 08-20 21:38 进入睡眠，08-21 09:54:04 才
+  唤醒（唤醒源 Unknown）。唤醒后 5 秒内调度器即完成补触发——`isDue`
+  + nextRunAt 的追赶逻辑正确，无需改动。09:54:05 的 relay DNS 告警是
+  唤醒后网络恢复的瞬时现象，随后自动重连。
+- 结论：任务派发修复（`getSelectedSceneId` 导入）在真实定时链路中彻底
+  验证通过；剩余只需等子会话完成文章产出（预计与 08-20 一轮类似时长）。
+
+## 2026-08-21 自动化启用后的 QA 覆盖补齐
+
+- Automation 恢复默认启用后，`qa-a11y` 与 `qa-locale` 的视图清单仍缺
+  automation（console 清单已有）。两处各补
+  `["automation", "?app=com.zicode.automation"]` 条目。
+- 复核全绿：控制台扫描 15/15、无障碍 15/15（桌面）+ automation 移动
+  视口 390×844 1/1、双语 locale 15/15（含 automation）、数据呈现 5/5
+  （articles UI 456 = API 456、notes/artifacts/tasks/finance 一致）。
+
 ## 2026-08-20 Automation 恢复默认启用后的加载守卫补位
 
 - 背景：上一项把 Automation 翻为默认启用后，文档此前标注的「Automation

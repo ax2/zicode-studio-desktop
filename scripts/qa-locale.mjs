@@ -81,6 +81,7 @@ async function main() {
     ["chat", `${sessionUrl}`],
     ["notes", `${sessionUrl}?app=com.zicode.notes`],
     ["tasks", `${sessionUrl}?app=com.zicode.tasks`],
+    ["automation", `${sessionUrl}?app=com.zicode.automation`],
     ["finance", `${sessionUrl}?app=com.zicode.finance`],
     ["translate", `${sessionUrl}?app=com.zicode.translate`],
     ["idphoto", `${sessionUrl}?app=com.zicode.idphoto`],
