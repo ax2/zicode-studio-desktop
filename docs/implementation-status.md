@@ -1,5 +1,22 @@
 # 实现状态
 
+## 2026-08-21 失败任务通知修正（不再误报“任务已完成”）
+
+- 真实缺陷：派发任务完成时，桌面/应用内通知的标题只区分 needs_input 与
+  「Task completed」，且 badge 恒为 success——零产出失败（上一项修复后
+  标记 failed）的任务会弹“任务已完成”成功通知，与事实相反。
+- 修复（`public/native/app.js`）：
+  - 完成处理中捕获 `finalFailReason`；failed 时标题用「任务失败」、
+    通知类型 error、badge tone danger，消息附失败原因；
+  - needs_input 保持「任务需要输入」，正常完成保持「任务已完成」。
+- 验证：i18n 键「Task failed」已有中文译文；全量 158 文件 / 1144 用例
+  全绿、app.js Biome 干净；已同步安装目录（57620 端口返回新 bundle）。
+- 全链路 live 回归（`run-all-live.cjs`）6/6 通过：task-center、task-loop
+  （派发→完成→摘要）、ask-answer（提问→needs_input→回答→完成）、
+  scheduler（到期建任务）、rerun（再次运行→新 pending）、util-apps
+  （剪贴板/翻译）；QA 数据已清理（tasks 5 条无 qa- 前缀、workflows 2 个、
+  剪贴板清 0）。
+
 ## 2026-08-21 每日博客定时任务真实运行验证（睡眠唤醒补触发 + 两轮结果）
 
 - 时间驱动验证完成：08-21 09:00 的「每日技术博客文章生成」定时任务在

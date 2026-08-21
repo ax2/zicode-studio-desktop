@@ -1863,6 +1863,7 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
   let taskTitle = "";
   let taskTargetProject = "";
   let finalStatus = null;
+  let finalFailReason = null;
   await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) => {
     if (task.status !== "running" && task.status !== "pending") return task;
     marked = true;
@@ -1888,6 +1889,7 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
       dispatchedTargets.delete(instanceId);
     }
     finalStatus = next.status;
+    finalFailReason = next.failReason || next.result?.failReason || null;
     return next;
   }).catch((error) =>
     {
@@ -1899,6 +1901,15 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
   if (!marked) return;
   const notificationMessage =
     completionText.length > 160 ? `${completionText.slice(0, 160)}…` : completionText;
+  const failed = finalStatus === "failed";
+  const needsInput = finalStatus === "needs_input";
+  const notificationTitle = needsInput
+    ? t("Task needs input")
+    : failed
+      ? t("Task failed")
+      : t("Task completed");
+  const failedDetail =
+    failed && finalFailReason ? ` ${finalFailReason}` : "";
   // Land in the target project's most recent session so generated output is
   // one click away; fall back to the task center when the project has no
   // session yet.
@@ -1921,12 +1932,9 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
           (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
       )[0];
   notifications.notify({
-    title:
-      finalStatus === "needs_input"
-        ? t("Task needs input")
-        : t("Task completed"),
-    message: `${taskTitle}：${notificationMessage}`,
-    type: "success",
+    title: notificationTitle,
+    message: `${taskTitle}：${notificationMessage}${failedDetail}`,
+    type: failed ? "error" : "success",
     action: {
       label: targetSession ? t("Open workspace") : t("Open tasks"),
       run: () => {
@@ -1943,12 +1951,12 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
     },
   });
   notifyDesktop(
-    finalStatus === "needs_input" ? t("Task needs input") : t("Task completed"),
-    `${taskTitle}：${notificationMessage}`,
+    notificationTitle,
+    `${taskTitle}：${notificationMessage}${failedDetail}`,
   );
   pluginShell?.setActivityBadge("com.zicode.tasks", {
     count: 1,
-    tone: "success",
+    tone: failed ? "danger" : "success",
   });
 }
 
