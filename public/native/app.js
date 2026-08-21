@@ -1448,6 +1448,7 @@ async function loadCommands() {
       { name: "help", action: "show_help", icon: "?", description: t("Show composer shortcuts") },
       { name: "files", action: "open_files", icon: "📁", description: t("Open file browser") },
       { name: "memory", action: "extract_memory", icon: "🧠", description: t("Extract memory from this conversation") },
+      { name: "mode", action: "cycle_work_mode", icon: "🔄", description: t("Cycle work mode (Ask / Craft / Plan)") },
     ],
     nativeCommands: result.response?.data?.commands ?? [],
   });
@@ -2448,6 +2449,22 @@ function runBuiltin(action) {
     document.getElementById("file-sidebar")?.classList.remove("collapsed");
   } else if (action === "extract_memory") {
     void extractMemoryFromConversation();
+  } else if (action === "cycle_work_mode") {
+    const order = ["ask", "craft", "plan"];
+    const current = document.getElementById("composer-mode")?.value || "craft";
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    try {
+      globalThis.localStorage?.setItem("picot-work-mode", next);
+    } catch {
+      // Persisting the preference is best-effort.
+    }
+    window.dispatchEvent(new CustomEvent("zicode:work-mode-changed"));
+    const labels = { ask: t("Ask"), craft: t("Craft"), plan: t("Plan") };
+    notifications.notify({
+      title: t("Work mode changed"),
+      message: labels[next],
+      type: "info",
+    });
   }
 }
 
