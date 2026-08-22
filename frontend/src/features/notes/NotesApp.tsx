@@ -6,6 +6,14 @@ import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 import { t } from "../../shared/i18n";
+import {
+  insertMarkdownLinePrefix,
+  insertMarkdownLink,
+  insertMarkdownTable,
+  wrapMarkdownCodeBlock,
+  wrapMarkdownSelection,
+  type MarkdownEdit,
+} from "../../shared/markdownFormatting";
 import { isImeComposing } from "../../shared/ime";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
@@ -2329,107 +2337,72 @@ function NoteEditor({ store }: { store: NotesStore }) {
     });
   };
 
-  const wrapSelection = (wrapper: string) => {
-    const textarea = contentRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart ?? 0;
-    const end = textarea.selectionEnd ?? 0;
-    const selected = draftContent.slice(start, end);
-    setDraft({
-      content: `${draftContent.slice(0, start)}${wrapper}${selected}${wrapper}${draftContent.slice(
-        end,
-      )}`,
-    });
+  const applyMarkdownEdit = (edit: MarkdownEdit) => {
+    setDraft({ content: edit.next });
     window.requestAnimationFrame(() => {
       const el = contentRef.current;
       if (!el) return;
       el.focus();
-      if (selected) {
-        el.setSelectionRange(
-          start + wrapper.length,
-          start + wrapper.length + selected.length,
-        );
-      } else {
-        const cursor = start + wrapper.length;
-        el.setSelectionRange(cursor, cursor);
-      }
+      const selection = edit.selection ?? { start: edit.cursor, end: edit.cursor };
+      el.setSelectionRange(selection.start, selection.end);
     });
+  };
+
+  const wrapSelection = (wrapper: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    applyMarkdownEdit(
+      wrapMarkdownSelection(
+        draftContent,
+        textarea.selectionStart ?? 0,
+        textarea.selectionEnd ?? 0,
+        wrapper,
+      ),
+    );
   };
 
   const wrapCodeBlock = () => {
     const textarea = contentRef.current;
     if (!textarea) return;
-    const start = textarea.selectionStart ?? 0;
-    const end = textarea.selectionEnd ?? 0;
-    const selected = draftContent.slice(start, end);
-    const next = `${draftContent.slice(0, start)}${"```"}\n${
-      selected || "\n"
-    }\n${"```"}${draftContent.slice(end)}`;
-    setDraft({ content: next });
-    window.requestAnimationFrame(() => {
-      const el = contentRef.current;
-      if (!el) return;
-      el.focus();
-      const cursor = selected ? start + selected.length + 4 : start + 4;
-      el.setSelectionRange(cursor, cursor);
-    });
+    applyMarkdownEdit(
+      wrapMarkdownCodeBlock(
+        draftContent,
+        textarea.selectionStart ?? 0,
+        textarea.selectionEnd ?? 0,
+      ),
+    );
   };
 
   const insertPrefix = (prefix: string) => {
     const textarea = contentRef.current;
     if (!textarea) return;
-    const start = textarea.selectionStart ?? 0;
-    const lineStart = draftContent.lastIndexOf("\n", start - 1) + 1;
-    const lineEnd = draftContent.indexOf("\n", start);
-    const lineEndIndex = lineEnd === -1 ? draftContent.length : lineEnd;
-    const line = draftContent.slice(lineStart, lineEndIndex);
-    const nextLine = line.trimStart().startsWith(prefix.trim())
-      ? line
-      : `${prefix}${line}`;
-    const next = `${draftContent.slice(0, lineStart)}${nextLine}${draftContent.slice(
-      lineEndIndex,
-    )}`;
-    setDraft({ content: next });
-    window.requestAnimationFrame(() => {
-      const el = contentRef.current;
-      if (!el) return;
-      el.focus();
-      const cursor = start + (nextLine.length - line.length);
-      el.setSelectionRange(cursor, cursor);
-    });
+    applyMarkdownEdit(
+      insertMarkdownLinePrefix(draftContent, textarea.selectionStart ?? 0, prefix),
+    );
   };
 
   const insertTable = () => {
     const textarea = contentRef.current;
     if (!textarea) return;
-    const start = textarea.selectionStart ?? 0;
-    const table = `| ${t("Column 1")} | ${t("Column 2")} |\n|---|---|\n|  |  |`;
-    const next = `${draftContent.slice(0, start)}${table}${draftContent.slice(start)}`;
-    setDraft({ content: next });
-    window.requestAnimationFrame(() => {
-      const el = contentRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(start, start);
-    });
+    applyMarkdownEdit(
+      insertMarkdownTable(
+        draftContent,
+        textarea.selectionStart ?? 0,
+        [t("Column 1"), t("Column 2")],
+      ),
+    );
   };
 
   const insertLinkMarkdown = () => {
     const textarea = contentRef.current;
     if (!textarea) return;
-    const start = textarea.selectionStart ?? 0;
-    const end = textarea.selectionEnd ?? 0;
-    const selected = draftContent.slice(start, end);
-    const insertion = selected ? `[${selected}](url)` : "[](url)";
-    const next = `${draftContent.slice(0, start)}${insertion}${draftContent.slice(end)}`;
-    setDraft({ content: next });
-    window.requestAnimationFrame(() => {
-      const el = contentRef.current;
-      if (!el) return;
-      el.focus();
-      const cursor = start + insertion.indexOf("url");
-      el.setSelectionRange(cursor, cursor + 3);
-    });
+    applyMarkdownEdit(
+      insertMarkdownLink(
+        draftContent,
+        textarea.selectionStart ?? 0,
+        textarea.selectionEnd ?? 0,
+      ),
+    );
   };
 
   const renderSecondaryActions = (role?: string) => (

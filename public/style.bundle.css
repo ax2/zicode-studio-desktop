@@ -11015,6 +11015,52 @@ body.notes-dragging .notes-result-item {
   resize: vertical;
 }
 
+.articles-format-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-glass);
+}
+
+.articles-format-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.articles-format-btn:hover,
+.articles-format-btn:focus-visible {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .articles-format-bar {
+    gap: var(--space-0-5);
+  }
+
+  .articles-format-btn {
+    min-width: 34px;
+    height: 34px;
+  }
+}
+
 .articles-editor-toolbar {
   display: flex;
   gap: var(--space-1);

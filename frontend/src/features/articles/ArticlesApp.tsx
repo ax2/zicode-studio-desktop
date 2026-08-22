@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
+import {
+  insertMarkdownLinePrefix,
+  insertMarkdownLink,
+  insertMarkdownTable,
+  wrapMarkdownCodeBlock,
+  wrapMarkdownSelection,
+  type MarkdownEdit,
+} from "../../shared/markdownFormatting";
 import {
   createArticlesStore,
   type ArticlesGateway,
@@ -108,6 +116,75 @@ function ArticlesMain({
   const notice = store((state) => state.notice);
   const [sourceDir, setSourceDir] = useState("");
   const [preview, setPreview] = useState(false);
+  const contentRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const applyMarkdownEdit = (edit: MarkdownEdit) => {
+    store.getState().setMarkdown(edit.next);
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      const selection = edit.selection ?? { start: edit.cursor, end: edit.cursor };
+      el.setSelectionRange(selection.start, selection.end);
+    });
+  };
+
+  const wrapSelection = (wrapper: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    applyMarkdownEdit(
+      wrapMarkdownSelection(
+        draftMarkdown,
+        textarea.selectionStart ?? 0,
+        textarea.selectionEnd ?? 0,
+        wrapper,
+      ),
+    );
+  };
+
+  const wrapCodeBlock = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    applyMarkdownEdit(
+      wrapMarkdownCodeBlock(
+        draftMarkdown,
+        textarea.selectionStart ?? 0,
+        textarea.selectionEnd ?? 0,
+      ),
+    );
+  };
+
+  const insertPrefix = (prefix: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    applyMarkdownEdit(
+      insertMarkdownLinePrefix(draftMarkdown, textarea.selectionStart ?? 0, prefix),
+    );
+  };
+
+  const insertTable = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    applyMarkdownEdit(
+      insertMarkdownTable(
+        draftMarkdown,
+        textarea.selectionStart ?? 0,
+        [t("Column 1"), t("Column 2")],
+      ),
+    );
+  };
+
+  const insertLinkMarkdown = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    applyMarkdownEdit(
+      insertMarkdownLink(
+        draftMarkdown,
+        textarea.selectionStart ?? 0,
+        textarea.selectionEnd ?? 0,
+      ),
+    );
+  };
 
   return (
     <div className="articles-main">
@@ -177,13 +254,108 @@ function ArticlesMain({
             dangerouslySetInnerHTML={{ __html: renderMarkdown(draftMarkdown) }}
           />
         ) : (
-          <textarea
-            className="articles-textarea"
-            value={draftMarkdown}
-            aria-label={t("Markdown content")}
-            rows={20}
-            onChange={(event) => store.getState().setMarkdown(event.target.value)}
-          />
+          <>
+            <div className="articles-format-bar" role="toolbar" aria-label={t("Markdown formatting")}>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Bold (Ctrl+B)")}
+                aria-label={t("Bold (Ctrl+B)")}
+                onClick={() => wrapSelection("**")}
+              >
+                <strong>B</strong>
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Italic (Ctrl+I)")}
+                aria-label={t("Italic (Ctrl+I)")}
+                onClick={() => wrapSelection("*")}
+              >
+                <em>I</em>
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Heading")}
+                aria-label={t("Heading")}
+                onClick={() => insertPrefix("## ")}
+              >
+                H
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Inline code")}
+                aria-label={t("Inline code")}
+                onClick={() => wrapSelection("`")}
+              >
+                {"<>"}
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Code block (Ctrl+Shift+K)")}
+                aria-label={t("Code block (Ctrl+Shift+K)")}
+                onClick={wrapCodeBlock}
+              >
+                {"{ }"}
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Quote")}
+                aria-label={t("Quote")}
+                onClick={() => insertPrefix("> ")}
+              >
+                ❝
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Bullet list")}
+                aria-label={t("Bullet list")}
+                onClick={() => insertPrefix("- ")}
+              >
+                ••
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Task list")}
+                aria-label={t("Task list")}
+                onClick={() => insertPrefix("- [ ] ")}
+              >
+                ☑
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Table")}
+                aria-label={t("Table")}
+                onClick={insertTable}
+              >
+                ▦
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Link")}
+                aria-label={t("Link")}
+                onClick={insertLinkMarkdown}
+              >
+                🔗
+              </button>
+            </div>
+            <textarea
+              ref={contentRef}
+              className="articles-textarea"
+              value={draftMarkdown}
+              aria-label={t("Markdown content")}
+              rows={20}
+              onChange={(event) => store.getState().setMarkdown(event.target.value)}
+            />
+          </>
         )}
       </section>
 
