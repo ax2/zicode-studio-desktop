@@ -63,6 +63,12 @@ manage tasks directly, without going through a conversation or the inbox first.
 - **Pin**: every task card can be pinned so it stays at the top of every list.
 - **Continue**: tasks with a bound child session show a primary **Continue**
   button that opens that task's conversation so you can keep working.
+- **Run again**: completed/cancelled one-off tasks can be rerun with the same
+  settings (a fresh manual task is dispatched); automation-sourced tasks rerun
+  their owning workflow.
+- **Elapsed time**: running tasks show "N m running" next to the status.
+- **Archive**: completed/cancelled tasks can be archived (hidden but kept); an
+  **Archived** filter lists them, and archived tasks can be restored.
 - **Scheduled filter**: the left navigation shows only scheduled templates, so
   you can manage them together.
 
