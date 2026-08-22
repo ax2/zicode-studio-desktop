@@ -743,6 +743,10 @@ const zhCN = {
   "Track runs and history in the task center.":
     "在任务中心跟踪运行与历史。",
   "View automations": "查看自动化",
+  Duplicate: "复制",
+  "Duplicate this workflow as a new one": "复制此工作流为新工作流",
+  "(copy)": "（副本）",
+  "Untitled automation": "未命名自动化",
   "Use custom": "使用自定义",
   "Daily tech brief": "每日技术简报",
   "Collect yesterday's tech news and write a short brief.":

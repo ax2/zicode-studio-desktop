@@ -440,6 +440,7 @@ function WorkflowCard({
   onEdit: (workflow: AutomationWorkflow) => void;
 }) {
   const saveWorkflow = store((state) => state.saveWorkflow);
+  const duplicateWorkflow = store((state) => state.duplicateWorkflow);
   const removeWorkflow = store((state) => state.removeWorkflow);
   const runWorkflow = store((state) => state.runWorkflow);
   const badge = workflow.approvalPending
@@ -500,6 +501,14 @@ function WorkflowCard({
             onClick={() => void removeWorkflow(workflow.id)}
           >
             {t("Remove")}
+          </button>
+          <button
+            type="button"
+            className="ui-button ui-button--ghost ui-button--sm"
+            title={t("Duplicate this workflow as a new one")}
+            onClick={() => void duplicateWorkflow(workflow)}
+          >
+            {t("Duplicate")}
           </button>
         </div>
       </header>

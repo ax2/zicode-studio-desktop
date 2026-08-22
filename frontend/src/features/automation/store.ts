@@ -43,6 +43,7 @@ interface AutomationState {
   listProjects(): Promise<string[]>;
   load(): Promise<AutomationWorkflow[]>;
   saveWorkflow(workflow: AutomationWorkflow): Promise<AutomationWorkflow | undefined>;
+  duplicateWorkflow(workflow: AutomationWorkflow): Promise<AutomationWorkflow | undefined>;
   removeWorkflow(id: string): Promise<void>;
   runWorkflow(workflow: AutomationWorkflow, trigger?: string): Promise<void>;
   tick(): Promise<void>;
@@ -162,6 +163,24 @@ export function createAutomationStore(options: AutomationAppOptions) {
         response.data?.workspace?.workflows ?? response.data?.workflows ?? get().workflows;
       set({ workflows });
       return response.data?.workflow;
+    },
+
+    async duplicateWorkflow(workflow) {
+      const base: AutomationWorkflow = {
+        ...workflow,
+        id: `automation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: `${workflow.title || t("Untitled automation")} ${t("(copy)")}`.trim(),
+        approvalPending: false,
+        history: [],
+      };
+      const copy: AutomationWorkflow = {
+        ...base,
+        nextRunAt:
+          base.schedule !== "manual"
+            ? nextAutomationRun(base)
+            : null,
+      };
+      return get().saveWorkflow(copy);
     },
 
     async removeWorkflow(id) {

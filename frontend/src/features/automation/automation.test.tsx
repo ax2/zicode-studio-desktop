@@ -481,6 +481,40 @@ describe("automation React app", () => {
     store.getState().destroy();
   });
 
+  it("duplicates a workflow into a fresh copy", async () => {
+    setLocale("en");
+    const writtenWorkflows: AutomationWorkflow[] = [];
+    const call = vi.fn(async (operation: string, params?: unknown) => {
+      const p = (params ?? {}) as Record<string, unknown>;
+      if (operation === "automation_workspace" && p.action === "upsert") {
+        const wf = p.workflow as AutomationWorkflow;
+        writtenWorkflows.push(wf);
+        return { ok: true, data: { workflow: wf, workspace: { workflows: [wf] } } };
+      }
+      return { ok: true, data: {} };
+    });
+    const store = createAutomationStore({ call });
+    await store.getState().duplicateWorkflow({
+      id: "wf-1",
+      title: "Daily digest",
+      prompt: "Summarize the news",
+      enabled: true,
+      schedule: "daily",
+      dailyTime: "09:00",
+      requireApproval: false,
+      maxRetries: 2,
+      history: [{ status: "completed", startedAt: "2026-08-21T01:00:00Z" }],
+      nextRunAt: "2026-08-22T01:00:00.000Z",
+    } as AutomationWorkflow);
+    const written = writtenWorkflows[0];
+    expect(written.id).not.toBe("wf-1");
+    expect(written.title).toContain("(copy)");
+    expect(written.history).toEqual([]);
+    expect(written.approvalPending).toBe(false);
+    expect(written.nextRunAt).toContain("T01:00:00");
+    store.getState().destroy();
+  });
+
   it("approves and queues an automation through the task store", async () => {
     setLocale("en");
     const call = mockCall();
