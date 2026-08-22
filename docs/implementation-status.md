@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-22 新实例双端完整回归（桌面 6/6 + 移动 7/7）
+
+- 任务完成后重跑完整回归：桌面 `run-all-live` 6/6 通过（含此前卡住的
+  `task-loop-live`，77s 正常，超时保护生效）；移动 `run-all-mobile`
+  7/7 通过（首轮 memory-settings 因 QA 残留记忆数据断言不符，清理
+  `memory.json` 的测试条目并恢复 enabled 后通过）。
+- 数据卫生：tasks 4 条（3 历史 + 1 今日完成）、workflows 2 条、
+  memory enabled true / entries 0、产物 0 条。
+
 ## 2026-08-22 已完成任务「再次运行」
 
 - 已完成/已取消的一次性任务卡片新增「再次运行」：以相同标题/说明/目标
