@@ -47,6 +47,7 @@ export function ProjectMain({ store }: { store: ProjectStore }) {
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
+  const onManageProjects = store((state) => state.onManageProjects);
   return (
     <div className="project-workspace-main">
       <header className="project-workspace-header">
@@ -56,6 +57,13 @@ export function ProjectMain({ store }: { store: ProjectStore }) {
             {target?.cwd || target?.projectPath || t("Local project")}
           </p>
         </div>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost"
+          onClick={onManageProjects}
+        >
+          {t("Manage projects")}
+        </button>
         <button
           type="button"
           className="ui-button ui-button--secondary"
@@ -116,12 +124,19 @@ function Overview({ store }: { store: ProjectStore }) {
       {loading ? (
         <p className="project-workspace-state">{t("Loading project…")}</p>
       ) : !snapshot.notes.length && !snapshot.artifacts.length ? (
-        <StatePanel
-          title={t("Turn this conversation into a project")}
-          detail={t(
-            "Create notes and artifacts from the current conversation; they will stay connected here.",
-          )}
-        />
+        <>
+          <StatePanel
+            title={t("Turn this conversation into a project")}
+            detail={t(
+              "Create notes and artifacts from the current conversation; they will stay connected here.",
+            )}
+          />
+          <p className="project-workspace-hint" role="note">
+            {t(
+              "A project is a workspace. Use Manage projects to switch or create one (open a folder); edit its instructions and budget under Project context.",
+            )}
+          </p>
+        </>
       ) : (
         <RecentResults snapshot={snapshot} store={store} />
       )}

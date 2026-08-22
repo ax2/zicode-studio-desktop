@@ -46,6 +46,17 @@ afterEach(() => {
 });
 
 describe("project workspace React app", () => {
+  it("opens the project manager from the header button", async () => {
+    setLocale("zh-CN");
+    const onManageProjects = vi.fn();
+    renderStore({ onManageProjects });
+    await waitFor(() =>
+      expect(screen.getByText("管理项目")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByText("管理项目"));
+    expect(onManageProjects).toHaveBeenCalledTimes(1);
+  });
+
   it("aggregates notes and artifacts for the current project", async () => {
     setLocale("en");
     const store = renderStore();

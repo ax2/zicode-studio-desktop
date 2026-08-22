@@ -12,6 +12,20 @@ Projects group a goal, tasks expose execution state, and automations trigger rec
 
 Create a project when work spans multiple sessions, stages, or deliverables. A project brings its conversations, task progress, artifacts, and recent activity together.
 
+## Managing projects (a project is a workspace)
+
+- Click **Manage projects** at the top of the Projects app (or the workspace
+  switcher in the top bar) to see every project (workspace) and switch
+  between them; **Open folder as workspace** creates a new project by
+  selecting a folder.
+- **Project context** edits the current project's instructions (injected
+  into that project's conversations) and budget; Knowledge connections,
+  Project search, and Recent activity surface content bound to the current
+  project.
+- Deleting a project is not exposed yet: the data in a project folder is your
+  local files, and deletion semantics need a deliberate data-safety design.
+  Unused projects can simply be left unopened; their data stays in place.
+
 ## Search across project content
 
 Open **More → Projects → Project search** and enter a query to search conversations, notes, files,

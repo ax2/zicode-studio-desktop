@@ -906,6 +906,9 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
   call: (operation, params, options) => config.call(operation, params, options),
   getTarget: () => target,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
+  onManageProjects: () => {
+    document.getElementById("workspace-switcher-btn")?.click();
+  },
   onUseContextPack: (notes, { compare = false } = {}) => {
     pluginShell?.activate("core.chat");
     const references = notes

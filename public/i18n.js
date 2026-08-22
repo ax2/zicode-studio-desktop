@@ -596,6 +596,9 @@ const zhCN = {
   "Could not import memory: invalid JSON": "无法导入记忆：JSON 格式无效",
   "Relevant memory": "相关记忆",
   "Project instructions": "项目指令",
+  "Manage projects": "管理项目",
+  "A project is a workspace. Use Manage projects to switch or create one (open a folder); edit its instructions and budget under Project context.":
+    "项目即工作区。点「管理项目」可切换或新建项目（打开文件夹）；项目说明与预算在「项目上下文」中编辑。",
   "Work mode": "工作模式",
   "Default work mode": "默认工作模式",
   "Search tasks": "搜索任务",

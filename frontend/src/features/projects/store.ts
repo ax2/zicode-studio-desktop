@@ -37,6 +37,8 @@ export interface ProjectWorkspaceOptions {
   storage?: Storage | null;
   openApp?: (pluginId: string) => void;
   onUseContextPack?: (notes: unknown[], options?: { compare?: boolean }) => void;
+  /** Open the shared workspace switcher (list / switch / create projects). */
+  onManageProjects?: () => void;
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
 }
 
@@ -54,6 +56,7 @@ interface ProjectWorkspaceState {
   sessionSearchResults: unknown[];
   openApp(pluginId: string): void;
   onUseContextPack(notes: unknown[], options?: { compare?: boolean }): void;
+  onManageProjects(): void;
   notify(payload: { title: string; message?: string; type?: string }): void;
   setTarget(target: ProjectTarget | null): void;
   setActiveView(view: ProjectView): void;
@@ -75,6 +78,7 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
   const notify = options.notify ?? (() => {});
   const openApp = options.openApp ?? (() => {});
   const onUseContextPack = options.onUseContextPack ?? (() => {});
+  const onManageProjects = options.onManageProjects ?? (() => {});
 
   const sceneId = () => getTarget()?.sceneId || "programming";
   const workspaceId = () => getTarget()?.workspaceId || "";
@@ -96,6 +100,10 @@ export function createProjectWorkspaceStore(options: ProjectWorkspaceOptions) {
 
     onUseContextPack(notes, options) {
       onUseContextPack(notes, options);
+    },
+
+    onManageProjects() {
+      onManageProjects();
     },
 
     notify(payload) {
