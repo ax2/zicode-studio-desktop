@@ -73,6 +73,18 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     schedule: "daily",
     dailyTime: "08:30",
   },
+  {
+    id: "nightly-memory",
+    titleKey: "Nightly memory consolidation",
+    descriptionKey: "Extract lasting facts and preferences from today's work into memory.",
+    prompt:
+      "【记忆沉淀】回顾最近一天的工作会话与项目进展（可读取工作区 .zicode 目录下的会话记录与已有记忆文件），" +
+      "把值得长期记住的信息整理成记忆条目：用户偏好与工作习惯、常用技术栈与项目约定、进行中的事项与跟进点、重要决策与原因。" +
+      "只沉淀有依据的新信息，重复内容跳过；每条一句话以内、具体可检索。" +
+      "先读取已有记忆文件，合并去重后输出到工作区根目录 memory-YYYYMMDD.md。",
+    schedule: "daily",
+    dailyTime: "23:30",
+  },
 ];
 
 export function templateById(id: string): AutomationTemplate | undefined {

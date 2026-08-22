@@ -7,6 +7,7 @@ import {
   getArgsPreview,
   renderDiffData,
   splitStreamingContent,
+  toolStageLabel,
 } from "./chatLogic";
 import { MessageRenderer, ToolCardRenderer } from "./index";
 
@@ -364,6 +365,7 @@ describe("chat feed renderers", () => {
     await flush();
     expect(container.querySelector(".tool-card")).toBeTruthy();
     expect(container.querySelector(".tool-name")?.textContent).toBe("read");
+    expect(container.querySelector(".tool-stage")?.textContent).toBe("正在读取文件");
     tools.updateToolCard({
       toolCallId: "tc-1",
       toolName: "read",
@@ -378,6 +380,20 @@ describe("chat feed renderers", () => {
     await flush();
     expect(container.querySelector(".tool-status")?.textContent).toBe("完成");
     expect(container.querySelector(".tool-output")?.textContent).toBe("done");
+  });
+
+  it("maps tool names to human-friendly stage labels", () => {
+    expect(toolStageLabel("bash")).toBe("Running a command");
+    expect(toolStageLabel("shell_command")).toBe("Running a command");
+    expect(toolStageLabel("read_file")).toBe("Reading a file");
+    expect(toolStageLabel("edit")).toBe("Editing files");
+    expect(toolStageLabel("apply_patch")).toBe("Editing files");
+    expect(toolStageLabel("write_file")).toBe("Writing files");
+    expect(toolStageLabel("web_search")).toBe("Searching");
+    expect(toolStageLabel("open_page")).toBe("Opening a page");
+    expect(toolStageLabel("write_memory")).toBe("Working with memory");
+    expect(toolStageLabel("WebSearch")).toBe("Searching");
+    expect(toolStageLabel("mystery_tool_xyz")).toBe("");
   });
 
   it("renders history tool cards with results and supports expand/collapse", async () => {

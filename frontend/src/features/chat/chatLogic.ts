@@ -133,6 +133,41 @@ export function getArgsPreview(_toolName: string, args?: Record<string, unknown>
   return "";
 }
 
+/**
+ * Maps a raw tool name to a human-friendly stage label (i18n source key).
+ * Returns "" when no known stage applies so callers can fall back to the raw
+ * tool name. The labels mirror WorkBuddy's execution-stage vocabulary
+ * ("正在执行命令" / "正在读取文件" ...) instead of exposing internal tool ids.
+ */
+const STAGE_RULES: Array<[RegExp, string]> = [
+  [/open[_ -]?page|browse|fetch|curl|download|http|webview/i, "Opening a page"],
+  [/memory|remember|recall|forget/i, "Working with memory"],
+  [/task|automation|workflow|super[_ -]?agent/i, "Handling a task"],
+  [/database|sql|db[_ -]?query/i, "Querying data"],
+  [/search|grep|find[_ -]?in[_ -]?page|query|lookup/i, "Searching"],
+  [/note|notebook|blog|article/i, "Working with notes"],
+  [/artifact|result/i, "Working with artifacts"],
+  [/screenshot|image|photo|ocr|vision|thumbnail/i, "Processing images"],
+  [/translate/i, "Translating text"],
+  [/git\b|commit|diff|branch/i, "Managing git"],
+  [/bash|shell|powershell|pwsh|cmd\b|command|exec|spawn|run|script|npx|bun\b|node|python|deno/i, "Running a command"],
+  [/read|cat\b|view|inspect|head|tail|stat/i, "Reading a file"],
+  [/write|create[_ -]?file|append|mkdir|touch|save|copy|move|rename|delete|remove/i, "Writing files"],
+  [/edit|patch|apply[_ -]?patch|modify|replace|insert/i, "Editing files"],
+  [/list|ls\b|glob|tree|find|open\b|navigate/i, "Browsing files"],
+  [/clipboard|paste/i, "Using the clipboard"],
+  [/notify|notification/i, "Sending a notification"],
+];
+
+export function toolStageLabel(toolName: string): string {
+  const name = String(toolName ?? "").toLowerCase().replace(/[_\-\s]+/g, " ");
+  if (!name) return "";
+  for (const [pattern, label] of STAGE_RULES) {
+    if (pattern.test(name)) return label;
+  }
+  return "";
+}
+
 export function formatJson(obj: unknown): string {
   try {
     if (obj && typeof obj === "object" && Object.keys(obj as Record<string, unknown>).length === 0) {

@@ -424,6 +424,32 @@ const zhCN = {
     "工具会话已过期。请重试以再次运行。",
   "This tool is unavailable in the current scene.":
     "当前场景中此工具不可用。",
+  "Opening a page": "正在打开网页",
+  "Working with memory": "正在读写记忆",
+  "Handling a task": "正在处理任务",
+  Searching: "正在搜索",
+  "Working with notes": "正在处理笔记",
+  "Working with artifacts": "正在处理产物",
+  "Processing images": "正在处理图片",
+  "Translating text": "正在翻译",
+  "Querying data": "正在查询数据",
+  "Managing git": "正在管理版本",
+  "Running a command": "正在执行命令",
+  "Reading a file": "正在读取文件",
+  "Writing files": "正在写入文件",
+  "Editing files": "正在修改文件",
+  "Browsing files": "正在浏览文件",
+  "Using the clipboard": "正在使用剪贴板",
+  "Sending a notification": "正在发送通知",
+  "Nightly memory consolidation": "每晚记忆沉淀",
+  "Extract lasting facts and preferences from today's work into memory.":
+    "把今天工作里值得长期记住的事实、偏好和跟进事项沉淀为记忆。",
+  "Each run waits for your approval in the task center. Sensitive actions — writes outside the workspace, deletions, scripts, and network access — still ask for confirmation before executing.":
+    "每次运行都会在任务中心等你批准；涉及工作空间外的文件写入、删除、脚本命令或网络访问时，执行前仍会向你确认。",
+  "Runs automatically when due; no manual approval needed. File writes, deletions, scripts, and network actions will not ask for confirmation one by one, so keep this for trusted, recoverable tasks.":
+    "到期自动运行，无需人工批准。文件写入、删除、脚本与网络操作不会逐项确认，请仅用于可信、可恢复的任务。",
+  "Runs automatically; no manual approval needed. File writes, deletions, scripts, and network actions will not ask for confirmation one by one, so keep this for trusted, recoverable tasks.":
+    "自动运行，无需人工批准。文件写入、删除、脚本与网络操作不会逐项确认，请仅用于可信、可恢复的任务。",
   "in progress": "进行中",
   deleted: "已删除",
   "A new answer is available. Use Latest to jump to the end.":

@@ -413,8 +413,12 @@ function WorkflowForm({
       </fieldset>
       <p className="automation-checkbox-hint" role="note">
         {requireApproval
-          ? t("Each run waits for your approval in the task center.")
-          : t("Runs automatically when due; no manual approval needed.")}
+          ? t(
+              "Each run waits for your approval in the task center. Sensitive actions — writes outside the workspace, deletions, scripts, and network access — still ask for confirmation before executing.",
+            )
+          : t(
+              "Runs automatically when due; no manual approval needed. File writes, deletions, scripts, and network actions will not ask for confirmation one by one, so keep this for trusted, recoverable tasks.",
+            )}
       </p>
       <div className="automation-form-actions">
         {initial ? (

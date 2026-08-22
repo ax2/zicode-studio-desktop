@@ -452,6 +452,7 @@ describe("automation React app", () => {
     await waitFor(() => expect(screen.getByText("从模板开始")).toBeTruthy());
     expect(screen.getByText("每日技术简报")).toBeTruthy();
     expect(screen.getByText("周报汇总")).toBeTruthy();
+    expect(screen.getByText("每晚记忆沉淀")).toBeTruthy();
     fireEvent.click(screen.getByText("每日技术简报"));
     const name = document.getElementById("automation-name") as HTMLInputElement;
     const prompt = document.getElementById("automation-prompt") as HTMLTextAreaElement;

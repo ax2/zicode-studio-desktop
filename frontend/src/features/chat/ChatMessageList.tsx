@@ -13,6 +13,7 @@ import {
   friendlyToolError,
   formatJson,
   renderDiffData,
+  toolStageLabel,
   type ContentBlock,
 } from "./chatLogic";
 import type {
@@ -881,15 +882,18 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
           aria-expanded={expanded}
           onClick={() => setLocalExpanded(!expanded)}
         >
-          <span className="tool-header-left">
-            <span className="tool-card-chevron">
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
-                <path d="M2 1l4 3-4 3z" />
-              </svg>
+            <span className="tool-header-left">
+              <span className="tool-card-chevron">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor">
+                  <path d="M2 1l4 3-4 3z" />
+                </svg>
+              </span>
+              <span className="tool-name">{item.toolName}</span>
+              {toolStageLabel(item.toolName) ? (
+                <span className="tool-stage">{t(toolStageLabel(item.toolName))}</span>
+              ) : null}
+              {argsPreview ? <span className="tool-args-preview">{argsPreview}</span> : null}
             </span>
-            <span className="tool-name">{item.toolName}</span>
-            {argsPreview ? <span className="tool-args-preview">{argsPreview}</span> : null}
-          </span>
           <span className="tool-toggle-action">
             {expanded ? t("Collapse tool details") : t("Expand tool details")}
           </span>

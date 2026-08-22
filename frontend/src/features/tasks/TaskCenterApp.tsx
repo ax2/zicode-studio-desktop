@@ -487,8 +487,12 @@ function TaskForm({
       </fieldset>
       <p className="automation-checkbox-hint" role="note">
         {requireApproval
-          ? t("Each run waits for your approval in the task center.")
-          : t("Runs automatically; no manual approval needed.")}
+          ? t(
+              "Each run waits for your approval in the task center. Sensitive actions — writes outside the workspace, deletions, scripts, and network access — still ask for confirmation before executing.",
+            )
+          : t(
+              "Runs automatically; no manual approval needed. File writes, deletions, scripts, and network actions will not ask for confirmation one by one, so keep this for trusted, recoverable tasks.",
+            )}
       </p>
       <label className="task-form-field">
         <span>{t("Maximum retries")}</span>
