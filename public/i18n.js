@@ -545,6 +545,12 @@ const zhCN = {
   "Locate file": "定位文件",
   "File changed by {tool}": "文件由 {tool} 修改",
   "a tool": "某个工具",
+  "Restore original content": "恢复原始内容",
+  "Please restore {path} to its original content before this session (only this file, do not change anything else):":
+    "请把 {path} 恢复为本会话修改前的原文（只处理这一个文件，不要改动其他内容）：",
+  "Restore ready for review": "恢复指令已就绪",
+  "Review the restored content in the input, then send it to apply.":
+    "请在输入框审阅恢复内容，确认后发送执行。",
   "No artifacts yet": "暂无产物",
   "Usage guide": "使用指南",
   Memory: "记忆",

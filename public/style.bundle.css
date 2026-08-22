@@ -17607,6 +17607,33 @@ body[data-active-plugin]:not([data-active-plugin="core.chat"]) #file-sidebar-tog
   opacity: 1;
 }
 
+.file-sidebar-change-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+
+.file-sidebar-change-restore {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.file-sidebar-change-restore:hover,
+.file-sidebar-change-restore:focus-visible {
+  background: var(--surface-hover);
+  color: var(--accent);
+  opacity: 1;
+}
+
 .file-sidebar-change-diff {
   margin: 0 var(--space-1-5) var(--space-1-5) var(--space-3);
   border-left: 2px solid var(--border);

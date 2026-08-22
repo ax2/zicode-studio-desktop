@@ -51,7 +51,10 @@ instructions or send again.
 The right-side result panel has **Files / Artifacts / Changes** views: Changes
 lists every file the session's tools touched, each with a badge (modified /
 created / appended). Click a file to expand its diff; the magnifier button
-locates the file in the file browser.
+locates the file in the file browser. For files changed by edit tools, the
+"Restore original content" button fills the composer with the pre-session
+original so you can review and send it to have the agent restore the file —
+reviewable and reversible.
 
 ## Extract memory
 

@@ -1274,6 +1274,20 @@ window.addEventListener("zicode:open-task", (event) => {
     window.setTimeout(() => taskCenterApp.focusTask(String(taskId)), 200);
   }
 });
+window.addEventListener("zicode:restore-file", (event) => {
+  const { path, content } = event.detail ?? {};
+  if (!path || typeof content !== "string" || !content.trim()) return;
+  pluginShell?.activate("core.chat");
+  const prompt = `${t(
+    "Please restore {path} to its original content before this session (only this file, do not change anything else):",
+  ).replace("{path}", path)}\n\n\`\`\`\n${content}\n\`\`\``;
+  prefillComposer(prompt);
+  notifications.notify({
+    title: t("Restore ready for review"),
+    message: t("Review the restored content in the input, then send it to apply."),
+    type: "info",
+  });
+});
 window.addEventListener("zicode:open-help", (event) => {
   pluginShell?.activate("core.help");
   helpCenter?.open(event.detail?.pageId);
@@ -2335,7 +2349,27 @@ function setupFileBrowser() {
           .then(() => browser.setHighlight(change.path))
           .catch(showError);
       });
-      head.append(row, locate);
+      const actions = document.createElement("div");
+      actions.className = "file-sidebar-change-actions";
+      actions.append(locate);
+      if (change.before && String(change.before).trim()) {
+        const restore = document.createElement("button");
+        restore.type = "button";
+        restore.className = "file-sidebar-change-restore";
+        restore.title = t("Restore original content");
+        restore.setAttribute("aria-label", t("Restore original content"));
+        restore.innerHTML =
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
+        restore.addEventListener("click", () => {
+          window.dispatchEvent(
+            new CustomEvent("zicode:restore-file", {
+              detail: { path: change.path, content: change.before },
+            }),
+          );
+        });
+        actions.append(restore);
+      }
+      head.append(row, actions);
       const diff = document.createElement("div");
       diff.className = "file-sidebar-change-diff";
       diff.hidden = true;
