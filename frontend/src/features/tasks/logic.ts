@@ -8,7 +8,8 @@ export type TaskFilter =
   | "needs_input"
   | "failed"
   | "done"
-  | "cancelled";
+  | "cancelled"
+  | "archived";
 
 export interface SuperAgentTask {
   id: string;
@@ -51,6 +52,8 @@ export interface SuperAgentTask {
   scheduledFrom?: string | null;
   // User-facing pin: pinned tasks stay at the top of every list view.
   pinned?: boolean;
+  // Archived tasks are hidden from normal views but kept for review.
+  archived?: boolean;
   events?: Array<{ at?: string; type?: string; status?: string; message?: string }>;
 }
 
@@ -63,6 +66,7 @@ export const TASK_FILTERS: TaskFilter[] = [
   "failed",
   "done",
   "cancelled",
+  "archived",
 ];
 
 export function filterLabel(filter: TaskFilter): string {
@@ -75,6 +79,7 @@ export function filterLabel(filter: TaskFilter): string {
     failed: "Failed",
     done: "Completed",
     cancelled: "Cancelled",
+    archived: "Archived",
   };
   return labels[filter];
 }
@@ -94,19 +99,24 @@ export function statusLabel(status: string): string {
 }
 
 export function filteredTasks(tasks: SuperAgentTask[], id: TaskFilter): SuperAgentTask[] {
-  let base: SuperAgentTask[];
-  if (id === "all") base = tasks;
-  else if (id === "scheduled") base = tasks.filter((task) => isScheduledTemplate(task));
+  if (id === "archived") {
+    return tasks
+      .filter((task) => task.archived === true)
+      .sort((a, b) => taskActivityMs(b) - taskActivityMs(a));
+  }
+  let base = tasks.filter((task) => task.archived !== true);
+  if (id === "all") return sortTaskList(base);
+  if (id === "scheduled") base = base.filter((task) => isScheduledTemplate(task));
   else if (id === "running") {
-    base = tasks.filter(
+    base = base.filter(
       (task) => !isScheduledTemplate(task) && ["running", "pending"].includes(task.status),
     );
   } else if (id === "needs_input") {
-    base = tasks.filter(
+    base = base.filter(
       (task) => !isScheduledTemplate(task) && ["needs_input", "blocked"].includes(task.status),
     );
   } else {
-    base = tasks.filter((task) => !isScheduledTemplate(task) && task.status === id);
+    base = base.filter((task) => !isScheduledTemplate(task) && task.status === id);
   }
   return sortTaskList(base);
 }

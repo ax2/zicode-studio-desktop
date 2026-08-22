@@ -5,6 +5,7 @@ import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
 import {
   formatDate,
+  filteredTasks,
   groupTasksByWorkspace,
   isDefaultWorkspace,
   isScheduledTemplate,
@@ -1009,6 +1010,16 @@ describe("task center task management", () => {
       "recent-done",
       "old-done",
     ]);
+  });
+
+  it("hides archived tasks from normal views and lists them under Archived", () => {
+    const tasks = [
+      { id: "a", title: "A", status: "done" },
+      { id: "b", title: "B", status: "done", archived: true },
+      { id: "c", title: "C", status: "running" },
+    ];
+    expect(filteredTasks(tasks as never, "all").map((t) => t.id)).toEqual(["c", "a"]);
+    expect(filteredTasks(tasks as never, "archived").map((t) => t.id)).toEqual(["b"]);
   });
 
   it("keeps pinned tasks above every other list group", () => {

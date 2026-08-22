@@ -520,6 +520,7 @@ function TaskCard({
   const removeTask = store((state) => state.removeTask);
   const rerunTask = store((state) => state.rerunTask);
   const togglePinned = store((state) => state.togglePinned);
+  const toggleArchived = store((state) => state.toggleArchived);
   const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
   const setFilter = store((state) => state.setFilter);
@@ -766,6 +767,25 @@ function TaskCard({
               onClick={() => void removeTask(task.id)}
             >
               {t("Dismiss")}
+            </button>
+          ) : null}
+          {task.archived ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              title={t("Restore this archived task")}
+              onClick={() => void toggleArchived(task.id)}
+            >
+              {t("Restore")}
+            </button>
+          ) : ["done", "cancelled"].includes(task.status) ? (
+            <button
+              type="button"
+              className="ui-button ui-button--ghost ui-button--sm"
+              title={t("Archive this finished task")}
+              onClick={() => void toggleArchived(task.id)}
+            >
+              {t("Archive")}
             </button>
           ) : null}
           {rerunWorkflowId ? (

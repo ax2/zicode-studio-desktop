@@ -66,6 +66,7 @@ interface TaskCenterState {
     successMessage?: string,
   ): Promise<void>;
   togglePinned(taskId: string): Promise<void>;
+  toggleArchived(taskId: string): Promise<void>;
   removeTask(taskId: string): Promise<void>;
   clearDoneTasks(): Promise<void>;
   answerTask(task: SuperAgentTask, answer: string): Promise<void>;
@@ -402,6 +403,17 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         taskId,
         (current) => ({ ...current, pinned: pinning }),
         pinning ? t("Task pinned") : t("Task unpinned"),
+      );
+    },
+
+    async toggleArchived(taskId) {
+      const task = get().tasks.find((candidate) => candidate.id === taskId);
+      if (!task) return;
+      const archiving = !Boolean(task.archived);
+      await get().updateTask(
+        taskId,
+        (current) => ({ ...current, archived: archiving }),
+        archiving ? t("Task archived") : t("Task restored"),
       );
     },
 
