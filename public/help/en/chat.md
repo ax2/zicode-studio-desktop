@@ -25,7 +25,9 @@ next message:
   and run no side effects;
 - **Craft (default)**: execute the task and modify files directly;
 - **Plan**: first propose an execution plan (steps, files to change, expected
-  output) and do not modify any files until you confirm.
+  output) and do not modify any files until you confirm. If the agent tries
+  to write files before you confirm the plan, ZiCode shows a warning and
+  suggests stopping, reviewing the plan, then switching to Craft.
 
 The selected mode prepends a matching instruction to the message. Daily use
 stays on the default **Craft**.

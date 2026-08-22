@@ -2672,17 +2672,28 @@ async function handleRuntimeEvent(event) {
     case "tool_execution_start":
       toolRenderer.createToolCard({ ...event, status: "pending" });
       fileResultViews?.recordTool(event);
-      if (
-        document.getElementById("composer-mode")?.value === "ask" &&
-        isFileWritingTool(event.toolName)
-      ) {
-        notifications.notify({
-          title: t("Ask mode detected a file write"),
-          message: t(
-            "The agent is about to modify files even though Ask mode should only answer. Stop it or switch to Craft.",
-          ),
-          type: "warning",
-        });
+      {
+        const workMode = document.getElementById("composer-mode")?.value;
+        if (
+          isFileWritingTool(event.toolName) &&
+          (workMode === "ask" || workMode === "plan")
+        ) {
+          notifications.notify({
+            title:
+              workMode === "ask"
+                ? t("Ask mode detected a file write")
+                : t("Plan mode detected a file write"),
+            message:
+              workMode === "ask"
+                ? t(
+                    "The agent is about to modify files even though Ask mode should only answer. Stop it or switch to Craft.",
+                  )
+                : t(
+                    "The agent is about to modify files before you confirmed the plan. Stop it, review the plan, then switch to Craft.",
+                  ),
+            type: "warning",
+          });
+        }
       }
       break;
     case "tool_execution_update":

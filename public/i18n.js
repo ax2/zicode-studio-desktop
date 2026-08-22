@@ -601,6 +601,9 @@ const zhCN = {
   "Ask mode detected a file write": "问一问模式下检测到文件写入",
   "The agent is about to modify files even though Ask mode should only answer. Stop it or switch to Craft.":
     "代理即将修改文件，但问一问模式应当只回答。请停止它或切换到做一做。",
+  "Plan mode detected a file write": "想一想模式下检测到文件写入",
+  "The agent is about to modify files before you confirmed the plan. Stop it, review the plan, then switch to Craft.":
+    "代理在你确认计划前就要修改文件。请停止执行，先审阅计划，再切换到做一做继续。",
   "First propose an execution plan (steps, files to change, expected output). Do not modify any files until the user confirms the plan.":
     "【先计划】请先输出执行计划（步骤、要修改的文件、预期结果），在用户确认计划前不要修改任何文件。",
   "Toggle file browser": "切换文件浏览器",
