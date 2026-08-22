@@ -67,6 +67,7 @@ export interface OcrState {
   run(): Promise<void>;
   copy(): Promise<void>;
   sendToNote(): Promise<void>;
+  discussInChat(): Promise<void>;
   download(): void;
 }
 
@@ -75,10 +76,18 @@ export interface OcrOptions {
   getTarget(): OcrScope;
   notify(message: string): void;
   saveToNote?(text: string): Promise<void>;
+  /** Switch to Chat and prefill the composer with the extracted text. */
+  onUseInChat?(text: string): void;
 }
 
 export function createOcrStore(options: OcrOptions) {
-  const { gateway = new OcrHttpGateway(), getTarget, notify, saveToNote } = options;
+  const {
+    gateway = new OcrHttpGateway(),
+    getTarget,
+    notify,
+    saveToNote,
+    onUseInChat,
+  } = options;
   return create<OcrState>()((set, get) => ({
     image: "",
     fileName: "",
@@ -147,6 +156,13 @@ export function createOcrStore(options: OcrOptions) {
       } catch (error) {
         set({ busy: false, error: friendlyPluginError(error) });
       }
+    },
+
+    async discussInChat() {
+      const { editedText } = get();
+      if (!onUseInChat || !editedText.trim()) return;
+      onUseInChat(editedText.trim());
+      notify(t("Added to chat"));
     },
 
     download() {

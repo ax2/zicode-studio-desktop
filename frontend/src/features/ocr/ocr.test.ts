@@ -93,4 +93,20 @@ describe("ocr store", () => {
       HTMLAnchorElement.prototype.click = originalClick;
     }
   });
+
+  it("sends the extracted text into the chat composer", async () => {
+    const gateway = stubGateway();
+    const onUseInChat = vi.fn();
+    const notify = vi.fn();
+    const store = createOcrStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+      onUseInChat,
+    });
+    await store.getState().extractImage("data:image/png;base64,AAAA", "shot.png");
+    await store.getState().discussInChat();
+    expect(onUseInChat).toHaveBeenCalledWith("Hello world");
+    expect(notify).toHaveBeenCalledWith("Added to chat");
+  });
 });

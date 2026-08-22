@@ -151,6 +151,14 @@ function OcrMain({ store }: { store: OcrStore }) {
               </button>
               <button
                 type="button"
+                className="ui-button ui-button--primary ui-button--sm"
+                disabled={busy}
+                onClick={() => void store.getState().discussInChat()}
+              >
+                {t("Add to chat")}
+              </button>
+              <button
+                type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
                 onClick={() => {
                   void store.getState().copy();
