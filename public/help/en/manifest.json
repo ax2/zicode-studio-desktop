@@ -121,6 +121,27 @@
       "summary": "Translate text between languages with the configured model"
     },
     {
+      "id": "ocr",
+      "title": "Text Extraction",
+      "section": "Utility apps",
+      "file": "ocr.md",
+      "summary": "Extract text from screenshots and images with the system OCR engine"
+    },
+    {
+      "id": "watch",
+      "title": "Web Watch",
+      "section": "Utility apps",
+      "file": "watch.md",
+      "summary": "Detect when public web pages change with content hashes"
+    },
+    {
+      "id": "habits",
+      "title": "Habit Tracker",
+      "section": "Utility apps",
+      "file": "habits.md",
+      "summary": "Track daily habits with streaks and history"
+    },
+    {
       "id": "finance",
       "title": "Finance Workbench",
       "section": "Finance Workbench",

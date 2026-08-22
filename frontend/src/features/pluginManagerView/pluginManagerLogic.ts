@@ -62,6 +62,9 @@ export function helpPageForPlugin(pluginId: string): string | null {
     "com.zicode.artifacts": "artifacts",
     "com.zicode.articles": "articles",
     "com.zicode.inbox": "inbox",
+    "com.zicode.ocr": "ocr",
+    "com.zicode.watch": "watch",
+    "com.zicode.habits": "habits",
   };
   return pages[pluginId] ?? null;
 }

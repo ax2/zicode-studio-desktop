@@ -123,6 +123,27 @@
       "summary": "使用已配置模型在多种语言之间翻译文本"
     },
     {
+      "id": "ocr",
+      "title": "文字识别",
+      "section": "工具应用",
+      "file": "ocr.md",
+      "summary": "用系统 OCR 从截图和图片中提取文字"
+    },
+    {
+      "id": "watch",
+      "title": "网页监控",
+      "section": "工具应用",
+      "file": "watch.md",
+      "summary": "通过内容哈希检测公开网页何时变化"
+    },
+    {
+      "id": "habits",
+      "title": "习惯追踪",
+      "section": "工具应用",
+      "file": "habits.md",
+      "summary": "用连续天数与历史记录跟踪每日习惯"
+    },
+    {
       "id": "finance",
       "title": "金融工作台",
       "section": "金融工作台",
