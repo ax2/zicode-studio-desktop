@@ -9,6 +9,18 @@ export interface ArticlesScope {
   workspaceId: string;
 }
 
+export function slugifyTitle(title: string): string {
+  return String(title ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function titleFromMarkdown(markdown: string): string {
+  const match = String(markdown ?? "").match(/^title:\s*"([^"]*)"/m);
+  return match?.[1]?.trim() ?? "";
+}
+
 export interface ArticleSummary {
   slug: string;
   title: string;
@@ -307,7 +319,11 @@ export function createArticlesStore({
         set({ current: null, draftMarkdown: markdown, draftSlug: "", error: "" });
       },
       setMarkdown(markdown) {
-        set({ draftMarkdown: markdown });
+        const current = get();
+        const suggestedSlug = current.draftSlug.trim()
+          ? current.draftSlug
+          : slugifyTitle(titleFromMarkdown(markdown));
+        set({ draftMarkdown: markdown, draftSlug: suggestedSlug });
         scheduleAutosave();
       },
       setSlug(slug) {

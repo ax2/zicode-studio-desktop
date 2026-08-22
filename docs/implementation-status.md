@@ -1,5 +1,16 @@
 # 实现状态
 
+## 2026-08-22 文章创作 slug 按标题自动生成
+
+- 新建文章时 slug（博客链接标识）此前必须手填且为空时无法保存；现在
+  编辑 Markdown 时若 slug 为空，会从 frontmatter 的标题自动生成
+  （ASCII 转小写、非字母数字转连字符、去掉首尾连字符；纯中文标题因
+  不适合做 URL slug 保持留空由用户手填）。手动填过的 slug 不会被覆盖。
+- slug 输入框新增占位提示「标题留空时按标题自动生成」。
+- 验证：articles store 12 项全绿（新增 slugifyTitle/titleFromMarkdown
+  单测 + 自动填充/保留手填断言）；全量 166 文件 / 1237 用例全绿；
+  typecheck、Biome 通过；react bundle 与 i18n 全量同步安装目录。
+
 ## 2026-08-22 键盘可达性全应用扫描 + qa-keyboard 一键运行
 
 - 用 Tab 走查全部 14 个启用应用：无焦点陷阱、无不可见元素获得焦点、

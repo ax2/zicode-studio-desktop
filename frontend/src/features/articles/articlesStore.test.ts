@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createArticlesStore, type ArticlesGateway } from "./articlesStore";
+import {
+  createArticlesStore,
+  slugifyTitle,
+  titleFromMarkdown,
+  type ArticlesGateway,
+} from "./articlesStore";
 
 function mockGateway(overrides: Partial<ArticlesGateway> = {}): ArticlesGateway {
   return {
@@ -207,5 +212,37 @@ describe("articles store", () => {
     await store.getState().load();
     expect(store.getState().error).toBeTruthy();
     expect(store.getState().busy).toBe(false);
+  });
+});
+
+describe("article slug helpers", () => {
+  it("slugifies ASCII titles and reads the frontmatter title", () => {
+    expect(slugifyTitle("Hello World!")).toBe("hello-world");
+    expect(slugifyTitle("  Multi--Space  Test  ")).toBe("multi-space-test");
+    expect(slugifyTitle("纯中文标题")).toBe("");
+    expect(
+      titleFromMarkdown('---\ntitle: "My Post"\n---\n\nbody'),
+    ).toBe("My Post");
+  });
+
+  it("auto-suggests a slug from the title when the slug is empty", async () => {
+    const gateway = mockGateway();
+    const { store } = makeStore(gateway);
+    store.getState().newArticle();
+    store
+      .getState()
+      .setMarkdown('---\ntitle: "Hello World"\n---\n\ncontent');
+    expect(store.getState().draftSlug).toBe("hello-world");
+  });
+
+  it("keeps a manually entered slug when the markdown changes", async () => {
+    const gateway = mockGateway();
+    const { store } = makeStore(gateway);
+    store.getState().newArticle();
+    store.getState().setSlug("custom-slug");
+    store
+      .getState()
+      .setMarkdown('---\ntitle: "Hello World"\n---\n\ncontent');
+    expect(store.getState().draftSlug).toBe("custom-slug");
   });
 });

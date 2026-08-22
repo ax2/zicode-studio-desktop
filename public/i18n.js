@@ -1678,6 +1678,7 @@ const zhCN = {
   Link: "链接",
   "Column 1": "列 1",
   "Column 2": "列 2",
+  "Auto-generated from the title when empty": "标题留空时按标题自动生成",
   "Note content": "笔记内容",
   "No note selected": "尚未选择笔记",
   "Your local Notes library": "你的本地笔记库",

@@ -222,6 +222,7 @@ function ArticlesMain({
           <input
             className="ui-input"
             value={draftSlug}
+            placeholder={t("Auto-generated from the title when empty")}
             aria-label={t("Slug")}
             onChange={(event) => store.getState().setSlug(event.target.value)}
           />
