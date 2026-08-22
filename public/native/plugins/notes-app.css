@@ -966,6 +966,52 @@
   margin-bottom: var(--space-4);
 }
 
+.notes-format-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+}
+
+.notes-format-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.notes-format-btn:hover,
+.notes-format-btn:focus-visible {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .notes-format-bar {
+    gap: var(--space-0-5);
+  }
+
+  .notes-format-btn {
+    min-width: 34px;
+    height: 34px;
+  }
+}
+
 /* biome-ignore lint/style/noDescendingSpecificity: base icon size is grouped with the editor toolbar styles below the more-menu override */
 .notes-btn-icon {
   width: 16px;

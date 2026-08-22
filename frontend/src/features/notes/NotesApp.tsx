@@ -2375,6 +2375,63 @@ function NoteEditor({ store }: { store: NotesStore }) {
     });
   };
 
+  const insertPrefix = (prefix: string) => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const lineStart = draftContent.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = draftContent.indexOf("\n", start);
+    const lineEndIndex = lineEnd === -1 ? draftContent.length : lineEnd;
+    const line = draftContent.slice(lineStart, lineEndIndex);
+    const nextLine = line.trimStart().startsWith(prefix.trim())
+      ? line
+      : `${prefix}${line}`;
+    const next = `${draftContent.slice(0, lineStart)}${nextLine}${draftContent.slice(
+      lineEndIndex,
+    )}`;
+    setDraft({ content: next });
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      const cursor = start + (nextLine.length - line.length);
+      el.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const insertTable = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const table = `| ${t("Column 1")} | ${t("Column 2")} |\n|---|---|\n|  |  |`;
+    const next = `${draftContent.slice(0, start)}${table}${draftContent.slice(start)}`;
+    setDraft({ content: next });
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(start, start);
+    });
+  };
+
+  const insertLinkMarkdown = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = draftContent.slice(start, end);
+    const insertion = selected ? `[${selected}](url)` : "[](url)";
+    const next = `${draftContent.slice(0, start)}${insertion}${draftContent.slice(end)}`;
+    setDraft({ content: next });
+    window.requestAnimationFrame(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      el.focus();
+      const cursor = start + insertion.indexOf("url");
+      el.setSelectionRange(cursor, cursor + 3);
+    });
+  };
+
   const renderSecondaryActions = (role?: string) => (
     <>
       <ToolbarButton
@@ -2852,6 +2909,98 @@ function NoteEditor({ store }: { store: NotesStore }) {
         </div>
       ) : (
         <>
+        <div className="notes-format-bar" role="toolbar" aria-label={t("Markdown formatting")}>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Bold (Ctrl+B)")}
+            aria-label={t("Bold (Ctrl+B)")}
+            onClick={() => wrapSelection("**")}
+          >
+            <strong>B</strong>
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Italic (Ctrl+I)")}
+            aria-label={t("Italic (Ctrl+I)")}
+            onClick={() => wrapSelection("*")}
+          >
+            <em>I</em>
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Heading")}
+            aria-label={t("Heading")}
+            onClick={() => insertPrefix("## ")}
+          >
+            H
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Inline code")}
+            aria-label={t("Inline code")}
+            onClick={() => wrapSelection("`")}
+          >
+            {"<>"}
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Code block (Ctrl+Shift+K)")}
+            aria-label={t("Code block (Ctrl+Shift+K)")}
+            onClick={wrapCodeBlock}
+          >
+            {"{ }"}
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Quote")}
+            aria-label={t("Quote")}
+            onClick={() => insertPrefix("> ")}
+          >
+            ❝
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Bullet list")}
+            aria-label={t("Bullet list")}
+            onClick={() => insertPrefix("- ")}
+          >
+            ••
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Task list")}
+            aria-label={t("Task list")}
+            onClick={() => insertPrefix("- [ ] ")}
+          >
+            ☑
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Table")}
+            aria-label={t("Table")}
+            onClick={insertTable}
+          >
+            ▦
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Link")}
+            aria-label={t("Link")}
+            onClick={insertLinkMarkdown}
+          >
+            🔗
+          </button>
+        </div>
         <textarea
           ref={contentRef}
           className="notes-content-input"
