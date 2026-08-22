@@ -968,6 +968,7 @@ const documentsApp = setupDocumentsApp({
     workspaceId: target.workspaceId,
   }),
   notify: notifications.notify,
+  onUseInChat: (text) => prefillComposer(text),
   listNotebooks: async () => {
     const { sceneId, workspaceId } = target;
     const list = await notesGateway.list(sceneId, workspaceId);

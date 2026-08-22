@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-22 文档导入「添加到对话」闭环
+
+- 文档导入（PDF/DOCX → Markdown）此前只有复制/下载/保存到笔记，转换结果
+  无法直接讨论。新增「添加到对话」：把转换出的 Markdown 填入对话输入框
+  （复用 `prefillComposer`）；超长文档（> 24k 字符）提示先保存到笔记再
+  带入，避免撑爆输入框。
+- store 新增 `discussInChat`（经 `onUseInChat` 回调），app.js 接线；
+  帮助页 documents.md（中英）同步更新。
+- 验证：documents 10 项全绿（新增带入对话 + 超长拒绝断言）；全量 166
+  文件 / 1245 用例全绿；typecheck、Biome、node --check 通过；react
+  bundle、app.js、i18n、帮助文件已同步安装目录。
+
 ## 2026-08-22 OCR「添加到对话」闭环
 
 - 文字识别（OCR）应用此前只有复制/下载/发送到笔记，提取的文字无法直接

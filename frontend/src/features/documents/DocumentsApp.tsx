@@ -211,6 +211,13 @@ function DocumentsMain({ store }: { store: DocumentsStore }) {
               </button>
               <button
                 type="button"
+                className="ui-button ui-button--secondary ui-button--sm"
+                onClick={() => void store.getState().discussInChat()}
+              >
+                {t("Add to chat")}
+              </button>
+              <button
+                type="button"
                 className="ui-button ui-button--primary ui-button--sm"
                 disabled={saving}
                 aria-busy={saving}

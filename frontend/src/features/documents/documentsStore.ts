@@ -82,6 +82,7 @@ export interface DocumentsState {
   run(): Promise<void>;
   save(): Promise<void>;
   copyMarkdown(): Promise<void>;
+  discussInChat(): Promise<void>;
   download(): void;
 }
 
@@ -91,7 +92,11 @@ export interface DocumentsOptions {
   notify(message: string): void;
   listNotebooks?(): Promise<NotebookRef[]>;
   saveToNotes?(notebookId: string, fileName: string, markdown: string): Promise<void>;
+  /** Switch to Chat and prefill the composer with the converted Markdown. */
+  onUseInChat?(text: string): void;
 }
+
+const MAX_CHAT_MARKDOWN_CHARS = 24_000;
 
 export function createDocumentsStore(options: DocumentsOptions) {
   const {
@@ -100,6 +105,7 @@ export function createDocumentsStore(options: DocumentsOptions) {
     notify,
     listNotebooks,
     saveToNotes,
+    onUseInChat,
   } = options;
   return create<DocumentsState>()((set, get) => ({
     fileName: "",
@@ -194,6 +200,20 @@ export function createDocumentsStore(options: DocumentsOptions) {
       } catch (error) {
         set({ error: error instanceof Error ? error.message : String(error) });
       }
+    },
+
+    async discussInChat() {
+      const { result } = get();
+      const markdown = result?.markdown?.trim() ?? "";
+      if (!markdown || !onUseInChat) return;
+      if (markdown.length > MAX_CHAT_MARKDOWN_CHARS) {
+        notify(
+          t("Document is too long to add to chat; save it to Notes first."),
+        );
+        return;
+      }
+      onUseInChat(markdown);
+      notify(t("Added to chat"));
     },
 
     download() {

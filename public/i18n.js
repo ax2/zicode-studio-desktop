@@ -165,6 +165,8 @@ const zhCN = {
   "Could not load artifact": "无法加载产物",
   'Discuss the artifact "{title}" and continue.': '讨论产物“{title}”并继续。',
   "Added to chat": "已添加到对话",
+  "Document is too long to add to chat; save it to Notes first.":
+    "文档太长无法直接加入对话，请先保存到笔记。",
   "Discuss this captured item and continue:": "讨论这条收件箱内容并继续：",
   "Sent to notes": "已发送到笔记",
   "Inbox cleared": "已清空收件箱",

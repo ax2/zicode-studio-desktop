@@ -68,6 +68,53 @@ describe("documents store", () => {
     expect(store.getState().result?.markdown).toContain("# Introduction");
   });
 
+  it("adds the converted Markdown into the chat composer", async () => {
+    const gateway = stubGateway();
+    const onUseInChat = vi.fn();
+    const notify = vi.fn();
+    const store = createDocumentsStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+      onUseInChat,
+    });
+    store
+      .getState()
+      .setFile("report.docx", "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA");
+    await store.getState().run();
+    await store.getState().discussInChat();
+    expect(onUseInChat).toHaveBeenCalledWith(expect.stringContaining("# Introduction"));
+    expect(notify).toHaveBeenCalledWith("Added to chat");
+  });
+
+  it("refuses to add oversized documents to chat", async () => {
+    const gateway = stubGateway({
+      import: vi.fn(async () => ({
+        ok: true,
+        markdown: "x".repeat(25_000),
+        title: "Huge",
+        fileName: "huge.md",
+        kind: "md",
+        charCount: 25_000,
+      })),
+    });
+    const onUseInChat = vi.fn();
+    const notify = vi.fn();
+    const store = createDocumentsStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify,
+      onUseInChat,
+    });
+    store.getState().setFile("huge.md", "data:text/plain;base64,AAAA");
+    await store.getState().run();
+    await store.getState().discussInChat();
+    expect(onUseInChat).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("too long"),
+    );
+  });
+
   it("localizes runtime-disconnected errors when saving to notes", async () => {
     setLocale("zh-CN");
     const gateway = stubGateway();
