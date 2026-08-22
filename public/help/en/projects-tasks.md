@@ -84,6 +84,9 @@ and you can adjust them or reset with **Use custom**. **Create automation** adds
 list immediately. On phones, these fields use a 16px input font and touch targets at least 40px high
 to avoid focus zoom and missed taps. Every field retains a visible label after entry, and tapping that
 label focuses the associated control.
+Existing workflow cards can be **Duplicated** into a new workflow with the
+same configuration (title gets a "(copy)" suffix, history is cleared, next run
+is recomputed) — handy for deriving variants from an existing rule.
 
 ### When automation runs on its own
 
