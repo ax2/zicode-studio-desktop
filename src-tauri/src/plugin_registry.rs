@@ -1674,8 +1674,9 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 }
             }),
             false,
-            // Incomplete: project create/edit/delete is not implemented yet.
-            false,
+            // P2-6: project workspace is enabled so the shared project context
+            // (instructions, budget, knowledge connections) applies across apps.
+            true,
         ),
         (
             json!({
@@ -2638,10 +2639,8 @@ mod tests {
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
         assert_eq!(registry.list("programming").len(), 17);
         assert_eq!(registry.capabilities("programming").len(), 11);
-        // Projects is still incomplete (no project CRUD) and stays disabled;
-        // Tasks and Automation have complete, verified usage loops and ship
-        // enabled by default for fresh scenes.
-        assert!(!registry
+        // P2-6: Projects ships enabled so the shared project context applies.
+        assert!(registry
             .list("programming")
             .into_iter()
             .find(|plugin| plugin.manifest.id == "com.zicode.projects")

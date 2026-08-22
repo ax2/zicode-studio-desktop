@@ -24,8 +24,9 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
     description: "Persistent workspaces that connect conversations, notes, files, and artifacts.",
     icon: "projects",
     order: 50,
-    // Incomplete: project create/edit/delete is not implemented yet.
-    enabledByDefault: false,
+    // P2-6: project workspace is enabled so the shared project context
+    // (instructions, budget, knowledge connections) applies across apps.
+    enabledByDefault: true,
     sidebarViews: [],
     commands: [{ id: "projects.open", label: "Open project overview", icon: "open" }],
   },

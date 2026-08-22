@@ -2485,6 +2485,10 @@ async function sendComposerInput({ altKey, retried = false } = {}) {
   if (modePrompt && intent.command?.message) {
     intent.command.message = `${modePrompt}\n\n${intent.command.message}`;
   }
+  const projectInstructions = readProjectWorkspaceProfile({ target }).instructions?.trim();
+  if (projectInstructions && intent.command?.message) {
+    intent.command.message = `${t("Project instructions")}:\n${projectInstructions}\n\n${intent.command.message}`;
+  }
   if (memoryCache.enabled && memoryCache.entries.length > 0 && intent.command?.message) {
     const memoryText = memoryCache.entries
       .map((entry) => `- ${entry.text}`)

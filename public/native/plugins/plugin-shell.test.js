@@ -98,7 +98,7 @@ describe("setupPluginShell", () => {
     history.replaceState(
         null,
         "",
-        "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.projects",
+        "/app/workspaces/workspace-b/sessions/session-b?app=com.zicode.graph",
       );
     const notify = vi.fn();
     const shell = setupPluginShell({ registry: registry(), notify });
@@ -111,7 +111,7 @@ describe("setupPluginShell", () => {
       }),
       );
       const message = notify.mock.calls[0][0].message;
-      expect(message).toContain("Projects");
+      expect(message).toContain("Graph");
       expect(message).toContain("Plugin Manager");
   });
 
@@ -332,11 +332,6 @@ describe("setupPluginShell", () => {
 
   it("keeps primary mobile destinations visible and moves secondary activities into More", async () => {
     const testRegistry = registry();
-    // Tasks/Automation are disabled by default until the background Host
-    // Runner lands; enable them here so the More panel interaction stays
-    // covered. Projects stays disabled (no project CRUD yet).
-    await testRegistry.setEnabled("com.zicode.tasks", true);
-    await testRegistry.setEnabled("com.zicode.automation", true);
     const shell = setupPluginShell({ registry: testRegistry });
     const historyBack = vi.spyOn(history, "back");
     const more = document.querySelector("[data-mobile-activity-more]");
@@ -346,7 +341,7 @@ describe("setupPluginShell", () => {
     );
 
     expect(document.querySelector('[data-plugin-id="core.chat"]')).not.toBeNull();
-    expect(document.querySelector('[data-plugin-id="com.zicode.projects"]')).toBeNull();
+    expect(document.querySelector('[data-plugin-id="com.zicode.projects"]')).not.toBeNull();
     expect(document.querySelector('[data-plugin-id="com.zicode.notes"]')).not.toBeNull();
     expect(document.querySelector('[data-plugin-id="core.files"]')).not.toBeNull();
     expect(menuLabels).toEqual(

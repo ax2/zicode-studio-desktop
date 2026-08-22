@@ -14,10 +14,8 @@ describe("BuiltinPluginRegistry", () => {
     const registry = new BuiltinPluginRegistry({ storage: memoryStorage() });
 
     expect(registry.get("core.chat")).toMatchObject({ core: true, enabled: true });
-    // Projects is still incomplete (no project CRUD) and stays disabled;
-    // Tasks and Automation have complete, verified usage loops and ship
-    // enabled by default.
-    expect(registry.get("com.zicode.projects")).toMatchObject({ enabled: false });
+    // P2-6: Projects ships enabled so the shared project context applies.
+    expect(registry.get("com.zicode.projects")).toMatchObject({ enabled: true });
     expect(registry.get("com.zicode.tasks")).toMatchObject({ enabled: true });
     expect(registry.get("com.zicode.automation")).toMatchObject({ enabled: true });
     expect(registry.get("com.zicode.notes")).toMatchObject({ enabled: true });

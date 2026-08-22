@@ -1,5 +1,24 @@
 # 实现状态
 
+## 2026-08-22 P2-6 项目共享上下文启用（用户决策 3：可以）
+
+- 按用户决策启用项目共享上下文：
+  - Projects 插件默认开启（JS 注册表 + Rust 宿主 `builtin_manifests`
+    的 enabledByDefault 改为 true；当前实例同步更新持久化
+    `registry.json` 的 programming 场景状态为启用并授予 storage.plugin）；
+  - 共享上下文打通：项目指令（项目上下文编辑器里填写的 instructions）
+    自动注入该项目对话的每条提示词（与记忆注入并列，位于工作模式提示
+    与记忆之间），`t("Project instructions")` 双语文案；
+  - 项目预算与知识连接此前已生效，至此「项目指令/预算/知识连接」共享
+    上下文层全部就绪。
+- 帮助文档 projects-tasks.md（中英）更新默认状态说明。
+- 验证：plugin-registry 42 项、projects 测试全绿；Rust
+  `cargo test plugin_registry` 12 项全绿（默认启用断言）；全量 JS 测试
+  待跑；应用重启后 Projects 双视口渲染正常（桌面 1440 + 移动 390，
+  五个视图齐全、无溢出/裁剪），插件列表确认 enabled=True。
+- 说明：Rust 默认值改动需要 release 构建（cargo release 编译超时，
+  已记录为下次发布构建项）；当前实例经持久化状态启用，不受影响。
+
 ## 2026-08-22 QA 聚合脚本（一条命令跑完三类浏览器扫描）
 
 - 新增 `scripts/qa-full.mjs` + `npm run qa:full`：依次执行 visual-qa

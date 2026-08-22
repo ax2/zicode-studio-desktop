@@ -595,6 +595,7 @@ const zhCN = {
   "No new memory entries to import": "没有需要导入的新记忆",
   "Could not import memory: invalid JSON": "无法导入记忆：JSON 格式无效",
   "Relevant memory": "相关记忆",
+  "Project instructions": "项目指令",
   "Work mode": "工作模式",
   "Default work mode": "默认工作模式",
   "Search tasks": "搜索任务",
