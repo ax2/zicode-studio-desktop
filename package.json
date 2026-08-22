@@ -58,6 +58,7 @@
     "qa:console": "node scripts/qa-console-errors.mjs",
     "qa:keyboard": "node scripts/qa-keyboard.mjs",
     "qa:locale": "node scripts/qa-locale.mjs",
+    "qa:full": "node scripts/qa-full.mjs",
     "qa:data": "node scripts/qa-data-presence.mjs",
     "qa:a11y": "node scripts/qa-a11y.mjs"
   },

@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-22 QA 聚合脚本（一条命令跑完三类浏览器扫描）
+
+- 新增 `scripts/qa-full.mjs` + `npm run qa:full`：依次执行 visual-qa
+  （布局+交互闭环，15 应用×双视口）、qa-a11y（可访问名称 15/15）、
+  qa-keyboard（键盘可达性 14/14）；工作区默认取 `%LOCALAPPDATA%\
+  zicode\workspaces` 下第一个目录（可被 ZICODE_WORKSPACE 或参数覆盖），
+  每个脚本继续自动解析 UUID 与发现会话。
+- 实测 `node scripts/qa-full.mjs` 三条全过；扫描后 QA 数据自清理确认
+  （笔记 0、收件箱 0、任务 4、工作流 2，基线不变）。
+
 ## 2026-08-22 运行时健康核查（进程/内存/日志）
 
 - 多轮重启与功能迭代后核查运行实例：pi/bun 子进程 13 个、合计约 440MB
