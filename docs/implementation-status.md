@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-22 结果面板「变更」diff 视图（P1-3 收尾）
+
+- 新增共享行级 diff 模块 `public/ui/diff.js`（LCS 编辑脚本，2000 行上限退化
+  为前后全量对比，CRLF 归一化），同时升级两处：
+  - 对话工具卡片 Edit diff 从「全删全增」升级为最小变更对比（不变行不再
+    重复显示）；
+  - 右侧结果面板「变更」视图：每行文件新增类型徽标（已修改/已新建/已追加）、
+    点击展开该文件的真实 diff（edit/patch 用参数中的 old/new 内容，
+    write/create/append 显示新增内容），保留「定位文件」跳转按钮
+    （原点击行为迁移到放大镜图标）。
+- 验证：新增 `public/ui/diff.test.js` 5 项、toolChangeInfo 3 项、chat LCS
+  断言 1 项；全量 162 文件 / 1205 用例全绿；typecheck、Biome、node --check
+  通过；react bundle、app.js、tool-guard.js、diff.js、i18n、CSS bundle 全量
+  同步安装目录。
+
 ## 2026-08-22 参考 WorkBuddy 的可用性改造（阶段标签 / 权限文案 / 记忆模板）
 
 - 工具卡片执行阶段人性化（P1-3 后半）：新增 `toolStageLabel`，把内部工具名

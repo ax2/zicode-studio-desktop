@@ -1,4 +1,6 @@
 import { t } from "../../shared/i18n";
+// @ts-expect-error plain JS module without type declarations (public/ui/diff.js)
+import { diffLines } from "../../../../public/ui/diff.js";
 
 export interface ContentBlock {
   type?: string;
@@ -222,12 +224,5 @@ export interface DiffLine {
 }
 
 export function renderDiffData(oldText: string, newText: string): DiffLine[] {
-  const lines: DiffLine[] = [];
-  for (const line of oldText.split("\n")) {
-    lines.push({ kind: "removed", text: `- ${line}` });
-  }
-  for (const line of newText.split("\n")) {
-    lines.push({ kind: "added", text: `+ ${line}` });
-  }
-  return lines;
+  return diffLines(oldText, newText);
 }

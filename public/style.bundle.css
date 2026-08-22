@@ -17517,6 +17517,84 @@ body[data-active-plugin]:not([data-active-plugin="core.chat"]) #file-sidebar-tog
   font-size: var(--font-size-sm);
 }
 
+.file-sidebar-change-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.file-sidebar-change-row {
+  min-width: 0;
+}
+
+.file-sidebar-change-titleline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+
+.file-sidebar-change-titleline .file-sidebar-item-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-sidebar-change-badge {
+  flex-shrink: 0;
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.file-sidebar-change-locate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.file-sidebar-change-locate:hover,
+.file-sidebar-change-locate:focus-visible {
+  background: var(--surface-hover);
+  color: var(--accent);
+  opacity: 1;
+}
+
+.file-sidebar-change-diff {
+  margin: 0 var(--space-1-5) var(--space-1-5) var(--space-3);
+  border-left: 2px solid var(--border);
+  max-height: 40vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.file-sidebar-change-diff .diff-line {
+  padding: var(--space-0-5) var(--space-3);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.file-sidebar-change-note {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+}
+
 .file-list {
   flex: 1;
   overflow-y: auto;

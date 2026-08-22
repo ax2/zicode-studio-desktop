@@ -19,6 +19,7 @@ import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { applyTheme, getCurrentTheme } from "../themes.js";
 import { ConvNav } from "./react/conv-nav.js";
 import { setupMessagesInsets } from "../ui/layout-insets.js";
+import { diffLines } from "../ui/diff.js";
 import { MessageRenderer, ToolCardRenderer } from "./react/chat.js";
 import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js";
 import { setupComposerImageAttachments } from "./react/composer.js";
@@ -64,7 +65,7 @@ import { setupTranslationApp } from "./react/translate.js";
 import { setupWatchApp } from "./react/watch.js";
 import { setupOcrApp } from "./react/ocr.js";
 import { mergeMemoryEntries, parseMemoryExtractAnswer } from "./memory-extract.js";
-import { isFileWritingTool, toolFilePath } from "./tool-guard.js";
+import { isFileWritingTool, toolChangeInfo, toolFilePath } from "./tool-guard.js";
 import { setupArticlesApp } from "./react/articles.js";
 import { setupNotesApp } from "./react/notes.js";
 import { createModelDropdownFeed } from "./react/composer.js";
@@ -2278,28 +2279,93 @@ function setupFileBrowser() {
     }
     const rows = [...changes.values()].reverse();
     for (const change of rows) {
+      const wrap = document.createElement("div");
+      wrap.className = "file-sidebar-change";
+      const head = document.createElement("div");
+      head.className = "file-sidebar-change-head";
       const row = document.createElement("button");
       row.type = "button";
-      row.className = "file-sidebar-item";
+      row.className = "file-sidebar-item file-sidebar-change-row";
+      row.setAttribute("aria-expanded", "false");
       const fileName = String(change.path).split("/").filter(Boolean).pop() || change.path;
       const titleEl = document.createElement("span");
       titleEl.className = "file-sidebar-item-title";
       titleEl.textContent = fileName;
+      const badge = document.createElement("span");
+      badge.className = "file-sidebar-change-badge";
+      badge.textContent = changeKindLabel(change.kind);
       const metaEl = document.createElement("span");
       metaEl.className = "file-sidebar-item-meta";
       metaEl.textContent = change.path;
-      row.append(titleEl, metaEl);
+      const titleLine = document.createElement("span");
+      titleLine.className = "file-sidebar-change-titleline";
+      titleLine.append(titleEl, badge);
+      row.append(titleLine, metaEl);
       row.addEventListener("click", () => {
+        const open = wrap.classList.toggle("is-open");
+        row.setAttribute("aria-expanded", String(open));
+        const diffEl = wrap.querySelector(".file-sidebar-change-diff");
+        if (open && diffEl && !diffEl.dataset.rendered) {
+          diffEl.dataset.rendered = "true";
+          renderChangeDiff(diffEl, change);
+        }
+      });
+      const locate = document.createElement("button");
+      locate.type = "button";
+      locate.className = "file-sidebar-change-locate";
+      locate.title = t("Locate file");
+      locate.setAttribute("aria-label", t("Locate file"));
+      locate.innerHTML =
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
+      locate.addEventListener("click", () => {
         setResultView("files");
         const parts = String(change.path).split("/").filter(Boolean);
-        const fileNamePart = parts.pop() || "";
+        parts.pop();
         const dir = parts.join("/");
         browser
           .load(dir)
           .then(() => browser.setHighlight(change.path))
           .catch(showError);
       });
-      changesPane.append(row);
+      head.append(row, locate);
+      const diff = document.createElement("div");
+      diff.className = "file-sidebar-change-diff";
+      diff.hidden = true;
+      wrap.append(head, diff);
+      changesPane.append(wrap);
+    }
+  }
+
+  function renderChangeDiff(container, change) {
+    container.hidden = false;
+    if (!change.hasDiff) {
+      const note = document.createElement("div");
+      note.className = "file-sidebar-change-note";
+      note.textContent = t("File changed by {tool}").replace(
+        "{tool}",
+        String(change.toolName || t("a tool")),
+      );
+      container.append(note);
+      return;
+    }
+    for (const line of diffLines(change.before || "", change.after || "")) {
+      const lineEl = document.createElement("div");
+      lineEl.className = `diff-line diff-${line.kind}`;
+      lineEl.textContent = line.text;
+      container.append(lineEl);
+    }
+  }
+
+  function changeKindLabel(kind) {
+    switch (kind) {
+      case "edit":
+        return t("File modified");
+      case "append":
+        return t("File appended");
+      case "write":
+        return t("File created");
+      default:
+        return t("File changed");
     }
   }
 
@@ -2323,12 +2389,19 @@ function setupFileBrowser() {
     recordTool(event) {
       const toolName = String(event?.toolName || "");
       if (!isFileWritingTool(toolName)) return;
-      const filePath = toolFilePath(event?.args || event?.arguments || {});
+      const args = event?.args || event?.arguments || {};
+      const filePath = toolFilePath(args);
       if (!filePath) return;
+      const info = toolChangeInfo(toolName, args);
+      const existing = changes.get(filePath);
       changes.set(filePath, {
         path: filePath,
         toolName,
         at: new Date().toISOString(),
+        kind: info.kind,
+        before: existing?.before || info.before || "",
+        after: info.after || existing?.after || "",
+        hasDiff: info.hasDiff || Boolean(existing?.hasDiff),
       });
       if (resultView === "changes") renderChangesView();
     },

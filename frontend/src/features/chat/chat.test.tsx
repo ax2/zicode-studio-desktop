@@ -396,6 +396,14 @@ describe("chat feed renderers", () => {
     expect(toolStageLabel("mystery_tool_xyz")).toBe("");
   });
 
+  it("computes a minimal line diff for edit content", () => {
+    expect(renderDiffData("a\nb\nc", "a\nc\nd")).toEqual([
+      { kind: "removed", text: "- b" },
+      { kind: "added", text: "+ d" },
+    ]);
+    expect(renderDiffData("same", "same")).toEqual([]);
+  });
+
   it("renders history tool cards with results and supports expand/collapse", async () => {
     const container = makeContainer();
     const tools = new ToolCardRenderer(container);
