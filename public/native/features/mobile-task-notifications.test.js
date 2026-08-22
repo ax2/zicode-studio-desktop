@@ -108,6 +108,46 @@ describe("mobile task notifications", () => {
     }
   });
 
+  it("includes the resolved task title in the completion notification", async () => {
+    const originalVisibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+    const showNotification = vi.fn(async () => {});
+    localStorage.setItem(MOBILE_TASK_NOTIFICATIONS_KEY, "1");
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    const readTasks = vi.fn(async () => ({
+      ok: true,
+      data: {
+        tasks: [
+          {
+            id: "task-9",
+            title: "每日技术简报",
+            dispatch: { childInstanceId: "instance-1" },
+          },
+        ],
+      },
+    }));
+    try {
+      const view = setupMobileTaskNotifications({
+        clientType: "remote",
+        notificationApi: fakeNotification("granted"),
+        navigatorRef: { serviceWorker: { ready: Promise.resolve({ showNotification }) } },
+        readTasks,
+      });
+      const target = { sessionId: "session-1", instanceId: "instance-1" };
+      view.setTaskRunning(target, true);
+      view.setTaskRunning(target, false);
+
+      await vi.waitFor(() => expect(showNotification).toHaveBeenCalledOnce());
+      expect(readTasks).toHaveBeenCalledWith("read_super_agent_tasks");
+      const options = showNotification.mock.calls[0][1];
+      expect(options.body).toContain("每日技术简报");
+      expect(options.body).toContain("打开 ZiCode 查看结果。");
+      view.dispose();
+    } finally {
+      if (originalVisibility) Object.defineProperty(document, "visibilityState", originalVisibility);
+      else delete document.visibilityState;
+    }
+  });
+
   it("does not interrupt the user when the app is already visible", async () => {
     const showNotification = vi.fn(async () => {});
     localStorage.setItem(MOBILE_TASK_NOTIFICATIONS_KEY, "1");

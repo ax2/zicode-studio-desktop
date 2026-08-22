@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-22 移动端任务完成通知带上任务标题（P2-2 增强）
+
+- 手机 PWA 的任务完成通知此前只有通用文案（“Pi 任务已完成 / 打开 ZiCode
+  查看结果”）。现在通知触发时通过 `read_super_agent_tasks` 按
+  `dispatch.childInstanceId` 解析所属任务标题，正文变为
+  「任务标题：打开 ZiCode 查看结果。」；解析失败时回退通用文案，不阻塞
+  通知。readTasks 支持注入（测试用）与运行时惰性解析（桌面端
+  `__picotConfigCall` 赋值晚于模块 setup，必须延迟到通知时读取）。
+- 验证：mobile-task-notifications 7 项全绿（新增标题解析断言：readTasks
+  调用参数、正文含标题与通用提示）；typecheck、Biome 通过；全量 162 文件 /
+  1206 用例全绿；bundle 与 i18n 全量同步安装目录。
+
 ## 2026-08-22 帮助文档随新功能同步（中英双语）
 
 - chat.md：新增「执行过程可视化」小节——工具卡片阶段标签、展开 diff、停止

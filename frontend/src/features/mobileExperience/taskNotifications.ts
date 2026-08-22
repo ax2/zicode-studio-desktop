@@ -39,6 +39,7 @@ export function setupMobileTaskNotifications({
     }
   ).Notification,
   storage = globalThis.localStorage,
+  readTasks = defaultReadTasks(),
   onError = (error: unknown) =>
     console.warn("[Mobile] Task notification failed:", error),
 }: {
@@ -51,6 +52,7 @@ export function setupMobileTaskNotifications({
     requestPermission?: () => Promise<string>;
   } | null;
   storage?: Storage | null;
+  readTasks?: ((op: string, params?: unknown) => Promise<unknown>) | null;
   onError?: (error: unknown) => void;
 } = {}): MobileTaskNotificationsHandle | null {
   const store = getTaskNotificationsStore();
@@ -128,14 +130,41 @@ export function setupMobileTaskNotifications({
     return `${pathname}${hash}`;
   }
 
-  async function showCompletionNotification() {
+  function readTasksNow() {
+    if (typeof readTasks === "function") return readTasks;
+    return defaultReadTasks();
+  }
+
+  async function resolveTaskTitle(target: unknown): Promise<string | null> {
+    const callRead = readTasksNow();
+    if (typeof callRead !== "function") return null;
+    const instanceId = taskKey(target);
+    if (!instanceId) return null;
+    try {
+      const read = (await callRead("read_super_agent_tasks")) as {
+        data?: { tasks?: Array<{ title?: string; dispatch?: { childInstanceId?: string } }> };
+      };
+      const tasks = read?.data?.tasks ?? [];
+      const match = tasks.find(
+        (task) => task.dispatch?.childInstanceId === instanceId,
+      );
+      return match?.title?.trim() ? match.title.trim() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function showCompletionNotification(target: unknown) {
     const state = store.getState();
     if (!isEnabled() || documentRef?.visibilityState !== "hidden") {
       return false;
     }
+    const taskTitle = await resolveTaskTitle(target);
     const title = t("Pi task finished");
+    const reviewHint = t("Open ZiCode to review the result.");
+    const body = taskTitle ? `${taskTitle}：${reviewHint}` : reviewHint;
     const options = {
-      body: t("Open ZiCode to review the result."),
+      body,
       tag: TASK_NOTIFICATION_TAG,
       renotify: false,
       icon: "/icons/app-192.png",
@@ -174,7 +203,7 @@ export function setupMobileTaskNotifications({
       return;
     }
     if (!activeTasks.delete(key)) return;
-    void showCompletionNotification();
+    void showCompletionNotification(target);
   }
 
   function handleRuntimeEvent(
@@ -221,3 +250,12 @@ export function setupMobileTaskNotifications({
 type TaskNotificationsNavigator = {
   serviceWorker?: { ready?: Promise<unknown> };
 };
+
+function defaultReadTasks(): ((op: string, params?: unknown) => Promise<unknown>) | null {
+  const host = globalThis as {
+    __picotConfigCall?: (op: string, params?: unknown) => Promise<unknown>;
+  };
+  return typeof host.__picotConfigCall === "function"
+    ? host.__picotConfigCall.bind(host)
+    : null;
+}
