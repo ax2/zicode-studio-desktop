@@ -527,6 +527,53 @@ describe("automation React app", () => {
     store.getState().destroy();
   });
 
+  it("opens the owning task from a run history entry", async () => {
+    setLocale("zh-CN");
+    const call = vi.fn(async (operation: string, params?: unknown) => {
+      const p = (params ?? {}) as Record<string, unknown>;
+      if (operation === "automation_workspace" && p.action === "list") {
+        return {
+          ok: true,
+          data: {
+            workflows: [
+              {
+                id: "wf-1",
+                title: "每日技术简报",
+                prompt: "生成简报",
+                schedule: "daily",
+                enabled: true,
+                history: [
+                  {
+                    taskId: "task-42",
+                    status: "completed",
+                    startedAt: "2026-08-22T01:00:00Z",
+                  },
+                ],
+              } satisfies AutomationWorkflow,
+            ],
+          },
+        };
+      }
+      return { ok: true, data: {} };
+    });
+    const store = createAutomationStore({ call });
+    await store.getState().load();
+    render(<AutomationMain store={store} />);
+    await waitFor(() => expect(screen.getByText("查看任务")).toBeTruthy());
+    const dispatched: Array<string | undefined> = [];
+    const listener = (event: Event) => {
+      dispatched.push((event as CustomEvent).detail?.taskId);
+    };
+    window.addEventListener("zicode:open-task", listener);
+    try {
+      fireEvent.click(screen.getByText("查看任务"));
+      expect(dispatched).toContain("task-42");
+    } finally {
+      window.removeEventListener("zicode:open-task", listener);
+    }
+    store.getState().destroy();
+  });
+
   it("duplicates a workflow into a fresh copy", async () => {
     setLocale("en");
     const writtenWorkflows: AutomationWorkflow[] = [];

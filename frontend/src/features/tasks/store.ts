@@ -46,11 +46,13 @@ export interface TaskDraft {
 interface TaskCenterState {
   tasks: SuperAgentTask[];
   filter: TaskFilter;
+  focusTaskId: string | null;
   loading: boolean;
   loadedOnce: boolean;
   error: Error | null;
   openApp(pluginId: string): void;
   setFilter(filter: TaskFilter): void;
+  focusTask(taskId: string | null): void;
   load(options?: { quiet?: boolean }): Promise<void>;
   listProjects(): Promise<string[]>;
   createTask(draft: TaskDraft): Promise<void>;
@@ -101,6 +103,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
   return create<TaskCenterState>()((set, get) => ({
     tasks: [],
     filter: "all",
+    focusTaskId: null,
     loading: false,
     loadedOnce: false,
     error: null,
@@ -111,6 +114,13 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
 
     setFilter(filter) {
       set({ filter });
+    },
+
+    focusTask(taskId) {
+      set((state) => ({
+        focusTaskId: taskId,
+        filter: taskId ? "all" : state.filter,
+      }));
     },
 
     async listProjects() {

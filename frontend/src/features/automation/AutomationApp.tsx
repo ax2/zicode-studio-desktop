@@ -558,7 +558,10 @@ function WorkflowCard({
           </summary>
           <ol>
             {workflow.history.slice(0, 12).map((run) => (
-              <li key={run.taskId ?? `${run.startedAt ?? "run"}-${run.status}`}>
+              <li
+                key={run.taskId ?? `${run.startedAt ?? "run"}-${run.status}`}
+                className="automation-history-run"
+              >
                 <time>{formatDate(run.startedAt)}</time>
                 <span className="ui-badge">{t(run.status)}</span>
                 <span
@@ -571,6 +574,21 @@ function WorkflowCard({
                 >
                   {friendlyTaskDispatchError(t(run.message || run.taskId || ""))}
                 </span>
+                {run.taskId ? (
+                  <button
+                    type="button"
+                    className="ui-button ui-button--ghost ui-button--sm automation-history-open"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("zicode:open-task", {
+                          detail: { taskId: run.taskId },
+                        }),
+                      )
+                    }
+                  >
+                    {t("View task")}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ol>

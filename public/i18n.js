@@ -2026,6 +2026,7 @@ const zhCN = {
     "创建后自动运行（定时任务到期自动运行），无需手动批准。",
   "Needs approval": "需要审批",
   "Run history": "运行历史",
+  "View task": "查看任务",
   "No automations in this view": "当前视图没有自动化",
   "Create a workflow to turn repeated prompts into auditable tasks.":
     "创建工作流，将重复提示转化为可审计任务。",

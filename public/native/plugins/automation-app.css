@@ -232,3 +232,25 @@
     word-break: break-word;
   }
 }
+
+/* Run history rows carry status, message, and a jump-to-task action. */
+.automation-history-run {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.automation-history-run .ui-badge {
+  justify-self: start;
+}
+
+.automation-history-open {
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .automation-history-run {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}

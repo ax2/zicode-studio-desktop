@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
 import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
@@ -101,6 +101,22 @@ describe("task center React app", () => {
 
     fireEvent.change(select, { target: { value: "all" } });
     expect(screen.getByText("旧任务")).toBeTruthy();
+  });
+
+  it("focuses a task card by id and highlights it", async () => {
+    setLocale("zh-CN");
+    const call = mockCall([{ id: "t-focus", title: "聚焦目标任务", status: "done" }]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("聚焦目标任务")).toBeTruthy());
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    act(() => {
+      store.getState().focusTask("t-focus");
+    });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    const card = document.querySelector('[data-task-id="t-focus"]');
+    expect(card?.classList.contains("is-focused")).toBe(true);
+    expect(store.getState().filter).toBe("all");
   });
 
   it("groups tasks and exposes recoverable actions", async () => {

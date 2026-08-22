@@ -381,3 +381,16 @@ button.task-center-summary-card:focus-visible {
 
   .task-center-card details li { grid-template-columns: 1fr; }
 }
+
+/* Highlight used when jumping from an automation run to its owning task. */
+.task-center-card.is-focused {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-center-card.is-focused {
+    transition: none;
+  }
+}

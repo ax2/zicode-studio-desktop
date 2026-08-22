@@ -67,6 +67,8 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const tasks = store((state) => state.tasks);
   const filter = store((state) => state.filter);
   const setFilter = store((state) => state.setFilter);
+  const focusTaskId = store((state) => state.focusTaskId);
+  const focusTask = store((state) => state.focusTask);
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
@@ -76,6 +78,7 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const [grouped, setGrouped] = useState(false);
   const [query, setQuery] = useState("");
   const [dateRange, setDateRange] = useState<TaskDateRange>("all");
+  const focusRetries = useRef(0);
   const visible = filteredTasks(tasks, filter)
     .filter((task) => matchesTaskDateRange(task, dateRange))
     .filter((task) => {
@@ -86,6 +89,41 @@ export function TaskMain({ store }: { store: TaskStore }) {
         String(task.description || "").toLowerCase().includes(q)
       );
     });
+
+  useEffect(() => {
+    if (!focusTaskId) {
+      focusRetries.current = 0;
+      return;
+    }
+    const escaped =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(focusTaskId)
+        : String(focusTaskId).replace(/"/g, '\\"');
+    const element = document.querySelector<HTMLElement>(
+      `[data-task-id="${escaped}"]`,
+    );
+    if (element) {
+      focusRetries.current = 0;
+      element.scrollIntoView({ block: "center", behavior: "smooth" });
+      element.classList.add("is-focused");
+      const timer = window.setTimeout(() => {
+        element.classList.remove("is-focused");
+        focusTask(null);
+      }, 2400);
+      return () => window.clearTimeout(timer);
+    }
+    if (focusRetries.current >= 5) {
+      focusRetries.current = 0;
+      focusTask(null);
+      return;
+    }
+    focusRetries.current += 1;
+    const retry = window.setTimeout(() => {
+      focusTask(focusTaskId);
+    }, 300);
+    return () => window.clearTimeout(retry);
+  }, [focusTaskId, focusTask]);
+
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
   const groups = grouped ? groupTasksByWorkspace(visible) : null;
@@ -611,7 +649,10 @@ function TaskCard({
         )
       : null;
   return (
-    <article className={`ui-panel task-center-card status-${task.status}`}>
+    <article
+      className={`ui-panel task-center-card status-${task.status}`}
+      data-task-id={task.id}
+    >
       <header>
         <div>
           <span className="task-center-status">
@@ -1043,6 +1084,7 @@ export interface TaskCenterAppApi {
   deactivate(): void;
   destroy(): void;
   setTarget(): void;
+  focusTask(taskId: string): void;
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
@@ -1078,6 +1120,9 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
       contentRoot = null;
     },
     setTarget() {},
+    focusTask(taskId) {
+      store.getState().focusTask(taskId);
+    },
     handlesCommand(commandId) {
       return commandId === "tasks.open";
     },

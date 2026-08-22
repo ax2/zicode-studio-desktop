@@ -1266,6 +1266,14 @@ window.addEventListener("zicode:open-artifact", (event) => {
 window.addEventListener("zicode:open-tasks", () => {
   pluginShell?.activate("com.zicode.tasks");
 });
+window.addEventListener("zicode:open-task", (event) => {
+  const taskId = event.detail?.taskId;
+  pluginShell?.activate("com.zicode.tasks");
+  if (taskId && typeof taskCenterApp?.focusTask === "function") {
+    // Let the task center mount before applying the focus highlight.
+    window.setTimeout(() => taskCenterApp.focusTask(String(taskId)), 200);
+  }
+});
 window.addEventListener("zicode:open-help", (event) => {
   pluginShell?.activate("core.help");
   helpCenter?.open(event.detail?.pageId);
