@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-22 键盘可达性全应用扫描 + qa-keyboard 一键运行
+
+- 用 Tab 走查全部 14 个启用应用：无焦点陷阱、无不可见元素获得焦点、
+  Ctrl+Shift+P 命令面板可开、Ctrl+K 会话搜索可开且 Esc 可关——14/14
+  全部通过。
+- `qa-keyboard.mjs` 补上与 visual-qa / qa-a11y 一致的工作区 + 会话自动
+  解析，`node scripts/qa-keyboard.mjs agent-inbox` 一键运行；实测单应用
+  1/1 通过。
+- 验证：node --check、Biome 通过。
+
 ## 2026-08-22 文章创作 Markdown 格式工具栏 + 共享格式化模块
 
 - 文章创作（博客/公众号）编辑器补上 Markdown 格式工具栏（加粗/斜体/标题/
