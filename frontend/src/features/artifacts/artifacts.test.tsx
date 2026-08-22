@@ -334,4 +334,18 @@ describe("artifact bulk import", () => {
     expect(prompt).toContain("totalReturn");
     store.getState().destroy();
   });
+
+  it("offers a copy-content action on the artifact detail", async () => {
+    setLocale("en");
+    const gateway = createGateway();
+    const store = renderStore(gateway);
+    await waitFor(() =>
+      expect(screen.getByText("Deterministic backtest")).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByText("Deterministic backtest"));
+    await waitFor(() => expect(screen.getByText("Copy content")).toBeTruthy());
+    fireEvent.click(screen.getByText("Copy content"));
+    await waitFor(() => expect(screen.getByText("Copied")).toBeTruthy());
+    store.getState().destroy();
+  });
 });

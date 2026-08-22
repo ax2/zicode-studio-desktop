@@ -5,6 +5,8 @@ import { t } from "../../shared/i18n.js";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
+// @ts-expect-error plain JS module without type declarations
+import { copyText } from "../../../../public/ui/copy.js";
 import {
   formatBytes,
   formatDate,
@@ -237,6 +239,7 @@ function ArtifactDocumentView({
   discussInChat: (descriptor: ArtifactDocument) => Promise<void>;
 }) {
   const markdown = markdownContent(selected);
+  const [copied, setCopied] = useState(false);
   return (
     <article className="artifacts-document">
       <header className="artifacts-document-header">
@@ -248,6 +251,19 @@ function ArtifactDocumentView({
           {selected.summary ? <p>{selected.summary}</p> : null}
         </div>
         <div className="artifacts-document-actions">
+          <button
+            type="button"
+            className="ui-button ui-button--ghost"
+            onClick={() => {
+              const content =
+                markdown ?? stringifyContent(selected.content ?? "");
+              void copyText(content);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1600);
+            }}
+          >
+            {copied ? t("Copied") : t("Copy content")}
+          </button>
           <button
             type="button"
             className="ui-button ui-button--primary"
