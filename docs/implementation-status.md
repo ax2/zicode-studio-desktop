@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-22 网页采集质量复核（readability 提取器 19/19 测试通过）
+
+- 复核用户历史需求「从网页生成笔记要提取正文、去除导航/页眉页脚/广告/
+  侧边栏、保留样式、可读」：后端 `web_extract.rs`（约 47KB）是完整的
+  readability 式提取器——按 class/id（nav/footer/aside/advert/sidebar/
+  site-header…）、ARIA role（banner/navigation/complementary/
+  contentinfo…）、拼音类名（中文站点）过滤噪音，内容评分选主区域，
+  输出 Markdown 并保留标题/作者/站点名/头图，相对链接与图片解析为
+  绝对地址，去重防重复采集，SSRF 防护（拒绝回环/内网地址）。
+- 验证：`cargo test web_extract` 19 项全过（主内容提取、语义噪音区域
+  去除、中文拼音类名、相对链接解析、figure 样式保留、行内 Markdown 等）。
+  该项用户需求确认已闭环。
+
 ## 2026-08-22 帮助文档同步（格式工具栏 / CSV 转表格 / slug 自动生成）
 
 - notes.md（中英）：快捷键段落补充编辑器格式工具栏、Ctrl+B/I/Shift+K、
