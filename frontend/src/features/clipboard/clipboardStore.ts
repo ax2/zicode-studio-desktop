@@ -89,6 +89,8 @@ export interface ClipboardState {
   load(): Promise<void>;
   add(): Promise<void>;
   remove(id: string): Promise<void>;
+  removeMany(ids: string[]): Promise<void>;
+  sendManyToNotes(ids: string[]): Promise<void>;
   clear(): Promise<void>;
   paste(): Promise<void>;
   sendToNote(text: string): Promise<void>;
@@ -152,6 +154,42 @@ export function createClipboardStore(options: ClipboardOptions) {
         set({ busy: false });
         notify(t("Item removed"));
         await get().load();
+      } catch (error) {
+        set({ busy: false, error: friendlyPluginError(error) });
+      }
+    },
+
+    async removeMany(ids) {
+      const targets = ids.filter((id) =>
+        get().items.some((item) => item.id === id),
+      );
+      if (targets.length === 0) return;
+      set({ busy: true, error: "" });
+      try {
+        for (const id of targets) {
+          await gateway.remove(getTarget(), id);
+        }
+        set({ busy: false });
+        notify(t("Removed {count} items").replace("{count}", String(targets.length)));
+        await get().load();
+      } catch (error) {
+        set({ busy: false, error: friendlyPluginError(error) });
+      }
+    },
+
+    async sendManyToNotes(ids) {
+      if (!saveToNote) return;
+      const texts = ids
+        .map((id) => get().items.find((item) => item.id === id)?.text ?? "")
+        .filter(Boolean);
+      if (texts.length === 0) return;
+      set({ busy: true, error: "" });
+      try {
+        for (const text of texts) {
+          await saveToNote(text);
+        }
+        set({ busy: false });
+        notify(t("Sent {count} items to notes").replace("{count}", String(texts.length)));
       } catch (error) {
         set({ busy: false, error: friendlyPluginError(error) });
       }

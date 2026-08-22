@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { ClipboardMain } from "./ClipboardApp";
 import { createClipboardStore, type ClipboardGateway } from "./clipboardStore";
 
@@ -140,5 +140,116 @@ describe("clipboard composer", () => {
       "noopener,noreferrer",
     );
     openSpy.mockRestore();
+  });
+
+  it("removes multiple selected items through the bulk bar", async () => {
+    const gateway = stubGateway({
+      list: vi.fn(async () => ({
+        items: [
+          {
+            id: "a",
+            text: "first",
+            kind: "text",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+          {
+            id: "b",
+            text: "second",
+            kind: "text",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+        ],
+      })),
+    });
+    const store = createClipboardStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    render(<ClipboardMain store={store} />);
+    await waitFor(() => expect(store.getState().items).toHaveLength(2));
+
+    const selectButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => (node.textContent || "").includes("多选"),
+    );
+    expect(selectButton).toBeTruthy();
+    fireEvent.click(selectButton as HTMLButtonElement);
+
+    const checkboxes = Array.from(
+      document.querySelectorAll(".clipboard-item-select"),
+    ) as HTMLInputElement[];
+    expect(checkboxes).toHaveLength(2);
+    for (const checkbox of checkboxes) fireEvent.click(checkbox);
+
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    const removeButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => (node.textContent || "").includes("删除选中"),
+    );
+    expect(removeButton).toBeTruthy();
+    fireEvent.click(removeButton as HTMLButtonElement);
+
+    await waitFor(() =>
+      expect((gateway.remove as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2),
+    );
+    expect(confirmSpy).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it("sends multiple selected items to notes and clears the selection", async () => {
+    const saveToNote = vi.fn(async () => {});
+    const gateway = stubGateway({
+      list: vi.fn(async () => ({
+        items: [
+          {
+            id: "a",
+            text: "one",
+            kind: "text",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+          {
+            id: "b",
+            text: "two",
+            kind: "text",
+            source: "manual",
+            createdAt: "2026-08-21T00:00:00.000Z",
+          },
+        ],
+      })),
+    });
+    const store = createClipboardStore({
+      gateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+      saveToNote,
+    });
+    render(<ClipboardMain store={store} />);
+    await waitFor(() => expect(store.getState().items).toHaveLength(2));
+
+    const selectButton = Array.from(document.querySelectorAll("button")).find(
+      (node) => (node.textContent || "").includes("多选"),
+    );
+    fireEvent.click(selectButton as HTMLButtonElement);
+    const checkboxes = Array.from(
+      document.querySelectorAll(".clipboard-item-select"),
+    ) as HTMLInputElement[];
+    for (const checkbox of checkboxes) fireEvent.click(checkbox);
+
+    const sendButton = Array.from(document.querySelectorAll("button")).find(
+      (node) =>
+        (node.textContent || "").includes("发送到笔记") &&
+        (node.textContent || "").includes("(2)"),
+    );
+    expect(sendButton).toBeTruthy();
+    fireEvent.click(sendButton as HTMLButtonElement);
+
+    await waitFor(() => expect(saveToNote).toHaveBeenCalledTimes(2));
+    expect(saveToNote).toHaveBeenCalledWith("one");
+    expect(saveToNote).toHaveBeenCalledWith("two");
+    await waitFor(() =>
+      expect(document.querySelector(".clipboard-bulk-bar")).toBeNull(),
+    );
   });
 });

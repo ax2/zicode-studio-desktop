@@ -124,6 +124,36 @@
   flex-shrink: 0;
 }
 
+.clipboard-bulk-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.clipboard-bulk-count {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.clipboard-item {
+  align-items: flex-start;
+}
+
+.clipboard-item-select {
+  flex-shrink: 0;
+  margin-top: var(--space-3);
+  accent-color: var(--accent);
+}
+
+.clipboard-item.is-selected {
+  background: var(--surface-hover);
+  outline: 1px solid var(--border-hover);
+}
+
 @media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
   .clipboard-main {
     padding: var(--space-3);
