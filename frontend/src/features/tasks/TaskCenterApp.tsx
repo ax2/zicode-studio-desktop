@@ -518,6 +518,7 @@ function TaskCard({
   const pauseTask = store((state) => state.pauseTask);
   const cancelTask = store((state) => state.cancelTask);
   const removeTask = store((state) => state.removeTask);
+  const rerunTask = store((state) => state.rerunTask);
   const togglePinned = store((state) => state.togglePinned);
   const answerTask = store((state) => state.answerTask);
   const openApp = store((state) => state.openApp);
@@ -780,6 +781,19 @@ function TaskCard({
                   }),
                 );
               }}
+            >
+              {t("Run again")}
+            </button>
+          ) : null}
+          {!rerunWorkflowId &&
+          !scheduledTemplate &&
+          !scheduledInstanceOf &&
+          ["done", "cancelled"].includes(task.status) ? (
+            <button
+              type="button"
+              className="ui-button ui-button--secondary ui-button--sm"
+              title={t("Run this task again with the same settings")}
+              onClick={() => void rerunTask(task)}
             >
               {t("Run again")}
             </button>

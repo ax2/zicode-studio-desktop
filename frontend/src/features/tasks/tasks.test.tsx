@@ -332,7 +332,7 @@ describe("task center React app", () => {
     const store = renderStore(call);
     await waitFor(() => expect(screen.getByText("Daily blog post")).toBeTruthy());
     const buttons = screen.getAllByText("Run again");
-    expect(buttons.length).toBe(2);
+    expect(buttons.length).toBe(3);
     const cardButton = (title: string) => {
       const card = Array.from(document.querySelectorAll(".task-center-card")).find((node) =>
         (node.textContent || "").includes(title),
@@ -345,6 +345,16 @@ describe("task center React app", () => {
     expect(reruns).toEqual(["wf-1"]);
     fireEvent.click(cardButton("Failed automation") as HTMLElement);
     expect(reruns).toEqual(["wf-1", "wf-2"]);
+    fireEvent.click(cardButton("Plain done") as HTMLElement);
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("write_super_agent_tasks", expect.anything()),
+    );
+    const written = call.mock.calls.filter(
+      ([operation]) => operation === "write_super_agent_tasks",
+    );
+    const last = written.at(-1)?.[1] as { tasks?: Array<Record<string, unknown>> };
+    expect(last?.tasks?.at(-1)?.title).toBe("Plain done");
+    expect(last?.tasks?.at(-1)?.status).toBe("pending");
     store.getState().destroy();
   });
 
@@ -1079,6 +1089,29 @@ describe("task center task management", () => {
       const last = latest.at(-1)?.[1] as { tasks?: Array<{ pinned?: boolean }> } | undefined;
       expect(last?.tasks?.[0].pinned).toBe(false);
     });
+    store.getState().destroy();
+  });
+
+  it("reruns a completed one-off task with the same settings", async () => {
+    const { store, calls } = managementStore([
+      {
+        id: "done-1",
+        title: "Weekly digest",
+        description: "Collect the news",
+        targetProject: "C:/work",
+        status: "done",
+      },
+    ]);
+    await store.getState().load();
+    expect(store.getState().tasks[0].status).toBe("done");
+    await store.getState().rerunTask(store.getState().tasks[0]);
+    const write = calls.filter((entry) => entry.operation === "write_super_agent_tasks");
+    const last = write.at(-1)?.params as { tasks: Array<Record<string, unknown>> };
+    const newTask = last.tasks.at(-1) as Record<string, unknown>;
+    expect(newTask.title).toBe("Weekly digest");
+    expect(newTask.status).toBe("pending");
+    expect(newTask.automation).toMatchObject({ trigger: "manual", autoDispatch: true });
+    expect(newTask.id).not.toBe("done-1");
     store.getState().destroy();
   });
 });

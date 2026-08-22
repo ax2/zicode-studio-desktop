@@ -54,6 +54,7 @@ interface TaskCenterState {
   load(options?: { quiet?: boolean }): Promise<void>;
   listProjects(): Promise<string[]>;
   createTask(draft: TaskDraft): Promise<void>;
+  rerunTask(task: SuperAgentTask): Promise<void>;
   updateTaskMeta(
     taskId: string,
     patch: Partial<TaskDraft> & { enabled?: boolean },
@@ -245,6 +246,22 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
           type: "error",
         });
       }
+    },
+
+    async rerunTask(task) {
+      const title = String(task?.title || "").trim();
+      if (!title) {
+        notify({ title: t("Task title is required"), type: "error" });
+        return;
+      }
+      await get().createTask({
+        title,
+        description: String(task?.description || "").trim(),
+        targetProject: String(task?.targetProject || "").trim(),
+        schedule: "manual",
+        requireApproval: Boolean(task?.requireApproval),
+        maxRetries: Number(task?.maxRetries ?? 2),
+      });
     },
 
     async updateTaskMeta(taskId, patch) {
