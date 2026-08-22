@@ -27,6 +27,23 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function removeProfile(profile) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      rmSync(profile, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      if (attempt >= 7) {
+        console.warn(
+          `[cleanup] could not remove temporary profile ${profile}: ${error.message}`,
+        );
+        return;
+      }
+      await sleep(500);
+    }
+  }
+}
+
 function withTimeout(promise, ms, label) {
   return Promise.race([
     promise,
@@ -1944,8 +1961,7 @@ async function main() {
     cdp.close();
   } finally {
     chrome.kill();
-    await sleep(300);
-    rmSync(profile, { recursive: true, force: true });
+    await removeProfile(profile);
   }
 }
 

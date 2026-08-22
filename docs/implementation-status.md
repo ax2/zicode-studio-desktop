@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 QA 脚本临时目录清理可靠性修复
+
+- 三个浏览器 QA 脚本（visual-qa / qa-a11y / qa-keyboard）在 Windows 上
+  可能因 Chrome 仍持有 profile 目录句柄，`rmSync` 抛 EPERM 导致扫描结果
+  被吞、退出码非零（此前偶发）。新增 `removeProfile` 重试清理（最多 8
+  次、间隔 500ms，最终失败仅告警不崩溃），扫描结果不受影响。
+- 验证：visual-qa 单应用实测退出码 0、无 EPERM；node --check、Biome
+  通过。
+
 ## 2026-08-23 Projects 项目管理入口（回答「怎么用/没有新建项目」）
 
 - Projects 应用头部新增「管理项目」按钮：打开已有的工作区切换器——那里
