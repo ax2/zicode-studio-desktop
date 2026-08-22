@@ -218,8 +218,9 @@ describe("renderPluginManagerView", () => {
     const guideButtons = [...document.querySelectorAll("button")].filter(
       (candidate) => candidate.textContent === "使用指南",
     );
-    expect(guideButtons.length).toBe(1);
-    guideButtons[0].click();
+    expect(guideButtons.length).toBe(2);
+    for (const button of guideButtons) button.click();
     expect(openHelp).toHaveBeenCalledWith("notes");
+    expect(openHelp).toHaveBeenCalledWith("habits");
   });
 });
