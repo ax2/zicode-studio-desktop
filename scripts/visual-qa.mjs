@@ -3,8 +3,12 @@
 // overflow, top clipping) while saving screenshots for human review.
 //
 // Usage (app must be running on localhost):
-//   node scripts/visual-qa.mjs <workspaceId> <sessionId>
-//   APP_FILTER=notes node scripts/visual-qa.mjs <workspaceId> <sessionId>
+//   node scripts/visual-qa.mjs <workspaceId|projectPath> <sessionId>
+//   APP_FILTER=notes node scripts/visual-qa.mjs <workspaceId|projectPath> <sessionId>
+// A stable workspace UUID works directly; a project directory path (or the
+// bare folder name of a registered workspace) is resolved through the host's
+// /v2/resolve-workspace endpoint first, so passing "agent-inbox" never yields
+// misleading per-app failures such as notes "Invalid Notes resource ID".
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -45,6 +49,28 @@ async function waitForJson(url, timeout = 20000) {
     await sleep(200);
   }
   throw new Error(`Timed out waiting for ${url}`);
+}
+
+async function resolveWorkspaceId(host, projectPath) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(`${host}/v2/resolve-workspace`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ projectPath }),
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      const body = await response.json();
+      return typeof body?.workspaceId === "string" ? body.workspaceId : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return null;
+  }
 }
 
 function connect(wsUrl) {
@@ -1702,10 +1728,33 @@ async function main() {
     if (!page) throw new Error("No page target found");
     const cdp = await connect(page.webSocketDebuggerUrl);
 
-    const ws = process.argv[2] || process.env.ZICODE_WORKSPACE;
+    const rawWs = process.argv[2] || process.env.ZICODE_WORKSPACE;
     const session = process.argv[3] || process.env.ZICODE_SESSION;
-    if (!ws || !session) {
+    if (!rawWs || !session) {
       throw new Error("Usage: node scripts/visual-qa.mjs <workspaceId> <sessionId>");
+    }
+    const WORKSPACE_UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let ws = rawWs;
+    if (!WORKSPACE_UUID_RE.test(rawWs)) {
+      const candidates = [rawWs];
+      const workspacesRoot =
+        process.env.LOCALAPPDATA
+          ? join(process.env.LOCALAPPDATA, "zicode", "workspaces")
+          : null;
+      if (workspacesRoot && !/[\\/]/.test(rawWs)) {
+        candidates.push(join(workspacesRoot, rawWs));
+      }
+      for (const candidate of candidates) {
+        ws = await resolveWorkspaceId(HOST, candidate);
+        if (ws) break;
+      }
+      if (!ws) {
+        throw new Error(
+          `Cannot resolve workspace from "${rawWs}". Pass a stable workspace UUID or a registered project directory path.`,
+        );
+      }
+      console.log(`[visual-qa] resolved workspace ${rawWs} -> ${ws}`);
     }
     const sessionUrl = `${HOST}/app/workspaces/${ws}/sessions/${session}`;
 
