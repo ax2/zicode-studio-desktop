@@ -261,16 +261,74 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
   const loading = memory((state) => state.loading);
   const error = memory((state) => state.error);
   const [draft, setDraft] = useState("");
+  const [notice, setNotice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     void memory.getState().load();
   }, [memory]);
 
+  const flash = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => {
+      setNotice((current) => (current === message ? "" : current));
+    }, 4000);
+  };
+
   const submit = () => {
     void memory.getState().add(draft);
     setDraft("");
+  };
+
+  const exportMemory = () => {
+    const payload = JSON.stringify(
+      {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        entries: entries.map((entry) => ({ text: entry.text })),
+      },
+      null,
+      2,
+    );
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `zicode-memory-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    flash(t("Memory exported"));
+  };
+
+  const importMemory = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const list = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as { entries?: unknown })?.entries)
+          ? (parsed as { entries: unknown[] }).entries
+          : [];
+      const clean = list
+        .map((entry) =>
+          typeof entry === "string" ? { text: entry } : (entry as { text?: unknown }),
+        )
+        .filter((entry) => typeof entry.text === "string");
+      if (clean.length === 0) {
+        flash(t("No memory entries found in this file"));
+        return;
+      }
+      const added = await memory.getState().importEntries(clean as Array<{ text: string }>);
+      flash(
+        added > 0
+          ? t("Imported {count} entries").replace("{count}", String(added))
+          : t("No new memory entries to import"),
+      );
+    } catch {
+      flash(t("Could not import memory: invalid JSON"));
+    }
   };
 
   return (
@@ -315,6 +373,40 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
           {t("Add")}
         </button>
       </div>
+      {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the settings toolbar */}
+      <div className="memory-actions" role="group" aria-label={t("Memory transfer")}>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          disabled={entries.length === 0}
+          onClick={exportMemory}
+        >
+          {t("Export memory")}
+        </button>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          onClick={() => fileRef.current?.click()}
+        >
+          {t("Import memory")}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="memory-file-input"
+          style={{ display: "none" }}
+          onChange={(event) => {
+            void importMemory(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {notice ? (
+        <p className="settings-description memory-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       {entries.length === 0 ? (
         <p className="settings-description">{t("No memory entries yet")}</p>
       ) : (

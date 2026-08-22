@@ -23,6 +23,7 @@ interface MemoryState {
   load(): Promise<void>;
   setEnabled(enabled: boolean): Promise<void>;
   add(text: string): Promise<void>;
+  importEntries(entries: Array<{ text?: string }>): Promise<number>;
   update(id: string, text: string): Promise<void>;
   remove(id: string): Promise<void>;
 }
@@ -103,6 +104,37 @@ export function createMemoryStore(gateway: ConfigGatewayLike) {
             reason instanceof Error ? reason : new Error(String(reason)),
           ).message,
         });
+      }
+    },
+
+    async importEntries(incoming) {
+      const current = get().entries;
+      const seen = new Set(current.map((entry) => entry.text.trim()));
+      const additions: MemoryEntry[] = [];
+      for (const candidate of incoming ?? []) {
+        const text = String(candidate?.text ?? "").trim();
+        if (!text || seen.has(text)) continue;
+        seen.add(text);
+        additions.push({
+          id: `memory-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      if (additions.length === 0) return 0;
+      const next = { enabled: get().enabled, entries: [...current, ...additions] };
+      try {
+        const saved = await persist(next);
+        set({ entries: saved.entries, error: "" });
+        window.dispatchEvent(new CustomEvent("zicode:memory-changed"));
+        return additions.length;
+      } catch (reason) {
+        set({
+          error: localizeHostError(
+            reason instanceof Error ? reason : new Error(String(reason)),
+          ).message,
+        });
+        return 0;
       }
     },
 

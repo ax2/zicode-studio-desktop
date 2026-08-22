@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-22 记忆导出 / 导入（WorkBuddy 记忆迁移补全）
+
+- 设置 → 记忆面板新增「导出记忆」「导入记忆」：
+  - 导出：把当前记忆条目序列化为 `zicode-memory-YYYY-MM-DD.json`
+    （version 1 + exportedAt + entries），支持跨设备迁移与定期备份；
+  - 导入：接受 JSON 数组（`["文本", ...]`）或 `{ entries: [{ text }] }`
+    结构，按文本去重合并到现有记忆，返回实际新增条数；空文件/无效 JSON
+    给出明确提示，不覆盖已有条目。
+- 验证：memoryStore 新增导入去重/零新增单测 2 项、设置面板新增导出/导入
+  按钮渲染断言；全量 162 文件 / 1211 用例全绿；typecheck、Biome 通过；
+  bundle 与 i18n 全量同步安装目录。
+
 ## 2026-08-22 visual-qa 工作区自动解析 + 全应用布局扫描
 
 - `scripts/visual-qa.mjs` 新增工作区解析：非 UUID 输入（目录名如

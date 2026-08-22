@@ -51,6 +51,23 @@ function renderApp(store: SettingsStore = createSettingsStore()) {
   return { store, controller, view };
 }
 
+describe("memory section", () => {
+  it("renders export and import actions", async () => {
+    renderApp();
+    await waitFor(() =>
+      expect(document.getElementById("memory-section")).toBeTruthy(),
+    );
+    const actions = document.querySelector(".memory-actions");
+    expect(actions).toBeTruthy();
+    const labels = Array.from(actions?.querySelectorAll("button") ?? []).map(
+      (button) => button.textContent?.trim(),
+    );
+    expect(labels).toContain(t("Export memory"));
+    expect(labels).toContain(t("Import memory"));
+    expect(document.querySelector(".memory-file-input")).toBeTruthy();
+  });
+});
+
 afterEach(() => {
   document.body.innerHTML = "";
   history.replaceState(history.state, "", `${window.location.pathname}${window.location.search}`);
