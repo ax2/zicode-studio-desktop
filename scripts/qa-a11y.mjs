@@ -24,6 +24,28 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function resolveWorkspaceId(host, projectPath) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(`${host}/v2/resolve-workspace`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ projectPath }),
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      const body = await response.json();
+      return typeof body?.workspaceId === "string" ? body.workspaceId : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return null;
+  }
+}
+
 function connect(wsUrl) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
@@ -69,12 +91,37 @@ const INTERACTIVE_ROLES = new Set([
 ]);
 
 async function main() {
-  const wsId = process.argv[2] || process.env.ZICODE_WORKSPACE;
+  const rawWs = process.argv[2] || process.env.ZICODE_WORKSPACE;
   const sessionId = process.argv[3] || process.env.ZICODE_SESSION;
-  if (!wsId || !sessionId) {
+  if (!rawWs || !sessionId) {
     throw new Error(
       "Usage: node scripts/qa-a11y.mjs <workspaceId> <sessionId>",
     );
+  }
+  const WORKSPACE_UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let wsId = rawWs;
+  if (!WORKSPACE_UUID_RE.test(rawWs)) {
+    const candidates = [rawWs];
+    const workspacesRoot = process.env.LOCALAPPDATA
+      ? join(process.env.LOCALAPPDATA, "zicode", "workspaces")
+      : null;
+    if (workspacesRoot && !/[\\/]/.test(rawWs)) {
+      candidates.push(join(workspacesRoot, rawWs));
+    }
+    for (const candidate of candidates) {
+      const resolved = await resolveWorkspaceId(HOST, candidate);
+      if (resolved) {
+        wsId = resolved;
+        break;
+      }
+    }
+    if (wsId === rawWs) {
+      throw new Error(
+        `Cannot resolve workspace from "${rawWs}". Pass a stable workspace UUID or a registered project directory path.`,
+      );
+    }
+    console.log(`[qa-a11y] resolved workspace ${rawWs} -> ${wsId}`);
   }
 
   const enabledPlugins = new Set();
