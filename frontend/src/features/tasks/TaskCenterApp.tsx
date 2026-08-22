@@ -552,12 +552,24 @@ function TaskCard({
     document.dispatchEvent(new CustomEvent("sa-view-session", { detail: task }));
     openApp?.("core.chat");
   };
+  const runningMinutes =
+    task.status === "running" && task.dispatch?.startedAt
+      ? Math.max(
+          0,
+          Math.floor(
+            (Date.now() - new Date(task.dispatch.startedAt).getTime()) / 60_000,
+          ),
+        )
+      : null;
   return (
     <article className={`ui-panel task-center-card status-${task.status}`}>
       <header>
         <div>
           <span className="task-center-status">
             {scheduledTemplate ? t("Scheduled") : t(statusLabel(task.status))}
+            {runningMinutes !== null && runningMinutes > 0
+              ? ` · ${t("{count}m running").replace("{count}", String(runningMinutes))}`
+              : ""}
           </span>
           <h2>{task.title || t("Untitled task")}</h2>
         </div>

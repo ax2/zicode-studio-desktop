@@ -763,6 +763,7 @@ const zhCN = {
   "Unpin this task": "取消置顶",
   "Task pinned": "任务已置顶",
   "Task unpinned": "任务已取消置顶",
+  "{count}m running": "已运行 {count} 分钟",
   Continue: "继续处理",
   "Open this task's conversation and keep working": "打开该任务的对话并继续处理",
   "Group by workspace": "按空间分组",

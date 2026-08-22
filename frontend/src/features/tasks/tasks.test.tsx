@@ -551,6 +551,24 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("shows how long a running task has been in progress", async () => {
+    setLocale("en");
+    const started = new Date(Date.now() - 5 * 60_000).toISOString();
+    const call = mockCall([
+      {
+        id: "run",
+        title: "Running research",
+        status: "running",
+        dispatch: { startedAt: started },
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Running research")).toBeTruthy());
+    const status = document.querySelector(".task-center-status");
+    expect(status?.textContent).toContain("5m running");
+    store.getState().destroy();
+  });
+
   it("re-renders its main view after the shell clears the shared container", async () => {
     setLocale("en");
     const call = mockCall([{ id: "run", title: "Running research", status: "running" }]);
