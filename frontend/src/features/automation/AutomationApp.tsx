@@ -51,7 +51,15 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
   const error = store((state) => state.error);
   const load = store((state) => state.load);
   const [editing, setEditing] = useState<AutomationWorkflow | null>(null);
-  const visible = filterWorkflows(workflows, filter);
+  const [query, setQuery] = useState("");
+  const visible = filterWorkflows(workflows, filter).filter((workflow) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(workflow.title || "").toLowerCase().includes(q) ||
+      String(workflow.prompt || "").toLowerCase().includes(q)
+    );
+  });
   return (
     <div className="automation-main">
       <header className="automation-header">
@@ -59,9 +67,19 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
           <h1>{t("Automation center")}</h1>
           <p>{t("Schedule repeatable work with explicit approvals and task history.")}</p>
         </div>
-        <button type="button" className="ui-button ui-button--secondary" onClick={() => void load()}>
-          {t("Refresh")}
-        </button>
+        <div className="automation-header-actions">
+          <input
+            type="search"
+            className="ui-input automation-search"
+            value={query}
+            placeholder={t("Search automations")}
+            aria-label={t("Search automations")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <button type="button" className="ui-button ui-button--secondary" onClick={() => void load()}>
+            {t("Refresh")}
+          </button>
+        </div>
       </header>
       <FirstRunGuide
         storageKey="automation"
@@ -84,8 +102,16 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
         <StatePanel title={t("Could not load automations")} description={error.message} />
       ) : visible.length === 0 ? (
         <StatePanel
-          title={t("No automations in this view")}
-          description={t("Create a workflow to turn repeated prompts into auditable tasks.")}
+          title={
+            query.trim()
+              ? t("No matching automations")
+              : t("No automations in this view")
+          }
+          description={
+            query.trim()
+              ? t("Try a different keyword.")
+              : t("Create a workflow to turn repeated prompts into auditable tasks.")
+          }
         />
       ) : (
         <div className="automation-list">

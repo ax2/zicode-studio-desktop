@@ -481,6 +481,51 @@ describe("automation React app", () => {
     store.getState().destroy();
   });
 
+  it("searches automations by title or prompt", async () => {
+    setLocale("en");
+    const call = vi.fn(async (operation: string, params?: unknown) => {
+      const p = (params ?? {}) as Record<string, unknown>;
+      if (operation === "automation_workspace" && p.action === "list") {
+        return {
+          ok: true,
+          data: {
+            workflows: [
+              {
+                id: "a",
+                title: "Daily digest",
+                prompt: "Summarize news",
+                schedule: "daily",
+                enabled: true,
+              } satisfies AutomationWorkflow,
+              {
+                id: "b",
+                title: "Code review",
+                prompt: "Scan the project",
+                schedule: "manual",
+                enabled: true,
+              } satisfies AutomationWorkflow,
+            ],
+          },
+        };
+      }
+      return { ok: true, data: {} };
+    });
+    const store = createAutomationStore({ call });
+    await store.getState().load();
+    render(<AutomationMain store={store} />);
+    await waitFor(() => expect(screen.getByText("Daily digest")).toBeTruthy());
+    const input = document.querySelector(".automation-search") as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(input, "code");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(screen.queryByText("Daily digest")).toBeNull();
+    expect(screen.getByText("Code review")).toBeTruthy();
+    store.getState().destroy();
+  });
+
   it("duplicates a workflow into a fresh copy", async () => {
     setLocale("en");
     const writtenWorkflows: AutomationWorkflow[] = [];

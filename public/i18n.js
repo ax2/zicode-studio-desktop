@@ -538,6 +538,8 @@ const zhCN = {
   "Default work mode": "默认工作模式",
   "Search tasks": "搜索任务",
   "No matching tasks": "没有匹配的任务",
+  "Search automations": "搜索自动化",
+  "No matching automations": "没有匹配的自动化",
   "Try a different keyword.": "试试其他关键词。",
   "Cycle work mode (Ask / Craft / Plan)": "循环切换工作模式（问一问/做一做/想一想）",
   "Work mode changed": "工作模式已切换",
