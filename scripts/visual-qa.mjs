@@ -3,12 +3,14 @@
 // overflow, top clipping) while saving screenshots for human review.
 //
 // Usage (app must be running on localhost):
-//   node scripts/visual-qa.mjs <workspaceId|projectPath> <sessionId>
-//   APP_FILTER=notes node scripts/visual-qa.mjs <workspaceId|projectPath> <sessionId>
+//   node scripts/visual-qa.mjs <workspaceId|projectPath|folderName> [sessionId]
+//   APP_FILTER=notes node scripts/visual-qa.mjs <workspaceId|projectPath|folderName> [sessionId]
 // A stable workspace UUID works directly; a project directory path (or the
 // bare folder name of a registered workspace) is resolved through the host's
 // /v2/resolve-workspace endpoint first, so passing "agent-inbox" never yields
-// misleading per-app failures such as notes "Invalid Notes resource ID".
+// misleading per-app failures such as notes "Invalid Notes resource ID". The
+// session id is optional: when omitted, the most recently active session of
+// the workspace is discovered automatically.
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -68,6 +70,26 @@ async function resolveWorkspaceId(host, projectPath) {
     } finally {
       clearTimeout(timer);
     }
+  } catch {
+    return null;
+  }
+}
+
+async function discoverSessionId(host, workspaceId) {
+  try {
+    const response = await fetch(
+      `${host}/v2/sessions?workspaceId=${encodeURIComponent(workspaceId)}`,
+    );
+    if (!response.ok) return null;
+    const body = await response.json();
+    const sessions = Array.isArray(body?.sessions) ? body.sessions : [];
+    if (sessions.length === 0) return null;
+    const current = sessions.find((session) => session.isCurrentWorkspace);
+    const sorted = [...sessions].sort(
+      (left, right) =>
+        (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
+    );
+    return (current ?? sorted[0])?.id ?? null;
   } catch {
     return null;
   }
@@ -1729,8 +1751,8 @@ async function main() {
     const cdp = await connect(page.webSocketDebuggerUrl);
 
     const rawWs = process.argv[2] || process.env.ZICODE_WORKSPACE;
-    const session = process.argv[3] || process.env.ZICODE_SESSION;
-    if (!rawWs || !session) {
+    let session = process.argv[3] || process.env.ZICODE_SESSION;
+    if (!rawWs) {
       throw new Error("Usage: node scripts/visual-qa.mjs <workspaceId> <sessionId>");
     }
     const WORKSPACE_UUID_RE =
@@ -1755,6 +1777,15 @@ async function main() {
         );
       }
       console.log(`[visual-qa] resolved workspace ${rawWs} -> ${ws}`);
+    }
+    if (!session) {
+      session = await discoverSessionId(HOST, ws);
+      if (!session) {
+        throw new Error(
+          "Could not discover a session for this workspace; pass <sessionId> explicitly.",
+        );
+      }
+      console.log(`[visual-qa] discovered session ${session}`);
     }
     const sessionUrl = `${HOST}/app/workspaces/${ws}/sessions/${session}`;
 

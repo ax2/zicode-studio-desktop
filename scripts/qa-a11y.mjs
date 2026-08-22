@@ -6,9 +6,11 @@
 // UI looks fine visually.
 //
 // Usage (app must be running on localhost):
-//   node scripts/qa-a11y.mjs <workspaceId> <sessionId>
-//   APP_FILTER=notes node scripts/qa-a11y.mjs <ws> <session>
-//   VIEWPORT=390x844 node scripts/qa-a11y.mjs <ws> <session>
+//   node scripts/qa-a11y.mjs <workspaceId|projectPath|folderName> [sessionId]
+//   APP_FILTER=notes node scripts/qa-a11y.mjs <ws> [session]
+//   VIEWPORT=390x844 node scripts/qa-a11y.mjs <ws> [session]
+// Workspace and session are auto-resolved/discovered when omitted or given as
+// a folder name, so `node scripts/qa-a11y.mjs agent-inbox` just works.
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -41,6 +43,26 @@ async function resolveWorkspaceId(host, projectPath) {
     } finally {
       clearTimeout(timer);
     }
+  } catch {
+    return null;
+  }
+}
+
+async function discoverSessionId(host, workspaceId) {
+  try {
+    const response = await fetch(
+      `${host}/v2/sessions?workspaceId=${encodeURIComponent(workspaceId)}`,
+    );
+    if (!response.ok) return null;
+    const body = await response.json();
+    const sessions = Array.isArray(body?.sessions) ? body.sessions : [];
+    if (sessions.length === 0) return null;
+    const current = sessions.find((session) => session.isCurrentWorkspace);
+    const sorted = [...sessions].sort(
+      (left, right) =>
+        (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
+    );
+    return (current ?? sorted[0])?.id ?? null;
   } catch {
     return null;
   }
@@ -92,8 +114,8 @@ const INTERACTIVE_ROLES = new Set([
 
 async function main() {
   const rawWs = process.argv[2] || process.env.ZICODE_WORKSPACE;
-  const sessionId = process.argv[3] || process.env.ZICODE_SESSION;
-  if (!rawWs || !sessionId) {
+  let sessionId = process.argv[3] || process.env.ZICODE_SESSION;
+  if (!rawWs) {
     throw new Error(
       "Usage: node scripts/qa-a11y.mjs <workspaceId> <sessionId>",
     );
@@ -122,6 +144,15 @@ async function main() {
       );
     }
     console.log(`[qa-a11y] resolved workspace ${rawWs} -> ${wsId}`);
+  }
+  if (!sessionId) {
+    sessionId = await discoverSessionId(HOST, wsId);
+    if (!sessionId) {
+      throw new Error(
+        "Could not discover a session for this workspace; pass <sessionId> explicitly.",
+      );
+    }
+    console.log(`[qa-a11y] discovered session ${sessionId}`);
   }
 
   const enabledPlugins = new Set();

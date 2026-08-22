@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-22 QA 脚本一键运行（工作区 + 会话自动解析）
+
+- `visual-qa.mjs` 与 `qa-a11y.mjs` 都支持只传工作区名一键运行：
+  非 UUID 输入经 `/v2/resolve-workspace` 解析为稳定 UUID，缺省会话经
+  `/v2/sessions` 自动发现最近活跃会话。此前每次都要手抄 UUID 和会话 id，
+  现在 `node scripts/visual-qa.mjs agent-inbox` 即可跑完整双端扫描。
+- 验证：visual-qa 单应用实测（agent-inbox 自动解析 + 会话发现 +
+  双视口扫描通过）；node --check、Biome 通过。
+
 ## 2026-08-22 无障碍（a11y）全应用扫描 + QA 脚本工作区解析
 
 - 用 CDP Accessibility 域对全部 15 个启用应用做可访问名称扫描：桌面
