@@ -907,7 +907,20 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
   getTarget: () => target,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   onManageProjects: () => {
-    document.getElementById("workspace-switcher-btn")?.click();
+    const switcher = document.getElementById("workspace-switcher-btn");
+    if (switcher && getComputedStyle(switcher).display !== "none") {
+      switcher.click();
+      return;
+    }
+    // On remote/mobile clients the native workspace switcher is hidden;
+    // explain how to switch projects there instead of leaving a dead button.
+    notifications.notify({
+      title: t("Workspace switcher is unavailable here"),
+      message: t(
+        "On the mobile web client, open a session from another project in the session list to switch workspaces.",
+      ),
+      type: "info",
+    });
   },
   onUseContextPack: (notes, { compare = false } = {}) => {
     pluginShell?.activate("core.chat");

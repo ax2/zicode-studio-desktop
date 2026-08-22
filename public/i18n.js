@@ -597,6 +597,9 @@ const zhCN = {
   "Relevant memory": "相关记忆",
   "Project instructions": "项目指令",
   "Manage projects": "管理项目",
+  "Workspace switcher is unavailable here": "此处无法使用工作区切换器",
+  "On the mobile web client, open a session from another project in the session list to switch workspaces.":
+    "手机网页端请在会话列表打开其他项目的会话以切换工作区。",
   "A project is a workspace. Use Manage projects to switch or create one (open a folder); edit its instructions and budget under Project context.":
     "项目即工作区。点「管理项目」可切换或新建项目（打开文件夹）；项目说明与预算在「项目上下文」中编辑。",
   "Work mode": "工作模式",
