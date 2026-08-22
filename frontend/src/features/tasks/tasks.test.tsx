@@ -81,6 +81,29 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("searches tasks by title or description", async () => {
+    setLocale("en");
+    const call = mockCall([
+      { id: "a", title: "Alpha report", status: "done" },
+      { id: "b", title: "Beta", description: "monthly digest", status: "pending" },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() => expect(screen.getByText("Alpha report")).toBeTruthy());
+    const input = document.querySelector(".task-center-search") as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    setter?.call(
+      input,
+      "monthly",
+    );
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(screen.queryByText("Alpha report")).toBeNull();
+    expect(screen.getByText("Beta")).toBeTruthy();
+    store.getState().destroy();
+  });
+
   it("jumps from a scheduled instance to its template via the scheduled filter", async () => {
     setLocale("en");
     const call = mockCall([

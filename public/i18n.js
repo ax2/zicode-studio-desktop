@@ -536,6 +536,9 @@ const zhCN = {
   "Relevant memory": "相关记忆",
   "Work mode": "工作模式",
   "Default work mode": "默认工作模式",
+  "Search tasks": "搜索任务",
+  "No matching tasks": "没有匹配的任务",
+  "Try a different keyword.": "试试其他关键词。",
   "Cycle work mode (Ask / Craft / Plan)": "循环切换工作模式（问一问/做一做/想一想）",
   "Work mode changed": "工作模式已切换",
   "Work mode: Ask answers only, Craft executes, Plan proposes before changing files.":

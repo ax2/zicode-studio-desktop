@@ -70,7 +70,15 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SuperAgentTask | null>(null);
   const [grouped, setGrouped] = useState(false);
-  const visible = filteredTasks(tasks, filter);
+  const [query, setQuery] = useState("");
+  const visible = filteredTasks(tasks, filter).filter((task) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(task.title || "").toLowerCase().includes(q) ||
+      String(task.description || "").toLowerCase().includes(q)
+    );
+  });
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
   const groups = grouped ? groupTasksByWorkspace(visible) : null;
@@ -86,6 +94,14 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </p>
         </div>
         <div className="task-center-header-actions">
+          <input
+            type="search"
+            className="ui-input task-center-search"
+            value={query}
+            placeholder={t("Search tasks")}
+            aria-label={t("Search tasks")}
+            onChange={(event) => setQuery(event.target.value)}
+          />
           <button
             type="button"
             className={`ui-button ui-button--ghost ui-button--sm${
@@ -168,14 +184,18 @@ export function TaskMain({ store }: { store: TaskStore }) {
       ) : visible.length === 0 ? (
         <StatePanel
           title={
-            filter === "scheduled"
-              ? t("No scheduled tasks")
-              : t("No tasks in this view")
+            query.trim()
+              ? t("No matching tasks")
+              : filter === "scheduled"
+                ? t("No scheduled tasks")
+                : t("No tasks in this view")
           }
           detail={
-            filter === "scheduled"
-              ? t("Create a scheduled task to run work on a timer.")
-              : t("Create a task, or wait for work from automations and the Agent Inbox.")
+            query.trim()
+              ? t("Try a different keyword.")
+              : filter === "scheduled"
+                ? t("Create a scheduled task to run work on a timer.")
+                : t("Create a task, or wait for work from automations and the Agent Inbox.")
           }
           actionLabel={t("New task")}
           onAction={() => {
