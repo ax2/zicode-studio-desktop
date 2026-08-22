@@ -63,6 +63,9 @@
 | 编辑/预览切换 | `Ctrl+E` |
 | 下载 Markdown | `Ctrl+Shift+D` |
 | 复制 Markdown | `Ctrl+Shift+C` |
+| 加粗 | `Ctrl+B` |
+| 斜体 | `Ctrl+I` |
+| 代码块 | `Ctrl+Shift+K` |
 | 创建副本 | `Ctrl+D` |
 | 带入对话 | `Ctrl+Enter`（选中文字或整篇笔记） |
 | 打开回收站 | `Ctrl+Shift+T` |

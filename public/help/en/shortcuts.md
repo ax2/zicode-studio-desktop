@@ -51,6 +51,7 @@ Type `/` in the composer to see and pick commands. Common slash commands:
 - `Ctrl+E` toggles edit/preview.
 - `Ctrl+Shift+D` downloads Markdown.
 - `Ctrl+Shift+C` copies Markdown.
+- `Ctrl+B` bolds, `Ctrl+I` italicizes, `Ctrl+Shift+K` wraps a code block.
 - `Ctrl+D` creates a copy.
 - `Ctrl+Enter` brings the selection or whole note into chat.
 - `Ctrl+Shift+T` opens the trash.
