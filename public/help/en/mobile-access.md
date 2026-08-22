@@ -69,6 +69,13 @@ bounce immediately back to Chat. A later Android or iOS system Back gesture stil
 application normally. In landscape, the More panel scrolls internally and respects side safe areas. Its
 automatic current-item scrolling becomes immediate when the system requests reduced motion.
 
+## Switch workspaces
+
+There is no desktop-style workspace switcher on the phone. Open a session from another
+project (workspace) in the session list to switch to that workspace — the list groups
+sessions by project across all workspaces. You can also use Ctrl+K to search sessions
+and jump into one.
+
 ## Edit Notes on a phone
 
 After opening a note, the Edit/Preview switch and note actions appear as two clearly named control
