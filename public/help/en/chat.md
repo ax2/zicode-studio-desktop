@@ -34,6 +34,23 @@ Agent → **Default work mode**; the composer follows changes immediately.
 Type `/mode` to cycle Ask → Craft → Plan → Ask; non-default modes are
 highlighted in the composer.
 
+## See what the agent is doing
+
+While the agent works, tool cards show human-readable stage labels instead of
+internal tool names — "Running a command", "Reading a file", "Editing files",
+"Searching", "Opening a page" — and the label highlights while the call is
+running. Click a card to expand its arguments, output, and a diff for edit
+tools (only the lines that actually changed).
+
+While a run is in progress, the composer's send button becomes **Stop** (or
+press `Esc`) so you can interrupt the current execution, then add new
+instructions or send again.
+
+The right-side result panel has **Files / Artifacts / Changes** views: Changes
+lists every file the session's tools touched, each with a badge (modified /
+created / appended). Click a file to expand its diff; the magnifier button
+locates the file in the file browser.
+
 ## Extract memory
 
 Type `/memory` (or `/` and choose **Extract memory from this conversation**)

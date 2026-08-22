@@ -61,6 +61,8 @@ manage tasks directly, without going through a conversation or the inbox first.
   project, with the project path and count in each group header (a default
   group holds tasks without a project).
 - **Pin**: every task card can be pinned so it stays at the top of every list.
+- **Search**: the search box above the list filters tasks by title or
+  description in real time, stacking with the status filters.
 - **Continue**: tasks with a bound child session show a primary **Continue**
   button that opens that task's conversation so you can keep working.
 - **Run again**: completed/cancelled one-off tasks can be rerun with the same
@@ -79,11 +81,14 @@ Automations suit recurring summaries, stable prompts, and repeated research. Def
 In **More → Automation**, enter a name, target project, and task instructions; choose a manual, hourly,
 or daily schedule; then set the per-run cost, retry limit, and execution mode. The new-workflow form
 also has a **Start from a template** grid: built-in templates (daily tech brief, weekly work report,
-daily study plan, code review sweep, news digest) prefill the name, prompt and schedule in one click,
-and you can adjust them or reset with **Use custom**. **Create automation** adds the new rule to the
-list immediately. On phones, these fields use a 16px input font and touch targets at least 40px high
-to avoid focus zoom and missed taps. Every field retains a visible label after entry, and tapping that
-label focuses the associated control.
+daily study plan, code review sweep, news digest, nightly memory consolidation) prefill the name,
+prompt and schedule in one click, and you can adjust them or reset with **Use custom**. The nightly
+memory template runs at 23:30 and asks the agent to review the day's sessions and project records,
+deduplicate, and consolidate memory — complementing the memory panel in Settings and `/memory` in
+chat. The search box above the list filters workflows by title or prompt in real time. **Create
+automation** adds the new rule to the list immediately. On phones, these fields use a 16px input
+font and touch targets at least 40px high to avoid focus zoom and missed taps. Every field retains
+a visible label after entry, and tapping that label focuses the associated control.
 Existing workflow cards can be **Duplicated** into a new workflow with the
 same configuration (title gets a "(copy)" suffix, history is cleared, next run
 is recomputed) — handy for deriving variants from an existing rule.
@@ -92,10 +97,12 @@ is recomputed) — handy for deriving variants from an existing rule.
 
 - Workflows with **Run automatically (full access)** dispatch automatically to
   the target project when due; no manual Approve click is needed in the task
-  center.
+  center. File writes, deletions, scripts, and network actions will not ask
+  for confirmation one by one, so keep this for trusted, recoverable tasks.
 - Workflows with **Confirm before every run (default permission)** stop in
   "needs approval" state when due and only start after you approve them in the
-  task center.
+  task center; writes outside the workspace, deletions, scripts, and network
+  access still ask for confirmation before executing.
 - The scheduler runs for the whole time the app is open, regardless of which
   view you are on. Nothing runs while the app is completely closed (an
   unattended background runner is planned for a later release).
