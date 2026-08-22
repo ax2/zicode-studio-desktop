@@ -65,6 +65,10 @@ Deleting a note is not immediate: the note moves into its notebook's trash, whic
 Trash entries are retained for 30 days; entries older than that are permanently removed automatically the next time the trash is opened (use **Delete permanently** or **Empty trash** to clean up earlier). Exported backups include trash entries, so a backup taken right after deletion still restores everything.
 
 Shortcuts: `Ctrl+N` creates a new note, `Ctrl+Shift+T` opens the trash, and `Ctrl+S` saves the current note.
+The editor toolbar offers Markdown formatting buttons (bold, italic, heading,
+code, quote, list, table, link), plus `Ctrl+B` bold, `Ctrl+I` italic, and
+`Ctrl+Shift+K` code block shortcuts; selecting comma-separated CSV data and
+clicking "Convert CSV to table" (⇶) turns it into a Markdown table.
 
 ## Data location
 

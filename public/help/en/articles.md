@@ -6,8 +6,10 @@ WeChat Official Account.
 ## Write
 
 Open Articles and choose New article to create a draft with a Markdown
-frontmatter template: fill in the slug, title and body, then save. The post
-appears in the left list.
+frontmatter template: fill in the title and body, then save. The post appears
+in the left list; the slug is auto-generated from the title when left empty
+(fill it manually for non-ASCII titles). The editor toolbar offers Markdown
+formatting buttons and can convert a selected CSV block into a table.
 
 ## Configure publishing
 
