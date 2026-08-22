@@ -602,6 +602,53 @@ describe("notes store", () => {
     content.remove();
   });
 
+  it("converts the selected CSV text into a Markdown table", async () => {
+    const app = setupNotesApp({
+      gateway: gatewayStub({
+        list: vi.fn(async () => ({ snapshot: SNAPSHOT })),
+      }),
+      getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
+      notify: vi.fn(),
+    });
+    const nav = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(nav, content);
+    app?.renderNavigation(nav);
+    app?.renderContent(content);
+    document.body.dataset.activePlugin = "com.zicode.notes";
+    await waitFor(() =>
+      expect(nav.querySelector(".notes-list-item.notes-tree-note")).toBeTruthy(),
+    );
+    (nav.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+    (content.querySelector(".notes-edit-tab") as HTMLButtonElement).click();
+    await waitFor(() => expect(content.querySelector(".notes-format-bar")).toBeTruthy());
+
+    const textarea = content.querySelector(".notes-content-input") as HTMLTextAreaElement;
+    textarea.focus();
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    if (!setter) throw new Error("textarea value setter missing");
+    setter.call(textarea, "name,age\nAlice,30");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.setSelectionRange(0, 17);
+
+    const csvButton = [...content.querySelectorAll(".notes-format-btn")].find(
+      (button) => (button.getAttribute("aria-label") ?? "").includes("CSV"),
+    ) as HTMLButtonElement;
+    expect(csvButton).toBeTruthy();
+    csvButton.click();
+    await waitFor(() => {
+      expect(
+        (content.querySelector(".notes-content-input") as HTMLTextAreaElement).value,
+      ).toBe("| name | age |\n| --- | --- |\n| Alice | 30 |");
+    });
+
+    app?.destroy();
+    document.body.dataset.activePlugin = "";
+    nav.remove();
+    content.remove();
+  });
+
   it("closes the mobile function-area drawer when a note is selected", async () => {
     const store = storeWithGateway();
     const requests: Array<{ open?: boolean }> = [];

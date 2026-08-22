@@ -7,9 +7,11 @@ import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
 import { t } from "../../shared/i18n";
 import {
+  csvToMarkdownTable,
   insertMarkdownLinePrefix,
   insertMarkdownLink,
   insertMarkdownTable,
+  replaceSelection,
   wrapMarkdownCodeBlock,
   wrapMarkdownSelection,
   type MarkdownEdit,
@@ -2405,6 +2407,26 @@ function NoteEditor({ store }: { store: NotesStore }) {
     );
   };
 
+  const csvToTable = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = draftContent.slice(start, end);
+    if (!selected.trim()) {
+      applyMarkdownEdit(
+        insertMarkdownTable(draftContent, start, [t("Column 1"), t("Column 2")]),
+      );
+      return;
+    }
+    const table = csvToMarkdownTable(selected);
+    applyMarkdownEdit(
+      table
+        ? replaceSelection(draftContent, start, end, table)
+        : insertMarkdownTable(draftContent, start, [t("Column 1"), t("Column 2")]),
+    );
+  };
+
   const renderSecondaryActions = (role?: string) => (
     <>
       <ToolbarButton
@@ -2972,6 +2994,15 @@ function NoteEditor({ store }: { store: NotesStore }) {
             onClick={insertLinkMarkdown}
           >
             🔗
+          </button>
+          <button
+            type="button"
+            className="notes-format-btn"
+            title={t("Convert CSV selection to table")}
+            aria-label={t("Convert CSV selection to table")}
+            onClick={csvToTable}
+          >
+            ⇶
           </button>
         </div>
         <textarea

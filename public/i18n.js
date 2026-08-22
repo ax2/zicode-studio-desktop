@@ -1676,6 +1676,7 @@ const zhCN = {
   "Task list": "任务列表",
   Table: "表格",
   Link: "链接",
+  "Convert CSV selection to table": "把选中的 CSV 转成表格",
   "Column 1": "列 1",
   "Column 2": "列 2",
   "Auto-generated from the title when empty": "标题留空时按标题自动生成",

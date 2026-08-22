@@ -6,9 +6,11 @@ import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
 import {
+  csvToMarkdownTable,
   insertMarkdownLinePrefix,
   insertMarkdownLink,
   insertMarkdownTable,
+  replaceSelection,
   wrapMarkdownCodeBlock,
   wrapMarkdownSelection,
   type MarkdownEdit,
@@ -186,6 +188,26 @@ function ArticlesMain({
     );
   };
 
+  const csvToTable = () => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? 0;
+    const selected = draftMarkdown.slice(start, end);
+    if (!selected.trim()) {
+      applyMarkdownEdit(
+        insertMarkdownTable(draftMarkdown, start, [t("Column 1"), t("Column 2")]),
+      );
+      return;
+    }
+    const table = csvToMarkdownTable(selected);
+    applyMarkdownEdit(
+      table
+        ? replaceSelection(draftMarkdown, start, end, table)
+        : insertMarkdownTable(draftMarkdown, start, [t("Column 1"), t("Column 2")]),
+    );
+  };
+
   return (
     <div className="articles-main">
       <header className="articles-header">
@@ -346,6 +368,15 @@ function ArticlesMain({
                 onClick={insertLinkMarkdown}
               >
                 🔗
+              </button>
+              <button
+                type="button"
+                className="articles-format-btn"
+                title={t("Convert CSV selection to table")}
+                aria-label={t("Convert CSV selection to table")}
+                onClick={csvToTable}
+              >
+                ⇶
               </button>
             </div>
             <textarea

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  csvToMarkdownTable,
   insertMarkdownLinePrefix,
   insertMarkdownLink,
   insertMarkdownTable,
+  replaceSelection,
   wrapMarkdownCodeBlock,
   wrapMarkdownSelection,
 } from "./markdownFormatting";
@@ -43,5 +45,27 @@ describe("markdown formatting helpers", () => {
     const edit = insertMarkdownLink("see text", 4, 8);
     expect(edit.next).toBe("see [text](url)");
     expect(edit.selection).toEqual({ start: 11, end: 14 });
+  });
+
+  it("converts CSV text into a Markdown table", () => {
+    const table = csvToMarkdownTable("name,age\nAlice,30\nBob,25");
+    expect(table).toBe(
+      "| name | age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |",
+    );
+  });
+
+  it("pads ragged CSV rows and escapes pipes", () => {
+    const table = csvToMarkdownTable("a,b,c\n1,2\nx|y,3,4");
+    expect(table).toContain("| 1 | 2 |  |");
+    expect(table).toContain("| x\\|y | 3 | 4 |");
+  });
+
+  it("returns empty for blank CSV input", () => {
+    expect(csvToMarkdownTable("\n  \n")).toBe("");
+  });
+
+  it("replaces the selected range with the conversion", () => {
+    const edit = replaceSelection("before\na,b\nc,d\nafter", 7, 14, "| a | b |\n| --- | --- |\n| c | d |");
+    expect(edit.next).toBe("before\n| a | b |\n| --- | --- |\n| c | d |\nafter");
   });
 });

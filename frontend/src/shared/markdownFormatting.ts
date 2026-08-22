@@ -84,3 +84,42 @@ export function insertMarkdownLink(
     selection: { start: cursor, end: cursor + 3 },
   };
 }
+
+export function replaceSelection(
+  value: string,
+  start: number,
+  end: number,
+  replacement: string,
+): MarkdownEdit {
+  const next = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+  return { next, cursor: start + replacement.length };
+}
+
+/**
+ * Convert simple CSV text (comma-separated rows, first row as headers) into a
+ * Markdown table. Handles ragged rows by padding to the widest row and escapes
+ * pipe characters. Returns "" when the input has no rows.
+ */
+export function csvToMarkdownTable(csv: string): string {
+  const rows = String(csv ?? "")
+    .split(/\r?\n/)
+    .map((row) => row.split(",").map((cell) => cell.trim()))
+    .filter((row) => row.length > 0 && row.some((cell) => cell !== ""));
+  if (rows.length === 0) return "";
+  const columns = Math.max(...rows.map((row) => row.length));
+  const normalized = rows.map((row) => {
+    const cells = [...row];
+    while (cells.length < columns) cells.push("");
+    return cells;
+  });
+  const header = normalized[0];
+  const escapeCell = (cell: string) => String(cell).replace(/\|/g, "\\|");
+  const lines = [
+    `| ${header.map(escapeCell).join(" | ")} |`,
+    `| ${header.map(() => "---").join(" | ")} |`,
+    ...normalized
+      .slice(1)
+      .map((row) => `| ${row.map(escapeCell).join(" | ")} |`),
+  ];
+  return lines.join("\n");
+}
