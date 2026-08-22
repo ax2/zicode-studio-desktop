@@ -9,12 +9,15 @@ import { copyText } from "../../../../public/ui/copy.js";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
 import {
+  TASK_DATE_RANGES,
   filterLabel,
   filteredTasks,
+  dateRangeLabel,
   formatDate,
   groupTasksByWorkspace,
   isDefaultWorkspace,
   isScheduledTemplate,
+  matchesTaskDateRange,
   nextTaskRunAt,
   retryLimitReached,
   scheduleDescription,
@@ -24,6 +27,7 @@ import {
   taskProject,
   taskSummaryText,
   type SuperAgentTask,
+  type TaskDateRange,
   type TaskFilter,
 } from "./logic";
 import {
@@ -71,14 +75,17 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const [editing, setEditing] = useState<SuperAgentTask | null>(null);
   const [grouped, setGrouped] = useState(false);
   const [query, setQuery] = useState("");
-  const visible = filteredTasks(tasks, filter).filter((task) => {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      String(task.title || "").toLowerCase().includes(q) ||
-      String(task.description || "").toLowerCase().includes(q)
-    );
-  });
+  const [dateRange, setDateRange] = useState<TaskDateRange>("all");
+  const visible = filteredTasks(tasks, filter)
+    .filter((task) => matchesTaskDateRange(task, dateRange))
+    .filter((task) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        String(task.title || "").toLowerCase().includes(q) ||
+        String(task.description || "").toLowerCase().includes(q)
+      );
+    });
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
   const groups = grouped ? groupTasksByWorkspace(visible) : null;
@@ -102,6 +109,18 @@ export function TaskMain({ store }: { store: TaskStore }) {
             aria-label={t("Search tasks")}
             onChange={(event) => setQuery(event.target.value)}
           />
+          <select
+            className="ui-input task-center-date"
+            value={dateRange}
+            aria-label={t("Filter by date")}
+            onChange={(event) => setDateRange(event.target.value as TaskDateRange)}
+          >
+            {TASK_DATE_RANGES.map((id) => (
+              <option key={id} value={id}>
+                {t(dateRangeLabel(id))}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             className={`ui-button ui-button--ghost ui-button--sm${
@@ -186,6 +205,8 @@ export function TaskMain({ store }: { store: TaskStore }) {
           title={
             query.trim()
               ? t("No matching tasks")
+              : dateRange !== "all"
+                ? t("No tasks in this time range")
               : filter === "scheduled"
                 ? t("No scheduled tasks")
                 : t("No tasks in this view")
@@ -193,6 +214,8 @@ export function TaskMain({ store }: { store: TaskStore }) {
           detail={
             query.trim()
               ? t("Try a different keyword.")
+              : dateRange !== "all"
+                ? t("Choose a wider time range, or clear the filter.")
               : filter === "scheduled"
                 ? t("Create a scheduled task to run work on a timer.")
                 : t("Create a task, or wait for work from automations and the Agent Inbox.")

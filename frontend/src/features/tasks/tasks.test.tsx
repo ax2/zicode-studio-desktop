@@ -4,11 +4,13 @@ import { setLocale } from "../../shared/i18n.js";
 import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 import { createTaskCenterStore } from "./store";
 import {
+  dateRangeLabel,
   formatDate,
   filteredTasks,
   groupTasksByWorkspace,
   isDefaultWorkspace,
   isScheduledTemplate,
+  matchesTaskDateRange,
   nextTaskRunAt,
   scheduledTaskStats,
   sortTaskList,
@@ -46,10 +48,59 @@ afterEach(() => {
 });
 
 describe("task center React app", () => {
+  it("filters tasks by activity date range", () => {
+    const now = new Date("2026-08-22T12:00:00Z");
+    const today = {
+      id: "today",
+      status: "done",
+      result: { completedAt: "2026-08-22T08:00:00Z" },
+    };
+    const lastWeek = {
+      id: "week",
+      status: "done",
+      result: { completedAt: "2026-08-18T08:00:00Z" },
+    };
+    const oldTask = {
+      id: "old",
+      status: "done",
+      result: { completedAt: "2026-07-01T08:00:00Z" },
+    };
+    const untracked = { id: "none", status: "done" };
+    expect(matchesTaskDateRange(today, "all", now)).toBe(true);
+    expect(matchesTaskDateRange(today, "today", now)).toBe(true);
+    expect(matchesTaskDateRange(lastWeek, "today", now)).toBe(false);
+    expect(matchesTaskDateRange(lastWeek, "week", now)).toBe(true);
+    expect(matchesTaskDateRange(oldTask, "week", now)).toBe(false);
+    expect(matchesTaskDateRange(oldTask, "month", now)).toBe(false);
+    expect(matchesTaskDateRange(untracked, "today", now)).toBe(false);
+    expect(matchesTaskDateRange(untracked, "all", now)).toBe(true);
+    expect(dateRangeLabel("week")).toBe("Last 7 days");
+  });
+
   it("formats recent task timestamps as relative time", () => {
     expect(formatDate(new Date().toISOString())).toBeTruthy();
     expect(formatDate(null)).toBe("—");
     expect(formatDate("invalid")).toBe("invalid");
+  });
+
+  it("filters the task list by date range from the header select", async () => {
+    setLocale("zh-CN");
+    const todayIso = new Date().toISOString();
+    const call = mockCall([
+      { id: "t1", title: "今天完成的任务", status: "done", result: { completedAt: todayIso } },
+      { id: "t2", title: "旧任务", status: "done", result: { completedAt: "2026-01-01T00:00:00Z" } },
+    ]);
+    renderStore(call);
+    await waitFor(() => expect(screen.getByText("今天完成的任务")).toBeTruthy());
+    expect(screen.getByText("旧任务")).toBeTruthy();
+
+    const select = document.querySelector(".task-center-date") as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "today" } });
+    expect(screen.getByText("今天完成的任务")).toBeTruthy();
+    expect(screen.queryByText("旧任务")).toBeNull();
+
+    fireEvent.change(select, { target: { value: "all" } });
+    expect(screen.getByText("旧任务")).toBeTruthy();
   });
 
   it("groups tasks and exposes recoverable actions", async () => {

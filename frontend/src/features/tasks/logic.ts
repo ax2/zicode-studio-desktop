@@ -11,6 +11,10 @@ export type TaskFilter =
   | "cancelled"
   | "archived";
 
+export type TaskDateRange = "all" | "today" | "week" | "month";
+
+export const TASK_DATE_RANGES: TaskDateRange[] = ["all", "today", "week", "month"];
+
 export interface SuperAgentTask {
   id: string;
   title?: string;
@@ -98,6 +102,16 @@ export function statusLabel(status: string): string {
   return labels[status] || status;
 }
 
+export function dateRangeLabel(range: TaskDateRange): string {
+  const labels: Record<TaskDateRange, string> = {
+    all: "All time",
+    today: "Today",
+    week: "Last 7 days",
+    month: "This month",
+  };
+  return labels[range];
+}
+
 export function filteredTasks(tasks: SuperAgentTask[], id: TaskFilter): SuperAgentTask[] {
   if (id === "archived") {
     return tasks
@@ -138,9 +152,33 @@ function taskActivityMs(task: SuperAgentTask): number {
     task.events?.at(-1)?.at ||
     task.result?.completedAt ||
     task.dispatch?.startedAt ||
+    task.nextRunAt ||
     "";
   const time = new Date(candidate).getTime();
   return Number.isFinite(time) ? time : 0;
+}
+
+/**
+ * WorkBuddy-style date filter for the task list. "Today" / "Last 7 days" /
+ * "This month" compare against the task's most recent activity (or next run
+ * for scheduled templates); tasks with no timestamp only appear under "All".
+ */
+export function matchesTaskDateRange(
+  task: SuperAgentTask,
+  range: TaskDateRange,
+  now: Date = new Date(),
+): boolean {
+  if (range === "all") return true;
+  const ms = taskActivityMs(task);
+  if (!ms) return false;
+  const startOfDay = new Date(now);
+  startOfDay.setHours(0, 0, 0, 0);
+  if (range === "today") return ms >= startOfDay.getTime();
+  if (range === "week") {
+    return ms >= startOfDay.getTime() - 6 * 24 * 60 * 60 * 1000;
+  }
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  return ms >= startOfMonth.getTime();
 }
 
 export function sortTaskList(tasks: SuperAgentTask[]): SuperAgentTask[] {
