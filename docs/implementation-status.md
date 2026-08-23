@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 完整移动视口 qa:full 13 段全绿（权威快照）
+
+- `VIEWPORT=390x844 bun run qa:full` 一次通过全部 13 段：视觉、a11y、
+  keyboard、onboarding、composer-model（移动 22 个模型选项 + 触控尺寸）、
+  lan-qr（移动按设计隐藏）、notes、automation、backup、articles、task、
+  trash。
+- 跑后数据零残留（笔记/任务/工作流无 QA 条目，文章 456 基线）。
+- 桌面与移动两套权威快照均已记录；本轮为运行态验证，无代码改动。
+
 ## 2026-08-23 完整 qa:full 13 段全绿（权威快照）
 
 - 完整桌面电池一次通过：visual-qa、a11y 15/15、keyboard 14/14、
