@@ -1,5 +1,12 @@
 # 实现状态
 
+## 2026-08-23 每日博客核验注册为 npm 命令（bun run qa:blog）
+
+- `package.json` 新增 `qa:blog` 脚本（`node scripts/qa-blog-output.mjs`），
+  每日自动化跑完后可直接 `bun run qa:blog` 一键核验产出（或配合定时任务
+  使用）。实测通过；全量 167 文件 / 1258 用例、typecheck、Biome、设计
+  规范、权限检查全部通过。
+
 ## 2026-08-23 每日博客产出核验脚本（qa-blog-output）
 
 - 新增 `scripts/qa-blog-output.mjs`（只读）：检查最近日期（或指定日期）

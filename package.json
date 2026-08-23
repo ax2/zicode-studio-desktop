@@ -60,7 +60,8 @@
     "qa:locale": "node scripts/qa-locale.mjs",
     "qa:full": "node scripts/qa-full.mjs",
     "qa:data": "node scripts/qa-data-presence.mjs",
-    "qa:a11y": "node scripts/qa-a11y.mjs"
+    "qa:a11y": "node scripts/qa-a11y.mjs",
+    "qa:blog": "node scripts/qa-blog-output.mjs"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.72.0",
