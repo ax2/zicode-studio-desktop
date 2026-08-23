@@ -603,6 +603,7 @@ const zhCN = {
     '删除项目「{name}」？该项目的 ZiCode 应用数据（.zicode）会移入回收站、可手动恢复；你的项目文件不会被删除。',
   "Project moved to trash": "项目已移入回收站",
   "Recoverable at {path}": "可在 {path} 恢复",
+  "Open trash folder": "打开回收站目录",
   "Workspace switcher is unavailable here": "此处无法使用工作区切换器",
   "On the mobile web client, open a session from another project in the session list to switch workspaces.":
     "手机网页端请在会话列表打开其他项目的会话以切换工作区。",

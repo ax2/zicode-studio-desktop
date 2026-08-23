@@ -229,7 +229,7 @@ function isTypingTarget(target) {
  * reachable without a dedicated button. Falls back to a hidden control on
  * remote/browser clients that cannot invoke native window navigation.
  */
-export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify } = {}) {
+export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, openPath } = {}) {
   const button = document.getElementById("workspace-switcher-btn");
   const menu = document.getElementById("workspace-switcher-menu");
   const label = document.getElementById("workspace-bar-label");
@@ -372,6 +372,13 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify }
                   title: t("Project moved to trash"),
                   message: t("Recoverable at {path}").replace("{path}", trashPath),
                   type: "info",
+                  action:
+                    typeof openPath === "function"
+                      ? {
+                          label: t("Open trash folder"),
+                          run: () => openPath(trashPath),
+                        }
+                      : undefined,
                 });
                 await openMenu();
               } catch (error) {

@@ -229,8 +229,9 @@ describe("workspace actions", () => {
     });
     installTauriInvoke(invoke);
     const notify = vi.fn();
+    const openPath = vi.fn();
     const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
-    setupWorkspaceSwitcher({ onError: vi.fn(), notify });
+    setupWorkspaceSwitcher({ onError: vi.fn(), notify, openPath });
     document.getElementById("workspace-switcher-btn").click();
 
     await vi.waitFor(() =>
@@ -248,8 +249,14 @@ describe("workspace actions", () => {
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({
         title: expect.stringMatching(/Project moved to trash|项目已移入回收站/),
+        action: expect.objectContaining({
+          label: expect.stringMatching(/Open trash folder|打开回收站目录/),
+        }),
       }),
     );
+    const notification = notify.mock.calls[0][0];
+    notification.action.run();
+    expect(openPath).toHaveBeenCalledWith("/tmp/zicode-trash/work-123");
     confirmSpy.mockRestore();
   });
 
