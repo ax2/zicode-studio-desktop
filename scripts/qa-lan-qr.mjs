@@ -133,6 +133,11 @@ async function main() {
     process.exit(2);
   }
 
+  const viewport = process.env.VIEWPORT;
+  const [width, height] = viewport
+    ? viewport.split("x").map(Number)
+    : [1440, 900];
+  const mobile = width < 768;
   const profile = mkdtempSync(join(tmpdir(), "zicode-lan-qr-"));
   const chrome = spawn(
     CHROME,
@@ -145,7 +150,7 @@ async function main() {
       `--user-data-dir=${profile}`,
       "--remote-debugging-port=0",
       "--remote-allow-origins=*",
-      "--window-size=1440,900",
+      `--window-size=${width},${height}`,
       "about:blank",
     ],
     { stdio: "ignore", windowsHide: true },
@@ -183,6 +188,14 @@ async function main() {
     const cdp = await connect(target.webSocketDebuggerUrl);
     await cdp.send("Runtime.enable");
     await cdp.send("Page.enable");
+    if (viewport) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: width < 768,
+      });
+    }
     const sessionUrl = `${HOST}/app/workspaces/${workspaceId}/sessions/${sessionId}`;
     await cdp.send("Page.navigate", { url: sessionUrl });
     await sleep(WAIT_MS + 6000);
@@ -193,29 +206,58 @@ async function main() {
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         const btn = document.getElementById("lan-qr-btn");
         if (!btn) return { error: "lan-qr button missing" };
-        const visible =
-          !btn.classList.contains("hidden") &&
-          getComputedStyle(btn).display !== "none" &&
-          btn.getBoundingClientRect().height > 0;
+        const btnCount = document.querySelectorAll("#lan-qr-btn").length;
+        let visible = false;
+        for (let i = 0; i < 40; i += 1) {
+          visible =
+            !btn.classList.contains("hidden") &&
+            getComputedStyle(btn).display !== "none" &&
+            btn.getBoundingClientRect().height > 0;
+          if (visible) break;
+          await wait(200);
+        }
         if (!visible) {
-          return { buttonExists: true, buttonVisible: false };
+          return {
+            buttonExists: true,
+            buttonVisible: false,
+            btnCount,
+            btnHidden: btn.classList.contains("hidden"),
+            btnDisplay: getComputedStyle(btn).display,
+            mobileIntent: ${mobile},
+          };
         }
         btn.click();
-        await wait(1500);
         const modal = document.getElementById("lan-qr-modal");
-        const modalOpen =
-          modal && !modal.classList.contains("hidden") &&
-          getComputedStyle(modal).display !== "none";
+        const modalExists = Boolean(modal);
+        let modalOpen = false;
+        for (let i = 0; i < 15; i += 1) {
+          modalOpen =
+            Boolean(modal) &&
+            !modal.classList.contains("hidden") &&
+            getComputedStyle(modal).display !== "none";
+          if (modalOpen) break;
+          await wait(200);
+        }
         const image = document.getElementById("lan-qr-image");
         const address = document.getElementById("lan-qr-address");
+        let imageVisible = false;
+        for (let i = 0; i < 40; i += 1) {
+          imageVisible =
+            Boolean(image) &&
+            !image.classList.contains("hidden") &&
+            Boolean(image.getAttribute("src"));
+          if (imageVisible) break;
+          await wait(200);
+        }
         return {
           buttonExists: true,
           buttonVisible: true,
-          modalOpen: Boolean(modalOpen),
-          imageVisible:
-            image &&
-            !image.classList.contains("hidden") &&
-            Boolean(image.getAttribute("src")),
+          modalOpen,
+          imageVisible,
+          modalExists,
+          modalHidden: modal ? modal.classList.contains("hidden") : null,
+          loadingStatus:
+            document.getElementById("lan-qr-loading")?.textContent ?? null,
           imageSrcPrefix: image?.getAttribute("src")?.slice(0, 30) ?? null,
           addressVisible:
             address &&
@@ -231,24 +273,36 @@ async function main() {
     if (result.error || !result.buttonExists) {
       failures.push(result.error ?? "button missing");
     }
-    if (result.buttonExists && !result.buttonVisible) {
-      failures.push("lan-qr button not visible (relay unavailable?)");
-    }
-    if (!result.modalOpen) {
-      failures.push("QR modal did not open");
-    }
-    if (!result.imageVisible) {
-      failures.push("QR image did not render");
-    }
-    if (!result.addressVisible) {
-      failures.push("pairing address not shown");
+    if (mobile) {
+      // On phones the QR is meant to be *scanned*, so the header button is
+      // intentionally hidden by the mobile shell; only assert that.
+      if (result.buttonVisible) {
+        failures.push("mobile: lan-qr button should be hidden by design");
+      }
+    } else {
+      if (result.buttonExists && !result.buttonVisible) {
+        failures.push("lan-qr button not visible (relay unavailable?)");
+      }
+      if (!result.modalOpen) {
+        failures.push("QR modal did not open");
+      }
+      if (!result.imageVisible) {
+        failures.push("QR image did not render");
+      }
+      if (!result.addressVisible) {
+        failures.push("pairing address not shown");
+      }
     }
 
     if (failures.length > 0) {
       console.error(`LAN QR SWEEP FAILED:\n- ${failures.join("\n- ")}`);
       process.exitCode = 1;
     } else {
-      console.log("LAN QR SWEEP: button visible, modal opens, QR + address rendered");
+      console.log(
+        mobile
+          ? "LAN QR SWEEP: mobile header hides the QR button by design"
+          : "LAN QR SWEEP: button visible, modal opens, QR + address rendered",
+      );
     }
     cdp.close();
   } finally {
