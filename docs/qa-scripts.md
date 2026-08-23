@@ -61,6 +61,9 @@ VIEWPORT=390x844 bun run qa:full   # 移动视口浏览器电池（约 12 分钟
 - `qa-console-errors.mjs`：16 个应用视图的控制台报错扫描（`VIEWPORT` 可覆盖）。
 - `qa-locale.mjs`：英文界面下的中文 UI 串泄漏扫描。
 - `qa-data-presence.mjs`：关键数据存在性核对。
+- `qa-blog-output.mjs`：每日技术博客自动化产出核验——最近日期（或指定
+  日期）的文章目录须有 index.html、HTML 标签配平、图片引用全部解析；
+  只读，可在每日自动化跑完后执行。
 - `qa-notes-flow.mjs` / `qa-notes-attachment.mjs`：笔记交互闭环（编辑/标签/图标/自动保存/附件）。
 - `qa-session-sidebar.mjs`：会话侧边栏加载/重试/导出。
 - `qa-artifacts-flow.mjs`：产物应用闭环。
