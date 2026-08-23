@@ -49,6 +49,7 @@ const scripts = [
   "visual-qa.mjs",
   "qa-a11y.mjs",
   "qa-keyboard.mjs",
+  "qa-onboarding.mjs",
   "qa-workspace-trash-ui.mjs",
 ];
 for (const script of scripts) {
