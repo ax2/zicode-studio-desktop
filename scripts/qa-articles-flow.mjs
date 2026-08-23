@@ -248,13 +248,26 @@ async function main() {
         );
         if (!save) return { error: "save button missing" };
         save.click();
+        let saveState = "";
+        for (let i = 0; i < 60; i += 1) {
+          saveState =
+            document.querySelector(".articles-save-status")?.textContent ?? "";
+          if (/Saved at|已保存于/.test(saveState)) break;
+          await wait(250);
+        }
         for (let i = 0; i < 80; i += 1) {
           const item = Array.from(document.querySelectorAll(".articles-item-title")).find(
             (node) =>
               (node.textContent || "").includes(${JSON.stringify(qaSlug)}) ||
               (node.textContent || "").includes(${JSON.stringify(qaTitle)}),
           );
-          if (item) return { listed: true, title: item.textContent };
+          if (item) {
+            return {
+              listed: true,
+              title: item.textContent,
+              saveState,
+            };
+          }
           await wait(300);
         }
         return { error: "article did not appear in list" };
@@ -262,6 +275,11 @@ async function main() {
     );
     if (!created.listed) {
       failures.push(`create: ${created.error ?? "not listed"}`);
+    }
+    if (!/Saved at|已保存于/.test(created.saveState ?? "")) {
+      failures.push(
+        `create: save-status did not show saved state (${created.saveState ?? ""})`,
+      );
     }
     console.log("CREATE:", JSON.stringify(created));
 
