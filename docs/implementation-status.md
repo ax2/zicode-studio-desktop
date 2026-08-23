@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 locale 扫描误报修复（自动化标题是用户内容）
+
+- 首次跑 `qa-locale` 发现自动化视图“泄漏”中文，定位为用户的自动化工作流
+  标题（自动测试工作流、每日技术博客文章生成）——这是用户内容，不是
+  硬编码 UI 串；扫描脚本的内容排除列表漏了 `.automation-card`。
+- 修复：排除列表补上 `.automation-card` / `.automation-list`，实测
+  `qa-locale` 15/15 全绿（英文界面无真实 UI 泄漏）。
+- 本轮为 QA 脚本修复，无应用代码改动；全量 168 文件 / 1261 用例通过。
+
 ## 2026-08-23 插件注册表残留检查（qa-lifecycle 死条目）
 
 - 发现 `%LOCALAPPDATA%\zicode\plugins\registry.json` 中编程场景残留

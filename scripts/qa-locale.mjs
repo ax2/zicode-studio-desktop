@@ -179,6 +179,7 @@ async function main() {
             ".notes-tree", ".notes-list", ".notes-list-item",
             ".notes-notebook-branch", ".notes-result-list", ".trash-list",
             ".task-card", ".task-list", ".task-center-card", ".task-center-list",
+            ".automation-card", ".automation-list",
             ".artifact-list", ".artifact-item",
             ".runtime-task-card", ".runtime-task-list", ".super-agent-runtime",
             ".plugin-manager-permission", ".plugin-manager-permissions",
