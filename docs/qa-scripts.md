@@ -37,6 +37,23 @@ VIEWPORT=390x844 bun run qa:full        # 整套电池在移动视口下运行
 > `VIEWPORT` 会透传给 visual-qa、a11y、keyboard 与全部闭环脚本；onboarding
 > 固定跑双视口。`qa:full` 默认只跑桌面视口以控制总时长。
 
+## 发布前验收门禁（release gate）
+
+发布前按顺序跑完以下命令，全部通过才算可发布：
+
+```bash
+bun run test          # 单测 167 文件 / 1258 用例 + Tauri 权限 + 子进程策略
+bun run typecheck     # 前端 TS 全量类型检查
+bun run lint          # Biome（0 error，warning 允许）
+bun run check:design  # 设计 token 规范
+bun run qa:full       # 桌面视口浏览器电池（约 15 分钟，需运行中的实例）
+VIEWPORT=390x844 bun run qa:full   # 移动视口浏览器电池（约 12 分钟）
+```
+
+浏览器电池包含：视觉布局（双视口/移动单视口）、无障碍、键盘、新手入口、
+六个核心应用的端到端闭环（笔记/任务/自动化/文章/回收站/备份）。每段跑完
+会自清理；如某段失败，用 `QA_ONLY=<name>` 单独重跑定位。
+
 ## 其他专项脚本（不在 qa:full 内）
 
 - `qa-console-errors.mjs`：16 个应用视图的控制台报错扫描（`VIEWPORT` 可覆盖）。
