@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 relay 配对路由断言固化进 qa-lan-qr
+
+- `qa-lan-qr.mjs` 新增 relay 路由断言：从宿主生成真实一次性配对链接，
+  fetch（redirect: manual）断言返回 302、Location 指向应用路径且
+  pairingToken 完整保留。桌面完整流程 + 移动隐藏语义 + relay 路由三层
+  验收现在一条命令覆盖。
+- 验证：桌面 1440×900 与移动 390×844 均通过（RELAY 302/token 保留）；
+  全量 167 文件 / 1258 用例、typecheck、Biome、权限（30 个命令）通过。
+
 ## 2026-08-23 公网中继配对路由实测
 
 - 从宿主生成真实的一次性配对链接（`relay.zicode.com/d/dev-ax2-01/app/…

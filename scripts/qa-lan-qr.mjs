@@ -294,6 +294,45 @@ async function main() {
       }
     }
 
+    // Relay routing: a freshly generated pairing link must redirect to the
+    // app path with the pairingToken preserved.
+    let relayCheck = {};
+    try {
+      const qrUrl = new URL(`${HOST}/v2/lan-qr`);
+      qrUrl.searchParams.set("kind", "session");
+      qrUrl.searchParams.set(
+        "path",
+        `/app/workspaces/${workspaceId}/sessions/${sessionId}`,
+      );
+      const qrResponse = await fetch(qrUrl);
+      const qrBody = await qrResponse.json();
+      const pairingUrl = typeof qrBody?.url === "string" ? qrBody.url : "";
+      if (!pairingUrl) {
+        relayCheck = { error: "no pairing URL generated" };
+      } else {
+        const routeResponse = await fetch(pairingUrl, { redirect: "manual" });
+        const location = routeResponse.headers.get("location") ?? "";
+        relayCheck = {
+          status: routeResponse.status,
+          redirect: routeResponse.status >= 300 && routeResponse.status < 400,
+          locationHasAppPath: location.includes("/app/"),
+          tokenPreserved: location.includes("pairingToken="),
+          locationSample: location.slice(0, 90),
+        };
+      }
+    } catch (error) {
+      relayCheck = { error: String(error) };
+    }
+    console.log("RELAY:", JSON.stringify(relayCheck));
+
+    if (!mobile) {
+      if (relayCheck.error) {
+        failures.push(`relay: ${relayCheck.error}`);
+      } else if (!relayCheck.redirect || !relayCheck.locationHasAppPath || !relayCheck.tokenPreserved) {
+        failures.push("relay: pairing link did not redirect to the app path with token");
+      }
+    }
+
     if (failures.length > 0) {
       console.error(`LAN QR SWEEP FAILED:\n- ${failures.join("\n- ")}`);
       process.exitCode = 1;
@@ -301,7 +340,7 @@ async function main() {
       console.log(
         mobile
           ? "LAN QR SWEEP: mobile header hides the QR button by design"
-          : "LAN QR SWEEP: button visible, modal opens, QR + address rendered",
+          : "LAN QR SWEEP: button visible, modal opens, QR + address rendered, relay redirects with token",
       );
     }
     cdp.close();
