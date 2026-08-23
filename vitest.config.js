@@ -13,6 +13,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Retry timing-sensitive tests once before failing, so a transient flake
+    // (e.g. right after heavy QA runs) does not fail the release gate.
+    retry: 1,
     include: [
       "public/**/*.test.js",
       "frontend/src/**/*.test.{js,ts,tsx}",

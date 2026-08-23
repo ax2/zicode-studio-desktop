@@ -1,5 +1,13 @@
 # 实现状态
 
+## 2026-08-23 vitest 失败重试（压住时序 flake）
+
+- `vitest.config.js` 增加 `retry: 1`：时序敏感测试失败时先重跑一次再判
+  失败，避免重型 QA 跑完后偶发的环境性 flake 误伤发布门禁（真实缺陷仍
+  会稳定失败两次后暴露）。
+- 验证：全量 167 文件 / 1258 用例通过；typecheck、Biome、设计规范、
+  权限检查通过。
+
 ## 2026-08-23 release.sh 发布门禁 + 一次 flake 观察
 
 - `scripts/release.sh` 在版本号变更前插入发布门禁：`bun run test` →
