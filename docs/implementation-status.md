@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 完整 qa:full 13 段全绿（权威快照）
+
+- 完整桌面电池一次通过：visual-qa、a11y 15/15、keyboard 14/14、
+  onboarding 12/12、composer-model（22 个模型选项）、lan-qr（含 relay
+  302/token 保留）、notes、automation、backup、articles、task（含立即
+  运行）、trash。
+- 跑后数据零残留：笔记/任务/工作流无 QA 条目，文章数回到基线 456。
+- 本轮为运行态验证，无代码改动；工作树保持干净。
+
 ## 2026-08-23 任务闭环（含立即运行）移动视口通过
 
 - `VIEWPORT=390x844` 下 `qa-task-flow` 全流程（创建定时模板 → 立即运行
