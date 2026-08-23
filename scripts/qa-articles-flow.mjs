@@ -241,8 +241,16 @@ async function main() {
         if (!slugInput || !textarea) {
           return { error: "editor fields missing", hasTextarea: Boolean(textarea) };
         }
+        // Type the Markdown first: the slug must auto-generate from the title
+        // when left empty (as the field placeholder promises).
+        const autoTitle = ${JSON.stringify(`qa-article-${stamp}`)};
+        setValue(
+          textarea,
+          ${JSON.stringify("---\ntitle: \"")} + autoTitle + ${JSON.stringify("\"\n---\n\nQA 验收正文。")},
+        );
+        await wait(400);
+        const autoSlug = slugInput.value;
         setValue(slugInput, ${JSON.stringify(qaSlug)});
-        setValue(textarea, ${JSON.stringify(`# ${qaTitle}\n\nQA 验收正文。`)});
         const save = Array.from(document.querySelectorAll(".articles-actions button")).find(
           (button) => /Save|保存/.test(button.textContent || ""),
         );
@@ -266,6 +274,7 @@ async function main() {
               listed: true,
               title: item.textContent,
               saveState,
+              autoSlug,
             };
           }
           await wait(300);
@@ -275,6 +284,11 @@ async function main() {
     );
     if (!created.listed) {
       failures.push(`create: ${created.error ?? "not listed"}`);
+    }
+    if (!created.autoSlug || !/^[a-z0-9-]+$/i.test(created.autoSlug)) {
+      failures.push(
+        `create: slug did not auto-generate from the title (${created.autoSlug ?? ""})`,
+      );
     }
     if (!/Saved at|已保存于/.test(created.saveState ?? "")) {
       failures.push(

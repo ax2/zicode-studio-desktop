@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-23 文章 slug 自动生成纳入闭环断言
+
+- `qa-articles-flow.mjs` 新增断言：新建文章先输入含 ASCII frontmatter
+  标题的 Markdown，slug 字段应自动生成（placeholder 承诺的行为）；实测
+  通过（`qa-article-<stamp>` 自动填入），随后显式覆盖为 QA slug 继续
+  保存/删除流程。
+- 说明：自动生成只读取 frontmatter `title:` 字段，且中文标题会被
+  slugifyTitle 清空（设计如此，ASCII 标题才生成）——测试按该语义编写。
+- 验证：文章闭环全流程通过，文章数回到基线 456。
+
 ## 2026-08-23 文章保存状态指示纳入闭环断言
 
 - `qa-articles-flow.mjs` 新增断言：点击保存后等待保存状态行出现
