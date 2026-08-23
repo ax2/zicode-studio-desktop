@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-23 qa:blog 扩展：同时核对产出与下次排期
+
+- `qa-blog-output.mjs` 新增排期检查：读取 agent-inbox 的 workflows.json，
+  确认「每日技术博客文章生成」enabled + daily + nextRunAt 在近 48 小时内
+  （`BLOG_WORKFLOW_FILE` 可覆盖路径）。实测通过（nextRunAt 2026-08-24
+  01:00 UTC = 明天 09:00 北京）。
+- 现在 `bun run qa:blog` 一条命令覆盖：今日文章完整（HTML/图片）+ 自动化
+  排期健康；每日自动化跑完后的例行核验更完整。
+- 本轮仅改 QA 脚本，无应用代码改动。
+
 ## 2026-08-23 每日博客自动化排期复验（今日运行后）
 
 - 今日（08-23 01:00 UTC）运行后复验：每日技术博客文章生成 enabled +

@@ -1,15 +1,27 @@
-// Daily blog automation output sweep: verifies the most recent dated article
+// Daily blog automation sweep: verifies the most recent dated article
 // directory in the tech blog has a well-formed index.html (balanced div/p
-// tags) and that every image reference resolves to a real file. Read-only.
+// tags), every image reference resolves, and the daily automation is still
+// scheduled for its next run. Read-only.
 //
 // Usage:
 //   node scripts/qa-blog-output.mjs [blogRoot] [date]
 // blogRoot defaults to the user's 技术博客 directory; date defaults to the
 // most recent YYYYMMDD article directory found.
+// BLOG_WORKFLOW_FILE overrides the automation workflows.json path used for
+// the scheduling check (defaults to the agent-inbox workspace).
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const DEFAULT_BLOG_ROOT = "C:\\Users\\ax2\\Documents\\技术博客";
+const DEFAULT_WORKFLOW_FILE = join(
+  process.env.LOCALAPPDATA || "",
+  "zicode",
+  "workspaces",
+  "agent-inbox",
+  ".zicode",
+  "automation",
+  "workflows.json",
+);
 
 function countTag(html, openTag, closeTag) {
   const open = (html.match(new RegExp(`<${openTag}[ >]`, "g")) ?? []).length;
@@ -88,6 +100,58 @@ async function main() {
   } else {
     console.log(
       `BLOG OUTPUT SWEEP: ${reports.length} article(s) well-formed (HTML balanced, images resolve)`,
+    );
+  }
+
+  // Scheduling check: the daily blog automation must stay enabled and point
+  // at a next run in the near future.
+  const workflowFile =
+    process.env.BLOG_WORKFLOW_FILE || DEFAULT_WORKFLOW_FILE;
+  let scheduleResult = { skipped: true };
+  try {
+    if (workflowFile && existsSync(workflowFile)) {
+      const workflows = JSON.parse(readFileSync(workflowFile, "utf8"));
+      const blogWorkflow = (workflows?.workflows ?? []).find((workflow) =>
+        /每日技术博客/.test(workflow?.title ?? ""),
+      );
+      if (blogWorkflow) {
+        const nextRun = new Date(blogWorkflow.nextRunAt ?? 0).getTime();
+        const now = Date.now();
+        const inFuture = nextRun > now;
+        const within48h = nextRun > 0 && nextRun - now < 48 * 60 * 60 * 1000;
+        scheduleResult = {
+          skipped: false,
+          enabled: blogWorkflow.enabled !== false,
+          schedule: blogWorkflow.schedule ?? null,
+          nextRunAt: blogWorkflow.nextRunAt ?? null,
+          inFuture,
+          within48h,
+        };
+        if (
+          blogWorkflow.enabled === false ||
+          blogWorkflow.schedule !== "daily" ||
+          !inFuture ||
+          !within48h
+        ) {
+          failures.push(
+            `schedule: daily blog automation not scheduled correctly (${JSON.stringify(scheduleResult)})`,
+          );
+        }
+      } else {
+        scheduleResult = { skipped: true, note: "daily blog workflow not found" };
+      }
+    }
+  } catch (error) {
+    scheduleResult = { skipped: true, error: String(error) };
+  }
+  console.log("BLOG SCHEDULE:", JSON.stringify(scheduleResult));
+
+  if (failures.length > 0) {
+    console.error(`BLOG OUTPUT SWEEP FAILED:\n- ${failures.join("\n- ")}`);
+    process.exitCode = 1;
+  } else if (!scheduleResult.skipped) {
+    console.log(
+      "BLOG OUTPUT SWEEP: output well-formed and daily automation scheduled correctly",
     );
   }
 }
