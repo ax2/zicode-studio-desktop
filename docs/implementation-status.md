@@ -9,6 +9,10 @@
   脚本注入 mock invoke（真实快照/恢复语义由 Rust + store 单测覆盖）。
 - 实测：设置经 `#/settings/general` 路由打开、备份区渲染、创建/删除全链路
   通过；已接入 `qa:full` 一键回归。
+- 补充：脚本新增「恢复」分支——点恢复按钮后断言
+  `restore_workspace_backup` 命令与 backupId 参数正确、状态出现「已从备份
+  恢复工作区——请重启 ZiCode Studio 以加载数据。」；全流程扩为
+  「创建 → 列表 → 恢复 → 删除」。
 - 验证：全量 167 文件 / 1257 用例、typecheck、Biome、权限（30 个命令）
   通过；本轮仅新增 QA 脚本，无应用代码改动。
 

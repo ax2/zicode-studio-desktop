@@ -210,6 +210,9 @@ async function main() {
             backups = backups.filter((backup) => backup.id !== args?.backupId);
             return undefined;
           }
+          if (cmd === "restore_workspace_backup") {
+            return { apps: ["notes", "sessions"] };
+          }
           return undefined;
         } } };
       })()`,
@@ -259,6 +262,46 @@ async function main() {
     }
     console.log("CREATE:", JSON.stringify(created));
 
+    const restored = await evaluate(
+      cdp,
+      `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const restore = document.querySelector(
+          ".workspace-backup-item .ui-button--secondary",
+        );
+        if (!restore) return { error: "restore button missing" };
+        restore.click();
+        for (let i = 0; i < 60; i += 1) {
+          const status =
+            document.getElementById("workspace-backup-status")?.textContent ?? "";
+          if (
+            window.__qaBackupCalls.some(
+              (call) => call.cmd === "restore_workspace_backup",
+            ) &&
+            /Workspace restored from backup|已从备份恢复工作区/.test(status)
+          ) {
+            return { status, calls: window.__qaBackupCalls };
+          }
+          await wait(300);
+        }
+        return {
+          error: "restore status not shown",
+          status:
+            document.getElementById("workspace-backup-status")?.textContent ?? "",
+          calls: window.__qaBackupCalls,
+        };
+      })()`,
+    );
+    if (
+      !restored.calls?.some((call) => call.cmd === "restore_workspace_backup")
+    ) {
+      failures.push("restore: restore_workspace_backup not invoked");
+    }
+    if (!/Workspace restored from backup|已从备份恢复工作区/.test(restored.status ?? "")) {
+      failures.push(`restore: confirmation status missing (${restored.status ?? ""})`);
+    }
+    console.log("RESTORE:", JSON.stringify(restored));
+
     const deleted = await evaluate(
       cdp,
       `(async () => {
@@ -295,7 +338,7 @@ async function main() {
       console.error(`BACKUP FLOW SWEEP FAILED:\n- ${failures.join("\n- ")}`);
       process.exitCode = 1;
     } else {
-      console.log("BACKUP FLOW SWEEP: create -> list -> delete loop passed");
+      console.log("BACKUP FLOW SWEEP: create -> list -> restore -> delete loop passed");
     }
     cdp.close();
   } finally {
