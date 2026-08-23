@@ -1799,6 +1799,16 @@ const zhCN = {
   "The backup belongs to a different workspace.": "该备份属于其他工作区。",
   "Could not restore the backup data.": "无法恢复备份数据。",
   "The backup contains no restorable app data.": "备份中没有可恢复的应用数据。",
+  "Choose a .zicode-plugin package file.": "请选择 .zicode-plugin 插件包文件。",
+  "The plugin package is too large.": "插件包过大。",
+  "The plugin package is damaged or incomplete.": "插件包已损坏或不完整。",
+  "The plugin package is not valid for this app (manifest or signature mismatch).":
+    "插件包无效（清单或签名不匹配）。",
+  "Another install of this plugin is in progress. Try again in a moment.":
+    "该插件正在安装中，请稍后重试。",
+  "Could not read the plugin package.": "无法读取插件包。",
+  "Please choose a plugin directory.": "请选择插件目录。",
+  "Could not access the plugin folder.": "无法访问插件目录。",
   "Restoring…": "正在恢复…",
   "Restore workspace from backup": "从备份恢复工作区",
   "Restore overwrites current workspace data; the current state is snapshotted first.":

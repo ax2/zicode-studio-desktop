@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { t } from "../../shared/i18n";
 import {
+  friendlyPluginError,
   helpPageForPlugin,
   MANAGER_FILTERS,
   matchesFilter,
@@ -122,7 +123,7 @@ export function PluginManagerViewApp({
     try {
       await action();
     } catch (error) {
-      notify?.(error instanceof Error ? error.message : String(error));
+      notify?.(friendlyPluginError(error));
     } finally {
       setBusyKey(key, false);
     }
