@@ -488,6 +488,11 @@ function TaskForm({
           ))}
         </datalist>
       </label>
+      {schedule === "manual" && !target.trim() ? (
+        <p className="task-form-hint" role="note">
+          {t("Manual tasks need a target project before they can be run.")}
+        </p>
+      ) : null}
       <label className="task-form-field">
         <span>{t("Trigger")}</span>
         <select
@@ -908,6 +913,11 @@ function TaskCard({
           ) : null}
         </div>
       </header>
+      {!scheduledTemplate && task.status === "pending" && !task.targetProject ? (
+        <p className="task-center-runtime-hint" role="note">
+          {t("Set a target project to run this manual task.")}
+        </p>
+      ) : null}
       {task.description ? (
         <>
           <p

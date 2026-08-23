@@ -547,6 +547,26 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
+  it("explains that a pending manual task without a target project cannot be run", async () => {
+    setLocale("en");
+    const call = mockCall([
+      {
+        id: "no-target-1",
+        title: "Task without target",
+        status: "pending",
+        targetProject: null,
+      },
+    ]);
+    const store = renderStore(call);
+    await waitFor(() =>
+      expect(
+        screen.getByText("Set a target project to run this manual task."),
+      ).toBeTruthy(),
+    );
+    expect(screen.queryByText("Approve and run")).toBeNull();
+    store.getState().destroy();
+  });
+
   it("retries and dispatches a failed task in one action", async () => {
     setLocale("en");
     const call = mockCall([

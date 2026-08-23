@@ -872,6 +872,10 @@ const zhCN = {
   "Task pinned": "任务已置顶",
   "Task unpinned": "任务已取消置顶",
   Archive: "归档",
+  "Set a target project to run this manual task.":
+    "手动任务需要设置目标项目后才能运行。",
+  "Manual tasks need a target project before they can be run.":
+    "手动任务需设置目标项目后才能运行。",
   "Task archived": "任务已归档",
   "Task restored": "任务已恢复",
   "Archive this finished task": "归档此已完成任务",

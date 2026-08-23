@@ -11518,6 +11518,14 @@ body.notes-dragging .notes-result-item {
   text-decoration: underline;
 }
 
+.task-center-runtime-hint,
+.task-form-hint {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
 .task-center-result-row {
   display: flex;
   align-items: flex-start;
