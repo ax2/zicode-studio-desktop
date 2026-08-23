@@ -611,6 +611,12 @@ const zhCN = {
   "Trash entry permanently deleted": "回收站条目已彻底删除",
   "Auto-purges in {count} days": "{count} 天后自动清除",
   "Auto-purges today": "今天自动清除",
+  "Restore failed: the original project folder no longer exists.":
+    "恢复失败：原项目文件夹已不存在。",
+  "Restore failed: the project already has app data (.zicode).":
+    "恢复失败：该项目已存在 .zicode 数据。",
+  "Trash operation failed. Check the recycle bin folder and try again.":
+    "回收站操作失败，请检查回收站目录后重试。",
   'Restore project "{name}"? Its app data (.zicode) returns to the original folder.':
     '恢复项目「{name}」？应用数据（.zicode）将回到原项目文件夹。',
   "Project restored": "项目已恢复",

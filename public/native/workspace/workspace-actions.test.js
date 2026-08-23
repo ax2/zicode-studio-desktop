@@ -386,6 +386,55 @@ describe("workspace actions", () => {
     confirmSpy.mockRestore();
   });
 
+  it("maps raw restore failures to friendly messages", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    const invoke = vi.fn((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([{ id: "ws-global", path: "/home/user/.zicode" }]);
+      }
+      if (command === "list_workspace_trash") {
+        return Promise.resolve([
+          {
+            dir: "/tmp/zicode-trash/work-123",
+            name: "work-123",
+            original_root: "/home/user/work",
+            deleted_at: 123,
+          },
+        ]);
+      }
+      if (command === "restore_workspace") {
+        return Promise.reject(new Error("The original project folder no longer exists"));
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+    const onError = vi.fn();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    setupWorkspaceSwitcher({ onError, notify: vi.fn() });
+    document.getElementById("workspace-switcher-btn").click();
+
+    await vi.waitFor(() =>
+      expect(document.querySelector(".workspace-switcher-restore")).toBeTruthy(),
+    );
+    document.querySelector(".workspace-switcher-restore").click();
+
+    await vi.waitFor(() => expect(onError).toHaveBeenCalled());
+    const [error] = onError.mock.calls[0];
+    expect(error.message).toMatch(
+      /Restore failed: the original project folder no longer exists|恢复失败：原项目文件夹已不存在/,
+    );
+    confirmSpy.mockRestore();
+  });
+
   it("empties the recycle bin after confirmation", async () => {
     document.body.innerHTML = `
       <div class="workspace-bar" id="workspace-bar">

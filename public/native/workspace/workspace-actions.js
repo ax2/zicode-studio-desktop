@@ -10,6 +10,32 @@ import { t } from "../../i18n.js";
 const WORKSPACE_TRASH_RETENTION_DAYS = 30;
 const DAY_SECS = 24 * 60 * 60;
 
+/**
+ * Map raw Rust errors from workspace trash commands to friendly localized
+ * messages so users see understandable feedback instead of internal strings.
+ */
+function friendlyTrashError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const fallbacks = [
+    [
+      /original project folder no longer exists/i,
+      t("Restore failed: the original project folder no longer exists."),
+    ],
+    [
+      /already has a \.zicode folder/i,
+      t("Restore failed: the project already has app data (.zicode)."),
+    ],
+    [
+      /cannot delete workspace trash entry|cannot read workspace trash/i,
+      t("Trash operation failed. Check the recycle bin folder and try again."),
+    ],
+  ];
+  for (const [pattern, friendly] of fallbacks) {
+    if (pattern.test(message)) return new Error(friendly);
+  }
+  return error instanceof Error ? error : new Error(String(error));
+}
+
 
 /**
  * Resolve the Tauri `invoke` function exposed via `withGlobalTauri`.
@@ -425,7 +451,7 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
             notify?.({ title: t("Recycle bin emptied"), type: "success" });
             await openMenu();
           } catch (error) {
-            onError?.(error instanceof Error ? error : new Error(String(error)));
+            onError?.(friendlyTrashError(error));
           }
         });
         heading.append(emptyTrash);
@@ -479,7 +505,7 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
               });
               await openMenu();
             } catch (error) {
-              onError?.(error instanceof Error ? error : new Error(String(error)));
+              onError?.(friendlyTrashError(error));
             }
           });
           row.append(restore);
@@ -512,7 +538,7 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
               });
               await openMenu();
             } catch (error) {
-              onError?.(error instanceof Error ? error : new Error(String(error)));
+              onError?.(friendlyTrashError(error));
             }
           });
           row.append(deleteEntry);

@@ -1,5 +1,19 @@
 # 实现状态
 
+## 2026-08-23 回收站操作友好错误提示 + qa:full 集成回归通过
+
+- 回收站恢复/彻底删除/清空失败时，不再直接展示 Rust 原始英文报错，而是
+  映射为本地化友好提示（如「恢复失败：原项目文件夹已不存在。」、「恢复
+  失败：该项目已存在 .zicode 数据。」、通用「回收站操作失败」兜底）；
+  未知错误仍透传原文，测试锁定映射行为。
+- 确认：删除/恢复/清空的二次确认在桌面端已走 Tauri 原生对话框
+  （`plugin:dialog|message` OkCancel），无需改动。
+- `bun run qa:full` 集成回归通过：visual-qa（双视口布局）、qa-a11y、
+  qa-keyboard、qa-workspace-trash-ui（已接入）四段全绿。
+- 验证：workspace-actions 14 项 + i18n coverage 4 项；全量 166 文件 /
+  1251 用例、typecheck、Biome、权限（30 个命令）通过；静态文件已同步
+  （纯前端改动）。
+
 ## 2026-08-23 回收站 UI 扫描支持移动端视口（390×844 实测通过）
 
 - `qa-workspace-trash-ui.mjs` 新增 `VIEWPORT` 支持（复用 qa-console-errors
