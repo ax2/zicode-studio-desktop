@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 插件注册表残留检查（qa-lifecycle 死条目）
+
+- 发现 `%LOCALAPPDATA%\zicode\plugins\registry.json` 中编程场景残留
+  `com.zicode.qa-lifecycle`（enabled=true）——早期 QA 遗留的启用状态。
+- 核查：插件本体（目录/manifest）已不存在，`plugin_registry::list()` 只
+  遍历实际安装的插件，因此该死条目在插件管理器 UI 中不可见、无运行时
+  影响；无需清理。OCR/习惯/监控等为按用户决策禁用。
+- 本轮为运行态核验，无代码改动；工作树干净、与 origin 同步。
+
 ## 2026-08-23 证件照源照片裁剪核验
 
 - 确认用户此前要求的「源照片支持剪裁」已实现：IdPhotoApp 提供 CropBox
