@@ -53,6 +53,7 @@ const allScripts = [
   "qa-composer-model.mjs",
   "qa-lan-qr.mjs",
   "qa-notes-flow.mjs",
+  "qa-artifacts-flow.mjs",
   "qa-automation-flow.mjs",
   "qa-backup-flow.mjs",
   "qa-articles-flow.mjs",
