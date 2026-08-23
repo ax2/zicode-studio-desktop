@@ -10,6 +10,9 @@
   `docs.yml` 独立覆盖。测试代码中的 Windows 路径均为 mock 数据，不依赖
   宿主平台。
 - 验证：YAML 语法校验通过；本地全量测试基线全绿。
+- 阻塞：GitHub Actions 首次触发被账户计费拦截（"recent account payments
+  have failed or your spending limit needs to be increased"），workflow
+  文件已被 GitHub 接受、仅任务未调度；待账号计费恢复后重跑即可。
 
 ## 2026-08-23 笔记应用真实闭环接入 qa:full
 
