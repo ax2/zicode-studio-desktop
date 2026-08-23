@@ -10,6 +10,7 @@
 bun run qa:full                 # 自动使用第一个工作区（如 agent-inbox）
 ZICODE_WORKSPACE=<folder> bun run qa:full
 QA_ONLY=qa-task-flow bun run qa:full   # 只跑单个脚本（也支持 --only=<name>）
+VIEWPORT=390x844 bun run qa:full        # 整套电池在移动视口下运行
 ```
 
 每个脚本都接受 `<workspaceId | 项目路径 | 工作区文件夹名> [sessionId]`；
@@ -33,7 +34,8 @@ QA_ONLY=qa-task-flow bun run qa:full   # 只跑单个脚本（也支持 --only=<
 | `qa-articles-flow.mjs` | 文章创作真实闭环：新建 → 保存 → 列表 → 删除（宿主 API 核对基线） | 桌面（`VIEWPORT` 可覆盖移动） | 真实写文章存储 | 删除后核对宿主文章数回到基线 |
 
 > 所有真实闭环脚本均支持 `VIEWPORT=390x844` 在移动视口下运行（实测通过）；
-> `qa:full` 默认只跑桌面视口以控制总时长。
+> `VIEWPORT` 会透传给 visual-qa、a11y、keyboard 与全部闭环脚本；onboarding
+> 固定跑双视口。`qa:full` 默认只跑桌面视口以控制总时长。
 
 ## 其他专项脚本（不在 qa:full 内）
 

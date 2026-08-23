@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-23 qa:full 整电池移动视口运行
+
+- 确认 `VIEWPORT` 环境变量经 `qa:full` 透传给全部子脚本；为
+  `qa-keyboard.mjs` 补上 `VIEWPORT` 支持（此前只有 visual-qa、a11y 和闭环
+  脚本支持），现在 `VIEWPORT=390x844 bun run qa:full` 可让整套电池在移动
+  视口运行（onboarding 固定双视口）。键盘扫描移动视口实测 14/14 通过。
+- 顺手清掉 qa-keyboard 一个存量未使用变量警告，Biome 全绿。
+- 验证：全量 167 文件 / 1258 用例、typecheck、Biome、权限（30 个命令）
+  通过；本轮仅改 QA 脚本与文档。
+
 ## 2026-08-23 笔记闭环支持移动视口
 
 - `qa-notes-flow.mjs` 新增 `VIEWPORT` 支持；实测 390×844 移动视口下

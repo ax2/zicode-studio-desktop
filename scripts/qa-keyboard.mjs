@@ -214,6 +214,10 @@ async function main() {
   });
 
   const profile = mkdtempSync(join(tmpdir(), "zicode-keyboard-"));
+  const viewport = process.env.VIEWPORT;
+  const [width, height] = viewport
+    ? viewport.split("x").map(Number)
+    : [1440, 900];
   const chrome = spawn(
     CHROME,
     [
@@ -225,6 +229,7 @@ async function main() {
       `--user-data-dir=${profile}`,
       "--remote-debugging-port=0",
       "--remote-allow-origins=*",
+      `--window-size=${width},${height}`,
       "about:blank",
     ],
     { stdio: "ignore", windowsHide: true },
@@ -259,6 +264,14 @@ async function main() {
     const cdp = await connect(target.webSocketDebuggerUrl);
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
+    if (viewport) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: width < 768,
+      });
+    }
 
     const report = [];
     for (const [name, url] of apps) {
@@ -404,7 +417,7 @@ async function main() {
       // (bench-desktop-ui) rather than in headless Chrome.
       const globalShortcuts = [];
       try {
-        const paletteOpen = await cdp.send("Runtime.evaluate", {
+        await cdp.send("Runtime.evaluate", {
           expression: `(() => {
             document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
             return true;
