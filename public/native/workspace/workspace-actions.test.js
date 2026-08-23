@@ -203,6 +203,56 @@ describe("workspace actions", () => {
     );
   });
 
+  it("deletes a non-protected workspace to the recycle bin after confirmation", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    const invoke = vi.fn((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([
+          { id: "ws-global", path: "/home/user/.zicode" },
+          { id: "ws-1", path: "/home/user/work" },
+          { id: "ws-2", path: "/home/user/other" },
+        ]);
+      }
+      if (command === "delete_workspace") {
+        return Promise.resolve("/tmp/zicode-trash/work-123");
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+    const notify = vi.fn();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    setupWorkspaceSwitcher({ onError: vi.fn(), notify });
+    document.getElementById("workspace-switcher-btn").click();
+
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".workspace-switcher-delete").length).toBe(2),
+    );
+    const deletes = [...document.querySelectorAll(".workspace-switcher-delete")];
+    deletes[0].click();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("delete_workspace", {
+        workspaceId: "ws-1",
+      }),
+    );
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Project moved to trash|项目已移入回收站/),
+      }),
+    );
+    confirmSpy.mockRestore();
+  });
+
   it("keeps the workspace name as a passive label instead of an open-folder button", async () => {
     document.body.innerHTML = `
       <div class="workspace-bar" id="workspace-bar">

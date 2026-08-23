@@ -22,9 +22,13 @@ Create a project when work spans multiple sessions, stages, or deliverables. A p
   into that project's conversations) and budget; Knowledge connections,
   Project search, and Recent activity surface content bound to the current
   project.
-- Deleting a project is not exposed yet: the data in a project folder is your
-  local files, and deletion semantics need a deliberate data-safety design.
-  Unused projects can simply be left unopened; their data stays in place.
+- Deleting a project moves it to the recycle bin: choose delete from a
+  workspace's row in the switcher, and the project's ZiCode app data (the
+  `.zicode` folder) moves into `%LOCALAPPDATA%\zicode\trash\` for manual
+  recovery, then the workspace is un-registered from the list. Your own
+  project files (source, documents, etc.) are never deleted. The global
+  shared workspace and the Agent Inbox workspace are protected and cannot
+  be deleted.
 
 ## Search across project content
 

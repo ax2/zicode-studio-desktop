@@ -1250,6 +1250,7 @@ setupNewSessionButton({
 });
 workspaceBar = setupWorkspaceSwitcher({
   onError: showError,
+  notify: notifications.notify,
   resolveWorkspacePath: (workspaceId) =>
     sidebar?.sessions?.find(
       (session) => session.workspaceId === workspaceId && session.projectPath,

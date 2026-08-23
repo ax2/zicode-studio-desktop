@@ -329,6 +329,16 @@ impl HostDataPlane {
         Ok(())
     }
 
+    /// Drop a workspace from the in-memory registry after its app data has
+    /// been relocated to the recycle bin.
+    pub fn unregister_workspace(&self, workspace_id: &str) -> Result<(), HostDataError> {
+        self.workspace_roots
+            .write()
+            .map_err(|_| HostDataError::Io("workspace registry poisoned".into()))?
+            .remove(workspace_id);
+        Ok(())
+    }
+
     fn workspace_root(&self, workspace_id: &str) -> Result<PathBuf, HostDataError> {
         self.workspace_roots
             .read()

@@ -110,6 +110,11 @@ description = "Allow listing registered workspaces for the desktop workspace swi
 commands.allow = ["list_workspaces"]
 
 [[permission]]
+identifier = "allow-delete-workspace"
+description = "Allow deleting a workspace with recycle-bin semantics (app data moves to trash)."
+commands.allow = ["delete_workspace"]
+
+[[permission]]
 identifier = "allow-create-workspace-backup"
 description = "Allow snapshotting the current workspace's app data into ~/.zicode/backups."
 commands.allow = ["create_workspace_backup"]
@@ -153,6 +158,7 @@ permissions = [
   "allow-send-desktop-notification",
   "allow-publish-notes-notebook",
   "allow-list-workspaces",
+  "allow-delete-workspace",
   "allow-create-workspace-backup",
   "allow-list-workspace-backups",
   "allow-delete-workspace-backup",

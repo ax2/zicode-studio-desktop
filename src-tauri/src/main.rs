@@ -358,6 +358,85 @@ fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceInfo>, String> {
         .collect())
 }
 
+/// Delete a workspace with recycle-bin semantics: the workspace's ZiCode app
+/// data (`<root>/.zicode`) is moved into `%LOCALAPPDATA%\zicode\trash` so it
+/// can be restored manually, the workspace is un-registered, and the user's
+/// own project files are never touched. The global shared workspace and the
+/// Agent Inbox workspace cannot be deleted.
+#[tauri::command]
+fn delete_workspace(app: AppHandle, workspace_id: String) -> Result<String, String> {
+    let launcher = app
+        .try_state::<WorkspaceLauncher>()
+        .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
+    let workspace_root = resolve_workspace_root(&app, &workspace_id)?;
+    if let Some(reason) = protected_workspace_reason(&workspace_root)? {
+        return Err(reason);
+    }
+    let trash_root = crate::app_paths::data_root()?.join("trash");
+    let trash_dir = move_workspace_app_data_to_trash(&workspace_root, &trash_root)?;
+
+    {
+        let metadata = launcher
+            .metadata
+            .lock()
+            .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
+        metadata.remove_workspace(&workspace_id)?;
+    }
+    let host = app.state::<crate::host_data::HostDataPlane>();
+    host.unregister_workspace(&workspace_id)
+        .map_err(|error| format!("Cannot unregister workspace: {error:?}"))?;
+
+    Ok(trash_dir
+        .to_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| "workspace trash".to_string()))
+}
+
+/// A workspace root that must never be deleted is protected: the global shared
+/// workspace (`~/.zicode`) or the Agent Inbox workspace. Returns the reason
+/// when protected, `None` when deletable.
+fn protected_workspace_reason(root: &Path) -> Result<Option<String>, String> {
+    let global = crate::app_paths::global_workspace_root()?;
+    let inbox = crate::app_paths::agent_inbox_workspace()?;
+    if root == global {
+        return Ok(Some(
+            "The global shared workspace cannot be deleted".to_string(),
+        ));
+    }
+    if root == inbox {
+        return Ok(Some(
+            "The Agent Inbox workspace cannot be deleted".to_string(),
+        ));
+    }
+    Ok(None)
+}
+
+/// Move a workspace's ZiCode app data (`<root>/.zicode`) into a timestamped
+/// trash directory so the delete is recoverable. Never touches the user's own
+/// project files outside `.zicode`.
+fn move_workspace_app_data_to_trash(
+    root: &Path,
+    trash_root: &Path,
+) -> Result<PathBuf, String> {
+    let name = root
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("workspace");
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let trash_dir = trash_root.join(format!("{name}-{stamp}"));
+    fs::create_dir_all(&trash_dir)
+        .map_err(|error| format!("Cannot create workspace trash directory: {error}"))?;
+    let app_data = root.join(".zicode");
+    if app_data.is_dir() {
+        fs::rename(&app_data, trash_dir.join(".zicode"))
+            .map_err(|error| format!("Cannot move workspace app data to trash: {error}"))?;
+    }
+    Ok(trash_dir)
+}
+
 /// Snapshot the workspace's `.zicode` app data into `~/.zicode/backups`.
 #[tauri::command]
 fn create_workspace_backup(
@@ -1301,6 +1380,7 @@ fn main() {
             switch_window_workspace,
             open_session_in_project,
             list_workspaces,
+            delete_workspace,
             create_workspace_backup,
             list_workspace_backups,
             delete_workspace_backup,
@@ -1445,11 +1525,67 @@ fn main() {
 mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
-        session_dir_name, visible_position, WindowState,
+        move_workspace_app_data_to_trash, protected_workspace_reason, session_dir_name,
+        visible_position, WindowState,
     };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "zicode-delete-ws-{label}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        fs::create_dir_all(&root).expect("temp dir");
+        root
+    }
+
+    #[test]
+    fn moves_app_data_to_trash_without_touching_project_files() {
+        let root = temp_dir("move");
+        let trash_root = root.join("trash");
+        let app_data = root.join(".zicode").join("notes");
+        fs::create_dir_all(&app_data).expect("app data");
+        fs::write(app_data.join("note.md"), "content").expect("note");
+        fs::write(root.join("README.md"), "user file").expect("readme");
+
+        let trash = move_workspace_app_data_to_trash(&root, &trash_root).expect("move");
+        assert!(trash.join(".zicode").join("notes").join("note.md").exists());
+        assert!(!root.join(".zicode").exists());
+        assert!(root.join("README.md").exists());
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn trash_move_is_optional_when_no_app_data_exists() {
+        let root = temp_dir("empty");
+        let trash_root = root.join("trash");
+        let trash = move_workspace_app_data_to_trash(&root, &trash_root).expect("move");
+        assert!(trash.is_dir());
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn protects_global_and_inbox_workspaces() {
+        let root = temp_dir("protect");
+        assert!(
+            protected_workspace_reason(&root)
+                .expect("reason")
+                .is_none()
+        );
+        let global = crate::app_paths::global_workspace_root().expect("global");
+        assert!(
+            protected_workspace_reason(&global)
+                .expect("reason")
+                .is_some()
+        );
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
 
     #[test]
     fn session_dir_names_are_valid_windows_folder_names() {

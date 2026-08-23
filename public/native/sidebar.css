@@ -156,6 +156,35 @@
   max-width: 100%;
 }
 
+.workspace-switcher-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.workspace-switcher-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.workspace-switcher-delete:hover,
+.workspace-switcher-delete:focus-visible {
+  background: var(--danger-subtle, var(--bg-glass-hover));
+  color: var(--danger);
+  opacity: 1;
+}
+
 .workspace-switcher-divider {
   height: 1px;
   margin: var(--space-0-5) 0;

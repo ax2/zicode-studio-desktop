@@ -202,6 +202,19 @@ impl MetadataStore {
         Ok(workspaces)
     }
 
+    /// Remove a workspace from the registry. The caller is responsible for
+    /// relocating the workspace's app data (recycle bin) before calling this,
+    /// so the un-registration is the last step of a recoverable delete.
+    pub fn remove_workspace(&self, workspace_id: &str) -> Result<(), String> {
+        self.connection
+            .execute(
+                "DELETE FROM workspaces WHERE workspace_id = ?1",
+                params![workspace_id],
+            )
+            .map_err(|error| format!("Cannot remove workspace metadata: {error}"))?;
+        Ok(())
+    }
+
     pub fn store_device_token(
         &mut self,
         device_id: &str,
@@ -349,6 +362,23 @@ mod tests {
 
         drop(store);
         fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn remove_workspace_unregisters_a_saved_workspace() {
+        let temp = temp_dir();
+        let database = temp.join("picot.sqlite3");
+        let workspace = temp.join("workspace");
+        fs::create_dir(&workspace).unwrap();
+        let mut store = MetadataStore::open(&database).unwrap();
+
+        let id = store.workspace_id_for_path(&workspace).unwrap();
+        assert_eq!(store.list_workspaces().unwrap().len(), 1);
+        store.remove_workspace(&id).unwrap();
+        assert!(store.list_workspaces().unwrap().is_empty());
+
+        drop(store);
+        fs::remove_dir_all(&temp).unwrap();
     }
 
     #[test]

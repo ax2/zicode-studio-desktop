@@ -229,7 +229,7 @@ function isTypingTarget(target) {
  * reachable without a dedicated button. Falls back to a hidden control on
  * remote/browser clients that cannot invoke native window navigation.
  */
-export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath } = {}) {
+export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify } = {}) {
   const button = document.getElementById("workspace-switcher-btn");
   const menu = document.getElementById("workspace-switcher-menu");
   const label = document.getElementById("workspace-bar-label");
@@ -318,6 +318,13 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath } = {}) {
           ? [global, ...workspaces.filter((workspace) => workspace !== global)]
           : workspaces;
         for (const workspace of ordered) {
+          const isGlobal = (() => {
+            const path = displayPath(workspace.path).replace(/[\\/]+$/, "");
+            return path.toLowerCase().endsWith(".zicode");
+          })();
+          const isCurrent = workspace.id === current;
+          const row = document.createElement("div");
+          row.className = "workspace-switcher-row";
           const item = document.createElement("button");
           item.type = "button";
           item.className = `workspace-switcher-item${workspace.id === current ? " current" : ""}`;
@@ -338,7 +345,42 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath } = {}) {
               onError?.(error instanceof Error ? error : new Error(String(error)));
             }
           });
-          menu.append(item);
+          row.append(item);
+          if (!isCurrent && !isGlobal) {
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "workspace-switcher-delete";
+            remove.title = t("Delete project (move app data to trash)");
+            remove.setAttribute(
+              "aria-label",
+              `${t("Delete project")} ${projectName(workspace.path)}`,
+            );
+            remove.textContent = "🗑";
+            remove.addEventListener("click", async (event) => {
+              event.stopPropagation();
+              const confirmed = globalThis.confirm?.(
+                t(
+                  'Delete project "{name}"? Its ZiCode app data (.zicode) moves to the trash and can be restored manually; your project files are never deleted.',
+                ).replace("{name}", projectName(workspace.path)),
+              );
+              if (!confirmed) return;
+              try {
+                const trashPath = await invoke("delete_workspace", {
+                  workspaceId: workspace.id,
+                });
+                notify?.({
+                  title: t("Project moved to trash"),
+                  message: t("Recoverable at {path}").replace("{path}", trashPath),
+                  type: "info",
+                });
+                await openMenu();
+              } catch (error) {
+                onError?.(error instanceof Error ? error : new Error(String(error)));
+              }
+            });
+            row.append(remove);
+          }
+          menu.append(row);
         }
       }
       appendOpenFolderAction();
