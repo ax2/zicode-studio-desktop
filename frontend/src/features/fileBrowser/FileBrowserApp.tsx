@@ -23,12 +23,16 @@ export function FileBrowserApp({
   error,
   highlightPath,
   onOpenDirectory,
+  onSelectFile,
+  onOpenFile,
 }: {
   status: FileBrowserStatus;
   entries: FileEntry[];
   error: string | null;
   highlightPath: string | null;
   onOpenDirectory(path: string): void;
+  onSelectFile?(path: string): void;
+  onOpenFile?(path: string): void;
 }) {
   if (status === "loading" || status === "idle") {
     return <FileMessage text={t("Loading…")} />;
@@ -65,22 +69,26 @@ export function FileBrowserApp({
             ) : null}
           </>
         );
-        if (isDirectory) {
-          return (
-            <button
-              key={entry.relativePath}
-              type="button"
-              {...commonProps}
-              onClick={() => onOpenDirectory(entry.relativePath)}
-            >
-              {children}
-            </button>
-          );
-        }
         return (
-          <div key={entry.relativePath} {...commonProps}>
+          <button
+            key={entry.relativePath}
+            type="button"
+            {...commonProps}
+            title={
+              isDirectory
+                ? t("Open directory")
+                : t("Double-click to open")
+            }
+            onClick={() => {
+              if (isDirectory) onOpenDirectory(entry.relativePath);
+              else onSelectFile?.(entry.relativePath);
+            }}
+            onDoubleClick={() => {
+              if (!isDirectory) onOpenFile?.(entry.relativePath);
+            }}
+          >
             {children}
-          </div>
+          </button>
         );
       })}
     </>
@@ -90,9 +98,13 @@ export function FileBrowserApp({
 export function FileBrowserBridge({
   store,
   onOpenDirectory,
+  onSelectFile,
+  onOpenFile,
 }: {
   store: FileBrowserStoreHook;
   onOpenDirectory(path: string): void;
+  onSelectFile?(path: string): void;
+  onOpenFile?(path: string): void;
 }) {
   const status = store((state) => state.status);
   const entries = store((state) => state.entries);
@@ -105,6 +117,8 @@ export function FileBrowserBridge({
       error={error}
       highlightPath={highlightPath}
       onOpenDirectory={onOpenDirectory}
+      onSelectFile={onSelectFile}
+      onOpenFile={onOpenFile}
     />
   );
 }

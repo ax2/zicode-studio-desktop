@@ -18,6 +18,7 @@ export class NativeFileBrowser {
   private gateway: FileBrowserGateway;
   private workspaceId: string;
   private onPathChange: ((path: string) => void) | null;
+  private onOpenFile: ((path: string) => void) | null;
   private requestId = 0;
   private store: ReturnType<typeof createFileBrowserStore>;
   private root: Root;
@@ -28,12 +29,19 @@ export class NativeFileBrowser {
     pathEl: HTMLElement,
     gateway: FileBrowserGateway,
     workspaceId: string,
-    { onPathChange }: { onPathChange?: (path: string) => void } = {},
+    {
+      onPathChange,
+      onOpenFile,
+    }: {
+      onPathChange?: (path: string) => void;
+      onOpenFile?: (path: string) => void;
+    } = {},
   ) {
     this.pathEl = pathEl;
     this.gateway = gateway;
     this.workspaceId = workspaceId;
     this.onPathChange = onPathChange ?? null;
+    this.onOpenFile = onOpenFile ?? null;
     this.store = createFileBrowserStore();
     this.root = createRoot(container);
     flushSync(() => {
@@ -43,6 +51,12 @@ export class NativeFileBrowser {
           onOpenDirectory: (path) => {
             this.setHighlight(null);
             this.load(path);
+          },
+          onSelectFile: (path) => {
+            this.setHighlight(path);
+          },
+          onOpenFile: (path) => {
+            this.onOpenFile?.(path);
           },
         }),
       );

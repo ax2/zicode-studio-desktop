@@ -1,5 +1,22 @@
 # 实现状态
 
+## 2026-08-23 文件浏览器交互补全（选中/双击打开/刷新）
+
+- 修复真实缺口：文件浏览器此前文件条目是纯 `<div>`，单击/双击均无行为。
+  现在文件行改为按钮：单击高亮选中（复用 is-highlighted），双击经
+  `control.openInApp` 用系统默认应用打开（与「在文件管理器中打开」同一
+  通道，路径仍受工作区约束）；目录行保持单击进入。
+- 侧边栏头部新增「刷新文件列表」按钮（data-files-only，随 Files 视图显隐），
+  点击重载当前目录，文件被 Pi 创建/修改后不必反复开关面板。
+- 实现：FileBrowserApp/FileBrowserBridge 新增 onSelectFile/onOpenFile 回调，
+  NativeFileBrowser 透传并负责高亮；app.js 组装绝对路径与 openInApp、接
+  刷新按钮；index.html 加图标按钮；i18n 补「刷新文件列表/双击打开/打开目录」。
+- 验证：file-browser 单测 6/6（文件行是按钮、单击高亮、双击回调、目录行
+  仍是按钮）、全量 169 文件 / 1273 用例、typecheck、Biome、设计规范通过；
+  运行实例 DOM 实测（.qa-shots/file-browser-qa.cjs，gitignored）：仓库工作
+  区 20 个文件行、刷新按钮存在、点击刷新列表保留、零控制台报错；产物已
+  同步运行实例。
+
 ## 2026-08-23 会话模板支持导出/导入（跨设备迁移）
 
 - 设置 → 一般 → 会话模板新增「导出模板 / 导入模板」：导出为带版本号的 JSON

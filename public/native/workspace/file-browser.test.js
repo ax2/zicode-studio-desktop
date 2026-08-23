@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NativeFileBrowser } from "../react/file-browser.js";
 
 function deferred() {
@@ -114,5 +114,42 @@ describe("NativeFileBrowser", () => {
     browser.setHighlight(null);
     highlighted = container.querySelectorAll(".file-item.is-highlighted");
     expect(highlighted.length).toBe(0);
+  });
+
+  it("selects a file row on click and opens it natively on double-click", async () => {
+    const gateway = fakeGateway(async () => ({
+      entries: [
+        { name: "readme.md", relativePath: "readme.md", kind: "file", size: 12 },
+        { name: "src", relativePath: "src", kind: "directory" },
+      ],
+    }));
+    const onOpenFile = vi.fn();
+    const browser = new NativeFileBrowser(
+      container,
+      pathEl,
+      gateway,
+      "workspace-a",
+      { onOpenFile },
+    );
+    await browser.load();
+
+    const fileRow = container.querySelector('[data-path="readme.md"]');
+    expect(fileRow).toBeTruthy();
+    expect(fileRow.tagName).toBe("BUTTON");
+    expect(fileRow.textContent).toContain("12 B");
+
+    fileRow.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(
+      container.querySelector('[data-path="readme.md"]').classList.contains(
+        "is-highlighted",
+      ),
+    ).toBe(true);
+
+    fileRow.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(onOpenFile).toHaveBeenCalledWith("readme.md");
+
+    // Directory rows still navigate on a plain click instead of opening files.
+    const directoryRow = container.querySelector('[data-path="src"]');
+    expect(directoryRow.tagName).toBe("BUTTON");
   });
 });

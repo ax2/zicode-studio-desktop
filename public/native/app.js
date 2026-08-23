@@ -2197,24 +2197,33 @@ function setupFileBrowser() {
   const upBtn = document.getElementById("file-sidebar-up");
   if (upBtn) upBtn.disabled = true; // disabled until we've navigated into a subdir
 
+  async function openNativePath(relativePath) {
+    try {
+      const info = await data.workspaceInfo(target.workspaceId);
+      const root = info?.info?.path ?? "";
+      const absolutePath = relativePath
+        ? `${root}/${relativePath}`
+        : root;
+      await control.openInApp(absolutePath);
+    } catch (error) {
+      showError(error);
+    }
+  }
+
   const browser = new NativeFileBrowser(fileList, pathEl, data, target.workspaceId, {
     onPathChange(path) {
       // Enable the up button only when we're inside a subdirectory.
       if (upBtn) upBtn.disabled = path === "";
     },
+    onOpenFile: (relativePath) => openNativePath(relativePath),
   });
   fileBrowserInstance = browser;
 
   document.getElementById("file-sidebar-finder")?.addEventListener("click", async () => {
-    try {
-      const info = await data.workspaceInfo(target.workspaceId);
-      const root = info?.info?.path ?? "";
-      const current = browser.currentPath ?? "";
-      const absolutePath = current ? `${root}/${current}` : root;
-      await control.openInApp(absolutePath);
-    } catch (error) {
-      showError(error);
-    }
+    await openNativePath(browser.currentPath ?? "");
+  });
+  document.getElementById("file-sidebar-refresh")?.addEventListener("click", () => {
+    browser.load(browser.currentPath ?? "").catch(showError);
   });
 
   // The desktop toggle lives in the header-right; mobile hides that region,
