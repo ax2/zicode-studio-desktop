@@ -8,6 +8,7 @@ import {
   HistoryWindowNotice,
 } from "../historyWindow/HistoryWindowNotices";
 import { t } from "../../shared/i18n";
+import { CHAT_TEMPLATES } from "./chatTemplates";
 import {
   describeModelError,
   friendlyToolError,
@@ -408,6 +409,33 @@ const WelcomeItem = memo(function WelcomeItem({
               <span>{action.label}</span>
             </button>
           ))}
+        </div>
+        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of starter templates kept as a plain div like the quick-actions row */}
+        <div className="welcome-templates" role="group" aria-label={t("Start from a template")}>
+          <p className="welcome-templates-heading">{t("Start from a template")}</p>
+          <div className="welcome-templates-grid">
+            {CHAT_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                className="welcome-template"
+                data-template-id={template.id}
+                onClick={() => {
+                  container.dispatchEvent(
+                    new CustomEvent("zicode:composer-prefill", {
+                      bubbles: true,
+                      detail: { text: t(template.prompt) },
+                    }),
+                  );
+                }}
+              >
+                <span className="welcome-template-icon" aria-hidden="true">
+                  {template.icon}
+                </span>
+                <span>{t(template.label)}</span>
+              </button>
+            ))}
+          </div>
         </div>
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
         <div className="shortcuts-hint" role="group" aria-label={t("Keyboard shortcuts")}>

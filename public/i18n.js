@@ -8,6 +8,24 @@ export const supportedLocales = {
 
 const zhCN = {
   "Starting session…": "正在启动会话…",
+  "Write a tech blog post": "写技术博客",
+  "Translate text": "翻译文本",
+  "Organize into notes": "整理成笔记",
+  "Review code": "审查代码",
+  "Brainstorm ideas": "头脑风暴",
+  "Analyze data": "分析数据",
+  "Write a technical blog article. Topic: … Requirements: clear structure, concrete examples, concise professional language.":
+    "请帮我写一篇技术博客文章。主题：… 要求：结构清晰、有具体示例、语言简洁专业。",
+  "Translate the text below into the target language, keeping the original meaning and natural phrasing: …":
+    "请把下面这段文本翻译成目标语言，保留原意并符合阅读习惯：…",
+  "Turn the content below into well-structured notes: extract the key points and keep the essential information: …":
+    "请把下面的内容整理成结构化的笔记，提取要点、保留关键信息：…",
+  "Review the code below. Point out issues and suggest concrete improvements: …":
+    "请审查下面的代码，指出问题并给出改进建议：…",
+  "Brainstorm around the following topic: give as many ideas as possible, then rank the most promising ones: …":
+    "围绕以下主题进行头脑风暴，给出尽可能多的想法，并排序最有潜力的：…",
+  "Analyze the following data or problem and give conclusions and recommendations: …":
+    "请分析以下数据或问题，给出结论和建议：…",
   "Loading sessions...": "正在加载会话…",
   "No saved sessions": "暂无已保存会话",
   Connected: "已连接",

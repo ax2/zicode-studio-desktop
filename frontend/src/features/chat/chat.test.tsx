@@ -10,6 +10,7 @@ import {
   toolStageLabel,
 } from "./chatLogic";
 import { MessageRenderer, ToolCardRenderer } from "./index";
+import { CHAT_TEMPLATES } from "./chatTemplates";
 
 function makeContainer(): HTMLElement {
   const container = document.createElement("div");
@@ -145,6 +146,40 @@ describe("chat feed renderers", () => {
     )?.click();
     expect(dispatched).toHaveBeenCalledTimes(1);
     window.removeEventListener("zicode:extract-memory", dispatched);
+  });
+
+  it("renders starter templates that prefill the composer", async () => {
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    renderer.renderWelcome();
+    await flush();
+
+    const templates = container.querySelectorAll(".welcome-template");
+    expect(templates.length).toBeGreaterThanOrEqual(5);
+    expect(container.querySelector(".welcome-templates-heading")?.textContent).toBe(
+      "从模板开始",
+    );
+
+    const prefill = vi.fn();
+    container.addEventListener("zicode:composer-prefill", prefill);
+    (
+      container.querySelector('[data-template-id="write-blog"]') as HTMLElement | null
+    )?.click();
+    expect(prefill).toHaveBeenCalledTimes(1);
+    const detail = prefill.mock.calls[0][0].detail as { text: string };
+    expect(detail.text).toContain("技术博客");
+    expect(detail.text).toContain("结构清晰");
+    container.removeEventListener("zicode:composer-prefill", prefill);
+  });
+
+  it("keeps starter template ids unique and prompts non-empty", () => {
+    const ids = CHAT_TEMPLATES.map((template) => template.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const template of CHAT_TEMPLATES) {
+      expect(template.label.trim().length).toBeGreaterThan(0);
+      expect(template.prompt.trim().length).toBeGreaterThan(0);
+      expect(template.icon.length).toBeGreaterThan(0);
+    }
   });
 
   it("filters welcome quick actions to enabled applications", async () => {

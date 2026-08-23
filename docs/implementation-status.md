@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-23 欢迎页「从模板开始」（会话起始模板）
+
+- 欢迎页新增「从模板开始」区块（桌面显示、移动端保持紧凑隐藏）：六个内置
+  起始模板——写技术博客 / 翻译文本 / 整理成笔记 / 审查代码 / 头脑风暴 /
+  分析数据。点击模板把本地化提示词预填进输入框（`zicode:composer-prefill`
+  → 复用 `prefillComposer`），不直接发送，用户可先编辑再确认。
+- 模板数据在 `frontend/src/features/chat/chatTemplates.ts`（id 唯一、提示词
+  非空断言）；文案走共享 i18n（zh-CN 翻译入 `public/i18n.js`）。
+- 新增 `scripts/qa-chat-templates.mjs` 真实闭环：`/v2/new-session` 创建临时
+  会话 → 桌面 6 模板渲染 / 移动隐藏 → 点击预填断言 → 临时会话不进会话列表
+  （宿主托管、无用户可见残留）。智能收件箱工作区自动回退到全局工作区
+  ~/.zicode（收件箱有专用欢迎页）。已接入 `qa:full`（15 段）。
+- 验证：chat 单测 23/23（新增欢迎模板渲染/点击事件/数据完整性）、全量
+  单测/typecheck/Biome 通过；QA 脚本桌面 1440 + 移动 390 实测全绿。
+
 ## 2026-08-23 qa-locale 接入 qa:full（语言泄漏扫描进回归电池）
 
 - `qa-locale.mjs` 补齐工作区解析（文件夹名/项目路径 → `/v2/resolve-workspace`

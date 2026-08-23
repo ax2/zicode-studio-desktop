@@ -1358,6 +1358,12 @@ window.addEventListener("zicode:open-files", (event) => {
     }
   }
 });
+window.addEventListener("zicode:composer-prefill", (event) => {
+  // Welcome-screen starter templates and other surfaces prefill the composer
+  // instead of sending immediately, so the user can review and edit first.
+  const { text } = event.detail ?? {};
+  if (typeof text === "string" && text.trim()) prefillComposer(text);
+});
 convNav.mount();
 
 try {
