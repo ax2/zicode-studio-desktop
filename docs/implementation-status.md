@@ -1,5 +1,12 @@
 # 实现状态
 
+## 2026-08-23 QA 权威快照补入发布验证档案
+
+- `docs/release-validation-2026-08-05.md` 新增 2026-08-23 章节：记录发布
+  门禁六条命令、桌面 13 段与移动 13 段全绿、数据零残留、release.sh 门禁
+  与 GitHub Actions CI 状态，发布档案与当前状态保持同步。
+- 验证：MkDocs strict 构建通过；工作树干净。
+
 ## 2026-08-23 完整移动视口 qa:full 13 段全绿（权威快照）
 
 - `VIEWPORT=390x844 bun run qa:full` 一次通过全部 13 段：视觉、a11y、

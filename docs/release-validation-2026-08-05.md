@@ -5,6 +5,22 @@
 含 beforeBuildCommand 的 vendor/pi/portable-git/webview2/bun 拉取，均命中本地
 缓存）。
 
+## 2026-08-23 QA 权威快照（桌面 + 移动，全绿）
+
+发布门禁六条命令全部通过：
+
+- `bun run test`：167 文件 / 1258 用例 + Tauri 权限 + 子进程策略
+- `bun run typecheck` / `bun run lint` / `bun run check:design`
+- `bun run qa:full`：13 段浏览器电池全绿（视觉、无障碍 15/15、键盘 14/14、
+  新手入口 12/12、模型下拉、二维码配对含 relay 302/token 保留、笔记、
+  自动化、备份、文章、任务含立即运行、回收站）
+- `VIEWPORT=390x844 bun run qa:full`：13 段移动视口全绿
+
+两套电池跑后数据零残留（笔记/任务/工作流无 QA 条目，文章数回到基线
+456）。发布门禁同时已固化进 `scripts/release.sh`（打 tag 前强制运行）；
+GitHub Actions 单元测试 CI 已配置（`.github/workflows/tests.yml`），因账号
+计费问题暂未执行，恢复后自动生效。
+
 ## 产物
 
 | 文件 | 大小 | SHA-256 |
