@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-23 qa:full 单脚本过滤 + 备份闭环移动视口
+
+- `qa-full.mjs` 支持 `QA_ONLY=<name>` 或 `--only=<name>`（可省略 .mjs）
+  只跑单个脚本，调试单个闭环不再需要改清单；实测
+  `QA_ONLY=qa-workspace-trash-ui` 生效。
+- `qa-backup-flow.mjs` 新增 `VIEWPORT` 支持，实测 390×844 移动视口下
+  创建 → 恢复 → 删除闭环通过；脚本地图已同步。
+- 验证：全量 167 文件 / 1258 用例、typecheck、Biome、权限（30 个命令）
+  通过；本轮仅改 QA 脚本与文档。
+
 ## 2026-08-23 真实闭环验收支持移动视口（任务/自动化/文章）
 
 - 三个真实闭环脚本（qa-task-flow / qa-automation-flow / qa-articles-flow）

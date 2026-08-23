@@ -45,7 +45,7 @@ if (!workspace) {
 }
 console.log(`[qa-full] workspace: ${workspace}`);
 
-const scripts = [
+const allScripts = [
   "visual-qa.mjs",
   "qa-a11y.mjs",
   "qa-keyboard.mjs",
@@ -56,6 +56,17 @@ const scripts = [
   "qa-task-flow.mjs",
   "qa-workspace-trash-ui.mjs",
 ];
+const onlyArg = process.argv.find((arg) => arg.startsWith("--only="));
+const only = onlyArg ? onlyArg.slice("--only=".length) : process.env.QA_ONLY;
+const normalizedOnly = only?.replace(/\.mjs$/, "");
+const scripts = normalizedOnly
+  ? allScripts.filter((script) => script.replace(/\.mjs$/, "") === normalizedOnly)
+  : allScripts;
+if (normalizedOnly && scripts.length === 0) {
+  console.error(`[qa-full] unknown script "${only}". Use --only=<name> or QA_ONLY=<name>.`);
+  process.exit(2);
+}
+if (normalizedOnly) console.log(`[qa-full] running only ${normalizedOnly}`);
 for (const script of scripts) {
   const code = await runScript(script, [workspace]);
   if (code !== 0) {

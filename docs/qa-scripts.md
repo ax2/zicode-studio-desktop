@@ -9,6 +9,7 @@
 ```bash
 bun run qa:full                 # 自动使用第一个工作区（如 agent-inbox）
 ZICODE_WORKSPACE=<folder> bun run qa:full
+QA_ONLY=qa-task-flow bun run qa:full   # 只跑单个脚本（也支持 --only=<name>）
 ```
 
 每个脚本都接受 `<workspaceId | 项目路径 | 工作区文件夹名> [sessionId]`；
@@ -27,7 +28,7 @@ ZICODE_WORKSPACE=<folder> bun run qa:full
 | `qa-workspace-trash-ui.mjs` | 回收站区渲染（标题/清空/恢复/彻底删除/倒计时）+ 两条交互链路 | 桌面 + 移动（`VIEWPORT` 可覆盖） | mock Tauri invoke | 不落盘 |
 | `qa-task-flow.mjs` | 任务中心真实闭环：新建定时任务 → 编辑 → 删除 | 桌面（`VIEWPORT` 可覆盖移动） | 真实写 `tasks.json` | 前后清理 + 结束兜底，断言文件无 QA 残留 |
 | `qa-automation-flow.mjs` | 自动化中心真实闭环：模板预填 → 创建 → 编辑 → 删除 | 桌面（`VIEWPORT` 可覆盖移动） | 真实写 `workflows.json` | 前后清理 + 结束兜底 |
-| `qa-backup-flow.mjs` | 设置 → 备份：创建 → 列表 → 恢复 → 删除 | 桌面 | mock Tauri invoke | 不落盘 |
+| `qa-backup-flow.mjs` | 设置 → 备份：创建 → 列表 → 恢复 → 删除 | 桌面（`VIEWPORT` 可覆盖移动） | mock Tauri invoke | 不落盘 |
 | `qa-articles-flow.mjs` | 文章创作真实闭环：新建 → 保存 → 列表 → 删除（宿主 API 核对基线） | 桌面（`VIEWPORT` 可覆盖移动） | 真实写文章存储 | 删除后核对宿主文章数回到基线 |
 
 > 所有真实闭环脚本均支持 `VIEWPORT=390x844` 在移动视口下运行（实测通过）；
