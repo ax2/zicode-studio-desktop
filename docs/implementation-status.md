@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-23 qa-notes-flow 接入修复 + 全量电池集成通过
+
+- 修复：`qa-notes-flow.mjs` 此前只接受显式 `<workspaceId> <sessionId>`，
+  `qa:full` 只传文件夹名导致它必然失败；补齐与其他脚本一致的工作区
+  解析/会话发现后，`QA_ONLY=qa-notes-flow bun run qa:full agent-inbox`
+  通过。
+- 完整 `qa:full` 十段全绿：visual-qa、a11y、keyboard、onboarding、
+  notes-flow、automation-flow、backup-flow、articles-flow、task-flow、
+  trash-ui；跑后数据零残留（笔记/任务/工作流无 QA 条目，文章数回到
+  基线 456）。
+- 定时自动化运维核验：每日技术博客文章生成 enabled + 自动派发，
+  nextRunAt = 2026-08-24 01:00 UTC（明天 09:00 北京），排期正确。
+- 验证：全量 167 文件 / 1258 用例、typecheck、Biome、权限（30 个命令）
+  通过；本轮仅改 QA 脚本与文档。
+
 ## 2026-08-23 GitHub Actions 单元测试 CI
 
 - 新增 `.github/workflows/tests.yml`：push 到 main 与 PR 时在 Ubuntu 上跑
