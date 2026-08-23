@@ -398,7 +398,9 @@ function TaskForm({
   const template = task && isScheduledTemplate(task);
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [target, setTarget] = useState(task?.targetProject ?? "");
+  const [target, setTarget] = useState(
+    task?.targetProject ?? store.getState().getCurrentProjectPath() ?? "",
+  );
   const [schedule, setSchedule] = useState<"manual" | "interval" | "daily">(
     template ? (task.schedule as "interval" | "daily") : "manual",
   );

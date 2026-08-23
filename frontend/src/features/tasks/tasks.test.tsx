@@ -809,7 +809,11 @@ describe("task center task management", () => {
       }
       return { ok: false, error: `unhandled ${operation}` };
     });
-    const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
+    const store = createTaskCenterStore({
+      call,
+      pollIntervalMs: 60_000,
+      getCurrentProjectPath: () => "C:/current/project",
+    });
     return { store, call, calls };
   }
 
@@ -858,6 +862,25 @@ describe("task center task management", () => {
       document.querySelectorAll("datalist#task-project-paths option"),
     ).map((node) => node.getAttribute("value"));
     expect(options).toEqual(["C:/work/project-a", "C:/work/project-b"]);
+    store.getState().destroy();
+  });
+
+  it("defaults the new-task form target to the current project path", async () => {
+    setLocale("en");
+    const { store } = managementStore([]);
+    render(
+      <div>
+        <TaskMain store={store} />
+      </div>,
+    );
+    fireEvent.click(screen.getAllByText("New task")[0]);
+    const form = document.querySelector(".task-center-form");
+    const targetInput = Array.from(
+      form?.querySelectorAll(".task-form-field input") ?? [],
+    ).find((input) =>
+      (input.closest("label")?.textContent ?? "").includes("Target project"),
+    );
+    expect((targetInput as HTMLInputElement | null)?.value).toBe("C:/current/project");
     store.getState().destroy();
   });
 

@@ -956,6 +956,12 @@ const taskCenterApp = setupTaskCenterApp({
   cancelRuntimeUi: (runtimeTarget) => extensionUi.cancelSession(runtimeTarget),
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   notify: notifications.notify,
+  getCurrentProjectPath: () =>
+    (sidebar?.sessions?.find(
+      (session) => session.workspaceId === target.workspaceId && session.projectPath,
+    )?.projectPath
+      ?.replace(/^\\\\\?\\/, "")
+      .replace(/^\\\?\\/, "")) ?? null,
 });
 const automationApp = setupAutomationApp({
   call: (operation, params, options) => config.call(operation, params, options),

@@ -28,6 +28,7 @@ export interface TaskCenterOptions {
   cancelRuntimeUi?: (target: unknown) => Promise<void>;
   openApp?: (pluginId: string) => void;
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
+  getCurrentProjectPath?: () => string | null;
   pollIntervalMs?: number;
   schedulerIntervalMs?: number;
 }
@@ -82,6 +83,7 @@ interface TaskCenterState {
   startScheduler(): void;
   stopScheduler(): void;
   destroy(): void;
+  getCurrentProjectPath(): string | null;
 }
 
 export function createTaskCenterStore(options: TaskCenterOptions) {
@@ -107,6 +109,10 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     loading: false,
     loadedOnce: false,
     error: null,
+
+    getCurrentProjectPath() {
+      return options.getCurrentProjectPath?.() ?? null;
+    },
 
     openApp(pluginId) {
       options.openApp?.(pluginId);
