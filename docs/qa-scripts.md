@@ -35,6 +35,7 @@ VIEWPORT=390x844 bun run qa:full        # 整套电池在移动视口下运行
 | `qa-automation-flow.mjs` | 自动化中心真实闭环：模板预填 → 创建 → 编辑 → 删除 | 桌面（`VIEWPORT` 可覆盖移动） | 真实写 `workflows.json` | 前后清理 + 结束兜底 |
 | `qa-backup-flow.mjs` | 设置 → 备份：创建 → 列表 → 恢复 → 删除 | 桌面（`VIEWPORT` 可覆盖移动） | mock Tauri invoke | 不落盘 |
 | `qa-articles-flow.mjs` | 文章创作真实闭环：新建 → 保存 → 列表 → 删除（宿主 API 核对基线） | 桌面（`VIEWPORT` 可覆盖移动） | 真实写文章存储 | 删除后核对宿主文章数回到基线 |
+| `qa-locale.mjs` | 英文界面下的中文 UI 串泄漏扫描（15 个应用视图，用户内容排除） | 桌面（`VIEWPORT` 可覆盖移动） | 仅设置语言 cookie | 结束后切回原语言 |
 
 > 所有真实闭环脚本均支持 `VIEWPORT=390x844` 在移动视口下运行（实测通过）；
 > `VIEWPORT` 会透传给 visual-qa、a11y、keyboard 与全部闭环脚本；onboarding
@@ -54,13 +55,12 @@ VIEWPORT=390x844 bun run qa:full   # 移动视口浏览器电池（约 12 分钟
 ```
 
 浏览器电池包含：视觉布局（双视口/移动单视口）、无障碍、键盘、新手入口、
-六个核心应用的端到端闭环（笔记/任务/自动化/文章/回收站/备份）。每段跑完
-会自清理；如某段失败，用 `QA_ONLY=<name>` 单独重跑定位。
+六个核心应用的端到端闭环（笔记/任务/自动化/文章/回收站/备份）与英文界面
+中文泄漏扫描。每段跑完会自清理；如某段失败，用 `QA_ONLY=<name>` 单独重跑定位。
 
 ## 其他专项脚本（不在 qa:full 内）
 
 - `qa-console-errors.mjs`：16 个应用视图的控制台报错扫描（`VIEWPORT` 可覆盖）。
-- `qa-locale.mjs`：英文界面下的中文 UI 串泄漏扫描。
 - `qa-data-presence.mjs`：关键数据存在性核对。
 - `qa-blog-output.mjs`：每日技术博客自动化产出核验——最近日期（或指定
   日期）的文章目录须有 index.html、HTML 标签配平、图片引用全部解析；

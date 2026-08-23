@@ -59,6 +59,7 @@ const allScripts = [
   "qa-articles-flow.mjs",
   "qa-task-flow.mjs",
   "qa-workspace-trash-ui.mjs",
+  "qa-locale.mjs",
 ];
 const onlyArg = process.argv.find((arg) => arg.startsWith("--only="));
 const only = onlyArg ? onlyArg.slice("--only=".length) : process.env.QA_ONLY;

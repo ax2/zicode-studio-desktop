@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-23 qa-locale 接入 qa:full（语言泄漏扫描进回归电池）
+
+- `qa-locale.mjs` 补齐工作区解析（文件夹名/项目路径 → `/v2/resolve-workspace`
+  稳定 UUID）与会话自动发现（`/v2/sessions` 优先当前工作区），不再要求手传
+  两个 ID；顶部 usage 注释同步。
+- 接入 `scripts/qa-full.mjs` 的 `scripts` 数组，英文界面中文 UI 串泄漏扫描
+  成为发布回归的一部分；`docs/qa-scripts.md` 表格、电池描述与专项清单同步。
+- 验证：`node scripts/qa-locale.mjs agent-inbox` 实跑 15/15 视图全绿，
+  Biome 无告警；全量测试通过（见下条计数）。
+
 ## 2026-08-23 locale 扫描误报修复（自动化标题是用户内容）
 
 - 首次跑 `qa-locale` 发现自动化视图“泄漏”中文，定位为用户的自动化工作流
