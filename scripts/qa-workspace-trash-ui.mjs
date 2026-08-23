@@ -9,6 +9,7 @@
 //
 // Usage (app must be running on localhost):
 //   node scripts/qa-workspace-trash-ui.mjs <workspaceId> <sessionId>
+//   VIEWPORT=390x844 node scripts/qa-workspace-trash-ui.mjs <workspaceId> <sessionId>
 import { spawn } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -145,6 +146,10 @@ async function main() {
   }
 
   const profile = mkdtempSync(join(tmpdir(), "zicode-trash-ui-"));
+  const viewport = process.env.VIEWPORT;
+  const [width, height] = viewport
+    ? viewport.split("x").map(Number)
+    : [1440, 900];
   const chrome = spawn(
     CHROME,
     [
@@ -156,6 +161,7 @@ async function main() {
       `--user-data-dir=${profile}`,
       "--remote-debugging-port=0",
       "--remote-allow-origins=*",
+      `--window-size=${width},${height}`,
       "about:blank",
     ],
     { stdio: "ignore", windowsHide: true },
@@ -200,6 +206,14 @@ async function main() {
     const cdp = await connect(target.webSocketDebuggerUrl);
     await cdp.send("Runtime.enable");
     await cdp.send("Page.enable");
+    if (viewport) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: width < 768,
+      });
+    }
     await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
       source: `(() => {
         const calls = [];
@@ -233,6 +247,11 @@ async function main() {
     const render = await evaluate(
       cdp,
       `(async () => {
+        const sidebar = document.getElementById("sidebar");
+        if (sidebar?.classList.contains("collapsed")) {
+          document.getElementById("sidebar-toggle")?.click();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
         const btn = document.getElementById("workspace-switcher-btn");
         if (!btn) return { error: "no switcher button" };
         btn.click();
@@ -269,6 +288,11 @@ async function main() {
     const del = await evaluate(
       cdp,
       `(async () => {
+        const sidebar = document.getElementById("sidebar");
+        if (sidebar?.classList.contains("collapsed")) {
+          document.getElementById("sidebar-toggle")?.click();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
         const button = document.querySelector(".workspace-switcher-trash-delete");
         if (!button) return { error: "no delete button" };
         button.click();
@@ -303,6 +327,11 @@ async function main() {
     const empty = await evaluate(
       cdp,
       `(async () => {
+        const sidebar = document.getElementById("sidebar");
+        if (sidebar?.classList.contains("collapsed")) {
+          document.getElementById("sidebar-toggle")?.click();
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
         window.__qaSetTrash([
           ${JSON.stringify(trashEntry)},
           {
