@@ -20,4 +20,13 @@ ZiCode Studio Desktop is a local, multi-scene agent workspace. Every session is 
 
 Open **Settings → Configuration**. The page identifies the scene being edited. API keys, model channels, and `models.json` belong only to that scene.
 
+## Start from a template
+
+New sessions show **Start from a template** on the welcome screen (tech blog
+post, translate, organize notes, review code, brainstorm, analyze data) —
+clicking one pre-fills the composer so you can add details and send. Add your
+own templates under **Settings → General → Conversation templates**, and
+export/import them as JSON to move them between devices. See
+[Conversation templates](templates.md).
+
 Continue with [Scenes and isolation](scenes.md) or [Models and API keys](models.md).

@@ -34,6 +34,14 @@
       "keywords": ["消息", "重试", "上下文", "工作模式", "问一问", "做一做", "想一想", "记忆", "提取", "Ask", "Craft", "Plan"]
     },
     {
+      "id": "templates",
+      "title": "会话模板",
+      "section": "对话与效率",
+      "file": "templates.md",
+      "summary": "用内置或自定义的起始提示词快速开始新会话",
+      "keywords": ["模板", "从模板开始", "自定义", "导出", "导入", "提示词"]
+    },
+    {
       "id": "projects-tasks",
       "title": "项目、任务与自动化",
       "section": "对话与效率",

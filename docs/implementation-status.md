@@ -1,5 +1,16 @@
 # 实现状态
 
+## 2026-08-23 帮助中心新增「会话模板」文章（双语）
+
+- 新增 `public/help/templates.md` 与英文版 `en/templates.md`：说明欢迎页
+  「从模板开始」、六个内置模板、设置 → 一般 → 会话模板的自定义增删改，
+  以及导出/导入迁移；提示相对路径可直接引用工作区文件、文件面板可拖入
+  输入框。manifest.json 在「对话与效率」分区登记该页（keywords 覆盖模板/
+  从模板开始/自定义/导出/导入）。
+- 快速开始（中英）新增「从会话模板开始」小节并链接到新文章。
+- 验证：help + layout-contract 72 项全绿（含双语 manifest 完整性检查）；
+  运行实例已能访问 `/help/templates.md` 且 manifest 含新页，产物同步。
+
 ## 2026-08-23 中文本地化覆盖门禁（check-i18n-coverage）
 
 - 新增 `scripts/check-i18n-coverage.mjs`：扫描 frontend/src 与
