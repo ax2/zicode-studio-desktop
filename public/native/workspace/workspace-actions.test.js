@@ -260,6 +260,62 @@ describe("workspace actions", () => {
     confirmSpy.mockRestore();
   });
 
+  it("lists the recycle bin and restores a deleted workspace", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    const invoke = vi.fn((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([{ id: "ws-global", path: "/home/user/.zicode" }]);
+      }
+      if (command === "list_workspace_trash") {
+        return Promise.resolve([
+          {
+            dir: "/tmp/zicode-trash/work-123",
+            name: "work-123",
+            original_root: "/home/user/work",
+            deleted_at: 123,
+          },
+        ]);
+      }
+      if (command === "restore_workspace") {
+        return Promise.resolve("ws-1");
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+    const notify = vi.fn();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    setupWorkspaceSwitcher({ onError: vi.fn(), notify });
+    document.getElementById("workspace-switcher-btn").click();
+
+    await vi.waitFor(() =>
+      expect(document.querySelector(".workspace-switcher-trash-heading")).toBeTruthy(),
+    );
+    const restore = document.querySelector(".workspace-switcher-restore");
+    expect(restore?.getAttribute("aria-label")).toContain("work-123");
+    restore.click();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("restore_workspace", {
+        trashDir: "/tmp/zicode-trash/work-123",
+      }),
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Project restored|项目已恢复/),
+      }),
+    );
+    confirmSpy.mockRestore();
+  });
+
   it("keeps the workspace name as a passive label instead of an open-folder button", async () => {
     document.body.innerHTML = `
       <div class="workspace-bar" id="workspace-bar">

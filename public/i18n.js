@@ -604,6 +604,12 @@ const zhCN = {
   "Project moved to trash": "项目已移入回收站",
   "Recoverable at {path}": "可在 {path} 恢复",
   "Open trash folder": "打开回收站目录",
+  "Recycle bin": "回收站",
+  Restore: "恢复",
+  'Restore project "{name}"? Its app data (.zicode) returns to the original folder.':
+    '恢复项目「{name}」？应用数据（.zicode）将回到原项目文件夹。',
+  "Project restored": "项目已恢复",
+  "Restored workspace {id}": "已恢复工作区 {id}",
   "Workspace switcher is unavailable here": "此处无法使用工作区切换器",
   "On the mobile web client, open a session from another project in the session list to switch workspaces.":
     "手机网页端请在会话列表打开其他项目的会话以切换工作区。",

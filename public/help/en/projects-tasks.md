@@ -24,11 +24,12 @@ Create a project when work spans multiple sessions, stages, or deliverables. A p
   project.
 - Deleting a project moves it to the recycle bin: choose delete from a
   workspace's row in the switcher, and the project's ZiCode app data (the
-  `.zicode` folder) moves into `%LOCALAPPDATA%\zicode\trash\` for manual
-  recovery, then the workspace is un-registered from the list. Your own
-  project files (source, documents, etc.) are never deleted. The global
-  shared workspace and the Agent Inbox workspace are protected and cannot
-  be deleted.
+  `.zicode` folder) moves into `%LOCALAPPDATA%\zicode\trash\`, then the
+  workspace is un-registered from the list. A **Recycle bin** section at the
+  bottom of the switcher restores a deleted project back to its original
+  folder in one click. Your own project files (source, documents, etc.) are
+  never deleted. The global shared workspace and the Agent Inbox workspace
+  are protected and cannot be deleted.
 
 ## Search across project content
 

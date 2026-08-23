@@ -374,6 +374,20 @@ fn delete_workspace(app: AppHandle, workspace_id: String) -> Result<String, Stri
     }
     let trash_root = crate::app_paths::data_root()?.join("trash");
     let trash_dir = move_workspace_app_data_to_trash(&workspace_root, &trash_root)?;
+    let manifest = serde_json::json!({
+        "workspaceId": workspace_id,
+        "originalRoot": workspace_root.to_string_lossy(),
+        "deletedAt": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0),
+    });
+    fs::write(
+        trash_dir.join("manifest.json"),
+        serde_json::to_string_pretty(&manifest)
+            .map_err(|error| format!("Cannot serialize workspace trash manifest: {error}"))?,
+    )
+    .map_err(|error| format!("Cannot write workspace trash manifest: {error}"))?;
 
     {
         let metadata = launcher
@@ -390,6 +404,120 @@ fn delete_workspace(app: AppHandle, workspace_id: String) -> Result<String, Stri
         .to_str()
         .map(str::to_string)
         .unwrap_or_else(|| "workspace trash".to_string()))
+}
+
+#[derive(serde::Serialize)]
+struct WorkspaceTrashEntry {
+    dir: String,
+    name: String,
+    original_root: String,
+    deleted_at: i64,
+}
+
+/// List recoverable workspace trash entries (directories under
+/// `%LOCALAPPDATA%\zicode\trash` that carry a manifest), newest first.
+#[tauri::command]
+fn list_workspace_trash() -> Result<Vec<WorkspaceTrashEntry>, String> {
+    let trash_root = crate::app_paths::data_root()?.join("trash");
+    if !trash_root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for entry in fs::read_dir(&trash_root)
+        .map_err(|error| format!("Cannot read workspace trash: {error}"))?
+    {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let manifest_path = path.join("manifest.json");
+        if !manifest_path.is_file() {
+            continue;
+        }
+        let manifest: serde_json::Value = serde_json::from_slice(
+            &fs::read(&manifest_path)
+                .map_err(|error| format!("Cannot read workspace trash manifest: {error}"))?,
+        )
+        .map_err(|error| format!("Cannot parse workspace trash manifest: {error}"))?;
+        entries.push(WorkspaceTrashEntry {
+            dir: path.to_string_lossy().to_string(),
+            name: entry.file_name().to_string_lossy().to_string(),
+            original_root: manifest
+                .get("originalRoot")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            deleted_at: manifest
+                .get("deletedAt")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(0),
+        });
+    }
+    entries.sort_by(|left, right| right.deleted_at.cmp(&left.deleted_at));
+    Ok(entries)
+}
+
+/// Restore a deleted workspace from the recycle bin: moves the workspace's
+/// app data back into its original project folder and re-registers it. Refuses
+/// to restore when the original folder is gone or already has app data.
+#[tauri::command]
+fn restore_workspace(app: AppHandle, trash_dir: String) -> Result<String, String> {
+    let trash_root = crate::app_paths::data_root()?.join("trash");
+    let dir = PathBuf::from(&trash_dir);
+    let original_root = restore_app_data_from_trash(&dir, &trash_root)?;
+
+    let launcher = app
+        .try_state::<WorkspaceLauncher>()
+        .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
+    let restored_id = {
+        let mut metadata = launcher
+            .metadata
+            .lock()
+            .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
+        metadata.workspace_id_for_path(&original_root)?
+    };
+    let host = app.state::<crate::host_data::HostDataPlane>();
+    host.register_workspace(&restored_id, original_root)
+        .map_err(|error| format!("Cannot re-register workspace: {error:?}"))?;
+
+    let _ = fs::remove_dir_all(&dir);
+    Ok(restored_id)
+}
+
+/// Read a trash manifest and move the workspace app data back into its
+/// original project folder. Returns the original root on success.
+fn restore_app_data_from_trash(trash_dir: &Path, trash_root: &Path) -> Result<PathBuf, String> {
+    if !trash_dir.starts_with(trash_root) {
+        return Err("Not a workspace trash entry".to_string());
+    }
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(trash_dir.join("manifest.json"))
+            .map_err(|_| "Workspace trash manifest is missing".to_string())?,
+    )
+    .map_err(|error| format!("Cannot parse workspace trash manifest: {error}"))?;
+    let original_root = PathBuf::from(
+        manifest
+            .get("originalRoot")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(""),
+    );
+    if !original_root.is_dir() {
+        return Err("The original project folder no longer exists".to_string());
+    }
+    let dest = original_root.join(".zicode");
+    if dest.exists() {
+        return Err("The project already has a .zicode folder".to_string());
+    }
+    let app_data = trash_dir.join(".zicode");
+    if app_data.is_dir() {
+        fs::rename(&app_data, &dest)
+            .map_err(|error| format!("Cannot restore workspace app data: {error}"))?;
+    }
+    Ok(original_root)
 }
 
 /// A workspace root that must never be deleted is protected: the global shared
@@ -1381,6 +1509,8 @@ fn main() {
             open_session_in_project,
             list_workspaces,
             delete_workspace,
+            list_workspace_trash,
+            restore_workspace,
             create_workspace_backup,
             list_workspace_backups,
             delete_workspace_backup,
@@ -1525,8 +1655,8 @@ fn main() {
 mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
-        move_workspace_app_data_to_trash, protected_workspace_reason, session_dir_name,
-        visible_position, WindowState,
+        move_workspace_app_data_to_trash, protected_workspace_reason,
+        restore_app_data_from_trash, session_dir_name, visible_position, WindowState,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -1585,6 +1715,59 @@ mod tests {
                 .is_some()
         );
         fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn restores_app_data_from_trash_into_original_root() {
+        let base = temp_dir("restore");
+        let original = base.join("project");
+        fs::create_dir_all(&original).expect("project");
+        fs::write(original.join("README.md"), "user file").expect("readme");
+        let trash_root = base.join("trash");
+        fs::create_dir_all(&trash_root).expect("trash root");
+        let trash = trash_root.join("project-123");
+        fs::create_dir_all(trash.join(".zicode").join("notes")).expect("app data");
+        fs::write(trash.join(".zicode").join("notes").join("note.md"), "content").expect("note");
+        fs::write(
+            trash.join("manifest.json"),
+            serde_json::json!({ "originalRoot": original.to_string_lossy() }).to_string(),
+        )
+        .expect("manifest");
+
+        let restored = restore_app_data_from_trash(&trash, &trash_root).expect("restore");
+        assert_eq!(restored, original);
+        assert!(original.join(".zicode").join("notes").join("note.md").exists());
+        assert!(original.join("README.md").exists());
+        fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn restore_refuses_when_original_folder_has_app_data() {
+        let base = temp_dir("restore-conflict");
+        let original = base.join("project");
+        fs::create_dir_all(original.join(".zicode")).expect("existing app data");
+        let trash_root = base.join("trash");
+        fs::create_dir_all(&trash_root).expect("trash root");
+        let trash = trash_root.join("project-123");
+        fs::create_dir_all(&trash).expect("trash entry");
+        fs::write(
+            trash.join("manifest.json"),
+            serde_json::json!({ "originalRoot": original.to_string_lossy() }).to_string(),
+        )
+        .expect("manifest");
+
+        assert!(restore_app_data_from_trash(&trash, &trash_root).is_err());
+        fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn restore_refuses_entries_outside_the_trash_root() {
+        let base = temp_dir("restore-outside");
+        let outside = base.join("elsewhere");
+        fs::create_dir_all(&outside).expect("outside");
+        fs::write(outside.join("manifest.json"), "{}").expect("manifest");
+        assert!(restore_app_data_from_trash(&outside, &base.join("trash")).is_err());
+        fs::remove_dir_all(&base).expect("cleanup");
     }
 
     #[test]

@@ -115,6 +115,16 @@ description = "Allow deleting a workspace with recycle-bin semantics (app data m
 commands.allow = ["delete_workspace"]
 
 [[permission]]
+identifier = "allow-list-workspace-trash"
+description = "Allow listing recoverable deleted workspaces in the recycle bin."
+commands.allow = ["list_workspace_trash"]
+
+[[permission]]
+identifier = "allow-restore-workspace"
+description = "Allow restoring a deleted workspace from the recycle bin."
+commands.allow = ["restore_workspace"]
+
+[[permission]]
 identifier = "allow-create-workspace-backup"
 description = "Allow snapshotting the current workspace's app data into ~/.zicode/backups."
 commands.allow = ["create_workspace_backup"]
@@ -159,6 +169,8 @@ permissions = [
   "allow-publish-notes-notebook",
   "allow-list-workspaces",
   "allow-delete-workspace",
+  "allow-list-workspace-trash",
+  "allow-restore-workspace",
   "allow-create-workspace-backup",
   "allow-list-workspace-backups",
   "allow-delete-workspace-backup",

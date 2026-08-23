@@ -185,6 +185,39 @@
   opacity: 1;
 }
 
+.workspace-switcher-trash-heading {
+  padding: var(--space-1) var(--space-2-5);
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-switcher-trash-item {
+  cursor: default;
+}
+
+.workspace-switcher-restore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-switcher-restore:hover,
+.workspace-switcher-restore:focus-visible {
+  background: var(--accent-subtle, var(--bg-glass-hover));
+}
+
 .workspace-switcher-divider {
   height: 1px;
   margin: var(--space-0-5) 0;

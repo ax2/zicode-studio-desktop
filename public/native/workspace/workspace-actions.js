@@ -390,6 +390,57 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
           menu.append(row);
         }
       }
+      const trashEntries = (await invoke("list_workspace_trash")) ?? [];
+      if (trashEntries.length > 0) {
+        const divider = document.createElement("div");
+        divider.className = "workspace-switcher-divider";
+        menu.append(divider);
+        const heading = document.createElement("div");
+        heading.className = "workspace-switcher-trash-heading";
+        heading.textContent = t("Recycle bin");
+        menu.append(heading);
+        for (const entry of trashEntries) {
+          const row = document.createElement("div");
+          row.className = "workspace-switcher-row";
+          const info = document.createElement("div");
+          info.className = "workspace-switcher-item workspace-switcher-trash-item";
+          const name = document.createElement("strong");
+          name.textContent = entry.name;
+          const path = document.createElement("span");
+          path.textContent = entry.original_root || entry.dir;
+          info.append(name, path);
+          row.append(info);
+          const restore = document.createElement("button");
+          restore.type = "button";
+          restore.className = "workspace-switcher-restore";
+          restore.textContent = t("Restore");
+          restore.setAttribute("aria-label", `${t("Restore")} ${entry.name}`);
+          restore.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            const confirmed = globalThis.confirm?.(
+              t(
+                'Restore project "{name}"? Its app data (.zicode) returns to the original folder.',
+              ).replace("{name}", entry.name),
+            );
+            if (!confirmed) return;
+            try {
+              const restoredId = await invoke("restore_workspace", {
+                trashDir: entry.dir,
+              });
+              notify?.({
+                title: t("Project restored"),
+                message: t("Restored workspace {id}").replace("{id}", restoredId),
+                type: "success",
+              });
+              await openMenu();
+            } catch (error) {
+              onError?.(error instanceof Error ? error : new Error(String(error)));
+            }
+          });
+          row.append(restore);
+          menu.append(row);
+        }
+      }
       appendOpenFolderAction();
     } catch (error) {
       menu.textContent = "";
