@@ -319,6 +319,123 @@ describe("workspace actions", () => {
     confirmSpy.mockRestore();
   });
 
+  it("permanently deletes a recycle bin entry after confirmation", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    const invoke = vi.fn((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([{ id: "ws-global", path: "/home/user/.zicode" }]);
+      }
+      if (command === "list_workspace_trash") {
+        return Promise.resolve([
+          {
+            dir: "/tmp/zicode-trash/work-123",
+            name: "work-123",
+            original_root: "/home/user/work",
+            deleted_at: 123,
+          },
+        ]);
+      }
+      if (command === "delete_workspace_trash_entry") {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+    const notify = vi.fn();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    setupWorkspaceSwitcher({ onError: vi.fn(), notify });
+    document.getElementById("workspace-switcher-btn").click();
+
+    await vi.waitFor(() =>
+      expect(document.querySelector(".workspace-switcher-trash-delete")).toBeTruthy(),
+    );
+    const deleteEntry = document.querySelector(".workspace-switcher-trash-delete");
+    expect(deleteEntry?.getAttribute("aria-label")).toContain("work-123");
+    deleteEntry.click();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("delete_workspace_trash_entry", {
+        trashDir: "/tmp/zicode-trash/work-123",
+      }),
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Trash entry permanently deleted|回收站条目已彻底删除/),
+      }),
+    );
+    confirmSpy.mockRestore();
+  });
+
+  it("empties the recycle bin after confirmation", async () => {
+    document.body.innerHTML = `
+      <div class="workspace-bar" id="workspace-bar">
+        <div id="workspace-bar-label">
+          <strong id="workspace-bar-name"></strong>
+          <span id="workspace-bar-path"></span>
+        </div>
+        <button id="workspace-switcher-btn"></button>
+        <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
+      </div>
+    `;
+    const invoke = vi.fn((command) => {
+      if (command === "list_workspaces") {
+        return Promise.resolve([{ id: "ws-global", path: "/home/user/.zicode" }]);
+      }
+      if (command === "list_workspace_trash") {
+        return Promise.resolve([
+          {
+            dir: "/tmp/zicode-trash/work-123",
+            name: "work-123",
+            original_root: "/home/user/work",
+            deleted_at: 123,
+          },
+          {
+            dir: "/tmp/zicode-trash/work-456",
+            name: "work-456",
+            original_root: "/home/user/work2",
+            deleted_at: 456,
+          },
+        ]);
+      }
+      if (command === "empty_workspace_trash") {
+        return Promise.resolve(2);
+      }
+      return Promise.resolve(undefined);
+    });
+    installTauriInvoke(invoke);
+    const notify = vi.fn();
+    const confirmSpy = vi.spyOn(globalThis, "confirm").mockReturnValue(true);
+    setupWorkspaceSwitcher({ onError: vi.fn(), notify });
+    document.getElementById("workspace-switcher-btn").click();
+
+    await vi.waitFor(() =>
+      expect(document.querySelector(".workspace-switcher-empty-trash")).toBeTruthy(),
+    );
+    expect(
+      document.querySelector(".workspace-switcher-trash-heading")?.textContent,
+    ).toMatch(/Kept for 30 days|保留 30 天/);
+    document.querySelector(".workspace-switcher-empty-trash").click();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("empty_workspace_trash"),
+    );
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: expect.stringMatching(/Recycle bin emptied|回收站已清空/),
+      }),
+    );
+    confirmSpy.mockRestore();
+  });
+
   it("keeps the workspace name as a passive label instead of an open-folder button", async () => {
     document.body.innerHTML = `
       <div class="workspace-bar" id="workspace-bar">

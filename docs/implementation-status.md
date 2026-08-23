@@ -1,5 +1,26 @@
 # 实现状态
 
+## 2026-08-23 项目回收站「彻底删除 / 清空」（补全使用闭环）
+
+- 补全项目回收站的操作闭环（对齐笔记回收站的恢复/彻底删除/清空模式）：
+  - Rust：新增 `delete_workspace_trash_entry`（校验必须是回收站根目录下带
+    manifest 的直接子目录后才删除，防止误删任意目录）与
+    `empty_workspace_trash`（只清带 manifest 的直接条目，返回清除数量）；
+    提取 `is_workspace_trash_entry` / `remove_workspace_trash_entry` /
+    `purge_all_workspace_trash` 共用助手，30 天惰性清理同步复用同一安全
+    判定；新增权限 `allow-delete-workspace-trash-entry` /
+    `allow-empty-workspace-trash`；
+  - 前端：回收站区标题旁新增「清空回收站」（二次确认、含条目数量），每行
+    新增 🗑「彻底删除」（二次确认、成功后刷新菜单并通知）。
+- 顺带修复：`public/style.bundle.css` 是过期生成物，缺少工作区切换器的
+  `-row/-delete/-trash-*` 等 7 个类名，导致线上切换器菜单相关 UI 一直
+  裸渲染；重新生成 bundle 并同步安装目录后，运行实例加载的样式已补齐。
+- 验证：Rust 单测 2 项新增（只删/只清 manifest 直连条目、拒绝普通目录与
+  嵌套目录）全绿（main 258 项）；前端 workspace-actions 13 项全绿（新增
+  彻底删除、清空流程断言）；全量 166 文件 / 1250 用例全绿；typecheck、
+  Biome、设计规范、权限（30 个命令）全部通过；release exe 重建并部署，
+  应用重启健康（relay 在线、日志无错误）。
+
 ## 2026-08-23 项目回收站 30 天保留期（自动清理）
 
 - 按用户决策「回收站 30 天有效，超过 30 天自动清除」实现：

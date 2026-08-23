@@ -3002,9 +3002,9 @@ code {
 
 .tool-stage {
   flex-shrink: 0;
-  padding: 1px 7px;
+  padding: var(--space-0-5) var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-glass-hover);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
@@ -13531,6 +13531,99 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.workspace-switcher-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.workspace-switcher-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.workspace-switcher-delete:hover,
+.workspace-switcher-delete:focus-visible {
+  background: var(--danger-subtle, var(--bg-glass-hover));
+  color: var(--danger);
+  opacity: 1;
+}
+
+.workspace-switcher-trash-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2-5);
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-switcher-empty-trash {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-switcher-empty-trash:hover,
+.workspace-switcher-empty-trash:focus-visible {
+  background: var(--danger-subtle, var(--bg-glass-hover));
+  color: var(--danger);
+}
+
+.workspace-switcher-trash-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.workspace-switcher-trash-item {
+  cursor: default;
+}
+
+.workspace-switcher-restore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-switcher-restore:hover,
+.workspace-switcher-restore:focus-visible {
+  background: var(--accent-subtle, var(--bg-glass-hover));
 }
 
 .workspace-switcher-divider {

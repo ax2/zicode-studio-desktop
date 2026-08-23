@@ -115,9 +115,9 @@
 
 .tool-stage {
   flex-shrink: 0;
-  padding: 1px 7px;
+  padding: var(--space-0-5) var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-glass-hover);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);

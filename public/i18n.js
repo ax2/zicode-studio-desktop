@@ -603,6 +603,12 @@ const zhCN = {
   "Open trash folder": "打开回收站目录",
   "Recycle bin": "回收站",
   "Kept for 30 days": "保留 30 天",
+  'Empty the recycle bin? {count} entries will be permanently deleted.':
+    "清空回收站？{count} 个条目将被永久删除。",
+  "Recycle bin emptied": "回收站已清空",
+  'Permanently delete the recycle bin entry "{name}"? This cannot be undone.':
+    '彻底删除回收站条目「{name}」？此操作无法撤销。',
+  "Trash entry permanently deleted": "回收站条目已彻底删除",
   'Restore project "{name}"? Its app data (.zicode) returns to the original folder.':
     '恢复项目「{name}」？应用数据（.zicode）将回到原项目文件夹。',
   "Project restored": "项目已恢复",

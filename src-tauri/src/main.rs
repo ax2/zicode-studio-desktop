@@ -416,6 +416,13 @@ struct WorkspaceTrashEntry {
 
 const WORKSPACE_TRASH_RETENTION_SECS: i64 = 30 * 24 * 60 * 60;
 
+/// A workspace trash entry is a direct child of the trash root that carries
+/// a manifest. Arbitrary folders under the trash root are never treated as
+/// entries, so cleanup and deletion can never touch unrelated data.
+fn is_workspace_trash_entry(dir: &Path, trash_root: &Path) -> bool {
+    dir.is_dir() && dir.parent() == Some(trash_root) && dir.join("manifest.json").is_file()
+}
+
 /// Remove workspace trash entries older than the 30-day retention window.
 /// Only directories carrying a manifest are considered, so arbitrary folders
 /// under the trash root are never touched. Returns the number purged.
@@ -432,11 +439,10 @@ fn purge_expired_workspace_trash(trash_root: &Path, now_secs: i64) -> Result<usi
             Err(_) => continue,
         };
         let path = entry.path();
-        if !path.is_dir() {
+        if !is_workspace_trash_entry(&path, trash_root) {
             continue;
         }
-        let manifest_path = path.join("manifest.json");
-        let Ok(bytes) = fs::read(&manifest_path) else {
+        let Ok(bytes) = fs::read(path.join("manifest.json")) else {
             continue;
         };
         let Ok(manifest) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
@@ -453,6 +459,39 @@ fn purge_expired_workspace_trash(trash_root: &Path, now_secs: i64) -> Result<usi
         }
     }
     Ok(purged)
+}
+
+/// Permanently remove every recoverable recycle bin entry immediately.
+/// Only manifested direct children of the trash root are touched. Returns the
+/// number of entries removed.
+fn purge_all_workspace_trash(trash_root: &Path) -> Result<usize, String> {
+    if !trash_root.is_dir() {
+        return Ok(0);
+    }
+    let mut removed = 0;
+    for entry in fs::read_dir(trash_root)
+        .map_err(|error| format!("Cannot read workspace trash: {error}"))?
+    {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if is_workspace_trash_entry(&path, trash_root) && fs::remove_dir_all(&path).is_ok() {
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+/// Permanently remove one recycle bin entry, refusing anything that is not a
+/// manifested direct child of the trash root. This cannot be undone.
+fn remove_workspace_trash_entry(dir: &Path, trash_root: &Path) -> Result<(), String> {
+    if !is_workspace_trash_entry(dir, trash_root) {
+        return Err("Not a workspace trash entry".to_string());
+    }
+    fs::remove_dir_all(dir)
+        .map_err(|error| format!("Cannot delete workspace trash entry: {error}"))
 }
 
 /// List recoverable workspace trash entries (directories under
@@ -505,6 +544,21 @@ fn list_workspace_trash() -> Result<Vec<WorkspaceTrashEntry>, String> {
     }
     entries.sort_by(|left, right| right.deleted_at.cmp(&left.deleted_at));
     Ok(entries)
+}
+
+/// Permanently delete one recycle bin entry after explicit user confirmation.
+#[tauri::command]
+fn delete_workspace_trash_entry(trash_dir: String) -> Result<(), String> {
+    let trash_root = crate::app_paths::data_root()?.join("trash");
+    remove_workspace_trash_entry(&PathBuf::from(&trash_dir), &trash_root)
+}
+
+/// Empty the whole recycle bin immediately. Returns the number of entries
+/// removed.
+#[tauri::command]
+fn empty_workspace_trash() -> Result<usize, String> {
+    let trash_root = crate::app_paths::data_root()?.join("trash");
+    purge_all_workspace_trash(&trash_root)
 }
 
 /// Restore a deleted workspace from the recycle bin: moves the workspace's
@@ -1556,6 +1610,8 @@ fn main() {
             list_workspaces,
             delete_workspace,
             list_workspace_trash,
+            delete_workspace_trash_entry,
+            empty_workspace_trash,
             restore_workspace,
             create_workspace_backup,
             list_workspace_backups,
@@ -1712,8 +1768,9 @@ mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
         move_workspace_app_data_to_trash, protected_workspace_reason,
-        purge_expired_workspace_trash, restore_app_data_from_trash, session_dir_name,
-        visible_position, WindowState, WORKSPACE_TRASH_RETENTION_SECS,
+        purge_all_workspace_trash, purge_expired_workspace_trash, remove_workspace_trash_entry,
+        restore_app_data_from_trash, session_dir_name, visible_position, WindowState,
+        WORKSPACE_TRASH_RETENTION_SECS,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -1868,6 +1925,52 @@ mod tests {
             purge_expired_workspace_trash(&base.join("no-trash"), 0).expect("purge"),
             0
         );
+        fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn permanently_deletes_only_direct_manifested_trash_entries() {
+        let base = temp_dir("trash-delete");
+        let trash_root = base.join("trash");
+        fs::create_dir_all(&trash_root).expect("trash root");
+        let entry = trash_root.join("project-1");
+        fs::create_dir_all(entry.join(".zicode")).expect("app data");
+        fs::write(entry.join("manifest.json"), r#"{"deletedAt":1}"#).expect("manifest");
+        let plain = trash_root.join("plain-folder");
+        fs::create_dir_all(&plain).expect("plain folder");
+        let nested = plain.join("nested");
+        fs::create_dir_all(&nested).expect("nested");
+        fs::write(nested.join("manifest.json"), "{}").expect("nested manifest");
+
+        remove_workspace_trash_entry(&entry, &trash_root).expect("delete");
+        assert!(!entry.exists());
+        assert!(plain.exists());
+        assert!(nested.exists());
+
+        assert!(remove_workspace_trash_entry(&plain, &trash_root).is_err());
+        assert!(plain.exists());
+        assert!(remove_workspace_trash_entry(&nested, &trash_root).is_err());
+        assert!(nested.exists());
+        fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn emptying_trash_removes_only_manifested_direct_entries() {
+        let base = temp_dir("trash-empty");
+        let trash_root = base.join("trash");
+        fs::create_dir_all(&trash_root).expect("trash root");
+        for name in ["project-a", "project-b"] {
+            let dir = trash_root.join(name);
+            fs::create_dir_all(&dir).expect("entry");
+            fs::write(dir.join("manifest.json"), r#"{"deletedAt":1}"#).expect("manifest");
+        }
+        let plain = trash_root.join("plain-folder");
+        fs::create_dir_all(&plain).expect("plain folder");
+
+        assert_eq!(purge_all_workspace_trash(&trash_root).expect("empty"), 2);
+        assert!(!trash_root.join("project-a").exists());
+        assert!(!trash_root.join("project-b").exists());
+        assert!(plain.exists());
         fs::remove_dir_all(&base).expect("cleanup");
     }
 

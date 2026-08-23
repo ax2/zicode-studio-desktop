@@ -397,11 +397,36 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
         menu.append(divider);
         const heading = document.createElement("div");
         heading.className = "workspace-switcher-trash-heading";
-        heading.textContent = `${t("Recycle bin")} · ${t("Kept for 30 days")}`;
+        const headingText = document.createElement("span");
+        headingText.textContent = `${t("Recycle bin")} · ${t("Kept for 30 days")}`;
+        heading.append(headingText);
+        const emptyTrash = document.createElement("button");
+        emptyTrash.type = "button";
+        emptyTrash.className = "workspace-switcher-empty-trash";
+        emptyTrash.textContent = t("Empty trash");
+        emptyTrash.setAttribute("aria-label", t("Empty trash"));
+        emptyTrash.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          const confirmed = globalThis.confirm?.(
+            t("Empty the recycle bin? {count} entries will be permanently deleted.").replace(
+              "{count}",
+              String(trashEntries.length),
+            ),
+          );
+          if (!confirmed) return;
+          try {
+            await invoke("empty_workspace_trash");
+            notify?.({ title: t("Recycle bin emptied"), type: "success" });
+            await openMenu();
+          } catch (error) {
+            onError?.(error instanceof Error ? error : new Error(String(error)));
+          }
+        });
+        heading.append(emptyTrash);
         menu.append(heading);
         for (const entry of trashEntries) {
           const row = document.createElement("div");
-          row.className = "workspace-switcher-row";
+          row.className = "workspace-switcher-row workspace-switcher-trash-row";
           const info = document.createElement("div");
           info.className = "workspace-switcher-item workspace-switcher-trash-item";
           const name = document.createElement("strong");
@@ -438,6 +463,39 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
             }
           });
           row.append(restore);
+          const deleteEntry = document.createElement("button");
+          deleteEntry.type = "button";
+          deleteEntry.className = "workspace-switcher-delete workspace-switcher-trash-delete";
+          deleteEntry.textContent = "🗑";
+          deleteEntry.title = t("Delete permanently");
+          deleteEntry.setAttribute(
+            "aria-label",
+            `${t("Delete permanently")} ${entry.name}`,
+          );
+          deleteEntry.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            const confirmed = globalThis.confirm?.(
+              t('Permanently delete the recycle bin entry "{name}"? This cannot be undone.').replace(
+                "{name}",
+                entry.name,
+              ),
+            );
+            if (!confirmed) return;
+            try {
+              await invoke("delete_workspace_trash_entry", {
+                trashDir: entry.dir,
+              });
+              notify?.({
+                title: t("Trash entry permanently deleted"),
+                message: entry.name,
+                type: "success",
+              });
+              await openMenu();
+            } catch (error) {
+              onError?.(error instanceof Error ? error : new Error(String(error)));
+            }
+          });
+          row.append(deleteEntry);
           menu.append(row);
         }
       }

@@ -120,6 +120,16 @@ description = "Allow listing recoverable deleted workspaces in the recycle bin."
 commands.allow = ["list_workspace_trash"]
 
 [[permission]]
+identifier = "allow-delete-workspace-trash-entry"
+description = "Allow permanently deleting one recycle bin entry."
+commands.allow = ["delete_workspace_trash_entry"]
+
+[[permission]]
+identifier = "allow-empty-workspace-trash"
+description = "Allow emptying the workspace recycle bin."
+commands.allow = ["empty_workspace_trash"]
+
+[[permission]]
 identifier = "allow-restore-workspace"
 description = "Allow restoring a deleted workspace from the recycle bin."
 commands.allow = ["restore_workspace"]
@@ -170,6 +180,8 @@ permissions = [
   "allow-list-workspaces",
   "allow-delete-workspace",
   "allow-list-workspace-trash",
+  "allow-delete-workspace-trash-entry",
+  "allow-empty-workspace-trash",
   "allow-restore-workspace",
   "allow-create-workspace-backup",
   "allow-list-workspace-backups",

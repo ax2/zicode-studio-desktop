@@ -186,12 +186,43 @@
 }
 
 .workspace-switcher-trash-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-2-5);
   color: var(--text-dim);
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.workspace-switcher-empty-trash {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-switcher-empty-trash:hover,
+.workspace-switcher-empty-trash:focus-visible {
+  background: var(--danger-subtle, var(--bg-glass-hover));
+  color: var(--danger);
+}
+
+.workspace-switcher-trash-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .workspace-switcher-trash-item {
