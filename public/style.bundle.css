@@ -13606,6 +13606,17 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   cursor: default;
 }
 
+.workspace-switcher-trash-expiry {
+  display: block;
+  margin-top: var(--space-0-5);
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  opacity: 0.85;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .workspace-switcher-restore {
   display: inline-flex;
   align-items: center;

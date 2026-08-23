@@ -7,6 +7,9 @@
 import { getSelectedSceneId } from "../react/settings.js";
 import { t } from "../../i18n.js";
 
+const WORKSPACE_TRASH_RETENTION_DAYS = 30;
+const DAY_SECS = 24 * 60 * 60;
+
 
 /**
  * Resolve the Tauri `invoke` function exposed via `withGlobalTauri`.
@@ -370,7 +373,10 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
                 });
                 notify?.({
                   title: t("Project moved to trash"),
-                  message: t("Recoverable at {path}").replace("{path}", trashPath),
+                  message: `${t("Recoverable at {path}").replace(
+                    "{path}",
+                    trashPath,
+                  )} · ${t("Kept for 30 days")}`,
                   type: "info",
                   action:
                     typeof openPath === "function"
@@ -434,6 +440,20 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
           const path = document.createElement("span");
           path.textContent = entry.original_root || entry.dir;
           info.append(name, path);
+          const nowSecs = Math.floor(Date.now() / 1000);
+          const remainingSecs =
+            entry.deleted_at + WORKSPACE_TRASH_RETENTION_DAYS * DAY_SECS - nowSecs;
+          const remainingDays = Math.max(0, Math.ceil(remainingSecs / DAY_SECS));
+          const expiry = document.createElement("span");
+          expiry.className = "workspace-switcher-trash-expiry";
+          expiry.textContent =
+            remainingDays > 0
+              ? t("Auto-purges in {count} days").replace(
+                  "{count}",
+                  String(remainingDays),
+                )
+              : t("Auto-purges today");
+          info.append(expiry);
           row.append(info);
           const restore = document.createElement("button");
           restore.type = "button";

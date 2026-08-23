@@ -609,6 +609,8 @@ const zhCN = {
   'Permanently delete the recycle bin entry "{name}"? This cannot be undone.':
     '彻底删除回收站条目「{name}」？此操作无法撤销。',
   "Trash entry permanently deleted": "回收站条目已彻底删除",
+  "Auto-purges in {count} days": "{count} 天后自动清除",
+  "Auto-purges today": "今天自动清除",
   'Restore project "{name}"? Its app data (.zicode) returns to the original folder.':
     '恢复项目「{name}」？应用数据（.zicode）将回到原项目文件夹。',
   "Project restored": "项目已恢复",

@@ -271,6 +271,7 @@ describe("workspace actions", () => {
         <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
       </div>
     `;
+    const nowSecs = Math.floor(Date.now() / 1000);
     const invoke = vi.fn((command) => {
       if (command === "list_workspaces") {
         return Promise.resolve([{ id: "ws-global", path: "/home/user/.zicode" }]);
@@ -281,7 +282,7 @@ describe("workspace actions", () => {
             dir: "/tmp/zicode-trash/work-123",
             name: "work-123",
             original_root: "/home/user/work",
-            deleted_at: 123,
+            deleted_at: nowSecs - 86400,
           },
         ]);
       }
@@ -302,6 +303,9 @@ describe("workspace actions", () => {
     expect(document.querySelector(".workspace-switcher-trash-heading")?.textContent).toMatch(
       /Kept for 30 days|保留 30 天/,
     );
+    expect(
+      document.querySelector(".workspace-switcher-trash-expiry")?.textContent,
+    ).toMatch(/Auto-purges in 29 days|29 天后自动清除/);
     const restore = document.querySelector(".workspace-switcher-restore");
     expect(restore?.getAttribute("aria-label")).toContain("work-123");
     restore.click();
@@ -330,6 +334,7 @@ describe("workspace actions", () => {
         <div class="workspace-switcher-menu hidden" id="workspace-switcher-menu"></div>
       </div>
     `;
+    const nowSecs = Math.floor(Date.now() / 1000);
     const invoke = vi.fn((command) => {
       if (command === "list_workspaces") {
         return Promise.resolve([{ id: "ws-global", path: "/home/user/.zicode" }]);
@@ -340,7 +345,7 @@ describe("workspace actions", () => {
             dir: "/tmp/zicode-trash/work-123",
             name: "work-123",
             original_root: "/home/user/work",
-            deleted_at: 123,
+            deleted_at: nowSecs - 86400,
           },
         ]);
       }
