@@ -153,6 +153,10 @@ async function main() {
   const qaTitle = `QA 文章验收 ${stamp}`;
 
   const profile = mkdtempSync(join(tmpdir(), "zicode-articles-flow-"));
+  const viewport = process.env.VIEWPORT;
+  const [width, height] = viewport
+    ? viewport.split("x").map(Number)
+    : [1440, 900];
   const chrome = spawn(
     CHROME,
     [
@@ -164,7 +168,7 @@ async function main() {
       `--user-data-dir=${profile}`,
       "--remote-debugging-port=0",
       "--remote-allow-origins=*",
-      "--window-size=1440,900",
+      `--window-size=${width},${height}`,
       "about:blank",
     ],
     { stdio: "ignore", windowsHide: true },
@@ -202,6 +206,14 @@ async function main() {
     const cdp = await connect(target.webSocketDebuggerUrl);
     await cdp.send("Runtime.enable");
     await cdp.send("Page.enable");
+    if (viewport) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: width < 768,
+      });
+    }
     const sessionUrl = `${HOST}/app/workspaces/${workspaceId}/sessions/${sessionId}?app=com.zicode.articles`;
     await cdp.send("Page.navigate", { url: sessionUrl });
     await sleep(WAIT_MS + 6000);
