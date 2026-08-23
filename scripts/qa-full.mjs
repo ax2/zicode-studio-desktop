@@ -51,6 +51,7 @@ const allScripts = [
   "qa-keyboard.mjs",
   "qa-onboarding.mjs",
   "qa-composer-model.mjs",
+  "qa-lan-qr.mjs",
   "qa-notes-flow.mjs",
   "qa-automation-flow.mjs",
   "qa-backup-flow.mjs",

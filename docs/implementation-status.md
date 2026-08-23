@@ -1,5 +1,15 @@
 # 实现状态
 
+## 2026-08-23 「在手机上打开」二维码配对实测（qa-lan-qr 接入 qa:full）
+
+- 新增 `scripts/qa-lan-qr.mjs`：实测桌面→手机配对入口——relay 在线时
+  「在手机上打开」按钮可见，点击打开弹层，二维码（SVG data URL）与配对
+  地址（`https://relay.zicode.com/d/dev-ax2-01/…`）均正常渲染。
+- 这是用户实际使用过的扫码流程，此前只有单元测试覆盖；现在纳入 `qa:full`
+  一键回归（依赖 relay 在线，离线时该脚本会如实报告按钮不可见）。
+- 验证：全量 167 文件 / 1258 用例、typecheck、Biome、权限（30 个命令）
+  通过；本轮仅新增 QA 脚本与文档。
+
 ## 2026-08-23 对话输入区模型下拉验收（qa-composer-model 接入 qa:full）
 
 - 新增 `scripts/qa-composer-model.mjs`：验证对话输入区的模型选择下拉可

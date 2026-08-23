@@ -27,6 +27,7 @@ VIEWPORT=390x844 bun run qa:full        # 整套电池在移动视口下运行
 | `qa-keyboard.mjs` | Tab 焦点顺序、命令面板打开/Esc 关闭、快捷键 | 桌面 + 移动 | 无 | — |
 | `qa-onboarding.mjs` | 六个核心应用的主操作入口在双视口渲染、无报错无溢出 | 桌面 + 移动 | 无 | — |
 | `qa-composer-model.mjs` | 对话输入区模型选择下拉可打开、有选项、移动端触控尺寸达标 | 桌面（`VIEWPORT` 可覆盖移动） | 无 | — |
+| `qa-lan-qr.mjs` | 「在手机上打开」按钮可见（relay 在线）→ 弹层打开 → 二维码与配对地址渲染 | 桌面 | 无 | — |
 | `qa-notes-flow.mjs` | 笔记真实闭环：建笔记本/笔记 → 编辑标题/标签/图标 → 自动保存 → 拖拽（桌面）/跳过（移动）→ 清理 | 桌面 + 移动（`VIEWPORT` 可覆盖） | 真实写笔记存储 | 结束清理并断言无 QA 残留 |
 | `qa-workspace-trash-ui.mjs` | 回收站区渲染（标题/清空/恢复/彻底删除/倒计时）+ 两条交互链路 | 桌面 + 移动（`VIEWPORT` 可覆盖） | mock Tauri invoke | 不落盘 |
 | `qa-task-flow.mjs` | 任务中心真实闭环：新建定时任务 → 编辑 → 删除 | 桌面（`VIEWPORT` 可覆盖移动） | 真实写 `tasks.json` | 前后清理 + 结束兜底，断言文件无 QA 残留 |
