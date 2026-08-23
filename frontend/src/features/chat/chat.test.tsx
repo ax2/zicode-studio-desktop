@@ -21,6 +21,11 @@ function makeContainer(): HTMLElement {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  try {
+    globalThis.localStorage?.removeItem("zicode-chat-templates-custom");
+  } catch {
+    // Best effort cleanup.
+  }
 });
 
 function flush() {
@@ -180,6 +185,37 @@ describe("chat feed renderers", () => {
       expect(template.prompt.trim().length).toBeGreaterThan(0);
       expect(template.icon.length).toBeGreaterThan(0);
     }
+  });
+
+  it("renders custom starter templates from storage and prefills them", async () => {
+    globalThis.localStorage?.setItem(
+      "zicode-chat-templates-custom",
+      JSON.stringify([
+        {
+          id: "custom-qa",
+          icon: "🔥",
+          label: "Custom QA",
+          prompt: "Run the QA sweep and report.",
+        },
+      ]),
+    );
+    const container = makeContainer();
+    const renderer = new MessageRenderer(container);
+    renderer.renderWelcome();
+    await flush();
+
+    const custom = container.querySelector('[data-template-id="custom-qa"]');
+    expect(custom).not.toBeNull();
+    expect(custom?.textContent).toContain("Custom QA");
+
+    const prefill = vi.fn();
+    container.addEventListener("zicode:composer-prefill", prefill);
+    (custom as HTMLElement | null)?.click();
+    expect(prefill).toHaveBeenCalledTimes(1);
+    const detail = prefill.mock.calls[0][0].detail as { text: string };
+    expect(detail.text).toBe("Run the QA sweep and report.");
+    container.removeEventListener("zicode:composer-prefill", prefill);
+    globalThis.localStorage?.removeItem("zicode-chat-templates-custom");
   });
 
   it("filters welcome quick actions to enabled applications", async () => {

@@ -23,6 +23,12 @@ import {
   formatBackupSize,
   type BackupStore,
 } from "./backupStore";
+import {
+  createTemplateId,
+  loadCustomTemplates,
+  saveCustomTemplates,
+  type ChatTemplate,
+} from "../chat/chatTemplates";
 
 export interface SettingsController {
   configStore: ConfigStore;
@@ -473,6 +479,179 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function TemplateSection() {
+  const [templates, setTemplates] = useState<ChatTemplate[]>(() =>
+    loadCustomTemplates(),
+  );
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState("📝");
+  const [prompt, setPrompt] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const resetForm = () => {
+    setFormOpen(false);
+    setEditingId(null);
+    setName("");
+    setIcon("📝");
+    setPrompt("");
+    setNotice("");
+  };
+
+  const startNew = () => {
+    resetForm();
+    setFormOpen(true);
+  };
+
+  const startEdit = (template: ChatTemplate) => {
+    setEditingId(template.id);
+    setName(template.label);
+    setIcon(template.icon);
+    setPrompt(template.prompt);
+    setNotice("");
+    setFormOpen(true);
+  };
+
+  const commit = () => {
+    const label = name.trim();
+    const promptText = prompt.trim();
+    const iconText = icon.trim() || "📝";
+    if (!label || !promptText) {
+      setNotice(t("Template name and prompt are required"));
+      return;
+    }
+    const next = editingId
+      ? templates.map((template) =>
+          template.id === editingId
+            ? { ...template, label, icon: iconText, prompt: promptText }
+            : template,
+        )
+      : [...templates, { id: createTemplateId(), label, icon: iconText, prompt: promptText }];
+    saveCustomTemplates(next);
+    setTemplates(next);
+    resetForm();
+  };
+
+  const remove = (id: string) => {
+    const next = templates.filter((template) => template.id !== id);
+    saveCustomTemplates(next);
+    setTemplates(next);
+  };
+
+  return (
+    <div className="settings-section" id="chat-templates-section">
+      <div className="settings-section-title">{t("Conversation templates")}</div>
+      <p className="settings-description">
+        {t(
+          "Starter prompts shown on the welcome screen. Built-in templates always stay available.",
+        )}
+      </p>
+      {templates.length === 0 ? (
+        <p className="settings-empty-hint">{t("No custom templates yet")}</p>
+      ) : (
+        <ul className="settings-template-list">
+          {templates.map((template) => (
+            <li
+              key={template.id}
+              className="settings-template-row"
+              data-template-id={template.id}
+            >
+              <span className="settings-template-icon" aria-hidden="true">
+                {template.icon}
+              </span>
+              <span className="settings-template-copy">
+                <span className="settings-template-name">{template.label}</span>
+                <span className="settings-template-prompt">{template.prompt}</span>
+              </span>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                aria-label={`${t("Edit template")} ${template.label}`}
+                onClick={() => startEdit(template)}
+              >
+                {t("Edit")}
+              </button>
+              <button
+                type="button"
+                className="ui-button ui-button--danger ui-button--sm"
+                aria-label={`${t("Delete template")} ${template.label}`}
+                onClick={() => remove(template.id)}
+              >
+                {t("Delete")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {formOpen ? (
+        <div className="settings-template-form">
+          <div className="settings-row">
+            <span className="settings-label">{t("Template name")}</span>
+            <input
+              className="ui-input"
+              value={name}
+              aria-label={t("Template name")}
+              placeholder={t("e.g. Weekly review")}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">{t("Emoji icon (optional)")}</span>
+            <input
+              className="ui-input settings-template-icon-input"
+              value={icon}
+              aria-label={t("Emoji icon (optional)")}
+              onChange={(event) => setIcon(event.target.value)}
+            />
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">{t("Template prompt")}</span>
+            <textarea
+              className="settings-template-textarea"
+              rows={3}
+              value={prompt}
+              aria-label={t("Template prompt")}
+              placeholder={t("What should Pi do with this template?")}
+              onChange={(event) => setPrompt(event.target.value)}
+            />
+          </div>
+          {notice ? (
+            <p className="settings-error" role="alert">
+              {notice}
+            </p>
+          ) : null}
+          <div className="settings-template-actions">
+            <button
+              type="button"
+              className="ui-button ui-button--primary"
+              onClick={commit}
+            >
+              {t("Save template")}
+            </button>
+            <button
+              type="button"
+              className="ui-button ui-button--ghost"
+              onClick={resetForm}
+            >
+              {t("Cancel")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="ui-button ui-button--secondary"
+          id="add-chat-template"
+          onClick={startNew}
+        >
+          {t("Add custom template")}
+        </button>
       )}
     </div>
   );
@@ -999,6 +1178,7 @@ export function GeneralTab({
         </div>
       </div>
       <MemorySection memory={controller.memoryStore} />
+      <TemplateSection />
       <div
         className={`settings-section${taskNotifications.hidden ? " hidden" : ""}`}
         id="mobile-task-notification-section"

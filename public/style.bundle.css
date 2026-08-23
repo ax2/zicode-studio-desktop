@@ -15661,6 +15661,99 @@ body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--mai
   min-width: 0;
 }
 
+.settings-empty-hint {
+  margin: var(--space-2) 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+}
+
+.settings-template-list {
+  display: grid;
+  gap: var(--space-1-5);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-template-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.settings-template-icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.settings-template-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-template-name {
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.settings-template-prompt {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-template-form {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.settings-template-form .settings-row {
+  align-items: flex-start;
+}
+
+.settings-template-icon-input {
+  max-width: 160px;
+}
+
+.settings-template-textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 72px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-solid);
+  color: var(--text-primary);
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+}
+
+.settings-template-textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-template-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
 .settings-toggle {
   width: calc(var(--control-height-lg) + var(--space-2));
   height: var(--control-height-lg);

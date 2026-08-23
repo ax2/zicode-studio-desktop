@@ -12,6 +12,8 @@ export interface ChatTemplate {
   prompt: string;
 }
 
+const CUSTOM_TEMPLATES_KEY = "zicode-chat-templates-custom";
+
 export const CHAT_TEMPLATES: readonly ChatTemplate[] = [
   {
     id: "write-blog",
@@ -56,3 +58,58 @@ export const CHAT_TEMPLATES: readonly ChatTemplate[] = [
       "Analyze the following data or problem and give conclusions and recommendations: …",
   },
 ];
+
+/**
+ * Read user-defined templates from localStorage. Malformed or non-array
+ * payloads are ignored so a corrupt value can never break the welcome screen.
+ */
+export function loadCustomTemplates(): ChatTemplate[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(CUSTOM_TEMPLATES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry.id === "string" &&
+          typeof entry.label === "string" &&
+          typeof entry.prompt === "string" &&
+          entry.label.trim() &&
+          entry.prompt.trim(),
+      )
+      .map((entry) => ({
+        id: entry.id,
+        icon:
+          typeof entry.icon === "string" && entry.icon.trim()
+            ? entry.icon.trim()
+            : "📝",
+        label: entry.label.trim(),
+        prompt: entry.prompt.trim(),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomTemplates(templates: ChatTemplate[]): void {
+  try {
+    globalThis.localStorage?.setItem(
+      CUSTOM_TEMPLATES_KEY,
+      JSON.stringify(templates),
+    );
+  } catch {
+    // Storage can be unavailable (private mode / sandboxed webviews); the
+    // welcome screen simply falls back to built-in templates.
+  }
+}
+
+export function createTemplateId(): string {
+  return `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Built-in templates first, then user-defined templates. */
+export function allChatTemplates(): ChatTemplate[] {
+  return [...CHAT_TEMPLATES, ...loadCustomTemplates()];
+}

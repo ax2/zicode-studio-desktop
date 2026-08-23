@@ -30,6 +30,13 @@ const EXPECTED_TEMPLATES = [
   { id: "analyze", label: "分析数据" },
 ];
 
+const CUSTOM_TEMPLATE = {
+  id: "custom-qa",
+  icon: "🔥",
+  label: "Custom QA",
+  prompt: "Run the QA sweep and report.",
+};
+
 // The Agent Inbox workspace renders a specialized welcome without the starter
 // template grid. qa:full defaults to agent-inbox, so the sweep falls back to
 // the global workspace (~/.zicode) when the inbox workspace is selected.
@@ -171,8 +178,9 @@ async function checkWelcome(cdp, viewport) {
   if (state.heading !== "从模板开始") {
     failures.push(`heading mismatch: ${state.heading}`);
   }
-  if (state.count !== EXPECTED_TEMPLATES.length) {
-    failures.push(`expected ${EXPECTED_TEMPLATES.length} templates, got ${state.count}`);
+  const expectedCount = EXPECTED_TEMPLATES.length + 1;
+  if (state.count !== expectedCount) {
+    failures.push(`expected ${expectedCount} templates, got ${state.count}`);
   }
   for (const expected of EXPECTED_TEMPLATES) {
     const found = state.buttons.find((button) => button.id === expected.id);
@@ -181,6 +189,14 @@ async function checkWelcome(cdp, viewport) {
     } else if (found.label !== expected.label) {
       failures.push(`template ${expected.id} label mismatch: ${found.label}`);
     }
+  }
+  const custom = state.buttons.find((button) => button.id === CUSTOM_TEMPLATE.id);
+  if (!custom) {
+    failures.push(`missing custom template ${CUSTOM_TEMPLATE.id}`);
+  } else if (custom.label !== CUSTOM_TEMPLATE.label) {
+    failures.push(
+      `custom template ${CUSTOM_TEMPLATE.id} label mismatch: ${custom.label}`,
+    );
   }
   if (viewport.width >= 768 && !state.visible) {
     failures.push("template grid hidden on desktop");
@@ -238,6 +254,21 @@ async function checkPrefill(cdp) {
   );
   if (!second.includes("翻译") || !second.includes("保留原意")) {
     failures.push(`translate prefill mismatch: ${second.slice(0, 80)}`);
+  }
+  await evaluate(
+    cdp,
+    `document.querySelector('[data-template-id="custom-qa"]')?.click()`,
+  );
+  await sleep(500);
+  const third = await evaluate(
+    cdp,
+    `(() => {
+      const input = document.getElementById("message-input");
+      return input?.value ?? "";
+    })()`,
+  );
+  if (!third.includes("Run the QA sweep and report.")) {
+    failures.push(`custom template prefill mismatch: ${third.slice(0, 80)}`);
   }
   console.log(
     "TEMPLATE-PREFILL:",
@@ -383,6 +414,14 @@ async function main() {
             "uncaught: " + (event.message || String(event.error)).slice(0, 200),
           );
         });
+        try {
+          localStorage.setItem(
+            "zicode-chat-templates-custom",
+            ${JSON.stringify(JSON.stringify([CUSTOM_TEMPLATE]))},
+          );
+        } catch {
+          // Storage unavailable; the built-in sweep still runs.
+        }
       })()`,
     });
 

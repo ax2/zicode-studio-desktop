@@ -68,8 +68,90 @@ describe("memory section", () => {
   });
 });
 
+describe("conversation templates section", () => {
+  it("adds and deletes a custom template", async () => {
+    renderApp();
+    await waitFor(() =>
+      expect(document.getElementById("chat-templates-section")).toBeTruthy(),
+    );
+    expect(document.querySelector("#add-chat-template")).toBeTruthy();
+
+    fireEvent.click(required<HTMLButtonElement>("#add-chat-template"));
+    const nameInput = document.querySelector(
+      `input[aria-label="${t("Template name")}"]`,
+    );
+    expect(nameInput).toBeTruthy();
+    fireEvent.change(nameInput as HTMLInputElement, {
+      target: { value: "周报" },
+    });
+    const promptInput = document.querySelector(
+      `textarea[aria-label="${t("Template prompt")}"]`,
+    );
+    fireEvent.change(promptInput as HTMLTextAreaElement, {
+      target: { value: "帮我写周报" },
+    });
+
+    const saveButton = Array.from(
+      document.querySelectorAll(".settings-template-actions button"),
+    ).find((button) => button.textContent?.trim() === t("Save template")) as
+      HTMLButtonElement;
+    fireEvent.click(saveButton);
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-template-id^="custom-"]'),
+      ).toBeTruthy(),
+    );
+    expect(
+      document.querySelector(".settings-template-name")?.textContent,
+    ).toBe("周报");
+    expect(
+      globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
+    ).toContain("周报");
+
+    fireEvent.click(
+      required<HTMLButtonElement>(
+        `.settings-template-row [aria-label^="${t("Delete template")}"]`,
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-template-id^="custom-"]'),
+      ).toBeNull(),
+    );
+    expect(
+      globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
+    ).toBe("[]");
+  });
+
+  it("requires a name and prompt before saving", async () => {
+    renderApp();
+    await waitFor(() =>
+      expect(document.getElementById("chat-templates-section")).toBeTruthy(),
+    );
+    fireEvent.click(required<HTMLButtonElement>("#add-chat-template"));
+    fireEvent.click(
+      Array.from(
+        document.querySelectorAll(".settings-template-actions button"),
+      ).find((button) => button.textContent?.trim() === t("Save template")) as
+        HTMLButtonElement,
+    );
+    expect(
+      document.querySelector(".settings-template-form [role='alert']")
+        ?.textContent,
+    ).toBe(t("Template name and prompt are required"));
+    expect(
+      globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
+    ).toBeNull();
+  });
+});
+
 afterEach(() => {
   document.body.innerHTML = "";
+  try {
+    globalThis.localStorage?.removeItem("zicode-chat-templates-custom");
+  } catch {
+    // Best effort cleanup.
+  }
   history.replaceState(history.state, "", `${window.location.pathname}${window.location.search}`);
 });
 
