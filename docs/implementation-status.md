@@ -1,5 +1,16 @@
 # 实现状态
 
+## 2026-08-23 GitHub Actions 单元测试 CI
+
+- 新增 `.github/workflows/tests.yml`：push 到 main 与 PR 时在 Ubuntu 上跑
+  `bun install --frozen-lockfile` → typecheck → Biome lint → 设计规范 →
+  `bun run test`（167 文件 / 1258 用例 + Tauri 权限 + 子进程策略），让
+  回归在每次提交自动暴露。
+- 说明：`qa:full` 需要运行中的桌面实例，不进 CI；文档站构建已有
+  `docs.yml` 独立覆盖。测试代码中的 Windows 路径均为 mock 数据，不依赖
+  宿主平台。
+- 验证：YAML 语法校验通过；本地全量测试基线全绿。
+
 ## 2026-08-23 笔记应用真实闭环接入 qa:full
 
 - 笔记应用纳入 `qa:full` 一键回归：`qa-notes-flow.mjs` 覆盖建笔记本/笔记
