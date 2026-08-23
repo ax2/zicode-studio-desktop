@@ -304,6 +304,11 @@ async function main() {
         trigger.value = "daily";
         trigger.dispatchEvent(new Event("change", { bubbles: true }));
         await wait(400);
+        // Use the approval-required mode so "Run now" only queues a pending
+        // instance instead of dispatching a real agent run.
+        const radios = form.querySelectorAll('input[name="task-execution-mode"]');
+        if (radios.length > 1) radios[1].click();
+        await wait(200);
         form.querySelector('button[type="submit"]').click();
         for (let i = 0; i < 60; i += 1) {
           const card = Array.from(document.querySelectorAll(".task-center-card")).find(
@@ -334,6 +339,56 @@ async function main() {
     }
     console.log("CREATE:", JSON.stringify(created));
 
+    // 1b. "Run now" on the scheduled template queues a pending instance.
+    const runNow = await evaluate(
+      cdp,
+      `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        const cards = Array.from(document.querySelectorAll(".task-center-card"));
+        const template = cards.find(
+          (node) =>
+            (node.textContent || "").includes(${JSON.stringify(qaTitle)}) &&
+            /Scheduled|定时/.test(
+              node.querySelector(".task-center-status")?.textContent || "",
+            ),
+        );
+        if (!template) return { error: "template card missing for run-now" };
+        const runNowBtn = Array.from(template.querySelectorAll("button")).find(
+          (button) => /Run now|立即运行/.test(button.textContent || ""),
+        );
+        if (!runNowBtn) return { error: "run-now button missing" };
+        runNowBtn.click();
+        for (let i = 0; i < 60; i += 1) {
+          const instance = Array.from(
+            document.querySelectorAll(".task-center-card"),
+          ).find(
+            (node) =>
+              (node.textContent || "").includes(${JSON.stringify(qaTitle)}) &&
+              !/Scheduled|定时/.test(
+                node.querySelector(".task-center-status")?.textContent || "",
+              ) &&
+              /pending|待运行|Pending|待/.test(
+                node.querySelector(".task-center-status")?.textContent || "",
+              ),
+          );
+          if (instance) {
+            return {
+              instanceQueued: true,
+              instanceId:
+                instance.getAttribute("data-task-id") !==
+                template.getAttribute("data-task-id"),
+            };
+          }
+          await wait(300);
+        }
+        return { error: "pending instance did not appear" };
+      })()`,
+    );
+    if (!runNow.instanceQueued) {
+      failures.push(`run-now: ${runNow.error ?? "instance not queued"}`);
+    }
+    console.log("RUNNOW:", JSON.stringify(runNow));
+
     // 2. Edit the title and verify the card updates.
     const edited = await evaluate(
       cdp,
@@ -347,7 +402,11 @@ async function main() {
           el.dispatchEvent(new Event("input", { bubbles: true }));
         };
         const card = Array.from(document.querySelectorAll(".task-center-card")).find(
-          (node) => (node.textContent || "").includes(${JSON.stringify(qaTitle)}),
+          (node) =>
+            (node.textContent || "").includes(${JSON.stringify(qaTitle)}) &&
+            /Scheduled|定时/.test(
+              node.querySelector(".task-center-status")?.textContent || "",
+            ),
         );
         if (!card) return { error: "card missing before edit" };
         const buttons = Array.from(card.querySelectorAll("button"));
@@ -394,7 +453,11 @@ async function main() {
       `(async () => {
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
         const card = Array.from(document.querySelectorAll(".task-center-card")).find(
-          (node) => (node.textContent || "").includes(${JSON.stringify(qaTitleEdited)}),
+          (node) =>
+            (node.textContent || "").includes(${JSON.stringify(qaTitleEdited)}) &&
+            /Scheduled|定时/.test(
+              node.querySelector(".task-center-status")?.textContent || "",
+            ),
         );
         if (!card) {
           return {
@@ -424,15 +487,20 @@ async function main() {
         del.click();
         await wait(800);
         for (let i = 0; i < 60; i += 1) {
-          const remaining = Array.from(document.querySelectorAll(".task-center-card")).some(
+          const templateRemaining = Array.from(
+            document.querySelectorAll(".task-center-card"),
+          ).some(
             (node) =>
-              (node.textContent || "").includes(${JSON.stringify(qaTitleEdited)}) ||
-              (node.textContent || "").includes(${JSON.stringify(qaTitle)}),
+              /Scheduled|定时/.test(
+                node.querySelector(".task-center-status")?.textContent || "",
+              ) &&
+              ((node.textContent || "").includes(${JSON.stringify(qaTitleEdited)}) ||
+                (node.textContent || "").includes(${JSON.stringify(qaTitle)})),
           );
-          if (!remaining) return { deleted: true };
+          if (!templateRemaining) return { deleted: true };
           await wait(300);
         }
-        return { error: "task still present after delete" };
+        return { error: "scheduled template still present after delete" };
       })()`,
     );
     if (!deleted.deleted) {
