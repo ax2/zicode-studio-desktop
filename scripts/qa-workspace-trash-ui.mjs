@@ -24,6 +24,41 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function resolveWorkspaceId(host, projectPath) {
+  try {
+    const response = await fetch(`${host}/v2/resolve-workspace`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ projectPath }),
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    return typeof body?.workspaceId === "string" ? body.workspaceId : null;
+  } catch {
+    return null;
+  }
+}
+
+async function discoverSessionId(host, workspaceId) {
+  try {
+    const response = await fetch(
+      `${host}/v2/sessions?workspaceId=${encodeURIComponent(workspaceId)}`,
+    );
+    if (!response.ok) return null;
+    const body = await response.json();
+    const sessions = Array.isArray(body?.sessions) ? body.sessions : [];
+    if (sessions.length === 0) return null;
+    const current = sessions.find((session) => session.isCurrentWorkspace);
+    const sorted = [...sessions].sort(
+      (left, right) =>
+        (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
+    );
+    return (current ?? sorted[0])?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function connect(wsUrl, onEvent) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
@@ -71,12 +106,41 @@ async function evaluate(cdp, expression) {
 }
 
 async function main() {
-  const workspaceId = process.argv[2] || process.env.ZICODE_WORKSPACE;
-  const sessionId = process.argv[3] || process.env.ZICODE_SESSION;
-  if (!workspaceId || !sessionId) {
+  const rawWs = process.argv[2] || process.env.ZICODE_WORKSPACE;
+  let sessionId = process.argv[3] || process.env.ZICODE_SESSION;
+  if (!rawWs) {
     console.error(
       "Usage: node scripts/qa-workspace-trash-ui.mjs <workspaceId> <sessionId>",
     );
+    process.exit(2);
+  }
+  let workspaceId = rawWs;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawWs)) {
+    const candidates = [rawWs];
+    const workspacesRoot = process.env.LOCALAPPDATA
+      ? join(process.env.LOCALAPPDATA, "zicode", "workspaces")
+      : null;
+    if (workspacesRoot && !/[\\/]/.test(rawWs)) {
+      candidates.push(join(workspacesRoot, rawWs));
+    }
+    for (const candidate of candidates) {
+      const resolved = await resolveWorkspaceId(HOST, candidate);
+      if (resolved) {
+        workspaceId = resolved;
+        break;
+      }
+    }
+    if (workspaceId === rawWs) {
+      console.error(`Could not resolve workspace from "${rawWs}"`);
+      process.exit(2);
+    }
+    console.log(`[qa-workspace-trash-ui] resolved workspace ${rawWs} -> ${workspaceId}`);
+  }
+  if (!sessionId) {
+    sessionId = await discoverSessionId(HOST, workspaceId);
+  }
+  if (!sessionId) {
+    console.error("Could not discover a session for this workspace");
     process.exit(2);
   }
 

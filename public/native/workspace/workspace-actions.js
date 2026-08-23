@@ -363,7 +363,7 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
               event.stopPropagation();
               const confirmed = globalThis.confirm?.(
                 t(
-                  'Delete project "{name}"? Its ZiCode app data (.zicode) moves to the trash and can be restored manually; your project files are never deleted.',
+                  'Delete project "{name}"? Its ZiCode app data (.zicode) moves to the trash, is kept for 30 days, and can be restored during that time; your project files are never deleted.',
                 ).replace("{name}", projectName(workspace.path)),
               );
               if (!confirmed) return;

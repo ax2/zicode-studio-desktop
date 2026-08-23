@@ -246,6 +246,12 @@ describe("workspace actions", () => {
       }),
     );
     expect(confirmSpy).toHaveBeenCalled();
+    expect(confirmSpy.mock.calls[0][0]).toMatch(
+      /kept for 30 days|保留 30 天/,
+    );
+    expect(confirmSpy.mock.calls[0][0]).toMatch(
+      /never deleted|不会被删除/,
+    );
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({
         title: expect.stringMatching(/Project moved to trash|项目已移入回收站/),
