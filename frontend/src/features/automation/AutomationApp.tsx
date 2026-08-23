@@ -89,8 +89,12 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
           t("Run it now, or let a schedule trigger it automatically."),
           t("Track runs and history in the task center."),
         ]}
-        ctaLabel={t("View automations")}
-        onCta={() => {}}
+        ctaLabel={t("Create a workflow")}
+        onCta={() => {
+          const nameInput = document.getElementById("automation-name");
+          nameInput?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+          nameInput?.focus();
+        }}
       />
       <WorkflowForm
         store={store}

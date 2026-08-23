@@ -843,6 +843,7 @@ const zhCN = {
   "One place for repeatable work": "重复工作的统一入口",
   "Create a workflow from a template or from scratch.":
     "从模板或空白创建一条工作流。",
+  "Create a workflow": "创建自动化",
   "Run it now, or let a schedule trigger it automatically.":
     "立即运行，或让定时计划自动触发。",
   "Track runs and history in the task center.":

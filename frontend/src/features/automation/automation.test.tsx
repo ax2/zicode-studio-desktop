@@ -482,6 +482,26 @@ describe("automation React app", () => {
     store.getState().destroy();
   });
 
+  it("first-run CTA creates focus on the workflow name field and dismisses the guide", async () => {
+    localStorage.clear();
+    const call = mockCall();
+    const store = createAutomationStore({ call });
+    render(<AutomationMain store={store} />);
+    await waitFor(() =>
+      expect(document.querySelector("[data-first-run-guide]")).toBeTruthy(),
+    );
+    const cta = Array.from(
+      document.querySelectorAll("[data-first-run-guide] button"),
+    ).find((button) => /Create a workflow|创建自动化/.test(button.textContent ?? ""));
+    expect(cta).toBeTruthy();
+    (cta as HTMLElement | undefined)?.click();
+    await waitFor(() =>
+      expect(document.querySelector("[data-first-run-guide]")).toBeNull(),
+    );
+    expect(document.activeElement?.id).toBe("automation-name");
+    store.getState().destroy();
+  });
+
   it("searches automations by title or prompt", async () => {
     setLocale("en");
     const call = vi.fn(async (operation: string, params?: unknown) => {
