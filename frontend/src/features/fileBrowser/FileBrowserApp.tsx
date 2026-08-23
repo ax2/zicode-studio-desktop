@@ -74,6 +74,15 @@ export function FileBrowserApp({
             key={entry.relativePath}
             type="button"
             {...commonProps}
+            draggable
+            onDragStart={(event) => {
+              event.dataTransfer.setData(
+                "application/x-zicode-file",
+                entry.relativePath,
+              );
+              event.dataTransfer.setData("text/plain", entry.relativePath);
+              event.dataTransfer.effectAllowed = "copy";
+            }}
             title={
               isDirectory
                 ? t("Open directory")

@@ -3,6 +3,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NativeFileBrowser } from "../react/file-browser.js";
 
+class DataTransferStub {
+  constructor() {
+    this.data = new Map();
+  }
+
+  setData(type, value) {
+    this.data.set(type, String(value));
+  }
+
+  getData(type) {
+    return this.data.get(type) ?? "";
+  }
+
+  get types() {
+    return Array.from(this.data.keys());
+  }
+}
+
 function deferred() {
   let resolve;
   const promise = new Promise((r) => {
@@ -151,5 +169,30 @@ describe("NativeFileBrowser", () => {
     // Directory rows still navigate on a plain click instead of opening files.
     const directoryRow = container.querySelector('[data-path="src"]');
     expect(directoryRow.tagName).toBe("BUTTON");
+  });
+
+  it("marks dragged rows with the workspace-relative path for the composer", async () => {
+    const gateway = fakeGateway(async () => ({
+      entries: [
+        { name: "readme.md", relativePath: "docs/readme.md", kind: "file" },
+        { name: "src", relativePath: "src", kind: "directory" },
+      ],
+    }));
+    const browser = new NativeFileBrowser(container, pathEl, gateway, "workspace-a");
+    await browser.load();
+
+    for (const relativePath of ["docs/readme.md", "src"]) {
+      const row = container.querySelector(`[data-path="${relativePath}"]`);
+      expect(row.getAttribute("draggable")).toBe("true");
+      const transfer = new DataTransferStub();
+      const event = new Event("dragstart", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", {
+        value: transfer,
+        configurable: true,
+      });
+      row.dispatchEvent(event);
+      expect(transfer.getData("application/x-zicode-file")).toBe(relativePath);
+      expect(transfer.getData("text/plain")).toBe(relativePath);
+    }
   });
 });

@@ -310,6 +310,19 @@ export function setupComposerImageAttachments({
   const onDragOver = (event: DragEvent) => event.preventDefault();
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
+    // The file browser marks dragged entries with a custom MIME type carrying
+    // the workspace-relative path; inserting the path lets Pi address the
+    // file directly (its working directory is the workspace root).
+    const filePath = event.dataTransfer?.getData("application/x-zicode-file");
+    if (filePath && input) {
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.value = input.value.slice(0, start) + filePath + input.value.slice(end);
+      input.setSelectionRange(start + filePath.length, start + filePath.length);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+      return;
+    }
     addFiles(event.dataTransfer?.files);
   };
   input?.addEventListener("paste", onPaste);

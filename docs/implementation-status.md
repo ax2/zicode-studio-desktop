@@ -1,5 +1,21 @@
 # 实现状态
 
+## 2026-08-23 文件拖入输入框插入路径（文件浏览器 → 对话）
+
+- 打通此前缺失的拖拽链路：文件浏览器条目此前虽有 `-webkit-user-drag` 但无
+  dragstart 数据，composer 也只有图片文件拖放。现在文件/目录行可拖拽，
+  dragstart 写入 `application/x-zicode-file`（工作区相对路径）+ text/plain；
+  composer 拖放优先识别该类型，把路径插入输入框光标处并聚焦（Pi 以工作区
+  为工作目录，相对路径可直接使用），否则回退到原有图片文件处理。
+- 实现：FileBrowserApp 增加 draggable + onDragStart；composer/index.ts 的
+  setupComposerImageAttachments.onDrop 前置路径分支。帮助文档 interface.md
+  文件管理小节同步。
+- 验证：file-browser 单测 7/7（dragstart 数据 + draggable 属性）、composer
+  20/20（drop 插入路径、光标位置、未触发图片预览）全绿；运行实例 DOM 实测
+  （.qa-shots/file-browser-qa.cjs）：真实文件行 dragstart 携带路径，drop 后
+  输入框变为 `prefix docs/demo.md`，零控制台报错；产物与帮助文档已同步
+  运行实例。
+
 ## 2026-08-23 文件浏览器交互补全（选中/双击打开/刷新）
 
 - 修复真实缺口：文件浏览器此前文件条目是纯 `<div>`，单击/双击均无行为。

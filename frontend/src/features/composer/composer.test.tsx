@@ -8,6 +8,18 @@ import {
 import type { SlashCommand } from "./slashMenu";
 import type { ImageItem } from "./imageLogic";
 
+class DataTransferStub {
+  private data = new Map<string, string>();
+
+  setData(type: string, value: string): void {
+    this.data.set(type, String(value));
+  }
+
+  getData(type: string): string {
+    return this.data.get(type) ?? "";
+  }
+}
+
 function mountComposer() {
   const root = document.createElement("div");
   root.id = "composer-root";
@@ -374,6 +386,38 @@ describe("composer React shell", () => {
     expect(previews?.getAttribute("aria-busy")).toBe("false");
     expect(controller.getImages()).toHaveLength(1);
     expect(onBusyChange).toHaveBeenLastCalledWith(false);
+    controller.dispose();
+    handle.dispose();
+  });
+
+  it("inserts a dragged file-browser path into the composer input", async () => {
+    const handle = mountComposer();
+    if (!handle) throw new Error("composer mount failed");
+    const controller = setupComposerImageAttachments({
+      input: handle.input,
+      attachButton: handle.attachButton,
+      imageInput: handle.imageInput,
+      previewContainer: handle.imagePreviews,
+      dropTarget: handle.composerCard,
+    });
+
+    handle.input.value = "look at ";
+    handle.input.setSelectionRange(8, 8);
+    const transfer = new DataTransferStub();
+    transfer.setData("application/x-zicode-file", "docs/readme.md");
+    const dropEvent = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(dropEvent, "dataTransfer", {
+      value: transfer,
+      configurable: true,
+    });
+    handle.composerCard.dispatchEvent(dropEvent);
+
+    expect(handle.input.value).toBe("look at docs/readme.md");
+    expect(handle.input.selectionStart).toBe("look at docs/readme.md".length);
+    expect(handle.input).toBe(document.activeElement);
+    expect(
+      document.getElementById("image-previews")?.classList.contains("hidden"),
+    ).toBe(true);
     controller.dispose();
     handle.dispose();
   });
