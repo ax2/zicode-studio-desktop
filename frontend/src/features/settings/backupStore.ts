@@ -69,7 +69,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
           backups: Array.isArray(result) ? (result as WorkspaceBackup[]) : [],
         });
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyBackupError(error) });
       } finally {
         set({ loading: false });
       }
@@ -87,7 +87,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         set({ status: t("Workspace backup created") });
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyBackupError(error) });
       } finally {
         set({ creating: false });
       }
@@ -101,7 +101,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         await invoke("delete_workspace_backup", { workspaceId, backupId: id });
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyBackupError(error) });
       } finally {
         set({ deletingId: null });
       }
@@ -122,7 +122,7 @@ export function createBackupStore(options: BackupStoreOptions = {}) {
         });
         await get().load();
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : String(error) });
+        set({ error: friendlyBackupError(error) });
       } finally {
         set({ restoringId: null });
       }
@@ -143,4 +143,35 @@ export function formatBackupSize(bytes: unknown): string {
     unit += 1;
   }
   return `${unit === 0 || size >= 100 ? size.toFixed(0) : size.toFixed(1)} ${units[unit]}`;
+}
+
+/**
+ * Map raw Rust errors from workspace backup commands to friendly localized
+ * messages so users see understandable feedback instead of internal strings.
+ */
+export function friendlyBackupError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const fallbacks: Array<[RegExp, string]> = [
+    [/cannot read backups/i, t("Could not load workspace backups.")],
+    [/cannot delete backup/i, t("Could not delete the backup.")],
+    [/cannot (serialize|write|finalize) backup/i, t("Could not create the backup.")],
+    [/backup does not exist/i, t("The backup no longer exists.")],
+    [
+      /backup metadata is missing|backup metadata is invalid/i,
+      t("The backup is damaged or incomplete."),
+    ],
+    [
+      /backup does not belong to this workspace/i,
+      t("The backup belongs to a different workspace."),
+    ],
+    [/cannot replace /i, t("Could not restore the backup data.")],
+    [
+      /backup contains no restorable app data/i,
+      t("The backup contains no restorable app data."),
+    ],
+  ];
+  for (const [pattern, friendly] of fallbacks) {
+    if (pattern.test(message)) return friendly;
+  }
+  return message;
 }

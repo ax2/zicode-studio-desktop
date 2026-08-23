@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBackupStore, formatBackupSize } from "./backupStore";
+import {
+  createBackupStore,
+  formatBackupSize,
+  friendlyBackupError,
+} from "./backupStore";
 
 describe("workspace backup store", () => {
   it("reports availability only when a Tauri invoke is present", () => {
@@ -10,6 +14,32 @@ describe("workspace backup store", () => {
     expect(withInvoke.getState().available).toBe(true);
     const withoutInvoke = createBackupStore({ getWorkspaceId: () => "ws-1" });
     expect(withoutInvoke.getState().available).toBe(false);
+  });
+
+  it("maps raw Rust backup errors to friendly localized messages", async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === "list_workspace_backups") {
+        throw new Error("Cannot read backups: access denied");
+      }
+      return [];
+    });
+    const store = createBackupStore({
+      invoke,
+      getWorkspaceId: () => "ws-1",
+    });
+    await store.getState().load();
+    expect(store.getState().error).toMatch(
+      /Could not load workspace backups|无法读取工作区备份/,
+    );
+    expect(friendlyBackupError(new Error("Backup does not exist"))).toMatch(
+      /The backup no longer exists|备份已不存在/,
+    );
+    expect(
+      friendlyBackupError(new Error("Cannot replace C:\\x: permission denied")),
+    ).toMatch(/Could not restore the backup data|无法恢复备份数据/);
+    expect(friendlyBackupError(new Error("Some other failure"))).toBe(
+      "Some other failure",
+    );
   });
 
   it("loads workspace backups through invoke", async () => {
