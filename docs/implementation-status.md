@@ -8,7 +8,9 @@
 - 接入 `scripts/qa-full.mjs` 的 `scripts` 数组，英文界面中文 UI 串泄漏扫描
   成为发布回归的一部分；`docs/qa-scripts.md` 表格、电池描述与专项清单同步。
 - 验证：`node scripts/qa-locale.mjs agent-inbox` 实跑 15/15 视图全绿，
-  Biome 无告警；全量测试通过（见下条计数）。
+  Biome 无告警；全量测试通过（见下条计数）。桌面 1440×900 与移动
+  390×844 两套 `bun run qa:full`（现 14 段）实测全绿；`usability-summary.md`
+  计数同步为 168 文件 / 1261 用例 / 14 段。
 
 ## 2026-08-23 locale 扫描误报修复（自动化标题是用户内容）
 
