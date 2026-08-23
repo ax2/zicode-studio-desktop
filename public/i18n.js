@@ -1455,6 +1455,7 @@ const zhCN = {
   "Publishing settings": "发布设置",
   "Article slug is required.": "需要填写文章 slug。",
   "Article saved": "文章已保存",
+  "Saved at {time}": "已保存于 {time}",
   "Article deleted": "文章已删除",
   "Synced {count} articles": "已同步 {count} 篇文章",
   "Published to WeChat": "已发布到公众号",

@@ -11104,6 +11104,21 @@ body.notes-dragging .notes-result-item {
   font-size: var(--font-size-sm);
 }
 
+.articles-save-status {
+  margin: var(--space-1) 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+  min-height: 1em;
+}
+
+.articles-save-status[data-state="saving"] {
+  color: var(--accent-text);
+}
+
+.articles-save-status[data-state="dirty"] {
+  color: var(--warning);
+}
+
 
 /* --- inlined: native/plugins/project-workspace-app.css --- */
 .project-workspace-main {

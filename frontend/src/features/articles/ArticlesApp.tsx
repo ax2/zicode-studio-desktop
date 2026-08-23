@@ -113,6 +113,9 @@ function ArticlesMain({
   const current = store((state) => state.current);
   const draftMarkdown = store((state) => state.draftMarkdown);
   const draftSlug = store((state) => state.draftSlug);
+  const saving = store((state) => state.saving);
+  const dirty = store((state) => state.dirty);
+  const savedAtMs = store((state) => state.savedAtMs);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
   const notice = store((state) => state.notice);
@@ -397,6 +400,24 @@ function ArticlesMain({
         </p>
       ) : null}
       {notice ? <p className="articles-notice">{notice}</p> : null}
+
+      <p
+        className="articles-save-status"
+        role="status"
+        aria-live="polite"
+        data-state={saving ? "saving" : dirty ? "dirty" : "saved"}
+      >
+        {saving
+          ? t("Saving…")
+          : dirty
+            ? t("Unsaved changes")
+            : savedAtMs
+              ? t("Saved at {time}").replace(
+                  "{time}",
+                  new Date(savedAtMs).toLocaleTimeString(),
+                )
+              : ""}
+      </p>
 
       <section className="ui-card articles-actions">
         <button

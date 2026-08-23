@@ -1,5 +1,20 @@
 # 实现状态
 
+## 2026-08-23 文章编辑器保存状态指示
+
+- 文章编辑器新增保存状态行（aria-live）：编辑时显示「有未保存的更改」、
+  保存中显示「保存中…」、保存成功后显示「已保存于 HH:MM」（自动保存同样
+  更新状态）；无内容的新文章不显示。此前自动保存完全无视觉反馈，用户无法
+  确认修改是否已落盘。
+- 实现：store 增加 `saving` / `dirty` / `savedAtMs` 状态，`setMarkdown` /
+  `setSlug` 置脏，`save()`（含静默自动保存）成功时清除脏标记并记录时间；
+  `open` / `newArticle` 重置状态；编辑器在操作按钮上方渲染状态行（中英文
+  文案，样式区分保存中/脏/已保存）。
+- 验证：articlesStore 13 项 + ArticlesApp 1 项（新增脏标记与自动保存清除
+  断言）；全量 167 文件 / 1258 用例、typecheck、Biome、设计规范、权限
+  （30 个命令）通过；articles bundle、style.bundle.css、i18n 已同步运行
+  实例（纯前端改动）。
+
 ## 2026-08-23 文章创作本地闭环验收 + 保存后删除按钮修复
 
 - 新增 `scripts/qa-articles-flow.mjs`：走真实 HTTP API（无需 mock）完成

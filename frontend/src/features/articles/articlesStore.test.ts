@@ -140,6 +140,21 @@ describe("articles store", () => {
     );
     expect(gateway.list).toHaveBeenCalled();
     expect(store.getState().current?.slug).toBe("hello");
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().savedAtMs).toBeTypeOf("number");
+  });
+
+  it("marks the draft dirty on edits and clears it after an autosave", async () => {
+    const gateway = mockGateway();
+    const { store } = makeStore(gateway);
+    store.getState().newArticle();
+    expect(store.getState().dirty).toBe(false);
+    store.getState().setSlug("hello");
+    store.getState().setMarkdown("# Edited\n");
+    expect(store.getState().dirty).toBe(true);
+    await store.getState().save(true);
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().savedAtMs).toBeTypeOf("number");
   });
 
   it("deletes an article and clears the draft", async () => {

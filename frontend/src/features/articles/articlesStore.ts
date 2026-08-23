@@ -242,6 +242,9 @@ export interface ArticlesState {
   draftMarkdown: string;
   draftSlug: string;
   busy: boolean;
+  saving: boolean;
+  dirty: boolean;
+  savedAtMs: number | null;
   error: string;
   notice: string;
   load(): Promise<void>;
@@ -289,6 +292,9 @@ export function createArticlesStore({
       draftMarkdown: "",
       draftSlug: "",
       busy: false,
+      saving: false,
+      dirty: false,
+      savedAtMs: null,
       error: "",
       notice: "",
         async load() {
@@ -308,7 +314,14 @@ export function createArticlesStore({
         set({ busy: true, error: "" });
         try {
           const article = await resolvedGateway.read(getTarget(), slug);
-          set({ current: article, draftMarkdown: article.markdown, draftSlug: article.slug, busy: false });
+          set({
+            current: article,
+            draftMarkdown: article.markdown,
+            draftSlug: article.slug,
+            busy: false,
+            dirty: false,
+            savedAtMs: article.updatedAtMs ?? null,
+          });
         } catch (error) {
           set({ busy: false, error: fail(error) });
         }
@@ -316,18 +329,25 @@ export function createArticlesStore({
       newArticle() {
         clearAutosave();
         const markdown = "---\ntitle: \"\"\ndescription: \"\"\npubDate: \"\"\nslug: \"\"\ndraft: false\ntags: []\n---\n\n";
-        set({ current: null, draftMarkdown: markdown, draftSlug: "", error: "" });
+        set({
+          current: null,
+          draftMarkdown: markdown,
+          draftSlug: "",
+          dirty: false,
+          savedAtMs: null,
+          error: "",
+        });
       },
       setMarkdown(markdown) {
         const current = get();
         const suggestedSlug = current.draftSlug.trim()
           ? current.draftSlug
           : slugifyTitle(titleFromMarkdown(markdown));
-        set({ draftMarkdown: markdown, draftSlug: suggestedSlug });
+        set({ draftMarkdown: markdown, draftSlug: suggestedSlug, dirty: true });
         scheduleAutosave();
       },
       setSlug(slug) {
-        set({ draftSlug: slug });
+        set({ draftSlug: slug, dirty: true });
         scheduleAutosave();
       },
       async save(silent = false) {
@@ -338,6 +358,7 @@ export function createArticlesStore({
           return;
         }
         if (!silent) set({ busy: true, error: "" });
+        set({ saving: true });
         try {
           await resolvedGateway.save(getTarget(), draftSlug.trim(), draftMarkdown);
           if (!silent) {
@@ -352,10 +373,12 @@ export function createArticlesStore({
               // The list refresh below still reflects the saved article.
             }
             await get().load();
-            set({ busy: false });
+            set({ busy: false, saving: false, dirty: false, savedAtMs: Date.now() });
+          } else {
+            set({ saving: false, dirty: false, savedAtMs: Date.now() });
           }
         } catch (error) {
-          set({ busy: false, error: fail(error) });
+          set({ busy: false, saving: false, error: fail(error) });
         }
       },
       async remove(slug) {
