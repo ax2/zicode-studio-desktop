@@ -956,12 +956,20 @@ const taskCenterApp = setupTaskCenterApp({
   cancelRuntimeUi: (runtimeTarget) => extensionUi.cancelSession(runtimeTarget),
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   notify: notifications.notify,
-  getCurrentProjectPath: () =>
-    (sidebar?.sessions?.find(
-      (session) => session.workspaceId === target.workspaceId && session.projectPath,
-    )?.projectPath
-      ?.replace(/^\\\\\?\\/, "")
-      .replace(/^\\\?\\/, "")) ?? null,
+  getCurrentProjectPath: () => {
+    const routeMatch = window.location.pathname.match(/^\/app\/workspaces\/([^/]+)\//);
+    const workspaceId = routeMatch
+      ? decodeURIComponent(routeMatch[1])
+      : target?.workspaceId;
+    if (!workspaceId) return null;
+    return (
+      sidebar?.sessions?.find(
+        (session) => session.workspaceId === workspaceId && session.projectPath,
+      )?.projectPath
+        ?.replace(/^\\\\\?\\/, "")
+        .replace(/^\\\?\\/, "") ?? null
+    );
+  },
 });
 const automationApp = setupAutomationApp({
   call: (operation, params, options) => config.call(operation, params, options),

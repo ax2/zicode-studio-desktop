@@ -138,6 +138,7 @@ async function main() {
 
   // Resolve the workspace's real project path for the persisted task file.
   let taskFile = "";
+  let currentProjectPath = "";
   try {
     const sessionsResponse = await fetch(
       `${HOST}/v2/sessions?workspaceId=${encodeURIComponent(workspaceId)}`,
@@ -148,6 +149,7 @@ async function main() {
     );
     const projectPath = String(session?.projectPath ?? "");
     const clean = projectPath.replace(/^\\\\\?\\/, "").replace(/^\\\?\\/, "");
+    currentProjectPath = clean;
     taskFile = join(clean, ".zicode", "tasks", "tasks.json");
   } catch {
     taskFile = "";
@@ -274,6 +276,17 @@ async function main() {
         if (!titleInput || !textarea || !trigger) {
           return { error: "task form fields missing" };
         }
+        const workspaceBarPath =
+          document.getElementById("workspace-bar-path")?.textContent ?? null;
+        const workspaceBarName =
+          document.getElementById("workspace-bar-name")?.textContent ?? null;
+        const targetDefault = Array.from(
+          form.querySelectorAll(".task-form-field input"),
+        ).find((input) =>
+          /Target project|目标项目/.test(
+            input.closest("label")?.textContent ?? "",
+          ),
+        )?.value ?? "";
         setValue(titleInput, ${JSON.stringify(qaTitle)});
         setValue(textarea, "QA 验收：定时任务闭环");
         trigger.value = "daily";
@@ -288,6 +301,10 @@ async function main() {
             return {
               cardFound: true,
               scheduledLabel: (card.querySelector(".task-center-status")?.textContent || "").trim(),
+              targetDefault,
+              workspaceBarPath,
+              workspaceBarName,
+              debug: window.__debugTaskProjectPath,
             };
           }
           await wait(300);
@@ -297,6 +314,11 @@ async function main() {
     );
     if (!created.cardFound) {
       failures.push(`create: ${created.error ?? "card not found"}`);
+    }
+    if (!created.targetDefault || created.targetDefault !== currentProjectPath) {
+      failures.push(
+        `create: target default "${created.targetDefault ?? ""}" != current workspace "${currentProjectPath}"`,
+      );
     }
     console.log("CREATE:", JSON.stringify(created));
 
