@@ -8,6 +8,8 @@
 - `Escape` aborts the current run.
 - `Ctrl+M` switches the model (model dropdown next to the composer).
 - `Ctrl+T` cycles thinking effort (the "Think" tag next to the composer).
+- `Ctrl+,` opens Settings.
+- `Ctrl+Shift+F` toggles the Files panel.
 - `Ctrl+1` through `Ctrl+9` switch applications by activity-bar order.
 
 ## Commands

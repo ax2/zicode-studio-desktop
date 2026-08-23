@@ -460,6 +460,75 @@ async function main() {
         await cdp.send("Runtime.evaluate", {
           expression: `document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); true`,
         });
+        await sleep(300);
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: ",", ctrlKey: true, bubbles: true, cancelable: true }));
+            return true;
+          })()`,
+        });
+        await sleep(500);
+        const settingsVisible = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const panel = document.getElementById("settings-panel");
+            if (panel) {
+              return (
+                !panel.classList.contains("hidden") &&
+                getComputedStyle(panel).display !== "none"
+              );
+            }
+            // Settings can open as a core plugin view (rendered into the
+            // plugin main view) instead of the standalone panel wrapper.
+            const content = document.querySelector(".settings-content");
+            return Boolean(
+              content && getComputedStyle(content).display !== "none",
+            );
+          })()`,
+          returnByValue: true,
+        });
+        globalShortcuts.push({
+          name: "Ctrl+, settings",
+          ok: settingsVisible?.result?.value === true,
+        });
+        await cdp.send("Runtime.evaluate", {
+          expression: `document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); true`,
+        });
+        await sleep(400);
+        const filesBefore = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const sidebar = document.getElementById("file-sidebar");
+            return Boolean(sidebar && !sidebar.classList.contains("collapsed"));
+          })()`,
+          returnByValue: true,
+        });
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+            return true;
+          })()`,
+        });
+        await sleep(500);
+        const filesAfter = await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            const sidebar = document.getElementById("file-sidebar");
+            return Boolean(sidebar && !sidebar.classList.contains("collapsed"));
+          })()`,
+          returnByValue: true,
+        });
+        globalShortcuts.push({
+          name: "Ctrl+Shift+F files panel",
+          ok: filesBefore?.result?.value !== filesAfter?.result?.value,
+        });
+        // Restore the panel state for the subsequent layout probes.
+        await cdp.send("Runtime.evaluate", {
+          expression: `(() => {
+            if (document.getElementById("file-sidebar")?.classList.contains("collapsed")) {
+              document.dispatchEvent(new KeyboardEvent("keydown", { key: "f", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+            }
+            return true;
+          })()`,
+        });
+        await sleep(300);
       } catch {
         globalShortcuts.push({ name: "global shortcuts probe failed", ok: false });
       }

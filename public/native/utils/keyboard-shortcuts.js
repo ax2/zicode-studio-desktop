@@ -26,6 +26,8 @@ export function setupAppKeyboardShortcuts({
   cycleThinking,
   newSession,
   switchWorkspace,
+  openSettings,
+  toggleFiles,
 }) {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -65,6 +67,16 @@ export function setupAppKeyboardShortcuts({
     if (meta && key === "o" && event.shiftKey) {
       event.preventDefault();
       switchWorkspace?.();
+      return;
+    }
+    if (meta && key === ",") {
+      event.preventDefault();
+      openSettings?.();
+      return;
+    }
+    if (meta && key === "f" && event.shiftKey) {
+      event.preventDefault();
+      toggleFiles?.();
       return;
     }
 

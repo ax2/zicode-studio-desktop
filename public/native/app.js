@@ -1281,6 +1281,13 @@ setupAppKeyboardShortcuts({
   cycleThinking: () => thinkingBtn?.click(),
   newSession: () => document.getElementById("new-session-btn")?.click(),
   switchWorkspace: () => document.getElementById("workspace-switcher-btn")?.click(),
+  openSettings: () => settingsPanel?.openSettings("general"),
+  toggleFiles: () => {
+    const toggle = document.querySelector(
+      '[data-file-toggle], #file-sidebar-toggle',
+    );
+    toggle?.click();
+  },
 });
 window.addEventListener("zicode:open-note", (event) => {
   const { notebookId, noteId } = event.detail ?? {};

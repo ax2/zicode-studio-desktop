@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-23 新增快捷键 Ctrl+, 与 Ctrl+Shift+F
+
+- 界面快捷键补两项常用操作：`Ctrl+,` 打开设置（复用设置面板/插件视图的
+  打开路径），`Ctrl+Shift+F` 切换右侧文件面板（复用文件面板 toggle 按钮，
+  首次打开自动加载目录）。
+- keyboard-shortcuts.js 增加 openSettings/toggleFiles 回调；app.js 接线；
+  中英 shortcuts 帮助文档同步补充。
+- `qa-keyboard.mjs` 的全局快捷键探测新增两项断言（设置可见性按面板或插件
+  视图两种形态判断，文件面板断言折叠状态翻转并恢复），实测 14/14 视图全绿。
+- 验证：keyboard-shortcuts 单测 11/11、全量 169 文件 / 1277 用例、
+  typecheck、Biome、i18n 覆盖门禁通过；产物与帮助文档已同步运行实例。
+
 ## 2026-08-23 帮助中心新增「会话模板」文章（双语）
 
 - 新增 `public/help/templates.md` 与英文版 `en/templates.md`：说明欢迎页

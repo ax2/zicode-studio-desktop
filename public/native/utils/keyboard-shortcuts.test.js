@@ -154,4 +154,36 @@ describe("app keyboard shortcuts", () => {
 
     expect(switchWorkspace).toHaveBeenCalledTimes(1);
   });
+
+  it("opens settings with Ctrl+,", () => {
+    const openSettings = vi.fn();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      openSettings,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: ",", ctrlKey: true, cancelable: true }),
+    );
+
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles the file panel with Ctrl+Shift+F", () => {
+    const toggleFiles = vi.fn();
+    setupAppKeyboardShortcuts({
+      input,
+      abort: vi.fn(),
+      isWorking: () => false,
+      toggleFiles,
+    });
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "F", ctrlKey: true, shiftKey: true, cancelable: true }),
+    );
+
+    expect(toggleFiles).toHaveBeenCalledTimes(1);
+  });
 });
