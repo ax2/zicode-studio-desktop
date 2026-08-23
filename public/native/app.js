@@ -2405,9 +2405,19 @@ function setupFileBrowser() {
           .then(() => browser.setHighlight(change.path))
           .catch(showError);
       });
+      const openFile = document.createElement("button");
+      openFile.type = "button";
+      openFile.className = "file-sidebar-change-locate";
+      openFile.title = t("Open file");
+      openFile.setAttribute("aria-label", t("Open file"));
+      openFile.innerHTML =
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+      openFile.addEventListener("click", () => {
+        openNativePath(change.path);
+      });
       const actions = document.createElement("div");
       actions.className = "file-sidebar-change-actions";
-      actions.append(locate);
+      actions.append(openFile, locate);
       if (change.before && String(change.before).trim()) {
         const restore = document.createElement("button");
         restore.type = "button";

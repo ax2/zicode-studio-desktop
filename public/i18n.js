@@ -53,6 +53,7 @@ const zhCN = {
   "Refresh file list": "刷新文件列表",
   "Double-click to open": "双击打开",
   "Open directory": "打开目录",
+  "Open file": "打开文件",
   "Loading sessions...": "正在加载会话…",
   "No saved sessions": "暂无已保存会话",
   Connected: "已连接",
