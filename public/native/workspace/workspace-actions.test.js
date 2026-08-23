@@ -299,6 +299,9 @@ describe("workspace actions", () => {
     await vi.waitFor(() =>
       expect(document.querySelector(".workspace-switcher-trash-heading")).toBeTruthy(),
     );
+    expect(document.querySelector(".workspace-switcher-trash-heading")?.textContent).toMatch(
+      /Kept for 30 days|保留 30 天/,
+    );
     const restore = document.querySelector(".workspace-switcher-restore");
     expect(restore?.getAttribute("aria-label")).toContain("work-123");
     restore.click();

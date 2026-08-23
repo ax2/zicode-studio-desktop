@@ -397,7 +397,7 @@ export function setupWorkspaceSwitcher({ onError, resolveWorkspacePath, notify, 
         menu.append(divider);
         const heading = document.createElement("div");
         heading.className = "workspace-switcher-trash-heading";
-        heading.textContent = t("Recycle bin");
+        heading.textContent = `${t("Recycle bin")} · ${t("Kept for 30 days")}`;
         menu.append(heading);
         for (const entry of trashEntries) {
           const row = document.createElement("div");

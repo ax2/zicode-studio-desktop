@@ -414,11 +414,57 @@ struct WorkspaceTrashEntry {
     deleted_at: i64,
 }
 
+const WORKSPACE_TRASH_RETENTION_SECS: i64 = 30 * 24 * 60 * 60;
+
+/// Remove workspace trash entries older than the 30-day retention window.
+/// Only directories carrying a manifest are considered, so arbitrary folders
+/// under the trash root are never touched. Returns the number purged.
+fn purge_expired_workspace_trash(trash_root: &Path, now_secs: i64) -> Result<usize, String> {
+    if !trash_root.is_dir() {
+        return Ok(0);
+    }
+    let mut purged = 0;
+    for entry in fs::read_dir(trash_root)
+        .map_err(|error| format!("Cannot read workspace trash: {error}"))?
+    {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let manifest_path = path.join("manifest.json");
+        let Ok(bytes) = fs::read(&manifest_path) else {
+            continue;
+        };
+        let Ok(manifest) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+            continue;
+        };
+        let Some(deleted_at) = manifest.get("deletedAt").and_then(serde_json::Value::as_i64)
+        else {
+            continue;
+        };
+        if now_secs - deleted_at >= WORKSPACE_TRASH_RETENTION_SECS {
+            if fs::remove_dir_all(&path).is_ok() {
+                purged += 1;
+            }
+        }
+    }
+    Ok(purged)
+}
+
 /// List recoverable workspace trash entries (directories under
 /// `%LOCALAPPDATA%\zicode\trash` that carry a manifest), newest first.
 #[tauri::command]
 fn list_workspace_trash() -> Result<Vec<WorkspaceTrashEntry>, String> {
     let trash_root = crate::app_paths::data_root()?.join("trash");
+    let now_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0);
+    let _ = purge_expired_workspace_trash(&trash_root, now_secs)?;
     if !trash_root.is_dir() {
         return Ok(Vec::new());
     }
@@ -1543,6 +1589,16 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
+            // Best-effort cleanup: drop workspace trash entries older than 30 days.
+            if let Ok(trash_root) = crate::app_paths::data_root().map(|root| root.join("trash")) {
+                let now_secs = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_secs() as i64)
+                    .unwrap_or(0);
+                if let Err(error) = purge_expired_workspace_trash(&trash_root, now_secs) {
+                    log::error!("[projects] startup trash purge failed: {error}");
+                }
+            }
             let static_dir = find_static_dir(app);
             if let Err(error) = setup_native_runtime(app, static_dir) {
                 log::error!("[picot-native] startup failed: {error}");
@@ -1656,7 +1712,8 @@ mod tests {
     use super::{
         format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
         move_workspace_app_data_to_trash, protected_workspace_reason,
-        restore_app_data_from_trash, session_dir_name, visible_position, WindowState,
+        purge_expired_workspace_trash, restore_app_data_from_trash, session_dir_name,
+        visible_position, WindowState, WORKSPACE_TRASH_RETENTION_SECS,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -1767,6 +1824,50 @@ mod tests {
         fs::create_dir_all(&outside).expect("outside");
         fs::write(outside.join("manifest.json"), "{}").expect("manifest");
         assert!(restore_app_data_from_trash(&outside, &base.join("trash")).is_err());
+        fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn purges_only_expired_manifested_trash_entries() {
+        let base = temp_dir("purge");
+        let trash_root = base.join("trash");
+        fs::create_dir_all(&trash_root).expect("trash root");
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs() as i64)
+            .unwrap_or(0);
+        let retention = WORKSPACE_TRASH_RETENTION_SECS;
+
+        let write_manifest = |dir: &std::path::Path, deleted_at: i64| {
+            fs::create_dir_all(dir).expect("trash entry");
+            fs::write(
+                dir.join("manifest.json"),
+                serde_json::json!({ "deletedAt": deleted_at }).to_string(),
+            )
+            .expect("manifest");
+        };
+        let expired = trash_root.join("project-old");
+        write_manifest(&expired, now - retention - 86_400);
+        let fresh = trash_root.join("project-recent");
+        write_manifest(&fresh, now - 86_400);
+        let no_manifest = trash_root.join("unrelated-folder");
+        fs::create_dir_all(&no_manifest).expect("unrelated folder");
+
+        let purged = purge_expired_workspace_trash(&trash_root, now).expect("purge");
+        assert_eq!(purged, 1);
+        assert!(!expired.exists());
+        assert!(fresh.exists());
+        assert!(no_manifest.exists());
+        fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn purge_handles_missing_trash_root_gracefully() {
+        let base = temp_dir("purge-missing");
+        assert_eq!(
+            purge_expired_workspace_trash(&base.join("no-trash"), 0).expect("purge"),
+            0
+        );
         fs::remove_dir_all(&base).expect("cleanup");
     }
 
