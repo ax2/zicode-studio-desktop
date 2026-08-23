@@ -342,6 +342,15 @@ export function createArticlesStore({
           await resolvedGateway.save(getTarget(), draftSlug.trim(), draftMarkdown);
           if (!silent) {
             notify?.({ message: t("Article saved"), type: "success" });
+            try {
+              const saved = await resolvedGateway.read(
+                getTarget(),
+                draftSlug.trim(),
+              );
+              set({ current: saved });
+            } catch {
+              // The list refresh below still reflects the saved article.
+            }
             await get().load();
             set({ busy: false });
           }

@@ -139,6 +139,7 @@ describe("articles store", () => {
       expect.objectContaining({ type: "success" }),
     );
     expect(gateway.list).toHaveBeenCalled();
+    expect(store.getState().current?.slug).toBe("hello");
   });
 
   it("deletes an article and clears the draft", async () => {

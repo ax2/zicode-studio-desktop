@@ -2,8 +2,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-function listSourceFiles(dir, extensions, exclude) {
-  const out = [];
+function listSourceFiles(
+  dir: string,
+  extensions: string[],
+  exclude: string[],
+): string[] {
+  const out: string[] = [];
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {

@@ -52,6 +52,7 @@ const scripts = [
   "qa-onboarding.mjs",
   "qa-automation-flow.mjs",
   "qa-backup-flow.mjs",
+  "qa-articles-flow.mjs",
   "qa-task-flow.mjs",
   "qa-workspace-trash-ui.mjs",
 ];
