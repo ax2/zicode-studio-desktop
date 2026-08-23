@@ -205,6 +205,11 @@ async function main() {
   }
 
   const profile = mkdtempSync(join(tmpdir(), "zicode-qa-notes-"));
+  const viewport = process.env.VIEWPORT;
+  const [width, height] = viewport
+    ? viewport.split("x").map(Number)
+    : [1440, 900];
+  const mobile = width < 768;
   const chrome = spawn(
     CHROME,
     [
@@ -216,6 +221,7 @@ async function main() {
       `--user-data-dir=${profile}`,
       "--remote-debugging-port=0",
       "--remote-allow-origins=*",
+      `--window-size=${width},${height}`,
       "about:blank",
     ],
     { stdio: "ignore", windowsHide: true },
@@ -252,10 +258,10 @@ async function main() {
     await cdp.send("Page.enable");
     await cdp.send("Runtime.enable");
     await cdp.send("Emulation.setDeviceMetricsOverride", {
-      width: 1440,
-      height: 900,
+      width,
+      height,
       deviceScaleFactor: 1,
-      mobile: false,
+      mobile: width < 768,
     });
 
     const url = `${HOST}/app/workspaces/${wsId}/sessions/${sessionId}?app=com.zicode.notes`;
@@ -500,6 +506,9 @@ async function main() {
       cdp,
       `(async () => {
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        if (${mobile}) {
+          return { skipped: true, found: false, noteRow: false, targetSummary: false };
+        }
         // Reset to the full library so the notebook tree is visible.
         const allNotes = Array.from(
           document.querySelectorAll(".notes-nav-button"),
@@ -621,8 +630,7 @@ async function main() {
         !discussResult.hasWholeNote &&
         tagFilterResult.active.includes("qa-flow") &&
         tagFilterResult.results.some((title) => title.includes("QA 交互标题")) &&
-        dragResult.found &&
-        movedToTarget,
+        (mobile || (dragResult.found && movedToTarget)),
     };
     console.log(JSON.stringify(report, null, 2));
     process.exitCode = report.pass ? 0 : 1;
