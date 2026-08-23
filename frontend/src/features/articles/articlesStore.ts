@@ -256,6 +256,7 @@ export interface ArticlesState {
   current: Article | null;
   draftMarkdown: string;
   draftSlug: string;
+  slugFallback: boolean;
   busy: boolean;
   saving: boolean;
   dirty: boolean;
@@ -306,6 +307,7 @@ export function createArticlesStore({
       current: null,
       draftMarkdown: "",
       draftSlug: "",
+      slugFallback: false,
       busy: false,
       saving: false,
       dirty: false,
@@ -348,6 +350,7 @@ export function createArticlesStore({
           current: null,
           draftMarkdown: markdown,
           draftSlug: "",
+          slugFallback: false,
           dirty: false,
           savedAtMs: null,
           error: "",
@@ -355,14 +358,24 @@ export function createArticlesStore({
       },
       setMarkdown(markdown) {
         const current = get();
+        const title = titleFromMarkdown(markdown);
+        const fallback =
+          !current.draftSlug.trim() &&
+          title.trim().length > 0 &&
+          !slugifyTitle(title).trim();
         const suggestedSlug = current.draftSlug.trim()
           ? current.draftSlug
           : suggestSlugFromMarkdown(markdown);
-        set({ draftMarkdown: markdown, draftSlug: suggestedSlug, dirty: true });
+        set({
+          draftMarkdown: markdown,
+          draftSlug: suggestedSlug,
+          slugFallback: fallback,
+          dirty: true,
+        });
         scheduleAutosave();
       },
       setSlug(slug) {
-        set({ draftSlug: slug, dirty: true });
+        set({ draftSlug: slug, slugFallback: false, dirty: true });
         scheduleAutosave();
       },
       async save(silent = false) {

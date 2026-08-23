@@ -1456,6 +1456,8 @@ const zhCN = {
   "Article slug is required.": "需要填写文章 slug。",
   "Article saved": "文章已保存",
   "Saved at {time}": "已保存于 {time}",
+  "Chinese titles cannot be slugified; a placeholder slug was generated. Edit it to a short English slug before publishing.":
+    "中文标题无法自动生成英文 slug，已生成占位 slug；发布前请改为简短的英文 slug。",
   "Article deleted": "文章已删除",
   "Synced {count} articles": "已同步 {count} 篇文章",
   "Published to WeChat": "已发布到公众号",

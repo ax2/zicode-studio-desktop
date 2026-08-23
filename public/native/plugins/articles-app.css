@@ -225,6 +225,12 @@
   font-size: var(--font-size-sm);
 }
 
+.articles-slug-hint {
+  margin: var(--space-1) 0 0;
+  color: var(--text-dim);
+  font-size: var(--font-size-xs);
+}
+
 .articles-save-status {
   margin: var(--space-1) 0;
   color: var(--text-dim);

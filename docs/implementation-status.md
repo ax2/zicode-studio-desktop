@@ -1,5 +1,16 @@
 # 实现状态
 
+## 2026-08-23 文章占位 slug 提示（中文标题）
+
+- 在中文标题自动生成 `article-<时间戳>` 占位 slug 的基础上，编辑器在 slug
+  字段下方显示提示：「中文标题无法自动生成英文 slug，已生成占位 slug；
+  发布前请改为简短的英文 slug。」用户手动编辑 slug 后提示消失。
+- 实现：store 新增 `slugFallback` 状态（自动兜底时置真、手动改 slug 置
+  假），编辑器据此渲染提示；单测锁定状态流转。
+- 验证：articlesStore 14 项、全量 167 文件 / 1259 用例、typecheck、
+  Biome、设计规范、权限检查通过；articles bundle、style.bundle.css、
+  i18n 已同步运行实例。
+
 ## 2026-08-23 文章中文标题 slug 兜底
 
 - 改进：中文 frontmatter 标题此前得到空 slug（placeholder 承诺“自动生成”

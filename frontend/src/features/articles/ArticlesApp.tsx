@@ -116,6 +116,7 @@ function ArticlesMain({
   const saving = store((state) => state.saving);
   const dirty = store((state) => state.dirty);
   const savedAtMs = store((state) => state.savedAtMs);
+  const slugFallback = store((state) => state.slugFallback);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
   const notice = store((state) => state.notice);
@@ -252,6 +253,13 @@ function ArticlesMain({
             onChange={(event) => store.getState().setSlug(event.target.value)}
           />
         </label>
+        {slugFallback ? (
+          <p className="articles-slug-hint" role="note">
+            {t(
+              "Chinese titles cannot be slugified; a placeholder slug was generated. Edit it to a short English slug before publishing.",
+            )}
+          </p>
+        ) : null}
       </section>
 
       <section className="ui-card articles-editor">

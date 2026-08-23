@@ -263,6 +263,9 @@ describe("article slug helpers", () => {
       .getState()
       .setMarkdown('---\ntitle: "纯中文标题"\n---\n\ncontent');
     expect(store.getState().draftSlug).toMatch(/^article-\d+$/);
+    expect(store.getState().slugFallback).toBe(true);
+    store.getState().setSlug("my-real-slug");
+    expect(store.getState().slugFallback).toBe(false);
   });
 
   it("keeps a manually entered slug when the markdown changes", async () => {
