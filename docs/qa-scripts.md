@@ -64,6 +64,9 @@ VIEWPORT=390x844 bun run qa:full   # 移动视口浏览器电池（约 12 分钟
 ## 其他专项脚本（不在 qa:full 内）
 
 - `qa-console-errors.mjs`：16 个应用视图的控制台报错扫描（`VIEWPORT` 可覆盖）。
+- `check-i18n-coverage.mjs`：扫描所有进入 t() 的 UI 源串，核对 zh-CN 字典
+  是否都有翻译（含占位值检查），是 qa-locale（英文界面中文泄漏）的反向
+  门禁；已并入 `bun run test`。
 - `qa-data-presence.mjs`：关键数据存在性核对。
 - `qa-blog-output.mjs`：每日技术博客自动化产出核验——最近日期（或指定
   日期）的文章目录须有 index.html、HTML 标签配平、图片引用全部解析；

@@ -206,4 +206,29 @@ describe("vanilla UI localization contract", () => {
       expect(dictionary).toContain(`"${key}"`);
     }
   });
+
+  it("keeps every known zh-gap string translated (English must not leak into the Chinese UI)", () => {
+    const dictionary = read("public/i18n.js");
+    const keys = new Set();
+    for (const match of dictionary.matchAll(
+      /(?:^|\s)(?:"([^"]+)"|'([^']+)'|([A-Za-z][A-Za-z0-9 _.\-/{}%…"']*))\s*:/gm,
+    )) {
+      const key = (match[1] || match[2] || match[3] || "").trim();
+      if (key && key.length > 1) keys.add(key);
+    }
+    for (const key of [
+      "Open link",
+      "Refresh QR code",
+      "Organize conversation into note",
+      "Save exchange to Notes",
+      "There is no conversation to organize",
+      "The conversation-note skill could not be loaded",
+      "Use the conversation-note skill below and output only the note body in Markdown.",
+      "Empty the recycle bin? {count} entries will be permanently deleted.",
+      "Upcoming event",
+      "Upcoming events",
+    ]) {
+      expect(keys.has(key)).toBe(true);
+    }
+  });
 });

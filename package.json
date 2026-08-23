@@ -42,7 +42,7 @@
     "prebuild": "bun run sync:vendor && bun run fetch:pi && bun run fetch:portable-git && bun run fetch:webview2 && bun run fetch:bun-runtime && bun run build:extensions && bun run build:react",
     "release": "bash scripts/release.sh",
     "release:mac:dmg": "bash scripts/release-macos-dmg.sh",
-    "test": "vitest run && bun run scripts/check-tauri-permissions.js && bun run scripts/check-windows-subprocesses.js",
+    "test": "vitest run && bun run scripts/check-tauri-permissions.js && bun run scripts/check-windows-subprocesses.js && node scripts/check-i18n-coverage.mjs",
     "test:watch": "vitest",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write . --unsafe",

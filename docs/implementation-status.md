@@ -1,5 +1,19 @@
 # 实现状态
 
+## 2026-08-23 中文本地化覆盖门禁（check-i18n-coverage）
+
+- 新增 `scripts/check-i18n-coverage.mjs`：扫描 frontend/src 与
+  public/native|ui|components 源码中所有进入 t() 的 UI 源串，核对 zh-CN
+  字典是否都有翻译（含“占位翻译”即值等于键的检查），是 qa-locale（英文
+  界面中文泄漏）的反向门禁；已并入 `bun run test` 作为常驻检查。
+- 初版扫描因字典缩进/单引号键匹配过严误报 10 个缺口，修正解析（可选缩进
+  + 双/单引号 + JS 字符串反义）后确认字典实际全覆盖：2057 键、0 缺失、
+  0 占位。契约测试补一条：锁定此前易被误报的 10 个键（含单引号写法的
+  “Empty the recycle bin? {count}…”）必须存在于字典。
+- 验证：全量 169 文件 / 1273 用例（含 localization-contract 11 项）、
+  typecheck、Biome、设计规范通过；运行实例 i18n.js 已含全部 zh 值
+  （刷新二维码/保存对话到笔记/清空回收站确认等），产物同步。
+
 ## 2026-08-23 文件拖入输入框插入路径（文件浏览器 → 对话）
 
 - 打通此前缺失的拖拽链路：文件浏览器条目此前虽有 `-webkit-user-drag` 但无
