@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-23 死交互回归防护（interactionGuards 单测）
+
+- 新增 `frontend/src/shared/interactionGuards.test.ts`：全量扫描前端源码
+  （frontend/src 的 ts/tsx + public/native 的非 bundle js），禁止出现
+  `onCta={() => {}}`、`onClick={() => {}}`、
+  `addEventListener("click", () => {})` 等空操作交互，防止死按钮再次
+  混入（本次扫描确认现存代码零命中）。
+- 全库空操作交互审计：14 个应用的引导 CTA 现在全部有实际行为（上一轮已
+  修复唯一死 CTA）；前端源码无其他空 onClick/onCta。
+- 验证：新增 1 项 + 全量 167 文件 / 1257 用例、typecheck、Biome、权限
+  （30 个命令）通过；纯测试/防护代码，无运行时改动。
+
 ## 2026-08-23 自动化中心引导 CTA 修复（死按钮 → 聚焦创建表单）
 
 - 修复：自动化中心首次引导卡的 CTA「查看自动化」此前是空操作（
