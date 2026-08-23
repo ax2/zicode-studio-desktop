@@ -1,5 +1,18 @@
 # 实现状态
 
+## 2026-08-23 会话模板支持导出/导入（跨设备迁移）
+
+- 设置 → 一般 → 会话模板新增「导出模板 / 导入模板」：导出为带版本号的 JSON
+  （version 1 + exportedAt + templates），导入支持导出格式或裸数组，按 id
+  去重（已存在跳过、缺失 id 自动生成），非法条目过滤、损坏 JSON 报错提示；
+  导入后列表即时刷新。校验提示与传输状态分离展示。
+- 存储层在 `frontend/src/features/chat/chatTemplates.ts`（exportCustomTemplates
+  / importCustomTemplates），UI 在 SettingsPanelApp 的 TemplateSection，
+  复用记忆区导出/导入交互模式。
+- 验证：chatTemplates 增至 6 项（导出往返/去重/裸数组/坏 JSON）、settings
+  增至 17 项（传输按钮渲染、无模板时导出禁用、添加后启用）全绿；typecheck、
+  Biome、设计规范通过；qa-chat-templates 实跑仍全绿，产物已同步运行实例。
+
 ## 2026-08-23 会话模板支持自定义（设置 → 一般 → 会话模板）
 
 - 欢迎页「从模板开始」补上管理闭环：设置 → 一般新增「会话模板」区块，可

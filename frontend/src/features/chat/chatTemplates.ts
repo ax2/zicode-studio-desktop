@@ -113,3 +113,84 @@ export function createTemplateId(): string {
 export function allChatTemplates(): ChatTemplate[] {
   return [...CHAT_TEMPLATES, ...loadCustomTemplates()];
 }
+
+interface ChatTemplateBackupEntry {
+  id?: string;
+  icon?: string;
+  label: string;
+  prompt: string;
+}
+
+/**
+ * Serialize custom templates for backup or cross-device migration. The
+ * payload carries a version marker so future formats stay distinguishable.
+ */
+export function exportCustomTemplates(): string {
+  return JSON.stringify(
+    {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      templates: loadCustomTemplates().map(({ id, icon, label, prompt }) => ({
+        id,
+        icon,
+        label,
+        prompt,
+      })),
+    },
+    null,
+    2,
+  );
+}
+
+/**
+ * Import templates from an exported payload (or a bare array). Entries whose
+ * id already exists are skipped so re-imports never duplicate; malformed
+ * entries are filtered out. Returns how many were added/skipped.
+ */
+export function importCustomTemplates(json: string): {
+  added: number;
+  skipped: number;
+} {
+  const parsed = JSON.parse(json) as unknown;
+  const list = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray((parsed as { templates?: unknown })?.templates)
+      ? (parsed as { templates: unknown[] }).templates
+      : [];
+  const incoming: ChatTemplate[] = list
+    .filter(
+      (entry) =>
+        entry &&
+        typeof entry.label === "string" &&
+        typeof entry.prompt === "string" &&
+        entry.label.trim() &&
+        entry.prompt.trim(),
+    )
+    .map((entry) => ({
+      id:
+        typeof entry.id === "string" && entry.id.trim()
+          ? entry.id.trim()
+          : createTemplateId(),
+      icon:
+        typeof entry.icon === "string" && entry.icon.trim()
+          ? entry.icon.trim()
+          : "📝",
+      label: entry.label.trim(),
+      prompt: entry.prompt.trim(),
+    }));
+  const existing = loadCustomTemplates();
+  const existingIds = new Set(existing.map((template) => template.id));
+  let added = 0;
+  let skipped = 0;
+  for (const entry of incoming) {
+    if (existingIds.has(entry.id)) {
+      skipped += 1;
+      continue;
+    }
+    existing.push(entry);
+    existingIds.add(entry.id);
+    added += 1;
+  }
+  if (added > 0) saveCustomTemplates(existing);
+  return { added, skipped };
+}

@@ -143,6 +143,58 @@ describe("conversation templates section", () => {
       globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
     ).toBeNull();
   });
+
+  it("shows template transfer actions with export enabled once templates exist", async () => {
+    renderApp();
+    await waitFor(() =>
+      expect(document.getElementById("chat-templates-section")).toBeTruthy(),
+    );
+    const buttons = Array.from(
+      document.querySelectorAll('[aria-label="' + t("Template transfer") + '"] button'),
+    ).map((button) => button.textContent?.trim());
+    expect(buttons).toContain(t("Export templates"));
+    expect(buttons).toContain(t("Import templates"));
+
+    const exportButton = buttons.findIndex(
+      (label) => label === t("Export templates"),
+    );
+    const exportButtons = Array.from(
+      document.querySelectorAll('[aria-label="' + t("Template transfer") + '"] button'),
+    );
+    expect((exportButtons[exportButton] as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+
+    fireEvent.click(required<HTMLButtonElement>("#add-chat-template"));
+    fireEvent.change(
+      document.querySelector(
+        `input[aria-label="${t("Template name")}"]`,
+      ) as HTMLInputElement,
+      { target: { value: "周报" } },
+    );
+    fireEvent.change(
+      document.querySelector(
+        `textarea[aria-label="${t("Template prompt")}"]`,
+      ) as HTMLTextAreaElement,
+      { target: { value: "帮我写周报" } },
+    );
+    fireEvent.click(
+      Array.from(
+        document.querySelectorAll(".settings-template-actions button"),
+      ).find((button) => button.textContent?.trim() === t("Save template")) as
+        HTMLButtonElement,
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-template-id^="custom-"]'),
+      ).toBeTruthy(),
+    );
+
+    const exportButtonsAfter = Array.from(
+      document.querySelectorAll('[aria-label="' + t("Template transfer") + '"] button'),
+    );
+    expect((exportButtonsAfter[0] as HTMLButtonElement).disabled).toBe(false);
+  });
 });
 
 afterEach(() => {

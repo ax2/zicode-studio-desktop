@@ -25,6 +25,8 @@ import {
 } from "./backupStore";
 import {
   createTemplateId,
+  exportCustomTemplates,
+  importCustomTemplates,
   loadCustomTemplates,
   saveCustomTemplates,
   type ChatTemplate,
@@ -494,6 +496,8 @@ function TemplateSection() {
   const [icon, setIcon] = useState("📝");
   const [prompt, setPrompt] = useState("");
   const [notice, setNotice] = useState("");
+  const [formError, setFormError] = useState("");
+  const transferFileRef = useRef<HTMLInputElement | null>(null);
 
   const resetForm = () => {
     setFormOpen(false);
@@ -502,6 +506,7 @@ function TemplateSection() {
     setIcon("📝");
     setPrompt("");
     setNotice("");
+    setFormError("");
   };
 
   const startNew = () => {
@@ -515,6 +520,7 @@ function TemplateSection() {
     setIcon(template.icon);
     setPrompt(template.prompt);
     setNotice("");
+    setFormError("");
     setFormOpen(true);
   };
 
@@ -523,7 +529,7 @@ function TemplateSection() {
     const promptText = prompt.trim();
     const iconText = icon.trim() || "📝";
     if (!label || !promptText) {
-      setNotice(t("Template name and prompt are required"));
+      setFormError(t("Template name and prompt are required"));
       return;
     }
     const next = editingId
@@ -542,6 +548,46 @@ function TemplateSection() {
     const next = templates.filter((template) => template.id !== id);
     saveCustomTemplates(next);
     setTemplates(next);
+  };
+
+  const exportTemplates = () => {
+    const payload = exportCustomTemplates();
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `zicode-templates-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setNotice(t("Templates exported"));
+  };
+
+  const importTemplates = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const result = importCustomTemplates(await file.text());
+      setTemplates(loadCustomTemplates());
+      if (result.added === 0 && result.skipped === 0) {
+        setNotice(t("No templates found in this file"));
+      } else if (result.added === 0) {
+        setNotice(t("No new templates to import"));
+      } else {
+        setNotice(
+          result.skipped > 0
+            ? t("Imported {count} templates, skipped {skipped} existing")
+                .replace("{count}", String(result.added))
+                .replace("{skipped}", String(result.skipped))
+            : t("Imported {count} templates").replace(
+                "{count}",
+                String(result.added),
+              ),
+        );
+      }
+    } catch {
+      setNotice(t("Could not import templates: invalid JSON"));
+    }
   };
 
   return (
@@ -589,6 +635,44 @@ function TemplateSection() {
           ))}
         </ul>
       )}
+      {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the settings toolbar */}
+      <div
+        className="settings-template-actions settings-template-transfer"
+        role="group"
+        aria-label={t("Template transfer")}
+      >
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          disabled={templates.length === 0}
+          onClick={exportTemplates}
+        >
+          {t("Export templates")}
+        </button>
+        <button
+          type="button"
+          className="ui-button ui-button--ghost ui-button--sm"
+          onClick={() => transferFileRef.current?.click()}
+        >
+          {t("Import templates")}
+        </button>
+        <input
+          ref={transferFileRef}
+          type="file"
+          accept="application/json,.json"
+          className="settings-template-file-input"
+          style={{ display: "none" }}
+          onChange={(event) => {
+            void importTemplates(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
+        />
+      </div>
+      {notice ? (
+        <p className="settings-description memory-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       {formOpen ? (
         <div className="settings-template-form">
           <div className="settings-row">
@@ -621,9 +705,9 @@ function TemplateSection() {
               onChange={(event) => setPrompt(event.target.value)}
             />
           </div>
-          {notice ? (
+          {formError ? (
             <p className="settings-error" role="alert">
-              {notice}
+              {formError}
             </p>
           ) : null}
           <div className="settings-template-actions">
