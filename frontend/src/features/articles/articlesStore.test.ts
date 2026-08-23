@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createArticlesStore,
   slugifyTitle,
+  suggestSlugFromMarkdown,
   titleFromMarkdown,
   type ArticlesGateway,
 } from "./articlesStore";
@@ -249,6 +250,19 @@ describe("article slug helpers", () => {
       .getState()
       .setMarkdown('---\ntitle: "Hello World"\n---\n\ncontent');
     expect(store.getState().draftSlug).toBe("hello-world");
+  });
+
+  it("falls back to a usable slug for non-ASCII frontmatter titles", () => {
+    expect(
+      suggestSlugFromMarkdown('---\ntitle: "纯中文标题"\n---\n\ncontent'),
+    ).toMatch(/^article-\d+$/);
+    const gateway = mockGateway();
+    const { store } = makeStore(gateway);
+    store.getState().newArticle();
+    store
+      .getState()
+      .setMarkdown('---\ntitle: "纯中文标题"\n---\n\ncontent');
+    expect(store.getState().draftSlug).toMatch(/^article-\d+$/);
   });
 
   it("keeps a manually entered slug when the markdown changes", async () => {

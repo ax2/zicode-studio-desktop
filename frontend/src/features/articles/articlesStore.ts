@@ -21,6 +21,21 @@ export function titleFromMarkdown(markdown: string): string {
   return match?.[1]?.trim() ?? "";
 }
 
+/**
+ * Suggest a slug for the frontmatter title. ASCII titles slugify normally;
+ * Chinese titles fall back to a stable `article-<timestamp>` suggestion so the
+ * field is never silently left empty and the article can be saved immediately
+ * (the user can still edit it to a meaningful slug).
+ */
+export function suggestSlugFromMarkdown(
+  markdown: string,
+  now = Date.now(),
+): string {
+  const title = titleFromMarkdown(markdown);
+  const slug = slugifyTitle(title);
+  return slug || (title.trim() ? `article-${now}` : "");
+}
+
 export interface ArticleSummary {
   slug: string;
   title: string;
@@ -342,7 +357,7 @@ export function createArticlesStore({
         const current = get();
         const suggestedSlug = current.draftSlug.trim()
           ? current.draftSlug
-          : slugifyTitle(titleFromMarkdown(markdown));
+          : suggestSlugFromMarkdown(markdown);
         set({ draftMarkdown: markdown, draftSlug: suggestedSlug, dirty: true });
         scheduleAutosave();
       },

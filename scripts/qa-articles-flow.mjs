@@ -336,6 +336,34 @@ async function main() {
     }
     console.log("AFTER:", JSON.stringify({ count: afterArticles.length, stillHosted }));
 
+    // Chinese frontmatter titles must fall back to a usable auto-slug so the
+    // article can be saved immediately (no save here; draft only).
+    const chineseFallback = await evaluate(
+      cdp,
+      `(async () => {
+        const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        document.querySelector(".articles-nav-new")?.click();
+        await wait(600);
+        const slugInput = document.querySelector('input[aria-label="Slug"], input[aria-label="链接标识"]');
+        const textarea = document.querySelector(".articles-textarea");
+        if (!slugInput || !textarea) return { error: "fields missing" };
+        const proto = window.HTMLTextAreaElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, "value").set.call(
+          textarea,
+          "---\\ntitle: \\"纯中文测试标题\\"\\n---\\n\\n正文",
+        );
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        await wait(500);
+        return { autoSlug: slugInput.value };
+      })()`,
+    );
+    if (!/^article-\d+$/.test(chineseFallback.autoSlug ?? "")) {
+      failures.push(
+        `chinese-slug: no fallback auto-slug (${chineseFallback.autoSlug ?? chineseFallback.error ?? ""})`,
+      );
+    }
+    console.log("CHINESE_SLUG:", JSON.stringify(chineseFallback));
+
     if (failures.length > 0) {
       console.error(`ARTICLES FLOW SWEEP FAILED:\n- ${failures.join("\n- ")}`);
       process.exitCode = 1;

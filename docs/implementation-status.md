@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-23 文章中文标题 slug 兜底
+
+- 改进：中文 frontmatter 标题此前得到空 slug（placeholder 承诺“自动生成”
+  却静默失败），保存按钮被禁用且无提示。现在 `setMarkdown` 对非空但非
+  ASCII 的标题生成 `article-<时间戳>` 兜底建议，字段不会为空、可立即保存
+  （用户仍可改成有意义的 slug）。
+- 新增 `suggestSlugFromMarkdown` 助手与单测（ASCII 照常 slugify，中文回退
+  article-<时间戳>）；`qa-articles-flow` 增加中文标题实测断言（不保存、
+  仅草稿），实测通过。
+- 验证：全量 167 文件 / 1259 用例、typecheck、Biome、权限检查通过；
+  articles bundle 已同步运行实例。
+
 ## 2026-08-23 文章 slug 自动生成纳入闭环断言
 
 - `qa-articles-flow.mjs` 新增断言：新建文章先输入含 ASCII frontmatter
