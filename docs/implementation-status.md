@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-23 工作区备份 UI 闭环验收脚本（qa-backup-flow 接入 qa:full）
+
+- 新增 `scripts/qa-backup-flow.mjs`：打开设置 → 通用页签（数据区块），通过
+  真实 UI 走完「立即备份 → 列表出现备份 → 删除备份 → 列表清空」闭环，
+  断言 `create_workspace_backup` / `delete_workspace_backup` 命令与参数
+  正确、状态文案「工作区备份已创建」出现。备份命令为桌面 Tauri 能力，
+  脚本注入 mock invoke（真实快照/恢复语义由 Rust + store 单测覆盖）。
+- 实测：设置经 `#/settings/general` 路由打开、备份区渲染、创建/删除全链路
+  通过；已接入 `qa:full` 一键回归。
+- 验证：全量 167 文件 / 1257 用例、typecheck、Biome、权限（30 个命令）
+  通过；本轮仅新增 QA 脚本，无应用代码改动。
+
 ## 2026-08-23 死交互回归防护（interactionGuards 单测）
 
 - 新增 `frontend/src/shared/interactionGuards.test.ts`：全量扫描前端源码
