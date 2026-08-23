@@ -60,6 +60,7 @@ nav:
   - Windows 打包: windows-packaging.md
   - 实施计划: implementation-plan.md
   - 实现状态: implementation-status.md
+  - 可用性改进总览: usability-summary.md
   - QA 脚本地图: qa-scripts.md
   - 方案 Review: reviews/2026-07-30-solution-review.md
   - ADR:

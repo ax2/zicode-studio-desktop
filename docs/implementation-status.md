@@ -1,5 +1,14 @@
 # 实现状态
 
+## 2026-08-23 可用性改进总览文档（docs/usability-summary.md）
+
+- 新增 `docs/usability-summary.md`：一份面向用户的改进摘要 + 验证体系
+  索引，涵盖数据安全/回收站、任务与自动化、笔记与文章、对话与移动端、
+  新手引导与文档，以及单测/浏览器电池/发布门禁/CI/每日博客核验的现状。
+  已加入 MkDocs 导航（strict 构建通过）。
+- 用途：长文档（implementation-status、qa-scripts）的入口导航，方便快速
+  了解全部可用性工作的范围与当前状态。
+
 ## 2026-08-23 qa:blog 扩展：同时核对产出与下次排期
 
 - `qa-blog-output.mjs` 新增排期检查：读取 agent-inbox 的 workflows.json，
