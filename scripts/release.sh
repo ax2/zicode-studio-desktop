@@ -71,6 +71,13 @@ if [[ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]]; then
   exit 1
 fi
 
+echo "Running release gates (unit tests, typecheck, lint, design)..."
+bun run test
+bun run typecheck
+bun run lint
+bun run check:design
+echo "Release gates passed."
+
 echo "Updating app versions to $APP_VERSION (release tag: $TAG)..."
 PI_RELEASE_VERSION="$APP_VERSION" bun run - <<'EOF'
 import { readFileSync, writeFileSync } from "node:fs";

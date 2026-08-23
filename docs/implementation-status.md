@@ -1,5 +1,17 @@
 # 实现状态
 
+## 2026-08-23 release.sh 发布门禁 + 一次 flake 观察
+
+- `scripts/release.sh` 在版本号变更前插入发布门禁：`bun run test` →
+  `typecheck` → `lint` → `check:design`，全绿才允许打 tag（bash 语法已在
+  LF 规范化副本上验证；工作树 CRLF 是 git autocrlf 的存量环境现象，不影响
+  提交内容与 CI）。
+- Flake 观察：某次全量 `bun run test` 出现 1 个文件 10 例失败，紧接着连续
+  7 次全量运行全绿（1258/1258），且该次失败发生在 15 分钟移动 QA 电池跑完
+  后（系统负载高、Chrome 实例多）；隔离运行相关时序测试也稳定。判定为
+  环境性瞬时 flake，非代码回归。
+- 验证：发布门禁六条命令全部在当前状态通过；工作树干净。
+
 ## 2026-08-23 发布前验收门禁清单（docs/qa-scripts.md）
 
 - 在 `docs/qa-scripts.md` 新增「发布前验收门禁」小节：单测/typecheck/
