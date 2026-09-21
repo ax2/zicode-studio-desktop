@@ -1,12 +1,12 @@
 {
-  "version": "0.84.2",
+  "version": "0.86.1",
   "sha256": {
-    "pi-darwin-arm64.tar.gz": "c996e888b7f7dce44bcf24f69176ac646c44139d3916bd49a6b28e5a8c5e3a65",
-    "pi-darwin-x64.tar.gz": "808cf02a93cd601d3ea05d47dc15c45074b120ac81decc8644cd3e40a35824e6",
-    "pi-linux-arm64.tar.gz": "d15372da9e4b4c5fef9fd15bed76d7f5f1720dd39fe7cde0ec62e5b65ad63ef1",
-    "pi-linux-x64.tar.gz": "906fbe787fd225c4ac624fe7ebd5b1d55a60e0f5c7ef51795d231564f9ee1c13",
-    "pi-windows-arm64.zip": "092e2b276e0066efcb3d860465591c2e32ea48ee90395d34ceda0d84d8ff4470",
-    "pi-windows-x64.zip": "741fc1ae1afecb573ac2888e011188ff446b3940f4aabe1583f60bf55be8a3d0"
+    "pi-darwin-arm64.tar.gz": "03bd097ad4540ae4c3d9c1b5b19c517047cda0f1506bfcb992b17308460b0383",
+    "pi-darwin-x64.tar.gz": "74b0262948651f70c6d85a52043985e8fce2c89f1cd3a6f08f81d9cc799ec4a4",
+    "pi-linux-arm64.tar.gz": "3957cb7ac3ec84fe905f0f077c599fd3fecfbb886a93467dfebfacc108b8c3b7",
+    "pi-linux-x64.tar.gz": "2494f5587a8774a10296d00a7e504e7ad05596ca93e057cb89372c8b1a7f46a9",
+    "pi-windows-arm64.zip": "aec024c11a63e42b2447bf72fb031f755294a9babc0b03814dff506cfdb9d485",
+    "pi-windows-x64.zip": "b049d35a176fa5f4353d53ca90212320c031c9912b59efe95bb7985d52ed1507"
   },
   "_comment": "Locked pi release and GitHub-published SHA-256 digests for supported desktop targets."
 }
