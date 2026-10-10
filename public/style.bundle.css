@@ -7244,9 +7244,9 @@ body[data-active-plugin="core.tools"] .sidebar { display: none; }
 .manual-tool-directory-list[hidden] { display: none; }
 .tool-detail button { align-self: flex-start; }
 .tool-detail textarea { width: 100%; box-sizing: border-box; }
-.directory-resource-tool { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.directory-resource-tool .plugin-resource-selection { max-height: none; padding: 0; }
-.directory-resource-tool :is(input, select, textarea) { box-sizing: border-box; max-width: 100%; min-width: 0; }
+.directory-resource-tool, .directory-resource-session { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.directory-resource-tool .plugin-resource-selection, .directory-resource-session .plugin-resource-selection { max-height: none; padding: 0; }
+.directory-resource-tool :is(input, select, textarea), .directory-resource-session :is(input, select, textarea) { box-sizing: border-box; max-width: 100%; min-width: 0; }
 .tool-input-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tool-execution-result { display: flex; flex-direction: column; gap: var(--space-3); }
 .tool-execution-result h3 { margin: 0; }

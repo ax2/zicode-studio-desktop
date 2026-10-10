@@ -27,6 +27,7 @@
 const path = require("node:path");
 const fs = require("node:fs");
 const esbuild = require("esbuild");
+const { followRedirectsCompatPlugin } = require("./follow-redirects-compat.cjs");
 
 const ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = path.join(ROOT, "extensions");
@@ -65,6 +66,7 @@ async function buildOne(entrySpec) {
     format: "esm",
     target: "node20",
     external: EXTERNAL,
+    plugins: [followRedirectsCompatPlugin()],
     sourcemap: false,
     minify: false,
     legalComments: "none",

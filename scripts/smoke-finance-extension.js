@@ -105,7 +105,12 @@ const subprocess = Bun.spawn(
 const stderrPromise = (async () => {
   for await (const _chunk of subprocess.stderr) { /* drain without retaining diagnostic content */ }
 })();
-const timeout = setTimeout(() => subprocess.kill(), 10_000);
+const startedAt = performance.now();
+let deadlineExpired = false;
+// A fresh Pi/Jiti cache must transpile the bundled Inbox SDK before RPC starts.
+// Bound the entire smoke run without treating that cold startup as missing commands.
+const timeout = setTimeout(() => { deadlineExpired = true; subprocess.kill(); }, 60_000);
+let commandsReadyMs;
 let exitCode;
 let forced = false;
 const stdoutReader = subprocess.stdout.getReader();
@@ -135,9 +140,10 @@ try {
     ? ["picot-config", "chat-config", "chat-list", "chat-connect", "chat-new", "chat-disconnect", "chat-status"]
     : ["picot-config", "finance-status"];
   if (response?.success !== true || required.some((name) => !names.has(name))) {
-    throw new Error(`Built-in ${inbox ? "Inbox" : "finance"} commands failed to register with embedded Pi.`);
+    throw new Error(`Built-in ${inbox ? "Inbox" : "finance"} commands failed to register with embedded Pi (deadlineExpired=${deadlineExpired}, responseReceived=${!!response}, elapsedMs=${Math.round(performance.now() - startedAt)}, missing=${required.filter((name) => !names.has(name)).join(",")}).`);
   }
   if (inbox && names.has("finance-status")) throw new Error("Finance commands leaked into the development scene");
+  commandsReadyMs = Math.round(performance.now() - startedAt);
   subprocess.stdin.write(`${JSON.stringify({ id: "plugin-smoke", type: "prompt", message: "/smoke-plugin-tools" })}\n`);
   let accepted = false;
   let verified = false;
@@ -180,4 +186,4 @@ try {
   }
 }
 if (forced || exitCode !== 0) throw new Error(`Built-in extension smoke did not exit normally (${exitCode}, forced=${forced}).`);
-console.log(`Embedded Pi loaded ${inbox ? "Inbox" : "finance"} commands, verified bundled plugin HTTP roundtrip, then exited normally.`);
+console.log(`Embedded Pi loaded ${inbox ? "Inbox" : "finance"} commands (startupMs=${commandsReadyMs}), verified bundled plugin HTTP roundtrip, then exited normally.`);
