@@ -80,7 +80,9 @@ pub fn shell(root: &Path) -> Result<(CommandBuilder, String), String> {
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
-    let mut command = CommandBuilder::new(path);
+    // PowerShell derives its module search paths from the executable path.
+    // A canonical verbatim drive path is mistaken for an UNC location there.
+    let mut command = CommandBuilder::new(crate::process_command::working_directory(&path));
     command.args(args);
     command.cwd(crate::process_command::working_directory(root));
     command.env("TERM", "xterm-256color");

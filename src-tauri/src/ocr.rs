@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 
+#[cfg(any(windows, test))]
 const WINDOWS_OCR_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
 # PowerShell 5.1 encodes redirected stdout with the console code page (GBK on

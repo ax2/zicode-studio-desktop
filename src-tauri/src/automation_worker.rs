@@ -157,7 +157,7 @@ pub fn run(arguments: &[OsString]) -> Result<(), String> {
 fn parse_public_dir(arguments: &[OsString]) -> Result<PathBuf, String> {
     let public = match arguments {
         [] => {
-            let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+            let context = crate::application_context::create();
             crate::static_dir_for_resource(
                 tauri::utils::platform::resource_dir(
                     context.package_info(),

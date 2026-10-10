@@ -206,15 +206,12 @@ fn replace_background(img: &RgbaImage, target: [u8; 3], tolerance: u8) -> RgbaIm
         consider(0, y);
         consider(width - 1, y);
     }
-    let bg: [u8; 3] = if count == 0 {
-        target
-    } else {
-        [
-            (sum[0] / count) as u8,
-            (sum[1] / count) as u8,
-            (sum[2] / count) as u8,
-        ]
-    };
+    let bg: [u8; 3] = std::array::from_fn(|channel| {
+        sum[channel]
+            .checked_div(count)
+            .map(|average| average as u8)
+            .unwrap_or(target[channel])
+    });
     let tolerance_sq = (tolerance as u64) * (tolerance as u64) * 3;
     let color_dist_sq = |p: &Rgba<u8>| -> u64 {
         let dr = p[0] as i64 - bg[0] as i64;

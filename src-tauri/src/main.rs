@@ -9,6 +9,7 @@ mod automation_inventory;
 mod automation_login_start;
 mod automation_persistence;
 mod automation_worker;
+mod application_context;
 mod backup_store;
 mod blog_deploy;
 mod clipboard_inbox;
@@ -753,7 +754,7 @@ fn list_workspace_trash() -> Result<Vec<WorkspaceTrashEntry>, String> {
                 .unwrap_or(0),
         });
     }
-    entries.sort_by(|left, right| right.deleted_at.cmp(&left.deleted_at));
+    entries.sort_by_key(|entry| std::cmp::Reverse(entry.deleted_at));
     Ok(entries)
 }
 
@@ -2002,7 +2003,7 @@ fn main() {
                 _ => {}
             }
         })
-        .build(tauri::generate_context!())
+        .build(application_context::create())
         .expect("error while building tauri application")
         .run(|app_handle: &tauri::AppHandle, event| {
             match event {

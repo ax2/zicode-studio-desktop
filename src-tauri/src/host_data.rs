@@ -237,11 +237,11 @@ impl HostDataPlane {
         for root in &self.session_roots {
             collect_session_files(root, &mut files)?;
         }
-        for (_, workspace) in self
+        for workspace in self
             .workspace_roots
             .read()
             .map_err(|_| HostDataError::Io("workspace registry poisoned".into()))?
-            .iter()
+            .values()
         {
             let app_dir = crate::app_paths::workspace_app_dir(
                 workspace,

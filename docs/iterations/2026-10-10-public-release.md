@@ -43,3 +43,14 @@ Studio 的构建插件只转换该依赖的一处堆栈捕获：先捕获到真�
 DevTools 全目录 154 项完整验收仍为 0；候选基本操作验证不能代替完整工具接受。
 其他系统完整人工体验、实际外部机器人登录/收发和所有提供方算法等价性未作为本轮通过。
 资源响应丢失/写入确认后的不确定状态恢复等已知边界继续记录在插件文档。
+
+## 2026-10-10 晚间：四平台第二轮阻塞
+v0.4.1 Release 38020531435 的 Inbox 注册检查在四个平台通过；后续 Windows 布局断言依赖 LF，macOS 重复 generate_context! 导致 _EMBED_INFO_PLIST 重复，Linux notify-rust 4.11.4 不兼容锁定的 zbus 5.18.0，Release 仍为草稿且无产物，未公开发布。
+主分支 Developer platform 38020522158 的已下载报告另发现 Rust 1.99 新 Clippy 告警，以及 Windows PTY 的 PowerShell 从 canonical verbatim EXE 路径推导出错误 UNC 模块路径。保留原失败报告，不降低门槛。
+修复：读取 Rust 测试源码时统一换行；提取 application_context.rs 单一宏展开；最小升级 notify-rust 4.11.5（上游该补丁直接使用 futures-lite，不再依赖 zbus 的移除导出）；等价改写排序/遍历/除法、平台限定 OCR 常量；在 PTY 启动边界使用既有 Win32 路径转换器，保留此前 canonical 身份校验。大型 Rust 文件只改报错处，避免无关重构。
+本机布局 68 项及 lint/design 通过；第一轮静态 Rust 通过，追加 Clippy/终端修复后的完整 Rust 检查进行中。先在 main 上检查四平台，成功后才生成新修订标签，不覆盖 v0.4.0/v0.4.1。
+此前本机 0.4.0 编译在 makensis 阶段后进程已结束，无安装包；仅有旧版本 EXE，不算可交付。最终版本须重新完整构建并检查实际截图。
+上游修复源码：https://github.com/hoodie/notify-rust/blob/v4.11.5/src/xdg/zbus_rs.rs
+
+第二轮本机完整 Rust 检查通过：主程序468通过/29条件跳过，其他二进制5/19通过；严格Clippy通过，fmt仍为既有advisory。测试并发RUST_TEST_THREADS=2；新终端路径改写的真实PTY用例通过。各平台结果仍以新main运行报告为准。
+

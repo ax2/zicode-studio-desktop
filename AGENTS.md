@@ -304,8 +304,9 @@ bash scripts/check-rust.sh --static-only
 
 ## Auto-updater
 
-ZiCode Studio Desktop includes the Tauri v2 updater plugin, but updater artifacts
-are disabled while the repository is private. See `docs/AUTO_UPDATER.md`.
+ZiCode Studio Desktop includes the Tauri v2 updater plugin. The repository is
+public; updater artifacts remain disabled until release signing and verification
+are configured. Install public releases manually. See `docs/AUTO_UPDATER.md`.
 
 ## Tests
 

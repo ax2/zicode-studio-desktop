@@ -251,7 +251,7 @@ pub fn load_usage_history(data_dir: &FsPath, limit: usize) -> Vec<(u64, HashMap<
             history.push((day, devices));
         }
     }
-    history.sort_by(|a, b| b.0.cmp(&a.0));
+    history.sort_by_key(|entry| std::cmp::Reverse(entry.0));
     history.truncate(limit);
     history
 }

@@ -5323,7 +5323,7 @@ async fn exchange_pairing(
     log::info!(
         "[pairing] exchange attempt token={} device={} peer={}",
         &request.pairing_token[..request.pairing_token.len().min(12)],
-        &request.device_id,
+        request.device_id,
         peer.ip()
     );
     let token = state
@@ -5923,7 +5923,7 @@ async fn fetch_capture_source(raw_url: &str) -> Result<CapturedPage, NotesError>
         };
         let title = if is_plain {
             url.path_segments()
-                .and_then(|segments| segments.filter(|value| !value.is_empty()).next_back())
+                .and_then(|mut segments| segments.rfind(|value| !value.is_empty()))
                 .unwrap_or(host)
                 .to_string()
         } else {

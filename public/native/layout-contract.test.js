@@ -955,7 +955,7 @@ describe("desktop three-region layout contract", () => {
     const appPaths = readFileSync(
       join(process.cwd(), "src-tauri/src/app_paths.rs"),
       "utf8",
-    );
+    ).replace(/\r\n/g, "\n");
     // The only way to build a legacy Pi path is `home.join(".pi")`; it must
     // appear exactly once, inside the one-time migration function, so no
     // production write target can ever point at `~/.pi` again.

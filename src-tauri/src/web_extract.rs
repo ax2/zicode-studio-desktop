@@ -230,7 +230,7 @@ pub fn fetch_and_extract(raw_url: &str) -> Result<WebArticle, String> {
             WebArticle {
                 title: url
                     .path_segments()
-                    .and_then(|segments| segments.filter(|value| !value.is_empty()).next_back())
+                    .and_then(|mut segments| segments.rfind(|value| !value.is_empty()))
                     .unwrap_or("Captured page")
                     .to_string(),
                 byline: None,

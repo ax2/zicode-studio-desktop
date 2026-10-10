@@ -143,7 +143,7 @@ fn parse(head: &str, output: &[u8], offset: u32) -> Result<GitHistory, String> {
         if fields.len() % 4 != 0 || fields.len() > (LIMIT + 1) * 4 {
             return Err("git_read_failed".into());
         }
-        for fields in fields.chunks_exact(4) {
+        for fields in fields.as_chunks::<4>().0 {
             let oid = std::str::from_utf8(fields[0]).map_err(|_| "git_read_failed")?;
             let authored_at = std::str::from_utf8(fields[2]).map_err(|_| "git_read_failed")?;
             if !valid_oid(oid) || chrono::DateTime::parse_from_rfc3339(authored_at).is_err() {

@@ -758,7 +758,7 @@ impl NotesVault {
                 })?;
                 for note in &notes {
                     let note_path = self.note_path(id, &note.id)?;
-                    let trash_path = trash_dir.join(format!("{}.md", &note.id));
+                    let trash_path = trash_dir.join(format!("{}.md", note.id));
                     trash_metadata::move_to_trash(&note_path, &trash_path)?;
                     self.append_change("deleted", note, None)?;
                 }
@@ -1548,7 +1548,7 @@ impl NotesVault {
                 notebooks.push(descriptor);
             }
         }
-        notebooks.sort_by(|left, right| left.title.to_lowercase().cmp(&right.title.to_lowercase()));
+        notebooks.sort_by_key(|notebook| notebook.title.to_lowercase());
         Ok(notebooks)
     }
 
