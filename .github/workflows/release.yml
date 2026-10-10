@@ -16,8 +16,6 @@ permissions:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-  CARGO_HTTP_MULTIPLEXING: "false"
-  CARGO_NET_RETRY: "10"
 
 jobs:
   prepare-release:
@@ -161,7 +159,9 @@ jobs:
         with:
           # .cargo/config.toml places Cargo output at the repository root.
           workspaces: "src-tauri -> ../target"
-          key: ${{ matrix.pi_target }}
+          # Match the existing platform job's key + GITHUB_JOB suffix so the
+          # release can restore its checked dependencies without a new cache tree.
+          shared-key: developer-platform-${{ matrix.os }}-platform
           cache-on-failure: true
 
       - name: Cache embedded runtimes
@@ -252,19 +252,30 @@ jobs:
 
       - name: Check Rust on Unix
         if: runner.os != 'Windows'
+        env:
+          CARGO_HTTP_MULTIPLEXING: "false"
+          CARGO_NET_RETRY: "10"
         run: bash scripts/check-rust.sh
 
       - name: Check Rust on Windows
         if: runner.os == 'Windows'
+        env:
+          CARGO_HTTP_MULTIPLEXING: "false"
+          CARGO_NET_RETRY: "10"
         shell: pwsh
         run: .\src-tauri\resources\portable-git\bin\bash.exe scripts/check-rust.sh
 
       - name: Verify real Pi to Host plugin invocation
+        env:
+          CARGO_HTTP_MULTIPLEXING: "false"
+          CARGO_NET_RETRY: "10"
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked --bin zicode-studio-desktop host_server::plugin_broker_tests::embedded_pi_invokes_the_real_host_plugin_broker -- --ignored --exact
 
       - name: Build bundles and upload to draft release
         uses: tauri-apps/tauri-action@v1
         env:
+          CARGO_HTTP_MULTIPLEXING: "false"
+          CARGO_NET_RETRY: "10"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Auto-update signing: when the private key secrets are configured
           # and bundle.createUpdaterArtifacts is true, tauri emits latest.json

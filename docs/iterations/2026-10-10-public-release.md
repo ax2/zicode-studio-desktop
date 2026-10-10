@@ -62,3 +62,6 @@ Developer platform 与 Release 的 Rust cache 设置 cache-on-failure:true；保
 
 Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy和真实Pi/多语言环境检查通过；仅环境PTY测试467通过1失败29跳过。失败输出已有普通C:\Program Files路径及正常PS提示符，无先前UNC搜索；原测试在Shell初始化前发送命令，未执行。修订测试先泵送终端查询、等首次PS提示符再发送一次工具命令，初始化和执行同在原12秒总期限内，保留PATH隔离及文件标记断言。本机定向1通过2.91秒，静态/严格Clippy通过。不能声称仅DSR修补已在CI通过，下一轮需核对。
 为避免推送修复取消长时间main编译，Developer platform main/manual保留正在运行的检查；PR仍cancel-in-progress，使用默认单个最新pending，不排无界队列。官方说明 https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency 。11项相关脚本检查通过。
+
+发布缓存复用：核对 rust-cache 源码（src/config.ts）后，Release 的 shared-key 对齐既有 Developer platform 的 inputKey + GITHUB_JOB，即 developer-platform-${{ matrix.os }}-platform；不修改现有main缓存键。下载重试配置从全局env移到四个实际Cargo/打包步骤，避免仅网络配置不同造成缓存环境hash分叉，实际下载仍使用原10次重试。新增2项缓存契约测试，总13项相关脚本检查及lint/design通过。GitHub缓存API实际确认旧main已有macOS arm64/x64各约1.24GB依赖缓存，前缀与预期一致；Release实际命中尚待新标签构建日志验证。
+旧main 38048690334最终两种macOS成功；Intel耗时主要为rust-check669530ms、rust-tests933746ms及真实运行，非卡住。旧Windows只PTY失败，旧Linux仅AppImage类型编译错误，详细报告已归档。新main 38050399234已于20:22前后开始。当前新缓存契约/Release工作流修改仅本地提交，待最新main平台报告通过后随正式发布推送，避免重复触发四平台检查。
