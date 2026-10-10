@@ -181,22 +181,12 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
     let info = manager
         .open_with_environment(&f.0, "one", 80, 24, &f.environment())
         .unwrap();
-    manager
-        .input(
-            &f.0,
-            "one",
-            &info.id,
-            if cfg!(windows) {
-                b"zicode-path-probe\r".to_vec()
-            } else {
-                b"zicode-path-probe\n".to_vec()
-            },
-        )
-        .unwrap();
     let completed = tokio::time::timeout(Duration::from_secs(12), async {
         use base64::Engine;
         let mut offset = 0;
         let mut terminal_output = String::new();
+        let mut shell_ready = !cfg!(windows);
+        let mut command_sent = false;
         while !f.0.join("terminal-path-marker").exists() {
             let (_, chunk) = manager.read(&f.0, "one", &info.id, offset).unwrap();
             offset = chunk.next_offset;
@@ -204,6 +194,10 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
                 .decode(chunk.data)
                 .unwrap();
             terminal_output.push_str(&String::from_utf8_lossy(&bytes));
+            // PowerShell initializes PSReadLine before its first prompt and can
+            // discard input sent during that initialization. Type as a user
+            // would after the prompt, within the same overall test deadline.
+            shell_ready |= terminal_output.contains("PS ") && terminal_output.contains("> ");
             // Emulate the terminal client: PSReadLine can wait for a cursor
             // position response before accepting the queued fixture command.
             while let Some(index) = terminal_output.find("\x1b[6n") {
@@ -211,6 +205,21 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
                     .input(&f.0, "one", &info.id, b"\x1b[1;1R".to_vec())
                     .unwrap();
                 terminal_output.drain(..index + 4);
+            }
+            if shell_ready && !command_sent {
+                manager
+                    .input(
+                        &f.0,
+                        "one",
+                        &info.id,
+                        if cfg!(windows) {
+                            b"zicode-path-probe\r".to_vec()
+                        } else {
+                            b"zicode-path-probe\n".to_vec()
+                        },
+                    )
+                    .unwrap();
+                command_sent = true;
             }
             tokio::time::sleep(Duration::from_millis(30)).await;
         }

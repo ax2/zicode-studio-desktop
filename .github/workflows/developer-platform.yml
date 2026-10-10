@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: developer-platform-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Let main finish and preserve dependency caches; PRs still discard stale work.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   platform:

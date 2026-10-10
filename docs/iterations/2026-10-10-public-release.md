@@ -59,3 +59,6 @@ v0.4.1 Release 38020531435 的 Inbox 注册检查在四个平台通过；后续 
 
 Linux 第二轮报告 38048690334：notify-rust/zbus 编译兼容阻塞已消失，继续暴露 automation_login_start.rs 的 AppImage 路径 OsString / current_exe PathBuf 分支类型不一致。将 AppImage 分支显式转 PathBuf，保持绝对路径/文件存在/UTF-8检查及安装程序路径而非挂载路径策略。Windows 静态检查通过仅证明当前系统分支，Linux最终确认仍依赖下一轮CI。
 Developer platform 与 Release 的 Rust cache 设置 cache-on-failure:true；保留原缓存key和target，便于失败后的依赖复用，不改变发布门槛。上游输入说明：https://github.com/Swatinem/rust-cache#example-usage 。11项相关脚本检查通过，修改后Rust静态/严格Clippy通过。暂不推送，保留尚运行的Intel Mac/Windows报告。
+
+Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy和真实Pi/多语言环境检查通过；仅环境PTY测试467通过1失败29跳过。失败输出已有普通C:\Program Files路径及正常PS提示符，无先前UNC搜索；原测试在Shell初始化前发送命令，未执行。修订测试先泵送终端查询、等首次PS提示符再发送一次工具命令，初始化和执行同在原12秒总期限内，保留PATH隔离及文件标记断言。本机定向1通过2.91秒，静态/严格Clippy通过。不能声称仅DSR修补已在CI通过，下一轮需核对。
+为避免推送修复取消长时间main编译，Developer platform main/manual保留正在运行的检查；PR仍cancel-in-progress，使用默认单个最新pending，不排无界队列。官方说明 https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency 。11项相关脚本检查通过。
