@@ -194,7 +194,24 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
         )
         .unwrap();
     let completed = tokio::time::timeout(Duration::from_secs(12), async {
+        use base64::Engine;
+        let mut offset = 0;
+        let mut terminal_output = String::new();
         while !f.0.join("terminal-path-marker").exists() {
+            let (_, chunk) = manager.read(&f.0, "one", &info.id, offset).unwrap();
+            offset = chunk.next_offset;
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(chunk.data)
+                .unwrap();
+            terminal_output.push_str(&String::from_utf8_lossy(&bytes));
+            // Emulate the terminal client: PSReadLine can wait for a cursor
+            // position response before accepting the queued fixture command.
+            while let Some(index) = terminal_output.find("\x1b[6n") {
+                manager
+                    .input(&f.0, "one", &info.id, b"\x1b[1;1R".to_vec())
+                    .unwrap();
+                terminal_output.drain(..index + 4);
+            }
             tokio::time::sleep(Duration::from_millis(30)).await;
         }
     })
