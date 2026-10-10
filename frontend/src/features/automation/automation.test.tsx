@@ -551,7 +551,8 @@ describe("automation React app", () => {
     expect(written.title).toContain("(copy)");
     expect(written.history).toEqual([]);
     expect(written.approvalPending).toBe(false);
-    expect(written.nextRunAt).toContain("T01:00:00");
+    expect(new Date(written.nextRunAt!).getHours()).toBe(9);
+    expect(new Date(written.nextRunAt!).getMinutes()).toBe(0);
     store.getState().destroy();
   });
 

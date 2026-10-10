@@ -139,7 +139,7 @@ async fn diagnostics_and_real_commands_use_the_selected_tool_and_child_path() {
     );
     let report = crate::host_data::environment::inspect_with_environment(&f.0, &environment).await;
     let bun = report.tools.iter().find(|tool| tool.id == "bun").unwrap();
-    assert_eq!(bun.version.as_deref(), Some("tool-path-fixture"));
+    assert_eq!(bun.version.as_deref(), Some("tool-path-fixture"), "{bun:?}");
     let runner = TaskRunner::default();
     let old = catalog::read_in(&f.0, &f.0).unwrap();
     assert!(runner

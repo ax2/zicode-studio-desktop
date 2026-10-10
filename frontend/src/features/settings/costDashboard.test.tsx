@@ -95,7 +95,9 @@ describe("cost dashboard logic", () => {
 
   it("formats currency and compact numbers", () => {
     expect(formatUsd(1.5)).toBe("$1.50");
-    expect(formatCompact(15000)).toMatch(/1\.5/);
+    expect(formatCompact(15000)).toBe(
+      new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(15000),
+    );
   });
 
   it("builds activity month labels and overview note", () => {

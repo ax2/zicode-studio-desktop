@@ -912,7 +912,8 @@ describe("task center task management", () => {
     expect(tasks[0].schedule).toBe("daily");
     expect(tasks[0].dailyTime).toBe("09:00");
     expect(tasks[0].automation).toMatchObject({ autoDispatch: false, trigger: "schedule" });
-    expect(String(tasks[0].nextRunAt)).toContain("T01:00:00");
+    expect(new Date(String(tasks[0].nextRunAt)).getHours()).toBe(9);
+    expect(new Date(String(tasks[0].nextRunAt)).getMinutes()).toBe(0);
     expect(store.getState().tasks[0].nextRunAt).toBeTruthy();
   });
 
@@ -973,7 +974,8 @@ describe("task center task management", () => {
     expect(updated?.targetProject).toBe("C:/new");
     expect(updated?.schedule).toBe("daily");
     expect(updated?.dailyTime).toBe("10:30");
-    expect(String(updated?.nextRunAt)).toContain("T02:30:00");
+    expect(new Date(String(updated?.nextRunAt)).getHours()).toBe(10);
+    expect(new Date(String(updated?.nextRunAt)).getMinutes()).toBe(30);
     expect(calls.some((entry) => entry.operation === "write_super_agent_tasks")).toBe(true);
   });
 
