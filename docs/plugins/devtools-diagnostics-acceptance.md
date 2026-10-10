@@ -113,7 +113,7 @@ Studio新增[固定执行错误分类](worker-failure-codes.md)，不输出原�
 
 最终同一handle43527 exit1：142执行、120语义结果通过、22 process_deadline、46原始外层用例skipped，共188。11基本样例通过；22失败都是五秒进程期限，不宣称燃料归因。142条close事件及实际进程检查remaining0。没有重启/提高预算；不是Host/Pi/View或全部scope验收。新包整体兼容仍失败，矩阵已更新终态。
 
-[2026-10-09 新诊断候选实际Windows](iterations/native-diagnostics-candidate02-2026-10-09/work-log.md)：candidate02原样453摘要/版本0.1.1，实际发现/加载/SDK→Host→WASI→显示11样例与末尾恢复通过，12HTTP200。浅色1440×900/DPR1.25截图已读、page/console错误0，9进程正常退出remaining0。首次驱动对卡片版本错误预期失败记录保留。上轮22边界超时未抹去，新包Pi/正式profile/全scope/生命周期/其他OS待，154完整接受0。无新代码/构建/ZIP/cache删除。
+2026-10-09 新诊断候选实际Windows（本机技术博客档案：`iterations/native-diagnostics-candidate02-2026-10-09/work-log.md`）：candidate02原样453摘要/版本0.1.1，实际发现/加载/SDK→Host→WASI→显示11样例与末尾恢复通过，12HTTP200。浅色1440×900/DPR1.25截图已读、page/console错误0，9进程正常退出remaining0。首次驱动对卡片版本错误预期失败记录保留。上轮22边界超时未抹去，新包Pi/正式profile/全scope/生命周期/其他OS待，154完整接受0。无新代码/构建/ZIP/cache删除。
 
 候选02真实Pi专项两次失败已固定：未授权隐藏及独立Base64对照通过，第二次仅线程/依赖报告成功，随后worker_timeout；2+4 Worker均关闭/实际PID无残留，Host.stop_and_wait已执行，Pi关闭未单独PID复核。后续55缓存拒绝与生命周期未运行，不计通过；生产预算保持，提供方明确需求已发送。Rust gate67908尚在运行，不宣称测试门禁通过。详见iterations/diagnostic-candidate02-pi-2026-10-09。154完整验收0。
 

@@ -1,8 +1,8 @@
 # 自动更新
 
-ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私有仓库，
+ZiCode Studio Desktop 集成了 Tauri v2 updater 插件。仓库已公开，但签名自动更新尚未验收，
 `createUpdaterArtifacts` 暂时设为 `false`。现阶段发布流程构建 Windows NSIS、
-macOS Apple Silicon 与 Intel DMG，以及 Linux AppImage/DEB 安装包，不向未认证客户端提供自动更新。
+macOS Apple Silicon 与 Intel DMG，以及 Linux AppImage/DEB 安装包，采用手动安装升级。
 
 ## 当前状态
 
@@ -10,12 +10,12 @@ macOS Apple Silicon 与 Intel DMG，以及 Linux AppImage/DEB 安装包，不向
   `https://github.com/ax2/zicode-studio-desktop/releases/latest/download/latest.json`
 - Beta 更新地址预留为：
   `https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json`
-- 私有仓库的 Release 资产需要 GitHub 授权，普通桌面客户端无法匿名下载。
+- 已公开的 Release 安装包可匿名下载；尚未提供可用的签名更新清单。
 - `.github/workflows/release.yml` 当前构建 Windows NSIS、两种 macOS DMG 和 Linux
   AppImage/DEB，但不生成 `latest.json` 或签名更新包。
 
 因此，当前版本通过 GitHub Release 手动下载安装包升级。应用内更新入口只有在未来
-启用签名产物并提供可授权的更新分发服务后才能正式开放。
+启用签名产物并完成更新分发验证后才能正式开放。
 未启用自动更新时，设置页的按钮会打开 GitHub Releases 列表供手动下载。
 
 ## 启用条件
@@ -45,7 +45,7 @@ macOS Apple Silicon 与 Intel DMG，以及 Linux AppImage/DEB 安装包，不向
    并准备在签名 secrets 配置后上传 `.sig` 与 `latest.json` 到草稿
    Release。真实构建、产物路径和多平台更新清单合并均未验证；
    启用前需确认三个平台的签名与清单完整，不能依靠单个平台覆盖同名清单。
-6. 为私有仓库实现受控下载代理，或者在产品公开后允许匿名访问 Release 资产。
+6. 验证公开 Release 资产和更新清单可以匿名下载。
 7. 用旧版本到新版本完成一次真实的下载、签名校验、安装和重启测试。
 
 私钥不得提交到 Git、文档、安装包或日志。
