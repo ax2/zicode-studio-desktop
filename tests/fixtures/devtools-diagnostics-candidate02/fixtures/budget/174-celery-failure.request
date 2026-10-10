@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.diagnostics","sceneId":"coding","capabilityId":"devtools.diagnostics.celery.report","commandId":null,"input":{"text":"Task app.发送[id] received\nTask app.发送[id] raised unexpected: app.错误(secret)","secondary":""}}

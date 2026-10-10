@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ZiDevTools View 接收方验收</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style-theme.css">
+  <link rel="stylesheet" href="/design-system.css">
+  <link rel="stylesheet" href="/native/plugins/plugin-view-host.css">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; }
+    #switch-workspace { flex-shrink: 0; align-self: start; }
+    #content { flex: 1; min-height: 0; }
+  </style>
+</head>
+<body data-active-plugin="com.zicode.devtools.text">
+  <button id="switch-workspace" type="button">切换验收工作区</button>
+  <main id="content" class="plugin-main-view"></main>
+  <script type="module">
+    import { PluginCapabilityGateway } from '/native/plugins/plugin-capability-gateway.js';
+    import { PluginHostGateway } from '/native/plugins/plugin-host-gateway.js';
+    import { BuiltinPluginRegistry } from '/native/plugins/plugin-registry.js';
+    import { setupPluginViewHost } from '/native/plugins/plugin-view-host.js';
+
+    const gateway = new PluginHostGateway();
+    const registry = new BuiltinPluginRegistry({ hostGateway: gateway });
+    await registry.setScene('programming');
+    const plugin = registry.list().find(item => item.id === 'com.zicode.devtools.text');
+    if (!plugin?.enabled) throw new Error('Candidate is not enabled');
+    let target = { sceneId: 'programming', workspaceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' };
+    const host = setupPluginViewHost({
+      gateway,
+      capabilityGateway: new PluginCapabilityGateway(),
+      getTarget: () => target,
+    });
+    host.renderContent(document.getElementById('content'), plugin);
+    document.getElementById('switch-workspace').onclick = () => {
+      target = { sceneId: 'programming', workspaceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' };
+      host.setTarget();
+      const container = document.getElementById('content');
+      container.replaceChildren();
+      host.renderContent(container, plugin);
+    };
+  </script>
+</body>
+</html>

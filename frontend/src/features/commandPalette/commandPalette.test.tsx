@@ -1,6 +1,12 @@
+import { act } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setupCommandPalette } from "./index";
+import { setupCommandPalette as setupPalette, type CommandPaletteHandle } from "./index";
+import { setLocale } from "../../shared/i18n";
 
+const handles: CommandPaletteHandle[] = [];
+function setupCommandPalette(...args: Parameters<typeof setupPalette>) {
+  const handle = setupPalette(...args); handles.push(handle); return handle;
+}
 function mount() {
   const button = document.createElement("button");
   button.id = "command-btn";
@@ -17,11 +23,54 @@ function mount() {
   return { button, palette, overlay, list };
 }
 
-afterEach(() => {
+afterEach(async () => {
+  await act(async () => { for (const handle of handles.splice(0)) handle.close({restoreFocus:false}); });
   document.body.innerHTML = "";
 });
 
 describe("command palette (React)", () => {
+  it("searches concrete tools only on demand and opens without recording execution history", async () => {
+    setLocale("en");
+    const elements = mount(); const onOpenTool = vi.fn();
+    const tool = {toolId:"tool-1",accessId:"manual.tool:1",pluginId:"fixture",capabilityId:"text",title:"Fixture text",applicationName:"Fixture",publisher:"Studio",version:"0.1.0",enabled:true,runtime:"wasi"};
+    const toolApi = {searchTools:vi.fn(async()=>({items:[tool],total:1,revision:"rev",nextOffset:null})),loadTool:vi.fn(),invoke:vi.fn()};
+    const scope = {sceneId:"programming",workspaceId:"fixture"};
+    const accessStore = {read:vi.fn(async()=>({schemaVersion:1 as const,revision:0,favorites:[],recent:[]})),mutate:vi.fn()};
+    setupCommandPalette({...elements,commands:[{label:"Settings"}],toolApi,onOpenTool,getScope:()=>scope,accessStore});
+    await act(async()=>elements.button.click());
+    expect(toolApi.searchTools).not.toHaveBeenCalled();
+    await act(async()=>[...elements.list.querySelectorAll("button")].find(button=>button.textContent === "Individual tools")?.click());
+    await vi.waitFor(()=>expect(elements.list.textContent).toContain("Fixture text"));
+    await act(async()=>elements.list.querySelector('[role="option"]')?.dispatchEvent(new MouseEvent("click",{bubbles:true})));
+    expect(onOpenTool).toHaveBeenCalledWith(tool,"rev",scope);
+    expect(elements.palette.classList.contains("hidden")).toBe(true);
+    expect(accessStore.mutate).not.toHaveBeenCalled(); expect(toolApi.invoke).not.toHaveBeenCalled();
+  });
+  it("pages, jumps to boundaries, announces results and preserves ordinary Home caret navigation", () => {
+    const elements = mount();
+    const action = vi.fn();
+    setupCommandPalette({ ...elements, commands: Array.from({ length: 30 }, (_, index) => ({
+      id: `tool-${index}`, label: `Tool ${index}`, disabled: index % 2 === 0, action,
+    })) });
+    elements.button.click();
+    const input = elements.list.querySelector("input") as HTMLInputElement;
+    const press = (key: string, ctrlKey = false) => act(() => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey, bubbles: true, cancelable: true }));
+    });
+    const selected = () => elements.list.querySelector('[aria-selected="true"]')?.textContent;
+    expect(elements.list.querySelector('[role="status"]')?.textContent).toContain("30 / 30");
+    press("PageDown");
+    expect(selected()).toContain("Tool 21");
+    press("End", true);
+    expect(selected()).toContain("Tool 29");
+    press("Home");
+    expect(selected()).toContain("Tool 29");
+    press("Home", true);
+    expect(selected()).toContain("Tool 1");
+    press("PageUp");
+    expect(selected()).toContain("Tool 1");
+    expect(action).not.toHaveBeenCalled();
+  });
   it("opens actions from the command button and runs the selected command", () => {
     const { button, palette, overlay, list } = mount();
     const action = vi.fn();

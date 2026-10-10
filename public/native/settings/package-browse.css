@@ -91,6 +91,37 @@
   flex-shrink: 0;
 }
 
+.pkg-manual-form,
+.pkg-manual-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pkg-manual-form {
+  margin-bottom: var(--space-4);
+}
+
+.pkg-manual-field .ui-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.pkg-manual-form .ui-button {
+  align-self: flex-start;
+}
+
+.pkg-manual-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pkg-manual-error {
+  color: var(--error);
+  font-size: var(--font-size-sm);
+}
+
 /* Browse community packages */
 .pkg-browse-filters {
   display: flex;

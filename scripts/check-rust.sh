@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# Run Rust type-check + clippy lint on the Tauri crate.
-# Use after every fix to catch compile-time errors before invoking `tauri build`.
+# Run Rust type-check, optional tests, and clippy lint on the Tauri crate.
+# Use --static-only for the edit loop; the release gate keeps the full check.
 
 set -euo pipefail
+
+STATIC_ONLY=0
+if [[ "$#" -eq 0 ]]; then
+  :
+elif [[ "$#" -eq 1 && "$1" == "--static-only" ]]; then
+  STATIC_ONLY=1
+else
+  echo "usage: check-rust.sh [--static-only]" >&2
+  exit 2
+fi
 
 export PATH="$HOME/.cargo/bin:$PATH"
 if ! command -v cargo >/dev/null 2>&1 && command -v powershell.exe >/dev/null 2>&1; then
@@ -34,8 +44,10 @@ fi
 echo "==> cargo check (all targets)"
 cargo check --manifest-path "$MANIFEST" --all-targets
 
-echo "==> cargo test"
-cargo test --manifest-path "$MANIFEST"
+if [[ "$STATIC_ONLY" -eq 0 ]]; then
+  echo "==> cargo test"
+  cargo test --manifest-path "$MANIFEST"
+fi
 
 echo "==> cargo clippy (warnings as errors)"
 cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings

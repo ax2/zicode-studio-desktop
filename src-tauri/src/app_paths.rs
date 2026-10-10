@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 const APP_DATA_DIR_NAME: &str = "zicode";
 
 pub fn data_root() -> Result<PathBuf, String> {
+    if let Some(root) = crate::desktop_profile::root() {
+        return Ok(root.join("data"));
+    }
     dirs::data_local_dir()
         .map(|root| root.join(APP_DATA_DIR_NAME))
         .ok_or_else(|| "Cannot resolve the ZiCode Studio Desktop data directory".to_string())
@@ -15,6 +18,9 @@ pub fn data_root() -> Result<PathBuf, String> {
 /// remote-access settings all live here instead of `~/.pi` or the app data
 /// directory. It also doubles as the default global shared workspace.
 pub fn system_root() -> Result<PathBuf, String> {
+    if let Some(root) = crate::desktop_profile::root() {
+        return Ok(root.join("system"));
+    }
     dirs::home_dir()
         .map(|root| root.join(".zicode"))
         .ok_or_else(|| "Cannot resolve the user home directory".to_string())
@@ -71,6 +77,9 @@ pub fn plugins_root() -> Result<PathBuf, String> {
 /// reads and writes use `destination`, so active application data is no longer
 /// split between the bundle identifier directory and the ZiCode directory.
 pub fn migrate_legacy_metadata(source: &Path, destination: &Path) -> Result<(), String> {
+    if crate::desktop_profile::is_isolated() {
+        return Ok(());
+    }
     if destination.is_file() || !source.is_file() {
         return Ok(());
     }
@@ -110,6 +119,9 @@ pub fn migrate_metadata_into_system_root() -> Result<(), String> {
 /// `~/.zicode`. Only copies when the target does not exist yet; the legacy
 /// directory is preserved.
 pub fn migrate_legacy_pi_agent() -> Result<(), String> {
+    if crate::desktop_profile::is_isolated() {
+        return Ok(());
+    }
     let Some(home) = dirs::home_dir() else {
         return Err("Cannot resolve the user home directory".to_string());
     };

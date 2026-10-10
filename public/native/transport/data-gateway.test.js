@@ -3,6 +3,43 @@ import { HostDataGateway } from "./data-gateway.js";
 import { createInMemoryRuntimeAdapter } from "./runtime-gateway.js";
 
 describe("HostDataGateway", () => {
+  it("requests a registered project's environment without accepting a command", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const data = new HostDataGateway(adapter);
+    const promise = data.workspaceEnvironment("workspace-a");
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({ operation: "workspace_environment", workspaceId: "workspace-a" });
+    expect(sent.command).toBeUndefined();
+    adapter.receive({ requestId: sent.requestId, report: { platform: "windows" } });
+    await expect(promise).resolves.toMatchObject({ report: { platform: "windows" } });
+  });
+  it("sends a project-scoped Git comparison mode", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const data = new HostDataGateway(adapter);
+    const promise = data.workspaceGitDiff("workspace-a", "staged");
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({ operation: "workspace_git_diff", workspaceId: "workspace-a", mode: "staged" });
+    adapter.receive({ requestId: sent.requestId, diff: { mode: "staged", patch: "+line", truncated: false } });
+    await expect(promise).resolves.toMatchObject({ diff: { patch: "+line" } });
+  });
+  it("routes Git inspection by workspace and preserves stable host failures", async () => {
+    const adapter = createInMemoryRuntimeAdapter();
+    const data = new HostDataGateway(adapter);
+    const response = data.workspaceGitStatus("workspace-git");
+    const sent = adapter.takeSent();
+    expect(sent).toMatchObject({
+      type: "data_request",
+      operation: "workspace_git_status",
+      workspaceId: "workspace-git",
+    });
+    expect(sent.path).toBeUndefined();
+    adapter.receive({ requestId: sent.requestId, status: { isRepository: false } });
+    await expect(response).resolves.toMatchObject({ status: { isRepository: false } });
+    const failed = data.workspaceGitStatus("workspace-git");
+    adapter.receive({ requestId: adapter.takeSent().requestId, error: { message: "git_timeout" } });
+    await expect(failed).rejects.toThrow("git_timeout");
+  });
+
   it("keeps read-only data requests separate from runtime requests", async () => {
     const adapter = createInMemoryRuntimeAdapter();
     const data = new HostDataGateway(adapter);

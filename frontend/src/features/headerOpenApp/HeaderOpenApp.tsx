@@ -1,5 +1,5 @@
-import { logoForApp, type InstalledApp } from "./headerOpenAppLogic";
 import type { StoreApi, UseBoundStore } from "zustand";
+import { type InstalledApp, logoForApp } from "./headerOpenAppLogic";
 
 export interface HeaderOpenAppStoreShape {
   apps: InstalledApp[];

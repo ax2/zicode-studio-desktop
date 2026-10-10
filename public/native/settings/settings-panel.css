@@ -279,7 +279,7 @@
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .settings-template-name {
@@ -600,7 +600,6 @@
   a.settings-static-value {
     word-break: break-all;
   }
-
 }
 
 @media (max-width: 620px) {
@@ -619,4 +618,8 @@
   .settings-section-title {
     margin-bottom: 6px;
   }
+}
+
+#workspace-backup-status {
+  overflow-wrap: anywhere;
 }

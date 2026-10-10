@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const read = (relative) =>
-  readFileSync(join(process.cwd(), relative), "utf8");
+const read = (relative) => readFileSync(join(process.cwd(), relative), "utf8");
 
 describe("vanilla UI localization contract", () => {
   it("keeps code-block copy labels inside the shared t() pipeline", () => {
@@ -55,15 +54,9 @@ describe("vanilla UI localization contract", () => {
   });
 
   it("localizes the super-agent entry and chat header labels", () => {
-    expect(read("public/components/super-agent-entry.js")).toContain(
-      't("Agent Inbox")',
-    );
-    expect(read("public/components/sa-chat-header.js")).toContain(
-      't("Listening")',
-    );
-    expect(read("public/components/super-agent-entry.js")).not.toMatch(
-      />AGENT INBOX</,
-    );
+    expect(read("public/components/super-agent-entry.js")).toContain('t("Agent Inbox")');
+    expect(read("public/components/sa-chat-header.js")).toContain('t("Listening")');
+    expect(read("public/components/super-agent-entry.js")).not.toMatch(/>AGENT INBOX</);
   });
 
   it("localizes the startup failure page for Chinese users", () => {
@@ -74,25 +67,15 @@ describe("vanilla UI localization contract", () => {
   });
 
   it("keeps React feature labels inside the shared t() pipeline", () => {
-    const contextLogic = read(
-      "frontend/src/features/contextUsage/contextUsageLogic.ts",
-    );
+    const contextLogic = read("frontend/src/features/contextUsage/contextUsageLogic.ts");
     for (const key of ["Cached (reused)", "Uncached", "Available"]) {
       expect(contextLogic).toContain(`t("${key}")`);
       expect(contextLogic).not.toMatch(new RegExp(`label: "${key}"`));
     }
-    expect(read("frontend/src/features/contextUsage/ContextUsageApp.tsx")).toContain(
-      't("% used")',
-    );
-    expect(read("frontend/src/features/contextUsage/index.ts")).toContain(
-      't("Context usage")',
-    );
-    expect(read("frontend/src/features/composer/ComposerApp.tsx")).toContain(
-      't("Steering")',
-    );
-    expect(read("frontend/src/features/composer/ComposerApp.tsx")).toContain(
-      't("Follow-up")',
-    );
+    expect(read("frontend/src/features/contextUsage/ContextUsageApp.tsx")).toContain('t("% used")');
+    expect(read("frontend/src/features/contextUsage/index.ts")).toContain('t("Context usage")');
+    expect(read("frontend/src/features/composer/ComposerApp.tsx")).toContain('t("Steering")');
+    expect(read("frontend/src/features/composer/ComposerApp.tsx")).toContain('t("Follow-up")');
     expect(read("frontend/src/features/notificationCenter/index.ts")).toContain(
       't("Notification")',
     );
@@ -116,14 +99,16 @@ describe("vanilla UI localization contract", () => {
 
     const runtime = read("public/components/super-agent-runtime.js");
     expect(runtime).toContain('t("Connecting...")');
-    expect(runtime).toContain('t("Tasks from external messages and automations are approved here.")');
+    expect(runtime).toContain(
+      't("Tasks from external messages and automations are approved here.")',
+    );
     expect(runtime).toContain('t("Manage everything in the Task app.")');
-    expect(runtime).toContain('t(\'No tasks with status "{status}"…\')');
+    expect(runtime).toContain("t('No tasks with status \"{status}\"…')");
     expect(runtime).toContain("t(event.type");
     expect(runtime).toContain("t(event.message");
 
     expect(read("frontend/src/features/tasks/TaskCenterApp.tsx")).toContain(
-      "t(event.message || (event.status ? statusLabel(event.status) : \"event\"))",
+      't(event.message || (event.status ? statusLabel(event.status) : "event"))',
     );
   });
 
@@ -135,8 +120,7 @@ describe("vanilla UI localization contract", () => {
     expect(lightbox).not.toMatch(/setAttribute\("aria-label", "Close"\)/);
 
     const shell = read("public/native/plugins/plugin-shell.js");
-    expect(shell).toContain("desc: t(plugin.description)");
-    expect(shell).not.toMatch(/desc: plugin\.description/);
+    expect(shell).toContain("description: t(plugin.description)");
     expect(shell).toContain('t("Plugin views")');
     expect(shell).not.toMatch(/setAttribute\("aria-label", "Plugin views"\)/);
   });
@@ -166,9 +150,7 @@ describe("vanilla UI localization contract", () => {
   });
 
   it("localizes session and project context menu labels", () => {
-    const app = read(
-      "frontend/src/features/sessionSidebar/SessionSidebarApp.tsx",
-    );
+    const app = read("frontend/src/features/sessionSidebar/SessionSidebarApp.tsx");
     expect(app).toContain("{t(row.label)}");
     expect(app).not.toMatch(/^\s*\{row\.label\}\s*$/m);
 
@@ -181,21 +163,15 @@ describe("vanilla UI localization contract", () => {
       const key = (match[1] || match[2] || "").trim();
       if (key && key.length > 1) keys.add(key);
     }
-    const labels = new Set(
-      [...sidebar.matchAll(/\blabel:\s*"([^"]+)"/g)].map((match) => match[1]),
-    );
-    const missing = [...labels].filter(
-      (label) => !keys.has(label) && !label.includes("${"),
-    );
+    const labels = new Set([...sidebar.matchAll(/\blabel:\s*"([^"]+)"/g)].map((match) => match[1]));
+    const missing = [...labels].filter((label) => !keys.has(label) && !label.includes("${"));
     expect(missing).toEqual([]);
   });
 
   it("keeps dynamic service menu keys in the dictionary", () => {
     const header = read("public/components/sa-chat-header.js");
     expect(header).toContain(`t(\`\${capitalize(service)} settings\`)`);
-    expect(header).toContain(
-      `t(\`\${capitalize(service)} is not configured\`)`,
-    );
+    expect(header).toContain(`t(\`\${capitalize(service)} is not configured\`)`);
     const dictionary = read("public/i18n.js");
     for (const key of [
       "Feishu settings",

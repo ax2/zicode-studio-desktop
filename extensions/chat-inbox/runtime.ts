@@ -1,16 +1,4 @@
 import { randomUUID } from "node:crypto";
-
-import type {
-  ChatLogRecord,
-  CheckpointRecord,
-  ConversationStatus,
-  DispatchableJob,
-  InboundMessageInput,
-  InboundMessageRecord,
-  JobQueuedRecord,
-  PendingJob,
-  ResolvedConversation,
-} from "../types.js";
 import {
   acquireConversationLock,
   appendConversationRecord,
@@ -23,6 +11,17 @@ import {
   releaseConversationLock,
 } from "./log.js";
 import type { RemoteCommand } from "./remote-operations.js";
+import type {
+  ChatLogRecord,
+  CheckpointRecord,
+  ConversationStatus,
+  DispatchableJob,
+  InboundMessageInput,
+  InboundMessageRecord,
+  JobQueuedRecord,
+  PendingJob,
+  ResolvedConversation,
+} from "./types.js";
 
 function isDMConversation(conversation: ResolvedConversation): boolean {
   return conversation.channel.dm ?? false;
@@ -160,11 +159,15 @@ export class ConversationRuntime {
     if (!this.isAllowedInput(normalized)) return undefined;
     const account = this.conversation.account;
     let text = normalized.text;
-    const botUserId = "botUserId" in account ? account.botUserId : undefined;
+    const botUserId = "botUserId" in account && typeof account.botUserId === "string"
+      ? account.botUserId
+      : undefined;
     if (botUserId) text = text.replace(new RegExp(`<@!?${escapeRegExp(botUserId)}>`, "g"), " ");
     const aliases = [
       this.conversation.botName,
-      "botUsername" in account ? account.botUsername : undefined,
+      "botUsername" in account && typeof account.botUsername === "string"
+        ? account.botUsername
+        : undefined,
     ].filter(Boolean);
     for (const alias of aliases)
       text = text.replace(new RegExp(`@${escapeRegExp(alias || "")}\\b`, "ig"), " ");

@@ -1,10 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import {
-  fetchQVerisModelCatalog,
-  QVERIS_MODEL_GATEWAY_BASE_URL,
-} from "./qveris-model-gateway";
+import { fetchQVerisModelCatalog } from "./qveris-model-gateway";
 
 describe("QVeris model gateway catalog", () => {
   it("maps chat models and omits embedding-only entries", async () => {
@@ -43,7 +40,12 @@ describe("QVeris model gateway catalog", () => {
         }),
     })) as unknown as typeof fetch;
 
-    await expect(fetchQVerisModelCatalog("secret", { fetchImpl })).resolves.toEqual([
+    await expect(
+      fetchQVerisModelCatalog("secret", {
+        baseUrl: "https://gateway.example.test/v1",
+        fetchImpl,
+      }),
+    ).resolves.toEqual([
       {
         id: "vision-reasoner",
         name: "vision-reasoner",
@@ -68,7 +70,7 @@ describe("QVeris model gateway catalog", () => {
       },
     ]);
     expect(fetchImpl).toHaveBeenCalledWith(
-      `${QVERIS_MODEL_GATEWAY_BASE_URL}/models`,
+      "https://gateway.example.test/v1/models",
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer secret" }),
       }),
@@ -84,10 +86,16 @@ describe("QVeris model gateway catalog", () => {
     })) as unknown as typeof fetch;
 
     await expect(
-      fetchQVerisModelCatalog("super-secret", { fetchImpl }),
-    ).rejects.toThrow("invalid_api_key");
+      fetchQVerisModelCatalog("super-secret", {
+        baseUrl: "https://gateway.example.test/v1",
+        fetchImpl,
+      }),
+    ).rejects.toThrow("QVeris model catalog request failed (401)");
     await expect(
-      fetchQVerisModelCatalog("super-secret", { fetchImpl }),
+      fetchQVerisModelCatalog("super-secret", {
+        baseUrl: "https://gateway.example.test/v1",
+        fetchImpl,
+      }),
     ).rejects.not.toThrow("super-secret");
   });
 

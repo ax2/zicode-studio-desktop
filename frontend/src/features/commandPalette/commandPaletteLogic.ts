@@ -1,4 +1,6 @@
 export interface PaletteCommand {
+  id?: string;
+  keywords?: string[];
   icon?: string;
   label?: string;
   desc?: string;

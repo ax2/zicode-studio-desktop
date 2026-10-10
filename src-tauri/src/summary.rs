@@ -4,7 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 const MAX_TEXT_CHARS: usize = 100_000;
 const MAX_TITLE_CHARS: usize = 200;
 
@@ -12,13 +11,12 @@ const MAX_TITLE_CHARS: usize = 200;
 #[serde(rename_all = "camelCase")]
 pub struct SummarizeRequest {
     pub text: String,
-    #[serde(default)]
-    pub model: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SummarizeResult {
+    pub provider: String,
     pub summary: String,
     pub model: String,
     pub char_count: usize,
@@ -66,45 +64,24 @@ pub fn validate(text: &str, title: Option<&str>) -> Result<(), String> {
 
 pub fn summarize(
     request: &SummarizeRequest,
-    api_key: &str,
+    endpoint: &crate::model_tools::ModelEndpoint,
+    api_key: Option<&str>,
     title: Option<&str>,
 ) -> Result<SummarizeResult, String> {
     validate(&request.text, title)?;
-    let model = request
-        .model
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_MODEL);
+    let model = &endpoint.choice.model;
     let prompt = build_prompt(&request.text);
-    let body = serde_json::json!({
-        "model": model,
-        "messages": [
-            { "role": "user", "content": prompt }
-        ],
-        "temperature": 0.2
-    });
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(90))
-        .build()
-        .map_err(|error| format!("Cannot build model client: {error}"))?;
-    let response = client
-        .post("https://aigateway.qveris.ai/v1/chat/completions")
-        .bearer_auth(api_key)
-        .json(&body)
-        .send()
-        .map_err(|error| format!("Model gateway is unreachable: {error}"))?;
-    let status = response.status();
-    let payload: serde_json::Value = response
-        .json()
-        .map_err(|error| format!("Cannot read model response: {error}"))?;
-    if !status.is_success() {
-        return Err(format!("Model gateway error: {status}"));
-    }
+    let payload = crate::model_tools::complete(
+        endpoint,
+        api_key,
+        prompt,
+        std::time::Duration::from_secs(90),
+    )?;
     let summary =
         extract_text(&payload).ok_or_else(|| "Model returned an empty summary".to_string())?;
     let char_count = summary.chars().count();
     Ok(SummarizeResult {
+        provider: endpoint.choice.provider.clone(),
         summary,
         model: model.to_string(),
         char_count,

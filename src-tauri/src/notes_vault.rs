@@ -1,3 +1,11 @@
+mod import_content;
+mod import_references;
+mod import_transaction;
+mod knowledge;
+mod references;
+mod trash_guard;
+mod trash_metadata;
+
 use base64::Engine;
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
@@ -91,7 +99,11 @@ pub struct TrashEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notebook_title: Option<String>,
     pub note: NoteSummary,
+    #[serde(default)]
+    pub trash_token: String,
     pub deleted_at: String,
+    #[serde(default)]
+    pub deletion_time_known: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -143,6 +155,8 @@ pub struct NoteKnowledgeConflict {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NotesKnowledgeSnapshot {
+    #[serde(default)]
+    pub incomplete: bool,
     pub links: Vec<NoteKnowledgeLink>,
     pub similar: Vec<SimilarNotePair>,
     pub conflicts: Vec<NoteKnowledgeConflict>,
@@ -215,6 +229,8 @@ pub struct VaultExportBundle {
 pub struct TrashNoteExport {
     pub note: NoteDocument,
     pub deleted_at: String,
+    #[serde(default)]
+    pub deletion_time_known: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -269,6 +285,8 @@ impl NotesError {
 #[derive(Clone)]
 pub struct NotesVault {
     root: PathBuf,
+    storage_dir: Option<PathBuf>,
+    storage_guard: Option<std::sync::Arc<std::fs::File>>,
     workspace_id: Option<String>,
     workspace_roots:
         Option<std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, PathBuf>>>>,
@@ -305,6 +323,8 @@ impl NotesVault {
             .map_err(|error| format!("Cannot create Notes data directory: {error}"))?;
         Ok(Self {
             root,
+            storage_dir: None,
+            storage_guard: None,
             workspace_id: None,
             workspace_roots: None,
             system_root: None,
@@ -336,9 +356,13 @@ impl NotesVault {
         let vault_dir = self.resolved_vault_dir(&workspace_id, &vaults)?;
         fs::create_dir_all(&vault_dir)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
+        let storage_guard = import_transaction::lock_storage(&vault_dir)?;
+        import_transaction::recover(&vault_dir)?;
         self.migrate_legacy(&workspace_id)?;
         Ok(NotesVault {
             root: self.root.clone(),
+            storage_dir: Some(vault_dir),
+            storage_guard: Some(storage_guard),
             workspace_id: Some(workspace_id),
             workspace_roots: self.workspace_roots.clone(),
             system_root: self.system_root.clone(),
@@ -449,6 +473,9 @@ impl NotesVault {
     }
 
     fn vaults_dir(&self) -> PathBuf {
+        if let Some(directory) = &self.storage_dir {
+            return directory.clone();
+        }
         let vaults = self.root.join("vaults");
         match &self.workspace_id {
             Some(workspace_id) => self
@@ -533,118 +560,6 @@ impl NotesVault {
             notebooks,
             notes,
             tags: tags.into_iter().collect(),
-        })
-    }
-
-    pub fn knowledge(&self) -> Result<NotesKnowledgeSnapshot, NotesError> {
-        let summaries = self.list(None, None, None, false)?.notes;
-        let by_title: HashMap<String, &NoteSummary> = summaries
-            .iter()
-            .map(|note| (note.title.trim().to_lowercase(), note))
-            .collect();
-        let by_ref: HashMap<String, &NoteSummary> = summaries
-            .iter()
-            .map(|note| (format!("{}/{}", note.notebook_id, note.id), note))
-            .collect();
-        let mut links = Vec::new();
-        let mut seen_links = BTreeSet::new();
-        for source in &summaries {
-            let document = self.get_note(&source.notebook_id, &source.id)?;
-            for (kind, target) in extract_note_targets(&document.content, &by_title, &by_ref) {
-                if target.id == source.id && target.notebook_id == source.notebook_id {
-                    continue;
-                }
-                let key = format!(
-                    "{}/{}/{}/{}/{}",
-                    source.notebook_id, source.id, target.notebook_id, target.id, kind
-                );
-                if !seen_links.insert(key) {
-                    continue;
-                }
-                links.push(NoteKnowledgeLink {
-                    from_notebook_id: source.notebook_id.clone(),
-                    from_note_id: source.id.clone(),
-                    from_title: source.title.clone(),
-                    to_notebook_id: target.notebook_id.clone(),
-                    to_note_id: target.id.clone(),
-                    to_title: target.title.clone(),
-                    kind,
-                });
-            }
-        }
-        let mut similar = Vec::new();
-        for (index, left) in summaries.iter().enumerate() {
-            let left_tags: BTreeSet<String> =
-                left.tags.iter().map(|tag| tag.to_lowercase()).collect();
-            if left_tags.is_empty() {
-                continue;
-            }
-            for right in summaries.iter().skip(index + 1) {
-                let right_tags: BTreeSet<String> =
-                    right.tags.iter().map(|tag| tag.to_lowercase()).collect();
-                let shared_tags: Vec<String> =
-                    left_tags.intersection(&right_tags).cloned().collect();
-                if shared_tags.is_empty() {
-                    continue;
-                }
-                let union_size = left_tags.union(&right_tags).count();
-                similar.push(SimilarNotePair {
-                    left_notebook_id: left.notebook_id.clone(),
-                    left_note_id: left.id.clone(),
-                    left_title: left.title.clone(),
-                    right_notebook_id: right.notebook_id.clone(),
-                    right_note_id: right.id.clone(),
-                    right_title: right.title.clone(),
-                    score: shared_tags.len() as f64 / union_size as f64,
-                    shared_tags,
-                });
-            }
-        }
-        similar.sort_by(|left, right| {
-            right
-                .score
-                .partial_cmp(&left.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        similar.truncate(100);
-        let mut conflicts = Vec::new();
-        for (index, left) in summaries.iter().enumerate() {
-            for right in summaries.iter().skip(index + 1) {
-                if left.version == right.version {
-                    continue;
-                }
-                let shared_source = left.source.as_ref().and_then(|left_source| {
-                    right
-                        .source
-                        .as_ref()
-                        .filter(|right_source| right_source.url == left_source.url)
-                        .map(|_| left_source.url.clone())
-                });
-                let same_title = left.title.trim().eq_ignore_ascii_case(right.title.trim());
-                if !same_title && shared_source.is_none() {
-                    continue;
-                }
-                conflicts.push(NoteKnowledgeConflict {
-                    left_notebook_id: left.notebook_id.clone(),
-                    left_note_id: left.id.clone(),
-                    left_title: left.title.clone(),
-                    right_notebook_id: right.notebook_id.clone(),
-                    right_note_id: right.id.clone(),
-                    right_title: right.title.clone(),
-                    reason: if shared_source.is_some() {
-                        "source_changed".to_string()
-                    } else {
-                        "duplicate_title".to_string()
-                    },
-                    source_url: shared_source,
-                });
-            }
-        }
-        conflicts.truncate(100);
-        Ok(NotesKnowledgeSnapshot {
-            links,
-            similar,
-            conflicts,
         })
     }
 
@@ -844,9 +759,7 @@ impl NotesVault {
                 for note in &notes {
                     let note_path = self.note_path(id, &note.id)?;
                     let trash_path = trash_dir.join(format!("{}.md", &note.id));
-                    fs::rename(&note_path, &trash_path).map_err(|_| {
-                        NotesError::new("storage_unavailable", "Cannot move the note to trash")
-                    })?;
+                    trash_metadata::move_to_trash(&note_path, &trash_path)?;
                     self.append_change("deleted", note, None)?;
                 }
             }
@@ -1028,8 +941,7 @@ impl NotesVault {
             NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
         })?;
         let trash_path = trash_dir.join(format!("{}.md", validate_opaque_id(note_id)?));
-        fs::rename(&path, &trash_path)
-            .map_err(|_| NotesError::new("storage_unavailable", "Cannot move the note to trash"))?;
+        trash_metadata::move_to_trash(&path, &trash_path)?;
         self.touch_notebook(notebook_id)?;
         self.append_change("deleted", &existing.summary, None)?;
         Ok(())
@@ -1149,9 +1061,8 @@ impl NotesVault {
             let Some(note_id) = name.strip_suffix(".md").map(str::to_string) else {
                 continue;
             };
-            if modified_before_days(&entry.path(), retention_days)
-                && self.purge_note(notebook_id, &note_id).is_ok()
-            {
+            let stamp = trash_metadata::read_or_initialize(&entry.path())?;
+            if stamp.expired(retention_days) && self.purge_note(notebook_id, &note_id).is_ok() {
                 continue;
             }
             if let Ok(note) = read_note_file(&entry.path(), notebook_id) {
@@ -1159,7 +1070,9 @@ impl NotesVault {
                     notebook_id: notebook_id.to_string(),
                     notebook_title: Some(notebook_title.to_string()),
                     note: note.summary,
-                    deleted_at: modified_at_iso(&entry.path()),
+                    deleted_at: stamp.deleted_at,
+                    deletion_time_known: stamp.deletion_time_known,
+                    trash_token: stamp.trash_token,
                 });
             }
         }
@@ -1200,6 +1113,7 @@ impl NotesVault {
         }
         fs::rename(&trash_path, &target)
             .map_err(|_| NotesError::new("storage_unavailable", "Cannot restore the note"))?;
+        trash_metadata::remove(&trash_path);
         self.touch_notebook(&notebook_id)?;
         self.append_change(
             "restored",
@@ -1222,6 +1136,7 @@ impl NotesVault {
         fs::remove_file(&trash_path).map_err(|_| {
             NotesError::new("storage_unavailable", "Cannot permanently delete the note")
         })?;
+        trash_metadata::remove(&trash_path);
         let attachment_directory = self
             .vault_root(notebook_id)?
             .join("public")
@@ -1365,9 +1280,11 @@ impl NotesVault {
                     continue;
                 }
                 if let Ok(document) = read_note_file(&entry.path(), &notebook_id) {
+                    let stamp = trash_metadata::read_or_initialize(&entry.path())?;
                     trashed_notes.push(TrashNoteExport {
                         note: document,
-                        deleted_at: modified_at_iso(&entry.path()),
+                        deleted_at: stamp.deleted_at,
+                        deletion_time_known: stamp.deletion_time_known,
                     });
                 }
             }
@@ -1433,189 +1350,6 @@ impl NotesVault {
             exports.push(self.export_notebook(&notebook.id)?);
         }
         Ok(exports)
-    }
-
-    pub fn import_export(&self, export: VaultExport) -> Result<NotebookDescriptor, NotesError> {
-        if export.schema_version != VAULT_SCHEMA_VERSION {
-            return Err(NotesError::new(
-                "invalid_parameters",
-                "Unsupported Notes backup schema version",
-            ));
-        }
-        if export
-            .notes
-            .len()
-            .saturating_add(export.trashed_notes.len())
-            > MAX_NOTES
-        {
-            return Err(NotesError::new(
-                "quota_exceeded",
-                "Notes backup contains too many notes",
-            ));
-        }
-        let imported_title = format!("{} (Imported)", export.notebook.title);
-        validate_title(&imported_title)?;
-        let mut note_ids = BTreeSet::new();
-        let imported_note_count = export.notes.len();
-        for document in &export.notes {
-            validate_opaque_id(&document.summary.id)?;
-            validate_title(&document.summary.title)?;
-            validate_content(&document.content)?;
-            normalize_tags(document.summary.tags.clone())?;
-            if let Some(source) = &document.summary.source {
-                validate_source(source)?;
-            }
-            if !note_ids.insert(document.summary.id.clone()) {
-                return Err(NotesError::new(
-                    "invalid_parameters",
-                    "Notes backup contains duplicate note IDs",
-                ));
-            }
-        }
-        for trashed in &export.trashed_notes {
-            let document = &trashed.note;
-            validate_opaque_id(&document.summary.id)?;
-            validate_title(&document.summary.title)?;
-            validate_content(&document.content)?;
-            normalize_tags(document.summary.tags.clone())?;
-            if let Some(source) = &document.summary.source {
-                validate_source(source)?;
-            }
-            if !note_ids.insert(document.summary.id.clone()) {
-                return Err(NotesError::new(
-                    "invalid_parameters",
-                    "Notes backup contains duplicate note IDs",
-                ));
-            }
-        }
-        let mut total_attachment_bytes = 0usize;
-        let mut decoded_attachments = Vec::with_capacity(export.attachments.len());
-        for attachment in export.attachments {
-            if !note_ids.contains(&attachment.note_id) {
-                return Err(NotesError::new(
-                    "invalid_parameters",
-                    "Backup attachment references a missing note",
-                ));
-            }
-            let attachment_id = validate_attachment_id(&attachment.file_name)?;
-            let expected_mime = attachment_mime_from_name(&attachment_id)?;
-            if expected_mime != attachment.mime_type {
-                return Err(NotesError::new(
-                    "invalid_parameters",
-                    "Backup attachment MIME type is invalid",
-                ));
-            }
-            let bytes = base64::engine::general_purpose::STANDARD
-                .decode(attachment.data_base64)
-                .map_err(|_| {
-                    NotesError::new(
-                        "invalid_parameters",
-                        "Backup attachment is not valid base64",
-                    )
-                })?;
-            if bytes.is_empty() || bytes.len() > MAX_ATTACHMENT_BYTES {
-                return Err(NotesError::new(
-                    "payload_too_large",
-                    "Backup attachment exceeds the 5 MiB per-file limit",
-                ));
-            }
-            total_attachment_bytes = total_attachment_bytes.saturating_add(bytes.len());
-            if total_attachment_bytes > MAX_EXPORT_ATTACHMENT_BYTES {
-                return Err(NotesError::new(
-                    "quota_exceeded",
-                    "Backup attachments exceed the 50 MiB import limit",
-                ));
-            }
-            decoded_attachments.push((attachment.note_id, attachment_id, bytes));
-        }
-
-        let notebook = self.create_notebook(&imported_title, None, None)?;
-        let import_result = (|| {
-            for document in export.notes {
-                let imported = NoteDocument {
-                    summary: NoteSummary {
-                        id: document.summary.id,
-                        notebook_id: notebook.id.clone(),
-                        title: document.summary.title,
-                        icon: validate_icon(document.summary.icon)?,
-                        created_at: document.summary.created_at,
-                        updated_at: document.summary.updated_at,
-                        tags: normalize_tags(document.summary.tags)?,
-                        source: document.summary.source,
-                        snippet: None,
-                        version: String::new(),
-                    },
-                    content: normalize_newlines(&document.content),
-                };
-                self.write_note(&imported, None)?;
-            }
-            let trash_dir = self.vault_root(&notebook.id)?.join(".trash");
-            fs::create_dir_all(&trash_dir).map_err(|_| {
-                NotesError::new("storage_unavailable", "Cannot prepare the Notes trash")
-            })?;
-            for trashed in export.trashed_notes {
-                let imported = NoteDocument {
-                    summary: NoteSummary {
-                        id: trashed.note.summary.id,
-                        notebook_id: notebook.id.clone(),
-                        title: trashed.note.summary.title,
-                        icon: validate_icon(trashed.note.summary.icon)?,
-                        created_at: trashed.note.summary.created_at,
-                        updated_at: trashed.note.summary.updated_at,
-                        tags: normalize_tags(trashed.note.summary.tags)?,
-                        source: trashed.note.summary.source,
-                        snippet: None,
-                        version: String::new(),
-                    },
-                    content: normalize_newlines(&trashed.note.content),
-                };
-                let bytes = serialize_note(&imported)?;
-                atomic_write(
-                    &trash_dir.join(format!("{}.md", imported.summary.id)),
-                    &bytes,
-                )?;
-            }
-            for (note_id, attachment_id, bytes) in decoded_attachments {
-                let path = self
-                    .vault_root(&notebook.id)?
-                    .join("public")
-                    .join("attachments")
-                    .join(validate_opaque_id(&note_id)?)
-                    .join(attachment_id);
-                atomic_write(&path, &bytes)?;
-            }
-            self.touch_notebook(&notebook.id)
-        })();
-        if let Err(error) = import_result {
-            let _ = fs::remove_dir_all(self.vault_root(&notebook.id)?);
-            return Err(error);
-        }
-        // Report the real note count (the freshly created descriptor starts
-        // at zero until the imported documents are written).
-        Ok(NotebookDescriptor {
-            note_count: imported_note_count,
-            ..notebook
-        })
-    }
-
-    /// Restore every notebook from a workspace-level backup bundle. Each
-    /// notebook is imported with the standard "(Imported)" suffix, matching
-    /// the per-notebook restore path.
-    pub fn import_all_export(
-        &self,
-        bundle: VaultExportBundle,
-    ) -> Result<Vec<NotebookDescriptor>, NotesError> {
-        if bundle.schema_version != 1 {
-            return Err(NotesError::new(
-                "invalid_parameters",
-                "Unsupported Notes workspace backup schema version",
-            ));
-        }
-        let mut imported = Vec::with_capacity(bundle.notebooks.len());
-        for export in bundle.notebooks {
-            imported.push(self.import_export(export)?);
-        }
-        Ok(imported)
     }
 
     pub fn import_markdown(
@@ -1787,7 +1521,16 @@ impl NotesVault {
         let entries = fs::read_dir(vaults)
             .map_err(|_| NotesError::new("storage_unavailable", "Cannot read notebooks"))?;
         let mut notebooks = Vec::new();
-        for entry in entries.flatten().take(MAX_NOTEBOOKS + 1) {
+        for entry in entries
+            .flatten()
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|id| validate_opaque_id(id).is_ok())
+            })
+            .take(MAX_NOTEBOOKS + 1)
+        {
             let Ok(file_type) = entry.file_type() else {
                 continue;
             };
@@ -2402,41 +2145,6 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
     })
 }
 
-fn extract_note_targets<'a>(
-    content: &str,
-    by_title: &HashMap<String, &'a NoteSummary>,
-    by_ref: &HashMap<String, &'a NoteSummary>,
-) -> Vec<(String, &'a NoteSummary)> {
-    let mut targets = Vec::new();
-    for segment in content.split("[[").skip(1) {
-        let Some(end) = segment.find("]]") else {
-            continue;
-        };
-        let title = segment[..end]
-            .split('|')
-            .next()
-            .unwrap_or("")
-            .trim()
-            .to_lowercase();
-        if let Some(target) = by_title.get(&title) {
-            targets.push(("wikilink".into(), *target));
-        }
-    }
-    for (index, _) in content.match_indices("zicode-note://") {
-        let tail = &content[index + "zicode-note://".len()..];
-        let reference: String = tail
-            .chars()
-            .take_while(|character| {
-                character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '/')
-            })
-            .collect();
-        if let Some(target) = by_ref.get(&reference) {
-            targets.push(("reference".into(), *target));
-        }
-    }
-    targets
-}
-
 fn split_frontmatter(text: &str) -> Result<(&str, &str), NotesError> {
     let normalized = text.strip_prefix('\u{feff}').unwrap_or(text);
     let rest = normalized
@@ -2695,27 +2403,6 @@ pub fn content_hash(content: &str) -> String {
 
 pub fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
-}
-
-fn modified_at_iso(path: &Path) -> String {
-    let modified = fs::metadata(path)
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-        .and_then(|duration| {
-            chrono::DateTime::from_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
-        });
-    modified
-        .map(|time| time.to_rfc3339_opts(SecondsFormat::Secs, true))
-        .unwrap_or_else(now_iso)
-}
-
-fn modified_before_days(path: &Path, days: u64) -> bool {
-    fs::metadata(path)
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|time| time.elapsed().ok())
-        .is_some_and(|age| age.as_secs() >= days.saturating_mul(24 * 60 * 60))
 }
 
 fn atomic_json_write(path: &Path, value: &impl Serialize) -> Result<(), NotesError> {
@@ -3200,6 +2887,8 @@ mod tests {
                 None,
             )
             .unwrap();
+        let unique = vault.knowledge().unwrap();
+        assert_eq!(unique.links.len(), 2, "unique title and explicit reference both resolve");
         vault
             .create_note(
                 &notebook.id,
@@ -3211,7 +2900,9 @@ mod tests {
             )
             .unwrap();
         let snapshot = vault.knowledge().unwrap();
-        assert_eq!(snapshot.links.len(), 2);
+        assert_eq!(snapshot.links.len(), 1, "ambiguous titles must not choose an arbitrary note");
+        assert_eq!(snapshot.links[0].kind, "reference");
+        assert_eq!(snapshot.links[0].to_note_id, target.summary.id);
         assert!(snapshot
             .links
             .iter()

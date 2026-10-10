@@ -1,5 +1,52 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
+mod automation_dispatch;
+mod automation_leader;
+mod automation_orphans;
+mod automation_recovery;
+mod automation_runs;
+mod automation_schedule;
+mod automation_task_schedule;
+mod automation_workspace_sync;
+#[cfg(test)]
+mod devtools_text_tests;
+#[cfg(test)]
+mod diagnostics_pi_tests;
+#[cfg(test)]
+mod transforms_pi_tests;
+#[cfg(test)]
+mod compute_candidate_pi_tests;
+#[cfg(test)]
+mod inspect_pi_tests;
+#[cfg(test)]
+mod devtools_view_tests;
+mod git_stage;
+mod lifecycle;
+mod model_tools_http;
+mod plugin_tool_auth;
+mod plugin_call_lifecycle;
+mod plugin_tool_execution;
+mod plugin_desktop_execution;
+mod manual_tool_catalog;
+mod manual_tool_calls;
+#[cfg(test)]
+mod wasi_cancel_tests;
+#[cfg(test)]
+mod worker_test_observer;
+mod plugin_tool_catalog;
+mod plugin_results;
+mod plugin_resources;
+#[cfg(test)]
+mod plugin_broker_tests;
+mod project_environment;
+#[cfg(test)]
+mod shutdown_tests;
+mod terminal;
+mod tool_access;
+mod websocket_session;
+use model_tools_http::{model_tool_catalog, summarize_note, translate_http};
+use websocket_session::handle_websocket;
+
 use crate::artifact_store::{ArtifactDocument, ArtifactDraft, ArtifactError, ArtifactStore};
 use crate::host_data::{HostDataError, HostDataPlane, SessionBackupEntry};
 use crate::host_router::{HostRouter, RoutedAction, PROTOCOL_VERSION};
@@ -10,7 +57,7 @@ use crate::notes_vault::{
 use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunchResolver};
 use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
 use crate::plugin_package::SignedPluginPreview;
-use crate::plugin_registry::PluginRegistry;
+use crate::plugin_registry::{PluginOrigin, PluginRegistry};
 use crate::relay_client::{page_origin_of, RelayAgentConfig, RelayAgentState, RelayAgentStatus};
 use crate::remote_auth::{PairingError, RemoteAuth};
 use crate::remote_tls::PreparedRemoteTlsListener;
@@ -45,6 +92,8 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 
 const MAX_HTTP_BODY_BYTES: usize = 2 * 1024 * 1024;
+const MAX_MODEL_GATEWAY_BODY_BYTES: usize = 16 * 1024 * 1024;
+const MODEL_GATEWAY_HEADER_TIMEOUT: Duration = Duration::from_secs(180);
 const QVERIS_GATEWAY_TARGET: &str = "https://aigateway.qveris.ai/v1";
 const MAX_ATTACHMENT_HTTP_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_IDPHOTO_HTTP_BODY_BYTES: usize = 20 * 1024 * 1024;
@@ -72,6 +121,11 @@ struct RemoteAccessRuntime {
 }
 
 struct HostState {
+    tool_access: Arc<Mutex<crate::metadata_store::MetadataStore>>,
+    lifecycle: lifecycle::HostLifecycle,
+    project_tasks: crate::project_tasks::TaskRunner,
+    project_environment: Arc<crate::project_environment::Store>,
+    terminals: Arc<crate::project_terminal::TerminalManager>,
     router: Mutex<HostRouter>,
     runtimes: NativePiManager,
     auth: Arc<Mutex<RemoteAuth>>,
@@ -79,12 +133,19 @@ struct HostState {
     data: HostDataPlane,
     plugins: Mutex<PluginRegistry>,
     capability_broker: Mutex<CapabilityBroker>,
+    plugin_calls: plugin_call_lifecycle::Calls,
+    manual_tool_calls: manual_tool_calls::Calls,
+    plugin_results: Mutex<plugin_results::Store>,
+    plugin_resources: Mutex<plugin_resources::Store>,
+    plugin_resource_operations: plugin_resources::Operations,
+    plugin_resource_workers: plugin_resources::worker::Workers,
     notes: Mutex<NotesVault>,
     artifacts: Mutex<ArtifactStore>,
     plugin_tokens: Mutex<HashMap<String, RuntimePluginToken>>,
     pi_launch: PiLaunchResolver,
     allowed_origin: String,
     allowed_origins: HashSet<String>,
+    desktop_token: String,
     remote_access: RemoteAccessRuntime,
 }
 
@@ -97,6 +158,15 @@ pub struct HostServer {
     public_shutdown: Option<axum_server::Handle<SocketAddr>>,
     relay_shutdown: Option<oneshot::Sender<()>>,
     state: Arc<HostState>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HostMode {
+    Desktop,
+    AutomationWorker,
+    /// Normal UI/WS routes without global relay, identity or migration side effects.
+    #[cfg(test)]
+    IsolatedDesktop,
 }
 
 impl HostServer {
@@ -122,6 +192,41 @@ impl HostServer {
         auth: Arc<Mutex<RemoteAuth>>,
         workspace_roots: HashMap<String, PathBuf>,
     ) -> Result<Self, String> {
+        Self::start_with_mode(
+            static_dir,
+            runtimes,
+            auth,
+            workspace_roots,
+            HostMode::Desktop,
+        )
+        .await
+    }
+
+    pub async fn start_automation_worker(
+        static_dir: PathBuf,
+        runtimes: NativePiManager,
+        auth: Arc<Mutex<RemoteAuth>>,
+        workspace_roots: HashMap<String, PathBuf>,
+    ) -> Result<Self, String> {
+        Self::start_with_mode(
+            static_dir,
+            runtimes,
+            auth,
+            workspace_roots,
+            HostMode::AutomationWorker,
+        )
+        .await
+    }
+
+    async fn start_with_mode(
+        static_dir: PathBuf,
+        runtimes: NativePiManager,
+        auth: Arc<Mutex<RemoteAuth>>,
+        workspace_roots: HashMap<String, PathBuf>,
+        mode: HostMode,
+    ) -> Result<Self, String> {
+        let lifecycle = lifecycle::HostLifecycle::default();
+        let mut startup = lifecycle.startup_guard();
         let mut data = HostDataPlane::new(workspace_roots)
             .map_err(|error| format!("Cannot initialize Host data plane: {error:?}"))?;
         if let Ok(data_root) = crate::app_paths::data_root() {
@@ -132,18 +237,20 @@ impl HostServer {
             // workspace's `.zicode/sessions`. Skipped in tests so the unit
             // suite never touches the real marker or user data.
             #[cfg(not(test))]
-            if let Ok(marker) = crate::app_paths::data_root()
-                .map(|root| root.join("sessions").join(".legacy-migrated"))
-            {
-                match data.migrate_legacy_sessions(&marker) {
-                    Ok(moved) if moved > 0 => {
-                        log::info!(
-                            "[host-data] migrated {moved} legacy session file(s) into workspace .zicode directories"
-                        );
-                    }
-                    Ok(_) => {}
-                    Err(error) => {
-                        log::warn!("[host-data] legacy session migration skipped: {error:?}");
+            if mode == HostMode::Desktop {
+                if let Ok(marker) = crate::app_paths::data_root()
+                    .map(|root| root.join("sessions").join(".legacy-migrated"))
+                {
+                    match data.migrate_legacy_sessions(&marker) {
+                        Ok(moved) if moved > 0 => {
+                            log::info!(
+                                "[host-data] migrated {moved} legacy session file(s) into workspace .zicode directories"
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            log::warn!("[host-data] legacy session migration skipped: {error:?}");
+                        }
                     }
                 }
             }
@@ -153,15 +260,18 @@ impl HostServer {
         // reachable from the LAN unless a future authenticated LAN gateway is
         // enabled explicitly.
         const PREFERRED_PORT_BASE: u16 = 57620;
+        // Tests use OS-assigned ports; production keeps stable loopback origins.
         const PREFERRED_PORT_COUNT: u16 = 32;
         let mut listener = None;
-        for offset in 0..PREFERRED_PORT_COUNT {
-            let candidate = PREFERRED_PORT_BASE + offset;
-            if let Ok(bound) =
-                tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, candidate)).await
-            {
-                listener = Some(bound);
-                break;
+        if !cfg!(test) {
+            for offset in 0..PREFERRED_PORT_COUNT {
+                let candidate = PREFERRED_PORT_BASE + offset;
+                if let Ok(bound) =
+                    tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, candidate)).await
+                {
+                    listener = Some(bound);
+                    break;
+                }
             }
         }
         let listener = match listener {
@@ -174,7 +284,8 @@ impl HostServer {
             .local_addr()
             .map_err(|error| format!("Cannot read ZiCode Studio Desktop Host address: {error}"))?;
         let loopback_origin = format!("http://127.0.0.1:{}", address.port());
-        let remote_access_enabled = configured_remote_access_enabled()?;
+        let remote_access_enabled =
+            mode == HostMode::Desktop && configured_remote_access_enabled()?;
         let prepared_remote = if remote_access_enabled {
             Some(crate::remote_tls::prepare_lan_listener().await?)
         } else {
@@ -184,7 +295,11 @@ impl HostServer {
         if let Some(prepared) = &prepared_remote {
             allowed_origins.extend(prepared.urls.iter().cloned());
         }
-        let remote_access_config = crate::remote_access_config::load().unwrap_or_default();
+        let remote_access_config = if mode == HostMode::Desktop {
+            crate::remote_access_config::load().unwrap_or_default()
+        } else {
+            Default::default()
+        };
         if remote_access_config.relay_enabled {
             if let Some(origin) = remote_access_config
                 .public_url
@@ -215,14 +330,18 @@ impl HostServer {
             .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?
             .with_workspace_registry(workspace_roots, system_root);
         let relay_status: RelayAgentStatus = Arc::new(Mutex::new(RelayAgentState::default()));
-        let e2ee_identity = match crate::e2ee::E2eeIdentity::load_or_create() {
-            Ok(identity) => Some(Arc::new(identity)),
-            Err(error) => {
-                log::warn!(
-                    "[e2ee] E2EE identity unavailable; relay sessions stay in M1 mode: {error}"
-                );
-                None
+        let e2ee_identity = if mode == HostMode::Desktop {
+            match crate::e2ee::E2eeIdentity::load_or_create() {
+                Ok(identity) => Some(Arc::new(identity)),
+                Err(error) => {
+                    log::warn!(
+                        "[e2ee] E2EE identity unavailable; relay sessions stay in M1 mode: {error}"
+                    );
+                    None
+                }
             }
+        } else {
+            None
         };
         let remote_access = prepared_remote
             .as_ref()
@@ -245,7 +364,7 @@ impl HostServer {
                 remote_access_config.relay_device_id.clone(),
             ) {
                 let poll_status = relay_status.clone();
-                tokio::spawn(async move {
+                lifecycle.background(async move {
                     let client = reqwest::Client::builder()
                         .no_proxy()
                         .timeout(Duration::from_secs(10))
@@ -284,9 +403,26 @@ impl HostServer {
                 });
             }
         }
-        let relay_shutdown =
-            prepare_relay_agent(prepared_remote.as_ref(), relay_status, e2ee_identity)?;
+        let relay_shutdown = if mode == HostMode::Desktop {
+            prepare_relay_agent(
+                prepared_remote.as_ref(),
+                relay_status,
+                e2ee_identity,
+                &lifecycle,
+            )?
+        } else {
+            None
+        };
+        let tool_access = auth
+            .lock()
+            .map_err(|_| "Metadata store is unavailable")?
+            .metadata_store();
         let state = Arc::new(HostState {
+            tool_access,
+            lifecycle,
+            project_tasks: crate::project_tasks::TaskRunner::for_host(&static_dir),
+            project_environment: Arc::new(crate::project_environment::Store::for_host(&static_dir)),
+            terminals: Arc::new(crate::project_terminal::TerminalManager::default()),
             router: Mutex::new(HostRouter::new()),
             runtimes,
             auth,
@@ -294,19 +430,89 @@ impl HostServer {
             data,
             plugins: Mutex::new(plugins),
             capability_broker: Mutex::new(capability_broker),
+            plugin_calls: plugin_call_lifecycle::Calls::default(),
+            manual_tool_calls: manual_tool_calls::Calls::default(),
+            plugin_results: Mutex::new(plugin_results::Store::default()),
+            plugin_resources: Mutex::new(plugin_resources::Store::default()),
+            plugin_resource_operations: plugin_resources::Operations::default(),
+            plugin_resource_workers: plugin_resources::worker::Workers::default(),
             notes: Mutex::new(notes),
             artifacts: Mutex::new(artifacts),
             plugin_tokens: Mutex::new(HashMap::new()),
             pi_launch: PiLaunchResolver::new(static_dir.clone()),
             allowed_origin: loopback_origin.clone(),
             allowed_origins,
+            desktop_token: format!(
+                "{}{}",
+                uuid::Uuid::new_v4().simple(),
+                uuid::Uuid::new_v4().simple()
+            ),
             remote_access,
+        });
+        let automation_roots = state.data.workspace_roots();
+        let automation_runtimes = state.runtimes.clone();
+        let automation_state = Arc::downgrade(&state);
+        let automation_lifecycle = state.lifecycle.clone();
+        state.lifecycle.background(async move {
+            let mut reported = false;
+            loop {
+                match automation_leader::try_acquire() {
+                    Ok(true) => break,
+                    Ok(false) => {
+                        if !reported {
+                            log::info!("[automation] another process owns the automation runner");
+                            reported = true;
+                        }
+                    }
+                    Err(code) => {
+                        if !reported {
+                            log::warn!("[automation] cannot acquire runner lock: {code}");
+                            reported = true;
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+            log::info!("[automation] this process owns the automation runner");
+            automation_workspace_sync::refresh_until_ready(
+                &automation_roots,
+                &automation_lifecycle,
+            )
+            .await;
+            tokio::join!(
+                automation_workspace_sync::run(
+                    automation_roots.clone(),
+                    automation_lifecycle.clone(),
+                ),
+                automation_recovery::run(
+                    automation_state.clone(),
+                    automation_runtimes.clone(),
+                    automation_roots.clone(),
+                    automation_lifecycle.clone(),
+                ),
+                automation_dispatch::run(
+                    automation_state,
+                    automation_roots.clone(),
+                    automation_lifecycle.clone(),
+                ),
+                automation_schedule::run(automation_roots.clone(), automation_lifecycle.clone()),
+                automation_task_schedule::run(
+                    automation_roots.clone(),
+                    automation_lifecycle.clone()
+                ),
+                automation_orphans::run(
+                    automation_roots.clone(),
+                    automation_runtimes,
+                    automation_lifecycle.clone(),
+                ),
+                automation_runs::run(automation_roots, automation_lifecycle),
+            );
         });
         // Reap stale temporary runtimes periodically, not only when a new
         // runtime is spawned: a long-running session would otherwise keep
         // every abandoned `temporary-*` pi.exe alive until the app restarts.
         let reaper_state = state.clone();
-        let reaper_task = tokio::spawn(async move {
+        let reaper_task = state.lifecycle.background(async move {
             let mut ticker = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
@@ -316,6 +522,40 @@ impl HostServer {
                     .reap_stale_temporary_runtimes(std::time::Duration::from_secs(15 * 60));
             }
         });
+        if mode == HostMode::AutomationWorker {
+            // Child Pi runtimes only need their token-authenticated plugin
+            // broker. Do not serve the desktop UI, data APIs, or mobile routes.
+            let worker_app = Router::new()
+                .route("/v2/plugin-tools/invoke", post(invoke_plugin_tool))
+                .route("/v2/plugin-tools/cancel", post(plugin_tool_execution::cancel))
+                .route("/v2/plugin-tools/catalog/search", post(plugin_tool_catalog::search))
+                .route("/v2/plugin-tools/catalog/load", post(plugin_tool_catalog::load))
+                .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_BYTES))
+                .with_state(state.clone());
+            let (shutdown_tx, shutdown_rx) = oneshot::channel();
+            let shutdown_lifecycle = state.lifecycle.clone();
+            state.lifecycle.spawn(async move {
+                if let Err(error) = axum::serve(listener, worker_app)
+                    .with_graceful_shutdown(async move {
+                        tokio::select! { _ = shutdown_rx => {}, _ = shutdown_lifecycle.cancelled() => {} }
+                    })
+                    .await
+                {
+                    log::error!("[automation] plugin broker stopped: {error}");
+                }
+            });
+            startup.commit();
+            return Ok(Self {
+                origin: loopback_origin,
+                reaper_task: Some(reaper_task),
+                shutdown: Some(shutdown_tx),
+                lan_shutdown: None,
+                enrollment_shutdown: None,
+                public_shutdown: None,
+                relay_shutdown: None,
+                state,
+            });
+        }
         let index = static_dir.join("index.html");
         let static_service = ServeDir::new(static_dir).fallback(ServeFile::new(index));
         // Release builds must revalidate static assets too: without Cache-Control,
@@ -338,7 +578,10 @@ impl HostServer {
             .route("/v2/remote-config", get(remote_config))
             .route("/v2/sessions", get(list_all_sessions_http))
             .route("/v2/sessions/export", get(export_sessions_http))
-            .route("/v2/sessions/import", post(import_sessions_http))
+            .route(
+                "/v2/sessions/import",
+                post(import_sessions_http).layer(DefaultBodyLimit::max(MAX_BACKUP_HTTP_BODY_BYTES)),
+            )
             .route("/v2/plugins", get(list_plugins))
             .route("/v2/plugins/enablement", post(set_plugin_enablement))
             .route("/v2/plugins/permission", post(set_plugin_permission))
@@ -346,12 +589,42 @@ impl HostServer {
             .route("/v2/plugins/uninstall", post(uninstall_plugin))
             .route("/v2/plugin-views/source", get(read_plugin_view_source))
             .route("/v2/plugin-capabilities", get(list_plugin_capabilities))
+            .route("/v2/plugin-tool-directory", get(manual_tool_catalog::search))
+            .route("/v2/plugin-tool-directory/detail", get(manual_tool_catalog::detail))
+            .route("/v2/plugin-capabilities/call-protocol", get(manual_tool_calls::protocol))
+            .route("/v2/plugin-capabilities/prepare-call", post(manual_tool_calls::prepare).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
+            .route("/v2/plugin-capabilities/cancel-call", post(manual_tool_calls::cancel))
+            .route("/v2/plugin-capabilities/call-status", post(manual_tool_calls::status))
+            .route("/v2/plugin-capabilities/reconcile-call", post(manual_tool_calls::reconcile))
             .route(
                 "/v2/plugin-capabilities/invoke",
                 post(invoke_plugin_capability),
             )
             .route("/v2/plugin-commands/invoke", post(invoke_plugin_command))
+            .route("/v2/plugin-results/prepare-save", post(plugin_results::prepare))
+            .route("/v2/plugin-resources/prepare", post(plugin_resources::prepare))
+            .route("/v2/plugin-resources/append", post(plugin_resources::append))
+            .route("/v2/plugin-resources/commit", post(plugin_resources::commit))
+            .route("/v2/plugin-resources/read", post(plugin_resources::read))
+            .route("/v2/plugin-resources/read-view", post(plugin_resources::read_view))
+            .route("/v2/plugin-resources/invoke-view", post(plugin_resources::worker::invoke).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
+            .route("/v2/plugin-resources/cancel-view", post(plugin_resources::worker::cancel))
+            .route("/v2/plugin-resources/worker-audit-view", post(plugin_resources::worker::audit))
+            .route("/v2/plugin-resources/revoke", post(plugin_resources::revoke))
+            .route("/v2/plugin-resources/prepare-transfer", post(plugin_resources::transfer::prepare))
+            .route("/v2/plugin-resources/commit-transfer", post(plugin_resources::transfer::commit))
+            .route("/v2/plugin-resources/prepare-save", post(plugin_resources::save::prepare))
+            .route("/v2/plugin-resources/commit-save", post(plugin_resources::save::commit))
+            .route("/v2/plugin-resources/saved-outputs", get(plugin_resources::library::list))
+            .route("/v2/plugin-resources/saved-output", get(plugin_resources::library::read))
+            .route("/v2/plugin-results/commit-save", post(plugin_results::commit))
+            .route("/v2/plugin-results/prepare-transfer", post(plugin_results::transfer::prepare))
+            .route("/v2/plugin-results/targets", post(plugin_results::transfer::targets::search))
+            .route("/v2/plugin-results/commit-transfer", post(plugin_results::transfer::commit))
             .route("/v2/plugin-tools/invoke", post(invoke_plugin_tool))
+            .route("/v2/plugin-tools/cancel", post(plugin_tool_execution::cancel))
+                .route("/v2/plugin-tools/catalog/search", post(plugin_tool_catalog::search))
+                .route("/v2/plugin-tools/catalog/load", post(plugin_tool_catalog::load))
             .route("/v2/notes", get(list_notes))
             .route("/v2/notes/knowledge", get(list_note_knowledge))
             .route("/v2/notes/changes", get(list_note_changes))
@@ -417,6 +690,7 @@ impl HostServer {
             .route("/v2/habits/toggle", post(toggle_habit_http))
             .route("/v2/habits/remove", post(remove_habit_http))
             .route("/v2/translate", post(translate_http))
+            .route("/v2/model-tools/models", get(model_tool_catalog))
             .route("/v2/watch", get(list_watch_http))
             .route("/v2/watch/add", post(add_watch_http))
             .route("/v2/watch/update", post(update_watch_http))
@@ -455,7 +729,10 @@ impl HostServer {
             .route("/v2/auth/exchange", post(exchange_pairing))
             .route("/v2/auth/ca.pem", get(download_remote_ca))
             .route("/v2/lan-qr", get(lan_qr))
-            .route("/v2/model-gateway/{*path}", any(model_gateway_proxy))
+            .route(
+                "/v2/model-gateway/{*path}",
+                any(model_gateway_proxy).layer(DefaultBodyLimit::max(MAX_MODEL_GATEWAY_BODY_BYTES)),
+            )
             .route("/v2/new-session", post(new_session))
             .route("/v2/resolve-workspace", post(resolve_workspace))
             .fallback_service(static_service);
@@ -508,17 +785,18 @@ impl HostServer {
                 prepared.ca_fingerprint.clone(),
             );
             let (enrollment_tx, enrollment_rx) = oneshot::channel();
-            tokio::spawn(async move {
+            let enrollment_lifecycle = state.lifecycle.clone();
+            state.lifecycle.spawn(async move {
                 if let Err(error) = axum::serve(enrollment_listener, enrollment_app)
-                    .with_graceful_shutdown(async {
-                        let _ = enrollment_rx.await;
+                    .with_graceful_shutdown(async move {
+                        tokio::select! { _ = enrollment_rx => {}, _ = enrollment_lifecycle.cancelled() => {} }
                     })
                     .await
                 {
                     log::error!("[picot-host] mobile setup server stopped unexpectedly: {error}");
                 }
             });
-            tokio::spawn(async move {
+            state.lifecycle.spawn(async move {
                 let server = match axum_server::from_tcp_rustls(prepared.listener, tls_config) {
                     Ok(server) => server,
                     Err(error) => {
@@ -539,7 +817,7 @@ impl HostServer {
                     let handle = axum_server::Handle::new();
                     let server_handle = handle.clone();
                     let public_tls_config = prepared.tls_config.clone();
-                    tokio::spawn(async move {
+                    state.lifecycle.spawn(async move {
                         let server = match axum_server::from_tcp_rustls(listener, public_tls_config)
                         {
                             Ok(server) => server,
@@ -569,19 +847,21 @@ impl HostServer {
             (None, None, None)
         };
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        tokio::spawn(async move {
+        let shutdown_lifecycle = state.lifecycle.clone();
+        state.lifecycle.spawn(async move {
             if let Err(error) = axum::serve(
                 listener,
                 app.into_make_service_with_connect_info::<SocketAddr>(),
             )
-            .with_graceful_shutdown(async {
-                let _ = shutdown_rx.await;
+            .with_graceful_shutdown(async move {
+                tokio::select! { _ = shutdown_rx => {}, _ = shutdown_lifecycle.cancelled() => {} }
             })
             .await
             {
                 log::error!("[picot-host] server stopped unexpectedly: {error}");
             }
         });
+        startup.commit();
         Ok(Self {
             origin: loopback_origin,
             reaper_task: Some(reaper_task),
@@ -617,6 +897,10 @@ impl HostServer {
 
     pub fn origin(&self) -> &str {
         &self.origin
+    }
+
+    pub fn desktop_token(&self) -> &str {
+        &self.state.desktop_token
     }
 
     pub fn configure_plugin_broker(
@@ -675,6 +959,8 @@ impl HostServer {
     }
 
     pub fn stop(mut self) {
+        self.request_shutdown();
+        self.state.project_tasks.stop_all();
         if let Some(shutdown) = self.shutdown.take() {
             let _ = shutdown.send(());
         }
@@ -698,11 +984,6 @@ fn configure_plugin_broker_for_state(
     target: &RuntimeTarget,
     launch: &mut NativeLaunchSpec,
 ) -> Result<(), String> {
-    let tools = state
-        .plugins
-        .lock()
-        .map_err(|_| "Plugin registry is unavailable".to_string())?
-        .pi_tools(&target.scene_id);
     let token = format!(
         "{}{}",
         uuid::Uuid::new_v4().simple(),
@@ -732,9 +1013,13 @@ fn configure_plugin_broker_for_state(
         .insert("PI_DESKTOP_PLUGIN_BROKER_TOKEN".into(), token);
     launch.environment.insert(
         "PI_DESKTOP_PLUGIN_TOOLS".into(),
-        serde_json::to_string(&tools)
-            .map_err(|error| format!("Cannot encode plugin tool snapshot: {error}"))?,
+        "[]".into(),
     );
+    // Discover schemas through the authenticated catalog instead of putting an
+    // unbounded snapshot in the Windows process environment.
+    launch
+        .environment
+        .insert("PI_DESKTOP_PLUGIN_CATALOG".into(), "1".into());
     launch.environment.insert(
         "PI_DESKTOP_PLUGIN_RUNTIME_ID".into(),
         target.instance_id.clone(),
@@ -748,6 +1033,8 @@ fn configure_plugin_broker_for_state(
 
 impl Drop for HostServer {
     fn drop(&mut self) {
+        self.request_shutdown();
+        self.state.project_tasks.stop_all();
         // Abort the periodic runtime reaper so it releases its Arc<HostState>;
         // otherwise the state (and its temp directory) outlives the server in
         // tests and the cleanup assertion fails on locked files.
@@ -802,6 +1089,7 @@ fn prepare_relay_agent(
     prepared: Option<&PreparedRemoteTlsListener>,
     status: RelayAgentStatus,
     e2ee_identity: Option<crate::e2ee::E2eeIdentityRef>,
+    lifecycle: &lifecycle::HostLifecycle,
 ) -> Result<Option<oneshot::Sender<()>>, String> {
     let Some(prepared) = prepared else {
         return Ok(None);
@@ -834,7 +1122,7 @@ fn prepare_relay_agent(
         .and_then(page_origin_of)
         .ok_or("publicUrl must be a valid https URL when relay access is enabled")?;
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
-    tokio::spawn(crate::relay_client::run(
+    lifecycle.background(crate::relay_client::run(
         RelayAgentConfig {
             relay_url,
             device_id,
@@ -933,6 +1221,58 @@ fn remote_http_authorized(
     http_bearer_authorized(auth, headers)
 }
 
+fn loopback_http_origin_allowed(headers: &HeaderMap, desktop_origin: &str) -> bool {
+    let origin_allowed = match headers.get(axum::http::header::ORIGIN) {
+        Some(origin) => origin.to_str().is_ok_and(|origin| origin == desktop_origin),
+        None => true,
+    };
+    let fetch_site_allowed = match headers.get("sec-fetch-site") {
+        Some(site) => site
+            .to_str()
+            .is_ok_and(|site| site == "same-origin" || site == "none"),
+        None => true,
+    };
+    origin_allowed && fetch_site_allowed
+}
+
+fn desktop_http_token_authorized(headers: &HeaderMap, desktop_token: &str) -> bool {
+    headers
+        .get("x-zicode-desktop-token")
+        .and_then(|value| value.to_str().ok())
+        == Some(desktop_token)
+}
+
+fn desktop_plugin_http_path(path: &str) -> bool {
+    matches!(
+        path,
+        "/v2/plugin-views/source"
+            | "/v2/plugin-capabilities/call-protocol"
+            | "/v2/plugin-capabilities/prepare-call"
+            | "/v2/plugin-capabilities/cancel-call"
+            | "/v2/plugin-capabilities/call-status"
+            | "/v2/plugin-capabilities/reconcile-call"
+            | "/v2/plugins/enablement"
+            | "/v2/plugins/permission"
+            | "/v2/plugins/reload"
+            | "/v2/plugins/uninstall"
+            | "/v2/plugin-commands/invoke"
+            | "/v2/plugin-resources/prepare"
+            | "/v2/plugin-resources/append"
+            | "/v2/plugin-resources/commit"
+            | "/v2/plugin-resources/revoke"
+            | "/v2/plugin-resources/read-view"
+            | "/v2/plugin-resources/invoke-view"
+            | "/v2/plugin-resources/cancel-view"
+            | "/v2/plugin-resources/worker-audit-view"
+            | "/v2/plugin-resources/prepare-transfer"
+            | "/v2/plugin-resources/commit-transfer"
+            | "/v2/plugin-resources/prepare-save"
+            | "/v2/plugin-resources/commit-save"
+            | "/v2/plugin-resources/saved-outputs"
+            | "/v2/plugin-resources/saved-output"
+    )
+}
+
 fn http_bearer_authorized(auth: &Arc<Mutex<RemoteAuth>>, headers: &HeaderMap) -> bool {
     let token = headers
         .get(axum::http::header::AUTHORIZATION)
@@ -969,6 +1309,26 @@ async fn authorize_remote_http(
     request: Request,
     next: Next,
 ) -> Response {
+    if desktop_plugin_http_path(request.uri().path())
+        && (!peer.ip().is_loopback()
+            || !desktop_http_token_authorized(request.headers(), &state.desktop_token))
+    {
+        return api_error(StatusCode::FORBIDDEN, "desktop_only").into_response();
+    }
+    // Browsers can reach the loopback listener while displaying a LAN or
+    // public page. Do not treat their HTTP requests as desktop-owned solely
+    // because the TCP peer is loopback. Native local clients remain supported.
+    if peer.ip().is_loopback()
+        && !loopback_http_origin_allowed(request.headers(), &state.allowed_origin)
+    {
+        let path = request.uri().path();
+        if path == "/v2/lan-qr" || path.starts_with("/v2/model-gateway/") {
+            return api_error(StatusCode::FORBIDDEN, "desktop_only").into_response();
+        }
+        if !http_bearer_authorized(&state.auth, request.headers()) {
+            return api_error(StatusCode::UNAUTHORIZED, "device_auth_required").into_response();
+        }
+    }
     if public_remote_path(request.uri().path())
         || remote_http_authorized(&state.auth, peer.ip(), request.headers())
     {
@@ -988,7 +1348,10 @@ async fn authorize_public_http(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
-    if path == "/v2/lan-qr" || path.starts_with("/v2/model-gateway/") {
+    if path == "/v2/lan-qr"
+        || path.starts_with("/v2/model-gateway/")
+        || desktop_plugin_http_path(path)
+    {
         return api_error(StatusCode::FORBIDDEN, "desktop_only").into_response();
     }
     if public_remote_path(path) || http_bearer_authorized(&state.auth, request.headers()) {
@@ -1006,9 +1369,15 @@ struct LanQrQuery {
 async fn lan_qr(
     State(state): State<Arc<HostState>>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Query(query): Query<LanQrQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    if !lan_qr_issuer_allowed(peer.ip()) {
+    if !lan_qr_issuer_allowed(peer.ip())
+        || headers
+            .get("x-zicode-desktop-token")
+            .and_then(|value| value.to_str().ok())
+            != Some(state.desktop_token.as_str())
+    {
         return Err(api_error(StatusCode::FORBIDDEN, "desktop_pairing_required"));
     }
     let kind = query.kind.as_deref().unwrap_or("session");
@@ -1096,13 +1465,9 @@ async fn model_gateway_proxy(
     if !peer.ip().is_loopback() {
         return api_error(StatusCode::FORBIDDEN, "loopback_only").into_response();
     }
-    let auth_preview = headers
-        .get("authorization")
-        .and_then(|value| value.to_str().ok())
-        .map(auth_preview)
-        .unwrap_or_else(|| "<none>".to_string());
+    let auth_state = authorization_log_state(&headers);
     log::info!(
-        "[model-gateway] {method} /{path} auth={auth_preview} body={} bytes",
+        "[model-gateway] {method} auth={auth_state} body={} bytes",
         body.len()
     );
     let target = format!("{QVERIS_GATEWAY_TARGET}/{path}");
@@ -1114,53 +1479,41 @@ async fn model_gateway_proxy(
     let mut request = reqwest::Client::new()
         .request(method, &target)
         .body(payload);
-    for name in ["authorization", "content-type"] {
+    for name in ["authorization", "content-type", "accept"] {
         if let Some(value) = headers.get(name) {
             request = request.header(name, value);
         }
     }
-    let upstream = match request.send().await {
-        Ok(response) => response,
-        Err(_) => {
+    let upstream = match tokio::time::timeout(MODEL_GATEWAY_HEADER_TIMEOUT, request.send()).await {
+        Ok(Ok(response)) => response,
+        Ok(Err(_)) => {
             return api_error(StatusCode::BAD_GATEWAY, "model_gateway_unreachable").into_response();
+        }
+        Err(_) => {
+            return api_error(StatusCode::GATEWAY_TIMEOUT, "model_gateway_timeout").into_response()
         }
     };
     let status = upstream.status();
-    let content_type = upstream
-        .headers()
-        .get("content-type")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned);
-    let upstream_bytes = match upstream.bytes().await {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            return api_error(StatusCode::BAD_GATEWAY, "model_gateway_unreachable").into_response();
-        }
-    };
-    let preview = String::from_utf8_lossy(&upstream_bytes[..upstream_bytes.len().min(200)]);
-    log::info!(
-        "[model-gateway] upstream {status} body={preview} ({} bytes)",
-        upstream_bytes.len()
-    );
+    log::info!("[model-gateway] upstream {status}; streaming response body");
     let mut builder = Response::builder().status(status);
-    if let Some(value) = content_type {
-        builder = builder.header("content-type", value);
+    for name in ["content-type", "cache-control", "retry-after"] {
+        if let Some(value) = upstream.headers().get(name) {
+            builder = builder.header(name, value.clone());
+        }
     }
     builder
-        .body(Body::from(upstream_bytes))
+        .body(Body::from_stream(upstream.bytes_stream()))
         .unwrap_or_else(|_| {
             api_error(StatusCode::INTERNAL_SERVER_ERROR, "model_gateway_stream").into_response()
         })
 }
 
-/// Mask an `Authorization` header for logs: reveal only a short prefix plus
-/// the total length so operators can correlate a request without exposing the
-/// credential. Values that are too short to mask meaningfully are redacted.
-fn auth_preview(value: &str) -> String {
-    if value.len() > 8 {
-        format!("{}… ({} chars)", &value[..6], value.len())
+/// Record only presence; even a masked prefix or length can reveal credential details.
+fn authorization_log_state(headers: &HeaderMap) -> &'static str {
+    if headers.contains_key("authorization") {
+        "present"
     } else {
-        "<redacted>".to_string()
+        "absent"
     }
 }
 
@@ -1195,6 +1548,8 @@ struct ImportSessionsRequest {
     workspace_id: String,
     #[serde(default)]
     sessions: Vec<SessionBackupEntry>,
+    #[serde(default)]
+    relink_source_path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1243,6 +1598,12 @@ struct CapabilityInvokeRequest {
     capability_id: String,
     #[serde(default)]
     input: Value,
+    #[serde(default)]
+    capture_result: bool,
+    #[serde(default)]
+    catalog_revision: Option<String>,
+    #[serde(default)]
+    call_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1261,6 +1622,8 @@ struct PluginToolInvokeRequest {
     session_id: String,
     tool_call_id: String,
     tool_name: String,
+    tool_id: Option<String>,
+    catalog_revision: Option<String>,
     #[serde(default)]
     input: Value,
 }
@@ -1316,6 +1679,9 @@ struct TrashNoteRequest {
     scene_id: String,
     notebook_id: String,
     note_id: String,
+    expected_version: Option<String>,
+    expected_deleted_at: Option<String>,
+    expected_trash_token: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1687,6 +2053,15 @@ async fn restore_trashed_note(
     let scoped = notes
         .scoped(&request.workspace_id)
         .map_err(notes_api_error)?;
+    scoped
+        .validate_trash_entry(
+            &request.notebook_id,
+            &request.note_id,
+            request.expected_version.as_deref(),
+            request.expected_deleted_at.as_deref(),
+            request.expected_trash_token.as_deref(),
+        )
+        .map_err(notes_api_error)?;
     let note = scoped
         .restore_note(&request.notebook_id, &request.note_id)
         .map_err(notes_api_error)?;
@@ -1701,6 +2076,15 @@ async fn purge_trashed_note(
     let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
     let scoped = notes
         .scoped(&request.workspace_id)
+        .map_err(notes_api_error)?;
+    scoped
+        .validate_trash_entry(
+            &request.notebook_id,
+            &request.note_id,
+            request.expected_version.as_deref(),
+            request.expected_deleted_at.as_deref(),
+            request.expected_trash_token.as_deref(),
+        )
         .map_err(notes_api_error)?;
     scoped
         .purge_note(&request.notebook_id, &request.note_id)
@@ -2519,121 +2903,6 @@ async fn remove_habit_http(
     Ok(Json(
         json!({ "removed": removed, "habitId": request.habit_id }),
     ))
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TranslateRequest {
-    scene_id: String,
-    text: String,
-    target_lang: String,
-    #[serde(default)]
-    source_lang: Option<String>,
-    #[serde(default)]
-    model: Option<String>,
-}
-
-async fn translate_http(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<TranslateRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_translate_authorized(&state, &request.scene_id)?;
-    let system_root = crate::app_paths::system_root()
-        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "system root unavailable"))?;
-    let credentials =
-        crate::credential_broker::scene_provider_credentials(&system_root, &request.scene_id)
-            .map_err(|error| {
-                plugin_api_error(
-                    StatusCode::PRECONDITION_FAILED,
-                    "credential_unavailable",
-                    &error,
-                )
-            })?;
-    let api_key = credentials
-        .iter()
-        .find(|(provider, _)| provider == "qveris")
-        .map(|(_, key)| key.clone())
-        .ok_or_else(|| {
-            plugin_api_error(
-                StatusCode::PRECONDITION_FAILED,
-                "credential_unavailable",
-                "Translation model key is not configured for this scene",
-            )
-        })?;
-    let input = crate::translation::TranslationRequest {
-        text: request.text,
-        target_lang: request.target_lang,
-        source_lang: request.source_lang,
-        model: request.model,
-    };
-    let result = crate::translation::translate(&input, &api_key)
-        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "translate_failed", &error))?;
-    Ok(Json(serde_json::to_value(result).map_err(|_| {
-        api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Cannot serialize translation result",
-        )
-    })?))
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SummarizeNoteRequest {
-    scene_id: String,
-    workspace_id: String,
-    text: String,
-    #[serde(default)]
-    title: Option<String>,
-    #[serde(default)]
-    model: Option<String>,
-}
-
-async fn summarize_note(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<SummarizeNoteRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_notes_authorized(&state, &request.scene_id, false)?;
-    if request.workspace_id.trim().is_empty() {
-        return Err(plugin_api_error(
-            StatusCode::BAD_REQUEST,
-            "invalid_parameters",
-            "Workspace is required",
-        ));
-    }
-    let system_root = crate::app_paths::system_root()
-        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "system root unavailable"))?;
-    let credentials =
-        crate::credential_broker::scene_provider_credentials(&system_root, &request.scene_id)
-            .map_err(|error| {
-                plugin_api_error(
-                    StatusCode::PRECONDITION_FAILED,
-                    "credential_unavailable",
-                    &error,
-                )
-            })?;
-    let api_key = credentials
-        .iter()
-        .find(|(provider, _)| provider == "qveris")
-        .map(|(_, key)| key.clone())
-        .ok_or_else(|| {
-            plugin_api_error(
-                StatusCode::PRECONDITION_FAILED,
-                "credential_unavailable",
-                "Summarization model key is not configured for this scene",
-            )
-        })?;
-    let input = crate::summary::SummarizeRequest {
-        text: request.text,
-        model: request.model,
-    };
-    let result = crate::summary::summarize(&input, &api_key, request.title.as_deref())
-        .map_err(|error| plugin_api_error(StatusCode::BAD_REQUEST, "summarize_failed", &error))?;
-    Ok(Json(serde_json::to_value(result).map_err(|_| {
-        api_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Cannot serialize summarization result",
-        )
-    })?))
 }
 
 #[derive(Deserialize)]
@@ -3520,34 +3789,10 @@ async fn list_plugin_capabilities(
 
 async fn invoke_plugin_capability(
     State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
     Json(request): Json<CapabilityInvokeRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    let mut broker = state.capability_broker.lock().map_err(|_| {
-        plugin_api_error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "capability_broker_unavailable",
-            "",
-        )
-    })?;
-    let result = broker
-        .invoke(
-            &registry,
-            CapabilityInvocation {
-                caller: "chat".into(),
-                scene_id: request.scene_id,
-                workspace_id: request.workspace_id,
-                plugin_id: request.plugin_id,
-                capability_id: request.capability_id,
-                tool_call_id: None,
-                idempotency_scope: None,
-                input: request.input,
-            },
-        )
-        .map_err(capability_api_error)?;
-    Ok(Json(json!({ "result": result })))
+    plugin_desktop_execution::invoke(state, headers, request).await
 }
 
 async fn invoke_plugin_command(
@@ -3590,107 +3835,7 @@ async fn invoke_plugin_tool(
     headers: HeaderMap,
     Json(request): Json<PluginToolInvokeRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    if request.tool_call_id.is_empty()
-        || request.tool_call_id.len() > 256
-        || request.runtime_id.is_empty()
-        || request.session_id.is_empty()
-    {
-        return Err(plugin_api_error(
-            StatusCode::BAD_REQUEST,
-            "invalid_parameters",
-            "runtimeId, sessionId, and toolCallId are required",
-        ));
-    }
-    let bearer = headers
-        .get(axum::http::header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            plugin_api_error(
-                StatusCode::UNAUTHORIZED,
-                "broker_auth_required",
-                "A runtime broker token is required",
-            )
-        })?;
-    let record = {
-        let mut tokens = state.plugin_tokens.lock().map_err(|_| {
-            plugin_api_error(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "broker_auth_unavailable",
-                "",
-            )
-        })?;
-        let now = SystemTime::now();
-        tokens.retain(|_, record| record.expires_at > now);
-        tokens.get(&request.runtime_id).cloned()
-    }
-    .ok_or_else(|| {
-        plugin_api_error(
-            StatusCode::UNAUTHORIZED,
-            "broker_token_invalid",
-            "Runtime broker token is invalid or expired",
-        )
-    })?;
-    if record.token_hash != sha256_hex(bearer.as_bytes())
-        || record.target.session_id != request.session_id
-        || record.target.instance_id != request.runtime_id
-    {
-        return Err(plugin_api_error(
-            StatusCode::UNAUTHORIZED,
-            "broker_token_invalid",
-            "Runtime broker token does not match this runtime",
-        ));
-    }
-    let live = state
-        .runtimes
-        .statuses()
-        .map(|statuses| statuses.iter().any(|status| status.target == record.target))
-        .unwrap_or(false);
-    if !live {
-        return Err(plugin_api_error(
-            StatusCode::GONE,
-            "runtime_stopped",
-            "The runtime that owns this broker token is no longer active",
-        ));
-    }
-    let registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    let tool = registry
-        .pi_tools(&record.target.scene_id)
-        .into_iter()
-        .find(|tool| tool.name == request.tool_name)
-        .ok_or_else(|| {
-            plugin_api_error(
-                StatusCode::NOT_FOUND,
-                "tool_unavailable",
-                "The tool is missing, disabled, or not granted for this scene",
-            )
-        })?;
-    let mut broker = state.capability_broker.lock().map_err(|_| {
-        plugin_api_error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "capability_broker_unavailable",
-            "",
-        )
-    })?;
-    let result = broker
-        .invoke(
-            &registry,
-            CapabilityInvocation {
-                caller: "pi".into(),
-                scene_id: record.target.scene_id.clone(),
-                workspace_id: record.target.workspace_id.clone(),
-                plugin_id: tool.plugin_id,
-                capability_id: tool.capability,
-                tool_call_id: Some(request.tool_call_id),
-                idempotency_scope: Some(record.target.instance_id),
-                input: request.input,
-            },
-        )
-        .map_err(capability_api_error)?;
-    Ok(Json(json!({ "result": result })))
+    plugin_tool_execution::invoke(State(state), headers, Json(request)).await
 }
 
 async fn set_plugin_enablement(
@@ -3822,10 +3967,17 @@ async fn import_sessions_http(
     State(state): State<Arc<HostState>>,
     Json(request): Json<ImportSessionsRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let result = state
-        .data
-        .import_sessions(&request.workspace_id, &request.sessions)
-        .map_err(host_data_http_error)?;
+    let result = match request.relink_source_path.as_deref() {
+        Some(source_path) => state.data.import_sessions_relinked(
+            &request.workspace_id,
+            &request.sessions,
+            source_path,
+        ),
+        None => state
+            .data
+            .import_sessions(&request.workspace_id, &request.sessions),
+    }
+    .map_err(host_data_http_error)?;
     Ok(Json(json!({
         "imported": result.imported,
         "skipped": result.skipped,
@@ -3940,38 +4092,30 @@ struct ResolveWorkspaceRequest {
     project_path: String,
 }
 
-/// POST /v2/resolve-workspace — map a project path to its stable workspace id
-/// and register the workspace root so subsequent `/v2/bootstrap` calls can
-/// lazily resume its sessions. Used by LAN/mobile clients switching to a
-/// session that belongs to a different project (no Tauri window mechanism).
+/// POST /v2/resolve-workspace — find a project already registered by the
+/// desktop. LAN/mobile clients can switch to its sessions but cannot register
+/// arbitrary directories on the desktop machine.
 async fn resolve_workspace(
     State(state): State<Arc<HostState>>,
     Json(body): Json<ResolveWorkspaceRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let path = PathBuf::from(&body.project_path);
+    let path = PathBuf::from(&body.project_path)
+        .canonicalize()
+        .map_err(|_| api_error(StatusCode::NOT_FOUND, "project_not_found"))?;
     if !path.is_dir() {
         return Err(api_error(StatusCode::NOT_FOUND, "project_not_found"));
     }
-    let workspace_id = state
-        .auth
-        .lock()
-        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "auth_unavailable"))?
-        .resolve_workspace(&path)
-        .map_err(|_| {
-            api_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "workspace_resolve_failed",
-            )
-        })?;
-    state
-        .data
-        .register_workspace(&workspace_id, path)
-        .map_err(|_| {
-            api_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "workspace_register_failed",
-            )
-        })?;
+    let roots = state.data.workspace_roots();
+    let known = roots.read().map_err(|_| {
+        api_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "workspace_registry_unavailable",
+        )
+    })?;
+    let workspace_id = known
+        .iter()
+        .find_map(|(id, root)| (root == &path).then(|| id.clone()))
+        .ok_or_else(|| api_error(StatusCode::NOT_FOUND, "project_not_found"))?;
     Ok(Json(json!({ "workspaceId": workspace_id })))
 }
 
@@ -3981,12 +4125,25 @@ async fn websocket_upgrade(
     headers: axum::http::HeaderMap,
     websocket: WebSocketUpgrade,
 ) -> Response {
+    if state.lifecycle.stopping() {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     if !websocket_origin_allowed(peer.ip(), &headers, &state.allowed_origins) {
         return StatusCode::FORBIDDEN.into_response();
     }
+    // A remote UI can reach this loopback listener from the same machine.
+    // Its Origin must not grant the desktop role merely because peer_ip is loopback.
+    let require_remote_auth = headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|origin| origin.to_str().ok())
+        .is_some_and(|origin| origin != state.allowed_origin.as_str());
+    let lease = state.lifecycle.lease();
     websocket
         .max_message_size(MAX_WS_MESSAGE_BYTES)
-        .on_upgrade(move |socket| handle_websocket(socket, state, peer.ip(), false))
+        .on_upgrade(move |socket| async move {
+            let _lease = lease;
+            handle_websocket(socket, state, peer.ip(), require_remote_auth).await;
+        })
 }
 
 /// WebSocket upgrade for the public tunnel gateway. Tunneled connections
@@ -3998,13 +4155,18 @@ async fn websocket_upgrade_public(
     headers: axum::http::HeaderMap,
     websocket: WebSocketUpgrade,
 ) -> Response {
+    if state.lifecycle.stopping() {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
     if !websocket_origin_allowed_strict(&headers, &state.allowed_origins) {
         return StatusCode::FORBIDDEN.into_response();
     }
+    let lease = state.lifecycle.lease();
     websocket
         .max_message_size(MAX_WS_MESSAGE_BYTES)
-        .on_upgrade(move |socket| {
-            handle_websocket(socket, state, IpAddr::V4(Ipv4Addr::LOCALHOST), true)
+        .on_upgrade(move |socket| async move {
+            let _lease = lease;
+            handle_websocket(socket, state, IpAddr::V4(Ipv4Addr::LOCALHOST), true).await;
         })
 }
 
@@ -4013,11 +4175,10 @@ fn websocket_origin_allowed(
     headers: &HeaderMap,
     allowed_origins: &HashSet<String>,
 ) -> bool {
-    match headers
-        .get(axum::http::header::ORIGIN)
-        .and_then(|origin| origin.to_str().ok())
-    {
-        Some(origin) => allowed_origins.contains(origin),
+    match headers.get(axum::http::header::ORIGIN) {
+        Some(origin) => origin
+            .to_str()
+            .is_ok_and(|origin| allowed_origins.contains(origin)),
         None => peer_ip.is_loopback(),
     }
 }
@@ -4112,259 +4273,6 @@ async fn process_runtime_frame(
         }
     }
     Ok(())
-}
-
-async fn handle_websocket(
-    mut socket: WebSocket,
-    state: Arc<HostState>,
-    peer_ip: IpAddr,
-    require_remote_auth: bool,
-) {
-    let Some(Ok(Message::Text(first))) = socket.next().await else {
-        return;
-    };
-    let hello = match serde_json::from_str::<Value>(&first) {
-        Ok(frame) => frame,
-        Err(_) => {
-            let _ = send_error(&mut socket, None, "invalid_json", "Invalid JSON frame").await;
-            return;
-        }
-    };
-    let client_id = match hello.get("clientId").and_then(Value::as_str) {
-        Some(value) if !value.is_empty() => value.to_owned(),
-        _ => {
-            let _ = send_error(
-                &mut socket,
-                None,
-                "invalid_client_id",
-                "clientId is required",
-            )
-            .await;
-            return;
-        }
-    };
-    let client_type = hello.get("clientType").and_then(Value::as_str);
-    let remote_device_token = (client_type == Some("remote"))
-        .then(|| {
-            hello
-                .get("deviceToken")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-        })
-        .flatten();
-    if (!peer_ip.is_loopback() || require_remote_auth) && client_type != Some("remote") {
-        let _ = send_error(
-            &mut socket,
-            None,
-            "remote_auth_required",
-            "Non-loopback clients must authenticate as remote devices",
-        )
-        .await;
-        return;
-    }
-    if client_type == Some("remote") {
-        let authorized = remote_device_token
-            .as_deref()
-            .and_then(|token| state.auth.lock().ok()?.authorize(token).ok())
-            .unwrap_or(false);
-        if !authorized {
-            let _ = send_error(
-                &mut socket,
-                None,
-                "unauthorized_device",
-                "Device token rejected",
-            )
-            .await;
-            return;
-        }
-    }
-    let handshake = state
-        .router
-        .lock()
-        .map_err(|_| "Host router unavailable".to_string())
-        .and_then(|mut router| {
-            router
-                .connect(&client_id, &hello)
-                .map_err(|error| error.message)
-        });
-    if let Err(message) = handshake {
-        let _ = send_error(&mut socket, None, "handshake_rejected", &message).await;
-        return;
-    }
-    if socket
-        .send(Message::Text(
-            json!({ "type": "hello_ack", "protocolVersion": PROTOCOL_VERSION })
-                .to_string()
-                .into(),
-        ))
-        .await
-        .is_err()
-    {
-        return;
-    }
-
-    let mut runtime_events = state.runtimes.subscribe();
-    let mut subscriptions = HashSet::new();
-    let mut remote_auth_check = tokio::time::interval(Duration::from_secs(5));
-    remote_auth_check.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    // M2 P2P session state: the answerer peer, its outbound signaling frames,
-    // and DataChannel messages (routed back into the runtime pipeline).
-    let mut p2p_answerer: Option<Arc<crate::p2p::P2pAnswerer>> = None;
-    let mut p2p_signals: Option<mpsc::UnboundedReceiver<Value>> = None;
-    let mut p2p_inbound: Option<mpsc::UnboundedReceiver<Value>> = None;
-    loop {
-        tokio::select! {
-            _ = remote_auth_check.tick(), if remote_device_token.is_some() => {
-                let authorized = remote_device_token
-                    .as_deref()
-                    .and_then(|token| state.auth.lock().ok()?.authorize(token).ok())
-                    .unwrap_or(false);
-                if !authorized {
-                    let _ = send_error(
-                        &mut socket,
-                        None,
-                        "device_access_revoked",
-                        "This device no longer has access",
-                    )
-                    .await;
-                    break;
-                }
-            }
-            incoming = socket.next() => {
-                let Some(Ok(message)) = incoming else { break };
-                let Message::Text(text) = message else {
-                    if matches!(message, Message::Close(_)) { break; }
-                    continue;
-                };
-                let frame = match serde_json::from_str::<Value>(&text) {
-                    Ok(frame) => frame,
-                    Err(_) => {
-                        let _ = send_error(&mut socket, None, "invalid_json", "Invalid JSON frame").await;
-                        continue;
-                    }
-                };
-                if crate::p2p::is_p2p_signal(&frame) {
-                    if frame.get("type").and_then(Value::as_str) == Some("p2p_offer") {
-                        match crate::p2p::P2pAnswerer::new() {
-                            Ok((answerer, handle)) => {
-                                let answerer = Arc::new(answerer);
-                                let (inbound_tx, inbound_rx) = mpsc::unbounded_channel();
-                                let mut messages = handle.messages;
-                                tokio::spawn(async move {
-                                    while let Some(bytes) = messages.recv().await {
-                                        if let Ok(frame) = serde_json::from_slice::<Value>(&bytes) {
-                                            if inbound_tx.send(frame).is_err() {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                });
-                                p2p_answerer = Some(answerer.clone());
-                                p2p_signals = Some(handle.signals);
-                                p2p_inbound = Some(inbound_rx);
-                                if let Err(error) = answerer.handle_signal(frame).await {
-                                    let _ = send_error(&mut socket, None, "p2p_signal_failed", &error)
-                                        .await;
-                                }
-                            }
-                            Err(error) => {
-                                let _ =
-                                    send_error(&mut socket, None, "p2p_unavailable", &error).await;
-                            }
-                        }
-                    } else if let Some(answerer) = &p2p_answerer {
-                        if let Err(error) = answerer.handle_signal(frame).await {
-                            let _ =
-                                send_error(&mut socket, None, "p2p_signal_failed", &error).await;
-                        }
-                    }
-                    continue;
-                }
-                if process_runtime_frame(
-                    &state,
-                    &client_id,
-                    &mut subscriptions,
-                    frame,
-                    &mut socket,
-                    &p2p_answerer,
-                )
-                .await
-                .is_err()
-                {
-                    break;
-                }
-            }
-            signal = async {
-                match p2p_signals.as_mut() {
-                    Some(receiver) => receiver.recv().await,
-                    None => futures_util::future::pending().await,
-                }
-            } => {
-                if let Some(signal) = signal {
-                    if socket.send(Message::Text(signal.to_string().into())).await.is_err() {
-                        break;
-                    }
-                }
-            }
-            message = async {
-                match p2p_inbound.as_mut() {
-                    Some(receiver) => receiver.recv().await,
-                    None => futures_util::future::pending().await,
-                }
-            } => {
-                if let Some(frame) = message {
-                    if process_runtime_frame(
-                        &state,
-                        &client_id,
-                        &mut subscriptions,
-                        frame,
-                        &mut socket,
-                        &p2p_answerer,
-                    )
-                    .await
-                    .is_err()
-                    {
-                        break;
-                    }
-                }
-            }
-            event = runtime_events.recv() => {
-                match event {
-                    Ok(event) if subscriptions.contains(&event.target) => {
-                        if extension_ui_requires_owner(&event.event) {
-                            let is_owner = state
-                                .session_owners
-                                .lock()
-                                .ok()
-                                .and_then(|owners| owners.get(&event.target).cloned())
-                                .as_deref()
-                                == Some(client_id.as_str());
-                            if !is_owner { continue; }
-                        }
-                        let outgoing = runtime_event_frame(event);
-                        if !send_runtime_frame(&mut socket, &p2p_answerer, &outgoing).await {
-                            break;
-                        }
-                    }
-                    Ok(_) => {}
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
-                        let outgoing = structured_error(
-                            None,
-                            "event_sequence_gap",
-                            "Runtime events were missed; request a snapshot",
-                        );
-                        if !send_runtime_frame(&mut socket, &p2p_answerer, &outgoing).await {
-                            break;
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                }
-            }
-        }
-    }
-    if let Ok(mut owners) = state.session_owners.lock() {
-        owners.retain(|_, owner| owner != &client_id);
-    }
 }
 
 fn extension_ui_requires_owner(event: &Value) -> bool {
@@ -4826,10 +4734,50 @@ async fn dispatch(
                     .get("path")
                     .and_then(Value::as_str)
                     .unwrap_or_default();
-                let entries = state
-                    .data
-                    .list_files(workspace_id, relative_path)
+                if frame.get("paged").and_then(Value::as_bool) == Some(true) {
+                    let offset = match frame.get("offset") {
+                        None => 0,
+                        Some(value) => value
+                            .as_u64()
+                            .and_then(|offset| usize::try_from(offset).ok())
+                            .ok_or(("invalid_file_page", "Invalid file page offset".into()))?,
+                    };
+                    let data = state.data.clone();
+                    let workspace_id = workspace_id.to_owned();
+                    let relative_path = relative_path.to_owned();
+                    let snapshot = frame
+                        .get("snapshot")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
+                    let page = tokio::task::spawn_blocking(move || {
+                        data.list_files_page(
+                            &workspace_id,
+                            &relative_path,
+                            offset,
+                            snapshot.as_deref(),
+                        )
+                    })
+                    .await
+                    .map_err(|_| ("file_access_failed", "File listing stopped".into()))?
                     .map_err(host_data_error)?;
+                    return Ok(json!({
+                        "type": "data_response",
+                        "requestId": request_id,
+                        "operation": "list_files",
+                        "entries": page.entries,
+                        "nextOffset": page.next_offset,
+                        "snapshot": page.snapshot,
+                    }));
+                }
+                let data = state.data.clone();
+                let workspace_id = workspace_id.to_owned();
+                let relative_path = relative_path.to_owned();
+                let entries = tokio::task::spawn_blocking(move || {
+                    data.list_files(&workspace_id, &relative_path)
+                })
+                .await
+                .map_err(|_| ("file_access_failed", "File listing stopped".into()))?
+                .map_err(host_data_error)?;
                 Ok(json!({
                     "type": "data_response",
                     "requestId": request_id,
@@ -4927,6 +4875,106 @@ async fn dispatch(
                     "messages": messages,
                 }))
             }
+            Some(
+                operation @ ("project_task_catalog"
+                | "project_task_runs"
+                | "project_task_directories"
+                | "project_task_validate_directory"),
+            ) => dispatch_project_task_operation(state, &request_id, operation, &frame),
+            Some("workspace_environment") => {
+                project_environment::inspect(state, &request_id, &frame).await
+            }
+            Some("workspace_git_diff") => {
+                let workspace_id = frame
+                    .get("workspaceId")
+                    .and_then(Value::as_str)
+                    .ok_or(("invalid_workspace", "workspaceId is required".into()))?;
+                let mode = frame
+                    .get("mode")
+                    .and_then(Value::as_str)
+                    .ok_or(("git_invalid_diff_mode", "Git diff mode is required".into()))?;
+                let root = state
+                    .data
+                    .workspace_root_path(workspace_id)
+                    .map_err(host_data_error)?;
+                let diff = crate::host_data::git_diff::inspect(&root, mode)
+                    .await
+                    .map_err(|message| ("git_diff_failed", message))?;
+                Ok(json!({
+                    "type": "data_response", "requestId": request_id,
+                    "operation": "workspace_git_diff", "diff": diff,
+                }))
+            }
+            Some("workspace_git_history") => {
+                let workspace_id = frame
+                    .get("workspaceId")
+                    .and_then(Value::as_str)
+                    .ok_or(("invalid_workspace", "workspaceId is required".into()))?;
+                let root = state
+                    .data
+                    .workspace_root_path(workspace_id)
+                    .map_err(host_data_error)?;
+                let cursor = frame
+                    .get("cursor")
+                    .filter(|value| !value.is_null())
+                    .map(|value| {
+                        serde_json::from_value::<crate::host_data::git_history::HistoryCursor>(
+                            value.clone(),
+                        )
+                    })
+                    .transpose()
+                    .map_err(|_| {
+                        (
+                            "git_history_invalid_cursor",
+                            "Invalid history cursor".into(),
+                        )
+                    })?;
+                let history = crate::host_data::git_history::inspect(&root, cursor)
+                    .await
+                    .map_err(|message| ("git_history_failed", message))?;
+                Ok(json!({
+                    "type": "data_response", "requestId": request_id,
+                    "operation": "workspace_git_history", "history": history,
+                }))
+            }
+            Some("workspace_commit_diff") => {
+                let workspace_id = frame
+                    .get("workspaceId")
+                    .and_then(Value::as_str)
+                    .ok_or(("invalid_workspace", "workspaceId is required".into()))?;
+                let oid = frame
+                    .get("oid")
+                    .and_then(Value::as_str)
+                    .ok_or(("git_invalid_commit", "Commit ID is required".into()))?;
+                let root = state
+                    .data
+                    .workspace_root_path(workspace_id)
+                    .map_err(host_data_error)?;
+                let diff = crate::host_data::commit_diff::inspect(&root, oid)
+                    .await
+                    .map_err(|message| ("git_commit_diff_failed", message))?;
+                Ok(json!({
+                    "type": "data_response", "requestId": request_id,
+                    "operation": "workspace_commit_diff", "diff": diff,
+                }))
+            }
+            Some("workspace_git_status") => {
+                let workspace_id = frame
+                    .get("workspaceId")
+                    .and_then(Value::as_str)
+                    .ok_or(("invalid_workspace", "workspaceId is required".into()))?;
+                let root = state
+                    .data
+                    .workspace_root_path(workspace_id)
+                    .map_err(host_data_error)?;
+                let status = crate::host_data::git_status::inspect(&root)
+                    .await
+                    .map_err(|message| ("git_status_failed", message))?;
+                Ok(json!({
+                    "type": "data_response", "requestId": request_id,
+                    "operation": "workspace_git_status", "status": status,
+                }))
+            }
             Some("workspace_info") => {
                 let workspace_id = frame
                     .get("workspaceId")
@@ -4935,6 +4983,7 @@ async fn dispatch(
                 let info = state
                     .data
                     .workspace_info(workspace_id)
+                    .await
                     .map_err(host_data_error)?;
                 Ok(json!({
                     "type": "data_response",
@@ -4955,6 +5004,40 @@ async fn dispatch(
     }
 }
 
+fn dispatch_project_task_operation(
+    state: &HostState,
+    request_id: &str,
+    operation: &str,
+    frame: &Value,
+) -> Result<Value, (&'static str, String)> {
+    let workspace = frame
+        .get("workspaceId")
+        .and_then(Value::as_str)
+        .ok_or(("invalid_workspace", "workspaceId is required".into()))?;
+    let root = state
+        .data
+        .workspace_root_path(workspace)
+        .map_err(host_data_error)?;
+    let environment = if matches!(operation, "project_task_catalog" | "start_project_task") {
+        state
+            .project_environment
+            .resolve(&root, workspace)
+            .map_err(|message| ("project_environment_failed", message))?
+    } else {
+        Default::default()
+    };
+    crate::project_tasks::protocol::dispatch_environment(
+        &state.project_tasks,
+        &root,
+        workspace,
+        request_id,
+        operation,
+        frame,
+        &environment,
+    )
+    .map_err(|message| ("project_task_failed", message))
+}
+
 async fn dispatch_host_operation(
     state: &HostState,
     request_id: &str,
@@ -4962,6 +5045,28 @@ async fn dispatch_host_operation(
     frame: &Value,
 ) -> Result<Value, (&'static str, String)> {
     match operation {
+        "tool_access_read" | "tool_access_mutate" => {
+            tool_access::dispatch(state, request_id, operation, frame).await
+        }
+        "workspace_git_stage" | "workspace_git_unstage" => {
+            git_stage::dispatch(state, request_id, operation, frame).await
+        }
+        "project_environment_get" | "project_environment_save" => {
+            project_environment::dispatch(state, request_id, operation, frame).await
+        }
+        "project_environment_discover_conda" => {
+            project_environment::discover_conda(state, request_id, frame).await
+        }
+        "terminal_open"
+        | "terminal_open_directory"
+        | "terminal_list"
+        | "terminal_read"
+        | "terminal_input"
+        | "terminal_resize"
+        | "terminal_close" => terminal::dispatch(state, request_id, operation, frame).await,
+        "start_project_task" | "stop_project_task" | "clear_project_task_history" => {
+            dispatch_project_task_operation(state, request_id, operation, frame)
+        }
         "list_pi_packages" => {
             let resolver = state.pi_launch.clone();
             let sources = tokio::task::spawn_blocking(move || resolver.list_pi_packages())
@@ -5014,12 +5119,81 @@ async fn dispatch_host_operation(
             "operation": "list_installed_apps",
             "apps": list_installed_apps(),
         })),
-        "open_in_app" => {
-            let path = frame
-                .get("path")
+        "open_workspace_directory" => {
+            let workspace_id = frame
+                .get("workspaceId")
                 .and_then(Value::as_str)
-                .map(str::to_owned)
-                .ok_or(("invalid_path", "path is required".into()))?;
+                .ok_or(("invalid_workspace", "workspaceId is required".into()))?
+                .to_owned();
+            let relative_path = frame
+                .get("relativePath")
+                .and_then(Value::as_str)
+                .ok_or(("invalid_path", "relativePath is required".into()))?
+                .to_owned();
+            let data = state.data.clone();
+            tokio::task::spawn_blocking(move || -> Result<(), (&'static str, String)> {
+                let canonical = data
+                    .workspace_entry_path(&workspace_id, &relative_path)
+                    .map_err(host_data_error)?;
+                let metadata = std::fs::symlink_metadata(&canonical)
+                    .map_err(|_| ("invalid_path", "Directory is unavailable".into()))?;
+                if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                    return Err(("invalid_path", "Expected a project directory".into()));
+                }
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::MetadataExt;
+                    if metadata.file_attributes() & 0x400 != 0 {
+                        return Err(("invalid_path", "Linked directory is unavailable".into()));
+                    }
+                }
+                open_in_app(&canonical, None, None)
+                    .map_err(|message| ("open_in_app_failed", message))
+            })
+            .await
+            .map_err(|error| ("host_operation_failed", error.to_string()))??;
+            Ok(json!({
+                "type": "host_response",
+                "requestId": request_id,
+                "operation": "open_workspace_directory",
+                "ok": true,
+            }))
+        }
+        "open_in_app" => {
+            let canonical =
+                if let Some(workspace_id) = frame.get("workspaceId").and_then(Value::as_str) {
+                    let relative_path = frame
+                        .get("relativePath")
+                        .and_then(Value::as_str)
+                        .ok_or(("invalid_path", "relativePath is required".into()))?;
+                    state
+                        .data
+                        .workspace_entry_path(workspace_id, relative_path)
+                        .map_err(host_data_error)?
+                } else {
+                    let path = frame
+                        .get("path")
+                        .and_then(Value::as_str)
+                        .ok_or(("invalid_path", "path is required".into()))?;
+                    let canonical = std::path::Path::new(path)
+                        .canonicalize()
+                        .map_err(|_| ("invalid_path", "Workspace path is unavailable".into()))?;
+                    let roots = state.data.workspace_roots();
+                    let registered = roots
+                        .read()
+                        .map_err(|_| {
+                            (
+                                "host_operation_failed",
+                                "Workspace registry unavailable".into(),
+                            )
+                        })?
+                        .values()
+                        .any(|root| root == &canonical);
+                    if !registered {
+                        return Err(("invalid_path", "Path is not a registered workspace".into()));
+                    }
+                    canonical
+                };
             let app_name = frame
                 .get("appName")
                 .and_then(Value::as_str)
@@ -5028,8 +5202,15 @@ async fn dispatch_host_operation(
                 .get("command")
                 .and_then(Value::as_str)
                 .map(str::to_owned);
+            let discovered = list_installed_apps();
+            if !discovered.iter().any(|app| {
+                app.app_name.as_deref() == app_name.as_deref()
+                    && app.command.as_deref() == command.as_deref()
+            }) {
+                return Err(("invalid_app", "App target is unavailable".into()));
+            }
             tokio::task::spawn_blocking(move || {
-                open_in_app(&path, app_name.as_deref(), command.as_deref())
+                open_in_app(&canonical, app_name.as_deref(), command.as_deref())
             })
             .await
             .map_err(|error| ("host_operation_failed", error.to_string()))?
@@ -5613,7 +5794,7 @@ fn notes_api_error(error: NotesError) -> (StatusCode, Json<Value>) {
     let status = match error.code {
         "invalid_parameters" => StatusCode::BAD_REQUEST,
         "notebook_not_found" | "note_not_found" | "attachment_not_found" => StatusCode::NOT_FOUND,
-        "version_conflict" | "conflict" => StatusCode::CONFLICT,
+        "version_conflict" | "conflict" | "notes_storage_busy" => StatusCode::CONFLICT,
         "payload_too_large" | "quota_exceeded" => StatusCode::PAYLOAD_TOO_LARGE,
         "permission_denied" => StatusCode::FORBIDDEN,
         "capture_blocked" => StatusCode::FORBIDDEN,
@@ -5994,7 +6175,7 @@ fn capability_api_error(error: CapabilityError) -> (StatusCode, Json<Value>) {
         "capability_unavailable" | "command_not_available" | "plugin_not_active" => {
             StatusCode::NOT_FOUND
         }
-        "idempotency_conflict" => StatusCode::CONFLICT,
+        "idempotency_conflict" | "idempotency_authority_changed" | "worker_cancelled" => StatusCode::CONFLICT,
         "storage_unavailable" | "serialization_failed" => StatusCode::INTERNAL_SERVER_ERROR,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };
@@ -6039,7 +6220,7 @@ fn now_seconds() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        auth_preview, extension_ui_requires_owner, is_public_ip, lan_qr_issuer_allowed,
+        authorization_log_state, extension_ui_requires_owner, is_public_ip, lan_qr_issuer_allowed,
         messages_from_entries_response, public_remote_path, remote_http_authorized,
         rewrite_developer_roles, websocket_origin_allowed, HostServer,
     };
@@ -6059,18 +6240,15 @@ mod tests {
     use tokio::sync::mpsc;
 
     #[test]
-    fn masks_authorization_headers_in_logs() {
+    fn logs_only_authorization_presence() {
+        let mut headers = axum::http::HeaderMap::new();
+        assert_eq!(authorization_log_state(&headers), "absent");
         let token = "Bearer sk-0123456789abcdef0123456789abcdef";
-        let preview = auth_preview(token);
-        assert!(!preview.contains("abcdef0123456789"));
-        assert!(preview.starts_with("Bearer"));
-        assert!(!preview.contains("sk-0123456789abcdef"));
-        assert!(preview.contains('…'));
-        assert!(preview.contains(&token.len().to_string()));
-
-        // Short or empty values are redacted rather than echoed verbatim.
-        assert_eq!(auth_preview("short"), "<redacted>");
-        assert_eq!(auth_preview(""), "<redacted>");
+        headers.insert("authorization", token.parse().unwrap());
+        let state = authorization_log_state(&headers);
+        assert_eq!(state, "present");
+        assert!(!state.contains("Bearer"));
+        assert!(!state.contains(&token.len().to_string()));
     }
 
     #[test]
@@ -6328,7 +6506,7 @@ mod tests {
             .unwrap();
         assert!(index.contains("ZiCode Studio Desktop native host"));
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -6366,6 +6544,7 @@ mod tests {
 
         let response = client
             .post(format!("{}/v2/plugins/enablement", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
             .json(&json!({
                 "sceneId": "programming",
                 "pluginId": "com.zicode.notes",
@@ -6392,7 +6571,7 @@ mod tests {
             .unwrap();
         assert_eq!(notes["enabled"], false);
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -6447,10 +6626,16 @@ mod tests {
             host.origin()
         );
 
-        let disabled = client.get(&source_url).send().await.unwrap();
+        let disabled = client
+            .get(&source_url)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .send()
+            .await
+            .unwrap();
         assert_eq!(disabled.status(), reqwest::StatusCode::FORBIDDEN);
         let enabled = client
             .post(format!("{}/v2/plugins/enablement", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
             .json(&json!({
                 "sceneId": "programming",
                 "pluginId": "com.example.view",
@@ -6463,6 +6648,7 @@ mod tests {
 
         let document: serde_json::Value = client
             .get(&source_url)
+            .header("x-zicode-desktop-token", host.desktop_token())
             .send()
             .await
             .unwrap()
@@ -6478,12 +6664,13 @@ mod tests {
 
         let other_scene = client
             .get(source_url.replace("sceneId=programming", "sceneId=finance"))
+            .header("x-zicode-desktop-token", host.desktop_token())
             .send()
             .await
             .unwrap();
         assert_eq!(other_scene.status(), reqwest::StatusCode::FORBIDDEN);
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -6796,7 +6983,7 @@ mod tests {
             .unwrap();
         assert_eq!(private_capture.status(), reqwest::StatusCode::FORBIDDEN);
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -6858,7 +7045,7 @@ mod tests {
             .unwrap();
         assert_eq!(listed["snapshot"]["notebooks"].as_array().unwrap().len(), 0);
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -6963,7 +7150,7 @@ mod tests {
             .unwrap();
         assert_eq!(deleted.status(), reqwest::StatusCode::OK);
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -7036,6 +7223,7 @@ mod tests {
 
         let unavailable = client
             .post(format!("{}/v2/plugin-commands/invoke", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
             .json(&json!({
                 "sceneId": "programming",
                 "commandId": "missing.command",
@@ -7046,7 +7234,7 @@ mod tests {
             .unwrap();
         assert_eq!(unavailable.status(), reqwest::StatusCode::NOT_FOUND);
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -7091,6 +7279,7 @@ mod tests {
 
         let reload = client
             .post(format!("{}/v2/plugins/reload", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
             .json(&json!({}))
             .send()
             .await
@@ -7112,6 +7301,7 @@ mod tests {
 
         let uninstalled: serde_json::Value = client
             .post(format!("{}/v2/plugins/uninstall", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
             .json(&json!({ "pluginId": "com.example.host-test" }))
             .send()
             .await
@@ -7123,7 +7313,7 @@ mod tests {
         assert_eq!(uninstalled["dataPreserved"], true);
         assert!(source.join("plugin.json").is_file());
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -7151,6 +7341,7 @@ mod tests {
                     "type": "hello",
                     "protocolVersion": 2,
                     "clientType": "desktop",
+                    "desktopToken": host.desktop_token(),
                     "clientId": "desktop-a"
                 })
                 .to_string(),
@@ -7185,7 +7376,7 @@ mod tests {
         assert_eq!(event["sequence"], 1);
 
         drop(socket);
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -7212,6 +7403,7 @@ mod tests {
         let target = RuntimeTarget::new("workspace-a", "session-a", "instance-a");
         let mut fake = runtimes.register_in_memory(target.clone()).unwrap();
         let host = HostServer::start(public, runtimes, auth).await.unwrap();
+        let state_weak = Arc::downgrade(&host.state);
         let ws_url = host.origin().replace("http://", "ws://") + "/v2/ws";
         let (mut socket, _) = tokio_tungstenite::connect_async(ws_url).await.unwrap();
         socket
@@ -7220,6 +7412,7 @@ mod tests {
                     "type": "hello",
                     "protocolVersion": 2,
                     "clientType": "desktop",
+                    "desktopToken": host.desktop_token(),
                     "clientId": "p2p-desktop"
                 })
                 .to_string(),
@@ -7363,9 +7556,12 @@ mod tests {
         assert_eq!(event["type"], "runtime_event");
         assert_eq!(event["target"]["sessionId"], "session-a");
 
+        host.stop_and_wait().await.unwrap();
+        assert!(state_weak.upgrade().is_none());
+        offerer.close().await.unwrap();
+        drop(dc);
         drop(socket);
-        host.stop();
-        remove_temp_dir_when_released(&temp).await;
+        fs::remove_dir_all(&temp).unwrap();
     }
 
     #[tokio::test]
@@ -7396,12 +7592,12 @@ mod tests {
             "remote-config must always expose an iceServers array"
         );
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
     #[tokio::test]
-    async fn rejects_websocket_upgrades_from_a_foreign_web_origin() {
+    async fn rejects_unauthenticated_websocket_upgrades_from_a_foreign_web_origin() {
         use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
         let nonce = SystemTime::now()
@@ -7427,12 +7623,12 @@ mod tests {
         let error = tokio_tungstenite::connect_async(request).await.unwrap_err();
         match error {
             tokio_tungstenite::tungstenite::Error::Http(response) => {
-                assert_eq!(response.status(), axum::http::StatusCode::FORBIDDEN);
+                assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
             }
             other => panic!("expected an HTTP rejection, got {other:?}"),
         }
 
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 
@@ -7471,6 +7667,7 @@ mod tests {
                     "type": "hello",
                     "protocolVersion": 2,
                     "clientType": "desktop",
+                    "desktopToken": host.desktop_token(),
                     "clientId": "owner"
                 })
                 .to_string(),
@@ -7522,7 +7719,8 @@ mod tests {
 
         drop(socket);
         drop(fake);
-        host.stop();
+        host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
 }
+

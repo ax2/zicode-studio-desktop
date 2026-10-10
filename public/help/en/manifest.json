@@ -1,13 +1,33 @@
 {
-  "sections": ["Getting started", "Chat and productivity", "Scenes and configuration", "Plugins", "Article Publishing", "Notes", "Utility apps", "Finance Workbench", "Artifacts", "Support and security", "Reference"],
+  "sections": [
+    "Getting started",
+    "Chat and productivity",
+    "Scenes and configuration",
+    "Plugins",
+    "Article Publishing",
+    "Notes",
+    "Utility apps",
+    "Finance Workbench",
+    "Artifacts",
+    "Support and security",
+    "Reference"
+  ],
   "pages": [
     {
       "id": "getting-started",
       "title": "Quick start",
       "section": "Getting started",
       "file": "getting-started.md",
-      "summary": "Learn the three-region workspace and start your first chat",
-      "keywords": ["onboarding", "navigation", "interface"]
+      "summary": "Start with project tools and commands, then connect chat, notes, and background automation",
+      "keywords": [
+        "onboarding",
+        "navigation",
+        "interface",
+        "projects",
+        "environment",
+        "automation",
+        "background"
+      ]
     },
     {
       "id": "interface",
@@ -32,6 +52,14 @@
       "file": "chat.md",
       "summary": "Sessions, context, error recovery, and Notes integration",
       "keywords": ["work mode", "Ask", "Craft", "Plan", "memory", "extract"]
+    },
+    {
+      "id": "templates",
+      "title": "Conversation templates",
+      "section": "Chat and productivity",
+      "file": "templates.md",
+      "summary": "Start conversations from reusable prompts and import or export your templates",
+      "keywords": ["templates", "prompts", "import", "export"]
     },
     {
       "id": "projects-tasks",

@@ -1,6 +1,6 @@
-import { fileIcon, formatSize, type FileEntry } from "./fileBrowserLogic";
-import { t } from "../../shared/i18n";
 import type { StoreApi, UseBoundStore } from "zustand";
+import { t } from "../../shared/i18n";
+import { type FileEntry, fileIcon, formatSize } from "./fileBrowserLogic";
 
 export type FileBrowserStatus = "idle" | "loading" | "ready" | "error";
 
@@ -9,6 +9,10 @@ export interface FileBrowserStore {
   entries: FileEntry[];
   error: string | null;
   highlightPath: string | null;
+  nextOffset: number | null;
+  snapshot: string | null;
+  loadingMore: boolean;
+  moreError: string | null;
 }
 
 export type FileBrowserStoreHook = UseBoundStore<StoreApi<FileBrowserStore>>;
@@ -22,17 +26,25 @@ export function FileBrowserApp({
   entries,
   error,
   highlightPath,
+  nextOffset,
+  loadingMore,
+  moreError,
   onOpenDirectory,
   onSelectFile,
   onOpenFile,
+  onLoadMore,
 }: {
   status: FileBrowserStatus;
   entries: FileEntry[];
   error: string | null;
   highlightPath: string | null;
+  nextOffset: number | null;
+  loadingMore: boolean;
+  moreError: string | null;
   onOpenDirectory(path: string): void;
   onSelectFile?(path: string): void;
   onOpenFile?(path: string): void;
+  onLoadMore(): void;
 }) {
   if (status === "loading" || status === "idle") {
     return <FileMessage text={t("Loading…")} />;
@@ -76,18 +88,11 @@ export function FileBrowserApp({
             {...commonProps}
             draggable
             onDragStart={(event) => {
-              event.dataTransfer.setData(
-                "application/x-zicode-file",
-                entry.relativePath,
-              );
+              event.dataTransfer.setData("application/x-zicode-file", entry.relativePath);
               event.dataTransfer.setData("text/plain", entry.relativePath);
               event.dataTransfer.effectAllowed = "copy";
             }}
-            title={
-              isDirectory
-                ? t("Open directory")
-                : t("Double-click to open")
-            }
+            title={isDirectory ? t("Open directory") : t("Double-click to open")}
             onClick={() => {
               if (isDirectory) onOpenDirectory(entry.relativePath);
               else onSelectFile?.(entry.relativePath);
@@ -100,6 +105,19 @@ export function FileBrowserApp({
           </button>
         );
       })}
+      {nextOffset !== null ? (
+        <div className="file-loading">
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            disabled={loadingMore}
+            onClick={onLoadMore}
+          >
+            {loadingMore ? t("Loading more files…") : t("Load more files")}
+          </button>
+          {moreError ? <p role="alert">{moreError}</p> : null}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -109,25 +127,34 @@ export function FileBrowserBridge({
   onOpenDirectory,
   onSelectFile,
   onOpenFile,
+  onLoadMore,
 }: {
   store: FileBrowserStoreHook;
   onOpenDirectory(path: string): void;
   onSelectFile?(path: string): void;
   onOpenFile?(path: string): void;
+  onLoadMore(): void;
 }) {
   const status = store((state) => state.status);
   const entries = store((state) => state.entries);
   const error = store((state) => state.error);
   const highlightPath = store((state) => state.highlightPath);
+  const nextOffset = store((state) => state.nextOffset);
+  const loadingMore = store((state) => state.loadingMore);
+  const moreError = store((state) => state.moreError);
   return (
     <FileBrowserApp
       status={status}
       entries={entries}
       error={error}
       highlightPath={highlightPath}
+      nextOffset={nextOffset}
+      loadingMore={loadingMore}
+      moreError={moreError}
       onOpenDirectory={onOpenDirectory}
       onSelectFile={onSelectFile}
       onOpenFile={onOpenFile}
+      onLoadMore={onLoadMore}
     />
   );
 }

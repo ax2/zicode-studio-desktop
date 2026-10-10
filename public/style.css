@@ -28,6 +28,11 @@
 @import url("native/features/finance-workbench.css");
 @import url("native/features/help-center.css");
 @import url("native/plugins/plugin-shell.css");
+@import url("native/plugins/tool-center.css");
+@import url("native/plugins/plugin-resource-preview.css");
+@import url("native/plugins/plugin-resource-transfer.css");
+@import url("native/plugins/plugin-resource-save.css");
+@import url("native/plugins/saved-outputs.css");
 @import url("native/plugins/notes-app.css");
 @import url("native/plugins/idphoto-app.css");
 @import url("native/plugins/imagetools-app.css");
@@ -43,6 +48,7 @@
 @import url("native/plugins/project-workspace-app.css");
 @import url("native/plugins/task-center-app.css");
 @import url("native/plugins/automation-app.css");
+@import url("native/plugins/automation-worker.css");
 @import url("native/plugins/plugin-view-host.css");
 @import url("native/composer/composer-images.css");
 @import url("native/composer/composer-slash-menu.css");

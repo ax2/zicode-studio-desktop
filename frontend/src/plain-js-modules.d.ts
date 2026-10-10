@@ -4,6 +4,7 @@ declare module "i18n" {
   export function t(source: string): string;
   export function getLocale(): string;
   export function setLocale(locale: string): void;
+  export function translateDocument(root?: Element): void;
   export const supportedLocales: Record<string, string>;
 }
 

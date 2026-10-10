@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
-import { FirstRunGuide } from "../../shared/FirstRunGuide";
-import { Select } from "../../shared/Select";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
+import { mountPluginSurface } from "../../shared/reactMount.js";
+import { Select } from "../../shared/Select";
 import { isSupportedDocument, readFileAsDataUrl } from "./documentsLogic";
 import {
   createDocumentsStore,

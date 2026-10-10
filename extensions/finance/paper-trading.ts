@@ -1,7 +1,7 @@
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { randomUUID } from "node:crypto";
 
 export type PaperFill = {
   id: string;
@@ -146,7 +146,7 @@ export class PaperTradingLedger {
       const quote = quotes.get(position.symbol);
       if (!quote) {
         missingSymbols.push(position.symbol);
-        return { ...position, marketPrice: null, marketValue: null, unrealizedPnl: null };
+        return { ...position, marketPrice: null, marketValue: null, unrealizedPnl: null, stale: null };
       }
       const value = position.quantity * quote.price;
       const pnl = value - position.quantity * position.averageCost;

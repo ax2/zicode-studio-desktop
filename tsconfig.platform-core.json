@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.external-clients.json",
+  "files": [
+    "extensions/automation-drafts.ts",
+    "extensions/automation-workspace-repository.ts",
+    "extensions/cost-dashboard-data.ts",
+    "extensions/model-channels.ts",
+    "extensions/model-health-response.ts",
+    "extensions/session-search.ts",
+    "extensions/task-repository.ts"
+  ]
+}

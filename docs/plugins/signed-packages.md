@@ -21,7 +21,7 @@ example.zicode-plugin
 ├── package.json
 ├── plugin.json
 ├── views/...
-├── worker.js
+├── runtime/tools.wasm
 └── assets/...
 ```
 
@@ -76,4 +76,6 @@ bun run package:plugin examples/plugins/view-demo `
 
 签名包 View 使用与 Developer View 相同的 opaque iframe 和限制性 CSP。签名只解决内容
 完整性与发布者身份，不等于后台代码沙箱；因此签名包的 JavaScript Worker 默认不运行。
-公开第三方后台能力必须等待 WASI 或等价 OS 级隔离。
+现有 Rust Host 已有 `runtime.wasi` 的 WASI Preview 1 执行基础；公开分发仍需完成
+沙箱与供应链验收。ZiDevTools 首批的实际边界和待修复项见
+[独立插件交付规范](devtools-interoperability.md)，不能把构建出 WASM 当成 Host 验收通过。

@@ -1,7 +1,11 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { t } from "../../shared/i18n";
+import {
+  fallbackSceneProfiles,
+  type SceneProfile,
+} from "../settings/sceneProfiles";
 import { SceneIndicatorApp } from "./SceneIndicatorApp";
 import {
   normalizeSceneId,
@@ -9,10 +13,6 @@ import {
   toWelcomeScene,
   type WelcomeScene,
 } from "./sceneIndicatorLogic";
-import {
-  fallbackSceneProfiles,
-  type SceneProfile,
-} from "../settings/sceneProfiles";
 
 type TauriGlobal = {
   __TAURI__?: {

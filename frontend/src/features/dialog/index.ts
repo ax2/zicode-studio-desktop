@@ -1,19 +1,19 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { NativeDialogApp, type NativeDialogStore } from "./DialogApp";
 import {
-  parseDialogContent,
   type NativeDialogRequest,
+  parseDialogContent,
 } from "./dialogLogic";
 
+
+export type { DialogContent, DialogOption, NativeDialogRequest } from "./dialogLogic";
 export {
   defaultTitle,
   parseDialogContent,
   parseOption,
 } from "./dialogLogic";
-
-export type { DialogContent, DialogOption, NativeDialogRequest } from "./dialogLogic";
 
 export interface NativeDialogResult {
   value?: unknown;

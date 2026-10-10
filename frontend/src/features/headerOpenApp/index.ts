@@ -1,11 +1,11 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { create } from "zustand";
 import { HeaderOpenAppBridge } from "./HeaderOpenApp";
 import {
-  STORAGE_KEY,
   type InstalledApp,
+  STORAGE_KEY,
 } from "./headerOpenAppLogic";
 
 export interface HeaderOpenAppOptions {

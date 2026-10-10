@@ -1,0 +1,42 @@
+{
+  "wasmSha256": "d59d513481d45a68541dade32989032f7bb1d49c5bd4376595cdb53e9ab0b294",
+  "viewSha256": "85c3751401a8fae513a87dec57dc2ca9e712fa48ad79e0371dab21fd94b4061a",
+  "results": [
+    {
+      "theme": "light",
+      "width": 1180,
+      "pass": true,
+      "actions": [
+        "yaml.to_json",
+        "yaml.from_json",
+        "cidr.inspect",
+        "jwt.inspect",
+        "unicode.inspect",
+        "unicode.nfc",
+        "unicode.nfkc"
+      ],
+      "calls": 17,
+      "actualWasi": true
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "pass": true,
+      "actions": [
+        "yaml.to_json",
+        "yaml.from_json",
+        "cidr.inspect",
+        "jwt.inspect",
+        "unicode.inspect",
+        "unicode.nfc",
+        "unicode.nfkc"
+      ],
+      "calls": 17,
+      "actualWasi": true
+    }
+  ],
+  "offlinePass": true,
+  "limitations": [
+    "Injected public SDK, actual WASI; not actual Studio bridge, permission, Pi or install lifecycle acceptance"
+  ]
+}

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
 import type { OcrResult } from "./ocrLogic";
 
 export interface OcrScope {

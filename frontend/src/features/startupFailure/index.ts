@@ -1,6 +1,6 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { StartupFailureApp } from "./StartupFailureApp";
 
 let activeRoot: Root | null = null;

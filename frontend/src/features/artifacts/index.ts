@@ -2,7 +2,6 @@ import { createArtifactApp } from "./ArtifactApp";
 import type { ArtifactAppOptions } from "./store";
 
 export { createArtifactApp } from "./ArtifactApp";
-export type { ArtifactAppOptions } from "./store";
 export {
   formatBytes,
   formatDate,
@@ -13,6 +12,7 @@ export {
   safeFileName,
   stringifyContent,
 } from "./logic";
+export type { ArtifactAppOptions } from "./store";
 
 // Keep the vanilla shell's setupArtifactApp contract.
 export function setupArtifactApp(options: ArtifactAppOptions) {

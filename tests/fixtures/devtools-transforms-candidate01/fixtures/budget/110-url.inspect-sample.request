@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.transforms","sceneId":"coding","capabilityId":"devtools.transforms.url.inspect","commandId":null,"input":{"text":"https://user:pass@example.com/p?a=1&a=2&q=%E4%B8%AD#f"}}

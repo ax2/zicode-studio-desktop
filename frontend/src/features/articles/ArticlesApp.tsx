@@ -1,25 +1,25 @@
 import { useRef, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
-import { FirstRunGuide } from "../../shared/FirstRunGuide";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { renderMarkdown } from "../../../../public/ui/markdown.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
 import {
   csvToMarkdownTable,
   insertMarkdownLinePrefix,
   insertMarkdownLink,
   insertMarkdownTable,
+  type MarkdownEdit,
   replaceSelection,
   wrapMarkdownCodeBlock,
   wrapMarkdownSelection,
-  type MarkdownEdit,
 } from "../../shared/markdownFormatting";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import {
-  createArticlesStore,
   type ArticlesGateway,
   type ArticlesScope,
   type ArticlesStore,
+  createArticlesStore,
 } from "./articlesStore";
 
 export interface ArticlesOptions {

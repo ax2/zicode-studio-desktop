@@ -1,11 +1,11 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { createElement } from "react";
+import { t } from "../../shared/i18n";
 import {
   HistoryLoadedStatusContent,
   HistoryWindowNoticeContent,
 } from "./HistoryWindowNotices";
-import { t } from "../../shared/i18n";
 
 export {
   createHistoryWindow,

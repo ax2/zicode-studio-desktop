@@ -30,6 +30,10 @@ export function browseSourceFor(pkg: BrowsePackage): string {
   return `npm:${pkg.name}`;
 }
 
+function isAbsoluteLocalPath(source: string): boolean {
+  return source.startsWith("/") || /^[a-z]:[\\/]/i.test(source) || source.startsWith("\\\\");
+}
+
 export function normalizeRepoUrl(url: unknown): string | null {
   if (!url) return null;
   return String(url)
@@ -96,14 +100,19 @@ interface PackageBrowseState {
   status: "idle" | "loading" | "ready" | "error";
   error: string | null;
   canManage: boolean;
+  canPickLocal: boolean;
   packages: BrowsePackage[];
   installedSet: Set<string>;
+  installedError: string | null;
   activeType: string;
   searchQuery: string;
   installedOnly: boolean;
   sortMode: string;
   page: number;
   busySource: string | null;
+  manualSource: string;
+  manualError: string | null;
+  loadInstalled(): Promise<void>;
   load(force?: boolean): Promise<void>;
   setSearch(query: string): void;
   setType(type: string): void;
@@ -111,6 +120,10 @@ interface PackageBrowseState {
   setSort(sortMode: string): void;
   goToPage(page: number): void;
   toggleInstall(pkg: BrowsePackage): Promise<void>;
+  setManualSource(source: string): void;
+  pickLocalSource(directory: boolean): Promise<void>;
+  installSource(): Promise<void>;
+  removeInstalled(source: string): Promise<void>;
   openLink(url: string): void;
 }
 
@@ -149,10 +162,18 @@ export function createPackageBrowseStore(options: {
   control: HostControlGatewayLike | null;
   notify?: (message: { type: string; title: string; message: string; detail?: string }) => void;
   fetchImpl?: typeof fetch;
+  invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 }) {
   const control = options.control;
   const notify = options.notify ?? (() => {});
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
+  const invoke =
+    options.invoke ??
+    (globalThis as {
+      __TAURI__?: {
+        core?: { invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
+      };
+    }).__TAURI__?.core?.invoke;
 
   async function refreshInstalled(): Promise<Set<string>> {
     if (!control) return new Set();
@@ -168,14 +189,34 @@ export function createPackageBrowseStore(options: {
     status: "idle",
     error: null,
     canManage: Boolean(control),
+    canPickLocal: Boolean(invoke),
     packages: [],
     installedSet: new Set(),
+    installedError: null,
     activeType: "all",
     searchQuery: "",
     installedOnly: false,
     sortMode: "downloads",
     page: 1,
     busySource: null,
+    manualSource: "",
+    manualError: null,
+
+    async loadInstalled() {
+      if (!control) {
+        set({ installedSet: new Set(), installedError: "Installed packages unavailable." });
+        return;
+      }
+      try {
+        const configured = await control.listPiPackages();
+        set({
+          installedSet: new Set(Array.isArray(configured) ? configured : []),
+          installedError: null,
+        });
+      } catch {
+        set({ installedError: "Installed packages unavailable." });
+      }
+    },
 
     async load(force = false) {
       if (get().status === "loading") return;
@@ -237,6 +278,70 @@ export function createPackageBrowseStore(options: {
       } catch (error) {
         const operation = installed ? "uninstall" : "install";
         const failure = getPackageInstallFailure(error, operation);
+        notify({
+          type: "error",
+          title: failure.title,
+          message: failure.note,
+          detail: failure.detail,
+        });
+      } finally {
+        set({ busySource: null });
+      }
+    },
+
+    setManualSource(manualSource) {
+      set({ manualSource, manualError: null });
+    },
+
+    async pickLocalSource(directory) {
+      if (!invoke || get().busySource !== null) return;
+      try {
+        const selected = await invoke("plugin:dialog|open", {
+          options: { directory, multiple: false },
+        });
+        if (selected === null || selected === undefined) return;
+        if (typeof selected !== "string" || !isAbsoluteLocalPath(selected)) {
+          set({ manualError: "Selected path is not a local absolute path." });
+          return;
+        }
+        set({ manualSource: selected, manualError: null });
+      } catch {
+        set({ manualError: "Could not open the local package picker." });
+      }
+    },
+
+    async installSource() {
+      if (!control || get().busySource !== null) return;
+      const source = get().manualSource.trim();
+      const supported =
+        /^(?:npm:|git:|https?:\/\/|ssh:\/\/)[^\s]+$/i.test(source) ||
+        isAbsoluteLocalPath(source);
+      if (!source || /[\r\n\0]/.test(source) || !supported) {
+        set({ manualError: "Enter an npm or Git source, or an absolute local path." });
+        return;
+      }
+      set({ busySource: source, manualError: null });
+      try {
+        await control.installPiPackage(source);
+        set({ manualSource: "" });
+        await get().loadInstalled();
+      } catch {
+        set({ manualError: "Could not install this package source. Check the source and try again." });
+      } finally {
+        set({ busySource: null });
+      }
+    },
+
+    async removeInstalled(source) {
+      if (!control || !get().installedSet.has(source)) return;
+      set({ busySource: source });
+      try {
+        await control.removePiPackage(source);
+        const next = new Set(get().installedSet);
+        next.delete(source);
+        set({ installedSet: next });
+      } catch (error) {
+        const failure = getPackageInstallFailure(error, "uninstall");
         notify({
           type: "error",
           title: failure.title,

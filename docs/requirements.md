@@ -2,14 +2,18 @@
 
 ## 1. 产品定位
 
-ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序。用户无需打开终端即可选择工作区、选择业务场景、配置模型、创建会话、审阅工具调用和恢复历史任务。
+ZiCode Studio Desktop 是本地优先的跨平台开发者个人平台。用户无需打开终端即可管理项目、选择工作区和场景、配置模型、创建会话、审阅工具调用、运行项目任务并恢复历史工作。
 
-首个正式支持范围：
+目标交付范围：
 
-- Windows 10/11 x64。
-- Windows 11 ARM64 在 CI 中构建，发布前需要真实设备验证。
+- Windows 10/11 x64：NSIS 安装包，内置 Pi、Portable Git、Git Bash 和 WebView2 离线安装器。
+- macOS Apple Silicon：DMG，内置 Pi，使用系统 Shell 与 Git；正式分发仍需签名和公证方案。
+- macOS Intel x64：DMG，内置 Pi，使用系统 Shell 与 Git；正式分发仍需签名和公证方案。
+- Linux x64：AppImage 和 DEB，内置 Pi，使用系统 Shell 与 Git。
 - 单用户本地应用。
-- 在线模型、本地 OpenAI 兼容模型和企业代理渠道。
+- 用户自选的在线模型、本地 OpenAI 兼容模型及代理渠道；核心项目工作流不能依赖特定服务商或公司运行环境。
+
+构建矩阵仅说明预期产物。每个平台仍需分别验证安装、启动、项目任务、模型调用、升级和卸载；未取得证据前不声明该平台已正式验收。
 
 ## 2. 开箱即用
 
@@ -18,25 +22,23 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 | 组件 | 要求 |
 | --- | --- |
 | Pi Runtime | 固定版本，随应用打包 |
-| Git | 内置 Portable Git |
-| Bash | 使用内置 Git Bash |
+| Git | Windows 内置 Portable Git；macOS/Linux 使用系统 Git |
+| Shell | Windows 内置 Git Bash 并使用系统 PowerShell；macOS/Linux 使用系统 Shell |
 | Node/npm | 仅在允许动态 npm 扩展时内置受控版本 |
-| WebView2 | 离线安装兜底或固定 Runtime |
+| WebView2 | Windows 提供离线安装兜底；macOS/Linux 使用系统 WebView |
 | 默认场景 | 编程、金融、创作 |
 | License | 包含第三方许可证和版本清单 |
 
-干净 Windows 虚拟机在未安装 Node、Git、Pi、Rust 或 WSL 时必须能够安装、启动并完成一次真实任务。
+干净 Windows 虚拟机在未安装 Node、Git、Pi、Rust 或 WSL 时必须能够安装、启动并完成一次真实任务。macOS/Linux 需在声明的系统依赖下完成等价的安装和任务验证，不能借用 Windows 检查结果作为跨平台证据。
 
 ## 3. 自定义模型渠道
 
-应用必须预置不可删除的 QVeris Model Gateway，`base_url` 固定为
-`https://aigateway.qveris.ai/v1`；用户可以为该渠道添加凭证并从 `/v1/models`
-同步模型，也可以继续创建其他自定义渠道。
+模型渠道由用户显式创建、编辑、禁用和删除。空配置不得隐式添加或联网同步任何服务商；目录发现和健康检查由用户主动触发。QVeris 可以作为用户选择的兼容渠道，现有本地代理仅为该渠道的兼容路径，不构成平台默认依赖。其他兼容渠道也应能使用同一套项目与模型工作流。
 
 每个渠道至少保存：
 
 - 稳定 ID、显示名称和渠道类型。
-- `base_url`。
+- 用户配置的 `base_url`，不得为通用渠道隐式回退到特定服务商地址。
 - Pi API 类型，例如 `openai-responses`、`openai-completions`、`anthropic-messages`。
 - 凭证引用，不在普通 JSON 中保存明文密钥。
 - 可选 Headers、兼容性参数、代理和超时。
@@ -90,7 +92,7 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 
 - 前端不能直接启动任意进程。
 - Rust Host 是唯一系统能力入口。
-- API Key 使用 Windows Credential Manager 或 DPAPI 保护。
+- API Key 使用当前操作系统的凭据存储保护；跨平台验收应分别检查读取、更新和删除。
 - 所有路径在 Rust 侧 canonicalize 并验证授权根目录。
 - 危险工具操作必须生成审批请求和审计记录。
 - 日志不得包含密钥、Authorization Header 或完整敏感输入。
@@ -99,7 +101,7 @@ ZiCode Studio Desktop 将 Pi Coding Agent 交付为普通 Windows 桌面程序�
 ## 7. 发布与文档
 
 - 推送 `v*` tag 自动构建并创建 GitHub Release。
-- Release 至少包含一个经过验证、携带全部离线依赖的 Windows x64 NSIS EXE。
+- Release 至少包含经过对应平台验证的 Windows x64 NSIS EXE、macOS Apple Silicon 与 Intel DMG、Linux x64 AppImage 和 DEB；各平台依赖边界按第 2 节执行。
 - Updater manifest 必须签名。
 - MkDocs 使用 `--strict` 构建。
 - 架构、需求、ADR、阶段日志和验证记录随代码提交。
@@ -144,6 +146,7 @@ Manifest、Host API、UI、安全和实施阶段见[应用插件平台文档](pl
 - MkDocs 严格构建通过。
 - Release Workflow 成功生成安装包。
 - 干净 Windows 虚拟机断网安装验证。
+- macOS 和 Linux 分别完成原生安装、启动、项目任务、模型调用、升级及卸载验证。
 - 无可见子进程控制台窗口。
 - 多场景、多实例并行运行和目录隔离验证。
 - 插件按场景启停、权限撤销、Main View 切换、Chat/Pi Capability 调用和卸载数据保留

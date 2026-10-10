@@ -1,0 +1,44 @@
+.automation-worker-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.automation-worker-panel > div:first-child {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.automation-worker-panel h2,
+.automation-worker-panel p {
+  margin: 0;
+}
+
+.automation-worker-panel p,
+.automation-worker-status {
+  color: var(--text-secondary);
+}
+
+.automation-worker-panel .automation-worker-error {
+  color: var(--error);
+}
+
+.automation-worker-login {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.automation-worker-login label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.automation-worker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

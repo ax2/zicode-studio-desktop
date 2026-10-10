@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ImageItem } from "./imageLogic";
 import {
   setupComposer,
   setupComposerImageAttachments,
@@ -6,7 +7,6 @@ import {
   setupComposerSlashMenu,
 } from "./index";
 import type { SlashCommand } from "./slashMenu";
-import type { ImageItem } from "./imageLogic";
 
 class DataTransferStub {
   private data = new Map<string, string>();

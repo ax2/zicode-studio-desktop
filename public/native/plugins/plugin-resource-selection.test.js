@@ -1,0 +1,90 @@
+import { webcrypto } from "node:crypto";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { setLocale } from "../../i18n.js";
+import { createPluginResourceSelection } from "./plugin-resource-selection.js";
+
+function setup() {
+  setLocale("en");
+  vi.stubGlobal("crypto", webcrypto);
+  document.body.innerHTML = '<main id="parent"></main>';
+  const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const gateway = {
+    prepareResource: vi.fn(async () => ({ resourceId: id })),
+    appendResource: vi.fn(async () => ({ uploadedBytes: 3 })),
+    commitResource: vi.fn(async (access) => ({ ...access, confirmed: true, byteLength: 3 })),
+    revokeResource: vi.fn(async () => ({})),
+  };
+  const onResource = vi.fn();
+  const controller = createPluginResourceSelection({
+    container: document.querySelector("main"),
+    plugin: { id: "p", name: "Receiver", version: "1", capabilities: [{ id: "c", title: "Echo" }] },
+    target: { instanceId: "r", sessionId: "s" },
+    gateway,
+    isCurrent: () => true,
+    onResource,
+  });
+  const file = {
+    name: "test.txt",
+    size: 3,
+    type: "text/plain",
+    arrayBuffer: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
+  };
+  const input = document.querySelector('input[type="file"]');
+  Object.defineProperty(input, "files", { value: [file] });
+  input.dispatchEvent(new Event("change"));
+  return {
+    controller,
+    gateway,
+    onResource,
+    file,
+    input,
+    confirm: document.querySelector("button"),
+    cancel: document.querySelectorAll("button")[1],
+  };
+}
+afterEach(() => {
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+  setLocale("zh-CN");
+});
+describe("trusted file confirmation controls", () => {
+  it("shows metadata without reading or sending bytes before confirmation", () => {
+    const options = setup();
+    expect(document.body.textContent).toContain("test.txt");
+    expect(options.file.arrayBuffer).not.toHaveBeenCalled();
+    expect(options.gateway.prepareResource).not.toHaveBeenCalled();
+    options.cancel.click();
+    expect(options.confirm.disabled).toBe(true);
+  });
+  it("confirms before delivering a reference and revokes on cancel", async () => {
+    const options = setup();
+    options.confirm.click();
+    await vi.waitFor(() => expect(options.onResource).toHaveBeenCalledTimes(1));
+    expect(options.gateway.prepareResource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner: { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" },
+      }),
+    );
+    options.cancel.click();
+    expect(options.onResource).toHaveBeenLastCalledWith(null);
+    expect(options.gateway.revokeResource).toHaveBeenCalledTimes(1);
+  });
+  it("keeps allocation controls disabled until canceled work finishes", async () => {
+    const options = setup();
+    let release;
+    options.gateway.prepareResource.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    options.confirm.click();
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    options.cancel.click();
+    expect(options.input.disabled).toBe(true);
+    release({ resourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    await vi.waitFor(() => expect(options.input.disabled).toBe(false));
+    expect(options.onResource).not.toHaveBeenCalled();
+    expect(options.gateway.revokeResource).toHaveBeenCalledTimes(1);
+  });
+});

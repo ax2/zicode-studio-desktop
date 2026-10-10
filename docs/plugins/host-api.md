@@ -1,5 +1,13 @@
 # Plugin Host API
 
+本文命名空间是总体设计，不能据此假设全部已经提供。当前隔离View资源读取候选的实际签名与限制见下面的resources节；尚未实现的接口不能由提供方发布为已支持。
+
+## 当前隔离View资源读取候选
+
+源码SDK提供 `zicode.resources.read({capabilityId,resourceId,contentVersion,offset?,length?})`，返回确认资源的有界Base64分块；不是文件路径读取。每次最多32KiB，默认偏移0，SDK最多32项等待、30秒超时。身份由可信父窗绑定，结果版本/偏移/编码严格校验；目标变化或View销毁后不再交付结果。桌面token不交给插件，子窗仍为opaque sandbox且connect-src none。
+
+参见[资源输入候选draft.4](resource-input-contract.md)。源码可信父窗已提供选择/确认与引用事件：`zicode.resources.getSelected()`返回三个字段的已确认引用或null，`onAvailable(listener)`提供可dispose订阅。确认前不交付引用，插件不能调用文件选择或代替用户确认。Windows真实Tauri开发程序已验证管理页启用/授权、确认前零上传、确认后隔离View读取和撤销拒绝；文件通过自动化设置真实WebView文件控件，尚未验收操作系统文件对话框。真实DevTools资源包、WASI消费、输出保存、其他OS和新冻结交付仍待完成，不能声明resource.v1完整可用。下文“所有调用支持AbortSignal”等是设计目标，本次read(options)没有AbortSignal，SDK超时不等于取消Host工作。
+
 ## 调用模型
 
 插件 UI 通过受限 `postMessage` Bridge 使用 SDK；后台 Runtime 使用同一套消息协议。

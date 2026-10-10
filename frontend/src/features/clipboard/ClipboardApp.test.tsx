@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClipboardMain } from "./ClipboardApp";
-import { createClipboardStore, type ClipboardGateway } from "./clipboardStore";
+import { type ClipboardGateway, createClipboardStore } from "./clipboardStore";
 
 function stubGateway(overrides: Partial<ClipboardGateway> = {}): ClipboardGateway {
   return {

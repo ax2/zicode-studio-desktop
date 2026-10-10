@@ -28,6 +28,18 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Typecheck external clients
+        run: bun run typecheck:external-clients
+
+      - name: Typecheck finance core
+        run: bun run typecheck:finance-core
+
+      - name: Typecheck chat inbox core
+        run: bun run typecheck:chat-inbox-core
+
+      - name: Typecheck platform core
+        run: bun run typecheck:platform-core
+
       - name: Lint
         run: bun run lint
 

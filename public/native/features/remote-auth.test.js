@@ -17,14 +17,19 @@ function storage() {
 }
 
 describe("remote auth", () => {
-  it("treats localhost as a desktop client", async () => {
+  it("treats an injected native window on localhost as a desktop client", async () => {
     const auth = await resolveRemoteAuth({
       location: { href: "http://127.0.0.1:9000/app/workspaces/a/sessions/b" },
       history: { replaceState: vi.fn() },
       storage: storage(),
       fetchImpl: vi.fn(),
+      desktopToken: "desktop-window-token",
     });
-    expect(auth).toEqual({ clientType: "desktop", deviceToken: "" });
+    expect(auth).toEqual({
+      clientType: "desktop",
+      deviceToken: "",
+      desktopToken: "desktop-window-token",
+    });
     expect(isLoopbackHost("localhost")).toBe(true);
   });
 

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
 import type { WatchCheckResult, WatchItem } from "./watchLogic";
 import { normalizeUrl } from "./watchLogic";
 
@@ -106,6 +106,7 @@ export interface WatchState {
   editingId: string | null;
   setDraft(patch: Partial<Pick<WatchState, "draftName" | "draftUrl">>): void;
   load(): Promise<void>;
+  resetScope(): void;
   add(): Promise<void>;
   startEdit(item: WatchItem): void;
   saveEdit(): Promise<void>;
@@ -122,9 +123,9 @@ export interface WatchOptions {
 }
 
 export function createWatchStore(options: WatchOptions) {
-    const { gateway = new WatchHttpGateway(), getTarget, notify } = options;
-    let loadSeq = 0;
-    return create<WatchState>()((set, get) => ({
+  const { gateway = new WatchHttpGateway(), getTarget, notify } = options;
+  let loadSeq = 0;
+  return create<WatchState>()((set, get) => ({
     items: [],
     results: {},
     busy: false,
@@ -138,18 +139,32 @@ export function createWatchStore(options: WatchOptions) {
       set({ ...patch, error: "" });
     },
 
-      async load() {
-        const seq = ++loadSeq;
-        set({ busy: true, error: "" });
-        try {
-          const result = await gateway.list(getTarget());
-          if (seq !== loadSeq) return;
-          set({ items: result.items, busy: false });
-        } catch (error) {
-          if (seq !== loadSeq) return;
-          set({ busy: false, error: friendlyPluginError(error) });
-        }
-      },
+    resetScope() {
+      loadSeq += 1;
+      set({
+        items: [],
+        results: {},
+        busy: false,
+        checking: false,
+        error: "",
+        draftName: "",
+        draftUrl: "",
+        editingId: null,
+      });
+    },
+
+    async load() {
+      const seq = ++loadSeq;
+      set({ busy: true, error: "" });
+      try {
+        const result = await gateway.list(getTarget());
+        if (seq !== loadSeq) return;
+        set({ items: result.items, busy: false });
+      } catch (error) {
+        if (seq !== loadSeq) return;
+        set({ busy: false, error: friendlyPluginError(error) });
+      }
+    },
 
     async add() {
       const { draftName, draftUrl, busy } = get();
@@ -236,12 +251,7 @@ export function createWatchStore(options: WatchOptions) {
       }));
       const checked = Object.keys(results).length;
       if (checked > 0) {
-        notify(
-          t("Checked {count} watchers").replace(
-            "{count}",
-            String(checked),
-          ),
-        );
+        notify(t("Checked {count} watchers").replace("{count}", String(checked)));
       }
       await get().load();
       if (firstError) {

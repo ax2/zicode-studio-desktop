@@ -1,6 +1,6 @@
-import { t } from "../../shared/i18n";
 // @ts-expect-error plain JS module without type declarations (public/ui/diff.js)
 import { diffLines } from "../../../../public/ui/diff.js";
+import { t } from "../../shared/i18n";
 
 export interface ContentBlock {
   type?: string;
@@ -15,7 +15,7 @@ export interface ContentBlock {
 
 export function describeModelError(message: { errorMessage?: string; error?: string } = {}) {
   const raw = String(message?.errorMessage || message?.error || "");
-  const quotaFailure = /insufficient_user_quota|预扣费额度失败|insufficient\s+(?:user\s+)?quota/i.test(
+  const quotaFailure = /insufficient[_\s-]+(?:user[_\s-]+)?quota|insufficient[_\s-]+(?:credit|balance)|预扣费额度失败/i.test(
     raw,
   );
   const available = raw.match(/用户剩余额度\s*[:：]\s*[＄$]?\s*([\d.]+)/i)?.[1];
@@ -24,10 +24,10 @@ export function describeModelError(message: { errorMessage?: string; error?: str
   if (quotaFailure) {
     return {
       kind: "quota",
-      title: t("QVeris quota is insufficient"),
-      summary: t("The model service could not reserve enough balance for this request."),
+      title: t("Model service quota is insufficient"),
+      summary: t("The selected model service does not have enough quota or balance for this request."),
       suggestion: t(
-        "Try a less expensive model, start a new conversation to reduce context, or top up QVeris.",
+        "Try a less expensive model, start a new conversation to reduce context, or check your provider balance.",
       ),
       metrics: [
         available ? { label: t("Available balance"), value: `$${available}` } : null,

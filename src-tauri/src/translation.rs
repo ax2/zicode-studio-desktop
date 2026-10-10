@@ -3,7 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 const MAX_TEXT_CHARS: usize = 50_000;
 const MAX_LANG_CHARS: usize = 40;
 
@@ -14,13 +13,12 @@ pub struct TranslationRequest {
     pub target_lang: String,
     #[serde(default)]
     pub source_lang: Option<String>,
-    #[serde(default)]
-    pub model: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TranslationResult {
+    pub provider: String,
     pub translated: String,
     pub model: String,
     pub target_lang: String,
@@ -79,56 +77,33 @@ pub fn validate(text: &str, target_lang: &str, source_lang: Option<&str>) -> Res
     Ok(())
 }
 
-pub fn translate(request: &TranslationRequest, api_key: &str) -> Result<TranslationResult, String> {
+pub fn translate(
+    request: &TranslationRequest,
+    endpoint: &crate::model_tools::ModelEndpoint,
+    api_key: Option<&str>,
+) -> Result<TranslationResult, String> {
     validate(
         &request.text,
         &request.target_lang,
         request.source_lang.as_deref(),
     )?;
-    let model = request
-        .model
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_MODEL);
+    let model = &endpoint.choice.model;
     let prompt = build_prompt(
         &request.text,
         request.source_lang.as_deref(),
         &request.target_lang,
     );
-    let body = serde_json::json!({
-        "model": model,
-        "messages": [
-            { "role": "user", "content": prompt }
-        ],
-        "temperature": 0.2
-    });
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|error| format!("Cannot build model client: {error}"))?;
-    let response = client
-        .post("https://aigateway.qveris.ai/v1/chat/completions")
-        .bearer_auth(api_key)
-        .json(&body)
-        .send()
-        .map_err(|error| format!("Model gateway is unreachable: {error}"))?;
-    let status = response.status();
-    let payload: serde_json::Value = response
-        .json()
-        .map_err(|error| format!("Cannot read model response: {error}"))?;
-    if !status.is_success() {
-        let message = payload
-            .get("error")
-            .and_then(|error| error.get("message"))
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("model request failed");
-        return Err(format!("Model gateway error ({status}): {message}"));
-    }
+    let payload = crate::model_tools::complete(
+        endpoint,
+        api_key,
+        prompt,
+        std::time::Duration::from_secs(60),
+    )?;
     let translated =
         extract_text(&payload).ok_or_else(|| "Model returned an empty translation".to_string())?;
     let char_count = translated.chars().count();
     Ok(TranslationResult {
+        provider: endpoint.choice.provider.clone(),
         translated,
         model: model.to_string(),
         target_lang: request.target_lang.trim().to_string(),

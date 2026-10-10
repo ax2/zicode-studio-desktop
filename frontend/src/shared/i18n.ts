@@ -5,4 +5,4 @@
 // same /i18n.js module the native app uses, so every React bundle shares ONE
 // locale instance (a bundled copy would freeze each bundle to its own locale
 // state and fight the native MutationObserver during runtime switches).
-export { t, getLocale, setLocale } from "i18n";
+export { getLocale, setLocale, t } from "i18n";

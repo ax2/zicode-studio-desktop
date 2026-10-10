@@ -30,5 +30,5 @@ export function toWelcomeScene(profile: SceneProfile): WelcomeScene {
   };
 }
 
-export { normalizeSceneId };
 export type { SceneProfile };
+export { normalizeSceneId };

@@ -9,6 +9,9 @@ use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 use zip::ZipArchive;
 
+mod installed;
+pub(crate) use installed::verify_installed_package;
+
 const PACKAGE_SCHEMA_VERSION: u32 = 1;
 const MAX_ARCHIVE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_FILES: usize = 2_048;
@@ -64,6 +67,7 @@ pub struct SignedPluginPreview {
 
 #[derive(Debug)]
 pub struct VerifiedPackage {
+    pub(crate) integrity: serde_json::Value,
     pub package_path: PathBuf,
     pub manifest: PluginManifest,
     pub publisher: PackagePublisher,
@@ -194,6 +198,8 @@ pub fn verify_package(package_path: &Path, plugin_root: &Path) -> Result<Verifie
         publisher.public_key == signed.publisher.public_key && !publisher.revoked
     });
     Ok(VerifiedPackage {
+        integrity: serde_json::to_value(&signed)
+            .map_err(|error| format!("Cannot preserve package signature proof: {error}"))?,
         package_path,
         manifest,
         publisher: signed.publisher,

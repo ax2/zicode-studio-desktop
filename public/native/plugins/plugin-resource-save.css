@@ -1,0 +1,15 @@
+.plugin-resource-save {
+  box-sizing: border-box;
+  width: min(calc(var(--control-height-lg) * 18), calc(100vw - var(--space-6)));
+  max-height: calc(100dvh - var(--space-6));
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-solid);
+  color: var(--text-primary);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.plugin-resource-save::backdrop { background: rgba(0, 0, 0, 0.5); }
+.plugin-resource-save-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.plugin-resource-save .ui-button { height: auto; min-height: var(--control-height-md); white-space: normal; }

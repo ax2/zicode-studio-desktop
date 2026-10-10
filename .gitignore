@@ -6,6 +6,7 @@ site/
 .cache/
 
 # Tauri build artifacts
+release/
 target/
 src-tauri/target/
 # Generated visual-QA screenshots (regenerate with scripts/visual-qa.mjs)

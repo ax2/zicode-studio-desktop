@@ -305,3 +305,9 @@ bun run package:plugin . --key C:\secure\publisher-private.pem --out example.zic
 
 插件包不得包含完整账号凭据、Cookie、API Key 或用户数据样例。文档中的 Secret 使用
 占位符。
+
+View能力调用的Promise失败现在可读取固定Error.code；成功/业务失败envelope保持。使用[公开错误字段规范](view-error-contract.md)，不要透传服务原消息；客户端等待超时不代表Host取消。
+
+输入 Schema 的 Host 实际校验范围与敏感字段错误处理见 [参数约束校验](input-schema-validation.md)。不要将声明了 JSON Schema 等同于所有关键字均被执行；新提供方协议需逐项验证。
+
+可选结果契约、预算、缓存复核和显式预览协商见 [结果声明校验](output-schema-validation.md)。旧 Host/旧候选包不能由源码验证推定支持。

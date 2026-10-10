@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Bundle each pi extension TypeScript source under `extensions/` into a
- * self-contained CommonJS file under `extensions/dist/`.
+ * self-contained ESM file under `extensions/dist/`.
  *
  * Why this exists
  * ---------------
@@ -54,8 +54,7 @@ async function buildOne(entrySpec) {
   const [entry, outName] = Array.isArray(entrySpec) ? entrySpec : [entrySpec];
   const inFile = path.join(SRC_DIR, entry);
   if (!fs.existsSync(inFile)) {
-    console.warn(`[build-extensions] skip missing entry: ${entry}`);
-    return;
+    throw new Error(`[build-extensions] required entry is missing: ${entry}`);
   }
   const outFile = path.join(OUT_DIR, outName || entry.replace(/\.ts$/, ".mjs"));
   await esbuild.build({

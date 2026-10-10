@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { formatCreatedAt, openableUrl } from "./clipboardLogic";
-import { createClipboardStore, type ClipboardOptions, type ClipboardStore } from "./clipboardStore";
+import { type ClipboardOptions, type ClipboardStore, createClipboardStore } from "./clipboardStore";
 
 export type ClipboardAppApi = {
   renderNavigation(container: HTMLElement): void;

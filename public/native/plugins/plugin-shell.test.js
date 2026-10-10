@@ -31,6 +31,31 @@ function registry() {
 
 const originalMatchMedia = globalThis.matchMedia;
 
+it("opens a scoped concrete tool without remounting its existing draft or executing", async () => {
+  const target = {sceneId:"programming",workspaceId:"fixture"};
+  const gateway = {
+    searchTools: vi.fn(async()=>({items:[],total:0,revision:"rev",nextOffset:null})),
+    loadTool: vi.fn(async(_scene, selected)=>({pluginId:"fixture",version:"0.1.0",revision:selected.revision,enabled:true,capability:{id:selected.capabilityId,inputSchema:{type:"object",properties:{text:{type:"string"}}}},permissions:[]})),
+    invoke: vi.fn(),
+  };
+  const shell = setupPluginShell({registry:registry(),getTarget:()=>target,capabilityGateway:gateway});
+  const tool = {toolId:"tool-1",accessId:"manual.tool:1",pluginId:"fixture",capabilityId:"text",title:"Fixture text",applicationName:"Fixture",publisher:"Studio",version:"0.1.0",enabled:true,runtime:"wasi"};
+  await shell.openManualTool(tool,"rev",target);
+  await vi.waitFor(()=>expect(document.querySelector("textarea")).toBeTruthy());
+  const input = document.querySelector("textarea");
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,"value").set.call(input,"retained shell draft");
+  input.dispatchEvent(new Event("input",{bubbles:true}));
+  await shell.openManualTool(tool,"rev",target);
+  await vi.waitFor(()=>expect(document.querySelector("textarea").value).toBe("retained shell draft"));
+  expect(gateway.loadTool).toHaveBeenCalledTimes(1); expect(gateway.invoke).not.toHaveBeenCalled();
+  await shell.activate("com.zicode.notes");
+  await shell.openManualTool(tool,"rev",target);
+  await vi.waitFor(()=>expect(document.querySelector("textarea").value).toBe("retained shell draft"));
+  expect(gateway.loadTool).toHaveBeenCalledTimes(1);
+  await expect(shell.openManualTool(tool,"rev",{...target,workspaceId:"other"})).rejects.toThrow();
+  shell.destroy();
+});
+
 beforeEach(() => {
   setLocale("en");
   sessionStorage.clear();
@@ -348,15 +373,13 @@ describe("setupPluginShell", () => {
       expect.arrayContaining([
         "Tasks",
         "Automation",
-        "Finance",
-        "Artifacts",
+        "Notes",
         "Commands",
-        "Manage plugins",
         "Settings",
         "Help",
       ]),
     );
-    expect(menuLabels).not.toEqual(expect.arrayContaining(["Chat", "Projects", "Notes", "Files"]));
+    expect(menuLabels).not.toEqual(expect.arrayContaining(["Chat", "Projects", "Tools", "Finance", "Artifacts"]));
 
     more.click();
     expect(menu.hidden).toBe(false);
@@ -667,8 +690,9 @@ describe("setupPluginShell", () => {
       getTarget: () => ({ sceneId: "programming" }),
     });
     await vi.waitFor(() =>
-      expect(document.querySelector('[data-plugin-id="com.example.view"]')).toBeTruthy(),
+      expect(shell.getCommandPaletteEntries().some(entry => entry.id === "com.example.view:open")).toBe(true),
     );
+    expect(document.querySelector('[data-plugin-id="com.example.view"]')).toBeNull();
 
     await shell.activate("com.example.view", { focus: false });
     expect(pluginViewHost.renderNavigation).toHaveBeenCalledWith(
@@ -829,8 +853,8 @@ describe("setupPluginShell", () => {
     );
 
     document.querySelector('[data-plugin-id="core.help"]').click();
-    expect(settingsApp.deactivate).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.help"));
+    expect(settingsApp.deactivate).toHaveBeenCalledOnce();
     expect(shell.getActivePluginId()).toBe("core.help");
     expect(document.querySelector(".plugin-sidebar-surface").textContent).toContain("Quick start");
     expect(document.querySelector(".plugin-main-view").textContent).toContain(

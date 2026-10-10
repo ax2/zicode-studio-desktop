@@ -1,29 +1,29 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-// @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
-import { renderMarkdown, renderStreamingMarkdown, renderUserMarkdown } from "../../../../public/ui/markdown.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/copy.js)
 import { copyText } from "../../../../public/ui/copy.js";
+// @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
+import { renderMarkdown, renderStreamingMarkdown, renderUserMarkdown } from "../../../../public/ui/markdown.js";
+import { t } from "../../shared/i18n";
 import {
   HistoryLoadedStatus,
   HistoryWindowNotice,
 } from "../historyWindow/HistoryWindowNotices";
-import { t } from "../../shared/i18n";
-import { allChatTemplates } from "./chatTemplates";
-import {
-  describeModelError,
-  friendlyToolError,
-  formatJson,
-  renderDiffData,
-  toolStageLabel,
-  type ContentBlock,
-} from "./chatLogic";
 import type {
-  ChatFeedItem,
-  UserMessageLike,
   AssistantMessageLike,
+  ChatFeedItem,
   UsageLike,
+  UserMessageLike,
   WelcomeScene,
 } from "./chatFeedStore";
+import {
+  type ContentBlock,
+  describeModelError,
+  formatJson,
+  friendlyToolError,
+  renderDiffData,
+  toolStageLabel,
+} from "./chatLogic";
+import { allChatTemplates } from "./chatTemplates";
 
 type ChatStore = {
   getState(): { items: ChatFeedItem[] };

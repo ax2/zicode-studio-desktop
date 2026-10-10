@@ -1,0 +1,78 @@
+.project-work-summary {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.project-work-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.project-work-summary h2,
+.project-work-summary h3,
+.project-work-summary p {
+  margin: 0;
+}
+
+.project-work-summary-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.project-work-summary-columns > div,
+.project-work-summary ul {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.project-work-summary ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-work-summary li button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-work-summary li button:hover {
+  border-color: var(--accent);
+}
+
+.project-work-summary li button strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.project-work-summary li button span {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.project-work-summary-hint {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 760px) {
+  .project-work-summary-columns {
+    grid-template-columns: 1fr;
+  }
+}

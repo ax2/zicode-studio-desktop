@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n";
 import { localizeHostError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
+import { channelModelDetailsJson, channelModelsFromDetails } from "./channelModelDetails";
 import { fallbackSceneProfiles } from "./sceneProfiles";
 
 function localizeError(error: unknown, fallback: string): string {
@@ -27,12 +28,17 @@ export interface ConfigProvider {
 }
 
 export interface ProviderChannel {
+  catalogSync?: "qveris" | "openai" | null;
+  enabled?: boolean;
+  authHeader?: boolean;
   provider?: string;
+  displayName?: string;
   builtIn?: boolean;
   baseUrl?: string;
   api?: string;
-  models?: Array<{ id: string }>;
+  models?: Array<{ id: string; name?: string; contextWindow?: number; maxTokens?: number; cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } }>;
   configured?: boolean;
+  revision?: string;
 }
 
 export interface ConfigGatewayResult {
@@ -41,6 +47,13 @@ export interface ConfigGatewayResult {
   data?: {
     providers?: ConfigProvider[];
     channels?: ProviderChannel[];
+    channel?: ProviderChannel;
+    connection?: { status?: string; method?: string; modelCount?: number; latencyMs?: number; error?: string };
+    models?: string[];
+    revision?: string;
+    provider?: string;
+    enabled?: boolean;
+    runtimeReady?: boolean;
     results?: Array<{
       provider?: string;
       modelId?: string;
@@ -54,7 +67,7 @@ export interface ConfigGatewayResult {
 }
 
 export interface ConfigGatewayLike {
-  call(op: string, params?: unknown, options?: { timeoutMs?: number }): Promise<ConfigGatewayResult>;
+  call(op: string, params?: unknown, options?: { timeoutMs?: number; target?: unknown }): Promise<ConfigGatewayResult>;
 }
 
 export interface ConfigStoreOptions {
@@ -71,13 +84,20 @@ interface EditorMessage {
 }
 
 export interface ChannelEditorForm {
+  sceneId: string;
+  authHeader: boolean;
   originalProvider: string;
   provider: string;
+  displayName: string;
   baseUrl: string;
   api: string;
   apiKey: string;
   modelsText: string;
+  modelDetailsJson: string;
   keyPrefix: string | null;
+  expectedRevision: string;
+  copySourceProvider?: string;
+  copySourceRevision?: string;
 }
 
 interface ConfigState {
@@ -99,11 +119,14 @@ interface ConfigState {
   channels: ProviderChannel[];
   channelStatus: "idle" | "loading" | "ready" | "error";
   channelError: string | null;
+  testingChannel: string | null;
+  channelCheck: { provider: string; message: string; ok: boolean } | null;
   channelEditor: ChannelEditorForm | null;
   channelSaving: boolean;
   channelEditorError: string | null;
+  channelEditorNotice: string | null;
   configEditor: { content: string; path: string; loading: boolean; message: EditorMessage | null; saving: boolean };
-  modelsEditor: { content: string; path: string; loading: boolean; message: EditorMessage | null; saving: boolean };
+  modelsEditor: { content: string; path: string; revision?: string; loading: boolean; message: EditorMessage | null; saving: boolean };
   setTarget(target: { sceneId?: string } | null): void;
   loadAll(): Promise<void>;
   loadApiKeys(options?: { preserveUi?: boolean }): Promise<void>;
@@ -120,8 +143,14 @@ interface ConfigState {
   setAllModelsVisibility(provider: string, visible: boolean): Promise<void>;
   loadChannels(): Promise<void>;
   openChannelEditor(channel: ProviderChannel | null): Promise<void>;
+  duplicateChannel(channel: ProviderChannel): void;
   closeChannelEditor(): void;
   setChannelForm(patch: Partial<ChannelEditorForm>): void;
+  syncingChannel: string | null;
+  togglingChannel: string | null;
+  syncChannel(channel: ProviderChannel): Promise<void>;
+  setChannelEnabled(channel: ProviderChannel, enabled: boolean): Promise<void>;
+  testChannelConnection(channel: ProviderChannel): Promise<void>;
   saveChannel(): Promise<void>;
   removeChannel(channel: ProviderChannel): Promise<void>;
   loadConfigEditor(): Promise<void>;
@@ -158,27 +187,32 @@ export function createConfigStore(options: ConfigStoreOptions) {
   const call = options.configGateway.call.bind(options.configGateway);
   const invoke = options.invoke;
   const confirmImpl = options.confirmImpl ?? ((message: string) => globalThis.confirm(message));
+  let sceneGeneration = 0;
 
   function activeSceneId(): string {
     const sceneId = options.getTarget?.()?.sceneId;
     return typeof sceneId === "string" && sceneId.trim() ? sceneId.trim() : "programming";
   }
 
-  async function storeSystemCredential(provider: string, secret: string): Promise<void> {
+  async function storeSystemCredential(sceneId: string, provider: string, secret: string): Promise<void> {
     if (!invoke) return;
-    await invoke("store_scene_credential", { sceneId: activeSceneId(), provider, secret });
+    await invoke("store_scene_credential", { sceneId, provider, secret });
   }
 
-  async function deleteSystemCredential(provider: string): Promise<void> {
-    if (!invoke) return;
-    await invoke("delete_scene_credential", { sceneId: activeSceneId(), provider });
+  function isCurrentScene(sceneId: string, generation: number): boolean {
+    return activeSceneId() === sceneId && sceneGeneration === generation;
   }
 
-  async function sceneCredentialPrefix(provider: string): Promise<string | null> {
+  async function deleteSystemCredential(sceneId: string, provider: string): Promise<void> {
+    if (!invoke) return;
+    await invoke("delete_scene_credential", { sceneId, provider });
+  }
+
+  async function sceneCredentialPrefix(sceneId: string, provider: string): Promise<string | null> {
     if (!invoke) return null;
     try {
       const status = (await invoke("scene_credential_status", {
-        sceneId: activeSceneId(),
+        sceneId,
         provider,
       })) as { configured?: boolean; prefix?: string } | null;
       if (!status?.configured || !status.prefix) return null;
@@ -191,9 +225,6 @@ export function createConfigStore(options: ConfigStoreOptions) {
   function sceneNameFor(sceneId: string): string {
     return fallbackSceneProfiles.find((entry: { id: string }) => entry.id === sceneId)?.name || sceneId;
   }
-
-  let qverisAutoSyncAttempted = false;
-  let renderedSceneId = "";
 
   async function refreshEverything() {
     await Promise.all([
@@ -224,20 +255,50 @@ export function createConfigStore(options: ConfigStoreOptions) {
     channels: [],
     channelStatus: "idle",
     channelError: null,
+    testingChannel: null,
+    channelCheck: null,
+    togglingChannel: null,
     channelEditor: null,
     channelSaving: false,
     channelEditorError: null,
+    channelEditorNotice: null,
     configEditor: { content: "", path: "", loading: false, message: null, saving: false },
-    modelsEditor: { content: "", path: "", loading: false, message: null, saving: false },
+    modelsEditor: { content: "", path: "", revision: "", loading: false, message: null, saving: false },
 
     setTarget(target) {
       const sceneId =
         typeof target?.sceneId === "string" && target.sceneId.trim()
           ? target.sceneId.trim()
           : "programming";
-      if (renderedSceneId && renderedSceneId !== sceneId) qverisAutoSyncAttempted = false;
-      renderedSceneId = sceneId;
-      set({ sceneId, sceneName: sceneNameFor(sceneId) });
+      if (sceneId === getState().sceneId) return;
+      sceneGeneration += 1;
+      set({
+        sceneId,
+        sceneName: sceneNameFor(sceneId),
+        providers: [],
+        channels: [],
+        apiStatus: "idle",
+        apiError: null,
+        channelStatus: "idle",
+        channelError: null,
+        testingChannel: null,
+        channelCheck: null,
+        checkingModels: [],
+        visibilitySaving: false,
+        syncingChannel: null,
+        togglingChannel: null,
+        editingProvider: null,
+        apiKeyInput: "",
+        apiKeyError: null,
+        apiKeySaving: false,
+        keyPrefix: null,
+        channelEditor: null,
+        channelSaving: false,
+        channelEditorError: null,
+        channelEditorNotice: null,
+        configEditor: { content: "", path: "", loading: false, message: null, saving: false },
+        modelsEditor: { content: "", path: "", revision: "", loading: false, message: null, saving: false },
+      });
     },
 
     async loadAll() {
@@ -250,11 +311,14 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async loadApiKeys({ preserveUi = false } = {}) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       set({ apiStatus: preserveUi ? getState().apiStatus : "loading" });
       const data = await call("list_model_catalog").catch((error: unknown) => ({
         ok: false,
         error: error instanceof Error ? error.message : String(error),
       }) as ConfigGatewayResult);
+      if (!isCurrentScene(sceneId, generation)) return;
       if (!data?.ok || !Array.isArray(data.data?.providers)) {
         set({
           apiStatus: "error",
@@ -280,7 +344,10 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async openApiKeyEditor(provider) {
-      const keyPrefix = provider.configured ? await sceneCredentialPrefix(provider.provider) : null;
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      const keyPrefix = provider.configured ? await sceneCredentialPrefix(sceneId, provider.provider) : null;
+      if (!isCurrentScene(sceneId, generation)) return;
       set({
         editingProvider: provider,
         apiKeyInput: "",
@@ -299,25 +366,35 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async saveApiKey() {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      const target = options.getTarget?.() ?? undefined;
       const provider = getState().editingProvider;
       const key = getState().apiKeyInput.trim();
       if (!provider) return;
+      if (options.getTarget && !target) {
+        set({ apiKeyError: t("No active scene session for configuration.") });
+        return;
+      }
       if (!key) {
         set({ apiKeyError: t("Key cannot be empty.") });
         return;
       }
       set({ apiKeySaving: true, apiKeyError: null });
+      let systemCredentialUpdated = false;
       const resp = await (async () => {
         try {
-          await storeSystemCredential(provider.provider, key);
-          return await call("set_api_key", { provider: provider.provider, apiKey: key });
+          await storeSystemCredential(sceneId, provider.provider, key);
+          systemCredentialUpdated = Boolean(invoke);
+          return await call("set_api_key", { provider: provider.provider, apiKey: key }, { target });
         } catch (error) {
           return { ok: false, error: error instanceof Error ? error.message : String(error) };
         }
       })();
+      if (!isCurrentScene(sceneId, generation)) return;
       if (!resp?.ok) {
         set({
-          apiKeyError: localizeError(resp?.error, t("Failed to save key.")),
+          apiKeyError: `${localizeError(resp?.error, t("Failed to save key."))}${systemCredentialUpdated ? ` ${t("The system credential was updated. Review this scene before retrying.")}` : ""}`,
           apiKeySaving: false,
         });
         return;
@@ -327,13 +404,21 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async removeApiKey(provider) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      const target = options.getTarget?.() ?? undefined;
+      if (options.getTarget && !target) {
+        set({ apiError: t("No active scene session for configuration.") });
+        return;
+      }
       const ok = await confirmImpl(
         `Remove stored API key for ${provider.displayName || provider.provider}?`,
       );
-      if (!ok) return;
+      if (!ok || !isCurrentScene(sceneId, generation)) return;
       try {
-        await deleteSystemCredential(provider.provider);
+        await deleteSystemCredential(sceneId, provider.provider);
       } catch (error) {
+        if (!isCurrentScene(sceneId, generation)) return;
         if (typeof globalThis.alert === "function") {
           globalThis.alert(
             localizeError(error, t("Failed to remove system credential.")),
@@ -341,11 +426,16 @@ export function createConfigStore(options: ConfigStoreOptions) {
         }
         return;
       }
-      const resp = await call("remove_api_key", { provider: provider.provider }).catch(() => null);
-      if (resp?.ok) await refreshEverything();
+      const resp = await call("remove_api_key", { provider: provider.provider }, { target }).catch(() => null);
+      if (isCurrentScene(sceneId, generation) && !resp?.ok) {
+        set({ apiError: t("The system credential was removed. Verify the model configuration before retrying.") });
+      }
+      if (isCurrentScene(sceneId, generation) && resp?.ok) await refreshEverything();
     },
 
     async checkModelHealth(provider) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       const state = getState();
       const checking = state.providers
         .find((entry) => entry.provider === provider)
@@ -357,6 +447,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const resp = await call("check_model_health", { provider }, { timeoutMs: HEALTH_CHECK_TIMEOUT_MS }).catch(
         (error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
       ) as ConfigGatewayResult;
+      if (!isCurrentScene(sceneId, generation)) return;
       if (resp?.ok && Array.isArray(resp.data?.results)) {
         const results = new Map(
           (resp.data.results ?? []).map((result) => [
@@ -395,47 +486,59 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async setModelVisibility(provider, modelId, visible) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       set({ visibilitySaving: true });
       const resp = await call("set_model_visibility", { provider, modelId, visible }).catch(
         () => null,
       );
+      if (!isCurrentScene(sceneId, generation)) return;
       if (!resp?.ok) {
         set({ visibilitySaving: false });
         return;
       }
       await getState().loadApiKeys({ preserveUi: true });
+      if (!isCurrentScene(sceneId, generation)) return;
       set({ visibilitySaving: false });
       void options.onModelConfigurationChanged?.();
     },
 
     async setAllModelsVisibility(provider, visible) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       const models = getState()
         .providers.find((entry) => entry.provider === provider)
         ?.models?.filter((model) => (model.visible !== false) !== visible) ?? [];
       if (models.length === 0) return;
       set({ visibilitySaving: true });
       for (const model of models) {
+        if (!isCurrentScene(sceneId, generation)) return;
         const resp = await call("set_model_visibility", {
           provider,
           modelId: model.id,
           visible,
         }).catch(() => null);
+        if (!isCurrentScene(sceneId, generation)) return;
         if (!resp?.ok) {
           set({ visibilitySaving: false });
           return;
         }
       }
       await getState().loadApiKeys({ preserveUi: true });
+      if (!isCurrentScene(sceneId, generation)) return;
       set({ visibilitySaving: false });
       void options.onModelConfigurationChanged?.();
     },
 
     async loadChannels() {
-      set({ channelStatus: "loading" });
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      set({ channelStatus: "loading", channelCheck: null });
       const response = await call("list_provider_channels").catch((error: unknown) => ({
         ok: false,
         error: error instanceof Error ? error.message : String(error),
       }) as ConfigGatewayResult);
+      if (!isCurrentScene(sceneId, generation)) return;
       if (!response?.ok) {
         set({
           channelStatus: "error",
@@ -447,65 +550,221 @@ export function createConfigStore(options: ConfigStoreOptions) {
         return;
       }
       const channels = Array.isArray(response.data?.channels) ? response.data.channels : [];
-      const qveris = channels.find((channel) => channel.builtIn === true);
-      if (
-        qveris?.configured === true &&
-        (!Array.isArray(qveris.models) || qveris.models.length === 0) &&
-        !qverisAutoSyncAttempted
-      ) {
-        qverisAutoSyncAttempted = true;
-        const synced = await (async () => {
-          const resp = await call("sync_qveris_models", {}, { timeoutMs: 30_000 }).catch(
-            (error: unknown) => ({
-              ok: false,
-              error: error instanceof Error ? error.message : String(error),
-            }),
-          ) as ConfigGatewayResult;
-          if (!resp?.ok) {
-            set({
-              channelError: localizeError(
-                resp?.error,
-                t("Failed to load QVeris models."),
-              ),
-            });
-            return false;
-          }
-          await refreshEverything();
-          return true;
-        })();
-        if (synced) {
-          set({ channelStatus: "ready", channelError: null });
-          return;
-        }
-      }
       set({ channelStatus: "ready", channelError: null, channels });
     },
 
+    syncingChannel: null,
+    async setChannelEnabled(channel, enabled) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      const target = options.getTarget?.() ?? undefined;
+      if (options.getTarget && !target) {
+        set({ channelError: t("No active scene session for configuration.") });
+        return;
+      }
+      const state = getState();
+      if (state.channelEditor) {
+        set({ channelError: t("Save or cancel the open channel editor first.") });
+        return;
+      }
+      if (
+        state.channelStatus !== "ready" ||
+        state.togglingChannel ||
+        state.syncingChannel ||
+        state.testingChannel ||
+        state.channelSaving ||
+        !channel.provider
+      ) return;
+      if (
+        state.channels.find((entry) => entry.provider === channel.provider)?.revision !== channel.revision
+      ) {
+        set({ channelError: t("Model channel changed while syncing. Refresh and try again.") });
+        return;
+      }
+      if (!channel.revision) {
+        set({ channelError: t("Channel revision is unavailable. Refresh or update the desktop runtime before editing.") });
+        return;
+      }
+      set({ togglingChannel: channel.provider, channelError: null, channelCheck: null });
+      const response = await call("set_provider_channel_enabled", {
+        provider: channel.provider,
+        enabled,
+        expectedRevision: channel.revision,
+      }, { target }).catch((reason: unknown) => ({
+        ok: false,
+        error: reason instanceof Error ? reason.message : String(reason),
+      }) as ConfigGatewayResult);
+      if (!isCurrentScene(sceneId, generation)) return;
+      if (
+        response?.ok !== true ||
+        response.data?.provider !== channel.provider ||
+        response.data?.enabled !== enabled
+      ) {
+        await refreshEverything();
+        if (isCurrentScene(sceneId, generation)) {
+          const saved = getState().channelStatus === "ready" &&
+            getState().channels.find((entry) => entry.provider === channel.provider)?.enabled === enabled;
+          set({
+            togglingChannel: null,
+            channelError: saved
+              ? t("Channel state changed, but runtime refresh is unconfirmed. Review this scene before making requests.")
+              : localizeError(response?.error, t("Could not change model channel state. Refresh and retry.")),
+          });
+        }
+        return;
+      }
+      await refreshEverything();
+      if (isCurrentScene(sceneId, generation)) {
+        set({
+          togglingChannel: null,
+          ...(getState().channelStatus !== "ready"
+            ? { channelError: t("Channel state was saved, but the channel list could not be refreshed. Reload this scene.") }
+            : response.data?.runtimeReady !== true
+              ? { channelError: t("Channel state was saved, but runtime refresh is unconfirmed. Review this scene before making requests.") }
+              : {}),
+        });
+      }
+    },
+    async testChannelConnection(channel) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      const target = options.getTarget?.() ?? undefined;
+      if (options.getTarget && !target) {
+        set({ channelError: t("No active scene session for configuration.") });
+        return;
+      }
+      if (!channel.provider || channel.enabled === false || getState().channelStatus !== "ready" || getState().testingChannel || getState().togglingChannel) return;
+      set({ testingChannel: channel.provider, channelCheck: null });
+      const response = await call("test_provider_channel", { provider: channel.provider }, { target, timeoutMs: HEALTH_CHECK_TIMEOUT_MS }).catch(
+        (reason: unknown) => ({ ok: false, error: reason instanceof Error ? reason.message : String(reason) }),
+      ) as ConfigGatewayResult;
+      if (!isCurrentScene(sceneId, generation)) return;
+      const result = response?.data?.connection;
+      const ok = response?.ok === true && result?.status === "connected";
+      const detail = response?.ok ? result?.error : response?.error;
+      const message = ok
+        ? `${t("Connection successful")} (${result?.latencyMs ?? 0} ms${result?.method === "catalog" ? `, ${t("{count} models found").replace("{count}", String(result.modelCount ?? 0))}` : ""})`
+        : `${t("Connection failed")}${detail ? `: ${localizeError(detail, t("Connection failed"))}` : ""}`;
+      set({ testingChannel: null, channelCheck: { provider: channel.provider, message, ok } });
+    },
+    async syncChannel(channel) {
+      if (!channel.catalogSync || channel.enabled === false || getState().syncingChannel || getState().togglingChannel) return;
+      if (channel.catalogSync === "openai" && getState().channelEditor) {
+        set({ channelError: t("Save or cancel the open channel editor first.") });
+        return;
+      }
+      const scene = activeSceneId();
+      const generation = sceneGeneration;
+      set({ syncingChannel: channel.provider || null, channelError: null });
+      try {
+        const response = channel.catalogSync === "qveris"
+          ? await call("sync_qveris_models", {}, { timeoutMs: 30_000 })
+          : await call("discover_provider_models", { provider: channel.provider }, { timeoutMs: 30_000 });
+        if (!isCurrentScene(scene, generation)) return;
+        if (!response?.ok) throw new Error(response?.error || t("Failed to refresh model catalog."));
+        if (channel.catalogSync === "qveris") {
+          await refreshEverything();
+          return;
+        }
+        const found = response.data?.models;
+        const revision = response.data?.revision;
+        const snapshot = response.data?.channel;
+        if (
+          !Array.isArray(found) ||
+          !found.every((id) => typeof id === "string") ||
+          !revision ||
+          !snapshot ||
+          snapshot.provider !== channel.provider ||
+          typeof snapshot.baseUrl !== "string" ||
+          typeof snapshot.api !== "string" ||
+          !Array.isArray(snapshot.models)
+        ) {
+          throw new Error(t("Model catalog returned an invalid result."));
+        }
+        await getState().openChannelEditor({ ...snapshot, configured: channel.configured });
+        const editor = getState().channelEditor;
+        if (!isCurrentScene(scene, generation) || !editor || editor.originalProvider !== channel.provider) return;
+        const existing = editor.modelsText.split(/\r?\n/).filter(Boolean);
+        const additions = found.filter((id) => !existing.includes(id));
+        set({
+          channelEditor: {
+            ...editor,
+            modelsText: [...existing, ...additions].join("\n"),
+            expectedRevision: revision,
+          },
+          channelEditorNotice: t("Found {count} model IDs. Review and save the channel.").replace("{count}", String(found.length)),
+        });
+      } catch (reason) {
+        if (isCurrentScene(scene, generation)) set({ channelError: localizeError(reason, t("Failed to refresh model catalog.")) });
+      } finally {
+        if (isCurrentScene(scene, generation)) set({ syncingChannel: null });
+      }
+    },
+
     async openChannelEditor(channel) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       let keyPrefix: string | null = null;
       if (channel?.configured && channel.provider) {
-        keyPrefix = await sceneCredentialPrefix(channel.provider);
+        keyPrefix = await sceneCredentialPrefix(sceneId, channel.provider);
       }
+      if (!isCurrentScene(sceneId, generation)) return;
       set({
         channelEditor: {
+          sceneId,
           originalProvider: channel?.provider || "",
           provider: channel?.provider || "",
+          displayName: channel?.displayName || "",
           baseUrl: channel?.baseUrl || "",
           api: channel?.api || "openai-completions",
+          authHeader: channel?.authHeader !== false,
           apiKey: "",
           modelsText: (channel?.models || [])
             .map((model) => model?.id)
             .filter(Boolean)
             .join("\n"),
+          modelDetailsJson: channelModelDetailsJson(channel?.models || []),
           keyPrefix,
+          expectedRevision: channel?.revision || "",
         },
         channelSaving: false,
         channelEditorError: null,
+        channelEditorNotice: null,
+      });
+    },
+
+    duplicateChannel(channel) {
+      const source = getState().channels.find((entry) => entry.provider === channel.provider);
+      if (getState().channelStatus !== "ready" || !source?.provider) return;
+      if (!source.revision) {
+        set({ channelError: t("Channel revision is unavailable. Refresh or update the desktop runtime before copying.") });
+        return;
+      }
+      set({
+        channelEditor: {
+          sceneId: activeSceneId(),
+          originalProvider: "",
+          provider: "",
+          displayName: source.displayName || "",
+          baseUrl: source.baseUrl || "",
+          api: source.api || "openai-completions",
+          authHeader: source.authHeader !== false,
+          apiKey: "",
+          modelsText: (source.models || []).map((model) => model?.id).filter(Boolean).join("\n"),
+          modelDetailsJson: channelModelDetailsJson(source.models || []),
+          keyPrefix: null,
+          expectedRevision: "",
+          copySourceProvider: source.provider,
+          copySourceRevision: source.revision,
+        },
+        channelSaving: false,
+        channelEditorError: null,
+        channelEditorNotice: t("Choose a new channel ID. Enter a key separately if this channel needs one."),
       });
     },
 
     closeChannelEditor() {
-      set({ channelEditor: null, channelSaving: false, channelEditorError: null });
+      set({ channelEditor: null, channelSaving: false, channelEditorError: null, channelEditorNotice: null });
     },
 
     setChannelForm(patch) {
@@ -516,94 +775,148 @@ export function createConfigStore(options: ConfigStoreOptions) {
     async saveChannel() {
       const form = getState().channelEditor;
       if (!form) return;
-      const models = form.modelsText
+      const generation = sceneGeneration;
+      const target = options.getTarget?.() ?? undefined;
+      if (options.getTarget && !target) {
+        set({ channelEditorError: t("No active scene session for configuration.") });
+        return;
+      }
+      if (form.sceneId !== activeSceneId()) {
+        set({ channelEditorError: t("The active scene changed. Reopen this channel before saving.") });
+        return;
+      }
+      if (form.originalProvider && !form.expectedRevision) {
+        set({ channelEditorError: t("Channel revision is unavailable. Refresh or update the desktop runtime before editing.") });
+        return;
+      }
+      const modelIds = form.modelsText
         .split(/\r?\n/)
         .map((id) => id.trim())
-        .filter(Boolean)
-        .map((id) => ({ id }));
-      const editingQVeris = form.originalProvider === "qveris";
-      if (models.length === 0 && !editingQVeris) {
+        .filter(Boolean);
+      const canDiscoverModels = ["openai-completions", "openai-responses"].includes(form.api);
+      if (modelIds.length === 0 && !canDiscoverModels) {
         set({ channelEditorError: "Add at least one model ID." });
+        return;
+      }
+      let models: ReturnType<typeof channelModelsFromDetails>;
+      try {
+        models = modelIds.length ? channelModelsFromDetails(modelIds, form.modelDetailsJson) : [];
+      } catch (error) {
+        set({ channelEditorError: t(error instanceof Error ? error.message : "Model details must be valid JSON.") });
         return;
       }
       set({ channelSaving: true });
       const provider = form.provider.trim();
-      const apiKey = form.apiKey.trim();
+      const writesNewId = !form.originalProvider || form.originalProvider !== provider;
+      if (writesNewId && getState().channels.some((channel) => channel.provider === provider)) {
+        set({ channelSaving: false, channelEditorError: t("A channel with this ID already exists.") });
+        return;
+      }
+      const apiKey = form.authHeader ? form.apiKey.trim() : "";
+      let systemCredentialUpdated = false;
+      let credentialSyncWarning = "";
       let response: ConfigGatewayResult | null = null;
       try {
-        if (apiKey) await storeSystemCredential(provider, apiKey);
+        if (apiKey && !writesNewId) {
+          await storeSystemCredential(form.sceneId, provider, apiKey);
+          systemCredentialUpdated = Boolean(invoke);
+        }
         response = await call("save_provider_channel", {
           originalProvider: form.originalProvider,
           provider,
+          displayName: form.displayName.trim(),
           baseUrl: form.baseUrl.trim(),
           api: form.api,
           apiKey,
-          authHeader: true,
+          authHeader: form.authHeader,
           models,
-        });
+          expectedRevision: form.expectedRevision,
+          createOnly: !form.originalProvider,
+          copySourceProvider: form.copySourceProvider,
+          copySourceRevision: form.copySourceRevision,
+        }, { target });
       } catch (error) {
         response = { ok: false, error: error instanceof Error ? error.message : String(error) };
       }
       if (!response?.ok) {
+        if (!isCurrentScene(form.sceneId, generation)) return;
         set({
           channelSaving: false,
-          channelEditorError: localizeError(
-            response?.error,
-            t("Failed to save model channel."),
-          ),
+          channelEditorError: `${localizeError(response?.error, t("Failed to save model channel."))}${systemCredentialUpdated ? ` ${t("The system credential was updated. Review this scene before retrying.")}` : ""}`,
         });
         return;
       }
+      if (apiKey && writesNewId) {
+        try {
+          await storeSystemCredential(form.sceneId, provider, apiKey);
+        } catch {
+          credentialSyncWarning = t("Channel saved, but its system credential could not be updated. Check this scene's key.");
+        }
+      }
       let cleanupWarning = "";
-      if (form.originalProvider && form.originalProvider !== provider) {
-        await deleteSystemCredential(form.originalProvider).catch(() => {
+      if (form.originalProvider && form.originalProvider !== provider && !credentialSyncWarning) {
+        await deleteSystemCredential(form.sceneId, form.originalProvider).catch(() => {
           cleanupWarning = t("The previous credential could not be removed.");
         });
       }
+      if (!isCurrentScene(form.sceneId, generation)) return;
       set({
         channelEditor: null,
         channelSaving: false,
-        channelError: cleanupWarning,
+        channelError: null,
         channelEditorError: null,
+        channelEditorNotice: null,
       });
       await refreshEverything();
+      if ((credentialSyncWarning || cleanupWarning) && isCurrentScene(form.sceneId, generation)) {
+        set({ channelError: credentialSyncWarning || cleanupWarning });
+      }
     },
 
     async removeChannel(channel) {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
+      const target = options.getTarget?.() ?? undefined;
+      if (options.getTarget && !target) {
+        set({ channelError: t("No active scene session for configuration.") });
+        return;
+      }
+      if (!channel.revision) {
+        set({ channelError: t("Channel revision is unavailable. Refresh or update the desktop runtime before editing.") });
+        return;
+      }
       const ok = await confirmImpl(
         `Remove model channel "${channel.provider}" and its stored key?`,
       );
-      if (!ok) return;
-      try {
-        await deleteSystemCredential(channel.provider || "");
-      } catch (error) {
-        set({
-          channelError: localizeError(
-            error,
-            t("Failed to remove system credential."),
-          ),
-        });
-        return;
-      }
-      const result = await call("remove_provider_channel", { provider: channel.provider }).catch(
+      if (!ok || !isCurrentScene(sceneId, generation)) return;
+      const result = await call("remove_provider_channel", { provider: channel.provider, expectedRevision: channel.revision }, { target }).catch(
         (error: unknown) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
       ) as ConfigGatewayResult;
       if (!result?.ok) {
-        set({
-          channelError: localizeError(
-            result?.error,
-            t("Failed to remove channel."),
-          ),
-        });
+        if (isCurrentScene(sceneId, generation)) {
+          await refreshEverything();
+        }
+        if (isCurrentScene(sceneId, generation)) {
+          set({ channelError: localizeError(result?.error, t("Failed to remove channel.")) });
+        }
         return;
       }
+      let credentialWarning = "";
+      await deleteSystemCredential(sceneId, channel.provider || "").catch(() => {
+        credentialWarning = t("The previous credential could not be removed.");
+      });
+      if (!isCurrentScene(sceneId, generation)) return;
       await refreshEverything();
+      if (credentialWarning && isCurrentScene(sceneId, generation)) set({ channelError: credentialWarning });
     },
 
     async loadConfigEditor() {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       set({ configEditor: { ...getState().configEditor, loading: true, message: null, path: "Loading…" } });
       try {
         const data = await call("read_agent_config");
+        if (!isCurrentScene(sceneId, generation)) return;
         if (!data?.ok) throw new Error(data?.error || t("Failed to load config"));
         let content = data.data?.content ?? "";
         try {
@@ -613,6 +926,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         }
         set({ configEditor: { content, path: data.data?.path || "", loading: false, message: null, saving: false } });
       } catch (error) {
+        if (!isCurrentScene(sceneId, generation)) return;
         set({
           configEditor: {
             content: "",
@@ -629,6 +943,8 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async saveConfigEditor() {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       const content = getState().configEditor.content;
       let parsed: unknown;
       try {
@@ -657,6 +973,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       set({ configEditor: { ...getState().configEditor, saving: true } });
       try {
         const data = await call("write_agent_config", { content });
+        if (!isCurrentScene(sceneId, generation)) return;
         if (!data?.ok) throw new Error(data?.error || t("Failed to save config"));
         set({
           configEditor: {
@@ -666,6 +983,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
           },
         });
       } catch (error) {
+        if (!isCurrentScene(sceneId, generation)) return;
         set({
           configEditor: {
             ...getState().configEditor,
@@ -680,9 +998,12 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async loadModelsEditor() {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       set({ modelsEditor: { ...getState().modelsEditor, loading: true, message: null, path: "Loading…" } });
       try {
         const data = await call("read_models_config");
+        if (!isCurrentScene(sceneId, generation)) return;
         if (!data?.ok) {
           throw new Error(data?.error || t("Failed to load models config"));
         }
@@ -692,12 +1013,14 @@ export function createConfigStore(options: ConfigStoreOptions) {
         } catch {
           // Keep raw content when it is not valid JSON.
         }
-        set({ modelsEditor: { content, path: data.data?.path || "", loading: false, message: null, saving: false } });
+        set({ modelsEditor: { content, path: data.data?.path || "", revision: data.data?.revision || "", loading: false, message: null, saving: false } });
       } catch (error) {
+        if (!isCurrentScene(sceneId, generation)) return;
         set({
           modelsEditor: {
             content: "",
             path: "",
+            revision: "",
             loading: false,
             message: {
               message: localizeError(error, t("Failed to load models config")),
@@ -710,7 +1033,14 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async saveModelsEditor() {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       const content = getState().modelsEditor.content;
+      const expectedRevision = getState().modelsEditor.revision;
+      if (!expectedRevision) {
+        set({ modelsEditor: { ...getState().modelsEditor, message: { message: t("Channel revision is unavailable. Refresh or update the desktop runtime before editing."), tone: "error" } } });
+        return;
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(content);
@@ -737,7 +1067,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       }
       const providersField = (parsed as Record<string, unknown>).providers;
       if ("providers" in (parsed as Record<string, unknown>) &&
-          (typeof providersField !== "object" || Array.isArray(providersField))) {
+          (!providersField || typeof providersField !== "object" || Array.isArray(providersField))) {
         set({
           modelsEditor: {
             ...getState().modelsEditor,
@@ -748,17 +1078,20 @@ export function createConfigStore(options: ConfigStoreOptions) {
       }
       set({ modelsEditor: { ...getState().modelsEditor, saving: true } });
       try {
-        const data = await call("write_models_config", { content });
+        const data = await call("write_models_config", { content, expectedRevision });
+        if (!isCurrentScene(sceneId, generation)) return;
         if (!data?.ok) throw new Error(data?.error || "Failed to save models.json");
         set({
           modelsEditor: {
             ...getState().modelsEditor,
+            revision: data.data?.revision || "",
             saving: false,
             message: { message: t("Saved"), tone: "ok" },
           },
         });
         void options.onModelConfigurationChanged?.();
       } catch (error) {
+        if (!isCurrentScene(sceneId, generation)) return;
         set({
           modelsEditor: {
             ...getState().modelsEditor,
@@ -773,10 +1106,13 @@ export function createConfigStore(options: ConfigStoreOptions) {
     },
 
     async insertModelsExample() {
+      const sceneId = activeSceneId();
+      const generation = sceneGeneration;
       const current = getState().modelsEditor.content.trim();
       if (current && current !== "{}" && current !== '{\n  "providers": {}\n}') {
         if (!(await confirmImpl("Replace current content with the Ollama example?"))) return;
       }
+      if (!isCurrentScene(sceneId, generation)) return;
       set({
         modelsEditor: {
           ...getState().modelsEditor,

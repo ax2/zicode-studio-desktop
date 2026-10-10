@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createMemoryStore } from "./memoryStore";
 import type { ConfigGatewayLike, ConfigGatewayResult } from "./configStore";
+import { createMemoryStore } from "./memoryStore";
 
 function makeGateway(overrides: Partial<ConfigGatewayLike> = {}) {
   const calls: Array<{ op: string; params?: unknown }> = [];

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import { RemoteAccessTab } from "./RemoteAccessTab";
 import {

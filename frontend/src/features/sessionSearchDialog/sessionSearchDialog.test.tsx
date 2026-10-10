@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  setupSessionSearchDialog,
   type SessionSearchDialogHandle,
   type SessionSearchDialogOptions,
+  setupSessionSearchDialog,
 } from "./index";
 import { isSearchShortcut, shortcutHintLabel } from "./sessionSearchDialogLogic";
 

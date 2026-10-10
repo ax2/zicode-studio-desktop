@@ -4,6 +4,41 @@ import { describe, expect, it, vi } from "vitest";
 import { updateSuperAgentTask } from "./task-store.js";
 
 describe("updateSuperAgentTask", () => {
+  it("re-reads a conflicting version and preserves edits made by another client", async () => {
+    let reads = 0;
+    const call = vi.fn(async (op, params) => {
+      if (op === "read_super_agent_tasks") {
+        reads += 1;
+        return {
+          ok: true,
+          data: {
+            tasks: [
+              { id: "a", title: reads === 1 ? "old" : "edited elsewhere", status: "running" },
+            ],
+            revision: `version-${reads}`,
+          },
+        };
+      }
+      if (params.revision === "version-1") return { ok: false, error: "task_conflict" };
+      return { ok: true };
+    });
+    const result = await updateSuperAgentTask(call, "a", (task) => ({ ...task, status: "done" }));
+    expect(result.title).toBe("edited elsewhere");
+    expect(call).toHaveBeenLastCalledWith(
+      "write_super_agent_tasks",
+      expect.objectContaining({ revision: "version-2" }),
+    );
+  });
+
+  it("bounds conflict retries and reports the final failure", async () => {
+    const call = vi.fn(async (op) =>
+      op === "read_super_agent_tasks"
+        ? { ok: true, data: { tasks: [{ id: "a" }], revision: "v" } }
+        : { ok: false, error: "task_conflict" },
+    );
+    await expect(updateSuperAgentTask(call, "a", (task) => task)).rejects.toThrow("task_conflict");
+    expect(call).toHaveBeenCalledTimes(6);
+  });
   it("re-reads, mutates the matching task, and writes the full list back", async () => {
     const stored = {
       tasks: [

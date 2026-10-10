@@ -7,11 +7,11 @@ import {
   activeSlashQuery,
   computeSlashMatches,
   EMPTY_SLASH_STATE,
+  type SlashCommand,
+  type SlashMenuState,
   scopeLabel,
   titleCaseCommandName,
   typeLabel,
-  type SlashCommand,
-  type SlashMenuState,
 } from "./slashMenu";
 
 type SpeechRecognitionInstance = {

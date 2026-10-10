@@ -1,13 +1,13 @@
 import { useEffect, useMemo } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import {
   buildGraph,
+  type GraphNode,
   layoutGraph,
   pairTitles,
-  type GraphNode,
 } from "./graphLogic";
 import { createGraphStore, type GraphOptions, type GraphStore } from "./graphStore";
 

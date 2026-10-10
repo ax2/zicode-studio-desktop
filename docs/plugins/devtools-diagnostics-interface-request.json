@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "requestId": "studio-diagnostics-candidate01-budget-2026-10-09",
+  "status": "open-interface-request-not-accepted-profile",
+  "providerPackage": {
+    "id": "com.zicode.devtools.diagnostics",
+    "version": "0.1.0",
+    "moduleSha256": "88c14b3357dda71b097ac6b66d211d2c5ded1526afc2dccf8758c6446ee751d1"
+  },
+  "existingLimits": {
+    "deadlineMs": 5000,
+    "fuel": 10000000,
+    "guestMemoryBytes": 67108864,
+    "guestStackBytes": 2097152,
+    "moduleBytes": 2097152,
+    "stdoutBytes": 1048576
+  },
+  "inputContract": {
+    "fields": [
+      "text",
+      "secondary"
+    ],
+    "utf8BytesPerField": 8192,
+    "serializedRequestBytes": 49152,
+    "serializedResultBytes": 49152
+  },
+  "observations": [
+    {
+      "id": "java.threads",
+      "compileMs": 24576,
+      "executionMs": 3,
+      "fuelRemaining": 5648885,
+      "fuelUsed": 4351115
+    },
+    {
+      "id": "java.dependencies",
+      "compileMs": 24258,
+      "executionMs": 0,
+      "fuelRemaining": 7984297,
+      "fuelUsed": 2015703
+    },
+    {
+      "id": "java.gc",
+      "compileMs": 33255,
+      "executionMs": 4,
+      "fuelRemaining": 2501887,
+      "fuelUsed": 7498113
+    },
+    {
+      "id": "java.jfr_json",
+      "compileMs": 36930,
+      "executionMs": 0,
+      "fuelRemaining": 7096834,
+      "fuelUsed": 2903166
+    },
+    {
+      "id": "spring.config",
+      "compileMs": 45943,
+      "executionMs": 0,
+      "fuelRemaining": 9739725,
+      "fuelUsed": 260275
+    },
+    {
+      "id": "django.migrations",
+      "compileMs": 25134,
+      "executionMs": 9,
+      "fuelRemaining": 0,
+      "fuelUsed": 10000000
+    },
+    {
+      "id": "django.sql",
+      "compileMs": 25283,
+      "executionMs": 0,
+      "fuelRemaining": 9874994,
+      "fuelUsed": 125006
+    },
+    {
+      "id": "django.urls",
+      "compileMs": 27034,
+      "executionMs": 1,
+      "fuelRemaining": 84239,
+      "fuelUsed": 9915761
+    },
+    {
+      "id": "django.openapi",
+      "compileMs": 24029,
+      "executionMs": 0,
+      "fuelRemaining": 9910682,
+      "fuelUsed": 89318
+    },
+    {
+      "id": "django.checks",
+      "compileMs": 35240,
+      "executionMs": 3,
+      "fuelRemaining": 3775261,
+      "fuelUsed": 6224739
+    },
+    {
+      "id": "celery.report",
+      "compileMs": 32852,
+      "executionMs": 2,
+      "fuelRemaining": 0,
+      "fuelUsed": 10000000
+    }
+  ],
+  "requestedProviderChanges": [
+    {
+      "capability": "devtools.diagnostics.django.migrations",
+      "reason": "fixed synthetic sample exhausted 10000000 fuel",
+      "required": "optimize and deliver portable fixtures plus current module receipt, or submit separately versioned budget proposal"
+    },
+    {
+      "capability": "devtools.diagnostics.celery.report",
+      "reason": "fixed synthetic sample exhausted 10000000 fuel",
+      "required": "optimize and deliver portable fixtures plus current module receipt, or submit separately versioned budget proposal"
+    },
+    {
+      "capability": "devtools.diagnostics.django.urls",
+      "reason": "sample used 9915761 fuel; full input range unproven",
+      "required": "provide valid and adversarial fixtures up to declared UTF8 byte limits with deterministic budget evidence"
+    }
+  ],
+  "requiredPortableEvidence": [
+    "all 11 operation success fixtures and expected reports",
+    "UTF8 exact-boundary and limit-plus-one fixtures",
+    "unknown operation and unknown field rejection",
+    "invalid report and oversized output rejection",
+    "independent native app and plugin build results",
+    "module file sizes SHA256 versions and scope mapping"
+  ],
+  "studioResponsibilities": [
+    "optimized current Worker compile and deadline measurement",
+    "explicit version negotiation and fail-closed unsupported profile",
+    "actual Host Pi native View discovery load execute display",
+    "permissions timeout cancel recovery update uninstall acceptance"
+  ],
+  "acceptanceRules": [
+    "Node or provider-only success does not prove Studio fuel compatibility",
+    "no higher limits without separate versioned review",
+    "9 sample successes do not accept full source tool scope",
+    "portable synthetic fixtures only; no user reports or sibling checkout dependency"
+  ],
+  "permanentIncompatibilityEstablished": false,
+  "nativeCandidateObservation": {
+    "samplePassed": 9,
+    "sampleFailed": 2,
+    "hostFuelFailureCodes": 2,
+    "nextCallRecovered": true,
+    "exeSha256": "af5a8964e7b7b96645f89ea54256b39f9bee3997d5a71eeed35aeadbeb677a5d",
+    "providerViewErrorReasonCurrentlyGeneric": true,
+    "profileAccepted": false
+  },
+  "studioPiLifecycleObservation": {
+    "date": "2026-10-09",
+    "toolCount": 11,
+    "phases": 10,
+    "deniedCachedCalls": 55,
+    "noUnexpectedWorkerStarts": true,
+    "independentTextControlCalls": 5,
+    "actualEmbeddedPi": true,
+    "hostImplementation": "source test Host",
+    "packageOrigin": "developer",
+    "signedLifecycleVerified": false,
+    "guiSameSessionPiVerified": false,
+    "fullToolsAccepted": 0,
+    "evidence": "diagnostic-pi-lifecycle-2026-10-09/acceptance.json"
+  },
+  "coordination": {
+    "threadTitle": "zi-devtools",
+    "dispatched": true,
+    "providerDeliveryVerified": false
+  }
+}

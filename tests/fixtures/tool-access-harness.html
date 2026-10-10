@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="night">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Studio 常用工具验收</title><link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style-theme.css"><link rel="stylesheet" href="/design-system.css"><link rel="stylesheet" href="/style.bundle.css">
+  <script type="importmap">{"imports":{"i18n":"/i18n.js","themes":"/themes.js","react":"/native/react/vendor.js","react-dom":"/native/react/vendor.js","react-dom/client":"/native/react/vendor.js","react/jsx-runtime":"/native/react/vendor.js"}}</script>
+</head>
+<body>
+  <button id="open" type="button" class="ui-button">常用工具验收</button>
+  <div id="overlay" class="command-palette-overlay hidden"></div>
+  <div id="palette" class="command-palette hidden" role="dialog" aria-label="命令面板"><div id="list" class="command-list"></div></div>
+  <script type="module">
+    import { setLocale } from '/i18n.js';
+    import { createToolAccessStore } from '/native/features/tool-access-store.js';
+    import { setupCommandPalette } from '/native/react/command-palette.js';
+    import { HostControlGateway } from '/native/transport/control-gateway.js';
+    import { HostRuntimeAdapter } from '/native/transport/runtime-adapter.js';
+
+    setLocale('zh-CN');
+    window.qaStart = async token => {
+      const adapter = new HostRuntimeAdapter({url:`${location.origin.replace('http:','ws:')}/v2/ws`,clientId:'access-qa',desktopToken:token});
+      const control = new HostControlGateway(adapter);
+      adapter.connect(); await adapter.ready();
+      const store = createToolAccessStore(control);
+      window.qa = {scope:{sceneId:'programming',workspaceId:'workspace-a'},available:true,errors:[],store,control,adapter};
+      setupCommandPalette({button:document.getElementById('open'),palette:document.getElementById('palette'),overlay:document.getElementById('overlay'),list:document.getElementById('list'),accessStore:store,getScope:()=>window.qa.scope,commands:()=>[
+        ...(window.qa.available ? [{id:'com.zicode.devtools.text:open',label:'打开文本插件',desc:'固定文本候选入口标识；测试回调',action:()=>true}] : []),
+        {id:'qa:cancel',label:'取消操作',action:()=>false},
+        {id:'qa:reject',label:'失败操作',action:()=>Promise.reject(new Error('expected-test-failure'))}
+      ],onError:error=>window.qa.errors.push(error.message)});
+      window.qaReady = true;
+    };
+  </script>
+</body></html>

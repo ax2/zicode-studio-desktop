@@ -1,3 +1,67 @@
+.plugin-result-target-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.plugin-resource-selection {
+  padding: var(--space-3);
+  background: var(--bg);
+  color: var(--text-primary);
+  flex-shrink: 0;
+  overflow: auto;
+  max-height: 50%;
+}
+
+.plugin-resource-selection > * {
+  margin: var(--space-1);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.plugin-result-target-list .ui-button {
+  white-space: normal;
+  text-align: start;
+  overflow-wrap: anywhere;
+  height: auto;
+  min-height: var(--control-height-md);
+}
+
+.plugin-result-actions {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-primary);
+  overflow: auto;
+  flex-shrink: 0;
+  max-height: 50%;
+}
+
+.plugin-result-actions > * {
+  margin: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.plugin-result-actions pre {
+  max-height: calc(var(--control-height-lg) * 4);
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.plugin-transfer-inputs,
+.plugin-transfer-inputs label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.plugin-transfer-inputs textarea {
+  min-height: calc(var(--control-height-lg) * 2);
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .plugin-view-frame-container {
   min-width: 0;
   min-height: 0;
@@ -12,6 +76,8 @@
 }
 
 .plugin-view-frame-container--main {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
 }
@@ -24,7 +90,7 @@
 
 .plugin-view-frame {
   width: 100%;
-  height: 100%;
+  height: 0;
   min-height: 160px;
   flex: 1;
   border: 0;
@@ -51,7 +117,7 @@
 }
 
 body[data-active-plugin] .plugin-main-view:has(.plugin-view-frame-container--main) {
-  padding: 0;
+  padding: calc(var(--control-height-lg) + var(--space-3)) 0 0;
   overflow: hidden;
   background: var(--bg);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runBacktest, type PriceBar } from "./backtest";
+import { type PriceBar, runBacktest } from "./backtest";
 
 function bars(closes: number[]): PriceBar[] {
   return closes.map((close, index) => ({

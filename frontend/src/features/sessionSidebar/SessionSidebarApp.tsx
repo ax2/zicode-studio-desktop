@@ -1,11 +1,11 @@
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { t } from "../../shared/i18n";
-import { isImeComposing } from "../../shared/ime";
 // @ts-expect-error plain JS modules without type declarations (public/)
 import { isSuperAgentProjectPath } from "../../../../public/super-agent/session.js";
 // @ts-expect-error plain JS module without type declarations (public/)
 import { isSuperAgentEnabled } from "../../../../public/super-agent/settings.js";
+import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 import {
   asPinnedSuperAgentSession,
   formatSessionTime,

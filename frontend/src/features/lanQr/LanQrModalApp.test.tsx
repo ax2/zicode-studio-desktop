@@ -1,6 +1,6 @@
-import { create } from "zustand";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { create } from "zustand";
 import { setLocale } from "../../shared/i18n.js";
 import { LanQrModalApp, type LanQrStore } from "./LanQrModalApp";
 

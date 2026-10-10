@@ -6,8 +6,8 @@ use std::{fs, path::PathBuf};
 /// Why this lives in build.rs
 /// --------------------------
 /// `tauri.conf.json` already lists `./resources/pi` under `bundle.resources`,
-/// and the package scripts run `fetch:pi` as a `prebuild` / `beforeBuildCommand`
-/// hook. But it is still possible to run `cargo build --release` directly
+/// and Tauri's `beforeBuildCommand` runs `fetch:pi`. But it is still possible
+/// to run `cargo build --release` directly
 /// (CI matrix shortcuts, IDE "build" buttons, manual debugging of bundling)
 /// without ever going through bun. When that happens the .app is silently
 /// produced WITHOUT a pi binary and end users hit the runtime "Could not

@@ -86,7 +86,7 @@ pub fn delete_scene_profile(scene_id: String) -> Result<(), String> {
         return Err("Built-in scenes cannot be deleted".to_string());
     }
     let path = profiles_path()?;
-    if !path.is_file() {
+    if !path.is_file() && !crate::desktop_profile::is_isolated() {
         return Ok(());
     }
     let mut profiles = read_custom_profiles(&path)?;
@@ -197,12 +197,13 @@ fn builtin_profiles() -> Vec<SceneProfile> {
                 "For every material figure, state its currency, unit, period, and as-of date when known; show formulas for derived values. ",
                 "Never invent prices, filings, economic data, or source attribution, and make stale or missing data explicit. ",
                 "Compare meaningful base, upside, and downside cases when forecasting. ",
-                "For external data, use QVeris Discover then Inspect, disclose the current billing rule, and call only after the user confirms the expected cost. ",
-                "After a Call, use qveris_usage when final charge outcome or credit reconciliation matters. ",
+                "Use supplied local data when it has clear provenance and as-of time; do not require an external data account for research, screening, backtests, or paper trading. ",
+                "When using the optional QVeris external source, Discover then Inspect, disclose the current billing rule, and call only after the user confirms the expected cost. ",
+                "After a QVeris Call, use qveris_usage when final charge outcome or credit reconciliation matters. ",
                 "Use the deterministic finance_backtest tool for strategy results instead of estimating a backtest in prose. ",
-                "Normalize provider price rows with finance_normalize_ohlcv using explicit fields from the current Inspect schema before backtesting. ",
+                "Normalize provider price rows with finance_normalize_ohlcv using explicit fields from the supplied data or current provider schema before backtesting. ",
                 "Use finance_screen for explainable factor rankings and report missing-data coverage. ",
-                "Persist external results with finance_market_data so downstream analysis retains as-of time, currency, provider, and execution provenance. ",
+                "Persist sourced results with finance_market_data so downstream analysis retains as-of time, currency, provider, and available execution provenance. ",
                 "Paper accounts and orders are simulations only; require an explicit sourced price snapshot and never imply that a real broker order was placed. ",
                 "Pending limit orders reserve simulated resources; process or cancel them only through finance_paper_limit_order and report every status transition. ",
                 "Do not present analysis as personalized financial, tax, or legal advice and do not recommend executing a transaction. ",

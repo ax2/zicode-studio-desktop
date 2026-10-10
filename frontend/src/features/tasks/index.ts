@@ -1,16 +1,16 @@
-import { createTaskCenterApp } from "./TaskCenterApp";
 import type { TaskCenterOptions } from "./store";
+import { createTaskCenterApp } from "./TaskCenterApp";
 
-export { createTaskCenterApp } from "./TaskCenterApp";
-export type { TaskCenterOptions } from "./store";
 export {
   childTarget,
-  filterLabel,
   filteredTasks,
+  filterLabel,
   formatDate,
   retryLimitReached,
   statusLabel,
 } from "./logic";
+export type { TaskCenterOptions } from "./store";
+export { createTaskCenterApp } from "./TaskCenterApp";
 
 // Keep the vanilla shell's setupTaskCenterApp contract.
 export function setupTaskCenterApp(options: TaskCenterOptions) {

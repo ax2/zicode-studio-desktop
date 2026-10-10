@@ -6,6 +6,38 @@
   padding: var(--space-8);
 }
 
+.automation-workspace-overview {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+}
+
+.automation-workspace-overview h2,
+.automation-workspace-overview p {
+  margin: 0;
+}
+
+.automation-workspace-overview p,
+.automation-workspace-overview-status {
+  color: var(--text-secondary);
+}
+
+.automation-workspace-overview ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.automation-workspace-overview li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
 .automation-header,
 .automation-card > header,
 .automation-actions {

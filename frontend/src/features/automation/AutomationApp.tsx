@@ -1,33 +1,46 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n.js";
-import { friendlyTaskDispatchError } from "../../shared/hostErrors";
-import { Select } from "../../shared/Select";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { friendlyTaskDispatchError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n.js";
+import { mountPluginSurface } from "../../shared/reactMount.js";
+import { BackgroundWorkerPanel } from "./BackgroundWorkerPanel";
+import { DraftList } from "./DraftList";
+import type { DraftSelection } from "./draft-store";
 import {
   AUTOMATION_FILTERS,
+  type AutomationWorkflow,
   filterLabel,
   filterWorkflows,
   formatDate,
   nextAutomationRun,
   scheduleLabel,
-  type AutomationSchedule,
-  type AutomationWorkflow,
 } from "./logic";
-import { createAutomationStore, type AutomationAppOptions } from "./store";
-import { AUTOMATION_TEMPLATES } from "./templates";
+import { type AutomationAppOptions, createAutomationStore } from "./store";
+import { useWorkspaceStatusInventory } from "./useWorkspaceStatusInventory";
+import { WorkflowForm } from "./WorkflowForm";
 
 type AutomationStore = ReturnType<typeof createAutomationStore>;
+type AutomationMainProps = {
+  store: AutomationStore;
+  listWorkspaceStatus?: AutomationAppOptions["listWorkspaceStatus"];
+  openWorkspaceTasks?: AutomationAppOptions["openWorkspaceTasks"];
+  backgroundWorkerStatus?: AutomationAppOptions["backgroundWorkerStatus"];
+  startBackgroundWorker?: AutomationAppOptions["startBackgroundWorker"];
+  stopBackgroundWorker?: AutomationAppOptions["stopBackgroundWorker"];
+  backgroundWorkerLoginEnabled?: AutomationAppOptions["backgroundWorkerLoginEnabled"];
+  setBackgroundWorkerLoginEnabled?: AutomationAppOptions["setBackgroundWorkerLoginEnabled"];
+};
 
 export function AutomationNav({ store }: { store: AutomationStore }) {
   const workflows = store((state) => state.workflows);
+  const pendingApprovalTasks = store((state) => state.pendingApprovalTasks);
   const filter = store((state) => state.filter);
   const setFilter = store((state) => state.setFilter);
   return (
     <nav className="automation-navigation">
       {AUTOMATION_FILTERS.map((id) => {
-        const count = filterWorkflows(workflows, id).length;
+        const count = filterWorkflows(workflows, id, pendingApprovalTasks).length;
         return (
           <button
             key={id}
@@ -45,19 +58,52 @@ export function AutomationNav({ store }: { store: AutomationStore }) {
   );
 }
 
-export function AutomationMain({ store }: { store: AutomationStore }) {
+export function AutomationMain(props: AutomationMainProps) {
+  const { store } = props;
+  const draftStore = store((state) => state.draftStore);
+  const epoch = draftStore((state) => state.epoch);
+  return <AutomationContent key={epoch} {...props} />;
+}
+
+function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, backgroundWorkerStatus, startBackgroundWorker, stopBackgroundWorker, backgroundWorkerLoginEnabled, setBackgroundWorkerLoginEnabled }: AutomationMainProps) {
+  const draftStore = store((state) => state.draftStore);
+  const [draft, setDraft] = useState<DraftSelection | undefined>();
+  const [formSequence, setFormSequence] = useState(0);
   const workflows = store((state) => state.workflows);
+  const pendingApprovalTasks = store((state) => state.pendingApprovalTasks);
+  const approvalTasksError = store((state) => state.approvalTasksError);
   const filter = store((state) => state.filter);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
+  const loading = store((state) => state.loading);
+  const notify = store((state) => state.notify);
   const [editing, setEditing] = useState<AutomationWorkflow | null>(null);
   const [query, setQuery] = useState("");
-  const visible = filterWorkflows(workflows, filter).filter((workflow) => {
+  const {
+    statuses: workspaceStatuses,
+    error: workspaceStatusError,
+    refresh: refreshWorkspaceStatuses,
+  } = useWorkspaceStatusInventory(listWorkspaceStatus);
+  const focusWorkflowId = store((state) => state.focusWorkflowId);
+  const focusWorkflow = store((state) => state.focusWorkflow);
+  const creationRequest = store((state) => state.creationRequest);
+  useEffect(() => {
+    if (creationRequest) {
+      setEditing(null);
+      setDraft(undefined);
+    }
+  }, [creationRequest]);
+  const visible = filterWorkflows(workflows, filter, pendingApprovalTasks).filter((workflow) => {
+    if (focusWorkflowId) return workflow.id === focusWorkflowId;
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return (
-      String(workflow.title || "").toLowerCase().includes(q) ||
-      String(workflow.prompt || "").toLowerCase().includes(q)
+      String(workflow.title || "")
+        .toLowerCase()
+        .includes(q) ||
+      String(workflow.prompt || "")
+        .toLowerCase()
+        .includes(q)
     );
   });
   return (
@@ -66,6 +112,11 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
         <div>
           <h1>{t("Automation center")}</h1>
           <p>{t("Schedule repeatable work with explicit approvals and task history.")}</p>
+          <p>
+            {t(
+              "While the desktop app is open, schedules are checked across registered workspaces.",
+            )}
+          </p>
         </div>
         <div className="automation-header-actions">
           <input
@@ -76,11 +127,88 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
             aria-label={t("Search automations")}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <button type="button" className="ui-button ui-button--secondary" onClick={() => void load()}>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            onClick={() => {
+              void load();
+              refreshWorkspaceStatuses();
+            }}
+          >
             {t("Refresh")}
           </button>
         </div>
       </header>
+      <BackgroundWorkerPanel
+        backgroundWorkerStatus={backgroundWorkerStatus}
+        startBackgroundWorker={startBackgroundWorker}
+        stopBackgroundWorker={stopBackgroundWorker}
+        backgroundWorkerLoginEnabled={backgroundWorkerLoginEnabled}
+        setBackgroundWorkerLoginEnabled={setBackgroundWorkerLoginEnabled}
+      />
+      {approvalTasksError ? <p role="status">{t("Could not load tasks")}</p> : null}
+      {listWorkspaceStatus ? (
+        <section className="ui-card automation-workspace-overview" aria-label={t("Registered workspace automation status")}>
+          <h2>{t("Registered workspace automation status")}</h2>
+          <p>{t("This inventory shows queued work and tasks that need attention across registered workspaces.")}</p>
+          {workspaceStatusError ? <p role="status">{t("Could not scan registered workspaces.")}</p> : null}
+          {workspaceStatuses?.length === 0 ? (
+            <p role="status">{t("No registered workspaces to scan.")}</p>
+          ) : workspaceStatuses ? (
+            <ul>
+              {workspaceStatuses.map((item) => (
+                <li key={item.workspaceId}>
+                  <strong>{item.path}</strong>
+                  <span className="automation-workspace-overview-status">
+                    {item.status === "ready"
+                      ? `${t("Rules")}: ${item.workflowCount} · ${t("Due")}: ${item.dueCount}`
+                      : item.status === "uninitialized"
+                        ? t("No formal automation file")
+                        : workspaceStatusMessage(item.errorCode)}
+                    {" · "}
+                    {item.taskStatus === "ready"
+                      ? `${t("Queued")}: ${item.pendingCount} · ${t("Needs approval")}: ${item.approvalCount} · ${t("Running")}: ${item.runningCount} · ${t("Blocked")}: ${item.blockedCount} · ${t("Failed")}: ${item.failedCount}`
+                      : item.taskStatus === "uninitialized"
+                        ? t("No formal task file")
+                        : workspaceStatusMessage(item.taskErrorCode)}
+                    {` · ${t("Scanned")}: ${formatDate(item.scannedAt)}`}
+                  </span>
+                  {openWorkspaceTasks && item.errorCode !== "workspace_unavailable" ? (
+                    <button
+                      type="button"
+                      className="ui-button ui-button--secondary ui-button--sm"
+                      onClick={() => void openWorkspaceTasks(item.path).catch((reason) =>
+                        notify({
+                          title: t("Could not open workspace tasks"),
+                          message: reason instanceof Error ? reason.message : String(reason),
+                          type: "error",
+                        }),
+                      )}
+                    >
+                      {t("Open tasks")}
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+      {focusWorkflowId && (
+        <div role="status">
+          <p>{t("Showing the selected automation.")}</p>
+          <button
+            type="button"
+            className="ui-button ui-button--secondary"
+            onClick={() => {
+              setQuery("");
+              focusWorkflow(null);
+            }}
+          >
+            {t("Show all automations")}
+          </button>
+        </div>
+      )}
       <FirstRunGuide
         storageKey="automation"
         title={t("One place for repeatable work")}
@@ -96,25 +224,47 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
           nameInput?.focus();
         }}
       />
+      <DraftList
+        store={draftStore}
+        onRestore={(selection) => {
+          setEditing(null);
+          setDraft(selection);
+          setFormSequence((value) => value + 1);
+        }}
+      />
       <WorkflowForm
         store={store}
-        key={editing?.id ?? "new"}
+        key={`${editing?.id ?? creationRequest?.sequence ?? "new"}-${draft?.draft.id ?? "blank"}-${formSequence}`}
+        draftSelection={draft}
         initial={editing ?? undefined}
-        onDone={() => setEditing(null)}
+        initialProject={creationRequest?.projectPath}
+        onDone={() => {
+          if (store.getState().creationRequest?.sequence !== creationRequest?.sequence) return;
+          setEditing(null);
+          setDraft(undefined);
+          setFormSequence((value) => value + 1);
+          store.getState().clearCreation();
+        }}
       />
       {error ? (
         <StatePanel title={t("Could not load automations")} description={error.message} />
       ) : visible.length === 0 ? (
         <StatePanel
           title={
-            query.trim()
-              ? t("No matching automations")
-              : t("No automations in this view")
+            focusWorkflowId && loading
+              ? t("Refreshing project work…")
+              : focusWorkflowId
+                ? t("The selected automation is no longer available.")
+                : query.trim()
+                  ? t("No matching automations")
+                  : t("No automations in this view")
           }
           description={
-            query.trim()
-              ? t("Try a different keyword.")
-              : t("Create a workflow to turn repeated prompts into auditable tasks.")
+            focusWorkflowId
+              ? t("Refresh or show all automations to continue.")
+              : query.trim()
+                ? t("Try a different keyword.")
+                : t("Create a workflow to turn repeated prompts into auditable tasks.")
           }
         />
       ) : (
@@ -124,7 +274,11 @@ export function AutomationMain({ store }: { store: AutomationStore }) {
               key={workflow.id}
               store={store}
               workflow={workflow}
-              onEdit={setEditing}
+              onEdit={(workflow) => {
+                setDraft(undefined);
+                setEditing(workflow);
+                setFormSequence((value) => value + 1);
+              }}
             />
           ))}
         </div>
@@ -142,326 +296,17 @@ function StatePanel({ title, description }: { title: string; description: string
   );
 }
 
-function WorkflowForm({
-  store,
-  initial,
-  onDone,
-}: {
-  store: AutomationStore;
-  initial?: AutomationWorkflow;
-  onDone?: () => void;
-}) {
-  const saveWorkflow = store((state) => state.saveWorkflow);
-  const notify = store((state) => state.notify);
-  const getTarget = store((state) => state.getTarget);
-  const listProjects = store((state) => state.listProjects);
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [targetProject, setTargetProject] = useState(
-    initial?.targetProject ?? getTarget()?.cwd ?? "",
-  );
-  const [prompt, setPrompt] = useState(initial?.prompt ?? "");
-  const [schedule, setSchedule] = useState(initial?.schedule ?? "manual");
-  const [intervalMinutes, setIntervalMinutes] = useState(
-    String(initial?.intervalMinutes ?? 60),
-  );
-  const [dailyTime, setDailyTime] = useState(initial?.dailyTime ?? "09:00");
-  // Scheduled tasks should run automatically out of the box; approval is an
-  // opt-in guard for workflows that must wait for a human before dispatching.
-  const [requireApproval, setRequireApproval] = useState(
-    Boolean(initial?.requireApproval),
-  );
-  const [maxCost, setMaxCost] = useState(
-    initial?.maxCost != null ? String(initial.maxCost) : "",
-  );
-  const [maxRetries, setMaxRetries] = useState(
-    String(initial?.maxRetries ?? 2),
-  );
-  const [submitting, setSubmitting] = useState(false);
-  const [projectPaths, setProjectPaths] = useState<string[]>([]);
-  const [templateId, setTemplateId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void listProjects().then((paths) => {
-      if (!cancelled) setProjectPaths(paths);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [listProjects]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    try {
-      const saved = await saveWorkflow({
-        id: initial?.id ?? "",
-        title,
-        targetProject,
-        prompt,
-        schedule: schedule as AutomationWorkflow["schedule"],
-        intervalMinutes:
-          schedule === "interval" ? Math.max(5, Number(intervalMinutes) || 60) : null,
-        dailyTime: schedule === "daily" ? dailyTime || "09:00" : null,
-        requireApproval,
-        maxCost: maxCost ? Number(maxCost) : null,
-        maxRetries: Number(maxRetries || 0),
-        enabled: initial?.enabled ?? true,
-      });
-      if (saved && saved.schedule !== "manual" && !saved.nextRunAt) {
-        await saveWorkflow({ ...saved, nextRunAt: nextAutomationRun(saved) });
-      }
-      setTitle("");
-      setTargetProject(getTarget()?.cwd ?? "");
-      setPrompt("");
-      setSchedule("manual");
-      setIntervalMinutes("60");
-      setDailyTime("09:00");
-      setRequireApproval(true);
-      setMaxCost("");
-      setMaxRetries("2");
-      notify({
-        title: initial ? t("Automation updated") : t("Automation created"),
-        type: "success",
-      });
-      onDone?.();
-    } catch (reason) {
-      notify({
-        title: t("Could not save automation"),
-        message: reason instanceof Error ? reason.message : String(reason),
-        type: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <form className="ui-panel automation-form" onSubmit={handleSubmit}>
-      <h2>{initial ? t("Edit automation") : t("New automation")}</h2>
-      {!initial ? (
-        <div className="automation-templates">
-          <div className="automation-templates-heading">
-            <span>{t("Start from a template")}</span>
-            {templateId ? (
-              <button
-                type="button"
-                className="ui-button ui-button--ghost ui-button--sm"
-                onClick={() => {
-                  setTemplateId(null);
-                  setTitle("");
-                  setPrompt("");
-                  setSchedule("manual");
-                  setIntervalMinutes("60");
-                  setDailyTime("09:00");
-                }}
-              >
-                {t("Use custom")}
-              </button>
-            ) : null}
-          </div>
-          <div className="automation-template-grid">
-            {AUTOMATION_TEMPLATES.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                className={`automation-template-card${
-                  templateId === template.id ? " is-active" : ""
-                }`}
-                aria-pressed={templateId === template.id}
-                onClick={() => {
-                  setTemplateId(template.id);
-                  setTitle(t(template.titleKey));
-                  setPrompt(template.prompt);
-                  setSchedule(template.schedule);
-                  setIntervalMinutes(String(template.intervalMinutes ?? 60));
-                  setDailyTime(template.dailyTime ?? "09:00");
-                }}
-              >
-                <strong>{t(template.titleKey)}</strong>
-                <span>{t(template.descriptionKey)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      <LabeledField label={t("Name")} htmlFor="automation-name">
-        <input
-          id="automation-name"
-          className="ui-input"
-          type="text"
-          placeholder={t("Name")}
-          required
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-      </LabeledField>
-      <LabeledField label={t("Target project")} htmlFor="automation-target">
-        <input
-          id="automation-target"
-          className="ui-input"
-          type="text"
-          list="automation-project-paths"
-          placeholder={t("Target project")}
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={targetProject}
-          onChange={(e) => setTargetProject(e.target.value)}
-        />
-        <datalist id="automation-project-paths">
-          {projectPaths.map((path) => (
-            <option key={path} value={path} />
-          ))}
-        </datalist>
-      </LabeledField>
-      <LabeledField label={t("Task instructions")} htmlFor="automation-prompt">
-        <textarea
-          id="automation-prompt"
-          className="ui-textarea"
-          rows={4}
-          placeholder={t("Task instructions")}
-          required
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-      </LabeledField>
-      <LabeledField label={t("Schedule")} htmlFor="automation-schedule">
-        <Select
-          id="automation-schedule"
-          value={schedule}
-          label={t("Schedule")}
-          options={[
-            { value: "manual", label: t("Manual") },
-            { value: "interval", label: t("By interval") },
-            { value: "daily", label: t("Daily") },
-          ]}
-          onChange={(value) => setSchedule(value as AutomationSchedule)}
-        />
-      </LabeledField>
-      {schedule === "interval" ? (
-        <LabeledField
-          label={t("Interval (minutes)")}
-          htmlFor="automation-interval-minutes"
-        >
-          <input
-            id="automation-interval-minutes"
-            className="ui-input"
-            type="number"
-            min={5}
-            value={intervalMinutes}
-            onChange={(event) => setIntervalMinutes(event.target.value)}
-          />
-        </LabeledField>
-      ) : null}
-      {schedule === "daily" ? (
-        <LabeledField label={t("Run at")} htmlFor="automation-daily-time">
-          <input
-            id="automation-daily-time"
-            className="ui-input"
-            type="time"
-            value={dailyTime}
-            onChange={(event) => setDailyTime(event.target.value)}
-          />
-        </LabeledField>
-      ) : null}
-      <div className="automation-form-limits">
-        <LabeledField label={t("Maximum cost per run")} htmlFor="automation-max-cost">
-          <input
-            id="automation-max-cost"
-            className="ui-input"
-            type="number"
-            min="0"
-            step="0.01"
-            value={maxCost}
-            onChange={(e) => setMaxCost(e.target.value)}
-          />
-        </LabeledField>
-        <LabeledField label={t("Maximum retries")} htmlFor="automation-max-retries">
-          <input
-            id="automation-max-retries"
-            className="ui-input"
-            type="number"
-            min="0"
-            max="10"
-            value={maxRetries}
-            onChange={(e) => setMaxRetries(e.target.value)}
-          />
-        </LabeledField>
-      </div>
-      <fieldset className="automation-checkbox">
-        <legend>{t("Execution mode")}</legend>
-        <label className="automation-radio">
-          <input
-            type="radio"
-            name="automation-execution-mode"
-            checked={!requireApproval}
-            onChange={() => setRequireApproval(false)}
-          />
-          {t("Run automatically (full access)")}
-        </label>
-        <label className="automation-radio">
-          <input
-            type="radio"
-            name="automation-execution-mode"
-            checked={requireApproval}
-            onChange={() => setRequireApproval(true)}
-          />
-          {t("Confirm before every run (default permission)")}
-        </label>
-      </fieldset>
-      <p className="automation-checkbox-hint" role="note">
-        {requireApproval
-          ? t(
-              "Each run waits for your approval in the task center. Sensitive actions — writes outside the workspace, deletions, scripts, and network access — still ask for confirmation before executing.",
-            )
-          : t(
-              "Runs automatically when due; no manual approval needed. File writes, deletions, scripts, and network actions will not ask for confirmation one by one, so keep this for trusted, recoverable tasks.",
-            )}
-      </p>
-      <div className="automation-form-actions">
-        {initial ? (
-          <button
-            type="button"
-            className="ui-button ui-button--ghost"
-            onClick={onDone}
-          >
-            {t("Cancel")}
-          </button>
-        ) : null}
-        <button
-          type="submit"
-          className="ui-button ui-button--primary"
-          disabled={submitting}
-          aria-busy={submitting}
-        >
-          {initial ? t("Save changes") : t("Create automation")}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function LabeledField({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="automation-form-field" htmlFor={htmlFor}>
-      <span>{label}</span>
-      {children}
-    </label>
-  );
+function workspaceStatusMessage(code?: string | null): string {
+  const messages: Record<string, string> = {
+    workspace_unavailable: "Workspace folder is unavailable",
+    automation_workspace_unreadable: "Automation file could not be read",
+    automation_workspace_too_large: "Automation file exceeds the size limit",
+    automation_workspace_invalid: "Automation file is invalid",
+    task_store_unreadable: "Task file could not be read",
+    task_store_too_large: "Task file exceeds the size limit",
+    task_store_invalid: "Task file is invalid",
+  };
+  return t(messages[code ?? ""] ?? "Automation file could not be read");
 }
 
 function WorkflowCard({
@@ -477,7 +322,10 @@ function WorkflowCard({
   const duplicateWorkflow = store((state) => state.duplicateWorkflow);
   const removeWorkflow = store((state) => state.removeWorkflow);
   const runWorkflow = store((state) => state.runWorkflow);
-  const badge = workflow.approvalPending
+  const approveQueuedTask = store((state) => state.approveQueuedTask);
+  const pendingApprovalTaskId = store((state) => state.pendingApprovalTasks[workflow.id]);
+  const approvalTasksError = store((state) => state.approvalTasksError);
+  const badge = pendingApprovalTaskId
     ? t("Approval required")
     : workflow.enabled
       ? t("Enabled")
@@ -490,11 +338,11 @@ function WorkflowCard({
           <h2>{workflow.title}</h2>
         </div>
         <div className="automation-actions">
-          {workflow.approvalPending ? (
+          {pendingApprovalTaskId ? (
             <button
               type="button"
               className="ui-button ui-button--primary ui-button--sm"
-              onClick={() => void runWorkflow(workflow, "approval")}
+              onClick={() => void approveQueuedTask(workflow.id)}
             >
               {t("Approve and run")}
             </button>
@@ -503,6 +351,7 @@ function WorkflowCard({
               type="button"
               className="ui-button ui-button--primary ui-button--sm"
               onClick={() => void runWorkflow(workflow)}
+              disabled={approvalTasksError}
             >
               {t("Run now")}
             </button>
@@ -570,8 +419,7 @@ function WorkflowCard({
                 <span className="ui-badge">{t(run.status)}</span>
                 <span
                   title={
-                    run.message &&
-                    friendlyTaskDispatchError(run.message) !== run.message
+                    run.message && friendlyTaskDispatchError(run.message) !== run.message
                       ? run.message
                       : undefined
                   }
@@ -612,6 +460,8 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 export interface AutomationAppApi {
+  newWorkflow(projectPath: string): void;
+  focusWorkflow(id: string | null): void;
   renderNavigation(container: HTMLElement): void;
   renderContent(container: HTMLElement): void;
   setTarget(): void;
@@ -630,23 +480,22 @@ export function createAutomationApp(options: AutomationAppOptions): AutomationAp
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
   return {
+    newWorkflow(projectPath) {
+      store.getState().requestCreation(projectPath);
+    },
+    focusWorkflow(id) {
+      store.getState().focusWorkflow(id);
+      void store.getState().load();
+    },
     renderNavigation(container) {
-      navRoot = mountPluginSurface(
-        container,
-        <AutomationNav store={store} />,
-        navRoot,
-      );
+      navRoot = mountPluginSurface(container, <AutomationNav store={store} />, navRoot);
     },
     renderContent(container) {
-      contentRoot = mountPluginSurface(
-        container,
-        <AutomationMain store={store} />,
-        contentRoot,
-      );
+      contentRoot = mountPluginSurface(container, <AutomationMain store={store} listWorkspaceStatus={options.listWorkspaceStatus} openWorkspaceTasks={options.openWorkspaceTasks} backgroundWorkerStatus={options.backgroundWorkerStatus} startBackgroundWorker={options.startBackgroundWorker} stopBackgroundWorker={options.stopBackgroundWorker} backgroundWorkerLoginEnabled={options.backgroundWorkerLoginEnabled} setBackgroundWorkerLoginEnabled={options.setBackgroundWorkerLoginEnabled} />, contentRoot);
       store.getState().startScheduler();
     },
     setTarget() {
-      // React re-renders from the store; nothing else to force.
+      store.getState().syncTarget();
     },
     handlesCommand(commandId) {
       return commandId === "automation.open";

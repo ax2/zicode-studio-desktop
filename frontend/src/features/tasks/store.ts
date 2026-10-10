@@ -1,20 +1,27 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n.js";
-import { localizeHostError } from "../../shared/hostErrors.js";
+// @ts-expect-error native shared module without declarations
+import { taskWriteParams } from "../../../../public/super-agent/task-persistence.js";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskAnswered, markTaskCancelled, markTaskForDispatch, markTaskPaused, normalizeSuperAgentTasks } from "../../../../public/super-agent/task-state.js";
-import { childTarget, type SuperAgentTask, type TaskFilter } from "./logic";
-import { isScheduledTemplate, nextTaskRunAt } from "./logic";
+import { localizeHostError } from "../../shared/hostErrors.js";
+import { t } from "../../shared/i18n.js";
+import type { WorkCreationRequest } from "../../shared/workCreation";
+import { approveExistingTask, sameTaskTarget, type TaskCenterTarget } from "./approve-task";
+import { createTaskWriter } from "./create-task";
+import { childTarget, isScheduledTemplate, type SuperAgentTask, type TaskFilter } from "./logic";
+import { taskMetadata } from "./task-metadata";
 
 export interface TaskCenterOptions {
   call: (
     operation: string,
     params?: unknown,
+    options?: { target?: unknown },
   ) => Promise<{
     ok?: boolean;
     error?: string;
     data?: {
       tasks?: unknown[];
+      revision?: string;
       projects?: Array<{ cwd?: string; path?: string }>;
     };
   }>;
@@ -29,11 +36,13 @@ export interface TaskCenterOptions {
   openApp?: (pluginId: string) => void;
   notify?: (payload: { title: string; message?: string; type?: string }) => void;
   getCurrentProjectPath?: () => string | null;
+  getTarget?: () => TaskCenterTarget | null;
   pollIntervalMs?: number;
   schedulerIntervalMs?: number;
 }
 
 export interface TaskDraft {
+  saveAsDraft?: boolean;
   title: string;
   description: string;
   targetProject: string;
@@ -44,36 +53,50 @@ export interface TaskDraft {
   maxRetries?: number;
 }
 
+interface TaskMutationScope {
+  epoch: number;
+  target: TaskCenterTarget | null;
+  tasks: SuperAgentTask[];
+  revision?: string;
+}
+
 interface TaskCenterState {
   tasks: SuperAgentTask[];
+  revision?: string;
   filter: TaskFilter;
   focusTaskId: string | null;
+  creationRequest: WorkCreationRequest | null;
+  requestCreation(projectPath: string): void;
+  clearCreation(): void;
   loading: boolean;
   loadedOnce: boolean;
   error: Error | null;
   openApp(pluginId: string): void;
   setFilter(filter: TaskFilter): void;
   focusTask(taskId: string | null): void;
+  syncTarget(): void;
   load(options?: { quiet?: boolean }): Promise<void>;
   listProjects(): Promise<string[]>;
-  createTask(draft: TaskDraft): Promise<void>;
+  createTask(draft: TaskDraft): Promise<boolean>;
   rerunTask(task: SuperAgentTask): Promise<void>;
   updateTaskMeta(
     taskId: string,
     patch: Partial<TaskDraft> & { enabled?: boolean },
-  ): Promise<void>;
+  ): Promise<boolean>;
   runTaskNow(task: SuperAgentTask): Promise<void>;
   updateTask(
     taskId: string,
     updater: (task: SuperAgentTask) => SuperAgentTask,
     successMessage?: string,
+    scope?: TaskMutationScope,
   ): Promise<void>;
   togglePinned(taskId: string): Promise<void>;
   toggleArchived(taskId: string): Promise<void>;
   removeTask(taskId: string): Promise<void>;
   clearDoneTasks(): Promise<void>;
   answerTask(task: SuperAgentTask, answer: string): Promise<void>;
-  approveTask(task: SuperAgentTask): Promise<void>;
+  approveTask(task: SuperAgentTask): Promise<boolean>;
+  approveTaskById(taskId: string, target?: TaskCenterTarget | null): Promise<boolean>;
   retryAndRunTask(task: SuperAgentTask): Promise<void>;
   pauseTask(task: SuperAgentTask): Promise<void>;
   cancelTask(task: SuperAgentTask): Promise<void>;
@@ -96,16 +119,34 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let schedulerTimer: ReturnType<typeof setInterval> | null = null;
   let runtimeRetryTimer: ReturnType<typeof setTimeout> | null = null;
-  let tickRetryTimer: ReturnType<typeof setTimeout> | null = null;
   let runtimeRetryAttempts = 0;
   let ticking = false;
+  let creationSequence = 0;
   let inFlightLoad: Promise<void> | null = null;
+  let scopeTarget = options.getTarget?.() ?? null;
+  let scopeEpoch = 0;
+  let tickRequested = false;
   const runtimeRetryDelays = [1200, 2000, 3000, 5000, 8000, 12000];
+  const mutationScope = (tasks: SuperAgentTask[], revision?: string): TaskMutationScope => ({
+    epoch: scopeEpoch,
+    target: scopeTarget,
+    tasks,
+    revision,
+  });
+  const writeForScope = (tasks: SuperAgentTask[], scope: TaskMutationScope) => {
+    if (options.getTarget && !scope.target) throw new Error(t("Task service is unavailable"));
+    return call("write_super_agent_tasks", taskWriteParams(tasks, scope.revision), scope.target ? { target: scope.target } : undefined);
+  };
 
   return create<TaskCenterState>()((set, get) => ({
     tasks: [],
     filter: "all",
     focusTaskId: null,
+    creationRequest: null,
+    requestCreation(projectPath) {
+      set({ creationRequest: { sequence: ++creationSequence, projectPath }, focusTaskId: null, filter: "all" });
+    },
+    clearCreation() { set({ creationRequest: null }); },
     loading: false,
     loadedOnce: false,
     error: null,
@@ -129,11 +170,33 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       }));
     },
 
+    syncTarget() {
+      const nextTarget = options.getTarget?.() ?? null;
+      if (sameTaskTarget(scopeTarget, nextTarget)) return;
+      scopeTarget = nextTarget;
+      scopeEpoch += 1;
+      inFlightLoad = null;
+      runtimeRetryAttempts = 0;
+      if (runtimeRetryTimer) clearTimeout(runtimeRetryTimer);
+      runtimeRetryTimer = null;
+      set({ tasks: [], revision: undefined, loadedOnce: false, loading: false, error: null, focusTaskId: null, creationRequest: null });
+      if (pollTimer || schedulerTimer) void get().load({ quiet: true });
+      if (schedulerTimer) {
+        if (ticking) tickRequested = true;
+        else void get().tick();
+      }
+    },
+
     async listProjects() {
       if (typeof call !== "function") return [];
+      const epoch = scopeEpoch;
+      const target = scopeTarget;
+      if (options.getTarget && !target) return [];
+      const fixedCall = (operation: string) => call(operation, undefined, target ? { target } : undefined);
       const paths = new Set<string>();
       try {
-        const response = await call("list_super_agent_projects");
+        const response = await fixedCall("list_super_agent_projects");
+        if (epoch !== scopeEpoch) return [];
         for (const project of response?.data?.projects ?? []) {
           const path = String(project?.cwd || project?.path || "").trim();
           if (path) paths.add(path);
@@ -142,7 +205,8 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
         // Fall through to task-derived suggestions.
       }
       try {
-        const tasksResponse = await call("read_super_agent_tasks");
+        const tasksResponse = await fixedCall("read_super_agent_tasks");
+        if (epoch !== scopeEpoch) return [];
         for (const task of tasksResponse?.data?.tasks ?? []) {
           const path = String(
             (task as { targetProject?: unknown })?.targetProject || "",
@@ -152,27 +216,32 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       } catch {
         // Suggestions are best-effort.
       }
-      return [...paths];
+      return epoch === scopeEpoch ? [...paths] : [];
     },
 
     async load({ quiet = false } = {}) {
       if (typeof call !== "function") return;
-      // Concurrent callers (polling + scheduler boot) wait for the in-flight
-      // load instead of skipping it, so the scheduler never ticks against an
-      // empty store right after the app opens.
+      const epoch = scopeEpoch;
+      const target = scopeTarget;
+      if (options.getTarget && !target) return;
+      // Concurrent refresh callers share the in-flight read during app startup.
       if (inFlightLoad) return inFlightLoad;
-      inFlightLoad = (async () => {
+      const request = (async () => {
         set({ loading: true });
         if (!quiet) set({});
         try {
-          const response = await call("read_super_agent_tasks");
-          if (!response?.ok) throw new Error(t("Task service is unavailable"));
+          const response = await call("read_super_agent_tasks", undefined, target ? { target } : undefined);
+          if (epoch !== scopeEpoch) return;
+          if (!response?.ok || !Array.isArray(response.data?.tasks)) throw new Error(response?.error || t("Task service is unavailable"));
           const tasks = normalizeSuperAgentTasks(
             response.data?.tasks ?? [],
           ) as SuperAgentTask[];
-          set({ tasks, error: null, loadedOnce: true });
+          set({ tasks, revision: response.data?.revision, error: null, loadedOnce: true });
           runtimeRetryAttempts = 0;
+          if (runtimeRetryTimer) clearTimeout(runtimeRetryTimer);
+          runtimeRetryTimer = null;
         } catch (reason) {
+          if (epoch !== scopeEpoch) return;
           const raw = reason instanceof Error ? reason.message : String(reason);
           set({
             error: localizeHostError(
@@ -198,74 +267,38 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
             }, delay);
           }
         } finally {
-          set({ loading: false });
+          if (epoch === scopeEpoch) set({ loading: false });
         }
       })();
+      inFlightLoad = request;
       try {
-        return await inFlightLoad;
+        return await request;
       } finally {
-        inFlightLoad = null;
+        if (inFlightLoad === request) inFlightLoad = null;
       }
     },
 
-    async createTask(draft) {
-      const title = String(draft.title || "").trim();
-      if (!title) {
-        notify({ title: t("Task title is required"), type: "error" });
-        return;
-      }
-      const now = new Date().toISOString();
-      const scheduled = draft.schedule !== "manual";
-      const template = {
-        id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        title,
-        description: String(draft.description || "").trim(),
-        targetProject: String(draft.targetProject || "").trim() || null,
-        status: "pending",
-        source: { channel: "local", conversationId: null, userId: null, messageId: null },
-        automation: {
-          workflowId: null,
-          trigger: scheduled ? "schedule" : "manual",
-          autoDispatch: scheduled ? false : !draft.requireApproval,
-        },
-        schedule: scheduled ? draft.schedule : null,
-        intervalMinutes: draft.schedule === "interval" ? draft.intervalMinutes : null,
-        dailyTime: draft.schedule === "daily" ? draft.dailyTime : null,
-        nextRunAt: scheduled ? nextTaskRunAt({ schedule: draft.schedule, intervalMinutes: draft.intervalMinutes, dailyTime: draft.dailyTime }) : null,
-        enabled: scheduled ? true : undefined,
-        requireApproval: Boolean(draft.requireApproval),
-        budget: null,
-        maxRetries: Number.isFinite(Number(draft.maxRetries)) ? Number(draft.maxRetries) : 2,
-        retryCount: 0,
-        events: [
-          {
-            at: now,
-            type: "queued",
-            status: "pending",
-            message: scheduled ? t("Scheduled task created.") : t("Task created."),
-          },
-        ],
-      };
-      try {
-        const response = await call("write_super_agent_tasks", {
-          tasks: [...get().tasks, template],
-        });
-        if (!response?.ok) throw new Error(response?.error || t("Could not create task"));
-        set({ tasks: normalizeSuperAgentTasks([...get().tasks, template]) as SuperAgentTask[] });
-        notify({
-          title: scheduled ? t("Scheduled task created") : t("Task created"),
-          type: "success",
-        });
-      } catch (reason) {
-        notify({
-          title: t("Could not create task"),
-          message: localizeHostError(reason).message,
-          type: "error",
-        });
-      }
-    },
+    createTask: createTaskWriter({
+      call,
+      scopeToken: () => scopeEpoch,
+      isScopeCurrent: (token) => token === scopeEpoch,
+      async readCurrent() {
+        const epoch = scopeEpoch;
+        const target = scopeTarget;
+        if (options.getTarget && !target) throw new Error(t("Task service is unavailable"));
+        await get().load({ quiet: true });
+        if (epoch !== scopeEpoch) throw new Error(t("Workspace changed. Retry the task action."));
+        if (!get().loadedOnce || get().error) throw new Error(t("Refresh the task list successfully before creating a task."));
+        return { tasks: get().tasks, revision: get().revision, target };
+      },
+      publish(task, revision) {
+        set({ tasks: normalizeSuperAgentTasks([...get().tasks.filter((item) => item.id !== task.id), task]) as SuperAgentTask[], revision });
+      },
+      notify,
+    }),
 
     async rerunTask(task) {
+      if (task?.status === "draft") return;
       const title = String(task?.title || "").trim();
       if (!title) {
         notify({ title: t("Task title is required"), type: "error" });
@@ -282,73 +315,29 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async updateTaskMeta(taskId, patch) {
-      const index = get().tasks.findIndex((task) => task.id === taskId);
-      if (index < 0) return;
-      const current = get().tasks[index];
-      const schedule = patch.schedule ?? current.schedule ?? "manual";
-      const scheduled = schedule !== "manual";
-      const scheduleFields: Pick<
-        SuperAgentTask,
-        "schedule" | "intervalMinutes" | "dailyTime"
-      > = {
-        schedule: scheduled ? schedule : null,
-        intervalMinutes:
-          schedule === "interval"
-            ? (patch.intervalMinutes ?? current.intervalMinutes ?? 60)
-            : null,
-        dailyTime:
-          schedule === "daily" ? (patch.dailyTime ?? current.dailyTime ?? "09:00") : null,
-      };
-      const next = {
-        ...current,
-        title: patch.title !== undefined ? String(patch.title).trim() : current.title,
-        description:
-          patch.description !== undefined
-            ? String(patch.description).trim()
-            : current.description,
-        targetProject:
-          patch.targetProject !== undefined
-            ? String(patch.targetProject).trim() || null
-            : current.targetProject,
-        schedule: scheduled ? schedule : null,
-        intervalMinutes: scheduleFields.intervalMinutes,
-        dailyTime: scheduleFields.dailyTime,
-        requireApproval:
-          patch.requireApproval !== undefined
-            ? Boolean(patch.requireApproval)
-            : current.requireApproval,
-        enabled: patch.enabled !== undefined ? patch.enabled : current.enabled,
-        maxRetries:
-          patch.maxRetries !== undefined
-            ? Number.isFinite(Number(patch.maxRetries))
-              ? Number(patch.maxRetries)
-              : current.maxRetries
-            : current.maxRetries,
-        automation: {
-          ...(current.automation || {}),
-          trigger: scheduled ? "schedule" : "manual",
-          autoDispatch: scheduled ? false : !(patch.requireApproval ?? current.requireApproval),
-        },
-        nextRunAt: scheduled ? nextTaskRunAt(scheduleFields) : null,
-      };
-      const tasks = [...get().tasks];
-      tasks[index] = next;
       try {
-        const response = await call("write_super_agent_tasks", { tasks });
+        const scope = mutationScope(get().tasks, get().revision);
+        const index = get().tasks.findIndex((task) => task.id === taskId);
+        if (index < 0) throw new Error(t("The selected task is no longer available."));
+        const tasks = [...get().tasks];
+        tasks[index] = taskMetadata(tasks[index], patch);
+        const response = await writeForScope(tasks, scope);
         if (!response?.ok) throw new Error(response?.error || t("Could not update task"));
-        set({ tasks: normalizeSuperAgentTasks(tasks) as SuperAgentTask[] });
-        notify({ title: t("Task updated"), type: "success" });
+        if (scope.epoch === scopeEpoch) set({ tasks: normalizeSuperAgentTasks(tasks) as SuperAgentTask[], revision: response.data?.revision });
+        notify({ title: tasks[index].status === "draft" ? t("Task draft saved") : t("Task updated"), type: "success" });
+        return true;
       } catch (reason) {
-        notify({
-          title: t("Could not update task"),
-          message: localizeHostError(reason).message,
-          type: "error",
-        });
+        notify({ title: t("Could not update task"), message: localizeHostError(reason).message, type: "error" });
+        return false;
       }
     },
 
     async runTaskNow(task) {
       if (!isScheduledTemplate(task)) return;
+      const scope = mutationScope(get().tasks, get().revision);
+      const currentTemplate = scope.tasks.find((item) => item.id === task.id);
+      if (!currentTemplate || !isScheduledTemplate(currentTemplate)) return;
+      task = currentTemplate;
       const timestamp = new Date().toISOString();
       const instance = {
         ...task,
@@ -379,9 +368,9 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       };
       const tasks = [...get().tasks, instance];
       try {
-        const response = await call("write_super_agent_tasks", { tasks });
+        const response = await writeForScope(tasks, scope);
         if (!response?.ok) throw new Error(response?.error || t("Could not run task"));
-        set({ tasks: normalizeSuperAgentTasks(tasks) as SuperAgentTask[] });
+        if (scope.epoch === scopeEpoch) set({ tasks: normalizeSuperAgentTasks(tasks) as SuperAgentTask[], revision: response.data?.revision });
         notify({ title: t("Task queued and running"), type: "success" });
       } catch (reason) {
         notify({
@@ -392,15 +381,16 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       }
     },
 
-    async updateTask(taskId, updater, successMessage) {
-      const index = get().tasks.findIndex((task) => task.id === taskId);
+    async updateTask(taskId, updater, successMessage, suppliedScope) {
+      const scope = suppliedScope ?? mutationScope(get().tasks, get().revision);
+      const index = scope.tasks.findIndex((task) => task.id === taskId);
       if (index < 0) return;
-      const next = [...get().tasks];
+      const next = [...scope.tasks];
       next[index] = updater(next[index]);
       try {
-        const response = await call("write_super_agent_tasks", { tasks: next });
-        if (!response?.ok) throw new Error(t("Could not update task"));
-        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        const response = await writeForScope(next, scope);
+        if (!response?.ok) throw new Error(response?.error || t("Could not update task"));
+        if (scope.epoch === scopeEpoch) set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[], revision: response.data?.revision });
         if (successMessage) notify({ title: successMessage, type: "success" });
       } catch (reason) {
         notify({
@@ -434,11 +424,13 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async removeTask(taskId) {
-      const next = get().tasks.filter((task) => task.id !== taskId);
+      const scope = mutationScope(get().tasks, get().revision);
+      if (!scope.tasks.some((task) => task.id === taskId)) return;
+      const next = scope.tasks.filter((task) => task.id !== taskId);
       try {
-        const response = await call("write_super_agent_tasks", { tasks: next });
-        if (!response?.ok) throw new Error(t("Could not update task"));
-        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        const response = await writeForScope(next, scope);
+        if (!response?.ok) throw new Error(response?.error || t("Could not update task"));
+        if (scope.epoch === scopeEpoch) set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[], revision: response.data?.revision });
       } catch (reason) {
         notify({
           title: t("Could not update task"),
@@ -449,17 +441,17 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async clearDoneTasks() {
+      const scope = mutationScope(get().tasks, get().revision);
       const doneIds = new Set(
-        get()
-          .tasks.filter((task) => task.status === "done")
+        scope.tasks.filter((task) => task.status === "done")
           .map((task) => task.id),
       );
       if (doneIds.size === 0) return;
-      const next = get().tasks.filter((task) => !doneIds.has(task.id));
+      const next = scope.tasks.filter((task) => !doneIds.has(task.id));
       try {
-        const response = await call("write_super_agent_tasks", { tasks: next });
-        if (!response?.ok) throw new Error(t("Could not update task"));
-        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        const response = await writeForScope(next, scope);
+        if (!response?.ok) throw new Error(response?.error || t("Could not update task"));
+        if (scope.epoch === scopeEpoch) set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[], revision: response.data?.revision });
         notify({ title: t("Cleared completed tasks"), type: "success" });
       } catch (reason) {
         notify({
@@ -473,6 +465,8 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     async answerTask(task, answer) {
       const text = String(answer || "").trim();
       if (!text) return;
+      const scope = mutationScope(get().tasks, get().revision);
+      if (!scope.tasks.some((current) => current.id === task.id)) return;
       const target = childTarget(task);
       if (!target) {
         notify({
@@ -494,6 +488,7 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
           task.id,
           (current) => markTaskAnswered(current),
           t("Answer sent to the project agent."),
+          scope,
         );
       } catch (reason) {
         notify({
@@ -505,33 +500,40 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async approveTask(task) {
-      const index = get().tasks.findIndex((candidate) => candidate.id === task.id);
-      if (index < 0) return;
-      const next = [...get().tasks];
-      next[index] = markTaskForDispatch(next[index]);
+      return get().approveTaskById(task.id);
+    },
+
+    async approveTaskById(taskId, requestedTarget) {
+      const sourceTarget = requestedTarget === undefined ? options.getTarget?.() ?? null : requestedTarget;
+      if (options.getTarget && !sourceTarget) return false;
       try {
-        const response = await call("write_super_agent_tasks", { tasks: next });
-        if (!response?.ok) throw new Error(t("Could not approve task"));
-        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        const approved = await approveExistingTask(call, taskId, sourceTarget);
+        if (!options.getTarget || sameTaskTarget(sourceTarget, options.getTarget())) {
+          set({ tasks: approved.tasks, revision: approved.revision, error: null });
+        }
         // Same path as the Agent Inbox runtime panel: the host listens for
         // sa-dispatch and hands the task to a project agent.
-        document.dispatchEvent(
-          new CustomEvent("sa-dispatch", { detail: next[index], bubbles: true }),
-        );
+        const event = new CustomEvent("sa-dispatch", { detail: approved.task, bubbles: true }) as CustomEvent & { sourceTarget?: TaskCenterTarget | null };
+        event.sourceTarget = sourceTarget;
+        document.dispatchEvent(event);
         notify({ title: t("Task approved and dispatched"), type: "success" });
+        return true;
       } catch (reason) {
         notify({
           title: t("Could not approve task"),
           message: localizeHostError(reason).message,
           type: "error",
         });
+        return false;
       }
     },
 
     async retryAndRunTask(task) {
+      if (task.status === "draft" || get().tasks.find((item) => item.id === task.id)?.status === "draft") return;
+      const scope = mutationScope(get().tasks, get().revision);
       const index = get().tasks.findIndex((candidate) => candidate.id === task.id);
       if (index < 0) return;
-      const next = [...get().tasks];
+      const next = [...scope.tasks];
       const reset = {
         ...next[index],
         status: "pending",
@@ -541,14 +543,14 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
       };
       next[index] = markTaskForDispatch(reset);
       try {
-        const response = await call("write_super_agent_tasks", { tasks: next });
-        if (!response?.ok) throw new Error(t("Could not update task"));
-        set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[] });
+        const response = await writeForScope(next, scope);
+        if (!response?.ok) throw new Error(response?.error || t("Could not update task"));
+        if (scope.epoch === scopeEpoch) set({ tasks: normalizeSuperAgentTasks(next) as SuperAgentTask[], revision: response.data?.revision });
         // Same path as approveTask: the host listens for sa-dispatch and hands
         // the task to a project agent in one step.
-        document.dispatchEvent(
-          new CustomEvent("sa-dispatch", { detail: next[index], bubbles: true }),
-        );
+        const event = new CustomEvent("sa-dispatch", { detail: next[index], bubbles: true }) as CustomEvent & { sourceTarget?: TaskCenterTarget | null };
+        event.sourceTarget = scope.target;
+        document.dispatchEvent(event);
         notify({ title: t("Task retried and dispatched"), type: "success" });
       } catch (reason) {
         notify({
@@ -560,9 +562,11 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async pauseTask(task) {
+      const scope = mutationScope(get().tasks, get().revision);
+      if (!scope.tasks.some((current) => current.id === task.id)) return;
       try {
         await stopTaskRuntime(task, { runtime, cancelRuntimeUi });
-        await get().updateTask(task.id, (current) => markTaskPaused(current), t("Task paused"));
+        await get().updateTask(task.id, (current) => markTaskPaused(current), t("Task paused"), scope);
       } catch (reason) {
         notify({
           title: t("Could not pause task"),
@@ -573,12 +577,15 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     },
 
     async cancelTask(task) {
+      const scope = mutationScope(get().tasks, get().revision);
+      if (!scope.tasks.some((current) => current.id === task.id)) return;
       try {
         await stopTaskRuntime(task, { runtime, cancelRuntimeUi });
         await get().updateTask(
           task.id,
           (current) => markTaskCancelled(current),
           t("Task cancelled"),
+          scope,
         );
       } catch (reason) {
         notify({
@@ -591,75 +598,18 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
 
     async tick() {
       if (ticking || typeof call !== "function") return;
+      const target = scopeTarget;
+      if (options.getTarget && !target) return;
       ticking = true;
       try {
-        // The scheduler can boot before the first poll completes; wait for
-        // the task list so a due template is caught immediately instead of
-        // on the next interval tick.
-        if (!get().loadedOnce) {
-          await get().load({ quiet: true });
-          if (!get().loadedOnce) {
-            // The first read failed (e.g. the runtime was still booting).
-            // The store's readiness retry reloads shortly; re-check soon
-            // instead of waiting a full scheduler interval.
-            if (!tickRetryTimer) {
-              tickRetryTimer = setTimeout(() => {
-                tickRetryTimer = null;
-                void get().tick();
-              }, 2000);
-            }
-            return;
-          }
-        }
-        const tasks = [...get().tasks];
-        const now = Date.now();
-        let changed = false;
-        for (let index = 0; index < tasks.length; index += 1) {
-          const template = tasks[index];
-          if (!isScheduledTemplate(template) || template.enabled === false) continue;
-          if (!template.nextRunAt || new Date(template.nextRunAt).getTime() > now) continue;
-          const timestamp = new Date().toISOString();
-          const instance = {
-            ...template,
-            id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            schedule: null,
-            intervalMinutes: null,
-            dailyTime: null,
-            nextRunAt: null,
-            scheduledFrom: template.id,
-            enabled: true,
-            status: "pending",
-            retryCount: 0,
-            failReason: null,
-            result: { status: null, summary: null, completedAt: null, failReason: null },
-            automation: {
-              ...(template.automation || {}),
-              trigger: "schedule",
-              autoDispatch: !template.requireApproval,
-            },
-            events: [
-              {
-                at: timestamp,
-                type: "queued",
-                status: "pending",
-                message: t("Created by the scheduled task."),
-              },
-            ],
-          };
-          tasks[index] = {
-            ...template,
-            nextRunAt: nextTaskRunAt(template),
-          };
-          tasks.push(instance);
-          changed = true;
-        }
-        if (!changed) return;
-        const response = await call("write_super_agent_tasks", { tasks });
-        if (response?.ok) {
-          set({ tasks: normalizeSuperAgentTasks(tasks) as SuperAgentTask[] });
-        }
+        // Host owns template creation; pages only observe the committed state.
+        await get().load({ quiet: true });
       } finally {
         ticking = false;
+        if (tickRequested && schedulerTimer) {
+          tickRequested = false;
+          void get().tick();
+        }
       }
     },
 
@@ -677,19 +627,25 @@ export function createTaskCenterStore(options: TaskCenterOptions) {
     startScheduler() {
       if (schedulerTimer) return;
       schedulerTimer = setInterval(() => void get().tick(), schedulerIntervalMs);
-      void get().tick();
+      if (ticking) tickRequested = true;
+      else void get().tick();
     },
 
     stopScheduler() {
       if (schedulerTimer) clearInterval(schedulerTimer);
       schedulerTimer = null;
-      if (tickRetryTimer) clearTimeout(tickRetryTimer);
-      tickRetryTimer = null;
     },
 
     destroy() {
       get().stopPolling();
       get().stopScheduler();
+      scopeEpoch += 1;
+      inFlightLoad = null;
+      tickRequested = false;
+      if (runtimeRetryTimer) clearTimeout(runtimeRetryTimer);
+      runtimeRetryTimer = null;
+      runtimeRetryAttempts = 0;
+      set({ loading: false });
     },
   }));
 }

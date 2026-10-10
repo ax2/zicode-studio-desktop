@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { formatTime } from "./watchLogic";
 import { createWatchStore, type WatchOptions, type WatchStore } from "./watchStore";
 
@@ -169,7 +169,12 @@ export function WatchMain({ store }: { store: WatchStore }) {
                     ) : (
                       <div className="watch-item-body">
                         <strong className="watch-item-name">{item.name}</strong>
-                        <a className="watch-item-url" href={item.url} target="_blank" rel="noreferrer">
+                        <a
+                          className="watch-item-url"
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           {item.url}
                         </a>
                         <span className="watch-item-meta">
@@ -180,7 +185,7 @@ export function WatchMain({ store }: { store: WatchStore }) {
                             : item.lastCheckedAt
                               ? `${t("Changes")}: ${item.changeCount} · ${formatTime(item.lastCheckedAt)}`
                               : t("Not checked yet")}
-                      </span>
+                        </span>
                       </div>
                     )}
                     <div className="watch-item-actions">
@@ -208,7 +213,11 @@ export function WatchMain({ store }: { store: WatchStore }) {
                         className="ui-button ui-button--ghost ui-button--sm"
                         aria-label={`${t("Delete")} ${item.name}`}
                         onClick={async () => {
-                          if (await globalThis.confirm?.(t("Delete this watcher? This cannot be undone."))) {
+                          if (
+                            await globalThis.confirm?.(
+                              t("Delete this watcher? This cannot be undone."),
+                            )
+                          ) {
                             void store.getState().remove(item.id);
                           }
                         }}
@@ -233,15 +242,20 @@ export function createWatchApp(options: WatchOptions): WatchAppApi {
   const store = createWatchStore(options);
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
+  let active = false;
   return {
     renderNavigation(container) {
       navRoot = mountPluginSurface(container, <WatchNav />, navRoot);
     },
     renderContent(container) {
+      active = true;
       contentRoot = mountPluginSurface(container, <WatchMain store={store} />, contentRoot);
     },
-    deactivate() {},
+    deactivate() {
+      active = false;
+    },
     destroy() {
+      active = false;
       navRoot?.unmount();
       contentRoot?.unmount();
       navRoot = null;
@@ -255,7 +269,8 @@ export function createWatchApp(options: WatchOptions): WatchAppApi {
       return store.getState().load();
     },
     setTarget() {
-      return store.getState().load();
+      store.getState().resetScope();
+      return active ? store.getState().load() : Promise.resolve();
     },
   };
 }

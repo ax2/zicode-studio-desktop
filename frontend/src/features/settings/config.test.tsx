@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConfigTab } from "./ConfigTab";
-import { createConfigStore, type ConfigGatewayLike, type ConfigGatewayResult } from "./configStore";
+import { type ConfigGatewayLike, type ConfigGatewayResult, createConfigStore } from "./configStore";
 import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 
 function makeGateway(overrides: Record<string, unknown> = {}): {
@@ -24,6 +24,33 @@ function makeGateway(overrides: Record<string, unknown> = {}): {
 
 describe("settings config store", () => {
   afterEach(() => cleanup());
+  it("loads a legacy empty gateway without syncing and only refreshes its catalog on request", async () => {
+    const channel = { provider: "qveris", builtIn: true, catalogSync: "qveris" as const, configured: true, models: [] };
+    const { gateway, calls } = makeGateway({ list_provider_channels: async () => ({ ok: true, data: { channels: [channel] } }) });
+    const store = createConfigStore({ configGateway: gateway });
+    await store.getState().loadChannels();
+    expect(calls.map((call) => call.op)).toEqual(["list_provider_channels"]);
+    await store.getState().syncChannel(channel);
+    expect(calls.filter((call) => call.op === "sync_qveris_models")).toHaveLength(1);
+    expect(store.getState().syncingChannel).toBeNull();
+  });
+
+  it("retains visible catalog-sync errors and does not retry automatically", async () => {
+    const { gateway, calls } = makeGateway({ sync_qveris_models: async () => ({ ok: false, error: "Model channel changed while syncing. Refresh and try again." }) });
+    const store = createConfigStore({ configGateway: gateway });
+    await store.getState().syncChannel({ provider: "qveris", catalogSync: "qveris" });
+    expect(store.getState().channelError).toBeTruthy();
+    expect(calls).toHaveLength(1);
+    expect(store.getState().syncingChannel).toBeNull();
+  });
+  it("preserves an explicitly unauthenticated local channel when editing and saving", async () => {
+    const { gateway, calls } = makeGateway({ list_provider_channels: async () => ({ ok: true, data: { channels: [] } }), list_model_catalog: async () => ({ ok: true, data: { providers: [] } }) });
+    const store = createConfigStore({ configGateway: gateway });
+    await store.getState().openChannelEditor({ provider: "local", revision: "channel-read", baseUrl: "http://127.0.0.1:11434/v1", api: "openai-completions", authHeader: false, models: [{ id: "local-model" }] });
+    expect(store.getState().channelEditor?.authHeader).toBe(false);
+    await store.getState().saveChannel();
+    expect(calls.find((call) => call.op === "save_provider_channel")?.params).toMatchObject({ provider: "local", authHeader: false, apiKey: "" });
+  });
 
   it("loads the model catalog into providers", async () => {
     const { gateway, calls } = makeGateway({
@@ -184,6 +211,7 @@ describe("settings config store", () => {
     const { gateway, calls } = makeGateway({});
     const store = createConfigStore({ configGateway: gateway });
     await store.getState().openChannelEditor(null);
+    store.getState().setChannelForm({ api: "anthropic-messages" });
     await store.getState().saveChannel();
     expect(store.getState().channelEditorError).toBe("Add at least one model ID.");
     expect(calls.some((call) => call.op === "save_provider_channel")).toBe(false);
@@ -227,7 +255,7 @@ describe("settings config store", () => {
   it("validates the models editor JSON before saving", async () => {
     const { gateway, calls } = makeGateway({});
     const store = createConfigStore({ configGateway: gateway });
-    store.setState({ modelsEditor: { content: "not json", path: "", loading: false, message: null, saving: false } });
+    store.setState({ modelsEditor: { content: "not json", revision: "models-read", path: "", loading: false, message: null, saving: false } });
     await store.getState().saveModelsEditor();
     expect(store.getState().modelsEditor.message?.message).toContain("JSON");
     expect(calls.some((call) => call.op === "write_models_config")).toBe(false);

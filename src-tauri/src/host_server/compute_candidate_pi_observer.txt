@@ -1,0 +1,119 @@
+import { setupPluginBroker } from __BROKER_MODULE__;
+import { readFileSync, writeFileSync } from "node:fs";
+const pluginId = __PLUGIN_ID__, family = __FAMILY__, toolPrefix = __TOOL_PREFIX__;
+const businessError = JSON.parse(readFileSync(__BUSINESS_ERROR_FILE__, "utf8"));
+const samples = JSON.parse(readFileSync(__SAMPLES_FILE__, "utf8"));
+const receipt = { mechanismPassed: false, fullCandidateAccepted: false, phases: [], rows: [], deniedCalls: [], controlCalls: [] };
+const save = () => writeFileSync(__RECEIPT_FILE__, JSON.stringify(receipt, null, 2));
+export default function (pi) {
+  const tools = new Map();
+  setupPluginBroker(new Proxy(pi, { get(target, key) {
+    if (key === "registerTool") return tool => { tools.set(tool.name, tool); target.registerTool(tool); };
+    return target[key];
+  } }));
+  const signal = () => new AbortController().signal;
+  const search = async () => {
+    const items = [], pageSizes = [], cursors = new Set();
+    let cursor, revision, total;
+    do {
+      const page = (await tools.get("studio_plugin_search").execute("discover", {query:pluginId, ...(cursor ? {cursor} : {})}, signal())).details;
+      if (revision && (page.revision !== revision || page.total !== total)) throw new Error("Catalog changed during pagination");
+      revision = page.revision; total = page.total;
+      items.push(...page.items); pageSizes.push(page.items.length);
+      cursor = page.nextCursor;
+      if (cursor && cursors.has(cursor)) throw new Error("Repeated catalog cursor");
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    if (items.length !== total || new Set(items.map(item => item.toolId)).size !== total) throw new Error("Incomplete paged catalog");
+    receipt.searchPages ??= [];
+    receipt.searchPages.push({total, pageSizes}); save();
+    return {items, total, revision};
+  };
+  const execute = async (sample, id) => (await tools.get(toolPrefix + sample.id.replaceAll(".", "_")).execute(id, sample.input, signal())).details;
+  const loadControl = async () => {
+    const page = (await tools.get("studio_plugin_search").execute("control-discover", {query:"com.zicode.devtools.text"}, signal())).details;
+    const control = page.items.find(item => item.name === "devtools_text_base64_encode");
+    if (!control) throw new Error("Independent control tool missing");
+    await tools.get("studio_plugin_load").execute("control-load", {toolId:control.toolId, revision:page.revision}, signal());
+  };
+  pi.registerCommand("devtools-accept", { handler: async (phase, ctx) => {
+    let activeSample;
+    try {
+      if (phase === "unauthorized") {
+        if (tools.size !== 2 || (await search()).items.length !== 0) throw new Error("Unauthorized tools exposed");
+        await loadControl();
+      } else if (["revoked", "disabled", "revoked-again", "uninstalled", "reinstalled-denied"].includes(phase)) {
+        if ((await search()).items.length !== 0) throw new Error("Revoked tools exposed");
+        for (const sample of samples) {
+          try { await execute(sample, phase + "-" + sample.id); throw new Error("Cached tool accepted after revocation"); }
+          catch (error) {
+            if (!String(error).includes("[catalog_revision_changed]")) throw error;
+            receipt.deniedCalls.push({phase, id:sample.id, code:"catalog_revision_changed"}); save();
+          }
+        }
+      } else {
+        const before = pi.getActiveTools();
+        const page = await search();
+        if (page.items.length !== samples.length || page.total !== samples.length) throw new Error("Expected every declared operation");
+        for (const item of page.items) {
+          await tools.get("studio_plugin_load").execute("load-" + item.name, {toolId:item.toolId, revision:page.revision}, signal());
+          if (!pi.getAllTools().some(tool => tool.name === item.name) || !pi.getActiveTools().includes(item.name)) throw new Error("Dynamic registration missing");
+        }
+        if (!before.every(name => pi.getActiveTools().includes(name))) throw new Error("Existing tools lost");
+        if (["restored", "reenabled", "reinstalled-granted"].includes(phase)) {
+          for (const sample of samples) {
+            try { await execute(sample, "sample-" + sample.id); throw new Error("Old authority cache accepted after reload"); }
+            catch (error) {
+              if (!String(error).includes("[idempotency_authority_changed]")) throw error;
+              receipt.authorityDeniedCalls ??= [];
+              receipt.authorityDeniedCalls.push({phase, id:sample.id, code:"idempotency_authority_changed"}); save();
+            }
+          }
+        }
+        if (phase === "run") {
+          const cancelled = new AbortController(); cancelled.abort();
+          try { await tools.get("studio_plugin_search").execute("cancelled", {query:"java"}, cancelled.signal); throw new Error("Cancelled search accepted"); }
+          catch (error) { if (error.name !== "AbortError") throw error; }
+          for (const sample of samples) {
+            activeSample = sample.id;
+            const start = Date.now();
+            const result = await execute(sample, "sample-" + sample.id);
+            if (result.ok !== true || result.data?.text !== sample.expectedText) throw new Error("Exact portable result mismatch");
+            receipt.rows.push({id:sample.id, outcome:"exact_text", toolAccepted:false, elapsedMs:Date.now()-start}); save();
+          }
+        }
+        if (phase === "run" && businessError) {
+          activeSample = businessError.id;
+          const failed = await execute(businessError, "business-error");
+          if (failed.ok !== false || failed.error?.code !== businessError.expectedError) throw new Error("Expected bounded business error");
+          receipt.businessError = {id:businessError.id, code:failed.error.code}; save();
+        }
+        const recovered = await execute(samples[0], "recovery-" + phase);
+        if (recovered.ok !== true || typeof recovered.data?.text !== "string") throw new Error("Recovery failed");
+      }
+      if (["unauthorized", "revoked", "disabled", "uninstalled", "reinstalled-denied"].includes(phase) || (phase === "run" && businessError)) {
+        activeSample = "independent-base64";
+        const input = "synthetic independent plugin";
+        if (phase === "run" && businessError) {
+          try { await tools.get("devtools_text_base64_encode").execute("stale-control", {text:input}, signal()); throw new Error("Stale control accepted"); }
+          catch (error) { if (!String(error).includes("[catalog_revision_changed]")) throw error; }
+          receipt.staleControlDenied = true; save();
+        }
+        await loadControl();
+        const result = (await tools.get("devtools_text_base64_encode").execute("control-" + phase, {text:input}, signal())).details;
+        if (result.ok !== true || result.data?.text !== Buffer.from(input).toString("base64")) throw new Error("Independent plugin failed");
+        receipt.controlCalls.push({phase, pluginId:"com.zicode.devtools.text", passed:true});
+      }
+      receipt.phases.push(phase);
+      receipt.mechanismPassed = phase === "reinstalled-granted";
+      save();
+      ctx.ui.notify(family + " Pi verified: " + phase, "info");
+    } catch (error) {
+      receipt.failedPhase = phase;
+      if (activeSample) receipt.failedSample = activeSample;
+      receipt.failureClass = String(error).match(/\[[a-z_0-9]+\]/)?.[0] ?? "observer_assertion";
+      save();
+      ctx.ui.notify(family + " Pi failed: " + phase, "error");
+    }
+  } });
+}

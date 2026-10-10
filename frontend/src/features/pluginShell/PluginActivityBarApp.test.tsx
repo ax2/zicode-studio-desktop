@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { PluginActivityBarApp } from "./PluginActivityBarApp";
 import { createPluginShellBarStore } from "./pluginShellStore";
 

@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { smokeRuntimeEnvironment } from "./smoke-runtime-environment.js";
 
 const root = resolve(import.meta.dir, "..");
 const { version: piVersion } = await Bun.file(join(root, "scripts", "pi-version.json")).json();
@@ -15,6 +16,10 @@ const fixtureDir = join(root, "tests", "fixtures", "pi-rpc", piVersion);
 const update = process.argv.includes("--update");
 const temp = await mkdtemp(join(tmpdir(), "picot-rpc-smoke-"));
 const extension = join(temp, "smoke-extension.ts");
+const skill = join(temp, "smoke-skill");
+await mkdir(skill);
+await writeFile(join(skill, "SKILL.md"),
+  "---\nname: picot-smoke-skill\ndescription: Deterministic RPC command discovery fixture\n---\n\nUse only for local command discovery.\n");
 
 await writeFile(
   extension,
@@ -26,12 +31,27 @@ await writeFile(
   }\n`,
 );
 
-const subprocess = Bun.spawn([binary, "--mode", "rpc", "--no-session", "--extension", extension], {
+const environment = smokeRuntimeEnvironment(temp);
+const versionProbe = Bun.spawnSync([binary, "--version"], {
+  cwd: temp, env: environment, stdout: "pipe", stderr: "pipe",
+});
+if (versionProbe.exitCode !== 0 || new TextDecoder().decode(versionProbe.stdout).trim() !== piVersion) {
+  await rm(temp, { recursive: true, force: true });
+  throw new Error(`Embedded Pi version does not match locked version ${piVersion}`);
+}
+const subprocess = Bun.spawn([binary, "--mode", "rpc", "--no-session",
+  "--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes",
+  "--extension", extension, "--skill", skill], {
   cwd: temp,
+  env: environment,
   stdin: "pipe",
   stdout: "pipe",
   stderr: "pipe",
 });
+// Drain diagnostic output without retaining runtime messages or configuration.
+const stderrReader = (async () => {
+  for await (const _chunk of subprocess.stderr) { /* drain */ }
+})();
 
 const pending = new Map();
 const observedEvents = [];
@@ -62,7 +82,6 @@ const reader = (async () => {
 function request(command, timeoutMs = 5_000) {
   const id = `smoke-${nextId++}`;
   const frame = { id, ...command };
-  subprocess.stdin.write(`${JSON.stringify(frame)}\n`);
   return new Promise((resolveRequest, rejectRequest) => {
     const timeout = setTimeout(() => {
       pending.delete(id);
@@ -74,6 +93,7 @@ function request(command, timeoutMs = 5_000) {
         resolveRequest(value);
       },
     });
+    subprocess.stdin.write(`${JSON.stringify(frame)}\n`);
   });
 }
 
@@ -83,6 +103,9 @@ function assertSuccess(frame, command) {
   }
 }
 
+let shutdownForced = false;
+let successMessage = "";
+let exitCode;
 try {
   const state = await request({ type: "get_state" });
   const commands = await request({ type: "get_commands" });
@@ -128,10 +151,28 @@ try {
       );
     }
   }
-  console.log(`Pi ${contract.version} RPC smoke passed (${contract.commands.length} commands)`);
+  successMessage = `Pi ${contract.version} RPC smoke passed (${contract.commands.length} commands)`;
 } finally {
   subprocess.stdin.end();
-  await subprocess.exited;
-  await reader;
-  await rm(temp, { recursive: true, force: true });
+  let shutdownTimeout;
+  try {
+    await Promise.race([
+      subprocess.exited,
+      new Promise((resolveTimeout) => {
+        shutdownTimeout = setTimeout(() => {
+          shutdownForced = true;
+          subprocess.kill();
+          resolveTimeout();
+        }, 5000);
+      }),
+    ]);
+    exitCode = await subprocess.exited;
+    await Promise.all([reader, stderrReader]);
+  } finally {
+    clearTimeout(shutdownTimeout);
+    await rm(temp, { recursive: true, force: true });
+  }
 }
+if (shutdownForced) throw new Error("Pi RPC smoke required forced shutdown after stdin closed");
+if (exitCode !== 0) throw new Error(`Pi RPC smoke exited with code ${exitCode}`);
+console.log(successMessage);

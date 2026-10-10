@@ -2,6 +2,7 @@ import { t } from "../../shared/i18n.js";
 
 export type TaskFilter =
   | "all"
+  | "draft"
   | "scheduled"
   | "running"
   | "paused"
@@ -40,7 +41,7 @@ export interface SuperAgentTask {
     finishedAt?: string | null;
   };
   automation?: {
-    workflowId?: string;
+    workflowId?: string | null;
     trigger?: string;
     autoDispatch?: boolean;
   };
@@ -63,6 +64,7 @@ export interface SuperAgentTask {
 
 export const TASK_FILTERS: TaskFilter[] = [
   "all",
+  "draft",
   "scheduled",
   "running",
   "paused",
@@ -76,6 +78,7 @@ export const TASK_FILTERS: TaskFilter[] = [
 export function filterLabel(filter: TaskFilter): string {
   const labels: Record<TaskFilter, string> = {
     all: "All tasks",
+    draft: "Drafts",
     scheduled: "Scheduled",
     running: "Running",
     paused: "Paused",
@@ -91,6 +94,7 @@ export function filterLabel(filter: TaskFilter): string {
 export function statusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending: "Pending",
+    draft: "Draft",
     running: "Running",
     paused: "Paused",
     needs_input: "Needs input",
@@ -256,7 +260,7 @@ export function taskLastActivity(task: SuperAgentTask): string | null {
 }
 
 export function isScheduledTemplate(task: SuperAgentTask): boolean {
-  return Boolean(task?.schedule && task.schedule !== "manual");
+  return task.status !== "draft" && Boolean(task?.schedule && task.schedule !== "manual");
 }
 
 export function nextTaskRunAt(

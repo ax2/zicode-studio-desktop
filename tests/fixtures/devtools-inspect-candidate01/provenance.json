@@ -1,0 +1,159 @@
+{
+  "source": {
+    "revision": "0353c01bbf58b46eb0bde2b0c001293f38014647",
+    "dirty": true
+  },
+  "profile": "compute.wasi.v1",
+  "status": "unsigned provider candidate; not Host-accepted",
+  "sourceFiles": [
+    {
+      "path": ".cargo/config.toml",
+      "sha256": "ddd5848c616800b1c22f7cbd72cf41bcdb941596024a45509bc04509c6aeb6d4"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "edc4bc2de5251c55fcb759d451947fe2e8640d4e1fb19eb6f369c96a41c76fb4"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "cece6267575ec7a1b9bca8fb1f52a48be25af4060e4b929294b4c74340833974"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/catalog.example.json",
+      "sha256": "19a7fc620ae404d6e26e2ee0d6669666b9c9b557ee626974e63d24b28d5d1eef"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/delivery.schema.json",
+      "sha256": "1c6cd9b5ecdea721cc28b4fdb0b3df2bb6619b619e7b034dfeb4e2af73f7a967"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/fixtures.json",
+      "sha256": "6b36ed7bb777ca31742ce7a7dd9da19b78d8c86a4487016bb8f61c15c5f3cde4"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/input.schema.json",
+      "sha256": "8cdb632eb4532a1575fa00a8d47580f71fcea9c9178552384ecdcaa54b53bd7b"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/package-format.md",
+      "sha256": "20a9790e54f7d22af4cedb55d434ed5f775c436d9a4dd03356926e92805f35ab"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/plugin.example.json",
+      "sha256": "2fc693a8c661c689dd77942f0a795a20ba8bb655a5371774a0b28fc5b727d2b2"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/README.md",
+      "sha256": "5c58214b1cbf083bace7de39e7fca7396a9b8f932bc7ec4a2c448fdde45b252a"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/request.schema.json",
+      "sha256": "8149ad109970d8579de0ee57ad73024e760ef405461e37ce0fe1ff40036bb8c0"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/result.schema.json",
+      "sha256": "ca41c8ddba049431662e75c8a0d3b7c78ee49cd8f4eb49d8f99d2e559151c30f"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/SHA256SUMS.json",
+      "sha256": "dd0688c009fa2d0600ab2d5af038a19efb5e1e26910619c1aede84aa668873f9"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/SPEC.md",
+      "sha256": "109c735a64e0245f34ba4a1a6d3759d305e94884ff65907887ff0032cd963854"
+    },
+    {
+      "path": "crates/zi-inspect-core/Cargo.toml",
+      "sha256": "cdef4f1a0bd799044d818968c017d35069efad4412837b1c12870dc1ab367fc0"
+    },
+    {
+      "path": "crates/zi-inspect-core/src/lib.rs",
+      "sha256": "94be2b73516555468d067605c30fd16215d47007d4ce5f4286ff83e008434a52"
+    },
+    {
+      "path": "crates/zi-inspect-wasi/Cargo.toml",
+      "sha256": "dde7e2325b6aee3f506ee3b118cc4c500f8adc11a09b3f2e644eba655342c44c"
+    },
+    {
+      "path": "crates/zi-inspect-wasi/src/main.rs",
+      "sha256": "a4bb761b72eea4f14ddf37905daf7dddd39814f0c06618b898b77a0ae05286fc"
+    },
+    {
+      "path": "crates/zi-text-core/Cargo.toml",
+      "sha256": "7fecbe9becf91fa51d3aab40aed71704bc8c2cf3e0e1f496a5f72e289be271f7"
+    },
+    {
+      "path": "crates/zi-text-core/src/lib.rs",
+      "sha256": "f3316aeca54a5673af0d6d28bb8255f0bd0d4974726aa4457197dfe8be38d4d5"
+    },
+    {
+      "path": "crates/zi-text-core/src/transforms.rs",
+      "sha256": "006a24f99736638dde1f84dc9d3766049a5179d26e2854012c347229a5483b4f"
+    },
+    {
+      "path": "plugins/inspect/catalog.json",
+      "sha256": "7dc1a0498450234f7ccf621fad8dd304f030af7eea8f53500d43145a5ed07053"
+    },
+    {
+      "path": "plugins/inspect/fixtures.json",
+      "sha256": "ea03f42b6e31cd1ca178129e0c1aaeaf5360f58b10cea87eaa13e977b784d2d2"
+    },
+    {
+      "path": "plugins/inspect/plugin.json",
+      "sha256": "02394da8708bf2810dafb72a943d7f266f76c8db8b3e08a59843bb3e8429a8f8"
+    },
+    {
+      "path": "plugins/inspect/README.md",
+      "sha256": "5e97d73f2075936a99a6310557294deed8a2c92248a48deedb0922b580baf603"
+    },
+    {
+      "path": "plugins/inspect/request.schema.json",
+      "sha256": "5409d1c05fe22483605fcf1c745eef11a366dbc97600baa8cd56847bfd9b8f4e"
+    },
+    {
+      "path": "plugins/inspect/views/main.html",
+      "sha256": "85c3751401a8fae513a87dec57dc2ca9e712fa48ad79e0371dab21fd94b4061a"
+    },
+    {
+      "path": "plugins/transforms/views/main.html",
+      "sha256": "bb0ce9056018b05790d82b9401f42009cb7a7ef5228794f5bfb884f506278f94"
+    },
+    {
+      "path": "scripts/package_transforms_plugin.py",
+      "sha256": "106d82025964d4417d907e69766f02a48128ea63dd321321ab149366b6526444"
+    },
+    {
+      "path": "scripts/run_text_wasi.mjs",
+      "sha256": "8fbe77a8a23c8d44284df436173e79e16779e09c2ab6956e43d9793c5302411d"
+    },
+    {
+      "path": "scripts/sync_inspect_plugin.py",
+      "sha256": "a2dd0bf76e5df8b0a33c30f76ef6b4d9321a29eaf32921cf55960a09e571b45f"
+    },
+    {
+      "path": "scripts/verify_diagnostics_fuel.py",
+      "sha256": "75ae086e3b92b8a0052ecf86ada2096f0603c315647c51e7af63ec27565c604e"
+    },
+    {
+      "path": "scripts/verify_transforms_schema.py",
+      "sha256": "b3db27ae97ea92973b0d922e35fb9bc123823c7433e7aa4858930d357ad32ebe"
+    },
+    {
+      "path": "scripts/verify_transforms_wasi.py",
+      "sha256": "f51ddb1f4ce2d7bceef89c0289ea6fd01993c4a82d2bd50fb7024d005f2c3382"
+    },
+    {
+      "path": "src/tools.rs",
+      "sha256": "9090b2ccb35179e2bd2fed24a0238d58a4dbaaa77c74d1669b89a1d98ea72f5f"
+    },
+    {
+      "path": "src/tools_advanced.rs",
+      "sha256": "dc03c38a99c5641edb521189695195d6a8897f0962d19e6bf4c75206843865b9"
+    },
+    {
+      "path": "src/tools_extra.rs",
+      "sha256": "4357913f3e08730346f0c8f4671a0eac4d79acef9a2741fb9550c759cf17cd3d"
+    }
+  ],
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)"
+}

@@ -1,24 +1,24 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { PluginActivityBarApp } from "./PluginActivityBarApp";
-import { PluginSidebarShell, type PluginAccordion } from "./PluginSidebarShellApp";
 import {
   createMainShellStore,
   PluginMainShellBridge,
   type PluginMainShellStoreHook,
 } from "./PluginMainShellApp";
+import { type PluginAccordion, PluginSidebarShell } from "./PluginSidebarShellApp";
 import {
   createPluginShellBarStore,
   type PluginActivityItem,
   type PluginShellBarStore,
 } from "./pluginShellStore";
 
+export type { PluginAccordion } from "./PluginSidebarShellApp";
 export type {
   PluginActivityItem,
   PluginShellBarStore,
 } from "./pluginShellStore";
-export type { PluginAccordion } from "./PluginSidebarShellApp";
 
 export interface PluginActivityBarHandlers {
   onActivate(item: PluginActivityItem): void;

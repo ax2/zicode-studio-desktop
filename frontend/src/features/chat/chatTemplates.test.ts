@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  CHAT_TEMPLATES,
   allChatTemplates,
+  CHAT_TEMPLATES,
   createTemplateId,
   exportCustomTemplates,
   importCustomTemplates,

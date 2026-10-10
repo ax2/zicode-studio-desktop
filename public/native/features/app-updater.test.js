@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "i18n";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupAppUpdater } from "../react/settings.js";
 
 function renderUpdaterDom() {

@@ -1,5 +1,3 @@
-export const QVERIS_MODEL_GATEWAY_BASE_URL = "https://aigateway.qveris.ai/v1";
-
 type FetchLike = typeof fetch;
 
 type QVerisPricingTier = {
@@ -45,13 +43,14 @@ export type PiGatewayModel = {
 export async function fetchQVerisModelCatalog(
   apiKey: string,
   {
+    baseUrl,
     fetchImpl = globalThis.fetch,
     timeoutMs = 20_000,
-    baseUrl = QVERIS_MODEL_GATEWAY_BASE_URL,
-  }: { fetchImpl?: FetchLike; timeoutMs?: number; baseUrl?: string } = {},
+  }: { baseUrl: string; fetchImpl?: FetchLike; timeoutMs?: number },
 ): Promise<PiGatewayModel[]> {
   const credential = apiKey.trim();
   if (!credential) throw new Error("QVeris API Key is not configured");
+  const endpoint = `${normalizeGatewayBaseUrl(baseUrl)}/models`;
 
   const controller = new AbortController();
   const timeout = setTimeout(
@@ -59,7 +58,6 @@ export async function fetchQVerisModelCatalog(
     timeoutMs,
   );
   try {
-    const endpoint = `${normalizeGatewayBaseUrl(baseUrl)}/models`;
     const response = await fetchImpl(endpoint, {
       method: "GET",
       headers: {
@@ -68,16 +66,11 @@ export async function fetchQVerisModelCatalog(
       },
       signal: controller.signal,
     });
-    const text = await response.text();
-    if (text.length > 2_000_000) {
-      throw new Error("QVeris model catalog exceeded the 2 MB safety limit");
-    }
-    const payload = parsePayload(text);
     if (!response.ok) {
-      throw new Error(
-        `QVeris model catalog request failed (${response.status}): ${safeGatewayError(payload, response.statusText)}`,
-      );
+      throw new Error(`QVeris model catalog request failed (${response.status})`);
     }
+    const text = await readBoundedCatalog(response);
+    const payload = parsePayload(text);
     if (!Array.isArray(payload.data)) {
       throw new Error("QVeris model catalog response is missing data");
     }
@@ -85,8 +78,52 @@ export async function fetchQVerisModelCatalog(
       .map(normalizeGatewayModel)
       .filter((model): model is PiGatewayModel => model !== null)
       .sort((left, right) => left.id.localeCompare(right.id));
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("QVeris model catalog request timed out");
+    }
+    if (
+      error instanceof Error &&
+      (/^QVeris model catalog request failed \(\d{3}\)$/.test(error.message) ||
+        error.message === "QVeris model catalog exceeded the 2 MB safety limit" ||
+        error.message === "QVeris model catalog returned invalid JSON" ||
+        error.message === "QVeris model catalog response is missing data")
+    ) {
+      throw error;
+    }
+    throw new Error("QVeris model catalog request failed");
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function readBoundedCatalog(response: Response): Promise<string> {
+  const tooLarge = () => new Error("QVeris model catalog exceeded the 2 MB safety limit");
+  if (!response.body) {
+    // A real bodyless Response is empty; this also supports simple injected
+    // fetch implementations used by integrations that only expose text().
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > 2_000_000) throw tooLarge();
+    return text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > 2_000_000) {
+        await reader.cancel().catch(() => undefined);
+        throw tooLarge();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -97,8 +134,8 @@ function normalizeGatewayBaseUrl(value: string): string {
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
     throw new Error("QVeris Model Gateway base URL must use HTTP or HTTPS");
   }
-  if (parsed.username || parsed.password) {
-    throw new Error("QVeris Model Gateway base URL must not contain credentials");
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error("QVeris Model Gateway base URL must not contain credentials, query or fragment");
   }
   return normalized;
 }
@@ -155,7 +192,8 @@ function normalizePricingTier(tier: unknown) {
   const input = asNonNegativeNumber(value.prompt_usd_per_million);
   const output = asNonNegativeNumber(value.completion_usd_per_million);
   const cacheRead = asNonNegativeNumber(value.cached_usd_per_million);
-  if (!minimum || input === undefined || output === undefined || cacheRead === undefined) return null;
+  if (!minimum || input === undefined || output === undefined || cacheRead === undefined)
+    return null;
   return {
     // QVeris applies a tier at >= min_input_tokens; Pi applies it at
     // > inputTokensAbove.
@@ -177,17 +215,6 @@ function parsePayload(text: string): Record<string, unknown> {
   } catch {
     throw new Error("QVeris model catalog returned invalid JSON");
   }
-}
-
-function safeGatewayError(payload: Record<string, unknown>, fallback: string): string {
-  const error = payload.error;
-  if (typeof error === "string" && error.trim()) return error.trim().slice(0, 300);
-  if (error && typeof error === "object" && !Array.isArray(error)) {
-    const message = asString((error as Record<string, unknown>).message);
-    if (message) return message.slice(0, 300);
-  }
-  const message = asString(payload.message);
-  return (message || fallback || "request rejected").slice(0, 300);
 }
 
 function asString(value: unknown): string {

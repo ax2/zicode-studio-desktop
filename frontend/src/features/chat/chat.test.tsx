@@ -2,15 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanChatTranscript,
   describeModelError,
-  friendlyToolError,
   formatResult,
+  friendlyToolError,
   getArgsPreview,
   renderDiffData,
   splitStreamingContent,
   toolStageLabel,
 } from "./chatLogic";
-import { MessageRenderer, ToolCardRenderer } from "./index";
 import { CHAT_TEMPLATES } from "./chatTemplates";
+import { MessageRenderer, ToolCardRenderer } from "./index";
 
 function makeContainer(): HTMLElement {
   const container = document.createElement("div");

@@ -1,0 +1,26 @@
+ZiDevTools Diagnostics 0.1.2. MIT. Cargo dependency closure (including build dependencies):
+aho-corasick 1.1.5: Unlicense OR MIT
+anyhow 1.0.104: MIT OR Apache-2.0
+equivalent 1.0.2: Apache-2.0 OR MIT
+hashbrown 0.17.1: MIT OR Apache-2.0
+indexmap 2.14.2: Apache-2.0 OR MIT
+itoa 1.0.18: MIT OR Apache-2.0
+memchr 2.8.3: Unlicense OR MIT
+proc-macro2 1.0.107: MIT OR Apache-2.0
+quote 1.0.47: MIT OR Apache-2.0
+regex 1.13.1: MIT OR Apache-2.0
+regex-automata 0.4.18: MIT OR Apache-2.0
+regex-syntax 0.8.11: MIT OR Apache-2.0
+ryu 1.0.23: Apache-2.0 OR BSL-1.0
+serde 1.0.229: MIT OR Apache-2.0
+serde_core 1.0.229: MIT OR Apache-2.0
+serde_derive 1.0.229: MIT OR Apache-2.0
+serde_json 1.0.151: MIT OR Apache-2.0
+serde_yaml_ng 0.10.0: MIT
+syn 3.0.6: MIT OR Apache-2.0
+unicode-ident 1.0.26: (MIT OR Apache-2.0) AND Unicode-3.0
+unsafe-libyaml 0.2.11: MIT
+zi-diagnostics-core 0.1.2: MIT
+zi-diagnostics-wasi 0.1.2: MIT
+zmij 1.0.23: MIT
+Rust standard library: MIT OR Apache-2.0.

@@ -1,0 +1,99 @@
+{
+  "source": {
+    "revision": "d97f9ce83acb984c539881feed6be986002b06d9",
+    "dirty": true
+  },
+  "profile": "diagnostics.compute.wasi.v1.proposal",
+  "status": "unsigned candidate; diagnostic profile not Host-accepted",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "sourceFiles": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "1825054450d3d35f0e04e12b5b1158872ab779b2fe55c11fab6081522ac3dc0d"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "052b8cb30911f08fb07d3c33677b54227baf538269c27f38ca050b673969e01b"
+    },
+    {
+      "path": "scripts/sync_diagnostics_plugin.py",
+      "sha256": "7caa2ccbfcdad8bb2057afdc77d1aa207f58bd3e7e8661c3a6870881bbb60633"
+    },
+    {
+      "path": "scripts/package_diagnostics_plugin.py",
+      "sha256": "80bda81ad20f02bcc80095a68e3430ea3526968f9554a7b84660abcb812c2b82"
+    },
+    {
+      "path": "scripts/verify_diagnostics_wasi.py",
+      "sha256": "967a3369641cc5085867701daaf988745f2a96db4aef675d8d80933c62d5b127"
+    },
+    {
+      "path": "scripts/run_text_wasi.mjs",
+      "sha256": "8fbe77a8a23c8d44284df436173e79e16779e09c2ab6956e43d9793c5302411d"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/Cargo.toml",
+      "sha256": "5f89a03171af40bcc5b1598cd08ac027c8ea866a316a26b1037efa439748f350"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/README.md",
+      "sha256": "c59151498baa7c014695d3a94365fdad918d8faa41cd1c5185ef811689084fae"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/contracts.rs",
+      "sha256": "61bbf53fb7241400d275e6ef88a63ab3a033b780538df5698e53487a0155093a"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/django.rs",
+      "sha256": "3f8172d7b260874642e6b3bcf97599b6e7f81fb099e7178ebeafbb652cf0f7ea"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/java.rs",
+      "sha256": "20fa258c3d5e8626392271db05355cac6c8e2bb3886709184432f9d746ff9568"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/lib.rs",
+      "sha256": "317993a877d18f826270d176c04125fee254ccac336f35b0848b8a12b6c7378c"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/Cargo.toml",
+      "sha256": "30a115a0729ebd8f50e67ec1e123dacbc2af34365c003198d2a77938584d1b7c"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/lib.rs",
+      "sha256": "8a01e2dd11028b47b28083b70b126e901991d0f40c58f46175212aa7061c2dcb"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/main.rs",
+      "sha256": "cecb187296ddaeb9f268f739e4190a7901b4720d62a4c8337e34005fb592d489"
+    },
+    {
+      "path": "contracts/diagnostics/v1/input.schema.json",
+      "sha256": "c17b756aa267cb0d975d367d55c758c439a0fe1ccd365646bbdc21c0a7e7701d"
+    },
+    {
+      "path": "contracts/diagnostics/v1/request.schema.json",
+      "sha256": "87a72f2a071e82878c5bebdf0b400f30ad6cfa876d2ff402ce9cfe7da06f9d94"
+    },
+    {
+      "path": "contracts/diagnostics/v1/result.schema.json",
+      "sha256": "5ad30ea915e1cc266fec485a87d9187c5f14205acd7ef0fe86811ad476fea57c"
+    },
+    {
+      "path": "plugins/diagnostics/catalog.json",
+      "sha256": "63334df11f02ddfe74422502ad22ffb2c8c38c56742857be68781593b6c714fc"
+    },
+    {
+      "path": "plugins/diagnostics/plugin.json",
+      "sha256": "90372c2cfb0f1991d1e14dd75d3f58d09079f410060831230d36359284879dce"
+    },
+    {
+      "path": "plugins/diagnostics/README.md",
+      "sha256": "0575f7e2b16d0d998b6621c5a3e44d83a59455ff4466d6c853017424db568e79"
+    },
+    {
+      "path": "plugins/diagnostics/views/main.html",
+      "sha256": "3b849bbe3a38883fd041c6a32c3dd502a48a651d5ff493c7cbb1686646bdc806"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+.project-terminal {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+.project-terminal h2,
+.project-terminal p { margin: 0; }
+.project-terminal p { overflow-wrap: anywhere; }
+.project-terminal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.project-terminal-screen {
+  height: clamp(18rem, 55vh, 42rem);
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-solid);
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+}
+.project-terminal-screen .xterm { height: 100%; }
+
+.project-terminal fieldset { margin: 0; min-inline-size: 0; }
+.project-terminal-actions { border: 0; padding: 0; }

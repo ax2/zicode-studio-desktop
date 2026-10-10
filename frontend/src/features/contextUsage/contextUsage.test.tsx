@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { setupContextUsage } from "./index";
+import { afterEach, describe, expect, it } from "vitest";
 import { ContextVizApp } from "./ContextUsageApp";
 import {
   computeContextViz,
@@ -8,6 +7,7 @@ import {
   formatTokens,
   usageTotal,
 } from "./contextUsageLogic";
+import { setupContextUsage } from "./index";
 
 function renderFixture() {
   document.body.innerHTML = `

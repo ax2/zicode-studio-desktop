@@ -1,8 +1,8 @@
 # 自动更新
 
 ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私有仓库，
-`createUpdaterArtifacts` 暂时设为 `false`。现阶段发布流程只生成并上传完整 NSIS
-安装包，不向未认证客户端提供自动更新。
+`createUpdaterArtifacts` 暂时设为 `false`。现阶段发布流程构建 Windows NSIS、
+macOS Apple Silicon 与 Intel DMG，以及 Linux AppImage/DEB 安装包，不向未认证客户端提供自动更新。
 
 ## 当前状态
 
@@ -11,11 +11,12 @@ ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私�
 - Beta 更新地址预留为：
   `https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json`
 - 私有仓库的 Release 资产需要 GitHub 授权，普通桌面客户端无法匿名下载。
-- `.github/workflows/release.yml` 当前构建 Windows NSIS、macOS DMG 和 Linux
+- `.github/workflows/release.yml` 当前构建 Windows NSIS、两种 macOS DMG 和 Linux
   AppImage/DEB，但不生成 `latest.json` 或签名更新包。
 
 因此，当前版本通过 GitHub Release 手动下载安装包升级。应用内更新入口只有在未来
 启用签名产物并提供可授权的更新分发服务后才能正式开放。
+未启用自动更新时，设置页的按钮会打开 GitHub Releases 列表供手动下载。
 
 ## 启用条件
 
@@ -35,12 +36,15 @@ ZiCode Studio Desktop 集成了 Tauri v2 updater 插件，但当前仓库为私�
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。
    （私钥内容与密码文件均在本机 `~/.tauri/` 下，按需读取。）
 4. 将 `bundle.createUpdaterArtifacts` 改为 `true`。
-5. ~~在 Release workflow 中注入签名变量并验证生成的 `.sig` 与
-   `latest.json`。~~ **已准备（2026-08-12）**：`release.yml` 的
+   当前 Release 草稿只允许五个安装包，`prepare-release` 会在创建草稿前拒绝
+   该开关打开；先扩展发布资产清单与签名校验，再修改配置。
+5. 在 Release workflow 中注入签名变量并验证生成的 `.sig` 与
+   `latest.json`。`release.yml` 的
    tauri-action 已注入 `TAURI_SIGNING_PRIVATE_KEY` 与
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（secrets 为空时无副作用），
-   并在签名 secrets 配置后自动上传 `.sig` 与 `latest.json` 到草稿
-   Release；剩余为配置 secrets 后触发一次真实构建验证产物。
+   并准备在签名 secrets 配置后上传 `.sig` 与 `latest.json` 到草稿
+   Release。真实构建、产物路径和多平台更新清单合并均未验证；
+   启用前需确认三个平台的签名与清单完整，不能依靠单个平台覆盖同名清单。
 6. 为私有仓库实现受控下载代理，或者在产品公开后允许匿名访问 Release 资产。
 7. 用旧版本到新版本完成一次真实的下载、签名校验、安装和重启测试。
 
@@ -57,6 +61,8 @@ bun run release 0.1.0
 脚本会同步更新应用版本、创建 `v0.1.0` tag 并推送。Desktop Release workflow
 随后校验 tag 与全部版本源，以草稿状态构建并上传各平台安装包，仅在全部平台成功后
 公开 Release。不要提前在 GitHub 网页中手动创建 Release。
+发版前，本地脚本要求 `origin` 与 `scripts/release-repository.json` 一致；CI 也要求
+`GITHUB_REPOSITORY` 与该配置一致。`upstream` 仅用于跟踪上游，不是发布目标。
 
 ## 相关文件
 

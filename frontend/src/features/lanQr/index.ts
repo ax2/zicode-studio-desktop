@@ -1,11 +1,11 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { create } from "zustand";
-import { LanQrModalBridge } from "./LanQrModalApp";
-import { expiryText, type LanQrKind } from "./lanQrLogic";
 // @ts-expect-error plain JS module without type declarations (public/native/)
 import { isLoopbackHost } from "../../../../public/native/features/remote-auth.js";
+import { LanQrModalBridge } from "./LanQrModalApp";
+import { expiryText, type LanQrKind } from "./lanQrLogic";
 
 export interface LanQrControl {
   openExternal?(url: string): Promise<unknown>;
@@ -37,7 +37,10 @@ function createLanQrStore() {
   }));
 }
 
-export function setupLanQr({ control }: { control?: LanQrControl | null } = {}): void {
+export function setupLanQr({
+  control,
+  desktopToken = "",
+}: { control?: LanQrControl | null; desktopToken?: string } = {}): void {
   const modal = document.getElementById("lan-qr-modal");
   if (!modal) return;
   const activeModal = modal;
@@ -126,7 +129,9 @@ export function setupLanQr({ control }: { control?: LanQrControl | null } = {}):
       if (activeKind === "session") {
         params.set("path", globalThis.location?.pathname ?? "/");
       }
-      const response = await globalThis.fetch(`/v2/lan-qr?${params}`);
+      const response = await globalThis.fetch(`/v2/lan-qr?${params}`, {
+        headers: { "x-zicode-desktop-token": desktopToken },
+      });
       if (!response.ok) throw new Error("unavailable");
       const data = await response.json();
       if (sequence !== requestSequence || store.getState().open === false) return;
@@ -204,13 +209,15 @@ export function setupLanQr({ control }: { control?: LanQrControl | null } = {}):
 export async function refreshLanQrButton({
   locationRef = globalThis.location,
   fetchImpl = globalThis.fetch,
+  desktopToken = "",
 }: {
   locationRef?: Location;
   fetchImpl?: typeof fetch;
+  desktopToken?: string;
 } = {}): Promise<void> {
   const button = document.getElementById("lan-qr-btn");
   const update = (url: string) => button?.classList.toggle("hidden", !url);
-  if (!isLoopbackHost(locationRef?.hostname)) {
+  if (!desktopToken || !isLoopbackHost(locationRef?.hostname)) {
     update("");
     return;
   }

@@ -4,6 +4,8 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { unzipSync } = require("fflate");
+const { downloadLockedAsset } = require("./download-locked-asset");
+const { installStagedDirectory, recoverStagedDirectory } = require("./install-staged-directory");
 
 const ROOT = path.resolve(__dirname, "..");
 const LOCK_FILE = path.join(__dirname, "bun-runtime-version.json");
@@ -33,17 +35,29 @@ function sha256(filePath) {
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
-async function download(url, destination) {
-  const partial = `${destination}.part`;
-  fs.rmSync(partial, { force: true });
-  const response = await fetch(url, {
-    redirect: "follow",
-    headers: { "User-Agent": "zicode-studio-desktop-build" },
-    signal: AbortSignal.timeout(180_000),
+function isInstalled(marker, executablePath) {
+  try {
+    const binary = fs.lstatSync(executablePath);
+    return (
+      binary.isFile() &&
+      binary.size > 0 &&
+      fs.readFileSync(VERSION_MARKER, "utf8").trim() === marker
+    );
+  } catch {
+    return false;
+  }
+}
+
+function installStagedRuntime(executableName, marker, writeExecutable) {
+  installStagedDirectory(OUT_DIR, "fetch-bun-runtime", (staging) => {
+    const stagedExecutable = path.join(staging, executableName);
+    writeExecutable(stagedExecutable);
+    const stagedFile = fs.lstatSync(stagedExecutable);
+    if (!stagedFile.isFile() || stagedFile.size === 0) {
+      throw new Error("Staged Bun executable is empty or invalid");
+    }
+    fs.writeFileSync(path.join(staging, ".version"), `${marker}\n`, "utf8");
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  fs.writeFileSync(partial, new Uint8Array(await response.arrayBuffer()));
-  fs.renameSync(partial, destination);
 }
 
 async function main() {
@@ -51,22 +65,19 @@ async function main() {
   const target = targetKey();
   const asset = lock.assets?.[target];
   if (!asset?.name || !asset?.sha256) fail(`Unsupported target ${target}`);
+  const marker = JSON.stringify({ version: lock.version, target, sha256: asset.sha256 });
   const executableName = target.startsWith("windows-") ? "bun.exe" : "bun";
   const executablePath = path.join(OUT_DIR, executableName);
-  if (
-    fs.existsSync(VERSION_MARKER) &&
-    fs.readFileSync(VERSION_MARKER, "utf8").trim() === lock.version &&
-    fs.existsSync(executablePath)
-  ) {
+  recoverStagedDirectory(OUT_DIR, "fetch-bun-runtime");
+  if (isInstalled(marker, executablePath)) {
     console.log(`[fetch-bun-runtime] Bun ${lock.version} is already installed; skipping.`);
     return;
   }
   if (target === hostTargetKey() && globalThis.Bun?.version === lock.version) {
-    fs.rmSync(OUT_DIR, { recursive: true, force: true });
-    fs.mkdirSync(OUT_DIR, { recursive: true });
-    fs.copyFileSync(process.execPath, executablePath);
-    if (!target.startsWith("windows-")) fs.chmodSync(executablePath, 0o755);
-    fs.writeFileSync(VERSION_MARKER, `${lock.version}\n`, "utf8");
+    installStagedRuntime(executableName, marker, (stagedExecutable) => {
+      fs.copyFileSync(process.execPath, stagedExecutable);
+      if (!target.startsWith("windows-")) fs.chmodSync(stagedExecutable, 0o755);
+    });
     console.log(
       `[fetch-bun-runtime] reused the matching Bun ${lock.version} installed for this build.`,
     );
@@ -80,18 +91,24 @@ async function main() {
   if (!fs.existsSync(archivePath)) {
     const url = `https://github.com/oven-sh/bun/releases/download/${lock.tag}/${asset.name}`;
     console.log(`[fetch-bun-runtime] downloading ${url}`);
-    await download(url, archivePath).catch((error) => fail(`download failed: ${error.message}`));
+    try {
+      await downloadLockedAsset(url, archivePath);
+    } catch (error) {
+      fs.rmSync(archivePath, { force: true });
+      fail(`download failed: ${error.message}`);
+    }
   }
   const actual = sha256(archivePath);
   if (actual !== asset.sha256) fail(`SHA-256 mismatch: expected ${asset.sha256}, got ${actual}`);
   const archive = unzipSync(new Uint8Array(fs.readFileSync(archivePath)));
-  const entry = Object.entries(archive).find(([name]) => path.posix.basename(name) === executableName);
+  const entry = Object.entries(archive).find(
+    ([name]) => path.posix.basename(name) === executableName,
+  );
   if (!entry) fail(`${executableName} is missing from ${asset.name}`);
-  fs.rmSync(OUT_DIR, { recursive: true, force: true });
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  fs.writeFileSync(executablePath, entry[1]);
-  if (!target.startsWith("windows-")) fs.chmodSync(executablePath, 0o755);
-  fs.writeFileSync(VERSION_MARKER, `${lock.version}\n`, "utf8");
+  installStagedRuntime(executableName, marker, (stagedExecutable) => {
+    fs.writeFileSync(stagedExecutable, entry[1]);
+    if (!target.startsWith("windows-")) fs.chmodSync(stagedExecutable, 0o755);
+  });
   console.log(`[fetch-bun-runtime] installed Bun ${lock.version} -> ${executablePath}`);
 }
 

@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { NotesGateway } from "./notes-gateway.js";
 
 describe("NotesGateway", () => {
+  it("lists scene model choices and forwards the explicitly selected provider", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ models: [] }) }));
+    const gateway = new NotesGateway({ fetchImpl, location: { origin: "http://localhost" } });
+    await gateway.listModels("programming");
+    expect(String(fetchImpl.mock.calls[0][0])).toBe("http://localhost/v2/model-tools/models?sceneId=programming&purpose=summary");
+    await gateway.summarize("programming", "w", { text: "Article", provider: "local", model: "local-model" });
+    expect(JSON.parse(fetchImpl.mock.calls[1][1].body)).toMatchObject({ sceneId: "programming", provider: "local", model: "local-model" });
+  });
   it("builds bounded list filters for the active scene", async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,

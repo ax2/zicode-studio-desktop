@@ -14,6 +14,7 @@ ZiCodeStudioDesktop\
 │   ├── cmd\git.exe
 │   └── usr\
 ├── NOTICE
+├── LICENSE
 └── THIRD_PARTY_NOTICES.md
 ```
 
@@ -22,6 +23,7 @@ ZiCodeStudioDesktop\
 - 版本和 SHA-256 固定在仓库配置中。
 - 构建脚本只从 Git for Windows 官方 Release 下载。
 - 校验失败立即终止构建。
+- 下载有超时与大小上限，先写 `.part`，完整接收后才进入缓存；失败清理临时文件。
 - Rust 启动进程时优先使用内置路径，不读取用户 PATH 中的 Git/Bash。
 - 安装包保留上游许可证。
 
@@ -31,6 +33,7 @@ ZiCodeStudioDesktop\
 作为 NSIS 资源写入安装包。Tauri 自身设为 `skip`，由
 `windows/hooks.nsh` 在目标机没有 WebView2 时静默安装，因此安装阶段不依赖网络，
 构建阶段也不依赖微软的动态跳转地址。
+下载同样经过有时限的临时文件写入，最终缓存仍须通过锁定 SHA-256 校验。
 
 ## 4. 控制台窗口
 
@@ -59,5 +62,5 @@ ZiCodeStudioDesktop\
 8. 创建 GitHub Release。
 
 正式分发还需要 Windows Authenticode 代码签名，以减少 SmartScreen 警告。
-当前私有仓库发布不启用 Tauri 自动更新签名产物；安装包由有权限的 GitHub
-协作者从 Release 下载。
+仓库已公开，安装包可从 GitHub Releases 下载。当前尚未启用 Tauri 自动更新
+签名产物，新版本需要手动安装。

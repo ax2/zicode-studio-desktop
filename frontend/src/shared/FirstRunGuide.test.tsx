@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { setLocale } from "./i18n";
 import { FirstRunGuide } from "./FirstRunGuide";
+import { setLocale } from "./i18n";
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));

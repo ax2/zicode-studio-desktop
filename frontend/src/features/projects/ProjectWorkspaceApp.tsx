@@ -1,15 +1,34 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
 import { t } from "../../shared/i18n.js";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { Select } from "../../shared/Select";
+import { ContextPackButton } from "./ContextPackButton";
+import { ContextRecoveryPanel } from "./ContextRecoveryPanel";
+import { directoryScope } from "./directory-context";
+import { GitHistoryPanel } from "./GitHistoryPanel";
+import { GitStatusPanel } from "./GitStatusPanel";
 import {
-  projectName,
-  type ProjectTarget,
   type ProjectProfile,
   type ProjectSnapshot,
+  type ProjectTarget,
+  projectName,
 } from "./logic";
-import { projectSearchMatches, createProjectWorkspaceStore, type ProjectWorkspaceOptions, type ProjectView } from "./store";
+import { ProjectDirectoryContext } from "./ProjectDirectoryContext";
+import { ProjectRecentRunsPanel } from "./ProjectRecentRunsPanel";
+import { ProjectRunnerPanel } from "./ProjectRunnerPanel";
+import { ProjectStorageView } from "./ProjectStorageView";
+import { ProjectTerminalPanel } from "./ProjectTerminalPanel";
+import { ProjectToolPaths } from "./ProjectToolPaths";
+import { ProjectWorkPanel } from "./ProjectWorkPanel";
+import { ProjectWorkSummaryPanel } from "./ProjectWorkSummaryPanel";
+import { SubprojectEnvironment } from "./SubprojectEnvironment";
+import {
+  createProjectWorkspaceStore,
+  type ProjectView,
+  type ProjectWorkspaceOptions,
+  projectSearchMatches,
+} from "./store";
 
 type ProjectStore = ReturnType<typeof createProjectWorkspaceStore>;
 
@@ -19,14 +38,20 @@ const PROJECT_VIEWS: Array<[ProjectView, string]> = [
   ["knowledge", "Knowledge connections"],
   ["search", "Project search"],
   ["activity", "Recent activity"],
+  ["environment", "Development environment"],
+  ["storage", "Project storage"],
+  ["runner", "Project commands"],
+  ["terminal", "Project terminal"],
+  ["work", "Project work"],
 ];
 
 export function ProjectNav({ store }: { store: ProjectStore }) {
   const activeView = store((state) => state.activeView);
+  const readStorage = store((state) => state.readStorage);
   const setActiveView = store((state) => state.setActiveView);
   return (
     <nav className="project-workspace-navigation" aria-label={t("Project workspace")}>
-      {PROJECT_VIEWS.map(([id, label]) => (
+      {PROJECT_VIEWS.filter(([id]) => id !== "storage" || readStorage).map(([id, label]) => (
         <button
           key={id}
           type="button"
@@ -42,12 +67,26 @@ export function ProjectNav({ store }: { store: ProjectStore }) {
 }
 
 export function ProjectMain({ store }: { store: ProjectStore }) {
+  const runner = store((state) => state.runner);
+  const prepareRunAnalysis = store((state) => state.prepareRunAnalysis);
+  const directory = store((state) => state.projectDirectory);
+  const setDirectory = store((state) => state.setProjectDirectory);
+  const terminal = store((state) => state.terminal);
+  const readEnvironment = store((state) => state.readEnvironment);
+  const readStorage = store((state) => state.readStorage);
+  const openStorageEntry = store((state) => state.openStorageEntry);
+  const toolPaths = store((state) => state.toolPaths);
+  const revision = store((state) => state.refreshRevision);
   const target = store((state) => state.target);
+  const scope = directoryScope(target);
+  const changeDirectory = (value: string) => setDirectory(value, scope);
   const activeView = store((state) => state.activeView);
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
   const onManageProjects = store((state) => state.onManageProjects);
+  const work = store((state) => state.snapshot.work);
+  const openApp = store((state) => state.openApp);
   return (
     <div className="project-workspace-main">
       <header className="project-workspace-header">
@@ -57,11 +96,7 @@ export function ProjectMain({ store }: { store: ProjectStore }) {
             {target?.cwd || target?.projectPath || t("Local project")}
           </p>
         </div>
-        <button
-          type="button"
-          className="ui-button ui-button--ghost"
-          onClick={onManageProjects}
-        >
+        <button type="button" className="ui-button ui-button--ghost" onClick={onManageProjects}>
           {t("Manage projects")}
         </button>
         <button
@@ -73,14 +108,80 @@ export function ProjectMain({ store }: { store: ProjectStore }) {
           {t("Refresh")}
         </button>
       </header>
+      {target?.workspaceId &&
+      (activeView === "runner" ||
+        activeView === "environment" ||
+        activeView === "terminal" ||
+        activeView === "storage") ? (
+        <ProjectDirectoryContext directory={directory} />
+      ) : null}
       {error ? (
         <StatePanel
           title={t("Could not load project workspace")}
           detail={error.message}
           retry={() => void load()}
         />
+      ) : activeView === "work" ? (
+        <ProjectWorkPanel
+          key={scope}
+          work={work}
+          projectPath={target?.cwd || target?.projectPath}
+          loading={loading}
+          openApp={openApp}
+        />
+      ) : activeView === "runner" ? (
+        <ProjectRunnerPanel
+          key={`${scope}:${revision}`}
+          workspaceId={target?.workspaceId}
+          projectName={projectName(target)}
+          api={runner}
+          directory={directory}
+          onDirectoryChange={changeDirectory}
+          prepareAnalysis={prepareRunAnalysis}
+        />
+      ) : activeView === "terminal" ? (
+        <ProjectTerminalPanel
+          key={scope}
+          workspaceId={target?.workspaceId}
+          api={terminal}
+          directory={directory}
+          directoryApi={runner}
+          onDirectoryChange={changeDirectory}
+        />
+      ) : activeView === "environment" ? (
+        <>
+          {target?.workspaceId ? (
+            <ProjectToolPaths
+              key={target.workspaceId}
+              workspace={target.workspaceId}
+              api={toolPaths}
+              runner={runner}
+              directory={directory}
+            />
+          ) : null}
+          <SubprojectEnvironment
+            key={scope}
+            workspaceId={target?.workspaceId}
+            revision={revision}
+            readEnvironment={readEnvironment}
+            api={runner}
+            directory={directory}
+            onDirectoryChange={changeDirectory}
+          />
+        </>
+      ) : activeView === "storage" ? (
+        <ProjectStorageView
+          key={`${scope}:${revision}`}
+          workspaceId={target?.workspaceId ?? undefined}
+          directory={directory}
+          revision={revision}
+          api={runner}
+          onDirectoryChange={changeDirectory}
+          readStorage={readStorage}
+          openEntry={openStorageEntry}
+        />
       ) : activeView === "context" ? (
-        <ContextEditor store={store} />
+        <ContextEditor key={scope} store={store} />
       ) : activeView === "knowledge" ? (
         <KnowledgeView store={store} />
       ) : activeView === "search" ? (
@@ -95,10 +196,23 @@ export function ProjectMain({ store }: { store: ProjectStore }) {
 }
 
 function Overview({ store }: { store: ProjectStore }) {
+  const canStageGit = store((state) => state.canStageGit);
+  const canUnstageGit = store((state) => state.canUnstageGit);
+  const stageGitFile = store((state) => state.stageGitFile);
+  const unstageGitFile = store((state) => state.unstageGitFile);
+  const workspaceId = store((state) => state.target?.workspaceId);
+  const revision = store((state) => state.refreshRevision);
+  const readStatus = store((state) => state.readGitStatus);
+  const readDiff = store((state) => state.readGitDiff);
+  const readHistory = store((state) => state.readGitHistory);
+  const readCommitDiff = store((state) => state.readCommitDiff);
+  const runner = store((state) => state.runner);
+  const setActiveView = store((state) => state.setActiveView);
+  const prepareGitReview = store((state) => state.prepareGitReview);
   const snapshot = store((state) => state.snapshot);
   const loading = store((state) => state.loading);
   const openApp = store((state) => state.openApp);
-  const stats: Array<[number, string, () => void]> = [
+  const stats: Array<[number | string, string, () => void]> = [
     [snapshot.notebooks.length, "Notebooks", () => openApp("com.zicode.notes")],
     [snapshot.notes.length, "Notes", () => openApp("com.zicode.notes")],
     [snapshot.artifacts.length, "Artifacts", () => openApp("com.zicode.artifacts")],
@@ -108,19 +222,62 @@ function Overview({ store }: { store: ProjectStore }) {
       "Files",
       () => window.dispatchEvent(new CustomEvent("zicode:open-files")),
     ],
-    [snapshot.taskCount, "Tasks", () => openApp("com.zicode.tasks")],
-    [snapshot.automationCount, "Automations", () => openApp("com.zicode.automation")],
+    [
+      snapshot.work.tasksUnavailable ? "—" : snapshot.taskCount,
+      "Tasks",
+      () => store.getState().setActiveView("work"),
+    ],
+    [
+      snapshot.work.automationsUnavailable ? "—" : snapshot.automationCount,
+      "Automations",
+      () => store.getState().setActiveView("work"),
+    ],
   ];
   return (
     <section className="project-workspace-overview">
+      <GitStatusPanel
+        key={`git-status:${workspaceId}`}
+        workspaceId={workspaceId}
+        revision={revision}
+        readStatus={readStatus}
+        readDiff={readDiff}
+        prepareGitReview={prepareGitReview}
+        stageFile={canStageGit ? stageGitFile : undefined}
+        unstageFile={canUnstageGit ? unstageGitFile : undefined}
+      />
+      <GitHistoryPanel
+        key={`git-history:${workspaceId}`}
+        workspaceId={workspaceId}
+        revision={revision}
+        readHistory={readHistory}
+        readCommitDiff={readCommitDiff}
+        prepareGitReview={prepareGitReview}
+      />
+      <ProjectRecentRunsPanel
+        key={`recent-runs:${workspaceId}`}
+        workspaceId={workspaceId}
+        revision={revision}
+        api={runner}
+        openCommands={() => setActiveView("runner")}
+      />
       <div className="project-workspace-stats">
         {stats.map(([value, label, action]) => (
-          <button key={label} type="button" className="ui-card project-workspace-stat" onClick={action}>
+          <button
+            key={label}
+            type="button"
+            className="ui-card project-workspace-stat"
+            onClick={action}
+          >
             <strong>{value}</strong>
             <span>{t(label)}</span>
           </button>
         ))}
       </div>
+      <ProjectWorkSummaryPanel
+        work={snapshot.work}
+        loading={loading}
+        openWork={() => setActiveView("work")}
+      />
       {loading ? (
         <p className="project-workspace-state">{t("Loading project…")}</p>
       ) : !snapshot.notes.length && !snapshot.artifacts.length ? (
@@ -196,16 +353,33 @@ function RecentResults({ snapshot, store }: { snapshot: ProjectSnapshot; store: 
 
 function ContextEditor({ store }: { store: ProjectStore }) {
   const profile = store((state) => state.profile);
+  const profileError = store((state) => state.profileError);
+  const loading = store((state) => state.loading);
   const contextDraft = store((state) => state.contextDraft);
+  const contextConflicts = store((state) => state.contextConflicts);
+  const loadProfile = store((state) => state.loadProfile);
+  const resolveContextConflict = store((state) => state.resolveContextConflict);
   const saveProfile = store((state) => state.saveProfile);
   const setContextDraft = store((state) => state.setContextDraft);
   const notify = store((state) => state.notify);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const target = store((state) => state.target);
+  const targetScope = directoryScope(target);
+  const [discardArmedScope, setDiscardArmedScope] = useState<string | null>(null);
   const draft = contextDraft ?? profile;
   const budget = String(draft.budget ?? "");
 
+  useEffect(() => {
+    if (!discardArmedScope) return;
+    const timer = setTimeout(() => setDiscardArmedScope(null), 4000);
+    return () => clearTimeout(timer);
+  }, [discardArmedScope]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSaveError(null);
     setSaving(true);
     try {
       await saveProfile({
@@ -213,11 +387,19 @@ function ContextEditor({ store }: { store: ProjectStore }) {
         defaultScene: draft.defaultScene,
         budget: String(draft.budget ?? "").trim(),
       });
-      notify({ title: t("Project context saved"), type: "success" });
+      setDiscardArmedScope(null);
+      notify({
+        title: store.getState().contextDraft
+          ? t("Project context saved; newer edits remain unsaved")
+          : t("Project context saved"),
+        type: "success",
+      });
     } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason);
+      setSaveError(message);
       notify({
         title: t("Could not save project context"),
-        message: reason instanceof Error ? reason.message : String(reason),
+        message,
         type: "error",
       });
     } finally {
@@ -225,14 +407,105 @@ function ContextEditor({ store }: { store: ProjectStore }) {
     }
   }
 
+  async function refreshSavedProfile() {
+    setRefreshing(true);
+    try {
+      await loadProfile();
+      setSaveError(null);
+    } catch {
+      // The store keeps the read error visible beside the current draft.
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <form className="ui-panel project-workspace-context" onSubmit={handleSubmit}>
       <h2>{t("Project context")}</h2>
+      <button
+        type="button"
+        className="ui-button ui-button--secondary"
+        disabled={saving || refreshing || loading}
+        onClick={() => void refreshSavedProfile()}
+      >
+        {t("Refresh saved context")}
+      </button>
+      {profileError ? <p role="alert">{profileError}</p> : null}
+      {saveError ? <p role="alert">{saveError}</p> : null}
+      {contextDraft ? (
+        <p role="status">
+          {target?.workspaceId
+            ? t("Unsaved project context is kept in this window and encrypted local recovery.")
+            : t("Unsaved project context is kept for recent projects in this window.")}
+        </p>
+      ) : null}
+      {contextDraft ? (
+        <button
+          type="button"
+          className="ui-button ui-button--danger"
+          onClick={() => {
+            if (discardArmedScope !== targetScope) {
+              setDiscardArmedScope(targetScope);
+              return;
+            }
+            setDiscardArmedScope(null);
+            store.getState().discardContextDraft();
+          }}
+        >
+          {discardArmedScope === targetScope
+            ? t("Confirm discard draft")
+            : t("Discard current draft")}
+        </button>
+      ) : null}
+      <ContextRecoveryPanel store={store} />
+      {contextConflicts.length ? (
+        <section className="project-workspace-context-conflicts" role="alert">
+          <p>
+            {t(
+              "Both windows changed these project context fields. Choose a value for each before saving.",
+            )}
+          </p>
+          <ul>
+            {contextConflicts.map((field) => (
+              <li key={field}>
+                <span>
+                  {field === "instructions"
+                    ? t("Project instructions")
+                    : field === "defaultScene"
+                      ? t("Default scene")
+                      : t("Session budget")}
+                </span>
+                <button
+                  type="button"
+                  className="ui-button ui-button--secondary ui-button--sm"
+                  onClick={() => {
+                    resolveContextConflict(field, "saved");
+                    setSaveError(null);
+                  }}
+                >
+                  {t("Use saved value")}
+                </button>
+                <button
+                  type="button"
+                  className="ui-button ui-button--secondary ui-button--sm"
+                  onClick={() => {
+                    resolveContextConflict(field, "draft");
+                    setSaveError(null);
+                  }}
+                >
+                  {t("Keep my edit")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <Field label={t("Project instructions")} htmlFor="project-instructions">
         <textarea
           id="project-instructions"
           className="ui-textarea"
           rows={7}
+          maxLength={50_000}
           value={draft.instructions}
           placeholder={t("Describe goals, conventions, constraints, and the definition of done.")}
           onChange={(event) => setContextDraft({ instructions: event.target.value })}
@@ -260,7 +533,32 @@ function ContextEditor({ store }: { store: ProjectStore }) {
           onChange={(event) => setContextDraft({ budget: event.target.value })}
         />
       </Field>
-      <button type="submit" className="ui-button ui-button--primary" disabled={saving}>
+      {contextDraft && !profileError ? (
+        <details className="project-workspace-context-saved" open={contextConflicts.length > 0}>
+          <summary>{t("Saved project context")}</summary>
+          <dl>
+            <div>
+              <dt>{t("Project instructions")}</dt>
+              <dd>{profile.instructions || "—"}</dd>
+            </div>
+            <div>
+              <dt>{t("Default scene")}</dt>
+              <dd>{profile.defaultScene}</dd>
+            </div>
+            <div>
+              <dt>{t("Session budget")}</dt>
+              <dd>{String(profile.budget ?? "—")}</dd>
+            </div>
+          </dl>
+        </details>
+      ) : null}
+      <button
+        type="submit"
+        className="ui-button ui-button--primary"
+        disabled={
+          saving || refreshing || loading || Boolean(profileError) || contextConflicts.length > 0
+        }
+      >
         {t("Save project context")}
       </button>
     </form>
@@ -286,9 +584,15 @@ function Field({
 
 function KnowledgeView({ store }: { store: ProjectStore }) {
   const knowledge = store((state) => state.snapshot.knowledge);
-  const onUseContextPack = store((state) => state.onUseContextPack);
+  const prepareContextPack = store((state) => state.prepareContextPack);
+  const loading = store((state) => state.loading);
   return (
     <section className="project-workspace-knowledge">
+      <p className="project-workspace-state">
+        {t(
+          "Context actions prepare note references in the current project's chat draft. Check and send the draft yourself; note contents are read only after you send it.",
+        )}
+      </p>
       <section className="ui-panel">
         <h2>{t("Note links and backlinks")}</h2>
         {knowledge.links.length === 0 ? (
@@ -325,18 +629,26 @@ function KnowledgeView({ store }: { store: ProjectStore }) {
                 <span className="project-workspace-result-type">
                   {Math.round(pair.score * 100)}%
                 </span>
-                <button
-                  type="button"
-                  className="ui-button ui-button--secondary ui-button--sm"
-                  onClick={() =>
-                    onUseContextPack([
-                      { notebookId: pair.leftNotebookId, noteId: pair.leftNoteId, title: pair.leftTitle },
-                      { notebookId: pair.rightNotebookId, noteId: pair.rightNoteId, title: pair.rightTitle },
-                    ])
-                  }
-                >
-                  {t("Use context pack")}
-                </button>
+                <ContextPackButton
+                  disabled={loading}
+                  prepare={prepareContextPack}
+                  request={{
+                    snapshot: knowledge,
+                    compare: false,
+                    notes: [
+                      {
+                        notebookId: pair.leftNotebookId,
+                        noteId: pair.leftNoteId,
+                        title: pair.leftTitle,
+                      },
+                      {
+                        notebookId: pair.rightNotebookId,
+                        noteId: pair.rightNoteId,
+                        title: pair.rightTitle,
+                      },
+                    ],
+                  }}
+                />
               </li>
             ))}
           </ul>
@@ -360,21 +672,26 @@ function KnowledgeView({ store }: { store: ProjectStore }) {
                       : "Duplicate title with different content",
                   )}
                 </span>
-                <button
-                  type="button"
-                  className="ui-button ui-button--secondary ui-button--sm"
-                  onClick={() =>
-                    onUseContextPack(
-                      [
-                        { notebookId: conflict.leftNotebookId, noteId: conflict.leftNoteId, title: conflict.leftTitle },
-                        { notebookId: conflict.rightNotebookId, noteId: conflict.rightNoteId, title: conflict.rightTitle },
-                      ],
-                      { compare: true },
-                    )
-                  }
-                >
-                  {t("Compare in chat")}
-                </button>
+                <ContextPackButton
+                  disabled={loading}
+                  prepare={prepareContextPack}
+                  request={{
+                    snapshot: knowledge,
+                    compare: true,
+                    notes: [
+                      {
+                        notebookId: conflict.leftNotebookId,
+                        noteId: conflict.leftNoteId,
+                        title: conflict.leftTitle,
+                      },
+                      {
+                        notebookId: conflict.rightNotebookId,
+                        noteId: conflict.rightNoteId,
+                        title: conflict.rightTitle,
+                      },
+                    ],
+                  }}
+                />
               </li>
             ))}
           </ul>
@@ -436,9 +753,7 @@ function SearchView({ store }: { store: ProjectStore }) {
                   className="project-workspace-result-row"
                   onClick={() => openResult(match as Record<string, unknown>)}
                 >
-                  <span className="project-workspace-result-type">
-                    {String(match.kind)}
-                  </span>
+                  <span className="project-workspace-result-type">{String(match.kind)}</span>
                   <strong>{String(match.title || t("Untitled"))}</strong>
                   <span className="project-workspace-result-summary">
                     {String(
@@ -448,9 +763,7 @@ function SearchView({ store }: { store: ProjectStore }) {
                         "",
                     )}
                   </span>
-                  <span className="project-workspace-result-open">
-                    {t("Open in app")}
-                  </span>
+                  <span className="project-workspace-result-open">{t("Open in app")}</span>
                 </button>
               </li>
             ))}
@@ -535,11 +848,7 @@ export function createProjectWorkspaceApp(
       navRoot = mountPluginSurface(container, <ProjectNav store={store} />, navRoot);
     },
     renderContent(container) {
-      contentRoot = mountPluginSurface(
-        container,
-        <ProjectMain store={store} />,
-        contentRoot,
-      );
+      contentRoot = mountPluginSurface(container, <ProjectMain store={store} />, contentRoot);
       if (!store.getState().loading) void store.getState().load();
     },
     setTarget(target) {

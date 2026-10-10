@@ -1,13 +1,13 @@
 # 金融工作台设计
 
-ZiCode Studio Desktop 的金融模式不是一套聊天提示词，而是由外部金融数据、本地确定性
+ZiCode Studio Desktop 的金融模式不是一套聊天提示词，而是由有来源的金融数据、本地确定性
 计算、研究工作流和持久化模拟账户组成的独立工作台。
 
 ## 产品边界
 
 金融工作台的目标能力包括：
 
-- 通过 QVeris 发现并调用实时行情、历史行情、基本面、公告、新闻、宏观和另类数据。
+- 使用用户提供的有来源数据；按需通过 QVeris 发现并调用实时行情、历史行情、基本面、公告、新闻、宏观和另类数据。
 - 对候选股票进行可解释的多因子筛选与排序。
 - 使用本地确定性引擎运行策略回测，不让模型自行计算收益曲线。
 - 管理观察列表、研究笔记、投资假设和事件日历。
@@ -36,13 +36,13 @@ Finance Service (内置、确定性)
     ├── 回测、费用、滑点和风险指标
     ├── 模拟成交与组合会计
     └── 数据快照、审计和缓存
+             ▲
              │
-             ▼
-QVeris Adapter (内置 Pi 扩展)
+用户提供的数据 ─── 可选 QVeris Adapter (内置 Pi 扩展)
     Discover → Inspect → Call → Usage audit
              │
              ▼
-QVeris Capability API / 第三方金融数据提供商
+QVeris Capability API
 ```
 
 ### 为什么不直接嵌入 QVeris MCP
@@ -52,6 +52,7 @@ QVeris Capability API / 第三方金融数据提供商
 - Pi 扩展已经是受控工具边界，无需重复一层 MCP 进程管理。
 - 只向模型暴露少量稳定工具，避免把大量动态 Schema 注入每一轮上下文。
 - 复用 ZiCode 场景隔离的 QVeris 凭据，不把 Key 写进 MCP 配置或命令行。
+- 内置客户端默认使用固定 Capability API 地址，不从宿主环境变量读取地址覆盖；自定义目标仅由显式集成配置传入，并限制为 HTTPS 或本机回环 HTTP。
 - 可以在本地统一执行费用确认、响应大小、超时、审计和错误脱敏。
 
 对外部 MCP 客户端仍可按 QVeris 官方文档使用 Hosted MCP；这与桌面内置 Adapter
@@ -105,7 +106,7 @@ QVeris Capability API / 第三方金融数据提供商
 选股不是让模型直接输出股票名称，而是一个可追踪的流水线：
 
 1. 确定股票池和排除条件。
-2. 通过 QVeris 获取同一 as-of 日期的行情和基本面数据。
+2. 使用有来源且同一 as-of 日期的行情和基本面数据；可按需通过 QVeris 获取。
 3. 本地计算因子并处理缺失值、极值和行业中性化。
 4. 按用户选择的因子权重评分。
 5. 输出候选列表、每个因子贡献、数据缺口和风险事件。
@@ -127,14 +128,14 @@ QVeris Capability API / 第三方金融数据提供商
 
 已实现：
 
-- QVeris Model Gateway `/v1/models` 自动与手动同步，只导入聊天模型，并保留上下文、
+- QVeris Model Gateway `/v1/models` 显式同步，只导入聊天模型，并保留上下文、
   视觉、推理和价格元数据。
 - 场景隔离 QVeris Key 读取和错误脱敏。
 - QVeris Discover、Inspect、Call 工具。
 - Call 前显式费用确认。
 - QVeris Usage audit 与 Credits ledger 的精简读取和工作台展示。
 - 有界的场景隔离市场数据快照，保存数据类型、标的、市场、币种、as-of 时间、
-  QVeris tool/search/execution ID 和原始负载。
+  来源和原始负载；QVeris tool/search/execution ID 在实际存在时保存。
 - 根据当前 Inspect Schema 显式映射提供商字段的 OHLCV 归一化器，校验时间顺序、
   重复时间戳、数值和高低价关系，并保留复权方式与来源。
 - Buy and Hold、SMA Crossover、RSI Mean Reversion、Donchian Breakout 回测。

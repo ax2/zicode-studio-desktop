@@ -1,45 +1,57 @@
+import { CaptureForm } from "./CaptureForm";
+import { NoteDraftRecovery } from "./NoteDraftRecovery";
+import { NoteReferenceButton } from "./NoteReferenceButton";
+import { NoteRelationshipStatus } from "./NoteRelationshipStatus";
+import { NoteShortcutStatus } from "./NoteShortcutStatus";
+import { NoteWorkflowActions } from "./NoteWorkflowActions";
+import { markUnresolvedWikilinks, openNoteLink, wikilinkMarkdown } from "./note-links";
+import { referenceKey } from "./shortcut-repository";
+import { TrashView } from "./TrashView";
+
+export { markUnresolvedWikilinks, wikilinkMarkdown } from "./note-links";
+
 import { cloneElement, useEffect, useId, useRef, useState } from "react";
-// @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
-import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
-// @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
-import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/attachment-viewer.js)
 import { attachmentIconFor, initAttachmentViewer } from "../../../../public/ui/attachment-viewer.js";
+// @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
+import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
+// @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
+import { initCodeCopyDelegation, renderMarkdown } from "../../../../public/ui/markdown.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { t } from "../../shared/i18n";
+import { isImeComposing } from "../../shared/ime";
 import {
   csvToMarkdownTable,
   insertMarkdownLinePrefix,
   insertMarkdownLink,
   insertMarkdownTable,
+  type MarkdownEdit,
   replaceSelection,
   wrapMarkdownCodeBlock,
   wrapMarkdownSelection,
-  type MarkdownEdit,
 } from "../../shared/markdownFormatting";
-import { isImeComposing } from "../../shared/ime";
-import { FirstRunGuide } from "../../shared/FirstRunGuide";
 import { Select } from "../../shared/Select";
+import { NoteTransferActions } from "./NoteTransferActions";
 import {
   allTagSuggestions,
   buildChildrenByParent,
   buildHeadingOutline,
-  DEFAULT_NOTEBOOK_ICON,
   DEFAULT_NOTE_ICON,
+  DEFAULT_NOTEBOOK_ICON,
   EMOJI_GROUPS,
   estimateReadingMinutes,
   findActiveOutlineId,
   formatDate,
   formatRelativeTime,
+  highlightSegments,
   ICONS,
+  type Note,
+  type Notebook,
+  type NoteSummary,
+  type OutlineEntry,
   stripMarkdown,
   TAG_ICON_FALLBACK,
   tagIcon,
-  highlightSegments,
-  type Note,
-  type OutlineEntry,
-  type NoteSummary,
-  type Notebook,
-  type TrashEntry,
 } from "./notesLogic";
 import type { NotesStore } from "./notesStore";
 
@@ -765,17 +777,19 @@ function EmojiPicker({
 }
 
 function QuickAccessSection({ store }: { store: NotesStore }) {
+  const shortcutsScope = store((state) => state.shortcutsScope);
   const sourceOnly = store((state) => state.sourceOnly);
   const applyFilter = store((state) => state.applyFilter);
   const recentNotes = store((state) => state.recentNotes);
   const pinnedNotes = store((state) => state.pinnedNotes);
-  const pinnedIds = new Set(store((state) => state.pinnedNoteIds));
-  const recentNotPinned = recentNotes.filter((note) => !pinnedIds.has(note.id));
+  const pinnedIds = new Set(store((state) => state.pinnedReferences).map(referenceKey));
+  const recentNotPinned = recentNotes.filter((note) => !pinnedIds.has(referenceKey(note)));
   return (
     <NavSection title={t("Quick access")} store={store}>
+      <NoteShortcutStatus key={shortcutsScope} store={store} />
       {pinnedNotes.map((note) => (
         <button
-          key={note.id}
+          key={referenceKey(note)}
           type="button"
           className="notes-nav-button"
           onClick={() => void store.getState().selectNote(note)}
@@ -793,7 +807,7 @@ function QuickAccessSection({ store }: { store: NotesStore }) {
         <>
           {recentNotPinned.map((note) => (
             <button
-              key={note.id}
+              key={referenceKey(note)}
               type="button"
               className="notes-nav-button"
               onClick={() => void store.getState().selectNote(note)}
@@ -849,13 +863,8 @@ function DataManagementSection({ store }: { store: NotesStore }) {
   }, [store]);
   return (
     <NavSection title={t("Data management")} store={store}>
-      <NavAction label={t("Import Markdown")} onClick={() => void store.getState().importMarkdown()} />
-      <NavAction label={t("Export readable backup")} onClick={() => void store.getState().exportBackup()} />
-      <NavAction label={t("Export all notebooks backup")} onClick={() => void store.getState().exportAllBackup()} />
-      <NavAction label={t("Import backup")} onClick={() => void store.getState().importBackup()} />
-      <NavAction label={t("Import all notebooks backup")} onClick={() => void store.getState().importAllBackup()} />
-      <NavAction label={t("Check and rebuild Vault")} onClick={() => void store.getState().rebuildIndex()} />
-      <NavAction label={t("Build Astro site")} onClick={() => void store.getState().publishAstro()} />
+      <NoteTransferActions store={store} />
+      <NoteWorkflowActions store={store} />
       <NavAction
         label={trashCount > 0 ? `${t("Trash")} (${trashCount})` : t("Trash")}
         onClick={() => {
@@ -876,7 +885,7 @@ function NavAction({ label, onClick }: { label: string; onClick(): void }) {
 }
 
 function PinButton({ store, note }: { store: NotesStore; note: NoteSummary }) {
-  const pinned = store((state) => state.pinnedNoteIds.includes(note.id));
+  const pinned = store((state) => state.pinnedReferences.some((entry) => entry.id === note.id && entry.notebookId === note.notebookId));
   return (
     <button
       type="button"
@@ -886,7 +895,7 @@ function PinButton({ store, note }: { store: NotesStore; note: NoteSummary }) {
       aria-pressed={pinned}
       onClick={(event) => {
         event.stopPropagation();
-        store.getState().togglePinned(note.id);
+        store.getState().togglePinned(note.id, note.notebookId);
       }}
     >
       <Icon svg={ICONS.pin} />
@@ -1149,6 +1158,10 @@ function MovePopover({
 }
 
 export function NotesContent({ store }: { store: NotesStore }) {
+  return <><NoteDraftRecovery store={store} /><NotesContentBody store={store} /></>;
+}
+
+function NotesContentBody({ store }: { store: NotesStore }) {
   const loading = store((state) => state.loading);
   const selectedNote = store((state) => state.selectedNote);
   const mode = store((state) => state.mode);
@@ -1158,12 +1171,12 @@ export function NotesContent({ store }: { store: NotesStore }) {
   const query = store((state) => state.query);
   const snapshot = store((state) => state.snapshot);
 
+  if (mode === "new-notebook") return <NotebookForm store={store} />;
+  if (mode === "capture") return <CaptureForm store={store} TagEditor={TagEditor} />;
+  if (mode === "trash") return <TrashView store={store} />;
   if (loading && !selectedNote) {
     return <StateCard text={t("Loading notes…")} />;
   }
-  if (mode === "new-notebook") return <NotebookForm store={store} />;
-  if (mode === "capture") return <CaptureForm store={store} />;
-  if (mode === "trash") return <TrashView store={store} />;
   if (selectedNote) return <NoteEditor store={store} />;
   if ((selectedTag || sourceOnly || query.trim()) && snapshot.notes.length > 0) {
     return <FilterResultsView store={store} />;
@@ -1284,218 +1297,6 @@ function NotebookForm({ store }: { store: NotesStore }) {
           </button>
           <button type="submit" className="ui-button ui-button--primary" disabled={loading} aria-busy={loading}>
             {t("Create notebook")}
-          </button>
-        </div>
-      </form>
-    </Panel>
-  );
-}
-
-function CaptureForm({ store }: { store: NotesStore }) {
-  const [url, setUrl] = useState("");
-  const [title, setTitle] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [notebookId, setNotebookId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{
-    title: string;
-    markdown: string;
-    finalUrl: string;
-    author?: string;
-    publishedAt?: string;
-    siteName?: string;
-    image?: string;
-    duplicate: boolean;
-  } | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [copiedPreview, setCopiedPreview] = useState(false);
-  const [copiedSummary, setCopiedSummary] = useState(false);
-  const [previewExpanded, setPreviewExpanded] = useState(false);
-  const snapshot = store((state) => state.snapshot);
-  const selectedNotebookId = store((state) => state.selectedNotebookId);
-  const capturing = store((state) => state.capturing);
-  const summarizing = store((state) => state.summarizing);
-  const summary = store((state) => state.summary);
-  const urlRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    urlRef.current?.focus();
-  }, []);
-  const previewUrl = async () => {
-    setError(null);
-    setPreviewing(true);
-    try {
-      setPreview(await store.getState().capturePreviewUrl(url));
-    } catch (previewError) {
-      setError(
-        previewError instanceof Error
-          ? previewError.message
-          : String(previewError),
-      );
-      setPreview(null);
-    } finally {
-      setPreviewing(false);
-    }
-  };
-  return (
-    <Panel title={t("Capture web page")} description={t("ZiCode retrieves readable public content without sending cookies or authorization headers.")}>
-      <form
-        className="notes-form"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          setError(null);
-          try {
-            await store.getState().captureUrl({
-              url,
-              title,
-              notebookId: notebookId || selectedNotebookId || snapshot.notebooks[0]?.id || "",
-              tags,
-            });
-          } catch (captureError) {
-            setError(captureError instanceof Error ? captureError.message : String(captureError));
-          }
-        }}
-      >
-        <label>
-          <span>{t("Page URL")}</span>
-          <input ref={urlRef} className="notes-field-input" type="url" required autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="https://example.com/article" value={url} onChange={(event) => setUrl(event.target.value)} />
-        </label>
-        <label>
-          <span>{t("Title override (optional)")}</span>
-          <input className="notes-field-input" value={title} onChange={(event) => setTitle(event.target.value)} />
-        </label>
-        <TagEditor store={store} tags={tags} onChange={setTags} />
-        <div className="notes-form-field">
-          <span>{t("Notebook")}</span>
-          <Select
-            id="notes-capture-notebook"
-            value={notebookId || selectedNotebookId || ""}
-            label={t("Notebook")}
-            options={snapshot.notebooks.map((candidate) => ({
-              value: candidate.id,
-              label: candidate.title,
-            }))}
-            onChange={setNotebookId}
-          />
-        </div>
-        {preview ? (
-          <section className="notes-capture-preview" aria-label={t("Capture preview")}>
-            <h2>{t("Extracted content")}</h2>
-            {preview.duplicate ? (
-              <p className="notes-capture-preview-note" role="status">
-                {t("This page is already in your notes")}
-              </p>
-            ) : null}
-            <strong>{preview.title}</strong>
-            {[preview.siteName, preview.author].filter(Boolean).length > 0 ? (
-              <p className="notes-capture-preview-meta">
-                {[preview.siteName, preview.author].filter(Boolean).join(" · ")}
-              </p>
-            ) : null}
-            <p className="notes-capture-preview-stats">
-              {t("About {count} readable characters").replace(
-                "{count}",
-                stripMarkdown(preview.markdown).replace(/\s+/g, "").length.toLocaleString(),
-              )}
-            </p>
-            {previewExpanded ? (
-              <pre className="notes-capture-preview-full">
-                {stripMarkdown(preview.markdown)}
-              </pre>
-            ) : (
-              <p className="notes-capture-preview-excerpt">
-                {stripMarkdown(preview.markdown).slice(0, 320)}
-              </p>
-            )}
-            <button
-              type="button"
-              className="ui-button ui-button--ghost ui-button--sm notes-capture-expand"
-              onClick={() => setPreviewExpanded((expanded) => !expanded)}
-            >
-              {previewExpanded ? t("Collapse") : t("Show full content")}
-            </button>
-            <button
-              type="button"
-              className="ui-button ui-button--ghost ui-button--sm notes-capture-copy"
-              onClick={() => {
-                void navigator.clipboard
-                  ?.writeText(preview.markdown)
-                  .then(() => {
-                    setCopiedPreview(true);
-                    window.setTimeout(() => setCopiedPreview(false), 1600);
-                  })
-                  .catch(() => {});
-              }}
-            >
-              {copiedPreview ? t("Copied") : t("Copy Markdown")}
-            </button>
-            {summary ? (
-              <section className="notes-capture-summary" aria-label={t("Pi summary")}>
-                <h3>{t("Pi summary")}</h3>
-                <pre>{summary}</pre>
-                <button
-                  type="button"
-                  className="ui-button ui-button--ghost ui-button--sm"
-                  onClick={() => {
-                    void navigator.clipboard
-                      ?.writeText(summary)
-                      .then(() => {
-                        setCopiedSummary(true);
-                        window.setTimeout(() => setCopiedSummary(false), 1600);
-                      })
-                      .catch(() => {});
-                  }}
-                >
-                  {copiedSummary ? t("Copied") : t("Copy summary")}
-                </button>
-                <button
-                  type="button"
-                  className="ui-button ui-button--ghost ui-button--sm"
-                  onClick={() => store.getState().clearSummary()}
-                >
-                  {t("Dismiss")}
-                </button>
-              </section>
-            ) : (
-              <button
-                type="button"
-                className="ui-button ui-button--secondary ui-button--sm notes-capture-summarize"
-                disabled={summarizing}
-                aria-busy={summarizing}
-                onClick={() => {
-                  setError(null);
-                  void store
-                    .getState()
-                    .summarizeText(stripMarkdown(preview.markdown), preview.title)
-                    .catch((summarizeError) =>
-                      setError(
-                        summarizeError instanceof Error
-                          ? summarizeError.message
-                          : String(summarizeError),
-                      ),
-                    );
-                }}
-              >
-                {summarizing ? t("Summarizing…") : t("Summarize with Pi")}
-              </button>
-            )}
-          </section>
-        ) : null}
-        {error ? <p className="notes-form-error">{error}</p> : null}
-        <div className="notes-form-actions">
-          <button type="button" className="ui-button ui-button--secondary" onClick={() => store.getState().setMode("library")}>
-            {t("Cancel")}
-          </button>
-          <button
-            type="button"
-            className="ui-button ui-button--secondary"
-            disabled={previewing || !url.trim()}
-            aria-busy={previewing}
-            onClick={() => void previewUrl()}
-          >
-            {previewing ? t("Fetching preview…") : t("Preview")}
-          </button>
-          <button type="submit" className="ui-button ui-button--primary" disabled={capturing} aria-busy={capturing}>
-            {capturing ? t("Capturing…") : t("Capture")}
           </button>
         </div>
       </form>
@@ -1891,176 +1692,16 @@ function EmptyLibrary({ store }: { store: NotesStore }) {
   );
 }
 
-function TrashView({ store }: { store: NotesStore }) {
-  const trash = store((state) => state.trash);
-  const trashLoading = store((state) => state.trashLoading);
-  const trashError = store((state) => state.trashError);
-  const snapshot = store((state) => state.snapshot);
-  const setMode = store((state) => state.setMode);
-  const [purgeArmedId, setPurgeArmedId] = useState<string | null>(null);
-  const [emptyArmed, setEmptyArmed] = useState(false);
-  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const purge = (entry: TrashEntry) => {
-    if (purgeArmedId !== entry.note.id) {
-      setPurgeArmedId(entry.note.id);
-      if (armTimer.current) clearTimeout(armTimer.current);
-      armTimer.current = setTimeout(() => setPurgeArmedId(null), 3000);
-      return;
-    }
-    if (armTimer.current) clearTimeout(armTimer.current);
-    setPurgeArmedId(null);
-    void store.getState().purgeFromTrash(entry);
-  };
-
-  const empty = () => {
-    if (!emptyArmed) {
-      setEmptyArmed(true);
-      if (armTimer.current) clearTimeout(armTimer.current);
-      armTimer.current = setTimeout(() => {
-        setEmptyArmed(false);
-        setPurgeArmedId(null);
-      }, 3000);
-      return;
-    }
-    if (armTimer.current) clearTimeout(armTimer.current);
-    setEmptyArmed(false);
-    void store.getState().emptyTrash();
-  };
-
-  return (
-    <section className="notes-state-panel notes-trash-panel ui-card">
-      <div className="notes-trash-header">
-        <h1>{t("Trash")}</h1>
-        <div className="notes-trash-actions">
-          {trash.length > 0 ? (
-            <button
-              type="button"
-              className={`ui-button ui-button--danger ui-button--sm notes-trash-empty${
-                emptyArmed ? " notes-delete-armed" : ""
-              }`}
-              disabled={trashLoading}
-              onClick={empty}
-            >
-              {emptyArmed ? t("Confirm empty trash") : t("Empty trash")}
-            </button>
-          ) : null}
-          <button type="button" className="ui-button ui-button--ghost" onClick={() => setMode("library")}>
-            {t("All notes")}
-          </button>
-        </div>
-      </div>
-      {trashError ? (
-        <div className="notes-error-banner" role="alert">
-          <span className="notes-error-inline">
-            {trashError}
-            <button
-              type="button"
-              className="ui-button ui-button--ghost ui-button--sm"
-              onClick={() => void store.getState().loadTrash()}
-            >
-              {t("Retry")}
-            </button>
-          </span>
-        </div>
-      ) : null}
-      {trashLoading ? <p className="notes-nav-message">{t("Loading trash…")}</p> : null}
-      {!trashLoading && trash.length === 0 ? (
-        <p className="notes-nav-message">{t("Trash is empty")}</p>
-      ) : null}
-      <div className="notes-trash-list">
-        {trash.map((entry) => (
-          <div key={entry.note.id} className="notes-trash-item">
-            <span className="notes-note-icon" aria-hidden="true">
-              {entry.note.icon || DEFAULT_NOTE_ICON}
-            </span>
-            <span className="notes-list-item-main">
-              <strong>{entry.note.title}</strong>
-              <span>
-                {snapshot.notebooks.find((notebook) => notebook.id === entry.notebookId)?.title ??
-                  entry.notebookTitle ??
-                  ""}
-                {snapshot.notebooks.some((notebook) => notebook.id === entry.notebookId)
-                  ? " · "
-                  : entry.notebookTitle
-                    ? " · "
-                    : ""}
-                {t("Deleted")} {formatDate(entry.deletedAt)}
-              </span>
-            </span>
-            <button
-              type="button"
-              className="ui-button ui-button--secondary ui-button--sm notes-trash-restore"
-              disabled={trashLoading}
-              onClick={() => void store.getState().restoreFromTrash(entry)}
-            >
-              {t("Restore")}
-            </button>
-            <button
-              type="button"
-              className={`ui-button ui-button--danger ui-button--sm notes-trash-purge${
-                purgeArmedId === entry.note.id ? " notes-delete-armed" : ""
-              }`}
-              disabled={trashLoading}
-              onClick={() => purge(entry)}
-            >
-              {purgeArmedId === entry.note.id
-                ? t("Confirm permanently delete")
-                : t("Delete permanently")}
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function backlinkKindLabel(kind: string): string {
   if (kind === "wikilink") return t("Wiki link");
   if (kind === "reference") return t("Note reference");
   return kind;
 }
 
-export function wikilinkMarkdown(content: string): string {
-  const lines = content.split("\n");
-  const result: string[] = [];
-  let inFence = false;
-  for (const line of lines) {
-    if (/^\s*```/.test(line)) {
-      inFence = !inFence;
-      result.push(line);
-      continue;
-    }
-    if (inFence) {
-      result.push(line);
-      continue;
-    }
-    result.push(
-      line.replace(/(`[^`\n]*`|\[\[[^\]\n]+\]\])/g, (match) => {
-        if (match.startsWith("`")) return match;
-        const label = match.slice(2, -2).trim();
-        return `[${label}](zicode-note://${encodeURIComponent(label)})`;
-      }),
-    );
-  }
-  return result.join("\n");
-}
-
-export function markUnresolvedWikilinks(root: HTMLElement, notes: NoteSummary[]): void {
-  const titles = new Set(notes.map((note) => note.title.toLowerCase()));
-  for (const anchor of root.querySelectorAll<HTMLAnchorElement>(
-    'a[href^="zicode-note://"]',
-  )) {
-    const raw = anchor.getAttribute("href")?.replace("zicode-note://", "") ?? "";
-    const title = decodeURIComponent(raw).toLowerCase();
-    if (!titles.has(title)) {
-      anchor.classList.add("notes-wikilink-unresolved");
-      anchor.title = t("This note does not exist yet");
-    }
-  }
-}
-
 function NoteEditor({ store }: { store: NotesStore }) {
+  const workflowBusy = store((state) => state.workflowBusy);
+  const attachmentBusy = store((state) => state.attachmentBusy);
+  const editorLocked = store((state) => state.editorLocked);
   const note = store((state) => state.selectedNote) as Note;
   const draftTitle = store((state) => state.draftTitle);
   const draftIcon = store((state) => state.draftIcon);
@@ -2181,10 +1822,10 @@ function NoteEditor({ store }: { store: NotesStore }) {
       initImageLightbox(previewRef.current);
       initAttachmentViewer(previewRef.current);
       initCodeCopyDelegation(previewRef.current);
-      markUnresolvedWikilinks(previewRef.current, snapshotNotes);
+      markUnresolvedWikilinks(previewRef.current, snapshotNotes, note.notebookId);
       setOutline(buildHeadingOutline(previewRef.current));
     }
-  }, [preview, draftContent, store, snapshotNotes]);
+  }, [preview, draftContent, store, snapshotNotes, note.notebookId]);
 
   useEffect(() => {
     if (!preview) return;
@@ -2430,13 +2071,13 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const renderSecondaryActions = (role?: string) => (
     <>
       <ToolbarButton
-        label={hasSelection ? t("Discuss selection") : t("Discuss in Chat")}
+        label={workflowBusy === "chat" ? t("Preparing Chat handoff…") : hasSelection ? t("Discuss selection") : t("Discuss in Chat")}
         icon={ICONS.chat}
         className="notes-use-in-chat"
         variant="ui-button--secondary"
         role={role}
         hint={`Ctrl+Enter · ${t("Selected text or whole note")}`}
-        disabled={!draftContent.trim()}
+        disabled={Boolean(workflowBusy) || !draftContent.trim()}
         title={
           !draftContent.trim() ? t("The input is empty or incomplete.") : undefined
         }
@@ -2449,7 +2090,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
         }}
       />
       <ToolbarButton
-        label={t("Attach")}
+        label={attachmentBusy ? t("Adding attachment…") : t("Attach")}
+        disabled={attachmentBusy}
         icon={ICONS.attach}
         className="notes-attach"
         variant="ui-button--ghost"
@@ -2488,6 +2130,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
           copyTimer.current = setTimeout(() => setCopiedMarkdown(false), 2000);
         }}
       />
+      <NoteReferenceButton key={`${note.notebookId}/${note.id}`} note={note} title={draftTitle} role={role}
+        onError={(error) => store.setState({ error })} />
       <ToolbarButton
         label={t("Duplicate note")}
         icon={ICONS.duplicate}
@@ -2519,7 +2163,9 @@ function NoteEditor({ store }: { store: NotesStore }) {
   );
 
   return (
-    <section className="notes-editor">
+    <>
+      {editorLocked && <p className="ui-muted" role="status">{t("Finishing the note operation. Editing will resume shortly.")}</p>}
+    <section className="notes-editor" inert={editorLocked} aria-busy={editorLocked}>
       <div className="notes-editor-toolbar">
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla note tabs */}
         <div className="notes-editor-tabs" role="group" aria-label={t("Note view")}>
@@ -2784,13 +2430,8 @@ function NoteEditor({ store }: { store: NotesStore }) {
               );
               if (!anchor) return;
               event.preventDefault();
-              const title = decodeURIComponent(
-                anchor.getAttribute("href")?.replace("zicode-note://", "") ?? "",
-              );
-              const match = snapshotNotes.find(
-                (candidate) => candidate.title.toLowerCase() === title.toLowerCase(),
-              );
-              if (match) void openNote(match.notebookId, match.id);
+              openNoteLink(anchor.getAttribute("href") ?? "", snapshotNotes, note.notebookId, openNote,
+                (message) => store.setState({ error: new Error(message) }));
             }}
             onMouseUp={() => {
               currentSelectionRef.current = selection();
@@ -3208,6 +2849,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         ) : null}
         </>
       )}
+      <NoteRelationshipStatus store={store} />
       {backlinks.length > 0 ? (
         <nav className="notes-backlinks" aria-label={t("Backlinks")}>
           <h2>{t("Backlinks")}</h2>
@@ -3253,6 +2895,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
         </nav>
       ) : null}
     </section>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@
       "!src-tauri/target",
       "!src-tauri/gen",
       "!dist",
+      "!release",
       "!extensions/dist",
       "!.cache",
       "!.claude",
@@ -16,7 +17,8 @@
       "!node_modules",
       "!site",
       "!public/vendor",
-      "!public/native/react"
+      "!public/native/react",
+      "!tests/fixtures/devtools-*/**"
     ]
   },
   "formatter": {

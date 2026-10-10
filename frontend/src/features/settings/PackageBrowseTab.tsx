@@ -3,10 +3,10 @@ import { t } from "../../shared/i18n";
 import { Select } from "../../shared/Select";
 import {
   BROWSE_PAGE_SIZE,
+  type BrowsePackage,
   browseSourceFor,
   filterPackages,
   normalizeRepoUrl,
-  type BrowsePackage,
   type PackageBrowseStore,
 } from "./packageBrowseStore";
 
@@ -22,6 +22,12 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
   const error = store((state) => state.error);
   const packages = store((state) => state.packages);
   const installedSet = store((state) => state.installedSet);
+  const installedError = store((state) => state.installedError);
+  const canManage = store((state) => state.canManage);
+  const canPickLocal = store((state) => state.canPickLocal);
+  const busySource = store((state) => state.busySource);
+  const manualSource = store((state) => state.manualSource);
+  const manualError = store((state) => state.manualError);
   const activeType = store((state) => state.activeType);
   const searchQuery = store((state) => state.searchQuery);
   const installedOnly = store((state) => state.installedOnly);
@@ -46,80 +52,181 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
   const safePage = Math.min(Math.max(1, page), totalPages);
   const start = (safePage - 1) * BROWSE_PAGE_SIZE;
   const pageResults = results.slice(start, start + BROWSE_PAGE_SIZE);
+  const installedSources = [...installedSet].sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="settings-body">
       <div className="settings-section">
-        <div className="settings-section-title">{t("Browse Community Packages")}</div>
+        <div className="settings-section-title">{t("Installed packages")}</div>
         <p className="settings-help">
-          Discover extensions, skills, themes, and prompts from the Pi ecosystem. Install with
-          one click.
+          {t("Packages configured on this device are available offline.")}
         </p>
-        <div className="pkg-browse-filters">
-          <input
-            type="text"
-            id="pkg-browse-search"
-            className="pkg-browse-search"
-            placeholder={t("Search packages...")}
-            aria-label={t("Search packages...")}
-            autoComplete="off"
-            enterKeyHint="search"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={searchQuery}
-            onChange={(event) => store.getState().setSearch(event.target.value)}
-          />
-          <div className="pkg-browse-pills" id="pkg-browse-pills">
-            {["all", "extension", "skill", "theme", "prompt"].map((type) => (
+        <form
+          className="pkg-manual-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void store.getState().installSource();
+          }}
+        >
+          <label className="pkg-manual-field" htmlFor="pkg-manual-source">
+            <span>{t("Install from source")}</span>
+            <input
+              id="pkg-manual-source"
+              className="ui-input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="npm:@scope/pkg, git:host/user/repo, /absolute/path or C:\\path"
+              value={manualSource}
+              disabled={!canManage || busySource !== null}
+              onChange={(event) => store.getState().setManualSource(event.target.value)}
+            />
+          </label>
+          {canManage && canPickLocal ? (
+            <div className="pkg-manual-pickers">
               <button
-                key={type}
                 type="button"
-                className={`pkg-browse-pill${activeType === type ? " active" : ""}`}
-                data-pkg-type={type}
-                onClick={() => store.getState().setType(type)}
+                className="ui-button ui-button--secondary"
+                disabled={busySource !== null}
+                onClick={() => void store.getState().pickLocalSource(true)}
               >
-                {type === "all"
-                  ? t("All")
-                  : type === "extension"
-                    ? t("Extensions")
-                    : type === "skill"
-                      ? t("Skills")
-                      : type === "theme"
-                        ? t("Themes")
-                        : t("Prompts")}
+                {t("Choose package folder")}
               </button>
+              <button
+                type="button"
+                className="ui-button ui-button--secondary"
+                disabled={busySource !== null}
+                onClick={() => void store.getState().pickLocalSource(false)}
+              >
+                {t("Choose extension file")}
+              </button>
+            </div>
+          ) : null}
+          <p className="settings-help">
+            {t(
+              "Absolute local paths work offline. npm and Git sources require a network connection. Installed extensions can run code with your user permissions.",
+            )}
+          </p>
+          {manualError ? (
+            <div className="pkg-manual-error" role="alert">
+              {t(manualError)}
+            </div>
+          ) : null}
+          <button
+            type="submit"
+            className="ui-button ui-button--secondary"
+            disabled={!canManage || busySource !== null || !manualSource.trim()}
+            aria-busy={busySource === manualSource.trim()}
+          >
+            {busySource === manualSource.trim() ? t("Installing…") : t("Install package")}
+          </button>
+        </form>
+        {installedError ? (
+          <div className="settings-api-keys-empty">{t(installedError)}</div>
+        ) : installedSources.length === 0 ? (
+          <div className="settings-api-keys-empty">{t("No installed packages.")}</div>
+        ) : (
+          <div className="settings-extension-list">
+            {installedSources.map((source) => (
+              <div className="settings-extension-row" key={source}>
+                <div className="settings-extension-info">
+                  <div className="settings-extension-name">{source}</div>
+                </div>
+                <div className="settings-extension-actions">
+                  <button
+                    type="button"
+                    className="ui-button ui-button--secondary"
+                    disabled={!canManage || busySource !== null}
+                    onClick={() => void store.getState().removeInstalled(source)}
+                  >
+                    {busySource === source ? t("Removing…") : t("Uninstall")}
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
-          <label className="pkg-browse-installed-toggle">
+        )}
+      </div>
+      <div className="settings-section">
+        <div className="settings-section-title">{t("Browse Community Packages")}</div>
+        <p className="settings-help">
+          {t(
+            "Discover extensions, skills, themes, and prompts from the Pi ecosystem. Install with one click.",
+          )}
+        </p>
+        <button
+          type="button"
+          className="ui-button ui-button--secondary"
+          disabled={status === "loading"}
+          onClick={() => void load(true)}
+        >
+          {status === "loading" ? t("Loading packages...") : t("Browse online catalog")}
+        </button>
+        {status === "ready" ? (
+          <div className="pkg-browse-filters">
             <input
-              type="checkbox"
-              id="pkg-browse-installed-only"
-              checked={installedOnly}
-              onChange={(event) =>
-                void store.getState().setInstalledOnly(event.target.checked)
-              }
+              type="text"
+              id="pkg-browse-search"
+              className="pkg-browse-search"
+              placeholder={t("Search packages...")}
+              aria-label={t("Search packages...")}
+              autoComplete="off"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              value={searchQuery}
+              onChange={(event) => store.getState().setSearch(event.target.value)}
             />
-            <span>{t("Installed only")}</span>
-          </label>
-          <Select
-            id="pkg-browse-sort"
-            className="pkg-browse-sort"
-            value={sortMode}
-            label={t("Sort packages")}
-            options={[
-              { value: "downloads", label: t("Most downloads") },
-              { value: "name", label: t("Name (A–Z)") },
-              { value: "updated", label: t("Recently updated") },
-            ]}
-            onChange={(value) => store.getState().setSort(value)}
-          />
-          <span className="pkg-browse-count" id="pkg-browse-count">
-            {results.length === 0
-              ? `0 of ${results.length}`
-              : `${start + 1}–${start + pageResults.length} of ${results.length}`}
-          </span>
-        </div>
+            <div className="pkg-browse-pills" id="pkg-browse-pills">
+              {["all", "extension", "skill", "theme", "prompt"].map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={`pkg-browse-pill${activeType === type ? " active" : ""}`}
+                  data-pkg-type={type}
+                  onClick={() => store.getState().setType(type)}
+                >
+                  {type === "all"
+                    ? t("All")
+                    : type === "extension"
+                      ? t("Extensions")
+                      : type === "skill"
+                        ? t("Skills")
+                        : type === "theme"
+                          ? t("Themes")
+                          : t("Prompts")}
+                </button>
+              ))}
+            </div>
+            <label className="pkg-browse-installed-toggle">
+              <input
+                type="checkbox"
+                id="pkg-browse-installed-only"
+                checked={installedOnly}
+                onChange={(event) => void store.getState().setInstalledOnly(event.target.checked)}
+              />
+              <span>{t("Installed only")}</span>
+            </label>
+            <Select
+              id="pkg-browse-sort"
+              className="pkg-browse-sort"
+              value={sortMode}
+              label={t("Sort packages")}
+              options={[
+                { value: "downloads", label: t("Most downloads") },
+                { value: "name", label: t("Name (A–Z)") },
+                { value: "updated", label: t("Recently updated") },
+              ]}
+              onChange={(value) => store.getState().setSort(value)}
+            />
+            <span className="pkg-browse-count" id="pkg-browse-count">
+              {results.length === 0
+                ? `0 of ${results.length}`
+                : `${start + 1}–${start + pageResults.length} of ${results.length}`}
+            </span>
+          </div>
+        ) : null}
         <div className="settings-extension-list pkg-browse-list" id="pkg-browse-list">
           {status === "loading" ? (
             <div className="settings-api-keys-loading pkg-browse-full-row">
@@ -136,6 +243,10 @@ export function PackageBrowseTab({ store }: { store: PackageBrowseStore }) {
               >
                 {t("Retry")}
               </button>
+            </div>
+          ) : status === "idle" ? (
+            <div className="settings-api-keys-empty pkg-browse-full-row">
+              {t("Browse the online catalog when you choose to connect.")}
             </div>
           ) : results.length === 0 ? (
             <div className="settings-api-keys-empty pkg-browse-full-row">
@@ -296,9 +407,7 @@ function Pagination({
         const prev = visible[index - 1] ?? 0;
         return (
           <span key={p} style={{ display: "inline-flex", alignItems: "center" }}>
-            {p - prev > 1 ? (
-              <span className="pkg-browse-page-ellipsis">…</span>
-            ) : null}
+            {p - prev > 1 ? <span className="pkg-browse-page-ellipsis">…</span> : null}
             <button
               type="button"
               className={`pkg-browse-page-btn${p === page ? " is-active" : ""}`}

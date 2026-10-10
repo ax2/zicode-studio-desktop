@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
-import { createHabitsStore, type HabitsGateway } from "./habitsStore";
 import { currentStreak, lastDates, toDateKey } from "./habitsLogic";
+import { createHabitsStore, type HabitsGateway } from "./habitsStore";
 
 const HABIT = {
   id: "h1",

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createImageToolsStore, type ImageToolsGateway } from "./imagetoolsStore";
 import { formatBytes } from "./imagetoolsLogic";
+import { createImageToolsStore, type ImageToolsGateway } from "./imagetoolsStore";
 
 function stubGateway(overrides: Partial<ImageToolsGateway> = {}): ImageToolsGateway {
   return {

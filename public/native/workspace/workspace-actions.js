@@ -4,8 +4,9 @@
  * passive label; the switcher menu lists every registered workspace and also
  * offers "Open folder as workspace" for the native folder picker.
  */
-import { getSelectedSceneId } from "../react/settings.js";
+
 import { t } from "../../i18n.js";
+import { getSelectedSceneId } from "../react/settings.js";
 
 const WORKSPACE_TRASH_RETENTION_DAYS = 30;
 const DAY_SECS = 24 * 60 * 60;
@@ -109,9 +110,9 @@ export async function spawnSessionViaHost(
 
 /**
  * Resolve a project path to its stable workspace id via the host HTTP API
- * (`POST /v2/resolve-workspace`), registering the workspace on the server so
- * `/v2/bootstrap` can lazily resume its sessions. Used by LAN/remote clients
- * that cannot invoke Tauri native commands.
+ * (`POST /v2/resolve-workspace`). The host only resolves workspaces already
+ * registered by the desktop. Used by LAN/remote clients that cannot invoke
+ * Tauri native commands.
  *
  * @param {string} projectPath
  * @returns {Promise<string>} the resolved workspace id

@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
+import type { ModelToolChoice, ModelToolSelection } from "../../shared/ModelToolPicker";
 import type { TranslationResult } from "./translationLogic";
 
 export interface TranslationScope {
@@ -9,6 +10,7 @@ export interface TranslationScope {
 }
 
 export interface TranslateInput {
+  provider?: string;
   text: string;
   targetLang: string;
   sourceLang?: string;
@@ -16,6 +18,7 @@ export interface TranslateInput {
 }
 
 export interface TranslationGateway {
+  listModels?(scope: TranslationScope): Promise<ModelToolChoice[]>;
   translate(scope: TranslationScope, input: TranslateInput): Promise<TranslationResult>;
 }
 
@@ -33,6 +36,15 @@ export class TranslationHttpGateway implements TranslationGateway {
     if (typeof fetchImpl !== "function") throw new Error("Translation gateway requires fetch");
     this.#fetch = fetchImpl;
     this.#location = location;
+  }
+
+  async listModels(scope: TranslationScope): Promise<ModelToolChoice[]> {
+    const url = new URL("/v2/model-tools/models", this.#location.origin);
+    url.searchParams.set("sceneId", scope.sceneId);
+    url.searchParams.set("purpose", "translation");
+    const response = await this.#fetch(url.toString());
+    if (!response.ok) throw new Error("model_config_unavailable");
+    return (await response.json()).models;
   }
 
   async translate(scope: TranslationScope, input: TranslateInput): Promise<TranslationResult> {
@@ -59,6 +71,10 @@ export class TranslationHttpGateway implements TranslationGateway {
 }
 
 export interface TranslationState {
+  modelSelection: ModelToolSelection | null;
+  setModelSelection(value: ModelToolSelection | null): void;
+  getSceneId(): string;
+  loadModels(): Promise<ModelToolChoice[]>;
   text: string;
   sourceLang: string;
   targetLang: string;
@@ -86,6 +102,10 @@ export interface TranslationOptions {
 export function createTranslationStore(options: TranslationOptions) {
   const { gateway = new TranslationHttpGateway(), getTarget, notify } = options;
   return create<TranslationState>()((set, get) => ({
+    modelSelection: null,
+    setModelSelection(value) { set({ modelSelection: value }); },
+    getSceneId: () => getTarget().sceneId,
+    loadModels: () => gateway.listModels?.(getTarget()) ?? Promise.resolve([]),
     text: "",
     sourceLang: "",
     targetLang: "Chinese",
@@ -124,13 +144,18 @@ export function createTranslationStore(options: TranslationOptions) {
     async run() {
       const { text, sourceLang, targetLang, busy } = get();
       if (!text.trim() || busy) return;
+      const scope = getTarget();
+      const selection = get().modelSelection;
+      if (!selection || selection.sceneId !== scope.sceneId) { set({ error: t("Choose a configured model") }); return; }
       set({ busy: true, error: "", result: null });
       try {
-        const result = await gateway.translate(getTarget(), {
+        const result = await gateway.translate(scope, {
+          provider: selection.provider, model: selection.model,
           text,
           targetLang,
           ...(sourceLang ? { sourceLang } : {}),
         });
+        if (getTarget().sceneId !== scope.sceneId) { set({ busy: false }); return; }
         set({ result, editedText: result.translated, busy: false });
         notify(t("Translation complete"));
       } catch (error) {

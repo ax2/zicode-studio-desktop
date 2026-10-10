@@ -56,10 +56,18 @@ if [[ "$CURRENT_BRANCH" == "HEAD" ]]; then
   exit 1
 fi
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "Working tree is not clean. Commit/stash your changes first."
-  exit 1
-fi
+bun scripts/check-release-repository.mjs --local
+
+ensure_clean_worktree() {
+  local phase="$1"
+  local status
+  status="$(git status --porcelain=v1 --untracked-files=all)"
+  if [[ -n "$status" ]]; then
+    echo "Working tree is not clean ($phase), including untracked files. Commit or move project changes before release."
+    exit 1
+  fi
+}
+ensure_clean_worktree "before release gates"
 
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   echo "Tag already exists locally: $TAG"
@@ -77,6 +85,7 @@ bun run typecheck
 bun run lint
 bun run check:design
 echo "Release gates passed."
+ensure_clean_worktree "after release gates"
 
 echo "Updating app versions to $APP_VERSION (release tag: $TAG)..."
 PI_RELEASE_VERSION="$APP_VERSION" bun run - <<'EOF'

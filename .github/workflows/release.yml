@@ -22,27 +22,51 @@ env:
 jobs:
   prepare-release:
     runs-on: ubuntu-22.04
+    outputs:
+      release_sha: ${{ steps.release-source.outputs.sha }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Record release source commit
+        id: release-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse --verify HEAD)"
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release commit SHA"; exit 1; }
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
+      - name: Verify release repository
+        run: bun scripts/check-release-repository.mjs --ci
+
       - name: Verify tag matches application versions
         run: bun run scripts/check-release-version.js "$RELEASE_TAG"
 
-      - name: Create private draft release
+      - name: Verify release asset policy matches updater configuration
+        run: |
+          bun -e '
+            import { readFileSync } from "node:fs";
+            const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
+            if (config.bundle?.createUpdaterArtifacts !== false) {
+              throw new Error("Release inventory currently permits only five installers. Update the publish inventory and signature checks before enabling updater artifacts.");
+            }
+          '
+
+      - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            IS_DRAFT="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
             if [[ "$IS_DRAFT" != "true" ]]; then
               echo "::error::Release $RELEASE_TAG is already public. Do not create releases manually; use bun run release <version>."
               exit 1
@@ -57,9 +81,14 @@ jobs:
           Artifacts:
           - Windows x64 NSIS installer: embeds Pi, PortableGit (Git + Bash), and the WebView2 offline installer.
           - macOS Apple Silicon DMG: embeds Pi; uses the operating system's shell and Git tooling.
+          - macOS Intel DMG: embeds Pi; uses the operating system's shell and Git tooling.
           - Linux x64 AppImage and Debian package: embed Pi; use the operating system's shell and Git tooling.
           EOF
+          if [[ -f "docs/releases/$RELEASE_TAG.md" ]]; then
+            cp "docs/releases/$RELEASE_TAG.md" "$RUNNER_TEMP/release-notes.md"
+          fi
           gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
             --draft \
             --title "ZiCode Studio Desktop $RELEASE_TAG" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
@@ -76,8 +105,12 @@ jobs:
             pi_target: windows-x64
             bundles: nsis
           - name: macOS Apple Silicon
-            os: macos-14
+            os: macos-15
             pi_target: darwin-arm64
+            bundles: dmg
+          - name: macOS Intel
+            os: macos-15-intel
+            pi_target: darwin-x64
             bundles: dmg
           - name: Linux x64
             os: ubuntu-22.04
@@ -87,12 +120,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PI_TARGET_PLATFORM: ${{ matrix.pi_target }}
+      UPDATER_SIGNING_CONFIGURED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout pinned release commit
         uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -119,10 +153,14 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Verify release runner matches embedded runtime target
+        run: bun scripts/check-release-target.mjs
+
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          # .cargo/config.toml places Cargo output at the repository root.
+          workspaces: "src-tauri -> ../target"
           key: ${{ matrix.pi_target }}
 
       - name: Cache embedded runtimes
@@ -138,12 +176,17 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Fetch embedded runtimes
-        run: |
-          bun run fetch:pi
-          bun run fetch:portable-git
-          bun run fetch:webview2
-          bun run fetch:bun-runtime
+      - name: Fetch embedded Pi
+        run: bun run fetch:pi
+
+      - name: Fetch Portable Git
+        run: bun run fetch:portable-git
+
+      - name: Fetch WebView2 installer
+        run: bun run fetch:webview2
+
+      - name: Fetch embedded Bun
+        run: bun run fetch:bun-runtime
 
       - name: Verify embedded Pi on Unix
         if: runner.os != 'Windows'
@@ -151,20 +194,57 @@ jobs:
           ./src-tauri/resources/pi/pi --version
           ./src-tauri/resources/bun/bun --version
 
+      - name: Verify embedded executable architectures
+        run: bun scripts/check-runtime-architecture.mjs
+
+      - name: Verify isolated embedded Pi RPC contract
+        run: bun run smoke:pi-rpc
+
       - name: Verify embedded Windows runtimes
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           .\src-tauri\resources\pi\pi.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Embedded Pi failed to start" }
           .\src-tauri\resources\portable-git\cmd\git.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Portable Git failed to start" }
           .\src-tauri\resources\portable-git\bin\bash.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Portable Bash failed to start" }
           .\src-tauri\resources\bun\bun.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Embedded Bun failed to start" }
           $lock = Get-Content .\scripts\webview2-version.json | ConvertFrom-Json
           $actual = (Get-FileHash .\src-tauri\resources\webview2\MicrosoftEdgeWebView2RuntimeInstallerX64.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($actual -ne $lock.assets.'windows-x64'.sha256) { throw "WebView2 SHA-256 mismatch" }
 
       - name: Build bundled extensions
         run: bun run build:extensions
+
+      - name: Verify bundled bridge registration with embedded Pi
+        run: bun scripts/smoke-finance-extension.js
+
+      - name: Verify bundled Inbox and plugin tool registration
+        run: bun scripts/smoke-finance-extension.js --inbox
+
+      - name: Check frontend TypeScript
+        run: bun run typecheck
+
+      - name: Check external clients TypeScript
+        run: bun run typecheck:external-clients
+
+      - name: Check finance core TypeScript
+        run: bun run typecheck:finance-core
+
+      - name: Check chat inbox core TypeScript
+        run: bun run typecheck:chat-inbox-core
+
+      - name: Check platform core TypeScript
+        run: bun run typecheck:platform-core
+
+      - name: Check bundled extension entrypoints TypeScript
+        run: bun run typecheck:extensions-source
+
+      - name: Check lint and design rules
+        run: bun run check
 
       - name: Test frontend and packaging guards
         run: bun run test
@@ -177,6 +257,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: .\src-tauri\resources\portable-git\bin\bash.exe scripts/check-rust.sh
+
+      - name: Verify real Pi to Host plugin invocation
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --bin zicode-studio-desktop host_server::plugin_broker_tests::embedded_pi_invokes_the_real_host_plugin_broker -- --ignored --exact
 
       - name: Build bundles and upload to draft release
         uses: tauri-apps/tauri-action@v1
@@ -195,25 +278,84 @@ jobs:
           args: --bundles ${{ matrix.bundles }}
 
       - name: Upload updater artifacts when signing is enabled
-        if: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        if: env.UPDATER_SIGNING_CONFIGURED == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           shopt -s nullglob
           found=0
           for f in target/release/bundle/*/*.sig target/release/bundle/*/latest.json; do
             found=1
-            gh release upload "$RELEASE_TAG" "$f" --repo "$GITHUB_REPOSITORY" --clobber || echo "upload skipped: $f"
+            gh release upload "$RELEASE_TAG" "$f" --repo "$GITHUB_REPOSITORY" --clobber
           done
           if [[ "$found" == "0" ]]; then
             echo "No updater artifacts found (createUpdaterArtifacts is likely still false); nothing to upload."
           fi
 
+      - name: Verify uploaded platform bundles
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun scripts/verify-release-artifacts.mjs "${{ matrix.bundles }}"
+
   publish-release:
-    needs: build
+    needs: [prepare-release, build]
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Verify tag still points to built commit
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse --verify HEAD)"
+          if [[ "$ACTUAL_SHA" != "$RELEASE_SHA" ]]; then
+            echo "::error::Release tag moved during the build; expected $RELEASE_SHA, found $ACTUAL_SHA."
+            exit 1
+          fi
+
+      - name: Verify draft contains only the expected platform bundles
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IS_DRAFT="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          if [[ "$IS_DRAFT" != "true" ]]; then
+            echo "::error::Release $RELEASE_TAG is no longer a draft."
+            exit 1
+          fi
+          mapfile -t ASSETS < <(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          if [[ "${#ASSETS[@]}" -ne 5 ]]; then
+            echo "::error::Expected exactly five installer assets in draft $RELEASE_TAG; found ${#ASSETS[@]}."
+            exit 1
+          fi
+          EXE=0
+          DMG_ARM64=0
+          DMG_X64=0
+          APPIMAGE=0
+          DEB=0
+          for ASSET in "${ASSETS[@]}"; do
+            case "$ASSET" in
+              *_x64-setup.exe) EXE=$((EXE + 1)) ;;
+              *_aarch64.dmg) DMG_ARM64=$((DMG_ARM64 + 1)) ;;
+              *_x64.dmg) DMG_X64=$((DMG_X64 + 1)) ;;
+              *_amd64.AppImage) APPIMAGE=$((APPIMAGE + 1)) ;;
+              *_amd64.deb) DEB=$((DEB + 1)) ;;
+              *) echo "::error::Unexpected release asset: $ASSET"; exit 1 ;;
+            esac
+          done
+          if [[ "$EXE" -ne 1 || "$DMG_ARM64" -ne 1 || "$DMG_X64" -ne 1 || "$APPIMAGE" -ne 1 || "$DEB" -ne 1 ]]; then
+            echo "::error::Draft must contain one Windows EXE, one macOS ARM64 DMG, one macOS x64 DMG, one Linux AppImage, and one Debian package."
+            exit 1
+          fi
+
       - name: Publish completed release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

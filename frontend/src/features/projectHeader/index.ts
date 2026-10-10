@@ -1,6 +1,6 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { createElement } from "react";
 import { PillText } from "./ProjectHeaderApp";
 
 export interface ProjectHeaderInfo {

@@ -1,15 +1,20 @@
 # ZiCode Studio Desktop
 
-ZiCode Studio Desktop 是基于 Tauri 2 和 Pi 构建的桌面 AI 工作台，支持
+ZiCode Studio Desktop 定位于全方位、跨平台的开发者个人平台，基于 Tauri 2 和 Pi 构建，面向
 Windows、macOS 和 Linux。所有平台均内置 Pi Runtime；Windows 安装包还内置
 PortableGit（Git + Bash）和 Microsoft WebView2 离线安装器，最终用户不需要预装
-Node.js、Bun、Git、Bash、Pi 或 WSL。当前 macOS 和 Linux 构建仍使用操作系统提供的
-Shell 与 Git 工具。
+Node.js、Bun、Pi 或 WSL。Windows 用户也不需要预装 Git 或 Bash；当前 macOS 和 Linux
+构建仍使用操作系统提供的 Shell 与 Git 工具。
 
-项目面向编程、金融、创作和自定义工作流，支持自定义模型渠道以及彼此隔离的场景、
-实例和会话。
+以个人项目为中心，贯通代码开发、AI 协作、知识积累、任务自动化和成果交付，
+支持自定义模型渠道以及彼此隔离的场景、实例和会话。平台正在持续建设，
+能力边界和后续验收见[开发者个人平台推进计划](docs/developer-platform.md)。
 
-> 当前版本为早期开发版本。仓库暂时保持私有，发布包仅供已授权的协作者使用。
+Zi DevTools接入目标为通过独立插件体系覆盖全部工具；逐项接入状态与暂不能接入的原因见
+[全部工具接入目标和清单](docs/plugins/devtools-all-tools.md)，首批五能力不代表整体完成。
+
+> 当前版本为早期开发版本，仓库已公开。已发布安装包见
+> [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases)。插件全集接入仍在推进，不能视为全部工具已验收。
 
 ## 主要能力
 
@@ -17,8 +22,8 @@ Shell 与 Git 工具。
   WebView2 安装器。
 - **无终端窗口**：Windows 后台子进程统一以无控制台模式启动。
 - **自定义模型渠道**：配置 `base_url`、API 协议、模型列表和 API Key。
-- **内置模型网关**：预置 QVeris Model Gateway
-  (`https://aigateway.qveris.ai/v1`)，配置 Key 后自动同步聊天模型，并允许继续添加自定义渠道。
+- **可选模型目录适配**：按需添加自己的 QVeris 兼容网关渠道，并手动刷新模型目录；
+  新场景不会自动创建渠道或向外部网关发起目录请求。
 - **中文优先界面**：默认简体中文，可切换 English；默认使用明亮白色主题。
 - **Agent Inbox**：通过官方长连接接入飞书和企业微信智能机器人，不提供个人微信或
   Telegram 接入。
@@ -46,8 +51,11 @@ Rust Host
             ├── Provider and model configuration
             ├── Scene policy
             ├── Isolated agent directory
-            ├── Isolated session directory
-            └── Bundled Git Bash
+            └── Isolated session directory
+
+Platform resources
+    ├── Windows bundle: PortableGit (Git + Bash) and WebView2 offline installer
+    └── macOS/Linux: operating-system Git and shell tools
 ```
 
 详细设计见 [架构方案](docs/architecture.md) 和
@@ -55,22 +63,20 @@ Rust Host
 
 ## 开发环境
 
-- Windows 10/11 x64
-- Bun 1.3.14
-- Rust stable
-- Microsoft Visual Studio Build Tools（Desktop development with C++）
-- Python 3.11+（仅用于构建 MkDocs 文档）
+- Windows 10/11 x64、macOS 或 Linux（各系统还需安装 Tauri 2 对应的原生构建依赖）
+- Bun 1.3.14 与 Rust stable
+- Windows 需要 Microsoft Visual Studio Build Tools（Desktop development with C++）
+- Python 3.11+ 仅用于构建 MkDocs 文档
 
 ```powershell
 git clone https://github.com/ax2/zicode-studio-desktop.git
 cd zicode-studio-desktop
 bun install --frozen-lockfile
-bun run fetch:pi
-bun run fetch:portable-git
-bun run fetch:webview2
-bun run build:extensions
-bun run tauri dev
+bun run dev
 ```
+
+`bun run dev` 使用当前系统的路径分隔符补充 Cargo 工具目录。Tauri 启动前会
+准备对应平台的运行时资源、扩展和 React 页面；macOS/Linux 仍需系统 Git 与 Shell。
 
 升级内置 Pi 到上游最新版并验证本机 RPC：
 
@@ -138,7 +144,7 @@ Developer ID 签名与公证。发布和签名说明见
 - 每个运行实例使用独立的 Session、日志和临时目录。
 - Windows 使用 Credential Manager；其他桌面平台使用 `keyring` 对应的系统凭据服务。
 - Host 服务仅监听 `127.0.0.1`；局域网访问在完整鉴权和加密传输实现前保持禁用。
-- 当前私有仓库不提供匿名 updater 产物，桌面端不会在启动时请求无效更新源；
+- 当前尚未启用签名自动更新产物，桌面端不会在启动时请求无效更新源；
   新版本通过 GitHub Releases 手动安装。
 
 内部仍保留少量 `picot-*` 协议名、存储键和 `picot.sqlite3` 文件名。这些是上游
@@ -153,11 +159,16 @@ python -m pip install -r requirements-docs.txt
 python -m mkdocs serve
 ```
 
-## 上游与许可证
+## 项目来源与许可证
 
-本项目基于 MIT 许可的
-[Picot](https://github.com/shixin-guo/picot)，并针对 Windows 自包含分发、模型渠道、
-多场景与实例隔离进行了扩展。上游版权和第三方依赖信息见
+本项目最初参考了 [Picot](https://github.com/shixin-guo/picot) 对 Pi 进行桌面封装的架构思路，
+没有直接 fork Picot，后续也未持续跟进其开发。本项目独立维护，当前定位为跨平台开发者个人平台，
+不应描述为“直接基于 Picot”的项目。
+
+根据项目维护者提供的历史背景，Picot 本身 fork 自 [Tau](https://github.com/deflating/tau)。
+截至 2026-10-10，Picot 原地址已无法公开访问，无法重新核实其历史仓库元数据；Tau 已声明停止维护。
+本仓库保留的历史提交、兼容标识和既有版权声明不代表仍在同步这些项目，
+也不代表所有历史内容均为本项目原创。既有 MIT 版权声明继续保留；详情见
 [NOTICE](NOTICE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 本项目使用 [MIT License](LICENSE)。

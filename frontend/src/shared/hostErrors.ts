@@ -17,6 +17,36 @@ export function isRuntimeProcessClosedError(error: unknown): boolean {
 }
 
 export function localizeHostError(error: unknown): Error {
+  const code = error instanceof Error ? error.message : String(error);
+  if ([
+    "Configure the model channel before syncing its catalog.",
+    "Model channel changed while syncing. Refresh and try again.",
+    "Channel revision is unavailable. Refresh or update the desktop runtime before editing.",
+    "A channel with this ID already exists.",
+    "Source channel changed. Refresh and copy it again.",
+    "Copying a channel requires a new channel ID.",
+    "Model channel no longer exists. Refresh and try again.",
+    "Model channel changed while testing. Refresh and try again.",
+    "Model credentials changed while testing. Refresh and try again.",
+    "Configure this channel's API key before testing its connection.",
+    "Add a model ID before testing this channel's connection.",
+    "Configured model is unavailable. Refresh the channel and try again.",
+    "Model health check timed out",
+    "Could not read model channel configuration.",
+    "Channel display name must be at most 100 readable characters.",
+    "Model names must be at most 100 characters.",
+    "Model cost must be an object.",
+    "Model cost needs both input and output prices.",
+    "Model cost must contain nonnegative per-million-token prices.",
+  ].includes(code)) return new Error(t(code));
+  if (code === "model_channel_busy") return new Error(t("Another window is saving model channels. Wait briefly and retry."));
+  if (code === "task_conflict" || code === "task_revision_required") return new Error(t("Tasks changed elsewhere. Refresh the task list before saving again."));
+  if (code === "task_store_busy") return new Error(t("Another process is saving tasks. Wait briefly, then refresh and retry."));
+  if (code === "task_store_invalid" || code === "task_store_too_large") return new Error(t("The task data is invalid or too large. The existing file was preserved."));
+  if (code === "project_profile_invalid") return new Error(t("The project context file is invalid or cannot be read safely. The existing file was preserved. Repair .zicode/project.json, then refresh."));
+  if (code === "project_profile_conflict") return new Error(t("Project context changed in another window. Your draft was kept. Refresh the project, compare the saved version, then save again."));
+  if (code === "project_profile_busy") return new Error(t("Another window is saving project context. Wait briefly and retry."));
+  if (code === "project_profile_revision_required") return new Error(t("Project context revision is unavailable. Refresh the project or update the desktop host before saving."));
   if (isRuntimeProcessClosedError(error)) {
     return new Error(
       t("Pi runtime is disconnected. Try again or start a new session."),
@@ -33,6 +63,12 @@ export function localizeHostError(error: unknown): Error {
 export function friendlyPluginError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const lowered = message.toLowerCase();
+  if (lowered === "model_network_permission_required") return t("Grant Notes network permission in Settings before sending text to a model service.");
+  if (/^model_selection_/.test(lowered)) return t("Choose a configured model. Refresh the model list if the configuration changed.");
+  if (lowered === "model_credential_unavailable") return t("Add the selected channel's API key in Settings, or disable authentication for a local service that does not require it.");
+  if (/^model_config_/.test(lowered)) return t("Could not read this scene's model channels. Check Settings and refresh the model list.");
+  if (/^model_(request|client|worker)_/.test(lowered)) return t("The selected model service could not complete the request. Check its address, credentials and availability.");
+  if (/^model_response_/.test(lowered)) return t("The selected model service returned an invalid or oversized response.");
   // Web Watch / Notes capture: URL validation.
   if (
     /url is invalid|only http and https|url has no host|url host cannot be resolved|url host resolves to a private|enter a valid http/.test(

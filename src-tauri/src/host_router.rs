@@ -5,21 +5,6 @@ use std::collections::HashMap;
 
 pub const PROTOCOL_VERSION: u64 = 2;
 
-const REMOTE_FORBIDDEN_HOST_OPERATIONS: &[&str] = &[
-    "pick_folder",
-    "open_app",
-    "install_package",
-    "remove_package",
-    "install_pi_package",
-    "remove_pi_package",
-    "update_package",
-    "check_for_updates",
-    "install_update",
-    "delete_workspace",
-    "open_workspace",
-    "delete_sessions",
-];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClientKind {
     Desktop,
@@ -121,6 +106,10 @@ impl HostRouter {
         self.clients.get(client_id).copied()
     }
 
+    pub fn disconnect(&mut self, client_id: &str) {
+        self.clients.remove(client_id);
+    }
+
     pub fn route(&self, client_id: &str, frame: &Value) -> Result<RoutedAction, RouterError> {
         let client_kind = self.client_kind(client_id).ok_or_else(|| {
             RouterError::new("unauthorized_client", "Client has not completed handshake")
@@ -166,9 +155,9 @@ impl HostRouter {
                         .ok_or_else(|| {
                             RouterError::new("invalid_host_request", "operation is required")
                         })?;
-                if client_kind == ClientKind::Remote
-                    && REMOTE_FORBIDDEN_HOST_OPERATIONS.contains(&operation)
-                {
+                // Host operations act on this desktop machine. Keep remote
+                // clients out of the entire namespace as new operations arrive.
+                if client_kind == ClientKind::Remote {
                     return Err(RouterError::new(
                         "remote_operation_forbidden",
                         "Remote clients cannot invoke this Host operation",

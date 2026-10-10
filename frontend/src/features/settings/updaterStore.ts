@@ -203,8 +203,10 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       disabled: true,
     });
 
+    const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
+    let updateLeaseHeld = false;
+    let restartOnFailure = true;
     try {
-      const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
       const beta = betaUpdatesEnabled();
       if (beta) {
         const invoke = tauri?.core?.invoke;
@@ -212,10 +214,16 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
           throw new Error("Tauri core API is unavailable");
         }
         await invoke("install_beta_update");
+        updateLeaseHeld = true;
       } else {
         const update = get().update;
         if (typeof update?.downloadAndInstall !== "function") {
           throw new Error("Updater API is unavailable");
+        }
+        const invoke = tauri?.core?.invoke;
+        if (typeof invoke === "function") {
+          await invoke("prepare_background_automation_worker_for_update");
+          updateLeaseHeld = true;
         }
         await update.downloadAndInstall(
           (rawEvent: unknown) => {
@@ -256,6 +264,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
         throw new Error("Tauri process plugin is unavailable");
       }
       await relaunch();
+      restartOnFailure = false;
     } catch (error) {
       get().logger.warn?.("[Updater] Install failed:", error);
       set({
@@ -266,6 +275,15 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
         sidebarVisible: true,
       });
     } finally {
+      if (updateLeaseHeld) {
+        try {
+          await tauri?.core?.invoke?.("finish_background_automation_worker_update", {
+            restartOnFailure,
+          });
+        } catch (error) {
+          get().logger.warn?.("[Updater] Could not release update lock:", error);
+        }
+      }
       set({ installing: false });
     }
   },

@@ -2,9 +2,9 @@
 
 ## Product
 
-**ZiCode Studio Desktop** is a local, multi-scene desktop workspace for the Pi
-agent. It is a Tauri app that bundles its own `pi` runtime — there is no
-separate install of `pi` to manage.
+**ZiCode Studio Desktop** is a local-first, cross-platform personal developer
+platform for projects, AI collaboration, knowledge, automation, and delivery.
+It is a Tauri app that bundles its own `pi` runtime.
 
 ### Architecture
 
@@ -21,7 +21,12 @@ ZiCode Studio Desktop
     WebView  →  /v2/ws  →  HostServer  →  stdio RPC  →  pi
 ```
 
-There are currently no custom Tauri IPC commands. Runtime, data, auth, and extension UI traffic goes through the native host protocol.
+Runtime, project data, and extension UI traffic primarily use the native host
+protocol. Desktop integration also registers app-local Tauri commands in
+`src-tauri/src/main.rs` for workspace windows, scene credentials, plugins,
+notifications, backups, automation worker controls, and project storage scans.
+Keep every registered command declared in `src-tauri/permissions/default.toml`
+and included in its default permission set; run `bun run check:permissions`.
 
 ### Goals
 
@@ -30,16 +35,18 @@ There are currently no custom Tauri IPC commands. Runtime, data, auth, and exten
 - Multi-agent: spawn new agents per project; switch between sessions without leaving the app
 - Native runtime protocol: browser frames are routed by Rust over `/v2/ws`, then forwarded to the managed Pi process over stdio RPC.
 - Visualization: streaming chat, tool-call cards, thinking blocks, token/cost tracking per session
-- Fully self-contained desktop app: zero dependency on the user's PATH / shell environment / globally installed pi
+- Bundle the Pi runtime on every desktop platform; bundle Git, Bash, and the WebView2 offline installer on Windows. macOS and Linux currently use system Git and shell tools.
 
 ### Constraints
 
-- Frontend: vanilla JS, no framework (`public/`)
+- Frontend: React/TypeScript features in `frontend/src/` compile into `public/native/react/`; the surrounding shell and protocol modules in `public/` use vanilla JS.
 - Backend: Rust (Tauri) owns process lifecycle, the HTTP/WebSocket host, routing, and host data APIs
 - PI integration: always via embedded `pi --mode rpc` subprocess — never re-implement PI runtime logic
 - Session history and working directory are isolated per project/port
 - The embedded pi version is the source of truth: `pi --version` shown in the UI comes from `PI_STUDIO_PI_VERSION` (set by Rust at spawn time, populated from `scripts/pi-version.json`). A user-installed pi on `$PATH` is irrelevant and never touched.
 - User extensions under `~/.pi/agent/extensions/` and `<workspace>/.pi/extensions/` are still auto-loaded by the embedded pi (embedding doesn't disable user extensions).
+  Explicit `--isolated-profile <absolute-directory>` disables automatic discovery and uses
+  dedicated Studio state for native acceptance; see `docs/desktop-isolated-profile.md`.
 
 ### PI references
 
@@ -66,7 +73,69 @@ Issues and PRDs are tracked in GitHub Issues via the `gh` CLI. See `docs/agents/
 
 This repo uses the single-context domain docs layout: root `CONTEXT.md` plus ADRs under `docs/adr/`. See `docs/agents/domain.md`.
 
-## Package manager
+## Disk and artifact budget (required)
+
+- Latest user retention policy (2026-10-10): retain one current complete debug runtime
+  and one latest complete release runtime. Reuse `target/debug` and `target/release`;
+  do not export dated daily runtime copies. Before removing superseded copies,
+  preserve referenced evidence and check consumers. A previously denied cleanup
+  remains denied: document exact manual candidates rather than retrying it.
+- Local development keeps the current application version unchanged. Identify work by Git
+  revision, dirty state and evidence date; bump the app version only for an intentional release.
+- Use `bun run dev` for daily work and `bun run build:local` for an explicitly needed local
+  executable (debug, no installer). Both reuse the project `target`; do not export a new full
+  `release/<stage>` directory for each edit or successful check. `bun run build` is for an
+  explicitly requested release/package, not routine validation.
+- Keep dev/test profile settings aligned. Do not vary RUSTFLAGS, feature sets, target paths or
+  profile overrides between checks without a concrete need and a recorded reason. Changing
+  debug information settings causes a one-time cache rebuild; do not clean useful cache first.
+- The retained runtime `release/plugin-contracts-2026-10-09-02bd9552-dirty` is now an immutable
+  base for compact archived dev snapshots. Do not overwrite its files or delete it while those
+  inventories reference it. New daily work runs from `target/debug`; formal release artifacts
+  and plugin contract/tool versions have their own deliberate versioning requirements.
+
+- Before and after a build/test session, run `pwsh -NoProfile -File scripts/storage-budget.ps1`.
+  Follow [disk policy](docs/agents/disk-budget.md). A failed scan is unknown, not zero usage.
+- Use one project-owned Cargo target directory. Do not create per-turn target directories,
+  duplicate toolchains, dependency trees, or full repository copies. Record any explicit override.
+- Reference sizes: Cargo outputs 12 GiB, download cache 1 GiB, task scratch 512 MiB; review
+  output volumes below 20 GiB free. Cache sizes are advisory, never permission to delete data
+  or stop useful development. Preserve caches that subsequent work will reuse (latest user policy).
+- Documentation/contract-only edits require no Rust build, runtime download, or dependency reinstall.
+  Batch code edits, run relevant checks once, and reuse cache until diagnosis and reruns finish.
+- Preserve useful build output across validation milestones. Only clean genuinely unreferenced
+  output after proving its resolved target is project-owned,
+  no consumer is active, and deliverable EXEs/installers have been retained outside that target.
+- New scratch belongs in `.cache/task-scratch/<task-id>` with an owner/purpose and bounded lifetime;
+  remove this task's unreferenced scratch after completion. Keep compact failure logs, latest pass
+  evidence and referenced representative screenshots. Preserve existing historical evidence.
+- Never delete source, uncommitted/untracked work, lockfiles, installed dependencies, runtime
+  resources, releases, user data, credentials, archives or another project's caches just for size.
+  Inspect candidates first; `git clean -xfd`, recursive cross-shell deletes and bypassing a denied
+  cleanup are prohibited. Report logical bytes separately from observed volume free-space change.
+- Windows stage delivery keeps a runnable directory and EXE. Do not also produce ZIP copies.
+  A signed `.zicode-plugin` is the plugin protocol container, not a duplicate application archive.
+
+## Independent plugin producers
+
+- The ZiDevTools integration goal is its entire tool catalog, including planned and partial entries.
+  Maintain [the all-tools scope](docs/plugins/devtools-all-tools.md) and its per-tool matrix.
+  Five pilot capabilities are a milestone, never completion of this integration goal.
+  Record every blocked tool with its reason, missing Host/provider capability, workaround,
+  owner and reopening condition. Do not silently omit tools or equate temporary blockers with
+  permanent incompatibility; new catalog entries must be added to the matrix.
+- ZiDevTools integration follows [the interoperability contract](docs/plugins/devtools-interoperability.md).
+- Exchange versioned plugin packages and portable contract snapshots only. Do not add sibling-repo
+  imports, Cargo path dependencies, symlinks, shared mutable config/data, or require ZiDevTools.exe.
+- Received directories under `tests/fixtures/devtools-*/` are byte-frozen provider artifacts.
+  Keep them excluded from repository formatting and automatic fixes. Validate file counts,
+  sizes and SHA-256 against their receipt before runtime acceptance; never update expected
+  digests merely to make a failed check pass. Preserve drift evidence before any verified repair.
+- ZiDevTools owns tool implementations and its standalone UI; Studio owns the generic Host,
+  permissions, install lifecycle and integration acceptance. New Host APIs require an explicit
+  versioned extension and conformance evidence before providers advertise support.
+
+## Package manager commands
 
 Use **Bun** exclusively. Never run `npm install` or `npm ci` — this would create a stray `package-lock.json` that drifts from `bun.lock` and confuses CI (`bun install --frozen-lockfile`).
 
@@ -78,13 +147,14 @@ bun run <script>                # run package.json scripts
 ## Common commands
 
 ```bash
-bun run dev              # fetch embedded pi binary, then start tauri dev (hot reload)
+bun run dev              # prepare runtime, extensions, React output, then start tauri dev
 bun run test             # vitest run + check-tauri-permissions
 bun run test:watch       # vitest in watch mode
-bun run check:rust       # cargo check + clippy + fmt (use after every Rust edit)
+bun run check:rust:static # cargo check + clippy + fmt (use after every Rust edit)
+bun run check:rust       # same checks plus cargo test when testing is requested
 bun run fetch:pi         # download the locked pi binary into src-tauri/resources/pi/
 bun run build:extensions # compile picot-bridge and pi-chat extensions into extensions/dist/
-bun run build            # full release build (runs prebuild: fetch:pi + build:extensions)
+bun run build            # full release build (Tauri beforeBuildCommand prepares resources and UI)
 ```
 
 Single test file: `bun run vitest run public/settings-save-status.test.js`
@@ -121,7 +191,7 @@ Before editing CSS or UI controls, read [`docs/DESIGN.md`](docs/DESIGN.md). Use 
 
 ## Module Design
 
-The frontend (`public/`) is vanilla JS with **no framework**. Keep it modular. See [`docs/MODULE_SPLIT_PLAN.md`](docs/MODULE_SPLIT_PLAN.md) for the current large-file inventory and extraction roadmap.
+The frontend combines React/TypeScript feature views under `frontend/src/` with vanilla JS shell and protocol modules under `public/`. Keep both modular. See [`docs/MODULE_SPLIT_PLAN.md`](docs/MODULE_SPLIT_PLAN.md) for the current large-file inventory and extraction roadmap.
 
 ### Rules
 
@@ -152,7 +222,7 @@ ZiCode Studio Desktop is a Tauri v2 app. The three main layers:
 - `src-tauri/src/host_server.rs` — owns the HTTP/WebSocket host (`/v2/ws`, `/v2/bootstrap`) and dispatches protocol frames.
 - `src-tauri/src/pi_launch.rs` — resolves the bundled pi binary and bundled compatibility bridge extension.
 
-**2. Frontend (`public/`)** — vanilla JS, no framework.
+**2. Frontend (`frontend/src/` and `public/`)** — React feature views plus vanilla JS shell and protocol modules.
 - `bootstrap-entry.js` + `native/app.js` — native host protocol entry point, wires up all native modules
 
 `public/native/` is organized into domain subdirectories. Each directory owns its JS, CSS, and test files:
@@ -201,35 +271,35 @@ Cross-subdir import conventions:
 
 End users never run `fetch:pi`. The flow that puts `pi` inside the shipped bundle is:
 
-1. **Pre-build hook.** `package.json` `prebuild` runs `bun run fetch:pi` before `tauri build`. Downloads the platform tarball into `src-tauri/resources/pi/` (idempotent; skipped if `.version` matches). Bun honors npm-style `pre*` / `post*` lifecycle hooks for `bun run`.
-2. **Tauri before-hooks.** `tauri.conf.json` `build.beforeBuildCommand` and `build.beforeDevCommand` BOTH run `bun run fetch:pi` first, so even invoking `tauri build` / `tauri dev` directly (no `bun run build`) still guarantees the binary is present.
-3. **Tauri bundling.** `tauri.conf.json` `bundle.resources` maps `./resources/pi` → `pi`, so the entire pi runtime tree is copied into `<App>.app/Contents/Resources/pi/` at package time.
-4. **Last-line guard (build.rs).** `src-tauri/build.rs` PANICS at compile time if `resources/pi/<bin>` is missing in a release profile. This prevents `cargo build --release` (or any IDE that bypasses bun) from silently producing a .app with no pi inside. Override only for local experiments via `PI_STUDIO_SKIP_BIN_CHECK=1`.
+1. **Tauri before-hooks.** `tauri.conf.json` `build.beforeBuildCommand` and `build.beforeDevCommand` run `bun run fetch:pi`. The release hook also prepares the other bundled resources, extensions, React output, and CSS. `bun run build` invokes the project Tauri CLI, which runs this hook; direct `tauri build` / `tauri dev` calls use the same hooks.
+2. **Tauri bundling.** `tauri.conf.json` `bundle.resources` maps `./resources/pi` → `pi`, so the entire pi runtime tree is copied into `<App>.app/Contents/Resources/pi/` at package time.
+3. **Last-line guard (build.rs).** `src-tauri/build.rs` PANICS at compile time if `resources/pi/<bin>` is missing in a release profile. This prevents `cargo build --release` (or any IDE that bypasses Tauri) from silently producing a .app with no pi inside. Override only for local experiments via `PI_STUDIO_SKIP_BIN_CHECK=1`.
 
 Net effect: there is no path that ships a ZiCode Studio Desktop release without
-the embedded pi binary. End users get a self-contained app — no PATH lookups,
-no `bun run fetch:pi`, no manual install of pi.
+the embedded pi binary. End users do not need `bun run fetch:pi` or a manual
+install of pi. macOS and Linux currently use system Git and shell tools.
 
 ## Post-fix verification (Rust / Tauri)
 
-After every edit under `src-tauri/` (or any Rust fix), run the lint+check script before declaring the work done. It catches compile-time errors (e.g. `E0282`, `E0061`, Tauri v1→v2 API drift, deprecated APIs) without producing a binary, so it is much faster than `tauri build`.
+After every edit under `src-tauri/` (or any Rust fix), run the static lint+check script before declaring the work done. It catches compile-time errors (e.g. `E0282`, `E0061`, Tauri v1→v2 API drift, deprecated APIs) without producing a binary, so it is much faster than `tauri build`. The full script also runs Rust tests and remains the release gate.
 
 ```bash
-bun run check:rust
+bun run check:rust:static
 # or directly
-bash scripts/check-rust.sh
+bash scripts/check-rust.sh --static-only
 ```
 
 `scripts/check-rust.sh` runs, in order:
 
 1. `cargo check --all-targets` — type/borrow/API signature check (~1–5s).
-2. `cargo clippy --all-targets -- -D warnings` — lints, warnings as errors.
-3. `cargo fmt --check` — advisory only; prints a hint if formatting drifts, but does not fail the script.
+2. In the full `check:rust` mode only, `cargo test` — compile and run Rust tests.
+3. `cargo clippy --all-targets -- -D warnings` — lints, warnings as errors.
+4. `cargo fmt --check` — advisory only; prints a hint if formatting drifts, but does not fail the script.
 
 ### Rules
 
-- **Never** run `tauri build` / `cargo build` just to verify a fix — use `bun run check:rust` instead. Per project policy, full builds are not used for verification.
-- After editing any `*.rs` file under `src-tauri/`, run `bun run check:rust` and only mark the task complete if it exits 0.
+- **Never** run `tauri build` / `cargo build` just to verify a fix — use `bun run check:rust:static` instead. Per project policy, full builds are not used for verification.
+- After editing any `*.rs` file under `src-tauri/`, run `bun run check:rust:static` and only mark the task complete if it exits 0. Run `bun run check:rust` when tests are requested or required by the release process.
 - When upgrading Tauri or its plugins, run the script first to surface any deprecation warnings before touching feature code.
 
 ## Auto-updater
@@ -238,5 +308,14 @@ ZiCode Studio Desktop includes the Tauri v2 updater plugin, but updater artifact
 are disabled while the repository is private. See `docs/AUTO_UPDATER.md`.
 
 ## Tests
+
+For local Windows full Rust checks involving cold WASI compilation, prefer
+`RUST_TEST_THREADS=2` for the test harness to avoid oversubscribing the machine.
+Preserve an explicitly selected thread count and record the actual setting in
+the validation receipt. This controls concurrency between tests only: do not
+reduce each test's internal load, skip assertions, increase production Worker
+budgets, or treat a prior default-concurrency failure as erased by a rerun.
+Run required ignored real-runtime acceptance tests separately and retain their
+failures even when the ordinary full suite passes.
 
 Vitest tests live in `public/` as `*.test.js` files (jsdom environment). The full `bun run test` also runs `scripts/check-tauri-permissions.js` to validate Tauri capability permissions.

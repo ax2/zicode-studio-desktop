@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDocumentsStore, type DocumentsGateway } from "./documentsStore";
-import { setLocale } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
+import { setLocale } from "../../shared/i18n";
+import { createDocumentsStore, type DocumentsGateway } from "./documentsStore";
 
 const RESULT = {
   ok: true,

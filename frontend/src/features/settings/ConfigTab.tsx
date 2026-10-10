@@ -459,6 +459,7 @@ function ProviderChannelsPanel({ store }: { store: ConfigStore }) {
   }
   return (
     <>
+      {error ? <p role="alert">{error}</p> : null}
       {channels.map((channel) => (
         <ChannelRow key={channel.provider} store={store} channel={channel} />
       ))}
@@ -467,41 +468,86 @@ function ProviderChannelsPanel({ store }: { store: ConfigStore }) {
 }
 
 function ChannelRow({ store, channel }: { store: ConfigStore; channel: ProviderChannel }) {
+  const syncing = store((state) => state.syncingChannel);
+  const testing = store((state) => state.testingChannel);
+  const toggling = store((state) => state.togglingChannel);
+  const editorOpen = store((state) => state.channelEditor !== null);
+  const saving = store((state) => state.channelSaving);
+  const check = store((state) => state.channelCheck);
   return (
     <div className="provider-channel-row">
       <div>
-        <strong>{channel.builtIn ? "QVeris Model Gateway" : channel.provider}</strong>
+        <strong>{channel.displayName || channel.provider}</strong>
+        {channel.enabled === false ? (
+          <span className="ui-badge" title={t("Enable this channel before making requests.")}>
+            {t("Disabled")}
+          </span>
+        ) : null}
         <span>
-          {channel.api} · {channel.baseUrl}
+          {channel.displayName ? `${channel.provider} · ` : ""}{channel.api} · {channel.baseUrl}
         </span>
       </div>
       <div>
         <button
           type="button"
           className="ui-button ui-button--secondary"
+          disabled={!channel.revision || editorOpen || saving || Boolean(testing) || Boolean(syncing) || Boolean(toggling)}
+          aria-busy={toggling === channel.provider}
+          onClick={() => void store.getState().setChannelEnabled(channel, channel.enabled === false)}
+        >
+          {toggling === channel.provider
+            ? t(channel.enabled === false ? "Enabling channel…" : "Disabling channel…")
+            : t(channel.enabled === false ? "Enable channel" : "Disable channel")}
+        </button>
+        <button
+          type="button"
+          className="ui-button ui-button--secondary"
+          disabled={Boolean(toggling)}
           onClick={() => void store.getState().openChannelEditor(channel)}
         >
           {t("Edit")}
         </button>
-        {channel.builtIn ? (
+        <button
+          type="button"
+          className="ui-button ui-button--secondary"
+          disabled={Boolean(toggling)}
+          onClick={() => store.getState().duplicateChannel(channel)}
+        >
+          {t("Copy channel")}
+        </button>
+        <button
+          type="button"
+          className="ui-button ui-button--secondary"
+          disabled={channel.enabled === false || Boolean(testing) || Boolean(syncing) || Boolean(toggling)}
+          aria-busy={testing === channel.provider}
+          title={t("A connection check may make one short model request and incur provider charges.")}
+          onClick={() => void store.getState().testChannelConnection(channel)}
+        >
+          {testing === channel.provider ? t("Checking connection…") : t("Test connection")}
+        </button>
+        {channel.catalogSync ? (
           <button
             type="button"
             className="ui-button ui-button--secondary"
-            disabled={channel.configured !== true}
-            onClick={() => void store.getState().loadChannels()}
+            disabled={channel.enabled === false || (channel.authHeader !== false && channel.configured !== true) || Boolean(syncing) || Boolean(toggling)}
+            aria-busy={syncing === channel.provider}
+            onClick={() => void store.getState().syncChannel(channel)}
           >
-            {t("Refresh models")}
+            {t(channel.catalogSync === "openai" ? "Discover models" : "Refresh models")}
           </button>
         ) : null}
         <button
           type="button"
           className="ui-button ui-button--secondary danger"
-          style={channel.builtIn === true ? { display: "none" } : undefined}
+          disabled={Boolean(toggling)}
           onClick={() => void store.getState().removeChannel(channel)}
         >
           {t("Remove")}
         </button>
       </div>
+      {check && check.provider === channel.provider ? (
+        <p role="status" aria-live="polite" data-tone={check.ok ? "ok" : "error"}>{check.message}</p>
+      ) : null}
     </div>
   );
 }
@@ -510,6 +556,7 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
   const form = store((state) => state.channelEditor);
   const saving = store((state) => state.channelSaving);
   const error = store((state) => state.channelEditorError);
+  const notice = store((state) => state.channelEditorNotice);
   const setForm = store((state) => state.setChannelForm);
   const close = store((state) => state.closeChannelEditor);
   const save = store((state) => state.saveChannel);
@@ -533,8 +580,18 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
           pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
           placeholder="team-proxy"
           value={form.provider}
-          readOnly={false}
           onChange={(event) => setForm({ provider: event.target.value })}
+        />
+      </label>
+      <label>
+        <span>{t("Display name")}</span>
+        <input
+          className="ui-input"
+          id="provider-channel-display-name"
+          maxLength={100}
+          placeholder={t("Optional channel name")}
+          value={form.displayName}
+          onChange={(event) => setForm({ displayName: event.target.value })}
         />
       </label>
       <label className="provider-channel-wide">
@@ -574,8 +631,9 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
           className="ui-input"
           id="provider-channel-api-key"
           type="password"
+          disabled={!form.authHeader}
           autoComplete="new-password"
-          placeholder={t("Leave blank to keep current key")}
+          placeholder={t(form.originalProvider ? "Leave blank to keep current key" : "Enter a key for this channel if required")}
           value={form.apiKey}
           onChange={(event) => setForm({ apiKey: event.target.value })}
         />
@@ -586,17 +644,40 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
         ) : null}
       </label>
       <label className="provider-channel-wide">
+        <input
+          type="checkbox"
+          checked={form.authHeader}
+          onChange={(event) =>
+            setForm({ authHeader: event.target.checked, ...(event.target.checked ? {} : { apiKey: "" }) })
+          }
+        />
+        <span>{t("Send API key as a bearer token")}</span>
+        <span>{t("Disable only for a model service that does not require authentication.")}</span>
+      </label>
+      <label className="provider-channel-wide">
         <span>{t("Models (one ID per line)")}</span>
         <textarea
           className="ui-textarea"
           id="provider-channel-models"
-          required
+          required={!(["openai-completions", "openai-responses"].includes(form.api))}
           rows={4}
           placeholder={"gpt-5.2\ngpt-5.2-codex"}
           value={form.modelsText}
           onChange={(event) => setForm({ modelsText: event.target.value })}
         ></textarea>
       </label>
+      <details className="provider-channel-wide">
+        <summary>{t("Model details JSON")}</summary>
+        <p className="settings-help">{t("Optional model name, contextWindow, maxTokens, and cost per million tokens. IDs must match the list above.")}</p>
+        <textarea
+          className="ui-textarea"
+          id="provider-channel-model-details"
+          rows={8}
+          spellCheck={false}
+          value={form.modelDetailsJson}
+          onChange={(event) => setForm({ modelDetailsJson: event.target.value })}
+        ></textarea>
+      </details>
       <div
         className="settings-save-status provider-channel-wide"
         id="provider-channel-status"
@@ -604,7 +685,7 @@ function ChannelEditorForm({ store }: { store: ConfigStore }) {
         role="status"
         data-tone={error ? "error" : undefined}
       >
-        {error || ""}
+        {error || notice || ""}
       </div>
       <div className="settings-config-actions provider-channel-wide">
         <button
@@ -724,9 +805,10 @@ function describeModelHealth(health: {
   latencyMs?: number;
   error?: string;
 }): string {
-  if (!health || health.status === "unknown") return t("Health unknown");
+  if (!health || health.status === "unknown")
+    return health?.error ? `${t("Health unknown")}: ${t(health.error)}` : t("Health unknown");
   if (health.status === "healthy") {
     return health.latencyMs ? `${t("Healthy")} (${health.latencyMs}ms)` : t("Healthy");
   }
-  return health.error ? `${t("Failed")}: ${health.error}` : t("Failed");
+  return health.error ? `${t("Failed")}: ${t(health.error)}` : t("Failed");
 }

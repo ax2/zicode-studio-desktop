@@ -1,5 +1,5 @@
-import { create } from "zustand";
 import type { StoreApi, UseBoundStore } from "zustand";
+import { create } from "zustand";
 import { PluginMainShell } from "./PluginSidebarShellApp";
 
 export type { PluginMainShell };

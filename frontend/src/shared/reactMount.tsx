@@ -1,10 +1,10 @@
-import { flushSync } from "react-dom";
-import { createRoot, type Root } from "react-dom/client";
+import type { ErrorInfo, ReactNode } from "react";
 // The app's vendored React bundle exports the full React object only as the
 // default export; named exports cover hooks and helpers but NOT `Component`.
 // Class components must therefore extend React.Component (default import).
 import React from "react";
-import type { ErrorInfo, ReactNode } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { t } from "./i18n";
 
 interface ErrorBoundaryState {

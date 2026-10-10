@@ -1,11 +1,6 @@
 import { t } from "../../shared/i18n";
 
-export type PluginManagerFilter =
-  | "installed"
-  | "builtIn"
-  | "disabled"
-  | "developer"
-  | "signed";
+export type PluginManagerFilter = "installed" | "builtIn" | "disabled" | "developer" | "signed";
 
 export interface ManagedPlugin {
   id: string;
@@ -16,6 +11,8 @@ export interface ManagedPlugin {
   core?: boolean;
   enabled?: boolean;
   publisher?: string;
+  version?: string;
+  capabilities?: Array<{ id?: string; title?: string; description?: string }>;
   publisherKeyId?: string;
   retainedVersions?: string[];
   permissions?: Record<string, boolean>;
@@ -25,10 +22,7 @@ export interface ManagedPlugin {
   };
 }
 
-export function matchesFilter(
-  plugin: ManagedPlugin,
-  filter: PluginManagerFilter,
-): boolean {
+export function matchesFilter(plugin: ManagedPlugin, filter: PluginManagerFilter): boolean {
   if (filter === "builtIn") return plugin.origin === "builtIn";
   if (filter === "developer") return plugin.origin === "developer";
   if (filter === "signed") return plugin.origin === "signed";
@@ -78,10 +72,7 @@ export function helpPageForPlugin(pluginId: string): string | null {
 export function friendlyPluginError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const fallbacks: Array<[RegExp, string]> = [
-    [
-      /must use the \.zicode-plugin extension/i,
-      t("Choose a .zicode-plugin package file."),
-    ],
+    [/must use the \.zicode-plugin extension/i, t("Choose a .zicode-plugin package file.")],
     [
       /no larger than (50 MiB|10 MiB)|exceeds 50 MiB|exceeds 10 MiB|expands beyond/i,
       t("The plugin package is too large."),
@@ -106,10 +97,7 @@ export function friendlyPluginError(error: unknown): string {
       /cannot (select|resolve) plugin directory|not a directory/i,
       t("Please choose a plugin directory."),
     ],
-    [
-      /cannot create plugin registry directory/i,
-      t("Could not access the plugin folder."),
-    ],
+    [/cannot create plugin registry directory/i, t("Could not access the plugin folder.")],
   ];
   for (const [pattern, friendly] of fallbacks) {
     if (pattern.test(message)) return friendly;

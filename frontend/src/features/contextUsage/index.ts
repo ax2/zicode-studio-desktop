@@ -1,13 +1,13 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { t } from "../../shared/i18n";
 import { ContextVizApp, TokenUsagePill } from "./ContextUsageApp";
 import {
   formatTokens,
   normalizeUsage,
-  usageTotal,
   type UsageLike,
+  usageTotal,
 } from "./contextUsageLogic";
 
 export interface ContextUsageControl {

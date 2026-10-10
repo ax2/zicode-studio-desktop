@@ -80,6 +80,7 @@ export async function resolveRemoteAuth({
   storage = globalThis.localStorage,
   fetchImpl = globalThis.fetch,
   navigatorRef = globalThis.navigator,
+  desktopToken = globalThis.__zicodeDesktopToken || "",
 } = {}) {
   const url = new URL(location.href);
   const pairingToken = url.searchParams.get(PAIRING_QUERY_KEY);
@@ -122,8 +123,8 @@ export async function resolveRemoteAuth({
 
   const deviceToken = storage.getItem(DEVICE_TOKEN_KEY) || "";
   syncDeviceTokenCookie(deviceToken);
-  if (isLoopbackHost(url.hostname)) {
-    return { clientType: "desktop", deviceToken: "" };
+  if (isLoopbackHost(url.hostname) && desktopToken) {
+    return { clientType: "desktop", deviceToken: "", desktopToken };
   }
   if (!deviceToken) {
     throw remoteAuthError(
@@ -136,19 +137,21 @@ export async function resolveRemoteAuth({
 
 export function createAuthenticatedHostFetch({
   deviceToken = "",
+  desktopToken = "",
   location = globalThis.location,
   fetchImpl = globalThis.fetch,
 } = {}) {
   const hostOrigin = location?.origin;
   return (input, init) => {
-    if (!deviceToken || !hostOrigin) return fetchImpl(input, init);
+    if ((!deviceToken && !desktopToken) || !hostOrigin) return fetchImpl(input, init);
     const requestUrl = new URL(
       typeof input === "string" || input instanceof URL ? String(input) : input.url,
       hostOrigin,
     );
     if (requestUrl.origin !== hostOrigin) return fetchImpl(input, init);
     const headers = new Headers(init?.headers ?? input?.headers);
-    headers.set("authorization", `Bearer ${deviceToken}`);
+    if (deviceToken) headers.set("authorization", `Bearer ${deviceToken}`);
+    if (desktopToken) headers.set("x-zicode-desktop-token", desktopToken);
     return fetchImpl(input, { ...init, headers });
   };
 }

@@ -3,16 +3,16 @@ import type { ImageToolsOptions } from "./imagetoolsStore";
 import { ImageToolsHttpGateway } from "./imagetoolsStore";
 
 export { createImageToolsApp } from "./ImageToolsApp";
-export { ImageToolsHttpGateway } from "./imagetoolsStore";
-export type { ImageToolsOptions } from "./imagetoolsStore";
 export {
   downscaleImage,
+  FIT_MODES,
+  FLIPS,
   formatBytes,
   OUTPUT_FORMATS,
-  FIT_MODES,
   ROTATIONS,
-  FLIPS,
 } from "./imagetoolsLogic";
+export type { ImageToolsOptions } from "./imagetoolsStore";
+export { ImageToolsHttpGateway } from "./imagetoolsStore";
 
 // Keep the setupXxxApp contract used by the vanilla plugin shell.
 export function setupImageToolsApp(options: ImageToolsOptions) {

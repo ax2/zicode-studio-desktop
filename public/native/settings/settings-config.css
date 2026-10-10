@@ -60,6 +60,7 @@
 
 .provider-channel-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -76,6 +77,12 @@
   gap: var(--space-0-5);
 }
 
+.provider-channel-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .provider-channel-row span {
   overflow: hidden;
   color: var(--text-dim);
@@ -84,10 +91,21 @@
   white-space: nowrap;
 }
 
-.provider-channel-row > div:last-child {
+.provider-channel-row > div:nth-child(2) {
   display: flex;
   flex-shrink: 0;
+  flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+.provider-channel-row > p[role="status"] {
+  width: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.provider-channel-row > p[data-tone="error"] {
+  color: var(--danger, #e53935);
 }
 
 .provider-channel-row .danger {

@@ -39,6 +39,61 @@ function lastWrittenTasks(call) {
 }
 
 describe("super-agent-runtime", () => {
+  it("does not auto-dispatch drafts even when an old flag requests dispatch", async () => {
+    const call = mockConfig({
+      tasks: [
+        {
+          id: "draft",
+          status: "draft",
+          title: "Later",
+          targetProject: "/project",
+          automation: { autoDispatch: true },
+        },
+      ],
+    });
+    const runtime = document.createElement("super-agent-runtime");
+    const dispatch = vi.fn();
+    runtime.addEventListener("sa-dispatch", dispatch);
+    document.body.appendChild(runtime);
+    await vi.waitFor(() => expect(runtime._tasks).toHaveLength(1));
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(call.mock.calls.some(([operation]) => operation === "write_super_agent_tasks")).toBe(
+      false,
+    );
+    expect(runtime.querySelector('[data-action="approve"]')).toBeNull();
+  });
+  it("does not dispatch a manually approved task when saving its claim conflicts", async () => {
+    const tasks = [
+      {
+        id: "race",
+        title: "Race",
+        status: "pending",
+        targetProject: "/project",
+        automation: { autoDispatch: true },
+      },
+    ];
+    const call = vi.fn(async (operation) =>
+      operation === "read_super_agent_tasks"
+        ? { ok: true, data: { tasks, revision: "read-version" } }
+        : operation === "write_super_agent_tasks"
+          ? { ok: false, error: "task_conflict" }
+          : { ok: true, data: { projects: [] } },
+    );
+    window.__picotConfigCall = call;
+    const runtime = new (customElements.get("super-agent-runtime"))();
+    const dispatched = vi.fn();
+    runtime.addEventListener("sa-dispatch", dispatched);
+    document.body.appendChild(runtime);
+    await vi.waitFor(() => expect(runtime._tasks).toHaveLength(1));
+    runtime.querySelector('[data-action="approve"]').click();
+    await vi.waitFor(() => expect(runtime.querySelector("[data-task-save-error]")).not.toBeNull());
+    expect(dispatched).not.toHaveBeenCalled();
+    expect(call).toHaveBeenCalledWith(
+      "write_super_agent_tasks",
+      expect.objectContaining({ revision: "read-version" }),
+    );
+    expect(runtime._tasks[0].status).toBe("pending");
+  });
   beforeEach(() => {
     document.body.innerHTML = "";
     localStorage.clear();
@@ -530,7 +585,7 @@ describe("super-agent-runtime", () => {
     expect(written.some((task) => task.id === "done-1")).toBe(false);
   });
 
-  it("auto-dispatches non-approval automation tasks without a click", async () => {
+  it("observes automatic and approval tasks without claiming the Host's queued work", async () => {
     const call = mockConfig({
       tasks: [
         {
@@ -564,10 +619,12 @@ describe("super-agent-runtime", () => {
     await Promise.resolve();
 
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(dispatches).toEqual(["auto-1"]);
+    await runtime._poll();
+    expect(dispatches).toEqual([]);
     const written = lastWrittenTasks(call);
-    expect(written).toContainEqual(expect.objectContaining({ id: "auto-1", status: "running" }));
-    expect(written).toContainEqual(expect.objectContaining({ id: "manual-1", status: "pending" }));
+    expect(written).toBeNull();
+    expect(runtime._tasks).toContainEqual(expect.objectContaining({ id: "auto-1", status: "pending" }));
+    expect(runtime._tasks).toContainEqual(expect.objectContaining({ id: "manual-1", status: "pending" }));
   });
 
   it("links from the Agent Inbox panel to the Task app", async () => {

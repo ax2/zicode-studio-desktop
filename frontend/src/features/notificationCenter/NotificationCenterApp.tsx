@@ -1,5 +1,5 @@
-import { flushSync } from "react-dom";
 import { useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { t } from "../../shared/i18n";
 import type { NotificationKind } from "./notificationCenterLogic";
 

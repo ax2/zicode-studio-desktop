@@ -1,0 +1,4724 @@
+{
+  "version": "0.82.0-dev.103",
+  "updated": "2026-10-09",
+  "tools": [
+    {
+      "id": "json",
+      "name": "JSON",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "格式化、压缩与校验 JSON；同仓共享纯Rust核心，可选插件兼容模式（8192 UTF-8字节、JSON深度/重复键/安全整数与严格Base64）；五项WASI能力为未签名候选，Studio真实接入待验收",
+      "discovery": {
+        "label": "JSON",
+        "summary": "格式化、压缩与校验 JSON",
+        "category": "数据与格式",
+        "keywords": "format validate minify 格式 校验 压缩",
+        "aliases": [
+          "json格式化",
+          "格式化json",
+          "json校验",
+          "压缩json"
+        ]
+      },
+      "tool_version": "1.1.3",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "共享Rust核心及可选插件兼容模式；独立版默认行为保留。WASI/View候选独立验收，不代表Host已接入。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-07",
+          "changes": "小窗口自适应文本区域、操作前置、兼容模式字节反馈；超限输入在构建请求前拒绝，插件结果超限重用有明确原因"
+        },
+        {
+          "version": "1.1.2",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.1.3",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "base64",
+      "name": "Base64",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "UTF-8 文本与 Base64 编解码；同仓共享纯Rust核心，可选插件兼容模式（8192 UTF-8字节、JSON深度/重复键/安全整数与严格Base64）；五项WASI能力为未签名候选，Studio真实接入待验收",
+      "discovery": {
+        "label": "Base64",
+        "summary": "UTF-8 文本与 Base64 编解码",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": [
+          "base64解码",
+          "base64编码"
+        ]
+      },
+      "tool_version": "1.1.3",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "共享Rust核心及可选插件兼容模式；独立版默认行为保留。WASI/View候选独立验收，不代表Host已接入。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-07",
+          "changes": "小窗口自适应文本区域、操作前置、兼容模式字节反馈；超限输入在构建请求前拒绝，插件结果超限重用有明确原因"
+        },
+        {
+          "version": "1.1.2",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.1.3",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "url",
+      "name": "URL 编码",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "URL 参数百分号编码与还原",
+      "discovery": {
+        "label": "URL 编码",
+        "summary": "URL 参数百分号编码与还原",
+        "category": "网络与接口",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "sha256",
+      "name": "SHA-256 文本摘要",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "计算文本的 SHA-256 摘要；同仓共享纯Rust核心，可选插件兼容模式（8192 UTF-8字节、JSON深度/重复键/安全整数与严格Base64）；五项WASI能力为未签名候选，Studio真实接入待验收",
+      "discovery": {
+        "label": "SHA-256 文本摘要",
+        "summary": "计算文本的 SHA-256 摘要",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.3",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "共享Rust核心及可选插件兼容模式；独立版默认行为保留。WASI/View候选独立验收，不代表Host已接入。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-07",
+          "changes": "小窗口自适应文本区域、操作前置、兼容模式字节反馈；超限输入在构建请求前拒绝，插件结果超限重用有明确原因"
+        },
+        {
+          "version": "1.1.2",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.1.3",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "timestamp",
+      "name": "时间戳",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "Unix 时间戳与本地时间转换",
+      "discovery": {
+        "label": "时间戳",
+        "summary": "Unix 时间戳与本地时间转换",
+        "category": "时间与生成",
+        "keywords": "time date 时间 日期",
+        "aliases": [
+          "时间戳转换",
+          "shijianchuo",
+          "sjc"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "uuid",
+      "name": "UUID",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "生成随机 UUID v4",
+      "discovery": {
+        "label": "UUID",
+        "summary": "生成随机 UUID v4",
+        "category": "时间与生成",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        }
+      ]
+    },
+    {
+      "id": "jwt",
+      "name": "JWT 内容查看",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "查看 Header 与 Payload；不验证签名",
+      "discovery": {
+        "label": "JWT 内容查看",
+        "summary": "查看 Header 与 Payload；不验证签名",
+        "category": "网络与接口",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "regex",
+      "name": "正则表达式",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "查找匹配与捕获组",
+      "discovery": {
+        "label": "正则表达式",
+        "summary": "查找匹配与捕获组",
+        "category": "文本与编码",
+        "keywords": "regex match 正则 匹配",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "name": "进制转换",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "二、八、十、十六进制互转",
+      "discovery": {
+        "label": "进制转换",
+        "summary": "二、八、十、十六进制互转",
+        "category": "时间与生成",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "ascii-codes",
+      "name": "ASCII 码表",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "0–127 十进制、十六进制、可显示字符与控制符名称查询；可复制可显示字符",
+      "discovery": {
+        "label": "ASCII 码表",
+        "summary": "0–127 十进制、十六进制和控制符名称查询",
+        "category": "文本与编码",
+        "keywords": "ascii code decimal hex character control 码表 字符 编码",
+        "aliases": [
+          "ascii码表",
+          "查ascii"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "symbol-library",
+      "name": "特殊字符与表情",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "按分类或名称搜索常用符号、Emoji 和颜文字，一键复制；精选库不等于完整 Unicode",
+      "discovery": {
+        "label": "特殊字符与表情",
+        "summary": "分类查找并复制符号、Emoji 和颜文字",
+        "category": "文本与编码",
+        "keywords": "symbols emoji kaomoji unicode 特殊字符 表情 颜文字 符号",
+        "aliases": [
+          "特殊符号",
+          "颜文字",
+          "表情字符"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "ascii-art",
+      "name": "ASCII Art 字符画",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "内置 5×7 英文与数字横幅、本机 PNG/JPEG/WebP 按亮度转换字符画，宽度控制、复制和不覆盖另存 TXT",
+      "discovery": {
+        "label": "ASCII Art 字符画",
+        "summary": "文字横幅与本机图片字符画生成",
+        "category": "文本与编码",
+        "keywords": "ascii art banner image text 字符画 图片 文字 横幅",
+        "aliases": [
+          "生成字符画",
+          "文字画"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "qr",
+      "name": "二维码",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "从文本生成二维码并保存 PNG",
+      "discovery": {
+        "label": "二维码",
+        "summary": "从文本生成二维码并保存 PNG",
+        "category": "时间与生成",
+        "keywords": "",
+        "aliases": [
+          "生成二维码",
+          "二维码生成",
+          "erweima",
+          "ewm"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "color",
+      "name": "颜色转换",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "HEX、RGB、HSL 颜色表示",
+      "discovery": {
+        "label": "颜色转换",
+        "summary": "HEX、RGB、HSL 颜色表示",
+        "category": "时间与生成",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "text-stats",
+      "name": "文本统计",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "字符、字节、行数与词段统计",
+      "discovery": {
+        "label": "文本统计",
+        "summary": "字符、字节、行数与词段统计",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "html-escape",
+      "name": "HTML 转义",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "HTML 特殊字符转义与还原",
+      "discovery": {
+        "label": "HTML 转义",
+        "summary": "HTML 特殊字符转义与还原",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "text-escape",
+      "name": "文本转义",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "JSON 字符串转义与还原",
+      "discovery": {
+        "label": "文本转义",
+        "summary": "JSON 字符串转义与还原",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "case-convert",
+      "name": "命名转换",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "camel、Pascal、snake 与 kebab 命名",
+      "discovery": {
+        "label": "命名转换",
+        "summary": "camel、Pascal、snake 与 kebab 命名",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "yaml",
+      "name": "YAML / JSON",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "YAML 与 JSON 双向转换",
+      "discovery": {
+        "label": "YAML / JSON",
+        "summary": "YAML 与 JSON 双向转换",
+        "category": "数据与格式",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "hex",
+      "name": "UTF-8 / Hex",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "UTF-8 文本与十六进制字节互转",
+      "discovery": {
+        "label": "UTF-8 / Hex",
+        "summary": "UTF-8 文本与十六进制字节互转",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "lines",
+      "name": "文本行处理",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "稳定去重、排序、去空行与空白处理",
+      "discovery": {
+        "label": "文本行处理",
+        "summary": "稳定去重、排序、去空行与空白处理",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": [
+          "文本去重",
+          "删除重复行",
+          "行排序"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "url-inspect",
+      "name": "URL 解析",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "解析协议、主机、路径和重复查询参数",
+      "discovery": {
+        "label": "URL 解析",
+        "summary": "解析协议、主机、路径和重复查询参数",
+        "category": "网络与接口",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "cidr",
+      "name": "IPv4 CIDR",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "IPv4 掩码、网络地址与可用范围",
+      "discovery": {
+        "label": "IPv4 CIDR",
+        "summary": "IPv4 掩码、网络地址与可用范围",
+        "category": "网络与接口",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "name": "CSV / JSON 数据工作台",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "CSV/TSV、JSON 对象数组导入，筛选、排序、预览和导出；导出结果发送到其他文本工具，接收结果后本地解析预览；整列去空白/大小写、空值处理与重命名，预览应用及单步撤销；开发版支持命名多实例与主动保存/恢复快照 接收计算器数值类型JSON表格，默认新实例保留已有工作；类型对象经JSON导出可确认送回矩阵A，文本或近似数字模式明确显示类型/精度变化。 从已解析筛选排序视图选择行范围、具名列和列顺序，预览最多8×8数值后接力；CSV字面量精确或显式近似转换，JSON浮点明确近似，拒绝非数字/函数/赋值/空值，保留源工作。；首屏独立数值选取窗口、固定取消/预览操作，取消不发送；接收SQLite当前页类型化表格为新实例，保留已有工作；验证形状/2MiB输入预算后创建，直接可用并刷新可见行，空页保留列；不自动运行流程。 类型化表格接力草稿使用列结构JSON保留空表、列序和值类型，原实例保留。 新增可保存文本流程草稿，独立实例接收不自动运行，后台任务/取消/实例归属和快照恢复；不覆盖既有表格。 共用数据页面按实例当前入口显示导航名称，旧快照默认数据工作台。 JSON输入同时支持严格headers/rows列结构；所有类型化表格接力草稿使用列结构JSON，空表/列序/值类型在保存恢复后重解析保留，宽列名不再因对象数组重复列名而超限。拒绝重复模式字段、非法形状与空列名；流程表格审核后接收新实例。；固定工作实例管理栏，工具内容独立滚动，每实例每工作台保留滚动位置",
+      "discovery": {
+        "label": "数据工作台",
+        "summary": "CSV / JSON 筛选、排序与导出",
+        "category": "数据与格式",
+        "keywords": "csv tsv table filter sort 表格 筛选 排序 numeric typed handoff 数值 类型 接力 matrix mapping columns 数值 选列 行范围 矩阵",
+        "aliases": [
+          "csv转json",
+          "json转csv",
+          "表格筛选",
+          "处理表格"
+        ]
+      },
+      "tool_version": "1.10.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-06",
+          "changes": "接收计算器数值类型JSON表格，默认新实例保留已有工作；类型对象经JSON导出可确认送回矩阵A，文本或近似数字模式明确显示类型/精度变化。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-06",
+          "changes": "从已解析筛选排序视图选择行范围、具名列和列顺序，预览最多8×8数值后接力；CSV字面量精确或显式近似转换，JSON浮点明确近似，拒绝非数字/函数/赋值/空值，保留源工作。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-07",
+          "changes": "首屏数值选取入口与独立窗口，共享行列转换，固定底部取消/预览"
+        },
+        {
+          "version": "1.3.1",
+          "date": "2026-10-07",
+          "changes": "补充8×8上限、列选择滚动/第9列禁用、列序调整及64精确值B矩阵接收的原生边界验收；原转换算法保持"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-08",
+          "changes": "接收SQLite当前页类型化表格为新实例，保留已有工作；验证形状/2MiB JSON预算后创建，直接可用并刷新可见行，空页保留列；不自动运行流程。"
+        },
+        {
+          "version": "1.4.1",
+          "date": "2026-10-08",
+          "changes": "SQLite空页接力使用仅表头CSV保留列结构，主动保存/恢复后重新解析仍为零行；含数据表格继续使用类型化JSON，原实例保留。"
+        },
+        {
+          "version": "1.5.0",
+          "date": "2026-10-08",
+          "changes": "新增可保存文本流程草稿，独立实例接收不自动运行，后台任务/取消/实例归属和快照恢复；不覆盖既有表格。 共用页面导航名称按实例入口识别。"
+        },
+        {
+          "version": "1.6.0",
+          "date": "2026-10-08",
+          "changes": "JSON输入同时支持严格headers/rows列结构；所有类型化表格接力草稿使用列结构JSON，空表/列序/值类型在保存恢复后重解析保留，宽列名不再因对象数组重复列名而超限。拒绝重复模式字段、非法形状与空列名；流程表格审核后接收新实例。"
+        },
+        {
+          "version": "1.7.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        },
+        {
+          "version": "1.8.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl Enter执行当前工作台的解析、运行或预览；审核/弹窗/任务保护，不应用结果或写文件，底部提示随当前工具变化"
+        },
+        {
+          "version": "1.9.0",
+          "date": "2026-10-08",
+          "changes": "实例快照保存表格流水线定义和记住的输出选项；旧快照兼容，恢复清空流程结果/审核/文件位置/授权且不执行；修正保存和退出提示"
+        },
+        {
+          "version": "1.10.0",
+          "date": "2026-10-08",
+          "changes": "实例切换、名称与保存入口固定在内容滚动区上方，按实例及工作台分别记忆内容滚动位置"
+        }
+      ]
+    },
+    {
+      "id": "files",
+      "name": "批量文件校验",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "SHA-256 / SHA-512、进度、取消、摘要对比；普通文件身份/大小/修改时间核对，后台分块计算；选择报告输出进入统一结果接力，原文件输出经确认送入编码检查且不自动读取/转换/写入；增加多文件选择入口；原文件接收确认支持Esc和点击遮罩返回，不改变目标已有草稿/转换预览或来源报告",
+      "discovery": {
+        "label": "批量文件校验",
+        "summary": "SHA-256 / SHA-512 摘要对比",
+        "category": "文件与系统",
+        "keywords": "hash checksum file 文件 摘要",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "普通文件身份/大小/修改时间核对，后台分块计算；选择报告输出进入统一结果接力，原文件输出经确认送入编码检查且不自动读取/转换/写入；增加多文件选择入口"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "接收确认窗支持Esc/遮罩取消；取消保留来源报告和目标完整转换草稿；确认失败的目标草稿保留回归验证"
+        }
+      ]
+    },
+    {
+      "id": "http",
+      "name": "HTTP 请求调试",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "请求标签、站点配置、响应查看和脱敏历史；完整响应可预览并发送到文本工具",
+      "discovery": {
+        "label": "HTTP 请求调试",
+        "summary": "请求标签、站点与历史",
+        "category": "网络与接口",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "diff",
+      "name": "文本差异对比",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "逐行比较两段文本；接收其他工具结果到左侧或右侧输入",
+      "discovery": {
+        "label": "文本差异对比",
+        "summary": "逐行比较两段文本",
+        "category": "文本与编码",
+        "keywords": "compare difference 比较 差异",
+        "aliases": [
+          "文本对比",
+          "比较两段文字"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "network",
+      "name": "网络诊断",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "DNS 查询与单端口 TCP 连通测试",
+      "discovery": {
+        "label": "网络诊断",
+        "summary": "DNS 解析与单端口 TCP 连通性",
+        "category": "网络与接口",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "services",
+      "name": "本地服务管理",
+      "status": "implemented",
+      "category": "系统能力",
+      "priority": "—",
+      "scope": "固定侧栏入口；表单新增/编辑/删除与高级 YAML 选项；运行中编辑保护、配置冲突检查及原子保存；启停重启/健康状态/PID；日志自动刷新/筛选/跟随末尾与清空确认；删除保留目录及日志；每轮最多 8 个并发检查，保持列表顺序；会话内退出时间/退出码及异常退出提示；健康检查仅接受 HTTP 2xx；刷新轮次保护与旧轮次取消；运行中定义/状态目录重载保护；配置与日志实际有界读取；日志缓存筛选/可见行绘制、匹配计数、复制筛选结果与超长行预览提示；自动/卡片/紧凑列表，列表只绘制可见行，稳定标识选择独立完整详情；服务日志全部预览/筛选结果可捕获快照发送到工具；读取中/失败禁止发送，超过2MiB拒绝；确认后接收，不自动运行。 取消接力返回原日志窗口并保留筛选。 需要关注视图筛选异常退出或健康失败；各状态显示全量计数，可与搜索组合；统一状态与筛选判定，不自动操作进程。；桌面与托盘统一批量后台任务、逐项进度和结果、取消剩余项、任务中心与退出保护；逐项绑定服务定义/配置位置，变更时拒绝执行",
+      "discovery": {
+        "label": "本地服务",
+        "summary": "服务增删改查、启停、健康状态和实时日志",
+        "category": "文件与系统",
+        "keywords": "service server process daemon 服务 日志 启动 编辑",
+        "aliases": [
+          "启动服务",
+          "管理本地服务"
+        ]
+      },
+      "tool_version": "1.8.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "固定侧栏入口；表单新增/编辑/删除与高级 YAML 选项；运行中编辑保护、配置冲突检查及原子保存；启停重启/健康状态/PID；日志自动刷新/筛选/跟随末尾与清空确认；删除保留目录及日志"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-07",
+          "changes": "服务状态检查每轮最多 8 个后台工作线程；保持稳定顺序，避免慢健康端点串行阻塞。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-07",
+          "changes": "展示本次会话退出时间/退出码，保留立即退出的诊断；健康检查仅接受 2xx，卡片和托盘区分异常与失败。 旧轮次取消新任务分配，过期刷新结果不覆盖新状态。"
+        },
+        {
+          "version": "1.3.1",
+          "date": "2026-10-07",
+          "changes": "配置重载保留运行中的定义和状态目录，含恢复 PID；配置预览最多读取限制+1字节，日志按快照最多4MiB读取、仅收集末尾所需行，读取失败不伪装为空日志。"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-07",
+          "changes": "日志筛选按数据或条件改变重建，滚动只绘制可见行；匹配计数、清除筛选和复制筛选结果；超长行有界显示，原始预览复制保留完整内容。"
+        },
+        {
+          "version": "1.5.0",
+          "date": "2026-10-07",
+          "changes": "30 项起自动使用紧凑虚拟列表；只克隆可见状态，按服务标识绑定行交互，保留搜索与状态筛选；独立详情复用全部诊断和管理操作。"
+        },
+        {
+          "version": "1.6.0",
+          "date": "2026-10-07",
+          "changes": "服务日志全部预览/筛选结果可捕获快照发送到工具；读取中/失败禁止发送，超过2MiB拒绝；确认后接收，不自动运行。 取消接力返回原日志窗口并保留筛选。"
+        },
+        {
+          "version": "1.7.0",
+          "date": "2026-10-07",
+          "changes": "需要关注视图筛选异常退出或健康失败；各状态显示全量计数，可与搜索组合；统一状态与筛选判定，不自动操作进程。"
+        },
+        {
+          "version": "1.8.0",
+          "date": "2026-10-07",
+          "changes": "统一桌面/托盘批量任务、逐项进度与有界结果、取消剩余项、任务中心与退出保护；生命周期锁内绑定定义/配置位置；状态及实际Windows服务回归通过。"
+        }
+      ]
+    },
+    {
+      "id": "json-path",
+      "name": "JSON 路径查询",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "JSONPath 子集：字段、数组索引、通配符与 JSON 结果导出；不含过滤器、递归和切片",
+      "discovery": {
+        "label": "JSON 路径查询",
+        "summary": "JSONPath 子集：字段、数组索引、通配符与 JSON 结果导出；不含过滤器、递归和切片",
+        "category": "数据与格式",
+        "keywords": "",
+        "aliases": [
+          "提取json字段",
+          "json字段提取"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "json-diff",
+      "name": "结构化 JSON 对比",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "结构化 JSON 差异与 JSON Pointer 路径；数组按索引或无序多重集比较；不含忽略路径",
+      "discovery": {
+        "label": "结构化 JSON 对比",
+        "summary": "结构化 JSON 差异与 JSON Pointer 路径；数组按索引或无序多重集比较；不含忽略路径",
+        "category": "数据与格式",
+        "keywords": "compare difference 比较 差异",
+        "aliases": [
+          "比较两个json",
+          "json对比"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "data-schema",
+      "name": "数据质量检查",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "JSON 对象数组、CSV/TSV 的空值、重复行、类型分布与混合类型报告",
+      "discovery": {
+        "label": "数据质量检查",
+        "summary": "JSON 对象数组、CSV/TSV 的空值、重复行、类型分布与混合类型报告",
+        "category": "数据与格式",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "data-transform",
+      "name": "数据列变换",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "选择保留列、重命名、文本清理、空值处理、显式文本/整数/数字/布尔转换；整列预览、失败行提示、原始输入保留及单步撤销",
+      "discovery": {
+        "label": "数据列变换",
+        "summary": "选列、类型转换与清理 · 预览及撤销",
+        "category": "数据与格式",
+        "keywords": "column transform schema integer boolean 类型 空值 重命名",
+        "aliases": [
+          "清洗数据",
+          "表格去空格",
+          "修改列类型"
+        ]
+      },
+      "tool_version": "1.2.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl Enter执行当前工作台的解析、运行或预览；审核/弹窗/任务保护，不应用结果或写文件，底部提示随当前工具变化"
+        }
+      ]
+    },
+    {
+      "id": "csv-merge",
+      "name": "CSV 合并与关联",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "CSV/TSV/JSON 两表内连接与左连接、同名列按行追加、等行数拼列；重复键/未匹配统计、列名冲突处理、后台可取消预览、结果上限与单步撤销",
+      "discovery": {
+        "label": "CSV 合并与关联",
+        "summary": "按键关联、追加行与拼列 · 预览及撤销",
+        "category": "数据与格式",
+        "keywords": "csv join merge left inner 合并 关联 拼接",
+        "aliases": [
+          "合并表格",
+          "合并csv",
+          "关联两张表"
+        ]
+      },
+      "tool_version": "1.2.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl Enter执行当前工作台的解析、运行或预览；审核/弹窗/任务保护，不应用结果或写文件，底部提示随当前工具变化"
+        }
+      ]
+    },
+    {
+      "id": "checksum-manifest",
+      "name": "校验清单",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P1",
+      "scope": "同目录 1–64 个普通文件生成 SHA256SUMS，后台流式计算、预览并无覆盖另存；导入 ≤32 KiB 清单逐项定位匹配、缺失、摘要不匹配和读取错误，拒绝路径穿越、重复文件名和符号链接",
+      "discovery": {
+        "label": "SHA256SUMS 校验清单",
+        "summary": "生成与验证文件摘要清单，定位缺失与不匹配",
+        "category": "文件与系统",
+        "keywords": "checksum sha256 sums manifest verify 文件 校验 清单",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "disk-inspector",
+      "name": "目录空间分析",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P1",
+      "scope": "明确选择目录后后台只读统计逻辑大小、直属子目录与大文件；跳过链接及重解析点，限制时间/条目/深度，支持取消并标出部分结果；不删除文件",
+      "discovery": {
+        "label": "目录空间分析",
+        "summary": "只读统计大目录与大文件，明确部分结果",
+        "category": "文件与系统",
+        "keywords": "disk storage size folder files cache 磁盘 空间 目录 占用 大文件 清理",
+        "aliases": [
+          "磁盘占用",
+          "查看大文件",
+          "哪个目录最大"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "duplicate-files",
+      "name": "重复文件检查",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P1",
+      "scope": "明确选择目录后先按大小筛选，再对候选文件后台流式计算 SHA-256；限定条目/深度/时间/候选数/读取字节，支持取消并标出部分结果；只读、不自动删除",
+      "discovery": {
+        "label": "重复文件检查",
+        "summary": "按大小筛选后计算 SHA-256，手动核对重复内容",
+        "category": "文件与系统",
+        "keywords": "duplicate sha256 hash identical files 重复 文件 内容 查找 磁盘 清理",
+        "aliases": [
+          "查找重复文件",
+          "重复文件",
+          "文件去重检查"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "file-compare",
+      "name": "目录内容对比",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P1",
+      "scope": "选择两个本机目录，按相对路径和类型对照；文件先比大小，同大小再流式计算 SHA-256；有界后台扫描、取消、部分结果说明、筛选和无覆盖 CSV 导出，不同步或删除",
+      "discovery": {
+        "label": "目录内容对比",
+        "summary": "只读对照相对路径、文件大小和 SHA-256，导出差异 CSV",
+        "category": "文件与系统",
+        "keywords": "folder directory compare diff sha256 csv 目录 对比 差异 文件 摘要",
+        "aliases": [
+          "比较两个文件夹",
+          "目录对比",
+          "文件夹差异"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "cron",
+      "name": "Cron 表达式",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "数字五字段 Cron、列表/范围/步长；固定 UTC 偏移下未来 5 年内最多 10 次运行预览",
+      "discovery": {
+        "label": "Cron 表达式",
+        "summary": "数字五字段 Cron、列表/范围/步长；固定 UTC 偏移下未来 5 年内最多 10 次运行预览",
+        "category": "时间与生成",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "random",
+      "name": "随机数据生成",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "操作系统安全随机字符串；独立种子模式生成可复现测试字符串（非安全）",
+      "discovery": {
+        "label": "随机数据生成",
+        "summary": "操作系统安全随机字符串；独立种子模式生成可复现测试字符串（非安全）",
+        "category": "时间与生成",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        }
+      ]
+    },
+    {
+      "id": "sql-format",
+      "name": "SQL 格式化",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "方言选择与格式化，不连接数据库",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "json-schema",
+      "name": "JSON Schema 校验",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "本地 schema、错误字段路径、引用限制",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "log-viewer",
+      "name": "日志工作台",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "大文件流式读取、级别筛选、时间定位和多行事件",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite 浏览器",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "只读选择本机普通数据库文件，列出前 200 个表/视图和列结构，最多 64 列、每页 50 行预览前 10000 行；后台超时/取消、值预算和无覆盖导出当前页 CSV。任意 SQL 与写模式待后续实现；当前页冻结快照先审核范围/类型再送到独立数据实例，最多50行，不代表全表；NULL/整数/有限浮点/UTF8文本保留，截断/BLOB/非UTF8/非有限值拒绝；空页保留列，2MiB目标预算；字节有界文本读取保留内嵌NUL后缀，修正128列提示。",
+      "discovery": {
+        "label": "SQLite 浏览器",
+        "summary": "只读查看表结构，按页预览并导出当前页 CSV",
+        "category": "文件与系统",
+        "keywords": "sqlite database db table schema rows csv 数据库 表 结构 分页",
+        "aliases": [
+          "打开数据库",
+          "查看sqlite",
+          "数据库浏览"
+        ]
+      },
+      "tool_version": "1.1.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "当前页冻结快照先审核范围/类型再送到独立数据实例，最多50行，不代表全表；NULL/整数/有限浮点/UTF8文本保留，截断/BLOB/非UTF8/非有限值拒绝；空页保留列，2MiB目标预算；字节有界文本读取保留内嵌NUL后缀，修正128列提示。"
+        }
+      ]
+    },
+    {
+      "id": "http-collections",
+      "name": "HTTP 集合与环境",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "请求集合、环境变量、导入导出脱敏",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "curl-import",
+      "name": "cURL 导入",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "解析请求命令，不执行 shell，认证字段脱敏",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "tls-inspect",
+      "name": "TLS 证书检查",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "证书链、有效期与主机名验证，只读连接",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "encoding-detect",
+      "name": "文件编码转换",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "本机 ≤8 MiB 文本有界读取；明确 BOM、合法 UTF-8 与启发式推测的差异，可手选 UTF-8/UTF-16 LE/BE/GB18030/Big5/Shift_JIS/Windows-1252，严格解码、回读核验、目标字节和 SHA-256 预览后另存新文件，拒绝替换字符与覆盖已有文件；接收文件校验的原文件引用；确认替换现有草稿后不自动读取，主动读取再次核对原文件身份，删除/替换/变更拒绝读取",
+      "discovery": {
+        "label": "文件编码检查与转换",
+        "summary": "严格解码、目标字节预览与无覆盖另存",
+        "category": "文件与系统",
+        "keywords": "encoding charset utf8 utf16 gb18030 big5 shift-jis 编码 转换 文件 文本",
+        "aliases": [
+          "文件乱码",
+          "转换文件编码",
+          "乱码修复"
+        ]
+      },
+      "tool_version": "1.1.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "接收文件校验的原文件引用；确认替换现有草稿后不自动读取，主动读取再次核对原文件身份，删除/替换/变更拒绝读取"
+        }
+      ]
+    },
+    {
+      "id": "file-rename",
+      "name": "批量重命名",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "规则预览、冲突检查、操作记录与撤销",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "image-tools",
+      "name": "图片工作台",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "本机读取 PNG/JPEG/WebP，查看尺寸、缩小宽度并按比例输出，转换格式及 JPEG 质量；显示最终编码预览和精确预览文件大小，明确另存新文件且拒绝覆盖原图；单文件 32 MiB、1600 万像素上限 内存图片接力：实际编码结果/透明选区优先、后台有界准备、来源工具版本链与预览确认，目标后台任务/已有工作保护，不创建临时图片、不自动保存。 支持选中剪贴板PNG图片接力，无临时文件。 另存先完整写入同目录暂存，再无覆盖发布，不暴露半成品；失败清理暂存并保留已有目标。 主动生成冻结图片信息JSON报告：尺寸/透明度/已有编码格式与精确大小；统一接力到JSON、备忘等，源材料变化拒绝发送旧报告，不自动读写。 开发版图片流程接收目标可明确新建或选择已有实例，按稳定身份/修订核对并重新确认替换；核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。 接力弹窗有界滚动正文，确认/取消位于滚动区外，预览按窗口高度缩小；760×520明暗受控交互通过。 编码输出增长前检查上限，失败无可保存半成品；不宣称编码器临时内存或全局进程内存受该限制。 开发版单图与流程共享载荷池：读取缓冲、缩放新像素、编码增长与实际预览解码先预留，未收取编码结果持续计入。失败保留旧图片与有效结果；待输入路径和已载入来源独立，保存核对已载入来源。单图页可直接调整同一预算。其他图片入口、接力准备、thumbnail/GPU及编解码器内部临时内存未统一，不是进程总内存上限。",
+      "discovery": {
+        "label": "图片工作台",
+        "summary": "本地查看、缩小、转换与编码大小预览",
+        "category": "文件与系统",
+        "keywords": "image png jpeg webp resize compress 图片 缩放 转换 压缩",
+        "aliases": [
+          "把图片变小",
+          "图片压缩",
+          "压缩图片",
+          "图片缩放",
+          "图片转webp",
+          "tupian",
+          "tpys"
+        ]
+      },
+      "tool_version": "1.5.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-06",
+          "changes": "图片工作台新增截图与透明套索分页入口；截图能力按独立0.1.0开发版本记录。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-06",
+          "changes": "新增内存图片接力、编码结果优先与透明选区、来源链/预览确认及目标工作保护。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-06",
+          "changes": "接收剪贴板选中图片的有界内存接力，预览确认并保护已有工作。"
+        },
+        {
+          "version": "1.3.1",
+          "date": "2026-10-08",
+          "changes": "另存改为同目录完整暂存与无覆盖发布，失败仅清理暂存，保留已有目标及预览。"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-08",
+          "changes": "主动生成冻结图片信息JSON报告：尺寸/透明度/已有编码格式与精确大小；统一接力到JSON、备忘等，源材料变化拒绝发送旧报告，不自动读写。"
+        },
+        {
+          "version": "1.4.1",
+          "date": "2026-10-08",
+          "changes": "图片接力弹窗预留稳定预览空间并采用顶部锚点，减少后台准备完成后替换/确认控件位移。"
+        },
+        {
+          "version": "1.4.2",
+          "date": "2026-10-08",
+          "changes": "图片接力新增图片流程目标；保留目标步骤定义、明确替换输入/结果，不自动运行流程"
+        },
+        {
+          "version": "1.4.3",
+          "date": "2026-10-09",
+          "changes": "开发版图片接力明确新建或指定图片实例；实例身份与修订校验、替换须确认、来源保留，不自动运行保存。核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。"
+        },
+        {
+          "version": "1.4.4",
+          "date": "2026-10-09",
+          "changes": "修复较矮窗口图片接力：有界滚动正文、固定确认/取消、自适应预览与工具换行；760×520逻辑窗口明暗受控完整交互通过。"
+        },
+        {
+          "version": "1.4.5",
+          "date": "2026-10-09",
+          "changes": "公共有界编码输出在写入增长前拒绝超限；单图/批量/流程不缩放时借用源图，编辑JPEG白底保留，元数据清理/截图保存共用增长检查。真实PNG/JPEG/WebP精确边界与超界测试通过，不代表统一进程内存预算。"
+        },
+        {
+          "version": "1.5.0",
+          "date": "2026-10-09",
+          "changes": "单图和图片流程共用载荷池与预算菜单，真实读取/缩放/编码/预览解码预留；后台返回共享编码结果，失败保留旧工作及真实路径关联。原70项图片测试与2项新增真实单图worker/格式/共享实例/未收取结果/保存路径测试通过；完整回归与原生验收进行中。"
+        }
+      ]
+    },
+    {
+      "id": "image-batch",
+      "name": "图片批处理",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "多选 1–100 张 PNG/JPEG/WebP，统一最大宽度、输出格式和 JPEG 质量；后台预检输出目录及同名/已有目标冲突，确认清单后逐张编码并显示实际输出大小、进度与结果，可取消余下任务；create_new 拒绝覆盖 另存先完整写入同目录暂存，再无覆盖发布，不暴露半成品；发布前支持批量取消。；成功输出可逐项选择并核对发布SHA-256后预览接力到转换/裁剪，取消保留来源，替换目标需明确确认，不自动保存 开发版图片流程接收目标可明确新建或选择已有实例，按稳定身份/修订核对并重新确认替换；核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。 接力弹窗有界滚动正文，确认/取消位于滚动区外，预览按窗口高度缩小；760×520明暗受控交互通过。 编码输出增长前检查上限，失败无可保存半成品；不宣称编码器临时内存或全局进程内存受该限制。 批处理预检读取、解码、缩放与编码共用单图/流程预算；逐文件释放。预检固定文件身份与SHA-256，执行前拒绝内容变更，支持取消预检；预算拒绝或取消保留已发布文件。内部codec scratch及预览/GPU仍未统一。",
+      "discovery": {
+        "label": "图片批处理",
+        "summary": "批量缩放与格式转换，预检冲突和逐项进度",
+        "category": "文件与系统",
+        "keywords": "image batch 图片 批处理 多文件 缩放 转换",
+        "aliases": [
+          "批量压缩图片",
+          "批量转webp",
+          "多张图片转换"
+        ]
+      },
+      "tool_version": "1.3.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-08",
+          "changes": "另存改为同目录完整暂存与无覆盖发布，失败仅清理暂存，保留已有目标及预览；批量取消可在发布前阻止新文件。"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "离开工具页面仍更新后台任务状态；执行期间纳入退出保护。批处理异常断连释放忙碌状态并保留已完成输出。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "冻结预检和实际处理 JSON 报告，保留成功输出精确字节及失败/未处理状态，规则变化阻止发送旧报告；可确认后交给 JSON 和备忘。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-08",
+          "changes": "已保存输出逐项发送到图片转换/裁剪；后台有界读取并核对生成时SHA-256与本次文件快照，来源输出保留、目标替换需确认"
+        },
+        {
+          "version": "1.2.1",
+          "date": "2026-10-08",
+          "changes": "图片接力新增图片流程目标；保留目标步骤定义、明确替换输入/结果，不自动运行流程"
+        },
+        {
+          "version": "1.2.2",
+          "date": "2026-10-09",
+          "changes": "开发版图片接力明确新建或指定图片实例；实例身份与修订校验、替换须确认、来源保留，不自动运行保存。核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。"
+        },
+        {
+          "version": "1.2.3",
+          "date": "2026-10-09",
+          "changes": "修复较矮窗口图片接力：有界滚动正文、固定确认/取消、自适应预览与工具换行；760×520逻辑窗口明暗受控完整交互通过。"
+        },
+        {
+          "version": "1.2.4",
+          "date": "2026-10-09",
+          "changes": "公共有界编码输出在写入增长前拒绝超限；单图/批量/流程不缩放时借用源图，编辑JPEG白底保留，元数据清理/截图保存共用增长检查。真实PNG/JPEG/WebP精确边界与超界测试通过，不代表统一进程内存预算。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-09",
+          "changes": "批处理预检读取、解码、缩放与编码共用单图/流程预算；逐文件释放。预检固定文件身份与SHA-256，执行前拒绝内容变更，支持取消预检；预算拒绝或取消保留已发布文件。内部codec scratch及预览/GPU仍未统一。"
+        }
+      ]
+    },
+    {
+      "id": "image-crop-annotate",
+      "name": "图片裁剪与标注",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "本机 PNG/JPEG/WebP 可视化裁剪、黑色遮挡、箭头与文字标注；按原图分辨率编码并预览实际输出及大小，确认后另存新文件，拒绝覆盖；中文文字依赖本机字体，单图 32 MiB/1600 万像素、输出 128 MiB 上限 内存图片接力：实际编码结果/透明选区优先、后台有界准备、来源工具版本链与预览确认，目标后台任务/已有工作保护，不创建临时图片、不自动保存。 支持选中剪贴板PNG图片接力，无临时文件。 另存先完整写入同目录暂存，再无覆盖发布，不暴露半成品；失败清理暂存并保留已有目标。 主动生成冻结图片信息JSON报告：尺寸/透明度/已有编码格式与精确大小；统一接力到JSON、备忘等，源材料变化拒绝发送旧报告，不自动读写。 开发版图片流程接收目标可明确新建或选择已有实例，按稳定身份/修订核对并重新确认替换；核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。 接力弹窗有界滚动正文，确认/取消位于滚动区外，预览按窗口高度缩小；760×520明暗受控交互通过。 编码输出增长前检查上限，失败无可保存半成品；不宣称编码器临时内存或全局进程内存受该限制。 裁剪与标注共用图片预算；直接按裁剪坐标生成RGBA缓冲，避免整张RGBA副本；JPEG白底、编码与实际预览解码先预留，接力目标替换前核对预算；读取/重试失败保留旧图片与编辑，路径草稿与已载入来源分离。 编解码器内部scratch、缩略图/GPU及字体仍不计入，不代表全程序RSS上限。",
+      "discovery": {
+        "label": "图片裁剪与标注",
+        "summary": "可视化裁剪、敏感区域遮挡、箭头和文字",
+        "category": "文件与系统",
+        "keywords": "image crop redact arrow text 图片 裁剪 遮挡 箭头 文字 标注",
+        "aliases": [
+          "裁剪图片",
+          "图片裁剪",
+          "图片标注"
+        ]
+      },
+      "tool_version": "1.4.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-06",
+          "changes": "新增内存图片接力、编码结果优先与透明选区、来源链/预览确认及目标工作保护。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-06",
+          "changes": "接收剪贴板选中图片的有界内存接力，预览确认并保护已有工作。"
+        },
+        {
+          "version": "1.2.1",
+          "date": "2026-10-08",
+          "changes": "另存改为同目录完整暂存与无覆盖发布，失败仅清理暂存，保留已有目标及预览。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-08",
+          "changes": "主动生成冻结图片信息JSON报告：尺寸/透明度/已有编码格式与精确大小；统一接力到JSON、备忘等，源材料变化拒绝发送旧报告，不自动读写。"
+        },
+        {
+          "version": "1.3.1",
+          "date": "2026-10-08",
+          "changes": "后台任务纳入统一退出保护；离开工具页面仍更新任务结果。"
+        },
+        {
+          "version": "1.3.2",
+          "date": "2026-10-08",
+          "changes": "图片接力弹窗预留稳定预览空间并采用顶部锚点，减少后台准备完成后替换/确认控件位移。"
+        },
+        {
+          "version": "1.3.3",
+          "date": "2026-10-08",
+          "changes": "图片接力新增图片流程目标；保留目标步骤定义、明确替换输入/结果，不自动运行流程"
+        },
+        {
+          "version": "1.3.4",
+          "date": "2026-10-09",
+          "changes": "开发版图片接力明确新建或指定图片实例；实例身份与修订校验、替换须确认、来源保留，不自动运行保存。核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。"
+        },
+        {
+          "version": "1.3.5",
+          "date": "2026-10-09",
+          "changes": "修复较矮窗口图片接力：有界滚动正文、固定确认/取消、自适应预览与工具换行；760×520逻辑窗口明暗受控完整交互通过。"
+        },
+        {
+          "version": "1.3.6",
+          "date": "2026-10-09",
+          "changes": "公共有界编码输出在写入增长前拒绝超限；单图/批量/流程不缩放时借用源图，编辑JPEG白底保留，元数据清理/截图保存共用增长检查。真实PNG/JPEG/WebP精确边界与超界测试通过，不代表统一进程内存预算。"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-09",
+          "changes": "裁剪与标注共用图片预算；直接按裁剪坐标生成RGBA缓冲，避免整张RGBA副本；JPEG白底、编码与实际预览解码先预留，接力目标替换前核对预算；读取/重试失败保留旧图片与编辑，路径草稿与已载入来源分离。"
+        }
+      ]
+    },
+    {
+      "id": "image-metadata",
+      "name": "图片元数据检查与清理",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "本机有界扫描 PNG/JPEG/WebP 常见 EXIF/GPS、ICC、XMP、文本与 IPTC 块，不显示敏感原值；应用 EXIF 方向后重新编码、预览并复检清理副本，明确另存且不覆盖；动画图片拒绝处理，不能保证识别所有私有元数据 另存先完整写入同目录暂存，再无覆盖发布，不暴露半成品；失败清理暂存并保留已有目标。 开发版图片流程接收目标可明确新建或选择已有实例，按稳定身份/修订核对并重新确认替换；核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。 接力弹窗有界滚动正文，确认/取消位于滚动区外，预览按窗口高度缩小；760×520明暗受控交互通过。 编码输出增长前检查上限，失败无可保存半成品；不宣称编码器临时内存或全局进程内存受该限制。 元数据读取/解码/EXIF方向旋转、清理编码与实际预览解码共用图片预算；旋转副本在分配前预留，未收取结果保持额度；读取和重试清理失败保留旧图、摘要与有效输出，保存关联已载入来源。 编解码器内部scratch、缩略图/GPU及字体仍不计入，不代表全程序RSS上限。",
+      "discovery": {
+        "label": "图片元数据检查与清理",
+        "summary": "检查 EXIF、位置、ICC 等信息并另存清理副本",
+        "category": "文件与系统",
+        "keywords": "image metadata exif gps icc xmp privacy 图片 元数据 隐私 清理",
+        "aliases": []
+      },
+      "tool_version": "1.3.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-08",
+          "changes": "另存改为同目录完整暂存与无覆盖发布，失败仅清理暂存，保留已有目标及预览。"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "后台任务纳入统一退出保护；离开工具页面仍更新任务结果。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "冻结原图元数据摘要及清理预览真实复检 JSON，保留实际编码字节，不传原始位置/EXIF值；确认后可交给 JSON/备忘，输入质量任务变化使旧报告不可发送。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-08",
+          "changes": "已清理并复检的编码图片可经预览确认接力到转换或裁剪，不回退原图；编码结果不可变共享，来源保留，目标已有工作须明确允许替换。"
+        },
+        {
+          "version": "1.2.1",
+          "date": "2026-10-08",
+          "changes": "图片接力新增图片流程目标；保留目标步骤定义、明确替换输入/结果，不自动运行流程"
+        },
+        {
+          "version": "1.2.2",
+          "date": "2026-10-09",
+          "changes": "开发版图片接力明确新建或指定图片实例；实例身份与修订校验、替换须确认、来源保留，不自动运行保存。核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。"
+        },
+        {
+          "version": "1.2.3",
+          "date": "2026-10-09",
+          "changes": "修复较矮窗口图片接力：有界滚动正文、固定确认/取消、自适应预览与工具换行；760×520逻辑窗口明暗受控完整交互通过。"
+        },
+        {
+          "version": "1.2.4",
+          "date": "2026-10-09",
+          "changes": "公共有界编码输出在写入增长前拒绝超限；单图/批量/流程不缩放时借用源图，编辑JPEG白底保留，元数据清理/截图保存共用增长检查。真实PNG/JPEG/WebP精确边界与超界测试通过，不代表统一进程内存预算。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-09",
+          "changes": "元数据读取/解码/EXIF方向旋转、清理编码与实际预览解码共用图片预算；旋转副本在分配前预留，未收取结果保持额度；读取和重试清理失败保留旧图、摘要与有效输出，保存关联已载入来源。"
+        }
+      ]
+    },
+    {
+      "id": "markdown",
+      "name": "Markdown 预览",
+      "status": "implemented",
+      "category": "扩展与集成",
+      "priority": "P2",
+      "scope": "选择 ≤2 MiB 的本机 UTF-8 Markdown 或粘贴草稿，应用内按标题、段落、列表、代码、引用和表格结构阅读；原始 HTML 转义、图片不加载、只保留 http/https 与页内链接；生成带 CSP 的自包含 HTML 预览并另存新文件，拒绝覆盖",
+      "discovery": {
+        "label": "Markdown 预览",
+        "summary": "本地结构化阅读，安全 HTML 另存",
+        "category": "扩展与集成",
+        "keywords": "markdown md html 文档 预览 导出 安全",
+        "aliases": [
+          "预览markdown",
+          "markdown预览"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "unicode",
+      "name": "Unicode 字符检查",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "Unicode 码点、UTF-8 字节、常见不可见字符标记与 NFC/NFKC 规范化",
+      "discovery": {
+        "label": "Unicode 字符检查",
+        "summary": "Unicode 码点、UTF-8 字节、常见不可见字符标记与 NFC/NFKC 规范化",
+        "category": "文本与编码",
+        "keywords": "",
+        "aliases": [
+          "不可见字符",
+          "检查隐藏字符"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "escape-suite",
+      "name": "转义与转码扩展",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "Unicode、HTML 实体与 shell 引号的明确方言",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "time-zone",
+      "name": "时区工作台",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "多时区比较、夏令时边界与批量时间转换",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "regex-replace",
+      "name": "正则替换",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P2",
+      "scope": "批量替换预览、捕获组引用与匹配限额",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "jwt-verify",
+      "name": "JWT 本地验签",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P3",
+      "scope": "显式算法白名单和本地公钥，不接受任意算法",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "crypto",
+      "name": "加密与签名实验台",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P3",
+      "scope": "明确算法参数、测试向量、密钥仅内存",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "pipeline",
+      "name": "可组合数据管线",
+      "status": "in-progress",
+      "category": "扩展工具",
+      "priority": "P1",
+      "scope": "开发中：无已解析表格时可建立/编辑/读取流程、填写列名及保留列，解析后才可预览/应用，定义跨解析保留；1–32步列转换/选列/筛选/稳定多列排序/按列去重、按列名绑定、后台完整预览、步骤报告及错误定位、取消、实例任务归属、来源复核后显式应用与最近一次表格撤销；未匹配保留列可编辑或移除，非法投影不改变预测列结构；独立JSON流程文件另存不覆盖、后台读取后预览确认替换步骤，可用于新的输入表，不自动执行；文件限256KiB、严格版本/字段校验，保存失败保留步骤，不含原表或授权。实例快照仍不包含步骤。完整中间结果查看、文件写步骤、图片/插件/MCP/Agent统一执行仍待实现；格式2新增行处理并兼容读取格式1旧流程：文本包含可选大小写、类型敏感JSON相等及null过滤，最多4列精确数字稳定排序、JSON表示去重保留首条；完整输入处理而非只处理屏幕可见行；流程保存先写同目录暂存并同步，再以Windows不覆盖移动发布，提交竞争拒绝且保留已有目标，普通失败尝试清理暂存；崩溃/清理受阻可能遗留tmp，其他平台仍使用无覆盖硬链接；应用前只读检查冻结输入/结果、独立筛选与每页50行查看、JSON类型与有界单元格详情、明确复制完整JSON值；查看不改变待应用结果，关闭后才运行/应用，失效清除；用户主动选择流程文件夹后后台检查直接JSON文件，可按名称/文件名搜索和重新载入确认；最多枚举1000项/累计读取8MiB/保留256流程，部分列表明示；当前实例独立选目录；可显式记住/忘记目录位置，启动及新实例只恢复位置，点击刷新才检查文件；CtrlK搜索已检查流程名称/文件名，显示所属实例及步数；结构化实例/文件键路由，重新读文件再确认，取消保持旧步骤与预览；缓存按列表修订/查询/实例变化失效，最多显示100条流程匹配；流程可显式收藏位置/名称/步骤摘要到偏好（最多100条），CtrlK空搜索优先显示收藏，跨进程启动未扫描目录也可搜索/后台重新读取到当前实例确认；移除保留原文件，保存失败活跃状态回滚，多窗口按路径合并增删/刷新，不保存正文/表格/授权；完整跨次索引及通用跨工具执行待开发；CtrlK统一入口支持全部/工具/流程/收藏四范围及Ctrl1–4，保留搜索词并重置选择，流程范围空搜索显示已检查列表，收藏范围仅工具/流程收藏，结果计数与空状态；本次应用内保留最后范围，重启恢复全部，不自动扫描或执行。；后台实际读取/校验成功后绑定实例生成最近载入元数据（最多20），多窗口合并/去重/移除、保存失败保留待提交并30秒重试，CtrlK全部/流程显示并可再次重新读取确认，已收藏同路径不重复显示；删除记录保留文件/数据，不代表已应用或执行。；实际Rust托盘面板收藏/最近/全部支持流程摘要，独立流程页与全部流程搜索，收藏/最近各最多6条，完整计数、同路径去重、键盘选中，打开前复核偏好入口，恢复主窗口后普通读取并确认；原表/旧预览保留。；完整冻结预览可显式确认另存新CSV/SQLite，无需应用原表；格式/目标/全行列/类型转换预览，CSV文本公式保护可选，32MiB快照/CSV输出上限，后台实例任务与取消；同目录暂存后硬链接无覆盖发布（磁盘不支持时失败），保留原表与预览；不保存为可复用写步骤、不持久化授权。；格式3可保存版本1的CSV/SQLite输出设置（公式保护/表名），兼容格式1/2；导入先展示设置摘要并确认，清空旧目标，不自动写入；输出配置可在预览前编辑，不含目标路径/授权/命令，未知版本或字段拒绝；当前仅一个最终结果输出声明，多产物/通用动作仍待实现。；保存的SQLite结果可显式打开实际文件进入数据库工作台，回执类型/路径与后续编辑的输出选项分离；CSV回执不提供SQLite入口，使用正确工具ID记录最近。 表格流程库同时识别版本化工具配方，收藏/搜索/最近/托盘复用同一元数据格式；实际读取严格识别格式，失败保持当前工具，成功才记录对应工具最近。",
+      "discovery": {
+        "label": "操作流程",
+        "summary": "编排多步数据流程，文件夹检查、Ctrl K搜索和跨次收藏；重新读取并确认后主动预览、应用。",
+        "category": "数据与格式",
+        "keywords": "pipeline workflow 流程 步骤 连续 清洗 表格 预览 转换 取消 撤销 保存 重用 读取 导入 导出 筛选 排序 去重 filter sort dedup 结果 表格 检查 快照 收藏 bookmark favorite 统一搜索 范围 收藏 分类",
+        "aliases": [
+          "多步清洗",
+          "连续转换",
+          "表格流程",
+          "流程结果检查"
+        ]
+      },
+      "tool_version": "0.17.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-07",
+          "changes": "可复用行筛选、最多4列精确数值稳定排序、按列去重保留首条；格式2兼容读取1，串联列转换及选列，显式预览/应用/撤销。"
+        },
+        {
+          "version": "0.2.1",
+          "date": "2026-10-07",
+          "changes": "流程定义先暂存后不覆盖发布，避免普通写入失败留下最终半文件；支持真实竞争拒绝和失败清理，不声称断电或崩溃持久保证。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-07",
+          "changes": "应用前只读结果表格检查：输入/结果切换、独立筛选分页、类型及单元格完整值复制；查看不改变完整结果，关闭后明确应用。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-07",
+          "changes": "增加用户选择流程文件夹、后台有界扫描、名称/文件名搜索、刷新和载入确认；使用时重新读文件，列表不自动执行；跨次目录记忆与全局搜索待开发。"
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-10-08",
+          "changes": "显式记住/忘记流程目录位置，沿用偏好原子保存及多窗口合并；恢复位置不自动检查或执行，保存失败保留选择与原记忆，不删除文件或实例内容；全局流程搜索待开发。"
+        },
+        {
+          "version": "0.6.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl K混合搜索工具与已检查流程，显示精确所属实例、文件名、步数；结构化路由重新读取后确认，不执行；缓存与100条范围提示，陈旧结果/忙碌/已有确认拒绝；跨次流程索引与收藏仍待开发。"
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl K显式收藏流程位置/摘要，跨次未扫描也能找到并重新读到当前实例确认；最多100条，多窗口合并/刷新与失败回滚，移除不删文件。"
+        },
+        {
+          "version": "0.8.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl K四范围全部/工具/流程/收藏，鼠标与Ctrl1–4切换保留查询/重置选择，流程空搜索显示列表；有范围计数与空状态，不扫描或执行。"
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-08",
+          "changes": "最近载入成功事件绑定实际实例，20条摘要跨次保存、多窗口合并/移除/失败重试；CtrlK入口重新读后确认，不代表执行，移除保留文件。"
+        },
+        {
+          "version": "0.10.0",
+          "date": "2026-10-08",
+          "changes": "实际Rust托盘支持收藏和最近流程、有界流程页、统一搜索；入口复核后恢复主窗口，重新读文件并确认，保留原表与旧预览。"
+        },
+        {
+          "version": "0.11.0",
+          "date": "2026-10-08",
+          "changes": "完整流程预览可确认另存新CSV/SQLite，保留原表和待应用预览；全量类型预览/实例后台任务与取消/冲突不覆盖；文件写步骤与通用执行仍待完成。"
+        },
+        {
+          "version": "0.12.0",
+          "date": "2026-10-08",
+          "changes": "流程格式3保存版本化CSV/SQLite最终输出配置，兼容旧格式；导入确认展示摘要并清空旧目标，每次写入仍重新选择目标和审核；无隐式执行或授权，纯预览保留。"
+        },
+        {
+          "version": "0.13.0",
+          "date": "2026-10-08",
+          "changes": "保存的SQLite结果可显式打开实际文件进入数据库工作台，回执类型/路径与后续编辑的输出选项分离；CSV回执不提供SQLite入口，使用正确工具ID记录最近。"
+        },
+        {
+          "version": "0.14.0",
+          "date": "2026-10-08",
+          "changes": "表格流程库同时识别版本化工具配方，收藏/搜索/最近/托盘复用同一元数据格式；实际读取严格识别格式，失败保持当前工具，成功才记录对应工具最近。"
+        },
+        {
+          "version": "0.15.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        },
+        {
+          "version": "0.16.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl Enter执行当前工作台的解析、运行或预览；审核/弹窗/任务保护，不应用结果或写文件，底部提示随当前工具变化"
+        },
+        {
+          "version": "0.17.0",
+          "date": "2026-10-08",
+          "changes": "实例快照保存表格流水线定义和记住的输出选项；旧快照兼容，恢复清空流程结果/审核/文件位置/授权且不执行；修正保存和退出提示"
+        }
+      ]
+    },
+    {
+      "id": "file-search",
+      "name": "文件内容检索",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P3",
+      "scope": "限定目录、类型过滤、取消、隐私目录排除",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "pdf-text",
+      "name": "PDF 文本提取",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P3",
+      "scope": "文本型 PDF 分页提取与检索；OCR 单独评估",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "openapi",
+      "name": "OpenAPI 请求生成",
+      "status": "planned",
+      "category": "扩展工具",
+      "priority": "P3",
+      "scope": "本地规范校验、生成请求草稿与敏感字段标记",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "plugins",
+      "name": "插件与连接器",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "声明式 JSON 插件安装预览、启停、卸载与内容指纹；内置配方和非流式 HTTP 适配器，3 个示例包共 6 个可选工具",
+      "discovery": {
+        "label": "插件中心",
+        "summary": "安装、启停与管理工具连接器",
+        "category": "扩展与集成",
+        "keywords": "plugin extension LLM MCP 扩展",
+        "aliases": [
+          "安装插件",
+          "插件管理"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "integrations",
+      "name": "本机集成发现",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "只读检查 PATH 软件入口和 4 个本地 TCP 端口；不读取软件私有配置或启动服务",
+      "discovery": {
+        "label": "本机集成发现",
+        "summary": "发现模型与开发软件入口及本地服务端口",
+        "category": "扩展与集成",
+        "keywords": "Ollama Codex Docker Python Node 软件",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "model-profiles",
+      "name": "模型连接配置",
+      "status": "in-progress",
+      "category": "AI 与模型",
+      "priority": "P1",
+      "scope": "已支持命名连接档案、工具级系统凭据、OpenAI/Ollama 模型发现与列表连接检查；通用提供商配置及生成能力验证待补",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "model-chat",
+      "name": "多轮模型工作台",
+      "status": "in-progress",
+      "category": "AI 与模型",
+      "priority": "P1",
+      "scope": "已支持受限 OpenAI/Ollama 文本模板的内存多轮、SSE/NDJSON 流式、客户端取消、成功会话 Markdown/JSON 导出、JSON 预览确认恢复、有界 UTF-8 文本附件及显式保存的本地命名会话库；真实模型兼容性、PDF/Word/图片与更完整会话管理待补",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "model-compare",
+      "name": "模型对比评测",
+      "status": "planned",
+      "category": "AI 与模型",
+      "priority": "P2",
+      "scope": "同一问题多模型运行、延迟/成本/输出并排比较，可导出评测记录",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "prompt-library",
+      "name": "提示词模板库",
+      "status": "in-progress",
+      "category": "AI 与模型",
+      "priority": "P1",
+      "scope": "受支持文本插件已有本地命名模板、最多 20 个修订、标签搜索、变量填写与展开预览、相邻修订差异；正文可跨工具填入，同工具可明确应用模型/流式/多轮参数。真实模型端到端与完整交互验收待补",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "token-budget",
+      "name": "Token 与上下文预算",
+      "status": "planned",
+      "category": "AI 与模型",
+      "priority": "P2",
+      "scope": "按模型 tokenizer 统计与估算区分，显示截断位置和预算",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "structured-output",
+      "name": "结构化输出验证",
+      "status": "planned",
+      "category": "AI 与模型",
+      "priority": "P2",
+      "scope": "JSON Schema 校验、失败字段解释与可选修复，不静默改写",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "embedding-playground",
+      "name": "Embedding 工作台",
+      "status": "implemented",
+      "category": "AI 与模型",
+      "priority": "P2",
+      "scope": "明确调用本机 Ollama /api/embed 对两段文本生成向量；展示维度、范数、余弦相似度和欧氏距离，可预览或复制完整向量；请求有输入/响应预算、取消与回环地址限制，不保存文本或向量",
+      "discovery": {
+        "label": "Embedding 工作台",
+        "summary": "本机模型生成向量，比较两段文本的相似度与距离",
+        "category": "AI 与模型",
+        "keywords": "embedding ollama vector cosine euclidean 向量 相似度 距离 模型",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "model-benchmark",
+      "name": "本机模型性能测试",
+      "status": "planned",
+      "category": "AI 与模型",
+      "priority": "P2",
+      "scope": "首 Token、吞吐、峰值内存和固定数据集重复测试",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "ollama-manager",
+      "name": "Ollama 模型管理",
+      "status": "planned",
+      "category": "AI 与模型",
+      "priority": "P2",
+      "scope": "模型下载进度/取消、删除确认、磁盘占用；不自动下载大文件",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "mcp-connections",
+      "name": "MCP 连接管理",
+      "status": "in-progress",
+      "category": "MCP 与 Agent",
+      "priority": "P1",
+      "scope": "本机 stdio 可显式保持同一进程、连续操作、手动断开和闲置超时；Stage 77新增 2025 Streamable HTTP 会话；失效会话重新初始化且不重放原操作通过夹具；官方 SDK 1.31.0 的 JSON/SSE 互操作通过；2026 协议、认证、心跳及第三方兼容性待完善",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "mcp-inspector",
+      "name": "MCP 协议调试台",
+      "status": "in-progress",
+      "category": "MCP 与 Agent",
+      "priority": "P1",
+      "scope": "本机 stdio 短会话及持续连接已发布；Stage 77新增 2025 Streamable HTTP 的 JSON/SSE、手动工具调用、资源/提示词读取、取消及有界响应。失效会话重新初始化且不重放原操作通过夹具；官方 SDK 1.31.0 的 JSON/SSE 互操作通过；Stage 78 临时 Bearer、主动 Windows 端点凭据保存及 401 地址发现/OAuth 元数据预览开发中，分项测试通过但未发布；PKCE/state 与本机随机端口回调基础已通过合成测试，令牌交换基础已通过合成请求测试；公共客户端浏览器登录 UI/连接认证已接入并完成合成状态测试与界面预览，主动刷新与轮换已接入并完成合成测试，持续连接凭据更新通道及会话恢复/旧值屏蔽已通过合成测试，主动开启的自动续期/后台调度/连接确认已接入并通过合成状态测试；开放公共客户端注册/同次回调登录已接入并通过合成测试，公共客户端主动撤销/断开已接入并通过合成分项测试；受保护注册/软件声明和完整互操作验收仍待完成；2026 协议、完整 OAuth、参数表单、协议日志和第三方兼容性待补",
+      "discovery": {
+        "label": "MCP 协议调试台",
+        "summary": "本机 stdio 服务能力检查与手动工具调用",
+        "category": "MCP 与 Agent",
+        "keywords": "mcp stdio jsonrpc tool inspector agent 协议 连接 调试",
+        "aliases": [
+          "调试mcp",
+          "mcp调试"
+        ]
+      },
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "mcp-permissions",
+      "name": "MCP 工具权限",
+      "status": "in-progress",
+      "category": "MCP 与 Agent",
+      "priority": "P1",
+      "scope": "本机 stdio 调试台短会话与持续连接按 EXE/参数及工具完整定义保存禁止或受限只读直接调用规则，默认逐次确认；本机 Agent 自动调用只接受已直接许可且完整声明低影响只读的工具，每次调用前复核身份、定义和权限。高影响工具仍需调试台逐次手动确认；跨客户端审计待实现",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "screen-recorder",
+      "name": "屏幕录制",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P1",
+      "scope": "显示当前屏幕画面的鼠标框选或整屏，H.264 MP4 与光标，4/8/16 Mbps 质量档位及按时长大小估算、保存后实际大小，倒计时、自动停止、自动最小化与恢复、托盘/快捷面板及全局录屏热键，可选静音、系统声、麦克风或双声源；中断时尽可能保存已录片段；主屏实测",
+      "discovery": {
+        "label": "屏幕录制",
+        "summary": "鼠标框选区域，录制屏幕并保存 MP4",
+        "category": "文件与系统",
+        "keywords": "screen recorder capture mp4 视频 录屏 区域 框选",
+        "aliases": [
+          "录屏",
+          "录制屏幕",
+          "屏幕录像",
+          "luping",
+          "lp"
+        ]
+      },
+      "tool_version": "1.1.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-06",
+          "changes": "新增默认关闭的教程效果设置、同源预览和实时编码前合成；普通录制保留"
+        }
+      ]
+    },
+    {
+      "id": "screen-recorder-multimonitor",
+      "name": "显示器选择录屏",
+      "status": "in-progress",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "已接入按设备名选择、物理边界框选及录制前和录制中的拓扑复核；仅主屏完成实测，非主屏、物理热拔插、跨屏合成和混合 DPI 待验收",
+      "discovery": {
+        "label": "显示器选择（实验）",
+        "summary": "选择目标屏幕，框选区域或录制整屏；非主屏待实测",
+        "category": "文件与系统",
+        "keywords": "monitor display multi screen 录屏 显示器 多屏 选屏",
+        "aliases": []
+      },
+      "tool_version": "0.1.1",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "0.1.1",
+          "date": "2026-10-06",
+          "changes": "共用录屏页固定开始/暂停/停止与保存状态，长设置页仍可直接操作；不扩大原设备验收范围"
+        }
+      ]
+    },
+    {
+      "id": "screen-recorder-audio-mix",
+      "name": "双声源混录",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "录屏时同时采集系统播放和麦克风，48 kHz 双声道等幅混音，暂停排除与音视频轨道时长校验",
+      "discovery": {
+        "label": "双声源混录",
+        "summary": "录屏同时采集系统声音和麦克风",
+        "category": "文件与系统",
+        "keywords": "audio mix system microphone 声音 麦克风 录屏 混音",
+        "aliases": []
+      },
+      "tool_version": "1.0.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-06",
+          "changes": "共用录屏页固定开始/暂停/停止与保存状态，长设置页仍可直接操作；不扩大原设备验收范围"
+        }
+      ]
+    },
+    {
+      "id": "screen-recorder-audio-gain",
+      "name": "录屏独立音量调节",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "录制前分别设置系统声与麦克风 0–200% 增益，支持单路静音及双声源混音削波保护",
+      "discovery": {
+        "label": "录屏音量调节",
+        "summary": "分别调节系统声音与麦克风录制音量",
+        "category": "文件与系统",
+        "keywords": "audio gain volume system microphone 声音 音量 麦克风 录屏",
+        "aliases": []
+      },
+      "tool_version": "1.0.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-06",
+          "changes": "共用录屏页固定开始/暂停/停止与保存状态，长设置页仍可直接操作；不扩大原设备验收范围"
+        }
+      ]
+    },
+    {
+      "id": "screen-recorder-audio-meter",
+      "name": "录屏实时音频电平",
+      "status": "implemented",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "录制时分别显示系统声与麦克风短时峰值，暂停和静音自动归零；单次受控音调验证系统声输入",
+      "discovery": {
+        "label": "录屏实时音频电平",
+        "summary": "录制时查看系统声音与麦克风输入电平",
+        "category": "文件与系统",
+        "keywords": "audio meter peak system microphone 声音 电平 静音 麦克风 录屏",
+        "aliases": []
+      },
+      "tool_version": "1.0.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-06",
+          "changes": "共用录屏页固定开始/暂停/停止与保存状态，长设置页仍可直接操作；不扩大原设备验收范围"
+        }
+      ]
+    },
+    {
+      "id": "screen-recorder-long-audio",
+      "name": "录屏长时音频稳定性",
+      "status": "in-progress",
+      "category": "文件与系统",
+      "priority": "P2",
+      "scope": "主屏 60 秒麦克风单路与双声源、120 秒双声源含 3 秒暂停的 MP4 音画轨同步已实测；受控音频及画面中断后短片段封装已验证；更长时间、不同声卡时钟和真实热拔插仍待验收",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "mcp-export",
+      "name": "MCP 客户端配置导出",
+      "status": "implemented",
+      "category": "MCP 与 Agent",
+      "priority": "P2",
+      "scope": "按同目录实际 MCP 服务 EXE 路径生成 Codex CLI 命令、Codex TOML 和通用 mcpServers JSON；TOML 限定两个知识工具并采用 writes 审批模式，本机 Codex CLI 真实会话已调用列表和合成检索。只预览和复制，不读取或修改客户端配置、不包含凭据；其他客户端适配与现有配置差异仍待实现",
+      "discovery": {
+        "label": "MCP 客户端配置导出",
+        "summary": "预览并复制 Codex 命令、TOML 与通用 JSON 接入配置",
+        "category": "MCP 与 Agent",
+        "keywords": "mcp client codex configuration toml json export 客户端 配置 接入",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "mcp-server",
+      "name": "Zi DevTools MCP Server",
+      "status": "implemented",
+      "category": "MCP 与 Agent",
+      "priority": "P2",
+      "scope": "独立 Windows 控制台 EXE 提供只读 MCP stdio 服务，向可信客户端列出已扫描知识源、检索已同步索引；两个工具在协议中声明只读，逐条复核当前文件 SHA-256，仅返回有界片段、相对路径和引用。不监听网络、不写入或自动扫描；通用工具暴露与调用审计仍待规划",
+      "discovery": {
+        "label": "本机知识库 MCP 服务",
+        "summary": "通过只读 stdio 服务供其他 Agent 检索已同步文档",
+        "category": "MCP 与 Agent",
+        "keywords": "mcp server agent codex knowledge rag search 本机 知识库 检索",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "agent-runner",
+      "name": "Agent 任务工作台",
+      "status": "implemented",
+      "category": "MCP 与 Agent",
+      "priority": "P1",
+      "scope": "本机 Ollama 生成可审阅计划，用户明确批准后在短会话内调用已获直接许可的低影响只读 MCP 工具；本次工具白名单、最多四次调用、模型 token/请求字节上限与取消。知识检索结果去除重复包装、按 3 KiB 模型消息选入片段，仅显示选入的编号来源并校验完成回答中的 [K编号]；失败或取消时末步消息可能尚未发送，缺少引用明确提示，编号有效不证明事实。计划、步骤和答案默认仅驻留内存；运行记录默认不含内容或来源路径，主动勾选才附带目标、计划、答案、错误和来源。写操作、费用计费、断点恢复及其他模型协议待规划",
+      "discovery": {
+        "label": "本机 Agent 任务工作台",
+        "summary": "本机模型制定计划，批准后调用已授权只读 MCP 工具",
+        "category": "MCP 与 Agent",
+        "keywords": "agent ollama mcp 只读 白名单 计划 批准",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "agent-codex",
+      "name": "Codex CLI 适配器",
+      "status": "planned",
+      "category": "MCP 与 Agent",
+      "priority": "P2",
+      "scope": "检测版本与能力，使用独立工作目录、流式事件、取消和审批桥接；不复用私有会话库",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "agent-claude",
+      "name": "Claude CLI 适配器",
+      "status": "planned",
+      "category": "MCP 与 Agent",
+      "priority": "P2",
+      "scope": "可选 CLI 适配、结构化事件和退出码；未安装时清晰提示",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "agent-replay",
+      "name": "Agent 记录查看器",
+      "status": "implemented",
+      "category": "MCP 与 Agent",
+      "priority": "P2",
+      "scope": "读取本机导出的 Agent schema v1/v2/v3 JSON，按步骤只读回看状态、白名单、耗时、响应大小、模型用量及主动导出的知识检索来源声明；v3 编号来源与答案引用列表一致性可校验，v2 旧来源无法证明进入模型上下文。可明确选择目录，在后台有界读取顶层最多 64 份、累计 16 MiB 的 JSON 并按元数据跨记录搜索；可选两份记录比较元数据并主动复制不含正文的摘要。单份最多 1 MiB，任务正文和来源路径展示默认隐藏；不执行模型或 MCP 工具，事实级验证及可执行恢复仍待规划",
+      "discovery": {
+        "label": "Agent 记录查看器",
+        "summary": "导入 JSON 运行记录，按步骤只读回看",
+        "category": "MCP 与 Agent",
+        "keywords": "agent json 记录 导入 回放 查看 审计",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "workflow-builder",
+      "name": "可视化工具工作流",
+      "status": "planned",
+      "category": "MCP 与 Agent",
+      "priority": "P2",
+      "scope": "串联本地工具/模型/MCP，类型校验、分支、重试与断点恢复",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "agent-scheduler",
+      "name": "定时任务与触发器",
+      "status": "planned",
+      "category": "MCP 与 Agent",
+      "priority": "P3",
+      "scope": "计划任务/目录变化触发、重入保护与权限复核，明确后台运行状态",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "rag-sources",
+      "name": "本地知识源管理",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P1",
+      "scope": "用户明确添加最多 32 个本机文件/目录，配置默认及自定义排除规则；手动有界扫描 Markdown/TXT/HTML/PDF/DOCX，记录相对路径、大小、修改时间和 SHA-256 版本，比较新增/变化/移除并本机持久化；不保存正文、不自动扫整盘",
+      "discovery": {
+        "label": "本地知识源",
+        "summary": "明确添加文件或目录，预览排除与版本清单",
+        "category": "知识与检索",
+        "keywords": "rag knowledge document source vault markdown pdf docx 知识 文档 来源 目录",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-ingestion",
+      "name": "文档解析与分块",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P1",
+      "scope": "从已扫描本地知识源选择单份 Markdown/TXT/HTML/PDF/DOCX，校验文件 SHA-256 后在后台解析；按页/段落定位、800 字符分块与 100 字符重叠、分块 SHA-256 和分页预览。单文件 16 MiB、正文 4 MiB、PDF 200 页、最多 2000 分块；正文不持久化，扫描 PDF 不支持 OCR",
+      "discovery": {
+        "label": "文档解析与分块",
+        "summary": "本机解析 PDF、Word、网页与文本，校验版本并预览分块",
+        "category": "知识与检索",
+        "keywords": "rag ingestion pdf docx markdown html txt chunk 解析 分块",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-index",
+      "name": "增量知识索引",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P1",
+      "scope": "用户手动同步已扫描来源到本机 SQLite FTS5 全文索引；按文件 SHA-256 增量更新、快照移除同步删除、事务性重建/取消回滚、来源计数、资源预算和确认后清空索引；正文只保存在本机数据库，向量可经独立工作台另建索引",
+      "discovery": {
+        "label": "增量知识索引",
+        "summary": "手动同步已扫描来源，更新或删除本机全文索引",
+        "category": "知识与检索",
+        "keywords": "rag index fts sqlite 全文 索引 增量 重建",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-vectors",
+      "name": "本机向量索引",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P2",
+      "scope": "用户明确选择本机 Ollama 嵌入模型，对已手动同步的全文索引分块按文件/分块哈希增量生成向量；模型摘要变化时重建，事务性取消/错误回滚，128 MiB 向量预算，最多 50 条语义检索结果并核验当前全文索引；可确认后删除独立向量库。当前仅支持回环 Ollama，不含关键词混合排序",
+      "discovery": {
+        "label": "本机向量索引",
+        "summary": "用本机嵌入模型增量同步知识分块，并进行语义检索",
+        "category": "知识与检索",
+        "keywords": "rag vectors semantic embedding ollama 向量 索引 语义 检索",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-keyword-search",
+      "name": "本机关键词检索",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P1",
+      "scope": "只读查询已同步本机 SQLite 索引；英文词项 FTS5 相关度排序、中文片段字面包含匹配，来源筛选和最多 50 条结果；展示路径、位置、片段与哈希，可复制引用或片段加引用，打开原文件前核对当前快照和内容哈希。不含向量语义检索",
+      "discovery": {
+        "label": "本机关键词检索",
+        "summary": "检索本机索引，查看片段与位置，复制引用并核验原文件",
+        "category": "知识与检索",
+        "keywords": "rag search fts keyword 文档 全文 搜索 检索 引用",
+        "aliases": [
+          "搜索文档",
+          "全文搜索"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-search",
+      "name": "混合检索工作台",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P1",
+      "scope": "对手动同步的本机全文索引与同模型版本向量索引各取最多 50 条候选；来源筛选在两通道内生效，按文件/片段哈希合并并复核当前索引；25/50/75% 关键词权重的 RRF 融合、最多 10/25/50 条结果、通道排名与贡献解释、引用复制和打开前原文件核验；模型异常或取消不静默退化为单通道",
+      "discovery": {
+        "label": "混合检索工作台",
+        "summary": "融合关键词与本机语义召回，查看排名贡献和来源",
+        "category": "知识与检索",
+        "keywords": "rag hybrid search rrf keyword semantic 混合 检索 融合 排名 来源",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-answer",
+      "name": "带引用的知识问答",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P1",
+      "scope": "用户明确选关键词或关键词+向量检索准备最多 8 条可核验来源证据；混合模式复用同版本索引的加权 RRF，显示两路排名与贡献，支持取消且模型/索引失败不降级；预览后才明确调用回环 Ollama/OpenAI 兼容流式问答模型，答案仅接受有效本次证据编号，原文件变化不发送，支持答案与引用复制；不保证模型陈述全真",
+      "discovery": {
+        "label": "带引用的知识问答",
+        "summary": "先核对本机证据，再调用本地模型并校验引用编号",
+        "category": "知识与检索",
+        "keywords": "rag answer qa ollama citation 证据 问答 引用 本机 模型",
+        "aliases": [
+          "向文档提问",
+          "知识库问答"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "rag-eval",
+      "name": "RAG 质量评测",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P2",
+      "scope": "粘贴最多 10 题固定 JSON 样例集，指定问题、检索词、预期知识源文件及可选答案字面片段；可选关键词或同版本向量的混合证据做单路检索/本机模型评测，也可同题并列比较两路 Top K 命中、名次和 MRR，错误题不计成对结果；支持取消、逐题失败显示和不覆盖的有限 JSON 报告。统计仅供本机回归，不证明语义准确性",
+      "discovery": {
+        "label": "本机 RAG 评测",
+        "summary": "固定样例集检查证据召回，可选本机模型与引用回归",
+        "category": "知识与检索",
+        "keywords": "rag eval evaluation recall citation benchmark 评测 召回 引用 回归",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "anythingllm",
+      "name": "AnythingLLM 连接器",
+      "status": "planned",
+      "category": "知识与检索",
+      "priority": "P2",
+      "scope": "通过官方 API 查询选定工作区，不直读其私有数据库，连接错误可诊断",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "obsidian-vault",
+      "name": "Obsidian / Markdown 库",
+      "status": "planned",
+      "category": "知识与检索",
+      "priority": "P2",
+      "scope": "用户选择 vault 后只读检索、双链解析、显式写回预览与冲突处理",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "ocr-documents",
+      "name": "本地 OCR 文档助手",
+      "status": "planned",
+      "category": "知识与检索",
+      "priority": "P3",
+      "scope": "可选本地 OCR 引擎、语言包管理、页面坐标与可搜索文本导出",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "browser-clipper",
+      "name": "网页与对话收集",
+      "status": "implemented",
+      "category": "知识与检索",
+      "priority": "P2",
+      "scope": "粘贴文字或 HTML 源码、导入本机 UTF-8 HTML，或明确抓取公开 HTTPS 页面；预览标题、来源、时间和正文，选择目录型知识源或建立 Zi 收集箱后以 Markdown 新文件保存，内容去重、不覆盖。网页请求不带浏览器 Cookie 或认证、不跟随重定向，仅允许公开地址且有时长/体积上限；保存后仍需手动扫描和索引，不含浏览器扩展",
+      "discovery": {
+        "label": "网页与对话收集",
+        "summary": "粘贴、导入 HTML 或抓取公开网页，预览后保存到本机知识源",
+        "category": "知识与检索",
+        "keywords": "web clipper capture browser html agent conversation paste 网页 对话 收集 剪藏",
+        "aliases": [
+          "保存网页",
+          "收集对话"
+        ]
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "plugin-updates",
+      "name": "插件版本与更新",
+      "status": "planned",
+      "category": "插件平台",
+      "priority": "P1",
+      "scope": "版本约束、更新差异、权限增量确认、失败回滚与可信来源校验",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "plugin-sdk",
+      "name": "隔离进程插件 SDK",
+      "status": "planned",
+      "category": "插件平台",
+      "priority": "P2",
+      "scope": "版本化 JSON-RPC 协议、进程树退出、超时取消、输出限额；隔离能力按系统验证",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "plugin-market",
+      "name": "插件目录与安装源",
+      "status": "planned",
+      "category": "插件平台",
+      "priority": "P2",
+      "scope": "签名/摘要、来源、兼容性、更新说明；远程发现与执行授权分离",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "plugin-settings",
+      "name": "插件设置与凭据",
+      "status": "in-progress",
+      "category": "插件平台",
+      "priority": "P1",
+      "scope": "已接入 Windows 凭据管理器、地址/模型设置及跨工具命名档案，支持模型列表连接检查；待补通用设置 schema",
+      "tool_version": "0.1.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "plugin-health",
+      "name": "插件健康诊断",
+      "status": "planned",
+      "category": "插件平台",
+      "priority": "P2",
+      "scope": "依赖检测、崩溃记录、慢调用、禁用原因和可脱敏诊断包",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "global-launcher",
+      "name": "全局快捷启动器",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "Windows 可配置系统热键、冲突提示与旧绑定保留；独立托盘快捷面板、搜索/收藏/最近、键盘导航、主题切换和录屏控制。开发版新增固定主导航、开始页与连续工具库；统一目录中的用途别名及有限英文拼写纠正，搜索展示说明与匹配原因，打开仅导航不执行；输入识别、通用拼音和工作实例检索待续；托盘右键为跟随系统主题的可搜索轻量面板，含收藏/最近/常用/服务状态与启停日志入口，主窗口手动主题独立；工具库可生成各工具桌面/任务栏快捷方式，--tool稳定ID直达内置子工具与启用插件，独立任务栏身份，工具启动不自动恢复服务；任务栏由Windows确认固定，未验证全部系统实际固定交互；多工具窗口协作保存收藏/最近/频次，Windows排队文件锁内合并本窗口增量，发现字段定时刷新，损坏最新偏好拒绝覆盖；不等于其他用户数据的跨进程保护",
+      "discovery": {
+        "label": "全局快捷启动器",
+        "summary": "设置系统热键 · 托盘快捷面板",
+        "category": "文件与系统",
+        "keywords": "快捷键 热键 launcher hotkey tray 托盘",
+        "aliases": []
+      },
+      "tool_version": "1.4.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-05",
+          "changes": "系统前缀改为默认快捷指令面板，K 返回搜索；托盘仍直接打开搜索/收藏/最近。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-07",
+          "changes": "托盘右键可搜索面板独立跟随系统主题；收藏/最近/常用/服务状态快捷操作；失焦与 Esc 收起"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-07",
+          "changes": "工具独立参数启动、桌面/用于任务栏的原生ShellLink入口与复制参数；保留配置位置，独立AppUserModelID，不覆盖已有链接。"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-07",
+          "changes": "Windows多窗口偏好合并与发现刷新；陈旧快照、同工具计数、未知字段/损坏守卫、锁超时重试、真实三进程120次写入及原生界面刷新通过；限制见多窗口偏好说明。"
+        }
+      ]
+    },
+    {
+      "id": "command-collections",
+      "name": "工作区与工具集合",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P2",
+      "scope": "按任务保存常用工具组合、固定顺序、导入导出与配置迁移",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "clipboard-actions",
+      "name": "剪贴板动作",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P3",
+      "scope": "用户触发后识别 JSON/URL/文件，预览转换动作；不后台采集剪贴板",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "docker-panel",
+      "name": "Docker 本地面板",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P2",
+      "scope": "容器与镜像只读概览、日志；启动停止清理需显式操作",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "git-workbench",
+      "name": "Git 工作区面板",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P2",
+      "scope": "状态/差异/分支查看，写入前预览，不自动提交私有文件",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "parquet-workbench",
+      "name": "Parquet / Arrow 工作台",
+      "status": "planned",
+      "category": "本地数据",
+      "priority": "P2",
+      "scope": "schema、分页预览、过滤与 CSV/JSON 导出，控制内存上限",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "java-trace",
+      "name": "Java 异常链",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "离线整理标准 Java 异常、cause/suppressed 层级与帧位置；不推断真实根因或展开省略帧",
+      "discovery": {
+        "label": "Java 异常链",
+        "summary": "离线整理标准 Java 异常、cause/suppressed 层级与帧位置；不推断真实根因或展开省略帧",
+        "category": "Java 与 JVM",
+        "keywords": "java jvm spring exception stacktrace 异常 堆栈",
+        "aliases": [
+          "java异常分析",
+          "java报错"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "django-trace",
+      "name": "Django / Python 堆栈",
+      "status": "implemented",
+      "category": "小工具",
+      "priority": "—",
+      "scope": "离线整理标准 Python Traceback、异常链和 Django 规则提示；保留截断标记，不运行项目",
+      "discovery": {
+        "label": "Django / Python 堆栈",
+        "summary": "离线整理标准 Python Traceback、异常链和 Django 规则提示；保留截断标记，不运行项目",
+        "category": "Python 与 Django",
+        "keywords": "django python traceback error 异常 堆栈",
+        "aliases": [
+          "django报错",
+          "python异常分析"
+        ]
+      },
+      "tool_version": "1.0.2",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.0.1",
+          "date": "2026-10-07",
+          "changes": "通用结果区区分未运行、失败与成功空文本；结果状态随工具草稿保留，明确复制空结果含义与上次结果提示"
+        },
+        {
+          "version": "1.0.2",
+          "date": "2026-10-08",
+          "changes": "接收其他工具文本后清除上次完成状态，未运行时不可复制/交换；保留其他工具草稿，明确处理后恢复结果。"
+        }
+      ]
+    },
+    {
+      "id": "java-thread-dump",
+      "name": "Java 线程转储分析",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "标准 jstack/jcmd 平台线程状态、监视器锁等待关系、循环线索与 JVM 明确死锁报告；不支持虚拟线程 JSON；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Java 线程转储分析",
+        "summary": "标准 jstack/jcmd 平台线程状态、监视器锁等待关系、循环线索与 JVM 明确死锁报告；不支持虚拟线程 JSON",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "java-dependencies",
+      "name": "Maven / Gradle 依赖冲突",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "Maven/Gradle 文本坐标、树路径与版本选择；insight 仅提取坐标，不执行 wrapper 或证明运行时冲突；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Maven / Gradle 依赖冲突",
+        "summary": "Maven/Gradle 文本坐标、树路径与版本选择；insight 仅提取坐标，不执行 wrapper 或证明运行时冲突",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "java-environment",
+      "name": "JDK / 构建环境诊断",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "显式选择可信 java，固定命令对比 JDK 属性与 JAVA_HOME；Maven/Gradle 仅发现入口，不修改环境",
+      "discovery": {
+        "label": "JDK / 构建环境诊断",
+        "summary": "显式选择可信 java，固定命令对比 JDK 属性与 JAVA_HOME；Maven/Gradle 仅发现入口，不修改环境",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "java-gc-log",
+      "name": "Java GC 日志分析",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "JDK 11–21 G1/Parallel/Serial 统一日志 Pause 完成行统计、堆变化和时间线；不解析所有收集器；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Java GC 日志分析",
+        "summary": "JDK 11–21 G1/Parallel/Serial 统一日志 Pause 完成行统计、堆变化和时间线；不解析所有收集器",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "java-jfr",
+      "name": "JFR 录制报告浏览",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "解析 jfr print JSON，或调用所选可信 jfr 读取 ≤64 MiB 录制；采样顶层热点、事件时间线，非完整 profiler；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "JFR 录制报告浏览",
+        "summary": "解析 jfr print JSON，或调用所选可信 jfr 读取 ≤64 MiB 录制；采样顶层热点、事件时间线，非完整 profiler",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "spring-config",
+      "name": "Spring 配置对比",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "比较两份 JSON/单文档 YAML 配置与占位符，敏感键值遮盖；不推导实际生效优先级，不直接解析 properties；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Spring 配置对比",
+        "summary": "比较两份 JSON/单文档 YAML 配置与占位符，敏感键值遮盖；不推导实际生效优先级，不直接解析 properties",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "spring-actuator",
+      "name": "Spring Actuator 只读诊断",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "显式选择基础地址和 health/info/metrics GET；支持 503 health JSON，不跟随重定向、不读取 env/configprops",
+      "discovery": {
+        "label": "Spring Actuator 只读诊断",
+        "summary": "显式选择基础地址和 health/info/metrics GET；支持 503 health JSON，不跟随重定向、不读取 env/configprops",
+        "category": "Java 与 JVM",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "django-environment",
+      "name": "Python / Django 环境诊断",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "显式运行可信 Python -I，检查解释器/venv/Django 分发和脚本目录，可比较两个环境；不加载项目 settings",
+      "discovery": {
+        "label": "Python / Django 环境诊断",
+        "summary": "显式运行可信 Python -I，检查解释器/venv/Django 分发和脚本目录，可比较两个环境；不加载项目 settings",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "django-migrations",
+      "name": "Django 迁移计划检查",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "解析 showmigrations 列表/带显式依赖的 plan 与 migrate plan；标记依赖循环/状态不一致和 SQL 风险，不执行迁移；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Django 迁移计划检查",
+        "summary": "解析 showmigrations 列表/带显式依赖的 plan 与 migrate plan；标记依赖循环/状态不一致和 SQL 风险，不执行迁移",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "django-sql",
+      "name": "Django SQL / N+1 分析",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "导入 requestId/sql/durationMs JSON，按请求聚合 SQL 指纹、耗时与疑似 N+1；不执行 SQL 或断言根因；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Django SQL / N+1 分析",
+        "summary": "导入 requestId/sql/durationMs JSON，按请求聚合 SQL 指纹、耗时与疑似 N+1；不执行 SQL 或断言根因",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "django-urls",
+      "name": "Django URL / reverse 检查",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "导入 URL JSON 清单，检查完整命名空间、名称重复和 reverse kwargs 名称；不运行 resolver 或验证转换器值；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Django URL / reverse 检查",
+        "summary": "导入 URL JSON 清单，检查完整命名空间、名称重复和 reverse kwargs 名称；不运行 resolver 或验证转换器值",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "django-drf",
+      "name": "DRF OpenAPI 契约对比",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "比较 OpenAPI 3.x JSON 端点、字段、共享组件与潜在兼容性变化；不展开外部/循环引用、不验证权限；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "DRF OpenAPI 契约对比",
+        "summary": "比较 OpenAPI 3.x JSON 端点、字段、共享组件与潜在兼容性变化；不展开外部/循环引用、不验证权限",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "django-checks",
+      "name": "Django 部署检查报告",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "按 Django check 编号阅读脱敏输出，分类并解释常见部署问题；不执行项目或改设置；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Django 部署检查报告",
+        "summary": "按 Django check 编号阅读脱敏输出，分类并解释常见部署问题；不执行项目或改设置",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "celery-diagnostics",
+      "name": "Celery 任务故障分析",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "解析标准 worker Task name[id] 文本日志，关联失败、重试、耗时和最后观测状态；不连接 broker/重放任务；接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。",
+      "discovery": {
+        "label": "Celery 任务故障分析",
+        "summary": "解析标准 worker Task name[id] 文本日志，关联失败、重试、耗时和最后观测状态；不连接 broker/重放任务",
+        "category": "Python 与 Django",
+        "keywords": "",
+        "aliases": []
+      },
+      "tool_version": "1.1.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "接力目标可接收主输入；最大2MiB，同目标执行中拒绝；清除旧结果并保留对照/其他参数，不自动执行。"
+        },
+        {
+          "version": "1.1.1",
+          "date": "2026-10-08",
+          "changes": "导入报告分析迁入独立共享纯Rust核心，桌面重用同一算法；非进程/联网功能。原有分析回归保持，插件适配及Host接受仍需独立验收。"
+        }
+      ]
+    },
+    {
+      "id": "file-intake",
+      "name": "文件拖放入口",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "主窗口/快捷面板拖放或填写路径，选择 CSV/TSV/JSON、Java/Python/线程/GC/SQL/Celery 或文件校验；UTF-8 文本限 2 MiB、最多 64 文件，不自动执行或上传",
+      "discovery": {
+        "label": "文件拖放入口",
+        "summary": "拖放或填写路径 · 选择工具导入",
+        "category": "文件与系统",
+        "keywords": "导入 文件 CSV JSON 日志 drop import",
+        "aliases": []
+      },
+      "tool_version": "1.0.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        }
+      ]
+    },
+    {
+      "id": "task-center",
+      "name": "后台任务中心",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "数据、文件、服务及图片流程的跨页面任务状态、完成反馈；内存最近50条记录、取消和返回工具。图片任务绑定实例与运行代次，打开所属实例、拒绝过期请求、关闭后保留终态，清空记录不重现；其他工具保留原有打开行为。",
+      "discovery": {
+        "label": "后台任务中心",
+        "summary": "后台任务状态、取消和打开所属图片实例",
+        "category": "文件与系统",
+        "keywords": "task job progress cancel 后台 任务 进度 取消",
+        "aliases": []
+      },
+      "tool_version": "1.1.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-09",
+          "changes": "接入图片读取、定义读写、流程运行和图片保存；按实例/代次取消与打开，连续操作终态与关闭历史保留，已发布文件晚到取消仍记已保存。"
+        }
+      ]
+    },
+    {
+      "id": "workspace-sessions",
+      "name": "项目空间与工作实例",
+      "status": "in-progress",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "Stage 78 开发版：数据/清洗/合并的命名多实例、切换后后台收取、主动SQLite快照保存/恢复/另存/删除、版本冲突检查；项目空间、自动保存、跨工具实例与长期运行恢复仍待接入；实例切换、名称与保存入口固定在内容滚动区上方",
+      "discovery": {
+        "label": "数据工作实例",
+        "summary": "多份数据独立处理，主动保存快照并在重启后恢复",
+        "category": "数据与格式",
+        "keywords": "workspace session snapshot 保存 恢复 草稿 多开 数据 实例 CSV JSON",
+        "aliases": [
+          "恢复上次数据",
+          "保存数据草稿",
+          "多份数据"
+        ]
+      },
+      "tool_version": "0.4.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-08",
+          "changes": "实例快照保存表格流水线定义和记住的输出选项；旧快照兼容，恢复清空流程结果/审核/文件位置/授权且不执行；修正保存和退出提示"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-08",
+          "changes": "实例切换、名称与保存入口固定在内容滚动区上方，按实例及工作台分别记忆内容滚动位置"
+        }
+      ]
+    },
+    {
+      "id": "artifact-hub",
+      "name": "类型化资料与结果",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "文本/JSON/表格/图片/文件集合的版本化结果、来源引用及兼容下一步；大文件按引用或流处理；新建、追加与替换明确区分",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "task-runtime",
+      "name": "统一后台运行管理",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "跨工具 RunId、进度/取消/提交/部分完成与结果定位；页面关闭不影响任务管理，恢复与重试按操作能力验证；开发版先完成数据实例归属，尚未统一所有执行器",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "operation-permissions",
+      "name": "授权写入与变更预览",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "用户可按本次/项目/配方授权文件及数据库操作；预览目标/差异/冲突，提交前复核版本，适用时备份/事务/回收站，外部程序隔离按实测说明",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "memos",
+      "name": "备忘录",
+      "status": "implemented",
+      "category": "日常工具",
+      "priority": "—",
+      "scope": "本地保存、已保存备忘创建副本草稿、固定保存/放弃区与 Ctrl S、全文搜索、置顶筛选/标题或更新时间排序/可见行渲染/查询结果缓存、置顶、回收站恢复及确认后永久删除、转为日程；接收工具结果为新草稿，正文发送至其他文本工具；Markdown/UTF-8 文本导入草稿与正文预览导出；全部备忘/日程 JSON 备份及预览合并/替换恢复；固定底部双向复制备忘/日程草稿，仅标题正文，原记录保留，新日程提醒关闭；v1.1.0：约2秒发现其他窗口保存的记录，保留未保存草稿及原版本；同一份日程由一个窗口自动提醒，关闭后接管，读失败保留内容；v1.2.0：冲突修改显式另存新记录、原记录不改，新日程提醒关闭，保存事务凭据区分写入失败与刷新失败；v1.3.0：只读冲突字段对比，当前原始输入与最近同步版本、删除/同步异常提示，查看期间不保存",
+      "discovery": {
+        "label": "备忘录",
+        "summary": "随手记录并保存到本机，可搜索、置顶和恢复删除的备忘。支持导入导出、备份，以及把其他工具的结果整理成笔记。",
+        "category": "时间与生成",
+        "keywords": "本地 保存 搜索 备忘 日程 提醒 农历 节气 报告 结果 接力 文本 Markdown md txt 文件 导入 导出 备份 恢复 换电脑 回收站 永久删除 恢复删除 创建副本 Ctrl S",
+        "aliases": [
+          "便签",
+          "笔记",
+          "memo",
+          "note",
+          "保存结果",
+          "保存诊断报告",
+          "导入备忘",
+          "导出备忘",
+          "备忘备份",
+          "日程备份"
+        ]
+      },
+      "tool_version": "1.3.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "多窗口后台刷新、草稿冲突提示、单窗口自动提醒与退出接管"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-07",
+          "changes": "固定操作区冲突修改另存，复用表单校验并区分保存成功与列表刷新失败"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-07",
+          "changes": "增加只读冲突对比窗口，保留当前原始日期输入并显示最近同步版本、字段差异、删除与同步异常，关闭回到编辑。"
+        }
+      ]
+    },
+    {
+      "id": "calendar-planner",
+      "name": "万年历与日程",
+      "status": "implemented",
+      "category": "日常工具",
+      "priority": "—",
+      "scope": "1901–2099 公历、农历、节气；置顶筛选及日期/标题/更新时间排序/查询结果缓存、7/30 天日程列表、重复逐次展开与范围筛选；日程保存、创建副本草稿默认关闭提醒/移除原UID、每天/每周/每月/每年重复及缺日处理、提前提醒、5/10/30/60/120/1440 分钟延后与重启补提醒、提醒直达日程与正文接力；退出程序不提醒；v0.79.0：结束时间、跨天/全天事件、全天提醒钟点与跨范围日程；可选重复截止日期与最后一次跨天保留、固定保存/放弃区与 Ctrl S；基础 ICS 预览导入、UID 去重/确认更新与当前/全部日程导出，支持 UNTIL 截止，时区和复杂重复仍有限制；固定底部双向复制备忘/日程草稿，仅标题正文，原记录保留，新日程提醒关闭；周视图：周一至周日、全天优先/跨天覆盖、范围搜索/已完成筛选、前后周/日期跳转、原系列编辑，窄窗口横向滚动；v0.80.0-dev.2：固定底部返回日程视图/查看当前编辑，保留未保存正文、日期与筛选，不自动写入；v0.80.0-dev.3：工具结果直接创建新日程草稿，显示日期09:00、提醒关闭、不重复，保存后才写盘，拒绝覆盖未保存或活动文件预览；v1.1.0：约2秒发现其他窗口保存的记录，保留未保存草稿及原版本；同一份日程由一个窗口自动提醒，关闭后接管，读失败保留内容；v1.2.0：冲突修改显式另存新记录、原记录不改，新日程提醒关闭，保存事务凭据区分写入失败与刷新失败；v1.3.0：只读冲突字段对比，当前原始输入与最近同步版本、删除/同步异常提示，查看期间不保存 接收指定日期的单次全天草稿，提醒关闭且不自动保存；保留旧选中日期失败守卫和脏编辑保护，支持1901–2099年。",
+      "discovery": {
+        "label": "万年历与日程",
+        "summary": "查看公历、农历和节气，安排一次性或重复日程。支持周视图、全天与跨天安排、提前和稍后提醒；退出程序后不提醒。",
+        "category": "时间与生成",
+        "keywords": "本地 保存 搜索 备忘 日程 提醒 农历 节气 未来 本周 安排 7天 30天 agenda 全天 跨天 起止 结束时间 all-day ICS iCalendar 日历文件 导入 导出 重复截止 UNTIL 周视图 周计划 week 每天 每周 每月 每年 延后 月底 回收站 提前提醒 创建副本 Ctrl S",
+        "aliases": [
+          "万年历",
+          "日历",
+          "提醒",
+          "闹钟",
+          "日程",
+          "calendar",
+          "schedule",
+          "reminder",
+          "全天事件",
+          "跨天日程",
+          "ICS导入",
+          "ICS导出",
+          "日历文件",
+          "周视图"
+        ]
+      },
+      "tool_version": "1.4.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-07",
+          "changes": "多窗口后台刷新、草稿冲突提示、单窗口自动提醒与退出接管"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-07",
+          "changes": "固定操作区冲突修改另存，复用表单校验并区分保存成功与列表刷新失败"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-07",
+          "changes": "增加只读冲突对比窗口，保留当前原始日期输入并显示最近同步版本、字段差异、删除与同步异常，关闭回到编辑。"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-07",
+          "changes": "接收指定日期的单次全天草稿，提醒关闭且不自动保存；保留旧选中日期失败守卫和脏编辑保护，支持1901–2099年"
+        }
+      ]
+    },
+    {
+      "id": "planner-interop",
+      "name": "日程进阶与互通",
+      "status": "planned",
+      "category": "日常工具",
+      "priority": "P2",
+      "scope": "农历生日重复、ICS 时区、COUNT 次数和例外扩展、系统通知与退出后的系统任务提醒；周视图、全天与结束时间、基础 ICS 文件交换、重复截止与 UNTIL 已归入现有日程入口",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "memo-library",
+      "name": "备忘资料库互通",
+      "status": "planned",
+      "category": "日常工具",
+      "priority": "P2",
+      "scope": "标签、多文件批量导入导出，以及主动将备忘送往知识库；单文件正文交换、完整备忘/日程 JSON 备份恢复、核心结果互传和回收站永久清理已归入备忘录入口",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "data-sqlite-export",
+      "name": "表格另存 SQLite",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "P1",
+      "scope": "v0.81.0：数据工作台可将筛选/排序结果或全部原始行另存新SQLite单表文件，完整快照、范围/目标/类型预览和明确确认；后台事务及独立校验、拒绝已有或竞争目标、提交前取消、实例任务归属、主动打开只读浏览器；最多10000行/128列/32MiB，需支持硬链接的文件系统，不追加或改写已有数据库",
+      "discovery": {
+        "label": "表格另存 SQLite",
+        "summary": "把整理好的 CSV 或 JSON 表格存成新的本机数据库。先确认范围和数据类型，再保存；原数据保留，支持取消和保存后查看，不覆盖已有文件。",
+        "category": "数据与格式",
+        "keywords": "sqlite db 数据库 另存 生成 保存 导出 csv json 表格 本地 写入",
+        "aliases": [
+          "CSV转SQLite",
+          "JSON转SQLite",
+          "表格存数据库"
+        ]
+      },
+      "tool_version": "1.1.0",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-05",
+          "changes": "首次建立独立工具版本基线；当前范围见 scope，不追溯历史版本。"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        }
+      ]
+    },
+    {
+      "id": "recorder-tutorial",
+      "name": "教程录屏辅助",
+      "status": "in-progress",
+      "category": "文件与系统",
+      "priority": "P1",
+      "scope": "编码与预览共用BGRA：固定/跟随放大、全景＋鼠标放大窗（四角可选）、平滑过渡、鼠标高亮/左右键波纹、鼠标聚光灯（半径/压暗可调、离开选区关闭）。录制中调整、静态源重新合成、暂停清除瞬态；1600万像素上限。真实桌面/物理输入/混合DPI/高分辨率性能及画笔/按键/提词器继续验收。",
+      "tool_version": "0.2.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-06",
+          "changes": "固定/跟随放大与鼠标提示接入实际编码路径、共用预览及暂停/复位；全功能仍开发中"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "增加全景鼠标放大窗与四角设置、可调聚光灯，共用预览及编码合成；保持源像素与复位语义。"
+        }
+      ],
+      "discovery": {
+        "label": "教程录屏辅助（开发中）",
+        "summary": "录屏全景与局部放大、鼠标聚光灯及提示效果",
+        "category": "文件与系统",
+        "aliases": [
+          "教程录屏",
+          "录屏放大",
+          "鼠标高亮",
+          "点击波纹"
+        ],
+        "keywords": "tutorial zoom cursor highlight click recording video spotlight inset magnifier 聚光灯 全景 放大窗"
+      }
+    },
+    {
+      "id": "app-update-check",
+      "name": "程序更新检查",
+      "status": "in-progress",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "签名发布检查与完整EXE/MSI认证升级；便携版优先匹配双EXE基线的独立签名增量包、重建后目标摘要认证、明确确认退出应用及恢复。基线不匹配使用完整包并说明原因，损坏签名/补丁停止；MSI仍原生完整安装。首次正式签名升级、健康握手、MSI增量与断点续传继续验收。",
+      "tool_version": "0.8.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-06",
+          "changes": "首版后台发布检查、频道选择、SemVer 比较与默认关闭的24小时检查；安装及增量回滚待实现。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "新增离线发布附件完整性校验，拒绝错误版本/清单/摘要，无安装或执行。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-06",
+          "changes": "官方附件主动下载与清单/大小/摘要核验、后台取消、预览保存和退出保护；不执行安装。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-06",
+          "changes": "发布清单Ed25519与内置公钥校验、签名版本/附件绑定、旧版未签名区分、工具差异缓存；配置私钥安全保管与发版签名工作流，公开签名发布待验证。"
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-10-06",
+          "changes": "便携版认证完整包准备、退出等待助手、双EXE替换、失败恢复及主动恢复入口；原生占用/部分替换/错误基线验证，MSI和增量升级仍待实现。"
+        },
+        {
+          "version": "0.6.0",
+          "date": "2026-10-06",
+          "changes": "原生MSI身份/组件归属识别及安装/便携目录共存；安装器记录真实位置并将旧版移除纳入事务；独立CI真实升级失败回滚夹具，桌面内MSI执行仍待接入。"
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-10-06",
+          "changes": "新增MSI安装版后台签名包准备、明确确认/精确退出助手、原生安装器进度及取消、产品与双EXE核验/回执/重启；待重启状态不自动重启电脑。一次性CI扩展实际Rust更新核心事务与篡改/重复执行验证。"
+        },
+        {
+          "version": "0.8.0",
+          "date": "2026-10-06",
+          "changes": "认证增量发布与便携准备接入，保留完整清单兼容，重建目标复核后复用退出应用/恢复事务。"
+        }
+      ],
+      "discovery": {
+        "label": "程序更新",
+        "summary": "检查更新、认证下载与工具版本差异，准备便携升级并保留恢复副本",
+        "category": "文件与系统",
+        "keywords": "update release version 更新 升级 版本 signing signature ed25519 公钥 签名 portable upgrade rollback 恢复 回滚 升级",
+        "aliases": [
+          "更新检查",
+          "检查更新",
+          "软件更新",
+          "发布附件校验",
+          "更新包校验",
+          "发布签名",
+          "更新签名",
+          "工具版本差异",
+          "便携更新",
+          "程序升级",
+          "恢复旧版本"
+        ]
+      }
+    },
+    {
+      "id": "app-delta-update",
+      "name": "增量更新与回滚",
+      "status": "in-progress",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "本机分块差分/压缩完整内容包生成、自验重建及另存；程序更新另接独立签名增量清单，绑定源双EXE、补丁与完整目标，便携匹配基线时下载重建、确认后应用和恢复。发布流水线收集前一正式版基线并只发布有传输收益的两件包。首次正式线上增量及健康自动回滚、MSI增量仍待验收。",
+      "tool_version": "0.2.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-06",
+          "changes": "首版本机有界内容分块差分/完整内容压缩、摘要验证、自检重建、后台取消与无覆盖另存；真实下载安装与签名回滚待实现。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "发布工程签名增量对与便携升级接入，基线/补丁/目标三重绑定；未匹配完整包、认证错误不回退。"
+        }
+      ],
+      "discovery": {
+        "label": "更新包生成与重建",
+        "summary": "本机生成差分或完整内容包，核对后另存重建文件",
+        "category": "文件与系统",
+        "keywords": "delta patch update reconstruct 增量 差分 更新 重建",
+        "aliases": [
+          "增量更新",
+          "差分包",
+          "更新包重建"
+        ]
+      }
+    },
+    {
+      "id": "advanced-calculator",
+      "name": "全能计算器",
+      "status": "in-progress",
+      "category": "工作台",
+      "priority": "P1",
+      "scope": "开发版已接入有界精确 i128 有理数表达式、优先级与右结合幂、科学函数及弧度/角度、进制与有符号 128 位位运算、长度/质量/时间/存储/温度转换、变量/ans 与 100 条内存历史、结果复制和表达式复用；复数、非线性方程、高级绘图、时区与日期时间换算、其他结果接力继续开发。 新增独立矩阵工作区：每轴1–8、表达式/变量单元格及TSV批量输入预览确认、矩形加减乘/转置、行列式/逆矩阵及多右端AX=B；精确有理数不自动降精度，浮点明确近似且无病态误差保证；过期结果禁止复制，TSV输出。复数/绘图/非线性、原文件更新和其他类型接力继续开发。 新增有界JSON工作表快照另存与预览确认恢复，含算式/角度/变量/历史/矩阵和TSV草稿；精确分数字符串、近似完整f64，后台快照保存不误标后续编辑，恢复不回放赋值或保留旧矩阵结果，退出/更新保护。1MiB，明文、无覆盖原子另存，需支持硬链接文件系统。 新增数值类型/完整文本/近似数字结果接力，规范类型JSON表格可确认回传矩阵A；精确分数与完整f64保留，过期结果/目标未保存保护。工作表schema2保存类型字面量，兼容读取schema1。 接收数值可选择矩阵A/B，有未保存内容时显式允许替换所选矩阵并保留其他工作；后台I/O/待读取不可绕过。长单元格完整悬浮查看，小窗口接力正文滚动而操作固定。 接收矩阵选择和替换许可固定底部，长内容及有界错误单独滚动。 新增函数绘图：最多4条、每条17–2049点后台近似采样，变量/角度快照、定义域/中点断点探测；图内平移缩放与采样读数、过期禁止输出，CSV/SVG主动无覆盖另存与采样表新实例接力。schema3保存绘图参数兼容读1/2，恢复不执行。 新增有界统计/排列组合/公约数公倍数与分类示例，精确分数比较避免交叉乘法溢出。 已接收数值区域A可主动求总和/均值/中位数/总体与样本方差或标准差，结果保留类型1×1继续接力；运算按矩阵/统计分组，B不参与统计；schema4兼容旧1/2/3，恢复不执行。 新增日期与工作日工作台：公历0001–9999年、带符号经过天数、日/月/年偏移、月末显式报错或截断、周一至周五端点计数与正负偏移；不含节假日/调休；输入修改后旧结果不可复制或接力，天数保留精确整数接力。schema5保存日期原始草稿并兼容1–4，恢复不计算。 日期偏移结果携带类型日期与完整条件，确认后生成提醒关闭的全天日程草稿或其他文本目标；字段绘制后捕获，旧结果不能发送。",
+      "tool_version": "0.10.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "接入计算器工作台：精确表达式、科学函数、进制位运算、单位、变量与内存历史；边界验收进行中。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "新增矩形矩阵、逆/行列式与多右端线性方程，变量/角度复核与过期提示、TSV结果互通。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-06",
+          "changes": "新增计算工作表快照另存、精确类型恢复与读取替换确认，后台读写/失败及后续编辑保护，纳入退出和更新阻挡。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-06",
+          "changes": "新增数值类型/完整文本/近似数字结果接力，规范类型JSON表格可确认回传矩阵A；精确分数与完整f64保留，过期结果/目标未保存保护。工作表schema2保存类型字面量，兼容读取schema1。"
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-10-06",
+          "changes": "接收数值可选择矩阵A/B，有未保存内容时显式允许替换所选矩阵并保留其他工作；后台I/O/待读取不可绕过。长单元格完整悬浮查看，小窗口接力正文滚动而操作固定。"
+        },
+        {
+          "version": "0.5.1",
+          "date": "2026-10-07",
+          "changes": "修复8×8长数值快照接收时A/B和未保存替换许可被正文挤出视野；接收控件固定底部，错误有界滚动，保持显式授权和不自动计算。"
+        },
+        {
+          "version": "0.6.0",
+          "date": "2026-10-07",
+          "changes": "新增4条函数后台采样、平移/缩放/最近采样读数，CSV复制/新数据实例接力及CSV/SVG无覆盖另存；有界采样与定义域/中点探测、过期保护。schema3保存绘图参数，读schema1/2，恢复不回放绘制。"
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-10-07",
+          "changes": "统计/组合函数与分类示例；精确分数排序避免中间乘法溢出，超限不自动改近似"
+        },
+        {
+          "version": "0.8.0",
+          "date": "2026-10-07",
+          "changes": "数据区域A直接统计与保留类型标量接力；运算分类，schema4兼容旧工作表且恢复不执行"
+        },
+        {
+          "version": "0.9.0",
+          "date": "2026-10-07",
+          "changes": "独立日期与工作日工作台，显式月末/端点策略，精确天数接力，schema5保存草稿且恢复不执行"
+        },
+        {
+          "version": "0.10.0",
+          "date": "2026-10-07",
+          "changes": "日期偏移结果携带类型日期与完整条件，确认后生成提醒关闭的全天日程草稿或其他文本目标；字段绘制后捕获，旧结果不能发送"
+        }
+      ],
+      "discovery": {
+        "label": "全能计算器（开发中）",
+        "summary": "表达式、矩阵、绘图、统计与日期工作日计算；精确/近似清楚区分",
+        "category": "时间与生成",
+        "keywords": "calculator scientific decimal fraction unit programmer 计算器 计算 科学 单位 转换 精确 小数 分数 matrix determinant inverse linear equation 矩阵 行列式 逆矩阵 线性方程 worksheet save restore 工作表 保存 恢复 numeric typed handoff 数值 类型 接力 plot graph function chart 绘图 曲线 函数图 SVG 采样 statistics mean median variance standard deviation factorial permutation combination 统计 方差 标准差 阶乘 排列组合 table statistics region 表格区域统计 数据互通 date weekday 日期 日期差 工作日 月末 日期加减 闰年",
+        "aliases": [
+          "计算器",
+          "算式",
+          "单位换算",
+          "科学计算",
+          "jisuanqi",
+          "jsq",
+          "日期差",
+          "日期加减",
+          "工作日计算"
+        ]
+      }
+    },
+    {
+      "id": "explorer-menu",
+      "name": "资源管理器统一右键入口",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "文件/文件夹/空白处统一 Zi DevTools 菜单，按文件类型与多选限制显示适用操作；工具先预览再执行。当前用户安装、更新、修复及卸载；支持 EXE 主动注册和 MSI 安装选项，核验路径转义、单实例转发及 Windows 11 新旧菜单兼容",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "clock-workbench",
+      "name": "全功能时钟",
+      "status": "in-progress",
+      "category": "工作台",
+      "priority": "P1",
+      "scope": "开发版接入IANA世界时钟/模拟表盘及相对会议对照、秒表分段、32个独立单调计时器、64个一次/每日时区闹钟、补提醒/知晓/5分钟稍后、番茄专注与四轮长休息。共用日程的后台唤醒，隐藏托盘继续处理、主动启用本机保存：后台原子快照、操作后保存/运行每30秒检查点，重启先预览再确认、倒计时暂停或包含离线时间继续、秒表暂停恢复、闹钟/专注/分段/提醒恢复与已确认去重，拒绝损坏/未来版本/过期写入；未保存会话退出提示。三种内置短音/音量/试听/静音/跨午夜免打扰、同时到期合并声音且提醒保留、后台可取消WASAPI播放、声音设置随保存恢复及旧格式备份迁移；8个独立原生小窗/置顶/全屏/Esc/返回工作台、稳定ID/同步操作/重置确认、关闭不停止计时/恢复先关闭旧窗；提醒数据与日程共享调度、完整睡眠/系统时间实测和退出后系统任务仍待实现或验收",
+      "tool_version": "0.4.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-06",
+          "changes": "接入世界时钟、秒表分段、多计时器、时区闹钟/每日规则/5分钟稍后及番茄专注；仅会话保存，完整恢复/声音/独立窗口和真实睡眠等验收继续开发。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "接入用户主动启用的后台本机保存、先预览再确认的重启恢复、倒计时暂停/离线继续策略、秒表暂停、闹钟与稍后/专注/提醒去重恢复；512KiB有界验证、原子替换/排他写锁与过期写入拒绝。声音/独立窗口/真实系统验收仍待续。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-06",
+          "changes": "增加可选短音提醒、试听/音量/静音/跨午夜免打扰；后台播放可取消，合并声音不丢提醒，失败不自动重试。声音设置随schema 2保存，旧格式确认迁移前保留原字节备份。独立窗口及真实系统验收继续开发。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-06",
+          "changes": "增加世界时钟/秒表/每项计时器/番茄钟的独立原生小窗，置顶/全屏/同步操作与重置确认；稳定目标ID、关闭继续计时、删除提示及恢复关闭旧窗。布局不持久保存，完整日程共享调度及真实系统验收继续推进。"
+        }
+      ],
+      "discovery": {
+        "label": "时钟工作台（开发中）",
+        "summary": "世界时钟、秒表分段、多计时器、闹钟和番茄专注",
+        "category": "时间与生成",
+        "aliases": [
+          "全功能时钟",
+          "秒表",
+          "计时器",
+          "闹钟",
+          "番茄钟",
+          "世界时间"
+        ],
+        "keywords": "clock timer stopwatch pomodoro timezone alarm"
+      }
+    },
+    {
+      "id": "screenshot-workbench",
+      "name": "截图与透明套索",
+      "status": "in-progress",
+      "category": "工作台",
+      "priority": "P1",
+      "scope": "开发版可主动隐藏工作台后捕获主屏幕，以原生全屏选择层绘制矩形/自由轮廓，Enter截全屏；捕获源像素放大镜、坐标/RGB、R/F切模式、Space开关放大镜、Backspace重选、Esc取消保留旧工作。偶奇规则、2×2采样透明边缘、棋盘格预览、后台无覆盖PNG另存及退出保护；稳定选择层ID、恢复主窗。2048点/1600万像素上限。其他屏幕/窗口、编辑点/羽化/标注/打码/复制/固定截图/撤销及真实多屏/混合DPI/物理全局键继续开发，长截图/OCR后续验收。 内存图片接力：实际编码结果/透明选区优先、后台有界准备、来源工具版本链与预览确认，目标后台任务/已有工作保护，不创建临时图片、不自动保存。 另存先完整写入同目录暂存，再无覆盖发布，不暴露半成品；失败清理暂存并保留已有目标。 主动生成冻结图片信息JSON报告：尺寸/透明度/已有编码格式与精确大小；统一接力到JSON、备忘等，源材料变化拒绝发送旧报告，不自动读写。 开发版图片流程接收目标可明确新建或选择已有实例，按稳定身份/修订核对并重新确认替换；核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。 接力弹窗有界滚动正文，确认/取消位于滚动区外，预览按窗口高度缩小；760×520明暗受控交互通过。 编码输出增长前检查上限，失败无可保存半成品；不宣称编码器临时内存或全局进程内存受该限制。",
+      "tool_version": "0.4.5",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-06",
+          "changes": "新增主动主屏幕静态捕获、矩形/自由轮廓、偶奇透明裁剪与PNG预览另存；完整截图工作台继续开发。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "新增隐藏工作台后的原生全屏选区、捕获源像素放大镜/坐标/RGB与局部按键；Esc保留旧工作，完成后恢复主窗。全功能截图继续开发。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-06",
+          "changes": "新增内存图片接力、编码结果优先与透明选区、来源链/预览确认及目标工作保护。"
+        },
+        {
+          "version": "0.3.1",
+          "date": "2026-10-08",
+          "changes": "另存改为同目录完整暂存与无覆盖发布，失败仅清理暂存，保留已有目标及预览。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-08",
+          "changes": "主动生成冻结图片信息JSON报告：尺寸/透明度/已有编码格式与精确大小；统一接力到JSON、备忘等，源材料变化拒绝发送旧报告，不自动读写。"
+        },
+        {
+          "version": "0.4.1",
+          "date": "2026-10-08",
+          "changes": "图片接力弹窗预留稳定预览空间并采用顶部锚点，减少后台准备完成后替换/确认控件位移。"
+        },
+        {
+          "version": "0.4.2",
+          "date": "2026-10-08",
+          "changes": "图片接力新增图片流程目标；保留目标步骤定义、明确替换输入/结果，不自动运行流程"
+        },
+        {
+          "version": "0.4.3",
+          "date": "2026-10-09",
+          "changes": "开发版图片接力明确新建或指定图片实例；实例身份与修订校验、替换须确认、来源保留，不自动运行保存。核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。"
+        },
+        {
+          "version": "0.4.4",
+          "date": "2026-10-09",
+          "changes": "修复较矮窗口图片接力：有界滚动正文、固定确认/取消、自适应预览与工具换行；760×520逻辑窗口明暗受控完整交互通过。"
+        },
+        {
+          "version": "0.4.5",
+          "date": "2026-10-09",
+          "changes": "公共有界编码输出在写入增长前拒绝超限；单图/批量/流程不缩放时借用源图，编辑JPEG白底保留，元数据清理/截图保存共用增长检查。真实PNG/JPEG/WebP精确边界与超界测试通过，不代表统一进程内存预算。"
+        }
+      ],
+      "discovery": {
+        "label": "截图与透明套索（开发中）",
+        "summary": "在真实桌面画面上选择矩形或自由轮廓，预览透明PNG后另存",
+        "category": "文件与系统",
+        "aliases": [
+          "截图",
+          "套索",
+          "透明截图",
+          "自由截图"
+        ],
+        "keywords": "screenshot capture lasso transparent png"
+      }
+    },
+    {
+      "id": "unified-shortcuts",
+      "name": "统一前缀快捷键",
+      "status": "in-progress",
+      "category": "效率与系统",
+      "priority": "P1",
+      "scope": "开发版已接入稳定命令 ID、可配置全局前缀和默认序列；全部可用工具及已启用插件可搜索并编辑 1–4 个字母的附加序列，K 保留搜索。修改进入草稿，重复/前缀冲突禁止保存，保存成功后生效；可取消绑定、恢复单项或全部默认、放弃修改。停用插件保留并预留绑定，运行时冲突停用相关序列。8 秒超时、失焦/Esc/输入法组合取消，旧录屏直接热键保留。新增快捷配置 JSON 后台另存与读取，导入先查看变更和冲突，合并/替换确认后只进入草稿；格式有界，已有文件不覆盖，退出保护覆盖草稿/待确认与活动读写。更多动作及物理跨应用验收待续；新增T默认打开时钟工作台；新增S C快速截图，S F打开截图工作台。 新增R T教程录屏入口、R Z开关鼠标聚焦放大、R X关闭效果；真实跨应用热键验收仍待续。",
+      "tool_version": "0.7.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-05",
+          "changes": "接入统一命令目录与默认前缀键序列，保留全工具搜索及紧急录屏直接键；自定义序列等继续开发。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "增加全工具附加键编辑、冲突校验、草稿与原子保存；插件停用保留绑定，恢复默认和放弃修改。导入导出及物理系统热键验收待续。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-06",
+          "changes": "增加快捷配置JSON另存与读取，合并/替换变更预览后进入草稿；退出保护覆盖快捷草稿、待确认导入与活动读写。物理全局键验收及更多动作待续。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-06",
+          "changes": "增加时钟工作台稳定指令与默认T序列，继续保留K搜索及绑定冲突校验。"
+        },
+        {
+          "version": "0.4.1",
+          "date": "2026-10-06",
+          "changes": "S F 默认打开新增截图工作台，捕获仍由用户主动操作；物理跨应用验收待续。"
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-10-06",
+          "changes": "新增S C快速截图动作，经同一命令注册和附加键配置；S F保持工作台入口。物理跨应用验收继续开发。"
+        },
+        {
+          "version": "0.6.0",
+          "date": "2026-10-06",
+          "changes": "R T教程录屏入口、R Z开关鼠标聚焦放大、R X关闭效果；共享可编辑序列"
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl Enter执行当前工作台的解析、运行或预览；审核/弹窗/任务保护，不应用结果或写文件，底部提示随当前工具变化"
+        }
+      ],
+      "discovery": {
+        "label": "统一快捷指令（开发中）",
+        "summary": "前缀加键序列打开工具、控制录屏，K 搜索全部工具",
+        "category": "文件与系统",
+        "keywords": "shortcut prefix sequence command hotkey 快捷键 前缀 指令 命令",
+        "aliases": [
+          "统一快捷键",
+          "快捷指令",
+          "前缀快捷键"
+        ]
+      }
+    },
+    {
+      "id": "super-clipboard",
+      "name": "超级剪贴板",
+      "status": "in-progress",
+      "category": "工作台",
+      "priority": "P1",
+      "scope": "开发版主动文本及另行开启图片采集，PNG优先、常见24/32位DIB与明确32位V5掩码；保留alpha，400万像素/PNG16MiB，混合历史及事件队列各32MiB按编码加RGBA计，500条。共享采集前来源排除、暂停/代次检查、去重/置顶/期限；单预览纹理、PNG与DIBV5复制/回流抑制、透明PNG无覆盖另存和图片工具接力。主动Windows用户保护schema3保存/文本1、2兼容，恢复不自动采集。富文本/文件引用/OCR/Agent授权、其他位图/ICC、长期性能和多进程继续开发。",
+      "tool_version": "0.5.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        },
+        {
+          "version": "0.1.0",
+          "date": "2026-10-06",
+          "changes": "接入有界通知式文本历史、暂停、搜索/置顶、去重与组合预览复制；其余完整能力仍开发。"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-06",
+          "changes": "主动开启Windows用户保护的本机快照、后台保存与重启历史恢复、清空/停止保存生命周期，保护未读旧历史、后台失败与退出。"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-06",
+          "changes": "新增UTC首次/最近时间与旧快照兼容，主动启用可预览的历史保留期限，保护置顶/未知时间并后台清理同步。"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-06",
+          "changes": "接入正文读取前的实际进程来源排除及未知来源规则，明确本次应用/保存并应用、加载失败保护和未应用草稿退出保护。"
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-10-06",
+          "changes": "图片历史显式采集、PNG/常见DIB、混合有界队列/容量和保护保存；图片预览、复制及内存工具接力。"
+        }
+      ],
+      "discovery": {
+        "label": "超级剪贴板（开发中）",
+        "summary": "文本与图片历史、透明预览、复制与工具接力、保护保存及来源排除",
+        "category": "文本与编码",
+        "keywords": "clipboard history paste copy 剪贴板 剪裁版 复制历史 多片段 JSON CSV persistence protected save restore 本机保存 历史恢复 用户保护 retention expire 保留期 过期 自动清理 exclusion process source 应用排除 进程 来源 规则 image png dib 图片历史 剪贴板图片 透明图片 图片接力",
+        "aliases": [
+          "剪贴板历史",
+          "连续复制",
+          "超级剪裁版",
+          "图片历史",
+          "剪贴板图片"
+        ]
+      }
+    },
+    {
+      "id": "clipboard-workflows",
+      "name": "剪贴板数据工作流",
+      "status": "planned",
+      "category": "效率与系统",
+      "priority": "P2",
+      "scope": "把多次复制整理成表格/JSON/备忘/日程草稿，图片 OCR 与翻译需选择本机或远程模型；每步预览、类型转换/来源追踪/撤销、贴入目标前确认；大文件只保留引用并复核存在性，不后台自动上传",
+      "tool_version": "0.0.0",
+      "version_history": [
+        {
+          "version": "0.0.0",
+          "date": "2026-10-05",
+          "changes": "登记需求与验收范围，尚未实现。"
+        }
+      ]
+    },
+    {
+      "id": "text-flow",
+      "name": "文本 / 表格流程",
+      "status": "implemented",
+      "category": "工作台",
+      "priority": "—",
+      "scope": "13项原生文本操作与9项表格操作，共22项；版本化动作目录驱动搜索、排序和后台串行执行；格式1兼容，格式2按显式文本/表格类型检查。最多16步、输入/每步1MiB、累计材料8MiB；逐步结果/失败定位和取消，复用既有表格列转换。CSV/TSV解析保留文本，JSON对象数组保留类型，列结构JSON保留列序/空表/类型；CSV原值导出明示类型变化。表格审核后直接接力独立数据实例，原输入/结果保留；文本沿已有接力。输入/步骤随实例保存，恢复不运行；配方不含输入/结果/目标/授权。文件/图片/插件/Agent/MCP统一动作平台仍未完成。 主动读取UTF-8文件(1MiB)后审核替换输入，不自动执行；配方新文件保存/读取(64KiB)，仅含版本/步骤；选择任一步完整结果经格式/字节/路径审核另存原文本或列结构JSON，复用原子不覆盖写入。文件任务使用实例后台任务/取消/退出保护，读取取消保留草稿与旧结果，发布后取消不删除成品。 配方接入统一有界目录、CtrlK检索/收藏/最近与托盘，重新读取文件按实际契约分派工具审核，保留原输入和旧步骤/结果直到确认；直接配方读取记最近，后台实例绑定，不自动执行。",
+      "discovery": {
+        "label": "工具流程",
+        "summary": "连续处理文本与表格，查看类型化结果并接力",
+        "category": "数据与格式",
+        "keywords": "workflow pipeline chain text base64 json url sha256 文本 流程 连续 步骤 编码 接力 table typed csv tsv schema 表格 材料 类型 空表 列结构 文件 读取 保存 配方 结果 output input file",
+        "aliases": [
+          "文本工具链",
+          "连续处理文本",
+          "text workflow",
+          "文本流程",
+          "表格流程",
+          "材料流程"
+        ]
+      },
+      "tool_version": "1.6.1",
+      "version_history": [
+        {
+          "version": "1.0.0",
+          "date": "2026-10-08",
+          "changes": "建立13项版本化原生文本操作与真实串行工作台，步骤结果/后台任务/接力/草稿保存和恢复"
+        },
+        {
+          "version": "1.1.0",
+          "date": "2026-10-08",
+          "changes": "格式2接入文本/表格类型材料，22项动作共用输入/输出契约；CSV/TSV与JSON/列结构JSON解析、原值导出及全表文本去空白，兼容格式1；类型不匹配运行前拒绝。表格冻结审核/返回/确认后送到新工作实例，原流程和步骤结果保留，样本预览与完整材料明确分离。"
+        },
+        {
+          "version": "1.2.0",
+          "date": "2026-10-08",
+          "changes": "UTF-8材料文件读取与确认、版本化配方文件另存和审核载入、完整步骤结果新文件输出。文件内容与屏幕样本分离，后台读取/保存和取消接入同实例任务；真实文件往返与同名竞争不覆盖，输入确认不运行流程。"
+        },
+        {
+          "version": "1.3.0",
+          "date": "2026-10-08",
+          "changes": "配方接入统一有界目录、CtrlK检索/收藏/最近与托盘，重新读取文件按实际契约分派工具审核，保留原输入和旧步骤/结果直到确认；直接配方读取记最近，后台实例绑定，不自动执行。"
+        },
+        {
+          "version": "1.4.0",
+          "date": "2026-10-08",
+          "changes": "固定工作台切换栏、按当前工具显示操作；共享草稿和后台任务保留，审核窗口保护切换，每实例和工具独立滚动位置"
+        },
+        {
+          "version": "1.5.0",
+          "date": "2026-10-08",
+          "changes": "Ctrl Enter执行当前工作台的解析、运行或预览；审核/弹窗/任务保护，不应用结果或写文件，底部提示随当前工具变化"
+        },
+        {
+          "version": "1.6.0",
+          "date": "2026-10-08",
+          "changes": "动作分类、全角兼容多关键词/别名搜索；默认匹配下一步输入类型、全部类型原因提示、16项分页和搜索焦点内方向键/Enter添加，明确运行前不执行"
+        },
+        {
+          "version": "1.6.1",
+          "date": "2026-10-08",
+          "changes": "操作选择器长列表保留180px浏览高度，避免固定实例栏后嵌套滚动压缩到一行；少量搜索结果随内容收缩，外层滚动仍可抵达运行控件。 打开选择器时将搜索和列表一起滚入可见区，避免标题定位抢占滚动。"
+        }
+      ]
+    },
+    {
+      "id": "image-workflow",
+      "name": "图片操作流程",
+      "status": "in-progress",
+      "category": "复杂工具",
+      "priority": "P1",
+      "scope": "开发中：逐步图片操作、独立工作实例、流程库搜索收藏最近、实例任务中心和跨实例接力。流程实例共享会话载荷预算，默认1024MiB、界面可调64..8192MiB；共享像素与编码按实际分配容量去重计数，后台任务先预留，保留旧结果和未收取结果，超额拒绝新分配。仍保留每次运行256MiB累计限制。开发版载入选定文件在读取缓冲和像素解码之前预留，按文件身份复核和取消释放；内存设置通过摘要同一行菜单展开。其他图片工具、缩略图/GPU和编解码器内部临时分配尚未统一；不是进程总内存上限。公共插件端口及物理交互验收继续开发。 内存设置菜单支持内部点击与数值编辑，点击外部或Esc关闭；预算错误单独提示，有效修改后清除。明暗实际72MiB图片、128MiB成功/64MiB拒绝保留原额度/256MiB成功验证通过。 开发版单图与流程共享载荷池：读取缓冲、缩放新像素、编码增长与实际预览解码先预留，未收取编码结果持续计入。失败保留旧图片与有效结果；待输入路径和已载入来源独立，保存核对已载入来源。单图页可直接调整同一预算。其他图片入口、接力准备、thumbnail/GPU及编解码器内部临时内存未统一，不是进程总内存上限。",
+      "tool_version": "0.7.0",
+      "version_history": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-08",
+          "changes": "开始实现独立图片流程：严格定义、逐步坐标和参数、后台执行、结果累计预算、明确导入/另存与图片接力"
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-10-09",
+          "changes": "接入共享定义解析、流程库搜索收藏最近与托盘读取；图片页确认、取消及忙碌保护，定义和图像保存记录分离"
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-10-09",
+          "changes": "独立图片实例：各自输入/步骤/结果/后台任务，切换与命名、关闭确认、所有实例收取及退出保护"
+        },
+        {
+          "version": "0.4.0",
+          "date": "2026-10-09",
+          "changes": "实例操作接入统一任务中心：真实操作种类/耗时/终态，取消及打开核对实例与generation，关闭回执和成功发布后迟到取消处理"
+        },
+        {
+          "version": "0.5.0",
+          "date": "2026-10-09",
+          "changes": "开发版图片接力明确新建或指定图片实例；实例身份与修订校验、替换须确认、来源保留，不自动运行保存。核心回归与明暗1100×900受控交互通过，小窗口和物理验收仍待继续。"
+        },
+        {
+          "version": "0.5.1",
+          "date": "2026-10-09",
+          "changes": "修复较矮窗口图片接力：有界滚动正文、固定确认/取消、自适应预览与工具换行；760×520逻辑窗口明暗受控完整交互通过。"
+        },
+        {
+          "version": "0.5.2",
+          "date": "2026-10-09",
+          "changes": "公共有界编码输出在写入增长前拒绝超限；单图/批量/流程不缩放时借用源图，编辑JPEG白底保留，元数据清理/截图保存共用增长检查。真实PNG/JPEG/WebP精确边界与超界测试通过，不代表统一进程内存预算。"
+        },
+        {
+          "version": "0.6.0",
+          "date": "2026-10-09",
+          "changes": "图片流程接入共享载荷池及会话预算调整；实际容量去重、分配前预留、旧结果/未收取结果保留计费、失败取消释放。67项图片测试通过，794项完整回归、严格Clippy及明暗窄窗受控原生接力通过；不宣称整个图片族或进程内存已受限。"
+        },
+        {
+          "version": "0.6.1",
+          "date": "2026-10-09",
+          "changes": "载入文件缓冲及输出像素先预留额度；文件身份/取消核对，失败释放而不替换原工作。预算调整和范围解释通过摘要同一行菜单展开，减少窄窗头部占用。真实格式、16位PNG和精确预算/真实后台载入保留旧工作验证通过，797项完整回归及明暗窄窗受控接力通过；物理选择器和预算菜单完整操作仍待验收。"
+        },
+        {
+          "version": "0.6.2",
+          "date": "2026-10-09",
+          "changes": "修复内存设置内部点击关闭导致无法输入；单独维护预算错误，成功修正后清除。真实72MiB像素及明暗原生调整/拒绝/保留原图/Esc通过；797项完整回归通过，严格检查和优化构建进行中。"
+        },
+        {
+          "version": "0.7.0",
+          "date": "2026-10-09",
+          "changes": "单图和图片流程共用载荷池与预算菜单，真实读取/缩放/编码/预览解码预留；后台返回共享编码结果，失败保留旧工作及真实路径关联。原70项图片测试与2项新增真实单图worker/格式/共享实例/未收取结果/保存路径测试通过；完整回归与原生验收进行中。"
+        }
+      ],
+      "discovery": {
+        "label": "图片流程",
+        "summary": "裁剪、缩放、编码和报告；保存步骤并复用",
+        "category": "文件与系统",
+        "keywords": "image pipeline crop resize webp png jpeg 图片 流程 批处理 配方",
+        "aliases": [
+          "图片流水线",
+          "图片工作流",
+          "压缩图片流程",
+          "image workflow"
+        ]
+      }
+    }
+  ],
+  "plugin_examples": [
+    {
+      "id": "local-text",
+      "tools": 2,
+      "network": false
+    },
+    {
+      "id": "ollama-local",
+      "tools": 2,
+      "network": true
+    },
+    {
+      "id": "openai-local",
+      "tools": 2,
+      "network": true
+    }
+  ]
+}

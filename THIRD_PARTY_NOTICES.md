@@ -1,15 +1,28 @@
 # Third-party notices
 
-Release artifacts contain or derive from the following projects.
+Release artifacts bundle the dependencies below; historical architecture references are also recorded.
 
 ## Picot
 
 - Source: <https://github.com/shixin-guo/picot>
 - License: MIT
-- Use: original desktop UI and native Pi integration baseline
+- Use: historical inspiration for the Pi desktop-wrapper architecture; not a direct fork and not tracked upstream
 
 The original MIT notice is retained in `LICENSE` and attribution is retained in
 `NOTICE`.
+
+According to the maintainer's historical account, Picot forked Tau
+(<https://github.com/deflating/tau>). Picot's original public URL is inaccessible
+as of 2026-10-10; Tau is retired. Existing historical copyright notices are
+preserved independently of the current repository's fork status.
+
+## Tau
+
+- Source: <https://github.com/deflating/tau>
+- License: MIT; Copyright (c) 2026 deflating
+- Use: retained early repository history and historical UI lineage; no ongoing synchronization
+
+The MIT copyright notice is included in `LICENSE`.
 
 ## Pi
 

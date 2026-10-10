@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["extensions/**/*.ts"],
+  "exclude": ["extensions/**/*.test.ts", "extensions/**/*.fixture.ts"]
+}

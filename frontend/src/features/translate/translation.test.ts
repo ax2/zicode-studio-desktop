@@ -20,6 +20,7 @@ function createStore(gateway: TranslationGateway) {
     getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
     notify,
   });
+  store.getState().setModelSelection({ sceneId: "programming", provider: "local", model: "example" });
   return { store, notify };
 }
 
@@ -34,7 +35,7 @@ describe("translation store", () => {
     await store.getState().run();
     expect(gateway.translate).toHaveBeenCalledWith(
       { sceneId: "programming", workspaceId: "ws-1" },
-      { text: "Hello", targetLang: "Chinese" },
+      { text: "Hello", targetLang: "Chinese", provider: "local", model: "example" },
     );
     expect(store.getState().result?.translated).toBe("你好");
     expect(store.getState().editedText).toBe("你好");

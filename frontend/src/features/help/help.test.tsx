@@ -1,5 +1,5 @@
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HelpMain, HelpNav } from "./HelpCenterApp";
 import { createHelpStore } from "./store";
 
@@ -50,6 +50,66 @@ afterEach(() => {
 });
 
 describe("help center React app", () => {
+  it("clears the old article and table of contents when navigation fails", async () => {
+    const fetchImpl = mockFetch();
+    const store = renderHelp(fetchImpl);
+    await waitFor(() => expect(document.querySelector(".help-center-hero")).toBeTruthy());
+    vi.mocked(fetchImpl).mockResolvedValueOnce({ ok: false, status: 503 } as Response);
+    await act(async () => {
+      await store.getState().loadPage("getting-started").catch(() => {});
+    });
+    expect(document.querySelector(".help-center-hero")).toBeNull();
+    expect(document.querySelector(".help-center-toc-link")).toBeNull();
+    expect(screen.getByText("Help page could not be loaded (503)")).toBeTruthy();
+    await act(async () => { await store.getState().loadPage("getting-started"); });
+    expect(document.querySelector(".help-center-hero")).toBeTruthy();
+    expect(screen.queryByText("Help page could not be loaded (503)")).toBeNull();
+  });
+
+  it("routes registered local Markdown links inside the help center", async () => {
+    const fetchImpl = mockFetch();
+    const store = createHelpStore({ fetchImpl, getLocaleImpl: () => "zh-CN" });
+    await store.getState().loadPage("getting-started");
+    const loadPage = vi.fn(async () => PAGES[0]);
+    store.setState({
+      loadPage,
+      article: { page: PAGES[0], markdown: "", html: '<h1>Links</h1><a href="./getting-started.md">Local page</a>' },
+    });
+    render(<HelpMain store={store} />);
+    const link = screen.getByText("Local page");
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    link.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(loadPage).toHaveBeenCalledWith("getting-started");
+  });
+
+  it("leaves external and unregistered Markdown links to normal navigation", async () => {
+    const store = createHelpStore({ fetchImpl: mockFetch(), getLocaleImpl: () => "zh-CN" });
+    await store.getState().loadPage("getting-started");
+    const loadPage = vi.fn(async () => PAGES[0]);
+    store.setState({
+      loadPage,
+      article: {
+        page: PAGES[0], markdown: "",
+        html: '<h1>Links</h1><a href="https://github.com/example/docs/getting-started.md">External</a><a href="//example.com/getting-started.md">Protocol relative</a><a href="other/getting-started.md">Other directory</a><a href="unknown.md">Unknown</a>',
+      },
+    });
+    render(<HelpMain store={store} />);
+    for (const link of document.querySelectorAll(".help-center-article a")) {
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+      // Cancel at the test boundary after recording the app's behavior.
+      let intercepted = false;
+      const observe = (event: Event) => {
+        intercepted = event.defaultPrevented;
+        event.preventDefault();
+      };
+      document.addEventListener("click", observe, { once: true });
+      link.dispatchEvent(click);
+      expect(intercepted).toBe(false);
+    }
+    expect(loadPage).not.toHaveBeenCalled();
+  });
+
   it("loads the manifest, renders Markdown, and builds page navigation", async () => {
     const fetchImpl = mockFetch();
     renderHelp(fetchImpl);

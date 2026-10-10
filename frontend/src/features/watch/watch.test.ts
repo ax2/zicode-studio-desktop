@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
-import { createWatchStore, type WatchGateway } from "./watchStore";
 import { normalizeUrl } from "./watchLogic";
+import { createWatchStore, type WatchGateway } from "./watchStore";
 
 const ITEM = {
   id: "w1",

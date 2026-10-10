@@ -4,8 +4,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -20,6 +20,18 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
 }));
 
 const tempHomes: string[] = [];
+
+async function taskRevision(handle: typeof import("./picot-config").handlePicotConfig): Promise<string> {
+  const result = await handle("read_super_agent_tasks", {}, {});
+  return (result as { data: { revision: string } }).data.revision;
+}
+
+async function automationRevision(handle: typeof import("./picot-config").handlePicotConfig): Promise<string> {
+  const result = await handle("automation_workspace", { action: "list" }, {});
+  if (!result.ok) throw new Error("Could not read workflow revision");
+  return (result.data as { revision: string }).revision;
+}
+
 
 async function loadConfigWithTempHome() {
   const home = mkdtempSync(join(tmpdir(), "picot-config-auth-"));
@@ -67,6 +79,9 @@ describe("picot config auth operations", () => {
     const { handlePicotConfig } = await loadConfigWithTempHome();
     const workspace = mkdtempSync(join(tmpdir(), "picot-project-profile-"));
     tempHomes.push(workspace);
+    const initial = await handlePicotConfig("read_project_profile", {}, { cwd: workspace });
+    expect(initial.ok).toBe(true);
+    const expectedRevision = (initial.data as { revision: string }).revision;
 
     const written = await handlePicotConfig(
       "write_project_profile",
@@ -76,6 +91,7 @@ describe("picot config auth operations", () => {
           defaultScene: "finance",
           budget: "12.5",
         },
+        expectedRevision,
       },
       { cwd: workspace },
     );
@@ -222,7 +238,7 @@ describe("picot config auth operations", () => {
     });
   });
 
-  it("keeps the QVeris gateway apiKey env reference in the scene models document", async () => {
+  it("does not rewrite existing model configuration while listing the catalog", async () => {
     const { root, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
     const agentDir = join(root, "scene-agent");
     mkdirSync(agentDir, { recursive: true });
@@ -251,7 +267,7 @@ describe("picot config auth operations", () => {
     await handlePicotConfig("list_model_catalog", {}, { modelRegistry: registry });
 
     const document = JSON.parse(readFileSync(modelsPath, "utf8"));
-    expect(document.providers.qveris.apiKey).toBe("$QVERIS_API_KEY");
+    expect(document.providers.qveris.apiKey).toBeUndefined();
   });
 
   it("stores and removes API keys without requiring registry authStorage", async () => {
@@ -312,7 +328,60 @@ describe("picot config auth operations", () => {
 });
 
 describe("structured provider channels", () => {
-  it("keeps QVeris visible before its first model sync", async () => {
+  it("does not create a models file or contact a service when reading an empty scene", async () => {
+    const { root, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    expect(await handlePicotConfig("list_provider_channels", {}, {})).toMatchObject({ ok: true, data: { channels: [] } });
+    expect(existsSync(join(root, "scene-agent", "models.json"))).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("saves keys and channels without network calls, syncs explicitly, and keeps deletion permanent", async () => {
+    const { root, handlePicotConfig: handle } = await loadConfigWithIsolatedAgentRoot();
+    const fetch = vi.fn(async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ data: [{ id: "example-chat", capabilities: ["chat"] }] }) }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await handle("set_api_key", { provider: "qveris", apiKey: "fixture-key" }, {})).toMatchObject({ ok: true });
+    expect(existsSync(join(root, "scene-agent", "models.json"))).toBe(false);
+    expect(await handle("save_provider_channel", { provider: "qveris", baseUrl: "https://example.invalid/v1", models: [] }, {})).toMatchObject({ ok: true });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await handle("sync_qveris_models", {}, {})).toMatchObject({ ok: true });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(await handle("remove_provider_channel", { provider: "qveris" }, {})).toMatchObject({ ok: true });
+    expect(await handle("list_provider_channels", {}, {})).toMatchObject({ ok: true, data: { channels: [] } });
+    const before = readFileSync(join(root, "scene-agent", "models.json"), "utf8");
+    expect(await handle("sync_qveris_models", {}, {})).toMatchObject({ ok: false });
+    expect(readFileSync(join(root, "scene-agent", "models.json"), "utf8")).toBe(before);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not resurrect a channel changed or removed while its catalog request is in flight", async () => {
+    const { root, handlePicotConfig: handle } = await loadConfigWithIsolatedAgentRoot();
+    await handle("set_api_key", { provider: "qveris", apiKey: "fixture-key" }, {});
+    await handle("save_provider_channel", { provider: "qveris", baseUrl: "https://example.invalid/v1", models: [] }, {});
+    const file = join(root, "scene-agent", "models.json");
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      writeFileSync(file, JSON.stringify({ providers: { personal: { baseUrl: "http://localhost:11434/v1", models: [{ id: "local" }] } } }));
+      return { ok: true, status: 200, text: async () => '{"data":[{"id":"remote","capabilities":["chat"]}]}' };
+    }));
+    expect(await handle("sync_qveris_models", {}, {})).toMatchObject({ ok: false, error: "Model channel changed while syncing. Refresh and try again." });
+    expect(Object.keys(JSON.parse(readFileSync(file, "utf8")).providers)).toEqual(["personal"]);
+  });
+
+  it("retains unrelated channel changes made during an explicit catalog request", async () => {
+    const { root, handlePicotConfig: handle } = await loadConfigWithIsolatedAgentRoot();
+    await handle("set_api_key", { provider: "qveris", apiKey: "fixture-key" }, {});
+    await handle("save_provider_channel", { provider: "qveris", baseUrl: "https://example.invalid/v1", models: [] }, {});
+    const file = join(root, "scene-agent", "models.json");
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      const document = JSON.parse(readFileSync(file, "utf8"));
+      document.providers.personal = { baseUrl: "http://localhost:11434/v1", models: [{ id: "local" }] };
+      writeFileSync(file, JSON.stringify(document));
+      return { ok: true, status: 200, text: async () => '{"data":[{"id":"remote","capabilities":["chat"]}]}' };
+    }));
+    expect(await handle("sync_qveris_models", {}, {})).toMatchObject({ ok: true });
+    expect(Object.keys(JSON.parse(readFileSync(file, "utf8")).providers).sort()).toEqual(["personal", "qveris"]);
+  });
+  it("does not inject a provider into an empty scene catalog", async () => {
     const { handlePicotConfig } = await loadConfigWithIsolatedAgentRoot("finance");
     const registry = {
       getAll: () => [],
@@ -327,14 +396,7 @@ describe("structured provider channels", () => {
     ).resolves.toMatchObject({
       ok: true,
       data: {
-        providers: [
-          expect.objectContaining({
-            provider: "qveris",
-            displayName: "QVeris Model Gateway",
-            configured: false,
-            models: [],
-          }),
-        ],
+        providers: [],
       },
     });
   });
@@ -423,11 +485,6 @@ describe("structured provider channels", () => {
       data: {
         channels: expect.arrayContaining([
           expect.objectContaining({
-            provider: "qveris",
-            baseUrl: "http://127.0.0.1:57620/v2/model-gateway",
-            builtIn: true,
-          }),
-          expect.objectContaining({
             provider: "team-proxy",
             baseUrl: "https://models.example.com/v1",
           }),
@@ -490,8 +547,9 @@ describe("finance workbench operations", () => {
       ),
     ).resolves.toMatchObject({
       ok: true,
-      data: { modelSync: { count: 1 } },
+      data: { provider: "qveris" },
     });
+    expect(fetch).not.toHaveBeenCalled();
 
     const status = await handlePicotConfig("finance_status", {}, {});
     expect(status).toMatchObject({
@@ -505,7 +563,7 @@ describe("finance workbench operations", () => {
     expect(JSON.stringify(status)).not.toContain("qv-finance-secret");
   });
 
-  it("allows the built-in QVeris gateway endpoint to be edited without renaming it", async () => {
+  it("allows an explicitly created QVeris channel endpoint to be edited", async () => {
     const { handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
 
     await expect(
@@ -530,7 +588,8 @@ describe("finance workbench operations", () => {
           expect.objectContaining({
             provider: "qveris",
             baseUrl: "http://gateway.internal:8080/v1",
-            builtIn: true,
+            builtIn: false,
+            catalogSync: "qveris",
           }),
         ]),
       },
@@ -757,6 +816,7 @@ describe("automation workspace operations", () => {
       "automation_workspace",
       {
         action: "upsert",
+        expectedRevision: await automationRevision(handlePicotConfig),
         workflow: {
           title: "Daily summary",
           prompt: "Summarize the project",
@@ -790,6 +850,7 @@ describe("automation workspace operations", () => {
         "automation_workspace",
         {
           action: "record_run",
+          expectedRevision: await automationRevision(handlePicotConfig),
           id: workflowId,
           approvalPending: true,
           run: { status: "approval_required", message: "Waiting" },
@@ -807,11 +868,18 @@ describe("automation workspace operations", () => {
 });
 
 describe("workspace-scoped app data", () => {
+  it("exposes task versions and rejects unversioned or stale writes", async () => {
+    const { handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
+    const revision = await taskRevision(handlePicotConfig);
+    expect(await handlePicotConfig("write_super_agent_tasks", { tasks: [] }, {})).toMatchObject({ ok: false, error: "task_revision_required" });
+    expect(await handlePicotConfig("write_super_agent_tasks", { tasks: [{ id: "saved" }], revision }, {})).toMatchObject({ ok: true });
+    expect(await handlePicotConfig("write_super_agent_tasks", { tasks: [], revision }, {})).toMatchObject({ ok: false, error: "task_conflict" });
+  });
   it("stores super-agent tasks under the workspace .zicode directory", async () => {
     const { workspace, handlePicotConfig } = await loadConfigWithIsolatedAgentRoot();
     const written = await handlePicotConfig(
       "write_super_agent_tasks",
-      { tasks: [{ id: "task-1", title: "Ship round 385" }] },
+      { tasks: [{ id: "task-1", title: "Ship round 385" }], revision: await taskRevision(handlePicotConfig) },
       {},
     );
     expect(written).toMatchObject({ ok: true, data: { count: 1 } });
@@ -826,12 +894,12 @@ describe("workspace-scoped app data", () => {
     const historyDir = join(workspace, ".zicode", "tasks", ".history");
     await handlePicotConfig(
       "write_super_agent_tasks",
-      { tasks: [{ id: "task-1", title: "First" }] },
+      { tasks: [{ id: "task-1", title: "First" }], revision: await taskRevision(handlePicotConfig) },
       {},
     );
     await handlePicotConfig(
       "write_super_agent_tasks",
-      { tasks: [{ id: "task-2", title: "Second" }] },
+      { tasks: [{ id: "task-2", title: "Second" }], revision: await taskRevision(handlePicotConfig) },
       {},
     );
     const snapshots = readdirSync(historyDir).filter((name) => name.startsWith("snapshot-"));
@@ -843,7 +911,7 @@ describe("workspace-scoped app data", () => {
     for (let i = 0; i < 10; i += 1) {
       await handlePicotConfig(
         "write_super_agent_tasks",
-        { tasks: [{ id: `task-${i}` }] },
+        { tasks: [{ id: `task-${i}` }], revision: await taskRevision(handlePicotConfig) },
         {},
       );
     }
@@ -857,6 +925,7 @@ describe("workspace-scoped app data", () => {
       {
         action: "upsert",
         workflow: { id: "wf-1", title: "First workflow" },
+        expectedRevision: await automationRevision(handlePicotConfig),
       },
       {},
     );
@@ -865,6 +934,7 @@ describe("workspace-scoped app data", () => {
       {
         action: "upsert",
         workflow: { id: "wf-2", title: "Second workflow" },
+        expectedRevision: await automationRevision(handlePicotConfig),
       },
       {},
     );
@@ -933,7 +1003,8 @@ describe("workspace-scoped app data", () => {
 
     const read = await module.handlePicotConfig("read_super_agent_tasks", {}, {});
     expect(read).toMatchObject({ ok: true, data: { tasks: [{ id: "legacy-task" }] } });
-    expect(existsSync(join(sceneAgent, "super-agent", "tasks.json"))).toBe(false);
+    expect(existsSync(join(sceneAgent, "super-agent", "tasks.json"))).toBe(true);
+    await module.handlePicotConfig("write_super_agent_tasks", { tasks: (read as { data: { tasks: unknown[] } }).data.tasks, revision: await taskRevision(module.handlePicotConfig) }, {});
     expect(
       JSON.parse(
         readFileSync(join(workspace, ".zicode", "tasks", "tasks.json"), "utf8"),

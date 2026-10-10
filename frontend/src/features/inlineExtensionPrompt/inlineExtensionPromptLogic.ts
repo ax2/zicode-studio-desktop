@@ -1,7 +1,7 @@
 import {
+  type DialogOption,
   parseDialogContent,
   parseOption,
-  type DialogOption,
 } from "../dialog/dialogLogic";
 
 export const MULTI_SELECT_HINT = "Enter the numbers of all that apply";

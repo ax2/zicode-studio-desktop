@@ -1,0 +1,93 @@
+.project-git {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.project-git-diff-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.project-git-patch {
+  width: 100%;
+  max-width: 100%;
+  max-height: 50dvh;
+  overflow: auto;
+  white-space: pre;
+}
+
+.project-git-header,
+.project-git-branch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.project-git h2,
+.project-git dd {
+  margin: 0;
+}
+
+.project-git-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.project-git-counts dd {
+  font-size: var(--font-size-xl);
+}
+
+.project-git-hint,
+.project-git-file-status,
+.project-git-counts dt {
+  color: var(--text-secondary);
+}
+
+.project-git-files {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.project-git-files li {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.project-git-file-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.project-git p,
+.project-git-path,
+.project-git-counts dt {
+  overflow-wrap: anywhere;
+}
+
+.project-git-path {
+  white-space: pre-wrap;
+}
+
+.project-git-file-heading .project-git-path {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .project-git-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

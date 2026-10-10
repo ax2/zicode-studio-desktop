@@ -2,6 +2,12 @@ use crate::plugin_package::{
     extract_verified_package, preview_package, publisher_is_trusted, revoke_publisher,
     trust_publisher, verify_package, SignedPluginPreview,
 };
+mod signed_integrity;
+mod engine_compatibility;
+mod profile_compatibility;
+pub(crate) mod manual_catalog;
+mod directory_metadata;
+mod execution_revision;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -9,7 +15,6 @@ use std::fs;
 use std::path::{Component, Path, PathBuf};
 
 const REGISTRY_STATE_VERSION: u32 = 1;
-const MANIFEST_SCHEMA_VERSION: u32 = 1;
 const MAX_MANIFEST_BYTES: u64 = 256 * 1024;
 const MAX_SCHEMA_DEPTH: usize = 32;
 const MAX_PACKAGE_FILES: usize = 2_048;
@@ -31,6 +36,8 @@ pub struct PluginManifest {
     pub publisher: String,
     #[serde(default)]
     pub engines: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub required_profiles: Value,
     #[serde(default)]
     pub activation_events: Vec<String>,
     #[serde(default)]
@@ -78,6 +85,10 @@ pub struct PluginCapabilityDescriptor {
     pub id: String,
     pub title: String,
     pub input_schema: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_schema: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_result_bytes: Option<usize>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -120,6 +131,8 @@ pub struct PluginDiagnostic {
 
 #[derive(Clone, Debug)]
 struct InstalledPlugin {
+    execution_revision: uuid::Uuid,
+    publisher_identity: Option<(String, String)>,
     manifest: PluginManifest,
     origin: PluginOrigin,
     core: bool,
@@ -130,6 +143,8 @@ struct InstalledPlugin {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PluginSceneState {
+    #[serde(skip)]
+    execution_revision: uuid::Uuid,
     #[serde(default)]
     enabled: Option<bool>,
     #[serde(default)]
@@ -151,6 +166,8 @@ struct SignedInstallMetadata {
     version: String,
     publisher_key_id: String,
     publisher_public_key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    integrity: Option<Value>,
 }
 
 impl Default for RegistryState {
@@ -167,6 +184,7 @@ pub struct PluginRegistry {
     plugins: BTreeMap<String, InstalledPlugin>,
     diagnostics: Vec<PluginDiagnostic>,
     state: RegistryState,
+    result_epoch: std::sync::atomic::AtomicU64,
 }
 
 impl PluginRegistry {
@@ -179,11 +197,16 @@ impl PluginRegistry {
             plugins: BTreeMap::new(),
             diagnostics: Vec::new(),
             state,
+            result_epoch: std::sync::atomic::AtomicU64::new(0),
         };
         registry.register_builtins()?;
         registry.discover_signed_plugins()?;
         registry.discover_developer_plugins()?;
         Ok(registry)
+    }
+
+    pub(crate) fn result_epoch(&self) -> u64 {
+        self.result_epoch.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn list(&self, scene_id: &str) -> Vec<PluginDescriptor> {
@@ -263,6 +286,8 @@ impl PluginRegistry {
                             input_schema: value.get("inputSchema").cloned().unwrap_or_else(
                                 || json!({ "type": "object", "additionalProperties": false }),
                             ),
+                            output_schema: value.get("outputSchema").cloned(),
+                            max_result_bytes: value.get("maxResultBytes").and_then(Value::as_u64).map(|limit| limit as usize),
                         })
                     })
             })
@@ -406,6 +431,7 @@ impl PluginRegistry {
             .package_root
             .as_ref()
             .ok_or_else(|| "Developer plugin package path is unavailable".to_string())?;
+        self.verify_current_integrity(plugin_id)?;
         validate_resource_path(entry, Some(package_root))?;
         let path = package_root.join(entry);
         let metadata =
@@ -429,6 +455,7 @@ impl PluginRegistry {
         view_id: &str,
     ) -> Result<PluginViewDocument, String> {
         validate_scene_id(scene_id)?;
+        self.verify_current_integrity(plugin_id)?;
         let descriptor = self
             .list(scene_id)
             .into_iter()
@@ -622,6 +649,7 @@ impl PluginRegistry {
         }
 
         let had_previous = destination.is_dir();
+        self.invalidate_plugin_execution(&manifest.id);
         if had_previous {
             fs::rename(&destination, &backup).map_err(|error| {
                 let _ = fs::remove_dir_all(&staging);
@@ -712,9 +740,19 @@ impl PluginRegistry {
             None
         };
         let previous_metadata = self.read_signed_metadata(&manifest.id).ok();
-        if previous
+        let same_version = previous
             .as_ref()
-            .is_some_and(|old| old.version == manifest.version)
+            .is_some_and(|old| old.version == manifest.version);
+        if same_version
+            && previous_metadata.as_ref().is_some_and(|metadata| {
+                self.verify_signed_installation(
+                    &manifest.id,
+                    &manifest.version,
+                    &destination,
+                    metadata,
+                )
+                .is_ok()
+            })
         {
             let _ = fs::remove_dir_all(&staging);
             return Err("Signed plugin version is already installed and cannot be replaced".into());
@@ -729,6 +767,7 @@ impl PluginRegistry {
                 return Err("Signed plugin downgrade requires the explicit rollback action".into());
             }
         }
+        self.invalidate_plugin_execution(&manifest.id);
         if destination.is_dir() {
             fs::rename(&destination, &backup).map_err(|error| {
                 let _ = fs::remove_dir_all(&staging);
@@ -747,6 +786,7 @@ impl PluginRegistry {
             version: manifest.version.clone(),
             publisher_key_id: verified.publisher.key_id.clone(),
             publisher_public_key: verified.publisher.public_key.clone(),
+            integrity: Some(verified.integrity.clone()),
         };
         if let Err(error) = self.write_signed_metadata(&new_metadata) {
             let _ = fs::remove_dir_all(&destination);
@@ -776,6 +816,17 @@ impl PluginRegistry {
             self.restore_signed_metadata(&manifest.id, previous_metadata.as_ref());
             let _ = self.reload_developer_plugins();
             return Err("Signed plugin was not registered after activation".into());
+        }
+        if same_version {
+            let quarantine = self.root.join("signed-quarantine");
+            fs::create_dir_all(&quarantine)
+                .map_err(|error| format!("Cannot preserve repaired package evidence: {error}"))?;
+            fs::rename(
+                &backup,
+                quarantine.join(format!("{}-{}-{nonce}", manifest.id, manifest.version)),
+            )
+            .map_err(|error| format!("Cannot preserve repaired package evidence: {error}"))?;
+            return Ok(manifest.id);
         }
         if let Some(previous) = previous {
             let versions = self.root.join("signed-versions").join(&manifest.id);
@@ -819,6 +870,7 @@ impl PluginRegistry {
         }
         let previous_metadata = self.read_signed_metadata(plugin_id)?;
         let rollback_metadata = self.read_signed_version_metadata(plugin_id, version)?;
+        self.verify_signed_installation(plugin_id, version, &target, &rollback_metadata)?;
         if rollback_metadata.version != version
             || !publisher_is_trusted(
                 &self.root,
@@ -830,6 +882,7 @@ impl PluginRegistry {
         }
         let nonce = uuid::Uuid::new_v4().simple().to_string();
         let swapping = self.root.join(format!(".signed-rollback-{nonce}"));
+        self.invalidate_plugin_execution(plugin_id);
         fs::rename(&active, &swapping)
             .map_err(|error| format!("Cannot prepare signed plugin rollback: {error}"))?;
         if let Err(error) = fs::rename(&target, &active) {
@@ -929,11 +982,7 @@ impl PluginRegistry {
     }
 
     pub fn reload_developer_plugins(&mut self) -> Result<(), String> {
-        self.plugins
-            .retain(|_, plugin| plugin.origin == PluginOrigin::BuiltIn);
-        self.diagnostics.clear();
-        self.discover_signed_plugins()?;
-        self.discover_developer_plugins()
+        self.reload_preserving_execution_revisions()
     }
 
     fn register_builtins(&mut self) -> Result<(), String> {
@@ -941,9 +990,12 @@ impl PluginRegistry {
             let manifest: PluginManifest = serde_json::from_value(value)
                 .map_err(|error| format!("Built-in plugin manifest is invalid: {error}"))?;
             validate_manifest(&manifest, None)?;
+            self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             self.plugins.insert(
                 manifest.id.clone(),
                 InstalledPlugin {
+                    execution_revision: uuid::Uuid::new_v4(),
+                    publisher_identity: None,
                     manifest,
                     origin: PluginOrigin::BuiltIn,
                     core,
@@ -986,9 +1038,12 @@ impl PluginRegistry {
                         });
                         continue;
                     }
+                    self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     self.plugins.insert(
                         manifest.id.clone(),
                         InstalledPlugin {
+                            execution_revision: uuid::Uuid::new_v4(),
+                            publisher_identity: None,
                             manifest,
                             origin: PluginOrigin::Developer,
                             core: false,
@@ -1027,6 +1082,14 @@ impl PluginRegistry {
                             .is_ok_and(|metadata| {
                                 metadata.plugin_id == manifest.id
                                     && metadata.version == manifest.version
+                                    && self
+                                        .verify_signed_installation(
+                                            &manifest.id,
+                                            &manifest.version,
+                                            &package_root,
+                                            &metadata,
+                                        )
+                                        .is_ok()
                                     && publisher_is_trusted(
                                         &self.root,
                                         &metadata.publisher_key_id,
@@ -1034,9 +1097,13 @@ impl PluginRegistry {
                                     )
                             }) =>
                 {
+                    self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     self.plugins.insert(
                         manifest.id.clone(),
                         InstalledPlugin {
+                            execution_revision: uuid::Uuid::new_v4(),
+                            publisher_identity: self.read_signed_metadata(&manifest.id).ok()
+                                .map(|metadata| (metadata.publisher_key_id, metadata.publisher_public_key)),
                             manifest,
                             origin: PluginOrigin::Signed,
                             core: false,
@@ -1055,7 +1122,7 @@ impl PluginRegistry {
                         (
                             "signed_trust_invalid",
                             format!(
-                                "Signed plugin {} has missing, mismatched, or revoked publisher metadata",
+                                "Signed plugin {} failed publisher or integrity verification; reinstall the original signed package (user data is preserved)",
                                 manifest.id
                             ),
                         )
@@ -1110,7 +1177,7 @@ impl PluginRegistry {
     }
 
     fn read_signed_metadata(&self, plugin_id: &str) -> Result<SignedInstallMetadata, String> {
-        let bytes = fs::read(self.signed_metadata_path(plugin_id))
+        let bytes = signed_integrity::read_metadata_file(&self.signed_metadata_path(plugin_id))
             .map_err(|error| format!("Cannot read signed plugin metadata: {error}"))?;
         serde_json::from_slice(&bytes)
             .map_err(|error| format!("Signed plugin metadata is invalid: {error}"))
@@ -1128,8 +1195,10 @@ impl PluginRegistry {
         plugin_id: &str,
         version: &str,
     ) -> Result<SignedInstallMetadata, String> {
-        let bytes = fs::read(self.signed_version_metadata_path(plugin_id, version))
-            .map_err(|error| format!("Cannot read signed rollback metadata: {error}"))?;
+        let bytes = signed_integrity::read_metadata_file(
+            &self.signed_version_metadata_path(plugin_id, version),
+        )
+        .map_err(|error| format!("Cannot read signed rollback metadata: {error}"))?;
         serde_json::from_slice(&bytes)
             .map_err(|error| format!("Signed rollback metadata is invalid: {error}"))
     }
@@ -1190,12 +1259,14 @@ impl PluginRegistry {
     }
 
     fn scene_plugin_state_mut(&mut self, scene_id: &str, plugin_id: &str) -> &mut PluginSceneState {
-        self.state
+        let state = self.state
             .scenes
             .entry(scene_id.to_string())
             .or_default()
             .entry(plugin_id.to_string())
-            .or_default()
+            .or_default();
+        state.execution_revision = uuid::Uuid::new_v4();
+        state
     }
 
     fn ensure_pi_tool_names_available(
@@ -1251,6 +1322,7 @@ impl PluginRegistry {
     }
 
     fn save(&self) -> Result<(), String> {
+        self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let destination = self.root.join("registry.json");
         let temporary = self
             .root
@@ -1357,12 +1429,8 @@ fn load_manifest(package_root: &Path) -> Result<PluginManifest, String> {
 }
 
 fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> Result<(), String> {
-    if manifest.schema_version != MANIFEST_SCHEMA_VERSION {
-        return Err(format!(
-            "Unsupported plugin schemaVersion {}",
-            manifest.schema_version
-        ));
-    }
+    engine_compatibility::validate(&manifest.engines)?;
+    profile_compatibility::validate(manifest)?;
     if !valid_plugin_id(&manifest.id) {
         return Err(format!("Invalid plugin ID {}", manifest.id));
     }
@@ -1438,6 +1506,10 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
             .get("inputSchema")
             .ok_or_else(|| "capabilities contribution is missing inputSchema".to_string())?;
         validate_input_schema(schema)?;
+        directory_metadata::validate(manifest, capability)?;
+        crate::plugin_capabilities::output_contract::validate_contribution(
+            manifest.schema_version, &manifest.required_profiles, capability,
+        )?;
     }
     for tool in manifest
         .contributes
@@ -1484,6 +1556,7 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
 
 fn validate_input_schema(schema: &Value) -> Result<(), String> {
     validate_json_depth(schema, 0)?;
+    crate::plugin_capabilities::schema_constraints::validate_declaration(schema)?;
     let object = schema
         .as_object()
         .ok_or_else(|| "Plugin inputSchema must be a JSON object".to_string())?;
@@ -2036,9 +2109,10 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                                     "text": { "type": "string", "minLength": 1, "maxLength": 50000 },
                                     "targetLang": { "type": "string", "minLength": 1, "maxLength": 40 },
                                     "sourceLang": { "type": "string", "maxLength": 40 },
+                                    "provider": { "type": "string", "minLength": 1, "maxLength": 120 },
                                     "model": { "type": "string", "maxLength": 120 }
                                 },
-                                "required": ["text", "targetLang"]
+                                "required": ["text", "targetLang", "provider", "model"]
                             }
                         }
                     ],
@@ -2046,7 +2120,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "name": "translate_text",
                             "title": "Translate text",
-                            "description": "Translate a piece of text into another language using the configured model.",
+                            "description": "Translate text using an explicitly selected OpenAI-compatible provider and model configured in this scene. No default service is selected.",
                             "capability": "translate.text",
                             "inputSchema": {
                                 "type": "object",
@@ -2055,9 +2129,10 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                                     "text": { "type": "string" },
                                     "targetLang": { "type": "string" },
                                     "sourceLang": { "type": "string" },
+                                    "provider": { "type": "string" },
                                     "model": { "type": "string" }
                                 },
-                                "required": ["text", "targetLang"]
+                                "required": ["text", "targetLang", "provider", "model"]
                             }
                         }
                     ]
@@ -2640,12 +2715,14 @@ mod tests {
         assert_eq!(registry.list("programming").len(), 17);
         assert_eq!(registry.capabilities("programming").len(), 11);
         // P2-6: Projects ships enabled so the shared project context applies.
-        assert!(registry
-            .list("programming")
-            .into_iter()
-            .find(|plugin| plugin.manifest.id == "com.zicode.projects")
-            .unwrap()
-            .enabled);
+        assert!(
+            registry
+                .list("programming")
+                .into_iter()
+                .find(|plugin| plugin.manifest.id == "com.zicode.projects")
+                .unwrap()
+                .enabled
+        );
         for plugin_id in ["com.zicode.tasks", "com.zicode.automation"] {
             assert!(
                 registry

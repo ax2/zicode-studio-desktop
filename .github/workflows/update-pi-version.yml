@@ -15,7 +15,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Verify update repository
+        run: node scripts/check-release-repository.mjs --ci
 
       - name: Get latest pi release
         id: latest
@@ -27,8 +30,10 @@ jobs:
 
           LATEST=$(echo "$RESPONSE" | jq -r '.tag_name // empty' | sed 's/^v//')
 
-          if [ -z "$LATEST" ]; then
-            echo "::error::Failed to fetch latest pi release. Response: $RESPONSE"
+          # This value is interpolated into later shell steps by Actions.
+          # Accept only stable numeric release tags before publishing it.
+          if [[ ! "$LATEST" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Latest pi release tag is missing or not a stable numeric version."
             exit 1
           fi
 
@@ -39,6 +44,10 @@ jobs:
         id: current
         run: |
           CURRENT=$(jq -r '.version' scripts/pi-version.json)
+          if [[ ! "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Pinned pi version is not a stable numeric version."
+            exit 1
+          fi
           echo "version=$CURRENT" >> $GITHUB_OUTPUT
           echo "Current pinned pi version: $CURRENT"
 
@@ -64,6 +73,7 @@ jobs:
           BRANCH="chore/bump-pi-${NEW}"
 
           EXISTING=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH" \
             --state open \
             --json number \
@@ -97,25 +107,19 @@ jobs:
           cat scripts/pi-version.json
 
       - name: Get pi release notes
-        id: release_notes
         if: |
           steps.compare.outputs.needs_update == 'true' &&
           steps.existing_pr.outputs.exists == 'false'
         run: |
           NEW="${{ steps.latest.outputs.version }}"
 
-          NOTES=$(curl -sSL \
+          curl --fail-with-body --silent --show-error --location \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/earendil-works/pi-mono/releases/tags/v${NEW}" \
-            | jq -r '.body // "No release notes available."')
+            | jq -r '.body // "No release notes available."' > "$RUNNER_TEMP/pi-release-notes.md"
 
-          # GitHub Actions 多行输出需要用 delimiter
-          {
-            echo "notes<<EOF"
-            echo "$NOTES"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          # Keep untrusted release text out of Actions output delimiters and step env vars.
 
       - name: Create PR
         if: |
@@ -123,7 +127,6 @@ jobs:
           steps.existing_pr.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_NOTES: ${{ steps.release_notes.outputs.notes }}
           SERVER_URL: ${{ github.server_url }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
@@ -138,11 +141,23 @@ jobs:
           git checkout -b "$BRANCH"
           git add scripts/pi-version.json tests/fixtures/pi-rpc
           git commit -m "chore: bump embedded pi to v${NEW}"
-          # Force-push so re-runs overwrite any orphaned branch from a
-          # previous failed run (branch pushed but PR creation failed).
-          git push --force origin "$BRANCH"
+          # Reuse only an orphaned branch from this workflow. A lease prevents
+          # overwriting a concurrent update after the remote tip was read.
+          REMOTE_TIP="$(git ls-remote --heads origin "refs/heads/$BRANCH" | cut -f1)"
+          if [ -n "$REMOTE_TIP" ]; then
+            git fetch --no-tags origin "refs/heads/$BRANCH"
+            REMOTE_AUTHOR="$(git show -s --format=%an FETCH_HEAD)"
+            REMOTE_SUBJECT="$(git show -s --format=%s FETCH_HEAD)"
+            if [ "$REMOTE_AUTHOR" != "github-actions[bot]" ] || [ "$REMOTE_SUBJECT" != "chore: bump embedded pi to v${NEW}" ]; then
+              echo "::error::Existing update branch has non-workflow changes; review it manually."
+              exit 1
+            fi
+            git push --force-with-lease="refs/heads/$BRANCH:$REMOTE_TIP" origin "HEAD:refs/heads/$BRANCH"
+          else
+            git push origin "HEAD:refs/heads/$BRANCH"
+          fi
 
-          cat > /tmp/pr-body.md <<PREOF
+          cat > "$RUNNER_TEMP/pi-pr-body.md" <<PREOF
           ## Embedded pi update
 
           pi released [v${NEW}](https://github.com/earendil-works/pi-mono/releases/tag/v${NEW}).
@@ -153,7 +168,9 @@ jobs:
           | New | \`${NEW}\` |
 
           ## Release notes
-          ${RELEASE_NOTES}
+          PREOF
+          cat "$RUNNER_TEMP/pi-release-notes.md" >> "$RUNNER_TEMP/pi-pr-body.md"
+          cat >> "$RUNNER_TEMP/pi-pr-body.md" <<PREOF
 
           ## Checklist before merging
           - [x] The lock contains GitHub-published SHA-256 digests for every desktop target
@@ -166,6 +183,6 @@ jobs:
           PREOF
 
           gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
             --title "chore: bump embedded pi v${CURRENT} → v${NEW}" \
-            --body-file /tmp/pr-body.md \
-            --label "dependencies"
+            --body-file "$RUNNER_TEMP/pi-pr-body.md"

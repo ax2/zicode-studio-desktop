@@ -1,9 +1,10 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
+pub mod tool_access;
 
 const SCHEMA_VERSION: i64 = 2;
 
@@ -23,6 +24,22 @@ pub struct MetadataStore {
 }
 
 impl MetadataStore {
+    /// Open an existing registry snapshot without creating or migrating the
+    /// database. Background readers use this while another process may write.
+    pub fn open_read_only(path: &Path) -> Result<Self, String> {
+        let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|error| {
+                format!(
+                    "Cannot read ZiCode Studio Desktop metadata database {}: {error}",
+                    path.display()
+                )
+            })?;
+        Ok(Self {
+            connection,
+            path: path.to_path_buf(),
+        })
+    }
+
     pub fn open(path: &Path) -> Result<Self, String> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|error| {

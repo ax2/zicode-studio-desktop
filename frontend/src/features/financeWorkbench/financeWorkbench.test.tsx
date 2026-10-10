@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent } from "@testing-library/react";
-import { setupFinanceWorkbench } from "./index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { t } from "../../shared/i18n";
 import { number, percent } from "./financeWorkbenchLogic";
+import { setupFinanceWorkbench } from "./index";
 
 function mountWorkbench(
   target: { sceneId: string } = { sceneId: "finance" },
@@ -58,7 +59,7 @@ describe("finance workbench", () => {
     });
 
     expect(navigation.textContent).toContain("数据能力发现");
-    expect(content.textContent).toContain("QVeris 金融数据");
+    expect(content.textContent).toContain(t("Optional QVeris market data"));
     expect(content.querySelectorAll(".finance-plugin-section")).toHaveLength(1);
 
     workbench.selectView("backtest");
@@ -310,7 +311,8 @@ describe("finance workbench", () => {
           },
         };
       }
-      if (op === "finance_status" || op === "finance_research_workspace") {
+      if (op === "finance_status") return { ok: true, data: { qveris: { configured: true } } };
+      if (op === "finance_research_workspace") {
         return { ok: true, data: {} };
       }
       throw new Error(`unexpected ${op}`);
@@ -354,9 +356,9 @@ describe("finance workbench", () => {
     await vi.waitFor(() => expect(content.textContent).toContain("998,000"));
 
     workbench.selectView("overview");
-    content
-      .querySelectorAll('[data-finance-view="overview"] button')[0]
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const usageButton = content.querySelector<HTMLButtonElement>('[data-finance-view="overview"] button');
+    await vi.waitFor(() => expect(usageButton?.disabled).toBe(false));
+    fireEvent.click(usageButton as HTMLButtonElement);
     await vi.waitFor(() => expect(content.textContent).toContain("988"));
   });
 

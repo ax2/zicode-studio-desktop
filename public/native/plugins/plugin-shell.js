@@ -1,28 +1,33 @@
 import { t } from "../../i18n.js";
+import { mountToolCenter } from "../react/tool-center.js";
+import { createRetainedToolCenter } from "./retained-tool-center.js";
+import { applicationDirectory, primaryActivities, TOOL_CENTER_ID } from "./tool-navigation.js";
 import { MOBILE_SHELL_QUERY } from "../../ui/sidebar-toggle.js";
-import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
 import { renderPluginManagerView } from "../react/plugin-manager-view.js";
-import { createBuiltinPluginRegistry } from "./plugin-registry.js";
 import {
   setupPluginActivityBar,
   setupPluginShellSurfaces,
 } from "../react/plugin-shell.js";
+import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
+import { pluginCommandEntries } from "./plugin-command-entries.js";
+import { createBuiltinPluginRegistry } from "./plugin-registry.js";
 
 const CHAT_PLUGIN_ID = "core.chat";
 const MANAGER_VIEW_ID = "core.pluginManager";
 const SETTINGS_VIEW_ID = "core.settings";
 const HELP_VIEW_ID = "core.help";
 const MANAGER_FILTER_STORAGE_KEY = "zicode.plugin-manager.filter";
-const SHELL_VIEW_IDS = new Set([MANAGER_VIEW_ID, SETTINGS_VIEW_ID, HELP_VIEW_ID]);
+const SHELL_VIEW_IDS = new Set([MANAGER_VIEW_ID, SETTINGS_VIEW_ID, HELP_VIEW_ID, TOOL_CENTER_ID]);
 const MOBILE_PRIMARY_ACTIVITY_IDS = new Set([
   CHAT_PLUGIN_ID,
   "com.zicode.projects",
-  "com.zicode.notes",
+  TOOL_CENTER_ID,
 ]);
 export const PLUGIN_HISTORY_STATE_KEY = "zicodePluginId";
 
 export function setupPluginShell({
   registry = createBuiltinPluginRegistry(),
+  canManagePlugins = true,
   capabilityGateway = null,
   commandGateway = null,
   getTarget = () => null,
@@ -37,6 +42,7 @@ export function setupPluginShell({
   builtinApps = {},
   pluginViewHost = null,
   openCommandPalette = () => {},
+  toolAccessStore = undefined,
   openFinanceWorkbench = () => {},
   installDeveloperPlugin = null,
   selectSignedPlugin = null,
@@ -128,10 +134,19 @@ export function setupPluginShell({
   main.append(pluginMain);
 
   let activePluginId = CHAT_PLUGIN_ID;
+  const toolCenter = createRetainedToolCenter(mountToolCenter);
+  let pendingUnavailablePluginId = null;
   const activityBadges = new Map();
   let managerFilter = loadManagerFilter();
   let registrySceneId = null;
   const mobileShellMedia = globalThis.matchMedia?.(MOBILE_SHELL_QUERY);
+
+  function pluginAvailableOnClient(plugin) {
+    return (
+      canManagePlugins ||
+      (plugin?.origin !== "developer" && plugin?.origin !== "signed")
+    );
+  }
 
   function historyState(value = globalThis.history?.state) {
     return value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
@@ -213,26 +228,33 @@ export function setupPluginShell({
   mobileShellMedia?.addEventListener?.("change", handleMobileShellChange);
   window.addEventListener("resize", handleMobileShellChange);
 
-  let pendingActivationPluginId = null;
+  let activationTail = Promise.resolve();
+  let pendingActivation = null;
 
-  async function activate(pluginId, { focus = true, historyMode = "none" } = {}) {
+  function activate(pluginId, { focus = true, historyMode = "none" } = {}) {
     // The settings/help system items route through both activateFromNavigation
     // and the app's open handler, which may re-enter activate for the same
     // target while the first activation is still awaiting its async guard.
-    // Deduplicate concurrent same-target activations so the second call does
-    // not run the switch logic twice (e.g. deactivating settings twice).
-    if (pendingActivationPluginId === pluginId) return;
-    pendingActivationPluginId = pluginId;
-    try {
-      await activateInner(pluginId, { focus, historyMode });
-    } finally {
-      pendingActivationPluginId = null;
-    }
+    // Share concurrent same-target activation so the second call can await
+    // completion without running the switch logic twice.
+    if (pendingActivation?.pluginId === pluginId) return pendingActivation.promise;
+    const activation = activationTail.then(() => activateInner(pluginId, { focus, historyMode }));
+    // Queue distinct requests in arrival order, including after a rejected activation.
+    activationTail = activation.then(() => {}, () => {});
+    pendingActivation = { pluginId, promise: activation };
+    const clearPending = () => {
+      if (pendingActivation?.promise === activation) pendingActivation = null;
+    };
+    void activation.then(clearPending, clearPending);
+    return activation;
   }
 
   async function activateInner(pluginId, { focus = true, historyMode = "none" } = {}) {
     const previousPluginId = activePluginId;
-    if (!SHELL_VIEW_IDS.has(pluginId) && !registry.isEnabled(pluginId)) {
+    if (
+      !SHELL_VIEW_IDS.has(pluginId) &&
+      (!registry.isEnabled(pluginId) || !pluginAvailableOnClient(registry.get(pluginId)))
+    ) {
       pluginId = CHAT_PLUGIN_ID;
     }
     if (activePluginId === SETTINGS_VIEW_ID && pluginId !== SETTINGS_VIEW_ID) {
@@ -249,12 +271,15 @@ export function setupPluginShell({
     const previousPlugin = registry.get(activePluginId);
     if (
       pluginId !== activePluginId &&
-      previousPlugin?.origin === "developer" &&
+      (previousPlugin?.origin === "developer" || previousPlugin?.origin === "signed") &&
       (await pluginViewHost?.canDeactivate?.(activePluginId)) === false
     ) {
       return;
     }
-    if (pluginId !== activePluginId && previousPlugin?.origin === "developer") {
+    if (
+      pluginId !== activePluginId &&
+      (previousPlugin?.origin === "developer" || previousPlugin?.origin === "signed")
+    ) {
       pluginViewHost?.deactivate?.(activePluginId);
     }
     activePluginId = pluginId;
@@ -290,15 +315,7 @@ export function setupPluginShell({
   }
 
   function renderActivities() {
-    const visiblePlugins = registry
-      .list()
-      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false)
-      .sort(
-        (left, right) =>
-          (left.order ?? 1000) - (right.order ?? 1000) ||
-          left.name.localeCompare(right.name),
-      );
-    const activitiesItems = visiblePlugins.map((plugin) => ({
+    const activitiesItems = primaryActivities(registry.list(), pluginAvailableOnClient).map((plugin) => ({
       id: plugin.id,
       label: t(plugin.name),
       description: t(plugin.description),
@@ -330,12 +347,6 @@ export function setupPluginShell({
         system: true,
       },
       {
-        id: MANAGER_VIEW_ID,
-        label: t("Manage plugins"),
-        icon: "plugins",
-        onClick: () => activateFromNavigation(MANAGER_VIEW_ID),
-      },
-      {
         id: SETTINGS_VIEW_ID,
         label: t("Settings"),
         icon: "settings",
@@ -356,7 +367,7 @@ export function setupPluginShell({
         system: true,
       },
     ];
-    const secondaryPlugins = visiblePlugins.filter(
+    const secondaryPlugins = primaryActivities(registry.list(), pluginAvailableOnClient).filter(
       (plugin) => !MOBILE_PRIMARY_ACTIVITY_IDS.has(plugin.id),
     );
     // Keep every system action in the mobile overflow menu, including the
@@ -386,7 +397,11 @@ export function setupPluginShell({
     );
     if (!requested) return CHAT_PLUGIN_ID;
     if (SHELL_VIEW_IDS.has(requested)) return requested;
-    if (registry.isEnabled(requested)) return requested;
+    if (registry.isEnabled(requested)) {
+      if (pluginAvailableOnClient(registry.get(requested))) return requested;
+      pendingUnavailablePluginId = requested;
+      return CHAT_PLUGIN_ID;
+    }
     // A known-but-disabled plugin deep link silently landing on Chat is
     // confusing; remember it so we can explain what happened after boot.
     if (registry.get(requested)) pendingDisabledPluginId = requested;
@@ -397,6 +412,7 @@ export function setupPluginShell({
     closeMobileActivityMenu({ discardHistory: true });
     await activate(pluginId, { historyMode: "push" });
     if (activePluginId === pluginId) requestFunctionArea();
+    return activePluginId === pluginId;
   }
 
   function requestFunctionArea() {
@@ -488,6 +504,20 @@ export function setupPluginShell({
     pluginMain.className = "plugin-main-view";
     pluginMain.classList.toggle("plugin-surface-hidden", wasHidden);
     pluginMain.replaceChildren();
+    if (pluginId === TOOL_CENTER_ID) {
+      const target = getTarget();
+      toolCenter.show(pluginMain, {
+        entries: applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation),
+        accessStore: toolAccessStore,
+        toolApi: capabilityGateway,
+        getResourceTarget: getTarget,
+        scope: target ? { sceneId: target.sceneId, workspaceId: target.workspaceId } : undefined,
+        onManage: () => activateFromNavigation(MANAGER_VIEW_ID),
+        onCommands: openCommandPalette,
+        onError: error => notify(String(error?.message ?? error)),
+      });
+      return;
+    }
     if (pluginId === SETTINGS_VIEW_ID) {
       settingsApp?.renderContent?.(pluginMain);
       return;
@@ -510,6 +540,7 @@ export function setupPluginShell({
       renderPluginManagerView({
         container: pluginMain,
         registry,
+        canManagePlugins,
         getTarget,
         notify,
         renderIcon: iconSvg,
@@ -591,7 +622,9 @@ export function setupPluginShell({
           .list()
           .filter(
             (plugin) =>
-              plugin.enabled && (plugin.commands ?? []).some((command) => command.id === commandId),
+              plugin.enabled &&
+              pluginAvailableOnClient(plugin) &&
+              (plugin.commands ?? []).some((command) => command.id === commandId),
           );
         if (providers.length !== 1) throw new Error(`Plugin command is unavailable: ${commandId}`);
         const response = await commandGateway.invokeCommand(
@@ -633,10 +666,19 @@ export function setupPluginShell({
       });
       pendingDisabledPluginId = null;
     }
+    if (pendingUnavailablePluginId) {
+      notify({
+        type: "warning",
+        title: t("Plugin unavailable on this device"),
+        message: t("External plugin views are available in the desktop app."),
+      });
+      pendingUnavailablePluginId = null;
+    }
     writePluginHistory(initialPlugin);
   }
 
   function setTarget(nextTarget = getTarget?.()) {
+    toolCenter.setScope(nextTarget);
     for (const application of applicationViews.values()) application.setTarget?.(nextTarget);
     pluginViewHost?.setTarget?.(nextTarget);
     if (activePluginId !== CHAT_PLUGIN_ID) renderMain(activePluginId);
@@ -669,25 +711,15 @@ export function setupPluginShell({
   }
 
   function getCommandPaletteEntries() {
-    return registry
-      .list()
-      .filter((plugin) => plugin.enabled)
-      .flatMap((plugin) =>
-        (plugin.commands ?? []).map((command) => ({
-          icon: commandPaletteIcon(command.icon),
-          label: `${t(plugin.name)}: ${t(command.label)}`,
-          desc: t(plugin.description),
-          action: () => {
-            void executeCommand(command.id).catch((error) =>
-              notify(error?.message ?? String(error)),
-            );
-          },
-          disabled:
-            plugin.id === "com.zicode.finance" &&
-            command.id === "finance.openWorkbench" &&
-            getTarget?.()?.sceneId !== "finance",
-        })),
-      );
+    return pluginCommandEntries(registry.list(), {
+      isAvailable: pluginAvailableOnClient,
+      translate: t,
+      icon: commandPaletteIcon,
+      openPlugin: activateFromNavigation,
+      execute: (id) => executeCommand(id),
+      isDisabled: (plugin, command) => plugin.id === "com.zicode.finance" &&
+        command.id === "finance.openWorkbench" && getTarget?.()?.sceneId !== "finance",
+    });
   }
 
   function setActivityBadge(pluginId, badge) {
@@ -714,7 +746,7 @@ export function setupPluginShell({
       return;
     }
     renderActivities();
-    if (activePluginId === MANAGER_VIEW_ID) renderMain(MANAGER_VIEW_ID);
+    if (activePluginId === MANAGER_VIEW_ID || activePluginId === TOOL_CENTER_ID) renderMain(activePluginId);
     updateActivitySelection(activePluginId);
   });
   const handleLocaleChange = () => {
@@ -731,14 +763,7 @@ export function setupPluginShell({
   // visible order (Chat first). Ignored while typing in a field so numeric
   // input is never hijacked, and skipped for modified digits (Shift+digit).
   function activityPluginForDigit(digit) {
-    const visible = registry
-      .list()
-      .filter((plugin) => plugin.enabled && plugin.hasActivity !== false)
-      .sort(
-        (left, right) =>
-          (left.order ?? 1000) - (right.order ?? 1000) ||
-          left.name.localeCompare(right.name),
-      );
+    const visible = primaryActivities(registry.list(), pluginAvailableOnClient);
     return visible[digit - 1]?.id ?? null;
   }
 
@@ -781,6 +806,19 @@ export function setupPluginShell({
 
   return {
     activate,
+    async openManualTool(tool, revision, scope) {
+      const matchesScope = () => {
+        const target = getTarget();
+        return target?.sceneId === scope.sceneId && target?.workspaceId === scope.workspaceId;
+      };
+      if (!matchesScope()) throw new Error(t("Tool changed. Reload its details before retrying."));
+      if (activePluginId !== TOOL_CENTER_ID) await activateFromNavigation(TOOL_CENTER_ID);
+      if (!matchesScope()) throw new Error(t("Tool changed. Reload its details before retrying."));
+      if (activePluginId !== TOOL_CENTER_ID || !toolCenter) return false;
+      toolCenter.openTool(tool, revision);
+      requestFunctionArea();
+      return true;
+    },
     getCommandPaletteEntries,
     getActivePluginId: () => activePluginId,
     registry,
@@ -804,6 +842,7 @@ export function setupPluginShell({
       if (activePluginId !== CHAT_PLUGIN_ID) renderSidebar(activePluginId);
     },
     destroy() {
+      toolCenter?.destroy();
       unsubscribe();
       for (const application of new Set(applicationViews.values())) application.destroy?.();
       pluginViewHost?.destroy?.();
@@ -839,8 +878,11 @@ export function setupPluginShell({
     const moreLabel = secondarySelected
       ? `${t("More")}: ${selectedSecondaryLabel}`
       : t("More");
+    const navigationId = pluginId === MANAGER_VIEW_ID ||
+      (!SHELL_VIEW_IDS.has(pluginId) && !primaryActivities(registry.list(), pluginAvailableOnClient).some(plugin => plugin.id === pluginId))
+      ? TOOL_CENTER_ID : pluginId;
     activityBarApi.commit({
-      activePluginId: pluginId,
+      activePluginId: navigationId,
       secondarySelected,
       moreLabel,
     });

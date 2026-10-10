@@ -1,36 +1,33 @@
-import { useEffect, useRef, useState } from "react";
 import { getLocale, setLocale, supportedLocales } from "i18n";
+import { useEffect, useRef, useState } from "react";
 import { applyTheme, getCurrentTheme, themes } from "themes";
 import { t } from "../../shared/i18n";
-import { ConfigTab } from "./ConfigTab";
-import type { ConfigStore } from "./configStore";
-import type { MemoryStore } from "./memoryStore";
-import { ArticlesConfigTab } from "./ArticlesConfigTab";
-import { CostDashboardTab } from "./CostDashboardTab";
-import type { CostDashboardStore } from "./costDashboardStore";
-import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
-import { PackageBrowseTab } from "./PackageBrowseTab";
-import type { PackageBrowseStore } from "./packageBrowseStore";
-import { RemoteAccessTab } from "./RemoteAccessTab";
-import type { RemoteAccessStore } from "./remoteAccessStore";
 import { Select } from "../../shared/Select";
-import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
-import { useStoragePersistenceState } from "./storagePersistenceStore";
-import type { SettingsStore } from "./store";
-import { useTaskNotificationsState } from "./taskNotificationsStore";
-import { useAppUpdaterStore } from "./updaterStore";
 import {
-  formatBackupSize,
-  type BackupStore,
-} from "./backupStore";
-import {
+  type ChatTemplate,
   createTemplateId,
   exportCustomTemplates,
   importCustomTemplates,
   loadCustomTemplates,
   saveCustomTemplates,
-  type ChatTemplate,
 } from "../chat/chatTemplates";
+import { ArticlesConfigTab } from "./ArticlesConfigTab";
+import { type BackupStore, formatBackupSize, hasRestorableBackupMetadata } from "./backupStore";
+import { ConfigTab } from "./ConfigTab";
+import { CostDashboardTab } from "./CostDashboardTab";
+import type { ConfigStore } from "./configStore";
+import type { CostDashboardStore } from "./costDashboardStore";
+import { SETTINGS_TABS, type SettingsTabKey } from "./logic";
+import type { MemoryStore } from "./memoryStore";
+import { PackageBrowseTab } from "./PackageBrowseTab";
+import type { PackageBrowseStore } from "./packageBrowseStore";
+import { RemoteAccessTab } from "./RemoteAccessTab";
+import type { RemoteAccessStore } from "./remoteAccessStore";
+import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
+import { useStoragePersistenceState } from "./storagePersistenceStore";
+import type { SettingsStore } from "./store";
+import { useTaskNotificationsState } from "./taskNotificationsStore";
+import { useAppUpdaterStore } from "./updaterStore";
 
 export interface SettingsController {
   configStore: ConfigStore;
@@ -487,9 +484,7 @@ function MemorySection({ memory }: { memory: MemoryStore }) {
 }
 
 function TemplateSection() {
-  const [templates, setTemplates] = useState<ChatTemplate[]>(() =>
-    loadCustomTemplates(),
-  );
+  const [templates, setTemplates] = useState<ChatTemplate[]>(() => loadCustomTemplates());
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -579,10 +574,7 @@ function TemplateSection() {
             ? t("Imported {count} templates, skipped {skipped} existing")
                 .replace("{count}", String(result.added))
                 .replace("{skipped}", String(result.skipped))
-            : t("Imported {count} templates").replace(
-                "{count}",
-                String(result.added),
-              ),
+            : t("Imported {count} templates").replace("{count}", String(result.added)),
         );
       }
     } catch {
@@ -603,11 +595,7 @@ function TemplateSection() {
       ) : (
         <ul className="settings-template-list">
           {templates.map((template) => (
-            <li
-              key={template.id}
-              className="settings-template-row"
-              data-template-id={template.id}
-            >
+            <li key={template.id} className="settings-template-row" data-template-id={template.id}>
               <span className="settings-template-icon" aria-hidden="true">
                 {template.icon}
               </span>
@@ -711,18 +699,10 @@ function TemplateSection() {
             </p>
           ) : null}
           <div className="settings-template-actions">
-            <button
-              type="button"
-              className="ui-button ui-button--primary"
-              onClick={commit}
-            >
+            <button type="button" className="ui-button ui-button--primary" onClick={commit}>
               {t("Save template")}
             </button>
-            <button
-              type="button"
-              className="ui-button ui-button--ghost"
-              onClick={resetForm}
-            >
+            <button type="button" className="ui-button ui-button--ghost" onClick={resetForm}>
               {t("Cancel")}
             </button>
           </div>
@@ -838,8 +818,8 @@ function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
         <code id="scene-profile-current-id">{currentId}</code>
       </div>
       <p className="settings-help">
-        Each scene has isolated model channels, credentials, extensions, and sessions. The
-        selection applies when you create the next session.
+        Each scene has isolated model channels, credentials, extensions, and sessions. The selection
+        applies when you create the next session.
       </p>
       <div className="settings-row">
         <span className="settings-label settings-label-stack">
@@ -983,10 +963,16 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const restoringId = store((state) => state.restoringId);
   const status = store((state) => state.status);
   const error = store((state) => state.error);
+  const mutating = creating || deletingId !== null || restoringId !== null;
   const load = store((state) => state.load);
   const createBackup = store((state) => state.createBackup);
   const deleteBackup = store((state) => state.deleteBackup);
   const restoreBackup = store((state) => state.restoreBackup);
+  const latestUsableBackup = backups.find(hasRestorableBackupMetadata);
+  const visibleBackups = [
+    ...backups.filter(hasRestorableBackupMetadata).slice(0, 7),
+    ...backups.filter((backup) => !hasRestorableBackupMetadata(backup)),
+  ];
 
   return (
     <div className="settings-section" id="workspace-backup-section">
@@ -1005,7 +991,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
             type="button"
             id="create-workspace-backup"
             className="ui-button ui-button--secondary settings-value-btn"
-            disabled={creating}
+            disabled={mutating}
             onClick={() => void createBackup()}
           >
             {creating ? t("Backing up…") : t("Back up now")}
@@ -1019,41 +1005,59 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
       <p
         className="settings-help"
         id="workspace-backup-status"
-        role="status"
-        aria-live="polite"
+        role={error ? "alert" : "status"}
+        aria-live={error ? "assertive" : "polite"}
         data-tone={error ? "error" : undefined}
       >
         {status ||
           error ||
-          (backups.length > 0
-            ? `${t("Latest backup")}: ${new Date(backups[0].createdAt).toLocaleString()}`
-            : t("No backups yet"))}
+          (latestUsableBackup
+            ? `${t("Latest backup")}: ${new Date(latestUsableBackup.createdAt).toLocaleString()}`
+            : backups.length > 0
+              ? t("No usable backups; review damaged snapshots below")
+              : t("No backups yet"))}
       </p>
       {backups.length > 0 ? (
         <ul className="workspace-backup-list" aria-label={t("Workspace backups")}>
-          {backups.slice(0, 7).map((backup) => (
+          {visibleBackups.map((backup) => (
             <li key={backup.id} className="workspace-backup-item">
               <span className="workspace-backup-meta">
-                <strong>{new Date(backup.createdAt).toLocaleString()}</strong>
+                <strong>
+                  {backup.damaged ? `${t("Backup folder modified")}: ` : ""}
+                  {new Date(backup.createdAt).toLocaleString()}
+                </strong>
                 <span>
-                  {formatBackupSize(backup.sizeBytes)} · {backup.apps.join(", ")}
+                  {backup.damaged
+                    ? backup.id
+                    : `${formatBackupSize(backup.sizeBytes)} · ${backup.apps.join(", ")}`}
+                </span>
+                <span>
+                  {backup.damaged
+                    ? t("Backup metadata is damaged; restore unavailable")
+                    : backup.formatVersion !== undefined && ![1, 2].includes(backup.formatVersion)
+                    ? t("Unsupported backup format; restore unavailable")
+                    : backup.formatVersion === 2 && !backup.contentSha256
+                      ? t("Backup checksum missing; restore unavailable")
+                      : backup.contentSha256 && !/^[a-f\d]{64}$/i.test(backup.contentSha256)
+                        ? t("Backup checksum invalid; restore unavailable")
+                      : backup.contentSha256
+                        ? t("Content checksum stored; checked during restore")
+                        : t("Legacy backup without content checksum")}
                 </span>
               </span>
               <button
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
-                disabled={deletingId === backup.id}
+                disabled={mutating}
                 onClick={async () => {
                   if (
                     (await globalThis.confirm?.(
-                      `${t("Delete workspace backup")} “${new Date(
-                        backup.createdAt,
-                      ).toLocaleString()}”? ${t("This cannot be undone.")}`,
+                      `${t("Delete workspace backup")} “${backup.damaged ? backup.id : new Date(backup.createdAt).toLocaleString()}”? ${t("This cannot be undone.")}`,
                     )) === false
                   ) {
                     return;
                   }
-                  void deleteBackup(backup.id);
+                  void deleteBackup(backup.id, backup.workspaceId);
                 }}
               >
                 {deletingId === backup.id ? t("Deleting…") : t("Delete")}
@@ -1061,7 +1065,10 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
               <button
                 type="button"
                 className="ui-button ui-button--secondary ui-button--sm"
-                disabled={restoringId === backup.id}
+                disabled={
+                  mutating ||
+                  !hasRestorableBackupMetadata(backup)
+                }
                 onClick={async () => {
                   if (
                     (await globalThis.confirm?.(
@@ -1074,7 +1081,7 @@ function WorkspaceBackupSection({ store }: { store: BackupStore }) {
                   ) {
                     return;
                   }
-                  void restoreBackup(backup.id);
+                  void restoreBackup(backup.id, backup.workspaceId);
                 }}
               >
                 {restoringId === backup.id ? t("Restoring…") : t("Restore")}
@@ -1111,12 +1118,12 @@ export function GeneralTab({
   const updater = useAppUpdaterStore();
   const taskNotifications = useTaskNotificationsState();
   const storagePersistence = useStoragePersistenceState();
-  const [sessionExportState, setSessionExportState] = useState<
-    "idle" | "busy" | "done" | "error"
-  >("idle");
-  const [sessionImportState, setSessionImportState] = useState<
-    "idle" | "busy" | "done" | "error"
-  >("idle");
+  const [sessionExportState, setSessionExportState] = useState<"idle" | "busy" | "done" | "error">(
+    "idle",
+  );
+  const [sessionImportState, setSessionImportState] = useState<"idle" | "busy" | "done" | "error">(
+    "idle",
+  );
   const [workMode, setWorkMode] = useState(() => {
     try {
       const saved = globalThis.localStorage?.getItem("picot-work-mode");
@@ -1165,6 +1172,7 @@ export function GeneralTab({
     setSessionImportState("busy");
     setSessionImportMessage("");
     try {
+      if (file.size > 70 * 1024 * 1024) throw new Error("session_backup_too_large");
       const parsed = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result ?? ""));
@@ -1172,25 +1180,39 @@ export function GeneralTab({
         reader.readAsText(file);
       });
       const payload = JSON.parse(parsed) as {
+        schemaVersion?: unknown;
         sessions?: Array<{ sessionId?: unknown; projectPath?: unknown; content?: unknown }>;
       };
-      const sessions = Array.isArray(payload.sessions)
-        ? payload.sessions
-            .map((entry) => ({
-              sessionId: String(entry.sessionId ?? ""),
-              projectPath: String(entry.projectPath ?? ""),
-              content: String(entry.content ?? ""),
-            }))
-            .filter((entry) => entry.sessionId && entry.content)
-        : [];
-      if (sessions.length === 0) {
-        setSessionImportState("error");
+      if (payload.schemaVersion !== 1 || !Array.isArray(payload.sessions))
+        throw new Error("session_backup_invalid");
+      const sessions = payload.sessions.map((entry) => ({
+        sessionId: typeof entry?.sessionId === "string" ? entry.sessionId : "",
+        projectPath: typeof entry?.projectPath === "string" ? entry.projectPath : "",
+        content: typeof entry?.content === "string" ? entry.content : "",
+      }));
+      const sourcePath = sessions[0]?.projectPath;
+      if (
+        !sourcePath ||
+        sourcePath.length > 4096 ||
+        sessions.some(
+          (entry) => !entry.sessionId || !entry.content || entry.projectPath !== sourcePath,
+        )
+      )
+        throw new Error("session_backup_invalid");
+      if (
+        !window.confirm(
+          t(
+            "Import sessions from {path} into the current workspace? Session headers will use this workspace; historical message text and file paths stay unchanged.",
+          ).replace("{path}", () => sourcePath),
+        )
+      ) {
+        setSessionImportState("idle");
         return;
       }
       const response = await fetch("/v2/sessions/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId, sessions }),
+        body: JSON.stringify({ workspaceId, sessions, relinkSourcePath: sourcePath }),
       });
       if (!response.ok) throw new Error(String(response.status));
       const result = (await response.json()) as {
@@ -1199,9 +1221,10 @@ export function GeneralTab({
         errors?: string[];
       };
       setSessionImportMessage(
-        t("Imported {imported}, skipped {skipped}")
+        t("Imported {imported}, skipped {skipped}, errors {errors}")
           .replace("{imported}", String(result.imported?.length ?? 0))
-          .replace("{skipped}", String(result.skipped?.length ?? 0)),
+          .replace("{skipped}", String(result.skipped?.length ?? 0))
+          .replace("{errors}", String(result.errors?.length ?? 0)),
       );
       setSessionImportState("done");
     } catch {
@@ -1288,9 +1311,7 @@ export function GeneralTab({
             }
             aria-busy={taskNotifications.requesting}
             aria-label={t("Task completion alerts")}
-            onClick={() =>
-              void taskNotifications.setEnabled(!taskNotifications.enabled)
-            }
+            onClick={() => void taskNotifications.setEnabled(!taskNotifications.enabled)}
           ></button>
         </div>
         <p
@@ -1317,9 +1338,7 @@ export function GeneralTab({
             id="protect-mobile-draft-storage"
             disabled={storagePersistence.buttonDisabled}
             aria-busy={storagePersistence.requesting}
-            onClick={() =>
-              void storagePersistence.requestProtection()
-            }
+            onClick={() => void storagePersistence.requestProtection()}
           >
             {t(storagePersistence.buttonKey)}
           </button>
@@ -1444,11 +1463,9 @@ export function GeneralTab({
               aria-busy={updater.disabled ? "true" : "false"}
               onClick={() => {
                 if (!updater.enabled) {
-                  // Auto-updates are not configured for this build; send the
-                  // user to the project homepage (the repo has no GitHub
-                  // Releases channel; /releases would 404) instead of an
-                  // inert disabled button.
-                  const url = "https://github.com/ax2/zicode-studio-desktop";
+                  // Signed auto-updates are disabled; open the manual
+                  // installer list advertised by this button.
+                  const url = "https://github.com/ax2/zicode-studio-desktop/releases";
                   const anchor = document.createElement("a");
                   anchor.href = url;
                   anchor.target = "_blank";

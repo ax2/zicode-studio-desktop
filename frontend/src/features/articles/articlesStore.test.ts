@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  type ArticlesGateway,
   createArticlesStore,
   slugifyTitle,
   suggestSlugFromMarkdown,
   titleFromMarkdown,
-  type ArticlesGateway,
 } from "./articlesStore";
 
 function mockGateway(overrides: Partial<ArticlesGateway> = {}): ArticlesGateway {

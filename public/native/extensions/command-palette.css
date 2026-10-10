@@ -29,9 +29,9 @@
   -webkit-backdrop-filter: blur(var(--blur-heavy)) saturate(1.6);
   border: 1px solid var(--border-hover);
   border-radius: var(--radius-lg);
-  width: 340px;
+  width: 640px;
   max-width: 90vw;
-  max-height: 400px;
+  max-height: min(720px, calc(100dvh - 48px));
   overflow: hidden;
   box-shadow: var(--shadow-lg), var(--shadow-inset);
   animation: sheetIn 0.2s var(--ease);
@@ -60,6 +60,14 @@
   padding: var(--space-1-5);
 }
 
+.command-palette-tabs {
+  border: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
 .command-palette-results {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -83,6 +91,8 @@
 }
 
 .command-item {
+  height: calc(var(--control-height-lg) + var(--space-4));
+  box-sizing: border-box;
   display: flex;
   width: 100%;
   align-items: center;
@@ -105,8 +115,56 @@
 }
 
 .command-item.selected {
-  background: var(--accent-subtle);
+  background: var(--bg-glass-active);
+  box-shadow: inset var(--space-0-5) 0 0 var(--accent);
   color: var(--text-primary);
+}
+
+.command-palette-count {
+  margin: var(--space-2) var(--space-3);
+  color: var(--text-dim);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.command-access-toolbar {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) 0;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.command-access-toolbar [aria-pressed="true"] {
+  background: var(--bg-glass-active);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.command-access-status,
+.command-access-unavailable {
+  margin: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.command-access-unavailable {
+  overflow: auto;
+  max-height: calc(var(--control-height-lg) * 3);
+  flex-shrink: 0;
+}
+
+.command-access-missing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.command-access-missing span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .command-empty {
@@ -117,6 +175,9 @@
 }
 
 .command-palette-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-1);
   border-top: 1px solid var(--border);
@@ -154,6 +215,18 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
+}
+
+.command-label,
+.command-desc {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.command-item.selected .command-icon {
+  color: var(--accent-text);
+  border-color: var(--accent);
 }
 
 .command-desc {

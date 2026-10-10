@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:zicode:studio:resource-input:1.0.0-draft.4",
+  "title": "Studio resource input request candidates (select operation definition)",
+  "$defs": {
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtimeId", "sessionId", "pluginId", "capabilityId"],
+      "properties": {
+        "runtimeId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "pluginId": { "type": "string" },
+        "capabilityId": { "type": "string" }
+      }
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "owner", "resourceId", "contentVersion"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "owner": { "$ref": "#/$defs/owner" },
+        "resourceId": { "type": "string", "format": "uuid" },
+        "contentVersion": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "prepare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "owner", "mimeType", "byteLength", "contentVersion"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "owner": { "$ref": "#/$defs/owner" },
+        "mimeType": {
+          "enum": [
+            "application/octet-stream",
+            "text/plain",
+            "image/png",
+            "image/jpeg",
+            "image/webp"
+          ]
+        },
+        "byteLength": { "type": "integer", "minimum": 0, "maximum": 33554432 },
+        "contentVersion": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "append": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access", "offset", "dataBase64"],
+      "properties": {
+        "access": { "$ref": "#/$defs/access" },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 33554432 },
+        "dataBase64": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 87384,
+          "contentEncoding": "base64"
+        }
+      }
+    },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access", "confirmed"],
+      "properties": { "access": { "$ref": "#/$defs/access" }, "confirmed": { "const": true } }
+    },
+    "readView": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access", "offset", "length"],
+      "properties": {
+        "access": { "$ref": "#/$defs/access" },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 33554432 },
+        "length": { "type": "integer", "minimum": 1, "maximum": 32768 }
+      }
+    },
+    "read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access", "offset", "length"],
+      "properties": {
+        "access": { "$ref": "#/$defs/access" },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 33554432 },
+        "length": { "type": "integer", "minimum": 1, "maximum": 65536 }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/prepare" },
+    { "$ref": "#/$defs/append" },
+    { "$ref": "#/$defs/commit" },
+    { "$ref": "#/$defs/read" },
+    { "$ref": "#/$defs/access" }
+  ]
+}

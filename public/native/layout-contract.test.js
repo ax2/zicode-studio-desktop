@@ -517,7 +517,7 @@ describe("desktop three-region layout contract", () => {
 
   it("keeps the command palette centered and scrollable on narrow screens", () => {
     expect(commandPaletteCss).toMatch(
-      /\.command-palette\s*\{[\s\S]*?width:\s*340px[\s\S]*?max-width:\s*90vw/,
+      /\.command-palette\s*\{[\s\S]*?width:\s*640px[\s\S]*?max-width:\s*90vw/,
     );
     expect(commandPaletteCss).toMatch(
       /\.command-list\s*\{[\s\S]*?overflow-y:\s*auto/,

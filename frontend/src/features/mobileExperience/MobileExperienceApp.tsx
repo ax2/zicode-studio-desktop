@@ -1,5 +1,5 @@
-import { t } from "../../shared/i18n";
 import type { StoreApi, UseBoundStore } from "zustand";
+import { t } from "../../shared/i18n";
 
 export type MobileConnectionState = "offline" | "reconnecting" | "stalled" | "connected";
 

@@ -1,12 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, waitFor } from "@testing-library/react";
-import { GeneralTab } from "./SettingsPanelApp";
-import { createSettingsStore } from "./store";
-import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBackupStore } from "./backupStore";
 import { createMemoryStore } from "./memoryStore";
-import { fallbackSceneProfiles, getSelectedSceneId } from "./sceneProfiles";
 import type { SettingsController } from "./SettingsPanelApp";
+import { GeneralTab } from "./SettingsPanelApp";
+import { fallbackSceneProfiles, getSelectedSceneId } from "./sceneProfiles";
+import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
+import { createSettingsStore } from "./store";
 
 const controllerStub = {
   loadForTab: vi.fn(),

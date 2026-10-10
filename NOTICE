@@ -1,12 +1,16 @@
 ZiCode Studio Desktop
 Copyright (c) 2026 Alex Xiang and contributors
 
-This project is derived from Picot by shixin-guo/deflating and other Picot
-contributors:
+The initial Pi desktop-wrapper architecture was inspired by Picot:
 https://github.com/shixin-guo/picot
 
-Picot is distributed under the MIT License. The original license and copyright
-notice are retained in LICENSE and in relevant source files.
+ZiCode Studio Desktop was not directly forked from Picot and does not track its
+development. According to the maintainer's historical account, Picot was a fork
+of Tau (https://github.com/deflating/tau). Picot's original public URL is no longer
+accessible as of 2026-10-10; its historical fork metadata cannot be reverified.
+Tau is retired. Retained repository history and compatibility identifiers do not
+imply ongoing synchronization or wholly original authorship. Existing MIT
+copyright notices remain in LICENSE and relevant source files.
 
 Bundled third-party runtimes keep their own licenses:
 

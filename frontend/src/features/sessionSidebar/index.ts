@@ -1,11 +1,10 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
-import { t } from "../../shared/i18n";
-// @ts-expect-error plain JS module without type declarations (public/native/)
 import { randomId } from "../../../../public/native/utils/random-id.js";
 // @ts-expect-error plain JS module without type declarations (public/)
 import { isSuperAgentProjectPath } from "../../../../public/super-agent/session.js";
+import { t } from "../../shared/i18n";
 import {
   SessionSidebarApp,
   type SessionSidebarController,
@@ -19,34 +18,34 @@ import {
 import {
   groupByProject,
   hasLiveStatus,
+  INITIAL_LIMIT,
   isUnreadSession,
   isWorkingSession,
   LOAD_RETRY_DELAYS_MS,
   mergeSessionSummary,
+  type ProjectGroup,
   readArray,
   readBoolean,
   readObject,
   readSessionCache,
-  sessionListSignature,
-  STORAGE,
-  INITIAL_LIMIT,
-  STEP,
-  writeSessionCache,
-  type ProjectGroup,
   type SessionSearchResult,
   type SessionSummary,
+  STEP,
+  STORAGE,
+  sessionListSignature,
+  writeSessionCache,
 } from "./sessionSidebarLogic";
 import {
-  createSidebarStore,
   type ContextMenuRow,
+  createSidebarStore,
   type SidebarStoreHook,
 } from "./sessionSidebarStore";
 
-export { formatSessionTime } from "./sessionSidebarLogic";
 export type {
-  SessionSummary,
   SessionSearchResult,
+  SessionSummary,
 } from "./sessionSidebarLogic";
+export { formatSessionTime } from "./sessionSidebarLogic";
 export type { SidebarStoreHook } from "./sessionSidebarStore";
 
 export interface SessionSidebarOptions {

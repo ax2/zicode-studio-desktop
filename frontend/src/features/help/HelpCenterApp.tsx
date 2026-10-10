@@ -3,12 +3,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { t } from "../../shared/i18n";
 import {
   HELP_DEFAULT_PAGE,
+  type HelpManifest,
+  type HelpPage,
   matchesSearch,
   readingMinutes,
   sectionIcon,
   slugify,
-  type HelpManifest,
-  type HelpPage,
 } from "./logic";
 import { createHelpStore, type HelpCenterOptions } from "./store";
 
@@ -79,7 +79,7 @@ export function HelpNav({ store }: { store: HelpStore }) {
                     key={page.id}
                     page={page}
                     activePage={activePage}
-                    onSelect={(id) => void loadPage(id)}
+                    onSelect={(id) => void loadPage(id).catch(() => {})}
                   />
                 ))}
               </div>
@@ -91,7 +91,7 @@ export function HelpNav({ store }: { store: HelpStore }) {
             key={page.id}
             page={page}
             activePage={activePage}
-            onSelect={(id) => void loadPage(id)}
+            onSelect={(id) => void loadPage(id).catch(() => {})}
           />
         ))}
         {matchCount === 0 ? (
@@ -138,7 +138,12 @@ export function HelpMain({ store }: { store: HelpStore }) {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !article) return;
+    if (!container) return;
+    if (!article) {
+      container.replaceChildren();
+      setToc([]);
+      return;
+    }
     container.innerHTML = article.html;
     decorateArticle(container, article.page, article.markdown, manifest, manifestLocale, loadPage);
     setToc(
@@ -159,12 +164,12 @@ export function HelpMain({ store }: { store: HelpStore }) {
   return (
     <div className="help-center-layout help-center-layout--embedded">
       <article
-        ref={containerRef}
         className="help-center-article"
         aria-busy={!article}
       >
         {!article && !error ? <p>{t("Loading documentation…")}</p> : null}
         {error ? <p>{error}</p> : null}
+        <div ref={containerRef} />
       </article>
       <div className="help-center-toc">
         <div className="help-center-toc-title">
@@ -174,7 +179,7 @@ export function HelpMain({ store }: { store: HelpStore }) {
           <button
             key={item.id}
             type="button"
-            className={`help-center-toc-link level-${item.level}`}
+            className={`ui-button ui-button--ghost ui-button--sm help-center-toc-link level-${item.level}`}
             onClick={() => {
               document.getElementById(item.id)?.scrollIntoView({
                 block: "start",
@@ -240,12 +245,13 @@ function decorateArticle(
 
   for (const link of container.querySelectorAll("a[href]")) {
     const href = link.getAttribute("href") || "";
-    if (!href.endsWith(".md")) continue;
+    if (!/^(?:\.\/)?[\w-]+\.md$/.test(href)) continue;
+    const file = href.replace(/^\.\//, "");
+    const target = manifest?.pages.find((entry) => entry.file === file);
+    if (!target) continue;
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      const file = href.split("/").pop();
-      const target = manifest?.pages.find((entry) => entry.file === file);
-      if (target) void loadPage(target.id);
+      void loadPage(target.id).catch(() => {});
     });
   }
 }
@@ -284,7 +290,7 @@ function buildPager(
       direction === "next" ? "→" : ""
     }`.trim();
     button.append(label, pageTitle);
-    button.addEventListener("click", () => void loadPage(page.id));
+    button.addEventListener("click", () => void loadPage(page.id).catch(() => {}));
     pager.append(button);
   }
   return pager;
@@ -315,11 +321,7 @@ export function createHelpCenterApp(options: HelpCenterOptions): HelpCenterAppAp
       await store
         .getState()
         .loadPage(pageId ?? store.getState().activePage)
-        .catch((reason) => {
-          store.setState({
-            error: reason instanceof Error ? reason.message : String(reason),
-          });
-        });
+        .catch(() => {});
     },
     close() {
       if (openHandler) openHandler(null);
@@ -338,9 +340,7 @@ export function createHelpCenterApp(options: HelpCenterOptions): HelpCenterAppAp
         navRoot = root;
       }
       root.render(<HelpNav store={store} />);
-      void store.getState().loadManifest().catch((reason) => {
-        store.setState({ error: reason instanceof Error ? reason.message : String(reason) });
-      });
+      void store.getState().loadManifest().catch(() => {});
     },
     renderContent(container) {
       if (!container) return;
@@ -357,11 +357,7 @@ export function createHelpCenterApp(options: HelpCenterOptions): HelpCenterAppAp
         void store
           .getState()
           .loadPage(store.getState().activePage || HELP_DEFAULT_PAGE)
-          .catch((reason) => {
-            store.setState({
-              error: reason instanceof Error ? reason.message : String(reason),
-            });
-          });
+          .catch(() => {});
       }
     },
   };

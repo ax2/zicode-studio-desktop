@@ -1,4 +1,5 @@
 import { t } from "../../shared/i18n.js";
+import { emptyProjectWork, type ProjectWork } from "./project-work";
 
 export const PROJECT_WORKSPACE_STORAGE_KEY = "zicode.project-workspaces.v1";
 
@@ -44,6 +45,7 @@ export interface KnowledgeSnapshot {
 }
 
 export interface ProjectSnapshot {
+  work: ProjectWork;
   notebooks: unknown[];
   notes: Array<{ id?: string; title?: string; summary?: string; excerpt?: string; updatedAt?: string; createdAt?: string }>;
   artifacts: Array<{ id?: string; title?: string; summary?: string; createdAt?: string; updatedAt?: string }>;
@@ -57,6 +59,7 @@ export interface ProjectSnapshot {
 
 export function emptyProjectSnapshot(): ProjectSnapshot {
   return {
+    work: emptyProjectWork(),
     notebooks: [],
     notes: [],
     artifacts: [],

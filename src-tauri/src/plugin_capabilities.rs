@@ -1,3 +1,16 @@
+#[path = "plugin_worker_process.rs"]
+pub(crate) mod worker_process;
+#[path = "plugin_schema_constraints.rs"]
+pub(crate) mod schema_constraints;
+#[path = "plugin_output_contract.rs"]
+pub(crate) mod output_contract;
+#[path = "plugin_detached_worker.rs"]
+pub(crate) mod detached_worker;
+#[path = "plugin_cache_authority.rs"]
+mod cache_authority;
+#[path = "plugin_worker_launch.rs"]
+mod worker_launch;
+
 use crate::notes_vault::NotesVault;
 use crate::plugin_registry::{PluginCapabilityDescriptor, PluginRegistry};
 use serde::{Deserialize, Serialize};
@@ -5,11 +18,11 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, VecDeque};
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Arc, RwLock};
-use std::thread;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -21,6 +34,8 @@ const MAX_NOTE_FILES: usize = 500;
 const MAX_NOTE_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const IDEMPOTENCY_CAPACITY: usize = 256;
 const WORKER_TIMEOUT: Duration = Duration::from_secs(5);
+#[cfg(test)]
+type WorkerObserver = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
 
 #[derive(Clone, Debug)]
 pub struct CapabilityError {
@@ -51,11 +66,16 @@ pub struct CapabilityInvocation {
 
 #[derive(Clone)]
 struct CachedInvocation {
-    input_hash: String,
+    request_hash: String,
+    authority: cache_authority::Authority,
     result: Value,
 }
 
 pub struct CapabilityBroker {
+    #[cfg(test)]
+    pub(crate) worker_executable: Option<PathBuf>,
+    #[cfg(test)]
+    pub(crate) worker_observer: Option<WorkerObserver>,
     data_root: PathBuf,
     notes: NotesVault,
     workspace_roots: Option<Arc<RwLock<HashMap<String, PathBuf>>>>,
@@ -63,6 +83,7 @@ pub struct CapabilityBroker {
     audit_path: PathBuf,
     idempotency: HashMap<String, CachedInvocation>,
     idempotency_order: VecDeque<String>,
+    worker_reservations: HashMap<String, std::sync::Weak<()>>,
 }
 
 impl CapabilityBroker {
@@ -78,6 +99,10 @@ impl CapabilityBroker {
         fs::create_dir_all(&audit_root)
             .map_err(|error| format!("Cannot create plugin audit directory: {error}"))?;
         Ok(Self {
+            #[cfg(test)]
+            worker_executable: None,
+            #[cfg(test)]
+            worker_observer: None,
             data_root,
             notes,
             workspace_roots: None,
@@ -85,6 +110,7 @@ impl CapabilityBroker {
             audit_path: audit_root.join("capabilities.jsonl"),
             idempotency: HashMap::new(),
             idempotency_order: VecDeque::new(),
+            worker_reservations: HashMap::new(),
         })
     }
 
@@ -119,6 +145,15 @@ impl CapabilityBroker {
         registry: &PluginRegistry,
         invocation: CapabilityInvocation,
     ) -> Result<Value, CapabilityError> {
+        self.invoke_cancellable(registry, invocation, None)
+    }
+
+    pub fn invoke_cancellable(
+        &mut self,
+        registry: &PluginRegistry,
+        invocation: CapabilityInvocation,
+        cancelled: Option<&AtomicBool>,
+    ) -> Result<Value, CapabilityError> {
         let started = Instant::now();
         let input_bytes = serde_json::to_vec(&invocation.input).map_err(|_| {
             CapabilityError::new("invalid_parameters", "Capability input is not serializable")
@@ -141,35 +176,38 @@ impl CapabilityBroker {
             });
             return Err(error);
         }
+        let request_hash = hex_sha256(
+            &serde_json::to_vec(&json!([
+                invocation.caller,
+                invocation.scene_id,
+                invocation.workspace_id,
+                invocation.plugin_id,
+                invocation.capability_id,
+                input_hash,
+            ]))
+            .expect("String tuple is serializable"),
+        );
         let cache_key = invocation
             .idempotency_scope
             .as_ref()
             .zip(invocation.tool_call_id.as_ref())
-            .map(|(scope, call)| format!("{scope}:{call}"));
-        let outcome = if let Some(key) = &cache_key {
-            if let Some(cached) = self.idempotency.get(key) {
-                if cached.input_hash != input_hash {
-                    Err(CapabilityError::new(
-                        "idempotency_conflict",
-                        "toolCallId was already used with different input",
-                    ))
-                } else {
-                    Ok(cached.result.clone())
-                }
-            } else {
-                self.invoke_uncached(registry, &invocation)
-            }
+            .map(|(scope, call)| {
+                serde_json::to_string(&(scope, call)).expect("String tuple is serializable")
+            });
+        let outcome = if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+            Err(CapabilityError::new("worker_cancelled", "Plugin call cancelled before execution"))
+        } else if cache_key.as_ref().is_some_and(|key| self.worker_reservations.get(key).is_some_and(|entry| entry.strong_count() > 0)) {
+            Err(CapabilityError::new("plugin_call_in_progress", "This invocation is already running"))
+        } else if let Some(key) = &cache_key {
+            self.invoke_cached(registry, &invocation, key, &request_hash, cancelled)
         } else {
-            self.invoke_uncached(registry, &invocation)
+            self.invoke_uncached(registry, &invocation, cancelled)
         };
-        if let (Ok(result), Some(key)) = (&outcome, cache_key) {
-            self.insert_idempotency(
-                key,
-                CachedInvocation {
-                    input_hash: input_hash.clone(),
-                    result: result.clone(),
-                },
-            );
+        if outcome.as_ref().is_err_and(|error| matches!(error.code, "worker_protocol_error" | "result_too_large")) {
+            if let Some(key) = &cache_key {
+                self.idempotency.remove(key);
+                self.idempotency_order.retain(|entry| entry != key);
+            }
         }
         self.write_audit(AuditRecord {
             timestamp_ms: now_millis(),
@@ -186,11 +224,14 @@ impl CapabilityBroker {
         outcome
     }
 
-    fn invoke_uncached(
+    fn current_capability(
         &self,
         registry: &PluginRegistry,
         invocation: &CapabilityInvocation,
-    ) -> Result<Value, CapabilityError> {
+    ) -> Result<PluginCapabilityDescriptor, CapabilityError> {
+        registry
+            .verify_current_integrity(&invocation.plugin_id)
+            .map_err(|error| CapabilityError::new("plugin_not_active", error))?;
         let capability = registry
             .capability(
                 &invocation.scene_id,
@@ -203,8 +244,29 @@ impl CapabilityBroker {
                     "Capability is missing, disabled, or unavailable in this scene",
                 )
             })?;
+        if invocation.caller == "pi"
+            && !registry.pi_tools(&invocation.scene_id).iter().any(|tool| {
+                tool.plugin_id == invocation.plugin_id
+                    && tool.capability == invocation.capability_id
+            })
+        {
+            return Err(CapabilityError::new(
+                "capability_unavailable",
+                "AI capability is not granted in this scene",
+            ));
+        }
+        Ok(capability)
+    }
+
+    fn invoke_uncached(
+        &self,
+        registry: &PluginRegistry,
+        invocation: &CapabilityInvocation,
+        cancelled: Option<&AtomicBool>,
+    ) -> Result<Value, CapabilityError> {
+        let capability = self.current_capability(registry, invocation)?;
         validate_value(&capability.input_schema, &invocation.input, "$")?;
-        let result = self.dispatch(registry, &capability, invocation)?;
+        let result = self.dispatch(registry, &capability, invocation, cancelled)?;
         let output = serde_json::to_vec(&result).map_err(|_| {
             CapabilityError::new(
                 "serialization_failed",
@@ -217,6 +279,7 @@ impl CapabilityBroker {
                 "Capability output exceeds 1 MiB",
             ));
         }
+        output_contract::validate_result(&capability, &result)?;
         Ok(result)
     }
 
@@ -248,6 +311,7 @@ impl CapabilityBroker {
             &plugin_id,
             json!({ "commandId": command_id }),
             args,
+            None,
         )
     }
 
@@ -256,6 +320,7 @@ impl CapabilityBroker {
         registry: &PluginRegistry,
         capability: &PluginCapabilityDescriptor,
         invocation: &CapabilityInvocation,
+        cancelled: Option<&AtomicBool>,
     ) -> Result<Value, CapabilityError> {
         match (capability.plugin_id.as_str(), capability.id.as_str()) {
             ("com.zicode.notes", "notes.search") => {
@@ -302,7 +367,7 @@ impl CapabilityBroker {
             ("com.zicode.ocr", "ocr.text") => {
                 self.extract_text(&invocation.workspace_id, &invocation.input)
             }
-            _ => self.invoke_developer_worker(registry, invocation),
+            _ => self.invoke_developer_worker(registry, invocation, cancelled),
         }
     }
 
@@ -454,20 +519,20 @@ impl CapabilityBroker {
         let system_root = self.system_root.as_ref().ok_or_else(|| {
             CapabilityError::new("credential_unavailable", "System root is unavailable")
         })?;
-        let credentials =
-            crate::credential_broker::scene_provider_credentials(system_root, scene_id)
-                .map_err(|error| CapabilityError::new("credential_unavailable", error))?;
-        let api_key = credentials
-            .iter()
-            .find(|(provider, _)| provider == "qveris")
-            .map(|(_, key)| key.clone())
-            .ok_or_else(|| {
-                CapabilityError::new(
-                    "credential_unavailable",
-                    "Translation model key is not configured for this scene",
-                )
-            })?;
-        let result = crate::translation::translate(&request, &api_key)
+        let endpoint = crate::model_tools::resolve(
+            system_root,
+            scene_id,
+            input.get("provider").and_then(Value::as_str),
+            input.get("model").and_then(Value::as_str),
+        )
+        .map_err(|error| CapabilityError::new("model_selection_unavailable", error))?;
+        let api_key = if endpoint.choice.requires_key {
+            crate::credential_broker::model_tool_credential(scene_id, &endpoint.choice.provider)
+                .map_err(|error| CapabilityError::new("credential_unavailable", error))?
+        } else {
+            None
+        };
+        let result = crate::translation::translate(&request, &endpoint, api_key.as_deref())
             .map_err(|error| CapabilityError::new("translate_failed", error))?;
         serde_json::to_value(result).map_err(|error| {
             CapabilityError::new(
@@ -533,6 +598,7 @@ impl CapabilityBroker {
         &self,
         registry: &PluginRegistry,
         invocation: &CapabilityInvocation,
+        cancelled: Option<&AtomicBool>,
     ) -> Result<Value, CapabilityError> {
         self.invoke_worker(
             registry,
@@ -540,6 +606,7 @@ impl CapabilityBroker {
             &invocation.plugin_id,
             json!({ "capabilityId": invocation.capability_id }),
             invocation.input.clone(),
+            cancelled,
         )
     }
 
@@ -550,101 +617,9 @@ impl CapabilityBroker {
         plugin_id: &str,
         handler: Value,
         input: Value,
+        cancelled: Option<&AtomicBool>,
     ) -> Result<Value, CapabilityError> {
-        let (worker_path, worker_kind) = registry
-            .plugin_runtime_entry(scene_id, plugin_id)
-            .map_err(|error| CapabilityError::new("plugin_not_active", error))?;
-        let executable = std::env::current_exe().map_err(|error| {
-            CapabilityError::new(
-                "plugin_not_active",
-                format!("Cannot locate plugin worker executable: {error}"),
-            )
-        })?;
-        let mut command = crate::process_command::new_command(executable);
-        command
-            .arg("--zicode-plugin-worker")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null());
-        let mut child = command.spawn().map_err(|error| {
-            CapabilityError::new(
-                "plugin_not_active",
-                format!("Cannot start plugin Worker Runtime: {error}"),
-            )
-        })?;
-        let mut request = json!({
-            "workerPath": worker_path,
-            "workerKind": worker_kind,
-            "pluginId": plugin_id,
-            "sceneId": scene_id,
-            "input": input,
-        });
-        if let (Some(request), Some(handler)) = (request.as_object_mut(), handler.as_object()) {
-            request.extend(handler.clone());
-        }
-        if let Some(mut stdin) = child.stdin.take() {
-            serde_json::to_writer(&mut stdin, &request).map_err(|error| {
-                let _ = child.kill();
-                CapabilityError::new(
-                    "worker_protocol_error",
-                    format!("Cannot send Worker request: {error}"),
-                )
-            })?;
-        }
-        let started = Instant::now();
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) if started.elapsed() < WORKER_TIMEOUT => {
-                    thread::sleep(Duration::from_millis(10));
-                }
-                Ok(None) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return Err(CapabilityError::new(
-                        "worker_timeout",
-                        "Plugin Worker exceeded the 5 second execution limit",
-                    ));
-                }
-                Err(error) => {
-                    let _ = child.kill();
-                    return Err(CapabilityError::new(
-                        "worker_failed",
-                        format!("Cannot monitor plugin Worker: {error}"),
-                    ));
-                }
-            }
-        };
-        let mut output = Vec::new();
-        child
-            .stdout
-            .take()
-            .ok_or_else(|| CapabilityError::new("worker_protocol_error", "Worker stdout missing"))?
-            .take((MAX_CAPABILITY_OUTPUT_BYTES + 64 * 1024) as u64)
-            .read_to_end(&mut output)
-            .map_err(|error| {
-                CapabilityError::new(
-                    "worker_protocol_error",
-                    format!("Cannot read Worker response: {error}"),
-                )
-            })?;
-        let response: WorkerProcessResponse = serde_json::from_slice(&output).map_err(|_| {
-            CapabilityError::new(
-                "worker_protocol_error",
-                "Plugin Worker returned an invalid response",
-            )
-        })?;
-        if !status.success() || !response.ok {
-            return Err(CapabilityError::new(
-                "worker_failed",
-                response
-                    .error
-                    .unwrap_or_else(|| "Plugin Worker execution failed".into()),
-            ));
-        }
-        response.result.ok_or_else(|| {
-            CapabilityError::new("worker_protocol_error", "Plugin Worker result is missing")
-        })
+        worker_launch::WorkerLaunch::prepare(self, registry, scene_id, plugin_id, handler, input)?.run(cancelled)
     }
 
     fn get_note(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
@@ -853,7 +828,7 @@ struct AuditRecord<'a> {
     error_code: Option<&'a str>,
 }
 
-fn validate_value(schema: &Value, value: &Value, path: &str) -> Result<(), CapabilityError> {
+pub(crate) fn validate_value(schema: &Value, value: &Value, path: &str) -> Result<(), CapabilityError> {
     let schema_type = schema.get("type").and_then(Value::as_str);
     let valid_type = match schema_type {
         Some("object") => value.is_object(),
@@ -868,6 +843,7 @@ fn validate_value(schema: &Value, value: &Value, path: &str) -> Result<(), Capab
     if !valid_type {
         return Err(invalid_parameter(path, "has the wrong type"));
     }
+    schema_constraints::validate_constraints(schema, value, path)?;
     if let Some(text) = value.as_str() {
         if schema
             .get("minLength")
@@ -917,13 +893,10 @@ fn validate_value(schema: &Value, value: &Value, path: &str) -> Result<(), Capab
                 ));
             }
         }
-        if schema.get("additionalProperties").and_then(Value::as_bool) == Some(false) {
-            if let Some(key) = object.keys().find(|key| !properties.contains_key(*key)) {
-                return Err(invalid_parameter(
-                    &format!("{path}.{key}"),
-                    "is not allowed",
-                ));
-            }
+        if schema.get("additionalProperties").and_then(Value::as_bool) == Some(false)
+            && object.keys().any(|key| !properties.contains_key(key))
+        {
+            return Err(invalid_parameter(path, "contains an undeclared property"));
         }
         for (key, item) in object {
             if let Some(property_schema) = properties.get(key) {
@@ -1007,6 +980,38 @@ mod tests {
                     .as_nanos()
             ))
             .join("plugins")
+    }
+
+    #[test]
+    fn cancelled_invocation_is_audited_without_caching_or_leaking_input() {
+        let scratch = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
+        fs::create_dir_all(&scratch).unwrap();
+        let fixture = scratch.join(format!("broker-cancel-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&fixture).unwrap();
+        fs::write(fixture.join("owner.json"), r#"{"purpose":"broker cancellation audit and retry; remove on success"}"#).unwrap();
+        let plugin_root = fixture.join("plugins");
+        let registry = PluginRegistry::open(plugin_root.clone()).unwrap();
+        let mut broker = CapabilityBroker::new(plugin_root.clone()).unwrap();
+        let invocation = CapabilityInvocation {
+            caller: "chat".into(), scene_id: "programming".into(),
+            workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
+            plugin_id: "com.zicode.notes".into(), capability_id: "notes.search".into(),
+            tool_call_id: Some("cancel-fixture".into()), idempotency_scope: Some("fixture-runtime".into()),
+            input: json!({"query":"private-cancel-test-input", "limit":5}),
+        };
+        let flag = std::sync::atomic::AtomicBool::new(true);
+        assert_eq!(broker.invoke_cancellable(&registry, invocation.clone(), Some(&flag)).unwrap_err().code, "worker_cancelled");
+        assert!(broker.idempotency.is_empty());
+        let audit = fs::read_to_string(plugin_root.join("audit/capabilities.jsonl")).unwrap();
+        assert!(audit.contains("worker_cancelled"));
+        assert!(!audit.contains("private-cancel-test-input"));
+        flag.store(false, std::sync::atomic::Ordering::Release);
+        assert!(broker.invoke_cancellable(&registry, invocation, Some(&flag)).is_ok());
+        assert_eq!(broker.idempotency.len(), 1);
+        drop(broker);
+        drop(registry);
+        assert!(fixture.canonicalize().unwrap().starts_with(scratch.canonicalize().unwrap()));
+        fs::remove_dir_all(fixture).unwrap();
     }
 
     #[test]
@@ -1106,6 +1111,8 @@ mod tests {
         let workspace_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
         let scoped = vault.scoped(workspace_id).unwrap();
         let notebook = scoped.create_notebook("Agent notes", None, None).unwrap();
+        // Fixture setup must release the exclusive workspace lock before Broker access.
+        drop(scoped);
         let mut broker = CapabilityBroker::new(root.clone()).unwrap();
 
         let created = broker
@@ -1149,5 +1156,141 @@ mod tests {
         assert_eq!(read["note"]["content"], "Use Markdown as source of truth.");
 
         let _ = fs::remove_dir_all(root.parent().unwrap());
+    }
+    #[test]
+    fn cached_results_bind_invocation_identity_and_recheck_current_pi_grants() {
+        let scratch = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.cache/task-scratch")
+            .join(format!("broker-identity-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&scratch).unwrap();
+        fs::write(scratch.join("owner.json"), json!({"purpose":"isolated Broker cache acceptance","pid":std::process::id(),"lifetime":"removed on success, retained for failures"}).to_string()).unwrap();
+        let root = scratch.join("plugins");
+        let mut registry = PluginRegistry::open(root.clone()).unwrap();
+        let mut broker = CapabilityBroker::new(root.clone()).unwrap();
+        let workspace = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let invocation = CapabilityInvocation {
+            caller: "pi".into(),
+            scene_id: "programming".into(),
+            workspace_id: workspace.into(),
+            plugin_id: "com.zicode.notes".into(),
+            capability_id: "notes.search".into(),
+            tool_call_id: Some("cache-call".into()),
+            idempotency_scope: Some("cache-runtime".into()),
+            input: json!({"query":"cache-evidence"}),
+        };
+        let first = broker.invoke(&registry, invocation.clone()).unwrap();
+        assert!(first["matches"].as_array().unwrap().is_empty());
+        let vault = crate::notes_vault::NotesVault::new(root).unwrap();
+        let scoped = vault.scoped(workspace).unwrap();
+        let notebook = scoped.create_notebook("Cache test", None, None).unwrap();
+        scoped
+            .create_note(
+                &notebook.id,
+                "cache-evidence",
+                "new text",
+                vec![],
+                None,
+                None,
+            )
+            .unwrap();
+        assert_eq!(broker.invoke(&registry, invocation.clone()).unwrap(), first);
+        for field in ["caller", "scene", "workspace", "capability"] {
+            let mut changed = invocation.clone();
+            match field {
+                "caller" => changed.caller = "chat".into(),
+                "scene" => changed.scene_id = "writing".into(),
+                "workspace" => changed.workspace_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb".into(),
+                _ => changed.capability_id = "notes.get".into(),
+            }
+            assert_eq!(
+                broker.invoke(&registry, changed).unwrap_err().code,
+                "idempotency_conflict",
+                "{field}"
+            );
+        }
+        let mut other_plugin = invocation.clone();
+        other_plugin.plugin_id = "com.other.plugin".into();
+        assert_eq!(
+            broker.invoke(&registry, other_plugin).unwrap_err().code,
+            "capability_unavailable"
+        );
+        registry
+            .set_enabled("programming", "com.zicode.notes", false)
+            .unwrap();
+        assert_eq!(
+            broker
+                .invoke(&registry, invocation.clone())
+                .unwrap_err()
+                .code,
+            "capability_unavailable"
+        );
+        registry
+            .set_enabled("programming", "com.zicode.notes", true)
+            .unwrap();
+        registry
+            .set_permission(
+                "programming",
+                "com.zicode.notes",
+                "pi.tools.register",
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            broker
+                .invoke(&registry, invocation.clone())
+                .unwrap_err()
+                .code,
+            "capability_unavailable"
+        );
+        registry
+            .set_permission("programming", "com.zicode.notes", "pi.tools.register", true)
+            .unwrap();
+        assert_eq!(broker.invoke(&registry, invocation.clone()).unwrap_err().code, "idempotency_authority_changed");
+        let mut fresh = invocation;
+        fresh.tool_call_id = Some("fresh-after-review".into());
+        assert_eq!(broker.invoke(&registry, fresh).unwrap()["matches"].as_array().unwrap().len(), 1);
+        drop(broker);
+        drop(registry);
+        drop(scoped);
+        drop(vault);
+        fs::remove_dir_all(scratch).unwrap();
+    }
+
+    #[test]
+    fn cache_scope_and_call_ids_have_unambiguous_boundaries() {
+        let scratch = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.cache/task-scratch")
+            .join(format!("broker-key-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&scratch).unwrap();
+        fs::write(
+            scratch.join("owner.json"),
+            json!({"purpose":"Broker key boundary acceptance","pid":std::process::id()})
+                .to_string(),
+        )
+        .unwrap();
+        let root = scratch.join("plugins");
+        let registry = PluginRegistry::open(root.clone()).unwrap();
+        let mut broker = CapabilityBroker::new(root).unwrap();
+        for (scope, call) in [("runtime:one", "call"), ("runtime", "one:call")] {
+            broker
+                .invoke(
+                    &registry,
+                    CapabilityInvocation {
+                        caller: "pi".into(),
+                        scene_id: "programming".into(),
+                        workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
+                        plugin_id: "com.zicode.notes".into(),
+                        capability_id: "notes.search".into(),
+                        tool_call_id: Some(call.into()),
+                        idempotency_scope: Some(scope.into()),
+                        input: json!({"query":"same"}),
+                    },
+                )
+                .unwrap();
+        }
+        assert_eq!(broker.idempotency.len(), 2);
+        drop(broker);
+        drop(registry);
+        fs::remove_dir_all(scratch).unwrap();
     }
 }

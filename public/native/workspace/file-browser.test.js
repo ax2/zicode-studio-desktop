@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { t } from "../../i18n.js";
 import { NativeFileBrowser } from "../react/file-browser.js";
 
 class DataTransferStub {
@@ -111,7 +112,7 @@ describe("NativeFileBrowser", () => {
 
     await browser.load("../etc");
 
-    expect(container.textContent).toContain("outside the registered workspace");
+    expect(container.textContent).toContain(t("Requested path is outside the registered workspace"));
   });
 
   it("highlights a specific entry and clears it with a null highlight", async () => {

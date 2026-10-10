@@ -1,5 +1,5 @@
-import { isSuperAgentEnabled, setSuperAgentEnabled } from "../super-agent/settings.js";
 import { t } from "../i18n.js";
+import { isSuperAgentEnabled, setSuperAgentEnabled } from "../super-agent/settings.js";
 
 class ChatSettingsPanel extends HTMLElement {
   connectedCallback() {

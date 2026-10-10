@@ -1,8 +1,9 @@
-import type { Root } from "react-dom/client";
 import { useRef } from "react";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
+import type { Root } from "react-dom/client";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
+import { ModelToolPicker } from "../../shared/ModelToolPicker";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { Select } from "../../shared/Select";
 import { TARGET_LANGUAGES } from "./translationLogic";
 import {
@@ -26,6 +27,7 @@ function TranslationNav() {
 }
 
 export function TranslationMain({ store }: { store: TranslationStore }) {
+  const modelSelection = store((state) => state.modelSelection);
   const text = store((state) => state.text);
   const sourceLang = store((state) => state.sourceLang);
   const targetLang = store((state) => state.targetLang);
@@ -59,6 +61,7 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
       />
 
       <section className="ui-card translate-source">
+        <ModelToolPicker sceneId={store.getState().getSceneId()} value={modelSelection} onChange={store.getState().setModelSelection} load={store.getState().loadModels} disabled={busy} />
         <textarea
           ref={inputRef}
           className="translate-textarea"
@@ -172,7 +175,7 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
                 ? `${result.sourceLang} → ${result.targetLang}`
                 : `${t("Auto-detect")} → ${result.targetLang}`}
               {" · "}
-              {result.model} · {editedText.length} {t("characters")}
+              {result.provider ? `${result.provider} / ` : ""}{result.model} · {editedText.length} {t("characters")}
             </p>
           </>
         ) : (

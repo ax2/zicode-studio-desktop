@@ -51,6 +51,12 @@ impl PiLaunchResolver {
         Self { static_dir }
     }
 
+    pub fn ensure_bundled_runtime(&self) -> Result<(), String> {
+        self.resolve_bundled_pi()?;
+        self.resolve_bundled_portable_git()?;
+        Ok(())
+    }
+
     pub fn native_launch_spec(
         &self,
         cwd: &str,
@@ -98,7 +104,9 @@ impl PiLaunchResolver {
             .map_err(|error| format!("Cannot create {}: {error}", pi_agent_dir.display()))?;
         crate::app_paths::migrate_legacy_pi_agent()?;
         let mut command = new_command(&pi_bin_str);
+        crate::desktop_profile::configure_pi_child(&mut command);
         command
+            .args(crate::desktop_profile::pi_discovery_flags())
             .args(args)
             .env("PATH", augmented_path)
             .env("PI_CODING_AGENT_DIR", &pi_agent_dir)
@@ -203,7 +211,7 @@ impl PiLaunchResolver {
         Err(format!(
             "Could not find embedded pi binary. Tried:\n{}\n\n\
              For dev: run `bun run fetch:pi` from the repo root.\n\
-             For release: the .app bundle is missing `resources/pi/{bin_name}`. \
+             For release: the installed application is missing `pi/{bin_name}` in its resource directory. \
              Reinstall ZiCode Studio Desktop.",
             tried
                 .iter()
@@ -396,6 +404,50 @@ fn macos_installed_app_names() -> HashSet<String> {
     names
 }
 
+#[cfg(not(target_os = "macos"))]
+fn command_on_path(name: &str) -> bool {
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path)
+        .filter(|directory| directory.is_absolute())
+        .any(|directory| {
+            let suffixes: &[&str] = if cfg!(windows) {
+                &[".exe", ".cmd", ".bat"]
+            } else {
+                &[""]
+            };
+            suffixes.iter().any(|suffix| {
+                let candidate = directory.join(format!("{name}{suffix}"));
+                if !candidate.is_file() {
+                    return false;
+                }
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    return candidate
+                        .metadata()
+                        .is_ok_and(|metadata| metadata.permissions().mode() & 0o111 != 0);
+                }
+                #[cfg(windows)]
+                {
+                    true
+                }
+            })
+        })
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn linux_opener() -> Option<(&'static str, &'static [&'static str])> {
+    if command_on_path("xdg-open") {
+        Some(("xdg-open", &[]))
+    } else if command_on_path("gio") {
+        Some(("gio", &["open"]))
+    } else {
+        None
+    }
+}
+
 /// List launch targets ZiCode Studio Desktop can use to open a workspace in an external app.
 pub fn list_installed_apps() -> Vec<AppTarget> {
     let candidates: [(&str, &str, &[&str], &str); 6] = [
@@ -444,7 +496,7 @@ pub fn list_installed_apps() -> Vec<AppTarget> {
     {
         let mut targets: Vec<AppTarget> = candidates
             .iter()
-            .filter(|(_, _, _, command)| !command.is_empty())
+            .filter(|(_, _, _, command)| !command.is_empty() && command_on_path(command))
             .map(|(id, label, _, command)| AppTarget {
                 id: id.to_string(),
                 label: label.to_string(),
@@ -453,31 +505,45 @@ pub fn list_installed_apps() -> Vec<AppTarget> {
                 command: Some(command.to_string()),
             })
             .collect();
-        targets.push(AppTarget {
-            id: "finder".to_string(),
-            label: "File Manager".to_string(),
-            kind: "finder".to_string(),
-            app_name: None,
-            command: None,
-        });
+        if file_manager_opener_available() {
+            targets.push(AppTarget {
+                id: "finder".to_string(),
+                label: "File Manager".to_string(),
+                kind: "finder".to_string(),
+                app_name: None,
+                command: None,
+            });
+        }
         targets
     }
 }
 
-/// Open a project directory in an external app (editor / terminal / file manager). Blocking.
+#[cfg(not(target_os = "macos"))]
+fn file_manager_opener_available() -> bool {
+    #[cfg(windows)]
+    {
+        true
+    }
+    #[cfg(not(windows))]
+    {
+        linux_opener().is_some()
+    }
+}
+
+/// Open an existing project entry in an external app (editor / terminal / file manager). Blocking.
 pub fn open_in_app(
-    path: &str,
+    path: &Path,
     app_name: Option<&str>,
     command: Option<&str>,
 ) -> Result<(), String> {
-    let trimmed_path = path.trim();
-    if trimmed_path.is_empty() {
+    if path.as_os_str().is_empty() {
         return Err("Missing path".to_string());
     }
+    let launch_path = crate::process_command::working_directory(path);
 
     if let Some(command) = command.map(str::trim).filter(|command| !command.is_empty()) {
         let status = new_command(command)
-            .arg(trimmed_path)
+            .arg(&launch_path)
             .status()
             .map_err(|error| format!("Failed to launch `{command}`: {error}"))?;
         if !status.success() {
@@ -494,10 +560,10 @@ pub fn open_in_app(
         let status = new_command("open")
             .arg("-a")
             .arg(app_name)
-            .arg(trimmed_path)
+            .arg(&launch_path)
             .status();
         #[cfg(not(target_os = "macos"))]
-        let status = new_command(app_name).arg(trimmed_path).status();
+        let status = new_command(app_name).arg(&launch_path).status();
 
         let status = status.map_err(|error| format!("Failed to open `{app_name}`: {error}"))?;
         if !status.success() {
@@ -506,10 +572,10 @@ pub fn open_in_app(
         return Ok(());
     }
 
-    open_path(trimmed_path)
+    open_path(&launch_path)
 }
 
-fn open_path(path: &str) -> Result<(), String> {
+fn open_path(path: &Path) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let status = new_command("open").arg(path).status();
     #[cfg(target_os = "windows")]
@@ -518,9 +584,19 @@ fn open_path(path: &str) -> Result<(), String> {
         command.arg(path).status()
     };
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let status = new_command("xdg-open").arg(path).status();
+    let status = linux_opener()
+        .ok_or_else(|| "No supported file manager opener is installed".to_string())
+        .and_then(|(program, args)| {
+            new_command(program)
+                .args(args)
+                .arg(path)
+                .status()
+                .map_err(|error| format!("Failed to reveal path: {error}"))
+        });
 
-    match status.map_err(|error| format!("Failed to reveal path: {error}"))? {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let status = status.map_err(|error| format!("Failed to reveal path: {error}"));
+    match status? {
         code if code.success() => Ok(()),
         code => Err(format!("File manager exited with status {code}")),
     }
@@ -532,18 +608,59 @@ pub fn open_external(url: &str) -> Result<(), String> {
     if trimmed.is_empty() {
         return Err("Missing URL".to_string());
     }
+    let parsed = reqwest::Url::parse(trimmed).map_err(|_| "Invalid external URL".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https" | "mailto")
+        || (parsed.scheme() != "mailto" && parsed.host_str().is_none())
+    {
+        return Err("Unsupported external URL".to_string());
+    }
 
     #[cfg(target_os = "macos")]
-    let status = new_command("open").arg(trimmed).status();
+    let status = new_command("open").arg(parsed.as_str()).status();
     #[cfg(target_os = "windows")]
-    let status = {
-        let mut command = new_command("cmd");
-        command.args(["/C", "start", "", trimmed]).status()
-    };
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::UI::Shell::ShellExecuteW;
+        let operation: Vec<u16> = std::ffi::OsStr::new("open")
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        let target: Vec<u16> = std::ffi::OsStr::new(parsed.as_str())
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                operation.as_ptr(),
+                target.as_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                1,
+            )
+        };
+        if (result as isize) > 32 {
+            Ok(())
+        } else {
+            Err("Failed to open external URL".to_string())
+        }
+    }
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-    let status = new_command("xdg-open").arg(trimmed).status();
+    let status = linux_opener()
+        .ok_or_else(|| "No supported URL opener is installed".to_string())
+        .and_then(|(program, args)| {
+            new_command(program)
+                .args(args)
+                .arg(parsed.as_str())
+                .status()
+                .map_err(|error| format!("Failed to open URL: {error}"))
+        });
 
-    match status.map_err(|error| format!("Failed to open URL: {error}"))? {
+    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    let status = status.map_err(|error| format!("Failed to open URL: {error}"));
+    #[cfg(not(target_os = "windows"))]
+    match status? {
         code if code.success() => Ok(()),
         code => Err(format!("Opener exited with status {code}")),
     }

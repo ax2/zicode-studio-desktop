@@ -1,13 +1,15 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n.js";
-import { FirstRunGuide } from "../../shared/FirstRunGuide";
-// @ts-expect-error plain JS module without type declarations
-import { renderMarkdown } from "../../../../public/ui/markdown.js";
 // @ts-expect-error plain JS module without type declarations
 import { copyText } from "../../../../public/ui/copy.js";
+// @ts-expect-error plain JS module without type declarations
+import { renderMarkdown } from "../../../../public/ui/markdown.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n.js";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import {
+  type ArtifactDescriptor,
+  type ArtifactDocument,
   formatBytes,
   formatDate,
   formatDateTime,
@@ -15,10 +17,9 @@ import {
   markdownContent,
   pluginLabel,
   stringifyContent,
-  type ArtifactDescriptor,
-  type ArtifactDocument,
 } from "./logic";
-import { createArtifactStore, type ArtifactAppOptions } from "./store";
+import { type ArtifactAppOptions, createArtifactStore } from "./store";
+import { SavedOutputs } from "./SavedOutputs";
 
 type ArtifactStore = ReturnType<typeof createArtifactStore>;
 
@@ -240,6 +241,11 @@ function ArtifactDocumentView({
 }) {
   const markdown = markdownContent(selected);
   const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
   return (
     <article className="artifacts-document">
       <header className="artifacts-document-header">
@@ -259,7 +265,6 @@ function ArtifactDocumentView({
                 markdown ?? stringifyContent(selected.content ?? "");
               void copyText(content);
               setCopied(true);
-              setTimeout(() => setCopied(false), 1600);
             }}
           >
             {copied ? t("Copied") : t("Copy content")}
@@ -350,6 +355,14 @@ export interface ArtifactAppApi {
   destroy(): void;
 }
 
+function ArtifactSurface({ store, options }: { store: ArtifactStore; options: ArtifactAppOptions }) {
+  const targetEpoch = store(state => state.targetEpoch);
+  return <div className="artifacts-content-layout">
+    <SavedOutputs key={targetEpoch} gateway={options.gateway.savedOutputs} getTarget={options.getTarget} />
+    <ArtifactMain store={store} openApp={options.openApp} />
+  </div>;
+}
+
 export function createArtifactApp(options: ArtifactAppOptions): ArtifactAppApi {
   const store = createArtifactStore(options);
   let navRoot: Root | null = null;
@@ -368,11 +381,7 @@ export function createArtifactApp(options: ArtifactAppOptions): ArtifactAppApi {
       return store.getState().load(options);
     },
     renderContent(container) {
-      contentRoot = mountPluginSurface(
-        container,
-        <ArtifactMain store={store} openApp={options.openApp} />,
-        contentRoot,
-      );
+      contentRoot = mountPluginSurface(container, <ArtifactSurface store={store} options={options} />, contentRoot);
     },
     renderNavigation(container) {
       navRoot = mountPluginSurface(

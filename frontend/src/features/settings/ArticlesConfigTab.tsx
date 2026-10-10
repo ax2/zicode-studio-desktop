@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
-import { ArticlesHttpGateway, type ArticlesConfig } from "../articles/articlesStore";
+import { t } from "../../shared/i18n";
+import { type ArticlesConfig, ArticlesHttpGateway } from "../articles/articlesStore";
 
 const EMPTY: ArticlesConfig = {
   wechat: {

@@ -1,5 +1,10 @@
 import { getLocale, initializeI18n, t } from "../i18n.js";
 import { reconcileSnapshotTarget } from "../session/bootstrap-target.js";
+import {
+  persistDispatchOwnership,
+  restoreDispatchOwnership,
+} from "../super-agent/dispatch-ownership.js";
+import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
@@ -8,91 +13,83 @@ import {
   buildTaskComposerPrompt,
   findDispatchedTaskByInstanceId,
   looksLikeQuestion,
-  markTaskChildSessionBound,
   markTaskAnswered,
+  markTaskChildSessionBound,
   markTaskFinished,
   markTaskNeedsInput,
   shouldCompleteDispatchedRun,
 } from "../super-agent/task-state.js";
 import { updateSuperAgentTask } from "../super-agent/task-store.js";
-import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { applyTheme, getCurrentTheme } from "../themes.js";
-import { ConvNav } from "./react/conv-nav.js";
-import { setupMessagesInsets } from "../ui/layout-insets.js";
 import { diffLines } from "../ui/diff.js";
-import { MessageRenderer, ToolCardRenderer } from "./react/chat.js";
+import { setupMessagesInsets } from "../ui/layout-insets.js";
 import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js";
-import { setupComposerImageAttachments } from "./react/composer.js";
-import { setupComposerSlashMenu } from "./react/composer.js";
 import { buildCommandCatalog, resolveComposerInput } from "./composer/slash-commands.js";
-import { setupCommandPalette } from "./react/command-palette.js";
-import { showNativeDialog } from "./react/dialog.js";
 import { ExtensionUiHost } from "./extensions/extension-ui-host.js";
-import { showInlineExtensionPrompt } from "./react/inline-extension-prompt.js";
-import { setupFinanceWorkbench } from "./react/finance-workbench.js";
-import { setupHelpCenter } from "./react/help.js";
-import { refreshLanQrButton, setupLanQr } from "./react/lan-qr.js";
+import { createChatDraftHandoff } from "./features/chat-draft-handoff.js";
 import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
-import { setupMobileExperience } from "./react/mobile-experience.js";
-import { setupMobileSendLater } from "./react/mobile-send-later.js";
 import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
+import { createNotesChatHandoff } from "./features/notes-chat-handoff.js";
+import { installProjectWorkNavigation } from "./features/project-work-navigation.js";
 import {
   createAuthenticatedHostFetch,
   remoteE2eePublicKey,
   resolveRemoteAuth,
 } from "./features/remote-auth.js";
-import {
-  isRpivTodoCommandNotify,
-  isRpivTodoWidgetRequest,
-  RpivTodoMirrorPanel,
-} from "./react/rpiv-todo-mirror.js";
-import { setupSceneIndicator } from "./react/scene-indicator.js";
-import { renderStartupFailure } from "./react/startup-failure.js";
-import {
-  estimateRequestCost,
-} from "./models/model-routing.js";
-import { createNotificationCenter } from "./react/notification-center.js";
-import { setupArtifactApp } from "./react/artifacts.js";
-import { ArtifactGateway } from "./plugins/artifact-gateway.js";
-import { setupAutomationApp } from "./react/automation.js";
-import { setupIdPhotoApp } from "./react/idphoto.js";
-import { setupImageToolsApp } from "./react/imagetools.js";
-import { setupDocumentsApp } from "./react/documents.js";
-import { setupClipboardApp } from "./react/clipboard.js";
-import { setupGraphApp } from "./react/graph.js";
-import { setupHabitsApp } from "./react/habits.js";
-import { setupTranslationApp } from "./react/translate.js";
-import { setupWatchApp } from "./react/watch.js";
-import { setupOcrApp } from "./react/ocr.js";
+import { createToolAccessStore } from "./features/tool-access-store.js";
 import { mergeMemoryEntries, parseMemoryExtractAnswer } from "./memory-extract.js";
-import { isFileWritingTool, toolChangeInfo, toolFilePath } from "./tool-guard.js";
-import { setupArticlesApp } from "./react/articles.js";
-import { setupNotesApp } from "./react/notes.js";
-import { createModelDropdownFeed } from "./react/composer.js";
-import { setupComposer } from "./react/composer.js";
+import { estimateRequestCost } from "./models/model-routing.js";
+import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { NotesGateway } from "./plugins/notes-gateway.js";
 import { PluginCapabilityGateway } from "./plugins/plugin-capability-gateway.js";
 import { PluginHostGateway } from "./plugins/plugin-host-gateway.js";
 import { createBuiltinPluginRegistry } from "./plugins/plugin-registry.js";
 import { PLUGIN_HISTORY_STATE_KEY, setupPluginShell } from "./plugins/plugin-shell.js";
 import { setupPluginViewHost } from "./plugins/plugin-view-host.js";
+import { setupArticlesApp } from "./react/articles.js";
+import { setupArtifactApp } from "./react/artifacts.js";
+import { setupAutomationApp } from "./react/automation.js";
+import { MessageRenderer, ToolCardRenderer } from "./react/chat.js";
+import { setupClipboardApp } from "./react/clipboard.js";
+import { setupCommandPalette } from "./react/command-palette.js";
+import { createModelDropdownFeed, setupComposer, setupComposerImageAttachments, setupComposerSlashMenu } from "./react/composer.js";
+import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usage.js";
+import { ConvNav } from "./react/conv-nav.js";
+import { showNativeDialog } from "./react/dialog.js";
+import { setupDocumentsApp } from "./react/documents.js";
+import { NativeFileBrowser } from "./react/file-browser.js";
+import { setupFinanceWorkbench } from "./react/finance-workbench.js";
+import { setupGraphApp } from "./react/graph.js";
+import { HabitsHttpGateway, setupHabitsApp } from "./react/habits.js";
+import { setupHelpCenter } from "./react/help.js";
+import { createHistoryWindow } from "./react/history-window.js";
+import { setupIdPhotoApp } from "./react/idphoto.js";
+import { setupImageToolsApp } from "./react/imagetools.js";
+import { showInlineExtensionPrompt } from "./react/inline-extension-prompt.js";
+import { refreshLanQrButton, setupLanQr } from "./react/lan-qr.js";
+import { setupMobileExperience } from "./react/mobile-experience.js";
+import { setupMobileSendLater } from "./react/mobile-send-later.js";
+import { setupNotesApp } from "./react/notes.js";
+import { createNotificationCenter } from "./react/notification-center.js";
+import { setupOcrApp } from "./react/ocr.js";
+import { setupProjectHeader } from "./react/project-header.js";
+import { readProjectWorkspaceProfile, setupProjectWorkspaceApp } from "./react/projects.js";
 import {
-  readProjectWorkspaceProfile,
-  setupProjectWorkspaceApp,
-} from "./react/projects.js";
-import { setupTaskCenterApp } from "./react/tasks.js";
-import {
-  createHistoryWindow,
-} from "./react/history-window.js";
-import { createSessionSelectionHandler } from "./session/session-navigation.js";
+  isRpivTodoCommandNotify,
+  isRpivTodoWidgetRequest,
+  RpivTodoMirrorPanel,
+} from "./react/rpiv-todo-mirror.js";
+import { setupSceneIndicator } from "./react/scene-indicator.js";
 import { setupSessionSearchDialog } from "./react/session-search-dialog.js";
 import { SessionSidebar } from "./react/session-sidebar.js";
+import { getSelectedSceneId, setupAppUpdater, setupSettingsPanel } from "./react/settings.js";
+import { renderStartupFailure } from "./react/startup-failure.js";
+import { setupTaskCenterApp } from "./react/tasks.js";
+import { setupTranslationApp } from "./react/translate.js";
+import { setupWatchApp, WatchHttpGateway } from "./react/watch.js";
+import { createSessionSelectionHandler } from "./session/session-navigation.js";
 import { createSessionStore, reduceSessionState } from "./session/session-store.js";
-import {
-  getSelectedSceneId,
-  setupAppUpdater,
-  setupSettingsPanel,
-} from "./react/settings.js";
+import { isFileWritingTool, toolChangeInfo, toolFilePath } from "./tool-guard.js";
 import { resolveBootstrapTarget } from "./transport/bootstrap-target.js";
 import { ConfigGateway } from "./transport/config-gateway.js";
 import {
@@ -112,14 +109,11 @@ import {
   replaceTemporarySessionRoute,
   resolveHistoryNavigation,
 } from "./utils/router.js";
-import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usage.js";
-import { NativeFileBrowser } from "./react/file-browser.js";
-import { setupProjectHeader } from "./react/project-header.js";
 import {
-  openSessionInProjectViaHost,
-  resolveWorkspaceViaHost,
   createSessionInApp,
   findFinanceSession,
+  openSessionInProjectViaHost,
+  resolveWorkspaceViaHost,
   setupNewSessionButton,
   setupWorkspaceSwitcher,
   spawnSessionViaHost,
@@ -172,8 +166,7 @@ const messageRenderer = new MessageRenderer(messagesElement, {
       .filter((plugin) => plugin.enabled && plugin.hasActivity !== false)
       .sort(
         (left, right) =>
-          (left.order ?? 1000) - (right.order ?? 1000) ||
-          left.name.localeCompare(right.name),
+          (left.order ?? 1000) - (right.order ?? 1000) || left.name.localeCompare(right.name),
       )
       .map((plugin) => plugin.id);
   },
@@ -224,9 +217,7 @@ let modelsLoading = false;
 // the agent answers without changing files, or proposes before touching
 // anything.
 const WORK_MODE_PROMPTS = {
-  ask: t(
-    "Answer only; do not create, modify, or delete any files, and do not run side effects.",
-  ),
+  ask: t("Answer only; do not create, modify, or delete any files, and do not run side effects."),
   craft: null,
   plan: t(
     "First propose an execution plan (steps, files to change, expected output). Do not modify any files until the user confirms the plan.",
@@ -327,11 +318,21 @@ let superAgentEnsureInFlight = null;
 // has finished executing. Declaring it late (as a later top-level `const`)
 // caused a "Cannot access 'dispatchedInstances' before initialization" TDZ
 // crash that could abort session creation on fresh installs.
-const dispatchedInstances = new Map();
+const restoredDispatches = restoreDispatchOwnership();
+const dispatchedInstances = new Map(
+  restoredDispatches.map((item) => [item.child.instanceId, item.taskId]),
+);
+// The owning task file belongs to the window target at dispatch time, even
+// when the child agent runs in another project or this window changes target.
+const dispatchedSourceTargets = new Map(
+  restoredDispatches.map((item) => [item.child.instanceId, item.source]),
+);
 // Keep the original dispatch target per child instance so the client can
 // re-subscribe after the runtime upgrades its temporary session id (see
 // bindDispatchedChildSession).
-const dispatchedTargets = new Map();
+const dispatchedTargets = new Map(
+  restoredDispatches.map((item) => [item.child.instanceId, item.child]),
+);
 // Sequence of the last end/settled event already processed for a dispatched
 // instance. A run emits agent_end followed by agent_settled; processing both
 // would re-mark the task (e.g. re-flag needs_input after the user answered).
@@ -351,6 +352,7 @@ const dispatchedErrors = new Map();
 const remoteAuth = await resolveRemoteAuth();
 const hostFetch = createAuthenticatedHostFetch({
   deviceToken: remoteAuth.deviceToken,
+  desktopToken: remoteAuth.desktopToken,
   location: window.location,
   fetchImpl: window.fetch.bind(window),
 });
@@ -375,6 +377,7 @@ const adapter = new HostRuntimeAdapter({
   clientId: `${remoteAuth.clientType}-${randomId()}`,
   clientType: remoteAuth.clientType,
   deviceToken: remoteAuth.deviceToken,
+  desktopToken: remoteAuth.desktopToken,
   e2eePublicKey: remoteAuth.clientType === "remote" ? remoteE2eePublicKey() : undefined,
   p2pEnabled: remoteAuth.clientType === "remote",
   iceServers,
@@ -463,7 +466,15 @@ const extensionUi = new ExtensionUiHost({
         todoMirrorPanel.expand();
         return;
       }
-      messageRenderer.renderSystemMessage(request.message || "");
+      const message = request.message || "";
+      messageRenderer.renderSystemMessage(
+        message === "This model channel is disabled. Select another model in Settings." ||
+          message ===
+            "Model channel configuration could not be read. Repair it in Settings before chatting." ||
+          message === "Cancelling current model activity for the disabled channel."
+          ? t(message)
+          : message,
+      );
     },
     status: (request) => setStatus(request.statusText || "Connected"),
     title: (request) => {
@@ -531,6 +542,7 @@ setupConfigGatewayConnectionListener({
   isReady: () => configGatewayTargetReady,
   onDisconnected: () => markRuntimeDisconnected(),
 });
+for (const childTarget of dispatchedTargets.values()) adapter.subscribeTarget(childTarget);
 adapter.connect();
 window.addEventListener("picot-config-gateway-ready", () => {
   runtimeDisconnectNotified = false;
@@ -668,6 +680,10 @@ mobileDrafts
     });
   });
 setupCommandPalette({
+  getToolApi: () => remoteAuth.clientType === "desktop" ? pluginCapabilityGateway : undefined,
+  onOpenTool: (tool, revision, scope) => pluginShell?.openManualTool(tool, revision, scope),
+  accessStore: remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined,
+  getScope: () => ({ sceneId: target.sceneId, workspaceId: target.workspaceId }),
   button: commandButton,
   palette: commandPalette,
   overlay: commandPaletteOverlay,
@@ -675,26 +691,26 @@ setupCommandPalette({
   commands: () => [
     {
       icon: "+",
+      id: "studio:new-session",
       label: t("New session"),
       desc: t("Start a new conversation"),
       action: () => document.getElementById("new-session-btn")?.click(),
     },
     {
       icon: "⇄",
+      id: "studio:switch-workspace",
       label: t("Switch workspace"),
       desc: t("Open the workspace switcher"),
       action: () => {
         // Defer until the palette's own click has finished bubbling so the
         // switcher's outside-click listener does not close the menu it just
         // opened (target would be the palette item, not the switcher button).
-        setTimeout(
-          () => document.getElementById("workspace-switcher-btn")?.click(),
-          0,
-        );
+        setTimeout(() => document.getElementById("workspace-switcher-btn")?.click(), 0);
       },
     },
     {
       icon: "🗜️",
+      id: "studio:compact",
       label: t("Compact"),
       desc: t("Compact context to save tokens"),
       action: () => runtime.request({ type: "compact" }, target, { idempotencyKey: randomId() }),
@@ -702,30 +718,35 @@ setupCommandPalette({
     },
     {
       icon: "⬇️",
+      id: "studio:expand-tools",
       label: t("Expand All Tools"),
       desc: t("Expand all tool cards"),
       action: () => toolRenderer.expandAll(),
     },
     {
       icon: "⬆️",
+      id: "studio:collapse-tools",
       label: t("Collapse All Tools"),
       desc: t("Collapse all tool cards"),
       action: () => toolRenderer.collapseAll(),
     },
     {
       icon: "⚙️",
+      id: "studio:settings",
       label: t("Settings"),
       desc: t("Open ZiCode Studio Desktop settings"),
       action: () => settingsPanel?.openSettings("general"),
     },
     {
       icon: "?",
+      id: "studio:help",
       label: t("Help"),
       desc: t("Show composer shortcuts"),
       action: () => runBuiltin("show_help"),
     },
     {
       icon: "📁",
+      id: "studio:files",
       label: t("Files"),
       desc: t("Open file browser"),
       action: () => runBuiltin("open_files"),
@@ -836,6 +857,7 @@ const pluginCapabilityGateway = new PluginCapabilityGateway({
 });
 const pluginViewHost = setupPluginViewHost({
   gateway: pluginHostGateway,
+  allowExternalViews: remoteAuth.clientType === "desktop",
   capabilityGateway: pluginCapabilityGateway,
   getTarget: () => target,
   notify: notifications.notify,
@@ -850,47 +872,16 @@ const notesApp = setupNotesApp({
   getTarget: () => target,
   getProject: () => currentProjectInfo,
   notify: notifications.notify,
-  onUseInChat: (note, selection = "") => {
-    pluginShell?.activate("core.chat");
-    const tagsLine =
-      Array.isArray(note.tags) && note.tags.length > 0
-        ? `${t("Note tags")}: ${note.tags.join(", ")}`
-        : "";
-    const sourceLine = note.source?.url ? `${t("Source")}: ${note.source.url}` : "";
-    let prompt;
-    if (selection) {
-      prompt = [
-        t(
-          'Discuss the selected text from note "{title}", only around this text, ignoring stale context:',
-        ).replace("{title}", note.title),
-        tagsLine,
-        sourceLine,
-        "",
-        selection,
-        "",
-        `${t("I want to continue")}:`,
-      ]
-        .filter(Boolean)
-        .join("\n");
-    } else {
-      const reference = `zicode-note://${note.notebookId}/${note.id}`;
-      prompt = [
-        t('Discuss note "{title}" and continue.').replace("{title}", note.title),
-        t(
-          "First call notes_get with notebookId={notebookId}, noteId={noteId}, ignoring stale chat context.",
-        )
-          .replace("{notebookId}", note.notebookId)
-          .replace("{noteId}", note.id),
-        `${t("Note reference")}: ${reference}`,
-        tagsLine,
-        sourceLine,
-        `\n${t("I want to continue")}:`,
-      ]
-        .filter(Boolean)
-        .join("\n");
-    }
-    prefillComposer(prompt);
-  },
+  invoke: globalThis.__TAURI__?.core?.invoke
+    ? (command, params) => globalThis.__TAURI__.core.invoke(command, params)
+    : undefined,
+  onUseInChat: createNotesChatHandoff({
+    activate: () => pluginShell?.activate("core.chat"),
+    getTarget: () => target,
+    isChatActive: () => pluginShell?.getActivePluginId() === "core.chat",
+    getInput: () => document.getElementById("message-input"),
+    syncDraft: () => mobileDrafts?.sync(),
+  }),
 });
 const artifactApp = setupArtifactApp({
   gateway: artifactGateway,
@@ -899,7 +890,28 @@ const artifactApp = setupArtifactApp({
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   onUseInChat: (text) => prefillComposer(text),
 });
+const projectChatDraftHandoff = createChatDraftHandoff({
+  activate: () => pluginShell?.activate("core.chat"),
+  getTarget: () => target,
+  isChatActive: () => pluginShell?.getActivePluginId() === "core.chat",
+  getInput: () => document.getElementById("message-input"),
+  syncDraft: () => mobileDrafts?.sync(),
+});
 const projectWorkspaceApp = setupProjectWorkspaceApp({
+  openStorageEntry:
+    remoteAuth.clientType === "desktop"
+      ? (workspaceId, relativePath) => control.openWorkspaceDirectory(workspaceId, relativePath)
+      : undefined,
+  readStorage:
+    remoteAuth.clientType === "desktop" && globalThis.__TAURI__?.core?.invoke
+      ? (workspaceId, directory) =>
+          globalThis.__TAURI__.core.invoke("inspect_project_storage", { workspaceId, directory })
+      : undefined,
+  onPrepareGitReview: projectChatDraftHandoff,
+  onPrepareContextPack: projectChatDraftHandoff,
+  onPrepareRunAnalysis: projectChatDraftHandoff,
+  controlGateway: control,
+  canRunProjectTasks: remoteAuth.clientType === "desktop",
   notesGateway,
   artifactGateway,
   dataGateway: data,
@@ -922,51 +934,23 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
       type: "info",
     });
   },
-  onUseContextPack: (notes, { compare = false } = {}) => {
-    pluginShell?.activate("core.chat");
-    const references = notes
-      .map((note) => `- ${note.title}: zicode-note://${note.notebookId}/${note.noteId}`)
-      .join("\n");
-    const instructions = notes
-      .map((note) => `notes_get(notebookId=${note.notebookId}, noteId=${note.noteId})`)
-      .join("、");
-    input.value = [
-      compare
-        ? t(
-            "Compare these notes and point out conflicts, time differences, source differences, and verifiable conclusions.",
-          )
-        : t("Synthesize the following context pack and continue the analysis."),
-      t(
-        "First call {instructions} separately, ignoring stale chat context.",
-      ).replace("{instructions}", instructions),
-      references,
-      "",
-      input.value.trim(),
-    ]
-      .filter(Boolean)
-      .join("\n");
-    mobileDrafts?.sync();
-    input.focus();
-  },
   notify: notifications.notify,
 });
 const taskCenterApp = setupTaskCenterApp({
   call: (operation, params, options) => config.call(operation, params, options),
+  getTarget: () => target,
   runtime,
   cancelRuntimeUi: (runtimeTarget) => extensionUi.cancelSession(runtimeTarget),
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   notify: notifications.notify,
   getCurrentProjectPath: () => {
     const routeMatch = window.location.pathname.match(/^\/app\/workspaces\/([^/]+)\//);
-    const workspaceId = routeMatch
-      ? decodeURIComponent(routeMatch[1])
-      : target?.workspaceId;
+    const workspaceId = routeMatch ? decodeURIComponent(routeMatch[1]) : target?.workspaceId;
     if (!workspaceId) return null;
     return (
-      sidebar?.sessions?.find(
-        (session) => session.workspaceId === workspaceId && session.projectPath,
-      )?.projectPath
-        ?.replace(/^\\\\\?\\/, "")
+      sidebar?.sessions
+        ?.find((session) => session.workspaceId === workspaceId && session.projectPath)
+        ?.projectPath?.replace(/^\\\\\?\\/, "")
         .replace(/^\\\?\\/, "") ?? null
     );
   },
@@ -974,6 +958,33 @@ const taskCenterApp = setupTaskCenterApp({
 const automationApp = setupAutomationApp({
   call: (operation, params, options) => config.call(operation, params, options),
   getTarget: () => target,
+  listWorkspaceStatus: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("list_automation_workspaces")
+    : undefined,
+  backgroundWorkerStatus: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("background_automation_worker_status")
+    : undefined,
+  startBackgroundWorker: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("start_background_automation_worker")
+    : undefined,
+  stopBackgroundWorker: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("stop_background_automation_worker")
+    : undefined,
+  backgroundWorkerLoginEnabled: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("background_automation_login_start_enabled")
+    : undefined,
+  setBackgroundWorkerLoginEnabled: globalThis.__TAURI__?.core?.invoke
+    ? (enabled) =>
+        globalThis.__TAURI__.core.invoke("set_background_automation_login_start", { enabled })
+    : undefined,
+  openWorkspaceTasks: globalThis.__TAURI__?.core?.invoke
+    ? (projectPath) =>
+        globalThis.__TAURI__.core.invoke("switch_window_workspace", {
+          projectPath,
+          pluginId: "com.zicode.tasks",
+        })
+    : undefined,
+  approvePendingTask: (taskId, sourceTarget) => taskCenterApp.approveTaskById(taskId, sourceTarget),
   openApp: (pluginId) => pluginShell?.activate(pluginId),
   notify: notifications.notify,
   notifySystem: (title, message) => notifyDesktop(title, message),
@@ -1032,7 +1043,7 @@ const clipboardApp = setupClipboardApp({
   notify: notifications.notify,
   onUseInChat: (text) => {
     const prompt = [
-      t('Discuss this captured item and continue:'),
+      t("Discuss this captured item and continue:"),
       "",
       text,
       "",
@@ -1074,6 +1085,7 @@ const graphApp = setupGraphApp({
   openApp: (pluginId) => pluginShell?.activate(pluginId),
 });
 const habitsApp = setupHabitsApp({
+  gateway: new HabitsHttpGateway({ fetchImpl: hostFetch }),
   getTarget: () => ({
     sceneId: target.sceneId,
     workspaceId: target.workspaceId,
@@ -1088,6 +1100,7 @@ const translationApp = setupTranslationApp({
   notify: notifications.notify,
 });
 const watchApp = setupWatchApp({
+  gateway: new WatchHttpGateway({ fetchImpl: hostFetch }),
   getTarget: () => ({
     sceneId: target.sceneId,
     workspaceId: target.workspaceId,
@@ -1130,6 +1143,8 @@ const articlesApp = setupArticlesApp({
 });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
+  toolAccessStore: remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined,
+  canManagePlugins: remoteAuth.clientType === "desktop",
   capabilityGateway: pluginCapabilityGateway,
   commandGateway: pluginHostGateway,
   getTarget: () => target,
@@ -1231,8 +1246,8 @@ messagesElement.addEventListener("organizechattonotes", async (event) => {
       throw new Error(t("There is no conversation to organize"));
     }
     const firstUserMessage =
-      [...currentHistoryMessages].reverse().find((message) => message.role === "user")
-        ?.content ?? "";
+      [...currentHistoryMessages].reverse().find((message) => message.role === "user")?.content ??
+      "";
     const prompt = [
       t("Organize conversation into note"),
       t("Use the conversation-note skill below and output only the note body in Markdown."),
@@ -1243,11 +1258,9 @@ messagesElement.addEventListener("organizechattonotes", async (event) => {
     pendingOrganizeNote = {
       question: fullMessageText(firstUserMessage),
     };
-    await runtime.request(
-      { type: "prompt", message: prompt },
-      target,
-      { idempotencyKey: randomId() },
-    );
+    await runtime.request({ type: "prompt", message: prompt }, target, {
+      idempotencyKey: randomId(),
+    });
   } catch (error) {
     pendingOrganizeNote = null;
     showError(error);
@@ -1267,11 +1280,10 @@ workspaceBar = setupWorkspaceSwitcher({
   notify: notifications.notify,
   openPath: (path) => control.openInApp(path),
   resolveWorkspacePath: (workspaceId) =>
-    sidebar?.sessions?.find(
-      (session) => session.workspaceId === workspaceId && session.projectPath,
-    )?.projectPath ?? null,
+    sidebar?.sessions?.find((session) => session.workspaceId === workspaceId && session.projectPath)
+      ?.projectPath ?? null,
 });
-setupLanQr({ control });
+setupLanQr({ control, desktopToken: remoteAuth.desktopToken });
 setupAppKeyboardShortcuts({
   input,
   abort: abortCurrentRun,
@@ -1283,9 +1295,7 @@ setupAppKeyboardShortcuts({
   switchWorkspace: () => document.getElementById("workspace-switcher-btn")?.click(),
   openSettings: () => settingsPanel?.openSettings("general"),
   toggleFiles: () => {
-    const toggle = document.querySelector(
-      '[data-file-toggle], #file-sidebar-toggle',
-    );
+    const toggle = document.querySelector("[data-file-toggle], #file-sidebar-toggle");
     toggle?.click();
   },
 });
@@ -1307,13 +1317,34 @@ window.addEventListener("zicode:open-artifact", (event) => {
 window.addEventListener("zicode:open-tasks", () => {
   pluginShell?.activate("com.zicode.tasks");
 });
+installProjectWorkNavigation({
+  activate: (id) => pluginShell?.activate(id),
+  taskCenter: taskCenterApp,
+  automation: automationApp,
+});
+window.addEventListener("zicode:open-automation", (event) => {
+  const workflowId = event.detail?.workflowId;
+  if (workflowId != null && typeof workflowId !== "string") return;
+  void pluginShell
+    .activate("com.zicode.automation")
+    .then(() => {
+      if (pluginShell.getActivePluginId() === "com.zicode.automation") {
+        automationApp.focusWorkflow(workflowId || null);
+      }
+    })
+    .catch(showError);
+});
 window.addEventListener("zicode:open-task", (event) => {
   const taskId = event.detail?.taskId;
-  pluginShell?.activate("com.zicode.tasks");
-  if (taskId && typeof taskCenterApp?.focusTask === "function") {
-    // Let the task center mount before applying the focus highlight.
-    window.setTimeout(() => taskCenterApp.focusTask(String(taskId)), 200);
-  }
+  if (taskId != null && (typeof taskId !== "string" || !taskId)) return;
+  void pluginShell
+    .activate("com.zicode.tasks")
+    .then(() => {
+      if (taskId && pluginShell.getActivePluginId() === "com.zicode.tasks") {
+        taskCenterApp.focusTask(taskId);
+      }
+    })
+    .catch(showError);
 });
 window.addEventListener("zicode:restore-file", (event) => {
   const { path, content } = event.detail ?? {};
@@ -1410,7 +1441,7 @@ try {
     setupProjectHeader({ data, workspaceId: target.workspaceId }).catch((error) => {
       console.warn("[Native] Failed to load project header info:", error);
     }),
-    refreshLanQrButton().catch((error) => {
+    refreshLanQrButton({ desktopToken: remoteAuth.desktopToken }).catch((error) => {
       console.warn("[Native] Failed to refresh LAN QR button:", error);
     }),
     loadAvailableModels().catch((error) => {
@@ -1517,8 +1548,18 @@ async function loadCommands() {
       { name: "settings", action: "open_settings", icon: "⚙", description: t("Open Settings") },
       { name: "help", action: "show_help", icon: "?", description: t("Show composer shortcuts") },
       { name: "files", action: "open_files", icon: "📁", description: t("Open file browser") },
-      { name: "memory", action: "extract_memory", icon: "🧠", description: t("Extract memory from this conversation") },
-      { name: "mode", action: "cycle_work_mode", icon: "🔄", description: t("Cycle work mode (Ask / Craft / Plan)") },
+      {
+        name: "memory",
+        action: "extract_memory",
+        icon: "🧠",
+        description: t("Extract memory from this conversation"),
+      },
+      {
+        name: "mode",
+        action: "cycle_work_mode",
+        icon: "🔄",
+        description: t("Cycle work mode (Ask / Craft / Plan)"),
+      },
     ],
     nativeCommands: result.response?.data?.commands ?? [],
   });
@@ -1672,8 +1713,7 @@ function subscribeToLiveSessions(sessions) {
   // path from any listed session in the current workspace and specialize the
   // empty welcome when it belongs to the Agent Inbox workspace.
   const workspaceSession = (sessions ?? []).find(
-    (session) =>
-      session.workspaceId === target.workspaceId && session.projectPath,
+    (session) => session.workspaceId === target.workspaceId && session.projectPath,
   );
   if (
     workspaceSession?.projectPath &&
@@ -1737,7 +1777,10 @@ document.addEventListener("sa-view-session", (event) => {
 
 document.addEventListener("sa-dispatch", (event) => {
   const task = event.detail;
-  if (!task) return;
+  const sourceTarget = event.sourceTarget ?? (target ? { ...target } : null);
+  if (!task || !sourceTarget) return;
+  const sourceCall = (operation, params) =>
+    config.call(operation, params, { target: sourceTarget });
   dispatchSuperAgentTaskNative({
     task,
     resolveWorkspace: (projectPath) => resolveWorkspaceViaHost(projectPath, hostFetch),
@@ -1751,11 +1794,12 @@ document.addEventListener("sa-dispatch", (event) => {
       const snapshot = await runtime.snapshot(dispatchTarget.sessionId);
       return snapshot.target;
     },
-    updateTask: (taskId, updater) =>
-      updateSuperAgentTask(window.__picotConfigCall, taskId, updater),
+    updateTask: (taskId, updater) => updateSuperAgentTask(sourceCall, taskId, updater),
     registerDispatchTarget: (dispatchTarget, taskId) => {
       dispatchedInstances.set(dispatchTarget.instanceId, taskId);
       dispatchedTargets.set(dispatchTarget.instanceId, dispatchTarget);
+      dispatchedSourceTargets.set(dispatchTarget.instanceId, sourceTarget);
+      persistDispatchOwnership(dispatchedInstances, dispatchedTargets, dispatchedSourceTargets);
       adapter.subscribeTarget?.(dispatchTarget);
     },
     onDispatchError: (task, error) => {
@@ -1775,7 +1819,15 @@ document.addEventListener("sa-dispatch", (event) => {
         tone: "danger",
       });
     },
-  }).catch(showError);
+  })
+    .then((result) => {
+      const boundTarget = result?.target;
+      if (!boundTarget?.instanceId || !dispatchedTargets.has(boundTarget.instanceId)) return;
+      dispatchedTargets.set(boundTarget.instanceId, boundTarget);
+      persistDispatchOwnership(dispatchedInstances, dispatchedTargets, dispatchedSourceTargets);
+      adapter.subscribeTarget?.(boundTarget);
+    })
+    .catch(showError);
 });
 
 // Re-run a finished automation task from the task center: queue a fresh run
@@ -1807,10 +1859,10 @@ document.addEventListener("sa-answer-task", async (event) => {
   const { task, answer } = event.detail ?? {};
   if (!task?.id || typeof answer !== "string" || !answer.trim()) return;
   const dispatch = task.dispatch || {};
+  const sourceTarget =
+    dispatchedSourceTargets.get(dispatch.childInstanceId) ?? (target ? { ...target } : null);
   const childTarget =
-    dispatch.childWorkspaceId &&
-    dispatch.childInstanceId &&
-    dispatch.childSessionId
+    dispatch.childWorkspaceId && dispatch.childInstanceId && dispatch.childSessionId
       ? {
           workspaceId: dispatch.childWorkspaceId,
           instanceId: dispatch.childInstanceId,
@@ -1826,16 +1878,15 @@ document.addEventListener("sa-answer-task", async (event) => {
     return;
   }
   try {
-    await runtime.request(
-      { type: "prompt", message: answer.trim() },
-      childTarget,
-      { idempotencyKey: randomId() },
-    );
-    await updateSuperAgentTask(window.__picotConfigCall, task.id, (current) =>
-      markTaskAnswered(current),
-    ).catch((error) =>
-      console.warn("[SuperAgent] failed to mark task answered:", error),
-    );
+    if (!sourceTarget) throw new Error("No task workspace is available for this answer");
+    await runtime.request({ type: "prompt", message: answer.trim() }, childTarget, {
+      idempotencyKey: randomId(),
+    });
+    await updateSuperAgentTask(
+      (operation, params) => config.call(operation, params, { target: sourceTarget }),
+      task.id,
+      (current) => markTaskAnswered(current),
+    ).catch((error) => console.warn("[SuperAgent] failed to mark task answered:", error));
     notifications.notify({
       title: t("Answer sent to the project agent."),
       message: task.title || t("Untitled task"),
@@ -1864,6 +1915,12 @@ async function handleSuperAgentStartupSessions(sessions) {
   if (action.type === "launch") {
     await openSuperAgentSessionOnce(action.session);
   }
+}
+
+function taskCallForDispatchedInstance(instanceId) {
+  const sourceTarget = dispatchedSourceTargets.get(instanceId) ?? (target ? { ...target } : null);
+  if (!sourceTarget) throw new Error("No task workspace is available for this dispatched run");
+  return (operation, params) => config.call(operation, params, { target: sourceTarget });
 }
 
 async function ensureSuperAgentStartupSession({ reloadAfterEnsure = true } = {}) {
@@ -1957,12 +2014,12 @@ function friendlyDispatchedRunError(raw) {
 }
 
 // Mark the owning task completed when a dispatched child runtime finishes.
-// Falls back to the durable task record when the in-memory dispatch map was
-// lost (for example after the host page reloads mid-run), so a task never
-// stays "running" forever just because the webview restarted.
+// If the in-memory dispatch map was lost, look for the child instance in the
+// current task file. Cross-workspace recovery needs a Host task repository.
 async function completeDispatchedTask(instanceId, completionMessage, sequence) {
   if (!instanceId) return;
   if (dispatchedProcessedEndSequences.has(instanceId)) return;
+  const taskCall = taskCallForDispatchedInstance(instanceId);
   // Claim the end/settled event synchronously: agent_end is immediately
   // followed by agent_settled, and both handlers run concurrently. Without
   // this, the trailing settled can re-mark the task (or complete it with a
@@ -1970,28 +2027,32 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
   dispatchedProcessedEndSequences.set(instanceId, Number(sequence) || 0);
   const mappedTaskId = dispatchedInstances.get(instanceId);
   const summary = dispatchedSummaries.get(instanceId) || null;
-  dispatchedSummaries.delete(instanceId);
   const runError = dispatchedErrors.get(instanceId) || null;
-  dispatchedErrors.delete(instanceId);
   const taskId =
     mappedTaskId ||
-    (await findDispatchedTaskByInstanceId(
-      () => window.__picotConfigCall("read_super_agent_tasks"),
-      instanceId,
-    ));
-  if (!taskId) return;
+    (await findDispatchedTaskByInstanceId(() => taskCall("read_super_agent_tasks"), instanceId));
+  if (!taskId) {
+    dispatchedProcessedEndSequences.delete(instanceId);
+    return;
+  }
   const failedWithoutOutput = !completionMessage && !summary && runError;
   const completionText =
-    completionMessage ||
-    summary ||
-    t("Project agent ended. Review the child session for details.");
+    completionMessage || summary || t("Project agent ended. Review the child session for details.");
   let marked = false;
   let taskTitle = "";
   let taskTargetProject = "";
   let finalStatus = null;
   let finalFailReason = null;
-  await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) => {
-    if (task.status !== "running" && task.status !== "pending") return task;
+  let staleOwner = false;
+  const updated = await updateSuperAgentTask(taskCall, taskId, (task) => {
+    marked = false;
+    if (
+      task.dispatch?.childInstanceId !== instanceId ||
+      (task.status !== "running" && task.status !== "pending")
+    ) {
+      staleOwner = true;
+      return null;
+    }
     marked = true;
     taskTitle = task.title || t("Untitled task");
     taskTargetProject = task.targetProject || task.dispatch?.targetProject || "";
@@ -2010,21 +2071,37 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
     // new run whose message/end events still need the dispatch mapping (for
     // summary capture and the final completion). Only terminal states drop
     // the mapping.
-    if (next.status !== "needs_input" && next.status !== "blocked") {
-      dispatchedInstances.delete(instanceId);
-      dispatchedTargets.delete(instanceId);
-    }
     finalStatus = next.status;
     finalFailReason = next.failReason || next.result?.failReason || null;
     return next;
-  }).catch((error) =>
-    {
-      // Roll back the claim so a later event can retry the completion.
+  }).catch((error) => {
+    // Roll back the claim so a later event can retry the completion.
+    dispatchedProcessedEndSequences.delete(instanceId);
+    console.warn("[SuperAgent] failed to mark dispatched task done:", error);
+    return null;
+  });
+  if (!updated) {
+    if (staleOwner) {
+      dispatchedInstances.delete(instanceId);
+      dispatchedTargets.delete(instanceId);
+      dispatchedSourceTargets.delete(instanceId);
+      dispatchedSummaries.delete(instanceId);
+      dispatchedErrors.delete(instanceId);
+      persistDispatchOwnership(dispatchedInstances, dispatchedTargets, dispatchedSourceTargets);
+    } else {
       dispatchedProcessedEndSequences.delete(instanceId);
-      console.warn("[SuperAgent] failed to mark dispatched task done:", error);
-    },
-  );
+    }
+    return;
+  }
   if (!marked) return;
+  dispatchedSummaries.delete(instanceId);
+  dispatchedErrors.delete(instanceId);
+  if (finalStatus !== "needs_input" && finalStatus !== "blocked") {
+    dispatchedInstances.delete(instanceId);
+    dispatchedTargets.delete(instanceId);
+    dispatchedSourceTargets.delete(instanceId);
+    persistDispatchOwnership(dispatchedInstances, dispatchedTargets, dispatchedSourceTargets);
+  }
   const notificationMessage =
     completionText.length > 160 ? `${completionText.slice(0, 160)}…` : completionText;
   const failed = finalStatus === "failed";
@@ -2034,8 +2111,7 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
     : failed
       ? t("Task failed")
       : t("Task completed");
-  const failedDetail =
-    failed && finalFailReason ? ` ${finalFailReason}` : "";
+  const failedDetail = failed && finalFailReason ? ` ${finalFailReason}` : "";
   // Land in the target project's most recent session so generated output is
   // one click away; fall back to the task center when the project has no
   // session yet.
@@ -2050,12 +2126,10 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
     taskTargetProject &&
     (sidebar?.sessions ?? [])
       .filter(
-        (session) =>
-          session.projectPath && normalize(session.projectPath) === normalizedTarget,
+        (session) => session.projectPath && normalize(session.projectPath) === normalizedTarget,
       )
       .sort(
-        (left, right) =>
-          (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
+        (left, right) => (Number(right.modifiedAtMs) || 0) - (Number(left.modifiedAtMs) || 0),
       )[0];
   notifications.notify({
     title: notificationTitle,
@@ -2076,17 +2150,14 @@ async function completeDispatchedTask(instanceId, completionMessage, sequence) {
       },
     },
   });
-  notifyDesktop(
-    notificationTitle,
-    `${taskTitle}：${notificationMessage}${failedDetail}`,
-  );
+  notifyDesktop(notificationTitle, `${taskTitle}：${notificationMessage}${failedDetail}`);
   pluginShell?.setActivityBadge("com.zicode.tasks", {
     count: 1,
     tone: failed ? "danger" : "success",
   });
 }
 
-// Best-effort Windows system notification for background work: surfaces even
+// Best-effort desktop notification for background work: surfaces even
 // when the window is minimized or hidden. No-op outside the Tauri shell.
 function notifyDesktop(title, message) {
   try {
@@ -2105,15 +2176,15 @@ function notifyDesktop(title, message) {
 // owning Agent Inbox task so "View Session ->" navigates to the real session.
 async function bindDispatchedChildSession(instanceId, boundSessionId) {
   if (!instanceId || !boundSessionId) return;
+  const taskCall = taskCallForDispatchedInstance(instanceId);
   const taskId =
     dispatchedInstances.get(instanceId) ||
-    (await findDispatchedTaskByInstanceId(
-      () => window.__picotConfigCall("read_super_agent_tasks"),
-      instanceId,
-    ));
+    (await findDispatchedTaskByInstanceId(() => taskCall("read_super_agent_tasks"), instanceId));
   if (!taskId) return;
-  await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) =>
-    markTaskChildSessionBound(task, { childSessionId: boundSessionId }),
+  await updateSuperAgentTask(taskCall, taskId, (task) =>
+    task.dispatch?.childInstanceId === instanceId
+      ? markTaskChildSessionBound(task, { childSessionId: boundSessionId })
+      : null,
   ).catch((error) => console.warn("[SuperAgent] failed to bind child session:", error));
   // The host forwards runtime events only to subscriptions whose target
   // matches the event target exactly. The child runtime upgrades its
@@ -2123,17 +2194,22 @@ async function bindDispatchedChildSession(instanceId, boundSessionId) {
   // Re-subscribe with the bound id to keep receiving completion events.
   const dispatchTarget = dispatchedTargets.get(instanceId);
   if (dispatchTarget?.workspaceId && dispatchTarget?.instanceId) {
-    adapter.subscribeTarget?.({ ...dispatchTarget, sessionId: boundSessionId });
+    const boundTarget = { ...dispatchTarget, sessionId: boundSessionId };
+    dispatchedTargets.set(instanceId, boundTarget);
+    persistDispatchOwnership(dispatchedInstances, dispatchedTargets, dispatchedSourceTargets);
+    adapter.subscribeTarget?.(boundTarget);
   }
 }
 
 async function recordDispatchedTaskUsage(frame) {
-  const taskId = dispatchedInstances.get(frame.target?.instanceId);
+  const instanceId = frame.target?.instanceId;
+  const taskId = dispatchedInstances.get(instanceId);
   const delta = Number(frame.event?.message?.usage?.cost?.total);
   if (!taskId || !Number.isFinite(delta) || delta <= 0) return;
   let exceeded = false;
   let budget = null;
-  await updateSuperAgentTask(window.__picotConfigCall, taskId, (task) => {
+  await updateSuperAgentTask(taskCallForDispatchedInstance(instanceId), taskId, (task) => {
+    if (task.dispatch?.childInstanceId !== instanceId) return null;
     const totalCost = Number(task.totalCost || 0) + delta;
     budget = Number(task.budget);
     const next = { ...task, totalCost };
@@ -2155,8 +2231,7 @@ async function recordDispatchedTaskUsage(frame) {
     type: "warning",
     action: {
       label: t("Open tasks"),
-      run: () =>
-        window.dispatchEvent(new CustomEvent("zicode:open-tasks")),
+      run: () => window.dispatchEvent(new CustomEvent("zicode:open-tasks")),
     },
   });
   pluginShell?.setActivityBadge("com.zicode.tasks", { count: 1, tone: "warning" });
@@ -2206,12 +2281,7 @@ function setupFileBrowser() {
 
   async function openNativePath(relativePath) {
     try {
-      const info = await data.workspaceInfo(target.workspaceId);
-      const root = info?.info?.path ?? "";
-      const absolutePath = relativePath
-        ? `${root}/${relativePath}`
-        : root;
-      await control.openInApp(absolutePath);
+      await control.openWorkspaceEntry(target.workspaceId, relativePath);
     } catch (error) {
       showError(error);
     }
@@ -2236,9 +2306,7 @@ function setupFileBrowser() {
   // The desktop toggle lives in the header-right; mobile hides that region,
   // so a second toggle button in the header-left keeps files reachable on
   // phones (both share the same open/close behavior).
-  for (const toggle of document.querySelectorAll(
-    "#file-sidebar-toggle, [data-file-toggle]",
-  )) {
+  for (const toggle of document.querySelectorAll("#file-sidebar-toggle, [data-file-toggle]")) {
     toggle.addEventListener("click", () => {
       const isCollapsed = sidebar.classList.toggle("collapsed");
       if (!isCollapsed && browser.currentPath === null) browser.load().catch(showError);
@@ -2296,9 +2364,7 @@ function setupFileBrowser() {
     artifactsPane.append(paneEmpty(t("Loading…")));
     try {
       const result = await artifactGateway.list(target.sceneId, target.workspaceId, {});
-      const items = Array.isArray(result?.snapshot?.artifacts)
-        ? result.snapshot.artifacts
-        : [];
+      const items = Array.isArray(result?.snapshot?.artifacts) ? result.snapshot.artifacts : [];
       artifactsPane.textContent = "";
       if (items.length === 0) {
         artifactsPane.append(paneEmpty(t("No artifacts yet")));
@@ -2336,9 +2402,7 @@ function setupFileBrowser() {
       }
     } catch (error) {
       artifactsPane.textContent = "";
-      artifactsPane.append(
-        paneEmpty(error instanceof Error ? error.message : t("Failed to load")),
-      );
+      artifactsPane.append(paneEmpty(error instanceof Error ? error.message : t("Failed to load")));
     }
   }
 
@@ -2554,9 +2618,7 @@ async function sendComposerInput({ altKey, retried = false } = {}) {
     intent.command.message = `${t("Project instructions")}:\n${projectInstructions}\n\n${intent.command.message}`;
   }
   if (memoryCache.enabled && memoryCache.entries.length > 0 && intent.command?.message) {
-    const memoryText = memoryCache.entries
-      .map((entry) => `- ${entry.text}`)
-      .join("\n");
+    const memoryText = memoryCache.entries.map((entry) => `- ${entry.text}`).join("\n");
     intent.command.message = `${t("Relevant memory")}:\n${memoryText}\n\n${intent.command.message}`;
   }
   await enforceProjectBudget(value);
@@ -2675,11 +2737,9 @@ async function extractMemoryFromConversation() {
       `===== CONVERSATION =====\n${transcript}`,
     ].join("\n\n");
     pendingMemoryExtract = true;
-    await runtime.request(
-      { type: "prompt", message: prompt },
-      target,
-      { idempotencyKey: randomId() },
-    );
+    await runtime.request({ type: "prompt", message: prompt }, target, {
+      idempotencyKey: randomId(),
+    });
   } catch (error) {
     pendingMemoryExtract = false;
     showError(error);
@@ -2786,10 +2846,7 @@ async function handleRuntimeEvent(event) {
       fileResultViews?.recordTool(event);
       {
         const workMode = document.getElementById("composer-mode")?.value;
-        if (
-          isFileWritingTool(event.toolName) &&
-          (workMode === "ask" || workMode === "plan")
-        ) {
+        if (isFileWritingTool(event.toolName) && (workMode === "ask" || workMode === "plan")) {
           notifications.notify({
             title:
               workMode === "ask"
@@ -2873,16 +2930,33 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
     );
   }
   target = nextTarget;
+  if (
+    sessionChanged &&
+    previousTarget.workspaceId === nextTarget.workspaceId &&
+    previousTarget.instanceId === nextTarget.instanceId
+  ) {
+    let updatedSource = false;
+    for (const [instanceId, source] of dispatchedSourceTargets) {
+      if (
+        source.workspaceId === previousTarget.workspaceId &&
+        source.instanceId === previousTarget.instanceId &&
+        source.sessionId === previousTarget.sessionId
+      ) {
+        dispatchedSourceTargets.set(instanceId, { ...source, sessionId: nextTarget.sessionId });
+        updatedSource = true;
+      }
+    }
+    if (updatedSource)
+      persistDispatchOwnership(dispatchedInstances, dispatchedTargets, dispatchedSourceTargets);
+  }
   // Apply the persisted auto-compaction preference to the freshly adopted
   // session runtime (the toggle also sends it live on change).
   try {
     if (localStorage.getItem("picot-settings-auto-compact") === "true") {
       void runtime
-        .request(
-          { type: "set_auto_compaction", enabled: true },
-          target,
-          { idempotencyKey: randomId() },
-        )
+        .request({ type: "set_auto_compaction", enabled: true }, target, {
+          idempotencyKey: randomId(),
+        })
         .catch(showError);
     }
   } catch {
@@ -2901,10 +2975,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   sceneIndicator?.setTarget(target);
   financeWorkbench?.setTarget(target);
   pluginShell?.setTarget(target);
-  if (
-    nextTarget.workspaceId !== previousTarget.workspaceId ||
-    !currentProjectInfo
-  ) {
+  if (nextTarget.workspaceId !== previousTarget.workspaceId || !currentProjectInfo) {
     void refreshCurrentProjectInfo();
   }
   store = createSessionStore(target);
@@ -3008,8 +3079,7 @@ function renderHistory(messages, { preserveScroll = false } = {}) {
   if (source.length === 0) {
     const workspacePath =
       sidebar?.sessions?.find(
-        (session) =>
-          session.workspaceId === target.workspaceId && session.projectPath,
+        (session) => session.workspaceId === target.workspaceId && session.projectPath,
       )?.projectPath ?? null;
     messageRenderer.renderWelcome({ workspacePath });
     sceneIndicator?.render();
@@ -3121,7 +3191,12 @@ function buildConversationTranscript(messages) {
 function appendLiveMessage(message) {
   if (!message?.role) return;
   const id = message.id ?? message.entryId ?? message.entry_id ?? null;
-  if (id && currentHistoryMessages.some((candidate) => (candidate.id ?? candidate.entryId ?? candidate.entry_id) === id)) {
+  if (
+    id &&
+    currentHistoryMessages.some(
+      (candidate) => (candidate.id ?? candidate.entryId ?? candidate.entry_id) === id,
+    )
+  ) {
     return;
   }
   currentHistoryMessages.push(message);
@@ -3158,7 +3233,7 @@ function showError(error) {
   // must not pretend the WebSocket went down.
   const message = isRuntimeProcessClosedError(error)
     ? t("Pi runtime is disconnected. Try again or start a new session.")
-    : error?.message || String(error);
+    : t(error?.message || String(error));
   messageRenderer.renderError(message);
 }
 

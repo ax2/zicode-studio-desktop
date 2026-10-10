@@ -1,9 +1,9 @@
 import { useRef } from "react";
 import { t } from "../../shared/i18n";
 import {
+  type DialogPreview,
   defaultTitle,
   parseOption,
-  type DialogPreview,
 } from "./dialogLogic";
 
 export interface NativeDialogStore {

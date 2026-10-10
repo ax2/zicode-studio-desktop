@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseDialogContent, parseOption, showNativeDialog } from "../react/dialog.js";
 import { setLocale } from "../../i18n.js";
+import { parseDialogContent, parseOption, showNativeDialog } from "../react/dialog.js";
 
 describe("native extension dialog", () => {
   it("parses rpiv ask-user-question select titles with previews", () => {

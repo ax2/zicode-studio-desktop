@@ -1,6 +1,16 @@
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, waitFor } from "@testing-library/react";
 import { t } from "../../shared/i18n";
+import { setupNotesApp } from "./index";
+import {
+  buildDragGhost,
+  dropTargetIdAt,
+  markUnresolvedWikilinks,
+  NotesContent,
+  NotesNav,
+  wikilinkMarkdown,
+} from "./NotesApp";
+import type { Note, NotesSnapshot } from "./notesLogic";
 import {
   allTagSuggestions,
   buildChildrenByParent,
@@ -19,20 +29,10 @@ import {
   tagIcon,
 } from "./notesLogic";
 import {
-  NotesContent,
-  NotesNav,
-  buildDragGhost,
-  dropTargetIdAt,
-  markUnresolvedWikilinks,
-  wikilinkMarkdown,
-} from "./NotesApp";
-import { setupNotesApp } from "./index";
-import {
   createNotesStore,
   localizeNotesHostError,
   type NotesGatewayLike,
 } from "./notesStore";
-import type { Note, NotesSnapshot } from "./notesLogic";
 
 // jsdom has no PointerEvent yet; the notes tree drag is pointer-driven, so
 // provide a minimal MouseEvent subclass with the pointer fields the handlers
@@ -129,6 +129,15 @@ afterEach(() => {
 });
 
 describe("notes logic", () => {
+  it("does not send article text without a model choice for the current scene", async () => {
+    const summarize = vi.fn();
+    const store = storeWithGateway({ summarize });
+    await expect(store.getState().summarizeText("Article")).rejects.toThrow();
+    store.getState().setSummaryModel({ sceneId: "another-scene", provider: "local", model: "example" });
+    await expect(store.getState().summarizeText("Article")).rejects.toThrow();
+    expect(summarize).not.toHaveBeenCalled();
+    store.getState().destroy();
+  });
   it("converts wikilinks to note links for the preview", () => {
     expect(wikilinkMarkdown("See [[Design]] and [[Roadmap]]")).toBe(
       "See [Design](zicode-note://Design) and [Roadmap](zicode-note://Roadmap)",
@@ -368,6 +377,7 @@ describe("notes store", () => {
         },
       })),
     });
+    store.setState({ selectedNote: NOTE });
     await store.getState().loadBacklinks(NOTE);
     expect(store.getState().backlinks).toEqual([
       { notebookId: "book-2", noteId: "note-2", title: "Source Note", kind: "wikilink" },
@@ -393,8 +403,9 @@ describe("notes store", () => {
       .mockReturnValueOnce(second);
     const store = storeWithGateway({ knowledge });
 
-    const firstCall = store.getState().loadBacklinks({ ...NOTE, id: "note-1" });
-    const secondCall = store.getState().loadBacklinks({ ...NOTE, id: "note-2" });
+    store.setState({ selectedNote: NOTE });
+    store.setState({ selectedNote: { ...NOTE, id: "note-2" } });
+    expect(knowledge).toHaveBeenCalledTimes(2);
 
     resolveSecond({
       snapshot: {
@@ -411,7 +422,7 @@ describe("notes store", () => {
         ],
       },
     });
-    await secondCall;
+    await waitFor(() => expect(store.getState().backlinks[0]?.title).toBe("Newer"));
 
     resolveFirst({
       snapshot: {
@@ -428,7 +439,8 @@ describe("notes store", () => {
         ],
       },
     });
-    await firstCall;
+    await first;
+    await Promise.resolve();
 
     expect(store.getState().backlinks).toEqual([
       { notebookId: "book-2", noteId: "note-2", title: "Newer", kind: "wikilink" },
@@ -864,6 +876,7 @@ describe("notes store", () => {
       charCount: 7,
     }));
     const store = storeWithGateway({ summarize });
+    store.getState().setSummaryModel({ sceneId: "programming", provider: "local", model: "example" });
     await store.getState().load();
     store.getState().setMode("capture");
     const { container } = render(<NotesContent store={store} />);
@@ -1285,7 +1298,7 @@ describe("notes store", () => {
       trash: [
         {
           notebookId: "book-1",
-          note: SNAPSHOT.notes[0],
+          note: { ...SNAPSHOT.notes[0], version: "trash-version" },
           deletedAt: "2026-08-09T00:00:00Z",
         },
       ],
@@ -1298,20 +1311,30 @@ describe("notes store", () => {
     expect(store.getState().trash[0].note.title).toBe("Roadmap");
 
     await store.getState().restoreFromTrash(store.getState().trash[0]);
-    expect(restoreTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1");
+    expect(restoreTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1", {
+      version: "trash-version", deletedAt: "2026-08-09T00:00:00Z", trashToken: undefined,
+    });
     expect(listTrash).toHaveBeenCalledTimes(2);
 
     await store.getState().purgeFromTrash(store.getState().trash[0]);
-    expect(purgeTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1");
+    expect(purgeTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1", {
+      version: "trash-version", deletedAt: "2026-08-09T00:00:00Z", trashToken: undefined,
+    });
   });
 
   it("empties the trash through the store", async () => {
-    const listTrash = vi.fn(async () => ({ trash: [] }));
+    const entry = { notebookId: "book-1", note: { ...SNAPSHOT.notes[0], version: "trash-version" }, deletedAt: "2026-08-09T00:00:00Z" };
+    const listTrash = vi.fn(async () => ({ trash: [entry] }));
     const emptyTrash = vi.fn(async () => ({ emptied: 2 }));
-    const store = storeWithGateway({ listTrash, emptyTrash });
+    const purgeTrash = vi.fn(async () => ({}));
+    const store = storeWithGateway({ listTrash, emptyTrash, purgeTrash });
+    await store.getState().loadTrash();
     await store.getState().emptyTrash();
-    expect(emptyTrash).toHaveBeenCalledWith("programming", "ws-1");
-    expect(listTrash).toHaveBeenCalledTimes(1);
+    expect(emptyTrash).not.toHaveBeenCalled();
+    expect(purgeTrash).toHaveBeenCalledWith("programming", "ws-1", "book-1", "note-1", {
+      version: entry.note.version, deletedAt: entry.deletedAt, trashToken: undefined,
+    });
+    expect(listTrash).toHaveBeenCalledTimes(2);
   });
 
   it("renders the trash view with restore and purge actions", async () => {
@@ -1338,7 +1361,8 @@ describe("notes store", () => {
     const emptyBtn = container.querySelector(".notes-trash-empty") as HTMLButtonElement;
     expect(emptyBtn).toBeTruthy();
     expect(emptyBtn.textContent).toContain(t("Empty trash"));
-    emptyBtn.click();
+    await waitFor(() => expect(emptyBtn.disabled).toBe(false));
+    fireEvent.click(emptyBtn);
     await waitFor(() =>
       expect(container.querySelector(".notes-trash-empty")?.textContent).toContain(
         t("Confirm empty trash"),
@@ -1351,7 +1375,7 @@ describe("notes store", () => {
     await store.getState().loadTrash();
     store.getState().setMode("trash");
     const { container } = render(<NotesContent store={store} />);
-    expect(container.textContent).toContain(t("Trash is empty"));
+    await waitFor(() => expect(container.textContent).toContain(t("Trash is empty")));
   });
 
   it("handles Ctrl+N, Ctrl+Shift+T, and Ctrl+S notes shortcuts", async () => {
@@ -1397,10 +1421,14 @@ describe("notes store", () => {
     );
     (notebookBranch?.querySelector(".notes-list-item.notes-tree-note") as HTMLElement).click();
     await waitFor(() => expect(content.querySelector(".notes-editor")).toBeTruthy());
+    fireEvent.click(content.querySelector(".notes-edit-tab") as HTMLButtonElement);
+    fireEvent.change(content.querySelector(".notes-content-input") as HTMLTextAreaElement, {
+      target: { value: "# Updated shortcut content" },
+    });
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true, cancelable: true }),
     );
-    expect(save).toHaveBeenCalled();
+    await waitFor(() => expect(save).toHaveBeenCalled());
 
     app?.destroy();
     document.body.dataset.activePlugin = "";
@@ -2131,7 +2159,7 @@ describe("notes store", () => {
     const preview = await store.getState().capturePreviewUrl(
       "https://example.com/",
     );
-    expect(preview.title).toBe("Example Domain");
+    expect(preview?.title).toBe("Example Domain");
     expect(capturePreview).toHaveBeenCalledWith("programming", "ws-1", {
       url: "https://example.com/",
     });
@@ -3401,8 +3429,8 @@ describe("notes React components", () => {
     store.getState().toggleNoteSelected("note-2");
     await store.getState().moveSelectedNotes("book-2");
     expect(moveNote).toHaveBeenCalledTimes(2);
-    expect(store.getState().selectMode).toBe(false);
-    expect(store.getState().selectedNoteIds).toEqual([]);
+    expect(store.getState().selectMode).toBe(true);
+    expect(store.getState().selectedNoteIds).toEqual(["note-2"]);
     expect(notify).toHaveBeenCalled();
     expect(store.getState().error?.message).toBe("move failed");
   });
@@ -3412,7 +3440,7 @@ describe("notes React components", () => {
       async (
         _sceneId: string,
         _workspaceId: string,
-        _note: { id: string; notebookId: string; version?: number },
+        _note: { id: string; notebookId: string; version?: string | number },
       ) => ({}),
     );
     const listTrash = vi.fn(async () => ({ trash: [] }));
@@ -3457,7 +3485,7 @@ describe("notes React components", () => {
       async (
         _sceneId: string,
         _workspaceId: string,
-        note: { id: string; notebookId: string; version?: number },
+        note: { id: string; notebookId: string; version?: string | number },
       ) => {
         if (note.id === "note-2") throw new Error("delete failed");
         return {};
@@ -3494,8 +3522,8 @@ describe("notes React components", () => {
     store.getState().toggleNoteSelected("note-2");
     await store.getState().deleteSelectedNotes();
     expect(del).toHaveBeenCalledTimes(2);
-    expect(store.getState().selectMode).toBe(false);
-    expect(store.getState().selectedNoteIds).toEqual([]);
+    expect(store.getState().selectMode).toBe(true);
+    expect(store.getState().selectedNoteIds).toEqual(["note-2"]);
     expect(notify).toHaveBeenCalled();
     expect(store.getState().error?.message).toBe("delete failed");
   });
@@ -3505,7 +3533,7 @@ describe("notes React components", () => {
       async (
         _sceneId: string,
         _workspaceId: string,
-        _note: { id: string; notebookId: string; version?: number },
+        _note: { id: string; notebookId: string; version?: string | number },
       ) => ({}),
     );
     const store = storeWithGateway({ delete: del });
@@ -3870,11 +3898,12 @@ describe("notes React components", () => {
   });
 
   it("offers a retry action when loading the trash fails", async () => {
-    const store = storeWithGateway();
+    const store = storeWithGateway({ listTrash: vi.fn(async () => { throw new Error("failed to load"); }) });
     await store.getState().load();
     store.setState({ mode: "trash", trashError: "failed to load" });
     const loadTrash = vi.spyOn(store.getState(), "loadTrash");
     render(<NotesContent store={store} />);
+    await waitFor(() => expect(document.querySelector(".notes-error-banner")).toBeTruthy());
     const banner = document.querySelector(".notes-error-banner");
     expect(banner).toBeTruthy();
     const retry = banner?.querySelector("button") as HTMLButtonElement;

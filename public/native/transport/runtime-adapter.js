@@ -22,6 +22,7 @@ export class HostRuntimeAdapter {
   #connected = false;
   #connectionListeners = new Set();
   #deviceToken;
+  #desktopToken;
   #fatalErrorListeners = new Set();
   #nextSubscriptionId = 1;
   #receivers = new Set();
@@ -54,6 +55,7 @@ export class HostRuntimeAdapter {
     clientId,
     clientType = "desktop",
     deviceToken,
+    desktopToken,
     e2eePublicKey,
     reconnectBaseDelayMs = 250,
     reconnectMaxDelayMs = 5000,
@@ -71,6 +73,7 @@ export class HostRuntimeAdapter {
     this.#clientId = clientId;
     this.#clientType = clientType;
     this.#deviceToken = deviceToken;
+    this.#desktopToken = desktopToken;
     this.#e2eePublicKey = e2eePublicKey;
     this.#reconnectBaseDelayMs = reconnectBaseDelayMs;
     this.#reconnectMaxDelayMs = reconnectMaxDelayMs;
@@ -291,6 +294,9 @@ export class HostRuntimeAdapter {
         clientId: this.#clientId,
         ...(this.#clientType === "remote" && this.#deviceToken
           ? { deviceToken: this.#deviceToken }
+          : {}),
+        ...(this.#clientType === "desktop" && this.#desktopToken
+          ? { desktopToken: this.#desktopToken }
           : {}),
       }),
     );

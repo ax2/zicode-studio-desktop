@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef } from "react";
 import { t } from "../../shared/i18n";
 import {
   buildActivityMonthLabels,
   buildModelSummary,
+  type CostRow,
+  type CostSession,
   deriveOverviewMetrics,
   formatCompact,
   formatInt,
@@ -14,8 +16,6 @@ import {
   overviewNote,
   RANGE_DAYS,
   STAT_ICONS,
-  type CostRow,
-  type CostSession,
   type ToolCostRow,
 } from "./costDashboardLogic";
 import type { CostDashboardStore } from "./costDashboardStore";

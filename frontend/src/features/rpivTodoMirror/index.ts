@@ -1,6 +1,6 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { create } from "zustand";
 import {
   RpivTodoMirrorPanelBridge,
@@ -10,8 +10,8 @@ import {
   cloneTodoState,
   EMPTY_STATE,
   isRpivTodoDetails,
-  replayRpivTodoFromMessages,
   type RpivTodoDetails,
+  replayRpivTodoFromMessages,
 } from "./rpivTodoLogic";
 
 export {

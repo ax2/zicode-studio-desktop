@@ -5,10 +5,15 @@ mod article_markdown;
 mod articles;
 mod articles_config;
 mod artifact_store;
+mod automation_inventory;
+mod automation_login_start;
+mod automation_persistence;
+mod automation_worker;
 mod backup_store;
 mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
+mod desktop_profile;
 mod document_import;
 mod e2ee;
 mod habit_tracker;
@@ -18,6 +23,7 @@ mod host_server;
 mod idphoto;
 mod image_tools;
 mod metadata_store;
+mod model_tools;
 mod native_pi_manager;
 mod notes_vault;
 mod ocr;
@@ -29,6 +35,10 @@ mod plugin_package;
 mod plugin_registry;
 mod plugin_worker;
 mod process_command;
+mod project_environment;
+mod project_storage;
+mod project_tasks;
+mod project_terminal;
 mod relay_client;
 mod relay_protocol;
 mod remote_access_config;
@@ -59,7 +69,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::DialogExt;
@@ -75,11 +85,16 @@ fn store_scene_credential(
     credential_broker::store_scene_credential(&scene_id, &provider, &secret)
 }
 
-/// Show a Windows system notification for background work (for example a
-/// dispatched task completing while the window is minimized or hidden).
+/// Show a best-effort desktop notification for background work on supported
+/// Windows, macOS and Linux notification backends.
 /// Best-effort: failures are logged and never surface to the caller.
 #[tauri::command]
 fn send_desktop_notification(title: String, body: String) {
+    let title: String = title.chars().take(120).collect();
+    let body: String = body.chars().take(240).collect();
+    if title.is_empty() {
+        return;
+    }
     let _ = std::thread::spawn(move || {
         if let Err(error) = notify_rust::Notification::new()
             .appname("ZiCode Studio Desktop")
@@ -143,6 +158,58 @@ async fn publish_notes_notebook(
 
 type NativePiManagerState = NativePiManager;
 
+#[derive(Default)]
+struct BackgroundWorkerUpdateLease(
+    tokio::sync::Mutex<Option<(String, automation_worker::UpdateLease)>>,
+);
+
+async fn reserve_background_worker_for_update(
+    app: &AppHandle,
+    window: &WebviewWindow,
+) -> Result<(), String> {
+    require_workspace_window(window)?;
+    let state = app.state::<BackgroundWorkerUpdateLease>();
+    let mut held = state.0.lock().await;
+    if held.is_some() {
+        return Err("An app update is already in progress".into());
+    }
+    let lease = automation_worker::stop_for_update().await?;
+    *held = Some((window.label().to_owned(), lease));
+    Ok(())
+}
+
+async fn release_background_worker_update_lease(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    restart_on_failure: bool,
+) -> Result<(), String> {
+    require_workspace_window(window)?;
+    let state = app.state::<BackgroundWorkerUpdateLease>();
+    let mut held = state.0.lock().await;
+    let lease = if held
+        .as_ref()
+        .is_some_and(|(owner, _)| owner == window.label())
+    {
+        held.take().map(|(_, lease)| lease)
+    } else {
+        None
+    };
+    drop(held);
+    if let Some(lease) = lease {
+        let was_running = lease.was_running();
+        drop(lease);
+        if restart_on_failure && was_running {
+            let public_dir = static_dir_for_resource(app.path().resource_dir().ok());
+            tauri::async_runtime::spawn_blocking(move || {
+                automation_worker::resume_after_update(&public_dir)
+            })
+            .await
+            .map_err(|error| format!("Automation worker restart stopped: {error}"))??;
+        }
+    }
+    Ok(())
+}
+
 const BETA_UPDATE_ENDPOINT: &str =
     "https://github.com/ax2/zicode-studio-desktop/releases/download/beta/latest.json";
 
@@ -179,17 +246,24 @@ async fn check_beta_update(app: AppHandle) -> Result<Option<BetaUpdateInfo>, Str
 }
 
 #[tauri::command]
-async fn install_beta_update(app: AppHandle) -> Result<(), String> {
+async fn install_beta_update(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
     let updater = beta_updater(&app)?;
     let update = updater
         .check()
         .await
         .map_err(|error| format!("Beta update check failed: {error}"))?
         .ok_or_else(|| "No beta update is available".to_string())?;
-    update
+    reserve_background_worker_for_update(&app, &window).await?;
+    let result = update
         .download_and_install(|_, _| {}, || {})
         .await
-        .map_err(|error| format!("Beta update installation failed: {error}"))
+        .map_err(|error| format!("Beta update installation failed: {error}"));
+    if result.is_err() {
+        if let Err(error) = release_background_worker_update_lease(&app, &window, true).await {
+            log::warn!("[automation-worker] could not resume after beta update failure: {error}");
+        }
+    }
+    result
 }
 
 /// Shared services needed to bring up an additional workspace window after
@@ -358,6 +432,142 @@ fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceInfo>, String> {
         .collect())
 }
 
+/// Read-only visibility into automation rules in all registered workspaces.
+/// Scanning is bounded and runs off the UI thread; it never dispatches tasks.
+#[tauri::command]
+async fn list_automation_workspaces(
+    app: AppHandle,
+) -> Result<Vec<automation_inventory::AutomationWorkspaceStatus>, String> {
+    let launcher = app
+        .try_state::<WorkspaceLauncher>()
+        .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
+    let workspaces = launcher
+        .metadata
+        .lock()
+        .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
+        .list_workspaces()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        automation_inventory::scan_registered_workspaces(workspaces)
+    })
+    .await
+    .map_err(|error| format!("Automation inventory stopped unexpectedly: {error}"))
+}
+
+fn require_workspace_window(window: &WebviewWindow) -> Result<(), String> {
+    if !window.label().starts_with("native-workspace-") {
+        return Err("Automation worker controls require a desktop workspace window".into());
+    }
+    let host = window
+        .try_state::<HostServer>()
+        .ok_or_else(|| "Desktop host is unavailable".to_string())?;
+    let expected = reqwest::Url::parse(host.origin())
+        .map_err(|_| "Desktop host origin is invalid".to_string())?;
+    let current = window
+        .url()
+        .map_err(|_| "Cannot inspect desktop window origin".to_string())?;
+    if current.origin() != expected.origin() {
+        return Err("Automation worker controls require the desktop host origin".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn background_automation_worker_status(window: WebviewWindow) -> Result<String, String> {
+    require_workspace_window(&window)?;
+    automation_worker::status().map(str::to_owned)
+}
+
+#[tauri::command]
+async fn start_background_automation_worker(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> Result<String, String> {
+    require_workspace_window(&window)?;
+    let public_dir = static_dir_for_resource(app.path().resource_dir().ok());
+    tauri::async_runtime::spawn_blocking(move || automation_worker::start(&public_dir))
+        .await
+        .map_err(|error| format!("Automation worker launch stopped: {error}"))?
+        .map(str::to_owned)
+}
+
+#[tauri::command]
+async fn background_automation_login_start_enabled(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> Result<bool, String> {
+    require_workspace_window(&window)?;
+    tauri::async_runtime::spawn_blocking(move || automation_login_start::enabled(&app))
+        .await
+        .map_err(|error| format!("Background login start check stopped: {error}"))?
+}
+
+#[tauri::command]
+async fn set_background_automation_login_start(
+    app: AppHandle,
+    window: WebviewWindow,
+    enabled: bool,
+) -> Result<bool, String> {
+    require_workspace_window(&window)?;
+    let public_dir = static_dir_for_resource(app.path().resource_dir().ok());
+    if enabled && !public_dir.join("index.html").is_file() {
+        return Err("Automation worker resources are unavailable".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || automation_login_start::set(&app, enabled))
+        .await
+        .map_err(|error| format!("Background login start update stopped: {error}"))?
+}
+
+#[tauri::command]
+fn stop_background_automation_worker(window: WebviewWindow) -> Result<String, String> {
+    require_workspace_window(&window)?;
+    automation_worker::request_stop_explicit()?;
+    Ok("stopping".into())
+}
+
+#[tauri::command]
+async fn prepare_background_automation_worker_for_update(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> Result<(), String> {
+    reserve_background_worker_for_update(&app, &window).await
+}
+
+#[tauri::command]
+async fn finish_background_automation_worker_update(
+    app: AppHandle,
+    window: WebviewWindow,
+    restart_on_failure: bool,
+) -> Result<(), String> {
+    release_background_worker_update_lease(&app, &window, restart_on_failure).await
+}
+
+/// Read-only logical sizes for common generated directories in a registered workspace.
+static PROJECT_STORAGE_SCAN_LIMIT: OnceLock<Arc<tokio::sync::Semaphore>> = OnceLock::new();
+
+#[tauri::command]
+async fn inspect_project_storage(
+    app: AppHandle,
+    workspace_id: String,
+    directory: String,
+) -> Result<project_storage::StorageReport, String> {
+    let root = resolve_workspace_root(&app, &workspace_id)?;
+    let gate = PROJECT_STORAGE_SCAN_LIMIT
+        .get_or_init(|| Arc::new(tokio::sync::Semaphore::new(1)))
+        .clone();
+    let permit = gate
+        .try_acquire_owned()
+        .map_err(|_| "project_storage_busy".to_string())?;
+    let worker = tauri::async_runtime::spawn_blocking(move || {
+        let _permit = permit;
+        project_storage::inspect(&root, &directory)
+    });
+    match tokio::time::timeout(std::time::Duration::from_secs(8), worker).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => Err("project_storage_unavailable".into()),
+        Err(_) => Err("project_storage_timeout".into()),
+    }
+}
+
 /// Delete a workspace with recycle-bin semantics: the workspace's ZiCode app
 /// data (`<root>/.zicode`) is moved into `%LOCALAPPDATA%\zicode\trash` so it
 /// can be restored manually, the workspace is un-registered, and the user's
@@ -431,8 +641,8 @@ fn purge_expired_workspace_trash(trash_root: &Path, now_secs: i64) -> Result<usi
         return Ok(0);
     }
     let mut purged = 0;
-    for entry in fs::read_dir(trash_root)
-        .map_err(|error| format!("Cannot read workspace trash: {error}"))?
+    for entry in
+        fs::read_dir(trash_root).map_err(|error| format!("Cannot read workspace trash: {error}"))?
     {
         let entry = match entry {
             Ok(entry) => entry,
@@ -448,14 +658,16 @@ fn purge_expired_workspace_trash(trash_root: &Path, now_secs: i64) -> Result<usi
         let Ok(manifest) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
             continue;
         };
-        let Some(deleted_at) = manifest.get("deletedAt").and_then(serde_json::Value::as_i64)
+        let Some(deleted_at) = manifest
+            .get("deletedAt")
+            .and_then(serde_json::Value::as_i64)
         else {
             continue;
         };
-        if now_secs - deleted_at >= WORKSPACE_TRASH_RETENTION_SECS {
-            if fs::remove_dir_all(&path).is_ok() {
-                purged += 1;
-            }
+        if now_secs - deleted_at >= WORKSPACE_TRASH_RETENTION_SECS
+            && fs::remove_dir_all(&path).is_ok()
+        {
+            purged += 1;
         }
     }
     Ok(purged)
@@ -469,8 +681,8 @@ fn purge_all_workspace_trash(trash_root: &Path) -> Result<usize, String> {
         return Ok(0);
     }
     let mut removed = 0;
-    for entry in fs::read_dir(trash_root)
-        .map_err(|error| format!("Cannot read workspace trash: {error}"))?
+    for entry in
+        fs::read_dir(trash_root).map_err(|error| format!("Cannot read workspace trash: {error}"))?
     {
         let entry = match entry {
             Ok(entry) => entry,
@@ -490,8 +702,7 @@ fn remove_workspace_trash_entry(dir: &Path, trash_root: &Path) -> Result<(), Str
     if !is_workspace_trash_entry(dir, trash_root) {
         return Err("Not a workspace trash entry".to_string());
     }
-    fs::remove_dir_all(dir)
-        .map_err(|error| format!("Cannot delete workspace trash entry: {error}"))
+    fs::remove_dir_all(dir).map_err(|error| format!("Cannot delete workspace trash entry: {error}"))
 }
 
 /// List recoverable workspace trash entries (directories under
@@ -642,10 +853,7 @@ fn protected_workspace_reason(root: &Path) -> Result<Option<String>, String> {
 /// Move a workspace's ZiCode app data (`<root>/.zicode`) into a timestamped
 /// trash directory so the delete is recoverable. Never touches the user's own
 /// project files outside `.zicode`.
-fn move_workspace_app_data_to_trash(
-    root: &Path,
-    trash_root: &Path,
-) -> Result<PathBuf, String> {
+fn move_workspace_app_data_to_trash(root: &Path, trash_root: &Path) -> Result<PathBuf, String> {
     let name = root
         .file_name()
         .and_then(|value| value.to_str())
@@ -849,7 +1057,7 @@ fn open_fresh_session_at_path(
     if let Some(existing) = app.get_webview_window(&label) {
         return navigate_workspace_window(app, &existing, host.origin(), &target, app_param, true);
     }
-    if let Err(error) = open_native_workspace_window(app, host.origin(), &target) {
+    if let Err(error) = open_native_workspace_window(app, &host, &target) {
         let _ = runtimes.stop(&target);
         return Err(error);
     }
@@ -930,7 +1138,7 @@ fn open_workspace_at_path(
         );
     }
 
-    if let Err(error) = open_native_workspace_window(app, host.origin(), &target) {
+    if let Err(error) = open_native_workspace_window(app, &host, &target) {
         if resume_session_id.is_none() {
             let _ = runtimes.stop(&target);
         }
@@ -992,14 +1200,22 @@ fn navigate_workspace_window(
 
 fn open_native_workspace_window(
     app: &AppHandle,
-    host_origin: &str,
+    host: &HostServer,
     target: &RuntimeTarget,
 ) -> Result<(), String> {
     let label = format!("native-workspace-{}", target.workspace_id);
-    let url = native_workspace_url(host_origin, target, None)?;
+    let url = native_workspace_url(host.origin(), target, None)?;
+    // The script is injected only into the native WebView and never served by
+    // the HTTP Host. Guard its origin because WebViews can navigate elsewhere.
+    let desktop_init = format!(
+        "if (window.top === window && window.location.origin === {}) {{ Object.defineProperty(window, '__zicodeDesktopToken', {{ value: {}, configurable: false, writable: false }}); }}",
+        serde_json::to_string(host.origin()).map_err(|error| error.to_string())?,
+        serde_json::to_string(host.desktop_token()).map_err(|error| error.to_string())?,
+    );
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
+        .initialization_script(desktop_init)
         .data_directory(app_paths::webview_root()?)
         .title("ZiCode Studio Desktop")
         .enable_clipboard_access()
@@ -1212,15 +1428,19 @@ fn resolve_static_dir(
         .unwrap_or_else(|| PathBuf::from("public"))
 }
 
-fn find_static_dir(app: &tauri::App) -> PathBuf {
+fn static_dir_for_resource(resource_dir: Option<PathBuf>) -> PathBuf {
     resolve_static_dir(
-        app.path().resource_dir().ok(),
+        resource_dir,
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("public"),
         std::env::current_dir().ok(),
         cfg!(debug_assertions),
     )
+}
+
+fn find_static_dir(app: &tauri::App) -> PathBuf {
+    static_dir_for_resource(app.path().resource_dir().ok())
 }
 
 fn agent_inbox_path() -> Result<PathBuf, String> {
@@ -1555,7 +1775,7 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         runtimes.spawn(target.clone(), launch)?;
         Ok::<HostServer, String>(host)
     })?;
-    if let Err(error) = open_native_workspace_window(app.handle(), host.origin(), &target) {
+    if let Err(error) = open_native_workspace_window(app.handle(), &host, &target) {
         runtimes.stop_all();
         return Err(error);
     }
@@ -1587,8 +1807,31 @@ fn main() {
     if std::env::args().nth(1).as_deref() == Some("--zicode-plugin-worker") {
         std::process::exit(plugin_worker::run_stdio());
     }
-    if let Err(error) = fix_path_env::fix() {
-        eprintln!("[picot] failed to sync PATH from login shell: {error}");
+    if std::env::args().nth(1).as_deref() == Some("--zicode-automation-worker") {
+        let arguments: Vec<std::ffi::OsString> = std::env::args_os().skip(2).collect();
+        if let Err(error) = automation_worker::run(&arguments) {
+            log::error!("[automation-worker] {error}");
+            eprintln!("[automation-worker] {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if std::env::args().nth(1).as_deref() == Some("--zicode-automation-worker-stop") {
+        if let Err(error) = automation_worker::request_stop_cli() {
+            log::error!("[automation-worker] {error}");
+            eprintln!("[automation-worker] {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if let Err(error) = desktop_profile::initialize(std::env::args_os().skip(1)) {
+        eprintln!("[desktop-profile] {error}");
+        std::process::exit(1);
+    }
+    if !desktop_profile::is_isolated() {
+        if let Err(error) = fix_path_env::fix() {
+            eprintln!("[picot] failed to sync PATH from login shell: {error}");
+        }
     }
 
     tauri::Builder::default()
@@ -1608,6 +1851,15 @@ fn main() {
             switch_window_workspace,
             open_session_in_project,
             list_workspaces,
+            list_automation_workspaces,
+            background_automation_worker_status,
+            start_background_automation_worker,
+            stop_background_automation_worker,
+            background_automation_login_start_enabled,
+            set_background_automation_login_start,
+            prepare_background_automation_worker_for_update,
+            finish_background_automation_worker_update,
+            inspect_project_storage,
             delete_workspace,
             list_workspace_trash,
             delete_workspace_trash_entry,
@@ -1645,6 +1897,7 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
+            app.manage(BackgroundWorkerUpdateLease::default());
             // Best-effort cleanup: drop workspace trash entries older than 30 days.
             if let Ok(trash_root) = crate::app_paths::data_root().map(|root| root.join("trash")) {
                 let now_secs = std::time::SystemTime::now()
@@ -1656,6 +1909,7 @@ fn main() {
                 }
             }
             let static_dir = find_static_dir(app);
+            let worker_public_dir = static_dir.clone();
             if let Err(error) = setup_native_runtime(app, static_dir) {
                 log::error!("[picot-native] startup failed: {error}");
                 if let Err(window_error) = open_bootstrap_window(&app.handle().clone(), &error) {
@@ -1670,6 +1924,18 @@ fn main() {
                         .kind(MessageDialogKind::Error)
                         .show(|_| {});
                 }
+            } else if !desktop_profile::is_isolated() {
+                let login_app = app.handle().clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = automation_login_start::repair_existing(&login_app) {
+                        log::warn!("[automation-worker] login start repair failed: {error}");
+                    }
+                });
+                tauri::async_runtime::spawn_blocking(move || {
+                    if let Err(error) = automation_worker::resume_after_update(&worker_public_dir) {
+                        log::warn!("[automation-worker] pending update resume failed: {error}");
+                    }
+                });
             }
             Ok(())
         })
@@ -1754,6 +2020,12 @@ fn main() {
                     }
                 }
                 tauri::RunEvent::Exit => {
+                    if let Some(host) = app_handle.try_state::<HostServer>() {
+                        host.request_shutdown();
+                        if let Err(error) = tauri::async_runtime::block_on(host.wait_for_shutdown()) {
+                            log::warn!("[host-shutdown] {error}");
+                        }
+                    }
                     if let Some(manager) = app_handle.try_state::<NativePiManagerState>() {
                         manager.stop_all();
                     }
@@ -1766,10 +2038,10 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        format_window_state, parse_window_state, resolve_static_dir, select_fresh_startup_target,
-        move_workspace_app_data_to_trash, protected_workspace_reason,
-        purge_all_workspace_trash, purge_expired_workspace_trash, remove_workspace_trash_entry,
-        restore_app_data_from_trash, session_dir_name, visible_position, WindowState,
+        format_window_state, move_workspace_app_data_to_trash, parse_window_state,
+        protected_workspace_reason, purge_all_workspace_trash, purge_expired_workspace_trash,
+        remove_workspace_trash_entry, resolve_static_dir, restore_app_data_from_trash,
+        select_fresh_startup_target, session_dir_name, visible_position, WindowState,
         WORKSPACE_TRASH_RETENTION_SECS,
     };
     use std::fs;
@@ -1817,17 +2089,11 @@ mod tests {
     #[test]
     fn protects_global_and_inbox_workspaces() {
         let root = temp_dir("protect");
-        assert!(
-            protected_workspace_reason(&root)
-                .expect("reason")
-                .is_none()
-        );
+        assert!(protected_workspace_reason(&root).expect("reason").is_none());
         let global = crate::app_paths::global_workspace_root().expect("global");
-        assert!(
-            protected_workspace_reason(&global)
-                .expect("reason")
-                .is_some()
-        );
+        assert!(protected_workspace_reason(&global)
+            .expect("reason")
+            .is_some());
         fs::remove_dir_all(&root).expect("cleanup");
     }
 
@@ -1841,7 +2107,11 @@ mod tests {
         fs::create_dir_all(&trash_root).expect("trash root");
         let trash = trash_root.join("project-123");
         fs::create_dir_all(trash.join(".zicode").join("notes")).expect("app data");
-        fs::write(trash.join(".zicode").join("notes").join("note.md"), "content").expect("note");
+        fs::write(
+            trash.join(".zicode").join("notes").join("note.md"),
+            "content",
+        )
+        .expect("note");
         fs::write(
             trash.join("manifest.json"),
             serde_json::json!({ "originalRoot": original.to_string_lossy() }).to_string(),
@@ -1850,7 +2120,11 @@ mod tests {
 
         let restored = restore_app_data_from_trash(&trash, &trash_root).expect("restore");
         assert_eq!(restored, original);
-        assert!(original.join(".zicode").join("notes").join("note.md").exists());
+        assert!(original
+            .join(".zicode")
+            .join("notes")
+            .join("note.md")
+            .exists());
         assert!(original.join("README.md").exists());
         fs::remove_dir_all(&base).expect("cleanup");
     }

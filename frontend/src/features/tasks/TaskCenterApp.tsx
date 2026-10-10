@@ -1,18 +1,18 @@
-import type { Root } from "react-dom/client";
 import { useEffect, useRef, useState } from "react";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n.js";
-import { friendlyTaskDispatchError } from "../../shared/hostErrors";
-import { FirstRunGuide } from "../../shared/FirstRunGuide";
-// @ts-expect-error plain JS module without type declarations
-import { copyText } from "../../../../public/ui/copy.js";
+import type { Root } from "react-dom/client";
 // @ts-expect-error plain JS module without type declarations
 import { markTaskResumed } from "../../../../public/super-agent/task-state.js";
+// @ts-expect-error plain JS module without type declarations
+import { copyText } from "../../../../public/ui/copy.js";
+import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { friendlyTaskDispatchError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n.js";
+import { mountPluginSurface } from "../../shared/reactMount.js";
+import type { TaskCenterTarget } from "./approve-task";
 import {
-  TASK_DATE_RANGES,
-  filterLabel,
-  filteredTasks,
   dateRangeLabel,
+  filteredTasks,
+  filterLabel,
   formatDate,
   groupTasksByWorkspace,
   isDefaultWorkspace,
@@ -20,21 +20,22 @@ import {
   matchesTaskDateRange,
   nextTaskRunAt,
   retryLimitReached,
+  type SuperAgentTask,
   scheduleDescription,
   scheduledTaskStats,
   statusLabel,
+  TASK_DATE_RANGES,
   TASK_FILTERS,
-  taskProject,
-  taskSummaryText,
-  type SuperAgentTask,
   type TaskDateRange,
   type TaskFilter,
+  taskProject,
+  taskSummaryText,
 } from "./logic";
 import {
   createTaskCenterStore,
   type TaskCenterOptions,
-  type TaskDraft,
 } from "./store";
+import { TaskForm } from "./TaskForm";
 
 type TaskStore = ReturnType<typeof createTaskCenterStore>;
 
@@ -69,16 +70,22 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const setFilter = store((state) => state.setFilter);
   const focusTaskId = store((state) => state.focusTaskId);
   const focusTask = store((state) => state.focusTask);
+  const loadedOnce = store((state) => state.loadedOnce);
   const loading = store((state) => state.loading);
   const error = store((state) => state.error);
   const load = store((state) => state.load);
   const clearDoneTasks = store((state) => state.clearDoneTasks);
+  const creationRequest = store((state) => state.creationRequest);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SuperAgentTask | null>(null);
   const [grouped, setGrouped] = useState(false);
   const [query, setQuery] = useState("");
   const [dateRange, setDateRange] = useState<TaskDateRange>("all");
-  const focusRetries = useRef(0);
+  useEffect(() => {
+    if (!creationRequest) return;
+    setCreating(true);
+    setEditing(null);
+  }, [creationRequest]);
   const visible = filteredTasks(tasks, filter)
     .filter((task) => matchesTaskDateRange(task, dateRange))
     .filter((task) => {
@@ -90,11 +97,12 @@ export function TaskMain({ store }: { store: TaskStore }) {
       );
     });
 
+  const focusedTaskVisible = visible.some((task) => task.id === focusTaskId);
   useEffect(() => {
-    if (!focusTaskId) {
-      focusRetries.current = 0;
-      return;
-    }
+    if (!focusTaskId) return;
+    setQuery("");
+    setDateRange("all");
+    if (!focusedTaskVisible) return;
     const escaped =
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
         ? CSS.escape(focusTaskId)
@@ -103,26 +111,18 @@ export function TaskMain({ store }: { store: TaskStore }) {
       `[data-task-id="${escaped}"]`,
     );
     if (element) {
-      focusRetries.current = 0;
-      element.scrollIntoView({ block: "center", behavior: "smooth" });
+      element.scrollIntoView?.({ block: "center", behavior: "smooth" });
       element.classList.add("is-focused");
       const timer = window.setTimeout(() => {
         element.classList.remove("is-focused");
         focusTask(null);
       }, 2400);
-      return () => window.clearTimeout(timer);
+      return () => {
+        window.clearTimeout(timer);
+        element.classList.remove("is-focused");
+      };
     }
-    if (focusRetries.current >= 5) {
-      focusRetries.current = 0;
-      focusTask(null);
-      return;
-    }
-    focusRetries.current += 1;
-    const retry = window.setTimeout(() => {
-      focusTask(focusTaskId);
-    }, 300);
-    return () => window.clearTimeout(retry);
-  }, [focusTaskId, focusTask]);
+  }, [focusTaskId, focusTask, focusedTaskVisible]);
 
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
@@ -210,13 +210,23 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </button>
         </div>
       </header>
+      {focusTaskId && loadedOnce && !loading && !error && !tasks.some((task) => task.id === focusTaskId) && (
+        <p role="status">
+          {t("The selected task is no longer available.")}
+          <button type="button" className="ui-button ui-button--ghost" onClick={() => focusTask(null)}>{t("Dismiss")}</button>
+        </p>
+      )}
       {formTask ? (
         <TaskForm
+          key={editing?.id ?? creationRequest?.sequence ?? "new"}
           store={store}
           task={editing ?? undefined}
+          initialProject={creationRequest?.projectPath}
           onClose={() => {
+            if (store.getState().creationRequest?.sequence !== creationRequest?.sequence) return;
             setCreating(false);
             setEditing(null);
+            store.getState().clearCreation();
           }}
         />
       ) : null}
@@ -383,216 +393,6 @@ function StatePanel({
   );
 }
 
-function TaskForm({
-  store,
-  task,
-  onClose,
-}: {
-  store: TaskStore;
-  task?: SuperAgentTask;
-  onClose: () => void;
-}) {
-  const createTask = store((state) => state.createTask);
-  const updateTaskMeta = store((state) => state.updateTaskMeta);
-  const listProjects = store((state) => state.listProjects);
-  const template = task && isScheduledTemplate(task);
-  const [title, setTitle] = useState(task?.title ?? "");
-  const [description, setDescription] = useState(task?.description ?? "");
-  const [target, setTarget] = useState(
-    task?.targetProject ?? store.getState().getCurrentProjectPath() ?? "",
-  );
-  const [schedule, setSchedule] = useState<"manual" | "interval" | "daily">(
-    template ? (task.schedule as "interval" | "daily") : "manual",
-  );
-  const [intervalMinutes, setIntervalMinutes] = useState(
-    String(task?.intervalMinutes ?? 60),
-  );
-  const [dailyTime, setDailyTime] = useState(task?.dailyTime ?? "09:00");
-  const [requireApproval, setRequireApproval] = useState(
-    Boolean(task?.requireApproval),
-  );
-  const [maxRetries, setMaxRetries] = useState(String(task?.maxRetries ?? 2));
-  const [saving, setSaving] = useState(false);
-  const [projectPaths, setProjectPaths] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void listProjects().then((paths) => {
-      if (!cancelled) setProjectPaths(paths);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [listProjects]);
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!title.trim() || saving) return;
-    const draft: TaskDraft = {
-      title,
-      description,
-      targetProject: target,
-      schedule,
-      intervalMinutes:
-        schedule === "interval" ? Math.max(5, Number(intervalMinutes) || 60) : null,
-      dailyTime: schedule === "daily" ? dailyTime || "09:00" : null,
-      requireApproval,
-      maxRetries: Number(maxRetries) || 0,
-    };
-    setSaving(true);
-    try {
-      if (task) {
-        await updateTaskMeta(task.id, draft);
-      } else {
-        await createTask(draft);
-      }
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <form className="ui-panel task-center-form" onSubmit={submit}>
-      <h2>{task ? t("Edit task") : t("New task")}</h2>
-      <label className="task-form-field">
-        <span>{t("Title")}</span>
-        <input
-          className="ui-input"
-          required
-          autoComplete="off"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-        />
-      </label>
-      <label className="task-form-field">
-        <span>{t("Instructions")}</span>
-        <textarea
-          className="ui-textarea"
-          rows={3}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-        />
-      </label>
-      <label className="task-form-field">
-        <span>{t("Target project")}</span>
-        <input
-          className="ui-input"
-          autoComplete="off"
-          list="task-project-paths"
-          placeholder="C:/work/project"
-          value={target}
-          onChange={(event) => setTarget(event.target.value)}
-        />
-        <datalist id="task-project-paths">
-          {projectPaths.map((path) => (
-            <option key={path} value={path} />
-          ))}
-        </datalist>
-      </label>
-      {schedule === "manual" && !target.trim() ? (
-        <p className="task-form-hint" role="note">
-          {t("Manual tasks need a target project before they can be run.")}
-        </p>
-      ) : null}
-      <label className="task-form-field">
-        <span>{t("Trigger")}</span>
-        <select
-          className="ui-input"
-          value={schedule}
-          onChange={(event) =>
-            setSchedule(event.target.value as "manual" | "interval" | "daily")
-          }
-        >
-          <option value="manual">{t("Manual")}</option>
-          <option value="interval">{t("Every N minutes")}</option>
-          <option value="daily">{t("Daily at")}</option>
-        </select>
-      </label>
-      {schedule === "interval" ? (
-        <label className="task-form-field">
-          <span>{t("Interval (minutes)")}</span>
-          <input
-            className="ui-input"
-            type="number"
-            min={5}
-            value={intervalMinutes}
-            onChange={(event) => setIntervalMinutes(event.target.value)}
-          />
-        </label>
-      ) : null}
-      {schedule === "daily" ? (
-        <label className="task-form-field">
-          <span>{t("Run at")}</span>
-          <input
-            className="ui-input"
-            type="time"
-            value={dailyTime}
-            onChange={(event) => setDailyTime(event.target.value)}
-          />
-        </label>
-      ) : null}
-      <fieldset className="task-form-mode">
-        <legend>{t("Execution mode")}</legend>
-        <label className="task-form-radio">
-          <input
-            type="radio"
-            name="task-execution-mode"
-            checked={!requireApproval}
-            onChange={() => setRequireApproval(false)}
-          />
-          {t("Run automatically (full access)")}
-        </label>
-        <label className="task-form-radio">
-          <input
-            type="radio"
-            name="task-execution-mode"
-            checked={requireApproval}
-            onChange={() => setRequireApproval(true)}
-          />
-          {t("Confirm before every run (default permission)")}
-        </label>
-      </fieldset>
-      <p className="automation-checkbox-hint" role="note">
-        {requireApproval
-          ? t(
-              "Each run waits for your approval in the task center. Sensitive actions — writes outside the workspace, deletions, scripts, and network access — still ask for confirmation before executing.",
-            )
-          : t(
-              "Runs automatically; no manual approval needed. File writes, deletions, scripts, and network actions will not ask for confirmation one by one, so keep this for trusted, recoverable tasks.",
-            )}
-      </p>
-      <label className="task-form-field">
-        <span>{t("Maximum retries")}</span>
-        <input
-          className="ui-input"
-          type="number"
-          min={0}
-          max={10}
-          value={maxRetries}
-          onChange={(event) => setMaxRetries(event.target.value)}
-        />
-      </label>
-      <div className="task-form-actions">
-        <button
-          type="button"
-          className="ui-button ui-button--ghost"
-          onClick={onClose}
-        >
-          {t("Cancel")}
-        </button>
-        <button
-          type="submit"
-          className="ui-button ui-button--primary"
-          disabled={saving || !title.trim()}
-          aria-busy={saving}
-        >
-          {saving ? t("Saving…") : task ? t("Save changes") : t("Create task")}
-        </button>
-      </div>
-    </form>
-  );
-}
 
 function TaskCard({
   store,
@@ -671,6 +471,11 @@ function TaskCard({
           <h2>{task.title || t("Untitled task")}</h2>
         </div>
         <div className="task-center-actions">
+          {task.status === "draft" && (
+            <button type="button" className="ui-button ui-button--danger ui-button--sm" onClick={() => {
+              if (globalThis.confirm?.(t("Delete this task draft?")) !== false) void removeTask(task.id);
+            }}>{t("Delete draft")}</button>
+          )}
           <button
             type="button"
             className={`ui-button ui-button--ghost ui-button--sm${
@@ -1091,12 +896,14 @@ function Detail({ term, value }: { term: string; value: string }) {
 }
 
 export interface TaskCenterAppApi {
+  newTask(projectPath: string): void;
   renderNavigation(container: HTMLElement): void;
   renderContent(container: HTMLElement): void;
   deactivate(): void;
   destroy(): void;
   setTarget(): void;
   focusTask(taskId: string): void;
+  approveTaskById(taskId: string, target?: TaskCenterTarget | null): Promise<boolean>;
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   refresh(): Promise<void>;
@@ -1107,6 +914,9 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
   return {
+    newTask(projectPath) {
+      store.getState().requestCreation(projectPath);
+    },
     renderNavigation(container) {
       navRoot = mountPluginSurface(container, <TaskNav store={store} />, navRoot);
     },
@@ -1131,9 +941,14 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
       navRoot = null;
       contentRoot = null;
     },
-    setTarget() {},
+    setTarget() {
+      store.getState().syncTarget();
+    },
     focusTask(taskId) {
       store.getState().focusTask(taskId);
+    },
+    approveTaskById(taskId, target) {
+      return store.getState().approveTaskById(taskId, target);
     },
     handlesCommand(commandId) {
       return commandId === "tasks.open";

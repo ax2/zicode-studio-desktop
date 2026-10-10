@@ -1,5 +1,8 @@
 # 应用插件平台总览
 
+ZiDevTools 独立工具生产与跨程序交付遵循
+[独立插件交付规范](devtools-interoperability.md)，以签名包和版本化协议连接两个产品。
+
 ## 目标
 
 ZiCode 应用插件是桌面程序本身的扩展能力，不是 Pi Extension 的别名。它统一扩展以下

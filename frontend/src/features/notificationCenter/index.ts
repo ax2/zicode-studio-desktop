@@ -1,15 +1,15 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { t } from "../../shared/i18n";
 import {
   createNotificationStore,
-  NotificationStackApp,
   type NotificationItem,
+  NotificationStackApp,
 } from "./NotificationCenterApp";
 import {
-  normalizeNotification,
   type NotificationInput,
+  normalizeNotification,
 } from "./notificationCenterLogic";
 
 export const DEFAULT_DURATION_MS = 8000;

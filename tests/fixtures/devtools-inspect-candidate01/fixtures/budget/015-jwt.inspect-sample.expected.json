@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":true,"data":{"text":"仅解码内容；未验证签名、有效期或可信度。\n\nHeader:\n{\n  \"alg\": \"none\"\n}\n\nPayload:\n{\n  \"iat\": 0,\n  \"sub\": \"zi\"\n}"},"error":null}

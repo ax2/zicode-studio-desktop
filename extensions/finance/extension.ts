@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { runBacktest, type BacktestInput } from "./backtest";
-import { MarketDataStore, type MarketDataSnapshotInput } from "./market-data";
-import { normalizeOhlcv, type NormalizeOhlcvInput } from "./normalize";
+import { type BacktestInput, runBacktest } from "./backtest";
+import { type MarketDataSnapshotInput, MarketDataStore } from "./market-data";
+import { type NormalizeOhlcvInput, normalizeOhlcv } from "./normalize";
 import { PaperTradingLedger } from "./paper-trading";
 import { QVerisClient } from "./qveris-client";
 import { runScreening, type ScreeningInput } from "./screener";
@@ -23,14 +23,14 @@ export function setupFinanceTools(pi: ExtensionAPI, client = new QVerisClient())
   const marketData = new MarketDataStore();
 
   pi.registerCommand("finance-status", {
-    description: "Show the built-in finance workbench and QVeris connection status",
+    description: "Show the built-in finance workbench and optional QVeris connection status",
     handler: async (_arguments, ctx) => {
       const status = client.credentialStatus();
       ctx.ui.notify(
         status.configured
           ? "Finance workbench ready. QVeris data credential is configured."
-          : "Finance workbench ready. Configure the QVeris API Key to enable external data.",
-        status.configured ? "info" : "warning",
+          : "Finance workbench ready for local research and analysis. Configure a QVeris API Key only if you want its external data.",
+        "info",
       );
     },
   });
@@ -120,7 +120,9 @@ export function setupFinanceTools(pi: ExtensionAPI, client = new QVerisClient())
       search_id: Type.String(),
       parameters: jsonObject,
       model: Type.Optional(Type.String()),
-      respond_with: Type.Optional(Type.String({ description: "full, summary, or fields:<JSONPath>" })),
+      respond_with: Type.Optional(
+        Type.String({ description: "full, summary, or fields:<JSONPath>" }),
+      ),
       user_confirmed_cost: Type.Boolean({
         description: "True only after the user has approved the disclosed expected cost",
       }),
@@ -229,10 +231,10 @@ export function setupFinanceTools(pi: ExtensionAPI, client = new QVerisClient())
     description:
       "Map provider-specific tabular fields into validated, ordered OHLCV bars while preserving instrument metadata and provenance.",
     promptSnippet:
-      "Normalize QVeris historical price rows with an explicit mapping derived from the inspected capability schema.",
+      "Normalize supplied historical price rows with an explicit mapping derived from the rows or inspected provider schema.",
     promptGuidelines: [
-      "Never guess field names; derive the mapping from the current Inspect schema and returned rows.",
-      "State adjustment method explicitly and preserve QVeris tool, search, and execution identifiers.",
+      "Never guess field names; derive the mapping from supplied rows or the current provider schema.",
+      "State adjustment method explicitly and preserve available provider, tool, search, and execution identifiers.",
     ],
     parameters: Type.Object({
       rows: Type.Array(Type.Record(Type.String(), Type.Any()), { minItems: 2, maxItems: 10_000 }),
@@ -310,9 +312,9 @@ export function setupFinanceTools(pi: ExtensionAPI, client = new QVerisClient())
     name: "finance_market_data",
     label: "Finance Market Data",
     description:
-      "Persist or retrieve bounded scene-local financial data snapshots with as-of time and QVeris provenance.",
+      "Persist or retrieve bounded scene-local financial data snapshots with as-of time and source provenance.",
     promptSnippet:
-      "Save external financial results as sourced snapshots before using them in screening, backtests, or paper trading.",
+      "Save supplied financial results as sourced snapshots before using them in screening, backtests, or paper trading.",
     parameters: Type.Union([
       Type.Object({
         action: Type.Literal("save"),

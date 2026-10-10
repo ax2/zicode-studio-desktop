@@ -168,6 +168,12 @@ impl P2pAnswerer {
                 .map_err(|error| format!("cannot create peer connection: {error}"))?,
         );
 
+        // Retain a partially negotiated connection so cancellation/error cleanup
+        // can close it even before the answer has been sent.
+        if let Ok(mut slot) = self.pc.lock() {
+            *slot = Some(pc.clone());
+        }
+
         let signal_tx = self.signal_tx.clone();
         pc.on_ice_candidate(Box::new(move |candidate| {
             let signal_tx = signal_tx.clone();

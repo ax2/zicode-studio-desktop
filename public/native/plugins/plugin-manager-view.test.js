@@ -93,6 +93,16 @@ describe("renderPluginManagerView", () => {
     );
   });
 
+  it("shows the installed version without inventing one for legacy plugins", () => {
+    setup({
+      registry: { list: () => [BUILTIN, { ...DEVELOPER, version: "0.1.1" }] },
+    });
+    const version = document.querySelector("[data-plugin-version]");
+    expect(version.textContent).toBe("v0.1.1");
+    expect(version.getAttribute("data-plugin-version")).toBe("0.1.1");
+    expect(document.querySelectorAll("[data-plugin-version]")).toHaveLength(1);
+  });
+
   it("restores the last filter when the manager rerenders", () => {
     const onFilterChange = vi.fn();
     setup({ initialFilter: "developer", onFilterChange });

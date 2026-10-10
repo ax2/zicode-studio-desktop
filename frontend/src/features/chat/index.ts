@@ -1,5 +1,13 @@
 import { t } from "../../shared/i18n";
 import {
+  type AssistantMessageLike,
+  ChatFeed,
+  feedFor,
+  type MessageHandle,
+  type UserMessageLike,
+  type WelcomeScene,
+} from "./chatFeedStore";
+import {
   describeModelError,
   escapeHtml,
   formatJson,
@@ -8,14 +16,6 @@ import {
   renderDiffData,
   splitStreamingContent,
 } from "./chatLogic";
-import {
-  ChatFeed,
-  feedFor,
-  type AssistantMessageLike,
-  type MessageHandle,
-  type UserMessageLike,
-  type WelcomeScene,
-} from "./chatFeedStore";
 
 export class MessageRenderer {
   private feed: ChatFeed;
@@ -204,6 +204,4 @@ export class ToolCardRenderer {
   }
 }
 
-export { t };
-export { ChatFeed, feedFor };
-export { describeModelError, splitStreamingContent };
+export { ChatFeed, describeModelError, feedFor, splitStreamingContent, t };

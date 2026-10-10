@@ -7,9 +7,10 @@
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
-const https = require("node:https");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { downloadLockedAsset } = require("./download-locked-asset");
+const { installStagedDirectory, recoverStagedDirectory } = require("./install-staged-directory");
 
 const ROOT = path.resolve(__dirname, "..");
 const LOCK_FILE = path.join(__dirname, "portable-git-version.json");
@@ -41,48 +42,29 @@ function sha256OfFile(filePath) {
   return hash.digest("hex");
 }
 
-function downloadTo(url, destination) {
-  return new Promise((resolve, reject) => {
-    const request = https.get(url, { headers: { "User-Agent": "zicode-studio-desktop-build" } });
-    request.on("response", (response) => {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        response.resume();
-        downloadTo(response.headers.location, destination).then(resolve, reject);
-        return;
-      }
-      if (response.statusCode !== 200) {
-        response.resume();
-        reject(new Error(`HTTP ${response.statusCode} for ${url}`));
-        return;
-      }
-      const file = fs.createWriteStream(destination);
-      response.pipe(file);
-      file.on("finish", () => file.close(resolve));
-      file.on("error", (error) => {
-        file.close();
-        fs.rmSync(destination, { force: true });
-        reject(error);
-      });
-    });
-    request.on("error", reject);
-  });
-}
-
-function isInstalled(version) {
-  if (!fs.existsSync(VERSION_MARKER)) return false;
-  const installedVersion = fs.readFileSync(VERSION_MARKER, "utf8").trim();
-  return (
-    installedVersion === version &&
-    fs.existsSync(path.join(OUT_DIR, "cmd", "git.exe")) &&
-    fs.existsSync(path.join(OUT_DIR, "bin", "bash.exe"))
-  );
+function isInstalled(marker) {
+  try {
+    return (
+      fs.readFileSync(VERSION_MARKER, "utf8").trim() === marker &&
+      [path.join("cmd", "git.exe"), path.join("bin", "bash.exe")].every((relativePath) => {
+        const binary = fs.lstatSync(path.join(OUT_DIR, relativePath));
+        return binary.isFile() && binary.size > 0;
+      })
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function main() {
   const key = targetKey();
   if (!key) {
     fs.mkdirSync(OUT_DIR, { recursive: true });
-    info("non-Windows target; keeping the resource directory and skipping PortableGit.");
+    for (const name of fs.readdirSync(OUT_DIR)) {
+      if (name !== ".gitkeep")
+        fs.rmSync(path.join(OUT_DIR, name), { recursive: true, force: true });
+    }
+    info("non-Windows target; cleared Windows-only PortableGit resources.");
     return;
   }
 
@@ -91,8 +73,10 @@ async function main() {
   if (!lock.tag || !lock.version || !asset?.name || !asset?.sha256) {
     fail(`Missing complete lock data for ${key} in ${LOCK_FILE}`);
   }
+  const marker = JSON.stringify({ version: lock.version, target: key, sha256: asset.sha256 });
 
-  if (isInstalled(lock.version)) {
+  recoverStagedDirectory(OUT_DIR, "fetch-portable-git");
+  if (isInstalled(marker)) {
     info(`PortableGit ${lock.version} is already installed; skipping.`);
     return;
   }
@@ -107,7 +91,7 @@ async function main() {
     const url = `https://github.com/git-for-windows/git/releases/download/${lock.tag}/${asset.name}`;
     info(`downloading ${url}`);
     try {
-      await downloadTo(url, archivePath);
+      await downloadLockedAsset(url, archivePath);
     } catch (error) {
       fs.rmSync(archivePath, { force: true });
       fail(`download failed: ${error.message}`);
@@ -123,22 +107,25 @@ async function main() {
   }
   info("SHA-256 verified.");
 
-  fs.rmSync(OUT_DIR, { recursive: true, force: true });
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  const extraction = spawnSync(archivePath, [`-o${OUT_DIR}`, "-y"], {
-    stdio: "inherit",
-    windowsHide: true,
-  });
-  if (extraction.status !== 0) {
-    fail(`PortableGit extraction failed (exit ${extraction.status})`);
-  }
-
-  for (const relativePath of [path.join("cmd", "git.exe"), path.join("bin", "bash.exe")]) {
-    if (!fs.existsSync(path.join(OUT_DIR, relativePath))) {
-      fail(`extraction succeeded but ${relativePath} is missing`);
+  installStagedDirectory(OUT_DIR, "fetch-portable-git", (staging) => {
+    const extraction = spawnSync(archivePath, [`-o${staging}`, "-y"], {
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    if (extraction.status !== 0) {
+      throw new Error(
+        `PortableGit extraction failed (exit ${extraction.status}): ${extraction.error?.message ?? "unknown error"}`,
+      );
     }
-  }
-  fs.writeFileSync(VERSION_MARKER, lock.version, "utf8");
+
+    for (const relativePath of [path.join("cmd", "git.exe"), path.join("bin", "bash.exe")]) {
+      const binary = fs.lstatSync(path.join(staging, relativePath));
+      if (!binary.isFile() || binary.size === 0) {
+        throw new Error(`extraction succeeded but ${relativePath} is empty or invalid`);
+      }
+    }
+    fs.writeFileSync(path.join(staging, ".version"), `${marker}\n`, "utf8");
+  });
   info(`installed PortableGit ${lock.version} -> ${OUT_DIR}`);
 }
 

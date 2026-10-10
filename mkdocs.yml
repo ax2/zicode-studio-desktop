@@ -37,6 +37,78 @@ markdown_extensions:
 nav:
   - 首页: index.md
   - 产品需求: requirements.md
+  - 开发者个人平台: developer-platform.md
+  - 跨平台验证: platform-verification.md
+  - 跨平台检查工作日志: iterations/2026-09-26-platform-checks.md
+  - 开发者平台工作日志: iterations/2026-09-26-developer-platform.md
+  - 项目 Git 差异工作日志: iterations/2026-09-26-project-git-diff.md
+  - 开发环境工作日志: iterations/2026-09-26-project-environment.md
+  - 环境要求工作日志: iterations/2026-09-26-environment-requirements.md
+  - 多语言环境工作日志: iterations/2026-09-26-language-environment.md
+  - Python 环境工作日志: iterations/2026-09-26-python-environment.md
+  - 项目终端工作日志: iterations/2026-09-26-project-terminal.md
+  - 项目工具目录工作日志: iterations/2026-09-26-project-tool-paths.md
+  - 笔记工作流交接: iterations/2026-09-26-note-workflow-handoff.md
+  - 笔记回收站保留期: iterations/2026-09-26-note-trash-retention.md
+  - 笔记回收站日志: iterations/2026-09-26-note-trash.md
+  - 笔记快捷入口日志: iterations/2026-09-26-note-shortcuts.md
+  - 网页采集与摘要日志: iterations/2026-09-26-note-web-capture.md
+  - 笔记附件作用域日志: iterations/2026-09-26-note-attachment-scope.md
+  - 笔记草稿恢复日志: iterations/2026-09-26-note-draft-recovery.md
+  - 笔记编辑切换日志: iterations/2026-09-26-note-edit-transitions.md
+  - 笔记关联日志: iterations/2026-09-26-note-relationships.md
+  - 笔记引用迁移日志: iterations/2026-09-26-notes-reference-migration.md
+  - 笔记批量恢复日志: iterations/2026-09-26-notes-import-transaction.md
+  - 笔记传输日志: iterations/2026-09-26-notes-transfer.md
+  - 自动化草稿日志: iterations/2026-09-26-automation-drafts.md
+  - 子项目终端日志: iterations/2026-09-26-subproject-terminal.md
+  - 终端异常恢复日志: iterations/2026-09-26-terminal-session-recovery.md
+  - 项目提交历史日志: iterations/2026-09-26-project-git-history.md
+  - 提交差异日志: iterations/2026-09-26-commit-diff.md
+  - 提交审查交接日志: iterations/2026-09-27-git-review-handoff.md
+  - 提交前审查日志: iterations/2026-09-27-worktree-review.md
+  - 知识上下文交接日志: iterations/2026-09-27-knowledge-chat-handoff.md
+  - 命令运行分析日志: iterations/2026-09-27-run-analysis-handoff.md
+  - 命令运行器恢复日志: iterations/2026-09-27-runner-recovery.md
+  - 仓库声明发现日志: iterations/2026-09-27-workspace-declarations.md
+  - pnpm 工作区发现日志: iterations/2026-09-27-pnpm-workspaces.md
+  - 子项目包管理器继承日志: iterations/2026-09-27-package-manager-inheritance.md
+  - 显式 Conda 环境日志: iterations/2026-09-27-conda-prefix.md
+  - 项目内 Conda 自动发现日志: iterations/2026-09-27-local-conda-discovery.md
+  - Node 版本文件日志: iterations/2026-09-27-node-version-files.md
+  - Windows 终端 Shell 日志: iterations/2026-09-27-terminal-pwsh.md
+  - 金融来源解耦日志: iterations/2026-09-27-finance-optional-data.md
+  - 模型网关日志隐私日志: iterations/2026-09-27-model-gateway-log-privacy.md
+  - 外部错误隐私日志: iterations/2026-09-27-provider-error-privacy.md
+  - CMake 项目命令日志: iterations/2026-09-27-cmake-project-tasks.md
+  - CMake 预设日志: iterations/2026-09-27-cmake-presets.md
+  - Java 项目任务日志: iterations/2026-09-27-java-project-tasks.md
+  - .NET 项目任务日志: iterations/2026-09-27-dotnet-project-tasks.md
+  - .NET SDK 选择日志: iterations/2026-09-27-dotnet-sdk-selection.md
+  - 项目命令列表日志: iterations/2026-09-27-project-command-discovery-ui.md
+  - Git 单文件暂存日志: iterations/2026-09-27-git-file-stage.md
+  - Git 单文件取消暂存日志: iterations/2026-09-27-git-file-unstage.md
+  - Poetry 项目命令日志: iterations/2026-09-27-poetry-project-tasks.md
+  - Go 工作区模块日志: iterations/2026-09-27-go-work-modules.md
+  - 项目空间清理记录: iterations/2026-09-28-project-space-cleanup.md
+  - 项目命令置顶日志: iterations/2026-09-28-project-command-favorites.md
+  - 终端 Python 环境日志: iterations/2026-09-27-terminal-python-environment.md
+  - 子项目目录上下文日志: iterations/2026-09-26-project-directory-context.md
+  - 子项目环境诊断日志: iterations/2026-09-26-subproject-environment.md
+  - Python 解释器诊断日志: iterations/2026-09-26-python-diagnostic-source.md
+  - Python 环境选择日志: iterations/2026-09-26-python-environment-selection.md
+  - 命令历史工作日志: iterations/2026-09-26-command-history.md
+  - Host 退出工作日志: iterations/2026-09-26-host-shutdown.md
+  - 项目命令工作日志: iterations/2026-09-26-project-runner.md
+  - 多语言命令工作日志: iterations/2026-09-26-multilanguage-tasks.md
+  - Python 命令工作日志: iterations/2026-09-26-python-tasks.md
+  - 子项目命令工作日志: iterations/2026-09-26-nested-project-tasks.md
+  - 项目工作关联日志: iterations/2026-09-26-project-work.md
+  - 项目工作创建日志: iterations/2026-09-26-project-work-creation.md
+  - 任务并发保存日志: iterations/2026-09-26-task-concurrency.md
+  - 任务草稿日志: iterations/2026-09-26-task-drafts.md
+  - 模型渠道选择日志: iterations/2026-09-26-model-tool-providers.md
+  - 自主配置渠道日志: iterations/2026-09-26-explicit-model-channels.md
   - 架构方案: architecture.md
   - 场景与实例隔离: scenes-and-isolation.md
   - 应用插件:
@@ -49,8 +121,10 @@ nav:
       - Artifacts 内置插件: plugins/artifacts.md
       - 安全与生命周期: plugins/security-and-lifecycle.md
       - 开发指南: plugins/development-guide.md
+      - ZiDevTools 独立插件交付: plugins/devtools-interoperability.md
       - 内置插件与路线图: plugins/built-ins-and-roadmap.md
   - 金融工作台: finance-workbench.md
+  - 开发磁盘预算: agents/disk-budget.md
   - 产品化路线图 M0–M6: product-roadmap.md
   - 移动端体验: mobile-experience.md
   - 移动端真机验收清单: mobile-real-device-acceptance.md

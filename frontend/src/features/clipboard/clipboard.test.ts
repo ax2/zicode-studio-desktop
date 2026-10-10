@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
-import { createClipboardStore, type ClipboardGateway } from "./clipboardStore";
+import { type ClipboardGateway, createClipboardStore } from "./clipboardStore";
 
 const ITEM = {
   id: "id-1",

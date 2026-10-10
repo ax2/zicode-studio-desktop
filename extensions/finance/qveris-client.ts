@@ -19,17 +19,13 @@ export class QVerisClient {
   constructor(options: QVerisClientOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.timeoutMs = options.timeoutMs ?? 10_000;
-    this.baseUrl = (
-      options.baseUrl ??
-      process.env.QVERIS_CAPABILITY_BASE_URL ??
-      QVERIS_CAPABILITY_BASE_URL
-    ).replace(/\/+$/, "");
+    this.baseUrl = capabilityBaseUrl(options.baseUrl ?? QVERIS_CAPABILITY_BASE_URL);
   }
 
   credentialStatus(): { configured: boolean; source: string } {
     return {
       configured: Boolean(readQVerisApiKey()),
-      source: qverisAuthPath(),
+      source: qverisAuthPath() ?? "scene credential",
     };
   }
 
@@ -167,19 +163,21 @@ export class QVerisClient {
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
-      const text = await response.text();
-      if (text.length > 2_000_000) throw new Error("QVeris response exceeded the 2 MB safety limit");
-      const payload = parseJsonResponse(text);
       if (!response.ok) {
-        throw new Error(
-          `QVeris request failed (${response.status}): ${safeErrorMessage(payload, response.statusText)}`,
-        );
+        throw new Error(`QVeris request failed (${response.status})`);
       }
+      const text = await readBoundedResponse(response);
+      const payload = parseJsonResponse(text);
       return payload;
     } catch (error) {
       // Normalize transport failures into the stable QVeris error vocabulary
       // so the frontend can localize them instead of showing a raw "fetch failed".
-      if (error instanceof Error && error.message.startsWith("QVeris")) {
+      if (
+        error instanceof Error &&
+        (/^QVeris request failed \(\d{3}\)$/.test(error.message) ||
+          error.message === "QVeris response exceeded the 2 MB safety limit" ||
+          error.message === "QVeris returned an invalid JSON response")
+      ) {
         throw error;
       }
       if (
@@ -188,12 +186,57 @@ export class QVerisClient {
       ) {
         throw new Error("QVeris request timed out");
       }
-      throw new Error(`QVeris request failed: ${(error as Error | null)?.message ?? error}`);
+      throw new Error("QVeris request failed");
     } finally {
       clearTimeout(timeout);
       externalSignal?.removeEventListener("abort", abort);
     }
   }
+}
+
+async function readBoundedResponse(response: Response): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > 2_000_000) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("QVeris response exceeded the 2 MB safety limit");
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    return text + decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function capabilityBaseUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Invalid financial capability URL");
+  }
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (
+    (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      "Financial capability URL requires HTTPS or loopback HTTP without URL credentials, query or fragment",
+    );
+  }
+  return url.href.replace(/\/+$/, "");
 }
 
 function compactQuery(values: Record<string, string | number | boolean | undefined>): string {
@@ -212,9 +255,8 @@ export function setQVerisRuntimeApiKey(value: string | null): void {
 
 export function readQVerisApiKey(): string | null {
   if (runtimeApiKey) return runtimeApiKey;
-  const envKey = process.env.QVERIS_API_KEY?.trim();
-  if (envKey) return envKey;
   const authPath = qverisAuthPath();
+  if (!authPath) return null;
   try {
     const document = JSON.parse(fs.readFileSync(authPath, "utf8")) as Record<string, unknown>;
     const credential = document.qveris;
@@ -229,9 +271,9 @@ export function readQVerisApiKey(): string | null {
   return null;
 }
 
-function qverisAuthPath(): string {
+function qverisAuthPath(): string | null {
   const agentRoot = process.env.PI_CODING_AGENT_DIR?.trim();
-  return path.join(agentRoot ? path.resolve(agentRoot) : process.cwd(), "auth.json");
+  return agentRoot ? path.join(path.resolve(agentRoot), "auth.json") : null;
 }
 
 function desktopSessionId(): string {
@@ -249,14 +291,6 @@ function parseJsonResponse(text: string): Record<string, unknown> {
   } catch {
     throw new Error("QVeris returned an invalid JSON response");
   }
-}
-
-function safeErrorMessage(payload: Record<string, unknown>, fallback: string): string {
-  const candidate = payload.error_message || payload.error || payload.message || fallback;
-  return String(candidate)
-    .replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]")
-    .replace(/\b(?:sk|qv)[-_][A-Za-z0-9_-]{8,}\b/g, "[REDACTED]")
-    .slice(0, 400);
 }
 
 function clampInteger(value: number, minimum: number, maximum: number): number {

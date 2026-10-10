@@ -4,6 +4,7 @@ export const ACTIVE_TASK_STATUSES = new Set(["running", "needs_input", "blocked"
 
 function localizedStatus(status) {
   const labels = {
+    draft: t("Draft"),
     pending: t("Pending"),
     running: t("Running"),
     paused: t("Paused"),
@@ -73,6 +74,7 @@ export function normalizeSuperAgentTask(task) {
 export function markTaskForDispatch(task, { superAgentPort = null, childPort = null, now } = {}) {
   const timestamp = now || new Date().toISOString();
   const normalized = normalizeSuperAgentTask(task);
+  const freshRun = normalized.status === "pending";
   return {
     ...normalized,
     status: "running",
@@ -82,7 +84,10 @@ export function markTaskForDispatch(task, { superAgentPort = null, childPort = n
       targetProject: normalized.targetProject || normalized.dispatch.targetProject,
       superAgentPort,
       childPort,
-      startedAt: normalized.dispatch.startedAt || timestamp,
+      childWorkspaceId: freshRun ? null : normalized.dispatch.childWorkspaceId,
+      childInstanceId: freshRun ? null : normalized.dispatch.childInstanceId,
+      childSessionId: freshRun ? null : normalized.dispatch.childSessionId,
+      startedAt: freshRun ? timestamp : normalized.dispatch.startedAt || timestamp,
       finishedAt: null,
     },
     events: [

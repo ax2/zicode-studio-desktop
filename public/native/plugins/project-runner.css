@@ -1,0 +1,77 @@
+.project-runner,
+.project-runner-task-groups,
+.project-runner-filter,
+.project-runner-output,
+.project-runner-list,
+.project-runner-list li,
+.project-runner-output label {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.project-runner {
+  padding: var(--space-5);
+}
+
+.project-runner-filter input {
+  width: 100%;
+  min-width: 0;
+}
+
+.project-runner-task-group {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.project-runner-header strong,
+.project-runner-task-group h3 {
+  overflow-wrap: anywhere;
+}
+
+.project-runner h2,
+.project-runner h3,
+.project-runner p,
+.project-runner-list {
+  margin: 0;
+}
+
+.project-runner-list {
+  list-style: none;
+  padding: 0;
+}
+
+.project-runner-list li {
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.project-runner-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.project-runner-filter-actions,
+.project-runner-task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.project-runner code,
+.project-runner p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.project-runner textarea {
+  width: 100%;
+  resize: vertical;
+  white-space: pre;
+}

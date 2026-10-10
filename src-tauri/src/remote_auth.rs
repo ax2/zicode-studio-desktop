@@ -4,7 +4,6 @@ use crate::metadata_store::{MetadataStore, PairedDeviceRecord};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, VecDeque};
 use std::net::IpAddr;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
@@ -36,23 +35,16 @@ pub struct RemoteAuth {
 }
 
 impl RemoteAuth {
+    pub(crate) fn metadata_store(&self) -> Arc<Mutex<MetadataStore>> {
+        Arc::clone(&self.store)
+    }
+
     pub fn new(store: Arc<Mutex<MetadataStore>>) -> Self {
         Self {
             store,
             pending: HashMap::new(),
             exchange_failures: HashMap::new(),
         }
-    }
-
-    /// Resolve (or mint) the stable workspace id for a project path. Shares the
-    /// same metadata store that native windows use, so LAN/mobile clients get
-    /// the identical workspace id and can reuse any live runtime instead of
-    /// spawning a duplicate for the same session file.
-    pub fn resolve_workspace(&self, path: &Path) -> Result<String, String> {
-        self.store
-            .lock()
-            .map_err(|_| "metadata store poisoned".to_string())?
-            .workspace_id_for_path(path)
     }
 
     pub fn create_pairing(&mut self, now: u64) -> Pairing {

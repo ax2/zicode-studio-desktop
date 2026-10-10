@@ -1,0 +1,73 @@
+{
+  "status": "unsigned immutable receiver test fixture; not signed or full Host accepted",
+  "producer_revision": "6b23a7153e5ad48d288da40d8f0c5cefac7f72fb",
+  "producer_dirty": true,
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "files": [
+    {
+      "path": "catalog.json",
+      "bytes": 1542,
+      "sha256": "96adee33d63e8df7e0ce1658c1737be9a4498a39fdb7fb82f6b8359882cf3c08"
+    },
+    {
+      "path": "fixtures/text.json",
+      "bytes": 3460,
+      "sha256": "6b36ed7bb777ca31742ce7a7dd9da19b78d8c86a4487016bb8f61c15c5f3cde4"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 215,
+      "sha256": "e8d2ca1b4d47c545ec21c51307255fe03adb98b60490c627d611555f9bc05e78"
+    },
+    {
+      "path": "plugin.json",
+      "bytes": 5976,
+      "sha256": "2fc693a8c661c689dd77942f0a795a20ba8bb655a5371774a0b28fc5b727d2b2"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 1337,
+      "sha256": "7fdb2aa6533d540da1e37ba643d41795a378fa6885d421e40d55bdbd9b13e9c2"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2030,
+      "sha256": "650f0673b96211371c2b586f7d6664f5004bb51ccb0c8ddb680b2156ecd12b37"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "bytes": 220439,
+      "sha256": "abfd0dbe45c064c4f8e40a5945c004694eb356cdf13688f8d7adf6536e64f20a"
+    },
+    {
+      "path": "schemas/delivery.schema.json",
+      "bytes": 1758,
+      "sha256": "1c6cd9b5ecdea721cc28b4fdb0b3df2bb6619b619e7b034dfeb4e2af73f7a967"
+    },
+    {
+      "path": "schemas/input.schema.json",
+      "bytes": 240,
+      "sha256": "8cdb632eb4532a1575fa00a8d47580f71fcea9c9178552384ecdcaa54b53bd7b"
+    },
+    {
+      "path": "schemas/request.schema.json",
+      "bytes": 1038,
+      "sha256": "8149ad109970d8579de0ee57ad73024e760ef405461e37ce0fe1ff40036bb8c0"
+    },
+    {
+      "path": "schemas/result.schema.json",
+      "bytes": 1751,
+      "sha256": "ca41c8ddba049431662e75c8a0d3b7c78ee49cd8f4eb49d8f99d2e559151c30f"
+    },
+    {
+      "path": "views/main.html",
+      "bytes": 9171,
+      "sha256": "291c722d6d05839fac2cec33b39ecb5348cb8be99469eb34ec47e9fc9fb59625"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "source": {
+    "revision": "6b23a7153e5ad48d288da40d8f0c5cefac7f72fb",
+    "dirty": true
+  },
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "contractIndexSha256": "dd0688c009fa2d0600ab2d5af038a19efb5e1e26910619c1aede84aa668873f9",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "status": "unsigned candidate; not Host-accepted",
+  "sourceFiles": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "17a9eee3089fe3b53e97d011e2c4f3c8d10ea296f9f3211df8551d5649163bba"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "fb212340749ab8ffa0825122b574ea84e60e8cd4bbb57e921c7c8011d8271d4d"
+    },
+    {
+      "path": "plugins/text/views/main.html",
+      "sha256": "291c722d6d05839fac2cec33b39ecb5348cb8be99469eb34ec47e9fc9fb59625"
+    },
+    {
+      "path": "crates/zi-text-core/src/lib.rs",
+      "sha256": "1eea1934ea3f2870035a7ec58f7a8686a7dc16008e1dc2c6a183c58253a868ce"
+    },
+    {
+      "path": "crates/zi-text-wasi/src/main.rs",
+      "sha256": "faf8d3a7f3ede807e1be02e90340a87396ac345e6755b9da86575ab53a140143"
+    },
+    {
+      "path": "crates/zi-text-core/Cargo.toml",
+      "sha256": "8977c68accdc172dcb5d6ceb55e016d903746e57a25aaeda40f4504c3bd723c8"
+    },
+    {
+      "path": "crates/zi-text-wasi/Cargo.toml",
+      "sha256": "0b2518e380a0ac725050e917b297a4bbe415e022a0a7f770b00630977cae9719"
+    }
+  ]
+}

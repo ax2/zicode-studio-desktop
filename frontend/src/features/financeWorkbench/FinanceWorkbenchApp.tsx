@@ -4,6 +4,7 @@ import { Select } from "../../shared/Select";
 import {
   asArray,
   FINANCE_VIEWS,
+  type FinanceViewDefinition,
   financeGroupLabel,
   financeViewLabel,
   number,
@@ -14,7 +15,6 @@ import {
   samplePaperOrder,
   sampleScreening,
   sampleSnapshot,
-  type FinanceViewDefinition,
 } from "./financeWorkbenchLogic";
 import type { FinanceWorkbenchStoreHook } from "./financeWorkbenchStore";
 
@@ -33,9 +33,7 @@ const PAPER_CURRENCIES = [
 ];
 
 function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 export interface FinanceWorkbenchController {
@@ -53,11 +51,7 @@ export interface FinanceWorkbenchController {
   saveResearchCard(card: Record<string, unknown>): void;
   removeResearchCard(id: string): void;
   refreshPaperAccounts(): void;
-  createPaperAccount(account: {
-    name: string;
-    baseCurrency: string;
-    initialCash: number;
-  }): void;
+  createPaperAccount(account: { name: string; baseCurrency: string; initialCash: number }): void;
   removePaperAccount(accountId: string): void;
   recordPaperOrder(input: string): void;
   manageLimitOrder(input: string): void;
@@ -158,7 +152,11 @@ function MetricGrid({
 }
 
 function DiscoveryResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Capability discovery failed.")} />;
   }
@@ -177,7 +175,9 @@ function DiscoveryResults({ response }: { response: unknown }) {
             {String(item.name || item.capability || item.tool_id || t("Unknown capability"))}
           </strong>
           <span>
-            {[item.provider_name, item.expected_cost || item.cost_class].filter(Boolean).join(" · ")}
+            {[item.provider_name, item.expected_cost || item.cost_class]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
           <code>{String(item.tool_id || "")}</code>
         </div>
@@ -188,7 +188,11 @@ function DiscoveryResults({ response }: { response: unknown }) {
 }
 
 function SnapshotsResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not load snapshots.")} />;
   }
@@ -217,7 +221,11 @@ function SnapshotsResults({ response }: { response: unknown }) {
 }
 
 function BacktestResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Backtest failed.")} />;
   }
@@ -244,7 +252,11 @@ function BacktestResults({ response }: { response: unknown }) {
 }
 
 function UsageResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not load usage audit.")} />;
   }
@@ -276,7 +288,11 @@ function UsageResults({ response }: { response: unknown }) {
 }
 
 function ScreeningResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Screening failed.")} />;
   }
@@ -355,7 +371,11 @@ function ResearchResults({
   controller: FinanceWorkbenchController;
   onEdit(card: Record<string, unknown>): void;
 }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not load research workspace")} />;
   }
@@ -424,11 +444,7 @@ function ResearchResults({
               <ResearchSection label={t("Bull case")} value={card.bullCase} tone="positive" />
               <ResearchSection label={t("Bear case")} value={card.bearCase} tone="negative" />
             </div>
-            <ResearchSection
-              label={t("Invalidation")}
-              value={card.invalidation}
-              tone="warning"
-            />
+            <ResearchSection label={t("Invalidation")} value={card.invalidation} tone="warning" />
             <SourcesSection sources={card.sources} />
           </article>
         ))}
@@ -444,7 +460,11 @@ function PaperAccountsResults({
   response: unknown;
   onRemove(accountId: string): void;
 }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not load paper accounts.")} />;
   }
@@ -480,7 +500,11 @@ function PaperAccountsResults({
 }
 
 function LimitOrderResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not manage limit order.")} />;
   }
@@ -510,7 +534,11 @@ function LimitOrderResults({ response }: { response: unknown }) {
 }
 
 function PortfolioMarkResults({ response }: { response: unknown }) {
-  const result = (response ?? {}) as { ok?: boolean; error?: string; data?: Record<string, unknown> };
+  const result = (response ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    data?: Record<string, unknown>;
+  };
   if (!result?.ok) {
     return <ResultMessage value={result?.error || t("Could not mark portfolio.")} />;
   }
@@ -685,15 +713,11 @@ function OverviewView({
     status?.state === "connected"
       ? t("Key configured")
       : status?.state === "missing"
-        ? t("Key required")
+        ? t("Optional data key not configured")
         : status?.state === "unavailable"
           ? t("Unavailable")
           : t("Checking…");
   const steps: Array<{ label: string; action: () => void }> = [
-    {
-      label: t("Configure the data key and check usage."),
-      action: () => controller.openConfiguration(),
-    },
     {
       label: t("Create a research card for a symbol."),
       action: () => controller.selectView("research"),
@@ -706,6 +730,10 @@ function OverviewView({
       label: t("Track results in a paper account."),
       action: () => controller.selectView("paper"),
     },
+    {
+      label: t("Optionally connect QVeris data and check usage."),
+      action: () => controller.openConfiguration(),
+    },
   ];
   return (
     <section
@@ -713,9 +741,14 @@ function OverviewView({
       data-finance-view="overview"
     >
       <div className="finance-section-heading">
-        <h3>{t("QVeris financial data")}</h3>
-        <p>{t("Live and historical capabilities")}</p>
+        <h3>{t("Finance workspace")}</h3>
+        <p>
+          {t(
+            "Local research, backtests, screening, and paper trading work without an external data key.",
+          )}
+        </p>
       </div>
+      <h4>{t("Optional QVeris market data")}</h4>
       <div className="finance-form-actions">
         <span className="finance-status" data-status={status?.state ?? "checking"}>
           {statusText}
@@ -724,7 +757,7 @@ function OverviewView({
           type="button"
           className="ui-button ui-button--secondary ui-button--sm"
           onClick={() => controller.runUsage()}
-          disabled={Boolean(busy.usage)}
+          disabled={Boolean(busy.usage) || status?.state !== "connected"}
         >
           {t("Usage & credits")}
         </button>
@@ -733,7 +766,7 @@ function OverviewView({
           className="ui-button ui-button--ghost ui-button--sm"
           onClick={() => controller.openConfiguration()}
         >
-          {t("Configure data key")}
+          {t("Configure QVeris key")}
         </button>
       </div>
       {usage ? <UsageResults response={usage} /> : null}
@@ -742,7 +775,11 @@ function OverviewView({
         <ol>
           {steps.map((step) => (
             <li key={step.label}>
-              <button type="button" className="ui-button ui-button--ghost ui-button--sm" onClick={step.action}>
+              <button
+                type="button"
+                className="ui-button ui-button--ghost ui-button--sm"
+                onClick={step.action}
+              >
                 {step.label}
               </button>
             </li>
@@ -766,10 +803,7 @@ function SectionShell({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      className="ui-card finance-plugin-section"
-      data-finance-view={view.id}
-    >
+    <section className="ui-card finance-plugin-section" data-finance-view={view.id}>
       <div className="finance-section-heading">
         <h3>{financeViewLabel(view)}</h3>
         <p>{t(descriptionKey)}</p>
@@ -851,9 +885,7 @@ export function FinanceContentApp({
     setInputValue("researchTitle", String(card.title ?? ""));
     if (card.eventAt) {
       const eventDate = new Date(String(card.eventAt));
-      const local = new Date(
-        eventDate.getTime() - eventDate.getTimezoneOffset() * 60_000,
-      )
+      const local = new Date(eventDate.getTime() - eventDate.getTimezoneOffset() * 60_000)
         .toISOString()
         .slice(0, 16);
       setInputValue("researchEvent", local);
@@ -886,7 +918,6 @@ export function FinanceContentApp({
     }
     setEditingResearchCardId(null);
   };
-
 
   if (sceneId !== "finance") {
     return (
@@ -931,7 +962,10 @@ export function FinanceContentApp({
       return <OverviewView store={store} controller={controller} />;
     case "discovery":
       return (
-        <SectionShell view={FINANCE_VIEWS[1]} descriptionKey="Discover is free; inspect cost before calling.">
+        <SectionShell
+          view={FINANCE_VIEWS[1]}
+          descriptionKey="Discover is free; inspect cost before calling."
+        >
           <form
             className="finance-form"
             aria-busy={Boolean(busy.discovery)}
@@ -963,7 +997,12 @@ export function FinanceContentApp({
               >
                 {t("Clear")}
               </button>
-              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.discovery)} aria-busy={Boolean(busy.discovery)}>
+              <button
+                type="submit"
+                className="ui-button ui-button--primary"
+                disabled={Boolean(busy.discovery)}
+                aria-busy={Boolean(busy.discovery)}
+              >
                 {t("Discover")}
               </button>
             </div>
@@ -975,7 +1014,7 @@ export function FinanceContentApp({
       return (
         <SectionShell
           view={FINANCE_VIEWS[2]}
-          descriptionKey="Preserve as-of time, currency and QVeris execution provenance."
+          descriptionKey="Preserve as-of time, currency and the source of each snapshot. Sample values are illustrative only."
         >
           <JsonForm
             busy={Boolean(busy.snapshot)}
@@ -983,7 +1022,7 @@ export function FinanceContentApp({
             submitLabel={t("Save snapshot")}
             value={inputValue("snapshot")}
             onChange={(value) => setInputValue("snapshot", value)}
-            placeholder='{"kind":"quote","symbol":"600519.SH","currency":"CNY","asOf":"...","source":{"provider":"QVeris","executionId":"exec_..."},"payload":{"price":1400}}'
+            placeholder='{"kind":"quote","symbol":"DEMO","currency":"USD","asOf":"2026-01-01T00:00:00Z","source":{"provider":"Illustrative sample"},"payload":{"price":100}}'
             onSubmit={(input) => controller.saveSnapshot(input)}
           />
           <div className="finance-form-actions">
@@ -1165,12 +1204,23 @@ export function FinanceContentApp({
               >
                 {editingResearchCardId ? t("Cancel editing") : t("Clear")}
               </button>
-              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.research)} aria-busy={Boolean(busy.research)}>
+              <button
+                type="submit"
+                className="ui-button ui-button--primary"
+                disabled={Boolean(busy.research)}
+                aria-busy={Boolean(busy.research)}
+              >
                 {editingResearchCardId ? t("Update research card") : t("Save research card")}
               </button>
             </div>
           </form>
-          {research ? <ResearchResults response={research} controller={controller} onEdit={startEditResearchCard} /> : null}
+          {research ? (
+            <ResearchResults
+              response={research}
+              controller={controller}
+              onEdit={startEditResearchCard}
+            />
+          ) : null}
         </SectionShell>
       );
     case "paper":
@@ -1253,7 +1303,12 @@ export function FinanceContentApp({
               >
                 {t("Clear")}
               </button>
-              <button type="submit" className="ui-button ui-button--primary" disabled={Boolean(busy.paperAccount)} aria-busy={Boolean(busy.paperAccount)}>
+              <button
+                type="submit"
+                className="ui-button ui-button--primary"
+                disabled={Boolean(busy.paperAccount)}
+                aria-busy={Boolean(busy.paperAccount)}
+              >
                 {t("Create account")}
               </button>
             </div>
@@ -1270,20 +1325,18 @@ export function FinanceContentApp({
             submitLabel={t("Record simulated order")}
             value={inputValue("paperOrder")}
             onChange={(value) => setInputValue("paperOrder", value)}
-            placeholder='{"accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"snapshot":{"price":1400,"asOf":"2026-07-30T07:00:00Z","source":"QVeris execution id"}}'
+            placeholder='{"accountId":"...","symbol":"DEMO","side":"buy","quantity":100,"snapshot":{"price":100,"asOf":"2026-01-01T00:00:00Z","source":"Illustrative sample"}}'
             onSubmit={(input) => controller.recordPaperOrder(input)}
           />
           {paperOrder ? <ResultMessage value={paperOrder as string} /> : null}
-          <p className="finance-json-hint">
-            {t("Supported actions: place, cancel, process.")}
-          </p>
+          <p className="finance-json-hint">{t("Supported actions: place, cancel, process.")}</p>
           <JsonForm
             busy={Boolean(busy.paperLimit)}
             sample={samplePaperLimit()}
             submitLabel={t("Manage limit order")}
             value={inputValue("paperLimit")}
             onChange={(value) => setInputValue("paperLimit", value)}
-            placeholder='{"action":"place","accountId":"...","symbol":"600519.SH","side":"buy","quantity":100,"limitPrice":1380,"currency":"CNY"}'
+            placeholder='{"action":"place","accountId":"...","symbol":"DEMO","side":"buy","quantity":100,"limitPrice":99,"currency":"USD"}'
             onSubmit={(input) => controller.manageLimitOrder(input)}
           />
           {paperLimit ? <LimitOrderResults response={paperLimit} /> : null}
@@ -1293,7 +1346,7 @@ export function FinanceContentApp({
             submitLabel={t("Mark portfolio")}
             value={inputValue("paperMark")}
             onChange={(value) => setInputValue("paperMark", value)}
-            placeholder='{"accountId":"...","quotes":[{"symbol":"600519.SH","price":1410,"asOf":"...","source":"QVeris exec_...","currency":"CNY"}]}'
+            placeholder='{"accountId":"...","quotes":[{"symbol":"DEMO","price":101,"asOf":"2026-01-01T00:00:00Z","source":"Illustrative sample","currency":"USD"}]}'
             onSubmit={(input) => controller.markPortfolio(input)}
           />
           {paperMark ? <PortfolioMarkResults response={paperMark} /> : null}

@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { t } from "../../shared/i18n";
 import {
   SessionSidebarApp,
   type SessionSidebarController,
 } from "./SessionSidebarApp";
-import { t } from "../../shared/i18n";
 import type { SessionSummary } from "./sessionSidebarLogic";
 import { createSidebarStore } from "./sessionSidebarStore";
 

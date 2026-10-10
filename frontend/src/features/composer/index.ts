@@ -1,34 +1,35 @@
-export { createModelDropdownFeed } from "./modelDropdown";
-export type { ModelDropdownFeed, ModelDropdownSnapshot, ModelLike } from "./modelDropdown";
-export { defaultProcessImageFile } from "./imageLogic";
 export type { ImageItem } from "./imageLogic";
+export { defaultProcessImageFile } from "./imageLogic";
+export type { ModelDropdownFeed, ModelDropdownSnapshot, ModelLike } from "./modelDropdown";
+export { createModelDropdownFeed } from "./modelDropdown";
+export type { SlashCommand, SlashMenuState } from "./slashMenu";
 export {
   activeSlashQuery,
   computeSlashMatches,
   titleCaseCommandName,
 } from "./slashMenu";
-export type { SlashCommand, SlashMenuState } from "./slashMenu";
+
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { create } from "zustand";
+// @ts-expect-error plain JS module without type declarations (public/native/)
+import { setupMobileHistoryLayer } from "../../../../public/native/utils/mobile-history-layer.js";
+// @ts-expect-error plain JS modules without type declarations (public/)
+import { MOBILE_SHELL_QUERY } from "../../../../public/ui/sidebar-toggle.js";
 import { t } from "../../shared/i18n";
 import { ComposerApp, type ComposerStore } from "./ComposerApp";
+import {
+  getComposerStore,
+  setComposerStore,
+} from "./composerStore";
 import {
   defaultProcessImageFile,
   filterImageFiles,
   type ImageItem,
 } from "./imageLogic";
-import { EMPTY_SLASH_STATE, computeSlashMatches } from "./slashMenu";
-import {
-  getComposerStore,
-  setComposerStore,
-} from "./composerStore";
 import type { SlashCommand } from "./slashMenu";
-// @ts-expect-error plain JS modules without type declarations (public/)
-import { MOBILE_SHELL_QUERY } from "../../../../public/ui/sidebar-toggle.js";
-// @ts-expect-error plain JS module without type declarations (public/native/)
-import { setupMobileHistoryLayer } from "../../../../public/native/utils/mobile-history-layer.js";
+import { computeSlashMatches, EMPTY_SLASH_STATE } from "./slashMenu";
 
 export interface ComposerElements {
   input: HTMLTextAreaElement;

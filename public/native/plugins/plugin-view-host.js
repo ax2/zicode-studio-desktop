@@ -1,4 +1,12 @@
 import { t } from "../../i18n.js";
+import { createPluginResourceSelection } from "./plugin-resource-selection.js";
+import { createPluginResultActions } from "./plugin-result-actions.js";
+import { publicViewError } from "./plugin-view-errors.js";
+import { readPluginViewResource, resourceViewTarget } from "./plugin-view-resource.js";
+import { createResourceComputation } from "./plugin-view-resource-compute.js";
+import { createResourcePreview } from "./plugin-resource-preview.js";
+import { createResourceTransfer } from "./plugin-resource-transfer.js";
+import { createResourceSave } from "./plugin-resource-save.js";
 
 const MESSAGE_NAMESPACE = "zicode-plugin-view";
 const MAX_MESSAGE_CHARS = 64 * 1024;
@@ -6,6 +14,7 @@ const MAX_ACTIVE_REQUESTS = 32;
 
 export function setupPluginViewHost({
   gateway,
+  allowExternalViews = true,
   capabilityGateway = null,
   getTarget = () => null,
   notify = () => {},
@@ -23,11 +32,19 @@ export function setupPluginViewHost({
   }
 
   function renderContent(container, plugin) {
+    if (container) container.scrollTop = 0;
     renderLocation(container, plugin, "main");
   }
 
   function renderLocation(container, plugin, location) {
-    if (!container || plugin?.origin !== "developer") return;
+    if (!container || (plugin?.origin !== "developer" && plugin?.origin !== "signed")) return;
+    if (!allowExternalViews) {
+      const notice = document.createElement("p");
+      notice.className = "plugin-view-empty";
+      notice.textContent = t("External plugin views are available in the desktop app.");
+      container.append(notice);
+      return;
+    }
     const views = (plugin.views ?? []).filter(
       (view) => view.location === location && typeof view.entry === "string",
     );
@@ -97,10 +114,63 @@ export function setupPluginViewHost({
         plugin,
         requests: 0,
         sceneId: getTarget()?.sceneId ?? "programming",
+        resourceTarget: resourceViewTarget(getTarget()),
         view,
       };
       instances.set(instanceKey, instance);
       container.replaceChildren(iframe);
+      if (location === "main" && typeof capabilityGateway?.readResource === "function") {
+        const isCurrent = () => instances.get(instanceKey) === instance && iframe.isConnected &&
+          instance.resourceTarget === resourceViewTarget(getTarget());
+        if (typeof capabilityGateway.prepareResourceTransfer === "function") {
+          instance.resourceTransfer = createResourceTransfer({ gateway: capabilityGateway, getTarget, isCurrent,
+            onSave: typeof capabilityGateway.prepareResourceSave === "function" ? (...args) => instance.resourceSave?.open(...args) : undefined,
+            onSaveClear: () => instance.resourceSave?.clear(),
+          });
+        }
+        if (typeof capabilityGateway.prepareResourceSave === "function") {
+          instance.resourceSave = createResourceSave({ gateway: capabilityGateway, getTarget, isCurrent, notify });
+        }
+        instance.resourcePreview = createResourcePreview({ container, plugin, isCurrent,
+          onTransfer: instance.resourceTransfer ? (...args) => instance.resourceTransfer.open(...args) : undefined,
+          onSave: instance.resourceSave ? (...args) => instance.resourceSave.open(...args) : undefined,
+          onClear: () => { instance.resourceTransfer?.clear(); instance.resourceSave?.clear(); },
+          read: (owner, resource, offset, length, valid) => readPluginViewResource({ instance,
+            gateway: capabilityGateway, target: getTarget(), isCurrent: () => isCurrent() && valid(),
+            params: { capabilityId: owner.capabilityId, resourceId: resource.resourceId,
+              contentVersion: resource.contentVersion, offset, length } }),
+        });
+      }
+      if (
+        location === "main" &&
+        plugin.permissions?.["resource.read"] === true &&
+        getTarget()?.instanceId &&
+        getTarget()?.sessionId &&
+        typeof capabilityGateway?.prepareResource === "function"
+      ) {
+        instance.resourceSelection = createPluginResourceSelection({
+          container,
+          plugin,
+          target: getTarget(),
+          gateway: capabilityGateway,
+          isCurrent: () =>
+            instances.get(instanceKey) === instance &&
+            iframe.isConnected &&
+            instance.resourceTarget === resourceViewTarget(getTarget()),
+          onResource: (resource) => { if (!resource) instance.resourcePreview?.clear(); post(instance, { type: "resource", resource }); },
+        });
+      }
+      if (typeof capabilityGateway?.prepareSave === "function") {
+        instance.resultActions = createPluginResultActions({
+          container,
+          gateway: capabilityGateway,
+          isCurrent: (scope) =>
+            instances.get(instanceKey) === instance &&
+            container.isConnected &&
+            scope?.workspaceId === (getTarget()?.workspaceId ?? "") &&
+            scope?.sceneId === (getTarget()?.sceneId ?? "programming"),
+        });
+      }
     } catch (error) {
       if (mountGeneration !== generation || !container.isConnected) return;
       const panel = document.createElement("div");
@@ -142,21 +212,50 @@ export function setupPluginViewHost({
       return;
     }
     if (data.type !== "request" || typeof data.requestId !== "string") return;
-    if (instance.requests >= MAX_ACTIVE_REQUESTS) {
+    const counter = data.method === "cancelResource" ? "cancelRequests" : "requests";
+    const limit = counter === "cancelRequests" ? 2 : MAX_ACTIVE_REQUESTS;
+    if ((instance[counter] ?? 0) >= limit) {
       respond(instance, data.requestId, null, "Too many active plugin view requests");
       return;
     }
-    instance.requests += 1;
+    instance[counter] = (instance[counter] ?? 0) + 1;
     void handleRequest(instance, data)
       .then((result) => respond(instance, data.requestId, result))
-      .catch((error) => respond(instance, data.requestId, null, error?.message ?? String(error)))
+      .catch((error) =>
+        respond(instance, data.requestId, null, error ?? new Error("Plugin request failed")),
+      )
       .finally(() => {
-        instance.requests = Math.max(0, instance.requests - 1);
+        instance[counter] = Math.max(0, instance[counter] - 1);
       });
   }
 
   async function handleRequest(instance, request) {
     switch (request.method) {
+      case "invokeResource":
+      case "cancelResource": {
+        instance.resourceComputation ??= createResourceComputation({
+          instance,
+          gateway: capabilityGateway,
+          getTarget,
+          isCurrent: () =>
+            instances.get(instance.instanceKey) === instance && instance.iframe.isConnected,
+          onOutputs: (resources, owner) => instance.resourcePreview?.show(resources, owner),
+        });
+        return request.method === "invokeResource"
+          ? instance.resourceComputation.invoke(request.params)
+          : instance.resourceComputation.cancel(request.params);
+      }
+      case "readResource":
+        return readPluginViewResource({
+          instance,
+          gateway: capabilityGateway,
+          target: getTarget(),
+          params: request.params,
+          isCurrent: () =>
+            instances.get(instance.instanceKey) === instance &&
+            instance.iframe.isConnected &&
+            instance.resourceTarget === resourceViewTarget(getTarget()),
+        });
       case "notify": {
         const message = request.params?.message;
         if (typeof message !== "string" || !message.trim() || message.length > 1_000) {
@@ -184,13 +283,24 @@ export function setupPluginViewHost({
         // The Rust Host is authoritative for current Scene enablement and the
         // plugin's declared capabilities. Keeping this check there avoids a
         // stale frontend Registry snapshot rejecting a newly reloaded Worker.
+        const scope = {
+          sceneId: getTarget()?.sceneId ?? "programming",
+          workspaceId: getTarget()?.workspaceId ?? "",
+          pluginId: instance.plugin.id,
+          capabilityId,
+        };
+        const invocation = (instance.invocation ?? 0) + 1;
+        instance.invocation = invocation;
+        instance.resultActions?.clear();
         const response = await capabilityGateway.invoke(
-          getTarget()?.sceneId ?? "programming",
-          getTarget()?.workspaceId ?? "",
+          scope.sceneId,
+          scope.workspaceId,
           instance.plugin.id,
           capabilityId,
           request.params?.input ?? {},
+          ...(instance.resultActions ? [{ captureResult: true }] : []),
         );
+        if (instance.invocation === invocation) instance.resultActions?.show(response, scope);
         return response?.result;
       }
       case "getContext":
@@ -235,6 +345,12 @@ export function setupPluginViewHost({
 
   function disposeInstance(key) {
     const instance = instances.get(key);
+    instance?.resourceComputation?.destroy();
+    instance?.resourceTransfer?.destroy();
+    instance?.resourceSave?.destroy();
+    instance?.resourcePreview?.destroy();
+    instance?.resourceSelection?.destroy();
+    instance?.resultActions?.destroy();
     instance?.iframe.remove();
     instances.delete(key);
   }
@@ -257,7 +373,7 @@ function respond(instance, requestId, result, error = null) {
   post(instance, {
     type: "response",
     requestId,
-    ...(error ? { error } : { result }),
+    ...(error ? publicViewError(error) : { result }),
   });
 }
 
@@ -305,6 +421,12 @@ function sandboxBridge(channel) {
   const namespace = "zicode-plugin-view";
   const pending = new Map();
   let sequence = 0;
+  let selectedResource = null;
+  function failure(message, code) {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+  }
   let resolveContext;
   const context = new Promise((resolve) => {
     resolveContext = resolve;
@@ -313,9 +435,17 @@ function sandboxBridge(channel) {
     parent.postMessage({ namespace, channel, ...message }, "*");
   }
   function request(method, params) {
+    const cancellation = method === "cancelResource";
+    const cancelCount = [...pending.values()].filter((entry) => entry.cancellation).length;
+    if (cancellation ? cancelCount >= 2 : pending.size - cancelCount >= 32)
+      return Promise.reject(failure("Too many active plugin view requests", "plugin_view_busy"));
     const requestId = `view-${++sequence}`;
     return new Promise((resolve, reject) => {
-      pending.set(requestId, { reject, resolve });
+      const timeout = setTimeout(() => {
+        pending.delete(requestId);
+        reject(failure("Plugin view request timed out", "plugin_view_timeout"));
+      }, 30_000);
+      pending.set(requestId, { reject, resolve, timeout, cancellation });
       send({ type: "request", requestId, method, params });
     });
   }
@@ -323,6 +453,11 @@ function sandboxBridge(channel) {
     if (event.source !== parent) return;
     const message = event.data;
     if (message?.namespace !== namespace || message.channel !== channel) return;
+    if (message.type === "resource") {
+      selectedResource = message.resource ? Object.freeze({ ...message.resource }) : null;
+      window.dispatchEvent(new CustomEvent("zicode:resource", { detail: selectedResource }));
+      return;
+    }
     if (message.type === "context") {
       resolveContext(message.context);
       window.dispatchEvent(new CustomEvent("zicode:context", { detail: message.context }));
@@ -332,7 +467,16 @@ function sandboxBridge(channel) {
     const operation = pending.get(message.requestId);
     if (!operation) return;
     pending.delete(message.requestId);
-    if (message.error) operation.reject(new Error(message.error));
+    clearTimeout(operation.timeout);
+    if (message.error)
+      operation.reject(
+        failure(
+          message.error,
+          typeof message.errorCode === "string" && /^[a-z_]{1,64}$/.test(message.errorCode)
+            ? message.errorCode
+            : "plugin_request_failed",
+        ),
+      );
     else operation.resolve(message.result);
   });
   window.zicode = Object.freeze({
@@ -345,6 +489,17 @@ function sandboxBridge(channel) {
     }),
     capabilities: Object.freeze({
       invoke: (capabilityId, input = {}) => request("invokeCapability", { capabilityId, input }),
+    }),
+    resources: Object.freeze({
+      invoke: (options) => request("invokeResource", options),
+      cancel: (toolCallId) => request("cancelResource", { toolCallId }),
+      read: (options) => request("readResource", options),
+      getSelected: () => selectedResource,
+      onAvailable: (listener) => {
+        const handler = (event) => listener(event.detail);
+        window.addEventListener("zicode:resource", handler);
+        return { dispose: () => window.removeEventListener("zicode:resource", handler) };
+      },
     }),
   });
   send({ type: "ready" });

@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import { t } from "../../shared/i18n";
 import {
+  type AdaptedDashboard,
   adaptDashboardToInfobarPayload,
+  type DashboardPayload,
   DEFAULT_RANGE,
   FILTER_STORAGE_KEY,
   RANGE_DAYS,
-  type AdaptedDashboard,
-  type DashboardPayload,
 } from "./costDashboardLogic";
 
 export interface CostDashboardData {

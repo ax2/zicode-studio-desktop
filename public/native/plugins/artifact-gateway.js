@@ -1,3 +1,4 @@
+import { createSavedOutputGateway } from "./saved-output-gateway.js";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class ArtifactGateway {
@@ -14,6 +15,7 @@ export class ArtifactGateway {
     this.#fetch = fetchImpl;
     this.#location = location;
     this.#timeoutMs = timeoutMs;
+    this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
   }
 
   list(sceneId, workspaceId, filters = {}) {

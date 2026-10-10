@@ -50,11 +50,17 @@ pub struct CredentialMigrationReport {
 }
 
 pub fn store_scene_credential(scene_id: &str, provider: &str, secret: &str) -> Result<(), String> {
+    if crate::desktop_profile::is_isolated() {
+        return Err("System credentials are disabled in isolated desktop profiles".into());
+    }
     let root = crate::app_paths::data_root()?;
     store_scene_credential_at(&root, scene_id, provider, secret)
 }
 
 pub fn delete_scene_credential(scene_id: &str, provider: &str) -> Result<(), String> {
+    if crate::desktop_profile::is_isolated() {
+        return Err("System credentials are disabled in isolated desktop profiles".into());
+    }
     let root = crate::app_paths::data_root()?;
     validate_identifier("scene", scene_id)?;
     validate_identifier("provider", provider)?;
@@ -75,6 +81,9 @@ pub fn delete_scene_credential(scene_id: &str, provider: &str) -> Result<(), Str
 pub fn scene_credential_status(scene_id: &str, provider: &str) -> Result<CredentialStatus, String> {
     validate_identifier("scene", scene_id)?;
     validate_identifier("provider", provider)?;
+    if crate::desktop_profile::is_isolated() {
+        return Ok(CredentialStatus { scene_id: scene_id.into(), provider: provider.into(), configured: false, storage: "disabled", prefix: None });
+    }
     let account = credential_account(scene_id, provider);
     let password = keyring::Entry::new(SERVICE_NAME, &account)
         .and_then(|entry| entry.get_password())
@@ -97,6 +106,21 @@ pub fn scene_credential_status(scene_id: &str, provider: &str) -> Result<Credent
     })
 }
 
+/// Read only the explicitly selected scene/provider secret. Never return it to UI.
+pub fn model_tool_credential(scene_id: &str, provider: &str) -> Result<Option<String>, String> {
+    validate_identifier("scene", scene_id)?;
+    validate_identifier("provider", provider)?;
+    if crate::desktop_profile::is_isolated() {
+        return Ok(None);
+    }
+    let account = credential_account(scene_id, provider);
+    match keyring::Entry::new(SERVICE_NAME, &account).and_then(|entry| entry.get_password()) {
+        Ok(value) => Ok(Some(value)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(_) => Err("model_credential_unavailable".into()),
+    }
+}
+
 /// Moves every registered scene's legacy plaintext credential document into
 /// the OS vault during application startup. This closes the gap where a scene
 /// that has not been opened since the upgrade would otherwise retain its old
@@ -105,6 +129,9 @@ pub fn migrate_registered_scene_credentials<'a>(
     root: &Path,
     scene_ids: impl IntoIterator<Item = &'a str>,
 ) -> Result<CredentialMigrationReport, String> {
+    if crate::desktop_profile::is_isolated() {
+        return Ok(CredentialMigrationReport::default());
+    }
     let mut report = CredentialMigrationReport::default();
     let mut registered_scene_keys = std::collections::HashSet::new();
     for scene_id in scene_ids {
@@ -167,6 +194,9 @@ pub fn prepare_scene_credentials(
     scene_id: &str,
     agent_dir: &Path,
 ) -> Result<(), String> {
+    if crate::desktop_profile::is_isolated() {
+        return Ok(());
+    }
     let auth_path = agent_dir.join("auth.json");
     if auth_path.is_file() {
         migrate_legacy_auth(root, scene_id, &auth_path)?;
@@ -213,6 +243,9 @@ pub fn scene_provider_credentials(
     root: &Path,
     scene_id: &str,
 ) -> Result<Vec<(String, String)>, String> {
+    if crate::desktop_profile::is_isolated() {
+        return Ok(Vec::new());
+    }
     let index = read_index(root)?;
     let mut credentials = Vec::new();
     for item in index

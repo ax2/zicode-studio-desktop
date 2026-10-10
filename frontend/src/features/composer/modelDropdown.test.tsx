@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { fireEvent } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import {
   createModelDropdownFeed,
@@ -70,32 +70,25 @@ describe("model dropdown feed", () => {
       onRetry: vi.fn(),
       onClose: vi.fn(),
     };
-    const empty = createModelDropdownFeed(
+    let snapshot = { ...SNAPSHOT, models: [] };
+    const feed = createModelDropdownFeed(
       container,
-      () => ({ ...SNAPSHOT, models: [] }),
+      () => snapshot,
       callbacks,
     );
-    empty.render();
+    feed.render();
     expect(container.querySelector(".model-dropdown-empty-title")?.textContent).toBe(
       t("No models available"),
     );
 
-    const loading = createModelDropdownFeed(
-      container,
-      () => ({ ...SNAPSHOT, models: [], loading: true }),
-      callbacks,
-    );
-    loading.render();
+    snapshot = { ...SNAPSHOT, models: [], loading: true };
+    feed.render();
     expect(container.querySelector(".model-dropdown-empty-title")?.textContent).toBe(
       t("Loading models…"),
     );
 
-    const error = createModelDropdownFeed(
-      container,
-      () => ({ ...SNAPSHOT, models: [], error: "boom" }),
-      callbacks,
-    );
-    error.render();
+    snapshot = { ...SNAPSHOT, models: [], error: "boom" };
+    feed.render();
     expect(container.querySelector(".model-dropdown-empty-title")?.textContent).toBe(
       t("Models could not be loaded"),
     );

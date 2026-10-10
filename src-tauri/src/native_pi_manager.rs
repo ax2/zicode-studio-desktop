@@ -43,6 +43,7 @@ pub struct LaunchDescription {
 impl NativeLaunchSpec {
     pub fn command_description(&self) -> LaunchDescription {
         let mut args = Vec::new();
+        args.extend(crate::desktop_profile::pi_discovery_flags().iter().map(|flag| flag.to_string()));
         for extension in &self.extensions {
             args.push("--extension".into());
             args.push(extension.to_string_lossy().into_owned());
@@ -66,6 +67,7 @@ impl NativeLaunchSpec {
 }
 
 struct ManagedRuntime {
+    initial_target: RuntimeTarget,
     target: Arc<Mutex<RuntimeTarget>>,
     bridge: PiRpcBridge,
     process: Option<PiRpcProcess>,
@@ -123,6 +125,19 @@ impl NativePiManager {
         let _ = self.reap_stale_temporary_runtimes(TEMP_RUNTIME_GRACE);
         let launch = spec.command_description();
         let mut command = new_command(&launch.program);
+        crate::desktop_profile::configure_pi_child(&mut command);
+        // Model channels reference <PROVIDER>_API_KEY. Strip ambient keys from
+        // the desktop shell, then restore only this scene's broker credentials
+        // through the launch environment below.
+        for (name, _) in std::env::vars_os() {
+            if name
+                .to_string_lossy()
+                .to_ascii_uppercase()
+                .ends_with("_API_KEY")
+            {
+                command.env_remove(name);
+            }
+        }
         command
             .args(&launch.args)
             .envs(&launch.environment)
@@ -152,6 +167,7 @@ impl NativePiManager {
             .insert(
                 target.instance_id.clone(),
                 ManagedRuntime {
+                    initial_target: target.clone(),
                     target: Arc::new(Mutex::new(target.clone())),
                     bridge: bridge.clone(),
                     process: Some(process),
@@ -182,6 +198,7 @@ impl NativePiManager {
             .insert(
                 target.instance_id.clone(),
                 ManagedRuntime {
+                    initial_target: target.clone(),
                     target: Arc::new(Mutex::new(target.clone())),
                     bridge: bridge.clone(),
                     process: None,
@@ -245,6 +262,23 @@ impl NativePiManager {
             log::info!("[picot-native] reaped {reaped} stale temporary runtime(s)");
         }
         reaped
+    }
+
+    /// Check the process owned by this Host, rather than trusting a coordinator
+    /// record that may outlive a child process after an unexpected exit.
+    pub fn is_instance_live(&self, instance_id: &str) -> Result<bool, String> {
+        let mut runtimes = self
+            .inner
+            .runtimes
+            .lock()
+            .map_err(|_| "Native runtime registry lock poisoned".to_string())?;
+        let Some(runtime) = runtimes.get_mut(instance_id) else {
+            return Ok(false);
+        };
+        match runtime.process.as_mut() {
+            Some(process) => process.try_wait().map(|exit| exit.is_none()),
+            None => Ok(true),
+        }
     }
 
     #[cfg(test)]
@@ -489,7 +523,12 @@ impl NativePiManager {
             .remove(&target.instance_id)
             .ok_or_else(|| "Native runtime instance is not running".to_string())?;
         if let Some(process) = &mut runtime.process {
-            process.kill()?;
+            if process.try_wait()?.is_none() {
+                process.kill()?;
+            }
+            // TerminateProcess / SIGKILL requests are not an exit barrier.
+            // Wait before reporting stop so session/config files are released.
+            process.wait()?;
         }
         self.inner
             .coordinator
@@ -613,6 +652,34 @@ impl NativePiManager {
             event: binding_event.event,
         });
         Ok(formal)
+    }
+
+    /// Resolve credentials issued before this runtime's one-time session binding.
+    /// Never infer aliases from IDs alone: retain the actual registered launch target.
+    pub(crate) fn broker_target(&self, issued: &RuntimeTarget) -> Option<RuntimeTarget> {
+        let runtimes = self.inner.runtimes.lock().ok()?;
+        let runtime = runtimes.get(&issued.instance_id)?;
+        let current = runtime.target.lock().ok()?.clone();
+        if current == *issued {
+            return Some(current);
+        }
+        (runtime.initial_target == *issued
+            && issued.session_id.starts_with("temporary-")
+            && !current.session_id.starts_with("temporary-")
+            && current.workspace_id == issued.workspace_id
+            && current.scene_id == issued.scene_id
+            && current.instance_id == issued.instance_id)
+            .then_some(current)
+    }
+
+    /// Internal call ownership stays stable across the one-time session binding.
+    /// Callers must still authorize credentials against the current runtime.
+    pub(crate) fn broker_call_target(&self, target: &RuntimeTarget) -> Option<RuntimeTarget> {
+        let runtimes = self.inner.runtimes.lock().ok()?;
+        let runtime = runtimes.get(&target.instance_id)?;
+        let current = runtime.target.lock().ok()?;
+        (runtime.initial_target == *target || *current == *target)
+            .then(|| runtime.initial_target.clone())
     }
 
     pub fn snapshot(&self, target: &RuntimeTarget) -> Result<RuntimeSnapshot, String> {
@@ -858,8 +925,19 @@ mod tests {
         let temporary = RuntimeTarget::new("workspace-a", "temporary-a", "instance-a");
         let mut events = manager.subscribe();
         let mut fake = manager.register_in_memory(temporary.clone()).unwrap();
+        assert_eq!(manager.broker_call_target(&temporary), Some(temporary.clone()));
 
         let formal = manager.bind_session_id(&temporary, "session-a").unwrap();
+        assert_eq!(manager.broker_target(&temporary), Some(formal.clone()));
+        assert_eq!(manager.broker_target(&formal), Some(formal.clone()));
+        assert_eq!(manager.broker_call_target(&formal), Some(temporary.clone()));
+        let mut forged = temporary.clone();
+        forged.session_id = "temporary-foreign".into();
+        assert_eq!(manager.broker_target(&forged), None);
+        assert_eq!(manager.broker_call_target(&forged), None);
+        forged = temporary.clone();
+        forged.workspace_id = "foreign".into();
+        assert_eq!(manager.broker_target(&forged), None);
         let binding = events.recv().await.unwrap();
         assert_eq!(binding.target, temporary);
         assert_eq!(binding.event["type"], "session_bound");

@@ -1,0 +1,330 @@
+//! Trusted-parent resource computation candidate. No client paths or write authority.
+use super::*;
+use crate::plugin_capabilities::{validate_value, worker_process};
+use std::collections::VecDeque;
+use std::process::Stdio;
+use std::sync::atomic::Ordering;
+
+const PROFILE: &str = "resource.wasi.input.draft2";
+const WORKERS: usize = 2;
+mod lifecycle;
+mod output;
+struct Execution { result: Value, resources: Option<Value> }
+type Observer = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
+pub(crate) struct Workers {
+    slots: Arc<tokio::sync::Semaphore>,
+    events: Mutex<VecDeque<Value>>,
+    #[cfg(test)]
+    executable: Mutex<Option<PathBuf>>,
+    #[cfg(test)]
+    observer: Mutex<Option<Observer>>,
+}
+impl Default for Workers {
+    fn default() -> Self {
+        Self {
+            slots: Arc::new(tokio::sync::Semaphore::new(WORKERS)),
+            events: Mutex::new(VecDeque::new()),
+            #[cfg(test)]
+            executable: Mutex::new(None),
+            #[cfg(test)]
+            observer: Mutex::new(None),
+        }
+    }
+}
+
+impl Workers {
+    fn record(&self, event: Value) {
+        if let Ok(mut records) = self.events.lock() {
+            if records.len() >= 128 {
+                records.pop_front();
+            }
+            records.push_back(event);
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(in crate::host_server) struct Invoke {
+    access: Access,
+    tool_call_id: String,
+    input: Value,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(in crate::host_server) struct Cancel {
+    schema_version: u32,
+    owner: Owner,
+    tool_call_id: String,
+}
+
+fn call_scope(
+    state: &HostState,
+    owner: &Owner,
+    call: &str,
+) -> Result<(RuntimeTarget, String), ApiError> {
+    if uuid::Uuid::parse_str(call).is_err()
+        || owner.plugin_id.len() > 128
+        || owner.capability_id.len() > 128
+    {
+        return Err(rejected("resource_call_invalid"));
+    }
+    let current = state
+        .runtimes
+        .statuses()
+        .map_err(|_| rejected("runtime_unavailable"))?
+        .into_iter()
+        .find(|s| {
+            s.target.instance_id == owner.runtime_id && s.target.session_id == owner.session_id
+        })
+        .map(|s| s.target)
+        .ok_or_else(|| rejected("runtime_stopped"))?;
+    let target = state
+        .runtimes
+        .broker_call_target(&current)
+        .ok_or_else(|| rejected("runtime_stopped"))?;
+    // Hash the full tuple to avoid delimiter collisions and logging arbitrary client strings.
+    let key = sha256_hex(
+        &serde_json::to_vec(&json!([
+            "resource",
+            owner.plugin_id,
+            owner.capability_id,
+            call
+        ]))
+        .unwrap(),
+    );
+    Ok((target, key))
+}
+
+pub(in crate::host_server) async fn cancel(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+    Json(request): Json<Cancel>,
+) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    if request.schema_version != 1 {
+        return Err(rejected("resource_schema_unsupported"));
+    }
+    // Permit cancellation after the resource/permission was revoked; never grant new reads.
+    let (target, key) = call_scope(&state, &request.owner, &request.tool_call_id)?;
+    let (status, finished) = state
+        .plugin_calls
+        .cancel(&target.instance_id, &target.session_id, &key)
+        .map_err(rejected)?;
+    Ok(Json(
+        json!({"schemaVersion":1,"status":status,"executionFinished":finished}),
+    ))
+}
+
+pub(in crate::host_server) async fn audit(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    let events = state
+        .plugin_resource_workers
+        .events
+        .lock()
+        .map_err(|_| rejected("resource_audit_unavailable"))?;
+    Ok(Json(
+        json!({"schemaVersion":1,"persistent":false,"maxRecords":128,"records":events.iter().collect::<Vec<_>>()}),
+    ))
+}
+
+pub(in crate::host_server) async fn invoke(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+    Json(request): Json<Invoke>,
+) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    validate(&request.access)?;
+    let (target, key) = call_scope(&state, &request.access.owner, &request.tool_call_id)?;
+    // Admission precedes resource/module copies, without an unbounded waiting queue.
+    let permit = state
+        .plugin_resource_workers
+        .slots
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| {
+            plugin_api_error(
+                StatusCode::TOO_MANY_REQUESTS,
+                "resource_worker_busy",
+                "Resource computation is busy",
+            )
+        })?;
+    let lease = state
+        .plugin_calls
+        .begin(&target.instance_id, &target.session_id, &key)
+        .map_err(rejected)?;
+    tokio::task::spawn_blocking(move || {
+        let _permit=permit;
+        let lease=lease;
+        let started=Instant::now();
+        let operation_id=uuid::Uuid::new_v4().to_string();
+        let mut package_version=None;
+        let result=execute(&state,&request,&lease.flag,&mut package_version);
+            let error=result.as_ref().err().and_then(|(_,body)|body.0["error"]["code"].as_str());
+            state.plugin_resource_workers.record(json!({"operationId":operation_id,"pluginId":request.access.owner.plugin_id,"packageVersion":package_version,
+                "capabilityId":request.access.owner.capability_id,"durationMs":started.elapsed().as_millis(),
+                "ok":result.is_ok(),"errorCode":error}));
+        result.map(|execution| {
+            let mut response=json!({"schemaVersion":1,"operationId":operation_id,"source":{"pluginId":request.access.owner.plugin_id,"packageVersion":package_version,"capabilityId":request.access.owner.capability_id,"contentVersion":request.access.content_version,"profile":PROFILE},"result":execution.result});
+            if let Some(resources)=execution.resources { response["resources"]=resources; response["outputProfile"]=json!(crate::plugin_worker::resource_output::PROFILE); }
+            Json(response)
+        })
+    }).await.map_err(|_|rejected("resource_execution_failed"))?
+}
+
+fn execute(
+    state: &HostState,
+    request: &Invoke,
+    cancelled: &std::sync::atomic::AtomicBool,
+    package_version: &mut Option<String>,
+) -> Result<Execution, ApiError> {
+    if cancelled.load(Ordering::Acquire) {
+        return Err(rejected("worker_cancelled"));
+    }
+    let owner = &request.access.owner;
+    let (module, scene, binary, output_contract) = {
+        let registry = state
+            .plugins
+            .lock()
+            .map_err(|_| rejected("registry_unavailable"))?;
+        let target = state
+            .runtimes
+            .statuses()
+            .map_err(|_| rejected("runtime_unavailable"))?
+            .into_iter()
+            .find(|s| {
+                s.target.instance_id == owner.runtime_id && s.target.session_id == owner.session_id
+            })
+            .map(|s| s.target)
+            .ok_or_else(|| rejected("runtime_stopped"))?;
+        let plugin = registry
+            .list(&target.scene_id)
+            .into_iter()
+            .find(|p| p.manifest.id == owner.plugin_id && p.enabled)
+            .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
+        *package_version = Some(plugin.manifest.version.clone());
+        if plugin.permission_grants.get("resource.read") != Some(&true) {
+            return Err(plugin_api_error(
+                StatusCode::FORBIDDEN,
+                "permission_denied",
+                "",
+            ));
+        }
+        if plugin
+            .manifest
+            .runtime
+            .get("resourceInputProfile")
+            .and_then(Value::as_str)
+            != Some(PROFILE)
+        {
+            return Err(rejected("resource_profile_unsupported"));
+        }
+        let capability = registry
+            .capability(&target.scene_id, &owner.plugin_id, &owner.capability_id)
+            .ok_or_else(|| rejected("capability_unavailable"))?;
+        validate_value(&capability.input_schema, &request.input, "$")
+            .map_err(|_| rejected("invalid_parameters"))?;
+        let (path, kind) = registry
+            .plugin_runtime_entry(&target.scene_id, &owner.plugin_id)
+            .map_err(|_| rejected("resource_module_unavailable"))?;
+        if kind != "wasi" {
+            return Err(rejected("resource_profile_unsupported"));
+        }
+        let module = plugin_results::module_snapshot::read(&path)
+            .map_err(|_| rejected("resource_module_unavailable"))?;
+        let binary=output::selection(&plugin.manifest.runtime)?;
+        (module, target.scene_id, binary, capability)
+    };
+    // This proof incorporates the captured module bytes, not a later mutable file read.
+    let proof = identity_module(state, owner, None, Some(&module))?;
+    authority::check_ancestors(state, &request.access, &proof)?;
+    let resource = state
+        .plugin_resources
+        .lock()
+        .map_err(|_| rejected("resource_store_unavailable"))?
+        .snapshot(&request.access, &proof)?;
+    if identity(state, owner, None)? != proof {
+        return Err(rejected("resource_authorization_changed"));
+    }
+    let mut worker_request=json!({
+        "workerPath":"","workerKind":"wasi","pluginId":owner.plugin_id,"capabilityId":owner.capability_id,
+        "sceneId":scene,"input":request.input
+    });
+    if binary { worker_request["resourceOutputProfile"]=json!(crate::plugin_worker::resource_output::PROFILE); }
+    let frame=crate::plugin_worker::resource_input::encode_module_snapshot(worker_request,&[resource],&module).map_err(|_|rejected("resource_input_too_large"))?;
+    let executable =
+        std::env::current_exe().map_err(|_| rejected("resource_worker_unavailable"))?;
+    #[cfg(test)]
+    let executable = state
+        .plugin_resource_workers
+        .executable
+        .lock()
+        .unwrap()
+        .clone()
+        .unwrap_or(executable);
+    let mut command = crate::process_command::new_command(executable);
+    command
+        .arg("--zicode-plugin-worker")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    #[cfg(test)]
+    let observer = state
+        .plugin_resource_workers
+        .observer
+        .lock()
+        .unwrap()
+        .clone();
+    #[cfg(not(test))]
+    let observer: Option<Observer> = None;
+    let result = lifecycle::watch(cancelled, || {
+        identity(state, owner, None).is_ok_and(|current| current == proof)
+            && authority::check_ancestors(state, &request.access, &proof).is_ok()
+    }, || { if let Some(observer) = &observer { observer("authorization_lost", 0); } }, || worker_process::run_observed(
+        command,
+        frame,
+        Duration::from_secs(5),
+        if binary { crate::plugin_worker::resource_output::MAX_FRAME } else { 1024 * 1024 + 64 * 1024 },
+        Some(cancelled),
+        observer.as_deref().map(|f| f as &dyn Fn(&'static str, u32)),
+    ));
+    // Failed process cleanup is not an authorization rejection or a confirmed stop.
+    if let Err(error) = &result {
+        if error.code == "worker_cleanup_failed" {
+            return Err(rejected(error.code));
+        }
+    }
+    // Copied bytes cannot be withdrawn; stale authorization prevents returning results.
+    if identity(state, owner, None)? != proof {
+        return Err(rejected("resource_authorization_changed"));
+    }
+    authority::check_ancestors(state, &request.access, &proof)?;
+    let (status, output) = result.map_err(|e| rejected(e.code))?;
+    if cancelled.load(Ordering::Acquire) { return Err(rejected("worker_cancelled")); }
+    if binary && status.success() {
+        return output::register(state, request, &proof, &output, cancelled, &output_contract);
+    }
+    let response: Value =
+        serde_json::from_slice(&output).map_err(|_| rejected("worker_protocol_error"))?;
+    if !status.success() || response["ok"] != true {
+        return Err(rejected(crate::plugin_worker::failures::public(response["error"].as_str()).0));
+    }
+    let result = response
+        .get("result")
+        .filter(|r| !r.is_null())
+        .ok_or_else(|| rejected("worker_protocol_error"))?;
+    if serde_json::to_vec(result)
+        .map_err(|_| rejected("worker_protocol_error"))?
+        .len()
+        > 1024 * 1024
+    {
+        return Err(rejected("result_too_large"));
+    }
+    Ok(Execution { result: result.clone(), resources: None })
+}
+
+#[cfg(test)]
+mod tests;

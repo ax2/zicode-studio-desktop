@@ -61,16 +61,15 @@ describe("QVeris client", () => {
   it("sanitizes API failures without echoing bearer credentials", async () => {
     configureKey();
     const client = new QVerisClient({
-      fetchImpl: vi.fn(async () =>
-        new Response(JSON.stringify({ error: "Bearer qv-leaked-secret rejected" }), {
-          status: 401,
-        }),
+      fetchImpl: vi.fn(
+        async () =>
+          new Response(JSON.stringify({ error: "Bearer qv-leaked-secret rejected" }), {
+            status: 401,
+          }),
       ),
     });
 
-    await expect(client.discover({ query: "stock quote" })).rejects.not.toThrow(
-      "qv-leaked-secret",
-    );
+    await expect(client.discover({ query: "stock quote" })).rejects.not.toThrow("qv-leaked-secret");
   });
 
   it("normalizes transport failures into the QVeris error vocabulary", async () => {
@@ -104,8 +103,8 @@ describe("QVeris client", () => {
 
   it("uses authenticated context-safe GET queries for billing audit", async () => {
     configureKey();
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ status: "success", data: { items: [] } })),
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ status: "success", data: { items: [] } })),
     );
     const client = new QVerisClient({ fetchImpl });
 
@@ -126,8 +125,8 @@ describe("QVeris client", () => {
 
   it("honors a custom base URL for proxied or self-hosted deployments", async () => {
     configureKey();
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ search_id: "srch", results: [] })),
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ search_id: "srch", results: [] })),
     );
     const client = new QVerisClient({
       fetchImpl,
@@ -141,17 +140,17 @@ describe("QVeris client", () => {
     );
   });
 
-  it("honors the QVERIS_CAPABILITY_BASE_URL environment override", async () => {
+  it("does not let a host environment variable redirect the default credential target", async () => {
     configureKey();
     vi.stubEnv("QVERIS_CAPABILITY_BASE_URL", "https://proxy.example.com/api/v1/");
-    const fetchImpl = vi.fn(async () =>
-      new Response(JSON.stringify({ search_id: "srch", results: [] })),
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ search_id: "srch", results: [] })),
     );
     const client = new QVerisClient({ fetchImpl });
 
     await client.discover({ query: "stock quote" });
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://proxy.example.com/api/v1/search",
+      "https://qveris.ai/api/v1/search",
       expect.objectContaining({ method: "POST" }),
     );
   });

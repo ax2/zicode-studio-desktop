@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
 import type { Habit, HabitEntry } from "./habitsLogic";
 
 export interface HabitsScope {
@@ -97,6 +97,7 @@ export interface HabitsState {
   editingId: string | null;
   setDraft(patch: Partial<Pick<HabitsState, "draftName" | "draftEmoji" | "draftColor">>): void;
   load(): Promise<void>;
+  resetScope(): void;
   addHabit(): Promise<void>;
   startEdit(habit: Habit): void;
   cancelEdit(): void;
@@ -112,9 +113,9 @@ export interface HabitsOptions {
 }
 
 export function createHabitsStore(options: HabitsOptions) {
-    const { gateway = new HabitsHttpGateway(), getTarget, notify } = options;
-    let loadSeq = 0;
-    return create<HabitsState>()((set, get) => ({
+  const { gateway = new HabitsHttpGateway(), getTarget, notify } = options;
+  let loadSeq = 0;
+  return create<HabitsState>()((set, get) => ({
     habits: [],
     entries: [],
     busy: false,
@@ -128,18 +129,23 @@ export function createHabitsStore(options: HabitsOptions) {
       set({ ...patch, error: "" });
     },
 
-      async load() {
-        const seq = ++loadSeq;
-        set({ busy: true, error: "" });
-        try {
-          const result = await gateway.list(getTarget());
-          if (seq !== loadSeq) return;
-          set({ habits: result.habits, entries: result.entries, busy: false });
-        } catch (error) {
-          if (seq !== loadSeq) return;
-          set({ busy: false, error: friendlyPluginError(error) });
-        }
-      },
+    resetScope() {
+      loadSeq += 1;
+      set({ habits: [], entries: [], busy: false, error: "", draftName: "", editingId: null });
+    },
+
+    async load() {
+      const seq = ++loadSeq;
+      set({ busy: true, error: "" });
+      try {
+        const result = await gateway.list(getTarget());
+        if (seq !== loadSeq) return;
+        set({ habits: result.habits, entries: result.entries, busy: false });
+      } catch (error) {
+        if (seq !== loadSeq) return;
+        set({ busy: false, error: friendlyPluginError(error) });
+      }
+    },
 
     async addHabit() {
       const { draftName, draftEmoji, draftColor, busy } = get();

@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":true,"data":{"text":"{\n  \"counts\": {},\n  \"explicitNoIssues\": true,\n  \"items\": [],\n  \"notes\": \"只阅读输入的 check --deploy 输出，无法证明线上配置已生效；未知编号保留原文，不自动修复。\"\n}"},"error":null}

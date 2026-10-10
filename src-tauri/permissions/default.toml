@@ -154,9 +154,63 @@ identifier = "allow-restore-workspace-backup"
 description = "Allow restoring workspace app data from a snapshot (current state is snapshotted first)."
 commands.allow = ["restore_workspace_backup"]
 
+[[permission]]
+identifier = "allow-list-automation-workspaces"
+description = "Allow reading registered workspaces' automation status."
+commands.allow = ["list_automation_workspaces"]
+
+[[permission]]
+identifier = "allow-background-automation-worker-status"
+description = "Allow reading this device's background automation worker status."
+commands.allow = ["background_automation_worker_status"]
+
+[[permission]]
+identifier = "allow-start-background-automation-worker"
+description = "Allow explicitly starting this device's background automation worker."
+commands.allow = ["start_background_automation_worker"]
+
+[[permission]]
+identifier = "allow-stop-background-automation-worker"
+description = "Allow explicitly stopping this device's background automation worker."
+commands.allow = ["stop_background_automation_worker"]
+
+[[permission]]
+identifier = "allow-background-automation-login-start-enabled"
+description = "Allow reading this device's automation login-start setting."
+commands.allow = ["background_automation_login_start_enabled"]
+
+[[permission]]
+identifier = "allow-set-background-automation-login-start"
+description = "Allow changing this device's automation login-start setting."
+commands.allow = ["set_background_automation_login_start"]
+
+[[permission]]
+identifier = "allow-prepare-background-automation-worker-for-update"
+description = "Allow coordinating the background worker before an application update."
+commands.allow = ["prepare_background_automation_worker_for_update"]
+
+[[permission]]
+identifier = "allow-finish-background-automation-worker-update"
+description = "Allow completing background worker coordination after an update attempt."
+commands.allow = ["finish_background_automation_worker_update"]
+
+[[permission]]
+identifier = "allow-inspect-project-storage"
+description = "Allow reading generated-directory size summaries within a registered workspace."
+commands.allow = ["inspect_project_storage"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+  "allow-list-automation-workspaces",
+  "allow-background-automation-worker-status",
+  "allow-start-background-automation-worker",
+  "allow-stop-background-automation-worker",
+  "allow-background-automation-login-start-enabled",
+  "allow-set-background-automation-login-start",
+  "allow-prepare-background-automation-worker-for-update",
+  "allow-finish-background-automation-worker-update",
+  "allow-inspect-project-storage",
   "allow-open-folder-as-workspace",
   "allow-select-and-install-developer-plugin",
   "allow-select-signed-plugin-package",

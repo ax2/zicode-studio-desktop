@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { ConvNavTrack, ConvNavTooltip } from "./ConvNavApp";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ConvNavTooltip, ConvNavTrack } from "./ConvNavApp";
 import { gaussianWidth, tooltipUserPreview } from "./convNavLogic";
 
 afterEach(() => {

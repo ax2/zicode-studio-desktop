@@ -1,0 +1,37 @@
+.plugin-resource-transfer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  box-sizing: border-box;
+  background: var(--bg-solid);
+  color: var(--text-primary);
+  width: min(calc(var(--control-height-lg) * 20), calc(100vw - var(--space-6)));
+  max-height: calc(100dvh - var(--space-6));
+  overflow: auto;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.plugin-resource-transfer::backdrop { background: var(--modal-backdrop, rgba(0, 0, 0, 0.5)); }
+.plugin-resource-transfer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-solid);
+}
+.plugin-resource-transfer-list {
+  display: grid;
+  gap: var(--space-1);
+  max-height: calc(var(--control-height-lg) * 5);
+  overflow: auto;
+}
+.plugin-resource-transfer .ui-button { height: auto; min-height: var(--control-height-md); white-space: normal; overflow-wrap: anywhere; }
+.plugin-resource-transfer pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.plugin-resource-transfer .tool-input-field { display: grid; gap: var(--space-1); margin-block: var(--space-2); }
+.plugin-resource-transfer .tool-input-description { margin: 0; }
+.plugin-resource-transfer .tool-center-source { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.plugin-resource-transfer .tool-input-field > :is(input, select, textarea) { width: 100%; min-width: 0; box-sizing: border-box; }

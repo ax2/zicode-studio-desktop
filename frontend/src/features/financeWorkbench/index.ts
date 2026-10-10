@@ -1,15 +1,15 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { createElement } from "react";
-import { t } from "../../shared/i18n";
 import { friendlyPluginError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import {
   FinanceContentApp,
   FinanceNavApp,
   type FinanceWorkbenchController,
 } from "./FinanceWorkbenchApp";
-import { shortTimestamp, type FinanceResponse } from "./financeWorkbenchLogic";
+import { type FinanceResponse, shortTimestamp } from "./financeWorkbenchLogic";
 import {
   createFinanceWorkbenchStore,
   type FinanceWorkbenchStoreHook,

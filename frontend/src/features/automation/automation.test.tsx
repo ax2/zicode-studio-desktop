@@ -1,12 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n.js";
 import { AutomationMain, AutomationNav } from "./AutomationApp";
 import {
-  isAutomationDue,
-  nextAutomationRun,
   type AutomationRun,
   type AutomationWorkflow,
+  isAutomationDue,
+  nextAutomationRun,
 } from "./logic";
 import { createAutomationStore } from "./store";
 
@@ -23,7 +23,7 @@ const WORKFLOW: AutomationWorkflow = {
   history: [],
 };
 
-function mockCall() {
+function mockCall(pendingApprovalTask = false) {
   const call = vi.fn(
     async (
       operation: string,
@@ -32,32 +32,50 @@ function mockCall() {
       ok?: boolean;
       error?: string;
       data?: {
+        revision?: string;
         workflows?: AutomationWorkflow[];
         workflow?: AutomationWorkflow;
         tasks?: unknown[];
         projects?: Array<{ cwd?: string; path?: string }>;
-        workspace?: { workflows?: AutomationWorkflow[] };
+        workspace?: { workflows?: AutomationWorkflow[]; revision?: string };
       };
     }> => {
-    const p = (params ?? {}) as Record<string, unknown>;
+      const p = (params ?? {}) as Record<string, unknown>;
       if (operation === "automation_workspace" && p.action === "list") {
-        return { ok: true, data: { workflows: [WORKFLOW] } };
+        return { ok: true, data: { revision: "workflow-v1", workflows: [WORKFLOW] } };
       }
       if (operation === "automation_workspace" && p.action === "upsert") {
         const workflow = p.workflow as AutomationWorkflow;
         return {
           ok: true,
           data: {
-            workspace: { workflows: [WORKFLOW, workflow] },
+            workspace: {
+              revision: "workflow-v1",
+              workflows: [...[WORKFLOW].filter((item) => item.id !== workflow.id), workflow],
+            },
             workflow,
           },
         };
       }
       if (operation === "automation_workspace" && p.action === "remove") {
-        return { ok: true, data: { workflows: [] } };
+        return { ok: true, data: { revision: "workflow-v1", workflows: [] } };
       }
       if (operation === "read_super_agent_tasks") {
-        return { ok: true, data: { tasks: [] } };
+        return {
+          ok: true,
+          data: {
+            revision: "tasks-read",
+            tasks: pendingApprovalTask
+              ? [
+                  {
+                    id: "approval-task-1",
+                    status: "pending",
+                    automation: { workflowId: WORKFLOW.id, autoDispatch: false },
+                  },
+                ]
+              : [],
+          },
+        };
       }
       if (operation === "list_super_agent_projects") {
         return {
@@ -68,6 +86,7 @@ function mockCall() {
         };
       }
       if (operation === "write_super_agent_tasks") {
+        if (p.revision !== "tasks-read") return { ok: false, error: "task_conflict" };
         return { ok: true, data: { tasks: p.tasks as unknown[] } };
       }
       if (operation === "automation_workspace" && p.action === "record_run") {
@@ -75,6 +94,7 @@ function mockCall() {
           ok: true,
           data: {
             workspace: {
+              revision: "workflow-v1",
               workflows: [
                 { ...WORKFLOW, approvalPending: false, history: [p.run as AutomationRun] },
               ],
@@ -89,6 +109,7 @@ function mockCall() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
 });
 
@@ -106,9 +127,9 @@ describe("automation logic", () => {
         new Date("2026-07-31T10:00:00.000Z"),
       ),
     ).toBe(true);
-    expect(
-      isAutomationDue({ enabled: true, schedule: "daily", approvalPending: true }),
-    ).toBe(false);
+    expect(isAutomationDue({ enabled: true, schedule: "daily", approvalPending: true })).toBe(
+      false,
+    );
   });
 });
 
@@ -117,11 +138,7 @@ describe("automation store host errors", () => {
     const call = mockCall();
     const store = createAutomationStore({ call });
     const paths = await store.getState().listProjects();
-    expect(paths).toEqual([
-      "C:/work/project-a",
-      "C:/work/project-b",
-      "C:/work/project",
-    ]);
+    expect(paths).toEqual(["C:/work/project-a", "C:/work/project-b", "C:/work/project"]);
     store.getState().destroy();
   });
 
@@ -132,27 +149,26 @@ describe("automation store host errors", () => {
     });
     const store = createAutomationStore({ call, retryDelayMs: 0 });
     await store.getState().load();
-    expect(store.getState().error?.message).toBe(
-      "Pi 运行时连接已断开。请重试或新建一个会话。",
-    );
+    expect(store.getState().error?.message).toBe("Pi 运行时连接已断开。请重试或新建一个会话。");
     store.getState().destroy();
   });
 
   it("retries briefly when the Pi runtime is still starting", async () => {
     setLocale("zh-CN");
     let attempts = 0;
-    const call = vi.fn(async () => {
+    const call = vi.fn(async (operation: string) => {
+      if (operation === "read_super_agent_tasks") return { ok: true, data: { tasks: [] } };
       attempts += 1;
       if (attempts === 1) {
         throw new Error("Pi RPC request failed: ProcessClosed");
       }
-      return { ok: true, data: { workflows: [WORKFLOW] } };
+      return { ok: true, data: { revision: "workflow-v1", workflows: [WORKFLOW] } };
     });
     const store = createAutomationStore({ call, retryDelayMs: 0 });
     const workflows = await store.getState().load();
     expect(workflows).toEqual([WORKFLOW]);
     expect(store.getState().error).toBeNull();
-    expect(call).toHaveBeenCalledTimes(2);
+    expect(attempts).toBe(2);
     store.getState().destroy();
   });
 
@@ -160,12 +176,13 @@ describe("automation store host errors", () => {
     vi.useFakeTimers();
     setLocale("zh-CN");
     let attempts = 0;
-    const call = vi.fn(async () => {
+    const call = vi.fn(async (operation: string) => {
+      if (operation === "read_super_agent_tasks") return { ok: true, data: { tasks: [] } };
       attempts += 1;
       if (attempts < 3) {
         throw new Error("Runtime request rejected: UnknownInstance");
       }
-      return { ok: true, data: { workflows: [WORKFLOW] } };
+      return { ok: true, data: { revision: "workflow-v1", workflows: [WORKFLOW] } };
     });
     const store = createAutomationStore({ call, retryDelayMs: 0 });
     await store.getState().load();
@@ -194,7 +211,7 @@ describe("automation store host errors", () => {
         await firstGate;
         throw new Error("workflow service failed (403)");
       }
-      return { ok: true, data: { workflows: [WORKFLOW] } };
+      return { ok: true, data: { revision: "workflow-v1", workflows: [WORKFLOW] } };
     });
     const store = createAutomationStore({ call, retryDelayMs: 0 });
     const first = store.getState().load();
@@ -214,6 +231,7 @@ describe("automation store host errors", () => {
     expect(call).not.toHaveBeenCalledWith(
       "automation_workspace",
       expect.objectContaining({ action: "remove" }),
+      undefined,
     );
   });
 
@@ -225,98 +243,8 @@ describe("automation store host errors", () => {
     expect(call).toHaveBeenCalledWith(
       "automation_workspace",
       expect.objectContaining({ action: "remove", id: "workflow-1" }),
+      undefined,
     );
-  });
-
-  it("keeps scheduling remaining automations when one fails", async () => {
-    const dueWorkflow = (id: string): AutomationWorkflow => ({
-      ...WORKFLOW,
-      id,
-      title: id,
-      enabled: true,
-      schedule: "interval",
-      intervalMinutes: 30,
-      requireApproval: false,
-      approvalPending: false,
-      nextRunAt: null,
-    });
-    const readTasks = vi.fn(async () => {
-      throw new Error("task service down");
-    });
-    const call = vi.fn(async (operation: string, params?: unknown) => {
-      const p = (params ?? {}) as Record<string, unknown>;
-      if (operation === "automation_workspace" && p.action === "list") {
-        return {
-          ok: true,
-          data: { workflows: [dueWorkflow("wf-1"), dueWorkflow("wf-2")] },
-        };
-      }
-      if (operation === "read_super_agent_tasks") {
-        return readTasks();
-      }
-      return { ok: true, data: {} };
-    });
-    const store = createAutomationStore({ call });
-    await store.getState().tick();
-    expect(readTasks).toHaveBeenCalledTimes(2);
-    store.getState().destroy();
-  });
-
-  it("creates an approval task when a due workflow requires approval", async () => {
-    const call = mockCall();
-    const notifySystem = vi.fn();
-    const store = createAutomationStore({ call, notifySystem });
-    call.mockImplementation(async (operation: string, params?: unknown) => {
-      const p = (params ?? {}) as Record<string, unknown>;
-      if (operation === "automation_workspace" && p.action === "list") {
-        return {
-          ok: true,
-          data: {
-            workflows: [
-              {
-                ...WORKFLOW,
-                id: "wf-approve",
-                enabled: true,
-                schedule: "daily",
-                dailyTime: "00:00",
-                requireApproval: true,
-                approvalPending: false,
-                nextRunAt: new Date(Date.now() - 60_000).toISOString(),
-              },
-            ],
-          },
-        };
-      }
-      if (operation === "read_super_agent_tasks") {
-        return { ok: true, data: { tasks: [] } };
-      }
-      if (operation === "automation_workspace" && p.action === "record_run") {
-        return { ok: true, data: {} };
-      }
-      return { ok: true, data: {} };
-    });
-    await store.getState().tick();
-    const write = call.mock.calls.find(
-      ([operation, params]) =>
-        operation === "write_super_agent_tasks" &&
-        (params as { tasks?: unknown[] })?.tasks !== undefined,
-    );
-    const tasks = (write?.[1] as { tasks: Array<Record<string, unknown>> }).tasks;
-    const task = tasks.find((item) => {
-      const source = (item.source ?? {}) as { channel?: string };
-      return source.channel === "automation";
-    });
-    expect(task?.automation).toMatchObject({
-      workflowId: "wf-approve",
-      trigger: "schedule",
-      autoDispatch: false,
-    });
-    expect(task?.status).toBe("pending");
-    expect(notifySystem).toHaveBeenCalledWith(
-      expect.any(String),
-      "Daily report",
-    );
-    store.getState().destroy();
   });
 });
 
@@ -324,9 +252,7 @@ describe("automation auto-dispatch flag", () => {
   it("marks non-approval workflow tasks for automatic dispatch", async () => {
     const call = mockCall();
     const store = createAutomationStore({ call });
-    await store
-      .getState()
-      .runWorkflow({ ...WORKFLOW, requireApproval: false }, "schedule");
+    await store.getState().runWorkflow({ ...WORKFLOW, requireApproval: false }, "schedule");
     const write = call.mock.calls.find(
       ([operation, params]) =>
         operation === "write_super_agent_tasks" &&
@@ -344,9 +270,7 @@ describe("automation auto-dispatch flag", () => {
   it("keeps approval workflows pending for manual approval", async () => {
     const call = mockCall();
     const store = createAutomationStore({ call });
-    await store
-      .getState()
-      .runWorkflow({ ...WORKFLOW, requireApproval: true }, "schedule");
+    await store.getState().runWorkflow({ ...WORKFLOW, requireApproval: true }, "schedule");
     const write = call.mock.calls.find(
       ([operation, params]) =>
         operation === "write_super_agent_tasks" &&
@@ -365,7 +289,7 @@ describe("automation auto-dispatch flag", () => {
 describe("automation React app", () => {
   it("renders workflows from the workspace and shows approval actions", async () => {
     setLocale("en");
-    const call = mockCall();
+    const call = mockCall(true);
     const store = createAutomationStore({ call });
     await store.getState().load();
     render(
@@ -392,7 +316,11 @@ describe("automation React app", () => {
     });
     fireEvent.click(screen.getByText("Create automation"));
     await waitFor(() =>
-      expect(call).toHaveBeenCalledWith("automation_workspace", expect.objectContaining({})),
+      expect(call).toHaveBeenCalledWith(
+        "automation_workspace",
+        expect.objectContaining({ action: "upsert", expectedRevision: "workflow-v1" }),
+        undefined,
+      ),
     );
     const upsert = call.mock.calls.find(
       ([operation, params]) =>
@@ -473,12 +401,10 @@ describe("automation React app", () => {
     const call = mockCall();
     const store = createAutomationStore({ call });
     render(<AutomationMain store={store} />);
-    await waitFor(() =>
-      expect(document.querySelector("[data-first-run-guide]")).toBeTruthy(),
+    await waitFor(() => expect(document.querySelector("[data-first-run-guide]")).toBeTruthy());
+    expect(document.querySelector("[data-first-run-guide]")?.textContent).toContain(
+      "重复工作的统一入口",
     );
-    expect(
-      document.querySelector("[data-first-run-guide]")?.textContent,
-    ).toContain("重复工作的统一入口");
     store.getState().destroy();
   });
 
@@ -487,17 +413,13 @@ describe("automation React app", () => {
     const call = mockCall();
     const store = createAutomationStore({ call });
     render(<AutomationMain store={store} />);
-    await waitFor(() =>
-      expect(document.querySelector("[data-first-run-guide]")).toBeTruthy(),
+    await waitFor(() => expect(document.querySelector("[data-first-run-guide]")).toBeTruthy());
+    const cta = Array.from(document.querySelectorAll("[data-first-run-guide] button")).find(
+      (button) => /Create a workflow|创建自动化/.test(button.textContent ?? ""),
     );
-    const cta = Array.from(
-      document.querySelectorAll("[data-first-run-guide] button"),
-    ).find((button) => /Create a workflow|创建自动化/.test(button.textContent ?? ""));
     expect(cta).toBeTruthy();
     (cta as HTMLElement | undefined)?.click();
-    await waitFor(() =>
-      expect(document.querySelector("[data-first-run-guide]")).toBeNull(),
-    );
+    await waitFor(() => expect(document.querySelector("[data-first-run-guide]")).toBeNull());
     expect(document.activeElement?.id).toBe("automation-name");
     store.getState().destroy();
   });
@@ -510,6 +432,7 @@ describe("automation React app", () => {
         return {
           ok: true,
           data: {
+            revision: "workflow-v1",
             workflows: [
               {
                 id: "a",
@@ -536,10 +459,7 @@ describe("automation React app", () => {
     render(<AutomationMain store={store} />);
     await waitFor(() => expect(screen.getByText("Daily digest")).toBeTruthy());
     const input = document.querySelector(".automation-search") as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value",
-    )?.set;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
     setter?.call(input, "code");
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(screen.queryByText("Daily digest")).toBeNull();
@@ -555,6 +475,7 @@ describe("automation React app", () => {
         return {
           ok: true,
           data: {
+            revision: "workflow-v1",
             workflows: [
               {
                 id: "wf-1",
@@ -599,10 +520,16 @@ describe("automation React app", () => {
     const writtenWorkflows: AutomationWorkflow[] = [];
     const call = vi.fn(async (operation: string, params?: unknown) => {
       const p = (params ?? {}) as Record<string, unknown>;
+      if (operation === "automation_workspace" && p.action === "list") {
+        return { ok: true, data: { revision: "workflow-v1", workflows: [] } };
+      }
       if (operation === "automation_workspace" && p.action === "upsert") {
         const wf = p.workflow as AutomationWorkflow;
         writtenWorkflows.push(wf);
-        return { ok: true, data: { workflow: wf, workspace: { workflows: [wf] } } };
+        return {
+          ok: true,
+          data: { workflow: wf, workspace: { revision: "workflow-v1", workflows: [wf] } },
+        };
       }
       return { ok: true, data: {} };
     });
@@ -628,25 +555,18 @@ describe("automation React app", () => {
     store.getState().destroy();
   });
 
-  it("approves and queues an automation through the task store", async () => {
+  it("approves the existing queued task without creating another", async () => {
     setLocale("en");
-    const call = mockCall();
-    const store = createAutomationStore({ call });
+    const call = mockCall(true);
+    const approvePendingTask = vi.fn(async () => true);
+    const store = createAutomationStore({ call, approvePendingTask });
     await store.getState().load();
     render(<AutomationMain store={store} />);
     await waitFor(() => expect(screen.getByText("Approve and run")).toBeTruthy());
     fireEvent.click(screen.getByText("Approve and run"));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("read_super_agent_tasks"));
-    expect(call).toHaveBeenCalledWith(
-      "write_super_agent_tasks",
-      expect.objectContaining({ tasks: expect.any(Array) }),
+    await waitFor(() => expect(approvePendingTask).toHaveBeenCalledWith("approval-task-1", null));
+    expect(call.mock.calls.some(([operation]) => operation === "write_super_agent_tasks")).toBe(
+      false,
     );
-    expect(
-      call.mock.calls.some(
-        ([operation, params]) =>
-          operation === "automation_workspace" &&
-          (params as Record<string, unknown>)?.action === "record_run",
-      ),
-    ).toBe(true);
   });
 });

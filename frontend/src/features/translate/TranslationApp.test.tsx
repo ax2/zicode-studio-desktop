@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TranslationMain } from "./TranslationApp";
 import { createTranslationStore, type TranslationGateway } from "./translationStore";
 
@@ -29,6 +29,7 @@ describe("translate composer", () => {
       getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
       notify: vi.fn(),
     });
+    store.getState().setModelSelection({ sceneId: "programming", provider: "local", model: "example" });
     const { container } = render(<TranslationMain store={store} />);
     expect(container.querySelector("[data-first-run-guide]")).toBeTruthy();
     expect(container.textContent).toContain("开始翻译");
@@ -41,6 +42,7 @@ describe("translate composer", () => {
       getTarget: () => ({ sceneId: "programming", workspaceId: "ws-1" }),
       notify: vi.fn(),
     });
+    store.getState().setModelSelection({ sceneId: "programming", provider: "local", model: "example" });
     const { container } = render(<TranslationMain store={store} />);
 
     const textarea = container.querySelector(

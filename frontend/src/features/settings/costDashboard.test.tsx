@@ -1,16 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { CostDashboardTab } from "./CostDashboardTab";
 import {
   adaptDashboardToInfobarPayload,
   buildActivityMonthLabels,
   buildModelSummary,
+  type DashboardPayload,
   deriveOverviewMetrics,
   formatCompact,
   formatUsd,
   overviewNote,
-  type DashboardPayload,
 } from "./costDashboardLogic";
 import { createCostDashboardStore } from "./costDashboardStore";
 

@@ -14,6 +14,7 @@ export const TARGET_LANGUAGES = [
 ];
 
 export interface TranslationResult {
+  provider?: string;
   translated: string;
   model: string;
   targetLang: string;

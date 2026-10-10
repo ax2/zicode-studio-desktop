@@ -238,7 +238,8 @@ mod tests {
     #[test]
     fn adds_lists_and_removes_watchers() {
         let root = tmp_root();
-        let item = add(&root, "  Example  ", "https://example.com/").unwrap();
+        // CRUD does not fetch the page; use a public literal to avoid external DNS.
+        let item = add(&root, "  Example  ", "https://8.8.8.8/").unwrap();
         assert_eq!(item.name, "Example");
         assert_eq!(list(&root).len(), 1);
         assert!(remove(&root, &item.id).unwrap());
@@ -258,10 +259,10 @@ mod tests {
     #[test]
     fn updates_a_watcher_name_and_url() {
         let root = tmp_root();
-        let item = add(&root, "Example", "https://example.com/").unwrap();
-        let updated = update(&root, &item.id, "Renamed", "https://example.org/").unwrap();
+        let item = add(&root, "Example", "https://8.8.8.8/").unwrap();
+        let updated = update(&root, &item.id, "Renamed", "https://1.1.1.1/").unwrap();
         assert_eq!(updated.name, "Renamed");
-        assert_eq!(updated.url, "https://example.org/");
+        assert_eq!(updated.url, "https://1.1.1.1/");
         assert_eq!(list(&root)[0].name, "Renamed");
         std::fs::remove_dir_all(&root).ok();
     }

@@ -1,0 +1,83 @@
+import { setupPluginBroker } from __BROKER_MODULE__;
+import { readFileSync, writeFileSync } from "node:fs";
+const samples = JSON.parse(readFileSync(__SAMPLES_FILE__, "utf8"));
+const receipt = { mechanismPassed: false, fullCandidateAccepted: false, phases: [], rows: [], deniedCalls: [], controlCalls: [] };
+const save = () => writeFileSync(__RECEIPT_FILE__, JSON.stringify(receipt, null, 2));
+export default function (pi) {
+  const tools = new Map();
+  setupPluginBroker(new Proxy(pi, { get(target, key) {
+    if (key === "registerTool") return tool => { tools.set(tool.name, tool); target.registerTool(tool); };
+    return target[key];
+  } }));
+  const signal = () => new AbortController().signal;
+  const search = async () => (await tools.get("studio_plugin_search").execute("discover", {query:"com.zicode.devtools.diagnostics"}, signal())).details;
+  const execute = async (sample, id) => (await tools.get("devtools_diagnostics_" + sample.id.replaceAll(".", "_")).execute(id, {text:sample.text, secondary:sample.secondary}, signal())).details;
+  pi.registerCommand("devtools-accept", { handler: async (phase, ctx) => {
+    let activeSample;
+    try {
+      if (phase === "unauthorized") {
+        if (tools.size !== 2 || (await search()).items.length !== 0) throw new Error("Unauthorized tools exposed");
+        const textPage = (await tools.get("studio_plugin_search").execute("control-discover", {query:"com.zicode.devtools.text"}, signal())).details;
+        const control = textPage.items.find(item => item.name === "devtools_text_base64_encode");
+        if (!control) throw new Error("Independent control tool missing");
+        await tools.get("studio_plugin_load").execute("control-load", {toolId:control.toolId, revision:textPage.revision}, signal());
+      } else if (["revoked", "disabled", "revoked-again", "uninstalled", "reinstalled-denied"].includes(phase)) {
+        if ((await search()).items.length !== 0) throw new Error("Revoked tools exposed");
+        for (const sample of samples) {
+          try { await execute(sample, phase + "-" + sample.id); throw new Error("Cached tool accepted after revocation"); }
+          catch (error) {
+            if (!String(error).includes("[catalog_revision_changed]")) throw error;
+            receipt.deniedCalls.push({phase, id:sample.id, code:"catalog_revision_changed"}); save();
+          }
+        }
+      } else {
+        const before = pi.getActiveTools();
+        const page = await search();
+        if (page.items.length !== 11 || page.total !== 11) throw new Error("Expected all eleven tools");
+        for (const item of page.items) {
+          await tools.get("studio_plugin_load").execute("load-" + item.name, {toolId:item.toolId, revision:page.revision}, signal());
+          if (!pi.getAllTools().some(tool => tool.name === item.name) || !pi.getActiveTools().includes(item.name)) throw new Error("Dynamic registration missing");
+        }
+        if (!before.every(name => pi.getActiveTools().includes(name))) throw new Error("Existing tools lost");
+        if (phase === "run") {
+          const cancelled = new AbortController(); cancelled.abort();
+          try { await tools.get("studio_plugin_search").execute("cancelled", {query:"java"}, cancelled.signal); throw new Error("Cancelled search accepted"); }
+          catch (error) { if (error.name !== "AbortError") throw error; }
+          for (const sample of samples) {
+            activeSample = sample.id;
+            const start = Date.now();
+            const expectedFailure = __EXPECTED_FAILURES__.includes(sample.id);
+            let result;
+            try { result = await execute(sample, "sample-" + sample.id); }
+            catch (error) {
+              if (!expectedFailure || !String(error).includes("[worker_fuel_exhausted]")) throw error;
+              receipt.rows.push({id:sample.id, outcome:"worker_fuel_exhausted", toolAccepted:false, elapsedMs:Date.now()-start}); save();
+              continue;
+            }
+            if (expectedFailure || result.ok !== true || typeof result.data?.text !== "string") throw new Error("Unexpected diagnostic outcome");
+            JSON.parse(result.data.text);
+            receipt.rows.push({id:sample.id, outcome:"report", toolAccepted:false, elapsedMs:Date.now()-start}); save();
+          }
+        }
+        const recovered = await execute(samples[0], "recovery-" + phase);
+        if (recovered.ok !== true || typeof recovered.data?.text !== "string") throw new Error("Recovery failed");
+      }
+      if (["unauthorized", "revoked", "disabled", "uninstalled", "reinstalled-denied"].includes(phase)) {
+        const input = "synthetic independent plugin";
+        const result = (await tools.get("devtools_text_base64_encode").execute("control-" + phase, {text:input}, signal())).details;
+        if (result.ok !== true || result.data?.text !== Buffer.from(input).toString("base64")) throw new Error("Independent plugin failed");
+        receipt.controlCalls.push({phase, pluginId:"com.zicode.devtools.text", passed:true});
+      }
+      receipt.phases.push(phase);
+      receipt.mechanismPassed = phase === "reinstalled-granted";
+      save();
+      ctx.ui.notify("diagnostics Pi verified: " + phase, "info");
+    } catch (error) {
+      receipt.failedPhase = phase;
+      if (activeSample) receipt.failedSample = activeSample;
+      receipt.failureClass = String(error).match(/\[[a-z_0-9]+\]/)?.[0] ?? "observer_assertion";
+      save();
+      ctx.ui.notify("diagnostics Pi failed: " + phase, "error");
+    }
+  } });
+}

@@ -1,12 +1,14 @@
 import { createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { create } from "zustand";
 // @ts-expect-error plain JS module without type declarations (public/ui/image-lightbox.js)
 import { initImageLightbox } from "../../../../public/ui/image-lightbox.js";
 // @ts-expect-error plain JS module without type declarations (public/ui/markdown.js)
 import { initCodeCopyDelegation } from "../../../../public/ui/markdown.js";
+import { ChatMessageList } from "./ChatMessageList";
 import {
+  type ContentBlock,
   cleanChatTranscript,
   describeModelError,
   escapeRegExp,
@@ -15,9 +17,7 @@ import {
   getArgsPreview,
   renderDiffData,
   splitStreamingContent,
-  type ContentBlock,
 } from "./chatLogic";
-import { ChatMessageList } from "./ChatMessageList";
 
 export interface UsageLike {
   cost?: { total?: number };

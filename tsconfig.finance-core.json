@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.external-clients.json",
+  "files": [
+    "extensions/finance/backtest.ts",
+    "extensions/finance/market-data.ts",
+    "extensions/finance/normalize.ts",
+    "extensions/finance/paper-trading.ts",
+    "extensions/finance/screener.ts"
+  ]
+}

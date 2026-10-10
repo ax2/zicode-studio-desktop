@@ -1,12 +1,12 @@
 import { t } from "../../shared/i18n";
-import { highlightParts } from "../sessionSidebar/sessionSidebarLogic";
 import type {
   SessionSearchResult,
   SessionSummary,
 } from "../sessionSidebar/sessionSidebarLogic";
+import { highlightParts } from "../sessionSidebar/sessionSidebarLogic";
 
-export { highlightParts };
 export type { SessionSearchResult, SessionSummary };
+export { highlightParts };
 
 export const SEARCH_DEBOUNCE_MS = 300;
 export const MAX_TITLE_RESULTS = 12;

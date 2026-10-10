@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.diagnostics","sceneId":"coding","capabilityId":"devtools.diagnostics.java.threads","commandId":null,"input":{"text":"\"worker\" #1 nid=0x1\n java.lang.Thread.State: RUNNABLE\n at app.Main.run(Main.java:1)","secondary":""},"unexpected":true}

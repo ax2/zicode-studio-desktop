@@ -5,7 +5,7 @@
 //
 // Usage (app must be running on localhost):
 //   node scripts/qa-docx-import.mjs <workspaceId>
-import { zipSync, strToU8 } from "fflate";
+import { strToU8, zipSync } from "fflate";
 
 const HOST = process.env.ZICODE_HOST || "http://127.0.0.1:57620";
 const workspaceId = process.argv[2] || process.env.ZICODE_WORKSPACE;

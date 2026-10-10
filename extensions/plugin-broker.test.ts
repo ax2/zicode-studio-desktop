@@ -43,11 +43,10 @@ describe("plugin broker", () => {
         registered.push(tool);
       },
     };
-    const request = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ result: { matches: [] } }),
-    }));
+    const request = vi.fn(
+      async (_url: string, _options: RequestInit) =>
+        new Response(JSON.stringify({ result: { matches: [] } })),
+    );
     setupPluginBroker(
       pi as never,
       {
@@ -69,8 +68,10 @@ describe("plugin broker", () => {
     const result = await execute("tool-call-1", { query: "roadmap" }, new AbortController().signal);
     expect(result).toMatchObject({ details: { matches: [] } });
     const [, options] = request.mock.calls[0];
-    expect(options.headers.Authorization).toBe("Bearer secret-runtime-token");
-    expect(JSON.parse(options.body)).toMatchObject({
+    expect((options.headers as Record<string, string>).Authorization).toBe(
+      "Bearer secret-runtime-token",
+    );
+    expect(JSON.parse(options.body as string)).toMatchObject({
       runtimeId: "instance-1",
       sessionId: "session-1",
       toolCallId: "tool-call-1",

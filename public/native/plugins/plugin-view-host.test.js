@@ -70,7 +70,103 @@ afterEach(() => {
   setLocale("zh-CN");
 });
 
+it("starts the trusted main view at the top after leaving a scrolled manager", async () => {
+  const { host } = setup();
+  const container = document.getElementById("content");
+  container.scrollTop = 120;
+  host.renderContent(container, PLUGIN);
+  expect(container.scrollTop).toBe(0);
+  host.destroy();
+});
+
 describe("PluginViewHost", () => {
+  it("transports fixed error codes without forwarding private Host messages", async () => {
+    const { host, capabilityGateway } = setup();
+    capabilityGateway.invoke.mockRejectedValue(
+      Object.assign(new Error("private report path"), { code: "worker_fuel_exhausted" }),
+    );
+    host.renderContent(document.getElementById("content"), PLUGIN);
+    await vi.waitFor(() => expect(document.querySelector("iframe")).toBeTruthy());
+    const iframe = document.querySelector("iframe");
+    const postMessage = vi.spyOn(iframe.contentWindow, "postMessage");
+    sendFrom(iframe, {
+      type: "request",
+      requestId: "budget",
+      method: "invokeCapability",
+      params: { capabilityId: "example.echo", input: {} },
+    });
+    await vi.waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: "budget",
+          errorCode: "worker_fuel_exhausted",
+          error: "Plugin computation budget exhausted",
+        }),
+        "*",
+      ),
+    );
+    expect(JSON.stringify(postMessage.mock.calls)).not.toContain("private report");
+    capabilityGateway.invoke.mockRejectedValue(null);
+    sendFrom(iframe, {
+      type: "request",
+      requestId: "empty-failure",
+      method: "invokeCapability",
+      params: { capabilityId: "example.echo", input: {} },
+    });
+    await vi.waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: "empty-failure",
+          errorCode: "plugin_request_failed",
+          error: "Plugin request failed",
+        }),
+        "*",
+      ),
+    );
+    host.destroy();
+  });
+  it("keeps captured result references in the parent and clears saving on target switch", async () => {
+    setLocale("zh-CN");
+    const capabilityGateway = {
+      invoke: vi.fn(async () => ({
+        result: { ok: true, data: { text: "hello" } },
+        resultRef: { resultId: "parent-only" },
+      })),
+      prepareSave: vi.fn(),
+      commitSave: vi.fn(),
+    };
+    const { host } = setup({
+      capabilityGateway,
+      getTarget: () => ({ sceneId: "programming", workspaceId: "workspace" }),
+    });
+    host.renderContent(document.getElementById("content"), PLUGIN);
+    await vi.waitFor(() => expect(document.querySelector("iframe")).toBeTruthy());
+    const iframe = document.querySelector("iframe");
+    const postMessage = vi.spyOn(iframe.contentWindow, "postMessage");
+    sendFrom(iframe, {
+      type: "request",
+      requestId: "capture",
+      method: "invokeCapability",
+      params: { capabilityId: "example.echo" },
+    });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("预览保存"));
+    expect(capabilityGateway.invoke).toHaveBeenCalledWith(
+      "programming",
+      "workspace",
+      PLUGIN.id,
+      "example.echo",
+      {},
+      { captureResult: true },
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "response", result: { ok: true, data: { text: "hello" } } }),
+      "*",
+    );
+    expect(JSON.stringify(postMessage.mock.calls)).not.toContain("parent-only");
+    host.setTarget();
+    expect(document.querySelector(".plugin-result-actions")).toBeNull();
+    host.destroy();
+  });
   it("loads declared views into an opaque sandbox with a restrictive CSP bridge", async () => {
     const { gateway, host } = setup();
     host.renderNavigation(document.getElementById("navigation"), PLUGIN);

@@ -98,7 +98,7 @@
   .plugin-activity-list:not(.plugin-activity-list--system)
     > .plugin-activity-button:not([data-plugin-id="core.chat"]):not(
       [data-plugin-id="com.zicode.projects"]
-    ):not([data-plugin-id="com.zicode.notes"]) {
+    ):not([data-plugin-id="core.tools"]) {
     display: none;
   }
 

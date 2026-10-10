@@ -1,14 +1,14 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { t } from "../../shared/i18n";
 import type {
   SessionSearchResult,
   SessionSummary,
 } from "../sessionSidebar/sessionSidebarLogic";
 import {
-  SessionSearchDialogApp,
   type SearchDialogController,
+  SessionSearchDialogApp,
 } from "./SessionSearchDialogApp";
 import {
   isSearchShortcut,
@@ -22,9 +22,9 @@ import {
 } from "./sessionSearchDialogStore";
 
 export {
-  shortcutHintLabel,
   isSearchShortcut,
   normalizeQuery,
+  shortcutHintLabel,
 } from "./sessionSearchDialogLogic";
 
 export interface SessionSearchDialogOptions {

@@ -1,20 +1,20 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
+import { createBackupStore } from "./backupStore";
+import { createConfigStore } from "./configStore";
+import { createCostDashboardStore } from "./costDashboardStore";
 import {
   isSettingsHash,
   normalizeSettingsTabKey,
   settingsHashForTab,
   tabFromSettingsHash,
 } from "./logic";
-import { createConfigStore } from "./configStore";
-import { createCostDashboardStore } from "./costDashboardStore";
+import { createMemoryStore } from "./memoryStore";
 import { createPackageBrowseStore } from "./packageBrowseStore";
 import { createRemoteAccessStore } from "./remoteAccessStore";
-import { createBackupStore } from "./backupStore";
-import { createMemoryStore } from "./memoryStore";
-import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { SettingsApp, type SettingsController } from "./SettingsPanelApp";
+import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { createSettingsStore, type SettingsStore } from "./store";
 
 function controllerStub(): SettingsController {
@@ -54,13 +54,11 @@ function renderApp(store: SettingsStore = createSettingsStore()) {
 describe("memory section", () => {
   it("renders export and import actions", async () => {
     renderApp();
-    await waitFor(() =>
-      expect(document.getElementById("memory-section")).toBeTruthy(),
-    );
+    await waitFor(() => expect(document.getElementById("memory-section")).toBeTruthy());
     const actions = document.querySelector(".memory-actions");
     expect(actions).toBeTruthy();
-    const labels = Array.from(actions?.querySelectorAll("button") ?? []).map(
-      (button) => button.textContent?.trim(),
+    const labels = Array.from(actions?.querySelectorAll("button") ?? []).map((button) =>
+      button.textContent?.trim(),
     );
     expect(labels).toContain(t("Export memory"));
     expect(labels).toContain(t("Import memory"));
@@ -71,105 +69,70 @@ describe("memory section", () => {
 describe("conversation templates section", () => {
   it("adds and deletes a custom template", async () => {
     renderApp();
-    await waitFor(() =>
-      expect(document.getElementById("chat-templates-section")).toBeTruthy(),
-    );
+    await waitFor(() => expect(document.getElementById("chat-templates-section")).toBeTruthy());
     expect(document.querySelector("#add-chat-template")).toBeTruthy();
 
     fireEvent.click(required<HTMLButtonElement>("#add-chat-template"));
-    const nameInput = document.querySelector(
-      `input[aria-label="${t("Template name")}"]`,
-    );
+    const nameInput = document.querySelector(`input[aria-label="${t("Template name")}"]`);
     expect(nameInput).toBeTruthy();
     fireEvent.change(nameInput as HTMLInputElement, {
       target: { value: "周报" },
     });
-    const promptInput = document.querySelector(
-      `textarea[aria-label="${t("Template prompt")}"]`,
-    );
+    const promptInput = document.querySelector(`textarea[aria-label="${t("Template prompt")}"]`);
     fireEvent.change(promptInput as HTMLTextAreaElement, {
       target: { value: "帮我写周报" },
     });
 
     const saveButton = Array.from(
       document.querySelectorAll(".settings-template-actions button"),
-    ).find((button) => button.textContent?.trim() === t("Save template")) as
-      HTMLButtonElement;
+    ).find((button) => button.textContent?.trim() === t("Save template")) as HTMLButtonElement;
     fireEvent.click(saveButton);
     await waitFor(() =>
-      expect(
-        document.querySelector('[data-template-id^="custom-"]'),
-      ).toBeTruthy(),
+      expect(document.querySelector('[data-template-id^="custom-"]')).toBeTruthy(),
     );
-    expect(
-      document.querySelector(".settings-template-name")?.textContent,
-    ).toBe("周报");
-    expect(
-      globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
-    ).toContain("周报");
+    expect(document.querySelector(".settings-template-name")?.textContent).toBe("周报");
+    expect(globalThis.localStorage?.getItem("zicode-chat-templates-custom")).toContain("周报");
 
     fireEvent.click(
-      required<HTMLButtonElement>(
-        `.settings-template-row [aria-label^="${t("Delete template")}"]`,
-      ),
+      required<HTMLButtonElement>(`.settings-template-row [aria-label^="${t("Delete template")}"]`),
     );
-    await waitFor(() =>
-      expect(
-        document.querySelector('[data-template-id^="custom-"]'),
-      ).toBeNull(),
-    );
-    expect(
-      globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
-    ).toBe("[]");
+    await waitFor(() => expect(document.querySelector('[data-template-id^="custom-"]')).toBeNull());
+    expect(globalThis.localStorage?.getItem("zicode-chat-templates-custom")).toBe("[]");
   });
 
   it("requires a name and prompt before saving", async () => {
     renderApp();
-    await waitFor(() =>
-      expect(document.getElementById("chat-templates-section")).toBeTruthy(),
-    );
+    await waitFor(() => expect(document.getElementById("chat-templates-section")).toBeTruthy());
     fireEvent.click(required<HTMLButtonElement>("#add-chat-template"));
     fireEvent.click(
-      Array.from(
-        document.querySelectorAll(".settings-template-actions button"),
-      ).find((button) => button.textContent?.trim() === t("Save template")) as
-        HTMLButtonElement,
+      Array.from(document.querySelectorAll(".settings-template-actions button")).find(
+        (button) => button.textContent?.trim() === t("Save template"),
+      ) as HTMLButtonElement,
     );
-    expect(
-      document.querySelector(".settings-template-form [role='alert']")
-        ?.textContent,
-    ).toBe(t("Template name and prompt are required"));
-    expect(
-      globalThis.localStorage?.getItem("zicode-chat-templates-custom"),
-    ).toBeNull();
+    expect(document.querySelector(".settings-template-form [role='alert']")?.textContent).toBe(
+      t("Template name and prompt are required"),
+    );
+    expect(globalThis.localStorage?.getItem("zicode-chat-templates-custom")).toBeNull();
   });
 
   it("shows template transfer actions with export enabled once templates exist", async () => {
     renderApp();
-    await waitFor(() =>
-      expect(document.getElementById("chat-templates-section")).toBeTruthy(),
-    );
+    await waitFor(() => expect(document.getElementById("chat-templates-section")).toBeTruthy());
     const buttons = Array.from(
       document.querySelectorAll('[aria-label="' + t("Template transfer") + '"] button'),
     ).map((button) => button.textContent?.trim());
     expect(buttons).toContain(t("Export templates"));
     expect(buttons).toContain(t("Import templates"));
 
-    const exportButton = buttons.findIndex(
-      (label) => label === t("Export templates"),
-    );
+    const exportButton = buttons.findIndex((label) => label === t("Export templates"));
     const exportButtons = Array.from(
       document.querySelectorAll('[aria-label="' + t("Template transfer") + '"] button'),
     );
-    expect((exportButtons[exportButton] as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect((exportButtons[exportButton] as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.click(required<HTMLButtonElement>("#add-chat-template"));
     fireEvent.change(
-      document.querySelector(
-        `input[aria-label="${t("Template name")}"]`,
-      ) as HTMLInputElement,
+      document.querySelector(`input[aria-label="${t("Template name")}"]`) as HTMLInputElement,
       { target: { value: "周报" } },
     );
     fireEvent.change(
@@ -179,15 +142,12 @@ describe("conversation templates section", () => {
       { target: { value: "帮我写周报" } },
     );
     fireEvent.click(
-      Array.from(
-        document.querySelectorAll(".settings-template-actions button"),
-      ).find((button) => button.textContent?.trim() === t("Save template")) as
-        HTMLButtonElement,
+      Array.from(document.querySelectorAll(".settings-template-actions button")).find(
+        (button) => button.textContent?.trim() === t("Save template"),
+      ) as HTMLButtonElement,
     );
     await waitFor(() =>
-      expect(
-        document.querySelector('[data-template-id^="custom-"]'),
-      ).toBeTruthy(),
+      expect(document.querySelector('[data-template-id^="custom-"]')).toBeTruthy(),
     );
 
     const exportButtonsAfter = Array.from(
@@ -282,9 +242,7 @@ describe("settings React panel", () => {
 
     fireEvent.click(required('[data-settings-tab="configuration"]'));
     expect(
-      document.querySelector('[data-settings-panel="configuration"]')?.classList.contains(
-        "active",
-      ),
+      document.querySelector('[data-settings-panel="configuration"]')?.classList.contains("active"),
     ).toBe(true);
     expect(
       document.querySelector('[data-settings-panel="general"]')?.classList.contains("active"),
@@ -308,7 +266,6 @@ describe("settings React panel", () => {
       "setting-app-version-value",
       "btn-check-updates",
       "toggle-beta-updates",
-      "pkg-browse-search",
       "pkg-browse-list",
       "settings-api-keys",
       "provider-channel-list",
@@ -319,20 +276,17 @@ describe("settings React panel", () => {
     for (const id of expectedIds) {
       expect(document.getElementById(id), `missing #${id}`).toBeTruthy();
     }
+    expect(document.getElementById("pkg-browse-search")).toBeNull();
     expect(document.querySelector("chat-settings-panel")).toBeTruthy();
   });
 
-  it("opens the project homepage from the update button when auto-updates are unconfigured", () => {
+  it("opens GitHub Releases from the update button when auto-updates are unconfigured", () => {
     renderApp();
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     fireEvent.click(required("#btn-check-updates"));
     const anchor = clickSpy.mock.instances[0] as HTMLAnchorElement | undefined;
     expect(anchor).toBeTruthy();
-    expect(anchor?.href).toBe(
-      "https://github.com/ax2/zicode-studio-desktop",
-    );
+    expect(anchor?.href).toBe("https://github.com/ax2/zicode-studio-desktop/releases");
     expect(anchor?.target).toBe("_blank");
     clickSpy.mockRestore();
   });
@@ -357,9 +311,7 @@ describe("settings React panel", () => {
       createObjectURL: createObjectUrl,
       revokeObjectURL: revokeObjectUrl,
     });
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     try {
       const store = createSettingsStore();
       renderApp(store);
@@ -368,13 +320,11 @@ describe("settings React panel", () => {
       expect(button).toBeTruthy();
       fireEvent.click(button);
       await waitFor(() =>
-        expect(
-          document.querySelector("#session-export-status")?.textContent,
-        ).toContain(t("Session backup exported")),
+        expect(document.querySelector("#session-export-status")?.textContent).toContain(
+          t("Session backup exported"),
+        ),
       );
-      expect(fetchSpy).toHaveBeenCalledWith(
-        "/v2/sessions/export?workspaceId=workspace-a",
-      );
+      expect(fetchSpy).toHaveBeenCalledWith("/v2/sessions/export?workspaceId=workspace-a");
       expect(createObjectUrl).toHaveBeenCalled();
     } finally {
       fetchSpy.mockRestore();
@@ -384,6 +334,7 @@ describe("settings React panel", () => {
   });
 
   it("imports a session backup from the general tab", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -400,6 +351,7 @@ describe("settings React panel", () => {
       const file = new File(
         [
           JSON.stringify({
+            schemaVersion: 1,
             workspaceId: "workspace-a",
             sessions: [
               {
@@ -414,13 +366,12 @@ describe("settings React panel", () => {
         { type: "application/json" },
       );
       fireEvent.change(input, { target: { files: [file] } });
-      const expected = t("Imported {imported}, skipped {skipped}")
+      const expected = t("Imported {imported}, skipped {skipped}, errors {errors}")
         .replace("{imported}", "1")
-        .replace("{skipped}", "1");
+        .replace("{skipped}", "1")
+        .replace("{errors}", "0");
       await waitFor(() =>
-        expect(
-          document.querySelector("#session-import-status")?.textContent,
-        ).toContain(expected),
+        expect(document.querySelector("#session-import-status")?.textContent).toContain(expected),
       );
       expect(fetchSpy).toHaveBeenCalledWith(
         "/v2/sessions/import",
@@ -430,12 +381,12 @@ describe("settings React panel", () => {
         String(url).includes("/v2/sessions/import"),
       );
       expect(importCall).toBeTruthy();
-      const body = JSON.parse(
-        String((importCall?.[1] as RequestInit).body),
-      );
+      const body = JSON.parse(String((importCall?.[1] as RequestInit).body));
       expect(body.sessions[0].sessionId).toBe("session-a");
+      expect(body.relinkSourcePath).toBe("/workspace");
     } finally {
       fetchSpy.mockRestore();
+      confirm.mockRestore();
     }
   });
 

@@ -12,6 +12,9 @@
  * The host page should listen: el.addEventListener('sa-dispatch', e => ...)
  */
 
+import { t } from "../i18n.js";
+import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
+import { taskWriteParams } from "../super-agent/task-persistence.js";
 import {
   ACTIVE_TASK_STATUSES,
   markTaskFinished,
@@ -19,12 +22,12 @@ import {
   normalizeSuperAgentTasks,
 } from "../super-agent/task-state.js";
 import { setupResizablePanel } from "../ui/resizable-panel.js";
-import { t } from "../i18n.js";
-import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 
 class SuperAgentRuntime extends HTMLElement {
   connectedCallback() {
     this._tasks = [];
+    this._revision = undefined;
+    this._lastReadTasks = [];
     this._projects = [];
     this._filter = "all";
     this._expandedTaskIds = new Set();
@@ -167,7 +170,7 @@ class SuperAgentRuntime extends HTMLElement {
     }
     try {
       const result = await call("read_super_agent_tasks");
-      if (!result?.ok) {
+      if (!result?.ok || !Array.isArray(result.data?.tasks)) {
         this._scheduleRetry();
         return;
       }
@@ -175,32 +178,9 @@ class SuperAgentRuntime extends HTMLElement {
       this._hasLoadedOnce = true;
       this._retryDelay = 400;
       const tasks = normalizeSuperAgentTasks(result.data?.tasks || []);
-      // Auto-dispatch tasks queued by non-approval automations: their
-      // approval was already given when the workflow was created, so they
-      // must not wait for a manual "Approve" click in the Runtime panel.
-      const autoDispatchable = tasks.filter(
-        (task) =>
-          task.status === "pending" &&
-          task.automation?.autoDispatch === true &&
-          isDispatchableProjectPath(task.targetProject),
-      );
-      if (autoDispatchable.length > 0) {
-        const autoIds = new Set(autoDispatchable.map((task) => task.id));
-        this._tasks = tasks.map((task) =>
-          autoIds.has(task.id) ? markTaskForDispatch(task) : task,
-        );
-        await this._save();
-        for (const task of this._tasks) {
-          if (autoIds.has(task.id)) {
-            this.dispatchEvent(
-              new CustomEvent("sa-dispatch", { detail: task, bubbles: true }),
-            );
-          }
-        }
-        this._lastJson = null;
-        this._renderAll();
-        return;
-      }
+      this._revision = result.data?.revision;
+      this._lastReadTasks = structuredClone(tasks);
+      // The Host execution-lock owner claims automatic tasks; this poll only observes.
       if (json === this._lastJson) return;
       this._lastJson = json;
       this._tasks = tasks;
@@ -238,9 +218,31 @@ class SuperAgentRuntime extends HTMLElement {
 
   async _save() {
     const call = window.__picotConfigCall;
-    if (typeof call !== "function") return;
-    await call("write_super_agent_tasks", { tasks: this._tasks });
-    this._lastJson = null;
+    if (typeof call !== "function") return false;
+    try {
+      const response = await call(
+        "write_super_agent_tasks",
+        taskWriteParams(this._tasks, this._revision),
+      );
+      if (!response?.ok) throw new Error(response?.error || "task_conflict");
+      this._revision = response.data?.revision;
+      this.querySelector("[data-task-save-error]")?.remove();
+      this._lastJson = null;
+      return true;
+    } catch {
+      this._tasks = structuredClone(this._lastReadTasks);
+      this._lastJson = null;
+      this._renderAll();
+      let error = this.querySelector("[data-task-save-error]");
+      if (!error) {
+        error = document.createElement("p");
+        error.dataset.taskSaveError = "";
+        error.setAttribute("role", "alert");
+        this.prepend(error);
+      }
+      error.textContent = t("Tasks could not be saved. Refresh the task list before trying again.");
+      return false;
+    }
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -250,7 +252,7 @@ class SuperAgentRuntime extends HTMLElement {
     if (!task || !isDispatchableProjectPath(task.targetProject)) return;
     const index = this._tasks.findIndex((t) => t.id === taskId);
     this._tasks[index] = markTaskForDispatch(task);
-    await this._save();
+    if (!(await this._save())) return;
     this._renderAll();
     this.dispatchEvent(
       new CustomEvent("sa-dispatch", { detail: this._tasks[index], bubbles: true }),
@@ -279,7 +281,7 @@ class SuperAgentRuntime extends HTMLElement {
       result: { status: null, summary: null, completedAt: null, failReason: null },
       failReason: null,
     });
-    await this._save();
+    if (!(await this._save())) return;
     this._renderAll();
     this.dispatchEvent(
       new CustomEvent("sa-dispatch", { detail: this._tasks[index], bubbles: true }),
@@ -307,7 +309,7 @@ class SuperAgentRuntime extends HTMLElement {
 
   async _dismiss(taskId) {
     this._tasks = this._tasks.filter((t) => t.id !== taskId);
-    await this._save();
+    if (!(await this._save())) return;
     this._renderAll();
   }
 
@@ -318,7 +320,7 @@ class SuperAgentRuntime extends HTMLElement {
       status: "failed",
       failReason: t("Manually cancelled from Runtime panel."),
     });
-    await this._save();
+    if (!(await this._save())) return;
     this._renderAll();
   }
 
@@ -331,7 +333,7 @@ class SuperAgentRuntime extends HTMLElement {
     this._tasks = this._tasks.map((task) =>
       readyIds.has(task.id) ? markTaskForDispatch(task) : task,
     );
-    await this._save();
+    if (!(await this._save())) return;
     this._renderAll();
     for (const task of this._tasks) {
       if (readyIds.has(task.id)) {
@@ -344,7 +346,7 @@ class SuperAgentRuntime extends HTMLElement {
     const nextTasks = this._tasks.filter((task) => task.status !== "done");
     if (nextTasks.length === this._tasks.length) return;
     this._tasks = nextTasks;
-    await this._save();
+    if (!(await this._save())) return;
     this._renderAll();
   }
 
@@ -400,7 +402,7 @@ class SuperAgentRuntime extends HTMLElement {
             t("Manage everything in the Task app.")
           : t('No tasks with status "{status}"…').replace(
               "{status}",
-              ({ pending: t("Pending"), running: t("Running"), done: t("Done") })[this._filter] ??
+              { pending: t("Pending"), running: t("Running"), done: t("Done") }[this._filter] ??
                 this._filter,
             );
       list.innerHTML = `<div style="padding:20px 0;text-align:center;font-size:12px;color:var(--text-dim)">
@@ -721,9 +723,7 @@ class SuperAgentRuntime extends HTMLElement {
 
 function isDispatchableProjectPath(path) {
   const normalized = String(path || "").replace(/\/+$/, "");
-  return (
-    normalized.includes("/") && !normalized.endsWith("/zicode/agent/super-agent")
-  );
+  return normalized.includes("/") && !normalized.endsWith("/zicode/agent/super-agent");
 }
 
 function sourceHtml(task) {

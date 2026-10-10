@@ -48,7 +48,7 @@ describe("LAN QR modal", () => {
     const control = { openExternal: vi.fn().mockResolvedValue(undefined) };
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 const { setupLanQr } = await import("../react/lan-qr.js");
-    setupLanQr({ control });
+    setupLanQr({ control, desktopToken: "desktop-window-token" });
 
     document.getElementById("lan-qr-btn").click();
     await vi.waitFor(() => {
@@ -56,6 +56,7 @@ const { setupLanQr } = await import("../react/lan-qr.js");
     });
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("kind=session&path=%2F"),
+      { headers: { "x-zicode-desktop-token": "desktop-window-token" } },
     );
     expect(document.getElementById("lan-qr-meta").textContent).toMatch(/04:|05:/);
     document.getElementById("lan-qr-open-link").click();

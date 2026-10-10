@@ -1,8 +1,8 @@
 import { createAutomationApp } from "./AutomationApp";
 import type { AutomationAppOptions } from "./store";
 
-export { nextAutomationRun, isAutomationDue } from "./logic";
 export { createAutomationApp } from "./AutomationApp";
+export { isAutomationDue, nextAutomationRun } from "./logic";
 export type { AutomationAppOptions } from "./store";
 
 // Keep the vanilla shell's setupAutomationApp contract: it receives the same

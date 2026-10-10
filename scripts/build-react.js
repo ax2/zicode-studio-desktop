@@ -33,10 +33,12 @@ async function run() {
   });
   await build({
     entryPoints: {
+      "tool-center": path.join(root, "frontend/src/features/toolCenter/index.ts"),
       automation: path.join(root, "frontend/src/features/automation/index.ts"),
       tasks: path.join(root, "frontend/src/features/tasks/index.ts"),
       artifacts: path.join(root, "frontend/src/features/artifacts/index.ts"),
       projects: path.join(root, "frontend/src/features/projects/index.ts"),
+      "project-terminal-engine": path.join(root, "frontend/src/features/projects/terminal-engine.ts"),
       help: path.join(root, "frontend/src/features/help/index.ts"),
       settings: path.join(root, "frontend/src/features/settings/index.ts"),
       notes: path.join(root, "frontend/src/features/notes/index.ts"),
@@ -151,6 +153,16 @@ async function run() {
     target: "es2022",
     jsx: "automatic",
     external: sharedExternal,
+    // This trusted parent controller dynamically imports the compiled tool form.
+    // Keep it as a runtime module so generated output never becomes bundle input.
+    plugins: [{
+      name: "external-directory-resource-controller",
+      setup(builder) {
+        builder.onResolve({ filter: /directory-resource-runner\.js$/ }, () => ({
+          path: "../plugins/directory-resource-runner.js", external: true,
+        }));
+      },
+    }],
     minify: true,
     logLevel: "info",
   });

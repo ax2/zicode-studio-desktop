@@ -1,0 +1,403 @@
+use super::*;
+use std::sync::mpsc;
+mod lifecycle_http;
+mod output_http;
+mod output_admission_http;
+mod preview_browser;
+
+#[test]
+fn strict_invocation_cancellation_and_scope_reject_unknown_fields() {
+    let access = json!({"schemaVersion":1,"owner":{"runtimeId":"r","sessionId":"s","pluginId":"p","capabilityId":"c"},"resourceId":uuid::Uuid::new_v4(),"contentVersion":"0".repeat(64)});
+    let mut input = json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}});
+    assert!(serde_json::from_value::<Invoke>(input.clone()).is_ok());
+    input["workerPath"] = json!("forbidden");
+    assert!(serde_json::from_value::<Invoke>(input).is_err());
+    let mut cancel =
+        json!({"schemaVersion":1,"owner":access["owner"],"toolCallId":uuid::Uuid::new_v4()});
+    assert!(serde_json::from_value::<Cancel>(cancel.clone()).is_ok());
+    cancel["token"] = json!("forbidden");
+    assert!(serde_json::from_value::<Cancel>(cancel).is_err());
+}
+
+#[test]
+fn audit_records_remain_bounded_without_disk_writes() {
+    let workers = Workers::default();
+    for index in 0..300 {
+        workers.record(json!({"index":index}));
+    }
+    let records = workers.events.lock().unwrap();
+    assert_eq!(records.len(), 128);
+    assert_eq!(records.front().unwrap()["index"], 172);
+    assert_eq!(records.back().unwrap()["index"], 299);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "requires current Studio draft2 Worker executable; real Host HTTP resource computation"]
+async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_recovery() {
+    let executable = PathBuf::from(std::env::var_os("ZICODE_TEST_RESOURCE_WORKER_EXE").unwrap());
+    let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let scratch = project.join(".cache/task-scratch");
+    let root = scratch.join(format!("host-resource-worker-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(root.join("public")).unwrap();
+    std::fs::write(
+        root.join("owner.json"),
+        br#"{"purpose":"actual Host resource Worker conformance; retain failure"}"#,
+    )
+    .unwrap();
+    let package = root.join("package");
+    std::fs::create_dir_all(package.join("runtime")).unwrap();
+    let mut manifest: Value = serde_json::from_slice(
+        &std::fs::read(project.join("tests/fixtures/devtools-text-dev57/plugin.json")).unwrap(),
+    )
+    .unwrap();
+    manifest["id"] = json!("com.zicode.studio.resource-fixture");
+    manifest["name"] = json!("Studio Resource Fixture");
+    manifest["displayName"] = json!("Studio资源契约验收");
+    manifest["runtime"] = json!({"wasi":"runtime/tools.wasm","resourceInputProfile":PROFILE});
+    manifest["activationEvents"] = json!(["onCapability:resource.inspect"]);
+    manifest["contributes"] = json!({"activities":[],"views":[],"commands":[],"piTools":[],"capabilities":[{
+        "id":"resource.inspect","title":"Resource fixture","inputSchema":{"type":"object","properties":{},"additionalProperties":false}
+    }]});
+    manifest["permissions"] = json!({"required":[],"optional":[{"name":"resource.read","reason":"Confirmed fixture input only"}]});
+    std::fs::write(
+        package.join("plugin.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(package.join("runtime/tools.wasm"),r#"(module
+        (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+        (import "zicode_resource_input_draft1" "size" (func $size (param i32) (result i64)))
+        (import "zicode_resource_input_draft1" "read" (func $read (param i32 i64 i32 i32) (result i32)))
+        (memory (export "memory") 1)
+        (data (i32.const 64) "{\22text\22:\22XXXXXXXX\22}")
+        (func (export "_start")
+            i32.const 0 call $size i64.const 300000 i64.ne if unreachable end
+            i32.const 0 i64.const 299992 i32.const 73 i32.const 8 call $read
+            i32.const 8 i32.ne if unreachable end
+            i32.const 0 i32.const 64 i32.store i32.const 4 i32.const 19 i32.store
+            i32.const 1 i32.const 0 i32.const 1 i32.const 24 call $write drop))"#).unwrap();
+    let metadata =
+        crate::metadata_store::MetadataStore::open(&root.join("metadata.sqlite3")).unwrap();
+    let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+    let runtimes = NativePiManager::new(16);
+    let issued = RuntimeTarget::new(
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "temporary-resource-worker",
+        "resource-worker-instance",
+    );
+    let runtime = runtimes.register_in_memory(issued.clone()).unwrap();
+    let host = HostServer::start_with_mode(
+        root.join("public"),
+        runtimes,
+        auth,
+        HashMap::new(),
+        HostMode::IsolatedDesktop,
+    )
+    .await
+    .unwrap();
+    host.state.plugin_tokens.lock().unwrap().insert(
+        issued.instance_id.clone(),
+        RuntimePluginToken {
+            token_hash: sha256_hex(b"fixture-resource-credential"),
+            target: issued.clone(),
+            expires_at: SystemTime::now() + PLUGIN_BROKER_TOKEN_TTL,
+        },
+    );
+    let target = host
+        .state
+        .runtimes
+        .bind_session_id(&issued, "resource-worker-session")
+        .unwrap();
+    {
+        let mut registry = host.state.plugins.lock().unwrap();
+        registry.install_developer(&package).unwrap();
+        registry
+            .set_enabled("programming", "com.zicode.studio.resource-fixture", true)
+            .unwrap();
+        registry
+            .set_permission(
+                "programming",
+                "com.zicode.studio.resource-fixture",
+                "resource.read",
+                true,
+            )
+            .unwrap();
+    }
+    *host
+        .state
+        .plugin_resource_workers
+        .executable
+        .lock()
+        .unwrap() = Some(executable.clone());
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let post = |path: &str, body: Value| {
+        client
+            .post(format!("{}/v2/plugin-resources/{path}", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&body)
+            .send()
+    };
+    let owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,"pluginId":"com.zicode.studio.resource-fixture","capabilityId":"resource.inspect"});
+    let catalog_revision = {
+        let mut registry = host.state.plugins.lock().unwrap();
+        let revision = registry.manual_catalog(&crate::plugin_registry::manual_catalog::CatalogQuery { scene_id: "programming".into(), ..Default::default() }).unwrap()["revision"].clone();
+        registry.set_permission("programming", "com.zicode.studio.resource-fixture", "resource.read", false).unwrap();
+        registry.set_permission("programming", "com.zicode.studio.resource-fixture", "resource.read", true).unwrap();
+        revision
+    };
+    let stale = post("prepare", json!({"schemaVersion":1,"owner":owner,"mimeType":"text/plain","byteLength":0,"contentVersion":sha256_hex(b""),"catalogRevision":catalog_revision})).await.unwrap();
+    assert_eq!(stale.status(), StatusCode::CONFLICT);
+    assert_eq!(stale.json::<Value>().await.unwrap()["error"]["code"], "catalog_changed");
+    assert_eq!(host.state.plugin_resources.lock().unwrap().record_count(), 0);
+    let mut bytes = vec![173; 300000];
+    bytes[299992..].copy_from_slice(b"resource");
+    let version = sha256_hex(&bytes);
+    let prepared=post("prepare",json!({"schemaVersion":1,"owner":owner,"mimeType":"application/octet-stream","byteLength":bytes.len(),"contentVersion":version})).await.unwrap();
+    assert_eq!(prepared.status(), StatusCode::OK);
+    let prepared: Value = prepared.json().await.unwrap();
+    let access = json!({"schemaVersion":1,"owner":owner,"resourceId":prepared["resourceId"],"contentVersion":version});
+    let invocation = json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}});
+    assert_eq!(
+        post("invoke-view", invocation.clone())
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()["error"]["code"],
+        "resource_confirmation_required"
+    );
+    for (index, chunk) in bytes.chunks(MAX_CHUNK).enumerate() {
+        assert_eq!(post("append",json!({"access":access,"offset":index*MAX_CHUNK,"dataBase64":base64::engine::general_purpose::STANDARD.encode(chunk)})).await.unwrap().status(),StatusCode::OK);
+    }
+    assert_eq!(
+        post("commit", json!({"access":access,"confirmed":true}))
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::OK
+    );
+    let response = post("invoke-view", invocation.clone()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.json::<Value>().await.unwrap()["result"],
+        json!({"text":"resource"})
+    );
+    assert_eq!(
+        client
+            .post(format!("{}/v2/plugin-resources/invoke-view", host.origin()))
+            .bearer_auth("fixture-resource-credential")
+            .json(&invocation)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    let mut invalid = invocation.clone();
+    invalid["input"] = json!({"path":"forbidden"});
+    assert_eq!(
+        post("invoke-view", invalid)
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()["error"]["code"],
+        "invalid_parameters"
+    );
+
+    let (event_tx, event_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Arc::new(Mutex::new(release_rx));
+    *host.state.plugin_resource_workers.observer.lock().unwrap() =
+        Some(Arc::new(move |event, pid| {
+            let _ = event_tx.send((event, pid));
+            if event == "started" {
+                let _ = release_rx
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_secs(15));
+            }
+        }));
+    let call_one = uuid::Uuid::new_v4().to_string();
+    let call_two = uuid::Uuid::new_v4().to_string();
+    let invoke_url = format!("{}/v2/plugin-resources/invoke-view", host.origin());
+    let token = host.desktop_token().to_string();
+    let first_body = json!({"access":access,"toolCallId":call_one,"input":{}});
+    let second_body = json!({"access":access,"toolCallId":call_two,"input":{}});
+    let spawn = |body: Value| {
+        let client = client.clone();
+        let url = invoke_url.clone();
+        let token = token.clone();
+        tokio::spawn(async move {
+            client
+                .post(url)
+                .header("x-zicode-desktop-token", token)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+        })
+    };
+    let first = spawn(first_body);
+    let first_event = event_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(first_event.0, "started");
+    let second = spawn(second_body);
+    let second_event = event_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(second_event.0, "started");
+    second.abort(); // Actual work must retain its permit after the HTTP waiter disappears.
+    assert_eq!(
+        post(
+            "invoke-view",
+            json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}})
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert!(host.state.plugins.try_lock().is_ok());
+    assert!(host.state.capability_broker.try_lock().is_ok());
+    assert_eq!(
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            client
+                .get(format!("{}/v2/bootstrap", host.origin()))
+                .query(&[
+                    ("workspaceId", &target.workspace_id),
+                    ("sessionId", &target.session_id),
+                ])
+                .send()
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .status(),
+        StatusCode::OK
+    );
+    let cancellation = json!({"schemaVersion":1,"owner":owner,"toolCallId":call_one});
+    assert_eq!(
+        post("cancel-view", cancellation.clone())
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()["status"],
+        "requested"
+    );
+    release_tx.send(()).unwrap();
+    release_tx.send(()).unwrap();
+    let cancelled = first.await.unwrap();
+    assert_eq!(cancelled.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        cancelled.json::<Value>().await.unwrap()["error"]["code"],
+        "worker_cancelled"
+    );
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while host.state.plugin_resource_workers.slots.available_permits() != WORKERS
+        && Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(
+        host.state.plugin_resource_workers.slots.available_permits(),
+        WORKERS
+    );
+    let events = event_rx.try_iter().collect::<Vec<_>>();
+    for event in ["cancel_live", "reaped", "pipes_closed"] {
+        assert!(events.contains(&(event, first_event.1)));
+    }
+    assert!(events.contains(&("pipes_closed", second_event.1)));
+    *host.state.plugin_resource_workers.observer.lock().unwrap() = None;
+    assert_eq!(
+        post(
+            "invoke-view",
+            json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}})
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        post("cancel-view", cancellation)
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()["executionFinished"],
+        true
+    );
+    let automatic_lifecycle = lifecycle_http::verify(&host, &client, &access, &target).await;
+    let binary_output=output_http::verify(&host,&client,&root,&target,&manifest).await;
+    let resource_transfer = super::super::transfer::tests::verify(&host, &root, &target, &manifest).await;
+    let resource_save = super::super::save::tests::http::verify(&host, &root, &target).await;
+    let saved_library = super::super::library::tests::http::verify(&host, &root, &target).await;
+    let browser_preview = preview_browser::verify(&host, &root, &target, &manifest).await;
+    host.state
+        .plugins
+        .lock()
+        .unwrap()
+        .set_permission(
+            "programming",
+            "com.zicode.studio.resource-fixture",
+            "resource.read",
+            false,
+        )
+        .unwrap();
+    assert_eq!(
+        post("invoke-view", invocation.clone())
+            .await
+            .unwrap()
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        post("revoke", access.clone()).await.unwrap().status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        post(
+            "cancel-view",
+            json!({"schemaVersion":1,"owner":owner,"toolCallId":call_two})
+        )
+        .await
+        .unwrap()
+        .json::<Value>()
+        .await
+        .unwrap()["executionFinished"],
+        true
+    );
+    let audit = post("worker-audit-view", json!({}))
+        .await
+        .unwrap()
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(audit["persistent"], false);
+    assert!(audit["records"].as_array().unwrap().len() <= 128);
+    let audit_text = serde_json::to_string(&audit).unwrap();
+    assert!(!audit_text.contains("fixture-resource-credential"));
+    assert!(!audit_text.contains("dataBase64"));
+    assert!(!audit_text.contains("workerPath"));
+    let automatic_stop = lifecycle_http::verify_stop(&host, &client, &owner, &target).await;
+    if let Some(path) = std::env::var_os("ZICODE_TEST_HOST_RESOURCE_EVIDENCE") {
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .unwrap();
+        serde_json::to_writer_pretty(file,&json!({"passed":true,"surface":"real HTTP Host + current Studio EXE + Studio-owned WASI fixture",
+            "resourceBytes":300000,"confirmedSnapshotExecuted":true,"unconfirmedRejected":true,"schemaAndDesktopAuthEnforced":true,"staleCatalogPrepareRejectedWithoutAllocation":true,
+            "workers":2,"busyRejected":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,
+            "cancelledPid":first_event.1,"cancelLiveReapedPipesClosed":true,"secondPid":second_event.1,"secondPipesClosed":true,
+            "nextInvocationRecovered":true,"revokedPermissionRejected":true,"cancelAfterRevoke":true,"boundedVolatileAudit":true,
+            "automaticLifecycle":automatic_lifecycle,"automaticRuntimeStop":automatic_stop,"binaryOutput":binary_output,"resourceTransfer":resource_transfer,"resourceSave":resource_save,"savedLibrary":saved_library,"browserPreview":browser_preview,"devtoolsImageAlgorithm":false,"nativeUi":false,"phaseBoundary":"Workers held at startup by test observer; not instruction-level interruption"})).unwrap();
+    }
+    drop(runtime);
+    host.stop_and_wait().await.unwrap();
+    assert!(root
+        .canonicalize()
+        .unwrap()
+        .starts_with(scratch.canonicalize().unwrap()));
+    std::fs::remove_dir_all(root).unwrap();
+}

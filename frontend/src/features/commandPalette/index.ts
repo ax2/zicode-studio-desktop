@@ -1,12 +1,14 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
-import { CommandPaletteApp } from "./CommandPaletteApp";
+import { CommandPaletteRoot } from "./CommandPaletteRoot";
+import type { ManualTool, ManualToolApi } from "../toolCenter/manual-tools";
 import {
-  resolveCommands,
   type PaletteCommand,
   type PaletteCommandSource,
+  resolveCommands,
 } from "./commandPaletteLogic";
+import { runWithRecent, type ToolAccessScope, type ToolAccessStore } from "./tool-access";
 
 export interface CommandPaletteHandle {
   open(): void;
@@ -19,6 +21,11 @@ export function setupCommandPalette({
   overlay,
   list,
   commands,
+  accessStore,
+  getScope,
+  toolApi,
+  getToolApi,
+  onOpenTool,
   onError = console.error,
 }: {
   button?: HTMLElement | null;
@@ -26,6 +33,11 @@ export function setupCommandPalette({
   overlay?: HTMLElement | null;
   list?: HTMLElement | null;
   commands?: PaletteCommandSource;
+  accessStore?: ToolAccessStore;
+  getScope?: () => ToolAccessScope;
+  toolApi?: ManualToolApi;
+  getToolApi?: () => ManualToolApi | undefined;
+  onOpenTool?: (tool: ManualTool, revision: string, scope: ToolAccessScope) => unknown;
   onError?: (error: unknown) => void;
 } = {}): CommandPaletteHandle {
   if (!button || !palette || !overlay || !list) {
@@ -42,6 +54,7 @@ export function setupCommandPalette({
 
   const root: Root = createRoot(container);
   let previousFocus: HTMLElement | null = null;
+  let openGeneration = 0;
 
   function close({ restoreFocus = true }: { restoreFocus?: boolean } = {}) {
     panel.classList.add("hidden");
@@ -55,19 +68,15 @@ export function setupCommandPalette({
     previousFocus = null;
   }
 
-  function runCommand(command: PaletteCommand) {
+  function runCommand(command: PaletteCommand, scope?: ToolAccessScope) {
     close({ restoreFocus: false });
-    try {
-      const result = command.action?.();
-      if (result && typeof (result as Promise<unknown>).catch === "function") {
-        (result as Promise<unknown>).catch(onError);
-      }
-    } catch (error) {
-      onError(error);
-    }
+    void runWithRecent(command, accessStore, scope).catch(onError);
   }
 
   function open() {
+    const activeToolApi = getToolApi?.() ?? toolApi;
+    const scope = getScope?.();
+    const fixedScope = scope ? { sceneId: scope.sceneId, workspaceId: scope.workspaceId } : undefined;
     const active = document.activeElement;
     previousFocus =
       active instanceof HTMLElement &&
@@ -79,9 +88,19 @@ export function setupCommandPalette({
     backdrop.classList.remove("hidden");
     flushSync(() => {
       root.render(
-        createElement(CommandPaletteApp, {
+        createElement(CommandPaletteRoot, {
+          key: ++openGeneration,
           commands: resolveCommands(commands ?? []),
-          onRun: runCommand,
+          accessStore,
+          scope: fixedScope,
+          tools: activeToolApi && onOpenTool && fixedScope ? {
+            api: activeToolApi, scope: fixedScope,
+            onOpen: (tool: ManualTool, revision: string) => {
+              close({ restoreFocus: false });
+              void Promise.resolve().then(() => onOpenTool(tool, revision, fixedScope)).catch(onError);
+            },
+          } : undefined,
+          onRun: (command: PaletteCommand) => runCommand(command, fixedScope),
         }),
       );
     });

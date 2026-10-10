@@ -51,6 +51,11 @@
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(160px, 220px);
 }
 
+[data-help-center-root] {
+  height: 100%;
+  min-height: 0;
+}
+
 .help-center-layout--embedded {
   width: 100%;
   height: 100%;
@@ -247,7 +252,27 @@
   min-width: 0;
   overflow-y: auto;
   padding: var(--space-6) clamp(var(--space-4), 5vw, var(--space-10));
+  line-height: 1.7;
+  overflow-wrap: anywhere;
   scroll-behavior: smooth;
+}
+
+.help-center-article p {
+  margin-block: var(--space-3);
+}
+
+.help-center-article ul,
+.help-center-article ol {
+  margin-block: var(--space-3);
+  padding-inline-start: var(--space-6);
+}
+
+.help-center-article li + li {
+  margin-top: var(--space-1);
+}
+
+.help-center-article a {
+  color: var(--accent-text);
 }
 
 .help-center-article > :first-child {
@@ -411,17 +436,15 @@
 }
 
 .help-center-toc-link {
-  display: block;
-  padding: var(--space-1) var(--space-2);
-  border-left: 2px solid transparent;
-  color: var(--text-dim);
-  font-size: var(--font-size-sm);
-  text-decoration: none;
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
 }
 
 .help-center-toc-link:hover {
-  border-left-color: var(--accent);
-  color: var(--accent-text);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .help-center-toc-link.level-h3 {

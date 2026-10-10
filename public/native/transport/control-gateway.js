@@ -19,11 +19,18 @@ export class HostControlGateway {
     });
   }
 
-  #request(operation, parameters = {}) {
+  #request(operation, parameters = {}, timeoutMs = 0) {
     const requestId = `host-${this.#nextRequestId++}`;
     const generation = this.#generation;
     return new Promise((resolve, reject) => {
-      this.#pending.set(requestId, { resolve, reject, generation });
+      const timeout =
+        timeoutMs > 0
+          ? setTimeout(() => {
+              this.#pending.delete(requestId);
+              reject(new Error("task_request_timed_out"));
+            }, timeoutMs)
+          : null;
+      this.#pending.set(requestId, { resolve, reject, generation, timeout });
       try {
         this.#adapter.send({
           type: "host_request",
@@ -32,6 +39,7 @@ export class HostControlGateway {
           ...parameters,
         });
       } catch (error) {
+        if (timeout) clearTimeout(timeout);
         this.#pending.delete(requestId);
         reject(error);
       }
@@ -41,6 +49,108 @@ export class HostControlGateway {
   async listPiPackages() {
     const frame = await this.#request("list_pi_packages");
     return Array.isArray(frame?.packages) ? frame.packages : [];
+  }
+
+  async toolAccess(scope, mutation) {
+    return this.#request(
+      mutation ? "tool_access_mutate" : "tool_access_read",
+      { schemaVersion: 1, sceneId: scope.sceneId, workspaceId: scope.workspaceId,
+        ...(mutation ? { mutation } : {}) },
+      15000,
+    );
+  }
+
+  async startProjectTask(workspaceId, name, fingerprint, directory = "") {
+    return this.#request(
+      "start_project_task",
+      { workspaceId, name, fingerprint, directory },
+      15000,
+    );
+  }
+
+  async stopProjectTask(workspaceId, runId) {
+    return this.#request("stop_project_task", { workspaceId, runId }, 15000);
+  }
+
+  async clearProjectTaskHistory(workspaceId) {
+    return this.#request("clear_project_task_history", { workspaceId }, 15000);
+  }
+
+  async workspaceGitStage(workspaceId, file) {
+    return this.#request(
+      "workspace_git_stage",
+      {
+        workspaceId,
+        path: file.path,
+        indexStatus: file.indexStatus,
+        worktreeStatus: file.worktreeStatus,
+      },
+      30000,
+    );
+  }
+
+  async workspaceGitUnstage(workspaceId, file) {
+    return this.#request(
+      "workspace_git_unstage",
+      {
+        workspaceId,
+        path: file.path,
+        indexStatus: file.indexStatus,
+        worktreeStatus: file.worktreeStatus,
+      },
+      30000,
+    );
+  }
+
+  async projectTerminal(operation, workspaceId, parameters = {}) {
+    if (
+      ![
+        "terminal_open",
+        "terminal_open_directory",
+        "terminal_list",
+        "terminal_read",
+        "terminal_input",
+        "terminal_resize",
+        "terminal_close",
+      ].includes(operation)
+    ) {
+      throw new Error("terminal_operation_unsupported");
+    }
+    const { terminalId, cols, rows, offset, data, directory, openIntentId } = parameters;
+    return this.#request(
+      operation,
+      {
+        workspaceId,
+        terminalId,
+        cols,
+        rows,
+        offset,
+        data,
+        ...(openIntentId !== undefined ? { openIntentId } : {}),
+        ...(operation === "terminal_open_directory" ? { directory } : {}),
+      },
+      15000,
+    );
+  }
+
+  async projectEnvironment(workspaceId, settings) {
+    if (settings === undefined)
+      return this.#request("project_environment_get", { workspaceId }, 15000);
+    const { revision, directories, pythonEnvironment } = settings;
+    return this.#request(
+      "project_environment_save",
+      {
+        workspaceId,
+        revision,
+        directories,
+        ...(pythonEnvironment !== undefined ? { pythonEnvironment } : {}),
+      },
+      15000,
+    );
+  }
+
+  async projectCondaEnvironments(workspaceId) {
+    return this.#request("project_environment_discover_conda", { workspaceId }, 15000);
   }
 
   async installPiPackage(source) {
@@ -58,6 +168,14 @@ export class HostControlGateway {
 
   async openInApp(path, { appName = null, command = null } = {}) {
     await this.#request("open_in_app", { path, appName, command });
+  }
+
+  async openWorkspaceEntry(workspaceId, relativePath) {
+    await this.#request("open_in_app", { workspaceId, relativePath });
+  }
+
+  async openWorkspaceDirectory(workspaceId, relativePath) {
+    await this.#request("open_workspace_directory", { workspaceId, relativePath });
   }
 
   async openExternal(url) {
@@ -79,6 +197,7 @@ export class HostControlGateway {
     const pending = this.#pending.get(frame?.requestId);
     if (!pending || pending.generation !== this.#generation) return;
     this.#pending.delete(frame.requestId);
+    if (pending.timeout) clearTimeout(pending.timeout);
     if (frame.error) pending.reject(new Error(frame.error.message ?? String(frame.error)));
     else pending.resolve(frame);
   }
@@ -86,6 +205,7 @@ export class HostControlGateway {
   #disconnect() {
     this.#generation += 1;
     for (const pending of this.#pending.values()) {
+      if (pending.timeout) clearTimeout(pending.timeout);
       pending.reject(new Error("Host disconnected before the control request completed"));
     }
     this.#pending.clear();

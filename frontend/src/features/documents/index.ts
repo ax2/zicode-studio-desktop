@@ -3,11 +3,10 @@ import type { DocumentsOptions } from "./documentsStore";
 import { DocumentsHttpGateway } from "./documentsStore";
 
 export { createDocumentsApp } from "./DocumentsApp";
-export { DocumentsHttpGateway } from "./documentsStore";
-export type { DocumentsOptions } from "./documentsStore";
-export { isSupportedDocument, readFileAsDataUrl } from "./documentsLogic";
 export type { DocumentImportResult } from "./documentsLogic";
-export type { NotebookRef } from "./documentsStore";
+export { isSupportedDocument, readFileAsDataUrl } from "./documentsLogic";
+export type { DocumentsOptions, NotebookRef } from "./documentsStore";
+export { DocumentsHttpGateway } from "./documentsStore";
 
 export function setupDocumentsApp(options: DocumentsOptions) {
   return createDocumentsApp({

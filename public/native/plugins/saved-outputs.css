@@ -1,0 +1,10 @@
+.artifacts-content-layout { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; overflow: auto; padding: var(--space-3); }
+.saved-outputs { padding: var(--space-3); overflow-wrap: anywhere; }
+.saved-outputs-search, .saved-outputs-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: end; }
+.saved-outputs-search label { display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 0; }
+.saved-outputs ul { list-style: none; padding: 0; display: grid; gap: var(--space-3); }
+.saved-outputs li { display: flex; flex-direction: column; gap: var(--space-2); border-top: 1px solid var(--border); padding-top: var(--space-3); }
+.saved-output-preview { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+.saved-output-preview img { max-width: 100%; object-fit: contain; align-self: flex-start; }
+.saved-output-preview .ui-button { align-self: flex-start; }
+.saved-output-preview textarea { white-space: pre-wrap; overflow-wrap: anywhere; max-height: calc(var(--control-height-lg) * 8); overflow: auto; }

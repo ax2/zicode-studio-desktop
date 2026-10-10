@@ -1,3 +1,12 @@
+import { automationDraftOperation } from "./automation-drafts";
+import { readAutomationWorkspaceFile, updateAutomationWorkspaceFile } from "./automation-workspace-repository";
+import { modelChannelDocument, providerKeyReference } from "./model-channels";
+import {
+  qverisHealthFailure,
+  qverisHealthHasAssistantText,
+  safeModelHealthError,
+} from "./model-health-response";
+import { fetchOpenAIModelIds } from "./openai-model-catalog";
 // Configuration data plane for the native ZiCode Studio Desktop Settings → Configuration tab.
 //
 // The legacy `embedded-server.ts` served these operations over its own HTTP/WS
@@ -14,13 +23,19 @@
 // embedded-server used — so we never re-implement pi's provider knowledge.
 
 import { execFile } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createAgentSession, ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
-import { runBacktest, type BacktestInput } from "./finance/backtest";
-import { MarketDataStore, type MarketDataSnapshotInput } from "./finance/market-data";
-import { normalizeOhlcv, type NormalizeOhlcvInput } from "./finance/normalize";
+import {
+  type CreateAgentSessionOptions,
+  createAgentSession,
+  ModelRuntime,
+  SessionManager,
+} from "@earendil-works/pi-coding-agent";
+import { type BacktestInput, runBacktest } from "./finance/backtest";
+import { type MarketDataSnapshotInput, MarketDataStore } from "./finance/market-data";
+import { type NormalizeOhlcvInput, normalizeOhlcv } from "./finance/normalize";
 import { PaperTradingLedger } from "./finance/paper-trading";
 import {
   QVerisClient,
@@ -30,8 +45,8 @@ import {
 import { runScreening, type ScreeningInput } from "./finance/screener";
 import {
   fetchQVerisModelCatalog,
-  QVERIS_MODEL_GATEWAY_BASE_URL,
 } from "./qveris-model-gateway";
+import { readTasks, writeTasks } from "./task-repository";
 
 type ModelHealthStatus = "unknown" | "healthy" | "unhealthy";
 
@@ -45,6 +60,7 @@ type ModelHealth = {
 type ModelPreferencesFile = {
   visibility?: Record<string, boolean>;
   health?: Record<string, ModelHealth>;
+  credentialVersions?: Record<string, string>;
 };
 
 type CatalogModel = {
@@ -63,7 +79,8 @@ type CatalogRegistry = {
     label?: string;
   };
   getProviderDisplayName: (provider: string) => string;
-  refresh: () => void | Promise<void>;
+  getApiKeyForProvider?: (provider: string) => Promise<string | undefined>;
+  refresh: () => undefined | Promise<unknown>;
 };
 
 type ApiKeyCredential = { type: "api_key"; key: string };
@@ -158,7 +175,6 @@ const PISTUDIO_INSTANCES_DIR = process.env.PI_DESKTOP_INSTANCE_DIR
 // file is left untouched when a target already exists or the move fails.
 function migrateLegacyAppData(): void {
   const legacy: Array<[string, string]> = [
-    [path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"), SUPER_AGENT_TASKS_PATH],
     [path.join(PI_AGENT_ROOT, "finance", "research.json"), FINANCE_RESEARCH_PATH],
     [path.join(PI_AGENT_ROOT, "automation", "workflows.json"), AUTOMATION_WORKSPACE_PATH],
   ];
@@ -211,49 +227,115 @@ function normalizeModelHealth(value: unknown): ModelHealth {
     checkedAt: typeof candidate.checkedAt === "string" ? candidate.checkedAt : undefined,
     latencyMs: typeof candidate.latencyMs === "number" ? candidate.latencyMs : undefined,
   };
-  if (typeof candidate.error === "string") health.error = candidate.error;
+  if (typeof candidate.error === "string") health.error = safeModelHealthError(candidate.error);
   return health;
-}
-
-function sanitizeHealthError(error: unknown): string {
-  const raw = errMessage(error) || "Health check failed";
-  return raw
-    .replace(/sk-[A-Za-z0-9_-]{6,}/g, "[REDACTED]")
-    .replace(/\bbearer\s+[A-Za-z0-9._~+/=-]{6,}/gi, "bearer [REDACTED]")
-    .slice(0, 240);
 }
 
 class ModelPreferencesStore {
   readonly path: string;
+  private migrationDeferred = false;
 
   constructor(filePath = MODELS_PREFS_PATH) {
     this.path = filePath;
   }
 
-  read(): Required<ModelPreferencesFile> {
-    if (!fs.existsSync(this.path)) return { visibility: {}, health: {} };
+  private readSnapshot(): { preferences: Required<ModelPreferencesFile>; needsMigration: boolean } {
+    const empty = { visibility: {}, health: {}, credentialVersions: {} };
+    if (!fs.existsSync(this.path)) return { preferences: empty, needsMigration: false };
     try {
       const parsed = JSON.parse(fs.readFileSync(this.path, "utf8")) as ModelPreferencesFile;
-      return {
+      const healthEntries =
+        parsed.health && typeof parsed.health === "object" && !Array.isArray(parsed.health)
+          ? Object.entries(parsed.health)
+          : [];
+      const health = Object.fromEntries(
+        healthEntries.map(([key, value]) => [key, normalizeModelHealth(value)]),
+      );
+      const needsMigration = healthEntries.some(([, value]) => {
+        const original = value as Partial<ModelHealth> | null;
+        return (
+          typeof original?.error === "string" &&
+          original.error !== normalizeModelHealth(value).error
+        );
+      });
+      return { preferences: {
         visibility:
           parsed.visibility &&
           typeof parsed.visibility === "object" &&
           !Array.isArray(parsed.visibility)
             ? parsed.visibility
             : {},
-        health:
-          parsed.health && typeof parsed.health === "object" && !Array.isArray(parsed.health)
-            ? parsed.health
+        health,
+        credentialVersions:
+          parsed.credentialVersions &&
+          typeof parsed.credentialVersions === "object" &&
+          !Array.isArray(parsed.credentialVersions)
+            ? Object.fromEntries(
+                Object.entries(parsed.credentialVersions).filter(
+                  ([, value]) => typeof value === "string" && /^[a-f0-9-]{36}$/i.test(value),
+                ),
+              )
             : {},
-      };
+      }, needsMigration };
     } catch {
-      return { visibility: {}, health: {} };
+      return { preferences: empty, needsMigration: false };
     }
   }
 
-  write(next: Required<ModelPreferencesFile>): void {
+  private withLock(action: () => void): void {
     fs.mkdirSync(path.dirname(this.path), { recursive: true });
-    fs.writeFileSync(this.path, JSON.stringify(next, null, 2), "utf8");
+    const lockPath = `${this.path}.lock`;
+    let lockFd: number | undefined;
+    const pause = new Int32Array(new SharedArrayBuffer(4));
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      try {
+        lockFd = fs.openSync(lockPath, "wx", 0o600);
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        if (attempt === 79) throw new Error("model_preferences_busy");
+        Atomics.wait(pause, 0, 0, 25);
+      }
+    }
+    if (lockFd === undefined) throw new Error("model_preferences_busy");
+    try {
+      action();
+    } finally {
+      fs.closeSync(lockFd);
+      fs.unlinkSync(lockPath);
+    }
+  }
+
+  private write(next: Required<ModelPreferencesFile>): void {
+    const temporary = `${this.path}.${randomUUID()}.tmp`;
+    try {
+      const fd = fs.openSync(temporary, "wx", 0o600);
+      try {
+        fs.writeFileSync(fd, JSON.stringify(next, null, 2), "utf8");
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+      fs.renameSync(temporary, this.path);
+    } finally {
+      fs.rmSync(temporary, { force: true });
+    }
+  }
+
+  read(): Required<ModelPreferencesFile> {
+    const snapshot = this.readSnapshot();
+    if (snapshot.needsMigration && !this.migrationDeferred) {
+      try {
+        this.withLock(() => {
+          const latest = this.readSnapshot();
+          if (latest.needsMigration) this.write(latest.preferences);
+        });
+      } catch {
+        // The in-memory result is safe; retry on the next configuration operation.
+        this.migrationDeferred = true;
+      }
+    }
+    return snapshot.preferences;
   }
 
   isVisible(provider: string, modelId: string): boolean {
@@ -261,25 +343,54 @@ class ModelPreferencesStore {
   }
 
   setVisibility(provider: string, modelId: string, visible: boolean): void {
-    const prefs = this.read();
-    prefs.visibility[modelPreferenceKey(provider, modelId)] = visible;
-    this.write(prefs);
+    this.withLock(() => {
+      const prefs = this.readSnapshot().preferences;
+      prefs.visibility[modelPreferenceKey(provider, modelId)] = visible;
+      this.write(prefs);
+    });
   }
 
   getHealth(provider: string, modelId: string): ModelHealth {
     return normalizeModelHealth(this.read().health[modelPreferenceKey(provider, modelId)]);
   }
 
-  setHealth(provider: string, modelId: string, health: ModelHealth): void {
-    const prefs = this.read();
-    prefs.health[modelPreferenceKey(provider, modelId)] = normalizeModelHealth(health);
-    this.write(prefs);
+  credentialVersion(provider: string): string {
+    return this.read().credentialVersions[provider] ?? "";
+  }
+
+  rotateCredential(provider: string): void {
+    this.withLock(() => {
+      const prefs = this.readSnapshot().preferences;
+      prefs.credentialVersions[provider] = randomUUID();
+      for (const key of Object.keys(prefs.health)) {
+        if (key.startsWith(`${provider}/`)) delete prefs.health[key];
+      }
+      this.write(prefs);
+    });
+  }
+
+  setHealthIfCredentialCurrent(
+    provider: string,
+    modelId: string,
+    health: ModelHealth,
+    expectedVersion: string,
+  ): boolean {
+    let saved = false;
+    this.withLock(() => {
+      const prefs = this.readSnapshot().preferences;
+      if ((prefs.credentialVersions[provider] ?? "") !== expectedVersion) return;
+      prefs.health[modelPreferenceKey(provider, modelId)] = normalizeModelHealth(health);
+      this.write(prefs);
+      saved = true;
+    });
+    return saved;
   }
 }
 
 async function buildModelCatalog(registry: CatalogRegistry, preferences: ModelPreferencesStore) {
   const allModels = registry.getAll();
   const availableModels = await registry.getAvailable();
+  const channelConfigs = readModelsDocument().providers;
   const availableKeys = new Set(
     availableModels
       .filter((model) => model.provider && model.id)
@@ -287,10 +398,12 @@ async function buildModelCatalog(registry: CatalogRegistry, preferences: ModelPr
   );
   const providerNames = Array.from(
     new Set([
-      ...allModels.map((model) => model.provider).filter(Boolean),
-      QVERIS_PROVIDER_ID,
+      ...allModels
+        .map((model) => model.provider)
+        .filter((provider): provider is string => typeof provider === "string" && provider.length > 0),
+      ...Object.keys(channelConfigs),
     ]),
-  ).sort() as string[];
+  ).filter((providerName) => channelConfigs[providerName]?.enabled !== false).sort();
 
   return {
     providers: providerNames.map((providerName) => {
@@ -299,9 +412,9 @@ async function buildModelCatalog(registry: CatalogRegistry, preferences: ModelPr
       return {
         provider: providerName,
         displayName:
-          providerName === QVERIS_PROVIDER_ID
+          asString(channelConfigs[providerName]?.displayName) || (providerName === QVERIS_PROVIDER_ID
             ? "QVeris Model Gateway"
-            : registry.getProviderDisplayName(providerName),
+            : registry.getProviderDisplayName(providerName)),
         configured: Boolean(status.configured) || stored,
         source: status.source || (stored ? "stored" : undefined),
         label: status.label,
@@ -338,8 +451,47 @@ async function runModelHealthCheck(
   const provider = model.provider as string;
   const modelId = model.id as string;
   const startedAt = Date.now();
+  const original = readModelsDocument().providers[provider];
+  const originalRevision = original ? channelRevision(original) : null;
+  const originalCredentialVersion = preferences.credentialVersion(provider);
+  const publish = (result: { provider: string; modelId: string } & ModelHealth) => {
+    let current: Record<string, unknown> | undefined;
+    let readable = true;
+    try {
+      current = readModelsDocument().providers[provider];
+    } catch {
+      readable = false;
+    }
+    if (
+      !readable ||
+      (current ? channelRevision(current) : null) !== originalRevision ||
+      current?.enabled === false
+    ) {
+      return {
+        ...result,
+        status: "unknown" as const,
+        error: "Model channel changed while testing. Refresh and try again.",
+      };
+    }
+    if (
+      !preferences.setHealthIfCredentialCurrent(
+        provider,
+        modelId,
+        result,
+        originalCredentialVersion,
+      )
+    ) {
+      return {
+        ...result,
+        status: "unknown" as const,
+        error: "Model credentials changed while testing. Refresh and try again.",
+      };
+    }
+    return result;
+  };
   let sawAssistantText = false;
   try {
+    requireEnabledModelChannel(provider);
     // The QVeris credential lives in the desktop OS vault and is hydrated into
     // the running pi process by sealBrokerAuthConfig, not into a fresh model
     // session. Probe the same local model-gateway path the desktop chat uses
@@ -356,6 +508,7 @@ async function runModelHealthCheck(
         30_000,
       );
       try {
+        requireEnabledModelChannel(provider);
         const response = await fetch(`${gatewayBase}/chat/completions`, {
           method: "POST",
           headers: {
@@ -373,13 +526,10 @@ async function runModelHealthCheck(
           }),
           signal: controller.signal,
         });
-        const text = await response.text();
         if (!response.ok) {
-          throw new Error(
-            `QVeris request failed (${response.status}): ${text.slice(0, 200)}`,
-          );
+          throw new Error(await qverisHealthFailure(response));
         }
-        sawAssistantText = /"content"\s*:\s*"[^"]*OK/i.test(text);
+        sawAssistantText = await qverisHealthHasAssistantText(response);
       } finally {
         clearTimeout(timer);
       }
@@ -391,12 +541,12 @@ async function runModelHealthCheck(
         latencyMs: Date.now() - startedAt,
         error: sawAssistantText ? undefined : "No assistant text returned",
       };
-      preferences.setHealth(provider, modelId, result);
-      return result;
+      return publish(result);
     }
     const modelRuntime = await ModelRuntime.create();
     const { session } = await createAgentSession({
-      model,
+      // The Pi registry supplies full SDK models; CatalogModel keeps only fields used by this UI.
+      model: model as unknown as NonNullable<CreateAgentSessionOptions["model"]>,
       thinkingLevel: "off",
       tools: [],
       sessionManager: SessionManager.inMemory(),
@@ -414,7 +564,21 @@ async function runModelHealthCheck(
         }
       });
       try {
-        await session.prompt("Reply exactly: OK");
+        requireEnabledModelChannel(provider);
+        let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            session.prompt("Reply exactly: OK"),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(() => {
+                void session.abort().catch(() => undefined);
+                reject(new Error("Model health check timed out"));
+              }, 30_000);
+            }),
+          ]);
+        } finally {
+          if (timeout) clearTimeout(timeout);
+        }
       } finally {
         unsubscribe();
       }
@@ -429,8 +593,7 @@ async function runModelHealthCheck(
       latencyMs: Date.now() - startedAt,
       error: sawAssistantText ? undefined : "No assistant text returned",
     };
-    preferences.setHealth(provider, modelId, result);
-    return result;
+    return publish(result);
   } catch (e: unknown) {
     const result: { provider: string; modelId: string } & ModelHealth = {
       provider,
@@ -438,24 +601,16 @@ async function runModelHealthCheck(
       status: "unhealthy",
       checkedAt: new Date().toISOString(),
       latencyMs: Date.now() - startedAt,
-      error: sanitizeHealthError(e),
+      error: safeModelHealthError(e),
     };
-    preferences.setHealth(provider, modelId, result);
-    return result;
+    return publish(result);
   }
 }
 
 function qverisGatewayBaseUrl(): string {
-  try {
-    const document = readModelsDocument();
-    const baseUrl = document.providers?.[QVERIS_PROVIDER_ID]?.baseUrl;
-    if (typeof baseUrl === "string" && baseUrl.trim()) {
-      return baseUrl.trim().replace(/\/+$/, "");
-    }
-  } catch {
-    // Fall through to the loopback default used by the bundled scene.
-  }
-  return "http://127.0.0.1:57620/v2/model-gateway";
+  const config = readModelsDocument().providers[QVERIS_PROVIDER_ID];
+  if (!config) throw new Error("Configure the model channel before syncing its catalog.");
+  return validateBaseUrl(config.baseUrl);
 }
 
 function readConfigFile(filePath: string, fallback: string): { content: string; path: string } {
@@ -518,48 +673,55 @@ function readModelsDocument(): {
   const parsed = fs.existsSync(MODELS_CONFIG_PATH)
     ? (JSON.parse(fs.readFileSync(MODELS_CONFIG_PATH, "utf8")) as Record<string, unknown>)
     : {};
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("models.json must be a JSON object");
+  return modelChannelDocument(parsed);
+}
+
+export function isModelChannelDisabled(provider: string): boolean {
+  return readModelsDocument().providers[provider]?.enabled === false;
+}
+
+function requireEnabledModelChannel(provider: string): void {
+  if (isModelChannelDisabled(provider)) {
+    throw new Error("Model channel is disabled. Enable it before making requests.");
   }
-  const providers =
-    parsed.providers && typeof parsed.providers === "object" && !Array.isArray(parsed.providers)
-      ? (parsed.providers as Record<string, Record<string, unknown>>)
-      : {};
-  const qveris = providers[QVERIS_PROVIDER_ID] || {};
-  // Default the built-in QVeris model gateway to the desktop's local proxy
-  // (which forwards through the system proxy) so the model catalog also works
-  // on networks where aigateway.qveris.ai is only reachable via proxy.
-  const qverisBaseUrl =
-    asString(qveris.baseUrl) || "http://127.0.0.1:57620/v2/model-gateway";
-  return {
-    ...parsed,
-    providers: {
-      ...providers,
-      [QVERIS_PROVIDER_ID]: {
-        ...qveris,
-        baseUrl: qverisBaseUrl,
-        api: asString(qveris.api) || "openai-completions",
-        authHeader: qveris.authHeader !== false,
-        models: Array.isArray(qveris.models) ? qveris.models : [],
-      },
-    },
-  };
+}
+
+function withModelsDocumentLock<T>(action: () => T): T {
+  fs.mkdirSync(path.dirname(MODELS_CONFIG_PATH), { recursive: true });
+  const lockPath = `${MODELS_CONFIG_PATH}.lock`;
+  let lockFd: number;
+  try {
+    lockFd = fs.openSync(lockPath, "wx", 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("model_channel_busy");
+    throw error;
+  }
+  try {
+    return action();
+  } finally {
+    fs.closeSync(lockFd);
+    fs.unlinkSync(lockPath);
+  }
+}
+
+function writeModelsContent(content: string): void {
+  const temporary = `${MODELS_CONFIG_PATH}.${randomUUID()}.tmp`;
+  try {
+    const fd = fs.openSync(temporary, "wx", 0o600);
+    try {
+      fs.writeFileSync(fd, content, "utf8");
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(temporary, MODELS_CONFIG_PATH);
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
 }
 
 function writeModelsDocument(document: Record<string, unknown>): void {
-  writeConfigFile(MODELS_CONFIG_PATH, `${JSON.stringify(document, null, 2)}\n`);
-}
-
-function ensureBuiltInModelGateway(): void {
-  const current = readModelsDocument();
-  const qveris = current.providers?.[QVERIS_PROVIDER_ID];
-  if (qveris && typeof qveris === "object" && !Array.isArray(qveris)) {
-    if (asString(qveris.baseUrl) && asString(qveris.apiKey) === QVERIS_API_KEY_REF) {
-      return;
-    }
-    qveris.apiKey = QVERIS_API_KEY_REF;
-  }
-  writeModelsDocument(current);
+  writeModelsContent(`${JSON.stringify(document, null, 2)}\n`);
 }
 
 async function syncQVerisModelCatalog(
@@ -568,18 +730,26 @@ async function syncQVerisModelCatalog(
 ): Promise<{ count: number; refreshed: boolean }> {
   if (!apiKey) throw new Error("QVeris API Key is not configured for this scene");
   const document = readModelsDocument();
-  const current = document.providers[QVERIS_PROVIDER_ID] || {};
-  const baseUrl = validateBaseUrl(current.baseUrl || QVERIS_MODEL_GATEWAY_BASE_URL);
+  const current = document.providers[QVERIS_PROVIDER_ID];
+  if (!current) throw new Error("Configure the model channel before syncing its catalog.");
+  requireEnabledModelChannel(QVERIS_PROVIDER_ID);
+  const baseUrl = validateBaseUrl(current.baseUrl);
   const models = await fetchQVerisModelCatalog(apiKey, { baseUrl });
-  document.providers[QVERIS_PROVIDER_ID] = {
-    ...current,
-    baseUrl,
-    api: "openai-completions",
-    authHeader: true,
-    apiKey: QVERIS_API_KEY_REF,
-    models,
-  };
-  writeModelsDocument(document);
+  withModelsDocumentLock(() => {
+    const latest = readModelsDocument();
+    if (JSON.stringify(latest.providers[QVERIS_PROVIDER_ID]) !== JSON.stringify(current)) {
+      throw new Error("Model channel changed while syncing. Refresh and try again.");
+    }
+    latest.providers[QVERIS_PROVIDER_ID] = {
+      ...current,
+      baseUrl,
+      api: "openai-completions",
+      authHeader: true,
+      apiKey: QVERIS_API_KEY_REF,
+      models,
+    };
+    writeModelsDocument(latest);
+  });
   return { count: models.length, refreshed: await refreshRegistry(registry) };
 }
 
@@ -604,6 +774,9 @@ function validateBaseUrl(value: unknown): string {
   }
   if (parsed.username || parsed.password) {
     throw new Error("baseUrl must not contain credentials");
+  }
+  if (parsed.search || parsed.hash || baseUrl.includes("?") || baseUrl.includes("#")) {
+    throw new Error("baseUrl must not contain a query or fragment");
   }
   return baseUrl.replace(/\/+$/, "");
 }
@@ -632,12 +805,32 @@ function normalizeChannelModels(value: unknown): Array<Record<string, unknown>> 
     seen.add(id);
     const normalized: Record<string, unknown> = { id };
     const name = asString(model.name);
+    if (Array.from(name).length > 100) throw new Error("Model names must be at most 100 characters.");
     if (name) normalized.name = name;
     if (typeof model.reasoning === "boolean") normalized.reasoning = model.reasoning;
     const contextWindow = asNumber(model.contextWindow);
     if (contextWindow && contextWindow > 0) normalized.contextWindow = Math.trunc(contextWindow);
     const maxTokens = asNumber(model.maxTokens);
     if (maxTokens && maxTokens > 0) normalized.maxTokens = Math.trunc(maxTokens);
+    if (model.cost !== undefined) {
+      if (!model.cost || typeof model.cost !== "object" || Array.isArray(model.cost)) {
+        throw new Error("Model cost must be an object.");
+      }
+      const cost = model.cost as Record<string, unknown>;
+      if (typeof cost.input !== "number" || typeof cost.output !== "number") {
+        throw new Error("Model cost needs both input and output prices.");
+      }
+      const normalizedCost: Record<string, number> = {};
+      for (const key of ["input", "output", "cacheRead", "cacheWrite"]) {
+        if (cost[key] === undefined) continue;
+        const price = cost[key];
+        if (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1_000_000) {
+          throw new Error("Model cost must contain nonnegative per-million-token prices.");
+        }
+        normalizedCost[key] = price;
+      }
+      if (Object.keys(normalizedCost).length > 0) normalized.cost = normalizedCost;
+    }
     return normalized;
   });
 }
@@ -821,7 +1014,6 @@ export async function handlePicotConfig(
   };
 
   try {
-    ensureBuiltInModelGateway();
     // The Rust broker materializes auth.json only long enough for Pi to load
     // its live registry. Commands are available after that initialization.
     await sealBrokerAuthConfig(registry);
@@ -845,6 +1037,7 @@ export async function handlePicotConfig(
         const provider = asString(params.provider);
         const modelId = asString(params.modelId);
         if (!provider) throw new Error("provider is required");
+        requireEnabledModelChannel(provider);
         const availableKeys = new Set(
           (await reg.getAvailable())
             .filter((model) => model.provider && model.id)
@@ -856,7 +1049,7 @@ export async function handlePicotConfig(
           return availableKeys.has(modelPreferenceKey(provider, model.id as string));
         });
         if (models.length === 0) throw new Error("No matching models available for health check");
-        const results = [];
+        const results: Awaited<ReturnType<typeof runModelHealthCheck>>[] = [];
         // Probe with bounded concurrency so a 25-model channel finishes in a
         // few seconds instead of running sequentially past the UI timeout.
         const CONCURRENCY = 5;
@@ -881,26 +1074,21 @@ export async function handlePicotConfig(
       }
 
       case "set_api_key": {
-        const provider = asString(params.provider);
+        const provider = validateProviderId(params.provider);
         const apiKey = asString(params.apiKey);
-        if (!provider) throw new Error("provider is required");
         if (!apiKey) throw new Error("apiKey is required");
         await setStoredApiKey(registry, provider, apiKey);
+        preferences.rotateCredential(provider);
         if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(apiKey);
-        if (provider === QVERIS_PROVIDER_ID) {
-          const modelSync = await syncQVerisModelCatalog(registry, apiKey);
-          await sealBrokerAuthConfig(registry);
-          return { ok: true, data: { provider, modelSync } };
-        }
         if (registry) await registry.refresh();
         await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider } };
       }
 
       case "remove_api_key": {
-        const provider = asString(params.provider);
-        if (!provider) throw new Error("provider is required");
+        const provider = validateProviderId(params.provider);
         await removeStoredApiKey(registry, provider);
+        preferences.rotateCredential(provider);
         if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(null);
         if (registry) await registry.refresh();
         await sealBrokerAuthConfig(registry);
@@ -911,11 +1099,20 @@ export async function handlePicotConfig(
         const document = readModelsDocument();
         const channels = Object.entries(document.providers).map(([provider, config]) => ({
           provider,
+          displayName: asString(config.displayName),
           baseUrl: asString(config.baseUrl),
           api: asString(config.api) || "openai-completions",
+          enabled: config.enabled !== false,
           authHeader: config.authHeader !== false,
+          revision: channelRevision(config),
           models: Array.isArray(config.models) ? config.models : [],
-          builtIn: provider === QVERIS_PROVIDER_ID,
+          builtIn: false,
+          catalogSync:
+            provider === QVERIS_PROVIDER_ID
+              ? "qveris"
+              : ["openai-completions", "openai-responses"].includes(asString(config.api))
+                ? "openai"
+                : null,
           configured:
             registry?.getProviderAuthStatus(provider)?.configured === true ||
             hasStoredApiKey(provider),
@@ -923,9 +1120,104 @@ export async function handlePicotConfig(
         return { ok: true, data: { channels } };
       }
 
+      case "test_provider_channel": {
+        const provider = validateProviderId(params.provider);
+        let config: Record<string, unknown> | undefined;
+        try {
+          config = readModelsDocument().providers[provider];
+        } catch {
+          throw new Error("Could not read model channel configuration.");
+        }
+        if (!config) throw new Error("Model channel no longer exists. Refresh and try again.");
+        requireEnabledModelChannel(provider);
+        const revision = channelRevision(config);
+        const modelIds = Array.isArray(config.models)
+          ? config.models.map((model) => asString((model as { id?: unknown })?.id)).filter(Boolean)
+          : [];
+        const startedAt = Date.now();
+        let status: "connected" | "failed" = "connected";
+        let method: "model" | "catalog" = "catalog";
+        let modelCount = 0;
+        let error: string | undefined;
+        if (modelIds.length > 0) {
+          const model = requireRegistry().getAll().find((entry) => entry.provider === provider && modelIds.includes(entry.id || ""));
+          if (!model) throw new Error("Configured model is unavailable. Refresh the channel and try again.");
+          const result = await runModelHealthCheck(requireRegistry(), model, preferences);
+          method = "model";
+          status = result.status === "healthy" ? "connected" : "failed";
+          error = result.error;
+        } else if (provider === QVERIS_PROVIDER_ID) {
+          const key = readQVerisApiKey();
+          if (!key) throw new Error("Configure this channel's API key before testing its connection.");
+          requireEnabledModelChannel(provider);
+          modelCount = (await fetchQVerisModelCatalog(key, { baseUrl: validateBaseUrl(config.baseUrl) })).length;
+        } else if (["openai-completions", "openai-responses"].includes(asString(config.api))) {
+          const key = config.authHeader === false ? undefined : await registry?.getApiKeyForProvider?.(provider);
+          if (config.authHeader !== false && !key) {
+            throw new Error("Configure this channel's API key before testing its connection.");
+          }
+          requireEnabledModelChannel(provider);
+          modelCount = (await fetchOpenAIModelIds(validateBaseUrl(config.baseUrl), key)).length;
+        } else {
+          throw new Error("Add a model ID before testing this channel's connection.");
+        }
+        let latest: Record<string, unknown> | undefined;
+        try {
+          latest = readModelsDocument().providers[provider];
+        } catch {
+          throw new Error("Could not read model channel configuration.");
+        }
+        if (!latest || channelRevision(latest) !== revision) {
+          throw new Error("Model channel changed while testing. Refresh and try again.");
+        }
+        return { ok: true, data: { provider, connection: { status, method, modelCount, latencyMs: Date.now() - startedAt, error } } };
+      }
+
       case "sync_qveris_models": {
         const modelSync = await syncQVerisModelCatalog(registry);
         return { ok: true, data: { provider: QVERIS_PROVIDER_ID, modelSync } };
+      }
+
+      case "discover_provider_models": {
+        const provider = validateProviderId(params.provider);
+        const config = readModelsDocument().providers[provider];
+        if (!config) throw new Error("Model channel no longer exists. Refresh and try again.");
+        requireEnabledModelChannel(provider);
+        const api = asString(config.api);
+        if (!["openai-completions", "openai-responses"].includes(api) || provider === QVERIS_PROVIDER_ID) {
+          throw new Error("Model discovery requires an OpenAI-compatible channel.");
+        }
+        const revision = channelRevision(config);
+        const baseUrl = validateBaseUrl(config.baseUrl);
+        const apiKey = config.authHeader === false
+          ? undefined
+          : await registry?.getApiKeyForProvider?.(provider);
+        if (config.authHeader !== false && !apiKey) {
+          throw new Error("Configure this channel's API key before discovering models.");
+        }
+        requireEnabledModelChannel(provider);
+        const models = await fetchOpenAIModelIds(baseUrl, apiKey);
+        const latest = readModelsDocument().providers[provider];
+        if (!latest || channelRevision(latest) !== revision) {
+          throw new Error("Model channel changed while syncing. Refresh and try again.");
+        }
+        return {
+          ok: true,
+          data: {
+            provider,
+            models,
+            revision,
+            channel: {
+              provider,
+              baseUrl,
+              api,
+              authHeader: config.authHeader !== false,
+              models: Array.isArray(config.models)
+                ? config.models.map((model) => ({ id: asString((model as { id?: unknown })?.id) }))
+                : [],
+            },
+          },
+        };
       }
 
       case "save_provider_channel": {
@@ -935,52 +1227,136 @@ export async function handlePicotConfig(
           : provider;
         const baseUrl = validateBaseUrl(params.baseUrl);
         const api = asString(params.api) || "openai-completions";
-        if (!SUPPORTED_MODEL_APIS.has(api)) throw new Error(`unsupported API type: ${api}`);
-        const builtInQVeris = originalProvider === QVERIS_PROVIDER_ID;
-        if (builtInQVeris && provider !== QVERIS_PROVIDER_ID) {
-          throw new Error("QVeris Model Gateway provider ID cannot be changed");
+        const displayName = asString(params.displayName);
+        const nameCharacters = Array.from(displayName);
+        if (nameCharacters.length > 100 || nameCharacters.some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
+          throw new Error("Channel display name must be at most 100 readable characters.");
         }
-        const document = readModelsDocument();
-        const existing = document.providers[originalProvider] || {};
-        const models =
-          builtInQVeris && Array.isArray(params.models) && params.models.length === 0
-            ? Array.isArray(existing.models)
-              ? existing.models
-              : []
-            : normalizeChannelModels(params.models);
-        if (originalProvider !== provider) delete document.providers[originalProvider];
-        document.providers[provider] = {
-          baseUrl,
-          api,
-          authHeader: params.authHeader !== false,
-          models,
-        };
-        writeModelsDocument(document);
-        const apiKey = asString(params.apiKey);
+        if (!SUPPORTED_MODEL_APIS.has(api)) throw new Error(`unsupported API type: ${api}`);
+        const authHeader = withModelsDocumentLock(() => {
+          const document = readModelsDocument();
+          if ((params.createOnly === true || originalProvider !== provider) && document.providers[provider]) {
+            throw new Error("A channel with this ID already exists.");
+          }
+          const copySourceProvider = params.copySourceProvider
+            ? validateProviderId(params.copySourceProvider)
+            : "";
+          if (copySourceProvider && (params.createOnly !== true || originalProvider !== provider)) {
+            throw new Error("Copying a channel requires a new channel ID.");
+          }
+          const source = copySourceProvider ? document.providers[copySourceProvider] : null;
+          if (copySourceProvider && (!source || channelRevision(source) !== asString(params.copySourceRevision))) {
+            throw new Error("Source channel changed. Refresh and copy it again.");
+          }
+          const existing = source ? { models: source.models } : document.providers[originalProvider] || {};
+          const expectedRevision = asString(params.expectedRevision);
+          if (expectedRevision && channelRevision(existing) !== expectedRevision) {
+            throw new Error("Model channel changed while syncing. Refresh and try again.");
+          }
+          const models =
+            ["openai-completions", "openai-responses"].includes(api) && Array.isArray(params.models) && params.models.length === 0
+              ? Array.isArray(existing.models)
+                ? existing.models
+                : []
+              : normalizeChannelModels(params.models);
+          const oldModels = new Map(
+            (Array.isArray(existing.models) ? existing.models : [])
+              .filter((model): model is Record<string, unknown> => Boolean(model) && typeof model === "object" && !Array.isArray(model))
+              .map((model) => [asString(model.id), model]),
+          );
+          const preservedModels = models.map((model) => {
+            const old = oldModels.get(asString(model.id));
+            const merged = { ...old, ...model };
+            if (model.cost && typeof model.cost === "object" && !Array.isArray(model.cost)) {
+              merged.cost = {
+                input: 0,
+                output: 0,
+                cacheRead: 0,
+                cacheWrite: 0,
+                ...(old?.cost && typeof old.cost === "object" && !Array.isArray(old.cost) ? old.cost : {}),
+                ...model.cost,
+              };
+            }
+            return merged;
+          });
+          if (originalProvider !== provider) delete document.providers[originalProvider];
+          const authHeader = params.authHeader !== false;
+          const nextConfig: Record<string, unknown> = {
+            ...existing,
+            baseUrl,
+            api,
+            authHeader,
+            models: preservedModels,
+          };
+          if (params.displayName !== undefined) {
+            if (displayName) nextConfig.displayName = displayName;
+            else delete nextConfig.displayName;
+          }
+          if (authHeader) nextConfig.apiKey = providerKeyReference(provider);
+          else delete nextConfig.apiKey;
+          document.providers[provider] = nextConfig;
+          writeModelsDocument(document);
+          return authHeader;
+        });
+        const apiKey = authHeader ? asString(params.apiKey) : "";
         if (apiKey) {
           await setStoredApiKey(registry, provider, apiKey);
+          preferences.rotateCredential(provider);
           if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(apiKey);
         }
-        if (originalProvider !== provider) await removeStoredApiKey(registry, originalProvider);
-        if (builtInQVeris && (apiKey || readQVerisApiKey())) {
-          const modelSync = await syncQVerisModelCatalog(registry, apiKey || readQVerisApiKey());
-          await sealBrokerAuthConfig(registry);
-          return { ok: true, data: { provider, refreshed: modelSync.refreshed, modelSync } };
+        if (originalProvider !== provider) {
+          await removeStoredApiKey(registry, originalProvider);
+          preferences.rotateCredential(originalProvider);
+          if (originalProvider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(null);
         }
         const refreshed = await refreshRegistry(registry);
         await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider, refreshed } };
       }
 
+      case "set_provider_channel_enabled": {
+        const provider = validateProviderId(params.provider);
+        if (typeof params.enabled !== "boolean") {
+          throw new Error("Channel state must be enabled or disabled.");
+        }
+        const expectedRevision = asString(params.expectedRevision);
+        if (!expectedRevision) {
+          throw new Error("Channel revision is unavailable. Refresh and try again.");
+        }
+        withModelsDocumentLock(() => {
+          const document = readModelsDocument();
+          const current = document.providers[provider];
+          if (!current || channelRevision(current) !== expectedRevision) {
+            throw new Error("Model channel changed while syncing. Refresh and try again.");
+          }
+          document.providers[provider] = { ...current, enabled: params.enabled };
+          writeModelsDocument(document);
+        });
+        const refreshed = await refreshRegistry(registry);
+        let brokerSealed = true;
+        try {
+          await sealBrokerAuthConfig(registry);
+        } catch {
+          brokerSealed = false;
+        }
+        return { ok: true, data: { provider, enabled: params.enabled, runtimeReady: refreshed && brokerSealed } };
+      }
+
       case "remove_provider_channel": {
         const provider = validateProviderId(params.provider);
-        if (provider === QVERIS_PROVIDER_ID) {
-          throw new Error("QVeris Model Gateway is built in and cannot be removed");
-        }
-        const document = readModelsDocument();
-        delete document.providers[provider];
-        writeModelsDocument(document);
+        withModelsDocumentLock(() => {
+          const document = readModelsDocument();
+          const existing = document.providers[provider];
+          const expectedRevision = asString(params.expectedRevision);
+          if (expectedRevision && (!existing || channelRevision(existing) !== expectedRevision)) {
+            throw new Error("Model channel changed while syncing. Refresh and try again.");
+          }
+          delete document.providers[provider];
+          writeModelsDocument(document);
+        });
+        if (provider === QVERIS_PROVIDER_ID) setQVerisRuntimeApiKey(null);
         await removeStoredApiKey(registry, provider);
+        preferences.rotateCredential(provider);
         const refreshed = await refreshRegistry(registry);
         await sealBrokerAuthConfig(registry);
         return { ok: true, data: { provider, refreshed } };
@@ -1207,38 +1583,68 @@ export async function handlePicotConfig(
         throw new Error("unsupported finance research action");
       }
 
+      case "automation_drafts":
+        return { ok: true, data: automationDraftOperation(path.join(WORKSPACE_APP_DIR, "automation", "drafts.json"), params) };
+
       case "automation_workspace": {
         const action = asString(params.action) || "list";
-        const workspace = readAutomationWorkspace();
-        if (action === "list") return { ok: true, data: workspace };
+        if (action === "list") return { ok: true, data: readAutomationWorkspace() };
         if (action === "upsert") {
           const workflow = normalizeAutomationWorkflow(params.workflow);
-          const index = workspace.workflows.findIndex((item) => item.id === workflow.id);
-          if (index >= 0) workspace.workflows[index] = workflow;
-          else workspace.workflows.unshift(workflow);
-          workspace.workflows = workspace.workflows.slice(0, 200);
-          writeAutomationWorkspace(workspace);
-          return { ok: true, data: { workflow, workspace } };
+          const workspace = updateAutomationWorkspaceFile(
+            AUTOMATION_WORKSPACE_PATH,
+            path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
+            params.expectedRevision,
+            normalizeAutomationWorkflow,
+            (workflows) => {
+              const index = workflows.findIndex((item) => item.id === workflow.id);
+              const saved = index >= 0
+                ? mergeAutomationEdit(workflows[index], workflow)
+                : workflow;
+              if (index >= 0) workflows[index] = saved;
+              else workflows.unshift(saved);
+              return { workflows, value: saved };
+            },
+            snapshotFileBeforeWrite,
+          );
+          return { ok: true, data: { workflow: workspace.value, workspace } };
         }
         if (action === "remove") {
           const id = asString(params.id);
-          workspace.workflows = workspace.workflows.filter((item) => item.id !== id);
-          writeAutomationWorkspace(workspace);
+          const workspace = updateAutomationWorkspaceFile(
+            AUTOMATION_WORKSPACE_PATH,
+            path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
+            params.expectedRevision,
+            normalizeAutomationWorkflow,
+            (workflows) => ({ workflows: workflows.filter((item) => item.id !== id) }),
+            snapshotFileBeforeWrite,
+          );
           return { ok: true, data: workspace };
         }
         if (action === "record_run") {
           const id = asString(params.id);
-          const index = workspace.workflows.findIndex((item) => item.id === id);
-          if (index < 0) throw new Error("automation workflow was not found");
-          const current = workspace.workflows[index];
-          const run = normalizeAutomationRun(params.run);
-          current.history = [run, ...current.history].slice(0, 100);
-          current.lastRunAt = run.startedAt;
-          current.nextRunAt = asString(params.nextRunAt) || null;
-          current.approvalPending = params.approvalPending === true;
-          current.updatedAt = new Date().toISOString();
-          writeAutomationWorkspace(workspace);
-          return { ok: true, data: { workflow: current, workspace } };
+          const workspace = updateAutomationWorkspaceFile(
+            AUTOMATION_WORKSPACE_PATH,
+            path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
+            params.expectedRevision,
+            normalizeAutomationWorkflow,
+            (workflows) => {
+              const index = workflows.findIndex((item) => item.id === id);
+              if (index < 0) throw new Error("automation workflow was not found");
+              const current = workflows[index];
+              const run = normalizeAutomationRun(params.run);
+              if (current.history.some((item) => item.id === run.id))
+                return { workflows, value: current };
+              current.history = [run, ...current.history].slice(0, 100);
+              current.lastRunAt = run.startedAt;
+              current.nextRunAt = asString(params.nextRunAt) || null;
+              current.approvalPending = params.approvalPending === true;
+              current.updatedAt = new Date().toISOString();
+              return { workflows, value: current };
+            },
+            snapshotFileBeforeWrite,
+          );
+          return { ok: true, data: { workflow: workspace.value, workspace } };
         }
         throw new Error("unsupported automation action");
       }
@@ -1251,8 +1657,10 @@ export async function handlePicotConfig(
         return { ok: true, data: { path: AGENT_CONFIG_PATH } };
       }
 
-      case "read_models_config":
-        return { ok: true, data: readConfigFile(MODELS_CONFIG_PATH, '{\n  "providers": {}\n}\n') };
+      case "read_models_config": {
+        const file = readConfigFile(MODELS_CONFIG_PATH, '{\n  "providers": {}\n}\n');
+        return { ok: true, data: { ...file, revision: projectProfileRevision(file.content) } };
+      }
 
       case "write_models_config": {
         const content = params.content;
@@ -1263,13 +1671,23 @@ export async function handlePicotConfig(
         }
         if (
           "providers" in parsed &&
-          (typeof parsed.providers !== "object" || Array.isArray(parsed.providers))
+          (!parsed.providers || typeof parsed.providers !== "object" || Array.isArray(parsed.providers))
         ) {
           throw new Error("'providers' must be an object");
         }
-        writeConfigFile(MODELS_CONFIG_PATH, content);
+        const expectedRevision = asString(params.expectedRevision);
+        if (!/^[a-f0-9]{64}$/.test(expectedRevision)) {
+          throw new Error("Channel revision is unavailable. Refresh or update the desktop runtime before editing.");
+        }
+        withModelsDocumentLock(() => {
+          const current = readConfigFile(MODELS_CONFIG_PATH, '{\n  "providers": {}\n}\n');
+          if (projectProfileRevision(current.content) !== expectedRevision) {
+            throw new Error("Model channel changed while syncing. Refresh and try again.");
+          }
+          writeModelsContent(content);
+        });
         const refreshed = await refreshRegistry(registry);
-        return { ok: true, data: { path: MODELS_CONFIG_PATH, refreshed } };
+        return { ok: true, data: { path: MODELS_CONFIG_PATH, revision: projectProfileRevision(content), refreshed } };
       }
 
       case "read_chat_config":
@@ -1282,33 +1700,19 @@ export async function handlePicotConfig(
 
       case "read_project_profile": {
         const profilePath = projectProfilePath(ctx.cwd);
-        const profile = readProjectProfile(profilePath);
-        return { ok: true, data: { profile, path: profilePath } };
+        const snapshot = readProjectProfileSnapshot(profilePath);
+        return { ok: true, data: { ...snapshot, path: profilePath } };
       }
 
       case "write_project_profile": {
         const profilePath = projectProfilePath(ctx.cwd);
         const profile = normalizeProjectProfile(params.profile);
-        writeConfigFile(profilePath, JSON.stringify(profile, null, 2));
-        return { ok: true, data: { profile, path: profilePath } };
+        const revision = writeProjectProfile(profilePath, profile, params.expectedRevision);
+        return { ok: true, data: { profile, revision, path: profilePath } };
       }
 
       case "read_super_agent_tasks": {
-        const tasksPath = dataFileFor(
-          SUPER_AGENT_TASKS_PATH,
-          path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"),
-        );
-        const content = fs.existsSync(tasksPath)
-          ? fs.readFileSync(tasksPath, "utf8")
-          : '{"tasks":[]}';
-        let tasks: unknown[] = [];
-        try {
-          const parsed = JSON.parse(content) as { tasks?: unknown[] };
-          tasks = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
-        } catch {
-          tasks = [];
-        }
-        return { ok: true, data: { tasks } };
+        return { ok: true, data: readTasks(SUPER_AGENT_TASKS_PATH, path.join(PI_AGENT_ROOT, "super-agent", "tasks.json")) };
       }
 
       case "read_memory": {
@@ -1366,15 +1770,8 @@ export async function handlePicotConfig(
       }
 
       case "write_super_agent_tasks": {
-        const tasks = Array.isArray(params.tasks) ? params.tasks : [];
-        const tasksPath = workspaceDataPath(
-          SUPER_AGENT_TASKS_PATH,
-          path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"),
-        );
-        snapshotFileBeforeWrite(tasksPath);
-        fs.mkdirSync(path.dirname(tasksPath), { recursive: true });
-        fs.writeFileSync(tasksPath, JSON.stringify({ tasks }, null, 2), "utf8");
-        return { ok: true, data: { count: tasks.length } };
+        const saved = writeTasks(SUPER_AGENT_TASKS_PATH, params.tasks, params.revision, snapshotFileBeforeWrite, path.join(PI_AGENT_ROOT, "super-agent", "tasks.json"));
+        return { ok: true, data: { ...saved, count: saved.tasks.length } };
       }
 
       case "list_super_agent_projects": {
@@ -1403,6 +1800,7 @@ type ProjectProfile = {
   budget: number | null;
   updatedAt: string | null;
 };
+const PROJECT_PROFILE_MAX_BYTES = 256 * 1024;
 
 type FinanceResearchCard = {
   id: string;
@@ -1446,36 +1844,14 @@ type AutomationWorkflow = {
   history: AutomationRun[];
 };
 
-type AutomationWorkspace = { version: 1; workflows: AutomationWorkflow[] };
+type AutomationWorkspace = { version: 1; workflows: AutomationWorkflow[]; revision: string };
 
 function readAutomationWorkspace(): AutomationWorkspace {
-  const dataPath = dataFileFor(
+  return readAutomationWorkspaceFile(
     AUTOMATION_WORKSPACE_PATH,
     path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
+    normalizeAutomationWorkflow,
   );
-  if (!fs.existsSync(dataPath)) return { version: 1, workflows: [] };
-  try {
-    const parsed = JSON.parse(fs.readFileSync(dataPath, "utf8")) as {
-      workflows?: unknown[];
-    };
-    return {
-      version: 1,
-      workflows: Array.isArray(parsed.workflows)
-        ? parsed.workflows.map((workflow) => normalizeAutomationWorkflow(workflow)).slice(0, 200)
-        : [],
-    };
-  } catch {
-    return { version: 1, workflows: [] };
-  }
-}
-
-function writeAutomationWorkspace(workspace: AutomationWorkspace): void {
-  const target = workspaceDataPath(
-    AUTOMATION_WORKSPACE_PATH,
-    path.join(PI_AGENT_ROOT, "automation", "workflows.json"),
-  );
-  snapshotFileBeforeWrite(target);
-  writeConfigFile(target, JSON.stringify(workspace, null, 2));
 }
 
 function normalizeAutomationRun(value: unknown): AutomationRun {
@@ -1520,6 +1896,29 @@ function normalizeAutomationWorkflow(value: unknown): AutomationWorkflow {
     nextRunAt: asString(workflow.nextRunAt) || null,
     updatedAt: asString(workflow.updatedAt) || new Date().toISOString(),
     history,
+  };
+}
+
+function mergeAutomationEdit(current: AutomationWorkflow, edited: AutomationWorkflow): AutomationWorkflow {
+  const scheduleChanged =
+    current.enabled !== edited.enabled ||
+    current.schedule !== edited.schedule ||
+    current.intervalMinutes !== edited.intervalMinutes ||
+    current.dailyTime !== edited.dailyTime;
+  return {
+    ...current,
+    title: edited.title,
+    prompt: edited.prompt,
+    targetProject: edited.targetProject,
+    enabled: edited.enabled,
+    schedule: edited.schedule,
+    intervalMinutes: edited.intervalMinutes,
+    dailyTime: edited.dailyTime,
+    requireApproval: edited.requireApproval,
+    maxCost: edited.maxCost,
+    maxRetries: edited.maxRetries,
+    nextRunAt: scheduleChanged ? edited.nextRunAt : current.nextRunAt,
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -1601,17 +2000,104 @@ function normalizeProjectProfile(value: unknown): ProjectProfile {
   };
 }
 
-function readProjectProfile(profilePath: string): ProjectProfile {
-  if (!fs.existsSync(profilePath)) {
-    return { version: 1, instructions: "", defaultScene: "programming", budget: null, updatedAt: null };
+function projectProfileRevision(bytes: Buffer | string): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function channelRevision(config: Record<string, unknown>): string {
+  return createHash("sha256").update(JSON.stringify(config)).digest("hex");
+}
+
+function readProjectProfileSnapshot(profilePath: string): {
+  profile: ProjectProfile;
+  revision: string;
+} {
+  const directory = path.dirname(profilePath);
+  const directoryEntry = projectProfileEntry(directory);
+  if (directoryEntry && (!directoryEntry.isDirectory() || directoryEntry.isSymbolicLink())) {
+    throw new Error("project_profile_invalid");
+  }
+  const file = projectProfileEntry(profilePath);
+  if (!file) {
+    return {
+      profile: { version: 1, instructions: "", defaultScene: "programming", budget: null, updatedAt: null },
+      revision: projectProfileRevision("missing"),
+    };
   }
   try {
-    const parsed = JSON.parse(fs.readFileSync(profilePath, "utf8")) as Record<string, unknown>;
+    if (!file.isFile() || file.size > PROJECT_PROFILE_MAX_BYTES) throw new Error("project_profile_invalid");
+    const bytes = fs.readFileSync(profilePath);
+    if (bytes.length > PROJECT_PROFILE_MAX_BYTES) throw new Error("project_profile_invalid");
+    const parsed = JSON.parse(bytes.toString("utf8")) as Record<string, unknown>;
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      parsed.version !== 1 ||
+      typeof parsed.instructions !== "string" ||
+      parsed.instructions.length > 50_000 ||
+      typeof parsed.defaultScene !== "string" ||
+      (parsed.budget !== null && (typeof parsed.budget !== "number" || !Number.isFinite(parsed.budget)))
+    ) {
+      throw new Error("project_profile_invalid");
+    }
     const profile = normalizeProjectProfile(parsed);
     profile.updatedAt = typeof parsed.updatedAt === "string" ? parsed.updatedAt : null;
-    return profile;
+    return { profile, revision: projectProfileRevision(bytes) };
   } catch {
-    return { version: 1, instructions: "", defaultScene: "programming", budget: null, updatedAt: null };
+    throw new Error("project_profile_invalid");
+  }
+}
+
+function projectProfileEntry(filePath: string): fs.Stats | null {
+  try {
+    return fs.lstatSync(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw new Error("project_profile_invalid");
+  }
+}
+
+function writeProjectProfile(profilePath: string, profile: ProjectProfile, expected: unknown): string {
+  if (typeof expected !== "string" || !/^[a-f0-9]{64}$/.test(expected)) {
+    throw new Error("project_profile_revision_required");
+  }
+  const content = `${JSON.stringify(profile, null, 2)}\n`;
+  if (Buffer.byteLength(content) > PROJECT_PROFILE_MAX_BYTES) {
+    throw new Error("project_profile_invalid");
+  }
+  fs.mkdirSync(path.dirname(profilePath), { recursive: true });
+  // Reject damaged files and linked resource directories before creating the lock.
+  readProjectProfileSnapshot(profilePath);
+  const lock = `${profilePath}.lock`;
+  let lockFd: number;
+  try {
+    lockFd = fs.openSync(lock, "wx", 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("project_profile_busy");
+    throw error;
+  }
+  try {
+    const current = readProjectProfileSnapshot(profilePath);
+    if (current.revision !== expected) throw new Error("project_profile_conflict");
+    snapshotFileBeforeWrite(profilePath);
+    const temporary = `${profilePath}.${randomUUID()}.tmp`;
+    try {
+      const fd = fs.openSync(temporary, "wx", 0o600);
+      try {
+        fs.writeFileSync(fd, content, "utf8");
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+      fs.renameSync(temporary, profilePath);
+    } finally {
+      fs.rmSync(temporary, { force: true });
+    }
+    return projectProfileRevision(content);
+  } finally {
+    fs.closeSync(lockFd);
+    fs.unlinkSync(lock);
   }
 }
 

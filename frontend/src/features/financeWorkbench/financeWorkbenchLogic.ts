@@ -20,9 +20,7 @@ export function percent(value: unknown): string {
 
 export function number(value: unknown): string {
   const numeric = toFiniteNumber(value);
-  return Number.isFinite(numeric)
-    ? new Intl.NumberFormat().format(numeric)
-    : "—";
+  return Number.isFinite(numeric) ? new Intl.NumberFormat().format(numeric) : "—";
 }
 
 export function shortTimestamp(): string {
@@ -72,30 +70,27 @@ export function sampleScreening(): Record<string, unknown> {
 export function sampleSnapshot(): Record<string, unknown> {
   return {
     kind: "quote",
-    symbol: "600519.SH",
-    market: "CN",
-    currency: "CNY",
-    asOf: new Date().toISOString(),
+    symbol: "DEMO",
+    market: "SAMPLE",
+    currency: "USD",
+    asOf: "2026-01-01T00:00:00.000Z",
     source: {
-      provider: "QVeris",
-      toolId: "replace-with-discovered-tool-id",
-      searchId: "replace-with-search-id",
-      executionId: "replace-with-execution-id",
+      provider: "Illustrative sample",
     },
-    payload: { price: 1400 },
+    payload: { price: 100 },
   };
 }
 
 export function samplePaperOrder(): Record<string, unknown> {
   return {
     accountId: "paper-account-id",
-    symbol: "600519.SH",
+    symbol: "DEMO",
     side: "buy",
     quantity: 100,
     snapshot: {
-      price: 1400,
-      asOf: new Date().toISOString(),
-      source: "QVeris execution id",
+      price: 100,
+      asOf: "2026-01-01T00:00:00.000Z",
+      source: "Illustrative sample",
     },
   };
 }
@@ -104,11 +99,11 @@ export function samplePaperLimit(): Record<string, unknown> {
   return {
     action: "place",
     accountId: "paper-account-id",
-    symbol: "600519.SH",
+    symbol: "DEMO",
     side: "buy",
     quantity: 100,
-    limitPrice: 1380,
-    currency: "CNY",
+    limitPrice: 99,
+    currency: "USD",
   };
 }
 
@@ -117,11 +112,11 @@ export function samplePaperMark(): Record<string, unknown> {
     accountId: "paper-account-id",
     quotes: [
       {
-        symbol: "600519.SH",
-        price: 1410,
-        asOf: new Date().toISOString(),
-        source: "QVeris exec_...",
-        currency: "CNY",
+        symbol: "DEMO",
+        price: 101,
+        asOf: "2026-01-01T00:00:00.000Z",
+        source: "Illustrative sample",
+        currency: "USD",
       },
     ],
   };

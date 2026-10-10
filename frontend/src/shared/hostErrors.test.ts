@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { setLocale } from "./i18n.js";
 import {
   friendlyPluginError,
   friendlyTaskDispatchError,
   isRuntimeProcessClosedError,
   localizeHostError,
 } from "./hostErrors.js";
+import { setLocale } from "./i18n.js";
 
 describe("host error localization", () => {
   it("maps raw client-side dispatch errors to a friendly retry message", () => {

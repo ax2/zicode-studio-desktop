@@ -1,5 +1,5 @@
-import { computeContextViz, formatTokens, type UsageLike } from "./contextUsageLogic";
 import { t } from "../../shared/i18n";
+import { computeContextViz, formatTokens, type UsageLike } from "./contextUsageLogic";
 
 export function TokenUsagePill({
   text,

@@ -298,4 +298,5 @@ export function highlightParts(
   }
   return parts.length > 0 ? parts : [{ text, mark: false, key: "plain" }];
 }
+
 import { t } from "../../shared/i18n";

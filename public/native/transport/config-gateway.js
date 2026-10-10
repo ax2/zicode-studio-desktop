@@ -27,10 +27,12 @@ export class ConfigGateway {
     this.#getTarget = getTarget;
   }
 
-  // Invoke a configuration operation. Resolves with the handler payload
+  // A fixed target keeps multi-step credential and configuration writes in
+  // the scene where the user started them, even if the visible scene changes.
+  // Resolves with the handler payload
   // `{ ok: boolean, data?, error? }`. Rejects only on transport/timeout errors.
-  call(op, params = {}, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-    const target = this.#getTarget();
+  call(op, params = {}, { timeoutMs = DEFAULT_TIMEOUT_MS, target: fixedTarget } = {}) {
+    const target = fixedTarget ?? this.#getTarget();
     if (!target) return Promise.reject(new Error("No active session for configuration request"));
     const id = `cfg-${randomId()}`;
     const message = `/picot-config ${JSON.stringify({ id, op, params })}`;

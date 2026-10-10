@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { t } from "../../shared/i18n";
+import type { StoreApi, UseBoundStore } from "zustand";
 // @ts-expect-error plain JS module without type declarations
 import { copyText } from "../../../../public/ui/copy.js";
-import type { StoreApi, UseBoundStore } from "zustand";
+import { t } from "../../shared/i18n";
 import {
   fingerprintLines,
   hintKey,

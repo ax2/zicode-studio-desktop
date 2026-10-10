@@ -5,6 +5,15 @@ const READ_OPERATIONS = new Set([
   "search_sessions",
   "cost_dashboard",
   "workspace_info",
+  "workspace_git_status",
+  "workspace_git_diff",
+  "workspace_git_history",
+  "workspace_commit_diff",
+  "workspace_environment",
+  "project_task_catalog",
+  "project_task_directories",
+  "project_task_validate_directory",
+  "project_task_runs",
   "read_session_messages",
 ]);
 
@@ -82,8 +91,8 @@ export class HostDataGateway {
     });
   }
 
-  listFiles(workspaceId, path = "") {
-    return this.request("list_files", { workspaceId, path });
+  listFiles(workspaceId, path = "", offset = 0, snapshot = null) {
+    return this.request("list_files", { workspaceId, path, paged: true, offset, snapshot });
   }
 
   listSessions(workspaceId) {
@@ -111,6 +120,45 @@ export class HostDataGateway {
 
   workspaceInfo(workspaceId) {
     return this.request("workspace_info", { workspaceId });
+  }
+
+  workspaceGitStatus(workspaceId) {
+    return this.request("workspace_git_status", { workspaceId });
+  }
+
+  workspaceGitDiff(workspaceId, mode) {
+    return this.request("workspace_git_diff", { workspaceId, mode });
+  }
+
+  workspaceGitHistory(workspaceId, cursor) {
+    return this.request("workspace_git_history", { workspaceId, ...(cursor ? { cursor } : {}) });
+  }
+
+  workspaceCommitDiff(workspaceId, oid) {
+    return this.request("workspace_commit_diff", { workspaceId, oid });
+  }
+
+  workspaceEnvironment(workspaceId, directory = "") {
+    return this.request("workspace_environment", {
+      workspaceId,
+      ...(directory ? { directory } : {}),
+    });
+  }
+
+  projectTaskCatalog(workspaceId, directory = "") {
+    return this.request("project_task_catalog", { workspaceId, directory });
+  }
+
+  projectTaskDirectories(workspaceId) {
+    return this.request("project_task_directories", { workspaceId });
+  }
+
+  projectTaskValidateDirectory(workspaceId, directory) {
+    return this.request("project_task_validate_directory", { workspaceId, directory });
+  }
+
+  projectTaskRuns(workspaceId) {
+    return this.request("project_task_runs", { workspaceId });
   }
 
   /**

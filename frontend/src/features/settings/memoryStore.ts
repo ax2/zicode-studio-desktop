@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n";
 import { localizeHostError } from "../../shared/hostErrors";
+import { t } from "../../shared/i18n";
 import type { ConfigGatewayLike } from "./configStore";
 
 export interface MemoryEntry {

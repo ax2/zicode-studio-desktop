@@ -3,6 +3,8 @@
 每个插件根目录必须包含 UTF-8 编码的 `plugin.json`。Manifest 是安装校验、权限确认、
 UI 注册和 Pi Tool 注册的唯一声明来源；运行时代码不能动态增加未声明的权限。
 
+能力目录分类/别名/用途描述采用独立 [tool.directory.v1](tool-directory-v1.md) 预览扩展：schemaVersion 2与显式requiredProfiles版本协商后才允许capability.directory。旧包不要求迁移，不猜测工具类别。
+
 ## 完整示例
 
 ```json
@@ -137,7 +139,7 @@ UI 注册和 Pi Tool 注册的唯一声明来源；运行时代码不能动态�
 - `id`：反向域名格式，小写 ASCII，例如 `com.example.research`；发布后不可变。
 - `version`：完整 SemVer，包内容必须与版本哈希一一对应。
 - `publisher`：签名主体或开发模式发布者。
-- `schemaVersion`：当前固定为 `1`。
+- `schemaVersion`：历史格式为 `1`；显式requiredProfiles使用新格式 `2`，见下文。
 - `engines.zicode`：可安装的桌面程序版本范围。
 - `engines.pluginApi`：插件使用的 Host API 版本范围。
 
@@ -205,3 +207,35 @@ Manifest 将权限分成 `required` 和 `optional`。必需权限被拒绝时插
 - JSON Schema 深度和大小有界；
 - CSP 不允许远程脚本、`eval` 或任意顶层导航；
 - 引擎版本、权限和 Contribution 类型均受当前 Host 支持。
+
+## 已声明引擎范围的加载门禁
+
+Host在安装/发现的通用manifest校验中匹配`engines.zicode`和`engines.pluginApi`；Studio版本取应用Cargo包版本，当前Plugin API为1.0.0。与工具输入输出contractVersion及独立profile不同，不因为API主版本匹配就接受诊断proposal。
+
+范围支持SemVer的精确值、比较符、caret/tilde/wildcard，多个条件可用空格或逗号作AND，`||`作OR；每条最多256 UTF8字节。所有OR分支均须有效，空分支/多余逗号、非字符串、非对象、不匹配版本或未知引擎字段拒绝。npm的连字符区间和比较符与版本分开书写未支持；使用例如`>=0.1.0 <1.0.0`。
+
+兼容规则：历史省略engines/null/空对象仍可加载，其含义是未声明最低版本，不是已经验证所有版本。新提供方包应明确声明两个范围；未声明profile不能被目录或包ID隐式视为支持。新增引擎键需要版本化Host实现，不能通过未知字段静默放行。
+
+
+## Schema 2 显式工具协议要求
+
+新源码支持`schemaVersion:2`，必须同时声明`engines.zicode`、`engines.pluginApi`及`requiredProfiles`对象。无需工具协议的UI包可以声明空对象。例：
+
+```json
+{
+  "schemaVersion": 2,
+  "engines": {"zicode": ">=0.1.0 <1.0.0", "pluginApi": "^1.0.0"},
+  "requiredProfiles": {"compute.wasi.v1": "=1.0.0-rc.1"},
+  "runtime": {"wasi": "runtime/tools.wasm"}
+}
+```
+
+这是片段，其他必填标识/贡献/权限仍按完整manifest规范。Host源码可匹配冻结文本计算`compute.wasi.v1`及通用结果校验`output.schema.v1`的`1.0.0-rc.1`预览，未发布稳定1.0.0。稳定范围`^1.0.0`不会匹配预览版本；compute要求WASI runtime，output要求实际结果契约声明，见[结果声明校验](output-schema-validation.md)。Windows plugin-contracts-2026-10-09阶段EXE已包含新结果门禁并完成自有夹具原生验证；旧Host及其他OS须分别核对。匹配证明Host协议版本相容，不证明提供方算法/schema/预算或全部源scope已验收。
+
+`diagnostics.compute.wasi.v1.proposal`、`resource.wasi.input.draft2`以及service/desktop未进入支持列表，即使目录或View声明也会拒绝。需求最多32项，ID最多128 ASCII字节，每范围最多256 UTF8字节；格式及SemVer范围沿用engine门禁。任一未知/不匹配要求拒绝整个包，不按包ID特判，不自动删除要求/降级重试。
+
+Schema1保留既有加载方式，但不允许requiredProfiles对象；不能借旧格式规避新协商。旧版schema1-only Studio源码的格式门禁会拒绝schema2，避免忽略未知字段后加载。现有冻结EXE尚未构建这项新机制，其他第三方Host须单独核对；不得把此处设计当作所有旧Host的实测保证。
+
+签名包容器schema与manifest schema分别版本化，容器保持既有格式，签名验证、权限审批、完整性及工具验收照常需要。提供方必须在自己的独立构建流程中输出新manifest，不能让Studio接收时偷偷修改签名内容。当前候选包保留原schema1，本会话没有改造DevTools包或宣称诊断profile兼容。
+
+2026-10-09新debug EXE原生隔离验收已完成：schema2精确预览声明发现/加载/SDK-Host-WASI显示成功，未知profile/稳定范围不匹配/API不兼容实际拒绝，截图已读。自有fixture，不是诊断算法、签名安装或跨平台完整验收；旧优化/冻结EXE保持原快照。证据见技术博客iterations/native-plugin-negotiation-2026-10-09。

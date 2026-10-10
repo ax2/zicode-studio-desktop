@@ -1,9 +1,9 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import {
-  PluginManagerViewApp,
   type PluginManagerRegistry,
+  PluginManagerViewApp,
 } from "./PluginManagerViewApp";
 import type { PluginManagerFilter } from "./pluginManagerLogic";
 
@@ -13,6 +13,7 @@ let activeWrapper: HTMLElement | null = null;
 export interface PluginManagerViewOptions {
   container: HTMLElement;
   registry: PluginManagerRegistry;
+  canManagePlugins?: boolean;
   getTarget?(): { sceneId?: string } | null;
   notify?(message: string): void;
   renderIcon?(icon: string | undefined): HTMLElement;
@@ -61,6 +62,7 @@ export function renderPluginManagerView(options: PluginManagerViewOptions): void
     root.render(
       createElement(PluginManagerViewApp, {
         registry: rest.registry,
+        canManagePlugins: rest.canManagePlugins,
         getTarget: rest.getTarget,
         notify: rest.notify,
         renderIcon: rest.renderIcon,

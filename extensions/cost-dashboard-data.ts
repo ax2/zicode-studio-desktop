@@ -68,10 +68,13 @@ export function buildEmptyCostDashboardPayload(params: CostParams = {}) {
       avgCostPerSession: 0,
       avgCostPerUserMessage: 0,
     },
-    series: [],
-    breakdown: { byModel: [], byTool: [] },
-    topSessions: [],
-    sessions: [],
+    series: [] as Array<{ bucket: string; cost: number; tokens: number }>,
+    breakdown: {
+      byModel: [] as Array<{ name: string; cost: number }>,
+      byTool: [] as Array<{ name: string; cost: number }>,
+    },
+    topSessions: [] as CostSession[],
+    sessions: [] as CostSession[],
     infobar: {
       overview: {
         totalCost: 0,
@@ -81,8 +84,14 @@ export function buildEmptyCostDashboardPayload(params: CostParams = {}) {
         avgCostPerDay: 0,
         todayCost: 0,
       },
-      models: [],
-      projects: [],
+      models: [] as Array<{ name: string; cost: number; count: number; fraction: number }>,
+      projects: [] as Array<{
+        name: string;
+        path: string;
+        cost: number;
+        sessions: number;
+        fraction: number;
+      }>,
       usage: {
         totalTokens: 0,
         inputTokens: 0,
@@ -90,7 +99,7 @@ export function buildEmptyCostDashboardPayload(params: CostParams = {}) {
         cacheRead: 0,
         cacheWrite: 0,
         toolCalls: 0,
-        tools: [],
+        tools: [] as Array<{ name: string; cost: number; count: number; fraction: number }>,
       },
     },
   };
@@ -191,7 +200,7 @@ export function buildCostDashboardPayload(
     .map(([name, cost]) => ({ name, cost }))
     .sort((a, b) => b.cost - a.cost);
   payload.topSessions = [...payload.sessions]
-    .sort((a, b) => b.totalCost - a.totalCost)
+    .sort((a, b) => Number(b.totalCost || 0) - Number(a.totalCost || 0))
     .slice(0, 20);
 
   payload.infobar.overview.daysActive = activeDays.size;

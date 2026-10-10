@@ -117,11 +117,7 @@ export class NotesGateway {
     });
   }
 
-  moveNote(
-    sceneId,
-    workspaceId,
-    { notebookId, noteId, targetNotebookId, expectedVersion } = {},
-  ) {
+  moveNote(sceneId, workspaceId, { notebookId, noteId, targetNotebookId, expectedVersion } = {}) {
     return this.#post("/v2/notes/move", {
       sceneId,
       workspaceId,
@@ -140,21 +136,27 @@ export class NotesGateway {
     return this.#request(url);
   }
 
-  restoreTrash(sceneId, workspaceId, notebookId, noteId) {
+  restoreTrash(sceneId, workspaceId, notebookId, noteId, expected) {
     return this.#post("/v2/notes/trash/restore", {
       sceneId,
       workspaceId,
       notebookId,
       noteId,
+      expectedVersion: expected?.version,
+      expectedDeletedAt: expected?.deletedAt,
+      expectedTrashToken: expected?.trashToken,
     });
   }
 
-  purgeTrash(sceneId, workspaceId, notebookId, noteId) {
+  purgeTrash(sceneId, workspaceId, notebookId, noteId, expected) {
     return this.#post("/v2/notes/trash/purge", {
       sceneId,
       workspaceId,
       notebookId,
       noteId,
+      expectedVersion: expected?.version,
+      expectedDeletedAt: expected?.deletedAt,
+      expectedTrashToken: expected?.trashToken,
     });
   }
 
@@ -185,13 +187,21 @@ export class NotesGateway {
     });
   }
 
-  summarize(sceneId, workspaceId, { text, title, model }) {
+  listModels(sceneId) {
+    const url = this.#url("/v2/model-tools/models");
+    url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("purpose", "summary");
+    return this.#request(url);
+  }
+
+  summarize(sceneId, workspaceId, { text, title, model, provider }) {
     return this.#post("/v2/notes/summarize", {
       sceneId,
       workspaceId,
       text,
       title,
       model,
+      provider,
     });
   }
 

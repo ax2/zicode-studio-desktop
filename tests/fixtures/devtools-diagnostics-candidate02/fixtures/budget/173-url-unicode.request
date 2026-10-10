@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.diagnostics","sceneId":"coding","capabilityId":"devtools.diagnostics.django.urls","commandId":null,"input":{"text":"[{\"route\":\"<int:编号>/<名\\u0301>/\",\"name\":\"test\"}]","secondary":"{\"name\":\"test\",\"kwargs\":{\"编号\":1,\"名\\u0301\":2}}"}}

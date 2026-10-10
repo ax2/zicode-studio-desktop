@@ -1,23 +1,20 @@
 import { createElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createConfigStore, type ConfigGatewayLike } from "./configStore";
-import { createMemoryStore } from "./memoryStore";
-import { createCostDashboardStore, type CostDashboardData } from "./costDashboardStore";
 import { createBackupStore } from "./backupStore";
+import { type ConfigGatewayLike, createConfigStore } from "./configStore";
+import { type CostDashboardData, createCostDashboardStore } from "./costDashboardStore";
 import type { SettingsTabKey } from "./logic";
+import { createMemoryStore } from "./memoryStore";
+import { createPackageBrowseStore, type HostControlGatewayLike } from "./packageBrowseStore";
 import { createRemoteAccessStore, type RemoteAccessGateway } from "./remoteAccessStore";
-import {
-  createPackageBrowseStore,
-  type HostControlGatewayLike,
-} from "./packageBrowseStore";
-import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import {
   SettingsApp,
   SettingsContent,
-  SettingsNav,
   type SettingsController,
+  SettingsNav,
 } from "./SettingsPanelApp";
+import { createSettingsWidgetsStore } from "./settingsWidgetsStore";
 import { createSettingsStore, type SettingsStore } from "./store";
 import { CHECK_INTERVAL_MS, useAppUpdaterStore } from "./updaterStore";
 
@@ -60,9 +57,15 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     onModelConfigurationChanged: options.onModelConfigurationChanged as
       | (() => void | Promise<void>)
       | undefined,
-    invoke: (globalThis as {
-      __TAURI__?: { core?: { invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown> } };
-    }).__TAURI__?.core?.invoke,
+    invoke: (
+      globalThis as {
+        __TAURI__?: {
+          core?: {
+            invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
+          };
+        };
+      }
+    ).__TAURI__?.core?.invoke,
   });
   const memoryStore = createMemoryStore(
     (options.configGateway as ConfigGatewayLike | undefined) ??
@@ -74,16 +77,15 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     (options.remoteAccessGateway as RemoteAccessGateway | null | undefined) ?? null,
   );
   const backupStore = createBackupStore({
-    invoke: (globalThis as {
-      __TAURI__?: {
-        core?: {
-          invoke?: (
-            command: string,
-            params?: Record<string, unknown>,
-          ) => Promise<unknown>;
+    invoke: (
+      globalThis as {
+        __TAURI__?: {
+          core?: {
+            invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
+          };
         };
-      };
-    }).__TAURI__?.core?.invoke,
+      }
+    ).__TAURI__?.core?.invoke,
     getWorkspaceId: options.getWorkspaceId,
   });
   const costDashboardStore = createCostDashboardStore();
@@ -104,9 +106,15 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
         }
       | undefined,
     getTarget: getTarget as () => { sceneId?: string } | null,
-    invoke: (globalThis as {
-      __TAURI__?: { core?: { invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown> } };
-    }).__TAURI__?.core?.invoke,
+    invoke: (
+      globalThis as {
+        __TAURI__?: {
+          core?: {
+            invoke?: (command: string, params?: Record<string, unknown>) => Promise<unknown>;
+          };
+        };
+      }
+    ).__TAURI__?.core?.invoke,
     onError: options.onError,
   });
 
@@ -125,8 +133,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     packageBrowseStore,
     widgetsStore,
     getWorkspaceId: options.getWorkspaceId,
-    getSceneId: () =>
-      (getTarget() as { sceneId?: string } | null)?.sceneId ?? "programming",
+    getSceneId: () => (getTarget() as { sceneId?: string } | null)?.sceneId ?? "programming",
     wireVanilla() {},
     loadForTab(tab) {
       if (tab === "general") {
@@ -140,7 +147,7 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
             .load(options.data as CostDashboardData, options.getWorkspaceId);
         }
       } else if (tab === "extensions") {
-        void packageBrowseStore.getState().load();
+        void packageBrowseStore.getState().loadInstalled();
       } else if (tab === "configuration") {
         void configStore.getState().loadAll();
       } else if (tab === "remote-access") {
@@ -156,6 +163,16 @@ export function setupSettingsPanel(options: SettingsPanelOptions = {}): Settings
     setTarget(target) {
       widgetsStore.getState().setTarget(target as { sceneId?: string } | null);
       configStore.getState().setTarget(target as { sceneId?: string } | null);
+      const previousWorkspace = backupStore.getState().workspaceId;
+      backupStore.getState().syncWorkspace();
+      const settingsState = store.getState();
+      if (
+        previousWorkspace !== backupStore.getState().workspaceId &&
+        settingsState.activeTab === "general" &&
+        (embeddedActive || settingsState.open)
+      ) {
+        void backupStore.getState().load();
+      }
       controller.reloadVisibleConfiguration();
     },
   };
@@ -260,12 +277,8 @@ export function setupAppUpdater({
   useAppUpdaterStore.getState().configure(enabled, logger);
 
   const statusEl = document.getElementById("setting-update-status");
-  const checkBtn = document.getElementById(
-    "btn-check-updates",
-  ) as HTMLButtonElement | null;
-  const sidebarBtn = document.getElementById(
-    "sidebar-update-btn",
-  ) as HTMLButtonElement | null;
+  const checkBtn = document.getElementById("btn-check-updates") as HTMLButtonElement | null;
+  const sidebarBtn = document.getElementById("sidebar-update-btn") as HTMLButtonElement | null;
 
   function syncDom() {
     const state = useAppUpdaterStore.getState();
@@ -314,11 +327,10 @@ export function setupAppUpdater({
   };
 }
 
-export { createSettingsStore } from "./store";
 export {
-  SETTINGS_TABS,
   isSettingsHash,
   normalizeSettingsTabKey,
+  SETTINGS_TABS,
   settingsHashForTab,
   tabFromSettingsHash,
 } from "./logic";
@@ -328,3 +340,4 @@ export {
   normalizeSceneId,
   persistSelectedScene,
 } from "./sceneProfiles";
+export { createSettingsStore } from "./store";

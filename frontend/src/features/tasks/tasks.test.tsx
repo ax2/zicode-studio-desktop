@@ -1,12 +1,10 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
-import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
-import { createTaskCenterStore } from "./store";
 import {
   dateRangeLabel,
-  formatDate,
   filteredTasks,
+  formatDate,
   groupTasksByWorkspace,
   isDefaultWorkspace,
   isScheduledTemplate,
@@ -16,11 +14,18 @@ import {
   sortTaskList,
   taskLastActivity,
 } from "./logic";
+import { createTaskCenterStore } from "./store";
+import { createTaskCenterApp, TaskMain, TaskNav } from "./TaskCenterApp";
 
 function mockCall(tasks: unknown[]) {
   return vi.fn(async (operation: string, _params?: unknown) => {
     if (operation === "read_super_agent_tasks") {
-      return { ok: true, data: { tasks } };
+      return { ok: true, data: { tasks, revision: "tasks-read" } };
+    }
+    if (operation === "write_super_agent_tasks") {
+      const write = _params as { revision?: string };
+      if (write.revision !== "tasks-read") return { ok: false, error: "task_conflict" };
+      return { ok: true, data: { revision: "tasks-saved" } };
     }
     return { ok: true };
   });
@@ -43,6 +48,7 @@ function renderStore(call: ReturnType<typeof vi.fn>, options: Record<string, unk
 }
 
 afterEach(() => {
+  cleanup();
   document.body.innerHTML = "";
   setLocale("zh-CN");
 });
@@ -88,7 +94,12 @@ describe("task center React app", () => {
     const todayIso = new Date().toISOString();
     const call = mockCall([
       { id: "t1", title: "今天完成的任务", status: "done", result: { completedAt: todayIso } },
-      { id: "t2", title: "旧任务", status: "done", result: { completedAt: "2026-01-01T00:00:00Z" } },
+      {
+        id: "t2",
+        title: "旧任务",
+        status: "done",
+        result: { completedAt: "2026-01-01T00:00:00Z" },
+      },
     ]);
     renderStore(call);
     await waitFor(() => expect(screen.getByText("今天完成的任务")).toBeTruthy());
@@ -128,9 +139,7 @@ describe("task center React app", () => {
     const store = renderStore(call);
     await waitFor(() => expect(screen.getByText("Running research")).toBeTruthy());
     expect(screen.getByText("Failed report")).toBeTruthy();
-    expect(document.querySelectorAll(".task-center-summary-card strong")[0].textContent).toBe(
-      "1",
-    );
+    expect(document.querySelectorAll(".task-center-summary-card strong")[0].textContent).toBe("1");
     store.getState().destroy();
   });
 
@@ -157,14 +166,8 @@ describe("task center React app", () => {
     const store = renderStore(call);
     await waitFor(() => expect(screen.getByText("Alpha report")).toBeTruthy());
     const input = document.querySelector(".task-center-search") as HTMLInputElement;
-    const setter = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value",
-    )?.set;
-    setter?.call(
-      input,
-      "monthly",
-    );
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "monthly");
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(screen.queryByText("Alpha report")).toBeNull();
     expect(screen.getByText("Beta")).toBeTruthy();
@@ -216,13 +219,16 @@ describe("task center React app", () => {
         scheduledFrom: "tpl",
         dispatch: { startedAt: "2026-08-20T01:00:00.000Z" },
         result: { status: "done", summary: "ok", completedAt: "2026-08-20T01:30:00.000Z" },
-        events: [{ at: "2026-08-20T01:30:00.000Z", type: "completed", status: "done", message: "ok" }],
+        events: [
+          { at: "2026-08-20T01:30:00.000Z", type: "completed", status: "done", message: "ok" },
+        ],
       },
     ]);
     const store = renderStore(call);
     await waitFor(() => expect(screen.getByText("Daily digest")).toBeTruthy());
-    const history = Array.from(document.querySelectorAll(".task-center-history summary"))
-      .find((node) => /Run history/.test(node.textContent || ""));
+    const history = Array.from(document.querySelectorAll(".task-center-history summary")).find(
+      (node) => /Run history/.test(node.textContent || ""),
+    );
     expect(history).toBeTruthy();
     expect(history?.textContent).toContain("1");
     fireEvent.click(history as HTMLElement);
@@ -249,6 +255,7 @@ describe("task center React app", () => {
       expect(call).toHaveBeenCalledWith(
         "write_super_agent_tasks",
         expect.objectContaining({ tasks: expect.any(Array) }),
+        undefined,
       ),
     );
     const written = call.mock.calls.find(
@@ -296,17 +303,14 @@ describe("task center React app", () => {
       (button) => button.textContent === "重试",
     );
     expect(retry).toBeTruthy();
-    expect(document.querySelector(".task-center-result")?.textContent).toContain(
-      "已达到重试上限",
-    );
+    expect(document.querySelector(".task-center-result")?.textContent).toContain("已达到重试上限");
     fireEvent.click(retry as HTMLElement);
-    expect(confirmSpy).toHaveBeenCalledWith(
-      "已超过自动重试上限，仍要手动重试此任务吗？",
-    );
+    expect(confirmSpy).toHaveBeenCalledWith("已超过自动重试上限，仍要手动重试此任务吗？");
     await waitFor(() =>
       expect(call).toHaveBeenCalledWith(
         "write_super_agent_tasks",
         expect.objectContaining({ tasks: expect.any(Array) }),
+        undefined,
       ),
     );
     const written = call.mock.calls.find(
@@ -336,9 +340,7 @@ describe("task center React app", () => {
     );
     expect(toggle).toBeTruthy();
     fireEvent.click(toggle as HTMLElement);
-    expect(document.querySelector(".task-center-description")?.className).toContain(
-      "expanded",
-    );
+    expect(document.querySelector(".task-center-description")?.className).toContain("expanded");
     expect(
       Array.from(document.querySelectorAll("button")).some(
         (button) => button.textContent === "显示更少",
@@ -364,6 +366,7 @@ describe("task center React app", () => {
       expect(call).toHaveBeenCalledWith(
         "write_super_agent_tasks",
         expect.objectContaining({ tasks: expect.any(Array) }),
+        undefined,
       ),
     );
     const written = call.mock.calls.find(
@@ -438,7 +441,7 @@ describe("task center React app", () => {
     expect(reruns).toEqual(["wf-1", "wf-2"]);
     fireEvent.click(cardButton("Plain done") as HTMLElement);
     await waitFor(() =>
-      expect(call).toHaveBeenCalledWith("write_super_agent_tasks", expect.anything()),
+      expect(call).toHaveBeenCalledWith("write_super_agent_tasks", expect.anything(), undefined),
     );
     const written = call.mock.calls.filter(
       ([operation]) => operation === "write_super_agent_tasks",
@@ -508,6 +511,7 @@ describe("task center React app", () => {
       expect(call).toHaveBeenCalledWith(
         "write_super_agent_tasks",
         expect.objectContaining({ tasks: expect.any(Array) }),
+        undefined,
       ),
     );
     const written = call.mock.calls.find(
@@ -538,6 +542,7 @@ describe("task center React app", () => {
       expect(call).toHaveBeenCalledWith(
         "write_super_agent_tasks",
         expect.objectContaining({ tasks: expect.any(Array) }),
+        undefined,
       ),
     );
     const write = call.mock.calls.find(([operation]) => operation === "write_super_agent_tasks");
@@ -559,9 +564,7 @@ describe("task center React app", () => {
     ]);
     const store = renderStore(call);
     await waitFor(() =>
-      expect(
-        screen.getByText("Set a target project to run this manual task."),
-      ).toBeTruthy(),
+      expect(screen.getByText("Set a target project to run this manual task.")).toBeTruthy(),
     );
     expect(screen.queryByText("Approve and run")).toBeNull();
     store.getState().destroy();
@@ -590,12 +593,15 @@ describe("task center React app", () => {
       expect(call).toHaveBeenCalledWith(
         "write_super_agent_tasks",
         expect.objectContaining({ tasks: expect.any(Array) }),
+        undefined,
       ),
     );
     const write = call.mock.calls.find(([operation]) => operation === "write_super_agent_tasks");
-    const tasks = (write?.[1] as {
-      tasks: Array<{ id: string; status: string; retryCount: number }>;
-    }).tasks;
+    const tasks = (
+      write?.[1] as {
+        tasks: Array<{ id: string; status: string; retryCount: number }>;
+      }
+    ).tasks;
     const updated = tasks.find((task) => task.id === "fail-1");
     expect(updated?.status).toBe("running");
     expect(updated?.retryCount).toBe(1);
@@ -698,19 +704,17 @@ describe("task center React app", () => {
     document.body.append(container);
 
     app.renderContent(container);
-    await waitFor(
-      () => expect(container.textContent).toContain("Running research"),
-      { timeout: 2_000 },
-    );
+    await waitFor(() => expect(container.textContent).toContain("Running research"), {
+      timeout: 2_000,
+    });
 
     // The plugin shell clears the shared container before every activation;
     // re-rendering must create a fresh root instead of reusing a stale one.
     container.replaceChildren();
     app.renderContent(container);
-    await waitFor(
-      () => expect(container.textContent).toContain("Running research"),
-      { timeout: 2_000 },
-    );
+    await waitFor(() => expect(container.textContent).toContain("Running research"), {
+      timeout: 2_000,
+    });
     expect(container.querySelector(".task-center-main")).toBeTruthy();
 
     app.destroy();
@@ -726,9 +730,7 @@ describe("task center store host errors", () => {
     });
     const store = createTaskCenterStore({ call, pollIntervalMs: 60_000 });
     await store.getState().load();
-    expect(store.getState().error?.message).toBe(
-      "Pi 运行时连接已断开。请重试或新建一个会话。",
-    );
+    expect(store.getState().error?.message).toBe("Pi 运行时连接已断开。请重试或新建一个会话。");
     store.getState().destroy();
   });
 
@@ -800,10 +802,7 @@ describe("task center task management", () => {
         return {
           ok: true,
           data: {
-            projects: [
-              { cwd: "C:/work/project-a" },
-              { cwd: "C:/work/project-b" },
-            ],
+            projects: [{ cwd: "C:/work/project-a" }, { cwd: "C:/work/project-b" }],
           },
         };
       }
@@ -835,15 +834,9 @@ describe("task center task management", () => {
   });
 
   it("lists registered project paths for the target field", async () => {
-    const { store } = managementStore([
-      { id: "t1", targetProject: "C:/used/project" },
-    ]);
+    const { store } = managementStore([{ id: "t1", targetProject: "C:/used/project" }]);
     const paths = await store.getState().listProjects();
-    expect(paths).toEqual([
-      "C:/work/project-a",
-      "C:/work/project-b",
-      "C:/used/project",
-    ]);
+    expect(paths).toEqual(["C:/work/project-a", "C:/work/project-b", "C:/used/project"]);
   });
 
   it("renders project path suggestions in the task form", async () => {
@@ -858,9 +851,9 @@ describe("task center task management", () => {
     await waitFor(() => {
       expect(document.querySelector("datalist#task-project-paths option")).toBeTruthy();
     });
-    const options = Array.from(
-      document.querySelectorAll("datalist#task-project-paths option"),
-    ).map((node) => node.getAttribute("value"));
+    const options = Array.from(document.querySelectorAll("datalist#task-project-paths option")).map(
+      (node) => node.getAttribute("value"),
+    );
     expect(options).toEqual(["C:/work/project-a", "C:/work/project-b"]);
     store.getState().destroy();
   });
@@ -875,10 +868,8 @@ describe("task center task management", () => {
     );
     fireEvent.click(screen.getAllByText("New task")[0]);
     const form = document.querySelector(".task-center-form");
-    const targetInput = Array.from(
-      form?.querySelectorAll(".task-form-field input") ?? [],
-    ).find((input) =>
-      (input.closest("label")?.textContent ?? "").includes("Target project"),
+    const targetInput = Array.from(form?.querySelectorAll(".task-form-field input") ?? []).find(
+      (input) => (input.closest("label")?.textContent ?? "").includes("Target project"),
     );
     expect((targetInput as HTMLInputElement | null)?.value).toBe("C:/current/project");
     store.getState().destroy();
@@ -986,7 +977,7 @@ describe("task center task management", () => {
     expect(calls.some((entry) => entry.operation === "write_super_agent_tasks")).toBe(true);
   });
 
-  it("spawns an instance from a due template and advances its next run", async () => {
+  it("observes a due template without creating an instance or advancing it", async () => {
     const due = {
       id: "tpl-due",
       title: "Every 5 min",
@@ -1001,18 +992,15 @@ describe("task center task management", () => {
       automation: { trigger: "schedule", autoDispatch: false },
       events: [],
     };
-    const { store } = managementStore([due]);
+    const { store, calls } = managementStore([due]);
     await store.getState().load();
     await store.getState().tick();
     const tasks = store.getState().tasks;
-    expect(tasks).toHaveLength(2);
-    const instance = tasks.find((task) => task.scheduledFrom === "tpl-due");
-    expect(instance).toBeTruthy();
-    expect(instance?.schedule).toBeNull();
-    expect(instance?.status).toBe("pending");
-    expect(instance?.automation).toMatchObject({ autoDispatch: true, trigger: "schedule" });
+    expect(tasks).toHaveLength(1);
+    expect(tasks.some((task) => task.scheduledFrom === "tpl-due")).toBe(false);
     const template = tasks.find((task) => task.id === "tpl-due");
-    expect(new Date(template?.nextRunAt ?? "").getTime()).toBeGreaterThan(Date.now());
+    expect(template?.nextRunAt).toBe(due.nextRunAt);
+    expect(calls.some((entry) => entry.operation === "write_super_agent_tasks")).toBe(false);
   });
 
   it("skips disabled or not-yet-due templates", async () => {
@@ -1042,7 +1030,7 @@ describe("task center task management", () => {
     expect(store.getState().tasks).toHaveLength(2);
   });
 
-  it("re-ticks after a failed first load so a due template still spawns", async () => {
+  it("recovers a failed first read without scheduling the due template", async () => {
     vi.useFakeTimers();
     const due = {
       id: "tpl-boot",
@@ -1077,21 +1065,17 @@ describe("task center task management", () => {
     });
     await store.getState().tick();
     expect(reads).toBe(1);
-    // The store's readiness retry (1.2s) reloads, then the tick retry (2s)
-    // proceeds and spawns the instance.
+    // Readiness retry refreshes the page; Host alone creates instances.
     await vi.advanceTimersByTimeAsync(2500);
     expect(reads).toBeGreaterThanOrEqual(2);
-    expect(store.getState().tasks.some((task) => task.scheduledFrom === "tpl-boot")).toBe(
-      true,
-    );
+    expect(store.getState().tasks.some((task) => task.scheduledFrom === "tpl-boot")).toBe(false);
+    expect(call.mock.calls.some(([operation]) => operation === "write_super_agent_tasks")).toBe(false);
     vi.useRealTimers();
     store.getState().destroy();
   });
 
   it("labels scheduled templates and computes their next run", () => {
-    expect(
-      isScheduledTemplate({ schedule: "daily", dailyTime: "09:00" } as never),
-    ).toBe(true);
+    expect(isScheduledTemplate({ schedule: "daily", dailyTime: "09:00" } as never)).toBe(true);
     expect(isScheduledTemplate({ schedule: "manual" } as never)).toBe(false);
     const next = nextTaskRunAt({ schedule: "interval", intervalMinutes: 30 });
     expect(next).toBeTruthy();
@@ -1129,11 +1113,40 @@ describe("task center task management", () => {
 
   it("sorts templates and active tasks ahead of finished history", () => {
     const tasks = [
-      { id: "old-done", title: "Old done", status: "done", events: [{ at: "2026-08-19T00:00:00Z" }] },
-      { id: "pending-1", title: "Pending", status: "pending", events: [{ at: "2026-08-21T02:00:00Z" }] },
-      { id: "tpl-later", title: "Later template", status: "pending", schedule: "daily", nextRunAt: "2099-01-01T00:00:00Z", enabled: true },
-      { id: "recent-done", title: "Recent done", status: "done", events: [{ at: "2026-08-21T01:00:00Z" }] },
-      { id: "tpl-soon", title: "Soon template", status: "pending", schedule: "daily", nextRunAt: "2026-08-22T01:00:00Z", enabled: true },
+      {
+        id: "old-done",
+        title: "Old done",
+        status: "done",
+        events: [{ at: "2026-08-19T00:00:00Z" }],
+      },
+      {
+        id: "pending-1",
+        title: "Pending",
+        status: "pending",
+        events: [{ at: "2026-08-21T02:00:00Z" }],
+      },
+      {
+        id: "tpl-later",
+        title: "Later template",
+        status: "pending",
+        schedule: "daily",
+        nextRunAt: "2099-01-01T00:00:00Z",
+        enabled: true,
+      },
+      {
+        id: "recent-done",
+        title: "Recent done",
+        status: "done",
+        events: [{ at: "2026-08-21T01:00:00Z" }],
+      },
+      {
+        id: "tpl-soon",
+        title: "Soon template",
+        status: "pending",
+        schedule: "daily",
+        nextRunAt: "2026-08-22T01:00:00Z",
+        enabled: true,
+      },
     ];
     const sorted = sortTaskList(tasks as never);
     expect(sorted.map((t) => t.id)).toEqual([
@@ -1160,19 +1173,27 @@ describe("task center task management", () => {
       { id: "old-done", title: "Old done", status: "done" },
       { id: "pinned-history", title: "Pinned history", status: "done", pinned: true },
       { id: "pending-1", title: "Pending", status: "pending" },
-      { id: "pinned-template", title: "Pinned template", status: "pending", schedule: "daily", nextRunAt: "2099-01-01T00:00:00Z", enabled: true, pinned: true },
-      { id: "tpl-soon", title: "Soon template", status: "pending", schedule: "daily", nextRunAt: "2026-08-22T01:00:00Z", enabled: true },
+      {
+        id: "pinned-template",
+        title: "Pinned template",
+        status: "pending",
+        schedule: "daily",
+        nextRunAt: "2099-01-01T00:00:00Z",
+        enabled: true,
+        pinned: true,
+      },
+      {
+        id: "tpl-soon",
+        title: "Soon template",
+        status: "pending",
+        schedule: "daily",
+        nextRunAt: "2026-08-22T01:00:00Z",
+        enabled: true,
+      },
     ];
     const sorted = sortTaskList(tasks as never);
-    expect(sorted.map((t) => t.id).slice(0, 2)).toEqual([
-      "pinned-template",
-      "pinned-history",
-    ]);
-    expect(sorted.map((t) => t.id).slice(-3)).toEqual([
-      "tpl-soon",
-      "pending-1",
-      "old-done",
-    ]);
+    expect(sorted.map((t) => t.id).slice(0, 2)).toEqual(["pinned-template", "pinned-history"]);
+    expect(sorted.map((t) => t.id).slice(-3)).toEqual(["tpl-soon", "pending-1", "old-done"]);
   });
 
   it("groups tasks by workspace preserving list order", () => {
@@ -1183,11 +1204,7 @@ describe("task center task management", () => {
       { id: "d", title: "D", status: "done", targetProject: "C:/work/b" },
     ];
     const groups = groupTasksByWorkspace(tasks as never);
-    expect(groups.map((g) => g.workspace)).toEqual([
-      "C:/work/a",
-      "__default__",
-      "C:/work/b",
-    ]);
+    expect(groups.map((g) => g.workspace)).toEqual(["C:/work/a", "__default__", "C:/work/b"]);
     expect(groups[0].tasks.map((t) => t.id)).toEqual(["a", "c"]);
     expect(isDefaultWorkspace(groups[1].workspace)).toBe(true);
     expect(taskLastActivity({ events: [{ at: "2026-08-21T01:00:00Z" }] } as never)).toBe(
@@ -1220,7 +1237,9 @@ describe("task center task management", () => {
     const store = renderStore(call);
     await waitFor(() => expect(document.querySelector(".task-center-card")).toBeTruthy());
     fireEvent.click(screen.getByText("Pin"));
-    await waitFor(() => expect(call).toHaveBeenCalledWith("write_super_agent_tasks", expect.anything()));
+    await waitFor(() =>
+      expect(call).toHaveBeenCalledWith("write_super_agent_tasks", expect.anything(), undefined),
+    );
     const written = call.mock.calls.find(
       ([operation]) => operation === "write_super_agent_tasks",
     )?.[1] as { tasks?: Array<{ pinned?: boolean }> } | undefined;

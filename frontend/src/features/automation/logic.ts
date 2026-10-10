@@ -103,9 +103,10 @@ export function formatDate(value?: string | null): string {
 export function filterWorkflows(
   workflows: AutomationWorkflow[],
   id: AutomationFilter,
+  pendingApprovalTasks?: Record<string, string>,
 ): AutomationWorkflow[] {
   if (id === "all") return workflows;
   if (id === "enabled") return workflows.filter((workflow) => workflow.enabled);
-  if (id === "approval") return workflows.filter((workflow) => workflow.approvalPending);
+  if (id === "approval") return workflows.filter((workflow) => pendingApprovalTasks ? Boolean(pendingApprovalTasks[workflow.id]) : Boolean(workflow.approvalPending));
   return workflows.filter((workflow) => workflow.history?.length);
 }

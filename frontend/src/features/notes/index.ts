@@ -141,10 +141,7 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
       }
     },
     setTarget() {
-      if (document.body.dataset.activePlugin === "com.zicode.notes") {
-        return store.getState().setTarget();
-      }
-      return Promise.resolve();
+      return store.getState().setTarget();
     },
     setProject(project) {
       store.getState().setProject(project);
@@ -161,9 +158,8 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     captureChatExchange(input) {
       return store.getState().captureChatExchange(input);
     },
-    async canDeactivate() {
-      await store.getState().saveEditor(true);
-      return true;
+    canDeactivate() {
+      return store.getState().canDeactivate();
     },
     destroy() {
       document.removeEventListener("keydown", handleKeydown);
@@ -176,5 +172,5 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
   };
 }
 
+export { formatDate, parseTags, tagIcon } from "./notesLogic";
 export { createNotesStore } from "./notesStore";
-export { parseTags, formatDate, tagIcon } from "./notesLogic";

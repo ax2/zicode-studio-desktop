@@ -5,9 +5,9 @@
  * task lists, images, paragraphs.
  */
 
+import { t } from "../i18n.js";
 import remend from "../vendor/remend.js";
 import { copyText } from "./copy.js";
-import { t } from "../i18n.js";
 
 /**
  * Streaming-tolerant renderer for partial markdown. remend closes unterminated

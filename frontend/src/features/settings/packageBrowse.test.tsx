@@ -1,13 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PackageBrowseTab } from "./PackageBrowseTab";
 import {
-  browseSourceFor,
-  filterPackages,
-  normalizeRepoUrl,
-  createPackageBrowseStore,
   type BrowsePackage,
+  browseSourceFor,
+  createPackageBrowseStore,
+  filterPackages,
   type HostControlGatewayLike,
+  normalizeRepoUrl,
 } from "./packageBrowseStore";
 
 afterEach(() => {

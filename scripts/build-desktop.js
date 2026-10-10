@@ -2,6 +2,14 @@
 
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { withCargoBin } = require("./cargo-path");
+
+const args = process.argv.slice(2);
+if (args.some((arg) => arg !== "--local")) {
+  console.error("Usage: build-desktop.js [--local]");
+  process.exit(1);
+}
+const local = args.includes("--local");
 
 const bundlesByPlatform = {
   win32: "nsis",
@@ -15,23 +23,20 @@ if (!bundles) {
   process.exit(1);
 }
 
-const env = { ...process.env };
-if (process.platform !== "win32" && env.HOME) {
-  const cargoBin = path.join(env.HOME, ".cargo", "bin");
-  env.PATH = [cargoBin, env.PATH].filter(Boolean).join(path.delimiter);
-}
+const env = withCargoBin();
 
-console.log(`[build-desktop] Building ${process.platform} bundles: ${bundles}`);
-const result = spawnSync(
-  process.execPath,
-  ["run", "tauri", "build", "--bundles", bundles],
-  {
-    cwd: path.resolve(__dirname, ".."),
-    env,
-    stdio: "inherit",
-    windowsHide: true,
-  },
+console.log(
+  local
+    ? "[build-desktop] Building reusable local debug output"
+    : `[build-desktop] Building ${process.platform} bundles: ${bundles}`,
 );
+const buildArgs = local ? ["--debug", "--no-bundle"] : ["--bundles", bundles];
+const result = spawnSync(process.execPath, ["run", "tauri", "build", ...buildArgs], {
+  cwd: path.resolve(__dirname, ".."),
+  env,
+  stdio: "inherit",
+  windowsHide: true,
+});
 
 if (result.error) {
   console.error(`[build-desktop] Failed to start Tauri: ${result.error.message}`);

@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n.js";
 import { ProjectMain, ProjectNav } from "./ProjectWorkspaceApp";
 import { createProjectWorkspaceStore } from "./store";
@@ -222,10 +222,10 @@ describe("project workspace React app", () => {
     setLocale("en");
     const call = vi.fn(async (operation: string) => {
       if (operation === "read_super_agent_tasks") {
-        return { ok: true, data: { tasks: [{ id: "t1" }, { id: "t2" }, { id: "t3" }] } };
+        return { ok: true, data: { tasks: [{ id: "t1", targetProject: "C:/work/zicode" }, { id: "t2", targetProject: "C:/work/other" }, { id: "t3" }] } };
       }
       if (operation === "automation_workspace") {
-        return { ok: true, data: { workflows: [{ id: "a1" }, { id: "a2" }] } };
+        return { ok: true, data: { workflows: [{ id: "a1", targetProject: "C:/work/zicode" }, { id: "a2" }] } };
       }
       return { ok: false };
     });
@@ -235,7 +235,7 @@ describe("project workspace React app", () => {
         [...document.querySelectorAll(".project-workspace-stat strong")].map(
           (item) => item.textContent,
         ),
-      ).toEqual(["1", "1", "1", "0", "0", "3", "2"]),
+      ).toEqual(["1", "1", "1", "0", "0", "1", "1"]),
     );
     const dispatched: string[] = [];
     const listener = (event: Event) =>

@@ -6,9 +6,9 @@
 //   node scripts/plugin-acceptance.mjs <workspaceId> <sessionId>
 //   PLUGIN_FILTER=habits node scripts/plugin-acceptance.mjs <ws> <session>
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");

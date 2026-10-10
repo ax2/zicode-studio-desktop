@@ -1,0 +1,39 @@
+.tool-center {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  overflow: auto;
+  min-height: 0;
+}
+.tool-center-header { display: flex; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.tool-center h1 { font-size: var(--font-size-2xl); margin: 0; }
+.tool-center h2 { font-size: var(--font-size-lg); margin: 0; }
+.tool-center p { margin: 0; }
+.tool-center-search { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 20%); gap: var(--space-2); align-items: center; }
+.tool-center-search input { min-width: 0; }
+.tool-directory-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); align-items: end; }
+.tool-center fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.tool-center-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.tool-center-card { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; overflow-wrap: anywhere; }
+.tool-center-card .ui-toolbar { margin-top: auto; }
+.tool-center-source { color: var(--text-muted); font-size: var(--font-size-sm); }
+body[data-active-plugin="core.tools"] .sidebar { display: none; }
+.manual-tool-directory, .manual-tool-directory-list, .tool-detail, .tool-detail form, .tool-input-field { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.manual-tool-directory-list[hidden] { display: none; }
+.tool-detail button { align-self: flex-start; }
+.tool-detail textarea { width: 100%; box-sizing: border-box; }
+.directory-resource-tool, .directory-resource-session { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.directory-resource-tool .plugin-resource-selection, .directory-resource-session .plugin-resource-selection { max-height: none; padding: 0; }
+.directory-resource-tool :is(input, select, textarea), .directory-resource-session :is(input, select, textarea) { box-sizing: border-box; max-width: 100%; min-width: 0; }
+.tool-input-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tool-execution-result { display: flex; flex-direction: column; gap: var(--space-3); }
+.tool-execution-result h3 { margin: 0; }
+.tool-detail form, .tool-execution-result { scroll-margin-block-start: calc(var(--control-height-lg) + var(--space-4)); }
+.tool-result { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 50vh; overflow: auto; padding: var(--space-3); background: var(--bg-secondary); border-radius: var(--radius-sm); }
+@media (max-width: 720px) {
+  .tool-center { padding: var(--space-3); }
+  .tool-center-grid { grid-template-columns: minmax(0, 1fr); }
+  .tool-center-search { grid-template-columns: minmax(0, 1fr); }
+  .tool-directory-filters { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,17 +1,19 @@
 import { create } from "zustand";
-import { t } from "../../shared/i18n.js";
 import { localizeHostError } from "../../shared/hostErrors.js";
+import { t } from "../../shared/i18n.js";
+import type { SavedOutputGateway } from "./saved-output-types";
 import {
+  type ArtifactDescriptor,
+  type ArtifactDocument,
   defaultDownloadFile,
   EMPTY_ARTIFACT_SNAPSHOT,
   markdownContent,
   safeFileName,
   stringifyContent,
-  type ArtifactDescriptor,
-  type ArtifactDocument,
 } from "./logic";
 
 export interface ArtifactGatewayLike {
+  savedOutputs?: SavedOutputGateway;
   list(
     sceneId: string,
     workspaceId: string,
@@ -41,6 +43,7 @@ interface ArtifactSnapshot {
 }
 
 interface ArtifactState {
+  targetEpoch: number;
   snapshot: ArtifactSnapshot;
   selected: ArtifactDocument | null;
   loading: boolean;
@@ -96,6 +99,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
   const workspaceId = () => getTarget()?.workspaceId ?? "";
 
   return create<ArtifactState>()((set, get) => ({
+    targetEpoch: 0,
     snapshot: { ...EMPTY_ARTIFACT_SNAPSHOT },
     selected: null,
     loading: false,
@@ -337,6 +341,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
     setTarget() {
       requestSequence += 1;
       set({
+        targetEpoch: get().targetEpoch + 1,
         selected: null,
         snapshot: { ...EMPTY_ARTIFACT_SNAPSHOT },
         error: null,

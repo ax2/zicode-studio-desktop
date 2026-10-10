@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { flushSync } from "react-dom";
+import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
+import { PluginCatalog } from "./PluginCatalog";
 import {
   friendlyPluginError,
   helpPageForPlugin,
   MANAGER_FILTERS,
-  matchesFilter,
   type ManagedPlugin,
+  matchesFilter,
   type PluginManagerFilter,
 } from "./pluginManagerLogic";
 
@@ -55,6 +57,7 @@ function ActionButton({
 
 export function PluginManagerViewApp({
   registry,
+  canManagePlugins = true,
   getTarget,
   notify,
   renderIcon,
@@ -70,21 +73,27 @@ export function PluginManagerViewApp({
   openHelp,
 }: {
   registry: PluginManagerRegistry;
+  canManagePlugins?: boolean;
   getTarget?(): { sceneId?: string } | null;
   notify?(message: string): void;
   renderIcon?(icon: string | undefined): HTMLElement;
   installDeveloperPlugin?: (() => Promise<string | null | undefined>) | null;
-  selectSignedPlugin?: (() => Promise<{
-    packagePath: string;
-    publisher: string;
-    publisherKeyId?: string;
-    permissions?: string[];
-    trusted?: boolean;
-  } | null | undefined>) | null;
-  installSignedPlugin?: ((
-    packagePath: string,
-    requireConfirmation: boolean,
-  ) => Promise<string | null | undefined>) | null;
+  selectSignedPlugin?:
+    | (() => Promise<
+        | {
+            packagePath: string;
+            publisher: string;
+            publisherKeyId?: string;
+            permissions?: string[];
+            trusted?: boolean;
+          }
+        | null
+        | undefined
+      >)
+    | null;
+  installSignedPlugin?:
+    | ((packagePath: string, requireConfirmation: boolean) => Promise<string | null | undefined>)
+    | null;
   rollbackSignedPlugin?: ((id: string, version: string) => Promise<unknown>) | null;
   revokePublisher?: ((publisherKeyId: string) => Promise<unknown>) | null;
   initialFilter?: PluginManagerFilter;
@@ -95,10 +104,8 @@ export function PluginManagerViewApp({
   openHelp?(pageId: string): void;
 }) {
   const [activeFilter, setActiveFilter] = useState<PluginManagerFilter>(initialFilter);
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const iconRefs = useRef(
-    new Map<string, { element: HTMLSpanElement; icon?: string }>(),
-  );
 
   const setBusyKey = (key: string, value: boolean) => {
     setBusy((current) => ({ ...current, [key]: value }));
@@ -106,19 +113,24 @@ export function PluginManagerViewApp({
 
   const sceneId = getTarget?.()?.sceneId ?? "programming";
 
-  useEffect(() => {
-    for (const [, ref] of iconRefs.current) {
-      ref.element.replaceChildren();
-      if (renderIcon) ref.element.append(renderIcon(ref.icon));
-    }
-  });
+  const categoryPlugins = registry.list().filter((plugin) => matchesFilter(plugin, activeFilter));
+  const searchTerms = prepareSearchQuery(query);
+  const plugins = categoryPlugins.filter((plugin) =>
+    matchesSearchTerms(searchTerms, [
+      plugin.id,
+      plugin.name,
+      plugin.description,
+      plugin.publisher,
+      plugin.version,
+      ...(plugin.capabilities ?? []).flatMap((capability) => [
+        capability.id,
+        capability.title,
+        capability.description,
+      ]),
+    ]),
+  );
 
-  const plugins = registry.list().filter((plugin) => matchesFilter(plugin, activeFilter));
-
-  const runAction = async (
-    key: string,
-    action: () => Promise<unknown>,
-  ) => {
+  const runAction = async (key: string, action: () => Promise<unknown>) => {
     setBusyKey(key, true);
     try {
       await action();
@@ -130,8 +142,7 @@ export function PluginManagerViewApp({
   };
 
   const renderCard = (plugin: ManagedPlugin) => {
-    const isDeveloperOrSigned =
-      plugin.origin === "developer" || plugin.origin === "signed";
+    const isDeveloperOrSigned = plugin.origin === "developer" || plugin.origin === "signed";
     const helpPage = helpPageForPlugin(plugin.id);
     const permissions = [
       ...(plugin.permissionDetails?.required ?? []),
@@ -142,10 +153,10 @@ export function PluginManagerViewApp({
         <span
           className="plugin-manager-icon"
           ref={(element) => {
-          if (element) {
-            iconRefs.current.set(plugin.id, { element, icon: plugin.icon });
-          }
-          else iconRefs.current.delete(plugin.id);
+            if (element) {
+              element.replaceChildren();
+              if (renderIcon) element.append(renderIcon(plugin.icon));
+            }
           }}
         />
         <div className="plugin-manager-copy">
@@ -159,6 +170,11 @@ export function PluginManagerViewApp({
                   : "Built-in",
             )}
           </span>
+          {plugin.version && (
+            <span className="ui-badge" data-plugin-version={plugin.version}>
+              v{plugin.version}
+            </span>
+          )}
           <code>{plugin.id}</code>
           <p>{t(plugin.description)}</p>
         </div>
@@ -171,11 +187,9 @@ export function PluginManagerViewApp({
             />
           ) : null}
           <ActionButton
-            label={t(
-              plugin.core ? "Required" : plugin.enabled ? "Enabled" : "Disabled",
-            )}
+            label={t(plugin.core ? "Required" : plugin.enabled ? "Enabled" : "Disabled")}
             variant={plugin.enabled ? "ui-button--secondary" : "ui-button--ghost"}
-            disabled={plugin.core}
+            disabled={plugin.core || !canManagePlugins}
             busy={Boolean(busy[`toggle-${plugin.id}`])}
             ariaPressed={Boolean(plugin.enabled)}
             onClick={() => {
@@ -188,6 +202,7 @@ export function PluginManagerViewApp({
             <ActionButton
               label={t("Uninstall")}
               variant="ui-button--danger"
+              disabled={!canManagePlugins}
               busy={Boolean(busy[`uninstall-${plugin.id}`])}
               onClick={async () => {
                 if (
@@ -202,9 +217,7 @@ export function PluginManagerViewApp({
                 void runAction(`uninstall-${plugin.id}`, async () => {
                   await registry.uninstall?.(plugin.id);
                   notify?.(
-                    `${t("Uninstalled")} ${t(plugin.name)}; ${t(
-                      "Plugin data was preserved",
-                    )}`,
+                    `${t("Uninstalled")} ${t(plugin.name)}; ${t("Plugin data was preserved")}`,
                   );
                 });
               }}
@@ -215,7 +228,7 @@ export function PluginManagerViewApp({
                 <ActionButton
                   label={`${t("Rollback")} ${version}`}
                   variant="ui-button--ghost"
-                  disabled={typeof rollbackSignedPlugin !== "function"}
+                  disabled={!canManagePlugins || typeof rollbackSignedPlugin !== "function"}
                   busy={Boolean(busy[`rollback-${plugin.id}-${version}`])}
                   key={version}
                   onClick={async () => {
@@ -239,7 +252,9 @@ export function PluginManagerViewApp({
             <ActionButton
               label={t("Revoke publisher")}
               variant="ui-button--danger"
-              disabled={!plugin.publisherKeyId || typeof revokePublisher !== "function"}
+              disabled={
+                !canManagePlugins || !plugin.publisherKeyId || typeof revokePublisher !== "function"
+              }
               busy={Boolean(busy[`revoke-${plugin.id}`])}
               onClick={async () => {
                 if (
@@ -271,19 +286,13 @@ export function PluginManagerViewApp({
                   <ActionButton
                     label={t(granted ? "Allowed" : "Denied")}
                     variant="ui-button--ghost"
+                    disabled={!canManagePlugins}
                     busy={Boolean(busy[`permission-${plugin.id}-${permission.name}`])}
                     ariaPressed={granted}
                     onClick={() => {
-                      void runAction(
-                        `permission-${plugin.id}-${permission.name}`,
-                        async () => {
-                          await registry.setPermission?.(
-                            plugin.id,
-                            permission.name,
-                            !granted,
-                          );
-                        },
-                      );
+                      void runAction(`permission-${plugin.id}-${permission.name}`, async () => {
+                        await registry.setPermission?.(plugin.id, permission.name, !granted);
+                      });
                     }}
                   />
                 </div>
@@ -307,15 +316,16 @@ export function PluginManagerViewApp({
             "Manage application plugins independently from Pi extensions. State and permissions are scoped to the current scene.",
           )}
         </p>
-        <p className="plugin-manager-scene">
-          {`${t("Scene")}: ${sceneId}`}
-        </p>
+        <p className="plugin-manager-scene">{`${t("Scene")}: ${sceneId}`}</p>
+        {!canManagePlugins ? (
+          <p>{t("Plugin management is available in the desktop app.")}</p>
+        ) : null}
       </section>
       <div className="plugin-manager-actions">
         <ActionButton
           label={t("Install local plugin")}
           variant="ui-button--primary"
-          disabled={typeof installDeveloperPlugin !== "function"}
+          disabled={!canManagePlugins || typeof installDeveloperPlugin !== "function"}
           title={
             typeof installDeveloperPlugin !== "function"
               ? t("Local plugin installation is available in the desktop application.")
@@ -335,6 +345,7 @@ export function PluginManagerViewApp({
           label={t("Install signed package")}
           variant="ui-button--secondary"
           disabled={
+            !canManagePlugins ||
             typeof selectSignedPlugin !== "function" ||
             typeof installSignedPlugin !== "function"
           }
@@ -356,10 +367,7 @@ export function PluginManagerViewApp({
               ) {
                 return;
               }
-              const pluginId = await installSignedPlugin?.(
-                preview.packagePath,
-                !preview.trusted,
-              );
+              const pluginId = await installSignedPlugin?.(preview.packagePath, !preview.trusted);
               await registry.setScene?.(sceneId);
               notify?.(`${t("Installed")} ${pluginId}`);
             });
@@ -368,6 +376,7 @@ export function PluginManagerViewApp({
         <ActionButton
           label={t("Refresh")}
           variant="ui-button--secondary"
+          disabled={!canManagePlugins}
           busy={Boolean(busy.refresh)}
           onClick={() => {
             void runAction("refresh", async () => {
@@ -377,11 +386,7 @@ export function PluginManagerViewApp({
           }}
         />
       </div>
-      <div
-        className="plugin-manager-filters"
-        role="tablist"
-        aria-label={t("Plugin filters")}
-      >
+      <div className="plugin-manager-filters" role="tablist" aria-label={t("Plugin filters")}>
         {MANAGER_FILTERS.map((filter) => (
           <button
             type="button"
@@ -400,13 +405,27 @@ export function PluginManagerViewApp({
           </button>
         ))}
       </div>
-      <div className="plugin-manager-grid">
-        {plugins.length === 0 ? (
-          <p className="plugin-manager-empty">{t("No plugins in this category.")}</p>
-        ) : (
-          plugins.map(renderCard)
-        )}
+      <div className="plugin-manager-search">
+        <label htmlFor="plugin-manager-search">{t("Search plugins and tools")}</label>
+        <input
+          id="plugin-manager-search"
+          className="ui-input"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("Search names, capabilities or publishers")}
+        />
+        <span className="plugin-manager-search-count" role="status" aria-live="polite">
+          {`${plugins.length} / ${categoryPlugins.length}`}
+        </span>
       </div>
+      <PluginCatalog key={`${activeFilter}:${query}`} plugins={plugins} renderCard={renderCard} empty={(
+          <p className="plugin-manager-empty">
+            {t(
+              searchTerms.length ? "No matching plugins or tools." : "No plugins in this category.",
+            )}
+          </p>
+        )} />
       {diagnostics.length > 0 ? (
         <section className="ui-card plugin-manager-diagnostics">
           <strong>{t("Rejected developer packages")}</strong>

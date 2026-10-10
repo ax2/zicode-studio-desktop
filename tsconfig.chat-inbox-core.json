@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.external-clients.json",
+  "files": [
+    "extensions/chat-inbox/config.ts",
+    "extensions/chat-inbox/core/config-types.ts",
+    "extensions/chat-inbox/core/keys.ts",
+    "extensions/chat-inbox/core/runtime-types.ts",
+    "extensions/chat-inbox/types.ts",
+    "extensions/chat-inbox/log.ts",
+    "extensions/chat-inbox/runtime.ts",
+    "extensions/chat-inbox/remote-operations.ts",
+    "extensions/chat-inbox/startup.ts",
+    "extensions/chat-inbox/render/chunking.ts",
+    "extensions/chat-inbox/render/format.ts",
+    "extensions/chat-inbox/render/streaming-markdown.ts",
+    "extensions/chat-inbox/render/streaming.ts",
+    "extensions/chat-inbox/live/common.ts",
+    "extensions/chat-inbox/live/feishu.ts",
+    "extensions/chat-inbox/live/index.ts",
+    "extensions/chat-inbox/live/types.ts",
+    "extensions/chat-inbox/live/wecom.ts"
+  ]
+}

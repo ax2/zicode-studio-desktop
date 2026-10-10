@@ -7,6 +7,7 @@ ZiCode is local-first: conversations, notes, tasks, and plugin data stay in appl
 - Windows stores scene and provider API keys in Credential Manager.
 - Ordinary configuration files keep only non-sensitive indexes.
 - Compatibility authentication files are materialized briefly for runtime startup and removed after loading.
+- The Pi runtime does not inherit `*_API_KEY` variables from the desktop process. Enter model channel keys in the current scene's API key settings so the scene credential broker can inject them.
 - Help, project archives, logs, and exports must never contain secrets.
 
 ## Scene boundaries
@@ -75,14 +76,16 @@ the draft, while successful submission or clearing site data removes both.
 
 > Restoring ordinary files to a new computer does not restore API keys. Enter them again into the system credential store.
 
-Session backup is a read-only export containing the full message history and project paths,
-never credentials; the JSON file is directly readable and suitable for archiving or pre-migration retention.
+Session backup is a read-only export containing the full message history and project paths.
+Messages may contain sensitive information entered by users. The JSON file is directly readable;
+store it as sensitive data when archiving or migrating.
 
 To restore, open **Settings → General → Import session backup** and pick a previously
-exported JSON file. Entries are validated per item (the session id must match the first
-line of its content, paths must belong to the current workspace, each entry is capped at
-10 MiB, and the total at 50 MiB); existing session ids are skipped rather than overwritten.
-Imported conversations appear in the sidebar and are ready for migration or recovery.
+exported JSON file. The app shows the source project path for confirmation, then changes only
+each session header's working directory to the current workspace. Historical message text and
+file paths stay unchanged. Entries are checked for safe session IDs and matching source paths
+and headers; each entry is capped at 10 MiB and the total at 50 MiB. Existing sessions are
+never overwritten. Imported conversations appear in the sidebar for migration or recovery.
 
 ## Workspace data snapshots
 
@@ -95,6 +98,13 @@ restoring from a snapshot. Restoring replaces the current workspace data and
 automatically snapshots the current state first (it appears in the backup list),
 making the operation reversible; restart the app afterwards to load the restored
 data. Deleting a backup requires confirmation.
+Before replacement, restore checks that the snapshot directory matches its metadata ID, app list and copied byte count. A mismatch leaves current data untouched. Keep the original snapshot for inspection instead of editing its metadata to bypass the check.
+New snapshots also store a SHA-256 digest of the copied file tree. Restore verifies the staged copy, including same-size content changes. Older snapshots have no digest and are labeled accordingly; their app list and byte count are still checked.
+New-format snapshots with a missing digest cannot be restored. Older formats remain compatible. The list identifies unsupported formats or missing digests; those snapshots can still be deleted.
+If a backup directory has missing, damaged, or mismatched metadata, an invalid timestamp or app list, or missing, linked, or mismatched app folders, the list marks it as damaged. Unsupported formats and snapshots with missing or invalid content checksums also cannot be restored. You can delete these entries explicitly. Automatic retention never removes them or treats them as the latest usable backup.
+If a restore reports that rollback did not finish, stop using the workspace and
+keep its backups. The error shows the `.restore-*` directory holding recovery
+files; review it before restarting or attempting another restore.
 
 Note deletion always goes through trash first (including whole notebooks), with
 30-day retention; session and automation deletion require confirmation. Core data

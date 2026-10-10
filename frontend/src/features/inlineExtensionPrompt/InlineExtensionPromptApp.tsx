@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { t } from "../../shared/i18n";
 import {
-  isTypeSomethingOption,
-  parseOption,
-  parseOptionsFromBody,
   type DialogContent,
   type DialogOption,
   type InlinePromptRequest,
+  isTypeSomethingOption,
+  parseOption,
+  parseOptionsFromBody,
 } from "./inlineExtensionPromptLogic";
 
 function OptionBody({ option }: { option: DialogOption }) {

@@ -2,9 +2,9 @@ import { create } from "zustand";
 import {
   isSettingsHash,
   normalizeSettingsTabKey,
+  type SettingsTabKey,
   settingsHashForTab,
   tabFromSettingsHash,
-  type SettingsTabKey,
 } from "./logic";
 
 export interface SettingsStoreOptions {

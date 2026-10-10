@@ -14,6 +14,23 @@ function makeTask(overrides = {}) {
 }
 
 describe("dispatchSuperAgentTaskNative", () => {
+  it("never resolves a workspace or spawns a runtime for a draft", async () => {
+    const resolveWorkspace = vi.fn();
+    const spawnSession = vi.fn();
+    const sendPrompt = vi.fn();
+    const updateTask = vi.fn();
+    expect(
+      await dispatchSuperAgentTaskNative({
+        task: makeTask({ status: "draft" }),
+        resolveWorkspace,
+        spawnSession,
+        sendPrompt,
+        updateTask,
+      }),
+    ).toBeNull();
+    for (const fn of [resolveWorkspace, spawnSession, sendPrompt, updateTask])
+      expect(fn).not.toHaveBeenCalled();
+  });
   it("resolves workspace, spawns a session, and prompts the child target", async () => {
     const resolveWorkspace = vi.fn().mockResolvedValue("workspace-a");
     const spawnSession = vi.fn().mockResolvedValue({
@@ -129,9 +146,6 @@ describe("dispatchSuperAgentTaskNative", () => {
     });
 
     expect(onDispatchError).toHaveBeenCalledTimes(1);
-    expect(onDispatchError).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "task-1" }),
-      error,
-    );
+    expect(onDispatchError).toHaveBeenCalledWith(expect.objectContaining({ id: "task-1" }), error);
   });
 });

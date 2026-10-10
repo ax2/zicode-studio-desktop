@@ -1,7 +1,11 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { createElement } from "react";
 import { create } from "zustand";
+// @ts-expect-error plain JS module without type declarations (public/native/)
+import { createInstallPromptPolicy, setupMobileServiceWorker } from "../../../../public/native/features/mobile-pwa-lifecycle.js";
+// @ts-expect-error plain JS modules without type declarations (public/native/)
+import { setupMobileStartRouteTracking } from "../../../../public/native/features/mobile-start-route.js";
 import { t } from "../../shared/i18n";
 import {
   MobileExperienceBridge,
@@ -12,16 +16,12 @@ import {
   isIosDevice,
   isStandalone,
 } from "./mobileExperienceLogic";
-// @ts-expect-error plain JS modules without type declarations (public/native/)
-import { setupMobileStartRouteTracking } from "../../../../public/native/features/mobile-start-route.js";
-// @ts-expect-error plain JS module without type declarations (public/native/)
-import { createInstallPromptPolicy, setupMobileServiceWorker } from "../../../../public/native/features/mobile-pwa-lifecycle.js";
 import { setupMobileStoragePersistence } from "./storagePersistence";
 import { setupMobileTaskNotifications } from "./taskNotifications";
 
 const DEFAULT_RECONNECT_ESCALATION_MS = 8_000;
 
-export { isIosDevice, canUseRemotePwa } from "./mobileExperienceLogic";
+export { canUseRemotePwa, isIosDevice } from "./mobileExperienceLogic";
 
 export interface MobileExperienceOptions {
   adapter?: {

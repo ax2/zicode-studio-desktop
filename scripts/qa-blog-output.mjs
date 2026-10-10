@@ -9,7 +9,7 @@
 // most recent YYYYMMDD article directory found.
 // BLOG_WORKFLOW_FILE overrides the automation workflows.json path used for
 // the scheduling check (defaults to the agent-inbox workspace).
-import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const DEFAULT_BLOG_ROOT = "C:\\Users\\ax2\\Documents\\技术博客";

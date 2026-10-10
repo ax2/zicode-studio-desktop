@@ -100,6 +100,7 @@ describe("HostRuntimeAdapter", () => {
       url: "ws://127.0.0.1:9000/v2/ws",
       WebSocketImpl: FakeWebSocket,
       clientId: "desktop-a",
+      desktopToken: "desktop-window-token",
     });
     const gateway = new RuntimeGateway(adapter);
     const events = [];
@@ -113,6 +114,7 @@ describe("HostRuntimeAdapter", () => {
       protocolVersion: 2,
       clientType: "desktop",
       clientId: "desktop-a",
+      desktopToken: "desktop-window-token",
     });
     socket.receive({ type: "hello_ack", protocolVersion: 2 });
     expect(adapter.isConnected()).toBe(true);

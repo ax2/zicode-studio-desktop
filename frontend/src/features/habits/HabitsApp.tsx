@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Root } from "react-dom/client";
-import { mountPluginSurface } from "../../shared/reactMount.js";
-import { t } from "../../shared/i18n";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
+import { t } from "../../shared/i18n";
+import { mountPluginSurface } from "../../shared/reactMount.js";
 import { currentStreak, lastDates, toDateKey } from "./habitsLogic";
 import { createHabitsStore, type HabitsOptions, type HabitsStore } from "./habitsStore";
 
@@ -155,124 +155,136 @@ export function HabitsMain({ store }: { store: HabitsStore }) {
               </button>
             </div>
             <ul className="habits-items">
-            {habits.map((habit) => {
-              const streak = currentStreak(entries, habit.id);
-              const habitDates = done.get(habit.id) ?? new Set<string>();
-              const editing = editingId === habit.id;
-              return (
-                <li key={habit.id} className="habits-item">
-                  {editing ? (
-                    <form
-                      className="habits-edit"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (!busy && draftName.trim()) void store.getState().saveEdit();
-                      }}
-                    >
-                      <input
-                        className="habits-name-input"
-                        value={draftName}
-                        aria-label={t("Habit name")}
-                        onChange={(event) =>
-                          store.getState().setDraft({ draftName: event.target.value })
-                        }
-                      />
-                      <div className="habits-picker" role="radiogroup" aria-label={t("Habit emoji")}>
-                        {EMOJIS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            className={`habits-emoji${draftEmoji === emoji ? " is-active" : ""}`}
-                            aria-pressed={draftEmoji === emoji}
-                            onClick={() => store.getState().setDraft({ draftEmoji: emoji })}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="habits-picker" role="radiogroup" aria-label={t("Habit color")}>
-                        {COLORS.map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            className={`habits-color${draftColor === color ? " is-active" : ""}`}
-                            aria-pressed={draftColor === color}
-                            style={{ background: color }}
-                            onClick={() => store.getState().setDraft({ draftColor: color })}
-                          />
-                        ))}
-                      </div>
-                      <div className="habits-edit-actions">
-                        <button
-                          type="submit"
-                          className="ui-button ui-button--primary ui-button--sm"
-                          disabled={busy || !draftName.trim()}
+              {habits.map((habit) => {
+                const streak = currentStreak(entries, habit.id);
+                const habitDates = done.get(habit.id) ?? new Set<string>();
+                const editing = editingId === habit.id;
+                return (
+                  <li key={habit.id} className="habits-item">
+                    {editing ? (
+                      <form
+                        className="habits-edit"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (!busy && draftName.trim()) void store.getState().saveEdit();
+                        }}
+                      >
+                        <input
+                          className="habits-name-input"
+                          value={draftName}
+                          aria-label={t("Habit name")}
+                          onChange={(event) =>
+                            store.getState().setDraft({ draftName: event.target.value })
+                          }
+                        />
+                        <div
+                          className="habits-picker"
+                          role="radiogroup"
+                          aria-label={t("Habit emoji")}
                         >
-                          {t("Save")}
-                        </button>
+                          {EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              className={`habits-emoji${draftEmoji === emoji ? " is-active" : ""}`}
+                              aria-pressed={draftEmoji === emoji}
+                              onClick={() => store.getState().setDraft({ draftEmoji: emoji })}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                        <div
+                          className="habits-picker"
+                          role="radiogroup"
+                          aria-label={t("Habit color")}
+                        >
+                          {COLORS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              className={`habits-color${draftColor === color ? " is-active" : ""}`}
+                              aria-pressed={draftColor === color}
+                              style={{ background: color }}
+                              onClick={() => store.getState().setDraft({ draftColor: color })}
+                            />
+                          ))}
+                        </div>
+                        <div className="habits-edit-actions">
+                          <button
+                            type="submit"
+                            className="ui-button ui-button--primary ui-button--sm"
+                            disabled={busy || !draftName.trim()}
+                          >
+                            {t("Save")}
+                          </button>
+                          <button
+                            type="button"
+                            className="ui-button ui-button--ghost ui-button--sm"
+                            onClick={() => store.getState().cancelEdit()}
+                          >
+                            {t("Cancel")}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="habits-item-head">
+                        <span className="habits-item-icon" style={{ background: habit.color }}>
+                          {habit.emoji}
+                        </span>
+                        <span className="habits-item-name">{habit.name}</span>
+                        <span className="habits-item-streak">
+                          {t("{streak}-day streak").replace("{streak}", String(streak))}
+                        </span>
                         <button
                           type="button"
                           className="ui-button ui-button--ghost ui-button--sm"
-                          onClick={() => store.getState().cancelEdit()}
+                          aria-label={`${t("Edit")} ${habit.name}`}
+                          onClick={() => store.getState().startEdit(habit)}
                         >
-                          {t("Cancel")}
+                          {t("Edit")}
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-button ui-button--ghost ui-button--sm habits-delete"
+                          aria-label={`${t("Delete")} ${habit.name}`}
+                          onClick={async () => {
+                            if (
+                              await globalThis.confirm?.(
+                                t("Delete this habit and its history? This cannot be undone."),
+                              )
+                            ) {
+                              void store.getState().remove(habit.id);
+                            }
+                          }}
+                        >
+                          {t("Delete")}
                         </button>
                       </div>
-                    </form>
-                  ) : (
-                    <div className="habits-item-head">
-                      <span className="habits-item-icon" style={{ background: habit.color }}>
-                        {habit.emoji}
-                      </span>
-                      <span className="habits-item-name">{habit.name}</span>
-                      <span className="habits-item-streak">
-                        {t("{streak}-day streak").replace("{streak}", String(streak))}
-                      </span>
-                      <button
-                        type="button"
-                        className="ui-button ui-button--ghost ui-button--sm"
-                        aria-label={`${t("Edit")} ${habit.name}`}
-                        onClick={() => store.getState().startEdit(habit)}
-                      >
-                        {t("Edit")}
-                      </button>
-                      <button
-                        type="button"
-                        className="ui-button ui-button--ghost ui-button--sm habits-delete"
-                        aria-label={`${t("Delete")} ${habit.name}`}
-                        onClick={async () => {
-                          if (await globalThis.confirm?.(t("Delete this habit and its history? This cannot be undone."))) {
-                            void store.getState().remove(habit.id);
-                          }
-                        }}
-                      >
-                        {t("Delete")}
-                      </button>
-                    </div>
-                  )}
-                  {!editing ? (
-                    <div className="habits-grid">
-                      {dates.map((date) => {
-                        const checked = habitDates.has(date);
-                        const isToday = date === todayKey;
-                        return (
-                          <button
-                            key={date}
-                            type="button"
-                            className={`habits-day${checked ? " is-done" : ""}${isToday ? " is-today" : ""}`}
-                            aria-pressed={checked}
-                            aria-label={`${date} ${checked ? t("Done") : t("Not done")}`}
-                            title={`${date} · ${checked ? t("Done") : t("Not done")}`}
-                            style={checked ? { background: habit.color } : undefined}
-                            onClick={() => void store.getState().toggle(habit.id, date)}
-                          />
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
+                    )}
+                    {!editing ? (
+                      <div className="habits-grid">
+                        {dates.map((date) => {
+                          const checked = habitDates.has(date);
+                          const isToday = date === todayKey;
+                          return (
+                            <button
+                              key={date}
+                              type="button"
+                              className={`habits-day${checked ? " is-done" : ""}${isToday ? " is-today" : ""}`}
+                              aria-pressed={checked}
+                              aria-label={`${date} ${checked ? t("Done") : t("Not done")}`}
+                              title={`${date} · ${checked ? t("Done") : t("Not done")}`}
+                              style={checked ? { background: habit.color } : undefined}
+                              onClick={() => void store.getState().toggle(habit.id, date)}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           </>
         ) : (
@@ -287,15 +299,20 @@ export function createHabitsApp(options: HabitsOptions): HabitsAppApi {
   const store = createHabitsStore(options);
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
+  let active = false;
   return {
     renderNavigation(container) {
       navRoot = mountPluginSurface(container, <HabitsNav />, navRoot);
     },
     renderContent(container) {
+      active = true;
       contentRoot = mountPluginSurface(container, <HabitsMain store={store} />, contentRoot);
     },
-    deactivate() {},
+    deactivate() {
+      active = false;
+    },
     destroy() {
+      active = false;
       navRoot?.unmount();
       contentRoot?.unmount();
       navRoot = null;
@@ -309,7 +326,8 @@ export function createHabitsApp(options: HabitsOptions): HabitsAppApi {
       return store.getState().load();
     },
     setTarget() {
-      return store.getState().load();
+      store.getState().resetScope();
+      return active ? store.getState().load() : Promise.resolve();
     },
   };
 }

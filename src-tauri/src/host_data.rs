@@ -1,9 +1,23 @@
-use crate::process_command::new_command;
+pub mod commit_diff;
+pub mod environment;
+mod files;
+pub mod git_diff;
+pub mod git_history;
+pub mod git_stage;
+pub mod git_status;
+pub mod git_unstage;
+mod patch_preview;
+mod project_manifest;
+
+pub(crate) fn mise_config_names() -> &'static [&'static str] {
+    project_manifest::mise_config_names()
+}
+
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -24,16 +38,6 @@ pub struct WorkspaceInfo {
     pub git_branch: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FileEntry {
-    pub name: String,
-    pub relative_path: String,
-    pub kind: FileKind,
-    /// Byte size of the file; `None` for directories or when metadata is unavailable.
-    pub size: Option<u64>,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
@@ -50,13 +54,6 @@ pub struct SessionSummary {
     pub is_current_workspace: bool,
     pub file_name: String,
     pub modified_at_ms: u128,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FileKind {
-    File,
-    Directory,
 }
 
 /// Result of a best-effort batch delete: each requested session id lands in
@@ -348,74 +345,33 @@ impl HostDataPlane {
             .ok_or(HostDataError::UnknownWorkspace)
     }
 
-    pub fn list_files(
-        &self,
-        workspace_id: &str,
-        relative_path: &str,
-    ) -> Result<Vec<FileEntry>, HostDataError> {
-        let root = self.workspace_root(workspace_id)?;
-        let root = root.as_path();
-        let requested = safe_join(root, relative_path)?;
-        if !requested.is_dir() {
-            return Err(HostDataError::NotDirectory);
-        }
-        let mut entries = std::fs::read_dir(&requested)
-            .map_err(|error| HostDataError::Io(error.to_string()))?
-            .filter_map(Result::ok)
-            .filter_map(|entry| {
-                let file_type = entry.file_type().ok()?;
-                let kind = if file_type.is_dir() {
-                    FileKind::Directory
-                } else if file_type.is_file() {
-                    FileKind::File
-                } else {
-                    return None;
-                };
-                // Read size cheaply via the already-open DirEntry metadata.
-                let size = if kind == FileKind::File {
-                    entry.metadata().ok().map(|m| m.len())
-                } else {
-                    None
-                };
-                let path = entry.path();
-                let relative = path.strip_prefix(root).ok()?;
-                Some(FileEntry {
-                    name: entry.file_name().to_string_lossy().into_owned(),
-                    relative_path: relative.to_string_lossy().replace('\\', "/"),
-                    kind,
-                    size,
-                })
-            })
-            .collect::<Vec<_>>();
-        entries.sort_by(|left, right| {
-            let left_directory = left.kind == FileKind::Directory;
-            let right_directory = right.kind == FileKind::Directory;
-            right_directory
-                .cmp(&left_directory)
-                .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
-        });
-        Ok(entries)
-    }
-
     /// Return the registered filesystem root (working directory) for a
     /// workspace, so a runtime can be lazily resumed with the correct cwd.
     pub fn workspace_root_path(&self, workspace_id: &str) -> Result<PathBuf, HostDataError> {
         self.workspace_root(workspace_id)
     }
 
+    /// Resolve an existing entry inside a registered workspace for a desktop action.
+    pub fn workspace_entry_path(
+        &self,
+        workspace_id: &str,
+        relative_path: &str,
+    ) -> Result<PathBuf, HostDataError> {
+        safe_join(&self.workspace_root(workspace_id)?, relative_path)
+    }
+
     /// Return the workspace path and its current git branch (if any).
-    pub fn workspace_info(&self, workspace_id: &str) -> Result<WorkspaceInfo, HostDataError> {
+    pub async fn workspace_info(&self, workspace_id: &str) -> Result<WorkspaceInfo, HostDataError> {
         let root = self.workspace_root(workspace_id)?;
         let path = root.to_string_lossy().into_owned();
-        let git_branch = new_command("git")
-            .args(["rev-parse", "--abbrev-ref", "HEAD"])
-            .current_dir(&root)
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim().to_owned())
-            .filter(|s| !s.is_empty() && s != "HEAD");
+        let git_branch =
+            git_status::run_git(&root, &["symbolic-ref", "--quiet", "--short", "HEAD"])
+                .await
+                .ok()
+                .filter(|(success, _, _)| *success)
+                .and_then(|(_, stdout, _)| String::from_utf8(stdout).ok())
+                .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty() && s != "HEAD");
         Ok(WorkspaceInfo { path, git_branch })
     }
 
@@ -655,8 +611,8 @@ impl HostDataPlane {
     }
 
     /// Export every readable session belonging to the workspace as a single
-    /// JSON backup (message contents included; credentials never live in
-    /// session files). Read-only — the store is untouched.
+    /// JSON backup (message contents included and potentially sensitive).
+    /// Read-only — the store is untouched.
     pub fn export_sessions(&self, workspace_id: &str) -> Result<SessionBackup, HostDataError> {
         let current = self.workspace_root(workspace_id).ok();
         let mut sessions = Vec::new();
@@ -702,6 +658,31 @@ impl HostDataPlane {
         workspace_id: &str,
         entries: &[SessionBackupEntry],
     ) -> Result<SessionImportResult, HostDataError> {
+        self.import_sessions_with_source(workspace_id, entries, None)
+    }
+
+    /// Import a backup after the caller explicitly chooses its source project
+    /// path. Only the session header cwd is rebound to the registered workspace.
+    pub fn import_sessions_relinked(
+        &self,
+        workspace_id: &str,
+        entries: &[SessionBackupEntry],
+        source_path: &str,
+    ) -> Result<SessionImportResult, HostDataError> {
+        if source_path.is_empty() || source_path.len() > 4096 || source_path.contains('\0') {
+            return Err(HostDataError::Io(
+                "invalid session backup source path".into(),
+            ));
+        }
+        self.import_sessions_with_source(workspace_id, entries, Some(source_path))
+    }
+
+    fn import_sessions_with_source(
+        &self,
+        workspace_id: &str,
+        entries: &[SessionBackupEntry],
+        source_path: Option<&str>,
+    ) -> Result<SessionImportResult, HostDataError> {
         let mut result = SessionImportResult::default();
         // Prefer an archive-style root (e.g. `sessions`) over live runtime
         // instance dirs (`instances`) for restored files.
@@ -723,7 +704,13 @@ impl HostDataPlane {
         let mut total_bytes = 0usize;
         for entry in entries {
             let id = entry.session_id.trim();
-            if id.is_empty() || entry.content.trim().is_empty() {
+            if id.is_empty()
+                || id.len() > 128
+                || !id
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+                || entry.content.trim().is_empty()
+            {
                 result.errors.push(entry.session_id.clone());
                 continue;
             }
@@ -740,7 +727,14 @@ impl HostDataPlane {
                 result.skipped.push(id.to_string());
                 continue;
             };
-            if parsed_id != id || !same_dir(&workspace_canonical, Path::new(&parsed_cwd)) {
+            let source_matches = source_path.map_or_else(
+                || {
+                    entry.project_path == parsed_cwd
+                        && same_dir(&workspace_canonical, Path::new(&parsed_cwd))
+                },
+                |source| entry.project_path == source && parsed_cwd == source,
+            );
+            if parsed_id != id || !source_matches {
                 result.skipped.push(id.to_string());
                 continue;
             }
@@ -751,11 +745,34 @@ impl HostDataPlane {
             let directory = root.join("restored").join(workspace_id);
             std::fs::create_dir_all(&directory)
                 .map_err(|error| HostDataError::Io(error.to_string()))?;
-            std::fs::write(
-                directory.join(format!("{id}.jsonl")),
-                entry.content.as_bytes(),
-            )
-            .map_err(|error| HostDataError::Io(error.to_string()))?;
+            let content = if source_path.is_some() {
+                rebind_session_cwd(&entry.content, &workspace_canonical)
+                    .ok_or_else(|| HostDataError::Io("invalid session backup header".into()))?
+            } else {
+                entry.content.clone()
+            };
+            if content.len() > MAX_SESSION_BACKUP_BYTES {
+                result.errors.push(id.to_string());
+                continue;
+            }
+            let target = directory.join(format!("{id}.jsonl"));
+            let mut file = match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&target)
+            {
+                Ok(file) => file,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    result.skipped.push(id.to_string());
+                    continue;
+                }
+                Err(error) => return Err(HostDataError::Io(error.to_string())),
+            };
+            if let Err(error) = file.write_all(content.as_bytes()) {
+                drop(file);
+                let _ = std::fs::remove_file(&target);
+                return Err(HostDataError::Io(error.to_string()));
+            }
             result.imported.push(id.to_string());
         }
         Ok(result)
@@ -1249,6 +1266,7 @@ fn parse_session_id(path: &Path) -> Result<Option<String>, HostDataError> {
 /// Read the session line identity (id + working directory) from backup
 /// content without touching the store.
 fn session_line_identity(content: &str) -> Result<Option<(String, String)>, HostDataError> {
+    let mut identity = None;
     for line in content.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -1258,7 +1276,10 @@ fn session_line_identity(content: &str) -> Result<Option<(String, String)>, Host
             continue;
         };
         if entry.get("type").and_then(serde_json::Value::as_str) == Some("session") {
-            return Ok(Some((
+            if identity.is_some() {
+                return Ok(None);
+            }
+            identity = Some((
                 entry
                     .get("id")
                     .and_then(serde_json::Value::as_str)
@@ -1269,10 +1290,43 @@ fn session_line_identity(content: &str) -> Result<Option<(String, String)>, Host
                     .and_then(serde_json::Value::as_str)
                     .unwrap_or_default()
                     .to_string(),
-            )));
+            ));
         }
     }
-    Ok(None)
+    Ok(identity)
+}
+
+/// Change only the session header's working directory. Message bodies and
+/// historical file references remain untouched so the archive stays readable.
+fn rebind_session_cwd(content: &str, workspace: &Path) -> Option<String> {
+    let destination = workspace.to_str()?;
+    let mut offset = 0;
+    for line in content.split_inclusive('\n') {
+        let Ok(mut header) = serde_json::from_str::<serde_json::Value>(line.trim()) else {
+            offset += line.len();
+            continue;
+        };
+        if header.get("type").and_then(serde_json::Value::as_str) != Some("session") {
+            offset += line.len();
+            continue;
+        }
+        header["cwd"] = serde_json::Value::String(destination.to_owned());
+        let ending = if line.ends_with("\r\n") {
+            "\r\n"
+        } else if line.ends_with('\n') {
+            "\n"
+        } else {
+            ""
+        };
+        return Some(format!(
+            "{}{}{}{}",
+            &content[..offset],
+            serde_json::to_string(&header).ok()?,
+            ending,
+            &content[offset + line.len()..]
+        ));
+    }
+    None
 }
 
 fn metadata_modified_at_ms(metadata: &std::fs::Metadata) -> u128 {
@@ -1413,7 +1467,8 @@ fn safe_join(root: &Path, relative_path: &str) -> Result<PathBuf, HostDataError>
 
 #[cfg(test)]
 mod tests {
-    use super::{FileKind, HostDataError, HostDataPlane, SessionBackupEntry};
+    use super::files::FileKind;
+    use super::{HostDataError, HostDataPlane, SessionBackupEntry};
     use serde_json::json;
     use std::collections::HashMap;
     use std::fs;

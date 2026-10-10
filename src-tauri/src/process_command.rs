@@ -1,6 +1,31 @@
 use std::ffi::OsStr;
 use std::process::Command;
 
+/// Preserve canonical identity checks while using ordinary Win32 paths at the
+/// process boundary. cmd.exe and PowerShell misinterpret verbatim drive paths.
+pub fn working_directory(path: &std::path::Path) -> std::path::PathBuf {
+    #[cfg(windows)]
+    {
+        use std::path::{Component, PathBuf, Prefix};
+        let mut components = path.components();
+        if let Some(Component::Prefix(prefix)) = components.next() {
+            let mut normal = match prefix.kind() {
+                Prefix::VerbatimDisk(drive) => PathBuf::from(format!("{}:\\", drive as char)),
+                Prefix::VerbatimUNC(server, share) => {
+                    let mut normal = PathBuf::from(r"\\");
+                    normal.push(server);
+                    normal.push(share);
+                    normal
+                }
+                _ => return path.to_path_buf(),
+            };
+            normal.extend(components.filter(|part| !matches!(part, Component::RootDir)));
+            return normal;
+        }
+    }
+    path.to_path_buf()
+}
+
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
@@ -29,6 +54,23 @@ fn configure(_command: &mut Command) {}
 
 #[cfg(test)]
 mod tests {
+    #[cfg(windows)]
+    #[test]
+    fn converts_only_verbatim_working_directory_prefixes() {
+        use std::path::Path;
+        assert_eq!(
+            super::working_directory(Path::new(r"\\?\C:\工具 目录\nested")),
+            Path::new(r"C:\工具 目录\nested")
+        );
+        assert_eq!(
+            super::working_directory(Path::new(r"\\?\UNC\server\share\nested")),
+            Path::new(r"\\server\share\nested")
+        );
+        assert_eq!(
+            super::working_directory(Path::new(r"C:\normal")),
+            Path::new(r"C:\normal")
+        );
+    }
     #[cfg(target_os = "windows")]
     #[test]
     fn create_no_window_flag_matches_windows_api() {

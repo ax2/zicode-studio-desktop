@@ -1,12 +1,12 @@
 import { useLayoutEffect, useState } from "react";
-import { t } from "../../shared/i18n";
 import type { StoreApi, UseBoundStore } from "zustand";
+import { t } from "../../shared/i18n";
 import {
-  selectDisplayTasks,
-  shouldShowIds,
+  type RpivTodoTask,
   STATUS_GLYPHS,
   STATUS_LABELS,
-  type RpivTodoTask,
+  selectDisplayTasks,
+  shouldShowIds,
 } from "./rpivTodoLogic";
 
 export interface RpivTodoStore {

@@ -1,7 +1,7 @@
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { setLocale } from "../../shared/i18n.js";
-import { ArtifactMain, ArtifactNav } from "./ArtifactApp";
+import { ArtifactMain, ArtifactNav, createArtifactApp } from "./ArtifactApp";
 import { formatBytes } from "./logic";
 import { createArtifactStore } from "./store";
 
@@ -62,6 +62,15 @@ afterEach(() => {
 });
 
 describe("artifacts React app", () => {
+  it("does not remount over another active app when the target changes", () => {
+    const app = createArtifactApp({gateway: createGateway()});
+    const container = document.createElement("div"); document.body.append(container);
+    app.renderContent(container);
+    const other = document.createElement("div"); other.textContent = "Other active tool";
+    container.replaceChildren(other); app.setTarget();
+    expect(container.textContent).toBe("Other active tool"); expect(other.isConnected).toBe(true);
+    app.destroy();
+  });
   it("loads the artifact list automatically on mount", async () => {
     const gateway = createGateway();
     const store = createArtifactStore({
@@ -344,8 +353,16 @@ describe("artifact bulk import", () => {
     );
     fireEvent.click(screen.getByText("Deterministic backtest"));
     await waitFor(() => expect(screen.getByText("Copy content")).toBeTruthy());
+    const schedule = vi.spyOn(globalThis, "setTimeout");
     fireEvent.click(screen.getByText("Copy content"));
     await waitFor(() => expect(screen.getByText("Copied")).toBeTruthy());
+    const copyTimerIndex = schedule.mock.calls.findIndex((args) => args[1] === 1600);
+    expect(copyTimerIndex).toBeGreaterThanOrEqual(0);
+    const cancel = vi.spyOn(globalThis, "clearTimeout");
+    cleanup();
+    expect(cancel).toHaveBeenCalledWith(schedule.mock.results[copyTimerIndex].value);
+    cancel.mockRestore();
+    schedule.mockRestore();
     store.getState().destroy();
   });
 });
