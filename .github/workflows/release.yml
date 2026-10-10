@@ -162,6 +162,7 @@ jobs:
           # .cargo/config.toml places Cargo output at the repository root.
           workspaces: "src-tauri -> ../target"
           key: ${{ matrix.pi_target }}
+          cache-on-failure: true
 
       - name: Cache embedded runtimes
         uses: actions/cache@v5

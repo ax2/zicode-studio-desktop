@@ -72,6 +72,7 @@ jobs:
           # .cargo/config.toml places Cargo output at the repository root.
           workspaces: "src-tauri -> ../target"
           key: developer-platform-${{ matrix.os }}
+          cache-on-failure: true
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
       - name: Check developer platform

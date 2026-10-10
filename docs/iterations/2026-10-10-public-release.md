@@ -56,3 +56,6 @@ v0.4.1 Release 38020531435 的 Inbox 注册检查在四个平台通过；后续 
 
 
 终端夹具补充：project_environment PTY 测试此前只等待标记文件，没有像真实终端和其他PTY测试一样回复 ESC[6n 光标位置查询。补上读取及 ESC[1;1R 应答（可处理跨块查询）；保持12秒期限、原始PATH不变和文件标记断言。定向真实PTY 1项通过6.08秒，修改后的Rust静态检查/严格Clippy通过。此改动只涉及测试客户端，不改变产品超时或加载逻辑。main 9c152ed1 的四平台检查继续，不因这项测试补充取消已在运行的验证。
+
+Linux 第二轮报告 38048690334：notify-rust/zbus 编译兼容阻塞已消失，继续暴露 automation_login_start.rs 的 AppImage 路径 OsString / current_exe PathBuf 分支类型不一致。将 AppImage 分支显式转 PathBuf，保持绝对路径/文件存在/UTF-8检查及安装程序路径而非挂载路径策略。Windows 静态检查通过仅证明当前系统分支，Linux最终确认仍依赖下一轮CI。
+Developer platform 与 Release 的 Rust cache 设置 cache-on-failure:true；保留原缓存key和target，便于失败后的依赖复用，不改变发布门槛。上游输入说明：https://github.com/Swatinem/rust-cache#example-usage 。11项相关脚本检查通过，修改后Rust静态/严格Clippy通过。暂不推送，保留尚运行的Intel Mac/Windows报告。

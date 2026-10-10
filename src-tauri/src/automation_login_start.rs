@@ -80,7 +80,7 @@ fn with_lock<T>(action: impl FnOnce() -> Result<T, String>) -> Result<T, String>
 fn executable_path(app: &AppHandle) -> Result<String, String> {
     #[cfg(target_os = "linux")]
     let path = match app.env().appimage {
-        Some(path) => path,
+        Some(path) => std::path::PathBuf::from(path),
         None => std::env::current_exe()
             .map_err(|error| format!("Cannot find app executable: {error}"))?,
     };
