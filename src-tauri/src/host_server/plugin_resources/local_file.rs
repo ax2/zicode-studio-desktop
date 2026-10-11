@@ -1,7 +1,10 @@
 //! Desktop-only, one-use local-file snapshot grants. No paths cross into a Worker.
 use super::*;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+mod cancellation_http;
 mod files;
+mod reading;
 #[cfg(test)]
 mod tests;
 const MAX_BYTES: usize = 32 * 1024 * 1024;
@@ -32,19 +35,24 @@ struct Grant {
     expires: Instant,
 }
 #[derive(Default)]
-pub(super) struct Grants(HashMap<String, Grant>);
+pub(super) struct Grants(HashMap<String, Grant>, HashMap<String, reading::Active>);
 impl Grants {
     fn prune(&mut self) {
         self.0.retain(|_, g| g.expires > Instant::now());
     }
     fn insert(&mut self, grant: Grant) -> Result<String, ApiError> {
         self.prune();
-        if self.0.len() >= 32
+        if self.0.len() + self.1.len() >= 32
             || self
                 .0
                 .values()
                 .filter(|g| g.owner.runtime_id == grant.owner.runtime_id)
                 .count()
+                + self
+                    .1
+                    .values()
+                    .filter(|g| g.owner.runtime_id == grant.owner.runtime_id)
+                    .count()
                 >= 8
         {
             return Err(rejected("resource_file_grant_budget_exceeded"));
@@ -65,6 +73,37 @@ impl Grants {
         self.0
             .remove(&request.grant_id)
             .ok_or_else(|| rejected("resource_file_grant_unavailable"))
+    }
+
+    fn begin(&mut self, request: &FileGrant) -> Result<(Grant, Arc<reading::Control>), ApiError> {
+        let grant = self.take(request)?;
+        let control = Arc::new(reading::Control::new(grant.expires));
+        self.1.insert(
+            request.grant_id.clone(),
+            reading::Active {
+                owner: request.owner.clone(),
+                control: control.clone(),
+            },
+        );
+        Ok((grant, control))
+    }
+
+    fn cancel(&mut self, request: &FileGrant) -> Result<Value, ApiError> {
+        if let Some(active) = self.1.get(&request.grant_id) {
+            if active.owner != request.owner {
+                return Err(rejected("resource_file_grant_unavailable"));
+            }
+            active.control.cancel();
+            return Ok(
+                json!({"schemaVersion":1,"cancelled":false,"cancellationRequested":true,
+                "executionFinished":false,"contentRead":null}),
+            );
+        }
+        self.take(request)?;
+        Ok(
+            json!({"schemaVersion":1,"cancelled":true,"cancellationRequested":true,
+            "executionFinished":true,"contentRead":false}),
+        )
     }
 }
 
@@ -134,25 +173,35 @@ pub(in crate::host_server) async fn commit(
     }
     blocking(state.clone(), move || {
         // Consume before reading; failures never authorize automatic retry or replay.
-        let grant = state
+        let (grant, control) = state
             .plugin_resources
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
             .file_imports
-            .take(&request)?;
+            .begin(&request)?;
+        let _lease = reading::Lease {
+            state: state.clone(),
+            id: request.grant_id.clone(),
+        };
         let expected = (grant.root.clone(), grant.proof.clone());
         if scope(&state, &request.owner)? != expected {
             return Err(rejected("resource_authorization_changed"));
         }
-        let bytes = files::snapshot(&grant.root, &grant.relative, &grant.stamp)?;
+        let bytes =
+            files::snapshot_controlled(&grant.root, &grant.relative, &grant.stamp, &control)?;
         if scope(&state, &request.owner)? != expected {
             return Err(rejected("resource_authorization_changed"));
         }
-        state
+        let mut store = state
             .plugin_resources
             .lock()
-            .map_err(|_| rejected("resource_store_unavailable"))?
-            .import_file(request.owner, grant.proof, bytes)
+            .map_err(|_| rejected("resource_store_unavailable"))?;
+        // Serialize publication with cancellation. A request after publication cannot
+        // revoke a resource by grant ID; the explicit resource revoke API owns that.
+        control.check()?;
+        let result = store.import_file(request.owner, grant.proof, bytes);
+        store.file_imports.1.remove(&request.grant_id);
+        result
     })
     .await
 }
@@ -164,15 +213,13 @@ pub(in crate::host_server) async fn cancel(
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     schema(request.schema_version)?;
-    blocking(state.clone(), move || {
-        // Cancellation remains possible after permissions/session stop; it never reads content.
-        state
-            .plugin_resources
-            .lock()
-            .map_err(|_| rejected("resource_store_unavailable"))?
-            .file_imports
-            .take(&request)?;
-        Ok(json!({"schemaVersion":1,"cancelled":true,"contentRead":false}))
-    })
-    .await
+    // This metadata-only control path must remain available when all eight
+    // blocking resource operation slots are occupied. No OS access or wait queue.
+    let result = state
+        .plugin_resources
+        .lock()
+        .map_err(|_| rejected("resource_store_unavailable"))?
+        .file_imports
+        .cancel(&request)?;
+    Ok(Json(result))
 }

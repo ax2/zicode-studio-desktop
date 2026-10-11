@@ -1,4 +1,6 @@
 use super::*;
+#[path = "grant_cancellation_tests.rs"]
+mod cancellation;
 use futures_util::{SinkExt, StreamExt};
 use std::fs;
 struct Fixture(PathBuf);
@@ -133,6 +135,7 @@ fn grants_are_bounded_expiring_one_use_and_wrong_owner_cannot_consume_them() {
     g.owner.runtime_id = "overflow".into();
     assert!(grants.insert(g).is_err());
 }
+
 #[test]
 fn imported_bytes_use_existing_quota_hash_revoke_and_confirmation_semantics() {
     let mut store = Store::default();
@@ -341,6 +344,7 @@ async fn http(actual: bool) {
     };
     let owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,"pluginId":manifest["id"],"capabilityId":"resource.inspect"});
     let prepare = json!({"schemaVersion":1,"owner":owner,"relativePath":"中文 空格&.zip"});
+    if !actual { cancellation_http::verify(&host, &client, &prepare).await; }
     assert_eq!(
         client
             .post(format!(
@@ -612,6 +616,7 @@ async fn http(actual: bool) {
             .unwrap());
         println!("Tool-only session stopped; pending grants and confirmed resource reads rejected");
     }
+    assert!(host.state.plugin_resources.lock().unwrap().file_imports.1.is_empty());
     host.stop_and_wait().await.unwrap();
     drop(runtime);
 }

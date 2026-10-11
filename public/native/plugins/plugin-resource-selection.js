@@ -1,7 +1,7 @@
 import { t } from "../../i18n.js";
 import { uploadConfirmedResource } from "./plugin-resource-upload.js";
+import { confirmProjectResource, prepareProjectResource } from "./project-file-resource.js";
 import { createSavedOutputPicker } from "./saved-output-picker.js";
-import { prepareProjectResource, confirmProjectResource } from "./project-file-resource.js";
 
 export function createPluginResourceSelection({
   container,
@@ -164,7 +164,7 @@ export function createPluginResourceSelection({
   });
   cancel.addEventListener("click", () => {
     clear();
-    status.textContent = t("File sharing canceled.");
+    status.textContent = uploading ? t("File sharing canceled. Waiting for preparation to finish.") : t("File sharing canceled.");
     input.focus();
   });
   confirm.addEventListener("click", async () => {
@@ -187,7 +187,8 @@ export function createPluginResourceSelection({
     status.textContent = t("Preparing the confirmed file…");
     try {
       const preview = selected.projectPreview;
-      projectGrant = null;
+      // Retain the grant while commit is in flight so Cancel/destroy can request
+      // cooperative Host read cancellation. Late successful resources are revoked.
       const result = preview ? await confirmProjectResource({ api: gateway.projectFiles, preview, gateway, isCurrent: valid }) : await uploadConfirmedResource({
         file: selected,
         owner,
@@ -201,6 +202,7 @@ export function createPluginResourceSelection({
               .replace("{total}", total);
         },
       });
+      if (projectGrant === preview) projectGrant = null;
       if (!valid()) {
         void gateway.revokeResource(result.access).catch(() => {});
         return;
@@ -211,8 +213,10 @@ export function createPluginResourceSelection({
     } catch {
       if (valid()) status.textContent = t("File sharing failed. Select the file again to retry.");
     } finally {
+      cancelProjectGrant();
       uploading = false;
       if (active && isCurrent()) {
+        if (!valid()) status.textContent = t("File sharing canceled.");
         panel.removeAttribute("aria-busy");
         input.disabled = false;
         capability.disabled = false;

@@ -1,6 +1,5 @@
 use super::*;
 use std::fs::{File, OpenOptions};
-use std::io::Read;
 
 pub(super) fn components(relative: &str) -> Result<Vec<&str>, ApiError> {
     if relative.is_empty() || relative.len() > 4096 || relative.split('/').count() > 64 {
@@ -161,19 +160,32 @@ pub(super) fn stamp(file: &File) -> Result<(String, usize), ApiError> {
     Ok((sha256_hex(identity.as_bytes()), meta.len() as usize))
 }
 
+#[cfg(test)]
 pub(super) fn snapshot(root: &Path, relative: &str, expected: &str) -> Result<Vec<u8>, ApiError> {
+    snapshot_controlled(
+        root,
+        relative,
+        expected,
+        &reading::Control::new(Instant::now() + TTL),
+    )
+}
+
+pub(super) fn snapshot_controlled(
+    root: &Path,
+    relative: &str,
+    expected: &str,
+    control: &reading::Control,
+) -> Result<Vec<u8>, ApiError> {
+    control.check()?;
     let mut file = open(root, relative)?;
     let (before, length) = stamp(&file)?;
     if before != expected {
         return Err(rejected("resource_file_changed"));
     }
-    let mut bytes = Vec::with_capacity(length);
-    Read::by_ref(&mut file)
-        .take(MAX_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| rejected("resource_file_unavailable"))?;
+    let bytes = reading::read(&mut file, length, control)?;
     if bytes.len() != length || stamp(&file)?.0 != before {
         return Err(rejected("resource_file_changed"));
     }
+    control.check()?;
     Ok(bytes)
 }

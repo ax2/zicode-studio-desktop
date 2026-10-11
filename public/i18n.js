@@ -295,6 +295,7 @@ const zhCN = {
     "已选择：{name} · {bytes} 字节 · 插件 {plugin}",
   "Choose a file up to 32 MiB and a receiving tool.": "请选择不超过 32 MiB 的文件和接收工具。",
   "File sharing canceled.": "已取消提供文件。",
+  "File sharing canceled. Waiting for preparation to finish.": "已取消提供文件，正在等待准备过程结束。",
   "Preparing the confirmed file…": "正在准备已确认的文件…",
   "Sharing {bytes} of {total} bytes…": "正在提供 {bytes} / {total} 字节…",
   "Confirmed file shared. You can revoke it with Cancel.":

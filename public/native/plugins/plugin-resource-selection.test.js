@@ -49,6 +49,30 @@ afterEach(() => {
   setLocale("zh-CN");
 });
 describe("trusted file confirmation controls", () => {
+  it("retains the in-flight project grant for cancellation and revokes a late result", async () => {
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) };
+    let release;
+    const projectFiles = { choose: vi.fn(async () => "input.txt"),
+      prepare: vi.fn(async () => ({ profile: "resource.local-file.draft1", grantId: id, owner, relativePath: "input.txt", byteLength: 3, contentRead: false, confirmed: false })),
+      commit: vi.fn(() => new Promise(resolve => { release = resolve; })), cancel: vi.fn(async () => ({ cancellationRequested: true, executionFinished: false })) };
+    const options = setup(projectFiles);
+    [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project").click();
+    await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
+    options.confirm.click();
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    options.cancel.click();
+    expect(projectFiles.cancel).toHaveBeenCalledWith(owner, id);
+    expect(document.body.textContent).toContain("Waiting for preparation to finish");
+    expect(options.input.disabled).toBe(true);
+    release({ ...access, access, confirmed: true, profile: "resource.local-file.draft1", byteLength: 3 });
+    await vi.waitFor(() => expect(options.input.disabled).toBe(false));
+    expect(document.body.textContent).not.toContain("Waiting for preparation to finish");
+    expect(options.onResource).not.toHaveBeenCalled();
+    expect(options.gateway.revokeResource).toHaveBeenCalledWith(access);
+    options.controller.destroy();
+  });
   it("shows a launch file name without preparing or confirming it automatically", async () => {
     const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
     const projectFiles = { entry: vi.fn(async () => "中文.zip"), choose: vi.fn(),
