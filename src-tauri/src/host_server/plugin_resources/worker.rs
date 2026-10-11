@@ -18,9 +18,9 @@ pub(crate) struct Workers {
     slots: Arc<tokio::sync::Semaphore>,
     events: Mutex<VecDeque<Value>>,
     #[cfg(test)]
-    executable: Mutex<Option<PathBuf>>,
+    pub(super) executable: Mutex<Option<PathBuf>>,
     #[cfg(test)]
-    observer: Mutex<Option<Observer>>,
+    pub(super) observer: Mutex<Option<Observer>>,
 }
 impl Default for Workers {
     fn default() -> Self {

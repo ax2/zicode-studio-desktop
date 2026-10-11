@@ -603,6 +603,9 @@ impl HostServer {
             .route("/v2/plugin-commands/invoke", post(invoke_plugin_command))
             .route("/v2/plugin-results/prepare-save", post(plugin_results::prepare))
             .route("/v2/plugin-resources/prepare", post(plugin_resources::prepare))
+            .route("/v2/plugin-resources/prepare-local-file", post(plugin_resources::local_file::prepare).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
+            .route("/v2/plugin-resources/commit-local-file", post(plugin_resources::local_file::commit).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
+            .route("/v2/plugin-resources/cancel-local-file", post(plugin_resources::local_file::cancel).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
             .route("/v2/plugin-resources/append", post(plugin_resources::append))
             .route("/v2/plugin-resources/commit", post(plugin_resources::commit))
             .route("/v2/plugin-resources/read", post(plugin_resources::read))
@@ -1262,6 +1265,9 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugins/uninstall"
             | "/v2/plugin-commands/invoke"
             | "/v2/plugin-resources/prepare"
+            | "/v2/plugin-resources/prepare-local-file"
+            | "/v2/plugin-resources/commit-local-file"
+            | "/v2/plugin-resources/cancel-local-file"
             | "/v2/plugin-resources/append"
             | "/v2/plugin-resources/commit"
             | "/v2/plugin-resources/revoke"

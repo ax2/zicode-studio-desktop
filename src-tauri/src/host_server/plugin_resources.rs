@@ -7,6 +7,7 @@ pub(super) mod save;
 mod save_files;
 pub(super) mod library;
 pub(super) mod worker;
+pub(super) mod local_file;
 use super::*;
 pub(crate) use operations::Operations;
 use std::time::Instant;

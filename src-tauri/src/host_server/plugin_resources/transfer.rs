@@ -17,7 +17,7 @@ pub(in crate::host_server) struct CommitTransfer {
     confirmed: bool,
 }
 
-fn target_identity(state: &HostState, target: &Owner) -> Result<(String, Value), ApiError> {
+pub(super) fn target_identity(state: &HostState, target: &Owner) -> Result<(String, Value), ApiError> {
     let proof = identity(state, target, None)?;
     let runtime = state
         .runtimes

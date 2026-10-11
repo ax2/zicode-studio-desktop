@@ -25,6 +25,7 @@ mod tests;
 
 #[derive(Default)]
 pub(crate) struct Store {
+    pub(super) file_imports: local_file::Grants,
     records: HashMap<String, Record>,
     transfers: HashMap<String, transfer::Grant>,
     saves: HashMap<String, save::SaveGrant>,
@@ -35,6 +36,24 @@ mod save;
 pub(in crate::host_server::plugin_resources) use outputs::Pending;
 
 impl Store {
+    pub(super) fn import_file(&mut self, owner: Owner, proof: String, bytes: Vec<u8>) -> Result<Value, ApiError> {
+        let version = sha256_hex(&bytes);
+        let prepared = self.prepare(Prepare { schema_version: 1, owner: owner.clone(), mime_type: "application/octet-stream".into(),
+            byte_length: bytes.len(), content_version: version.clone(), catalog_revision: None }, proof.clone())?;
+        let access = Access { schema_version: 1, owner, resource_id: prepared["resourceId"].as_str().unwrap().into(), content_version: version };
+        let result = (|| {
+            for (index, chunk) in bytes.chunks(MAX_CHUNK).enumerate() {
+                self.append(&access, &proof, index * MAX_CHUNK, chunk.to_vec())?;
+            }
+            let mut result = self.commit(&access, &proof)?;
+            result["access"] = serde_json::to_value(&access).unwrap();
+            result["profile"] = json!("resource.local-file.draft1");
+            result["saved"] = json!(false);
+            Ok(result)
+        })();
+        if result.is_err() { self.records.remove(&access.resource_id); }
+        result
+    }
     #[cfg(test)]
     pub(in crate::host_server::plugin_resources) fn record_count(&self) -> usize {
         self.records.len()
