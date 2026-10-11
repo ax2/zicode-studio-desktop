@@ -371,3 +371,9 @@ Studio 目录资源工具及跨工具接力现支持调用前捕获 Host 身份�
 新增Studio-only resource.call.admission.draft1候选：Host生成带前缀的调用凭据并绑定资源/输入摘要与完整scope；消费和恢复封存在同锁内互斥；已消费/封存/过期/淘汰的凭据不能再次执行，缺失凭据也不重新创建。活动恢复只设置取消标记，直到lease释放才确认结束；恢复接口有状态，不能称为只读查询。
 
 46项资源Rust回归（含100轮消费/恢复竞态）及真实Host/正式Worker最终专项10.57秒通过，严格Rust静态通过。新接口只允许桌面身份，不读取文件/启动Worker来准备调用，不改变提供方ABI。当前目录/接力父界面尚未采用新接口，旧unknown限制、控制器销毁与跨重启恢复仍待；154项完整接受保持0。[契约](resource-call-admission.md)与技术档案iterations/resource-call-admission-2026-10-11/work-log.md记录边界与首轮夹具失败。
+
+
+## 2026-10-11 一次性资源调用界面接入
+目录与接力父界面已采用resource.call.admission.draft1：Host颁发凭据、一次消费、输入/资源快照、显式“停止并恢复调用”。恢复会封存未开始请求或请求取消，四类结果分别展示；原Host不符/无效证明继续限制再次运行，不恢复原输出、不自动重放/保存，旧iframe路径不变。
+226项插件前端测试、check及真实HTTP Host/正式Worker+Edge最终13.25秒通过。目录和接力各扣留一次成功响应后恢复；先封存再投递迟到请求被真实Host拒绝且无新增Worker审计。6张1280×900浅色/390×844深色截图已检查；活动与Host更换为代理注入，非真实重启验收。
+154项完整接受仍0。控制器关闭/刷新/跨Host重启的持久恢复、原输出恢复、正式resource.v1、真实DevTools全scope与其他OS仍待。版本0.4.2不变，无新应用构建/安装包。技术档案iterations/resource-call-admission-ui-2026-10-11记录原始失败和最终证据。

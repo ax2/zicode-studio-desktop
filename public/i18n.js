@@ -7,6 +7,14 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Stop and recover call": "停止并恢复调用",
+  "Sealing or cancelling the call…": "正在封存未开始的调用或请求取消…",
+  "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion.": "执行结果尚不确定。恢复将封存未开始的调用，或请求取消后核对是否结束。",
+  "One-use tool calls are unavailable. Update Studio before running this tool.": "当前 Studio 不支持一次性工具调用，请更新后再运行此工具。",
+  "This call was sealed before execution. Review inputs before starting a new run.": "此次调用已在执行前封存。请检查输入后发起新的调用。",
+  "This call can no longer start. Its earlier outcome and result were not recovered. Review inputs before a new run.": "此次调用已不能再启动；未恢复之前的执行情况和结果。请检查输入后发起新的调用。",
+  "Cancellation requested. The tool is still active; wait and recover again.": "已请求取消，工具尚未结束；请等待后再次恢复。",
+
   "Completion unconfirmed": "待确认结束",
   "Cancel execution": "取消执行",
   "Checking tool status…": "正在核对执行状态…",

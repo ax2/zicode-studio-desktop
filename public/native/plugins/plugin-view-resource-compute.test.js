@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { resourceViewTarget } from "./plugin-view-resource.js";
-import { resourceCallStatus } from "../../../tests/helpers/resource-call-status.js";
+import { admission, reconciliation } from "../../../tests/helpers/resource-call-admission.js";
 
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const params = { capabilityId: "resource.inspect", resourceId: id,
@@ -13,12 +13,37 @@ function setup(onOutputs, recoverable = false) {
   const reply = { schemaVersion: 1, operationId: id, source, result: { text: "resource" }, privateToken: "secret" };
   const gateway = { invokeResource: vi.fn(async () => reply),
     cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })) };
-  gateway.resourceCallStatus = vi.fn(async (owner, call) => resourceCallStatus(owner, call));
+  gateway.prepareResourceCall = vi.fn(async owner => admission(owner));
+  gateway.reconcileResourceCall = vi.fn(async (owner, ticket) => reconciliation(owner, ticket.callId));
+  gateway.invokeResourceCall = gateway.invokeResource;
   const computation = createResourceComputation({ recoverable, instance: { plugin: { id: "self" },
     resourceTarget: resourceViewTarget(target) }, gateway, getTarget: () => target, isCurrent: () => true, onOutputs });
   return { computation, gateway, reply, change: () => { target = { ...target, sessionId: "new" }; } };
 }
 describe("isolated View resource computation", () => {
+  it.each(["not_started", "not_admissible"])("releases a strictly closed %s call without replay or output recovery", async phase => {
+    const outputs = vi.fn(); const c = setup(outputs, true);
+    c.gateway.invokeResourceCall.mockRejectedValue(new Error("lost"));
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_execution_failed");
+    c.gateway.reconcileResourceCall.mockImplementation(async (owner, ticket) => reconciliation(owner, ticket.callId, phase));
+    await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ phase, executionFinished: true });
+    expect(c.computation.unresolved(id)).toBe(false);
+    expect(outputs).not.toHaveBeenCalled(); expect(c.gateway.invokeResourceCall).toHaveBeenCalledOnce();
+    expect(c.gateway.cancelResource).not.toHaveBeenCalled();
+  });
+  it("snapshots resource identity and input before async prepare, and seals after teardown", async () => {
+    const c = setup(undefined, true); let finish;
+    c.gateway.prepareResourceCall.mockImplementation(owner => new Promise(resolve => { finish = () => resolve(admission(owner)); }));
+    const request = { ...params, input: { flag: false } };
+    const work = c.computation.invoke(request);
+    request.resourceId = "changed"; request.input.flag = true;
+    finish(); await work;
+    expect(c.gateway.invokeResourceCall.mock.calls[0][1]).toMatchObject({ resourceId: id, input: { flag: false } });
+    const pending = c.computation.invoke(params); c.computation.destroy(); finish();
+    await expect(pending).rejects.toThrow("resource_view_changed");
+    expect(c.gateway.invokeResourceCall).toHaveBeenCalledOnce();
+    expect(c.gateway.reconcileResourceCall).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ callId: "resource-call-" + id }));
+  });
   it("does not trap the UI or reserve cancellation for a definite Host admission-busy rejection", async () => {
     const c = setup(undefined, true); c.gateway.invokeResource.mockRejectedValue({ code: "resource_worker_busy" });
     await expect(c.computation.invoke(params)).rejects.toThrow("resource_worker_busy");
@@ -26,10 +51,10 @@ describe("isolated View resource computation", () => {
   });
   it("honors cancellation during preflight without starting or cancelling Host work", async () => {
     const c = setup(undefined, true); let resolve;
-    c.gateway.resourceCallStatus.mockImplementation(() => new Promise(done => { resolve = done; }));
+    c.gateway.prepareResourceCall.mockImplementation(() => new Promise(done => { resolve = done; }));
     const work = c.computation.invoke(params);
     await expect(c.computation.cancel({ toolCallId: id })).resolves.toMatchObject({ status: "pending" });
-    resolve(resourceCallStatus({ runtimeId: "runtime", sessionId: "session", pluginId: "self", capabilityId: params.capabilityId }, id));
+    resolve(admission({ runtimeId: "runtime", sessionId: "session", pluginId: "self", capabilityId: params.capabilityId }));
     await expect(work).rejects.toThrow("worker_cancelled");
     expect(c.gateway.invokeResource).not.toHaveBeenCalled(); expect(c.gateway.cancelResource).not.toHaveBeenCalled();
     expect(c.computation.unresolved(id)).toBe(false);
@@ -38,14 +63,14 @@ describe("isolated View resource computation", () => {
     const c = setup(undefined, true);
     c.gateway.invokeResource.mockRejectedValue(new Error("transport lost"));
     await expect(c.computation.invoke(params)).rejects.toThrow("resource_execution_failed");
-    expect(c.gateway.invokeResource.mock.calls[0][1].hostInstanceId).toBe("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+    expect(c.gateway.invokeResourceCall.mock.calls[0][2].hostInstanceId).toBe("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
     expect(c.computation.unresolved(id)).toBe(true);
     await expect(c.computation.invoke(params)).rejects.toThrow("resource_call_duplicate");
-    await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ phase: "unknown", executionFinished: false });
+    await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ phase: "active", executionFinished: false });
     expect(c.computation.unresolved(id)).toBe(true);
-    c.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "active"));
+    c.gateway.reconcileResourceCall.mockImplementation(async (owner, call) => reconciliation(owner, call.callId, "active"));
     await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ phase: "active" });
-    c.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "finished"));
+    c.gateway.reconcileResourceCall.mockImplementation(async (owner, call) => reconciliation(owner, call.callId, "ended"));
     await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ executionFinished: true });
     expect(c.computation.unresolved(id)).toBe(false);
     expect(c.gateway.invokeResource).toHaveBeenCalledOnce();
@@ -53,19 +78,19 @@ describe("isolated View resource computation", () => {
   it("keeps work uncertain after changed Host, invalid evidence, or a failed status read", async () => {
     const c = setup(undefined, true); c.gateway.invokeResource.mockRejectedValue({});
     await expect(c.computation.invoke(params)).rejects.toThrow();
-    c.gateway.resourceCallStatus.mockRejectedValue({ code: "resource_call_host_changed" });
+    c.gateway.reconcileResourceCall.mockRejectedValue({ code: "resource_call_host_changed" });
     await expect(c.computation.check({ toolCallId: id })).rejects.toThrow("resource_call_host_changed");
-    c.gateway.resourceCallStatus.mockResolvedValue({ ...resourceCallStatus({}, id, "finished") });
+    c.gateway.reconcileResourceCall.mockResolvedValue({ ...reconciliation({}, "resource-call-" + id, "ended") });
     await expect(c.computation.check({ toolCallId: id })).rejects.toThrow("resource_response_invalid");
     expect(c.computation.unresolved(id)).toBe(true); expect(c.gateway.invokeResource).toHaveBeenCalledOnce();
     c.computation.destroy();
   });
   it("does not execute when status support is unavailable or scope changes during preflight", async () => {
     const c = setup(undefined, true);
-    c.gateway.resourceCallStatus.mockRejectedValue({ code: "not_found" });
+    c.gateway.prepareResourceCall.mockRejectedValue({ code: "not_found" });
     await expect(c.computation.invoke(params)).rejects.toThrow("resource_status_unavailable");
     expect(c.computation.unresolved(id)).toBe(false); expect(c.gateway.invokeResource).not.toHaveBeenCalled();
-    c.gateway.resourceCallStatus.mockImplementation(async (owner, call) => { c.change(); return resourceCallStatus(owner, call); });
+    c.gateway.prepareResourceCall.mockImplementation(async owner => { c.change(); return admission(owner); });
     await expect(c.computation.invoke(params)).rejects.toThrow("resource_view_changed");
     expect(c.gateway.invokeResource).not.toHaveBeenCalled();
   });

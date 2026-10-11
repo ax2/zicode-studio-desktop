@@ -153,9 +153,9 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
     }
     function recoverControls(executor) {
       panel.insertBefore(controls, details);
-      const check = button("Check tool status", async () => {
+      const check = button("Stop and recover call", async () => {
         if (!valid() || !executor.unresolved(callId) || check.disabled) return;
-        check.disabled = true; status.textContent = t("Checking tool status…");
+        check.disabled = true; status.textContent = t("Sealing or cancelling the call…");
         try {
           const state = await executor.check({ toolCallId: callId });
           if (!valid()) return;
@@ -208,8 +208,8 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
           timer = setTimeout(verify, 5000);
         }
       } catch (failure) { if (valid()) status.textContent = t(executor.unresolved(callId)
-        ? "Execution outcome is unknown. Check tool status before running again."
-        : failure?.message === "[resource_status_unavailable]" ? "Tool status checks are unavailable. Update Studio before running this tool." : executionMessage(failure)); }
+        ? "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion."
+        : failure?.message === "[resource_status_unavailable]" ? "One-use tool calls are unavailable. Update Studio before running this tool." : executionMessage(failure)); }
       finally {
         running = executor.unresolved(callId);
         if (!running) callId = null;

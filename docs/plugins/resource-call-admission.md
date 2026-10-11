@@ -69,8 +69,10 @@ phase为 not_started、active、ended、not_admissible；仅active的executionFi
 旧的普通UUID调用仍按原协议运行；一次性保证只属于本协议的调用，不适用于任意旧请求。
 提供方模块不需要修改，不向插件 iframe 新增接口或权限，不提前宣告正式resource.v1。
 
-**本轮只实现并验证Host协议，现有目录/接力父控制器尚未采用。**
-后续接入须替换当前父界面的preflight/invoke/status链路，保留Host颁发凭据，并明确区分封存未开始、活动取消与已结束；不能把有状态恢复标为只读查询。
+**目录资源工具和跨工具接力父控制器已采用新协议；旧iframe保持原路径。**
+父控制器先准备Host颁发凭据，再一次消费；资源身份和输入在异步准备前保存快照。取消/销毁后迟到的准备响应会封存，失败后请求有界取消，但只有用户显式恢复并获得同Host有效证明才解除不确定状态。界面使用“停止并恢复调用”，明确会封存未开始调用或请求取消；分别展示not_started、active、ended、not_admissible，不把恢复称为只读查询。
+
+2026-10-11界面接入验证：226项插件前端测试通过；真实Host/生产Worker+Edge最终13.25秒，接力与目录成功响应各扣留一次，不自动重放或写入；先封存再投递迟到invoke返回resource_call_used且无新增Worker审计。活动/Host变化为代理注入，终态和封存来自真实Host。6张桌面/窄屏截图已检查。证据见技术档案iterations/resource-call-admission-ui-2026-10-11。
 控制器销毁/页面重载/跨重启的持久调用记录、原结果恢复与真实DevTools算法完整验收仍未完成。
 
 验证证据：技术档案 `iterations/resource-call-admission-2026-10-11/`，包含100轮准入/恢复竞态、容量与退休测试，以及真实HTTP Host/Worker专项。

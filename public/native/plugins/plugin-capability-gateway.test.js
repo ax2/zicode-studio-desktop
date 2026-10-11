@@ -1,6 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { PluginCapabilityGateway } from "./plugin-capability-gateway.js";
 
+it("keeps resource prepare, one-use invoke and mutating reconciliation separate", async () => {
+  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+  const input = { resourceId: "id", contentVersion: "hash", input: { count: 0, flag: false }, toolCallId: "untrusted" };
+  const ticket = { callId: "resource-call-ticket", hostInstanceId: "host", privatePath: "hidden" };
+  await gateway.prepareResourceCall(owner, input);
+  await gateway.invokeResourceCall(owner, input, ticket);
+  await gateway.reconcileResourceCall(owner, ticket);
+  expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual([
+    "/v2/plugin-resources/prepare-call", "/v2/plugin-resources/invoke-call", "/v2/plugin-resources/reconcile-call",
+  ]);
+  const bodies = fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body));
+  expect(bodies[0]).toEqual({ schemaVersion: 1, access: { schemaVersion: 1, owner, resourceId: "id", contentVersion: "hash" }, input: input.input });
+  expect(bodies[1]).toEqual({ access: bodies[0].access, input: input.input, callId: ticket.callId, hostInstanceId: "host" });
+  expect(bodies[2]).toEqual({ schemaVersion: 1, owner, callId: ticket.callId, hostInstanceId: "host" });
+});
+
 describe("PluginCapabilityGateway", () => {
   it("separates readonly resource status from execution and preserves the captured Host fence", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));

@@ -21,7 +21,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const status = node("p"); status.setAttribute("role", "status");
   const result = node("pre", null, "tool-result"), parameters = node("div"), controls = node("div", null, "ui-toolbar"), outputs = node("div");
   const run = button("Execute tool", () => void execute()), cancel = button("Cancel tool", () => void stop());
-  const check = button("Check tool status", () => void checkStatus()); check.hidden = true;
+  const check = button("Stop and recover call", () => void checkStatus()); check.hidden = true;
   run.disabled = true; cancel.disabled = true; controls.append(run, cancel, check); container.append(parameters, controls, status, result, outputs);
   const required = ["loadTool", "prepareResource", "appendResource", "commitResource", "revokeResource", "invokeResource", "cancelResource", "readResource"];
   if (!target?.instanceId || !target?.sessionId || target.workspaceId == null || detail.resourceInputProfile !== "resource.wasi.input.draft2" || tool.runtime !== "wasi" || !detail.enabled ||
@@ -59,7 +59,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   }
   async function checkStatus() {
     if (!valid() || !callId || !computation.unresolved(callId) || check.disabled) return;
-    check.disabled = true; status.textContent = t("Checking tool status…");
+    check.disabled = true; status.textContent = t("Sealing or cancelling the call…");
     try {
       const state = await computation.check({ toolCallId: callId });
       if (!valid()) return;
@@ -95,8 +95,8 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       timer = setTimeout(verify, 5000);
     } catch (failure) {
       if (valid()) status.textContent = t(computation.unresolved(callId)
-        ? "Execution outcome is unknown. Check tool status before running again."
-        : failure?.message === "[resource_status_unavailable]" ? "Tool status checks are unavailable. Update Studio before running this tool."
+        ? "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion."
+        : failure?.message === "[resource_status_unavailable]" ? "One-use tool calls are unavailable. Update Studio before running this tool."
         : failure?.message === "[worker_cancelled]" ? "Tool execution was cancelled. Inputs are kept." : "Tool did not finish successfully. Inputs are kept; review access or cancellation before running again.");
     } finally {
       running = computation.unresolved(callId); invoking = false; onBusy(running);

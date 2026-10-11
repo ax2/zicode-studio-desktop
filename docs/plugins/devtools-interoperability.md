@@ -240,3 +240,9 @@ manual.tool.call.v1现已接入工具中心：Host能力探测、prepare UUID、
 后续已用当前debug EXE b98554661f9ee4c5347e588433be08fb630dab5e4093113421107aeca910a34a/0.1.0实际验证：目录发现/按需加载Studio夹具→真实Worker成功但测试网络侧丢弃响应→锁定且recent不变→生产60秒TTL自然过期→原Host身份恢复证明→解锁并提示核对，无自动重放→主动新UUID调用成功展示→recent22→23且收藏不变。原生浅色1442×931截图已检查。源/运行目录五项资源摘要匹配，无ZIP/新全运行副本；正常关闭后10采样自有进程剩余0，临时夹具2文件1029B已清除。
 
 这是故障注入与Studio合成guest验收，不代替真实写入事故、跨Host旧进程结束、WASI/其他OS、全部DevTools工具算法或独立分发目录；原首次启动超时仍待诊断。154完整接受仍0。详见manual-call-reconciliation-v1.md和技术博客iterations/manual-call-recovery-native-2026-10-10/work-log.md。
+
+
+## 2026-10-11 一次性资源调用界面接入
+目录与接力父界面已采用resource.call.admission.draft1：Host颁发凭据、一次消费、输入/资源快照、显式“停止并恢复调用”。恢复会封存未开始请求或请求取消，四类结果分别展示；原Host不符/无效证明继续限制再次运行，不恢复原输出、不自动重放/保存，旧iframe路径不变。
+226项插件前端测试、check及真实HTTP Host/正式Worker+Edge最终13.25秒通过。目录和接力各扣留一次成功响应后恢复；先封存再投递迟到请求被真实Host拒绝且无新增Worker审计。6张1280×900浅色/390×844深色截图已检查；活动与Host更换为代理注入，非真实重启验收。
+154项完整接受仍0。控制器关闭/刷新/跨Host重启的持久恢复、原输出恢复、正式resource.v1、真实DevTools全scope与其他OS仍待。版本0.4.2不变，无新应用构建/安装包。技术档案iterations/resource-call-admission-ui-2026-10-11记录原始失败和最终证据。

@@ -87,6 +87,26 @@ export class PluginCapabilityGateway {
     });
   }
 
+  prepareResourceCall(owner, { resourceId, contentVersion, input = {} }) {
+    return this.#request(this.#url("/v2/plugin-resources/prepare-call"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1,
+        access: { schemaVersion: 1, owner, resourceId, contentVersion }, input }),
+    });
+  }
+
+  invokeResourceCall(owner, { resourceId, contentVersion, input = {} }, { callId, hostInstanceId }) {
+    return this.#request(this.#url("/v2/plugin-resources/invoke-call"), {
+      method: "POST", body: JSON.stringify({ access: { schemaVersion: 1, owner, resourceId, contentVersion },
+        input, callId, hostInstanceId }),
+    });
+  }
+
+  reconcileResourceCall(owner, { callId, hostInstanceId }) {
+    return this.#request(this.#url("/v2/plugin-resources/reconcile-call"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, callId, hostInstanceId }),
+    });
+  }
+
   invokeResource(owner, { resourceId, contentVersion, toolCallId, input = {}, hostInstanceId }) {
     return this.#request(this.#url("/v2/plugin-resources/invoke-view"), {
       method: "POST",

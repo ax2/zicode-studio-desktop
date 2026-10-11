@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
-import { resourceCallStatus } from "../../../tests/helpers/resource-call-status.js";
+import { admission, reconciliation } from "../../../tests/helpers/resource-call-admission.js";
 
 const id = "11111111-1111-4111-8111-111111111111", hash = "a".repeat(64);
 const tool = { pluginId: "target", capabilityId: "consume", title: "Receiver", applicationName: "Tools", version: "0.1.0", enabled: true, runtime: "wasi" };
@@ -26,7 +26,9 @@ function fixture() {
       profile: "resource.wasi.input.draft2", contentVersion: hash }, result: { text: "<script>safe text</script>" } })),
     cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })), revokeResource: vi.fn(async () => ({})),
   };
-  gateway.resourceCallStatus = vi.fn(async (owner, call) => resourceCallStatus(owner, call));
+  gateway.prepareResourceCall = vi.fn(async owner => admission(owner));
+  gateway.reconcileResourceCall = vi.fn(async (owner, ticket) => reconciliation(owner, ticket.callId));
+  gateway.invokeResourceCall = gateway.invokeResource;
   const mountInputs = vi.fn(async () => form);
   const controller = createResourceTransfer({ gateway, getTarget: () => target, isCurrent: () => true, mountInputs });
   controller.open(resource, owner, container);
@@ -52,7 +54,7 @@ describe("trusted resource transfer", () => {
     await f.click("Review sharing"); expect(f.gateway.commitResourceTransfer).not.toHaveBeenCalled();
     await f.click("Confirm sharing"); expect(f.gateway.invokeResource).not.toHaveBeenCalled();
     await f.click("Run receiving tool");
-    expect(f.gateway.invokeResource).toHaveBeenCalledWith({ ...owner, pluginId: "target", capabilityId: "consume" }, expect.objectContaining({ input: { flag: false, count: 0 } }));
+    expect(f.gateway.invokeResource).toHaveBeenCalledWith({ ...owner, pluginId: "target", capabilityId: "consume" }, expect.objectContaining({ input: { flag: false, count: 0 } }), expect.objectContaining({ callId: expect.stringMatching(/^resource-call-/) }));
     expect(f.container.querySelector("pre").textContent).toContain("<script>safe text</script>"); expect(f.container.querySelector("script")).toBeNull();
     f.controller.destroy(); expect(f.gateway.revokeResource).toHaveBeenCalledOnce();
   });
@@ -77,7 +79,7 @@ describe("trusted resource transfer", () => {
   });
   it("cancels independently and keeps the transferred reference until execution settles", async () => {
     const f = fixture(); await flush(); await f.confirm(); const pending = deferred(); f.gateway.invokeResource.mockReturnValue(pending.promise);
-    await f.click("Run receiving tool"); await f.click("Cancel execution"); expect(f.gateway.cancelResource).toHaveBeenCalledOnce();
+    await f.click("Run receiving tool"); await f.click("Cancel execution"); expect(f.gateway.reconcileResourceCall).toHaveBeenCalledOnce();
     f.controller.destroy(); expect(f.gateway.revokeResource).not.toHaveBeenCalled();
     pending.resolve({}); await flush(); expect(f.gateway.revokeResource).toHaveBeenCalledOnce();
   });
@@ -91,8 +93,8 @@ describe("trusted resource transfer", () => {
   it("releases the shared reference when an uncertain transfer is explicitly closed", async () => {
     const f = fixture(); await flush(); await f.confirm(); f.gateway.invokeResource.mockRejectedValue({});
     await f.click("Run receiving tool"); expect(f.container.textContent).toContain("Execution outcome is unknown");
-    const pending = deferred(); f.gateway.resourceCallStatus.mockReturnValue(pending.promise);
-    await f.click("Check tool status"); f.controller.clear();
+    const pending = deferred(); f.gateway.reconcileResourceCall.mockReturnValue(pending.promise);
+    await f.click("Stop and recover call"); f.controller.clear();
     expect(f.gateway.revokeResource).toHaveBeenCalledOnce();
     pending.resolve({}); await flush(); expect(f.container.querySelector("dialog")).toBeNull(); f.controller.destroy();
   });
@@ -102,9 +104,9 @@ describe("trusted resource transfer", () => {
     await f.click("Run receiving tool");
     expect(f.container.textContent).toContain("Execution outcome is unknown"); expect(f.container.textContent).not.toContain("private server message");
     expect(f.container.textContent).not.toContain("Run receiving tool");
-    await f.click("Check tool status"); expect(f.container.textContent).toContain("Running again is blocked");
-    f.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "finished"));
-    await f.click("Check tool status"); expect(f.container.textContent).toContain("Its result was not recovered");
+    await f.click("Stop and recover call"); expect(f.container.textContent).toContain("tool is still active");
+    f.gateway.reconcileResourceCall.mockImplementation(async (owner, call) => reconciliation(owner, call.callId, "ended"));
+    await f.click("Stop and recover call"); expect(f.container.textContent).toContain("Its result was not recovered");
     expect(f.gateway.invokeResource).toHaveBeenCalledOnce(); expect(f.form.destroy).not.toHaveBeenCalled(); f.controller.destroy();
   });
   it("does not execute invalid inputs and leaves the confirmed reference available for correction", async () => {
