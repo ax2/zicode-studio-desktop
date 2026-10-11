@@ -93,3 +93,13 @@ Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy�
 当前只能确认失败发生在提示符之前，尚未从该输出证明是Roslyn/PSReadLine的哪一步。启动脚本确有每次Add-Type冷编译；整套并行测试含WASI冷编译，资源争用是推断，不写成已证实原因。
 本机既有完整验证使用RUST_TEST_THREADS=2，主程序469通过；因此Windows CI/Release同样采用两线程harness，尊重平台检查的显式既有设置，并在JSON/summary记录实际值。其他系统不改，单项内部并发/12秒总期限/标记文件和PATH不变断言保留；最终代码20次并发终端关闭仍全通过。不是通过延长期限、减少单项负载或删除断言消除失败，默认并发的原失败证据继续保留。
 补充9项脚本契约测试通过，lint/design退出0；新CI仍待实际结果。此轮没有Rust源码修改、没有新版本标签、没有正式构建或发布。
+
+## 2026-10-11：Windows前台子进程退出确认
+38101283106的Windows报告实际记录rustTestThreads=2，环境PTY用例这次通过；但前台子进程清理用例失败（WaitForSingleObject(...,0)=WAIT_TIMEOUT），主程序468通过1失败29跳过。不能把降低harness并发说成完整修复。Linux/ARM本轮已通过，Intel仍在运行；报告均保留ci-38101283106。
+Windows TerminateJobObject仅发出终止；按官方文档等同向各进程调用异步TerminateProcess。原监控只等待Shell父进程退出，可能在后代进程仍收尾时完成TaskTracker。新增Windows专属Job accounting确认：关闭PTY后有界等待ActiveProcesses为0，先释放父进程句柄；3秒内不能确认则状态failed并记录静态错误，不报告closed。保留原8秒终端worker测试期限、原12秒工具启动期限，未改插件Worker预算。
+process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失败及期限后仍存活三种情况。现有真实前台子进程测试加强为关闭前持有原进程句柄、关闭后必须WAIT_OBJECT_0且终端closed，避免PID复用/WAIT_FAILED误判；没有将原零等待断言改为额外等待。完整Rust检查进行中，待加强后的专项与静态检查后才提交。
+大型mod.rs仅接入退出证明与失败状态，行为集中于process.rs/新模块，未进行无关重构。参考：https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-terminatejobobject 、 https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess 、 https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information 。
+
+追加退出确认本机结果：主程序472通过/29条件跳过、其他5/19通过，严格Clippy通过；加强句柄身份后的11项终端专项全部通过5.67秒，最终check:rust:static退出0（fmt既有advisory）。ActiveProcesses确认在测试保持子进程句柄时仍能正确结束并标记closed；原WAIT_OBJECT_0零等待断言通过。
+额外4进程并行前台子进程压力验证与编译检查同时运行：实际执行8次，5通过3失败（5/6/7），失败均在12秒内未收到DESCENDANT-READY，尚未进入退出确认阶段；输出显示PowerShell逐字重绘长命令后尚无子进程标记。未将该结果写成退出清理失败，也未删失败、改期限或缩短原命令/负载。原始log/stderr及foreground-drain-attempt1-summary.json保留，后续12次未执行；不能宣称20次通过。高负载终端启动延迟已写入发布已知边界。
+本轮用新模块实现退出确认，未改插件接口、Pi版本、应用版本或构建profile。当前改动待新四平台CI，不将本机通过代替Windows Server/Linux/Mac最终结果。

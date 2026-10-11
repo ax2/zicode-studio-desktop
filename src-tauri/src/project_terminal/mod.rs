@@ -5,6 +5,8 @@ mod contract_tests;
 mod handshake;
 mod output;
 mod process;
+#[cfg(any(windows, test))]
+mod process_drain;
 pub mod protocol;
 #[cfg(test)]
 mod tests;
@@ -251,14 +253,24 @@ impl TerminalManager {
             };
             let stopped = session.stop.swap(true, Ordering::AcqRel);
             guard.terminate();
+            drop(child);
             // Closing ConPTY wakes the independent reader and any blocked input writer.
             // Release the mutex before the blocking close, so a resize already
             // queued in the input pump cannot prevent its later cursor reply.
             let closing_master = master.lock().unwrap().take();
             drop(closing_master);
+            #[cfg(windows)]
+            let group_closed = guard.wait_for_exit();
+            #[cfg(not(windows))]
+            let group_closed = Ok::<(), &str>(());
+            if let Err(error) = group_closed {
+                eprintln!("Terminal process cleanup failed: {error}");
+            }
             let mut state = session.state.lock().unwrap();
             if state.info.status != "failed" {
-                state.info.status = if stopped {
+                state.info.status = if group_closed.is_err() {
+                    "failed"
+                } else if stopped {
                     "closed"
                 } else if result.is_ok() {
                     "exited"

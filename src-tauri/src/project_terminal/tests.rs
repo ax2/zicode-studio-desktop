@@ -234,19 +234,25 @@ async fn stopping_terminal_kills_its_foreground_descendant() {
         .unwrap()
         .parse()
         .unwrap();
+    #[cfg(windows)]
+    let descendant = unsafe {
+        use std::os::windows::io::{FromRawHandle, OwnedHandle};
+        use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE};
+        let process = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
+        assert!(!process.is_null(), "live fixture process must be observable");
+        // Keep the identity before shutdown; the PID can be reused afterwards.
+        OwnedHandle::from_raw_handle(process)
+    };
     shutdown(&manager).await;
+    assert_eq!(manager.list(&fixture.0, "project").unwrap()[0].status, "closed");
     #[cfg(windows)]
     unsafe {
+        use std::os::windows::io::AsRawHandle;
         use windows_sys::Win32::{
-            Foundation::{CloseHandle, WAIT_TIMEOUT},
-            System::Threading::{OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE},
+            Foundation::WAIT_OBJECT_0,
+            System::Threading::WaitForSingleObject,
         };
-        let process = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
-        if !process.is_null() {
-            let result = WaitForSingleObject(process, 0);
-            CloseHandle(process);
-            assert_ne!(result, WAIT_TIMEOUT);
-        }
+        assert_eq!(WaitForSingleObject(descendant.as_raw_handle(), 0), WAIT_OBJECT_0);
     }
     #[cfg(unix)]
     {

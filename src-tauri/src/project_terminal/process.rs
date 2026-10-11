@@ -128,6 +128,28 @@ impl ProcessGuard {
             windows_sys::Win32::System::JobObjects::TerminateJobObject(self.0.as_raw_handle(), 1);
         }
     }
+
+    pub fn wait_for_exit(&self) -> Result<(), &'static str> {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::System::JobObjects::*;
+        super::process_drain::wait_until_empty(
+            || unsafe {
+                let mut info: JOBOBJECT_BASIC_ACCOUNTING_INFORMATION = std::mem::zeroed();
+                if QueryInformationJobObject(
+                    self.0.as_raw_handle(),
+                    JobObjectBasicAccountingInformation,
+                    (&mut info as *mut JOBOBJECT_BASIC_ACCOUNTING_INFORMATION).cast(),
+                    std::mem::size_of_val(&info) as u32,
+                    std::ptr::null_mut(),
+                ) == 0 {
+                    Err(())
+                } else {
+                    Ok(info.ActiveProcesses)
+                }
+            },
+            std::time::Instant::now() + std::time::Duration::from_secs(3),
+        )
+    }
 }
 
 #[cfg(unix)]
