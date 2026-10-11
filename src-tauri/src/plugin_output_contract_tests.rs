@@ -97,59 +97,43 @@ fn real_worker_invalid_output_cache_recheck_and_recovery() {
         output
     );
     let prior = starts.load(Ordering::SeqCst);
-    assert_eq!(
-        broker.invoke(&registry, invocation("main")).unwrap(),
-        output
-    );
+    assert_eq!(broker.invoke(&registry, invocation("main")).unwrap(), output);
     assert_eq!(starts.load(Ordering::SeqCst), prior);
-    manifest["contributes"]["capabilities"][0]["outputSchema"] =
-        json!({"const":{"value":"different"}});
+    let main_call = |call_id: &str| {
+        let mut call = invocation("main");
+        call.tool_call_id = Some(call_id.into());
+        call
+    };
+    manifest["contributes"]["capabilities"][0]["outputSchema"] = json!({"const":{"value":"different"}});
     install(&mut registry, &manifest);
-    assert_eq!(
-        broker
-            .invoke(&registry, invocation("main"))
-            .unwrap_err()
-            .code,
-        "worker_protocol_error"
-    );
+    // Reinstallation changes authority. Reject the old call before replay or
+    // dispatch, then use an explicitly new call to test the current schema.
+    assert_eq!(broker.invoke(&registry, invocation("main")).unwrap_err().code, "idempotency_authority_changed");
     assert_eq!(starts.load(Ordering::SeqCst), prior);
+    assert_eq!(broker.invoke(&registry, main_call("changed-schema")).unwrap_err().code, "worker_protocol_error");
+    assert_eq!(starts.load(Ordering::SeqCst), prior + 1);
     manifest["contributes"]["capabilities"][0]["outputSchema"] = good;
     install(&mut registry, &manifest);
-    assert_eq!(
-        broker.invoke(&registry, invocation("main")).unwrap(),
-        output
-    );
+    assert_eq!(broker.invoke(&registry, invocation("main")).unwrap_err().code, "idempotency_authority_changed");
     assert_eq!(starts.load(Ordering::SeqCst), prior + 1);
+    assert_eq!(broker.invoke(&registry, main_call("recovered-schema")).unwrap(), output);
+    assert_eq!(starts.load(Ordering::SeqCst), prior + 2);
     manifest["contributes"]["capabilities"][0]["maxResultBytes"] = json!(1);
     install(&mut registry, &manifest);
-    assert_eq!(
-        broker
-            .invoke(&registry, invocation("main"))
-            .unwrap_err()
-            .code,
-        "result_too_large"
-    );
-    assert_eq!(starts.load(Ordering::SeqCst), prior + 1);
-    assert_eq!(
-        broker
-            .invoke(&registry, invocation("main"))
-            .unwrap_err()
-            .code,
-        "result_too_large"
-    );
+    assert_eq!(broker.invoke(&registry, main_call("recovered-schema")).unwrap_err().code, "idempotency_authority_changed");
     assert_eq!(starts.load(Ordering::SeqCst), prior + 2);
-    manifest["contributes"]["capabilities"][0]
-        .as_object_mut()
-        .unwrap()
-        .remove("maxResultBytes");
+    for attempt in 1..=2 {
+        assert_eq!(broker.invoke(&registry, main_call("bounded-result")).unwrap_err().code, "result_too_large");
+        assert_eq!(starts.load(Ordering::SeqCst), prior + 2 + attempt);
+    }
+    manifest["contributes"]["capabilities"][0].as_object_mut().unwrap().remove("maxResultBytes");
     install(&mut registry, &manifest);
-    assert_eq!(
-        broker.invoke(&registry, invocation("main")).unwrap(),
-        output
-    );
+    assert_eq!(broker.invoke(&registry, main_call("recovered-schema")).unwrap_err().code, "idempotency_authority_changed");
+    assert_eq!(starts.load(Ordering::SeqCst), prior + 4);
+    assert_eq!(broker.invoke(&registry, main_call("restored-limit")).unwrap(), output);
     let audit = fs::read_to_string(root.join("registry/audit/capabilities.jsonl")).unwrap();
     assert!(!audit.contains("synthetic-private-output"));
-    assert_eq!(starts.load(Ordering::SeqCst), 6);
+    assert_eq!(starts.load(Ordering::SeqCst), 8);
     let events = events.lock().unwrap();
     let started: Vec<_> = events
         .iter()
@@ -167,7 +151,7 @@ fn real_worker_invalid_output_cache_recheck_and_recovery() {
         serde_json::to_vec_pretty(&*events).unwrap(),
     )
     .unwrap();
-    println!("output-contract fixture={} real Worker starts=6; rejection, cache eviction and recovery passed", root.display());
+    println!("output-contract fixture={} real Worker starts=8; authority rejection, fresh output validation and recovery passed", root.display());
 }
 fn capability(schema: Value) -> PluginCapabilityDescriptor {
     PluginCapabilityDescriptor {

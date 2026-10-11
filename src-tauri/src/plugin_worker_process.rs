@@ -5,6 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
+#[path = "plugin_worker_tree.rs"]
+mod process_tree;
 
 #[derive(Debug)]
 pub(crate) struct Error {
@@ -52,7 +54,7 @@ pub(crate) fn run_observed(
         }
     };
     check_cancelled()?;
-    let mut child = command.spawn().map_err(|_| Error {
+    let (mut child, tree) = process_tree::spawn(&mut command).map_err(|_| Error {
         code: "plugin_not_active",
         message: "Cannot start plugin Worker Runtime",
     })?;
@@ -141,6 +143,14 @@ pub(crate) fn run_observed(
                     code: "worker_failed",
                     message: "Cannot monitor plugin Worker",
                 })?;
+                if status.is_some() {
+                    // Even a successful parent exit can leave inherited pipe
+                    // handles in descendants. Reclaim them before awaiting EOF.
+                    tree.terminate().map_err(|_| Error {
+                        code: "worker_cleanup_failed",
+                        message: "Cannot confirm plugin Worker process tree termination",
+                    })?;
+                }
             }
             if written {
                 if let Some(status) = status {
@@ -158,6 +168,11 @@ pub(crate) fn run_observed(
             thread::sleep(Duration::from_millis(5));
         }
     })();
+    if tree.terminate().is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(Error { code: "worker_cleanup_failed", message: "Cannot confirm plugin Worker process tree termination" });
+    }
     if result.is_err() {
         let _ = child.kill();
         if child.wait().is_err() {
@@ -171,8 +186,8 @@ pub(crate) fn run_observed(
     if let Some(observer) = observer {
         observer("reaped", pid);
     }
-    // Our runtime does not spawn descendants or hand out its pipe handles.
-    // Reap the child and both pipe threads before acknowledging cancellation.
+    // Terminate owned descendants before joining pipe readers. A descendant may
+    // inherit stdout even after the primary Worker has exited.
     let _ = reader.join();
     let _ = writer.join();
     if let Some(observer) = observer {
@@ -187,10 +202,35 @@ mod tests {
     use std::process::Stdio;
 
     #[test]
+    // This fixture deliberately exits before its child, to exercise ownership
+    // recovery. The parent test owns the job and verifies the child terminates.
+    #[allow(clippy::zombie_processes)]
     fn child_fixture() {
         let Ok(mode) = std::env::var("ZICODE_WORKER_TRANSPORT_FIXTURE") else {
             return;
         };
+        #[cfg(windows)]
+        if mode == "descendant" {
+            let path = std::path::PathBuf::from(std::env::var_os("ZICODE_TREE_READY").unwrap());
+            std::fs::write(&path, std::process::id().to_string()).unwrap();
+            thread::sleep(Duration::from_secs(10));
+            std::fs::write(path.with_extension("finished"), "escaped").unwrap();
+            return;
+        }
+        #[cfg(windows)]
+        if matches!(mode.as_str(), "tree-live" | "tree-timeout" | "tree-exit" | "tree-overflow" | "tree-success") {
+            let path = std::path::PathBuf::from(std::env::var_os("ZICODE_TREE_READY").unwrap());
+            let mut descendant = fixture("descendant");
+            descendant.env("ZICODE_TREE_READY", &path).stdin(Stdio::inherit()).stdout(Stdio::inherit());
+            if mode == "tree-success" { descendant.stdin(Stdio::null()).stdout(Stdio::null()); }
+            let _owned = descendant.spawn().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(4);
+            while !path.exists() && Instant::now() < deadline { thread::sleep(Duration::from_millis(5)); }
+            assert!(path.exists());
+            if mode == "tree-overflow" { std::io::stdout().write_all(&vec![b'x'; 128 * 1024]).unwrap(); }
+            if mode != "tree-exit" && mode != "tree-success" { thread::sleep(Duration::from_secs(10)); }
+            return;
+        }
         if mode == "cancel" {
             let path =
                 std::path::PathBuf::from(std::env::var_os("ZICODE_WORKER_CANCEL_READY").unwrap());
@@ -334,5 +374,44 @@ mod tests {
         std::fs::remove_file(ready).unwrap();
         std::fs::remove_file(root.join("owner.json")).unwrap();
         std::fs::remove_dir(root).unwrap();
+    }
+    #[cfg(windows)]
+    #[test]
+    fn owns_descendants_on_cancel_timeout_and_output_overflow() {
+        use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+        use std::sync::Arc;
+        use windows_sys::Win32::System::Threading::{OpenProcess, WaitForSingleObject};
+        for (mode, expected) in [("tree-live", "worker_cancelled"), ("tree-timeout", "worker_timeout"), ("tree-overflow", "result_too_large"), ("tree-exit", "success"), ("tree-success", "success")] {
+            let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch")
+                .join(format!("worker-tree-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir_all(&root).unwrap();
+            std::fs::write(root.join("owner.json"), r#"{"purpose":"owned grandchild cleanup acceptance; remove on success"}"#).unwrap();
+            let ready = root.join("grandchild.txt");
+            let flag = Arc::new(AtomicBool::new(false));
+            let worker_flag = flag.clone();
+            let mut command = fixture(mode);
+            command.env("ZICODE_TREE_READY", &ready);
+            let task = thread::spawn(move || run_cancellable(command, Vec::new(), Duration::from_secs(2), 1024, Some(&worker_flag)));
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while !ready.exists() && Instant::now() < deadline { thread::sleep(Duration::from_millis(5)); }
+            assert!(ready.exists(), "Grandchild must actually start");
+            let id: u32 = std::fs::read_to_string(&ready).unwrap().parse().unwrap();
+            // Retain the process identity while it may be terminated. PID reuse
+            // cannot turn a different process into the cleanup proof.
+            let handle = unsafe { OpenProcess(0x00100000, 0, id) }; // SYNCHRONIZE
+            let handle = (!handle.is_null()).then(|| unsafe { OwnedHandle::from_raw_handle(handle) });
+            if mode == "tree-live" { assert!(handle.is_some()); flag.store(true, Ordering::Release); }
+            let finish = Instant::now();
+            let result = task.join().unwrap();
+            if expected == "success" { assert!(result.unwrap().0.success()); }
+            else { assert_eq!(result.unwrap_err().code, expected); }
+            assert!(finish.elapsed() < Duration::from_secs(5), "Pipe join must not wait for the 10-second descendant");
+            if let Some(handle) = handle { assert_eq!(unsafe { WaitForSingleObject(handle.as_raw_handle(), 1000) }, windows_sys::Win32::Foundation::WAIT_OBJECT_0); }
+            assert!(!ready.with_extension("finished").exists());
+            std::fs::remove_file(&ready).unwrap();
+            std::fs::remove_file(root.join("owner.json")).unwrap();
+            std::fs::remove_dir(root).unwrap();
+        }
+        assert!(run(fixture("large"), vec![b'y';192*1024], Duration::from_secs(5), 256*1024).unwrap().0.success());
     }
 }
