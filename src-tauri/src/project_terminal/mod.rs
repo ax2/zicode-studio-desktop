@@ -8,6 +8,8 @@ mod process;
 pub mod protocol;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod shutdown_tests;
 
 use portable_pty::{native_pty_system, MasterPty, PtySize};
 use serde::Serialize;
@@ -424,7 +426,10 @@ fn controls(
     session: &Session,
     master: SharedMaster,
 ) {
-    while !session.stop.load(Ordering::Acquire) {
+    // ConPTY may ask for its inherited cursor while closing. Keep its input
+    // pump alive until output reaches EOF; stopping it before ClosePseudoConsole
+    // can strand the console waiting for the reply and block shutdown forever.
+    while !session.state.lock().unwrap().info.output_closed {
         let control = match rx.recv_timeout(Duration::from_millis(50)) {
             Ok(control) => control,
             Err(mpsc::RecvTimeoutError::Timeout) => continue,
@@ -432,6 +437,12 @@ fn controls(
         };
         let result = match control {
             Control::Input(bytes, done) => {
+                if session.stop.load(Ordering::Acquire) {
+                    if let Some(done) = done.as_ref() {
+                        let _ = done.send(Err("terminal_closed".into()));
+                        continue;
+                    }
+                }
                 let result = writer.write_all(&bytes).and_then(|_| writer.flush());
                 if let Some(done) = done {
                     let _ = done.send(
@@ -444,6 +455,9 @@ fn controls(
                 result
             }
             Control::Resize(size) => {
+                if session.stop.load(Ordering::Acquire) {
+                    continue;
+                }
                 let master = master.lock().unwrap();
                 let result = master
                     .as_ref()

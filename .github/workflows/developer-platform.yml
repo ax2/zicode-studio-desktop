@@ -51,7 +51,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xdg-utils dunst xvfb dbus-x11
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -77,7 +77,13 @@ jobs:
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
       - name: Check developer platform
-        run: node scripts/developer-platform-checks.mjs --out "${{ runner.temp }}/zicode-platform-checks"
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a dbus-run-session -- bash scripts/with-linux-notifications.sh node scripts/developer-platform-checks.mjs --out "${{ runner.temp }}/zicode-platform-checks"
+          else
+            node scripts/developer-platform-checks.mjs --out "${{ runner.temp }}/zicode-platform-checks"
+          fi
       - name: Preserve check results
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,3 +1,5 @@
+import { act } from "@testing-library/react/pure";
+import type { Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanChatTranscript,
@@ -12,6 +14,31 @@ import {
 import { CHAT_TEMPLATES } from "./chatTemplates";
 import { MessageRenderer, ToolCardRenderer } from "./index";
 
+const roots = vi.hoisted(() => [] as Root[]);
+vi.mock("react-dom/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react-dom/client")>();
+  return {
+    ...actual,
+    createRoot: (...args: Parameters<typeof actual.createRoot>) => {
+      const root = actual.createRoot(...args);
+      roots.push(root);
+      return root;
+    },
+  };
+});
+
+async function messageRenderer(...args: ConstructorParameters<typeof MessageRenderer>) {
+  let renderer!: MessageRenderer;
+  await act(async () => { renderer = new MessageRenderer(...args); });
+  return renderer;
+}
+
+async function toolRenderer(...args: ConstructorParameters<typeof ToolCardRenderer>) {
+  let renderer!: ToolCardRenderer;
+  await act(async () => { renderer = new ToolCardRenderer(...args); });
+  return renderer;
+}
+
 function makeContainer(): HTMLElement {
   const container = document.createElement("div");
   container.id = "messages-test";
@@ -19,7 +46,8 @@ function makeContainer(): HTMLElement {
   return container;
 }
 
-afterEach(() => {
+afterEach(async () => {
+  for (const root of roots.splice(0)) await act(async () => root.unmount());
   document.body.innerHTML = "";
   try {
     globalThis.localStorage?.removeItem("zicode-chat-templates-custom");
@@ -28,8 +56,8 @@ afterEach(() => {
   }
 });
 
-function flush() {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+async function flush() {
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 }
 
 describe("chat logic", () => {
@@ -77,7 +105,7 @@ describe("chat logic", () => {
 describe("chat feed renderers", () => {
   it("renders the welcome screen and messages", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderWelcome({ workspacePath: "/home/test" });
     await flush();
     expect(container.querySelector(".welcome")).toBeTruthy();
@@ -93,7 +121,7 @@ describe("chat feed renderers", () => {
 
   it("updates the welcome scene card from the scene indicator feed", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderWelcome();
     await flush();
     expect(container.querySelector(".welcome-scene")?.getAttribute("data-scene")).toBe(
@@ -117,7 +145,7 @@ describe("chat feed renderers", () => {
   it("opens scene settings from the welcome scene card", async () => {
     const container = makeContainer();
     const onOpenSceneSettings = vi.fn();
-    const renderer = new MessageRenderer(container, { onOpenSceneSettings });
+    const renderer = await messageRenderer(container, { onOpenSceneSettings });
     renderer.renderWelcome();
     await flush();
     (container.querySelector(".welcome-scene") as HTMLElement | null)?.click();
@@ -131,7 +159,7 @@ describe("chat feed renderers", () => {
     document.body.append(input);
     const focusSpy = vi.spyOn(input, "focus");
     const openApp = vi.fn();
-    const renderer = new MessageRenderer(container, { openApp });
+    const renderer = await messageRenderer(container, { openApp });
     renderer.renderWelcome();
     await flush();
 
@@ -155,7 +183,7 @@ describe("chat feed renderers", () => {
 
   it("renders starter templates that prefill the composer", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderWelcome();
     await flush();
 
@@ -200,7 +228,7 @@ describe("chat feed renderers", () => {
       ]),
     );
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderWelcome();
     await flush();
 
@@ -221,7 +249,7 @@ describe("chat feed renderers", () => {
   it("filters welcome quick actions to enabled applications", async () => {
     const container = makeContainer();
     const openApp = vi.fn();
-    const renderer = new MessageRenderer(container, {
+    const renderer = await messageRenderer(container, {
       openApp,
       getEnabledAppIds: () => [
         "core.chat",
@@ -264,7 +292,7 @@ describe("chat feed renderers", () => {
 
   it("renders an onboarding welcome for the Agent Inbox session", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderWelcome({
       workspacePath: "C:\\Users\\me\\zicode\\workspaces\\agent-inbox",
     });
@@ -275,7 +303,7 @@ describe("chat feed renderers", () => {
 
     // Normal workspaces keep the generic welcome.
     const generic = makeContainer();
-    const genericRenderer = new MessageRenderer(generic);
+    const genericRenderer = await messageRenderer(generic);
     genericRenderer.renderWelcome({ workspacePath: "/home/test" });
     await flush();
     expect(generic.querySelector('[data-welcome-kind="inbox"]')).toBeNull();
@@ -285,7 +313,7 @@ describe("chat feed renderers", () => {
   it("routes Agent Inbox welcome actions to settings, tasks, and help", async () => {
     const container = makeContainer();
     const openApp = vi.fn();
-    const renderer = new MessageRenderer(container, { openApp });
+    const renderer = await messageRenderer(container, { openApp });
     renderer.renderWelcome({
       workspacePath: "/Users/me/zicode/workspaces/agent-inbox",
     });
@@ -317,7 +345,7 @@ describe("chat feed renderers", () => {
   it("renders history window notices and loaded status from the feed", async () => {
     const container = makeContainer();
     const onRevealHistory = vi.fn();
-    const renderer = new MessageRenderer(container, { onRevealHistory });
+    const renderer = await messageRenderer(container, { onRevealHistory });
     renderer.appendHistoryWindowNotice(10);
     renderer.appendHistoryLoadedStatus();
     await flush();
@@ -336,7 +364,7 @@ describe("chat feed renderers", () => {
 
   it("streams and finalizes an assistant message", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     const handle = renderer.renderAssistantMessage({ id: "a1", content: "Hel" }, true);
     if (!handle) throw new Error("missing streaming handle");
     await flush();
@@ -356,7 +384,7 @@ describe("chat feed renderers", () => {
 
   it("makes the thinking disclosure keyboard-operable", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     const handle = renderer.renderAssistantMessage({ id: "a1", content: "Hi" }, true);
     if (!handle) throw new Error("missing streaming handle");
     renderer.finalizeStreamingMessage(handle, { cost: { total: 0 } }, "internal reasoning");
@@ -379,7 +407,7 @@ describe("chat feed renderers", () => {
 
   it("keeps the answer text when a reasoning response finalizes with thinking", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     const handle = renderer.renderAssistantMessage({ id: "r1", content: [] }, true);
     if (!handle) throw new Error("missing streaming handle");
     renderer.updateStreamingMessage(handle, [
@@ -397,7 +425,7 @@ describe("chat feed renderers", () => {
 
   it("renders the organize-to-note action and dispatches its request", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderAssistantMessage({ id: "a1", content: "Summary" }, false);
     await flush();
 
@@ -411,7 +439,7 @@ describe("chat feed renderers", () => {
 
   it("renders system, error, and model error messages", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderSystemMessage("system note");
     renderer.renderError("broken");
     renderer.renderAssistantError({ errorMessage: "401 unauthorized" });
@@ -426,7 +454,7 @@ describe("chat feed renderers", () => {
 
   it("renders and updates tool cards", async () => {
     const container = makeContainer();
-    const tools = new ToolCardRenderer(container);
+    const tools = await toolRenderer(container);
     tools.createToolCard({
       toolCallId: "tc-1",
       toolName: "read",
@@ -477,7 +505,7 @@ describe("chat feed renderers", () => {
 
   it("renders history tool cards with results and supports expand/collapse", async () => {
     const container = makeContainer();
-    const tools = new ToolCardRenderer(container);
+    const tools = await toolRenderer(container);
     tools.createHistoryCard({ toolCallId: "tc-h", toolName: "edit", args: { oldText: "a", newText: "b" } });
     tools.addHistoryResult("tc-h", { content: [{ type: "text", text: "patched" }] }, false);
     await flush();
@@ -494,7 +522,7 @@ describe("chat feed renderers", () => {
 
   it("clears content and appends notice elements", async () => {
     const container = makeContainer();
-    const renderer = new MessageRenderer(container);
+    const renderer = await messageRenderer(container);
     renderer.renderSystemMessage("x");
     const notice = document.createElement("aside");
     notice.className = "history-window-notice";

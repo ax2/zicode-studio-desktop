@@ -65,3 +65,18 @@ Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy�
 
 发布缓存复用：核对 rust-cache 源码（src/config.ts）后，Release 的 shared-key 对齐既有 Developer platform 的 inputKey + GITHUB_JOB，即 developer-platform-${{ matrix.os }}-platform；不修改现有main缓存键。下载重试配置从全局env移到四个实际Cargo/打包步骤，避免仅网络配置不同造成缓存环境hash分叉，实际下载仍使用原10次重试。新增2项缓存契约测试，总13项相关脚本检查及lint/design通过。GitHub缓存API实际确认旧main已有macOS arm64/x64各约1.24GB依赖缓存，前缀与预期一致；Release实际命中尚待新标签构建日志验证。
 旧main 38048690334最终两种macOS成功；Intel耗时主要为rust-check669530ms、rust-tests933746ms及真实运行，非卡住。旧Windows只PTY失败，旧Linux仅AppImage类型编译错误，详细报告已归档。新main 38050399234已于20:22前后开始。当前新缓存契约/Release工作流修改仅本地提交，待最新main平台报告通过后随正式发布推送，避免重复触发四平台检查。
+
+## 2026-10-11：第三轮报告及发布前修复
+
+核对 main 45b239fc 的 Developer platform 38050399234 原始报告：ARM Mac 全通过；Intel Mac 仅聊天渲染专项未等待 React 提交而失败；Linux 实际通知用例缺少 org.freedesktop.Notifications 服务，另有三个 Unix 分支 Clippy needless_return；Windows 环境 PTY 已通过，但另一项终端关闭测试超过 30 分钟。Tests/Documentation 均通过。以上失败保留，未发布新版本。
+
+修复范围：
+- 终端停止后仍泵送内部光标查询应答，直至输出 EOF；拒绝新用户输入和 resize。此前 stop 时提前退出输入线程，可能使带 INHERIT_CURSOR 的 ConPTY 在 ClosePseudoConsole 中一直等待。新增确定性回归验证停止时拒绝用户命令、保留内部应答以及 EOF 后释放。
+- Linux CI 使用 Xvfb + 独立 D-Bus 会话 + 真正的 Dunst 通知服务，有界等待服务就绪并在退出时收尾。保留真实通知断言，不跳过或替换为模拟后端；Linux 最终结果仍待 Actions。
+- 聊天测试用 async act 等待真实 React root 初次挂载和后续更新，并逐个 unmount；只记录真实 createRoot 返回值，不替换渲染实现。chat.test.tsx 原本已超过 500 行，本轮仅补约 30 行生命周期支持及替换构造调用，避免无关重构。
+- Linux 三处分支改为等价尾表达式；shell 文件强制 LF。新增 CI 通知环境契约测试。
+
+目前本机定向聊天/缓存测试26通过，frontend TypeScript、lint/design 和 shell 语法通过；完整前端和 Rust 检查进行中，未将待运行结果记录为通过。继续复用既有 target，未另建缓存树、未复制运行目录。来源说明已完成但最新正式 Release 仍待四平台门槛及产物检查。
+参考：Microsoft Creating a pseudoconsole session 的关闭/光标应答警告；React act 官方文档；Dunst 官方手册。具体链接与原始报告见技术博客档案。
+
+第三轮修复本机最终验证：265个前端文件/1804测试通过；frontend typecheck通过；lint/design退出0（既有warnings保留）。完整Rust主程序469通过/29条件跳过、其他5/19通过，cargo check与严格Clippy通过，fmt既有advisory。新shutdown回归与原先CI超时的真实PTY关闭用例均通过；Windows本机通过不能替代新的Windows CI，更不能证明Linux/Mac分支。Linux通知环境wrapper语法通过，2项CI环境契约随全前端通过，实际daemon/通知测试等待Linux Actions。未改测试超时或产品预算。

@@ -1,5 +1,6 @@
 scripts/release.sh text eol=lf
 scripts/release-macos-dmg.sh text eol=lf
+scripts/with-linux-notifications.sh text eol=lf
 
 # Provider deliveries are byte-frozen, including JSON/JS/text files and receipts.
 tests/fixtures/devtools-*/** -text

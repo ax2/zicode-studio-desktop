@@ -141,7 +141,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            xdg-utils
+            xdg-utils dunst xvfb dbus-x11
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -255,7 +255,12 @@ jobs:
         env:
           CARGO_HTTP_MULTIPLEXING: "false"
           CARGO_NET_RETRY: "10"
-        run: bash scripts/check-rust.sh
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a dbus-run-session -- bash scripts/with-linux-notifications.sh bash scripts/check-rust.sh
+          else
+            bash scripts/check-rust.sh
+          fi
 
       - name: Check Rust on Windows
         if: runner.os == 'Windows'

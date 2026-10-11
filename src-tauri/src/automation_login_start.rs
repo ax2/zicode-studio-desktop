@@ -240,7 +240,7 @@ mod platform {
                 .lines()
                 .filter_map(|line| line.trim().strip_prefix("Exec="))
                 .collect();
-            return contents
+            contents
                 .lines()
                 .any(|line| line.trim() == "[Desktop Entry]")
                 && contents
@@ -250,7 +250,7 @@ mod platform {
                     .lines()
                     .any(|line| line.trim() == format!("Name={ENTRY_NAME}"))
                 && commands.len() == 1
-                && commands[0].ends_with(&format!(" {WORKER_ARGUMENT}"));
+                && commands[0].ends_with(&format!(" {WORKER_ARGUMENT}"))
         }
         #[cfg(target_os = "macos")]
         {
@@ -273,7 +273,7 @@ mod platform {
             .map_err(|error| format!("Cannot read login entry: {error}"))?;
         #[cfg(target_os = "linux")]
         {
-            return Ok(!hidden(&contents) && worker_entry(&contents));
+            Ok(!hidden(&contents) && worker_entry(&contents))
         }
         #[cfg(target_os = "macos")]
         Ok(worker_entry(&contents))
