@@ -252,7 +252,10 @@ impl TerminalManager {
             let stopped = session.stop.swap(true, Ordering::AcqRel);
             guard.terminate();
             // Closing ConPTY wakes the independent reader and any blocked input writer.
-            drop(master.lock().unwrap().take());
+            // Release the mutex before the blocking close, so a resize already
+            // queued in the input pump cannot prevent its later cursor reply.
+            let closing_master = master.lock().unwrap().take();
+            drop(closing_master);
             let mut state = session.state.lock().unwrap();
             if state.info.status != "failed" {
                 state.info.status = if stopped {

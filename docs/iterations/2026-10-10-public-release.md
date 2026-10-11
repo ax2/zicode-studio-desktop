@@ -80,3 +80,7 @@ Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy�
 参考：Microsoft Creating a pseudoconsole session 的关闭/光标应答警告；React act 官方文档；Dunst 官方手册。具体链接与原始报告见技术博客档案。
 
 第三轮修复本机最终验证：265个前端文件/1804测试通过；frontend typecheck通过；lint/design退出0（既有warnings保留）。完整Rust主程序469通过/29条件跳过、其他5/19通过，cargo check与严格Clippy通过，fmt既有advisory。新shutdown回归与原先CI超时的真实PTY关闭用例均通过；Windows本机通过不能替代新的Windows CI，更不能证明Linux/Mac分支。Linux通知环境wrapper语法通过，2项CI环境契约随全前端通过，实际daemon/通知测试等待Linux Actions。未改测试超时或产品预算。
+
+终端关闭专项连续10次真实PTY检查全部通过，每次1.52–1.95秒，receipt terminal-close-repeat.json。进一步检查发现关闭ConPTY时仍持有master互斥锁，会阻塞已排队resize后的内部应答，已将take和drop分开，保证阻塞关闭前先释放锁；这项追加修改的检查另存最终static/定向日志，不把此前10次作为追加修改后的证据。
+来源：https://learn.microsoft.com/en-us/windows/console/creating-a-pseudoconsole-session#ending-the-pseudoconsole-session ； https://react.dev/reference/react/act ； https://dunst-project.org/documentation/dunst/ 。
+修复已先推送6eae881b，四平台新运行38099350812已开始。新Release仍未公开。
