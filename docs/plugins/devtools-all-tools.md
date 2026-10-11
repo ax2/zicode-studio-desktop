@@ -2,6 +2,8 @@
 
 更新：2026-10-09。持续目标尚未完成。
 
+2026-10-11 补充：[当前诊断候选运行验证](diagnostics-current-runtime.md)完成实际Windows通用工作台11基本样例与1历史边界样例、生产Worker142向量语义比较；46 raw报文仍未覆盖。旧失败保留，完整工具接受仍0。
+
 2026-10-11 补充：[手动调用排查记录](manual-call-diagnostics.md)提供固定错误提示和有界元数据；实际Windows超时、显式终态查询、独立DevTools基本操作及主动恢复通过。不会以错误响应自动解锁，154项完整工具验收仍为0。
 
 2026-10-11 补充：[多工具单行切换与窄屏布局](tool-directory-navigation.md)已通过实际 Windows WebView/Host 验证。

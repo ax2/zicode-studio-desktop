@@ -9430,6 +9430,36 @@
       "uiChanged": false
     }
   ],
+  "currentDiagnosticsRuntimeVerification": {
+    "date": "2026-10-11",
+    "archiveStage": "iterations/diagnostics-current-runtime-2026-10-11",
+    "documentation": "diagnostics-current-runtime.md",
+    "pluginId": "com.zicode.devtools.diagnostics",
+    "packageVersion": "0.1.2",
+    "toolVersion": "1.1.3",
+    "exeSha256": "eae9f763889aaa6c1bfbd96599eed5322367dde93072395891bd1e214f5b6c45",
+    "verifiedSourceFiles": 456,
+    "verifiedInstalledFiles": 456,
+    "nativeBasicCapabilitiesPassed": 11,
+    "nativeHistoricalBoundaryPassed": 1,
+    "nativeInvocations": 12,
+    "nativePageErrors": 0,
+    "nativeConsoleErrors": 0,
+    "displayedReportsComparedToExpected": true,
+    "additionalScreenshotInvocation": 1,
+    "workerVectorsPassed": 142,
+    "workerVectorsFailed": 0,
+    "rawEnvelopeVectorsNotCovered": 46,
+    "workerProcessesClosed": 142,
+    "priorFailuresRetained": true,
+    "previousHttp500CauseEstablished": false,
+    "fullToolsAccepted": 0,
+    "limitations": [
+      "Worker vectors do not prove Host or generic form acceptance for all inputs",
+      "native close confirmation not verified; first driver stopped at OS dialog",
+      "not full source scope, formal diagnostics profile, signed installation or other OS acceptance"
+    ]
+  },
   "toolSwitcherVerification": {
     "date": "2026-10-11",
     "archiveStage": "iterations/tool-switcher-2026-10-11",

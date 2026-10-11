@@ -117,3 +117,7 @@ Studio新增[固定执行错误分类](worker-failure-codes.md)，不输出原�
 
 候选02真实Pi专项两次失败已固定：未授权隐藏及独立Base64对照通过，第二次仅线程/依赖报告成功，随后worker_timeout；2+4 Worker均关闭/实际PID无残留，Host.stop_and_wait已执行，Pi关闭未单独PID复核。后续55缓存拒绝与生命周期未运行，不计通过；生产预算保持，提供方明确需求已发送。Rust gate67908尚在运行，不宣称测试门禁通过。详见iterations/diagnostic-candidate02-pi-2026-10-09。154完整验收0。
 
+
+## 2026-10-11 当前运行时补充
+
+[当前原生语义与Worker边界验证](diagnostics-current-runtime.md)：冻结candidate03与实际安装包各456文件摘要一致；当前EXE通用目录12样例与完整预期/展示报告一致，含历史8192字节补充配置向量；生产Worker142通过、0失败、46原始报文未覆盖。补拍实际Spring结果已检查。未修改提供方、预算或历史失败，不代表先前HTTP500根因已修复，也不提高154完整工具接受计数。
