@@ -84,3 +84,6 @@ Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy�
 终端关闭专项连续10次真实PTY检查全部通过，每次1.52–1.95秒，receipt terminal-close-repeat.json。进一步检查发现关闭ConPTY时仍持有master互斥锁，会阻塞已排队resize后的内部应答，已将take和drop分开，保证阻塞关闭前先释放锁；这项追加修改的检查另存最终static/定向日志，不把此前10次作为追加修改后的证据。
 来源：https://learn.microsoft.com/en-us/windows/console/creating-a-pseudoconsole-session#ending-the-pseudoconsole-session ； https://react.dev/reference/react/act ； https://dunst-project.org/documentation/dunst/ 。
 修复已先推送6eae881b，四平台新运行38099350812已开始。新Release仍未公开。
+
+追加锁修复98233905的最终8项终端专项全部通过9.13秒；最终Rust static/严格Clippy退出0。最新真实Pi→Host插件broker独立条件测试1通过3.72秒（497 filtered；不代表其余条件测试全部通过）。原生截图/完整正式构建仍待。
+6eae881b新CI 38099350812 的ARM Mac已完成全部检查，报告revision/clean/source/runner/target均核对匹配，6个TS入口、全JS、聊天专项、Rust及真实runtime通过，仅fmt advisory。其余平台尚未完成。发布说明补充终端退出与Linux AppImage修复；本次文档随最终源代码一并验证，不发布未经完成门槛的版本。
