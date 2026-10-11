@@ -18,4 +18,5 @@ export function createPluginResultActions(options: {
   container: HTMLElement; gateway: ResultActionsGateway;
   isCurrent(scope?: ResultScope): boolean;
   onReceiverExecuted?(scope: ResultScope): void | Promise<void>;
+  onOpenSaved?(artifactId: string, scope: ResultScope): void;
 }): { show(response: CapturedToolResponse, scope: ResultScope): void; clear(): void; destroy(): void };

@@ -6,6 +6,7 @@ import {
 } from "../super-agent/dispatch-ownership.js";
 import { friendlyTaskDispatchError } from "../super-agent/friendly-errors.js";
 import { dispatchSuperAgentTaskNative } from "../super-agent/native-dispatch.js";
+import { navigateToArtifact } from "./features/artifact-navigation.js";
 import { isSuperAgentProjectPath } from "../super-agent/session.js";
 import { isSuperAgentEnabled } from "../super-agent/settings.js";
 import { selectSuperAgentStartupAction } from "../super-agent/startup-flow.js";
@@ -1309,10 +1310,12 @@ window.addEventListener("zicode:open-project", () => {
   pluginShell?.activate("com.zicode.projects");
 });
 window.addEventListener("zicode:open-artifact", (event) => {
-  const { artifactId } = event.detail ?? {};
-  if (!artifactId) return;
-  pluginShell?.activate("com.zicode.artifacts");
-  artifactApp?.openArtifact?.(artifactId).catch(showError);
+  void navigateToArtifact(event.detail, {
+    getTarget: () => target,
+    activate: () => pluginShell?.activate("com.zicode.artifacts"),
+    isActive: () => pluginShell?.getActivePluginId() === "com.zicode.artifacts",
+    open: (artifactId) => artifactApp?.openArtifact?.(artifactId),
+  }).catch(showError);
 });
 window.addEventListener("zicode:open-tasks", () => {
   pluginShell?.activate("com.zicode.tasks");

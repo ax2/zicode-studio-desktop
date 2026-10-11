@@ -62,6 +62,46 @@ afterEach(() => {
 });
 
 describe("artifacts React app", () => {
+  it.each([[true, true], [true, false], [false, true], [false, false]])("keeps deep-link selection: list starts first=%s, finishes first=%s", async (listStartsFirst, listFirst) => {
+    const gateway = createGateway();
+    let finishList!: (value: Awaited<ReturnType<typeof gateway.list>>) => void;
+    let finishDetail!: (value: Awaited<ReturnType<typeof gateway.get>>) => void;
+    gateway.list.mockImplementation(() => new Promise(resolve => { finishList = resolve; }));
+    gateway.get.mockImplementation(() => new Promise(resolve => { finishDetail = resolve; }));
+    const store = createArtifactStore({ gateway });
+    const first = listStartsFirst ? store.getState().load() : store.getState().openArtifact(DESCRIPTOR.id);
+    const second = listStartsFirst ? store.getState().openArtifact(DESCRIPTOR.id) : store.getState().load();
+    const loading = listStartsFirst ? first : second, opening = listStartsFirst ? second : first;
+    const document = { ...DESCRIPTOR, content: { metrics: { totalReturn: 0.12 } } };
+    if (listFirst) {
+      finishList({ snapshot: { artifacts: [], kinds: [], plugins: [] } }); await loading;
+      expect(store.getState().loading).toBe(true);
+      finishDetail({ artifact: document }); await opening;
+    } else {
+      finishDetail({ artifact: document }); await opening;
+      expect(store.getState().loading).toBe(true);
+      finishList({ snapshot: { artifacts: [], kinds: [], plugins: [] } }); await loading;
+    }
+    expect(store.getState().selected?.id).toBe(DESCRIPTOR.id);
+    expect(store.getState().loading).toBe(false);
+  });
+
+  it("invalidates pending list and detail when the workspace changes", async () => {
+    const gateway = createGateway();
+    let finishList!: (value: Awaited<ReturnType<typeof gateway.list>>) => void;
+    let finishDetail!: (value: Awaited<ReturnType<typeof gateway.get>>) => void;
+    gateway.list.mockImplementation(() => new Promise(resolve => { finishList = resolve; }));
+    gateway.get.mockImplementation(() => new Promise(resolve => { finishDetail = resolve; }));
+    const store = createArtifactStore({ gateway });
+    const opening = store.getState().openArtifact(DESCRIPTOR.id), loading = store.getState().load();
+    store.getState().setTarget();
+    finishList({ snapshot: { artifacts: [DESCRIPTOR], kinds: [], plugins: [] } });
+    finishDetail({ artifact: { ...DESCRIPTOR, content: { metrics: { totalReturn: 0.12 } } } });
+    await Promise.all([opening, loading]);
+    expect(store.getState().selected).toBeNull();
+    expect(store.getState().snapshot.artifacts).toEqual([]);
+    expect(store.getState().loading).toBe(false);
+  });
   it("does not remount over another active app when the target changes", () => {
     const app = createArtifactApp({gateway: createGateway()});
     const container = document.createElement("div"); document.body.append(container);

@@ -94,6 +94,11 @@ export function createArtifactStore(options: ArtifactAppOptions) {
   const chooseFile = options.chooseFile ?? defaultChooseFile;
   const onUseInChat = options.onUseInChat;
   let requestSequence = 0;
+  // Opening a detail must survive the sidebar's mount-time list request.
+  // Filter changes explicitly invalidate selection; ordinary refreshes do not.
+  let listSequence = 0;
+  let listLoading = false;
+  let detailLoading = false;
 
   const sceneId = () => getTarget()?.sceneId ?? "programming";
   const workspaceId = () => getTarget()?.workspaceId ?? "";
@@ -119,7 +124,15 @@ export function createArtifactStore(options: ArtifactAppOptions) {
     },
 
     async load({ preserveSelection = true } = {}) {
-      const requestId = ++requestSequence;
+      const requestId = ++listSequence;
+      if (!preserveSelection) {
+        requestSequence += 1;
+        detailLoading = false;
+        set({ selected: null });
+      }
+      const selectionSequence = requestSequence;
+      const selectionPending = detailLoading;
+      listLoading = true;
       const activeSceneId = sceneId();
       const activeWorkspaceId = workspaceId();
       set({ loading: true, error: null });
@@ -130,7 +143,7 @@ export function createArtifactStore(options: ArtifactAppOptions) {
           pluginId: get().pluginId,
         });
         if (
-          requestId !== requestSequence ||
+          requestId !== listSequence ||
           activeSceneId !== sceneId() ||
           activeWorkspaceId !== workspaceId()
         ) {
@@ -143,15 +156,15 @@ export function createArtifactStore(options: ArtifactAppOptions) {
         };
         const selected = get().selected;
         if (
-          !preserveSelection ||
-          (selected && !snapshot.artifacts.some((artifact) => artifact.id === selected.id))
+          selectionSequence === requestSequence && !selectionPending && !detailLoading &&
+          selected && !snapshot.artifacts.some((artifact) => artifact.id === selected.id)
         ) {
           set({ snapshot, selected: null });
         } else {
           set({ snapshot });
         }
       } catch (loadError) {
-        if (requestId === requestSequence) {
+        if (requestId === listSequence && selectionSequence === requestSequence) {
           set({
             error: localizeHostError(
               loadError instanceof Error ? loadError : new Error(String(loadError)),
@@ -159,12 +172,16 @@ export function createArtifactStore(options: ArtifactAppOptions) {
           });
         }
       } finally {
-        if (requestId === requestSequence) set({ loading: false });
+        if (requestId === listSequence) {
+          listLoading = false;
+          set({ loading: detailLoading });
+        }
       }
     },
 
     async selectArtifact(descriptor) {
       const requestId = ++requestSequence;
+      detailLoading = true;
       set({ loading: true, error: null });
       try {
         const response = await gateway.get(sceneId(), workspaceId(), descriptor.id);
@@ -179,12 +196,16 @@ export function createArtifactStore(options: ArtifactAppOptions) {
           });
         }
       } finally {
-        if (requestId === requestSequence) set({ loading: false });
+        if (requestId === requestSequence) {
+          detailLoading = false;
+          set({ loading: listLoading });
+        }
       }
     },
 
     async openArtifact(artifactId) {
       const requestId = ++requestSequence;
+      detailLoading = true;
       set({ loading: true, error: null });
       try {
         const response = await gateway.get(sceneId(), workspaceId(), artifactId);
@@ -199,7 +220,10 @@ export function createArtifactStore(options: ArtifactAppOptions) {
           });
         }
       } finally {
-        if (requestId === requestSequence) set({ loading: false });
+        if (requestId === requestSequence) {
+          detailLoading = false;
+          set({ loading: listLoading });
+        }
       }
     },
 
@@ -340,6 +364,9 @@ export function createArtifactStore(options: ArtifactAppOptions) {
 
     setTarget() {
       requestSequence += 1;
+      listSequence += 1;
+      listLoading = false;
+      detailLoading = false;
       set({
         targetEpoch: get().targetEpoch + 1,
         selected: null,
@@ -351,6 +378,9 @@ export function createArtifactStore(options: ArtifactAppOptions) {
 
     destroy() {
       requestSequence += 1;
+      listSequence += 1;
+      listLoading = false;
+      detailLoading = false;
     },
   }));
 }

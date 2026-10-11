@@ -2,7 +2,8 @@
 
 import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
-export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted }) {
+import { openSavedArtifact } from "../features/artifact-navigation.js";
+export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact }) {
   const panel = document.createElement("section");
   panel.className = "plugin-result-actions";
   panel.hidden = true;
@@ -134,9 +135,15 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       confirm.disabled = true;
       cancel.disabled = true;
       try {
-        await gateway.commitSave(current.scope, response.grantId);
+        const saved = await gateway.commitSave(current.scope, response.grantId);
         if (!valid(token)) return;
         panel.replaceChildren(element("p", t("Saved to the current workspace artifacts.")));
+        const artifactId = saved?.artifact?.id;
+        if (typeof artifactId === "string" && artifactId && artifactId.length <= 128) {
+          panel.append(button(t("View saved artifact"), () => {
+            if (valid(token)) onOpenSaved(artifactId, current.scope);
+          }));
+        }
       } catch (error) {
         if (valid(token)) {
           status.textContent = t("Save failed: {error}").replace("{error}", error.message);

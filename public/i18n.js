@@ -290,6 +290,7 @@ const zhCN = {
   "Result cannot be reused or saved: {error}": "结果暂不可继续处理或保存：{error}",
   "Confirm save": "确认保存",
   "Saved to the current workspace artifacts.": "已保存到当前工作区的交付物。",
+  "View saved artifact": "查看已保存产物",
   "Save failed: {error}": "保存失败：{error}",
   "Cancel save": "取消保存",
   "Save preview: {title}": "保存预览：{title}",

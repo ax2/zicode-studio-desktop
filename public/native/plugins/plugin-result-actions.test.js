@@ -8,7 +8,7 @@ const scope = {
   pluginId: "plugin",
   capabilityId: "echo",
 };
-function setup(locale = "zh-CN") {
+function setup(locale = "zh-CN", onOpenSaved) {
   setLocale(locale);
   document.body.replaceChildren();
   let target = "workspace";
@@ -29,6 +29,7 @@ function setup(locale = "zh-CN") {
     container: document.body,
     gateway,
     isCurrent: (candidate) => candidate?.workspaceId === target,
+    onOpenSaved,
   });
   actions.show({ resultRef: { resultId: "result" } }, scope);
   return {
@@ -114,4 +115,48 @@ it("retries the same grant on storage failure and prevents writes after target c
   switchTarget();
   click("确认保存");
   expect(gateway.commitSave).toHaveBeenCalledTimes(1);
+});
+
+it("offers exact saved-artifact navigation only after confirmed save and explicit click", async () => {
+  const open = vi.fn(), { gateway } = setup("zh-CN", open);
+  gateway.commitSave.mockResolvedValue({ artifact: { id: "saved-id" }, replayed: true });
+  expect(document.body.textContent).not.toContain("查看已保存产物");
+  click("预览保存"); await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
+  expect(gateway.commitSave).not.toHaveBeenCalled();
+  expect(open).not.toHaveBeenCalled();
+  click("确认保存"); await vi.waitFor(() => expect(document.body.textContent).toContain("查看已保存产物"));
+  expect(open).not.toHaveBeenCalled();
+  click("查看已保存产物");
+  expect(open).toHaveBeenCalledWith("saved-id", scope);
+  expect(gateway.commitSave).toHaveBeenCalledTimes(1);
+});
+
+it("does not navigate from a stale saved-result button", async () => {
+  const open = vi.fn(), { actions, gateway, switchTarget } = setup("en", open);
+  gateway.commitSave.mockResolvedValue({ artifact: { id: "saved-id" } });
+  click("Preview save"); await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
+  click("Confirm save"); await vi.waitFor(() => expect(document.body.textContent).toContain("View saved artifact"));
+  const stale = [...document.querySelectorAll("button")].find(node => node.textContent === "View saved artifact");
+  switchTarget(); stale.click(); expect(open).not.toHaveBeenCalled();
+  actions.clear(); stale.click(); expect(open).not.toHaveBeenCalled();
+});
+
+it("ignores a late successful save after its result controller is cleared", async () => {
+  const open = vi.fn(), { actions, gateway } = setup("en", open); let finish;
+  gateway.commitSave.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  click("Preview save"); await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
+  click("Confirm save"); actions.clear(); finish({ artifact: { id: "saved-id" } });
+  await Promise.resolve(); await Promise.resolve();
+  expect(document.body.textContent).not.toContain("View saved artifact"); expect(open).not.toHaveBeenCalled();
+});
+
+it("does not offer navigation after a failed save or an invalid artifact identifier", async () => {
+  const open = vi.fn(), { gateway } = setup("en", open);
+  gateway.commitSave.mockRejectedValueOnce(new Error("storage unavailable"));
+  click("Preview save"); await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
+  click("Confirm save"); await vi.waitFor(() => expect(document.body.textContent).toContain("storage unavailable"));
+  expect(document.body.textContent).not.toContain("View saved artifact");
+  gateway.commitSave.mockResolvedValue({ artifact: { id: {} } });
+  click("Confirm save"); await vi.waitFor(() => expect(document.body.textContent).toContain("Saved to the current workspace artifacts."));
+  expect(document.body.textContent).not.toContain("View saved artifact"); expect(open).not.toHaveBeenCalled();
 });
