@@ -17,6 +17,19 @@ fn strict_invocation_cancellation_and_scope_reject_unknown_fields() {
     assert!(serde_json::from_value::<Cancel>(cancel.clone()).is_ok());
     cancel["token"] = json!("forbidden");
     assert!(serde_json::from_value::<Cancel>(cancel).is_err());
+    let mut status = json!({"schemaVersion":1,"owner":access["owner"],"toolCallId":uuid::Uuid::new_v4()});
+    assert!(serde_json::from_value::<Status>(status.clone()).is_ok());
+    status["input"] = json!({});
+    assert!(serde_json::from_value::<Status>(status).is_err());
+}
+
+#[test]
+fn host_status_identity_is_fresh_and_not_a_disk_record() {
+    let first = Workers::default();
+    let second = Workers::default();
+    assert!(uuid::Uuid::parse_str(&first.instance_id).is_ok());
+    assert_ne!(first.instance_id, second.instance_id);
+    assert!(first.events.lock().unwrap().is_empty());
 }
 
 #[test]
@@ -182,6 +195,35 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         response.json::<Value>().await.unwrap()["result"],
         json!({"text":"resource"})
     );
+    // Once the execution response has been consumed/discarded, query lifetime
+    // independently without re-uploading, cancelling or running the Worker again.
+    let status_request = json!({"schemaVersion":1,"owner":owner,"toolCallId":invocation["toolCallId"]});
+    let status = post("call-status", status_request.clone()).await.unwrap();
+    assert_eq!(status.status(), StatusCode::OK);
+    let status: Value = status.json().await.unwrap();
+    assert_eq!(status["profile"], "resource.call.status.draft1");
+    assert_eq!(status["phase"], "finished");
+    assert_eq!(status["executionFinished"], true);
+    assert_eq!(status["resultAvailable"], false);
+    assert_eq!(status["persistent"], false);
+    let mut expected = status_request.clone();
+    expected["hostInstanceId"] = status["hostInstanceId"].clone();
+    assert_eq!(post("call-status", expected.clone()).await.unwrap().status(), StatusCode::OK);
+    expected["hostInstanceId"] = json!(uuid::Uuid::new_v4());
+    assert_eq!(post("call-status", expected).await.unwrap().json::<Value>().await.unwrap()["error"]["code"], "resource_call_host_changed");
+    let mut unknown = status_request.clone();
+    unknown["toolCallId"] = json!(uuid::Uuid::new_v4());
+    let unknown: Value = post("call-status", unknown).await.unwrap().json().await.unwrap();
+    assert_eq!(unknown["phase"], "unknown");
+    assert_eq!(unknown["executionFinished"], false);
+    let mut wrong_scope = status_request.clone();
+    wrong_scope["owner"]["capabilityId"] = json!("other");
+    assert_eq!(post("call-status", wrong_scope).await.unwrap().json::<Value>().await.unwrap()["phase"], "unknown");
+    assert_eq!(client.post(format!("{}/v2/plugin-resources/call-status", host.origin()))
+        .bearer_auth("fixture-resource-credential").json(&status_request).send().await.unwrap().status(), StatusCode::FORBIDDEN);
+    let mut invalid_status = status_request;
+    invalid_status["input"] = json!({});
+    assert_eq!(post("call-status", invalid_status).await.unwrap().status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(
         client
             .post(format!("{}/v2/plugin-resources/invoke-view", host.origin()))
@@ -275,6 +317,10 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         StatusCode::OK
     );
     let cancellation = json!({"schemaVersion":1,"owner":owner,"toolCallId":call_one});
+    let active_status: Value = post("call-status", cancellation.clone()).await.unwrap().json().await.unwrap();
+    assert_eq!(active_status["phase"], "active");
+    assert_eq!(active_status["executionFinished"], false);
+    assert_eq!(active_status["cancellationRequested"], false);
     assert_eq!(
         post("cancel-view", cancellation.clone())
             .await
@@ -284,9 +330,16 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
             .unwrap()["status"],
         "requested"
     );
+    let cancelling: Value = post("call-status", cancellation.clone()).await.unwrap().json().await.unwrap();
+    assert_eq!(cancelling["phase"], "active");
+    assert_eq!(cancelling["executionFinished"], false);
+    assert_eq!(cancelling["cancellationRequested"], true);
     release_tx.send(()).unwrap();
     release_tx.send(()).unwrap();
     let cancelled = first.await.unwrap();
+    let finished: Value = post("call-status", cancellation.clone()).await.unwrap().json().await.unwrap();
+    assert_eq!(finished["phase"], "finished");
+    assert_eq!(finished["executionFinished"], true);
     assert_eq!(cancelled.status(), StatusCode::CONFLICT);
     assert_eq!(
         cancelled.json::<Value>().await.unwrap()["error"]["code"],

@@ -61,10 +61,11 @@ async fn lost(
                     .unwrap();
             }
         }));
+    let call_id = uuid::Uuid::new_v4();
     let request = client
         .post(format!("{}/v2/plugin-resources/invoke-view", host.origin()))
         .header("x-zicode-desktop-token", host.desktop_token())
-        .json(&json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}}));
+        .json(&json!({"access":access,"toolCallId":call_id,"input":{}}));
     let task = tokio::spawn(async move { request.send().await.unwrap() });
     let started = events_rx.recv_timeout(Duration::from_secs(5)).unwrap();
     assert_eq!(started.0, "started");
@@ -170,6 +171,14 @@ async fn lost(
         ("authorization_lost", 0)
     );
     let detection_ms = changed.elapsed().as_millis();
+    if cause == "permission" {
+        let status = post(host, client, "call-status", json!({"schemaVersion":1,"owner":access["owner"],"toolCallId":call_id})).await;
+        assert_eq!(status.status(), StatusCode::OK);
+        let status: Value = status.json().await.unwrap();
+        assert_eq!(status["phase"], "active");
+        assert_eq!(status["executionFinished"], false);
+        assert_eq!(status["cancellationRequested"], true);
+    }
     release_tx.send(()).unwrap();
     let response = tokio::time::timeout(Duration::from_secs(5), task)
         .await

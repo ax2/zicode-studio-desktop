@@ -12,6 +12,7 @@ mod output;
 struct Execution { result: Value, resources: Option<Value> }
 type Observer = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
 pub(crate) struct Workers {
+    instance_id: String,
     slots: Arc<tokio::sync::Semaphore>,
     events: Mutex<VecDeque<Value>>,
     #[cfg(test)]
@@ -22,6 +23,7 @@ pub(crate) struct Workers {
 impl Default for Workers {
     fn default() -> Self {
         Self {
+            instance_id: uuid::Uuid::new_v4().to_string(),
             slots: Arc::new(tokio::sync::Semaphore::new(WORKERS)),
             events: Mutex::new(VecDeque::new()),
             #[cfg(test)]
@@ -56,6 +58,45 @@ pub(in crate::host_server) struct Cancel {
     schema_version: u32,
     owner: Owner,
     tool_call_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(in crate::host_server) struct Status {
+    schema_version: u32,
+    owner: Owner,
+    tool_call_id: String,
+    #[serde(default)]
+    host_instance_id: Option<String>,
+}
+
+// Desktop-only evidence about execution lifetime. It grants no resource reads,
+// cancellation, replay, result recovery, or proof of successful completion.
+pub(in crate::host_server) async fn status(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+    Json(request): Json<Status>,
+) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    if request.schema_version != 1 {
+        return Err(rejected("resource_schema_unsupported"));
+    }
+    if request.host_instance_id.as_ref().is_some_and(|id| uuid::Uuid::parse_str(id).is_err()) {
+        return Err(rejected("resource_call_invalid"));
+    }
+    let instance = &state.plugin_resource_workers.instance_id;
+    if request.host_instance_id.as_ref().is_some_and(|id| id != instance) {
+        return Err(rejected("resource_call_host_changed"));
+    }
+    // Permit observation after resource/permission revocation just as cancellation
+    // does, while requiring the exact current runtime/session and desktop identity.
+    let (target, key) = call_scope(&state, &request.owner, &request.tool_call_id)?;
+    let (phase, finished, cancelled) = state.plugin_calls
+        .snapshot(&target.instance_id, &target.session_id, &key).map_err(rejected)?;
+    Ok(Json(json!({"schemaVersion":1,"profile":"resource.call.status.draft1",
+        "hostInstanceId":instance,"toolCallId":request.tool_call_id,"owner":request.owner,
+        "phase":phase,"executionFinished":finished,"cancellationRequested":cancelled,
+        "persistent":false,"retentionSeconds":60,"resultAvailable":false})))
 }
 
 fn call_scope(

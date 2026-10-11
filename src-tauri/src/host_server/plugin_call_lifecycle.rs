@@ -29,6 +29,29 @@ pub(super) struct Lease {
 }
 
 impl Calls {
+    // A read never reserves a cancellation tombstone or refreshes retention.
+    // Unknown is deliberately not evidence that a delayed request cannot start.
+    pub fn snapshot(
+        &self,
+        runtime: &str,
+        session: &str,
+        call: &str,
+    ) -> Result<(&'static str, bool, bool), &'static str> {
+        let mut entries = self.0.lock().map_err(|_| "plugin_calls_unavailable")?;
+        Self::prune(&mut entries);
+        Ok(match entries.get(&(runtime.into(), session.into(), call.into())) {
+            None => ("unknown", false, false),
+            Some(entry) => (
+                match entry.phase {
+                    Phase::PendingCancel => "cancel_pending",
+                    Phase::Active => "active",
+                    Phase::Finished => "finished",
+                },
+                entry.phase == Phase::Finished,
+                entry.flag.load(Ordering::Acquire),
+            ),
+        })
+    }
     fn prune(entries: &mut HashMap<Key, Entry>) {
         entries
             .retain(|_, entry| entry.phase == Phase::Active || entry.changed.elapsed() < RETENTION);
@@ -135,6 +158,29 @@ impl Drop for Lease {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshots_are_scoped_read_only_and_never_extend_retention() {
+        let calls = Calls::default();
+        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("unknown", false, false));
+        assert!(calls.0.lock().unwrap().is_empty());
+        calls.cancel("r", "s", "c").unwrap();
+        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("cancel_pending", false, true));
+        let lease = calls.begin("r", "s", "c").unwrap();
+        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("active", false, true));
+        assert_eq!(calls.snapshot("other", "s", "c").unwrap(), ("unknown", false, false));
+        assert_eq!(calls.snapshot("r", "other", "c").unwrap(), ("unknown", false, false));
+        // Active execution must not expire, even beyond terminal retention.
+        calls.0.lock().unwrap().values_mut().next().unwrap().changed = Instant::now() - RETENTION;
+        assert_eq!(calls.snapshot("r", "s", "c").unwrap().0, "active");
+        drop(lease);
+        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("finished", true, true));
+        let changed = calls.0.lock().unwrap().values().next().unwrap().changed;
+        calls.snapshot("r", "s", "c").unwrap();
+        assert_eq!(calls.0.lock().unwrap().values().next().unwrap().changed, changed);
+        calls.0.lock().unwrap().values_mut().next().unwrap().changed = Instant::now() - RETENTION;
+        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("unknown", false, false));
+        assert!(calls.0.lock().unwrap().is_empty());
+    }
     #[test]
     fn global_and_active_budgets_release_slots_after_completion() {
         let calls = Calls::default();
