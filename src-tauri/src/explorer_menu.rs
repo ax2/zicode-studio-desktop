@@ -38,16 +38,18 @@ mod platform {
     use serde_json::{json, Value};
     use winreg::{enums::KEY_READ, RegKey};
     const OWNER: &str = "zicode-studio-desktop.explorer.v1";
-    const ENTRIES: [(&str, &str); 3] = [
-        ("Directory", "%1"), ("Directory\\Background", "%V"), ("Drive", "%1"),
+    const ENTRIES: [(&str, &str, bool); 4] = [
+        ("Directory", "%1", false), ("Directory\\Background", "%V", false), ("Drive", "%1", false),
+        ("*", "%1", true),
     ];
 
-    fn command(exe: &str, placeholder: &str) -> Result<String, String> {
+    fn command(exe: &str, placeholder: &str, file: bool) -> Result<String, String> {
         if !std::path::Path::new(exe).is_absolute() || exe.contains(['"', '\r', '\n']) {
             return Err("Invalid executable path".into());
         }
         // Appending \. avoids a drive-root trailing backslash escaping its quote.
-        Ok(format!("\"{exe}\" --open-folder \"{placeholder}\\.\""))
+        Ok(if file { format!("\"{exe}\" --open-file \"{placeholder}\"") }
+            else { format!("\"{exe}\" --open-folder \"{placeholder}\\.\"") })
     }
 
     fn inspect(root: &RegKey, path: &str, expected: &str) -> Result<bool, String> {
@@ -66,17 +68,19 @@ mod platform {
     }
 
     pub(super) fn apply(root: &RegKey, base: &str, exe: &str, action: MenuAction) -> Result<Value, String> {
-        let plans: Vec<_> = ENTRIES.iter().map(|(kind, placeholder)| {
-            Ok((format!("{base}\\{kind}\\shell\\ZiCodeStudio.OpenFolder"), command(exe, placeholder)?))
+        let plans: Vec<_> = ENTRIES.iter().map(|(kind, placeholder, file)| {
+            let verb = if *file { "OpenFile" } else { "OpenFolder" };
+            Ok((format!("{base}\\{kind}\\shell\\ZiCodeStudio.{verb}"), command(exe, placeholder, *file)?, *file))
         }).collect::<Result<_, String>>()?;
         // Preflight every verb before any mutation. A foreign entry blocks the operation.
-        let installed = plans.iter().map(|(path, cmd)| inspect(root, path, cmd)).collect::<Result<Vec<_>, _>>()?;
-        for ((path, cmd), present) in plans.iter().zip(&installed) {
+        let installed = plans.iter().map(|(path, cmd, _)| inspect(root, path, cmd)).collect::<Result<Vec<_>, _>>()?;
+        for ((path, cmd, file), present) in plans.iter().zip(&installed) {
             match action {
                 MenuAction::Install => {
                     let (key, _) = root.create_subkey(path).map_err(|e| format!("Cannot create Explorer entry: {e}"))?;
                     key.set_value("ZiCodeStudioOwner", &OWNER).map_err(|e| e.to_string())?;
-                    key.set_value("MUIVerb", &"在 ZiCode Studio 中打开").map_err(|e| e.to_string())?;
+                    let label = if *file { "在 Studio 中选择文件工具" } else { "在 ZiCode Studio 中打开" };
+                    key.set_value("MUIVerb", &label).map_err(|e| e.to_string())?;
                     key.set_value("Icon", &format!("\"{exe}\",0")).map_err(|e| e.to_string())?;
                     key.set_value("MultiSelectModel", &"Single").map_err(|e| e.to_string())?;
                     key.create_subkey("command").and_then(|(k, _)| k.set_value("", cmd)).map_err(|e| e.to_string())?;
@@ -90,7 +94,7 @@ mod platform {
             }
         }
         Ok(json!({"schemaVersion":1,"scope":"current-user","menu":"legacy","action":format!("{action:?}"),
-            "installed":match action { MenuAction::Install => 3, MenuAction::Remove => 0, _ => installed.iter().filter(|v| **v).count() },
+            "installed":match action { MenuAction::Install => ENTRIES.len(), MenuAction::Remove => 0, _ => installed.iter().filter(|v| **v).count() },
             "modernWindows11Menu":false}))
     }
 
@@ -103,8 +107,26 @@ mod platform {
             let base = format!("Software\\ZiCodeStudio.Tests\\explorer-{}", uuid::Uuid::new_v4());
             let exe = "C:\\测试 & 空格\\zicode-studio-desktop.exe";
             assert_eq!(apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"], 0);
-            assert_eq!(apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"], 3);
+            assert_eq!(apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"], 4);
+            assert_eq!(apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"], 4);
+            let file_path = format!("{base}\\*\\shell\\ZiCodeStudio.OpenFile");
+            let file = root.open_subkey(&file_path).unwrap();
+            assert_eq!(file.get_value::<String, _>("MUIVerb").unwrap(), "在 Studio 中选择文件工具");
+            assert_eq!(file.get_value::<String, _>("MultiSelectModel").unwrap(), "Single");
+            assert_eq!(file.open_subkey("command").unwrap().get_value::<String, _>("").unwrap(),
+                format!("\"{exe}\" --open-file \"%1\""));
+            drop(file);
+            // Simulate an older installation with only the three folder verbs.
+            root.delete_subkey_all(&file_path).unwrap();
             assert_eq!(apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"], 3);
+            assert_eq!(apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"], 4);
+            let file = root.open_subkey_with_flags(&file_path, winreg::enums::KEY_WRITE).unwrap();
+            file.set_value("ZiCodeStudioOwner", &"foreign-file").unwrap();
+            assert!(apply(&root, &base, exe, MenuAction::Remove).is_err());
+            assert!(apply(&root, &base, exe, MenuAction::Install).is_err());
+            assert!(root.open_subkey(format!("{base}\\Directory\\shell\\ZiCodeStudio.OpenFolder")).is_ok());
+            file.set_value("ZiCodeStudioOwner", &OWNER).unwrap();
+            drop(file);
             let path = format!("{base}\\Directory\\shell\\ZiCodeStudio.OpenFolder");
             let key = root.open_subkey_with_flags(&path, winreg::enums::KEY_WRITE).unwrap();
             key.set_value("ZiCodeStudioOwner", &"foreign").unwrap();
@@ -118,8 +140,9 @@ mod platform {
             drop(key);
             assert!(base.starts_with("Software\\ZiCodeStudio.Tests\\explorer-"));
             root.delete_subkey_all(&base).unwrap();
-            assert_eq!(command(exe, "%V").unwrap(), format!("\"{exe}\" --open-folder \"%V\\.\""));
-            assert!(command("C:\\bad\".exe", "%1").is_err());
+            assert_eq!(command(exe, "%V", false).unwrap(), format!("\"{exe}\" --open-folder \"%V\\.\""));
+            assert!(command("C:\\bad\".exe", "%1", false).is_err());
+            assert!(command("C:\\bad\".exe", "%1", true).is_err());
         }
     }
 }

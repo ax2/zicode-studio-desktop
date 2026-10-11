@@ -4,7 +4,7 @@
 
 ## 可选安装与使用
 
-当前Windows实现传统右键菜单，在Windows11通常位于“显示更多选项”。尚未实现一级现代菜单。仅支持单个本地盘文件夹、文件夹背景和盘符；文件、压缩包及多选工具仍待插件入口。
+当前Windows实现传统右键菜单，在Windows11通常位于“显示更多选项”。尚未实现一级现代菜单。本文记录最初的文件夹、目录背景和盘符入口；后续新增的单文件工具入口及四项统一注册见 [文件入口](explorer-file-entry.md)。多选和真实归档算法仍待接入。
 
 使用保留的当前debug或未来包含本功能的完整安装目录内EXE：
 
@@ -28,7 +28,7 @@
 
 ## 注册边界
 
-仅在HKCU下三个固定键：
+最初的目录入口在HKCU下三个固定键（当前另含 `*\shell\ZiCodeStudio.OpenFile` 文件入口）：
 
 - `Software\Classes\Directory\shell\ZiCodeStudio.OpenFolder`
 - `Software\Classes\Directory\Background\shell\ZiCodeStudio.OpenFolder`
@@ -36,7 +36,7 @@
 
 不修改HKLM、文件关联、ZiFile菜单、其他verb或系统安全设置。设置MUIVerb、Icon、MultiSelectModel及所有权标记，command直接调用双引号EXE加`--open-folder`与双引号选择路径；占位符后附`\.`解决盘符末尾反斜杠对引号的影响，不经cmd/PowerShell。
 
-所有键预检查所有权标记、当前EXE命令及额外子键；任一归属不匹配则拒绝整次配置，移除前再次检查。EXE迁移后不能拿新路径覆盖/删除旧安装项，应先从原EXE移除再安装新路径。并非跨三键原子事务；权限/IO失败可能部分配置，需读取状态并保留错误后人工处理，不静默重试或删除不明项。
+所有键预检查所有权标记、当前EXE命令及额外子键；任一归属不匹配则拒绝整次配置，移除前再次检查。EXE迁移后不能拿新路径覆盖/删除旧安装项，应先从原EXE移除再安装新路径。并非跨键原子事务；权限/IO失败可能部分配置，需读取状态并保留错误后人工处理，不静默重试或删除不明项。
 
 独立验收profile禁止修改真实Explorer注册。测试只使用自有UUID注册表子树，不向实际右键位置写入。真实Explorer安装/点击/卸载、现代菜单及更多工具入口仍须单独验收。
 

@@ -38,14 +38,14 @@ it("requires confirmation, serializes writes and displays returned state", async
   fireEvent.click(confirm);
   fireEvent.click(confirm);
   expect(invoke).toHaveBeenCalledTimes(2);
-  finish(reply(3));
+  finish(reply(4));
   await waitFor(() =>
     expect(view.getByText(t("Remove Explorer menu"))).toHaveProperty("disabled", false),
   );
   fireEvent.click(view.getByText(t("Remove Explorer menu")));
   fireEvent.click(view.getByRole("button", { name: t("Confirm Explorer menu change") }));
   await waitFor(() =>
-    expect(view.getByText(`${t("Registered folder entries")}: 0/3`)).toBeTruthy(),
+    expect(view.getByText(`${t("Registered Explorer entries")}: 0/4`)).toBeTruthy(),
   );
   expect(invoke.mock.calls.map((c) => c[1].action)).toEqual(["status", "install", "remove"]);
 });
@@ -78,7 +78,7 @@ it("invalid response leaves state unknown; refresh is explicit", async () => {
   expect(invoke).toHaveBeenCalledTimes(1);
   fireEvent.click(view.getByText(t("Check menu status")));
   await waitFor(() =>
-    expect(view.getByText(`${t("Registered folder entries")}: 1/3`)).toBeTruthy(),
+    expect(view.getByText(`${t("Registered Explorer entries")}: 1/4`)).toBeTruthy(),
   );
 });
 it("failed mutation does not retain an optimistic success or retry", async () => {
@@ -100,4 +100,26 @@ it("failed mutation does not retain an optimistic success or retry", async () =>
 it("hides the section without a desktop invoke bridge", () => {
   const view = render(<DesktopIntegrationSettings />);
   expect(view.container.textContent).toBe("");
+});
+
+it.each([3, 4])("handles a %i-entry installation without automatic writes", async (count) => {
+  const invoke = vi.fn().mockResolvedValue(reply(count));
+  const view = render(<DesktopIntegrationSettings invoke={invoke} />);
+  await waitFor(() =>
+    expect(view.getByText(`${t("Registered Explorer entries")}: ${count}/4`)).toBeTruthy(),
+  );
+  expect(view.getByText(t("Add Explorer menu"))).toHaveProperty("disabled", count === 4);
+  expect(invoke.mock.calls).toEqual([["desktop_explorer_menu", { action: "status" }]]);
+  if (count === 3) {
+    fireEvent.click(view.getByText(t("Add Explorer menu")));
+    expect(
+      view.getByText(
+        t(
+          "Add file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation. Keep this Studio installation in its current location.",
+        ),
+      ),
+    ).toBeTruthy();
+    fireEvent.click(view.getByText(t("Cancel")));
+    expect(invoke).toHaveBeenCalledTimes(1);
+  }
 });

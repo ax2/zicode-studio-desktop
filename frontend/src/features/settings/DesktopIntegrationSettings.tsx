@@ -37,7 +37,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
           (value.supported &&
             (!Number.isInteger(value.installed) ||
               (value.installed ?? -1) < 0 ||
-              (value.installed ?? 4) > 3))
+              (value.installed ?? 5) > 4))
         ) {
           throw new Error("Invalid Explorer status");
         }
@@ -70,7 +70,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
       <div className="settings-section-title">{t("Desktop integration")}</div>
       <p>
         {t(
-          "Open a folder in Studio from its Explorer context menu. Windows 11 may show this under Show more options.",
+          "Open files in the tool center or folders in Studio from Explorer. Windows 11 may show this under Show more options.",
         )}
       </p>
       <p role="status" aria-live="polite">
@@ -81,7 +81,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
                 "Explorer menu status is unknown. Check again before changing it. An existing entry may belong to another installation.",
               )
             : status?.supported
-              ? `${t("Registered folder entries")}: ${status.installed}/3`
+              ? `${t("Registered Explorer entries")}: ${status.installed}/4`
               : unavailable}
       </p>
       <div className="desktop-integration-actions">
@@ -96,7 +96,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
         <button
           type="button"
           className="ui-button ui-button--secondary ui-button--sm"
-          disabled={!enabled || status?.installed === 3}
+          disabled={!enabled || status?.installed === 4}
           onClick={() => setPending("install")}
         >
           {t("Add Explorer menu")}
@@ -115,10 +115,10 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
           <p>
             {pending === "install"
               ? t(
-                  "Add folder, folder background and drive menus for this Windows user? Keep this Studio installation in its current location.",
+                  "Add file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation. Keep this Studio installation in its current location.",
                 )
               : t(
-                  "Remove the folder menus owned by this Studio installation for this Windows user?",
+                  "Remove the file and folder menus owned by this Studio installation for this Windows user?",
                 )}
           </p>
           <div className="desktop-integration-actions">
