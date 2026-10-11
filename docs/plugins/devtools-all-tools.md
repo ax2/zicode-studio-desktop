@@ -2,6 +2,8 @@
 
 更新：2026-10-09。持续目标尚未完成。
 
+2026-10-11 当前证据：[Pi 权限生命周期回放](devtools-current-pi-lifecycle.md)以当前源码 Host/保留 Worker/Pi1.1.0完成 Inspect 7、Transforms 23 个基本操作与两组10阶段权限检查；150次未授权等调用、90次缓存权威性调用拒绝，50个Worker均回收。对应13条目的当前证据与人读原因已同步，旧超时仍保留为历史记录。不是完整来源工具接受，154项完整接受仍0。
+
 2026-10-11 补充：[关闭工具应用内确认](tool-directory-navigation.md#关闭工具的应用内确认2026-10-11)已完成默认取消、键盘循环和焦点恢复，实际Windows取消保留/明确关闭隔离/重开空白通过；103项回归通过，不增加完整工具接受计数。
 
 2026-10-11 补充：[当前诊断候选运行验证](diagnostics-current-runtime.md)完成实际Windows通用工作台11基本样例与1历史边界样例、生产Worker142向量语义比较；46 raw报文仍未覆盖。旧失败保留，完整工具接受仍0。
@@ -33,7 +35,7 @@
 
 2026-10-09此前Windows开发EXE通用工具工作台的Base64编码worker_timeout（5220ms）保留；优化dev运行时编译热点后，当前EXE真实搜索、加载、主动编码/解码、展示结果分别494/626ms成功，切换保留输入及结果。仅两个基本样例，不是完整工具接受；旧失败见previousManualToolAcceptance，当前证据见currentManualToolAcceptance及技术博客iterations/wasi-startup-2026-10-09。[运行成本与边界](wasi-runtime-performance.md)说明测量范围。
 
-后续已将5个JSON排版漂移文件精确恢复到原冻结SHA，索引和WASM未改，13文件完整验证及既有真实HTTP专项重新通过，旧失败保留。当前EXE另完成Inspect84/Transforms164个可表达Worker语义用例（0失败，20个不能原样传输的raw用例单列未覆盖）及真实工作台JSON→YAML/URL解码两个基本样例1252/1015ms。见JSON currentRuntimeVerification及技术博客iterations/fixture-integrity-2026-10-09。当前Pi失败尚未重验，不能用Worker/UI通过替代；全工具接受仍0。
+后续已将5个JSON排版漂移文件精确恢复到原冻结SHA，索引和WASM未改，13文件完整验证及既有真实HTTP专项重新通过，旧失败保留。当前EXE另完成Inspect84/Transforms164个可表达Worker语义用例（0失败，20个不能原样传输的raw用例单列未覆盖）及真实工作台JSON→YAML/URL解码两个基本样例1252/1015ms。见JSON currentRuntimeVerification及技术博客iterations/fixture-integrity-2026-10-09。该阶段Pi失败未重验，不能用Worker/UI通过替代；后续当前Pi证据见[2026-10-11生命周期回放](devtools-current-pi-lifecycle.md)，全工具接受仍0。
 
 当前主状态与机器清单一致：3项试点子集有历史验证、24项候选包已接收待完整验收、17项待提供方插件包、43项待Host扩展、4项待Host管理接口映射、20项提供方部分实现、43项规划未实现，合计154项。每项只计入一个主状态；其额外接口需求仍记录在行内。纯计算评审路径不是可行性证明，实包/预算/授权/跨平台仍要验证。
 
