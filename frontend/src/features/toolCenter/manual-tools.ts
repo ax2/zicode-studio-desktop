@@ -17,10 +17,11 @@ export interface ToolDetail {
   permissions: { name: string; reason: string; required: boolean; granted: boolean }[];
 }
 export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<ManualCallApi> {
+  projectFiles?: { entry?: ((workspaceId: string) => Promise<unknown>) | null } | null;
   resourceCalls?: { list(scope: { sceneId: string; workspaceId: string }): Promise<unknown[]> };
   reconcileResourceCall?: (...args: unknown[]) => Promise<unknown>;
   searchTools(sceneId: string, options: { query: string; offset: number; revision: string | null;
-    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string }): Promise<ToolPage>;
+    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean }): Promise<ToolPage>;
   loadTool(sceneId: string, tool: { pluginId: string; capabilityId: string; revision: string }): Promise<ToolDetail>;
   invoke(sceneId: string, workspaceId: string, pluginId: string, capabilityId: string,
     input: Record<string, string | number | boolean>, options: { catalogRevision: string; captureResult?: boolean; callId?: string }): Promise<CapturedToolResponse>;

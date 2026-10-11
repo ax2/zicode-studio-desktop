@@ -47,6 +47,28 @@ async function click(container: HTMLElement, label: string) {
   expect(button).toBeTruthy(); await act(async () => button?.click());
 }
 
+it("defaults a file launch to resource tools, with metadata-only reversible filtering", async () => {
+  const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => "中文 & file.txt") } };
+  const container = await mount(gateway);
+  expect(gateway.projectFiles.entry).toHaveBeenCalledWith(scope.workspaceId);
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0, revision: null }));
+  const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  expect(input?.checked).toBe(true);
+  await act(async () => { input?.click(); await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools.mock.lastCall?.[1].resourceOnly).toBeUndefined();
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("keeps normal launches unfiltered and lets users opt into file tools", async () => {
+  const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => null) } };
+  const container = await mount(gateway);
+  expect(gateway.searchTools.mock.lastCall?.[1].resourceOnly).toBeUndefined();
+  const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  await act(async () => { input?.click(); await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0 }));
+});
+
 it("keeps full opened-tool names and reveals the selected item without executing or reloading it", async () => {
   const gateway = api();
   const container = await mount(gateway);

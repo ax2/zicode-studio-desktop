@@ -7,6 +7,9 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Only file resource tools": "仅显示文件资源工具",
+  "Shows enabled WASI tools with file read permission. Check each tool's supported formats before sharing a file.": "仅显示已启用且获准读取文件资源的 WASI 工具。提供文件前，请核对工具支持的格式。",
+  "The opened file could not be checked. You can select the file tool filter manually.": "未能检查已打开的文件，可以手动选择文件工具筛选。",
   "Choose from current project": "从当前项目选择",
   "Use opened file: {name}": "使用已打开文件：{name}",
   "Choose a file inside the current project. It will only be shared after confirmation.": "请选择当前项目内的文件。选择后仍需确认，才会提供给工具。",

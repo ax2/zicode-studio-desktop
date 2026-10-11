@@ -6,6 +6,7 @@ import { ManualToolSession } from "./ManualToolSession";
 import { ToolCloseConfirmation } from "./ToolCloseConfirmation";
 import type { ResourceTargetProvider } from "./ResourceToolRunner";
 import { toolCategoryTitle } from "./tool-categories";
+import { useFileToolFilter } from "./use-file-tool-filter";
 import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, manualToolError } from "./manual-tools";
 
 export function ManualToolDirectory({ api, scope, accessStore, openApplication, requestedTool, getResourceTarget }: {
@@ -18,6 +19,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
   const [view, setView] = useState<ToolDirectoryView>("all");
   const [source, setSource] = useState("");
   const [category, setCategory] = useState("");
+  const fileFilter = useFileToolFilter(api, scope);
   const [cursor, setCursor] = useState<{ offset: number; revision: string | null; accessRevision?: number | null }>({ offset: 0, revision: null });
   const [page, setPage] = useState<ToolPage | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +34,8 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
   const switcher = useRef<HTMLFieldSetElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
   const consumedRequest = useRef<ToolOpenRequest | undefined>(undefined);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter or workspace invalidates the catalog cursor.
+  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, scope.sceneId, scope.workspaceId]);
   useEffect(() => {
     setCloseTarget(previous => previous && (previous.sceneId !== scope.sceneId || previous.workspaceId !== scope.workspaceId) ? null : previous);
   }, [scope.sceneId, scope.workspaceId]);
@@ -78,9 +82,11 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
   }, [view, access.state.revision, scope.sceneId, scope.workspaceId]);
   useEffect(() => {
     let active = true;
+    if (!fileFilter.ready) return;
     setLoading(true); setError("");
     const timer = setTimeout(() => {
       void api.searchTools(scope.sceneId, { query, ...cursor,
+        ...(fileFilter.enabled ? { resourceOnly: true } : {}),
         ...(source ? { pluginId: source } : {}),
         ...(category ? { categoryId: category } : {}),
         ...(view !== "all" ? { view, workspaceId: scope.workspaceId } : {}) })
@@ -89,7 +95,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category]);
+  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled]);
   return <div className="manual-tool-directory" ref={directory}>
     <fieldset ref={switcher} className="ui-toolbar tool-open-switcher" aria-label={t("Opened tools")}>
       <button ref={activeTool === null ? selectedButton : undefined} data-open-tool-id="" type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
@@ -108,6 +114,10 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
         className={`ui-button ui-button--${view === value ? "primary" : "secondary"}`} aria-pressed={view === value}
         onClick={() => { setView(value); setCursor({ offset: 0, revision: null }); }}>{t(value === "all" ? "All tools" : value === "favorites" ? "Favorite tools" : "Recently used tools")}</button>)}
     </fieldset>}
+    <label className="tool-input-field">
+      <span><input type="checkbox" checked={fileFilter.enabled} disabled={!fileFilter.ready}
+        onChange={event => { fileFilter.setEnabled(event.target.checked); setCursor({ offset: 0, revision: null }); }} /> {t("Only file resource tools")}</span>
+    </label>
     <div className="tool-directory-filters">
     {page?.sources && <label className="tool-input-field">{t("Tool source")}
       <select className="ui-select" aria-label={t("Tool source")} value={source} disabled={loading} onChange={event => {
@@ -135,13 +145,15 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
     </label>
     </div>
     <p className="tool-center-source">{t("Browsing loads metadata only. Choose a tool to load its input form.")}</p>
+    {fileFilter.enabled && <p className="tool-center-source">{t("Shows enabled WASI tools with file read permission. Check each tool's supported formats before sharing a file.")}</p>}
+    {fileFilter.failed && <p role="status">{t("The opened file could not be checked. You can select the file tool filter manually.")}</p>}
     {view !== "all" && <p className="tool-center-source">{t("This list belongs to the current workspace and scene. Removed tools are hidden.")}</p>}
     {access.error && <p role="alert">{t("Tool history could not be loaded or saved.")}
       <button type="button" className="ui-button ui-button--secondary" onClick={access.retry}>{t("Retry")}</button></p>}
-    {loading && <p role="status">{t("Loading tools…")}</p>}
+    {(loading || !fileFilter.ready) && <p role="status">{t("Loading tools…")}</p>}
     {error && <div role="alert">{t(error)} <button type="button" className="ui-button ui-button--secondary"
       onClick={() => { setCursor({ offset: 0, revision: null }); }}>{t("Reload tools")}</button></div>}
-    {page && <>
+    {page && fileFilter.ready && <>
       <p role="status" key={page.total}>{t("{count} tools").replace("{count}", String(page.total))}</p>
       {pager("top")}
       <div className="tool-center-grid" aria-busy={loading}>
