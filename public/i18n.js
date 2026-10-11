@@ -315,6 +315,7 @@ const zhCN = {
   "Complete receiver inputs": "填写接收工具的其他输入",
   "Preview all inputs": "预览全部输入",
   "Edit receiver inputs": "修改接收工具输入",
+  "Change receiver": "更换接收工具",
   "No matching tools. Currently supports local WASI computation with string fields.":
     "没有匹配工具。目前支持使用文本字段的本地 WASI 计算工具。",
   "Confirm transfer and run": "确认发送并执行",

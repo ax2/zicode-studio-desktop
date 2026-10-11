@@ -161,3 +161,73 @@ it("keeps pages bounded and rejects business failure as a new successful result"
   await vi.waitFor(() => expect(document.body.textContent).toContain("INVALID_ENCODING"));
   expect(onResult).not.toHaveBeenCalled();
 });
+
+it("returns to the same search page without executing and invalidates the old confirmation", async () => {
+  const { gateway } = setup("en");
+  gateway.searchTargets.mockResolvedValue({ items: [target], total: 45, revision: "r", nextOffset: 20 });
+  const search = document.querySelector('input[type="search"]'); search.value = "encode";
+  click("Search tools");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Next tool page"));
+  click("Next tool page");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "encode", 20, "r"));
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  const oldConfirm = [...document.querySelectorAll("button")].find(node => node.textContent === "Confirm transfer and run");
+  click("Change receiver");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "encode", 20, "r"));
+  expect(document.querySelector('input[type="search"]').value).toBe("encode");
+  expect(document.activeElement).toBe(document.querySelector('input[type="search"]'));
+  oldConfirm.click(); expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("edits previewed additional inputs without losing the draft or reusing the old grant", async () => {
+  const { gateway } = setup("en");
+  gateway.searchTargets.mockResolvedValue({ items: [{ ...target, requiredInputs: ["right"] }], total: 1, revision: "r", nextOffset: null });
+  click("Search tools"); await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text"); expect(document.body.textContent).toContain("编码 · receiver · field text");
+  document.querySelector("textarea").value = "draft one"; click("Preview all inputs");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Edit receiver inputs"));
+  const oldConfirm = [...document.querySelectorAll("button")].find(node => node.textContent === "Confirm transfer and run");
+  click("Edit receiver inputs"); expect(document.querySelector("textarea").value).toBe("draft one");
+  oldConfirm.click(); expect(gateway.commitTransfer).not.toHaveBeenCalled();
+  document.querySelector("textarea").value = "draft two"; click("Preview all inputs");
+  await vi.waitFor(() => expect(gateway.prepareTransfer).toHaveBeenLastCalledWith(source.scope, "result", { pluginId: "receiver", capabilityId: "encode" }, "text", { right: "draft two" }));
+  expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("returns from additional inputs without copying drafts to another receiver or accepting stale forms", async () => {
+  const { gateway } = setup("en");
+  gateway.searchTargets.mockResolvedValue({ items: [{ ...target, requiredInputs: ["right"] }], total: 1, revision: "r", nextOffset: null });
+  click("Search tools"); await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text"); const oldForm = document.querySelector("form");
+  document.querySelector("textarea").value = "private draft"; click("Change receiver");
+  oldForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  expect(gateway.prepareTransfer).not.toHaveBeenCalled();
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text")); click("field text");
+  expect(document.querySelector("textarea").value).toBe("");
+  expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("locks receiver and input editing during confirmed computation", async () => {
+  const { gateway, onResult } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text")); click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  let finish; gateway.commitTransfer.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  click("Confirm transfer and run");
+  const change = [...document.querySelectorAll("button")].find(node => node.textContent === "Change receiver");
+  expect(change.disabled).toBe(true); change.click(); expect(gateway.searchTargets).toHaveBeenCalledTimes(1);
+  finish({ result: { ok: false, error: { code: "BUSINESS" } } });
+  await vi.waitFor(() => expect(change.disabled).toBe(false)); expect(onResult).not.toHaveBeenCalled();
+  click("Change receiver"); await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenCalledTimes(2));
+  expect(gateway.commitTransfer).toHaveBeenCalledTimes(1);
+});
+
+it("offers receiver reselection after preview rejection and blocks it after scope change", async () => {
+  const { gateway, switchTarget } = setup("en");
+  gateway.prepareTransfer.mockRejectedValue(new Error("target_changed"));
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text")); click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  switchTarget(); click("Change receiver"); expect(gateway.searchTargets).toHaveBeenCalledTimes(1);
+  expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});

@@ -13,6 +13,7 @@ export function createPluginResultTransfer({
   let sequence = 0;
   let query = "";
   let revision = null;
+  let currentOffset = 0;
   const valid = (token) => active && token === sequence && isCurrent();
   const element = (tag, text, className) => {
     const node = document.createElement(tag);
@@ -34,14 +35,16 @@ export function createPluginResultTransfer({
   };
   const collect = (target, inputs = {}) => {
     if (!active || !isCurrent()) return;
-    sequence += 1;
-    showTransferInputs({ panel, target, inputs, onCancel: cancel,
-      onPreview: (values) => void prepare(target, values) });
+    const token = ++sequence;
+    showTransferInputs({ panel, target, inputs, onCancel: () => { if (valid(token)) cancel(); },
+      onChooseReceiver: () => { if (valid(token)) void search(currentOffset, true); },
+      onPreview: (values) => { if (valid(token)) void prepare(target, values); } });
   };
 
-  async function search(offset = 0) {
+  async function search(offset = 0, focusSearch = false) {
     if (!active || !isCurrent()) return;
     const token = ++sequence;
+    currentOffset = offset;
     const searchInput = element("input", null, "ui-input");
     searchInput.type = "search";
     searchInput.value = query;
@@ -52,6 +55,7 @@ export function createPluginResultTransfer({
     const list = element("div");
     list.className = "plugin-result-target-list";
     const submit = () => {
+      if (!valid(token)) return;
       query = searchInput.value;
       revision = null;
       void search();
@@ -72,10 +76,11 @@ export function createPluginResultTransfer({
       ),
       searchInput,
       button(t("Search tools"), submit),
-      button(t("Cancel transfer"), cancel),
+      button(t("Cancel transfer"), () => { if (valid(token)) cancel(); }),
       status,
       list,
     );
+    if (focusSearch) searchInput.focus();
     try {
       const page = await gateway.searchTargets(
         source.scope,
@@ -98,6 +103,7 @@ export function createPluginResultTransfer({
               .replace("{plugin}", target.pluginId)
               .replace("{field}", target.field),
             () => {
+              if (!valid(token)) return;
               if (target.requiredInputs?.length) {
                 collect(target);
               } else void prepare(target);
@@ -106,9 +112,9 @@ export function createPluginResultTransfer({
         );
       }
       if (offset > 0)
-        list.append(button(t("Previous tool page"), () => void search(Math.max(0, offset - 20))));
+        list.append(button(t("Previous tool page"), () => { if (valid(token)) void search(Math.max(0, offset - 20)); }));
       if (page.nextOffset !== null)
-        list.append(button(t("Next tool page"), () => void search(page.nextOffset)));
+        list.append(button(t("Next tool page"), () => { if (valid(token)) void search(page.nextOffset); }));
       if (!page.items.length)
         list.append(
           element(
@@ -132,7 +138,7 @@ export function createPluginResultTransfer({
     const token = ++sequence;
     const status = element("p", t("Preparing field mapping preview…"));
     status.setAttribute("role", "status");
-    panel.replaceChildren(status, button(t("Cancel transfer"), cancel));
+    panel.replaceChildren(status, button(t("Cancel transfer"), () => { if (valid(token)) cancel(); }));
     try {
       const response = await gateway.prepareTransfer(
         source.scope,
@@ -146,10 +152,18 @@ export function createPluginResultTransfer({
       const text = element("pre", preview.text);
       text.setAttribute("aria-label", t("Transfer data preview"));
       text.tabIndex = 0;
+      const chooseReceiver = button(t("Change receiver"), () => {
+        if (valid(token)) void search(currentOffset, true);
+      });
+      const editInputs = target.requiredInputs?.length
+        ? button(t("Edit receiver inputs"), () => { if (valid(token)) collect(target, inputs); })
+        : null;
       const confirm = button(t("Confirm transfer and run"), async () => {
         if (!valid(token)) return;
         confirm.disabled = true;
         cancelButton.disabled = true;
+        chooseReceiver.disabled = true;
+        if (editInputs) editInputs.disabled = true;
         status.textContent = t("Running receiver tool…");
         try {
           const result = await gateway.commitTransfer(source.scope, response.grantId);
@@ -160,6 +174,8 @@ export function createPluginResultTransfer({
               result.error?.code ?? result.result?.error?.code ?? "unknown",
             );
             cancelButton.disabled = false;
+            chooseReceiver.disabled = false;
+            if (editInputs) editInputs.disabled = false;
             return;
           }
           active = false;
@@ -173,10 +189,12 @@ export function createPluginResultTransfer({
             status.textContent = t("Transfer failed: {error}").replace("{error}", error.message);
             confirm.disabled = false;
             cancelButton.disabled = false;
+            chooseReceiver.disabled = false;
+            if (editInputs) editInputs.disabled = false;
           }
         }
       });
-      const cancelButton = button(t("Cancel transfer"), cancel);
+      const cancelButton = button(t("Cancel transfer"), () => { if (valid(token)) cancel(); });
       status.textContent = t(
         "Confirm to send this data to the selected tool. It will not be saved or sent to a model automatically.",
       );
@@ -199,6 +217,8 @@ export function createPluginResultTransfer({
         text,
         transferInputsPreview(preview.inputs),
         confirm,
+        ...[editInputs].filter(Boolean),
+        chooseReceiver,
         cancelButton,
         status,
       );
@@ -209,8 +229,11 @@ export function createPluginResultTransfer({
           "{error}",
           error.message,
         );
+        panel.append(button(t("Change receiver"), () => {
+          if (valid(token)) void search(currentOffset, true);
+        }));
         if (target.requiredInputs?.length) {
-          panel.append(button(t("Edit receiver inputs"), () => collect(target, inputs)));
+          panel.append(button(t("Edit receiver inputs"), () => { if (valid(token)) collect(target, inputs); }));
         }
       }
     }

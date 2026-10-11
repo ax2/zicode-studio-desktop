@@ -57,6 +57,7 @@ import { createModelDropdownFeed, setupComposer, setupComposerImageAttachments, 
 import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usage.js";
 import { ConvNav } from "./react/conv-nav.js";
 import { showNativeDialog } from "./react/dialog.js";
+import { confirmPluginDiscard } from "./plugins/plugin-discard-confirmation.js";
 import { setupDocumentsApp } from "./react/documents.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
@@ -863,6 +864,7 @@ const pluginViewHost = setupPluginViewHost({
   getTarget: () => target,
   notify: notifications.notify,
   executeCommand: (commandId, args) => pluginShell?.executeCommand(commandId, args),
+  confirmDiscard: (message) => confirmPluginDiscard(message, showNativeDialog),
 });
 const notesGateway = new NotesGateway({
   fetchImpl: hostFetch,

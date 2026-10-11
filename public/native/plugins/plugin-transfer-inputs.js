@@ -1,12 +1,15 @@
 import { t } from "i18n";
 
 // Values are supplied explicitly, never inferred from schema defaults or user history.
-export function showTransferInputs({ panel, target, inputs = {}, onPreview, onCancel }) {
+export function showTransferInputs({ panel, target, inputs = {}, onPreview, onCancel, onChooseReceiver }) {
   const form = document.createElement("form");
   form.className = "plugin-transfer-inputs";
   const heading = document.createElement("strong");
   heading.textContent = t("Complete receiver inputs");
-  form.append(heading);
+  const receiver = document.createElement("p");
+  receiver.textContent = t("{title} · {plugin} · field {field}")
+    .replace("{title}", target.title).replace("{plugin}", target.pluginId).replace("{field}", target.field);
+  form.append(heading, receiver);
   const controls = [];
   for (const name of target.requiredInputs) {
     const label = document.createElement("label");
@@ -35,6 +38,14 @@ export function showTransferInputs({ panel, target, inputs = {}, onPreview, onCa
     onPreview(Object.fromEntries(controls.map(([name, input]) => [name, input.value])));
   });
   form.append(preview, cancel);
+  if (onChooseReceiver) {
+    const chooseReceiver = document.createElement("button");
+    chooseReceiver.type = "button";
+    chooseReceiver.className = "ui-button";
+    chooseReceiver.textContent = t("Change receiver");
+    chooseReceiver.addEventListener("click", onChooseReceiver);
+    form.append(chooseReceiver);
+  }
   panel.replaceChildren(form);
   controls[0]?.[1].focus();
 }

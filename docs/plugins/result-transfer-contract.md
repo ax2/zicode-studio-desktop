@@ -1,5 +1,8 @@
 # 文本结果发送候选 v1
 
+2026-10-11：[预览输入修改、接收工具重选与原生View验证](transfer-reselection.md)。
+这是Studio可信界面改进；候选Host请求格式与冻结提供方契约保持不变。
+
 状态：候选，Studio 内部桌面接口；不授权 resource.v1 或提供方新增 SDK 方法。
 
 POST /v2/plugin-results/prepare-transfer：{scope,resultId,target:{pluginId,capabilityId},field}。Host 只从来源记录读取文本，映射到声明的顶层 string 字段；其他必填字段导致拒绝。来源和目标只能同工作区/场景，双方必须当前授权且为隔离 WASI 计算。预览返回版本、字节数、文本、字段和有效期120秒的 grantId。
