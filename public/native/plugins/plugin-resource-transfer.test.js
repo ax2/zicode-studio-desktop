@@ -26,6 +26,7 @@ function fixture() {
       profile: "resource.wasi.input.draft2", contentVersion: hash }, result: { text: "<script>safe text</script>" } })),
     cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })), revokeResource: vi.fn(async () => ({})),
   };
+  gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
   gateway.prepareResourceCall = vi.fn(async owner => admission(owner));
   gateway.reconcileResourceCall = vi.fn(async (owner, ticket) => reconciliation(owner, ticket.callId));
   gateway.invokeResourceCall = gateway.invokeResource;

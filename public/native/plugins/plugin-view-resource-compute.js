@@ -12,6 +12,7 @@ const CODES = new Set([
   "resource_plugin_unavailable", "broker_token_invalid", "resource_budget_exceeded", "resource_output_profile_unsupported", "invalid_output", "result_too_large",
   "resource_call_host_changed", "resource_status_unavailable",
   "resource_call_used", "resource_call_not_admissible", "resource_call_changed", "resource_call_budget_exceeded",
+  "resource_journal_unavailable", "resource_journal_full", "resource_journal_pending",
 ]);
 const fail = (code) => { throw new Error(`[${code}]`); };
 
@@ -68,19 +69,23 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
       catch (error) { safeError(error); }
       if (!current()) fail("resource_view_changed");
       const status = response;
-      if (status.executionFinished) calls.delete(params.toolCallId);
+      if (status.executionFinished) {
+        await gateway.resourceCalls.remove(call.record);
+        calls.delete(params.toolCallId);
+      }
       return status;
     } finally { call.checking = false; }
   }
   async function invoke(params) {
     validate(params, true);
     params = { ...params };
-    const target = getTarget();
+    const target = { ...getTarget() };
     if (!target?.instanceId || !target?.sessionId || typeof params.capabilityId !== "string" ||
         !params.capabilityId.trim() || params.capabilityId.length > 128 ||
         !UUID.test(params.resourceId ?? "") || !/^[0-9a-f]{64}$/.test(params.contentVersion ?? ""))
       fail("resource_request_invalid");
-    if (recoverable ? ["prepareResourceCall", "invokeResourceCall", "reconcileResourceCall"].some(key => typeof gateway?.[key] !== "function")
+    if (recoverable ? ["prepareResourceCall", "invokeResourceCall", "reconcileResourceCall"].some(key => typeof gateway?.[key] !== "function") ||
+      typeof gateway?.resourceCalls?.keep !== "function" || typeof gateway?.resourceCalls?.remove !== "function"
       : typeof gateway?.invokeResource !== "function" || typeof gateway?.cancelResource !== "function")
       fail("resource_gateway_unavailable");
     if (calls.has(params.toolCallId)) fail("resource_call_duplicate");
@@ -101,6 +106,14 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
         try { response = await gateway.prepareResourceCall(owner, { ...params, input }); }
         catch { fail("resource_status_unavailable"); }
         call.ticket = normalizeResourceAdmission(response, owner);
+        if (!current()) fail("resource_view_changed");
+        if (call.cancelBeforeStart) fail("worker_cancelled");
+        try { call.record = await gateway.resourceCalls.keep(target, owner, call.ticket, instance.resourceLabel); }
+        catch (error) {
+          if (error?.message === "[resource_journal_pending]") fail("resource_journal_pending");
+          if (error?.message === "[resource_journal_full]") fail("resource_journal_full");
+          fail("resource_journal_unavailable");
+        }
         if (!current()) fail("resource_view_changed");
         if (call.cancelBeforeStart) fail("worker_cancelled");
       }
@@ -140,6 +153,8 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
       // Rendering failure must not turn a completed execution into an automatic retry.
       try { onOutputs(resources ?? [], owner); } catch { /* Parent rendering is independent. */ }
       call.completed = true;
+      // A failed record cleanup must not turn a completed execution into a retry.
+      if (recoverable) await gateway.resourceCalls.remove(call.record).catch(() => {});
       return response;
     } finally {
       // Also seal tickets obtained after cancellation, teardown or a definite busy rejection.

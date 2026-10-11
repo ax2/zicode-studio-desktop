@@ -13,6 +13,7 @@ function setup(onOutputs, recoverable = false) {
   const reply = { schemaVersion: 1, operationId: id, source, result: { text: "resource" }, privateToken: "secret" };
   const gateway = { invokeResource: vi.fn(async () => reply),
     cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })) };
+  gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
   gateway.prepareResourceCall = vi.fn(async owner => admission(owner));
   gateway.reconcileResourceCall = vi.fn(async (owner, ticket) => reconciliation(owner, ticket.callId));
   gateway.invokeResourceCall = gateway.invokeResource;
@@ -21,6 +22,23 @@ function setup(onOutputs, recoverable = false) {
   return { computation, gateway, reply, change: () => { target = { ...target, sessionId: "new" }; } };
 }
 describe("isolated View resource computation", () => {
+  it("does not execute when the durable record cannot be committed", async () => {
+    const c = setup(undefined, true); c.gateway.resourceCalls.keep.mockRejectedValue(new Error("quota"));
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_journal_unavailable");
+    expect(c.gateway.invokeResourceCall).not.toHaveBeenCalled();
+    expect(c.gateway.reconcileResourceCall).toHaveBeenCalledOnce();
+    expect(c.computation.unresolved(id)).toBe(false);
+  });
+  it("commits before invoke, retains uncertainty and removes only after valid terminal proof", async () => {
+    const c = setup(undefined, true); let commit;
+    c.gateway.resourceCalls.keep.mockImplementation(() => new Promise(resolve => { commit = resolve; }));
+    const work = c.computation.invoke(params); await vi.waitFor(() => expect(commit).toBeTypeOf("function"));
+    expect(c.gateway.invokeResourceCall).not.toHaveBeenCalled();
+    c.gateway.invokeResourceCall.mockRejectedValue(new Error("lost")); commit({ id: "record" });
+    await expect(work).rejects.toThrow(); expect(c.gateway.resourceCalls.remove).not.toHaveBeenCalled();
+    c.gateway.reconcileResourceCall.mockImplementation(async (owner, ticket) => reconciliation(owner, ticket.callId, "ended"));
+    await c.computation.check({ toolCallId: id }); expect(c.gateway.resourceCalls.remove).toHaveBeenCalledWith({ id: "record" });
+  });
   it.each(["not_started", "not_admissible"])("releases a strictly closed %s call without replay or output recovery", async phase => {
     const outputs = vi.fn(); const c = setup(outputs, true);
     c.gateway.invokeResourceCall.mockRejectedValue(new Error("lost"));

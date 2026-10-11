@@ -139,7 +139,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
         const committed = transferredReference(await gateway.commitResourceTransfer(source, id), target);
         if (!valid() || request !== token) { revoke(committed); return; }
         reference = committed;
-        const instance = { plugin: { id: target.pluginId }, resourceTarget: originalTarget };
+        const instance = { plugin: { id: target.pluginId }, resourceTarget: originalTarget, resourceLabel: `${chosen.applicationName} · ${chosen.title}` };
         preview = createResourcePreview({ container: outputs, plugin: { capabilities: [chosen] }, isCurrent: valid,
           onSave, onClear: onSaveClear,
           read: (scope, output, offset, length, current) => readPluginViewResource({ instance, gateway, target: getTarget(),
@@ -209,6 +209,9 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
         }
       } catch (failure) { if (valid()) status.textContent = t(executor.unresolved(callId)
         ? "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion."
+        : failure?.message === "[resource_journal_pending]" ? "A previous call for this tool still needs recovery. Review tool call records before running again."
+        : failure?.message === "[resource_journal_full]" ? "Call recovery records are full. Review or explicitly forget old records before running again."
+        : failure?.message === "[resource_journal_unavailable]" ? "Call recovery storage is unavailable. No execution was started. Review existing call records or storage access."
         : failure?.message === "[resource_status_unavailable]" ? "One-use tool calls are unavailable. Update Studio before running this tool." : executionMessage(failure)); }
       finally {
         running = executor.unresolved(callId);

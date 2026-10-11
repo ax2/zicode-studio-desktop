@@ -30,7 +30,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     status.textContent = t("Resource tool unavailable. Check the live session, plugin permissions and refresh its details.");
     return { destroy() { active = false; container.replaceChildren(); } };
   }
-  const instance = { plugin: { id: tool.pluginId }, resourceTarget: original };
+  const instance = { plugin: { id: tool.pluginId }, resourceTarget: original, resourceLabel: `${tool.applicationName} · ${tool.title}` };
   const read = (owner, resource, offset, length, current = valid) => readPluginViewResource({ instance, gateway, target: getTarget(),
     isCurrent: () => valid() && current(), params: { capabilityId: owner.capabilityId, resourceId: resource.resourceId, contentVersion: resource.contentVersion, offset, length } });
   const save = typeof gateway.prepareResourceSave === "function" ? createResourceSave({ gateway, getTarget, isCurrent: valid }) : null;
@@ -96,6 +96,9 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     } catch (failure) {
       if (valid()) status.textContent = t(computation.unresolved(callId)
         ? "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion."
+        : failure?.message === "[resource_journal_pending]" ? "A previous call for this tool still needs recovery. Review tool call records before running again."
+        : failure?.message === "[resource_journal_full]" ? "Call recovery records are full. Review or explicitly forget old records before running again."
+        : failure?.message === "[resource_journal_unavailable]" ? "Call recovery storage is unavailable. No execution was started. Review existing call records or storage access."
         : failure?.message === "[resource_status_unavailable]" ? "One-use tool calls are unavailable. Update Studio before running this tool."
         : failure?.message === "[worker_cancelled]" ? "Tool execution was cancelled. Inputs are kept." : "Tool did not finish successfully. Inputs are kept; review access or cancellation before running again.");
     } finally {

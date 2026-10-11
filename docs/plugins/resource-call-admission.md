@@ -73,6 +73,6 @@ phase为 not_started、active、ended、not_admissible；仅active的executionFi
 父控制器先准备Host颁发凭据，再一次消费；资源身份和输入在异步准备前保存快照。取消/销毁后迟到的准备响应会封存，失败后请求有界取消，但只有用户显式恢复并获得同Host有效证明才解除不确定状态。界面使用“停止并恢复调用”，明确会封存未开始调用或请求取消；分别展示not_started、active、ended、not_admissible，不把恢复称为只读查询。
 
 2026-10-11界面接入验证：226项插件前端测试通过；真实Host/生产Worker+Edge最终13.25秒，接力与目录成功响应各扣留一次，不自动重放或写入；先封存再投递迟到invoke返回resource_call_used且无新增Worker审计。活动/Host变化为代理注入，终态和封存来自真实Host。6张桌面/窄屏截图已检查。证据见技术档案iterations/resource-call-admission-ui-2026-10-11。
-控制器销毁/页面重载/跨重启的持久调用记录、原结果恢复与真实DevTools算法完整验收仍未完成。
+目录和接力后续已增加[本地调用恢复记录](resource-call-journal.md)：执行前提交元数据，工具中心可在关闭工具或同origin刷新后查找并显式恢复；存储失败/同工具待核对记录会阻止新执行。跨Host重启终态、原结果恢复与真实DevTools算法完整验收仍未完成，不能将本地记录等同于持久执行收据。
 
 验证证据：技术档案 `iterations/resource-call-admission-2026-10-11/`，包含100轮准入/恢复竞态、容量与退休测试，以及真实HTTP Host/Worker专项。

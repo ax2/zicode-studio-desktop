@@ -7,6 +7,7 @@ import { useToolAccess } from "../commandPalette/use-tool-access";
 import { ManualToolDirectory } from "./ManualToolDirectory";
 import type { ManualToolApi, ToolOpenRequest } from "./manual-tools";
 import type { ResourceTargetProvider } from "./ResourceToolRunner";
+import { ResourceCallRecords } from "./ResourceCallRecords";
 
 export interface ApplicationEntry extends PaletteCommand { category: string; source: string }
 export interface ToolCenterProps {
@@ -53,6 +54,7 @@ export function ToolCenterApp({ entries, accessStore, scope, toolApi, requestedT
         <button type="button" className="ui-button ui-button--secondary" onClick={onManage}>{t("Manage plugins")}</button>
       </div>
     </header>
+    {toolApi && scope && <ResourceCallRecords api={toolApi} scope={scope} getTarget={getResourceTarget} />}
     {toolApi && scope && <fieldset className="ui-toolbar" aria-label={t("Directory type")}>
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={section === "tools"} onClick={() => setSection("tools")}>{t("Individual tools")}</button>
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={section === "applications"} onClick={() => setSection("applications")}>{t("Full applications")}</button>

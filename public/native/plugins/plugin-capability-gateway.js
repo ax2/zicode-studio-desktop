@@ -1,4 +1,5 @@
 import { createSavedOutputGateway } from "./saved-output-gateway.js";
+import { createResourceCallJournal } from "./resource-call-journal.js";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class PluginCapabilityGateway {
@@ -18,6 +19,7 @@ export class PluginCapabilityGateway {
     this.#location = location;
     this.#timeoutMs = timeoutMs;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
+    this.resourceCalls = createResourceCallJournal();
   }
 
   list(sceneId) {

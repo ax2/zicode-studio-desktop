@@ -7,6 +7,20 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "A previous call for this tool still needs recovery. Review tool call records before running again.": "此工具仍有待恢复的调用。再次运行前，请先核对工具调用记录。",
+  "Call recovery records are full. Review or explicitly forget old records before running again.": "调用恢复记录已满。再次运行前，请核对或明确忘记旧记录。",
+
+  "Review tool call records": "核对工具调用记录",
+  "Refresh call records": "刷新调用记录",
+  "Call metadata stays in this desktop or browser profile, without inputs or results. Recovery seals unstarted calls or requests cancellation. A different Host cannot confirm old work.": "调用记录保留在当前桌面或浏览器配置中，不含输入或结果。恢复会封存未开始的调用或请求取消；宿主更换后无法确认旧调用。",
+  "Stored calls are not proof of completion or saved results.": "已记录的调用不代表执行结束或结果已保存。",
+  "No stored tool calls in this project.": "此项目没有待核对的工具调用记录。",
+  "Call records are unavailable. Existing records were kept.": "暂时无法读取或更新调用记录，已有记录已保留。",
+  "Forget call record": "忘记调用记录",
+  "Forget this local record? This does not cancel or confirm execution. Check the original runtime before running again.": "忘记此本地记录？这不会取消或确认执行。再次运行前请检查原运行环境。",
+  "Local record forgotten. No execution was cancelled or confirmed.": "已忘记本地记录，没有取消或确认任何执行。",
+  "Call recovery storage is unavailable. No execution was started. Review existing call records or storage access.": "无法保存调用恢复记录，本次未启动执行。请核对已有调用记录或存储权限。",
+
   "Stop and recover call": "停止并恢复调用",
   "Sealing or cancelling the call…": "正在封存未开始的调用或请求取消…",
   "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion.": "执行结果尚不确定。恢复将封存未开始的调用，或请求取消后核对是否结束。",
