@@ -78,8 +78,7 @@ describe("immutable application packaging override", () => {
     );
     expect(workflow).toContain("scripts/macos-bundle-signing.mjs");
     expect(workflow).toContain('macos-bundle-signing.mjs" --prepare');
-    expect(workflow).toContain('codesign --verify --deep --strict --verbose=2 "$APP"');
-    expect(workflow).toContain('"$APP/Contents/Resources/pi/pi" --version');
-    expect(workflow).toContain('"$APP/Contents/Resources/bun/bun" --version');
+    expect(workflow).toContain('verify-macos-dmg.mjs"');
+    expect(workflow).toMatch(/\$\{DMGS\[0\]\}.*PI_TARGET_PLATFORM.*RELEASE_TAG#v.*PI_VERSION/);
   });
 });

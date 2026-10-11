@@ -1,0 +1,54 @@
+name: Verify existing release DMGs
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft tag (does not build or publish)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: darwin-arm64
+          - os: macos-15-intel
+            target: darwin-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+      - name: Preserve fixed verification tools
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/dmg-verifier"
+          cp scripts/verify-draft-macos.mjs scripts/verify-macos-dmg.mjs scripts/executable-architecture.mjs "$RUNNER_TEMP/dmg-verifier/"
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Verify final downloaded DMG
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PI_TARGET_PLATFORM: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          export RELEASE_SOURCE_SHA="$(git rev-parse HEAD)"
+          bun "$RUNNER_TEMP/dmg-verifier/verify-draft-macos.mjs"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dmg-verification-${{ matrix.target }}
+          path: dmg-verification/receipt.json
+          if-no-files-found: error

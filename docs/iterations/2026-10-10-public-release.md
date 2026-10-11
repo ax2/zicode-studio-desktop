@@ -124,3 +124,10 @@ process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失�
 
 新增7项本机回归覆盖架构/系统拒绝、失败停止、路径引号、仅增加打包钩子和深度签名门槛；加上既有发布相关共29项通过，最终bun run check退出0、既有141warnings保持。第一轮断言误写预期错误词architecture而实际为Executable target mismatch，失败记录保留；最终断言准确检查原目标/实际目标。真实macOS签名仍待新发布流程，本机mock测试不能代替。
 参考：[Tauri beforeBundleCommand](https://v2.tauri.app/reference/config/#beforebundlecommand)。
+
+## 2026-10-11：最终 DMG 补验
+
+第三轮 ARM Mac 已完成架构检查、relay 预签名、完整应用签名和 DMG 上传，随后 Tauri 清理临时 `.app`，旧后置检查因此报路径不存在；原失败保留，未改记为成功。改为只读挂载最终 DMG，校验应用版本、main/relay/Pi/Bun 架构、deep/strict 签名以及内置 Pi/Bun 的真实启动，并在成功或失败时卸载卷。
+新增独立的 Verify existing release DMGs 工作流，只下载并验证既有草稿，不构建、不发布。可以复用同一不可变应用源码已通过的产品检查与打包，补齐最终磁盘映像验证，避免因为校验路径错误重复完整编译。最终发布前仍需核对原运行四平台全部产品门槛及打包成功、失败仅限已确认的临时路径检查，Linux/Windows上传摘要以及两份最终DMG收据，再核对五资产未变化。
+本机相关35项测试通过；首次模拟路径分隔符失败与142 warnings记录保留，修正后check退出0恢复既有141 warnings，无新增诊断。真实DMG检查仍等待Mac runner；这些单元测试未作为实际签名验收。
+文档入口、架构及历史评估中的旧Picot基线表述同步纠正，保留历史评估并说明来源修订。Windows未签名/macOS未公证和自动更新未启用明确展示。本机Python未安装mkdocs，未另装依赖，文档构建以GitHub Documentation结果补录。

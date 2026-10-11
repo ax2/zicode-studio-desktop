@@ -2,7 +2,9 @@
 
 ## 结论
 
-采用 Tauri 2 + Rust Host + Pi RPC Sidecar。以 Picot 作为 MIT 工程基线是合理的，但上游版本不能原样交付。
+历史评估说明（2026-10-11 补充）：本页保留当时方案评估。原先“以 Picot 作为 MIT 工程基线”的来源描述已纠正：本项目参考其 Pi 桌面封装架构，没有直接 fork，也未持续跟进；现行来源和版权说明以 README、NOTICE 与 LICENSE 为准。
+
+采用 Tauri 2 + Rust Host + Pi RPC Sidecar。现有工程需要按本项目目标独立验证，不能把参考项目的能力视为可直接交付。
 
 ## 已确认的可复用能力
 

@@ -132,6 +132,7 @@ nav:
   - 移动端公网接入架构（服务器会合）: remote-access-server-architecture.md
   - 本地发布验证: release-validation-2026-08-01.md
   - Windows 打包: windows-packaging.md
+  - v0.4.2 验证与交付: releases/v0.4.2-verification.md
   - 实施计划: implementation-plan.md
   - 实现状态: implementation-status.md
   - 可用性改进总览: usability-summary.md

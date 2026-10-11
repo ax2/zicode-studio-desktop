@@ -124,9 +124,10 @@ bun run release 0.1.0
 
 1. 构建 Windows x64 NSIS（内置 Pi、PortableGit、WebView2）；
 2. 构建 macOS Apple Silicon DMG（内置 Pi）；
-3. 构建 Linux x64 AppImage 和 DEB（内置 Pi）；
-4. 运行平台验证并上传所有产物；
-5. 仅在全部构建成功后公开 Release。
+3. 构建 macOS Intel DMG（内置 Pi）；
+4. 构建 Linux x64 AppImage 和 DEB（内置 Pi）；
+5. 运行平台验证并校验上传产物的版本、架构、大小与 SHA-256；
+6. 仅在全部平台成功且五个安装包齐全后公开 Release。
 
 发布工作流与应用标签分别绑定固定提交。若只需修复草稿的发布校验工具，可在 `main`
 运行 Desktop release 的 `workflow_dispatch` 并指定已有标签；应用仍从原标签构建，

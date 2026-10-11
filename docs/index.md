@@ -1,8 +1,10 @@
 # ZiCode Studio Desktop
 
-ZiCode Studio Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。最终用户只安装一个经过签名的安装包，不需要预装 Pi、Node.js、Git、Bash、Rust 或 WSL。
+ZiCode Studio Desktop 是一个面向项目、AI 协作、知识与自动化的跨平台个人开发者平台，内置版本锁定的 Pi Runtime。Windows 安装包包含 PortableGit 和 WebView2 离线安装器；macOS 和 Linux 使用系统 Git 与 Shell。
 
-项目以 Picot `v0.3.1-beta.13` 的 MIT 代码为工程基线，保留其 Tauri、Rust Host、Pi RPC、会话管理和自动更新能力，并针对正式 Windows 产品补齐依赖、场景、隔离、安全和发布链路。
+项目最初参考 Picot 封装 Pi 的桌面架构，没有直接 fork Picot，后续未持续跟进，当前独立维护。历史版权和 MIT 声明继续保留；完整背景见 [README 的来源说明](https://github.com/ax2/zicode-studio-desktop#项目来源与许可证)。
+
+当前仍为早期开发版本：Windows 安装包尚未 Authenticode 签名，macOS 使用未公证的 ad-hoc 签名，签名自动更新尚未启用。
 
 当前实现进度和验证证据见[实现状态](implementation-status.md)。
 
@@ -10,12 +12,12 @@ ZiCode Studio Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。
 
 - Tauri 2 桌面壳和 Rust 进程管理。
 - 内置、版本锁定的 Pi Runtime。
-- 内置 Portable Git Bash；扩展能力需要时提供受控 Node/npm Runtime。
+- Windows 内置 Portable Git Bash；内置 Bun 支持受控扩展运行。
 - 自定义模型渠道，包括 `base_url`、协议、Headers、模型目录和连接测试。
 - 金融、编程、创作及用户自定义场景。
 - 每个实例独立的进程、配置、会话、扩展、日志、临时目录和权限策略。
 - 独立于 Pi Extension 的应用插件平台，包括主界面、工具栏、Capability 和权限管理。
-- Release tag 自动构建 Windows NSIS EXE 安装包。
+- Release tag 自动构建 Windows NSIS EXE、两种 macOS 架构 DMG 和 Linux AppImage/DEB；全部平台及五资产门槛通过后公开。
 - MkDocs 文档构建和可下载文档站产物。
 
 ## 文档入口
@@ -28,6 +30,7 @@ ZiCode Studio Desktop 是一个面向 Windows 10/11 的本地 Pi 桌面应用。
 - [金融工作台](finance-workbench.md)
 - 应用内 Help 内容位于 `public/help/`，通过 Help 按钮打开。
 - [Windows 打包](windows-packaging.md)
+- [v0.4.2 验证与交付记录](releases/v0.4.2-verification.md)
 - [实施计划](implementation-plan.md)
 - [实现状态](implementation-status.md)
 - [方案 Review](reviews/2026-07-30-solution-review.md)

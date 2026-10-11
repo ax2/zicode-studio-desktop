@@ -29,7 +29,7 @@ Rust Host
             └── authorized workspace
 ```
 
-React 或其他前端框架不参与系统权限边界。当前 Picot 基线使用 Vanilla JS；在功能边界稳定前继续沿用，避免为框架迁移延误 Windows 交付。
+React 或其他前端框架不参与系统权限边界。当前项目独立维护，外围界面与协议模块使用 Vanilla JS，功能界面逐步采用 React/TypeScript；权限边界由 Rust Host 管理。
 
 ## 2. Rust Host 职责
 

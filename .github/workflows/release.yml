@@ -136,7 +136,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/studio-release-verifier"
           cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
             scripts/release-artifact-policy.mjs scripts/executable-architecture.mjs \
-            scripts/macos-bundle-signing.mjs \
+            scripts/macos-bundle-signing.mjs scripts/verify-macos-dmg.mjs \
             "$RUNNER_TEMP/studio-release-verifier/"
           echo "Verification workflow source: ${{ github.workflow_sha }}"
 
@@ -345,11 +345,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP="target/release/bundle/macos/ZiCode Studio Desktop.app"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          codesign --verify --strict --verbose=2 "$APP/Contents/MacOS/zicode-relay"
-          "$APP/Contents/Resources/pi/pi" --version
-          "$APP/Contents/Resources/bun/bun" --version
+          shopt -s nullglob
+          DMGS=(target/release/bundle/dmg/*.dmg)
+          [[ "${#DMGS[@]}" == 1 ]] || { echo "Expected exactly one final DMG"; exit 1; }
+          PI_VERSION="$(bun -e 'console.log(require("./scripts/pi-version.json").version)')"
+          bun "$RUNNER_TEMP/studio-release-verifier/verify-macos-dmg.mjs" \
+            "${DMGS[0]}" "$PI_TARGET_PLATFORM" "${RELEASE_TAG#v}" "$PI_VERSION"
 
       - name: Verify uploaded platform bundles
         shell: bash
