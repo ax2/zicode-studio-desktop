@@ -3,6 +3,7 @@ import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { readPluginViewResource, resourceViewTarget } from "./plugin-view-resource.js";
 import { resourceAccess, transferGrant, transferredReference } from "./plugin-resource-transfer-protocol.js";
+import { resourceCallRecoveryMessage } from "./resource-call-recovery-message.js";
 
 const defaultInputs = async (container, schema) => {
   const { mountResourceInputs } = await import("../react/tool-center.js");
@@ -144,11 +145,35 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
           read: (scope, output, offset, length, current) => readPluginViewResource({ instance, gateway, target: getTarget(),
             isCurrent: () => valid() && current(), params: { capabilityId: scope.capabilityId,
               resourceId: output.resourceId, contentVersion: output.contentVersion, offset, length } }) });
-        computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid,
+        computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true,
           onOutputs: (items, scope) => preview.show(items, scope) });
         controls.replaceChildren(button("Run receiving tool", () => void run()));
         status.textContent = t("Output shared. Review parameters, then run the tool separately.");
       } catch { if (valid() && request === token) { grant = null; error(); controls.replaceChildren(button("Review sharing", () => void prepare())); } }
+    }
+    function recoverControls(executor) {
+      panel.insertBefore(controls, details);
+      const check = button("Check tool status", async () => {
+        if (!valid() || !executor.unresolved(callId) || check.disabled) return;
+        check.disabled = true; status.textContent = t("Checking tool status…");
+        try {
+          const state = await executor.check({ toolCallId: callId });
+          if (!valid()) return;
+          status.textContent = t(resourceCallRecoveryMessage(state));
+          if (state.executionFinished) {
+            running = false; callId = null; form.setDisabled(false);
+            panel.insertBefore(controls, result);
+            search.disabled = searchButton.disabled = false; next.disabled = page.nextOffset === null; list.inert = false;
+            controls.replaceChildren(button("Run receiving tool", () => void run()));
+          }
+        } catch (error) { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, error)); }
+        finally { if (valid()) check.disabled = false; }
+      });
+      controls.replaceChildren(check, button("Cancel execution", () => {
+        void executor.cancel({ toolCallId: callId }).then(() => {
+          if (valid()) status.textContent = t("Cancellation requested. Waiting for the tool to finish.");
+        }).catch(() => { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, new Error())); });
+      }));
     }
     async function run() {
       if (!valid() || running || !reference || !computation) return;
@@ -156,7 +181,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
       if (prepared.error) { status.textContent = t(prepared.error); return; }
       const executor = computation, access = reference;
       clearTimeout(timer); timer = null;
-      running = true; form.setDisabled(true); search.disabled = searchButton.disabled = next.disabled = true;
+      running = true; form.setDisabled(true); search.disabled = searchButton.disabled = next.disabled = true; list.inert = true;
       callId = crypto.randomUUID(); result.textContent = ""; preview.clear();
       controls.replaceChildren(button("Cancel execution", () => {
         void executor.cancel({ toolCallId: callId }).then(() => { if (valid()) status.textContent = t("Cancellation requested. Waiting for the tool to finish."); })
@@ -182,19 +207,24 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
           };
           timer = setTimeout(verify, 5000);
         }
-      } catch (failure) { if (valid()) status.textContent = executionMessage(failure); }
+      } catch (failure) { if (valid()) status.textContent = t(executor.unresolved(callId)
+        ? "Execution outcome is unknown. Check tool status before running again."
+        : failure?.message === "[resource_status_unavailable]" ? "Tool status checks are unavailable. Update Studio before running this tool." : executionMessage(failure)); }
       finally {
-        running = false; callId = null;
-        if (valid()) { form.setDisabled(false); search.disabled = searchButton.disabled = false; next.disabled = page.nextOffset === null;
+        running = executor.unresolved(callId);
+        if (!running) callId = null;
+        if (valid() && running) recoverControls(executor);
+        else if (valid()) { form.setDisabled(false); search.disabled = searchButton.disabled = false; next.disabled = page.nextOffset === null; list.inert = false;
           controls.replaceChildren(button("Run receiving tool", () => void run())); }
         else revoke(access);
       }
     }
     selection = { dispose() {
+      const uncertain = computation?.unresolved(callId);
       disposed = true; request++; computation?.destroy(); preview?.destroy(); form?.destroy();
       clearTimeout(timer);
       // Active execution owns this reference until its response/cancellation settles.
-      if (!running) revoke(reference);
+      if (!running || uncertain) revoke(reference);
       if (typeof panel.close === "function") panel.close();
       panel.remove();
     } };

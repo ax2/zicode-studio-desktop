@@ -73,7 +73,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
       {opened.map(item => <span key={item.tool.toolId} className="ui-toolbar">
         <button type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === item.tool.toolId}
-          onClick={() => setActiveTool(item.tool.toolId)}>{item.tool.title}{runningTools.includes(item.tool.toolId) ? ` · ${t("Running…")}` : ""}</button>
+          onClick={() => setActiveTool(item.tool.toolId)}>{item.tool.title}{runningTools.includes(item.tool.toolId) ? ` · ${t("Completion unconfirmed")}` : ""}</button>
         <button type="button" className="ui-button ui-button--ghost" aria-label={`${t("Close tool")}: ${item.tool.title}`}
           disabled={runningTools.includes(item.tool.toolId)} onClick={() => { void (async () => {
             if (!await window.confirm(t("Close this tool and discard its inputs and result?"))) return;

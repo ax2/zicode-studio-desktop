@@ -2,6 +2,7 @@ import { webcrypto } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createDirectoryResourceRunner } from "./directory-resource-runner.js";
+import { resourceCallStatus } from "../../../tests/helpers/resource-call-status.js";
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const roots = [];
 function fixture(overrides = {}) {
@@ -11,6 +12,7 @@ function fixture(overrides = {}) {
   const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: "resource.wasi.input.draft2", capability: { id: tool.capabilityId, inputSchema: {} }, permissions: [{ name: "resource.read", granted: true }] };
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: { text: "received <script>literal</script>" } })), ...overrides };
+  gateway.resourceCallStatus = vi.fn(async (owner, call) => resourceCallStatus(owner, call));
   const form = { prepare: vi.fn(() => ({ input: { count: 0, flag: false } })), setDisabled: vi.fn(), destroy: vi.fn() };
   const onBusy = vi.fn(), onSuccess = vi.fn(async () => {});
   const controller = createDirectoryResourceRunner({ container: document.querySelector("main"), tool, detail, gateway, getTarget: () => target, onBusy, onSuccess, mountInputs: async () => form }); roots.push(controller);
@@ -24,6 +26,15 @@ function fixture(overrides = {}) {
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("protects busy state across unknown and changed-Host checks without replaying", async () => {
+    const f = fixture(); await f.share(); f.gateway.invokeResource.mockRejectedValue(new Error("lost response"));
+    f.button("Execute tool").click(); await vi.waitFor(() => expect(f.button("Check tool status").hidden).toBe(false));
+    f.button("Check tool status").click(); await vi.waitFor(() => expect(document.body.textContent).toContain("Running again is blocked"));
+    expect(f.button("Execute tool").disabled).toBe(true); expect(f.onBusy).toHaveBeenLastCalledWith(true);
+    f.gateway.resourceCallStatus.mockRejectedValue({ code: "resource_call_host_changed" });
+    f.button("Check tool status").click(); await vi.waitFor(() => expect(document.body.textContent).toContain("Studio restarted"));
+    expect(f.button("Execute tool").disabled).toBe(true); expect(f.gateway.invokeResource).toHaveBeenCalledOnce();
+  });
   it("opens without reading/running, confirms catalog-bound input, then executes separately and escapes output", async () => {
     const f = fixture(); expect(f.gateway.prepareResource).not.toHaveBeenCalled(); expect(f.gateway.invokeResource).not.toHaveBeenCalled();
     await f.share(); expect(f.gateway.prepareResource).toHaveBeenCalledWith(expect.objectContaining({ catalogRevision: "a".repeat(64), owner: { runtimeId: "runtime", sessionId: "session", pluginId: "receiver", capabilityId: "consume" } })); expect(f.gateway.invokeResource).not.toHaveBeenCalled();
@@ -43,7 +54,10 @@ describe("directory-owned resource execution", () => {
     f.gateway.invokeResource.mockImplementation(() => new Promise((_done, fail) => { reject = fail; }));
     f.button("Execute tool").click(); await vi.waitFor(() => expect(reject).toBeTypeOf("function")); f.button("Cancel tool").click();
     await vi.waitFor(() => expect(f.gateway.cancelResource).toHaveBeenCalledOnce()); expect(f.button("Execute tool").disabled).toBe(true);
-    reject({ code: "worker_cancelled" }); await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false)); expect(f.onSuccess).not.toHaveBeenCalled();
+    reject({ code: "worker_cancelled" }); await vi.waitFor(() => expect(f.button("Check tool status").hidden).toBe(false));
+    expect(f.button("Execute tool").disabled).toBe(true);
+    f.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "finished"));
+    f.button("Check tool status").click(); await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false)); expect(f.onSuccess).not.toHaveBeenCalled();
   });
   it("rejects changed catalog metadata before invoking", async () => {
     const f = fixture(); await f.share(); f.gateway.loadTool.mockRejectedValue({ code: "catalog_changed" }); f.button("Execute tool").click();

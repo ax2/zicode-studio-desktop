@@ -211,6 +211,12 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     assert_eq!(post("call-status", expected.clone()).await.unwrap().status(), StatusCode::OK);
     expected["hostInstanceId"] = json!(uuid::Uuid::new_v4());
     assert_eq!(post("call-status", expected).await.unwrap().json::<Value>().await.unwrap()["error"]["code"], "resource_call_host_changed");
+    let mut fenced = invocation.clone();
+    fenced["toolCallId"] = json!(uuid::Uuid::new_v4());
+    fenced["hostInstanceId"] = json!(uuid::Uuid::new_v4());
+    assert_eq!(post("invoke-view", fenced.clone()).await.unwrap().json::<Value>().await.unwrap()["error"]["code"], "resource_call_host_changed");
+    fenced["hostInstanceId"] = status["hostInstanceId"].clone();
+    assert_eq!(post("invoke-view", fenced).await.unwrap().status(), StatusCode::OK);
     let mut unknown = status_request.clone();
     unknown["toolCallId"] = json!(uuid::Uuid::new_v4());
     let unknown: Value = post("call-status", unknown).await.unwrap().json().await.unwrap();

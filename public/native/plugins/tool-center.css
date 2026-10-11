@@ -24,6 +24,7 @@ body[data-active-plugin="core.tools"] .sidebar { display: none; }
 .tool-detail button { align-self: flex-start; }
 .tool-detail textarea { width: 100%; box-sizing: border-box; }
 .directory-resource-tool, .directory-resource-session { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.directory-resource-tool .ui-button[hidden], .directory-resource-session .ui-button[hidden] { display: none; }
 .directory-resource-tool .plugin-resource-selection, .directory-resource-session .plugin-resource-selection { max-height: none; padding: 0; }
 .directory-resource-tool :is(input, select, textarea), .directory-resource-session :is(input, select, textarea) { box-sizing: border-box; max-width: 100%; min-width: 0; }
 .tool-input-description { white-space: pre-wrap; overflow-wrap: anywhere; }

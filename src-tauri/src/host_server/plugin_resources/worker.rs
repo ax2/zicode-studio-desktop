@@ -51,6 +51,8 @@ pub(in crate::host_server) struct Invoke {
     access: Access,
     tool_call_id: String,
     input: Value,
+    #[serde(default)]
+    host_instance_id: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -179,6 +181,14 @@ pub(in crate::host_server) async fn invoke(
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     validate(&request.access)?;
+    if let Some(instance) = &request.host_instance_id {
+        if uuid::Uuid::parse_str(instance).is_err() {
+            return Err(rejected("resource_call_invalid"));
+        }
+        if instance != &state.plugin_resource_workers.instance_id {
+            return Err(rejected("resource_call_host_changed"));
+        }
+    }
     let (target, key) = call_scope(&state, &request.access.owner, &request.tool_call_id)?;
     // Admission precedes resource/module copies, without an unbounded waiting queue.
     let permit = state

@@ -5,6 +5,7 @@ import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
 import { createResourceSave } from "./plugin-resource-save.js";
 import { readPluginViewResource, resourceViewTarget } from "./plugin-view-resource.js";
+import { resourceCallRecoveryMessage } from "./resource-call-recovery-message.js";
 
 const inputs = async (element, schema) => {
   const form = (await import("../react/tool-center.js")).mountResourceInputs(element, schema);
@@ -20,7 +21,8 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const status = node("p"); status.setAttribute("role", "status");
   const result = node("pre", null, "tool-result"), parameters = node("div"), controls = node("div", null, "ui-toolbar"), outputs = node("div");
   const run = button("Execute tool", () => void execute()), cancel = button("Cancel tool", () => void stop());
-  run.disabled = true; cancel.disabled = true; controls.append(run, cancel); container.append(parameters, controls, status, result, outputs);
+  const check = button("Check tool status", () => void checkStatus()); check.hidden = true;
+  run.disabled = true; cancel.disabled = true; controls.append(run, cancel, check); container.append(parameters, controls, status, result, outputs);
   const required = ["loadTool", "prepareResource", "appendResource", "commitResource", "revokeResource", "invokeResource", "cancelResource", "readResource"];
   if (!target?.instanceId || !target?.sessionId || target.workspaceId == null || detail.resourceInputProfile !== "resource.wasi.input.draft2" || tool.runtime !== "wasi" || !detail.enabled ||
       detail.pluginId !== tool.pluginId || detail.version !== tool.version || detail.capability?.id !== tool.capabilityId ||
@@ -37,7 +39,7 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const preview = createResourcePreview({ container: outputs, plugin: { capabilities: [{ id: tool.capabilityId, title: tool.title }] }, isCurrent: valid, read,
     onSave: save ? (...args) => save.open(...args) : undefined, onTransfer: transfer ? (...args) => transfer.open(...args) : undefined,
     onClear: () => { save?.clear(); transfer?.clear(); } });
-  const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, onOutputs: (items, owner) => preview.show(items, owner) });
+  const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner) => preview.show(items, owner) });
   const selectionContainer = node("div"); container.prepend(selectionContainer);
   const selection = createPluginResourceSelection({ container: selectionContainer, plugin: { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] }, target, gateway, catalogRevision: detail.revision, isCurrent: () => valid() && !running,
     onResource: value => {
@@ -51,15 +53,29 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     if (!callId || !valid()) return;
     cancelRequested = true;
     cancel.disabled = true;
-    if (!invoking) { status.textContent = t("Cancellation requested. Waiting for the tool to finish."); return; }
+    if (!invoking && !computation.unresolved(callId)) { status.textContent = t("Cancellation requested. Waiting for the tool to finish."); return; }
     try { await computation.cancel({ toolCallId: callId }); if (valid()) status.textContent = t("Cancellation requested. Waiting for the tool to finish."); }
     catch { if (valid()) status.textContent = t("Cancellation could not be confirmed. Wait before running again."); }
+  }
+  async function checkStatus() {
+    if (!valid() || !callId || !computation.unresolved(callId) || check.disabled) return;
+    check.disabled = true; status.textContent = t("Checking tool status…");
+    try {
+      const state = await computation.check({ toolCallId: callId });
+      if (!valid()) return;
+      status.textContent = t(resourceCallRecoveryMessage(state));
+      if (state.executionFinished) {
+        running = false; callId = null; onBusy(false); check.hidden = true;
+        form.setDisabled(false); selectionContainer.inert = false; run.disabled = !reference; cancel.disabled = true;
+      }
+    } catch (error) { if (valid()) status.textContent = t(resourceCallRecoveryMessage(null, error)); }
+    finally { if (valid()) check.disabled = false; }
   }
   async function execute() {
     if (!valid() || running || !reference || !form) return;
     const prepared = form.prepare(); if (prepared.error) { status.textContent = t(prepared.error); return; }
     const access = reference; clearTimeout(timer); result.textContent = ""; preview.clear();
-    running = true; cancelRequested = false; callId = crypto.randomUUID(); run.disabled = true; cancel.disabled = false; form.setDisabled(true); selectionContainer.inert = true; onBusy(true);
+    running = true; cancelRequested = false; callId = crypto.randomUUID(); check.hidden = true; run.disabled = true; cancel.disabled = false; form.setDisabled(true); selectionContainer.inert = true; onBusy(true);
     status.textContent = t("Running…");
     try {
       const refreshed = await gateway.loadTool(target.sceneId ?? "programming", { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision: detail.revision });
@@ -78,10 +94,14 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       };
       timer = setTimeout(verify, 5000);
     } catch (failure) {
-      if (valid()) status.textContent = t(failure?.message === "[worker_cancelled]" ? "Tool execution was cancelled. Inputs are kept." : failure?.message === "[worker_timeout]" ? "Tool timed out. Inputs are kept; review before running again." : "Tool did not finish successfully. Inputs are kept; review access or cancellation before running again.");
+      if (valid()) status.textContent = t(computation.unresolved(callId)
+        ? "Execution outcome is unknown. Check tool status before running again."
+        : failure?.message === "[resource_status_unavailable]" ? "Tool status checks are unavailable. Update Studio before running this tool."
+        : failure?.message === "[worker_cancelled]" ? "Tool execution was cancelled. Inputs are kept." : "Tool did not finish successfully. Inputs are kept; review access or cancellation before running again.");
     } finally {
-      running = false; invoking = false; callId = null; onBusy(false);
-      if (valid()) { form.setDisabled(false); selectionContainer.inert = false; run.disabled = !reference; cancel.disabled = true; }
+      running = computation.unresolved(callId); invoking = false; onBusy(running);
+      if (!running) callId = null;
+      if (valid()) { form.setDisabled(running); selectionContainer.inert = running; run.disabled = running || !reference; cancel.disabled = !running; check.hidden = !running; }
     }
   }
   return { destroy() {

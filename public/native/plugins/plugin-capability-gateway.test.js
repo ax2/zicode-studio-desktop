@@ -2,6 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import { PluginCapabilityGateway } from "./plugin-capability-gateway.js";
 
 describe("PluginCapabilityGateway", () => {
+  it("separates readonly resource status from execution and preserves the captured Host fence", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    await gateway.resourceCallStatus(owner, "call");
+    await gateway.resourceCallStatus(owner, "call", "host");
+    await gateway.invokeResource(owner, { toolCallId: "call", resourceId: "resource", contentVersion: "hash", hostInstanceId: "host" });
+    expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual(["/v2/plugin-resources/call-status", "/v2/plugin-resources/call-status", "/v2/plugin-resources/invoke-view"]);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).hostInstanceId).toBeUndefined();
+    expect(JSON.parse(fetchImpl.mock.calls[1][1].body).hostInstanceId).toBe("host");
+    expect(JSON.parse(fetchImpl.mock.calls[2][1].body).hostInstanceId).toBe("host");
+  });
   it("separates resource save preview from confirmed write without caller paths", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });

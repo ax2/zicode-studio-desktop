@@ -7,6 +7,16 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Completion unconfirmed": "待确认结束",
+  "Cancel execution": "取消执行",
+  "Checking tool status…": "正在核对执行状态…",
+  "Execution outcome is unknown. Check tool status before running again.": "执行结果尚不确定。再次运行前，请先核对执行状态。",
+  "Tool is still running. Wait or cancel, then check again.": "工具仍在执行。请等待或请求取消，再次核对状态。",
+  "Execution status is unknown. Running again is blocked; no result has been recovered.": "无法确认执行状态。已限制再次运行，尚未恢复结果。",
+  "Tool execution has ended. Its result was not recovered. Review inputs before starting a new run.": "已确认工具执行结束，未恢复原结果。请检查输入后再发起新的执行。",
+  "Tool status could not be confirmed. Running again remains blocked.": "暂时无法核对执行状态，仍限制再次运行。",
+  "Studio restarted. The previous execution cannot be confirmed. Running again remains blocked.": "Studio 已重启，无法确认之前的执行状态，仍限制再次运行。",
+  "Tool status checks are unavailable. Update Studio before running this tool.": "当前 Studio 不支持执行状态核对，请更新后再运行此工具。",
   "Review save records": "核对保存记录",
   "Snapshot verified at the last check; later changes are possible.": "最近核对时快照完整；之后仍可能发生变化。",
   "Search save records": "搜索保存记录",

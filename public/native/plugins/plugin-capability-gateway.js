@@ -80,13 +80,21 @@ export class PluginCapabilityGateway {
     });
   }
 
-  invokeResource(owner, { resourceId, contentVersion, toolCallId, input = {} }) {
+  resourceCallStatus(owner, toolCallId, hostInstanceId) {
+    return this.#request(this.#url("/v2/plugin-resources/call-status"), {
+      method: "POST",
+      body: JSON.stringify({ schemaVersion: 1, owner, toolCallId, ...(hostInstanceId ? { hostInstanceId } : {}) }),
+    });
+  }
+
+  invokeResource(owner, { resourceId, contentVersion, toolCallId, input = {}, hostInstanceId }) {
     return this.#request(this.#url("/v2/plugin-resources/invoke-view"), {
       method: "POST",
       body: JSON.stringify({
         access: { schemaVersion: 1, owner, resourceId, contentVersion },
         toolCallId,
         input,
+        ...(hostInstanceId ? { hostInstanceId } : {}),
       }),
     });
   }

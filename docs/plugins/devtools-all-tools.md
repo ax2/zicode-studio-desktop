@@ -357,3 +357,11 @@ attempt1验证脚本重复变量（未生成浏览器收据）、attempt2旧标�
 
 ## 2026-10-10 Pi1.1.0真实DevTools链路
 当前debug EXE保持6c14d757，单target编译新版Pi锁定测试Host一次，Inspect7/Transforms23基本操作与各10权限阶段通过；150旧缓存拒绝、11独立对照、50Worker回收/管道关闭。三个原始包13/493/797文件逐SHA通过。矩阵current证据更新，旧记录保留历史；154项状态及完整接受0不变。没有模型/原生界面/其他OS/签名生命周期验收。清理本轮两夹具被自动审批拒绝（无具体原因），实际删除0，6812396B/1346文件保留并给手工清单；不重试。详见[复验记录](E:/zicode-studio-desktop/docs/plugins/pi-1.1-devtools-acceptance.md)及技术档案iterations/pi-1.1-devtools-2026-10-10。
+
+## 2026-10-11 资源调用状态与可信界面恢复
+
+Studio 目录资源工具及跨工具接力现支持调用前捕获 Host 身份、执行请求实例校验、响应丢失后保留调用并显式核对。未知、活动或 Host 更换均不自动解锁；原 Host 匹配 finished 才允许用户发起新调用，明确原结果未恢复。没有自动保存/重试或向提供方 iframe 增加权限。
+
+165项前端、42项资源Rust、严格静态与真实HTTP Host/生产Worker最终专项通过（13.67秒）；桌面/窄屏5张最终截图已检查。接力和目录各一次真实执行的成功响应被代理扣留，随后独立核对结束、没有额外执行或项目文件写入；未知记录和Host变化为代理注入的UI分支，不是完整原生重启验收。
+
+154项工具矩阵/完整接受0不变。资源类尚缺一次性准入与延迟请求封存、控制器销毁及跨重启的调用恢复、原结果恢复、正式resource.v1及真实DevTools完整scope；Host责任由Studio继续推进，提供方无需因此修改既有Worker ABI。见[资源状态契约](resource-call-status.md)及技术档案iterations/resource-call-recovery-ui-2026-10-11/work-log.md。保持0.4.2，没有新安装包或ZIP，target净增5.03MiB，沿用既有缓存。

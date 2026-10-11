@@ -1,22 +1,74 @@
 import { describe, expect, it, vi } from "vitest";
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { resourceViewTarget } from "./plugin-view-resource.js";
+import { resourceCallStatus } from "../../../tests/helpers/resource-call-status.js";
 
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const params = { capabilityId: "resource.inspect", resourceId: id,
   contentVersion: "a".repeat(64), toolCallId: id, input: {} };
-function setup(onOutputs) {
+function setup(onOutputs, recoverable = false) {
   let target = { instanceId: "runtime", sessionId: "session", workspaceId: "workspace" };
   const source = { pluginId: "self", capabilityId: params.capabilityId,
     packageVersion: "1.0.0", contentVersion: params.contentVersion, profile: "resource.wasi.input.draft2" };
   const reply = { schemaVersion: 1, operationId: id, source, result: { text: "resource" }, privateToken: "secret" };
   const gateway = { invokeResource: vi.fn(async () => reply),
     cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })) };
-  const computation = createResourceComputation({ instance: { plugin: { id: "self" },
+  gateway.resourceCallStatus = vi.fn(async (owner, call) => resourceCallStatus(owner, call));
+  const computation = createResourceComputation({ recoverable, instance: { plugin: { id: "self" },
     resourceTarget: resourceViewTarget(target) }, gateway, getTarget: () => target, isCurrent: () => true, onOutputs });
   return { computation, gateway, reply, change: () => { target = { ...target, sessionId: "new" }; } };
 }
 describe("isolated View resource computation", () => {
+  it("does not trap the UI or reserve cancellation for a definite Host admission-busy rejection", async () => {
+    const c = setup(undefined, true); c.gateway.invokeResource.mockRejectedValue({ code: "resource_worker_busy" });
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_worker_busy");
+    expect(c.computation.unresolved(id)).toBe(false); expect(c.gateway.cancelResource).not.toHaveBeenCalled();
+  });
+  it("honors cancellation during preflight without starting or cancelling Host work", async () => {
+    const c = setup(undefined, true); let resolve;
+    c.gateway.resourceCallStatus.mockImplementation(() => new Promise(done => { resolve = done; }));
+    const work = c.computation.invoke(params);
+    await expect(c.computation.cancel({ toolCallId: id })).resolves.toMatchObject({ status: "pending" });
+    resolve(resourceCallStatus({ runtimeId: "runtime", sessionId: "session", pluginId: "self", capabilityId: params.capabilityId }, id));
+    await expect(work).rejects.toThrow("worker_cancelled");
+    expect(c.gateway.invokeResource).not.toHaveBeenCalled(); expect(c.gateway.cancelResource).not.toHaveBeenCalled();
+    expect(c.computation.unresolved(id)).toBe(false);
+  });
+  it("captures Host identity before a recoverable call and retains uncertain work until an explicit terminal check", async () => {
+    const c = setup(undefined, true);
+    c.gateway.invokeResource.mockRejectedValue(new Error("transport lost"));
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_execution_failed");
+    expect(c.gateway.invokeResource.mock.calls[0][1].hostInstanceId).toBe("dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+    expect(c.computation.unresolved(id)).toBe(true);
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_call_duplicate");
+    await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ phase: "unknown", executionFinished: false });
+    expect(c.computation.unresolved(id)).toBe(true);
+    c.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "active"));
+    await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ phase: "active" });
+    c.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "finished"));
+    await expect(c.computation.check({ toolCallId: id })).resolves.toMatchObject({ executionFinished: true });
+    expect(c.computation.unresolved(id)).toBe(false);
+    expect(c.gateway.invokeResource).toHaveBeenCalledOnce();
+  });
+  it("keeps work uncertain after changed Host, invalid evidence, or a failed status read", async () => {
+    const c = setup(undefined, true); c.gateway.invokeResource.mockRejectedValue({});
+    await expect(c.computation.invoke(params)).rejects.toThrow();
+    c.gateway.resourceCallStatus.mockRejectedValue({ code: "resource_call_host_changed" });
+    await expect(c.computation.check({ toolCallId: id })).rejects.toThrow("resource_call_host_changed");
+    c.gateway.resourceCallStatus.mockResolvedValue({ ...resourceCallStatus({}, id, "finished") });
+    await expect(c.computation.check({ toolCallId: id })).rejects.toThrow("resource_response_invalid");
+    expect(c.computation.unresolved(id)).toBe(true); expect(c.gateway.invokeResource).toHaveBeenCalledOnce();
+    c.computation.destroy();
+  });
+  it("does not execute when status support is unavailable or scope changes during preflight", async () => {
+    const c = setup(undefined, true);
+    c.gateway.resourceCallStatus.mockRejectedValue({ code: "not_found" });
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_status_unavailable");
+    expect(c.computation.unresolved(id)).toBe(false); expect(c.gateway.invokeResource).not.toHaveBeenCalled();
+    c.gateway.resourceCallStatus.mockImplementation(async (owner, call) => { c.change(); return resourceCallStatus(owner, call); });
+    await expect(c.computation.invoke(params)).rejects.toThrow("resource_view_changed");
+    expect(c.gateway.invokeResource).not.toHaveBeenCalled();
+  });
   it("forwards whitelisted output references to the View and trusted preview with parent scope", async () => {
     const outputs = vi.fn();
     const c = setup(outputs);

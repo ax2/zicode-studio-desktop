@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
+import { resourceCallStatus } from "../../../tests/helpers/resource-call-status.js";
 
 const id = "11111111-1111-4111-8111-111111111111", hash = "a".repeat(64);
 const tool = { pluginId: "target", capabilityId: "consume", title: "Receiver", applicationName: "Tools", version: "0.1.0", enabled: true, runtime: "wasi" };
@@ -25,6 +26,7 @@ function fixture() {
       profile: "resource.wasi.input.draft2", contentVersion: hash }, result: { text: "<script>safe text</script>" } })),
     cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })), revokeResource: vi.fn(async () => ({})),
   };
+  gateway.resourceCallStatus = vi.fn(async (owner, call) => resourceCallStatus(owner, call));
   const mountInputs = vi.fn(async () => form);
   const controller = createResourceTransfer({ gateway, getTarget: () => target, isCurrent: () => true, mountInputs });
   controller.open(resource, owner, container);
@@ -86,11 +88,23 @@ describe("trusted resource transfer", () => {
     expect(f.container.textContent).toContain("Transfer unavailable"); expect(f.container.textContent).not.toContain("unexpected");
     expect(f.gateway.commitResourceTransfer).not.toHaveBeenCalled(); f.controller.destroy();
   });
+  it("releases the shared reference when an uncertain transfer is explicitly closed", async () => {
+    const f = fixture(); await flush(); await f.confirm(); f.gateway.invokeResource.mockRejectedValue({});
+    await f.click("Run receiving tool"); expect(f.container.textContent).toContain("Execution outcome is unknown");
+    const pending = deferred(); f.gateway.resourceCallStatus.mockReturnValue(pending.promise);
+    await f.click("Check tool status"); f.controller.clear();
+    expect(f.gateway.revokeResource).toHaveBeenCalledOnce();
+    pending.resolve({}); await flush(); expect(f.container.querySelector("dialog")).toBeNull(); f.controller.destroy();
+  });
   it("retains parameters after a timeout and never retries automatically", async () => {
     const f = fixture(); await flush(); await f.confirm();
     f.gateway.invokeResource.mockRejectedValue(Object.assign(new Error("private server message"), { code: "worker_timeout" }));
     await f.click("Run receiving tool");
-    expect(f.container.textContent).toContain("Tool timed out"); expect(f.container.textContent).not.toContain("private server message");
+    expect(f.container.textContent).toContain("Execution outcome is unknown"); expect(f.container.textContent).not.toContain("private server message");
+    expect(f.container.textContent).not.toContain("Run receiving tool");
+    await f.click("Check tool status"); expect(f.container.textContent).toContain("Running again is blocked");
+    f.gateway.resourceCallStatus.mockImplementation(async (owner, call) => resourceCallStatus(owner, call, "finished"));
+    await f.click("Check tool status"); expect(f.container.textContent).toContain("Its result was not recovered");
     expect(f.gateway.invokeResource).toHaveBeenCalledOnce(); expect(f.form.destroy).not.toHaveBeenCalled(); f.controller.destroy();
   });
   it("does not execute invalid inputs and leaves the confirmed reference available for correction", async () => {
