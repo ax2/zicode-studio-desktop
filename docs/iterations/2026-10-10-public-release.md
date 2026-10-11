@@ -131,3 +131,11 @@ process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失�
 新增独立的 Verify existing release DMGs 工作流，只下载并验证既有草稿，不构建、不发布。可以复用同一不可变应用源码已通过的产品检查与打包，补齐最终磁盘映像验证，避免因为校验路径错误重复完整编译。最终发布前仍需核对原运行四平台全部产品门槛及打包成功、失败仅限已确认的临时路径检查，Linux/Windows上传摘要以及两份最终DMG收据，再核对五资产未变化。
 本机相关35项测试通过；首次模拟路径分隔符失败与142 warnings记录保留，修正后check退出0恢复既有141 warnings，无新增诊断。真实DMG检查仍等待Mac runner；这些单元测试未作为实际签名验收。
 文档入口、架构及历史评估中的旧Picot基线表述同步纠正，保留历史评估并说明来源修订。Windows未签名/macOS未公证和自动更新未启用明确展示。本机Python未安装mkdocs，未另装依赖，文档构建以GitHub Documentation结果补录。
+
+## 2026-10-11：Intel第二辅助程序签名与定向重建
+
+第三轮38106847988最终Windows/Linux全通过，ARM完成DMG上传后临时.app路径检查失败；Intel在完成产品门槛和正式编译后，主应用签名发现第二个未签名辅助程序e2ee_key，仍无Intel DMG。原失败v042-release-third-intel.log保留，不能将Intel误记为只有后置路径检查失败。
+改为通过cargo metadata --no-deps --locked --offline枚举Studio包所有bin目标，排除主程序，先校验全部辅助程序架构再逐一签名/严格验证。本机实际元数据返回e2ee_key与zicode-relay，新增未来helper/缺目标/非法路径/两helper签名回归。
+发布工作流增加显式all或macos-intel构建范围，默认四平台不变；定向构建仍执行该平台全部原检查和最终DMG/上传摘要验证，禁止自动发布。避免重建已经验过的Windows/Linux/ARM产物；最终公开仍须组合原产品/产物证据和新增Intel/最终DMG证据，五资产与应用标签保持一致。
+42项相关测试通过，check退出0，既有141 warnings保持。应用标签未移动，没有本机重复编译或版本变更。新Intel定向构建仍待真实结果。
+精确应用标签9c867b68的独立四平台38104114231报告已下载核对：每平台21步骤，合计84步骤0失败，仅格式advisory，source/runner/toolchain匹配且dirty=false。报告身份不再仅依赖版本字段修改前0768357d。

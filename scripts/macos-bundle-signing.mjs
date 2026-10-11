@@ -36,6 +36,35 @@ export function signMacosRelay(
   execute("codesign", ["--verify", "--strict", "--verbose=2", binary], options);
 }
 
+export function macosHelperTargets(metadata) {
+  const packages = metadata.packages.filter((entry) => entry.name === "zicode-studio-desktop");
+  if (packages.length !== 1) throw new Error("Expected one Studio Cargo package");
+  const names = packages[0].targets
+    .filter((entry) => entry.kind.includes("bin"))
+    .map((entry) => entry.name);
+  if (!names.includes("zicode-studio-desktop") || !names.includes("zicode-relay")) {
+    throw new Error("Missing Studio application or relay Cargo target");
+  }
+  if (names.some((name) => !/^[a-zA-Z0-9_-]+$/.test(name)))
+    throw new Error("Unsafe Cargo binary name");
+  return names.filter((name) => name !== "zicode-studio-desktop");
+}
+
+export function signMacosHelpers(
+  directory,
+  names,
+  target,
+  execute = execFileSync,
+  platform = process.platform,
+) {
+  if (platform !== "darwin" || !["darwin-x64", "darwin-arm64"].includes(target)) {
+    throw new Error("Helper signing requires a macOS target");
+  }
+  const binaries = names.map((name) => join(directory, name));
+  for (const binary of binaries) verifyExecutableTarget(binary, target);
+  for (const binary of binaries) signMacosRelay(binary, target, execute, platform);
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   if (process.platform !== "darwin") throw new Error("This packaging hook runs only on macOS");
   if (process.argv[2] === "--prepare") {
@@ -45,8 +74,25 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       `${JSON.stringify(config, null, 2)}\n`,
     );
   } else if (process.argv[2] === "--sign") {
-    signMacosRelay(
-      join(process.cwd(), "target", "release", "zicode-relay"),
+    const metadata = JSON.parse(
+      execFileSync(
+        "cargo",
+        [
+          "metadata",
+          "--no-deps",
+          "--format-version",
+          "1",
+          "--locked",
+          "--offline",
+          "--manifest-path",
+          "src-tauri/Cargo.toml",
+        ],
+        { encoding: "utf8", timeout: 30_000 },
+      ),
+    );
+    signMacosHelpers(
+      join(process.cwd(), "target", "release"),
+      macosHelperTargets(metadata),
       process.env.PI_TARGET_PLATFORM,
     );
   } else {

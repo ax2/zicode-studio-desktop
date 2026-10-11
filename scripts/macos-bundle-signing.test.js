@@ -3,20 +3,73 @@ import { mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { macosBundleOverride, signMacosRelay } from "./macos-bundle-signing.mjs";
+import {
+  macosBundleOverride,
+  macosHelperTargets,
+  signMacosHelpers,
+  signMacosRelay,
+} from "./macos-bundle-signing.mjs";
 
 const directory = mkdtempSync(join(tmpdir(), "zicode-macos-signing-"));
 const binary = join(directory, "zicode-relay");
+const helper = join(directory, "e2ee_key");
 const header = Buffer.alloc(64);
 header.writeUInt32LE(0xfeedfacf, 0);
 header.writeUInt32LE(0x01000007, 4);
 writeFileSync(binary, header);
+writeFileSync(helper, header);
 afterAll(() => {
   unlinkSync(binary);
+  unlinkSync(helper);
   rmdirSync(directory);
 });
 
 describe("macOS helper signing before bundle creation", () => {
+  it("discovers all Cargo binaries including auto-discovered helpers", () => {
+    const bin = (name) => ({ name, kind: ["bin"] });
+    expect(
+      macosHelperTargets({
+        packages: [
+          {
+            name: "zicode-studio-desktop",
+            targets: [
+              bin("zicode-studio-desktop"),
+              bin("zicode-relay"),
+              bin("e2ee_key"),
+              bin("future-helper"),
+              { name: "library", kind: ["lib"] },
+            ],
+          },
+        ],
+      }),
+    ).toEqual(["zicode-relay", "e2ee_key", "future-helper"]);
+  });
+  it("rejects missing required targets or unsafe binary paths", () => {
+    expect(() => macosHelperTargets({ packages: [] })).toThrow("Studio Cargo package");
+    expect(() =>
+      macosHelperTargets({ packages: [{ name: "zicode-studio-desktop", targets: [] }] }),
+    ).toThrow("Missing Studio application");
+    expect(() =>
+      macosHelperTargets({
+        packages: [
+          {
+            name: "zicode-studio-desktop",
+            targets: [
+              { name: "zicode-studio-desktop", kind: ["bin"] },
+              { name: "zicode-relay", kind: ["bin"] },
+              { name: "../outside", kind: ["bin"] },
+            ],
+          },
+        ],
+      }),
+    ).toThrow("Unsafe Cargo binary name");
+  });
+  it("signs and verifies relay and e2ee_key before the main app is bundled", () => {
+    const execute = vi.fn();
+    signMacosHelpers(directory, ["zicode-relay", "e2ee_key"], "darwin-x64", execute, "darwin");
+    expect(execute).toHaveBeenCalledTimes(4);
+    expect(execute.mock.calls[2][1]).toEqual(["--force", "--sign", "-", helper]);
+  });
   it("signs the checked Intel helper before verifying its signature", () => {
     const execute = vi.fn();
     signMacosRelay(binary, "darwin-x64", execute, "darwin");
