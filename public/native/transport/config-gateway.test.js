@@ -20,6 +20,15 @@ function idFromRequest(request) {
 }
 
 describe("ConfigGateway", () => {
+  it("rejects tool-only configuration before sending or creating pending calls", async () => {
+    const runtime = { request: vi.fn() };
+    const tools = { workspaceId: "w", sessionId: "tools-a", instanceId: "i", runtimeMode: "tools" };
+    const gateway = new ConfigGateway({ runtime, getTarget: () => tools });
+    await expect(gateway.call("read_memory")).rejects.toThrow("TOOL_SESSION_AI_UNAVAILABLE");
+    const ai = new ConfigGateway({ runtime, getTarget: () => ({ ...tools, runtimeMode: "ai" }) });
+    await expect(ai.call("write_agent_config", {}, { target: tools })).rejects.toThrow("TOOL_SESSION_AI_UNAVAILABLE");
+    expect(runtime.request).not.toHaveBeenCalled();
+  });
   it("invokes /picot-config with an idempotency key and resolves on the matching notify", async () => {
     const { requests, gateway } = createHarness();
     const promise = gateway.call("list_model_catalog", { foo: 1 });

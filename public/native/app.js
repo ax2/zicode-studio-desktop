@@ -412,6 +412,7 @@ window.__picotConfigCall = (op, params, options) => config.call(op, params, opti
 
 let memoryCache = { enabled: true, entries: [] };
 async function refreshMemoryCache() {
+  if (target.runtimeMode === "tools") return;
   try {
     const result = await config.call("read_memory");
     const data = result?.data ?? {};
@@ -498,7 +499,8 @@ await extensionUi.setForegroundSession(target.sessionId, { flush: false });
 await extensionUi.flushForegroundQueue();
 
 const hydrateFromSnapshot = async (snapshot) => {
-  await adoptTarget(reconcileSnapshotTarget(target, snapshot.target));
+  const snapshotTarget = { ...snapshot.target, runtimeMode: snapshot.state.runtimeMode ?? "ai" };
+  await adoptTarget(reconcileSnapshotTarget(target, snapshotTarget));
   store = reduceSessionState(store, snapshot);
   mobileExperience?.setTaskRunning(target, store.lifecycle === "working");
   renderHistory(snapshot.state.messages ?? []);
@@ -1422,7 +1424,7 @@ try {
   // Skip the fast path for brand-new (temporary) sessions — they have no
   // saved JSONL file yet and go straight to the Pi snapshot. Focus the
   // composer so the user can start typing right away.
-  if (!target.sessionId.startsWith("temporary-")) {
+  if (target.runtimeMode !== "tools" && !target.sessionId.startsWith("temporary-")) {
     const diskResult = await data
       .readSessionMessages(target.workspaceId, target.sessionId)
       .catch(() => null);
@@ -1506,7 +1508,7 @@ async function requestBootstrapTarget(currentRoute) {
     // longer exists) makes every operation fail. Self-heal by falling back to
     // the most recent session in the workspace instead of leaving the client
     // stuck on a "runtime stopped or unavailable" error.
-    if (response.status === 404) {
+    if (response.status === 404 && !currentRoute.sessionId?.startsWith("tools-")) {
       try {
         const list = await hostFetch(`/v2/sessions?workspaceId=${currentRoute.workspaceId}`)
           .then((sessionsResponse) => (sessionsResponse.ok ? sessionsResponse.json() : null))
@@ -1540,12 +1542,16 @@ async function hydrateSnapshot() {
   const snapshot = await runtime.snapshot(expectedSessionId);
   if (target.sessionId !== expectedSessionId) return; // stale: session switched while snapshot was in-flight
   await hydrateFromSnapshot(snapshot);
-  configGatewayTargetReady = true;
-  signalConfigGatewayReady();
+  configGatewayTargetReady = target.runtimeMode !== "tools";
+  if (configGatewayTargetReady) signalConfigGatewayReady();
   void refreshMemoryCache();
 }
 
 async function loadCommands() {
+  if (target.runtimeMode === "tools") {
+    commandCatalog = buildCommandCatalog({});
+    return;
+  }
   const result = await runtime.request({ type: "get_commands" }, target);
   commandCatalog = buildCommandCatalog({
     builtIns: [
@@ -2957,7 +2963,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   // Apply the persisted auto-compaction preference to the freshly adopted
   // session runtime (the toggle also sends it live on change).
   try {
-    if (localStorage.getItem("picot-settings-auto-compact") === "true") {
+    if (target.runtimeMode !== "tools" && localStorage.getItem("picot-settings-auto-compact") === "true") {
       void runtime
         .request({ type: "set_auto_compaction", enabled: true }, target, {
           idempotencyKey: randomId(),
@@ -3324,6 +3330,7 @@ window.addEventListener("zicode:locale-changed", () => {
 });
 
 function loadAvailableModels() {
+  if (target.runtimeMode === "tools") return Promise.resolve();
   if (modelLoadPromise) return modelLoadPromise;
   modelsLoading = true;
   modelLoadError = "";

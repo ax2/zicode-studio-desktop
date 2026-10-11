@@ -267,6 +267,26 @@ impl NativePiManager {
         })
     }
 
+    pub(crate) fn is_tool_session(&self, target: &RuntimeTarget) -> Result<bool, String> {
+        let runtimes = self
+            .inner
+            .runtimes
+            .lock()
+            .map_err(|_| "Native runtime registry lock poisoned".to_string())?;
+        let runtime = runtimes
+            .get(&target.instance_id)
+            .ok_or_else(|| "Native runtime instance is not running".to_string())?;
+        if *runtime
+            .target
+            .lock()
+            .map_err(|_| "Native runtime target lock poisoned".to_string())?
+            != *target
+        {
+            return Err("Runtime mode rejected: IdentityMismatch".into());
+        }
+        Ok(runtime.bridge.is_none())
+    }
+
     /// Stop runtimes for `temporary-*` sessions that are older than `grace`
     /// and are not actively working. Runtimes in Starting/Working state are
     /// never touched; permanent sessions are never touched.

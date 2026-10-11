@@ -4027,13 +4027,18 @@ async fn import_sessions_http(
 async fn bootstrap_target(
     State(state): State<Arc<HostState>>,
     Query(query): Query<BootstrapQuery>,
-) -> Result<Json<RuntimeTarget>, (StatusCode, Json<Value>)> {
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     // A live runtime already exists for this session — reuse it.
     if let Some(target) = state
         .runtimes
         .target_for_session(&query.workspace_id, &query.session_id)
     {
-        return Ok(Json(target));
+        let tools = state.runtimes.is_tool_session(&target)
+            .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_mode_failed"))?;
+        let mut value = serde_json::to_value(target)
+            .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_target_failed"))?;
+        value["runtimeMode"] = json!(if tools { "tools" } else { "ai" });
+        return Ok(Json(value));
     }
 
     // Otherwise this is a historical session opened from the sidebar. Lazily
@@ -4074,7 +4079,10 @@ async fn bootstrap_target(
         .runtimes
         .spawn(target.clone(), launch)
         .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_spawn_failed"))?;
-    Ok(Json(target))
+    let mut value = serde_json::to_value(target)
+        .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_target_failed"))?;
+    value["runtimeMode"] = json!("ai");
+    Ok(Json(value))
 }
 
 /// M2: remote client configuration served to the authenticated phone (or the
@@ -4422,6 +4430,16 @@ async fn dispatch(
                     .runtimes
                     .target_for_session_id(session_id)
                     .ok_or(("runtime_not_found", "Runtime session is not running".into()))?;
+                if state.runtimes.is_tool_session(&target)
+                    .map_err(|message| ("snapshot_failed", message))? {
+                    let snapshot = state.runtimes.snapshot(&target)
+                        .map_err(|message| ("snapshot_failed", message))?;
+                    return Ok(json!({
+                        "type":"runtime_snapshot", "requestId":request_id,
+                        "target":target, "sequence":snapshot.sequence,
+                        "state":{"lifecycle":snapshot.state,"runtimeMode":"tools","pi":null,"messages":[]}
+                    }));
+                }
                 let state_response = state
                     .runtimes
                     .request(
@@ -4465,6 +4483,7 @@ async fn dispatch(
                     "target": target,
                     "sequence": host_snapshot.sequence,
                     "state": {
+                        "runtimeMode": "ai",
                         "lifecycle": host_snapshot.state,
                         "pi": state_response.get("data").cloned().unwrap_or(Value::Null),
                         "messages": messages,
@@ -4472,13 +4491,22 @@ async fn dispatch(
                 }));
             }
             if frame.get("type").and_then(Value::as_str) == Some("runtime_capabilities_request") {
+                let instance = frame.get("instanceId").and_then(Value::as_str)
+                    .ok_or(("invalid_instance", "instanceId is required".into()))?;
+                let target = state.runtimes.statuses()
+                    .map_err(|message| ("runtime_unavailable", message))?
+                    .into_iter().find(|status| status.target.instance_id == instance)
+                    .ok_or(("runtime_not_found", "Runtime instance is not running".into()))?.target;
+                let tools = state.runtimes.is_tool_session(&target)
+                    .map_err(|message| ("runtime_unavailable", message))?;
                 return Ok(json!({
                     "type": "runtime_capabilities",
                     "requestId": request_id,
                     "protocolVersion": PROTOCOL_VERSION,
-                    "nativeRpc": true,
-                    "extensionUi": true,
-                    "sessionTree": true,
+                    "runtimeMode": if tools { "tools" } else { "ai" },
+                    "nativeRpc": !tools,
+                    "extensionUi": !tools,
+                    "sessionTree": !tools,
                     "oauth": false,
                     "hostDataPlane": true,
                     "sourcePreservingFork": false,

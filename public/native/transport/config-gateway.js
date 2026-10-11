@@ -34,6 +34,9 @@ export class ConfigGateway {
   call(op, params = {}, { timeoutMs = DEFAULT_TIMEOUT_MS, target: fixedTarget } = {}) {
     const target = fixedTarget ?? this.#getTarget();
     if (!target) return Promise.reject(new Error("No active session for configuration request"));
+    if (target.runtimeMode === "tools") {
+      return Promise.reject(new Error("TOOL_SESSION_AI_UNAVAILABLE: Open an AI session to change AI configuration"));
+    }
     const id = `cfg-${randomId()}`;
     const message = `/picot-config ${JSON.stringify({ id, op, params })}`;
     return new Promise((resolve, reject) => {

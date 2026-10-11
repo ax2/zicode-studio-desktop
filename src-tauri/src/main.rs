@@ -1210,8 +1210,17 @@ fn open_native_workspace_window(
     host: &HostServer,
     target: &RuntimeTarget,
 ) -> Result<(), String> {
+    open_native_workspace_window_with_app(app, host, target, None)
+}
+
+fn open_native_workspace_window_with_app(
+    app: &AppHandle,
+    host: &HostServer,
+    target: &RuntimeTarget,
+    app_param: Option<&str>,
+) -> Result<(), String> {
     let label = format!("native-workspace-{}", target.workspace_id);
-    let url = native_workspace_url(host.origin(), target, None)?;
+    let url = native_workspace_url(host.origin(), target, app_param)?;
     // The script is injected only into the native WebView and never served by
     // the HTTP Host. Guard its origin because WebViews can navigate elsewhere.
     let desktop_init = format!(
@@ -1707,7 +1716,10 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     }
     // Include every registered workspace's `.zicode/sessions` when resuming
     // the most recently used session (legacy app-data roots still apply).
-    let workspace_session_roots: Vec<PathBuf> = {
+    let tools_only = explorer_entry::tools_only();
+    let workspace_session_roots: Vec<PathBuf> = if tools_only {
+        Vec::new()
+    } else {
         let metadata = metadata
             .lock()
             .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?;
@@ -1720,12 +1732,16 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         }
         roots
     };
-    let (cwd, session_path) = match explorer_entry::folder() {
-        Some(folder) => (folder.to_string_lossy().into_owned(), None),
-        None => select_fresh_startup_target(
-            default_cwd.to_string_lossy().into_owned(),
-            find_latest_session_boot_target(&workspace_session_roots),
-        ),
+    let (cwd, session_path) = if tools_only {
+        (default_cwd.to_string_lossy().into_owned(), None)
+    } else {
+        match explorer_entry::folder() {
+            Some(folder) => (folder.to_string_lossy().into_owned(), None),
+            None => select_fresh_startup_target(
+                default_cwd.to_string_lossy().into_owned(),
+                find_latest_session_boot_target(&workspace_session_roots),
+            ),
+        }
     };
     let workspace_id = metadata
         .lock()
@@ -1737,24 +1753,29 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or_default();
-    match crate::backup_store::backup_if_due(&workspace_id, Path::new(&cwd), now_secs) {
-        Ok(Some(backup)) => log::info!(
-            "[picot-native] created workspace backup {} ({} apps, {} bytes)",
-            backup.id,
-            backup.apps.len(),
-            backup.size_bytes
-        ),
-        Ok(None) => {}
-        Err(error) => log::warn!("[picot-native] workspace backup skipped: {error}"),
+    if !tools_only {
+        match crate::backup_store::backup_if_due(&workspace_id, Path::new(&cwd), now_secs) {
+            Ok(Some(backup)) => log::info!(
+                "[picot-native] created workspace backup {} ({} apps, {} bytes)",
+                backup.id,
+                backup.apps.len(),
+                backup.size_bytes
+            ),
+            Ok(None) => {}
+            Err(error) => log::warn!("[picot-native] workspace backup skipped: {error}"),
+        }
     }
-    let session_id = format!("temporary-{}", uuid::Uuid::new_v4().simple());
+    let session_id = format!(
+        "{}-{}",
+        if tools_only { "tools" } else { "temporary" },
+        uuid::Uuid::new_v4().simple()
+    );
     let target = RuntimeTarget::new(
         workspace_id,
         session_id,
         format!("instance-{}", uuid::Uuid::new_v4().simple()),
     );
     let launch_resolver = PiLaunchResolver::new(static_dir.clone());
-    let mut launch = launch_resolver.native_launch_spec(&cwd, session_path.as_deref(), &target)?;
     let runtimes = NativePiManager::new(256);
     let remote_auth = Arc::new(Mutex::new(RemoteAuth::new(metadata.clone())));
     let mut seeded_workspace_roots =
@@ -1781,11 +1802,22 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
             seeded_workspace_roots,
         )
         .await?;
-        host.configure_plugin_broker(&target, &mut launch)?;
-        runtimes.spawn(target.clone(), launch)?;
+        if tools_only {
+            host.start_tool_session(target.clone())?;
+        } else {
+            let mut launch =
+                launch_resolver.native_launch_spec(&cwd, session_path.as_deref(), &target)?;
+            host.configure_plugin_broker(&target, &mut launch)?;
+            runtimes.spawn(target.clone(), launch)?;
+        }
         Ok::<HostServer, String>(host)
     })?;
-    if let Err(error) = open_native_workspace_window(app.handle(), &host, &target) {
+    if let Err(error) = open_native_workspace_window_with_app(
+        app.handle(),
+        &host,
+        &target,
+        tools_only.then_some("core.tools"),
+    ) {
         runtimes.stop_all();
         return Err(error);
     }

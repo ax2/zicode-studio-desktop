@@ -1,4 +1,5 @@
 use super::*;
+use futures_util::{SinkExt, StreamExt};
 use std::fs;
 struct Fixture(PathBuf);
 impl Fixture {
@@ -274,6 +275,63 @@ async fn http(actual: bool) {
             .unwrap();
     }
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    if actual {
+        let bootstrap: Value = client
+            .get(format!("{}/v2/bootstrap", host.origin()))
+            .query(&[
+                ("workspaceId", &target.workspace_id),
+                ("sessionId", &target.session_id),
+            ])
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(bootstrap["runtimeMode"], "tools");
+        let (mut socket, _) =
+            tokio_tungstenite::connect_async(host.origin().replace("http://", "ws://") + "/v2/ws")
+                .await
+                .unwrap();
+        socket.send(tokio_tungstenite::tungstenite::Message::Text(json!({"type":"hello","protocolVersion":2,"clientType":"desktop","desktopToken":host.desktop_token(),"clientId":"tool-startup-test"}).to_string())).await.unwrap();
+        socket.next().await.unwrap().unwrap();
+        for (frame, expected) in [
+            (
+                json!({"type":"runtime_snapshot_request","requestId":"tools-snapshot","sessionId":target.session_id}),
+                "runtime_snapshot",
+            ),
+            (
+                json!({"type":"runtime_capabilities_request","requestId":"tools-capabilities","instanceId":target.instance_id}),
+                "runtime_capabilities",
+            ),
+        ] {
+            socket
+                .send(tokio_tungstenite::tungstenite::Message::Text(
+                    frame.to_string(),
+                ))
+                .await
+                .unwrap();
+            let message = tokio::time::timeout(std::time::Duration::from_secs(3), socket.next())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let result: Value = serde_json::from_str(message.to_text().unwrap()).unwrap();
+            assert_eq!(result["type"], expected, "{result}");
+            if expected == "runtime_snapshot" {
+                assert_eq!(result["state"]["runtimeMode"], "tools");
+                assert_eq!(result["state"]["pi"], Value::Null);
+                assert_eq!(result["state"]["messages"], json!([]));
+            } else {
+                assert_eq!(result["runtimeMode"], "tools");
+                assert_eq!(result["nativeRpc"], false);
+                assert_eq!(result["extensionUi"], false);
+                assert_eq!(result["sessionTree"], false);
+            }
+        }
+        socket.close(None).await.unwrap();
+    }
     let post = |route: &str, body: Value| {
         client
             .post(format!("{}/v2/plugin-resources/{route}", host.origin()))

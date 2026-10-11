@@ -42,6 +42,10 @@ and included in its default permission set; run `bun run check:permissions`.
 - Frontend: React/TypeScript features in `frontend/src/` compile into `public/native/react/`; the surrounding shell and protocol modules in `public/` use vanilla JS.
 - Backend: Rust (Tauri) owns process lifecycle, the HTTP/WebSocket host, routing, and host data APIs
 - PI integration: always via embedded `pi --mode rpc` subprocess — never re-implement PI runtime logic
+- Explicit `--tools-only` startup uses a Host-owned plugin session without Pi,
+  history restore or startup backup. Preserve this separation: do not silently
+  launch AI for tool initialization or recover a stopped tools route into AI.
+  Host bootstrap/snapshot `runtimeMode` is authoritative for UI initialization.
 - Session history and working directory are isolated per project/port
 - The embedded pi version is the source of truth: `pi --version` shown in the UI comes from `PI_STUDIO_PI_VERSION` (set by Rust at spawn time, populated from `scripts/pi-version.json`). A user-installed pi on `$PATH` is irrelevant and never touched.
 - User extensions under `~/.pi/agent/extensions/` and `<workspace>/.pi/extensions/` are still auto-loaded by the embedded pi (embedding doesn't disable user extensions).
