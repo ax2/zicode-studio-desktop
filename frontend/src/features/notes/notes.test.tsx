@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../shared/i18n";
 import { setupNotesApp } from "./index";
@@ -29,10 +29,17 @@ import {
   tagIcon,
 } from "./notesLogic";
 import {
-  createNotesStore,
+  createNotesStore as createRealNotesStore,
   localizeNotesHostError,
   type NotesGatewayLike,
 } from "./notesStore";
+
+const testStores = new Set<ReturnType<typeof createRealNotesStore>>();
+function createNotesStore(options: Parameters<typeof createRealNotesStore>[0]) {
+  const store = createRealNotesStore(options);
+  testStores.add(store);
+  return store;
+}
 
 // jsdom has no PointerEvent yet; the notes tree drag is pointer-driven, so
 // provide a minimal MouseEvent subclass with the pointer fields the handlers
@@ -123,12 +130,30 @@ function storeWithGateway(overrides: Partial<NotesGatewayLike> = {}) {
 }
 
 afterEach(() => {
+  cleanup();
+  for (const store of testStores) store.getState().destroy();
+  testStores.clear();
   document.body.innerHTML = "";
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("notes logic", () => {
+  it("cancels a pending autosave when the store is destroyed", async () => {
+    vi.useFakeTimers();
+    try {
+      const save = vi.fn(async () => ({ note: NOTE }));
+      const store = storeWithGateway({ save });
+      await store.getState().load();
+      await store.getState().selectNote(SNAPSHOT.notes[0]);
+      store.getState().setDraft({ content: "Pending autosave" });
+      store.getState().destroy();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(save).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("does not send article text without a model choice for the current scene", async () => {
     const summarize = vi.fn();
     const store = storeWithGateway({ summarize });

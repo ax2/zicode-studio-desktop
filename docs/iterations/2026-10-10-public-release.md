@@ -139,3 +139,9 @@ process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失�
 发布工作流增加显式all或macos-intel构建范围，默认四平台不变；定向构建仍执行该平台全部原检查和最终DMG/上传摘要验证，禁止自动发布。避免重建已经验过的Windows/Linux/ARM产物；最终公开仍须组合原产品/产物证据和新增Intel/最终DMG证据，五资产与应用标签保持一致。
 42项相关测试通过，check退出0，既有141 warnings保持。应用标签未移动，没有本机重复编译或版本变更。新Intel定向构建仍待真实结果。
 精确应用标签9c867b68的独立四平台38104114231报告已下载核对：每平台21步骤，合计84步骤0失败，仅格式advisory，source/runner/toolchain匹配且dirty=false。报告身份不再仅依赖版本字段修改前0768357d。
+
+## 2026-10-11：主分支ARM测试生命周期补验
+
+主分支59cc6f13的Developer platform38109574719：Windows/Linux/Intel成功，ARM的project-ui-gateways中131文件1002测试本身通过，但Notes测试环境销毁后残留自动保存计时器触发React，产生window is not defined未处理错误。原results与日志ci-38109574719-arm保留；没有将它算为全通过，也不改变已独立核对的标签9c867b68四平台证据。
+仅修改notes.test.tsx的测试生命周期：追踪真实createNotesStore返回对象，afterEach先RTL cleanup再使用现有destroy取消计时器/订阅与操作scope；新增销毁后不再调用自动保存的回归。现有3900行文件仅局部增加29行，避免无关重构。没有修改应用/Host/Pi逻辑或任何期限。
+本机149测试通过，类型检查与check退出0、既有141 warnings；主分支真实ARM重验仍待CI，不冒称已通过。正式应用标签与本机EXE保持9c867b68/0.4.2，Intel打包流程38109406813继续使用固定26ea9eae控制源码。
