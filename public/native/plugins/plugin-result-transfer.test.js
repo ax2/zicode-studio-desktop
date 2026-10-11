@@ -231,3 +231,45 @@ it("offers receiver reselection after preview rejection and blocks it after scop
   switchTarget(); click("Change receiver"); expect(gateway.searchTargets).toHaveBeenCalledTimes(1);
   expect(gateway.commitTransfer).not.toHaveBeenCalled();
 });
+
+it("uses project favorites and recent with access revision pagination, without execution", async () => {
+  const { gateway } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  gateway.searchTargets.mockResolvedValue({ items: [target], total: 22, revision: "personalized", accessRevision: 7, nextOffset: 20 });
+  click("Favorites");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, { view: "favorites", accessRevision: null }));
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Next tool page"));
+  click("Next tool page");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 20, "personalized", { view: "favorites", accessRevision: 7 }));
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("Recent");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, { view: "recent", accessRevision: null }));
+  expect(gateway.prepareTransfer).not.toHaveBeenCalled(); expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("ignores late personalized pages and keeps selected view when changing receiver", async () => {
+  const { gateway } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  let late; gateway.searchTargets.mockImplementationOnce(() => new Promise(resolve => { late = resolve; }));
+  click("Favorites"); click("Recent");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  late({ items: [{ ...target, title: "obsolete favorite" }], total: 1, revision: "late", accessRevision: 1, nextOffset: null });
+  await Promise.resolve(); expect(document.body.textContent).not.toContain("obsolete favorite");
+  click("field text"); await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  click("Change receiver");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, "r", { view: "recent", accessRevision: null }));
+  expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("requires explicit refresh after access revision conflict without replaying or executing", async () => {
+  const { gateway } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  gateway.searchTargets.mockRejectedValueOnce(Object.assign(new Error("internal host detail"), { code: "result_target_revision_changed" }));
+  click("Favorites");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Search again to refresh"));
+  expect(document.body.textContent).not.toContain("internal host detail");
+  click("Search tools");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, { view: "favorites", accessRevision: null });
+  expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});

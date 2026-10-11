@@ -316,6 +316,10 @@ const zhCN = {
   "Preview all inputs": "预览全部输入",
   "Edit receiver inputs": "修改接收工具输入",
   "Change receiver": "更换接收工具",
+  "Receiver tool views": "接收工具列表",
+  Favorites: "收藏",
+  "The receiver list changed. Search again to refresh it.": "接收工具列表已变化，请重新搜索以刷新列表。",
+  "Favorites and recent use this project's tool history and show only compatible receivers.": "收藏和最近使用沿用当前项目的工具记录，仅显示可接收本次结果的工具。",
   "No matching tools. Currently supports local WASI computation with string fields.":
     "没有匹配工具。目前支持使用文本字段的本地 WASI 计算工具。",
   "Confirm transfer and run": "确认发送并执行",

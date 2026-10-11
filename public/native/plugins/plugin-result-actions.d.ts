@@ -10,7 +10,7 @@ export interface CapturedToolResponse {
 export interface ResultActionsGateway {
   prepareSave(scope: ResultScope, resultId: string, title: string): Promise<unknown>;
   commitSave(scope: ResultScope, grantId: string): Promise<unknown>;
-  searchTargets(scope: ResultScope, resultId: string, query?: string, offset?: number, revision?: string | null): Promise<unknown>;
+  searchTargets(scope: ResultScope, resultId: string, query?: string, offset?: number, revision?: string | null, options?: { view: "all" | "favorites" | "recent"; accessRevision?: number | null }): Promise<unknown>;
   prepareTransfer(scope: ResultScope, resultId: string, target: { pluginId: string; capabilityId: string }, field: string, inputs?: Record<string, string>): Promise<unknown>;
   commitTransfer(scope: ResultScope, grantId: string): Promise<unknown>;
 }

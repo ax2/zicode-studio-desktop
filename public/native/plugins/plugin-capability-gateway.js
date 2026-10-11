@@ -221,10 +221,11 @@ export class PluginCapabilityGateway {
     });
   }
 
-  searchTargets(scope, resultId, query = "", offset = 0, revision = null) {
+  searchTargets(scope, resultId, query = "", offset = 0, revision = null, { view = "all", accessRevision = null } = {}) {
     return this.#request(this.#url("/v2/plugin-results/targets"), {
       method: "POST",
-      body: JSON.stringify({ scope, resultId, query, offset, revision }),
+      body: JSON.stringify({ scope, resultId, query, offset, revision,
+        ...(view !== "all" ? { view, ...(accessRevision !== null ? { accessRevision } : {}) } : {}), }),
     });
   }
 

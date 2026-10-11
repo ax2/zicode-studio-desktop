@@ -14,6 +14,8 @@ export function createPluginResultTransfer({
   let query = "";
   let revision = null;
   let currentOffset = 0;
+  let view = "all";
+  let accessRevision = null;
   const valid = (token) => active && token === sequence && isCurrent();
   const element = (tag, text, className) => {
     const node = document.createElement(tag);
@@ -58,6 +60,7 @@ export function createPluginResultTransfer({
       if (!valid(token)) return;
       query = searchInput.value;
       revision = null;
+      accessRevision = null;
       void search();
     };
     searchInput.addEventListener("keydown", (event) => {
@@ -66,6 +69,22 @@ export function createPluginResultTransfer({
         submit();
       }
     });
+    const views = element("div", null, "ui-toolbar");
+    views.setAttribute("role", "group");
+    views.setAttribute("aria-label", t("Receiver tool views"));
+    for (const [id, label] of [["all", "All"], ["favorites", "Favorites"], ["recent", "Recent"]]) {
+      const choice = button(t(label), () => {
+        if (!valid(token) || view === id) return;
+        view = id;
+        query = searchInput.value;
+        revision = null;
+        accessRevision = null;
+        void search();
+      });
+      choice.setAttribute("aria-pressed", String(view === id));
+      choice.classList.toggle("ui-button--primary", view === id);
+      views.append(choice);
+    }
     panel.replaceChildren(
       element("strong", t("Send to tool")),
       element(
@@ -74,6 +93,8 @@ export function createPluginResultTransfer({
           "Choose a receiver and field. Preview does not execute; confirmation starts local computation.",
         ),
       ),
+      views,
+      element("p", t("Favorites and recent use this project's tool history and show only compatible receivers.")),
       searchInput,
       button(t("Search tools"), submit),
       button(t("Cancel transfer"), () => { if (valid(token)) cancel(); }),
@@ -88,9 +109,11 @@ export function createPluginResultTransfer({
         query,
         offset,
         revision,
+        ...(view === "all" ? [] : [{ view, accessRevision }]),
       );
       if (!valid(token)) return;
       revision = page.revision;
+      accessRevision = page.accessRevision ?? null;
       status.textContent = t("Compatible mappings: {total} · showing {start}–{end}")
         .replace("{total}", page.total)
         .replace("{start}", offset + (page.items.length ? 1 : 0))
@@ -126,7 +149,9 @@ export function createPluginResultTransfer({
         );
     } catch (error) {
       if (valid(token))
-        status.textContent = t("Could not search receiver tools: {error}").replace(
+        status.textContent = error.code === "result_target_revision_changed"
+          ? t("The receiver list changed. Search again to refresh it.")
+          : t("Could not search receiver tools: {error}").replace(
           "{error}",
           error.message,
         );

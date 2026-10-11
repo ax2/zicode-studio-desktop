@@ -4,6 +4,11 @@ use sha2::{Digest, Sha256};
 
 pub(crate) const PAGE_SIZE: usize = 40;
 
+pub(crate) fn tool_access_id(plugin_id: &str, capability_id: &str) -> String {
+    let bytes = serde_json::to_vec(&(plugin_id, capability_id)).expect("string tuple");
+    format!("manual.tool:{:x}", Sha256::digest(bytes))
+}
+
 #[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum CatalogView {
@@ -46,7 +51,7 @@ fn invalid_scene(scene: &str) -> Result<(), &'static str> {
 }
 
 impl PluginRegistry {
-    fn manual_revision(&self, scene: &str) -> String {
+    pub(crate) fn manual_revision(&self, scene: &str) -> String {
         // Bind same-version reinstalls, permission changes (including revoke/regrant),
         // scene without copying any executable or compiled module.
         let mut manifests: Vec<_> = self.plugins.values().map(|p| &p.manifest).collect();
@@ -128,7 +133,7 @@ impl PluginRegistry {
                 };
                 let title = cap.get("title").and_then(Value::as_str).unwrap_or(id);
                 let tool_id = serde_json::to_string(&(&manifest.id, id)).expect("string tuple");
-                let access_id = format!("manual.tool:{:x}", Sha256::digest(tool_id.as_bytes()));
+                let access_id = tool_access_id(&manifest.id, id);
                 if ranks.as_ref().is_some_and(|ranks| !ranks.contains_key(access_id.as_str())) {
                     continue;
                 }

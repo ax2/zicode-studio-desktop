@@ -232,3 +232,13 @@ describe("PluginCapabilityGateway", () => {
     });
   });
 });
+
+it("keeps legacy all search bodies and includes only personalized access fences", async () => {
+  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const scope = { sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "encode" };
+  await gateway.searchTargets(scope, "result", "query", 0, null);
+  await gateway.searchTargets(scope, "result", "query", 20, "revision", { view: "favorites", accessRevision: 0 });
+  expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, resultId: "result", query: "query", offset: 0, revision: null });
+  expect(JSON.parse(fetchImpl.mock.calls[1][1].body)).toEqual({ scope, resultId: "result", query: "query", offset: 20, revision: "revision", view: "favorites", accessRevision: 0 });
+});

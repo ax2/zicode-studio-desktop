@@ -230,3 +230,5 @@ pub(in crate::host_server) async fn commit(
 mod tests;
 #[cfg(test)]
 mod http_multi_tests;
+#[cfg(test)]
+mod target_access_tests;
