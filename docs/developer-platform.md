@@ -489,3 +489,5 @@ Git 工作区进程边界已统一清除继承的 `GIT_*` 变量，状态读取�
 
 2026-10-10：资源工具controller/DOM在详情故障后由会话保留，115项前端测试及真实HTTP/WASI专项通过；输入授权、实际输出预览、取消保存与撤销清屏验证通过。资源丢失响应恢复及原生专项仍待，见[资源会话恢复](plugins/resource-session-recovery.md)。
 
+
+2026-10-11 新增持续交付范围：托盘及其右键、Explorer按文件类型的少量工具入口、ZiFile归档全功能独立插件；详见[范围和接口需求](plugins/desktop-entry-zifile.md)。当前仅托盘首阶段已实现，Explorer/native归档插件待实现，不计全集完成。

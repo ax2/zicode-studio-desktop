@@ -15,6 +15,7 @@ mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
 mod desktop_profile;
+mod desktop_tray;
 mod document_import;
 mod e2ee;
 mod habit_tracker;
@@ -1899,6 +1900,9 @@ fn main() {
         )
         .setup(|app| {
             app.manage(BackgroundWorkerUpdateLease::default());
+            if let Err(error) = desktop_tray::install(app) {
+                log::warn!("[desktop-tray] unavailable; normal window closing retained: {error}");
+            }
             // Best-effort cleanup: drop workspace trash entries older than 30 days.
             if let Ok(trash_root) = crate::app_paths::data_root().map(|root| root.join("trash")) {
                 let now_secs = std::time::SystemTime::now()
@@ -1943,7 +1947,7 @@ fn main() {
         .on_window_event(|window, event| {
             let label = window.label();
             match event {
-                tauri::WindowEvent::CloseRequested { .. }
+                tauri::WindowEvent::CloseRequested { api, .. }
                     if label.starts_with("native-workspace-") =>
                 {
                     if let Ok(size) = window.inner_size() {
@@ -1955,6 +1959,14 @@ fn main() {
                             maximized: window.is_maximized().unwrap_or(false),
                         };
                         save_window_state(&state);
+                    }
+                    // Preserve the WebView, pending confirmations and running tools.
+                    // Never hide without a working tray from which to restore it.
+                    if desktop_tray::available(window.app_handle()) {
+                        match window.hide() {
+                            Ok(()) => api.prevent_close(),
+                            Err(error) => log::warn!("[desktop-tray] could not hide window: {error}"),
+                        }
                     }
                 }
                 tauri::WindowEvent::Focused(true) if label.starts_with("native-workspace-") => {

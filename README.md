@@ -185,3 +185,7 @@ python -m mkdocs serve
 [NOTICE](NOTICE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 本项目使用 [MIT License](LICENSE)。
+
+## 桌面入口与归档工具
+
+开发主分支已加入系统托盘与关闭到托盘：窗口隐藏后继续运行，托盘提供显示、隐藏、退出。真实菜单点击和其他OS仍待验收。资源管理器右键与ZiFile全功能插件接入正在建设，当前不宣称已可用；范围和接口需求见[桌面入口与ZiFile接入](docs/plugins/desktop-entry-zifile.md)。正式v0.4.2安装包不包含这些后续开发修改。
