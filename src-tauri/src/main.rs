@@ -78,7 +78,7 @@ use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use explorer_menu::desktop_explorer_menu;
 mod project_file_picker;
-use project_file_picker::select_project_resource_file;
+use project_file_picker::{get_project_resource_entry, select_project_resource_file};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_dialog::MessageDialogKind;
 use tauri_plugin_updater::UpdaterExt;
@@ -1733,7 +1733,8 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         roots
     };
     let (cwd, session_path) = if tools_only {
-        (default_cwd.to_string_lossy().into_owned(), None)
+        let root = explorer_entry::file().and_then(Path::parent).unwrap_or(&default_cwd);
+        (root.to_string_lossy().into_owned(), None)
     } else {
         match explorer_entry::folder() {
             Some(folder) => (folder.to_string_lossy().into_owned(), None),
@@ -1895,6 +1896,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             desktop_explorer_menu,
             select_project_resource_file,
+            get_project_resource_entry,
             open_folder_as_workspace,
             select_and_install_developer_plugin,
             select_signed_plugin_package,

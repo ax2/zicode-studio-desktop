@@ -36,6 +36,26 @@ fn relative(root: &Path, selected: &Path) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn get_project_resource_entry(
+    window: WebviewWindow,
+    workspace_id: String,
+) -> Result<Option<String>, String> {
+    current(&window, &workspace_id)?;
+    let root = window
+        .state::<HostServer>()
+        .project_resource_root(&workspace_id)?;
+    let Some(file) = crate::explorer_entry::file() else {
+        return Ok(None);
+    };
+    // A launch file is scoped to its original parent project. Never carry it
+    // into another window/project or expose its absolute path to plugins.
+    if file.parent() != Some(root.as_path()) {
+        return Ok(None);
+    }
+    relative(&root, file).map(Some)
+}
+
+#[tauri::command]
 pub async fn select_project_resource_file(
     app: AppHandle,
     window: WebviewWindow,

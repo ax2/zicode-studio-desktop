@@ -61,3 +61,5 @@ Windows当前是NSIS分发。传统菜单可用用户级HKCU shell verb；Window
 2026-10-11 后续：首个[传统Explorer文件夹入口](explorer-folder-entry.md)已实现目录CLI及当前用户可选注册/移除；真实Explorer点击、现代菜单、文件工具与ZiFile实包仍待验收。该入口的Pi自动发现禁用，不自动提交任务。
 
 2026-10-11 文件入口前置：[工具专用会话](tool-only-session.md)提供没有 Pi 进程的内部插件生命周期，避免把文件父目录直接当普通 AI 项目启动。尚未接线桌面启动/文件菜单，不计为文件入口或 ZiFile 接入完成。
+
+后续进展：[文件启动与确认流程](explorer-file-entry.md)已接通 `--open-file`、当前项目相对名称及独立资源授权/执行，并以自有合成 WASI 插件在实际 Windows WebView 验证。文件菜单注册、类型筛选、ZiFile 实包仍待，实际算法接受保持 0。

@@ -46,6 +46,9 @@ and included in its default permission set; run `bun run check:permissions`.
   history restore or startup backup. Preserve this separation: do not silently
   launch AI for tool initialization or recover a stopped tools route into AI.
   Host bootstrap/snapshot `runtimeMode` is authoritative for UI initialization.
+- `--open-file` uses the same tool-only lifetime in the file's parent project.
+  Keep file intent separate from resource authorization: no automatic content
+  read, tool execution or save. Never expose the absolute launch path to a plugin.
 - Session history and working directory are isolated per project/port
 - The embedded pi version is the source of truth: `pi --version` shown in the UI comes from `PI_STUDIO_PI_VERSION` (set by Rust at spawn time, populated from `scripts/pi-version.json`). A user-installed pi on `$PATH` is irrelevant and never touched.
 - User extensions under `~/.pi/agent/extensions/` and `<workspace>/.pi/extensions/` are still auto-loaded by the embedded pi (embedding doesn't disable user extensions).

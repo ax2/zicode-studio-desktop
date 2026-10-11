@@ -8,6 +8,7 @@ export const supportedLocales = {
 
 const zhCN = {
   "Choose from current project": "从当前项目选择",
+  "Use opened file: {name}": "使用已打开文件：{name}",
   "Choose a file inside the current project. It will only be shared after confirmation.": "请选择当前项目内的文件。选择后仍需确认，才会提供给工具。",
   "Could not select this project file. Choose a file inside the current project again.": "未能选择此项目文件，请重新选择当前项目内的文件。",
   "Desktop integration": "桌面集成",

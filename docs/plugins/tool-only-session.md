@@ -22,7 +22,7 @@ Explorer 文件工具入口需要在用户确认读取前保持文件内容未�
 
 工具入口以全局项目为作用域，生成 `tools-*` 会话。启动跳过历史扫描/恢复、项目备份以及 Pi 启动参数生成。Host bootstrap 增加 `runtimeMode`，工具 snapshot 返回 `runtimeMode: tools`、`pi: null` 和空消息；capabilities 的 nativeRpc/extensionUi/sessionTree 为 false。客户端据此跳过自动模型、斜杠命令、记忆及压缩请求。失效的 tools 路由不自动回退到历史 AI 会话。
 
-选择历史 AI 会话或新建 AI 会话仍是单独的用户操作；工具会话不会自动升级。窗口关闭依然沿用托盘隐藏/退出策略。当前未新增 `--open-file`、文件菜单注册、文件意图路由或托盘工具窗口，不能称为 Explorer 文件工具入口完成。
+选择历史 AI 会话或新建 AI 会话仍是单独的用户操作；工具会话不会自动升级。窗口关闭依然沿用托盘隐藏/退出策略。后续已加入 [--open-file 文件启动与确认流程](explorer-file-entry.md)，但文件菜单注册、文件类型筛选与托盘工具窗口仍待，不能称为 Explorer 完整集成完成。
 
 后续需要：目录按资源协议与文件类型筛选工具；选择接收方后预览，再明确确认快照，再独立执行；取消/换工具/关闭时撤销凭据；实际 Windows Explorer 和完整文件流 WebView 验收。独立工具入口的验证记录见技术博客 `iterations/tool-center-entry-2026-10-11/work-log.md`。
 

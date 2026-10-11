@@ -21,6 +21,7 @@ export function createPluginResourceSelection({
   let selected = null;
   let granted = null;
   let projectGrant = null;
+  let entryPath = null;
   const label = document.createElement("strong");
   label.textContent = t("Studio · Share a file with this plugin");
   const input = document.createElement("input");
@@ -56,6 +57,13 @@ export function createPluginResourceSelection({
     projectChoice.type = "button";
     projectChoice.className = "ui-button ui-button--secondary";
     projectChoice.textContent = t("Choose from current project");
+    if (typeof gateway.projectFiles.entry === "function") {
+      void gateway.projectFiles.entry(target.workspaceId).then(path => {
+        if (!active || !isCurrent() || typeof path !== "string" || !path) return;
+        entryPath = path;
+        projectChoice.textContent = t("Use opened file: {name}").replace("{name}", path);
+      }).catch(() => {});
+    }
     projectChoice.addEventListener("click", async () => {
       if (uploading || !active || !isCurrent()) return;
       clear();
@@ -68,7 +76,7 @@ export function createPluginResourceSelection({
       panel.setAttribute("aria-busy", "true");
       status.textContent = t("Choose a file inside the current project. It will only be shared after confirmation.");
       try {
-        const preview = await prepareProjectResource({ api: gateway.projectFiles, workspaceId: target.workspaceId, owner, isCurrent: valid });
+        const preview = await prepareProjectResource({ api: gateway.projectFiles, workspaceId: target.workspaceId, owner, isCurrent: valid, relativePath: entryPath });
         if (!preview) return;
         if (!valid()) { void gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {}); return; }
         projectGrant = preview;

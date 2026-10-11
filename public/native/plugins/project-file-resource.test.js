@@ -11,6 +11,14 @@ function setup() {
   return { api, gateway };
 }
 describe("project file confirmation", () => {
+  it("explicit file entry previews without a dialog and still requires separate confirmation", async () => {
+    const { api } = setup();
+    const selected = await prepareProjectResource({ api, workspaceId: "ws", owner, isCurrent: () => true, relativePath: preview.relativePath });
+    expect(selected.relativePath).toBe(preview.relativePath);
+    expect(api.choose).not.toHaveBeenCalled();
+    expect(api.prepare).toHaveBeenCalledWith(owner, preview.relativePath);
+    expect(api.commit).not.toHaveBeenCalled();
+  });
   it("only previews metadata after choice and commits on separate confirmation", async () => {
     const { api, gateway } = setup();
     const selected = await prepareProjectResource({ api, workspaceId: "ws", owner, isCurrent: () => true });

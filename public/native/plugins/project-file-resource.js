@@ -1,9 +1,9 @@
 const uuid = value => typeof value === "string" && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 const version = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
-export async function prepareProjectResource({ api, workspaceId, owner, isCurrent }) {
+export async function prepareProjectResource({ api, workspaceId, owner, isCurrent, relativePath: entryPath }) {
   let preview;
   try {
-    const relativePath = await api.choose(workspaceId);
+    const relativePath = entryPath ?? await api.choose(workspaceId);
     if (!isCurrent() || relativePath === null) return null;
     if (typeof relativePath !== "string" || !relativePath) throw new Error("project_file_invalid");
     preview = await api.prepare(owner, relativePath);

@@ -212,6 +212,7 @@ commands.allow = ["select_project_resource_file"]
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+  "allow-get-project-resource-entry",
   "allow-select-project-resource-file",
   "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",
@@ -254,3 +255,8 @@ permissions = [
   "allow-delete-workspace-backup",
   "allow-restore-workspace-backup",
 ]
+
+[[permission]]
+identifier = "allow-get-project-resource-entry"
+description = "Allow a trusted workspace window to inspect its explicit file launch name without reading content."
+commands.allow = ["get_project_resource_entry"]

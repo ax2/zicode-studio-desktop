@@ -49,6 +49,21 @@ afterEach(() => {
   setLocale("zh-CN");
 });
 describe("trusted file confirmation controls", () => {
+  it("shows a launch file name without preparing or confirming it automatically", async () => {
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    const projectFiles = { entry: vi.fn(async () => "中文.zip"), choose: vi.fn(),
+      prepare: vi.fn(async () => ({ profile: "resource.local-file.draft1", grantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", owner, relativePath: "中文.zip", byteLength: 3, contentRead: false, confirmed: false })),
+      commit: vi.fn(), cancel: vi.fn(async () => ({})) };
+    const options = setup(projectFiles);
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Use opened file: 中文.zip"));
+    expect(projectFiles.prepare).not.toHaveBeenCalled();
+    const button = [...document.querySelectorAll("button")].find(button => button.textContent === "Use opened file: 中文.zip");
+    button.click();
+    await vi.waitFor(() => expect(projectFiles.prepare).toHaveBeenCalledOnce());
+    expect(projectFiles.choose).not.toHaveBeenCalled();
+    expect(projectFiles.commit).not.toHaveBeenCalled();
+    options.controller.destroy();
+  });
   it("selects a project snapshot only after separate confirmation and cancels pending metadata grants", async () => {
     const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };

@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 
 static FOLDER: OnceLock<PathBuf> = OnceLock::new();
 static TOOLS_ONLY: OnceLock<bool> = OnceLock::new();
+static FILE: OnceLock<PathBuf> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuAction {
@@ -13,15 +14,30 @@ pub enum MenuAction {
     Status,
 }
 
+struct ParsedEntry {
+    folder: Option<PathBuf>,
+    action: Option<MenuAction>,
+    tools: bool,
+    file: Option<PathBuf>,
+}
+
 pub fn folder() -> Option<&'static Path> {
     FOLDER.get().map(PathBuf::as_path)
 }
 pub fn tools_only() -> bool {
-    TOOLS_ONLY.get().copied().unwrap_or(false)
+    TOOLS_ONLY.get().copied().unwrap_or(false) || FILE.get().is_some()
+}
+pub fn file() -> Option<&'static Path> {
+    FILE.get().map(PathBuf::as_path)
 }
 
 pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<MenuAction>, String> {
-    let (path, action, tools) = parse(args)?;
+    let ParsedEntry {
+        folder: path,
+        action,
+        tools,
+        file,
+    } = parse(args)?;
     TOOLS_ONLY
         .set(tools)
         .map_err(|_| "Desktop entry already configured")?;
@@ -30,18 +46,29 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
             .set(path)
             .map_err(|_| "Folder entry already configured")?;
     }
+    if let Some(file) = file {
+        FILE.set(file)
+            .map_err(|_| "File entry already configured")?;
+    }
     Ok(action)
 }
 
-fn parse(
-    args: impl IntoIterator<Item = OsString>,
-) -> Result<(Option<PathBuf>, Option<MenuAction>, bool), String> {
+fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String> {
     let mut args = args.into_iter();
     let mut folder = None;
     let mut action = None;
     let mut tools = false;
+    let mut file = None;
     while let Some(arg) = args.next() {
         match arg.to_str() {
+            Some("--open-file") => {
+                if file.is_some() {
+                    return Err("Only one file may be opened".into());
+                }
+                file = Some(local_file(PathBuf::from(
+                    args.next().ok_or("--open-file requires an absolute file")?,
+                ))?);
+            }
             Some("--tools-only") => {
                 if tools {
                     return Err("Only one tools-only entry may be selected".into());
@@ -96,22 +123,94 @@ fn parse(
     if tools && (folder.is_some() || action.is_some()) {
         return Err("Tools-only launch must be separate from folder and menu operations".into());
     }
-    Ok((folder, action, tools))
+    if file.is_some() && (tools || folder.is_some() || action.is_some()) {
+        return Err("File launch must be separate from tools, folder and menu operations".into());
+    }
+    Ok(ParsedEntry {
+        folder,
+        action,
+        tools,
+        file,
+    })
+}
+
+fn local_file(path: PathBuf) -> Result<PathBuf, String> {
+    if !path.is_absolute() || path.to_str().is_none() {
+        return Err("File must be an existing absolute Unicode regular file".into());
+    }
+    #[cfg(windows)]
+    if !matches!(path.components().next(), Some(std::path::Component::Prefix(prefix))
+        if matches!(prefix.kind(), std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)))
+    {
+        return Err("File entry accepts local drive files only".into());
+    }
+    if !path.is_file() {
+        return Err("File must be an existing regular file".into());
+    }
+    for ancestor in path.ancestors() {
+        let metadata =
+            std::fs::symlink_metadata(ancestor).map_err(|_| "Selected file path is unavailable")?;
+        if metadata.file_type().is_symlink() {
+            return Err("File entry does not accept linked paths".into());
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            if metadata.file_attributes() & 0x400 != 0 {
+                return Err("File entry does not accept reparse paths".into());
+            }
+        }
+    }
+    path.canonicalize()
+        .map_err(|_| "Selected file is unavailable".into())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn file_launch_validates_metadata_and_rejects_mixed_modes() {
+        let root = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("studio-file-entry-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&root).unwrap();
+        let file = root.join("中文 空格&.zip");
+        std::fs::write(&file, b"abcd").unwrap();
+        let text = file.to_str().unwrap();
+        assert_eq!(
+            parse(args(&["--open-file", text])).unwrap().file,
+            Some(file.canonicalize().unwrap())
+        );
+        for extra in ["--tools-only", "--explorer-menu-status"] {
+            assert!(parse(args(&["--open-file", text, extra])).is_err());
+        }
+        assert!(parse(args(&["--open-file", text, "--open-file", text])).is_err());
+        assert!(parse(args(&[
+            "--open-file",
+            text,
+            "--open-folder",
+            root.to_str().unwrap()
+        ]))
+        .is_err());
+        assert!(parse(args(&["--open-file"])).is_err());
+        assert!(parse(args(&["--open-file", "relative.zip"])).is_err());
+        assert!(parse(args(&["--open-file", root.to_str().unwrap()])).is_err());
+        #[cfg(windows)]
+        assert!(local_file(PathBuf::from(r"\\server\share\file.zip")).is_err());
+        std::fs::remove_file(&file).unwrap();
+        std::fs::remove_dir(&root).unwrap();
+    }
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()
     }
     #[test]
     fn explicit_operations_and_invalid_inputs() {
-        assert!(parse(args(&["--tools-only"])).unwrap().2);
+        assert!(parse(args(&["--tools-only"])).unwrap().tools);
         assert!(parse(args(&["--tools-only", "--tools-only"])).is_err());
         assert!(parse(args(&["--tools-only", "--explorer-menu-status"])).is_err());
         assert_eq!(
-            parse(args(&["--install-explorer-menu"])).unwrap().1,
+            parse(args(&["--install-explorer-menu"])).unwrap().action,
             Some(MenuAction::Install)
         );
         assert!(parse(args(&["--install-explorer-menu", "--remove-explorer-menu"])).is_err());
@@ -123,12 +222,12 @@ mod tests {
         assert!(parse(args(&["--open-folder", text, "--explorer-menu-status"])).is_err());
         assert!(parse(args(&["--open-folder", text, "--open-folder", text])).is_err());
         assert_eq!(
-            parse(args(&["--open-folder", text])).unwrap().0,
+            parse(args(&["--open-folder", text])).unwrap().folder,
             Some(directory.canonicalize().unwrap())
         );
         assert!(parse(args(&["--isolated-profile", text]))
             .unwrap()
-            .0
+            .folder
             .is_none());
     }
 
