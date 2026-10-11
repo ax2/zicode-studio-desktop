@@ -7,6 +7,19 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Desktop integration": "桌面集成",
+  "Open a folder in Studio from its Explorer context menu. Windows 11 may show this under Show more options.": "从资源管理器右键菜单在 Studio 中打开文件夹。Windows 11 可能将此入口放在“显示更多选项”中。",
+  "Explorer menu changes are disabled in this acceptance profile.": "当前验收配置禁止修改资源管理器菜单。",
+  "Explorer menus are available in the Windows desktop app.": "资源管理器菜单仅在 Windows 桌面程序中可用。",
+  "Checking Explorer menu…": "正在核对资源管理器菜单…",
+  "Explorer menu status is unknown. Check again before changing it. An existing entry may belong to another installation.": "菜单状态未知，请重新核对后再修改。已有条目可能属于其他安装位置。",
+  "Registered folder entries": "已注册的目录入口",
+  "Check menu status": "核对菜单状态",
+  "Add Explorer menu": "添加右键菜单",
+  "Remove Explorer menu": "移除右键菜单",
+  "Confirm Explorer menu change": "确认修改右键菜单",
+  "Add folder, folder background and drive menus for this Windows user? Keep this Studio installation in its current location.": "为当前 Windows 用户添加文件夹、目录背景和盘符菜单？请保持此 Studio 安装位置不变。",
+  "Remove the folder menus owned by this Studio installation for this Windows user?": "移除当前 Windows 用户下属于此 Studio 安装位置的目录菜单？",
   "Call troubleshooting details": "调用排查信息",
   "Call troubleshooting record": "调用排查记录",
   "Only call identifiers, times and status codes are kept here. Inputs, results and raw error messages are excluded. Closing this tool clears this record.": "这里只保留调用标识、时间和状态码，不含输入、结果或原始错误消息；关闭此工具后清除。",

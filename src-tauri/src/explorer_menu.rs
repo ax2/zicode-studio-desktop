@@ -1,6 +1,23 @@
 //! Optional current-user legacy Explorer verbs. No HKLM, COM or file associations.
 use crate::explorer_entry::MenuAction;
 
+#[tauri::command]
+pub fn desktop_explorer_menu(window: tauri::WebviewWindow, action: String) -> Result<serde_json::Value, String> {
+    crate::require_workspace_window(&window)?;
+    let operation = match action.as_str() {
+        "status" => MenuAction::Status,
+        "install" => MenuAction::Install,
+        "remove" => MenuAction::Remove,
+        _ => return Err("Unknown Explorer menu action".into()),
+    };
+    if operation == MenuAction::Status && (!cfg!(windows) || crate::desktop_profile::is_isolated()) {
+        return Ok(serde_json::json!({"supported":false,"reason":if cfg!(windows) {"isolated-profile"} else {"windows-only"}}));
+    }
+    let mut result = execute(operation)?;
+    result["supported"] = serde_json::Value::Bool(true);
+    Ok(result)
+}
+
 pub fn execute(action: MenuAction) -> Result<serde_json::Value, String> {
     if crate::desktop_profile::is_isolated() {
         return Err("Isolated profiles cannot change Explorer registration".into());

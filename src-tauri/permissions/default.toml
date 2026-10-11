@@ -199,9 +199,15 @@ identifier = "allow-inspect-project-storage"
 description = "Allow reading generated-directory size summaries within a registered workspace."
 commands.allow = ["inspect_project_storage"]
 
+[[permission]]
+identifier = "allow-desktop-explorer-menu"
+description = "Allow explicit current-user Explorer menu configuration from the desktop workspace."
+commands.allow = ["desktop_explorer_menu"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+  "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",
   "allow-background-automation-worker-status",
   "allow-start-background-automation-worker",

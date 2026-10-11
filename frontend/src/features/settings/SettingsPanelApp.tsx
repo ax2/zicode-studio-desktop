@@ -12,6 +12,7 @@ import {
   saveCustomTemplates,
 } from "../chat/chatTemplates";
 import { ArticlesConfigTab } from "./ArticlesConfigTab";
+import { DesktopIntegrationSettings } from "./DesktopIntegrationSettings";
 import { type BackupStore, formatBackupSize, hasRestorableBackupMetadata } from "./backupStore";
 import { ConfigTab } from "./ConfigTab";
 import { CostDashboardTab } from "./CostDashboardTab";
@@ -1234,6 +1235,7 @@ export function GeneralTab({
   return (
     <div className="settings-body">
       <AppearancePreferences />
+      <DesktopIntegrationSettings />
       <div className="settings-section">
         <div className="settings-section-title">{t("Agent")}</div>
         <div className="settings-row" id="setting-auto-compact">
