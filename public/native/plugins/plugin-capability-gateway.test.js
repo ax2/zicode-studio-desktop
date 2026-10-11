@@ -20,6 +20,16 @@ it("keeps resource prepare, one-use invoke and mutating reconciliation separate"
 });
 
 describe("PluginCapabilityGateway", () => {
+  it("queries local file state without preparing, confirming or executing it", async () => {
+    const state = { schemaVersion: 1, phase: "reading", executionFinished: false, cancellationRequested: true, contentRead: null };
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => state }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" }, pickProjectFile: async () => null });
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    expect(await gateway.projectFiles.status(owner, "grant")).toEqual(state);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-resources/status-local-file");
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ schemaVersion: 1, owner, grantId: "grant" });
+  });
   it("separates readonly resource status from execution and preserves the captured Host fence", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });

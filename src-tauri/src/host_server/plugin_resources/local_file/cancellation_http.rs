@@ -17,6 +17,18 @@ pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, prepare:
         .unwrap();
     let body = json!({"schemaVersion":1,"owner":prepare["owner"],"grantId":preview["grantId"],"confirmed":true});
     let request: FileGrant = serde_json::from_value(body.clone()).unwrap();
+    assert_eq!(status(host, client, &body).await["phase"], "prepared");
+    let forbidden = client
+        .post(format!(
+            "{}/v2/plugin-resources/status-local-file",
+            host.origin()
+        ))
+        .bearer_auth("local-file-fixture-token")
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(forbidden.status(), StatusCode::FORBIDDEN);
     let (grant, control) = host
         .state
         .plugin_resources
@@ -65,6 +77,11 @@ pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, prepare:
             .unwrap();
     }
     assert_eq!(host.state.plugin_resource_operations.active_count(), 8);
+    let before = tokio::time::timeout(Duration::from_secs(2), status(host, client, &body))
+        .await
+        .unwrap();
+    assert_eq!(before["phase"], "reading");
+    assert_eq!(before["cancellationRequested"], false);
     // The active grant is deliberately staged at the read boundary. All real
     // operation slots are occupied, so routing cancellation through them fails.
     let response = tokio::time::timeout(
@@ -86,6 +103,10 @@ pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, prepare:
     assert_eq!(result["cancellationRequested"], true);
     assert_eq!(result["executionFinished"], false);
     assert_eq!(result["contentRead"], Value::Null);
+    let waiting = status(host, client, &body).await;
+    assert_eq!(waiting["phase"], "reading");
+    assert_eq!(waiting["cancellationRequested"], true);
+    assert_eq!(waiting["executionFinished"], false);
     assert_eq!(host.state.plugin_resource_operations.active_count(), 8);
     assert_eq!(
         host.state
@@ -104,8 +125,38 @@ pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, prepare:
         assert_eq!(task.await.unwrap().unwrap().0["finished"], true);
     }
     assert_eq!(host.state.plugin_resource_operations.active_count(), 0);
-    let store = host.state.plugin_resources.lock().unwrap();
-    assert!(store.file_imports.1.is_empty());
-    assert_eq!(store.record_count(), baseline);
+    {
+        let store = host.state.plugin_resources.lock().unwrap();
+        assert!(store.file_imports.1.is_empty());
+        assert_eq!(store.record_count(), baseline);
+    }
+    let ended = status(host, client, &body).await;
+    assert_eq!(ended["phase"], "ended");
+    assert_eq!(ended["outcome"], "cancelled");
+    assert_eq!(ended["executionFinished"], true);
     println!("Real HTTP cancel admitted with 8 busy slots; staged read rejected; lease removed; no resource published");
+}
+
+async fn status(host: &HostServer, client: &reqwest::Client, body: &Value) -> Value {
+    let response = client
+        .post(format!(
+            "{}/v2/plugin-resources/status-local-file",
+            host.origin()
+        ))
+        .header("x-zicode-desktop-token", host.desktop_token())
+        .json(body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response.json().await.unwrap()
+}
+
+pub(super) async fn assert_published(host: &HostServer, client: &reqwest::Client, body: &Value) {
+    let result = status(host, client, body).await;
+    assert_eq!(result["phase"], "ended");
+    assert_eq!(result["outcome"], "published");
+    assert_eq!(result["contentRead"], true);
+    assert!(result.get("access").is_none());
+    assert!(result.get("resourceId").is_none());
 }

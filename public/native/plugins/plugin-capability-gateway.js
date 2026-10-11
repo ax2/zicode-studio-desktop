@@ -32,6 +32,7 @@ export class PluginCapabilityGateway {
       prepare: (owner, relativePath) => this.#request(this.#url("/v2/plugin-resources/prepare-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath }) }),
       commit: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }) }),
       cancel: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/cancel-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),
+      status: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/status-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),
     } : null;
   }
 

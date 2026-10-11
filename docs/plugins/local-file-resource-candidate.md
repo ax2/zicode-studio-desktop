@@ -4,7 +4,7 @@
 
 ## 约束与生命周期
 
-仅桌面身份可以调用三个入口；插件 bearer token、远程调用和插件 iframe 不可调用。输入不接受 workspaceId、sceneId 或绝对路径，项目与场景来自实时 runtime/session。接收者必须是启用并授予 resource.read 的 WASI draft2 能力；绑定当前包/模块、权限、Broker 凭据代际及注册项目根目录。
+仅桌面身份可以调用四个入口；插件 bearer token、远程调用和插件 iframe 不可调用。输入不接受 workspaceId、sceneId 或绝对路径，准备/读取的项目与场景来自实时 runtime/session。接收者必须是启用并授予 resource.read 的 WASI draft2 能力；绑定当前包/模块、权限、Broker 凭据代际及注册项目根目录。历史状态查询和取消按原owner精确匹配，实例停止/撤权后仍可使用，但不恢复任何读取或执行授权。
 
 1. **准备**：打开注册项目内的单个常规文件，只核对身份、长度和时间戳，不读内容、不创建资源、不运行工具。立即关闭句柄，不在等待确认时阻止用户编辑文件。返回供可信桌面展示的项目相对名称及长度。
 2. **确认**：一次性消费凭据，重新打开并核对同一文件身份、长度及时间戳；读取有界字节后再次核对。文件替换、变化、权限/包/会话/项目根变化拒绝。成功时以实际字节 SHA-256 建立现有只读资源快照，后续编辑原文件不影响快照。
@@ -26,6 +26,12 @@ Windows仅本地盘：检查路径重解析点，并核对实际打开句柄解�
 
 全部 POST，JSON body最大16KiB，未知字段拒绝。
 
+当前增加第四个只读入口`/v2/plugin-resources/status-local-file`，请求为同一schemaVersion/owner/grantId，`confirmed`可省略且不产生授权。仅可信桌面调用，插件bearer/iframe/远程客户端不能查询；错误owner与未知ID不区分。不读取文件、不占8个阻塞操作槽位、不运行工具。
+
+返回`phase`：`prepared`（尚未读取，contentRead=false）；`reading`（实际任务仍存在，contentRead=null、executionFinished=false，cancellationRequested只是请求标记）；`ended`（实际任务lease结束，executionFinished=true、outcome为published/cancelled/timedOut/failed）。published仅证明当时建立过快照，contentRead=true，不表示资源仍存在或当前授权有效；其余已读取字节可能不确定，contentRead=null。读取前取消的结束回执contentRead=false。状态不返回access/resourceId、路径、字节或模块摘要，不能用来重放确认、执行或恢复资源。
+
+结束回执仅当前Host内存保留120秒、最多128项，满时淘汰最早回执，不淘汰在途工作；未知/过期/被淘汰/Host重启返回resource_file_grant_unavailable，**不是已结束的证明**。待确认/在途原32全局与每runtime8的配额独立保持。桌面gateway提供`projectFiles.status(owner,grantId)`；UI自动状态恢复、丢失成功响应的资源恢复与持久记录尚未接入。仍属内部draft1增量，不能根据应用版本号0.4.2推断旧EXE包含该入口。
+
 `/v2/plugin-resources/prepare-local-file`
 
 ```json
@@ -44,7 +50,7 @@ Windows仅本地盘：检查路径重解析点，并核对实际打开句柄解�
 
 `/v2/plugin-resources/cancel-local-file` 使用同一owner/grantId，confirmed可省略。未开始时返回cancelled=true/cancellationRequested=true/executionFinished=true/contentRead=false；在途返回cancelled=false/cancellationRequested=true/executionFinished=false/contentRead=null（可能已经读取部分字节）。在途重复取消保持相同含义；错误owner不能取消。该控制入口不占用8个阻塞资源操作槽位，避免繁忙时无法取消；仍校验桌面身份和schema。
 
-实际任务结束、资源已发布、凭据不存在或未开始时已过期，返回resource_file_grant_unavailable，不能据此判断历史操作成功或失败。已经发布的资源须使用现有resource revoke接口撤销；前端保留在途grant，Cancel/destroy会请求取消，迟到的成功响应仍会撤销资源。没有额外状态查询/持久恢复，不把“请求已提交”显示为Host读取已终止。
+取消入口在实际任务结束、资源已发布、凭据不存在或未开始时已过期后返回resource_file_grant_unavailable，不能据此判断历史操作成功或失败；可另用只读状态入口查询尚未过期的回执。已经发布的资源须使用现有resource revoke接口撤销；前端保留在途grant，Cancel/destroy会请求取消，迟到的成功响应仍会撤销资源。没有持久恢复，不把“请求已提交”显示为Host读取已终止。
 
 固定错误码包括 resource_file_path_invalid、resource_file_unavailable、resource_file_not_regular、resource_file_changed、resource_file_grant_budget_exceeded、resource_file_grant_unavailable、resource_file_read_cancelled、resource_file_read_timeout，以及现有授权/资源限额错误。原始路径和OS错误不回显到插件或日志。
 
@@ -66,4 +72,10 @@ Windows仅本地盘：检查路径重解析点，并核对实际打开句柄解�
 
 1440×900取消等待与390×844重试结果截图已检查。技术博客证据在`iterations/local-file-cancellation-2026-10-11/`。复用debug、版本保持0.4.2，无新发布/ZIP；保留其他项目和冻结提供方包。
 
-仍需验证真实慢盘/挂起IO、系统级中断、读取状态查询与跨重启恢复、撤销失败/丢失响应恢复、其他OS；目录、多文件、大文件流、原生隔离与归档写入仍未实现。DevTools/ZiFile真实功能接受不因本轮增加。
+仍需验证真实慢盘/挂起IO、系统级中断、状态查询的UI恢复与跨重启恢复、撤销失败/丢失响应恢复、其他OS；目录、多文件、大文件流、原生隔离与归档写入仍未实现。DevTools/ZiFile真实功能接受不因本轮增加。
+
+## 2026-10-11 只读状态查询验收
+
+新增独立状态/回执模块；默认资源子系统58通过/2ignored，实际本地文件HTTP→确认快照→WASI专项另行1通过，前端gateway/文件交接29通过，最终Rust静态检查和前端check退出0。真实HTTP在8个实际操作槽位占满时查询reading，取消后仍reading且executionFinished=false；实际任务lease结束后才ended/cancelled。实际成功commit后查询ended/published；查询不返回资源凭据且不允许重放commit。准备状态、接收者隔离、超时/失败回执、128条淘汰和120秒过期由专项覆盖。
+
+复用当前debug EXE，SHA-256 `874BDF6491A90579EA13739E15807361010CA2B3EFA9EC0BB185CF34A8FEC70C`，版本0.4.2。真实WASI Worker启动/回收/管道关闭一致。证据在技术博客`iterations/local-file-status-2026-10-11/`；本轮新增状态接口及gateway能力，未新增界面状态恢复交互，不用旧截图充当新UI验证。其他OS和提供方实包仍待。

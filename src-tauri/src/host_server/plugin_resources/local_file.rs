@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 mod cancellation_http;
 mod files;
 mod reading;
+pub(in crate::host_server) mod status;
 #[cfg(test)]
 mod tests;
 const MAX_BYTES: usize = 32 * 1024 * 1024;
@@ -35,7 +36,11 @@ struct Grant {
     expires: Instant,
 }
 #[derive(Default)]
-pub(super) struct Grants(HashMap<String, Grant>, HashMap<String, reading::Active>);
+pub(super) struct Grants(
+    HashMap<String, Grant>,
+    HashMap<String, reading::Active>,
+    status::Receipts,
+);
 impl Grants {
     fn prune(&mut self) {
         self.0.retain(|_, g| g.expires > Instant::now());
@@ -99,7 +104,13 @@ impl Grants {
                 "executionFinished":false,"contentRead":null}),
             );
         }
-        self.take(request)?;
+        let grant = self.take(request)?;
+        self.2.record(
+            request.grant_id.clone(),
+            grant.owner,
+            "cancelled",
+            Some(false),
+        );
         Ok(
             json!({"schemaVersion":1,"cancelled":true,"cancellationRequested":true,
             "executionFinished":true,"contentRead":false}),
@@ -200,7 +211,9 @@ pub(in crate::host_server) async fn commit(
         // revoke a resource by grant ID; the explicit resource revoke API owns that.
         control.check()?;
         let result = store.import_file(request.owner, grant.proof, bytes);
-        store.file_imports.1.remove(&request.grant_id);
+        if result.is_ok() {
+            control.published();
+        }
         result
     })
     .await

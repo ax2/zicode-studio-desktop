@@ -1,11 +1,12 @@
 //! Cooperative boundaries; a pending OS read is not forcibly interrupted.
 use super::*;
 use std::io::Read;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 pub(super) struct Control {
     cancelled: AtomicBool,
     deadline: Instant,
+    outcome: AtomicU8,
 }
 
 impl Control {
@@ -13,6 +14,7 @@ impl Control {
         Self {
             cancelled: AtomicBool::new(false),
             deadline: expires.min(Instant::now() + Duration::from_secs(30)),
+            outcome: AtomicU8::new(0),
         }
     }
 
@@ -22,12 +24,29 @@ impl Control {
 
     pub(super) fn check(&self) -> Result<(), ApiError> {
         if self.cancelled.load(Ordering::Acquire) {
+            self.outcome.store(2, Ordering::Release);
             return Err(rejected("resource_file_read_cancelled"));
         }
         if Instant::now() >= self.deadline {
+            self.outcome.store(3, Ordering::Release);
             return Err(rejected("resource_file_read_timeout"));
         }
         Ok(())
+    }
+
+    pub(super) fn published(&self) {
+        self.outcome.store(1, Ordering::Release);
+    }
+    pub(super) fn outcome(&self) -> &'static str {
+        match self.outcome.load(Ordering::Acquire) {
+            1 => "published",
+            2 => "cancelled",
+            3 => "timedOut",
+            _ => "failed",
+        }
+    }
+    pub(super) fn cancellation_requested(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
     }
 }
 
@@ -45,7 +64,7 @@ pub(super) struct Lease {
 impl Drop for Lease {
     fn drop(&mut self) {
         if let Ok(mut store) = self.state.plugin_resources.lock() {
-            store.file_imports.1.remove(&self.id);
+            store.file_imports.finish(&self.id);
         }
     }
 }

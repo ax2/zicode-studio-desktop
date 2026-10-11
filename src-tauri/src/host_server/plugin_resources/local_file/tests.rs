@@ -390,6 +390,7 @@ async fn http(actual: bool) {
         .await
         .unwrap();
     assert_eq!(imported["confirmed"], true, "{imported}");
+    cancellation_http::assert_published(&host, &client, &commit).await;
     assert_eq!(imported["contentVersion"], sha256_hex(b"abcd"));
     assert_eq!(
         post("commit-local-file", commit)
