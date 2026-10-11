@@ -40,6 +40,22 @@ async function mount(options: Partial<ManualToolApi> = {}) {
   return { root, element, api, pending, store, busy, submit, click };
 }
 
+it.each(["worker_timeout", "worker_fuel_exhausted", "worker_memory_trap", "worker_stack_exhausted"])("records %s while keeping the execution lock until valid status", async code => {
+  const { element, api, pending, submit, click, busy } = await mount();
+  await submit(); await act(async () => pending.reject({ code, message: "PRIVATE_RAW_ERROR" }));
+  expect(element.textContent).toContain("Confirm its status before running again");
+  const record = element.querySelector<HTMLTextAreaElement>('[aria-label="Call troubleshooting record"]');
+  expect(record).not.toBeNull();
+  expect(record?.value).toContain(code); expect(record?.value).toContain(callId);
+  expect(record?.value).not.toContain("PRIVATE_RAW_ERROR");
+  expect(record?.closest("details")?.open).toBe(false);
+  await submit(); expect(api.invoke).toHaveBeenCalledTimes(1); expect(busy).toHaveBeenLastCalledWith(true);
+  vi.mocked(api.callStatus).mockResolvedValue(status("finished", code));
+  await click("Check tool status");
+  expect(busy).toHaveBeenLastCalledWith(false); expect(api.invoke).toHaveBeenCalledTimes(1);
+  expect(record?.value).toContain("status_verified"); expect(record?.value).toContain(code);
+});
+
 it("binds the issued handle and waits for actual cancellation instead of its acknowledgement", async () => {
   const { element, api, pending, store, submit, click, busy } = await mount();
   await submit(); await submit();

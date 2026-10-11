@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
+import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 import { ManualToolDetailView, type ManualToolDetailProps } from "./ManualToolDetail";
 import { ToolFailureBoundary } from "./ToolFailureBoundary";
 import { useManualToolCall } from "./use-manual-tool-call";
@@ -28,6 +29,7 @@ export function ManualToolSession({ onDirectory, onBusy, ...props }: ManualToolD
   return <ToolFailureBoundary onFailure={() => setFailed(true)} onDirectory={onDirectory}
     recovery={<>
       {notice && <p role="status" key={notice}>{t(notice)}</p>}
+      <ToolCallDiagnostics trace={call.trace} tool={props.tool} />
       <div ref={view => resourceSession.showFallback(view)} />
       {call.supported && call.busy && <div className="ui-toolbar">
         <button type="button" className="ui-button ui-button--danger" disabled={call.phase === "preparing" || call.phase === "cancelling"}

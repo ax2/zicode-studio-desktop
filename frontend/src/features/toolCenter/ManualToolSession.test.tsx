@@ -79,3 +79,14 @@ it("keeps uncertain recovery alive outside a failed view and rejects malformed p
   await click("Check tool status"); expect(onBusy).toHaveBeenLastCalledWith(false);
   expect(container.textContent).toContain("Tool cancelled."); expect(api.invoke).toHaveBeenCalledTimes(1);
 });
+
+it("retains bounded troubleshooting metadata outside a failed tool view", async () => {
+  const { container, fail, reject, onBusy } = await mount();
+  await fail(); await act(async () => reject({ code: "worker_fuel_exhausted", message: "PRIVATE_RAW_ERROR" }));
+  const record = container.querySelector<HTMLTextAreaElement>('[aria-label="Call troubleshooting record"]');
+  expect(record?.value).toContain(callId);
+  expect(record?.value).toContain("worker_fuel_exhausted");
+  expect(record?.value).not.toContain("PRIVATE_RAW_ERROR");
+  expect(container.textContent).toContain("computation limit");
+  expect(onBusy).toHaveBeenLastCalledWith(true);
+});

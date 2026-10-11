@@ -7,6 +7,15 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Call troubleshooting details": "调用排查信息",
+  "Call troubleshooting record": "调用排查记录",
+  "Only call identifiers, times and status codes are kept here. Inputs, results and raw error messages are excluded. Closing this tool clears this record.": "这里只保留调用标识、时间和状态码，不含输入、结果或原始错误消息；关闭此工具后清除。",
+  "The tool request reported an execution timeout. Confirm its status before running again.": "工具请求报告执行超时。再次执行前请先核对状态。",
+  "The connection timed out. The tool may still be running. Check its status before retrying.": "连接超时，工具可能仍在运行。再次执行前请先查询状态。",
+  "The tool request reported a computation limit. Confirm its status before running again.": "工具请求报告计算量超限。再次执行前请先核对状态。",
+  "The tool request reported a memory access error. Confirm its status before running again.": "工具请求报告内存访问错误。再次执行前请先核对状态。",
+  "The tool request reported a stack limit. Confirm its status before running again.": "工具请求报告栈空间超限。再次执行前请先核对状态。",
+  "The tool request reported an execution error. Confirm its status before running again.": "工具请求报告执行错误。再次执行前请先核对状态。",
   "A previous call for this tool still needs recovery. Review tool call records before running again.": "此工具仍有待恢复的调用。再次运行前，请先核对工具调用记录。",
   "Call recovery records are full. Review or explicitly forget old records before running again.": "调用恢复记录已满。再次运行前，请核对或明确忘记旧记录。",
 

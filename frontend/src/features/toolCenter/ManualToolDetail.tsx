@@ -11,6 +11,7 @@ import { type ManualToolResult, manualToolResult } from "./manual-tool-result";
 import { useManualToolCall } from "./use-manual-tool-call";
 import { ResourceToolRunner, type ResourceTargetProvider } from "./ResourceToolRunner";
 import type { ResourceSessionOwner } from "./resource-session-owner";
+import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 
 export interface ManualToolDetailProps {
   tool: ManualTool; revision: string; api: ManualToolApi; scope: ToolAccessScope;
@@ -130,5 +131,6 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       accessStore={accessStore} onRecentChange={onRecentChange}
       scope={{ ...scope, pluginId: tool.pluginId, capabilityId: tool.capabilityId }} gateway={api}
       onBusy={setActionBusy} />}
+    <ToolCallDiagnostics trace={call.trace} tool={tool} />
   </section>;
 }
