@@ -26,6 +26,7 @@ body[data-active-plugin="core.tools"] .sidebar { display: none; }
 .tool-open-item { flex-wrap: nowrap; }
 .tool-open-switcher .ui-button { white-space: nowrap; }
 .tool-open-title { max-width: min(16rem, 35vw); overflow: hidden; text-overflow: ellipsis; }
+.tool-close-dialog { margin: auto; overflow-wrap: anywhere; }
 .tool-open-switcher [aria-pressed="true"] { background: var(--bg-secondary); outline: 2px solid var(--accent); outline-offset: -2px; }
 .tool-detail button { align-self: flex-start; }
 .tool-detail textarea { width: 100%; box-sizing: border-box; }
@@ -40,6 +41,7 @@ body[data-active-plugin="core.tools"] .sidebar { display: none; }
 .tool-detail form, .tool-execution-result { scroll-margin-block-start: calc(var(--control-height-lg) + var(--space-4)); }
 .tool-result { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 50vh; overflow: auto; padding: var(--space-3); background: var(--bg-secondary); border-radius: var(--radius-sm); }
 @media (max-width: 720px) {
+  dialog.tool-close-dialog { width: calc(100% - var(--space-6)); }
   .tool-center { padding: var(--space-3); }
   .tool-center-grid { grid-template-columns: minmax(0, 1fr); }
   .tool-center-search { grid-template-columns: minmax(0, 1fr); }

@@ -3,6 +3,7 @@ import { t } from "../../shared/i18n";
 import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-access";
 import { useToolAccess } from "../commandPalette/use-tool-access";
 import { ManualToolSession } from "./ManualToolSession";
+import { ToolCloseConfirmation } from "./ToolCloseConfirmation";
 import type { ResourceTargetProvider } from "./ResourceToolRunner";
 import { toolCategoryTitle } from "./tool-categories";
 import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, manualToolError } from "./manual-tools";
@@ -24,11 +25,16 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
   const [opened, setOpened] = useState<{ tool: ManualTool; revision: string }[]>([]);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [runningTools, setRunningTools] = useState<string[]>([]);
+  const [closeTarget, setCloseTarget] = useState<{ toolId: string; title: string; trigger: HTMLButtonElement; sceneId: string; workspaceId: string } | null>(null);
+  const runningToolsRef = useRef<string[]>([]);
   const access = useToolAccess(accessStore, scope);
   const directory = useRef<HTMLDivElement>(null);
   const switcher = useRef<HTMLFieldSetElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
   const consumedRequest = useRef<ToolOpenRequest | undefined>(undefined);
+  useEffect(() => {
+    setCloseTarget(previous => previous && (previous.sceneId !== scope.sceneId || previous.workspaceId !== scope.workspaceId) ? null : previous);
+  }, [scope.sceneId, scope.workspaceId]);
   useEffect(() => {
     function revealSelected() {
       const strip = switcher.current, button = selectedButton.current;
@@ -92,11 +98,8 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
           ref={activeTool === item.tool.toolId ? selectedButton : undefined} data-open-tool-id={item.tool.toolId} title={item.tool.title}
           onClick={() => setActiveTool(item.tool.toolId)}><span className="tool-open-title">{item.tool.title}</span>{runningTools.includes(item.tool.toolId) ? ` · ${t("Completion unconfirmed")}` : ""}</button>
         <button type="button" className="ui-button ui-button--ghost" aria-label={`${t("Close tool")}: ${item.tool.title}`}
-          disabled={runningTools.includes(item.tool.toolId)} onClick={() => { void (async () => {
-            if (!await window.confirm(t("Close this tool and discard its inputs and result?"))) return;
-            setOpened(previous => previous.filter(value => value.tool.toolId !== item.tool.toolId));
-            if (activeTool === item.tool.toolId) setActiveTool(null);
-          })(); }}>{t("Close")}</button>
+          disabled={runningTools.includes(item.tool.toolId)} onClick={event => setCloseTarget({ toolId: item.tool.toolId, title: item.tool.title,
+            trigger: event.currentTarget, sceneId: scope.sceneId, workspaceId: scope.workspaceId })}>{t("Close")}</button>
       </span>)}
     </fieldset>
     <div hidden={activeTool !== null} className="manual-tool-directory-list">
@@ -173,8 +176,20 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
       <ManualToolSession key={JSON.stringify([scope.sceneId, scope.workspaceId, item.tool.toolId])}
         onDirectory={() => setActiveTool(null)} api={api} scope={scope} tool={item.tool} revision={item.revision} accessStore={accessStore}
         onRecentChange={access.retry} getResourceTarget={getResourceTarget}
-        onBusy={busy => setRunningTools(previous => busy ? [...new Set([...previous, item.tool.toolId])] : previous.filter(id => id !== item.tool.toolId))}
+        onBusy={busy => {
+          runningToolsRef.current = busy ? [...new Set([...runningToolsRef.current, item.tool.toolId])] : runningToolsRef.current.filter(id => id !== item.tool.toolId);
+          setRunningTools(runningToolsRef.current);
+        }}
         onOpenApplication={openApplication(item.tool.pluginId)} />
     </div>)}
+    {closeTarget && closeTarget.sceneId === scope.sceneId && closeTarget.workspaceId === scope.workspaceId && <ToolCloseConfirmation
+      title={closeTarget.title} trigger={closeTarget.trigger} busy={runningTools.includes(closeTarget.toolId)} onCancel={() => setCloseTarget(null)}
+      restoreFocus={() => switcher.current?.querySelector<HTMLButtonElement>("button")?.focus()}
+      onConfirm={() => {
+        if (runningToolsRef.current.includes(closeTarget.toolId) || closeTarget.sceneId !== scope.sceneId || closeTarget.workspaceId !== scope.workspaceId) return;
+        setOpened(previous => previous.filter(item => item.tool.toolId !== closeTarget.toolId));
+        if (activeTool === closeTarget.toolId) setActiveTool(null);
+        setCloseTarget(null);
+      }} />}
   </div>;
 }

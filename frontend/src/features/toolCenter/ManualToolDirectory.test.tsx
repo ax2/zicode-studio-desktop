@@ -1,6 +1,6 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, afterEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { translateDocument } from "i18n";
 import { ManualToolDirectory } from "./ManualToolDirectory";
@@ -9,6 +9,19 @@ import { emptyAccess, type ToolAccessStore } from "../commandPalette/tool-access
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const roots: ReturnType<typeof createRoot>[] = [];
+// jsdom does not implement the browser's top-layer modal/focus behavior.
+const dialogDescriptors = { showModal: Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "showModal"), close: Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "close") };
+beforeAll(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value(this: HTMLDialogElement) { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value(this: HTMLDialogElement) { this.open = false; } });
+});
+afterAll(() => {
+  for (const key of ["showModal", "close"] as const) {
+    const descriptor = dialogDescriptors[key];
+    if (descriptor) Object.defineProperty(HTMLDialogElement.prototype, key, descriptor);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, key);
+  }
+});
 afterEach(async () => { for (const root of roots.splice(0)) await act(async () => root.unmount()); document.body.replaceChildren(); vi.useRealTimers(); });
 const scope = { sceneId: "programming", workspaceId: "workspace" };
 const tool = (index: number): ManualTool => ({ toolId: `["fixture","text.${index}"]`, accessId: `manual.tool:${index}`,
@@ -62,7 +75,6 @@ it("keeps full opened-tool names and reveals the selected item without executing
 
 it("isolates a failed detail, preserves another tool's inputs and only recovers after explicit close/reopen", async () => {
   const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
   try {
     const gateway = api();
     const validDetail = gateway.loadTool.getMockImplementation();
@@ -96,6 +108,7 @@ it("isolates a failed detail, preserves another tool's inputs and only recovers 
     const close = container.querySelector('[aria-label="Close tool: Text 1"]') as HTMLButtonElement;
     expect(close.disabled).toBe(false);
     await act(async () => close.click());
+    await click(document.body, "Close tool");
     expect(container.querySelector('[role="alert"]')).toBeNull();
     gateway.loadTool.mockImplementation(validDetail);
     await act(async () => (container.querySelectorAll("article")[1].querySelector("button") as HTMLButtonElement).click());
@@ -107,7 +120,70 @@ it("isolates a failed detail, preserves another tool's inputs and only recovers 
     await act(async () => container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(gateway.invoke).toHaveBeenCalledTimes(1);
     expect((container.querySelector("[data-tool-result]") as HTMLTextAreaElement)?.value).toContain("completed");
-  } finally { consoleError.mockRestore(); confirm.mockRestore(); }
+  } finally { consoleError.mockRestore(); }
+});
+
+it("asks inside the app, defaults to cancel and preserves input on cancellation", async () => {
+  const gateway = api(), container = await mount(gateway);
+  await click(container, "Open tool");
+  const input = container.querySelector("textarea") as HTMLTextAreaElement;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(input, "keep draft"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]');
+  await act(async () => trigger?.click());
+  const dialog = document.querySelector("dialog");
+  expect(dialog?.open).toBe(true);
+  expect(dialog?.textContent).toContain("Text 0");
+  expect(document.activeElement?.textContent).toBe("Cancel");
+  await act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
+  expect(document.activeElement?.textContent).toBe("Close tool");
+  await act(async () => document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
+  expect(document.activeElement?.textContent).toBe("Cancel");
+  await click(document.body, "Cancel");
+  expect(document.querySelector("dialog")).toBeNull();
+  expect(input.value).toBe("keep draft");
+  expect(document.activeElement).toBe(trigger);
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("handles modal cancellation without discarding and removes only the confirmed tool", async () => {
+  const gateway = api(), container = await mount(gateway);
+  await click(container, "Open tool");
+  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]');
+  await act(async () => trigger?.click());
+  await act(async () => document.querySelector("dialog")?.dispatchEvent(new Event("cancel", { bubbles: false, cancelable: true })));
+  expect(document.querySelector("dialog")).toBeNull();
+  expect(trigger?.isConnected).toBe(true);
+  await act(async () => trigger?.click());
+  await click(document.body, "Close tool");
+  expect(trigger?.isConnected).toBe(false);
+  expect(document.activeElement?.textContent).toBe("Tool directory");
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("cannot close a tool with an execution pending", async () => {
+  const gateway = api(); let finish: ((value: { result: { text: string } }) => void) | undefined;
+  gateway.invoke.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const container = await mount(gateway); await click(container, "Open tool");
+  const input = container.querySelector("textarea") as HTMLTextAreaElement;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(input, "run"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+  await act(async () => container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]');
+  expect(trigger?.disabled).toBe(true);
+  await act(async () => trigger?.click());
+  expect(document.querySelector("dialog")).toBeNull();
+  await act(async () => finish?.({ result: { text: "done" } }));
+  expect(trigger?.disabled).toBe(false);
+});
+
+it("dismisses a pending close confirmation when the workspace changes", async () => {
+  const gateway = api(), container = await mount(gateway);
+  await click(container, "Open tool");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]')?.click());
+  expect(document.querySelector("dialog")).not.toBeNull();
+  await act(async () => roots.at(-1)?.render(<ManualToolDirectory api={gateway} scope={{ ...scope, workspaceId: "another" }} openApplication={() => undefined} />));
+  expect(document.querySelector("dialog")).toBeNull();
+  expect(container.querySelector('[aria-label="Close tool: Text 0"]')).not.toBeNull();
+  expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
 it("loads only selected schemas and executes explicitly with current scope/revision", async () => {
