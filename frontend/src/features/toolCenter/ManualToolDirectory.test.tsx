@@ -34,6 +34,32 @@ async function click(container: HTMLElement, label: string) {
   expect(button).toBeTruthy(); await act(async () => button?.click());
 }
 
+it("keeps full opened-tool names and reveals the selected item without executing or reloading it", async () => {
+  const gateway = api();
+  const container = await mount(gateway);
+  await click(container, "Open tool");
+  await click(container, "Tool directory");
+  await act(async () => (container.querySelectorAll("article")[1].querySelector("button") as HTMLButtonElement).click());
+  const strip = container.querySelector<HTMLFieldSetElement>(".tool-open-switcher");
+  expect(strip).not.toBeNull();
+  const last = strip?.querySelector<HTMLButtonElement>('[title="Text 1"]');
+  expect(last?.getAttribute("aria-pressed")).toBe("true");
+  const rectangle = (left: number, right: number) => ({ left, right, width: right - left, top: 0, bottom: 40, height: 40, x: left, y: 0, toJSON() {} });
+  const frame = vi.spyOn(strip as HTMLFieldSetElement, "getBoundingClientRect").mockReturnValue(rectangle(0, 300));
+  const item = vi.spyOn(last?.parentElement as HTMLElement, "getBoundingClientRect").mockReturnValue(rectangle(400, 600));
+  await click(container, "Text 0");
+  await click(container, "Text 1");
+  expect(strip?.scrollLeft).toBe(300);
+  expect(last?.title).toBe("Text 1");
+  const directoryButton = [...(strip?.querySelectorAll("button") ?? [])].find(button => button.textContent === "Tool directory");
+  const first = vi.spyOn(directoryButton as HTMLButtonElement, "getBoundingClientRect").mockReturnValue(rectangle(-300, -180));
+  await click(container, "Tool directory");
+  expect(strip?.scrollLeft).toBe(0);
+  expect(gateway.loadTool).toHaveBeenCalledTimes(2);
+  expect(gateway.invoke).not.toHaveBeenCalled();
+  frame.mockRestore(); item.mockRestore(); first.mockRestore();
+});
+
 it("isolates a failed detail, preserves another tool's inputs and only recovers after explicit close/reopen", async () => {
   const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);

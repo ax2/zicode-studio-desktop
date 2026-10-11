@@ -21,11 +21,18 @@
 body[data-active-plugin="core.tools"] .sidebar { display: none; }
 .manual-tool-directory, .manual-tool-directory-list, .tool-detail, .tool-detail form, .tool-input-field { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .manual-tool-directory-list[hidden] { display: none; }
+.tool-open-switcher { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-block: var(--space-1); }
+.tool-open-switcher > *, .tool-open-item { flex: 0 0 auto; }
+.tool-open-item { flex-wrap: nowrap; }
+.tool-open-switcher .ui-button { white-space: nowrap; }
+.tool-open-title { max-width: min(16rem, 35vw); overflow: hidden; text-overflow: ellipsis; }
+.tool-open-switcher [aria-pressed="true"] { background: var(--bg-secondary); outline: 2px solid var(--accent); outline-offset: -2px; }
 .tool-detail button { align-self: flex-start; }
 .tool-detail textarea { width: 100%; box-sizing: border-box; }
 .directory-resource-tool, .directory-resource-session { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .directory-resource-tool .ui-button[hidden], .directory-resource-session .ui-button[hidden] { display: none; }
 .directory-resource-tool .plugin-resource-selection, .directory-resource-session .plugin-resource-selection { max-height: none; padding: 0; }
+.directory-resource-tool .plugin-resource-selection > *, .directory-resource-session .plugin-resource-selection > * { margin-inline: 0; box-sizing: border-box; }
 .directory-resource-tool :is(input, select, textarea), .directory-resource-session :is(input, select, textarea) { box-sizing: border-box; max-width: 100%; min-width: 0; }
 .tool-input-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tool-execution-result { display: flex; flex-direction: column; gap: var(--space-3); }

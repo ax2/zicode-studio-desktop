@@ -9429,5 +9429,37 @@
       "signedLifecycleVerified": false,
       "uiChanged": false
     }
-  ]
+  ],
+  "toolSwitcherVerification": {
+    "date": "2026-10-11",
+    "archiveStage": "iterations/tool-switcher-2026-10-11",
+    "actualWindowsWebView": true,
+    "realDiagnosticsToolsOpened": 8,
+    "openingInvokes": 0,
+    "finalRealInvokes": 1,
+    "inputsAndResultRetained": true,
+    "switchingDoesNotReloadDetails": true,
+    "keyboardActivationVerified": true,
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "singleRow": true,
+    "bodyHorizontalOverflow": false,
+    "resourceLayoutOnlyVerified": true,
+    "resourceInputUploads": 0,
+    "frontendTestsPassed": 87,
+    "fullToolsAccepted": 0,
+    "limitations": [
+      "first real invocation HTTP 500 retained; cause not established",
+      "second verification script used wrong success wording; actual invoke HTTP 200",
+      "not full source scope or cross-platform acceptance"
+    ]
+  }
 }

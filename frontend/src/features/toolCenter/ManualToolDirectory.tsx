@@ -26,7 +26,23 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
   const [runningTools, setRunningTools] = useState<string[]>([]);
   const access = useToolAccess(accessStore, scope);
   const directory = useRef<HTMLDivElement>(null);
+  const switcher = useRef<HTMLFieldSetElement>(null);
+  const selectedButton = useRef<HTMLButtonElement>(null);
   const consumedRequest = useRef<ToolOpenRequest | undefined>(undefined);
+  useEffect(() => {
+    function revealSelected() {
+      const strip = switcher.current, button = selectedButton.current;
+      if (!strip || !button || button.dataset.openToolId !== (activeTool ?? "")) return;
+      const frame = strip.getBoundingClientRect(), selected = button.parentElement === strip ? button.getBoundingClientRect()
+        : button.parentElement?.getBoundingClientRect() ?? button.getBoundingClientRect();
+      // Reveal horizontally without scrolling the surrounding form or stealing focus.
+      if (selected.left < frame.left) strip.scrollLeft -= frame.left - selected.left;
+      else if (selected.right > frame.right) strip.scrollLeft += selected.right - frame.right;
+    }
+    revealSelected();
+    window.addEventListener("resize", revealSelected);
+    return () => window.removeEventListener("resize", revealSelected);
+  }, [activeTool]);
   useEffect(() => {
     if (!requestedTool || consumedRequest.current === requestedTool) return;
     consumedRequest.current = requestedTool;
@@ -69,11 +85,12 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
     return () => { active = false; clearTimeout(timer); };
   }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category]);
   return <div className="manual-tool-directory" ref={directory}>
-    <fieldset className="ui-toolbar" aria-label={t("Opened tools")}>
-      <button type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
-      {opened.map(item => <span key={item.tool.toolId} className="ui-toolbar">
+    <fieldset ref={switcher} className="ui-toolbar tool-open-switcher" aria-label={t("Opened tools")}>
+      <button ref={activeTool === null ? selectedButton : undefined} data-open-tool-id="" type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
+      {opened.map(item => <span key={item.tool.toolId} className="ui-toolbar tool-open-item">
         <button type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === item.tool.toolId}
-          onClick={() => setActiveTool(item.tool.toolId)}>{item.tool.title}{runningTools.includes(item.tool.toolId) ? ` · ${t("Completion unconfirmed")}` : ""}</button>
+          ref={activeTool === item.tool.toolId ? selectedButton : undefined} data-open-tool-id={item.tool.toolId} title={item.tool.title}
+          onClick={() => setActiveTool(item.tool.toolId)}><span className="tool-open-title">{item.tool.title}</span>{runningTools.includes(item.tool.toolId) ? ` · ${t("Completion unconfirmed")}` : ""}</button>
         <button type="button" className="ui-button ui-button--ghost" aria-label={`${t("Close tool")}: ${item.tool.title}`}
           disabled={runningTools.includes(item.tool.toolId)} onClick={() => { void (async () => {
             if (!await window.confirm(t("Close this tool and discard its inputs and result?"))) return;
