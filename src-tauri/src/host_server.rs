@@ -926,6 +926,17 @@ impl HostServer {
         configure_plugin_broker_for_state(&self.state, target, launch)
     }
 
+    /// Desktop-owned plugin lifetime. No Pi launch spec or broker credential
+    /// is exported to a child process; desktop HTTP authorization still applies.
+    pub(crate) fn start_tool_session(&self, target: RuntimeTarget) -> Result<(), String> {
+        self.state.runtimes.register_tool_session(target.clone())?;
+        if let Err(error) = issue_runtime_plugin_token(&self.state, &target) {
+            let _ = self.state.runtimes.stop(&target);
+            return Err(error);
+        }
+        Ok(())
+    }
+
     pub fn install_developer_plugin(&self, source: &std::path::Path) -> Result<String, String> {
         self.state
             .plugins
@@ -999,26 +1010,7 @@ fn configure_plugin_broker_for_state(
     target: &RuntimeTarget,
     launch: &mut NativeLaunchSpec,
 ) -> Result<(), String> {
-    let token = format!(
-        "{}{}",
-        uuid::Uuid::new_v4().simple(),
-        uuid::Uuid::new_v4().simple()
-    );
-    let token_hash = sha256_hex(token.as_bytes());
-    let mut tokens = state
-        .plugin_tokens
-        .lock()
-        .map_err(|_| "Plugin broker token store is unavailable".to_string())?;
-    let now = SystemTime::now();
-    tokens.retain(|_, record| record.expires_at > now);
-    tokens.insert(
-        target.instance_id.clone(),
-        RuntimePluginToken {
-            token_hash,
-            target: target.clone(),
-            expires_at: now + PLUGIN_BROKER_TOKEN_TTL,
-        },
-    );
+    let token = issue_runtime_plugin_token(state, target)?;
     launch.environment.insert(
         "PI_DESKTOP_PLUGIN_HOST_ORIGIN".into(),
         state.allowed_origin.clone(),
@@ -1044,6 +1036,30 @@ fn configure_plugin_broker_for_state(
         target.session_id.clone(),
     );
     Ok(())
+}
+
+fn issue_runtime_plugin_token(state: &HostState, target: &RuntimeTarget) -> Result<String, String> {
+    let token = format!(
+        "{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    );
+    let token_hash = sha256_hex(token.as_bytes());
+    let mut tokens = state
+        .plugin_tokens
+        .lock()
+        .map_err(|_| "Plugin broker token store is unavailable".to_string())?;
+    let now = SystemTime::now();
+    tokens.retain(|_, record| record.expires_at > now);
+    tokens.insert(
+        target.instance_id.clone(),
+        RuntimePluginToken {
+            token_hash,
+            target: target.clone(),
+            expires_at: now + PLUGIN_BROKER_TOKEN_TTL,
+        },
+    );
+    Ok(token)
 }
 
 impl Drop for HostServer {

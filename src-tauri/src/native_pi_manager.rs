@@ -43,7 +43,11 @@ pub struct LaunchDescription {
 impl NativeLaunchSpec {
     pub fn command_description(&self) -> LaunchDescription {
         let mut args = Vec::new();
-        args.extend(crate::desktop_profile::pi_discovery_flags().iter().map(|flag| flag.to_string()));
+        args.extend(
+            crate::desktop_profile::pi_discovery_flags()
+                .iter()
+                .map(|flag| flag.to_string()),
+        );
         for extension in &self.extensions {
             args.push("--extension".into());
             args.push(extension.to_string_lossy().into_owned());
@@ -69,7 +73,8 @@ impl NativeLaunchSpec {
 struct ManagedRuntime {
     initial_target: RuntimeTarget,
     target: Arc<Mutex<RuntimeTarget>>,
-    bridge: PiRpcBridge,
+    // Tool sessions have identity and plugin ownership, but no AI transport.
+    bridge: Option<PiRpcBridge>,
     process: Option<PiRpcProcess>,
     launch: Option<NativeLaunchSpec>,
     spawned_at: Instant,
@@ -169,7 +174,7 @@ impl NativePiManager {
                 ManagedRuntime {
                     initial_target: target.clone(),
                     target: Arc::new(Mutex::new(target.clone())),
-                    bridge: bridge.clone(),
+                    bridge: Some(bridge.clone()),
                     process: Some(process),
                     launch: Some(launch_spec),
                     spawned_at: Instant::now(),
@@ -200,7 +205,7 @@ impl NativePiManager {
                 ManagedRuntime {
                     initial_target: target.clone(),
                     target: Arc::new(Mutex::new(target.clone())),
-                    bridge: bridge.clone(),
+                    bridge: Some(bridge.clone()),
                     process: None,
                     launch: None,
                     spawned_at: Instant::now(),
@@ -208,6 +213,58 @@ impl NativePiManager {
             );
         self.start_event_pump(target, bridge);
         Ok(process)
+    }
+
+    /// Register a plugin-only lifetime without starting Pi, reading project
+    /// context, or creating a fake RPC transport. The caller owns its stop.
+    pub(crate) fn register_tool_session(&self, target: RuntimeTarget) -> Result<(), String> {
+        let mut coordinator = self
+            .inner
+            .coordinator
+            .lock()
+            .map_err(|_| "Runtime coordinator lock poisoned".to_string())?;
+        let mut runtimes = self
+            .inner
+            .runtimes
+            .lock()
+            .map_err(|_| "Native runtime registry lock poisoned".to_string())?;
+        coordinator
+            .register(target.clone(), RuntimeState::Ready)
+            .map_err(|error| format!("Cannot register tool session: {error:?}"))?;
+        runtimes.insert(
+            target.instance_id.clone(),
+            ManagedRuntime {
+                initial_target: target.clone(),
+                target: Arc::new(Mutex::new(target)),
+                bridge: None,
+                process: None,
+                launch: None,
+                spawned_at: Instant::now(),
+            },
+        );
+        Ok(())
+    }
+
+    fn rpc_bridge(&self, target: &RuntimeTarget) -> Result<PiRpcBridge, String> {
+        let runtimes = self
+            .inner
+            .runtimes
+            .lock()
+            .map_err(|_| "Native runtime registry lock poisoned".to_string())?;
+        let runtime = runtimes
+            .get(&target.instance_id)
+            .ok_or_else(|| "Native runtime instance is not running".to_string())?;
+        if *runtime
+            .target
+            .lock()
+            .map_err(|_| "Native runtime target lock poisoned".to_string())?
+            != *target
+        {
+            return Err("Runtime request rejected: IdentityMismatch".into());
+        }
+        runtime.bridge.clone().ok_or_else(|| {
+            "TOOL_SESSION_AI_UNAVAILABLE: Open an AI session to use this operation".into()
+        })
     }
 
     /// Stop runtimes for `temporary-*` sessions that are older than `grace`
@@ -431,6 +488,9 @@ impl NativePiManager {
         idempotency_key: Option<&str>,
         timeout: Duration,
     ) -> Result<Value, String> {
+        // Reject before accepting/caching mutations. Tool sessions never
+        // auto-upgrade to AI sessions or enter the Pi respawn path.
+        let bridge = self.rpc_bridge(target)?;
         let mut mutation_key = None;
         {
             let mut coordinator = self
@@ -463,14 +523,6 @@ impl NativePiManager {
                 mutation_key = Some(key.to_owned());
             }
         }
-        let bridge = self
-            .inner
-            .runtimes
-            .lock()
-            .map_err(|_| "Native runtime registry lock poisoned".to_string())?
-            .get(&target.instance_id)
-            .map(|runtime| runtime.bridge.clone())
-            .ok_or_else(|| "Native runtime instance is not running".to_string())?;
         let response = match bridge.request(command.clone(), timeout).await {
             Ok(response) => response,
             Err(BridgeError::ProcessClosed) => {
@@ -480,14 +532,7 @@ impl NativePiManager {
                 // every dependent view stuck on a disconnected error until the
                 // user manually starts a new session.
                 self.respawn(target)?;
-                let bridge = self
-                    .inner
-                    .runtimes
-                    .lock()
-                    .map_err(|_| "Native runtime registry lock poisoned".to_string())?
-                    .get(&target.instance_id)
-                    .map(|runtime| runtime.bridge.clone())
-                    .ok_or_else(|| "Native runtime instance is not running".to_string())?;
+                let bridge = self.rpc_bridge(target)?;
                 bridge
                     .request(command, timeout)
                     .await
@@ -612,6 +657,7 @@ impl NativePiManager {
         temporary: &RuntimeTarget,
         session_id: &str,
     ) -> Result<RuntimeTarget, String> {
+        self.rpc_bridge(temporary)?;
         if !temporary.session_id.starts_with("temporary-") {
             return Ok(temporary.clone());
         }
@@ -705,6 +751,7 @@ impl NativePiManager {
         target: &RuntimeTarget,
         response: Value,
     ) -> Result<(), String> {
+        let bridge = self.rpc_bridge(target)?;
         self.inner
             .coordinator
             .lock()
@@ -714,14 +761,6 @@ impl NativePiManager {
         if response.get("type").and_then(Value::as_str) != Some("extension_ui_response") {
             return Err("Expected extension_ui_response".into());
         }
-        let bridge = self
-            .inner
-            .runtimes
-            .lock()
-            .map_err(|_| "Native runtime registry lock poisoned".to_string())?
-            .get(&target.instance_id)
-            .map(|runtime| runtime.bridge.clone())
-            .ok_or_else(|| "Native runtime instance is not running".to_string())?;
         let response_id = response
             .get("id")
             .and_then(Value::as_str)
@@ -774,6 +813,70 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
+
+    #[tokio::test]
+    async fn tool_sessions_own_plugins_without_pi_transport_or_automatic_upgrade() {
+        let manager = NativePiManager::new(8);
+        let target = RuntimeTarget::new("workspace-tools", "tools-a", "instance-tools");
+        manager.register_tool_session(target.clone()).unwrap();
+        {
+            let runtimes = manager.inner.runtimes.lock().unwrap();
+            let runtime = runtimes.get(&target.instance_id).unwrap();
+            assert!(runtime.bridge.is_none());
+            assert!(runtime.process.is_none());
+            assert!(runtime.launch.is_none());
+        }
+        assert!(manager.is_instance_live(&target.instance_id).unwrap());
+        assert_eq!(manager.broker_target(&target), Some(target.clone()));
+        assert_eq!(manager.broker_call_target(&target), Some(target.clone()));
+        assert_eq!(
+            manager.snapshot(&target).unwrap().state,
+            crate::runtime_coordinator::RuntimeState::Ready
+        );
+        for command in [
+            json!({"type":"get_state"}),
+            json!({"type":"prompt","message":"never"}),
+        ] {
+            let error = manager
+                .request(&target, command, Some("same-key"), Duration::from_secs(1))
+                .await
+                .unwrap_err();
+            assert!(error.starts_with("TOOL_SESSION_AI_UNAVAILABLE:"));
+        }
+        assert!(manager
+            .respond_extension_ui(&target, json!({"type":"extension_ui_response"}))
+            .await
+            .unwrap_err()
+            .starts_with("TOOL_SESSION_AI_UNAVAILABLE:"));
+        assert!(manager.bind_session_id(&target, "ai-session").is_err());
+        assert!(manager.inner.last_respawn.lock().unwrap().is_empty());
+        assert!(manager.inner.pending_ui.lock().unwrap().is_empty());
+        assert!(manager.register_tool_session(target.clone()).is_err());
+        let forged = RuntimeTarget::new("wrong-workspace", "tools-a", "instance-tools");
+        assert!(manager.broker_target(&forged).is_none());
+        assert!(manager
+            .request(
+                &forged,
+                json!({"type":"get_state"}),
+                None,
+                Duration::from_secs(1)
+            )
+            .await
+            .unwrap_err()
+            .contains("IdentityMismatch"));
+
+        // A separate AI session keeps its own transport and lifetime.
+        let ai = RuntimeTarget::new("workspace-ai", "ai-a", "instance-ai");
+        let _fake = manager.register_in_memory(ai.clone()).unwrap();
+        manager.stop(&target).unwrap();
+        assert!(!manager.is_instance_live(&target.instance_id).unwrap());
+        assert!(manager.broker_target(&target).is_none());
+        assert!(manager.broker_call_target(&target).is_none());
+        assert!(manager.snapshot(&target).is_err());
+        assert!(manager.is_instance_live(&ai.instance_id).unwrap());
+        manager.stop_all();
+        assert!(manager.statuses().unwrap().is_empty());
+    }
 
     #[test]
     fn launch_spec_has_no_tcp_port_and_resumes_only_at_process_start() {
@@ -925,7 +1028,10 @@ mod tests {
         let temporary = RuntimeTarget::new("workspace-a", "temporary-a", "instance-a");
         let mut events = manager.subscribe();
         let mut fake = manager.register_in_memory(temporary.clone()).unwrap();
-        assert_eq!(manager.broker_call_target(&temporary), Some(temporary.clone()));
+        assert_eq!(
+            manager.broker_call_target(&temporary),
+            Some(temporary.clone())
+        );
 
         let formal = manager.bind_session_id(&temporary, "session-a").unwrap();
         assert_eq!(manager.broker_target(&temporary), Some(formal.clone()));

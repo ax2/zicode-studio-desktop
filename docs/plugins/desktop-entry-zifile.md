@@ -59,3 +59,5 @@ Windows当前是NSIS分发。传统菜单可用用户级HKCU shell verb；Window
 本轮未修改ZiFile或DevTools，未发消息到其他会话；接口需求作为可交付文档。下一阶段优先Explorer目录启动的用户级可选注册与受控native Worker读能力，随后归档写入生命周期。
 
 2026-10-11 后续：首个[传统Explorer文件夹入口](explorer-folder-entry.md)已实现目录CLI及当前用户可选注册/移除；真实Explorer点击、现代菜单、文件工具与ZiFile实包仍待验收。该入口的Pi自动发现禁用，不自动提交任务。
+
+2026-10-11 文件入口前置：[工具专用会话](tool-only-session.md)提供没有 Pi 进程的内部插件生命周期，避免把文件父目录直接当普通 AI 项目启动。尚未接线桌面启动/文件菜单，不计为文件入口或 ZiFile 接入完成。

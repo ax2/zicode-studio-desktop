@@ -204,7 +204,11 @@ async fn http(actual: bool) {
         "temporary-local-file",
         "local-file-instance",
     );
-    let runtime = runtimes.register_in_memory(issued.clone()).unwrap();
+    let runtime = if actual {
+        None
+    } else {
+        Some(runtimes.register_in_memory(issued.clone()).unwrap())
+    };
     let host = HostServer::start_with_mode(
         f.0.join("public"),
         runtimes,
@@ -214,19 +218,40 @@ async fn http(actual: bool) {
     )
     .await
     .unwrap();
-    host.state.plugin_tokens.lock().unwrap().insert(
-        issued.instance_id.clone(),
-        RuntimePluginToken {
-            token_hash: sha256_hex(b"local-file-fixture-token"),
-            target: issued.clone(),
-            expires_at: SystemTime::now() + PLUGIN_BROKER_TOKEN_TTL,
-        },
-    );
-    let target = host
-        .state
-        .runtimes
-        .bind_session_id(&issued, "local-file-session")
-        .unwrap();
+    let target = if actual {
+        host.start_tool_session(issued.clone()).unwrap();
+        assert!(host
+            .state
+            .runtimes
+            .is_instance_live(&issued.instance_id)
+            .unwrap());
+        assert!(host
+            .state
+            .runtimes
+            .request(
+                &issued,
+                json!({"type":"get_state"}),
+                None,
+                std::time::Duration::from_secs(1)
+            )
+            .await
+            .unwrap_err()
+            .starts_with("TOOL_SESSION_AI_UNAVAILABLE:"));
+        issued.clone()
+    } else {
+        host.state.plugin_tokens.lock().unwrap().insert(
+            issued.instance_id.clone(),
+            RuntimePluginToken {
+                token_hash: sha256_hex(b"local-file-fixture-token"),
+                target: issued.clone(),
+                expires_at: SystemTime::now() + PLUGIN_BROKER_TOKEN_TTL,
+            },
+        );
+        host.state
+            .runtimes
+            .bind_session_id(&issued, "local-file-session")
+            .unwrap()
+    };
     host.state
         .data
         .workspace_roots()
@@ -430,7 +455,7 @@ async fn http(actual: bool) {
             std::env::var_os("ZICODE_TEST_RESOURCE_WORKER_EXE").unwrap(),
         ));
         // Regrant invalidates the previous resource; obtain fresh explicit consent.
-        let preview: Value = post("prepare-local-file", prepare)
+        let preview: Value = post("prepare-local-file", prepare.clone())
             .await
             .unwrap()
             .json()
@@ -497,6 +522,37 @@ async fn http(actual: bool) {
                 "Project file browser acceptance failed; retain fixture"
             );
         }
+        let pending: Value = post("prepare-local-file", prepare.clone())
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(pending["grantId"].is_string());
+        host.state.runtimes.stop(&target).unwrap();
+        for (route, body) in [
+            ("prepare-local-file", prepare),
+            (
+                "commit-local-file",
+                json!({"schemaVersion":1,"owner":owner,"grantId":pending["grantId"],"confirmed":true}),
+            ),
+            (
+                "read-view",
+                json!({"access":imported["access"],"offset":0,"length":4}),
+            ),
+        ] {
+            let result: Value = post(route, body).await.unwrap().json().await.unwrap();
+            assert_eq!(
+                result["error"]["code"], "runtime_stopped",
+                "{route}: {result}"
+            );
+        }
+        assert!(!host
+            .state
+            .runtimes
+            .is_instance_live(&target.instance_id)
+            .unwrap());
+        println!("Tool-only session stopped; pending grants and confirmed resource reads rejected");
     }
     host.stop_and_wait().await.unwrap();
     drop(runtime);
