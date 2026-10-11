@@ -18,6 +18,10 @@ Zi DevTools接入目标为通过独立插件体系覆盖全部工具；逐项接
 
 ## 主要能力
 
+开发主分支新增托盘及可选的 Windows [资源管理器文件夹入口](docs/plugins/explorer-folder-entry.md)，
+可从目录打开对应工作区。托盘恢复/右键菜单和真实 Explorer 点击仍待验收，正式 v0.4.2 不含这些后续修改。
+ZiFile 通过独立插件接入的[功能范围与接口需求](docs/plugins/desktop-entry-zifile.md)已整理，实际归档插件尚未接入。
+
 - **自包含运行环境**：所有平台内置锁定版本的 Pi；Windows 另内置 Git、Bash 和
   WebView2 安装器。
 - **无终端窗口**：Windows 后台子进程统一以无控制台模式启动。

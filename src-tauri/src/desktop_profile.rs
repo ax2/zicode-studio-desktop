@@ -24,7 +24,7 @@ pub fn is_isolated() -> bool {
 }
 
 pub fn pi_discovery_flags() -> &'static [&'static str] {
-    if is_isolated() {
+    if is_isolated() || crate::explorer_entry::folder().is_some() {
         &[
             "--no-extensions",
             "--no-skills",

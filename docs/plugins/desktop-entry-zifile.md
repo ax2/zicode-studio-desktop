@@ -55,3 +55,5 @@ Windows当前是NSIS分发。传统菜单可用用户级HKCU shell verb；Window
 6. 对照ZiFile已有18格式能力声明逐操作建矩阵；不支持的组合列出提供方原因与替代，不减少总功能范围。实包发现→加载→执行→展示→接力/保存、撤权/升级/失败隔离与支持OS分别举证。
 
 本轮未修改ZiFile或DevTools，未发消息到其他会话；接口需求作为可交付文档。下一阶段优先Explorer目录启动的用户级可选注册与受控native Worker读能力，随后归档写入生命周期。
+
+2026-10-11 后续：首个[传统Explorer文件夹入口](explorer-folder-entry.md)已实现目录CLI及当前用户可选注册/移除；真实Explorer点击、现代菜单、文件工具与ZiFile实包仍待验收。该入口的Pi自动发现禁用，不自动提交任务。

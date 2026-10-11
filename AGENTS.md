@@ -47,6 +47,8 @@ and included in its default permission set; run `bun run check:permissions`.
 - User extensions under `~/.pi/agent/extensions/` and `<workspace>/.pi/extensions/` are still auto-loaded by the embedded pi (embedding doesn't disable user extensions).
   Explicit `--isolated-profile <absolute-directory>` disables automatic discovery and uses
   dedicated Studio state for native acceptance; see `docs/desktop-isolated-profile.md`.
+  Explicit `--open-folder` launches also disable automatic discovery for their whole
+  process while keeping explicitly bundled Studio extensions; see `docs/plugins/explorer-folder-entry.md`.
 
 ### PI references
 

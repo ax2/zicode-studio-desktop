@@ -16,6 +16,8 @@ mod clipboard_inbox;
 mod credential_broker;
 mod desktop_profile;
 mod desktop_tray;
+mod explorer_entry;
+mod explorer_menu;
 mod document_import;
 mod e2ee;
 mod habit_tracker;
@@ -1715,10 +1717,13 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         }
         roots
     };
-    let (cwd, session_path) = select_fresh_startup_target(
-        default_cwd.to_string_lossy().into_owned(),
-        find_latest_session_boot_target(&workspace_session_roots),
-    );
+    let (cwd, session_path) = match explorer_entry::folder() {
+        Some(folder) => (folder.to_string_lossy().into_owned(), None),
+        None => select_fresh_startup_target(
+            default_cwd.to_string_lossy().into_owned(),
+            find_latest_session_boot_target(&workspace_session_roots),
+        ),
+    };
     let workspace_id = metadata
         .lock()
         .map_err(|_| "ZiCode Studio Desktop metadata store is unavailable".to_string())?
@@ -1829,6 +1834,16 @@ fn main() {
     if let Err(error) = desktop_profile::initialize(std::env::args_os().skip(1)) {
         eprintln!("[desktop-profile] {error}");
         std::process::exit(1);
+    }
+    let explorer_action = match explorer_entry::configure(std::env::args_os().skip(1)) {
+        Ok(action) => action,
+        Err(error) => { eprintln!("[desktop-entry] {error}"); std::process::exit(2); }
+    };
+    if let Some(action) = explorer_action {
+        match explorer_menu::execute(action) {
+            Ok(status) => { println!("{status}"); return; }
+            Err(error) => { eprintln!("[explorer-menu] {error}"); std::process::exit(2); }
+        }
     }
     if !desktop_profile::is_isolated() {
         if let Err(error) = fix_path_env::fix() {
