@@ -103,3 +103,17 @@ process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失�
 追加退出确认本机结果：主程序472通过/29条件跳过、其他5/19通过，严格Clippy通过；加强句柄身份后的11项终端专项全部通过5.67秒，最终check:rust:static退出0（fmt既有advisory）。ActiveProcesses确认在测试保持子进程句柄时仍能正确结束并标记closed；原WAIT_OBJECT_0零等待断言通过。
 额外4进程并行前台子进程压力验证与编译检查同时运行：实际执行8次，5通过3失败（5/6/7），失败均在12秒内未收到DESCENDANT-READY，尚未进入退出确认阶段；输出显示PowerShell逐字重绘长命令后尚无子进程标记。未将该结果写成退出清理失败，也未删失败、改期限或缩短原命令/负载。原始log/stderr及foreground-drain-attempt1-summary.json保留，后续12次未执行；不能宣称20次通过。高负载终端启动延迟已写入发布已知边界。
 本轮用新模块实现退出确认，未改插件接口、Pi版本、应用版本或构建profile。当前改动待新四平台CI，不将本机通过代替Windows Server/Linux/Mac最终结果。
+
+## 2026-10-11：正式版本与发布基础设施修复
+
+0768357d的最终四平台38102941804全部成功，详细JSON已下载核对（各21步骤0失败，唯一rust-format advisory，Windows rustTestThreads=2），源码/runner/toolchain/clean身份均一致。官方发布脚本266文件1805测试与类型/lint/design/权限等门槛通过，创建v0.4.2及版本提交9c867b68ba79dd7611c5daa3c4a322aa411f5dd3，未移动旧标签。
+
+本机完整Windows构建退出0，主程序编译30m01s，EXE0.4.2/52,701,184B，SHA256 166ffadd34b67331d76fd402c5e8c606c9ae5d0c994d9af60a300f986255be72；NSIS350,810,666B，SHA256 3bfd1d0fad61584a2529fa5362564ba29a29902695eeac5399f393a2aa1a3c90，9项必需资源全部存在，构建前后HEAD均9c867b68且dirty=[]。沿用target/release完整目录，没有应用ZIP或日期运行副本。
+
+首次原生截图在NSIS打包完成前采集，EXE当时摘要735e00c0，不能算最终二进制验收，保留过程记录。打包完成后的166ffadd与全新独立profile的最终QA进程摘要一致，1440x900 CSS/DPR1.25的4张实际原生截图已实看：启动、16工具目录、搜索后按需详情、应用回退至空白剪贴板收件箱。页面异常和采集控制台error/warning均0。此内置工具明确提示通用表单不能执行，可打开应用；没有将导航/详情/空数据展示算作Worker调用通过，也没有模型请求、系统剪贴板读取、用户内容写入或154项全量验收。
+
+首轮Release38104116572产品检查通过，Linux AppImage/DEB和ARM DMG实际生成上传，但草稿资产校验误用了仅查询published release的REST tag接口而404。另有GitHub将上传文件名ASCII空格转点的实际规范化。修复为认证的gh release view草稿查询；只接受原名/已观测的空格转点，拒绝歧义，保留架构/版本/大小/本地SHA256和五资产完整门槛。
+
+工作流先从github.workflow_sha保留4个固定版本校验模块到runner临时目录，再切换原始release_sha构建应用，支持以新版发布基础设施重新验收同一不可变v0.4.2，而不重打标签/改应用版本。新增10项工具与来源契约测试、合计22项相关回归通过；真实草稿查询只读probe已通过，但原失败仍保留，修复后完整发布仍待实际执行。
+
+参考：[GitHub Release tag API](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name)及[工作流SHA定义](https://docs.github.com/zh/actions/reference/workflows-and-actions/contexts)。原始报告、构建收据、截图、临时探测代理失败与修复记录均见技术博客档案public-release-2026-10-10。仍待：其他OS人工UI、安装升级/卸载、模型服务、提供方算法和154项完整工具验收；欢迎页灰色辅助文案对比度有优化空间。

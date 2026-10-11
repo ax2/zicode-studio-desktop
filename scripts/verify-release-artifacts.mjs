@@ -4,7 +4,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { verifyExecutableTarget } from "./executable-architecture.mjs";
-import { missingReleaseBundlesMessage, validateReleaseBundleName, validateReleaseBundleTypes } from "./release-artifact-policy.mjs";
+import {
+  missingReleaseBundlesMessage,
+  validateReleaseBundleName,
+  validateReleaseBundleTypes,
+} from "./release-artifact-policy.mjs";
+import { matchingReleaseAsset, readDraftReleaseAssets } from "./release-draft-assets.mjs";
 
 const bundleTypes = {
   nsis: { directory: "nsis", extension: ".exe" },
@@ -38,9 +43,11 @@ const bundleDirectories = [
 
 const files = [];
 const executableName = `zicode-studio-desktop${process.env.PI_TARGET_PLATFORM === "windows-x64" ? ".exe" : ""}`;
-const executables = bundleDirectories.map((directory) => path.join(path.dirname(directory), executableName))
+const executables = bundleDirectories
+  .map((directory) => path.join(path.dirname(directory), executableName))
   .filter((file) => fs.existsSync(file));
-if (executables.length !== 1) throw new Error(`Expected one release executable, found ${executables.length}`);
+if (executables.length !== 1)
+  throw new Error(`Expected one release executable, found ${executables.length}`);
 verifyExecutableTarget(executables[0], process.env.PI_TARGET_PLATFORM);
 for (const type of requested) {
   const bundle = bundleTypes[type];
@@ -67,16 +74,7 @@ for (const type of requested) {
 }
 
 function releaseAssets() {
-  const response = execFileSync(
-    "gh",
-    ["api", `repos/${repository}/releases/tags/${encodeURIComponent(tag)}`],
-    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-  );
-  const release = JSON.parse(response);
-  if (release.draft !== true || !Array.isArray(release.assets)) {
-    throw new Error("Release is not a draft or its assets are unavailable");
-  }
-  return release.assets;
+  return readDraftReleaseAssets(repository, tag);
 }
 
 const digests = new Map();
@@ -121,7 +119,7 @@ for (let attempt = 0; attempt < 6; attempt += 1) {
   pending = [];
   for (const filePath of files) {
     const stat = fs.statSync(filePath);
-    const asset = assets.find((candidate) => candidate.name === path.basename(filePath));
+    const asset = matchingReleaseAsset(assets, path.basename(filePath));
     if (!asset || asset.size !== stat.size) {
       pending.push(filePath);
       continue;
@@ -143,5 +141,15 @@ for (let attempt = 0; attempt < 6; attempt += 1) {
 }
 if (pending.length) {
   throw new Error(missingReleaseBundlesMessage(pending));
+}
+for (const filePath of files) {
+  console.log(
+    JSON.stringify({
+      localName: path.basename(filePath),
+      bytes: fs.statSync(filePath).size,
+      sha256: await localDigest(filePath),
+      verifiedDraftTag: tag,
+    }),
+  );
 }
 console.log(`Verified ${files.length} local bundle(s) against draft release ${tag}.`);

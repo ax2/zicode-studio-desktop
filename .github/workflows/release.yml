@@ -121,6 +121,24 @@ jobs:
       UPDATER_SIGNING_CONFIGURED: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
     steps:
+      # Verification infrastructure is pinned independently of the immutable
+      # application tag, allowing a draft's API checks to be repaired without
+      # changing the application source or creating another application version.
+      - name: Checkout verification workflow source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+
+      - name: Preserve pinned release verification tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/studio-release-verifier"
+          cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
+            scripts/release-artifact-policy.mjs scripts/executable-architecture.mjs \
+            "$RUNNER_TEMP/studio-release-verifier/"
+          echo "Verification workflow source: ${{ github.workflow_sha }}"
+
       - name: Checkout pinned release commit
         uses: actions/checkout@v6
         with:
@@ -313,9 +331,10 @@ jobs:
           fi
 
       - name: Verify uploaded platform bundles
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun scripts/verify-release-artifacts.mjs "${{ matrix.bundles }}"
+        run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"
 
   publish-release:
     needs: [prepare-release, build]
