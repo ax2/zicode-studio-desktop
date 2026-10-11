@@ -1,5 +1,6 @@
 import { t } from "../../i18n.js";
 import { resourceAccess } from "./plugin-resource-transfer-protocol.js";
+import { verifySavedResource } from "./plugin-resource-save-recovery.js";
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const PROFILE = "resource.save.draft1";
 function node(tag, text) { const item = document.createElement(tag); if (text) item.textContent = text; return item; }
@@ -27,7 +28,7 @@ export function createResourceSave({ gateway, getTarget, isCurrent, notify = () 
     const source = resourceAccess(owner, resource), target = JSON.stringify(getTarget());
     const workspaceId = getTarget()?.workspaceId;
     const panel = node("dialog"); panel.className = "plugin-resource-save"; panel.setAttribute("aria-label", t("Save output to this project"));
-    let disposed = false, committing = false, grant = null;
+    let disposed = false, committing = false, checking = false, grant = null, checkController = null;
     const valid = () => active && !disposed && isCurrent() && target === JSON.stringify(getTarget());
     const status = node("p", t("Preparing save preview…")); status.setAttribute("role", "status");
     const details = node("div"), controls = node("div"); controls.className = "plugin-resource-preview-row";
@@ -37,7 +38,7 @@ export function createResourceSave({ gateway, getTarget, isCurrent, notify = () 
     heading.append(node("strong", t("Save output to this project")), close);
     panel.append(heading, status, details, controls); container.append(panel);
     if (typeof panel.showModal === "function") panel.showModal(); else panel.setAttribute("open", "");
-    current = { dispose() { disposed = true; if (typeof panel.close === "function") panel.close(); panel.remove(); } };
+    current = { dispose() { disposed = true; checkController?.abort(); if (typeof panel.close === "function") panel.close(); panel.remove(); } };
     async function prepare() {
       try {
         const result = await gateway.prepareResourceSave(source);
@@ -45,7 +46,7 @@ export function createResourceSave({ gateway, getTarget, isCurrent, notify = () 
         if (result?.schemaVersion !== 1 || result.profile !== PROFILE || !UUID.test(result.grantId ?? "") ||
             result.requiresConfirmation !== true || result.saved !== false || result.operation !== "create_new_file" || result.expiresInSeconds !== 60 ||
             !receiptMatches(result.preview, resource, owner, result.grantId, workspaceId)) throw new Error();
-        grant = result;
+        grant = structuredClone(result);
         details.append(node("p", t("Current project · {path}").replace("{path}", result.preview.relativePath)),
           node("p", `${resource.mimeType} · ${resource.byteLength.toLocaleString()} ${t("bytes")}`),
           node("p", t("A new file and provenance receipt will be created. Existing files will not be replaced. This copy remains after resource access expires.")),
@@ -57,6 +58,9 @@ export function createResourceSave({ gateway, getTarget, isCurrent, notify = () 
     async function commit() {
       if (!valid() || !grant || committing) return;
       committing = true; close.disabled = true; controls.replaceChildren();
+      details.replaceChildren(node("p", t("Current project · {path}").replace("{path}", grant.preview.relativePath)),
+        node("p", `${resource.mimeType} · ${resource.byteLength.toLocaleString()} ${t("bytes")}`),
+        node("p", t("You confirmed this save. Checking or closing this dialog does not undo or repeat the write.")));
       status.textContent = t("Saving output…");
       try {
         const result = await gateway.commitResourceSave(source, grant.grantId);
@@ -66,9 +70,30 @@ export function createResourceSave({ gateway, getTarget, isCurrent, notify = () 
         notify(saved);
         if (valid()) { status.textContent = saved; close.textContent = t("Close"); }
       } catch (error) {
-        if (valid()) status.textContent = message(error);
+        if (valid()) {
+          status.textContent = message(error);
+          if (gateway.savedOutputs) {
+            controls.append(button("Check saved file", () => void checkSaved()));
+            details.append(node("p", t("Check the saved receipt and file contents. This only reads the project; it does not retry saving.")));
+          }
+        }
         else notify(t("A confirmed save request ended after switching views. Check the project output directory before retrying."));
-      } finally { committing = false; if (valid()) close.disabled = false; }
+      } finally { committing = false; if (valid()) { close.disabled = false; close.textContent = t("Close"); } }
+    }
+    async function checkSaved() {
+      if (!valid() || checking || committing || !grant) return;
+      checking = true; checkController = new AbortController();
+      const control = controls.querySelector("button"); if (control) control.disabled = true;
+      status.textContent = t("Checking saved file…");
+      try {
+        const receipt = await verifySavedResource({ gateway: gateway.savedOutputs, expected: grant.preview,
+          sceneId: getTarget()?.sceneId ?? "programming", workspaceId, signal: checkController.signal });
+        if (!valid()) return;
+        status.textContent = t("Verified saved file: {path}").replace("{path}", receipt.relativePath);
+        notify(status.textContent); controls.replaceChildren(); close.textContent = t("Close");
+      } catch {
+        if (valid()) status.textContent = t("The saved file could not be verified. The save may still have completed. Check the original project before saving again; no write was retried.");
+      } finally { checking = false; if (valid() && control) control.disabled = false; }
     }
     void prepare();
   }

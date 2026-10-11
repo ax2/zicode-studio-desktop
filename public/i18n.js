@@ -7,6 +7,12 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Check saved file": "核对已保存文件",
+  "You confirmed this save. Checking or closing this dialog does not undo or repeat the write.": "你已确认此保存操作。核对文件或关闭此窗口都不会撤销或重复写入。",
+  "Check the saved receipt and file contents. This only reads the project; it does not retry saving.": "核对已保存文件的来源记录和内容。此操作只读取项目，不会重试保存。",
+  "Checking saved file…": "正在核对已保存文件…",
+  "Verified saved file: {path}": "已核对保存文件：{path}",
+  "The saved file could not be verified. The save may still have completed. Check the original project before saving again; no write was retried.": "暂时无法核对保存文件，但保存可能已完成。再次保存前请检查原项目；没有重试写入。",
   "Tool view unavailable": "工具界面暂不可用",
   "This tool's view failed. Other tools are still available.": "此工具界面发生异常，其他工具仍可使用。",
   "An operation may still be running or may have completed. Check its effects before reopening this tool. Nothing was retried automatically.": "之前的操作可能仍在执行，也可能已经完成。重新打开工具前请先核对操作结果；系统没有自动重试。",

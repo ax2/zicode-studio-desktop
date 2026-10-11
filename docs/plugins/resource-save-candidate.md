@@ -22,7 +22,7 @@ Receipt 包含 schemaVersion/profile、saveId、workspaceId、relativePath、mim
 
 请求：`{schemaVersion:1,source:Access,grantId,confirmed:true}`；严格拒绝未知字段和目标覆盖。仅桌面凭据可调用，Broker不能代替用户批准。
 
-响应：`{schemaVersion:1,profile:"resource.save.draft1",status:"saved",saved:true,replayed:boolean,receipt:Receipt}`。同一未过期票据完成后重复确认返回原收据，核对原文件字节/SHA-256及收据，不重复创建；文件被用户修改或删除后拒绝重放，不自动重建或覆盖。请求中断/超时不能直接推断未写入，客户端显示固定复核提示，不自动重试。
+响应：`{schemaVersion:1,profile:"resource.save.draft1",status:"saved",saved:true,replayed:boolean,receipt:Receipt}`。同一未过期票据完成后重复确认返回原收据，核对原文件字节/SHA-256及收据，不重复创建；文件被用户修改或删除后拒绝重放，不自动重建或覆盖。请求中断/超时不能直接推断未写入，客户端显示固定复核提示，不自动重试。2026-10-11 新增用户主动的[只读收据与内容核对](resource-save-recovery.md)，复用文件库，不重放保存；无法核对仍保持不确定。
 
 ## 发布与预算
 
