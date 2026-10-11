@@ -365,3 +365,9 @@ Studio 目录资源工具及跨工具接力现支持调用前捕获 Host 身份�
 165项前端、42项资源Rust、严格静态与真实HTTP Host/生产Worker最终专项通过（13.67秒）；桌面/窄屏5张最终截图已检查。接力和目录各一次真实执行的成功响应被代理扣留，随后独立核对结束、没有额外执行或项目文件写入；未知记录和Host变化为代理注入的UI分支，不是完整原生重启验收。
 
 154项工具矩阵/完整接受0不变。资源类尚缺一次性准入与延迟请求封存、控制器销毁及跨重启的调用恢复、原结果恢复、正式resource.v1及真实DevTools完整scope；Host责任由Studio继续推进，提供方无需因此修改既有Worker ABI。见[资源状态契约](resource-call-status.md)及技术档案iterations/resource-call-recovery-ui-2026-10-11/work-log.md。保持0.4.2，没有新安装包或ZIP，target净增5.03MiB，沿用既有缓存。
+
+## 2026-10-11 Host一次性调用准入
+
+新增Studio-only resource.call.admission.draft1候选：Host生成带前缀的调用凭据并绑定资源/输入摘要与完整scope；消费和恢复封存在同锁内互斥；已消费/封存/过期/淘汰的凭据不能再次执行，缺失凭据也不重新创建。活动恢复只设置取消标记，直到lease释放才确认结束；恢复接口有状态，不能称为只读查询。
+
+46项资源Rust回归（含100轮消费/恢复竞态）及真实Host/正式Worker最终专项10.57秒通过，严格Rust静态通过。新接口只允许桌面身份，不读取文件/启动Worker来准备调用，不改变提供方ABI。当前目录/接力父界面尚未采用新接口，旧unknown限制、控制器销毁与跨重启恢复仍待；154项完整接受保持0。[契约](resource-call-admission.md)与技术档案iterations/resource-call-admission-2026-10-11/work-log.md记录边界与首轮夹具失败。

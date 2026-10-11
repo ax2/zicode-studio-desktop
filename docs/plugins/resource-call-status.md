@@ -62,4 +62,7 @@
 未向插件 iframe 暴露此恢复接口；旧 iframe UI 不自动获得上述恢复能力。状态记录仅保留在当前控制器内，正常销毁/页面重载后的调用恢复尚未完成。
 跨重启、延迟请求封存、原子准入和结果恢复仍缺独立协议；未知记录可能长期无法解锁，不能用等待超时来替代结束证据。完整 DevTools 工具验收数量不变。
 
+2026-10-11 补充：[一次性准入 draft1](resource-call-admission.md) 已实现独立 Host-issued 凭据、原子消费/恢复封存。
+父界面尚未采用新协议，上述旧路径的未知状态限制仍存在；新协议的 not_admissible 结束证明不能移用到旧 call-status 的 unknown。
+
 验证记录：技术博客档案 `iterations/resource-call-status-2026-10-11/` 与 `iterations/resource-call-recovery-ui-2026-10-11/`。

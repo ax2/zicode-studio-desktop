@@ -32,6 +32,7 @@ ZiDevTools 负责工具算法、输入输出、工具版本、独立 UI、插件
 未来 profile 需先定义版本化请求/结果、权限、资源上限和取消契约，再由 Studio 实现通用接口。
 资源调用状态的 Studio-only 候选扩展见 [resource.call.status.draft1](resource-call-status.md)；
 目录资源详情与接力父界面已接入显式核对，当前不向提供方宣告完整恢复支持；延迟请求封存、控制器销毁与跨重启恢复仍待完成。
+Host 已新增[一次性调用准入候选](resource-call-admission.md)，验证原子消费/封存与迟到请求拒绝；父界面仍待切换，不能将其保证套用到旧调用路径。
 当前 WASI stdin/stdout 是一次调用，无法通过声明权限凭空获得 Host 回调或双向 RPC。
 
 ## 3. 包、标识与交付物

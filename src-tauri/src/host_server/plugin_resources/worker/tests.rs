@@ -4,6 +4,7 @@ mod lifecycle_http;
 mod output_http;
 mod output_admission_http;
 mod preview_browser;
+mod admission_http;
 
 #[test]
 fn strict_invocation_cancellation_and_scope_reject_unknown_fields() {
@@ -392,6 +393,10 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     let resource_save = super::super::save::tests::http::verify(&host, &root, &target).await;
     let saved_library = super::super::library::tests::http::verify(&host, &root, &target).await;
     let browser_preview = preview_browser::verify(&host, &root, &target, &manifest).await;
+    // This conformance case deliberately revokes/regrants permission. Give it a
+    // fresh input after the existing lifecycle cases; never reuse invalid grants.
+    let admission_access = lifecycle_http::material(&host,&client,&owner).await;
+    let call_admission = admission_http::verify(&host,&client,&admission_access).await;
     host.state
         .plugins
         .lock()
@@ -447,7 +452,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
             .unwrap();
         serde_json::to_writer_pretty(file,&json!({"passed":true,"surface":"real HTTP Host + current Studio EXE + Studio-owned WASI fixture",
             "resourceBytes":300000,"confirmedSnapshotExecuted":true,"unconfirmedRejected":true,"schemaAndDesktopAuthEnforced":true,"staleCatalogPrepareRejectedWithoutAllocation":true,
-            "workers":2,"busyRejected":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,
+            "workers":2,"busyRejected":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,"callAdmission":call_admission,
             "cancelledPid":first_event.1,"cancelLiveReapedPipesClosed":true,"secondPid":second_event.1,"secondPipesClosed":true,
             "nextInvocationRecovered":true,"revokedPermissionRejected":true,"cancelAfterRevoke":true,"boundedVolatileAudit":true,
             "automaticLifecycle":automatic_lifecycle,"automaticRuntimeStop":automatic_stop,"binaryOutput":binary_output,"resourceTransfer":resource_transfer,"resourceSave":resource_save,"savedLibrary":saved_library,"browserPreview":browser_preview,"devtoolsImageAlgorithm":false,"nativeUi":false,"phaseBoundary":"Workers held at startup by test observer; not instruction-level interruption"})).unwrap();

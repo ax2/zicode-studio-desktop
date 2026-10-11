@@ -15,7 +15,7 @@ async fn post(
         .unwrap()
 }
 
-async fn material(host: &HostServer, client: &reqwest::Client, owner: &Value) -> Value {
+pub(super) async fn material(host: &HostServer, client: &reqwest::Client, owner: &Value) -> Value {
     let mut bytes = vec![173; 300000];
     bytes[299992..].copy_from_slice(b"resource");
     let version = sha256_hex(&bytes);

@@ -9,9 +9,11 @@ const PROFILE: &str = "resource.wasi.input.draft2";
 const WORKERS: usize = 2;
 mod lifecycle;
 mod output;
+pub(in crate::host_server) mod admission;
 struct Execution { result: Value, resources: Option<Value> }
 type Observer = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
 pub(crate) struct Workers {
+    admissions: admission::Calls,
     instance_id: String,
     slots: Arc<tokio::sync::Semaphore>,
     events: Mutex<VecDeque<Value>>,
@@ -23,6 +25,7 @@ pub(crate) struct Workers {
 impl Default for Workers {
     fn default() -> Self {
         Self {
+            admissions: admission::Calls::default(),
             instance_id: uuid::Uuid::new_v4().to_string(),
             slots: Arc::new(tokio::sync::Semaphore::new(WORKERS)),
             events: Mutex::new(VecDeque::new()),
@@ -179,6 +182,21 @@ pub(in crate::host_server) async fn invoke(
     headers: HeaderMap,
     Json(request): Json<Invoke>,
 ) -> Result<Json<Value>, ApiError> {
+    invoke_request(state, headers, request, false).await
+}
+
+enum WorkerLease {
+    Legacy(crate::host_server::plugin_call_lifecycle::Lease),
+    Admitted(admission::Lease),
+}
+impl WorkerLease {
+    fn flag(&self) -> &std::sync::atomic::AtomicBool {
+        match self { Self::Legacy(lease) => &lease.flag, Self::Admitted(lease) => &lease.flag }
+    }
+}
+async fn invoke_request(
+    state: Arc<HostState>, headers: HeaderMap, request: Invoke, admitted: bool,
+) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     validate(&request.access)?;
     if let Some(instance) = &request.host_instance_id {
@@ -189,7 +207,10 @@ pub(in crate::host_server) async fn invoke(
             return Err(rejected("resource_call_host_changed"));
         }
     }
-    let (target, key) = call_scope(&state, &request.access.owner, &request.tool_call_id)?;
+    let legacy_scope = if admitted {
+        admission::key(&state, &request.access.owner, &request.tool_call_id)?;
+        None
+    } else { Some(call_scope(&state, &request.access.owner, &request.tool_call_id)?) };
     // Admission precedes resource/module copies, without an unbounded waiting queue.
     let permit = state
         .plugin_resource_workers
@@ -203,17 +224,16 @@ pub(in crate::host_server) async fn invoke(
                 "Resource computation is busy",
             )
         })?;
-    let lease = state
-        .plugin_calls
-        .begin(&target.instance_id, &target.session_id, &key)
-        .map_err(rejected)?;
+    let lease = if let Some((target, key)) = legacy_scope {
+        WorkerLease::Legacy(state.plugin_calls.begin(&target.instance_id, &target.session_id, &key).map_err(rejected)?)
+    } else { WorkerLease::Admitted(admission::begin(&state, &request)?) };
     tokio::task::spawn_blocking(move || {
         let _permit=permit;
         let lease=lease;
         let started=Instant::now();
         let operation_id=uuid::Uuid::new_v4().to_string();
         let mut package_version=None;
-        let result=execute(&state,&request,&lease.flag,&mut package_version);
+        let result=execute(&state,&request,lease.flag(),&mut package_version);
             let error=result.as_ref().err().and_then(|(_,body)|body.0["error"]["code"].as_str());
             state.plugin_resource_workers.record(json!({"operationId":operation_id,"pluginId":request.access.owner.plugin_id,"packageVersion":package_version,
                 "capabilityId":request.access.owner.capability_id,"durationMs":started.elapsed().as_millis(),

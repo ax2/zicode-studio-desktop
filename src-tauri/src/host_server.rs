@@ -610,6 +610,9 @@ impl HostServer {
             .route("/v2/plugin-resources/invoke-view", post(plugin_resources::worker::invoke).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
             .route("/v2/plugin-resources/cancel-view", post(plugin_resources::worker::cancel))
             .route("/v2/plugin-resources/call-status", post(plugin_resources::worker::status))
+            .route("/v2/plugin-resources/prepare-call", post(plugin_resources::worker::admission::prepare).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
+            .route("/v2/plugin-resources/invoke-call", post(plugin_resources::worker::admission::invoke).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
+            .route("/v2/plugin-resources/reconcile-call", post(plugin_resources::worker::admission::reconcile))
             .route("/v2/plugin-resources/worker-audit-view", post(plugin_resources::worker::audit))
             .route("/v2/plugin-resources/revoke", post(plugin_resources::revoke))
             .route("/v2/plugin-resources/prepare-transfer", post(plugin_resources::transfer::prepare))
@@ -1266,6 +1269,9 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugin-resources/invoke-view"
             | "/v2/plugin-resources/cancel-view"
             | "/v2/plugin-resources/call-status"
+            | "/v2/plugin-resources/prepare-call"
+            | "/v2/plugin-resources/invoke-call"
+            | "/v2/plugin-resources/reconcile-call"
             | "/v2/plugin-resources/worker-audit-view"
             | "/v2/plugin-resources/prepare-transfer"
             | "/v2/plugin-resources/commit-transfer"
