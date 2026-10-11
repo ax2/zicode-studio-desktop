@@ -7,21 +7,21 @@ on:
         description: Existing draft tag (does not build or publish)
         required: true
         type: string
+      target:
+        description: Verify one existing DMG without rebuilding other platforms
+        required: true
+        default: darwin-arm64
+        type: choice
+        options:
+          - darwin-arm64
+          - darwin-x64
 
 permissions:
   contents: read
 
 jobs:
   verify:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            target: darwin-arm64
-          - os: macos-15-intel
-            target: darwin-x64
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ inputs.target == 'darwin-arm64' && 'macos-15' || 'macos-15-intel' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -42,13 +42,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
-          PI_TARGET_PLATFORM: ${{ matrix.target }}
+          PI_TARGET_PLATFORM: ${{ inputs.target }}
         run: |
           set -euo pipefail
           export RELEASE_SOURCE_SHA="$(git rev-parse HEAD)"
           bun "$RUNNER_TEMP/dmg-verifier/verify-draft-macos.mjs"
       - uses: actions/upload-artifact@v7
         with:
-          name: dmg-verification-${{ matrix.target }}
+          name: dmg-verification-${{ inputs.target }}
           path: dmg-verification/receipt.json
           if-no-files-found: error
