@@ -216,6 +216,7 @@ export function summary(report) {
         ]
       : []),
     `Started: ${report.startedAt}`,
+    `Rust test harness threads: ${report.rustTestThreads ?? "default"}`,
     "",
     "| Check | Result | Exit code | Log |",
     "| --- | --- | --- | --- |",
@@ -294,6 +295,7 @@ export function main(args = process.argv.slice(2)) {
     );
   const report = {
     schemaVersion: 5,
+    rustTestThreads: process.env.RUST_TEST_THREADS || null,
     status: "running",
     platform: process.platform,
     architecture: process.arch,

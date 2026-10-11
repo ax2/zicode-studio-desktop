@@ -81,6 +81,10 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == Linux ]]; then
             xvfb-run -a dbus-run-session -- bash scripts/with-linux-notifications.sh node scripts/developer-platform-checks.mjs --out "${{ runner.temp }}/zicode-platform-checks"
+          elif [[ "$RUNNER_OS" == Windows ]]; then
+            # Match local Windows acceptance and bound cold WASI/PowerShell
+            # contention. Each test's internal concurrency is kept.
+            RUST_TEST_THREADS="${RUST_TEST_THREADS:-2}" node scripts/developer-platform-checks.mjs --out "${{ runner.temp }}/zicode-platform-checks"
           else
             node scripts/developer-platform-checks.mjs --out "${{ runner.temp }}/zicode-platform-checks"
           fi

@@ -82,17 +82,18 @@ describe("developer platform evidence", () => {
       expect(result.status).toBe("failed");
       expect(result.errorCode).toBe("ENOENT");
       expect(spawn.mock.calls[0][2]).toMatchObject({ shell: false, windowsHide: true });
-      expect(
-        summary({
-          platform: "win32",
-          architecture: "x64",
-          status: "failed",
-          revision: "abc",
-          dirty: true,
-          startedAt: "now",
-          steps: [result],
-        }),
-      ).toContain("Not covered: rendered WebView layouts");
+      const text = summary({
+        platform: "win32",
+        architecture: "x64",
+        status: "failed",
+        revision: "abc",
+        dirty: true,
+        startedAt: "now",
+        rustTestThreads: "2",
+        steps: [result],
+      });
+      expect(text).toContain("Not covered: rendered WebView layouts");
+      expect(text).toContain("Rust test harness threads: 2");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

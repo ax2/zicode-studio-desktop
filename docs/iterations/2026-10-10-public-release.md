@@ -87,3 +87,9 @@ Windows第二轮 38048690334 报告：全部脚本、Rust check、严格Clippy�
 
 追加锁修复98233905的最终8项终端专项全部通过9.13秒；最终Rust static/严格Clippy退出0。最新真实Pi→Host插件broker独立条件测试1通过3.72秒（497 filtered；不代表其余条件测试全部通过）。原生截图/完整正式构建仍待。
 6eae881b新CI 38099350812 的ARM Mac已完成全部检查，报告revision/clean/source/runner/target均核对匹配，6个TS入口、全JS、聊天专项、Rust及真实runtime通过，仅fmt advisory。其余平台尚未完成。发布说明补充终端退出与Linux AppImage修复；本次文档随最终源代码一并验证，不发布未经完成门槛的版本。
+
+## 2026-10-11：Windows完整测试负载与报告透明性
+最终main 2b9b173d / 38099853912：Linux、ARM Mac、Intel Mac均全通过（21步骤，fmt advisory）。Intel聊天24项已通过；Windows终端关闭不再超时，Rust 468通过1失败29跳过，唯一失败为project_environment PTY在12秒内未出现PowerShell提示符/工具标记，输出只有两个窗口标题；其余步骤含真实Pi→Host均通过。原报告已全量保存ci-38099853912。
+当前只能确认失败发生在提示符之前，尚未从该输出证明是Roslyn/PSReadLine的哪一步。启动脚本确有每次Add-Type冷编译；整套并行测试含WASI冷编译，资源争用是推断，不写成已证实原因。
+本机既有完整验证使用RUST_TEST_THREADS=2，主程序469通过；因此Windows CI/Release同样采用两线程harness，尊重平台检查的显式既有设置，并在JSON/summary记录实际值。其他系统不改，单项内部并发/12秒总期限/标记文件和PATH不变断言保留；最终代码20次并发终端关闭仍全通过。不是通过延长期限、减少单项负载或删除断言消除失败，默认并发的原失败证据继续保留。
+补充9项脚本契约测试通过，lint/design退出0；新CI仍待实际结果。此轮没有Rust源码修改、没有新版本标签、没有正式构建或发布。

@@ -265,6 +265,7 @@ jobs:
       - name: Check Rust on Windows
         if: runner.os == 'Windows'
         env:
+          RUST_TEST_THREADS: "2"
           CARGO_HTTP_MULTIPLEXING: "false"
           CARGO_NET_RETRY: "10"
         shell: pwsh

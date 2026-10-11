@@ -312,6 +312,10 @@ are configured. Install public releases manually. See `docs/AUTO_UPDATER.md`.
 
 For local Windows full Rust checks involving cold WASI compilation, prefer
 `RUST_TEST_THREADS=2` for the test harness to avoid oversubscribing the machine.
+Windows platform CI and the release Rust gate also use two harness threads;
+the platform JSON/summary records the effective selection. Other systems retain
+their existing harness setting. Preserve the earlier default-concurrency failure
+as evidence when evaluating a bounded-concurrency rerun.
 Preserve an explicitly selected thread count and record the actual setting in
 the validation receipt. This controls concurrency between tests only: do not
 reduce each test's internal load, skip assertions, increase production Worker
