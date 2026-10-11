@@ -617,6 +617,7 @@ impl HostServer {
             .route("/v2/plugin-resources/commit-save", post(plugin_resources::save::commit))
             .route("/v2/plugin-resources/saved-outputs", get(plugin_resources::library::list))
             .route("/v2/plugin-resources/saved-output", get(plugin_resources::library::read))
+            .route("/v2/plugin-resources/save-attempts", get(plugin_resources::library::attempts))
             .route("/v2/plugin-results/commit-save", post(plugin_results::commit))
             .route("/v2/plugin-results/prepare-transfer", post(plugin_results::transfer::prepare))
             .route("/v2/plugin-results/targets", post(plugin_results::transfer::targets::search))
@@ -1270,6 +1271,7 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugin-resources/commit-save"
             | "/v2/plugin-resources/saved-outputs"
             | "/v2/plugin-resources/saved-output"
+            | "/v2/plugin-resources/save-attempts"
     )
 }
 

@@ -28,6 +28,11 @@ export function createSavedOutputGateway({ fetchImpl, location, timeoutMs = 3000
     } finally { clearTimeout(timer); signal?.removeEventListener("abort", abort); }
   }
   return {
+    attempts(sceneId, workspaceId, { query = "", offset = 0, signal } = {}) {
+      const target = url("/v2/plugin-resources/save-attempts", sceneId, workspaceId);
+      target.searchParams.set("query", query); target.searchParams.set("offset", offset);
+      return request(target, false, signal);
+    },
     list(sceneId, workspaceId, { query = "", offset = 0, signal } = {}) {
       const target = url("/v2/plugin-resources/saved-outputs", sceneId, workspaceId);
       target.searchParams.set("query", query); target.searchParams.set("offset", offset);

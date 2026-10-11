@@ -28,10 +28,10 @@ fn bounded(path: &Path, limit: u64) -> Result<Vec<u8>, ApiError> {
     if bytes.len() as u64 > limit { return Err(rejected("saved_output_changed")); }
     Ok(bytes)
 }
-fn entry(root: &Path, workspace: &str, id: &str) -> Result<Entry, ApiError> {
+fn recorded(root: &Path, workspace: &str, id: &str, name: &str) -> Result<Entry, ApiError> {
     if !uuid(id) { return Err(rejected("saved_output_unavailable")); }
     let folder = root.join(id); ordinary(&folder, true)?;
-    let metadata = bounded(&folder.join("receipt.json"), 8192)?;
+    let metadata = bounded(&folder.join(name), 8192)?;
     let receipt: Receipt = serde_json::from_slice(&metadata).map_err(|_| rejected("saved_output_unsafe"))?;
     let extension = match receipt.mime_type.as_str() { "image/png" => "png", "image/jpeg" => "jpg", "image/webp" => "webp", "text/plain" => "txt", "application/octet-stream" => "bin", _ => return Err(rejected("saved_output_unsafe")) };
     let filename = format!("result.{extension}");
@@ -41,8 +41,12 @@ fn entry(root: &Path, workspace: &str, id: &str) -> Result<Entry, ApiError> {
         || [&receipt.source.plugin_id, &receipt.source.capability_id, &receipt.source.package_version].iter().any(|v| v.is_empty() || v.len() > 256 || v.chars().any(char::is_control)) {
         return Err(rejected("saved_output_unsafe"));
     }
-    if ordinary(&folder.join(&filename), false)?.len() != receipt.byte_length { return Err(rejected("saved_output_changed")); }
     Ok(Entry { receipt, version: sha256_hex(&metadata), filename })
+}
+fn entry(root: &Path, workspace: &str, id: &str) -> Result<Entry, ApiError> {
+    let result = recorded(root, workspace, id, "receipt.json")?;
+    if ordinary(&root.join(id).join(&result.filename), false)?.len() != result.receipt.byte_length { return Err(rejected("saved_output_changed")); }
+    Ok(result)
 }
 fn root(workspace: &Path) -> Result<Option<PathBuf>, ApiError> {
     // Never create directories on library access.
@@ -82,4 +86,30 @@ pub(super) fn read(workspace: &Path, workspace_id: &str, id: &str, version: &str
     // Detect receipt replacement during the read; callers also recheck current project authority.
     if sha256_hex(&bounded(&root.join(id).join("receipt.json"),8192)?) != version { return Err(rejected("saved_output_changed")); }
     Ok((bytes, entry.filename))
+}
+
+// Recovery metadata is independent of volatile resource/grant/runtime state.
+// "not_observed" is deliberately not a claim that the save failed or ended.
+pub(super) fn attempts(workspace: &Path, workspace_id: &str, query: &str, offset: usize) -> Result<Value, ApiError> {
+    let mut rows = Vec::new(); let mut skipped = 0;
+    if let Some(root) = root(workspace)? {
+        for (index, item) in fs::read_dir(&root).map_err(|_| rejected("saved_output_unavailable"))?.take(129).enumerate() {
+            if index >= 128 { return Err(rejected("resource_save_quota_exceeded")); }
+            let item = item.map_err(|_| rejected("saved_output_unavailable"))?;
+            let id = item.file_name().to_string_lossy().into_owned();
+            let (name, publication) = match fs::symlink_metadata(item.path().join("receipt.json")) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => (".receipt.pending", "not_observed"),
+                _ => ("receipt.json", "observed"),
+            };
+            // Never fall back to an older pending record when a published receipt is unsafe.
+            match recorded(&root, workspace_id, &id, name) { Ok(record) => rows.push((record, publication)), Err(_) => skipped += 1 }
+        }
+    }
+    rows.sort_by(|a, b| b.0.receipt.prepared_at.cmp(&a.0.receipt.prepared_at).then(a.0.receipt.save_id.cmp(&b.0.receipt.save_id)));
+    let query = query.trim().to_lowercase();
+    rows.retain(|(r, _)| format!("{} {} {} {}", r.receipt.relative_path, r.receipt.mime_type, r.receipt.source.plugin_id, r.receipt.source.capability_id).to_lowercase().contains(&query));
+    let total = rows.len();
+    let items: Vec<Value> = rows.into_iter().skip(offset).take(40).map(|(r, publication)| json!({"receipt":r.receipt,"receiptVersion":r.version,"integrity":"not_checked","publication":publication})).collect();
+    Ok(json!({"schemaVersion":1,"profile":"resource.save.recovery.draft1","workspaceId":workspace_id,"items":items,"total":total,
+        "offset":offset,"pageSize":40,"hasMore":offset.saturating_add(40)<total,"skippedEntries":skipped,"payloadsRead":false}))
 }

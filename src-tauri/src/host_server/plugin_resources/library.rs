@@ -59,5 +59,16 @@ pub(in crate::host_server) async fn read(State(state): State<Arc<HostState>>, he
     Ok(response)
 }
 
+pub(in crate::host_server) async fn attempts(State(state): State<Arc<HostState>>, headers: HeaderMap, Query(request): Query<ListQuery>) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    if request.query.chars().count() > 120 || request.offset > 128 { return Err(rejected("resource_metadata_invalid")); }
+    blocking(state.clone(), move || {
+        let (root, proof) = scope(&state, request.schema_version, &request.scene_id, &request.workspace_id)?;
+        let result = files::attempts(&root, &request.workspace_id, &request.query, request.offset)?;
+        if scope(&state, request.schema_version, &request.scene_id, &request.workspace_id)?.1 != proof { return Err(rejected("resource_authorization_changed")); }
+        Ok(result)
+    }).await
+}
+
 #[cfg(test)]
 pub(in crate::host_server::plugin_resources) mod tests;

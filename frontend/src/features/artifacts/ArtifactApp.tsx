@@ -20,6 +20,7 @@ import {
 } from "./logic";
 import { type ArtifactAppOptions, createArtifactStore } from "./store";
 import { SavedOutputs } from "./SavedOutputs";
+import { SaveAttempts } from "./SaveAttempts";
 
 type ArtifactStore = ReturnType<typeof createArtifactStore>;
 
@@ -359,6 +360,7 @@ function ArtifactSurface({ store, options }: { store: ArtifactStore; options: Ar
   const targetEpoch = store(state => state.targetEpoch);
   return <div className="artifacts-content-layout">
     <SavedOutputs key={targetEpoch} gateway={options.gateway.savedOutputs} getTarget={options.getTarget} />
+    <SaveAttempts key={`save-attempts-${targetEpoch}`} gateway={options.gateway.savedOutputs} getTarget={options.getTarget} />
     <ArtifactMain store={store} openApp={options.openApp} />
   </div>;
 }

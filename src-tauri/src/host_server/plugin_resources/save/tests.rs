@@ -51,10 +51,13 @@ fn raw_export_publishes_exact_bytes_receipt_and_replays_without_rewrite() {
     assert_eq!(fs::read(path).unwrap(), b"user edit");
 }
 #[test]
-fn abandoned_stage_cleans_only_its_files_and_conflict_does_not_overwrite() {
+fn abandoned_stage_keeps_recovery_metadata_cleans_payload_and_never_overwrites() {
     let fixture = Fixture::new(); let chunks = vec![Arc::from(b"hello".as_slice())];
-    let staged = save_files::Staged::new(&fixture.root, &chunks, &receipt(b"hello"), "txt", &uuid::Uuid::new_v4().to_string()).unwrap(); drop(staged);
-    let root = fixture.root.join(".zicode/outputs"); assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+    let abandoned = uuid::Uuid::new_v4().to_string();
+    let staged = save_files::Staged::new(&fixture.root, &chunks, &receipt(b"hello"), "txt", &abandoned).unwrap(); drop(staged);
+    let root = fixture.root.join(".zicode/outputs"); assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+    assert_eq!(serde_json::from_slice::<Value>(&fs::read(root.join(&abandoned).join(".receipt.pending")).unwrap()).unwrap(), receipt(b"hello"));
+    assert!(!root.join(&abandoned).join("result.txt").exists()); assert!(!root.join(&abandoned).join("receipt.json").exists());
     let id = uuid::Uuid::new_v4().to_string(); fs::create_dir(root.join(&id)).unwrap(); fs::write(root.join(&id).join("keep.txt"), b"preserved").unwrap();
     assert!(save_files::Staged::new(&fixture.root, &chunks, &receipt(b"hello"), "txt", &id).is_err());
     assert_eq!(fs::read(root.join(id).join("keep.txt")).unwrap(), b"preserved");
@@ -63,7 +66,10 @@ fn abandoned_stage_cleans_only_its_files_and_conflict_does_not_overwrite() {
 fn metadata_hash_unsafe_directory_and_unmanaged_files_fail_closed() {
     let fixture = Fixture::new(); let chunks = vec![Arc::from(b"hello".as_slice())];
     assert!(save_files::Staged::new(&fixture.root, &chunks, &receipt(b"wrong"), "txt", &uuid::Uuid::new_v4().to_string()).is_err());
-    assert_eq!(fs::read_dir(fixture.root.join(".zicode/outputs")).unwrap().count(), 0);
+    let output = fixture.root.join(".zicode/outputs");
+    assert_eq!(fs::read_dir(&output).unwrap().count(), 1);
+    let pending = fs::read_dir(&output).unwrap().next().unwrap().unwrap().path();
+    assert!(pending.join(".receipt.pending").is_file()); assert!(!pending.join("result.txt").exists());
     assert!(save_files::Staged::new(&fixture.root, &chunks, &receipt(b"hello"), "../escape", &uuid::Uuid::new_v4().to_string()).is_err());
     let outputs = fixture.root.join(".zicode/outputs"); fs::write(outputs.join("unmanaged.bin"), b"keep").unwrap();
     assert!(save_files::quota(&outputs, 0).is_err());

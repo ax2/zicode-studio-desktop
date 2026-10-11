@@ -7,6 +7,14 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Review save records": "核对保存记录",
+  "Snapshot verified at the last check; later changes are possible.": "最近核对时快照完整；之后仍可能发生变化。",
+  "Search save records": "搜索保存记录",
+  "Save records": "保存记录",
+  "Save records could not be loaded. Check project access or Host support.": "无法加载保存记录，请检查项目权限或当前宿主是否支持此功能。",
+  "Records survive closing the tool. Publication metadata does not prove file integrity or that an unfinished save stopped. Checks only read files; nothing is retried or deleted.": "关闭工具后仍可查阅记录。发布记录不能证明文件内容完整，也不能证明未完成的保存已停止。核对只读取文件，不会重试或删除。",
+  "Publication record found; file contents are not checked.": "已找到发布记录，尚未核对文件内容。",
+  "Publication not observed; the save outcome is uncertain.": "尚未观察到发布记录，保存结果仍不确定。",
   "Check saved file": "核对已保存文件",
   "You confirmed this save. Checking or closing this dialog does not undo or repeat the write.": "你已确认此保存操作。核对文件或关闭此窗口都不会撤销或重复写入。",
   "Check the saved receipt and file contents. This only reads the project; it does not retry saving.": "核对已保存文件的来源记录和内容。此操作只读取项目，不会重试保存。",

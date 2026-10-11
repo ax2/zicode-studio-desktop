@@ -23,6 +23,71 @@ impl Drop for Fixture { fn drop(&mut self) { if !std::thread::panicking() {
 fn listing_empty_workspace_does_not_create_storage() {
     let f=Fixture::new(); let page=files::list(&f.root,"ws-library","",0).unwrap(); assert_eq!(page["total"],0); assert!(!f.root.join(".zicode").exists());
 }
+
+#[test]
+fn attempts_survive_stage_disposal_without_volatile_grants_and_never_authorize_replay() {
+    let f=Fixture::new(); let mut receipt=f.save(b"abc"); let saved_id=receipt["saveId"].as_str().unwrap().to_string();
+    let id=uuid::Uuid::new_v4().to_string(); receipt["saveId"]=json!(id); receipt["relativePath"]=json!(format!(".zicode/outputs/{id}/result.bin"));
+    let staged=save_files::Staged::new(&f.root,&[Arc::from(b"abc".as_slice())],&receipt,"bin",&id).unwrap();
+    assert_eq!(files::attempts(&f.root,"ws-library",&id,0).unwrap()["items"][0]["publication"],"not_observed");
+    drop(staged);
+    // Fresh discovery uses only disk, not Store, grant TTL, runtime or the source plugin.
+    let page=files::attempts(&f.root,"ws-library","",0).unwrap(); assert_eq!(page["total"],2); assert_eq!(page["payloadsRead"],false);
+    let pending=page["items"].as_array().unwrap().iter().find(|r|r["receipt"]["saveId"]==id).unwrap();
+    assert_eq!(pending["receipt"],receipt); assert_eq!(pending["publication"],"not_observed");
+    assert!(files::read(&f.root,"ws-library",&id,pending["receiptVersion"].as_str().unwrap()).is_err());
+    assert!(save_files::Staged::new(&f.root,&[Arc::from(b"abc".as_slice())],&receipt,"bin",&id).is_err());
+    assert_eq!(files::list(&f.root,"ws-library","",0).unwrap()["total"],1);
+    assert!(!f.root.join(receipt["relativePath"].as_str().unwrap()).exists());
+    assert!(f.root.join(format!(".zicode/outputs/{saved_id}/receipt.json")).is_file());
+    assert_eq!(files::attempts(&f.root,"foreign","",0).unwrap()["total"],0);
+}
+
+#[test]
+fn attempt_metadata_does_not_claim_file_integrity_and_never_masks_a_broken_published_receipt() {
+    let f=Fixture::new(); let r=f.save(b"abc"); let id=r["saveId"].as_str().unwrap();
+    let folder=f.root.join(".zicode/outputs").join(id);
+    fs::write(folder.join("result.bin"),b"longer user edit").unwrap();
+    assert_eq!(files::attempts(&f.root,"ws-library","",0).unwrap()["items"][0]["publication"],"observed");
+    assert_eq!(files::list(&f.root,"ws-library","",0).unwrap()["total"],0);
+    fs::write(folder.join(".receipt.pending"),serde_json::to_vec(&r).unwrap()).unwrap();
+    assert!(save_files::quota(&f.root.join(".zicode/outputs"),0).is_ok(),"a crash between publication and pending-receipt disposal is bounded metadata, not a second payload");
+    fs::write(folder.join("receipt.json"),b"broken").unwrap();
+    assert_eq!(files::attempts(&f.root,"ws-library","",0).unwrap()["skippedEntries"],1);
+    assert_eq!(fs::read(folder.join("result.bin")).unwrap(),b"longer user edit");
+    fs::write(folder.join("result.txt"),b"second payload").unwrap();
+    assert!(save_files::quota(&f.root.join(".zicode/outputs"),0).is_err());
+}
+
+#[test]
+fn save_stage_crash_child() {
+    let Some(path)=std::env::var_os("ZICODE_SAVE_CRASH_FIXTURE") else { return; };
+    let workspace=PathBuf::from(path);
+    let r: Value=serde_json::from_slice(&fs::read(workspace.join("crash-receipt.json")).unwrap()).unwrap();
+    let staged=save_files::Staged::new(&workspace,&[Arc::from(b"abc".as_slice())],&r,"bin",r["saveId"].as_str().unwrap()).unwrap();
+    assert!(workspace.join(".zicode/outputs").join(r["saveId"].as_str().unwrap()).join(".receipt.pending").is_file());
+    // Exit this child process before Drop or publication, as a process-loss simulation.
+    std::mem::forget(staged); std::process::exit(0);
+}
+
+#[test]
+fn a_new_process_recovers_an_interrupted_stage_without_rewriting_or_publishing() {
+    let f=Fixture::new(); let mut r=f.save(b"abc"); let id=uuid::Uuid::new_v4().to_string();
+    r["saveId"]=json!(id); r["relativePath"]=json!(format!(".zicode/outputs/{id}/result.bin"));
+    fs::write(f.root.join("crash-receipt.json"),serde_json::to_vec(&r).unwrap()).unwrap();
+    let status=crate::process_command::new_command(std::env::current_exe().unwrap())
+        .args(["host_server::plugin_resources::library::tests::save_stage_crash_child","--exact","--nocapture"])
+        .env("ZICODE_SAVE_CRASH_FIXTURE",&f.root).status().unwrap(); assert!(status.success());
+    let folder=f.root.join(".zicode/outputs").join(&id);
+    let bytes_before=fs::read(folder.join("result.bin")).unwrap();
+    let record_before=fs::read(folder.join(".receipt.pending")).unwrap();
+    let recovered=files::attempts(&f.root,"ws-library",&id,0).unwrap();
+    assert_eq!(recovered["items"][0]["receipt"],r); assert_eq!(recovered["items"][0]["publication"],"not_observed");
+    assert_eq!(files::list(&f.root,"ws-library",&id,0).unwrap()["total"],0);
+    assert_eq!(fs::read(folder.join("result.bin")).unwrap(),bytes_before);
+    assert_eq!(fs::read(folder.join(".receipt.pending")).unwrap(),record_before);
+    assert!(!folder.join("receipt.json").exists());
+}
 #[test]
 fn listing_is_metadata_only_and_read_checks_raw_hash_receipt_and_workspace() {
     let f=Fixture::new(); let r=f.save(b"abc"); let id=r["saveId"].as_str().unwrap();

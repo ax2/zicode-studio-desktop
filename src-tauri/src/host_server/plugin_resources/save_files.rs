@@ -42,10 +42,21 @@ pub(super) fn quota(root: &Path, additional: usize) -> Result<(), ApiError> {
         directory(&entry.path())?;
         folders += 1;
         if folders > MAX_FOLDERS { return Err(rejected("resource_save_quota_exceeded")); }
-        for (index, child) in fs::read_dir(entry.path()).map_err(|_| rejected("resource_save_directory_unavailable"))?.take(3).enumerate() {
-            if index >= 2 { return Err(rejected("resource_save_directory_unsafe")); }
+        let mut payloads = 0;
+        // A crash after receipt publication may leave both receipt names. Count the
+        // small duplicate metadata, but never tolerate a second payload or unknown file.
+        for (index, child) in fs::read_dir(entry.path()).map_err(|_| rejected("resource_save_directory_unavailable"))?.take(4).enumerate() {
+            if index >= 3 { return Err(rejected("resource_save_directory_unsafe")); }
             let child = child.map_err(|_| rejected("resource_save_directory_unavailable"))?;
+            match child.file_name().to_str() {
+                Some("receipt.json" | ".receipt.pending") => {},
+                Some("result.png" | "result.jpg" | "result.webp" | "result.txt" | "result.bin") => { payloads += 1; },
+                _ => return Err(rejected("resource_save_directory_unsafe")),
+            }
+            if payloads > 1 { return Err(rejected("resource_save_directory_unsafe")); }
             let meta = fs::symlink_metadata(child.path()).map_err(|_| rejected("resource_save_directory_unavailable"))?;
+            #[cfg(windows)]
+            { use std::os::windows::fs::MetadataExt; if meta.file_attributes() & 0x400 != 0 { return Err(rejected("resource_save_directory_unsafe")); } }
             if !meta.is_file() || meta.file_type().is_symlink() { return Err(rejected("resource_save_directory_unsafe")); }
             bytes = bytes.saturating_add(meta.len());
         }
@@ -68,16 +79,20 @@ impl Staged {
         fs::create_dir(&path).map_err(|_| rejected("resource_save_conflict"))?;
         let mut staged = Self { root, payload: path.join(format!("result.{extension}")), receipt: path.join(".receipt.pending"), path, owns_payload: false, owns_receipt: false,
             published: std::sync::atomic::AtomicBool::new(false) };
+        // Record the approved destination before writing payload bytes. On interruption
+        // this bounded metadata remains discoverable; it never authorizes a replay.
+        let receipt_bytes = serde_json::to_vec_pretty(receipt).map_err(|_| rejected("resource_save_write_failed"))?;
+        if receipt_bytes.len() > 8192 { return Err(rejected("resource_metadata_invalid")); }
+        let mut metadata = fs::OpenOptions::new().write(true).create_new(true).open(&staged.receipt).map_err(|_| rejected("resource_save_write_failed"))?;
+        staged.owns_receipt = true;
+        metadata.write_all(&receipt_bytes).and_then(|_| metadata.sync_all()).map_err(|_| rejected("resource_save_write_failed"))?;
+        drop(metadata);
         let mut file = fs::OpenOptions::new().write(true).create_new(true).open(&staged.payload).map_err(|_| rejected("resource_save_write_failed"))?;
         staged.owns_payload = true;
         let mut hash = Sha256::new();
         for chunk in chunks { file.write_all(chunk).map_err(|_| rejected("resource_save_write_failed"))?; hash.update(chunk); }
         file.sync_all().map_err(|_| rejected("resource_save_write_failed"))?;
         if format!("{:x}", hash.finalize()) != receipt["contentVersion"].as_str().unwrap_or("") { return Err(rejected("resource_content_mismatch")); }
-        let mut metadata = fs::OpenOptions::new().write(true).create_new(true).open(&staged.receipt).map_err(|_| rejected("resource_save_write_failed"))?;
-        staged.owns_receipt = true;
-        metadata.write_all(&serde_json::to_vec_pretty(receipt).map_err(|_| rejected("resource_save_write_failed"))?).map_err(|_| rejected("resource_save_write_failed"))?;
-        metadata.sync_all().map_err(|_| rejected("resource_save_write_failed"))?;
         Ok(staged)
     }
     pub(super) fn publish(&self, id: &str) -> Result<(), ApiError> {
@@ -104,7 +119,7 @@ impl Staged {
 impl Drop for Staged {
     fn drop(&mut self) {
         if self.owns_payload && !self.published.load(std::sync::atomic::Ordering::Acquire) { let _ = fs::remove_file(&self.payload); }
-        if self.owns_receipt { let _ = fs::remove_file(&self.receipt); }
+        if self.owns_receipt && self.published.load(std::sync::atomic::Ordering::Acquire) { let _ = fs::remove_file(&self.receipt); }
         let _ = fs::remove_dir(&self.path);
     }
 }

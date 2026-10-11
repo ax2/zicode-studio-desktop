@@ -61,7 +61,9 @@ pub(in crate::host_server::plugin_resources) async fn verify(host: &HostServer, 
             registry.set_enabled("programming","com.zicode.artifacts",true).unwrap();
         }
         resume.send(()).unwrap(); assert!(!saving.await.unwrap().status().is_success());
-        assert!(!path.exists(), "unpublished owned files must be cleaned after authorization changed");
+        assert!(path.join(".receipt.pending").is_file(), "retain the confirmed attempt for read-only recovery");
+        assert!(!path.join("result.bin").exists(), "unpublished payload must be cleaned after authorization changed");
+        assert!(!path.join("receipt.json").exists());
     }
     let pending = post(host,&client,"prepare-save",prepare.clone()).await.json::<Value>().await.unwrap();
     let pending_commit = json!({"schemaVersion":1,"source":source,"grantId":pending["grantId"],"confirmed":true});
@@ -83,7 +85,9 @@ pub(in crate::host_server::plugin_resources) async fn verify(host: &HostServer, 
     let pending_commit = json!({"schemaVersion":1,"source":source,"grantId":pending["grantId"],"confirmed":true});
     assert!(post(host,&client,"revoke",input).await.status().is_success());
     assert!(!post(host,&client,"commit-save",pending_commit).await.status().is_success());
-    assert_eq!(fs::read_dir(workspace.join(".zicode/outputs")).unwrap().count(), 1);
+    assert_eq!(fs::read_dir(workspace.join(".zicode/outputs")).unwrap().count(), 3);
+    assert_eq!(fs::read_dir(workspace.join(".zicode/outputs")).unwrap().filter(|entry|
+        entry.as_ref().unwrap().path().join(".receipt.pending").is_file()).count(),2);
     // A new independent resource still exports successfully after the denied ancestor chain.
     let fresh = material(host,&client,&owner,b"independent").await;
     let pending = post(host,&client,"prepare-save",json!({"schemaVersion":1,"source":fresh})).await.json::<Value>().await.unwrap();
@@ -93,6 +97,6 @@ pub(in crate::host_server::plugin_resources) async fn verify(host: &HostServer, 
     json!({"passed":true,"resourceBytes":300000,"productionWorkerOutputSavedRaw":true,"prepareAndUnconfirmedWriteFree":true,
         "brokerAndPathOverrideDenied":true,"replayedWithoutNewFiles":true,"modifiedFilePreservedAndReplayRejected":true,
         "storageRevokeRegrantRejected":true,"destinationChangeRejected":true,"ancestorRevokeRejected":true,"independentResourceSaved":true,
-        "persistedDirectories":2,"preparedBytesBeforePublicationRevokeCases":2,"preparedBytesCleanedAfterRevoke":true,
+        "persistedDirectories":4,"publishedSnapshots":2,"recoveryOnlyDirectories":2,"preparedBytesBeforePublicationRevokeCases":2,"preparedBytesCleanedAfterRevoke":true,
         "storeLockAvailableDuringStaging":true,"savedArtifactsIndexed":false,"nativeUi":false})
 }

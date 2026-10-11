@@ -12,8 +12,24 @@ export interface SavedOutputPage {
   total: number; offset: number; pageSize: 40; hasMore: boolean; skippedEntries: number; payloadsRead: false;
 }
 export interface SavedOutputGateway {
+  attempts?(scene: string, workspace: string, filters?: { query?: string; offset?: number; signal?: AbortSignal }): Promise<SaveAttemptPage>;
   list(scene: string, workspace: string, filters?: { query?: string; offset?: number; signal?: AbortSignal }): Promise<SavedOutputPage>;
   read(scene: string, workspace: string, item: SavedOutput, signal?: AbortSignal): Promise<ArrayBuffer>;
+}
+export interface SaveAttempt extends SavedOutput { publication: "observed" | "not_observed"; }
+export interface SaveAttemptPage extends Omit<SavedOutputPage, "profile" | "items"> {
+  profile: "resource.save.recovery.draft1"; items: SaveAttempt[];
+}
+export function validSaveAttemptPage(page: SaveAttemptPage, workspace: string, offset: number): boolean {
+  return page?.schemaVersion === 1 && page.profile === "resource.save.recovery.draft1" && page.workspaceId === workspace &&
+    page.offset === offset && page.pageSize === 40 && page.payloadsRead === false &&
+    Number.isSafeInteger(page.total) && page.total >= 0 && page.total <= 128 &&
+    Number.isSafeInteger(page.skippedEntries) && page.skippedEntries >= 0 && page.skippedEntries <= 128 &&
+    page.hasMore === (offset + 40 < page.total) && Array.isArray(page.items) &&
+    page.items.length === Math.min(40, Math.max(0, page.total - offset)) &&
+    new Set(page.items.map(item => item.receipt?.saveId)).size === page.items.length &&
+    page.items.every(item => validSavedOutput(item, workspace) && Number.isFinite(Date.parse(item.receipt.preparedAt)) &&
+      ["observed", "not_observed"].includes(item.publication));
 }
 export function validSavedOutput(item: SavedOutput, workspace: string): boolean {
   const r = item?.receipt;

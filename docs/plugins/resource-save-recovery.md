@@ -23,4 +23,4 @@
 
 ## 仍待完成
 
-这是隔离 Edge 页面中的生产组件与真实 Host/Worker 验证，不是完整原生 WebView、真实 DevTools 算法或其他 OS 验收。当前收据快照仅在打开的保存对话框中保留；关闭/重启后的自动定位、持久交易日志、崩溃恢复、尚在进行的 commit 终态证明及接力 commit 恢复仍未实现。DevTools 完整工具接受数保持 0。
+这是隔离 Edge 页面中的生产组件与真实 Host/Worker 验证，不是完整原生 WebView、真实 DevTools 算法或其他 OS 验收。本条的对话框内收据快照不跨关闭保留；后续[项目保存记录候选](save-attempt-recovery.md)新增磁盘临时收据与交付物内只读发现。持久交易日志、完整应用崩溃恢复、尚在进行的 commit 终态证明及接力 commit 恢复仍未实现。DevTools 完整工具接受数保持 0。
