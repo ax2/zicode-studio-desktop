@@ -204,9 +204,15 @@ identifier = "allow-desktop-explorer-menu"
 description = "Allow explicit current-user Explorer menu configuration from the desktop workspace."
 commands.allow = ["desktop_explorer_menu"]
 
+[[permission]]
+identifier = "allow-select-project-resource-file"
+description = "Allow a trusted workspace window to select a file inside its current registered project; selection does not share content."
+commands.allow = ["select_project_resource_file"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+  "allow-select-project-resource-file",
   "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",
   "allow-background-automation-worker-status",

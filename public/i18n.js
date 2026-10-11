@@ -7,6 +7,9 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Choose from current project": "从当前项目选择",
+  "Choose a file inside the current project. It will only be shared after confirmation.": "请选择当前项目内的文件。选择后仍需确认，才会提供给工具。",
+  "Could not select this project file. Choose a file inside the current project again.": "未能选择此项目文件，请重新选择当前项目内的文件。",
   "Desktop integration": "桌面集成",
   "Open a folder in Studio from its Explorer context menu. Windows 11 may show this under Show more options.": "从资源管理器右键菜单在 Studio 中打开文件夹。Windows 11 可能将此入口放在“显示更多选项”中。",
   "Explorer menu changes are disabled in this acceptance profile.": "当前验收配置禁止修改资源管理器菜单。",

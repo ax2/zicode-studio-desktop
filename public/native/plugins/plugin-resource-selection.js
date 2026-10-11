@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { uploadConfirmedResource } from "./plugin-resource-upload.js";
 import { createSavedOutputPicker } from "./saved-output-picker.js";
+import { prepareProjectResource, confirmProjectResource } from "./project-file-resource.js";
 
 export function createPluginResourceSelection({
   container,
@@ -19,6 +20,7 @@ export function createPluginResourceSelection({
   let uploading = false;
   let selected = null;
   let granted = null;
+  let projectGrant = null;
   const label = document.createElement("strong");
   label.textContent = t("Studio · Share a file with this plugin");
   const input = document.createElement("input");
@@ -49,10 +51,53 @@ export function createPluginResourceSelection({
   const cancel = document.createElement("button");
   cancel.type = "button";
   cancel.className = "ui-button ui-button--secondary";
+  const projectChoice = gateway.projectFiles ? document.createElement("button") : null;
+  if (projectChoice) {
+    projectChoice.type = "button";
+    projectChoice.className = "ui-button ui-button--secondary";
+    projectChoice.textContent = t("Choose from current project");
+    projectChoice.addEventListener("click", async () => {
+      if (uploading || !active || !isCurrent()) return;
+      clear();
+      uploading = true;
+      const token = ++revision;
+      const valid = () => active && token === revision && isCurrent();
+      const owner = { runtimeId: target.instanceId, sessionId: target.sessionId, pluginId: plugin.id, capabilityId: capability.value };
+      input.disabled = capability.disabled = projectChoice.disabled = true;
+      saved?.setDisabled(true);
+      panel.setAttribute("aria-busy", "true");
+      status.textContent = t("Choose a file inside the current project. It will only be shared after confirmation.");
+      try {
+        const preview = await prepareProjectResource({ api: gateway.projectFiles, workspaceId: target.workspaceId, owner, isCurrent: valid });
+        if (!preview) return;
+        if (!valid()) { void gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {}); return; }
+        projectGrant = preview;
+        selected = { name: preview.relativePath, size: preview.byteLength, projectPreview: preview };
+        status.textContent = t("Selected: {name} · {bytes} bytes · plugin {plugin}")
+          .replace("{name}", selected.name).replace("{bytes}", selected.size).replace("{plugin}", `${plugin.name} ${plugin.version}`);
+      } catch {
+        if (valid()) status.textContent = t("Could not select this project file. Choose a file inside the current project again.");
+      } finally {
+        uploading = false;
+        if (active && isCurrent()) {
+          panel.removeAttribute("aria-busy");
+          input.disabled = capability.disabled = projectChoice.disabled = false;
+          saved?.setDisabled(false);
+          confirm.disabled = !selected || !capability.value;
+        }
+      }
+    });
+  }
+  function cancelProjectGrant() {
+    const preview = projectGrant;
+    projectGrant = null;
+    if (preview) void gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {});
+  }
   cancel.textContent = t("Cancel file sharing");
   const saved = createSavedOutputPicker({ container: panel, gateway: gateway.savedOutputs, target, isCurrent,
     onSelect: file => {
       if (uploading || !active || !isCurrent()) return;
+      cancelProjectGrant();
       revision++; release(); selected = file; input.value = "";
       confirm.disabled = !file || !capability.value;
       status.textContent = file ? t("Selected: {name} · {bytes} bytes · plugin {plugin}")
@@ -72,6 +117,7 @@ export function createPluginResourceSelection({
     });
   }
   function clear() {
+    cancelProjectGrant();
     revision += 1;
     saved?.clear();
     selected = null;
@@ -83,6 +129,8 @@ export function createPluginResourceSelection({
     release();
   }
   input.addEventListener("change", () => {
+    if (uploading || !active || !isCurrent()) return;
+    cancelProjectGrant();
     revision += 1;
     saved?.clear();
     release();
@@ -99,6 +147,8 @@ export function createPluginResourceSelection({
         : t("Choose a file up to 32 MiB and a receiving tool.");
   });
   capability.addEventListener("change", () => {
+    if (selected?.projectPreview) selected = null;
+    cancelProjectGrant();
     revision += 1;
     release();
     confirm.disabled =
@@ -123,11 +173,14 @@ export function createPluginResourceSelection({
     confirm.disabled = true;
     input.disabled = true;
     capability.disabled = true;
+    if (projectChoice) projectChoice.disabled = true;
     saved?.setDisabled(true);
     panel.setAttribute("aria-busy", "true");
     status.textContent = t("Preparing the confirmed file…");
     try {
-      const result = await uploadConfirmedResource({
+      const preview = selected.projectPreview;
+      projectGrant = null;
+      const result = preview ? await confirmProjectResource({ api: gateway.projectFiles, preview, gateway, isCurrent: valid }) : await uploadConfirmedResource({
         file: selected,
         owner,
         gateway,
@@ -155,11 +208,13 @@ export function createPluginResourceSelection({
         panel.removeAttribute("aria-busy");
         input.disabled = false;
         capability.disabled = false;
+        if (projectChoice) projectChoice.disabled = false;
         saved?.setDisabled(false);
       }
     }
   });
   panel.prepend(label, description, input, capability);
+  if (projectChoice) capability.after(projectChoice);
   panel.append(confirm, cancel, status);
   container.prepend(panel);
   return {

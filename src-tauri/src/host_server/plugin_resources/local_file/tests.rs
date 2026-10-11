@@ -483,6 +483,21 @@ async fn http(actual: bool) {
             f.0.display()
         );
     }
+    if actual {
+        if let Some(script) = std::env::var_os("ZICODE_PROJECT_FILE_BROWSER_SCRIPT") {
+            let executable = std::env::var_os("ZICODE_PROJECT_FILE_BROWSER_NODE")
+                .expect("Browser runtime must be explicit");
+            let status = tokio::process::Command::from(crate::process_command::new_command(executable)).arg(script)
+                .env("ZICODE_PREVIEW_HOST", host.origin())
+                .env("ZICODE_PREVIEW_TOKEN", host.desktop_token())
+                .env("ZICODE_PREVIEW_TARGET", serde_json::to_string(&json!({"workspaceId":target.workspace_id,"sceneId":"programming","instanceId":target.instance_id,"sessionId":target.session_id})).unwrap())
+                .status().await.unwrap();
+            assert!(
+                status.success(),
+                "Project file browser acceptance failed; retain fixture"
+            );
+        }
+    }
     host.stop_and_wait().await.unwrap();
     drop(runtime);
 }

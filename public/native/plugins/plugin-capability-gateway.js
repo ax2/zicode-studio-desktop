@@ -11,6 +11,9 @@ export class PluginCapabilityGateway {
     fetchImpl = globalThis.fetch?.bind(globalThis),
     location = globalThis.location,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    pickProjectFile = globalThis.__TAURI__?.core?.invoke
+      ? workspaceId => globalThis.__TAURI__.core.invoke("select_project_resource_file", { workspaceId })
+      : null,
   } = {}) {
     if (typeof fetchImpl !== "function") {
       throw new Error("Plugin capability gateway requires fetch");
@@ -20,6 +23,12 @@ export class PluginCapabilityGateway {
     this.#timeoutMs = timeoutMs;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
     this.resourceCalls = createResourceCallJournal();
+    this.projectFiles = typeof pickProjectFile === "function" ? {
+      choose: pickProjectFile,
+      prepare: (owner, relativePath) => this.#request(this.#url("/v2/plugin-resources/prepare-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath }) }),
+      commit: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }) }),
+      cancel: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/cancel-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),
+    } : null;
   }
 
   list(sceneId) {

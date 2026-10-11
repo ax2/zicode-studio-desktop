@@ -36,6 +36,13 @@ mod worker_test_observer;
 mod plugin_tool_catalog;
 mod plugin_results;
 mod plugin_resources;
+impl HostServer {
+    pub(crate) fn project_resource_root(&self, workspace: &str) -> Result<PathBuf, String> {
+        self.state.data.workspace_roots().read().map_err(|_| "Project is unavailable".to_string())?
+            .get(workspace).cloned().ok_or_else(|| "Project is unavailable".to_string())?
+            .canonicalize().map_err(|_| "Project is unavailable".to_string())
+    }
+}
 #[cfg(test)]
 mod plugin_broker_tests;
 mod project_environment;

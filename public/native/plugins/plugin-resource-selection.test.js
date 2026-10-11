@@ -3,12 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createPluginResourceSelection } from "./plugin-resource-selection.js";
 
-function setup() {
+function setup(projectFiles) {
   setLocale("en");
   vi.stubGlobal("crypto", webcrypto);
   document.body.innerHTML = '<main id="parent"></main>';
   const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const gateway = {
+    ...(projectFiles ? { projectFiles } : {}),
     prepareResource: vi.fn(async () => ({ resourceId: id })),
     appendResource: vi.fn(async () => ({ uploadedBytes: 3 })),
     commitResource: vi.fn(async (access) => ({ ...access, confirmed: true, byteLength: 3 })),
@@ -18,7 +19,7 @@ function setup() {
   const controller = createPluginResourceSelection({
     container: document.querySelector("main"),
     plugin: { id: "p", name: "Receiver", version: "1", capabilities: [{ id: "c", title: "Echo" }] },
-    target: { instanceId: "r", sessionId: "s" },
+    target: { instanceId: "r", sessionId: "s", workspaceId: "ws" },
     gateway,
     isCurrent: () => true,
     onResource,
@@ -38,8 +39,8 @@ function setup() {
     onResource,
     file,
     input,
-    confirm: document.querySelector("button"),
-    cancel: document.querySelectorAll("button")[1],
+    confirm: [...document.querySelectorAll("button")].find(button => button.textContent === "Confirm file sharing"),
+    cancel: [...document.querySelectorAll("button")].find(button => button.textContent === "Cancel file sharing"),
   };
 }
 afterEach(() => {
@@ -48,6 +49,27 @@ afterEach(() => {
   setLocale("zh-CN");
 });
 describe("trusted file confirmation controls", () => {
+  it("selects a project snapshot only after separate confirmation and cancels pending metadata grants", async () => {
+    const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    const access = { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) };
+    const projectFiles = { choose: vi.fn(async () => "中文.zip"), prepare: vi.fn(async () => ({ profile: "resource.local-file.draft1", grantId: id, owner, relativePath: "中文.zip", byteLength: 3, contentRead: false, confirmed: false })),
+      commit: vi.fn(async () => ({ ...access, access, confirmed: true, profile: "resource.local-file.draft1", byteLength: 3 })), cancel: vi.fn(async () => ({})) };
+    const options = setup(projectFiles);
+    const choose = [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project");
+    choose.click();
+    await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
+    expect(document.body.textContent).toContain("中文.zip");
+    expect(projectFiles.commit).not.toHaveBeenCalled(); expect(options.gateway.prepareResource).not.toHaveBeenCalled();
+    expect(projectFiles.choose).toHaveBeenCalledWith("ws");
+    options.cancel.click(); expect(projectFiles.cancel).toHaveBeenCalledWith(owner, id);
+    choose.click(); await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
+    options.confirm.click();
+    await vi.waitFor(() => expect(options.onResource).toHaveBeenLastCalledWith({ capabilityId: "c", resourceId: id, contentVersion: "a".repeat(64) }));
+    expect(projectFiles.commit).toHaveBeenCalledOnce();
+    expect(options.gateway.appendResource).not.toHaveBeenCalled();
+    options.controller.destroy();
+  });
   it("shows metadata without reading or sending bytes before confirmation", () => {
     const options = setup();
     expect(document.body.textContent).toContain("test.txt");
