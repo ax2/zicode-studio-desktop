@@ -131,6 +131,7 @@ bun run release 0.1.0
 发布工作流与应用标签分别绑定固定提交。若只需修复草稿的发布校验工具，可在 `main`
 运行 Desktop release 的 `workflow_dispatch` 并指定已有标签；应用仍从原标签构建，
 完整检查与资产大小、SHA-256 校验仍全部执行，不移动标签或额外增加应用版本号。
+
 macOS 和 Linux 当前使用系统 Shell/Git；macOS 包采用 ad-hoc 签名，尚未进行 Apple
 Developer ID 签名与公证。发布和签名说明见
 [Windows 打包文档](docs/windows-packaging.md)。

@@ -136,6 +136,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/studio-release-verifier"
           cp scripts/verify-release-artifacts.mjs scripts/release-draft-assets.mjs \
             scripts/release-artifact-policy.mjs scripts/executable-architecture.mjs \
+            scripts/macos-bundle-signing.mjs \
             "$RUNNER_TEMP/studio-release-verifier/"
           echo "Verification workflow source: ${{ github.workflow_sha }}"
 
@@ -295,6 +296,15 @@ jobs:
           CARGO_NET_RETRY: "10"
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked --bin zicode-studio-desktop host_server::plugin_broker_tests::embedded_pi_invokes_the_real_host_plugin_broker -- --ignored --exact
 
+      - name: Prepare macOS packaging hook
+        if: runner.os == 'macOS'
+        id: macos-bundle-config
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun "$RUNNER_TEMP/studio-release-verifier/macos-bundle-signing.mjs" --prepare
+          echo "args=--config \"$RUNNER_TEMP/studio-release-verifier/macos-bundle.json\"" >> "$GITHUB_OUTPUT"
+
       - name: Build bundles and upload to draft release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -311,7 +321,7 @@ jobs:
           tagName: ${{ env.RELEASE_TAG }}
           releaseDraft: true
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
-          args: --bundles ${{ matrix.bundles }}
+          args: --bundles ${{ matrix.bundles }} ${{ steps.macos-bundle-config.outputs.args }}
 
       - name: Upload updater artifacts when signing is enabled
         if: env.UPDATER_SIGNING_CONFIGURED == 'true'
@@ -329,6 +339,17 @@ jobs:
           if [[ "$found" == "0" ]]; then
             echo "No updater artifacts found (createUpdaterArtifacts is likely still false); nothing to upload."
           fi
+
+      - name: Verify macOS application signatures and embedded runtimes
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="target/release/bundle/macos/ZiCode Studio Desktop.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --verify --strict --verbose=2 "$APP/Contents/MacOS/zicode-relay"
+          "$APP/Contents/Resources/pi/pi" --version
+          "$APP/Contents/Resources/bun/bun" --version
 
       - name: Verify uploaded platform bundles
         shell: bash

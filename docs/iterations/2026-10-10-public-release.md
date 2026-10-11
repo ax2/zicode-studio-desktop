@@ -117,3 +117,10 @@ process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失�
 工作流先从github.workflow_sha保留4个固定版本校验模块到runner临时目录，再切换原始release_sha构建应用，支持以新版发布基础设施重新验收同一不可变v0.4.2，而不重打标签/改应用版本。新增10项工具与来源契约测试、合计22项相关回归通过；真实草稿查询只读probe已通过，但原失败仍保留，修复后完整发布仍待实际执行。
 
 参考：[GitHub Release tag API](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name)及[工作流SHA定义](https://docs.github.com/zh/actions/reference/workflows-and-actions/contexts)。原始报告、构建收据、截图、临时探测代理失败与修复记录均见技术博客档案public-release-2026-10-10。仍待：其他OS人工UI、安装升级/卸载、模型服务、提供方算法和154项完整工具验收；欢迎页灰色辅助文案对比度有优化空间。
+
+首轮Intel Mac额外失败：Rust正式编译26m56s成功，codesign主程序时发现同一.app的Contents/MacOS/zicode-relay未签名。ARM/Linux/Windows均已上传，草稿仅4资产，不能发布。38106544109在仅修复草稿查询后刚启动，读取完整首轮日志后发现此独立签名问题，已主动取消并确认cancelled；不将该轮算通过或让相同失败重复编译。
+
+仅调整发布基础设施：从固定workflow SHA保存macos-bundle-signing.mjs，macOS CLI使用临时配置添加官方beforeBundleCommand钩子；检查relay目标架构后先ad-hoc签名并严格验证，再由Tauri签名完整应用。应用标签、Rust/前端源码与版本保持不变，显式记录该包装配置覆盖。上传后新增完整.app deep/strict签名验证及包内Pi/Bun启动门槛。共5个基础设施模块和1个临时macOS配置，未另建本机target或复制应用。
+
+新增7项本机回归覆盖架构/系统拒绝、失败停止、路径引号、仅增加打包钩子和深度签名门槛；加上既有发布相关共29项通过，最终bun run check退出0、既有141warnings保持。第一轮断言误写预期错误词architecture而实际为Executable target mismatch，失败记录保留；最终断言准确检查原目标/实际目标。真实macOS签名仍待新发布流程，本机mock测试不能代替。
+参考：[Tauri beforeBundleCommand](https://v2.tauri.app/reference/config/#beforebundlecommand)。
