@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { uploadConfirmedResource } from "./plugin-resource-upload.js";
 import { confirmProjectResource, prepareProjectResource } from "./project-file-resource.js";
+import { createProjectFileStatus } from "./project-file-status.js";
 import { createSavedOutputPicker } from "./saved-output-picker.js";
 
 export function createPluginResourceSelection({
@@ -53,6 +54,7 @@ export function createPluginResourceSelection({
   cancel.type = "button";
   cancel.className = "ui-button ui-button--secondary";
   const projectChoice = gateway.projectFiles ? document.createElement("button") : null;
+  const fileStatus = createProjectFileStatus({ api: gateway.projectFiles, isCurrent: () => active && isCurrent() });
   if (projectChoice) {
     projectChoice.type = "button";
     projectChoice.className = "ui-button ui-button--secondary";
@@ -99,12 +101,13 @@ export function createPluginResourceSelection({
   function cancelProjectGrant() {
     const preview = projectGrant;
     projectGrant = null;
-    if (preview) void gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {});
+    return preview ? gateway.projectFiles.cancel(preview.owner, preview.grantId).catch(() => {}) : Promise.resolve();
   }
   cancel.textContent = t("Cancel file sharing");
   const saved = createSavedOutputPicker({ container: panel, gateway: gateway.savedOutputs, target, isCurrent,
     onSelect: file => {
       if (uploading || !active || !isCurrent()) return;
+      fileStatus.clear();
       cancelProjectGrant();
       revision++; release(); selected = file; input.value = "";
       confirm.disabled = !file || !capability.value;
@@ -125,7 +128,8 @@ export function createPluginResourceSelection({
     });
   }
   function clear() {
-    cancelProjectGrant();
+    const cancellation = cancelProjectGrant();
+    fileStatus.clear();
     revision += 1;
     saved?.clear();
     selected = null;
@@ -135,9 +139,11 @@ export function createPluginResourceSelection({
     confirm.disabled = true;
     panel.removeAttribute("aria-busy");
     release();
+    return cancellation;
   }
   input.addEventListener("change", () => {
     if (uploading || !active || !isCurrent()) return;
+    fileStatus.clear();
     cancelProjectGrant();
     revision += 1;
     saved?.clear();
@@ -155,6 +161,7 @@ export function createPluginResourceSelection({
         : t("Choose a file up to 32 MiB and a receiving tool.");
   });
   capability.addEventListener("change", () => {
+    fileStatus.clear();
     if (selected?.projectPreview) selected = null;
     cancelProjectGrant();
     revision += 1;
@@ -163,7 +170,11 @@ export function createPluginResourceSelection({
       uploading || !selected || selected.size > 32 * 1024 * 1024 || !capability.value;
   });
   cancel.addEventListener("click", () => {
-    clear();
+    const preview = projectGrant;
+    const cancellation = clear(), token = revision;
+    if (preview) void cancellation.then(() => {
+      if (active && token === revision && isCurrent()) void fileStatus.check(preview);
+    });
     status.textContent = uploading ? t("File sharing canceled. Waiting for preparation to finish.") : t("File sharing canceled.");
     input.focus();
   });
@@ -185,8 +196,9 @@ export function createPluginResourceSelection({
     saved?.setDisabled(true);
     panel.setAttribute("aria-busy", "true");
     status.textContent = t("Preparing the confirmed file…");
+    const preview = selected.projectPreview;
+    let checkAfterFailure = false;
     try {
-      const preview = selected.projectPreview;
       // Retain the grant while commit is in flight so Cancel/destroy can request
       // cooperative Host read cancellation. Late successful resources are revoked.
       const result = preview ? await confirmProjectResource({ api: gateway.projectFiles, preview, gateway, isCurrent: valid }) : await uploadConfirmedResource({
@@ -211,9 +223,14 @@ export function createPluginResourceSelection({
       onResource(result.reference);
       status.textContent = t("Confirmed file shared. You can revoke it with Cancel.");
     } catch {
-      if (valid()) status.textContent = t("File sharing failed. Select the file again to retry.");
+      if (valid()) {
+        checkAfterFailure = Boolean(preview);
+        status.textContent = t(preview ? "File sharing response was not confirmed. Check preparation status before selecting again." : "File sharing failed. Select the file again to retry.");
+      }
     } finally {
-      cancelProjectGrant();
+      const cancellation = cancelProjectGrant();
+      if (checkAfterFailure) void cancellation.then(() => { if (valid()) void fileStatus.check(preview); });
+      if (!valid()) fileStatus.refresh(preview);
       uploading = false;
       if (active && isCurrent()) {
         if (!valid()) status.textContent = t("File sharing canceled.");
@@ -228,12 +245,14 @@ export function createPluginResourceSelection({
   panel.prepend(label, description, input, capability);
   if (projectChoice) capability.after(projectChoice);
   panel.append(confirm, cancel, status);
+  panel.append(fileStatus.element);
   container.prepend(panel);
   return {
     destroy() {
       active = false;
       clear();
       saved?.destroy();
+      fileStatus.destroy();
       panel.remove();
     },
   };

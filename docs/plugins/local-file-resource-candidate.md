@@ -30,7 +30,9 @@ Windows仅本地盘：检查路径重解析点，并核对实际打开句柄解�
 
 返回`phase`：`prepared`（尚未读取，contentRead=false）；`reading`（实际任务仍存在，contentRead=null、executionFinished=false，cancellationRequested只是请求标记）；`ended`（实际任务lease结束，executionFinished=true、outcome为published/cancelled/timedOut/failed）。published仅证明当时建立过快照，contentRead=true，不表示资源仍存在或当前授权有效；其余已读取字节可能不确定，contentRead=null。读取前取消的结束回执contentRead=false。状态不返回access/resourceId、路径、字节或模块摘要，不能用来重放确认、执行或恢复资源。
 
-结束回执仅当前Host内存保留120秒、最多128项，满时淘汰最早回执，不淘汰在途工作；未知/过期/被淘汰/Host重启返回resource_file_grant_unavailable，**不是已结束的证明**。待确认/在途原32全局与每runtime8的配额独立保持。桌面gateway提供`projectFiles.status(owner,grantId)`；UI自动状态恢复、丢失成功响应的资源恢复与持久记录尚未接入。仍属内部draft1增量，不能根据应用版本号0.4.2推断旧EXE包含该入口。
+结束回执仅当前Host内存保留120秒、最多128项，满时淘汰最早回执，不淘汰在途工作；未知/过期/被淘汰/Host重启返回resource_file_grant_unavailable，**不是已结束的证明**。待确认/在途原32全局与每runtime8的配额独立保持。桌面gateway提供`projectFiles.status(owner,grantId)`。文件选择界面在取消或确认响应失败后自动核对一次，并提供手动核对按钮；提交请求结束时可再次核对原凭据。查询不恢复资源、不重试读取或执行。3秒未返回显示未知，实际查询结束前按钮禁用；无轮询、最多一个在途查询。切换工具/文件/工作区或关闭会清除当前内存状态并忽略迟到结果。丢失成功响应的资源恢复与跨重启持久记录尚未接入。仍属内部draft1增量，不能根据应用版本号0.4.2推断旧EXE包含该入口。
+
+2026-10-11 UI验证：37项定向前端测试、check、typecheck、React构建通过。复用当前debug EXE，在真实Windows WebView/Host中验证取消未读取文件→一次自动核对、延迟真实状态响应3秒→未知、手动核对→已取消并结束、新选择清除状态→明确确认→WASI测试工具返回abcd；桌面1440×900与窄屏390×844截图已检查，无页面错误、控制台警告/错误或AI runtime请求。延迟注入仅影响真实响应交付，不是操作系统阻塞读取验收；reading/失败响应分支另由组件测试覆盖。证据在技术博客档案`iterations/local-file-status-ui-2026-10-11/`。本轮无Rust改动、无EXE重建、无正式发布。
 
 `/v2/plugin-resources/prepare-local-file`
 

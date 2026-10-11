@@ -56,7 +56,8 @@ describe("trusted file confirmation controls", () => {
     let release;
     const projectFiles = { choose: vi.fn(async () => "input.txt"),
       prepare: vi.fn(async () => ({ profile: "resource.local-file.draft1", grantId: id, owner, relativePath: "input.txt", byteLength: 3, contentRead: false, confirmed: false })),
-      commit: vi.fn(() => new Promise(resolve => { release = resolve; })), cancel: vi.fn(async () => ({ cancellationRequested: true, executionFinished: false })) };
+      commit: vi.fn(() => new Promise(resolve => { release = resolve; })), cancel: vi.fn(async () => ({ cancellationRequested: true, executionFinished: false })),
+      status: vi.fn(async () => ({ schemaVersion: 1, phase: "reading", executionFinished: false, cancellationRequested: true, contentRead: null })) };
     const options = setup(projectFiles);
     [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project").click();
     await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
@@ -66,11 +67,34 @@ describe("trusted file confirmation controls", () => {
     expect(projectFiles.cancel).toHaveBeenCalledWith(owner, id);
     expect(document.body.textContent).toContain("Waiting for preparation to finish");
     expect(options.input.disabled).toBe(true);
+    await vi.waitFor(() => expect(projectFiles.status).toHaveBeenCalledWith(owner, id));
+    expect(document.body.textContent).toContain("file preparation has not ended");
+    projectFiles.status.mockResolvedValue({ schemaVersion: 1, phase: "ended", executionFinished: true, outcome: "published", contentRead: true });
     release({ ...access, access, confirmed: true, profile: "resource.local-file.draft1", byteLength: 3 });
     await vi.waitFor(() => expect(options.input.disabled).toBe(false));
     expect(document.body.textContent).not.toContain("Waiting for preparation to finish");
     expect(options.onResource).not.toHaveBeenCalled();
     expect(options.gateway.revokeResource).toHaveBeenCalledWith(access);
+    await vi.waitFor(() => expect(projectFiles.status).toHaveBeenCalledTimes(2));
+    expect(document.body.textContent).toContain("does not restore the file");
+    options.controller.destroy();
+  });
+  it("checks the receipt after a failed confirmation without automatically reading again", async () => {
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const projectFiles = { choose: vi.fn(async () => "input.txt"),
+      prepare: vi.fn(async () => ({ profile: "resource.local-file.draft1", grantId: id, owner, relativePath: "input.txt", byteLength: 3, contentRead: false, confirmed: false })),
+      commit: vi.fn(async () => { throw new Error("timeout"); }), cancel: vi.fn(async () => ({})),
+      status: vi.fn(async () => ({ schemaVersion: 1, phase: "ended", executionFinished: true, outcome: "published", contentRead: true })) };
+    const options = setup(projectFiles);
+    [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project").click();
+    await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
+    options.confirm.click();
+    await vi.waitFor(() => expect(projectFiles.status).toHaveBeenCalledOnce());
+    expect(document.body.textContent).toContain("Check preparation status before selecting again");
+    expect(document.body.textContent).toContain("does not restore the file");
+    expect(projectFiles.prepare).toHaveBeenCalledOnce(); expect(projectFiles.commit).toHaveBeenCalledOnce();
+    expect(options.onResource).not.toHaveBeenCalled();
     options.controller.destroy();
   });
   it("shows a launch file name without preparing or confirming it automatically", async () => {
