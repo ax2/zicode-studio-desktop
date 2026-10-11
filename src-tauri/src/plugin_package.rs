@@ -185,6 +185,7 @@ pub fn verify_package(package_path: &Path, plugin_root: &Path) -> Result<Verifie
         .map_err(|error| format!("Plugin manifest is invalid: {error}"))?;
     // Reject unsupported engines before preview, extraction or publisher trust.
     crate::plugin_registry::runtime_contract::validate(&manifest.runtime)?;
+    crate::plugin_registry::file_input::validate_manifest(&manifest)?;
     if manifest.publisher.trim() != signed.publisher.name.trim() {
         return Err("Plugin publisher does not match the signed publisher".into());
     }

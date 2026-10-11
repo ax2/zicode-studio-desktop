@@ -54,7 +54,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             "compute.wasi.v1" | "output.schema.v1" => {
                 Version::parse("1.0.0-rc.1").map_err(|_| "Host profile version is invalid")?
             }
-            "tool.directory.v1" => Version::parse("1.0.0-preview.1")
+            "tool.directory.v1" | "file.input.hints.v1" => Version::parse("1.0.0-preview.1")
                 .map_err(|_| "Host profile version is invalid")?,
             _ => return Err("Required plugin profile is unsupported".into()),
         };

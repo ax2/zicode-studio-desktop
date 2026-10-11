@@ -43,3 +43,6 @@ Studio新增内部[resource.wasi.output.draft1](resource-worker-output-candidate
 ## 2026-10-10 Host输出登记候选
 
 Worker输出已接入[Host派生资源登记](resource-host-output-candidate.md)。需manifest精确选择resource.wasi.output.draft1；输出仅原owner可读取/继续执行，原输入撤销或过期级联失效，共享32条/128MiB总预算。尚无可信图片预览、跨工具转授权和确认保存，请勿直接把本候选视作正式profile或改动已有冻结包。
+
+## 2026-10-11 文件输入发现提示
+Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力声明真实后缀或明确anyFile，协商1.0.0-preview.1；声明缺失保持未知可见。应交付新包/摘要/正反例，不修改冻结包；发现匹配不代替读取授权、内容验证或实际算法接受。新自有夹具真实目录3/4切换、确认执行及旧夹具兼容通过，提供方实包/完整工具仍待。

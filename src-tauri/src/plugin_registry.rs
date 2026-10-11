@@ -9,6 +9,7 @@ pub(crate) mod manual_catalog;
 mod directory_metadata;
 mod execution_revision;
 pub(crate) mod runtime_contract;
+pub(crate) mod file_input;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -1431,6 +1432,7 @@ fn load_manifest(package_root: &Path) -> Result<PluginManifest, String> {
 
 fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> Result<(), String> {
     runtime_contract::validate(&manifest.runtime)?;
+    file_input::validate_manifest(manifest)?;
     engine_compatibility::validate(&manifest.engines)?;
     profile_compatibility::validate(manifest)?;
     if !valid_plugin_id(&manifest.id) {

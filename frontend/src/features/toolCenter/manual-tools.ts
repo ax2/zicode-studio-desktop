@@ -5,6 +5,7 @@ export interface ManualTool {
   toolId: string; accessId: string; pluginId: string; capabilityId: string; title: string;
   applicationName: string; publisher: string; version: string; enabled: boolean; runtime: string;
   categoryId?: string; description?: string;
+  fileInputMatch?: "declared" | "unknown" | null;
 }
 export type ToolDirectoryView = "all" | "favorites" | "recent";
 export interface ToolOpenRequest { tool: ManualTool; revision: string }
@@ -21,7 +22,7 @@ export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<Ma
   resourceCalls?: { list(scope: { sceneId: string; workspaceId: string }): Promise<unknown[]> };
   reconcileResourceCall?: (...args: unknown[]) => Promise<unknown>;
   searchTools(sceneId: string, options: { query: string; offset: number; revision: string | null;
-    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean }): Promise<ToolPage>;
+    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean; fileName?: string }): Promise<ToolPage>;
   loadTool(sceneId: string, tool: { pluginId: string; capabilityId: string; revision: string }): Promise<ToolDetail>;
   invoke(sceneId: string, workspaceId: string, pluginId: string, capabilityId: string,
     input: Record<string, string | number | boolean>, options: { catalogRevision: string; captureResult?: boolean; callId?: string }): Promise<CapturedToolResponse>;

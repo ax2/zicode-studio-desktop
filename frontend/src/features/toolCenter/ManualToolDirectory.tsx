@@ -87,6 +87,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
     const timer = setTimeout(() => {
       void api.searchTools(scope.sceneId, { query, ...cursor,
         ...(fileFilter.enabled ? { resourceOnly: true } : {}),
+        ...(fileFilter.enabled && fileFilter.fileName ? { fileName: fileFilter.fileName } : {}),
         ...(source ? { pluginId: source } : {}),
         ...(category ? { categoryId: category } : {}),
         ...(view !== "all" ? { view, workspaceId: scope.workspaceId } : {}) })
@@ -95,7 +96,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled]);
+  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled, fileFilter.fileName]);
   return <div className="manual-tool-directory" ref={directory}>
     <fieldset ref={switcher} className="ui-toolbar tool-open-switcher" aria-label={t("Opened tools")}>
       <button ref={activeTool === null ? selectedButton : undefined} data-open-tool-id="" type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
@@ -145,7 +146,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
     </label>
     </div>
     <p className="tool-center-source">{t("Browsing loads metadata only. Choose a tool to load its input form.")}</p>
-    {fileFilter.enabled && <p className="tool-center-source">{t("Shows enabled WASI tools with file read permission. Check each tool's supported formats before sharing a file.")}</p>}
+    {fileFilter.enabled && <p className="tool-center-source">{t("Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.")}</p>}
     {fileFilter.failed && <p role="status">{t("The opened file could not be checked. You can select the file tool filter manually.")}</p>}
     {view !== "all" && <p className="tool-center-source">{t("This list belongs to the current workspace and scene. Removed tools are hidden.")}</p>}
     {access.error && <p role="alert">{t("Tool history could not be loaded or saved.")}
@@ -160,6 +161,7 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
         {page.items.map(tool => <article key={tool.toolId} className="ui-card tool-center-card">
           <h2>{tool.title}</h2><p className="tool-center-source">{tool.applicationName} · {tool.publisher} · {tool.version}</p>
           {tool.description && <p>{tool.description}</p>}
+          {fileFilter.enabled && fileFilter.fileName && <span className="ui-badge">{t(tool.fileInputMatch === "declared" ? "Plugin declares a matching filename suffix" : "Plugin has not declared file types")}</span>}
           {!tool.enabled && <span>{t("Plugin is disabled")}</span>}
           <div className="ui-toolbar"><button type="button" className="ui-button ui-button--primary" disabled={loading}
             onClick={() => {

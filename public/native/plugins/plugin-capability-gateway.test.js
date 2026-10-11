@@ -44,10 +44,12 @@ describe("PluginCapabilityGateway", () => {
   it("filters resource receivers and separates prepare from explicit confirmation", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
-    await gateway.searchTools("programming", { resourceOnly: true });
+    await gateway.searchTools("programming", { resourceOnly: true, fileName: "中文 & FILE.TXT" });
     expect(fetchImpl.mock.calls[0][0].searchParams.get("resourceOnly")).toBe("true");
-    await gateway.searchTools("programming");
+    expect(fetchImpl.mock.calls[0][0].searchParams.get("fileName")).toBe("中文 & FILE.TXT");
+    await gateway.searchTools("programming", { fileName: "中文 & FILE.TXT" });
     expect(fetchImpl.mock.calls[1][0].searchParams.has("resourceOnly")).toBe(false);
+    expect(fetchImpl.mock.calls[1][0].searchParams.has("fileName")).toBe(false);
     const source = { schemaVersion: 1, owner: { pluginId: "a" }, resourceId: "r", contentVersion: "v" };
     const target = { pluginId: "b" };
     await gateway.prepareResourceTransfer(source, target);

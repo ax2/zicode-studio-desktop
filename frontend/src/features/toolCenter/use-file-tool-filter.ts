@@ -5,7 +5,13 @@ import type { ManualToolApi } from "./manual-tools";
 // File intent is metadata only. Detection and filtering never grant file access.
 export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope) {
   const key = JSON.stringify([scope.sceneId, scope.workspaceId]);
-  const [state, setState] = useState({ key: "", ready: false, enabled: false, failed: false });
+  const [state, setState] = useState({
+    key: "",
+    ready: false,
+    enabled: false,
+    failed: false,
+    fileName: null as string | null,
+  });
   const current =
     state.key === key
       ? state
@@ -14,24 +20,44 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope) {
           ready: typeof api.projectFiles?.entry !== "function",
           enabled: false,
           failed: false,
+          fileName: null,
         };
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    function finish(enabled: boolean, failed: boolean) {
+    function finish(enabled: boolean, failed: boolean, fileName: string | null = null) {
       if (!active) return;
       active = false;
       clearTimeout(timer);
-      setState({ key, ready: true, enabled, failed });
+      setState({ key, ready: true, enabled, failed, fileName });
     }
     const files = api.projectFiles;
-    setState({ key, ready: typeof files?.entry !== "function", enabled: false, failed: false });
+    setState({
+      key,
+      ready: typeof files?.entry !== "function",
+      enabled: false,
+      failed: false,
+      fileName: null,
+    });
     if (typeof files?.entry === "function") {
       timer = setTimeout(() => finish(false, true), 5000);
       void Promise.resolve()
         .then(() => files.entry?.(scope.workspaceId))
         .then((value) => {
-          finish(typeof value === "string" && value.length > 0, false);
+          const name = typeof value === "string" && value.length > 0 ? value : null;
+          if (
+            name &&
+            (/[\\/:]/u.test(name) ||
+              [...name].some(
+                (char) =>
+                  char.charCodeAt(0) < 32 ||
+                  (char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159),
+              ))
+          ) {
+            finish(false, true);
+            return;
+          }
+          finish(name !== null, false, name);
         })
         .catch(() => {
           finish(false, true);

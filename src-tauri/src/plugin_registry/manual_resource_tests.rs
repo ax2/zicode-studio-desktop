@@ -1,6 +1,33 @@
 use super::*;
 
 #[test]
+fn file_hints_hide_declared_mismatches_but_keep_legacy_unknown() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([{"name":"resource.read","reason":"read chosen file"}])).unwrap();
+    let caps = plugin.manifest.contributes["capabilities"].as_array_mut().unwrap();
+    caps.truncate(3);
+    caps[0]["fileInput"] = json!({"extensions":[".txt"]});
+    caps[1]["fileInput"] = json!({"extensions":[".png"]});
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    let mut query = CatalogQuery { scene_id: "programming".into(), resource_only: true, file_name: Some("中文.TXT".into()), ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 2);
+    assert_eq!(page["items"][0]["fileInputMatch"], "declared");
+    assert_eq!(page["items"][1]["fileInputMatch"], "unknown");
+    assert!(!page.to_string().contains("inputSchema"));
+    query.file_name = None;
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 3);
+    query.file_name = Some("../file.txt".into());
+    assert!(registry.manual_catalog(&query).is_err());
+    query.file_name = Some("file.txt".into());
+    query.resource_only = false;
+    assert!(registry.manual_catalog(&query).is_err());
+}
+
+#[test]
 fn resource_targets_are_metadata_only_permission_scoped_and_paged() {
     let mut registry = tests::registry();
     let id = "com.zicode.catalog-fixture";

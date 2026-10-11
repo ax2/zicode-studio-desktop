@@ -35,6 +35,7 @@ pub(crate) struct CatalogQuery {
     pub category_id: Option<String>,
     #[serde(default)]
     pub resource_only: bool,
+    pub file_name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -72,6 +73,9 @@ impl PluginRegistry {
         access: Option<&crate::metadata_store::tool_access::ToolAccess>,
     ) -> Result<Value, &'static str> {
         invalid_scene(&request.scene_id)?;
+        if request.file_name.as_deref().is_some_and(|name| !request.resource_only || !file_input::valid_name(name)) {
+            return Err("invalid_parameters");
+        }
         if request.query.len() > 512 || request.offset > 1_000_000
             || request.plugin_id.as_ref().is_some_and(|id| id.len() > 256)
             || request.category_id.as_ref().is_some_and(|id| id.len() > 64) {
@@ -132,6 +136,8 @@ impl PluginRegistry {
                     continue;
                 };
                 let title = cap.get("title").and_then(Value::as_str).unwrap_or(id);
+                let file_match = request.file_name.as_deref().and_then(|name| file_input::matches(cap, name));
+                if file_match == Some(false) { continue; }
                 let tool_id = serde_json::to_string(&(&manifest.id, id)).expect("string tuple");
                 let access_id = tool_access_id(&manifest.id, id);
                 if ranks.as_ref().is_some_and(|ranks| !ranks.contains_key(access_id.as_str())) {
@@ -172,6 +178,7 @@ impl PluginRegistry {
                 }
                 entries.push(json!({
                     "toolId":tool_id,"accessId":access_id,
+                    "fileInputMatch":request.file_name.as_ref().map(|_| if file_match == Some(true) {"declared"} else {"unknown"}),
                     "pluginId":manifest.id,"capabilityId":id,"title":title,
                     "categoryId":category,"description":description,
                     "applicationName":manifest.display_name.as_deref().unwrap_or(&manifest.name),

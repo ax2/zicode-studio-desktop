@@ -11,6 +11,28 @@ const scope = { sceneId: "programming", workspaceId: "one" };
 function gateway(entry: (workspace: string) => Promise<unknown>) {
   return { projectFiles: { entry } } as ManualToolApi;
 }
+
+it("keeps only basename intent and rejects path-shaped bridge values", async () => {
+  const api = gateway(async () => "中文 & FILE.TXT");
+  const view = renderHook(() => useFileToolFilter(api, scope));
+  await act(async () => {});
+  expect(view.result.current.fileName).toBe("中文 & FILE.TXT");
+  view.unmount();
+  const invalidApi = gateway(async () => "../private.txt");
+  const invalid = renderHook(() => useFileToolFilter(invalidApi, scope));
+  await act(async () => {});
+  expect(invalid.result.current).toMatchObject({
+    ready: true,
+    failed: true,
+    enabled: false,
+    fileName: null,
+  });
+  invalid.unmount();
+  const controlApi = gateway(async () => `bad${String.fromCharCode(133)}.txt`);
+  const control = renderHook(() => useFileToolFilter(controlApi, scope));
+  await act(async () => {});
+  expect(control.result.current.failed).toBe(true);
+});
 it("ignores an old project's delayed file intent", async () => {
   let finish: (value: unknown) => void = () => {};
   const api = gateway(

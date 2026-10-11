@@ -51,6 +51,8 @@ it("defaults a file launch to resource tools, with metadata-only reversible filt
   const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => "中文 & file.txt") } };
   const container = await mount(gateway);
   expect(gateway.projectFiles.entry).toHaveBeenCalledWith(scope.workspaceId);
+  expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBe("中文 & file.txt");
+  expect(container.textContent).toContain("Plugin has not declared file types");
   expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0, revision: null }));
   const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
   expect(input?.checked).toBe(true);
