@@ -862,3 +862,30 @@ describe("setupPluginShell", () => {
     );
   });
 });
+
+it.each(["#/settings", "#/settings/configuration", "#/settings/unknown"]) (
+  "keeps restored settings after deferred Host hydration: %s", async (hash) => {
+    history.replaceState(null, "", `/app/workspaces/workspace-a/sessions/session-a?app=com.zicode.notes${hash}`);
+    const testRegistry = registry();
+    Object.defineProperty(testRegistry, "hostBacked", { value: true });
+    let finish;
+    vi.spyOn(testRegistry, "setScene").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const settingsApp = {
+      setOpenHandler: handler => handler("configuration"),
+      renderNavigation: container => { container.textContent = "Restored settings"; },
+      renderContent: container => { container.textContent = "Settings content"; },
+      deactivate: vi.fn(),
+    };
+    const shell = setupPluginShell({ registry: testRegistry, settingsApp });
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("core.settings"));
+    finish();
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.waitFor(() => expect(history.state.zicodePluginId).toBe("core.settings"));
+    expect(shell.getActivePluginId()).toBe("core.settings");
+    expect(settingsApp.deactivate).not.toHaveBeenCalled();
+    expect(location.hash).toBe(hash);
+    expect(document.querySelector(".plugin-main-view").textContent).toContain("Settings content");
+    shell.destroy();
+  },
+);

@@ -392,6 +392,13 @@ export function setupPluginShell({
   // `?app=<pluginId>` so the same application (notes, tasks, settings, …)
   // reopens instead of always landing on Chat.
   function initialAppPluginId() {
+    // Settings restores its hash before Host catalog hydration finishes. Boot
+    // must keep that route instead of replacing the restored view with Chat
+    // (or a stale workspace ?app query).
+    const hash = globalThis.location?.hash || "";
+    if (settingsApp && (hash === "#/settings" || hash.startsWith("#/settings/"))) {
+      return SETTINGS_VIEW_ID;
+    }
     const requested = new URLSearchParams(globalThis.location?.search || "").get(
       "app",
     );
