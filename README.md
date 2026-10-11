@@ -14,7 +14,7 @@ Zi DevTools接入目标为通过独立插件体系覆盖全部工具；逐项接
 [全部工具接入目标和清单](docs/plugins/devtools-all-tools.md)，首批五能力不代表整体完成。
 
 > 当前版本为早期开发版本，仓库已公开。已发布安装包见
-> [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases)。插件全集接入仍在推进，不能视为全部工具已验收。
+> [v0.4.2 安装包](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.4.2)（Windows、macOS、Linux）。源码主分支包含发布后的开发进展，安装包对应固定发布标签；插件全集接入仍在推进，不能视为全部工具已验收。
 
 ## 主要能力
 
@@ -179,7 +179,7 @@ python -m mkdocs serve
 不应描述为“直接基于 Picot”的项目。
 
 根据项目维护者提供的历史背景，Picot 本身 fork 自 [Tau](https://github.com/deflating/tau)。
-截至 2026-10-10，Picot 原地址已无法公开访问，无法重新核实其历史仓库元数据；Tau 已声明停止维护。
+截至 2026-10-11，Picot 原地址已无法公开访问，无法重新核实其历史仓库元数据；Tau 已声明停止维护。
 本仓库保留的历史提交、兼容标识和既有版权声明不代表仍在同步这些项目，
 也不代表所有历史内容均为本项目原创。既有 MIT 版权声明继续保留；详情见
 [NOTICE](NOTICE) 与 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
