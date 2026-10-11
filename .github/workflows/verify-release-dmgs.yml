@@ -17,7 +17,9 @@ on:
           - darwin-x64
 
 permissions:
-  contents: read
+  # GitHub hides drafts from read-only tokens. The verifier only reads/downloads;
+  # push-level access is needed for the draft to be visible, not to mutate it.
+  contents: write
 
 jobs:
   verify:
