@@ -1,0 +1,1364 @@
+{
+  "studio": {
+    "nativeWorkerSupported": false,
+    "acceptedOperations": 0,
+    "version": "0.4.2"
+  },
+  "formats": [
+    {
+      "sourceShape": "files-and-directories",
+      "format": "Zip",
+      "providerStage": "alpha",
+      "encryptionDeclared": true,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "SevenZip",
+      "providerStage": "alpha",
+      "encryptionDeclared": true,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "Tar",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "TarGzip",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "TarZstd",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "TarXz",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "TarLzma",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "TarBzip2",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "TarLz4",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Gzip",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Zstandard",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Xz",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Lzma",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Bzip2",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Lz4",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "single-file",
+      "format": "Brotli",
+      "providerStage": "alpha",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "Rar",
+      "providerStage": "beta",
+      "encryptionDeclared": true,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    },
+    {
+      "sourceShape": "files-and-directories",
+      "format": "Cab",
+      "providerStage": "beta",
+      "encryptionDeclared": false,
+      "operations": {
+        "rename": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "test": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "update": {
+          "studioStatus": "provider-unsupported",
+          "accepted": false,
+          "blockers": ["PROVIDER_FORMAT_OPERATION"],
+          "providerDeclared": false
+        },
+        "extract": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        },
+        "list": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS"
+          ],
+          "providerDeclared": true
+        },
+        "create": {
+          "studioStatus": "blocked",
+          "accepted": false,
+          "blockers": [
+            "PROVIDER_PACKAGE",
+            "HOST_NATIVE_RUNTIME",
+            "HOST_RESOURCE_MEDIATION",
+            "HOST_ARCHIVE_EVENTS",
+            "HOST_ARCHIVE_WRITE"
+          ],
+          "providerDeclared": true
+        }
+      }
+    }
+  ],
+  "provider": {
+    "version": "0.1.15",
+    "name": "ZiFile",
+    "commit": "327a993706f4423c23ad4f6b79646e29a178b5b1",
+    "workingTreeDirty": true,
+    "protocolVersion": 3,
+    "evidence": [
+      {
+        "path": "crates/zifile-core/src/lib.rs",
+        "sha256": "9a45dd3d08a19cc7da83acb74f6b61e07f8831fbc5e11cde49179f17d3d01e08"
+      },
+      {
+        "path": "crates/zifile-core/src/archive.rs",
+        "sha256": "af145577a920296d590441c43fae55f17954ae723c457ad5953c8fc0a83a5635"
+      },
+      {
+        "path": "crates/zifile-worker-protocol/src/lib.rs",
+        "sha256": "5cf2dfdbb13d4de14f06eb4a3dc579e0e2ec251d708d3dfb7a57b5c832cbcc96"
+      },
+      {
+        "path": "apps/zifile-worker/src/lib.rs",
+        "sha256": "f650ccaa4983c2fc8daa73fb464ba5e6d16613aff8e02ca9e031632145988df0"
+      }
+    ]
+  },
+  "date": "2026-10-11",
+  "schemaVersion": 1,
+  "blockers": [
+    {
+      "id": "PROVIDER_PACKAGE",
+      "reason": "No received versioned Studio plugin package, signed per-platform Worker or conformance vectors.",
+      "owner": "ZiFile"
+    },
+    {
+      "id": "HOST_NATIVE_RUNTIME",
+      "reason": "Only JavaScript development Workers and WASI execution exist; confined native process runtime and per-platform lifecycle acceptance are missing.",
+      "owner": "Studio"
+    },
+    {
+      "id": "HOST_RESOURCE_MEDIATION",
+      "reason": "Worker v3 accepts host paths and raw optional passwords; needs scoped resource references, private staged inputs, short-lived password references, directory grants and version checks.",
+      "owner": "Studio and ZiFile"
+    },
+    {
+      "id": "HOST_ARCHIVE_EVENTS",
+      "reason": "Needs bounded versioned call-correlated streamed archive events, pagination, progress, terminal-state and cancellation guarantees.",
+      "owner": "Studio and ZiFile"
+    },
+    {
+      "id": "HOST_ARCHIVE_WRITE",
+      "reason": "Needs prepare/commit target and conflict preview, operation-specific consent, atomic replacement, cancellation consistency and persistent recovery.",
+      "owner": "Studio and ZiFile"
+    },
+    {
+      "id": "PROVIDER_FORMAT_OPERATION",
+      "reason": "Current supports_update excludes single-file streams, RAR and CAB; rename uses the same gate. Use explicit extract and recreate as a separate confirmed workflow where format capabilities allow.",
+      "owner": "ZiFile"
+    }
+  ]
+}

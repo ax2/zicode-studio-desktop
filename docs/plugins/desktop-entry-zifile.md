@@ -45,6 +45,8 @@ Windows当前是NSIS分发。传统菜单可用用户级HKCU shell verb；Window
 
 以上均未成为Studio可运行的ZiFile插件，完整功能接受0。ZIP依赖存在不代表已集成ZiFile，启动zifile.exe也不能替代插件接入。
 
+2026-10-11 补充：[18格式逐操作矩阵与draft2接口需求](zifile-integration-requirements.md)覆盖108个格式操作单元及桌面能力，逐项列出Host/提供方缺口与重开条件。原生运行时尚未实现；当前源码安装门禁会明确拒绝native/未知runtime声明，签名预览也在持久信任与解包前拒绝，不再静默忽略。
+
 ## 独立插件接口需求 draft1（未发布）
 
 1. 提供方交付版本化`com.zicode.zifile.archive`插件，独立版继续使用同一算法核心；按OS/架构附签名native Worker及公开manifest、许可证、SBOM、摘要、协议schema和向量。不得Cargo path依赖或共享可变配置。

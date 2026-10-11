@@ -239,3 +239,9 @@ Schema1保留既有加载方式，但不允许requiredProfiles对象；不能借
 签名包容器schema与manifest schema分别版本化，容器保持既有格式，签名验证、权限审批、完整性及工具验收照常需要。提供方必须在自己的独立构建流程中输出新manifest，不能让Studio接收时偷偷修改签名内容。当前候选包保留原schema1，本会话没有改造DevTools包或宣称诊断profile兼容。
 
 2026-10-09新debug EXE原生隔离验收已完成：schema2精确预览声明发现/加载/SDK-Host-WASI显示成功，未知profile/稳定范围不匹配/API不兼容实际拒绝，截图已读。自有fixture，不是诊断算法、签名安装或跨平台完整验收；旧优化/冻结EXE保持原快照。证据见技术博客iterations/native-plugin-negotiation-2026-10-09。
+
+## 显式运行时准入
+
+开发主分支仅识别runtime.worker、runtime.wasi、resourceInputProfile、resourceOutputProfile，字段值须为字符串；runtime可省略或为空对象。未知字段及native/nativeWorker/executable声明明确拒绝，不能混入WASI字段绕过。签名包在签名/摘要验证后、预览/解包/持久信任前执行同一检查；开发包发现报告manifest_invalid而保留其他插件。资源profile的实际值/执行权限仍由对应Host门禁校验，本检查不宣称任意profile已支持。
+
+原生插件能力及ZiFile逐项接口缺口见[接入清单](zifile-integration-requirements.md)。本轮源码/注册与签名包专项已验证；当前既有debug EXE尚未重新编译包含此新增准入检查，正式v0.4.2也不包含。
