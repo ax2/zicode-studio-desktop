@@ -145,3 +145,23 @@ process_drain.rs单独负责有界等待，覆盖计数逐步清空、查询失�
 主分支59cc6f13的Developer platform38109574719：Windows/Linux/Intel成功，ARM的project-ui-gateways中131文件1002测试本身通过，但Notes测试环境销毁后残留自动保存计时器触发React，产生window is not defined未处理错误。原results与日志ci-38109574719-arm保留；没有将它算为全通过，也不改变已独立核对的标签9c867b68四平台证据。
 仅修改notes.test.tsx的测试生命周期：追踪真实createNotesStore返回对象，afterEach先RTL cleanup再使用现有destroy取消计时器/订阅与操作scope；新增销毁后不再调用自动保存的回归。现有3900行文件仅局部增加29行，避免无关重构。没有修改应用/Host/Pi逻辑或任何期限。
 本机149测试通过，类型检查与check退出0、既有141 warnings；主分支真实ARM重验仍待CI，不冒称已通过。正式应用标签与本机EXE保持9c867b68/0.4.2，Intel打包流程38109406813继续使用固定26ea9eae控制源码。
+
+## 最终公开交付
+发布时间：2026-10-11 04:24:44 +08:00。
+
+[GitHub Release v0.4.2](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.4.2) 已公开，draft=false、prerelease=false，并设为 latest。
+
+发布前组合证据检查通过：精确应用源码四平台报告、原 Windows/Linux 全门槛与上传摘要、
+ARM 最终 DMG 收据、Intel 完整定向重建与最终 DMG/上传摘要全部一致；应用标签未移动。
+保留原失败运行的真实状态，只补齐缺失验证与 Intel 产物，没有重建其他已完成平台。
+
+公开后使用无认证 HTTP 客户端检查 Release 元数据和全部五个附件：均 HTTP 200、
+下载响应大小与资产元数据一致。各 producer/DMG 的本地摘要与 GitHub SHA-256 对齐；
+匿名检查只检查响应及大小，没有再次下载全部大型安装包。
+| 公开附件 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| ZiCode.Studio.Desktop_0.4.2_aarch64.dmg | 76083685 | fafa22288f5f131ec8f57d3b5553fa1599c9768aa0c94f3ecf9e80e440d913e5 |
+| ZiCode.Studio.Desktop_0.4.2_amd64.AppImage | 174631416 | 12920245a6438cfd5ce3cd5be5b3a552cd80d83a323e8cdf3e3e3ce491a065a4 |
+| ZiCode.Studio.Desktop_0.4.2_amd64.deb | 105007506 | 8ba45e39056400bb6ae66e5ee8bb0f4ca24d875886a7c53363de817245dd2cad |
+| ZiCode.Studio.Desktop_0.4.2_x64-setup.exe | 350392303 | c6e0357ae249935f3f370d1cf88b73c32a526de262b209d732d5274c84bc615b |
+| ZiCode.Studio.Desktop_0.4.2_x64.dmg | 83107111 | 94f04c665a44d2cd4a907ccad1dd596ece95da261be96b3b8807ce1145619f52 |

@@ -113,10 +113,11 @@ bun run build
 
 ## 发布
 
-不要在 GitHub 网页中手动创建 tag 或 Release。使用发布脚本同步全部版本源并推送：
+不要在 GitHub 网页中手动创建 tag 或 Release。只有有意发布新版本时才使用发布脚本，
+将 `VERSION` 替换为尚未使用的版本号；日常开发保持当前版本不变：
 
 ```bash
-bun run release 0.1.0
+bun run release VERSION
 ```
 
 [Desktop release workflow](.github/workflows/release.yml) 会先校验 tag 与
@@ -132,6 +133,13 @@ bun run release 0.1.0
 发布工作流与应用标签分别绑定固定提交。若只需修复草稿的发布校验工具，可在 `main`
 运行 Desktop release 的 `workflow_dispatch` 并指定已有标签；应用仍从原标签构建，
 完整检查与资产大小、SHA-256 校验仍全部执行，不移动标签或额外增加应用版本号。
+
+若草稿仅缺 Intel Mac 产物，可选择 `platform=macos-intel` 定向重建；该平台完整检查、
+最终 DMG 验证和上传摘要校验仍执行，但不会自动公开 Release。恢复发布前必须核对
+其他平台同一应用标签的成功证据、最终五资产清单和摘要。也可使用 Verify existing
+release DMGs 单独验证已有 DMG，避免因校验工具问题重复编译。
+
+当前版本的证据与验收边界见 [v0.4.2 验证与交付记录](docs/releases/v0.4.2-verification.md)。
 
 macOS 和 Linux 当前使用系统 Shell/Git；macOS 包采用 ad-hoc 签名，尚未进行 Apple
 Developer ID 签名与公证。发布和签名说明见
