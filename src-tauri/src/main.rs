@@ -51,6 +51,7 @@ mod plugin_capabilities;
 mod plugin_package;
 mod plugin_registry;
 mod plugin_worker;
+mod plugin_output_types;
 mod process_command;
 mod project_environment;
 mod project_storage;

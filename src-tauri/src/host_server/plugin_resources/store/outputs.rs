@@ -34,16 +34,7 @@ impl Pending {
         if blobs.len() > 4 {
             return Err(rejected("resource_budget_exceeded"));
         }
-        if blobs.iter().any(|b| {
-            !matches!(
-                b.mime_type.as_str(),
-                "application/octet-stream"
-                    | "text/plain"
-                    | "image/png"
-                    | "image/jpeg"
-                    | "image/webp"
-            )
-        }) {
+        if blobs.iter().any(|b| crate::plugin_output_types::extension(&b.mime_type).is_none()) {
             return Err(rejected("resource_metadata_invalid"));
         }
         // Build every record before mutation. No fallible validation after first insertion.

@@ -22,3 +22,28 @@ fn save_grants_bind_source_destination_proof_expiry_and_limit() {
     prepare(&mut store).unwrap();
     store.revoke(&source).unwrap(); assert!(prepare(&mut store).is_err());
 }
+
+#[test]
+fn derived_archive_output_prepares_a_named_confirmed_save() {
+    let mut store = Store::default();
+    let source = source(&mut store);
+    let rows = store.register_outputs(&source, "proof", vec![
+        crate::plugin_worker::resource_output::Blob {
+            mime_type: "application/x-zicode-archive-targzip".into(),
+            bytes: b"archive-bytes".to_vec(),
+        },
+    ]).unwrap();
+    let output = &rows[0];
+    let access = Access {
+        schema_version: 1,
+        owner: source.owner.clone(),
+        resource_id: output["resourceId"].as_str().unwrap().into(),
+        content_version: output["contentVersion"].as_str().unwrap().into(),
+    };
+    let result = store.prepare_save(&access, "proof", "destination".into(),
+        std::path::PathBuf::from("unused"), "workspace", "0.1.0").unwrap();
+    assert_eq!(result["operation"], "create_new_file");
+    assert_eq!(result["requiresConfirmation"], true);
+    assert!(result["preview"]["relativePath"].as_str().unwrap().ends_with("/result.tar.gz"));
+    assert_eq!(result["preview"]["mimeType"], "application/x-zicode-archive-targzip");
+}

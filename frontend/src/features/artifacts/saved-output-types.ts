@@ -1,3 +1,5 @@
+import { savedOutputExtension } from "./saved-output-formats";
+
 export interface SavedOutput {
   receiptVersion: string;
   integrity: "not_checked";
@@ -33,7 +35,7 @@ export function validSaveAttemptPage(page: SaveAttemptPage, workspace: string, o
 }
 export function validSavedOutput(item: SavedOutput, workspace: string): boolean {
   const r = item?.receipt;
-  const extension = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "text/plain": "txt", "application/octet-stream": "bin" }[r?.mimeType];
+  const extension = savedOutputExtension(r?.mimeType);
   return !!extension && r.schemaVersion === 1 && r.profile === "resource.save.draft1" && r.workspaceId === workspace &&
     /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(r.saveId) && r.relativePath === `.zicode/outputs/${r.saveId}/result.${extension}` &&
     Number.isSafeInteger(r.byteLength) && r.byteLength >= 0 && r.byteLength <= 32 * 1024 * 1024 &&

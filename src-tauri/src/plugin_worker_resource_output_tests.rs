@@ -77,6 +77,26 @@ fn output_header_enforces_metadata_lengths_versions_and_escaping_before_writing(
 }
 
 #[test]
+fn archive_output_frame_preserves_format_without_a_caller_filename() {
+    for (mime, extension) in [
+        ("application/x-zicode-archive-zip", "zip"),
+        ("application/x-zicode-archive-targzip", "tar.gz"),
+        ("application/x-zicode-archive-cab", "cab"),
+    ] {
+        let bundle = Bundle {
+            binary: true,
+            result: json!({"created": true}),
+            resources: vec![Blob { mime_type: mime.into(), bytes: b"archive".to_vec() }],
+        };
+        let mut frame = Vec::new();
+        write(&mut frame, &bundle).unwrap();
+        let decoded = decode(&frame).unwrap();
+        assert_eq!(decoded.resources[0].mime_type, mime);
+        assert_eq!(crate::plugin_output_types::extension(mime), Some(extension));
+    }
+}
+
+#[test]
 #[ignore = "requires current ZICODE_TEST_RESOURCE_WORKER_EXE; real binary output process"]
 fn actual_binary_output_worker_returns_raw_bytes_and_discards_unsealed_or_trapped_results() {
     use crate::plugin_capabilities::worker_process;

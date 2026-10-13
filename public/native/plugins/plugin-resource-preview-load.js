@@ -1,4 +1,5 @@
 import { decodeResourceImage } from "./plugin-resource-image.js";
+import { isBinaryOutput } from "./plugin-output-formats.js";
 const MAX_PREVIEW = 8 * 1024 * 1024;
 const MAX_TEXT = 128 * 1024;
 const fail = () => { throw new Error("preview_unavailable"); };
@@ -22,6 +23,6 @@ export async function loadResourcePreview({ resource, read, isCurrent }) {
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
   if (hash !== resource.contentVersion || !isCurrent()) fail();
   if (resource.mimeType === "text/plain") return { kind: "text", text: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
-  if (resource.mimeType === "application/octet-stream") return { kind: "binary", text: [...bytes.subarray(0, 256)].map((b) => b.toString(16).padStart(2, "0")).join(" ") };
+  if (isBinaryOutput(resource.mimeType)) return { kind: "binary", text: [...bytes.subarray(0, 256)].map((b) => b.toString(16).padStart(2, "0")).join(" ") };
   return decodeResourceImage(bytes, resource.mimeType, isCurrent);
 }

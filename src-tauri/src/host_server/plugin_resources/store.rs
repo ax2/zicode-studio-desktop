@@ -95,10 +95,8 @@ impl Store {
 
     pub(super) fn prepare(&mut self, request: Prepare, proof: String) -> Result<Value, ApiError> {
         self.prune();
-        if !matches!(
-            request.mime_type.as_str(),
-            "application/octet-stream" | "text/plain" | "image/png" | "image/jpeg" | "image/webp"
-        ) || request.content_version.len() != 64
+        if crate::plugin_output_types::extension(&request.mime_type).is_none()
+            || request.content_version.len() != 64
             || !request
                 .content_version
                 .bytes()

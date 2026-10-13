@@ -1,13 +1,8 @@
+import { outputExtension } from "./plugin-output-formats.js";
+
 const MAX_BYTES = 32 * 1024 * 1024;
 const CHUNK_BYTES = 65536;
 let uploadActive = false;
-const MIME_TYPES = new Set([
-  "application/octet-stream",
-  "text/plain",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-]);
 
 // Invoked only by the trusted parent's explicit confirmation control.
 export async function uploadConfirmedResource({
@@ -39,7 +34,7 @@ export async function uploadConfirmedResource({
     const contentVersion = Array.from(hash, (byte) => byte.toString(16).padStart(2, "0")).join("");
     if (file.expectedContentVersion !== undefined && file.expectedContentVersion !== contentVersion)
       throw new Error("saved_output_changed");
-    const mimeType = MIME_TYPES.has(file.type) ? file.type : "application/octet-stream";
+    const mimeType = outputExtension(file.type) ? file.type : "application/octet-stream";
     const prepared = await gateway.prepareResource({
       schemaVersion: 1,
       owner,

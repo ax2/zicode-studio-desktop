@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { decodeResourceImage } from "../../../../public/native/plugins/plugin-resource-image.js";
 import { t } from "../../shared/i18n.js";
 import { formatBytes } from "./logic";
+import { isBinarySavedOutput, savedOutputExtension } from "./saved-output-formats";
 import { type SavedOutput, type SavedOutputGateway, type SavedOutputPage, validSavedOutput } from "./saved-output-types";
 
 export function SavedOutputs({ gateway, getTarget }: {
@@ -52,13 +53,13 @@ export function SavedOutputs({ gateway, getTarget }: {
       const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(b => b.toString(16).padStart(2, "0")).join("");
       if (!scope.valid() || bytes.length !== receipt.byteLength || hash !== receipt.contentVersion) throw new Error();
       if (download) {
-        const extension = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "text/plain": "txt", "application/octet-stream": "bin" }[receipt.mimeType];
+        const extension = savedOutputExtension(receipt.mimeType);
         if (!extension) throw new Error();
         const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
         const anchor = document.createElement("a"); anchor.href = url; anchor.download = `result-${receipt.saveId}.${extension}`;
         document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
         setSelected(item); setPreview({ notice: t("Verified original file downloaded.") });
-      } else if (receipt.mimeType === "text/plain" || receipt.mimeType === "application/octet-stream") {
+      } else if (receipt.mimeType === "text/plain" || isBinarySavedOutput(receipt.mimeType)) {
         setSelected(item); setPreview({ text: receipt.mimeType === "text/plain" ? new TextDecoder("utf-8", { fatal: true }).decode(bytes) : [...bytes.subarray(0, 256)].map(b => b.toString(16).padStart(2, "0")).join(" ") });
       } else {
         const result = await decodeResourceImage(bytes, receipt.mimeType, scope.valid) as { blob: Blob };

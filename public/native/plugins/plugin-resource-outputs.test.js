@@ -11,6 +11,13 @@ describe("resource output reference boundary", () => {
     expect(normalizeResourceOutputs(reply([value]), source)).toEqual([row()]);
     expect(normalizeResourceOutputs(reply([]), source)).toEqual([]);
   });
+  it("accepts an archive resource without trusting a path or filename", () => {
+    const value = { ...row(), mimeType: "application/x-zicode-archive-targzip", path: "C:/private", filename: "evil.exe" };
+    const result = normalizeResourceOutputs(reply([value]), source);
+    expect(result[0].mimeType).toBe(value.mimeType);
+    expect(result[0]).not.toHaveProperty("path");
+    expect(result[0]).not.toHaveProperty("filename");
+  });
   it("rejects profile mismatch and incomplete output declarations", () => {
     for (const value of [{ resources: [] }, { outputProfile: "resource.wasi.output.draft1" },
       { ...reply(), outputProfile: "resource.v1" }, reply({})])

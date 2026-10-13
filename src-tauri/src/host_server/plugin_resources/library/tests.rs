@@ -25,6 +25,28 @@ fn listing_empty_workspace_does_not_create_storage() {
 }
 
 #[test]
+fn archive_save_keeps_extension_and_reads_only_verified_bytes() {
+    let fixture = Fixture::new();
+    let id = uuid::Uuid::new_v4().to_string();
+    let bytes = b"bounded archive output";
+    let receipt = json!({"schemaVersion":1,"profile":"resource.save.draft1","saveId":id,
+        "workspaceId":"ws-library","relativePath":format!(".zicode/outputs/{id}/result.tar.gz"),
+        "mimeType":"application/x-zicode-archive-targzip","byteLength":bytes.len(),
+        "contentVersion":sha256_hex(bytes),"preparedAt":"2026-10-14T00:00:00Z",
+        "source":{"pluginId":"test.source","capabilityId":"archive.create","resourceId":uuid::Uuid::new_v4(),"packageVersion":"0.1.0"}});
+    let staged = save_files::Staged::new(&fixture.root, &[Arc::from(bytes.as_slice())], &receipt, "tar.gz", &id).unwrap();
+    staged.publish(&id).unwrap();
+    drop(staged);
+    let page = files::list(&fixture.root, "ws-library", "targzip", 0).unwrap();
+    assert_eq!(page["total"], 1);
+    let version = page["items"][0]["receiptVersion"].as_str().unwrap();
+    assert_eq!(files::read(&fixture.root, "ws-library", &id, version).unwrap().0, bytes);
+    let path = fixture.root.join(receipt["relativePath"].as_str().unwrap());
+    fs::write(&path, b"changed archive output").unwrap();
+    assert_eq!(files::read(&fixture.root, "ws-library", &id, version).unwrap_err().1.0["error"]["code"], "saved_output_changed");
+}
+
+#[test]
 fn attempts_survive_stage_disposal_without_volatile_grants_and_never_authorize_replay() {
     let f=Fixture::new(); let mut receipt=f.save(b"abc"); let saved_id=receipt["saveId"].as_str().unwrap().to_string();
     let id=uuid::Uuid::new_v4().to_string(); receipt["saveId"]=json!(id); receipt["relativePath"]=json!(format!(".zicode/outputs/{id}/result.bin"));

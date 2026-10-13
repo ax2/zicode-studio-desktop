@@ -50,7 +50,10 @@ pub(super) fn quota(root: &Path, additional: usize) -> Result<(), ApiError> {
             let child = child.map_err(|_| rejected("resource_save_directory_unavailable"))?;
             match child.file_name().to_str() {
                 Some("receipt.json" | ".receipt.pending") => {},
-                Some("result.png" | "result.jpg" | "result.webp" | "result.txt" | "result.bin") => { payloads += 1; },
+                Some(name) if crate::plugin_output_types::MIMES.iter().any(|mime| {
+                    crate::plugin_output_types::extension(mime)
+                        .is_some_and(|extension| name == format!("result.{extension}"))
+                }) => { payloads += 1; },
                 _ => return Err(rejected("resource_save_directory_unsafe")),
             }
             if payloads > 1 { return Err(rejected("resource_save_directory_unsafe")); }
@@ -72,7 +75,7 @@ impl Staged {
         if uuid::Uuid::parse_str(id).is_err() { return Err(rejected("resource_save_grant_invalid")); }
         let size: usize = chunks.iter().map(|chunk| chunk.len()).sum();
         if size > 32 * 1024 * 1024 || Some(size as u64) != receipt["byteLength"].as_u64()
-            || !matches!(extension, "png" | "jpg" | "webp" | "txt" | "bin") { return Err(rejected("resource_metadata_invalid")); }
+            || !crate::plugin_output_types::MIMES.iter().any(|mime| crate::plugin_output_types::extension(mime) == Some(extension)) { return Err(rejected("resource_metadata_invalid")); }
         let root = location(workspace, true)?;
         quota(&root, size)?;
         let path = root.join(id);

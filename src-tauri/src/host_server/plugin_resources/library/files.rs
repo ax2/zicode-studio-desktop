@@ -33,7 +33,8 @@ fn recorded(root: &Path, workspace: &str, id: &str, name: &str) -> Result<Entry,
     let folder = root.join(id); ordinary(&folder, true)?;
     let metadata = bounded(&folder.join(name), 8192)?;
     let receipt: Receipt = serde_json::from_slice(&metadata).map_err(|_| rejected("saved_output_unsafe"))?;
-    let extension = match receipt.mime_type.as_str() { "image/png" => "png", "image/jpeg" => "jpg", "image/webp" => "webp", "text/plain" => "txt", "application/octet-stream" => "bin", _ => return Err(rejected("saved_output_unsafe")) };
+    let extension = crate::plugin_output_types::extension(&receipt.mime_type)
+        .ok_or_else(|| rejected("saved_output_unsafe"))?;
     let filename = format!("result.{extension}");
     if receipt.schema_version != 1 || receipt.profile != PROFILE || receipt.save_id != id || receipt.workspace_id != workspace
         || receipt.relative_path != format!(".zicode/outputs/{id}/{filename}") || receipt.byte_length > MAX_BYTES || !hash(&receipt.content_version)

@@ -102,3 +102,5 @@ Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力�
 2026-10-14 通用输出边界补验：Studio 的有界 WASI 资源调用若返回普通 JSON，Host 现会在交付页面前执行与二进制结果相同的声明输出 schema/大小校验。真实 HTTP→Worker 合成向量包含不合 schema 的返回并获得 `invalid_output`，之后调用可恢复；见技术博客 `iterations/resource-output-contract-2026-10-14/`。这仅补齐将来有界 WASI 归档只读子集的通用协议门槛，不接收 ZiFile 实包、不扩展 32 MiB 输入上限、不解决目录树/密码/原生隔离/原子写入，108 格仍全为 `accepted=false`。
 
 2026-10-14 归档分页内部边界增加请求页大小核对：完整事件流虽已限制最多 200 条，现在还会在封装 Host 游标前拒绝超过本次请求 `pageSize` 的页面，并对无下一页的结果验证绑定。尚无真实 ZiFile 插件或 Host 翻页路由，108 格仍全为 `accepted=false`。
+
+2026-10-14 增加[归档输出类型与受控保存 draft1](archive-output-types-draft1.md)：内部 WASI 二进制输出可标记矩阵18格式并在确认后保留对应扩展名，旧类型索引不变；Host/工具中心/项目文件库共用固定映射和哈希校验。仅支持最多32MiB的单次候选输出，不认证真实归档格式、不写用户选择的任意目录、不覆盖或解压。提供方包和原生隔离仍缺，矩阵接受数仍为0。

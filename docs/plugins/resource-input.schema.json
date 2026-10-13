@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:zicode:studio:resource-input:1.0.0-draft.4",
+  "$id": "urn:zicode:studio:resource-input:1.0.0-draft.5",
   "title": "Studio resource input request candidates (select operation definition)",
   "$defs": {
     "owner": {
@@ -38,7 +38,25 @@
             "text/plain",
             "image/png",
             "image/jpeg",
-            "image/webp"
+            "image/webp",
+            "application/x-zicode-archive-zip",
+            "application/x-zicode-archive-sevenzip",
+            "application/x-zicode-archive-tar",
+            "application/x-zicode-archive-targzip",
+            "application/x-zicode-archive-tarzstd",
+            "application/x-zicode-archive-tarxz",
+            "application/x-zicode-archive-tarlzma",
+            "application/x-zicode-archive-tarbzip2",
+            "application/x-zicode-archive-tarlz4",
+            "application/x-zicode-archive-gzip",
+            "application/x-zicode-archive-zstandard",
+            "application/x-zicode-archive-xz",
+            "application/x-zicode-archive-lzma",
+            "application/x-zicode-archive-bzip2",
+            "application/x-zicode-archive-lz4",
+            "application/x-zicode-archive-brotli",
+            "application/x-zicode-archive-rar",
+            "application/x-zicode-archive-cab"
           ]
         },
         "byteLength": { "type": "integer", "minimum": 0, "maximum": 33554432 },

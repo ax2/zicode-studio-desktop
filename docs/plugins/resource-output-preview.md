@@ -14,8 +14,11 @@
 | --- | --- |
 | text/plain | 最多128KiB，严格 UTF-8，纯文本，不解析 HTML |
 | application/octet-stream | 最多8MiB，全量摘要校验，只显示前256字节十六进制 |
+| application/x-zicode-archive-* | 最多8MiB，全量摘要校验，只显示前256字节十六进制；不解压内容 |
 | PNG / JPEG / WebP | 编码最多8MiB，单边4096、总像素4Mi；先检查头和结构预算，再浏览器解码为新静态 PNG |
 | SVG / HTML / 动画 / 其他格式 | 不支持；不能由声明 MIME 绕过图像检查 |
+
+归档的受控保存和下载扩展名见[归档输出类型 draft1](archive-output-types-draft1.md)。
 
 读取分块最多32KiB，逐块核对偏移/长度/结束标记，并验证完整SHA-256。原始图片不直接交给图片标签；浏览器解码后绘制到新 canvas，显示其 PNG Blob。结构检查不是完整媒体安全证明；浏览器解码器仍是依赖。峰值内存、其他OS/WebView媒体兼容性尚未测量。
 

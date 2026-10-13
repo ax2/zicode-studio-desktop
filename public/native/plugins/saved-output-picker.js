@@ -1,10 +1,10 @@
 import { t } from "../../i18n.js";
+import { outputExtension } from "./plugin-output-formats.js";
 
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const HASH = /^[0-9a-f]{64}$/;
-const EXTENSIONS = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "text/plain": "txt", "application/octet-stream": "bin" };
 function validItem(item, workspace) {
-  const r = item?.receipt, ext = EXTENSIONS[r?.mimeType];
+  const r = item?.receipt, ext = outputExtension(r?.mimeType);
   return !!ext && r.schemaVersion === 1 && r.profile === "resource.save.draft1" && r.workspaceId === workspace &&
     UUID.test(r.saveId) && r.relativePath === `.zicode/outputs/${r.saveId}/result.${ext}` &&
     Number.isSafeInteger(r.byteLength) && r.byteLength >= 0 && r.byteLength <= 32 * 1024 * 1024 &&

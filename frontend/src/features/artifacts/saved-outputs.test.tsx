@@ -48,4 +48,11 @@ describe("saved plugin output library",()=>{
     const g=gateway();g.list.mockResolvedValue({...page,items:[{...item,receipt:{...item.receipt,relativePath:"../private"}}]});
     render(<SavedOutputs gateway={g} getTarget={target}/>);fireEvent.click(screen.getByText("Saved plugin files"));await screen.findByText(/Saved files could not be loaded/);expect(screen.queryByText("Preview saved file")).toBeNull();
   });
+  it("recognizes bounded archive outputs with the matching saved extension",()=>{
+    const receipt={...item.receipt,mimeType:"application/x-zicode-archive-targzip",
+      relativePath:`.zicode/outputs/${id}/result.tar.gz`};
+    expect(validSavedOutput({...item,receipt},"ws")).toBe(true);
+    expect(validSavedOutput({...item,receipt:{...receipt,relativePath:`.zicode/outputs/${id}/result.bin`}},"ws")).toBe(false);
+    expect(validSavedOutput({...item,receipt:{...receipt,mimeType:"text/html"}},"ws")).toBe(false);
+  });
 });

@@ -9,13 +9,7 @@ pub(crate) const MAX_BYTES: usize = 32 * 1024 * 1024;
 pub(crate) const MAX_HEADER: usize = 1024 * 1024 + 4096;
 pub(crate) const MAX_FRAME: usize = 12 + MAX_HEADER + MAX_BYTES;
 const MAGIC: &[u8; 8] = b"ZIWO\0\0\0\x01";
-pub(super) const MIMES: &[&str] = &[
-    "application/octet-stream",
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "text/plain",
-];
+pub(super) use crate::plugin_output_types::MIMES;
 
 pub(crate) struct Blob {
     pub mime_type: String,

@@ -1,12 +1,13 @@
 import { t } from "../../i18n.js";
 import { resourceAccess } from "./plugin-resource-transfer-protocol.js";
 import { verifySavedResource } from "./plugin-resource-save-recovery.js";
+import { outputExtension } from "./plugin-output-formats.js";
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const PROFILE = "resource.save.draft1";
 function node(tag, text) { const item = document.createElement(tag); if (text) item.textContent = text; return item; }
 function button(text, action) { const item = node("button", t(text)); item.className = "ui-button ui-button--secondary"; item.type = "button"; item.onclick = action; return item; }
 function receiptMatches(value, resource, owner, id, workspaceId) {
-  const extension = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "text/plain": "txt", "application/octet-stream": "bin" }[resource.mimeType];
+  const extension = outputExtension(resource.mimeType);
   return extension && value?.schemaVersion === 1 && value.profile === PROFILE && value.saveId === id &&
     value.workspaceId === workspaceId && value.relativePath === `.zicode/outputs/${id}/result.${extension}` &&
     value.contentVersion === resource.contentVersion && value.mimeType === resource.mimeType && value.byteLength === resource.byteLength &&

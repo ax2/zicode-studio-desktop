@@ -228,14 +228,7 @@ fn validate_header(header: &Header) -> Result<usize, String> {
                 .content_version
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-            || !matches!(
-                descriptor.mime_type.as_str(),
-                "application/octet-stream"
-                    | "text/plain"
-                    | "image/png"
-                    | "image/jpeg"
-                    | "image/webp"
-            )
+            || crate::plugin_output_types::extension(&descriptor.mime_type).is_none()
         {
             return Err(invalid());
         }
@@ -277,6 +270,18 @@ mod tests {
             .resources
             .is_empty());
         assert!(read(vec![b' '; MAX_JSON + 1].as_slice()).is_err());
+    }
+
+    #[test]
+    fn archive_output_can_become_a_bounded_input_without_a_path() {
+        let bytes = b"archive";
+        let mut h = header(bytes);
+        h["resources"][0]["mimeType"] = json!("application/x-zicode-archive-targzip");
+        let parsed = read(frame(h.clone(), bytes).as_slice()).unwrap();
+        assert_eq!(parsed.resources[0].descriptor.mime_type, "application/x-zicode-archive-targzip");
+        assert_eq!(parsed.resources[0].bytes, bytes);
+        h["resources"][0]["mimeType"] = json!("text/html");
+        assert!(read(frame(h, bytes).as_slice()).is_err());
     }
 
     #[test]
