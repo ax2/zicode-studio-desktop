@@ -27,6 +27,8 @@ Windows 当前用户可选择安装五类**传统**菜单：文件、文件夹�
 
 Shell 扩展只做有界参数交接，不在 Explorer 进程加载插件或处理归档；Studio 的菜单卸载会删除自身归属的注册项。当前开发 DLL 未单独签名，Windows 打包后 DLL 位置与卸载注册仍需验收。真实 COM 激活及 `IShellItemArray` 判定已验证；实体多选右键点击、现代一级菜单与 ZiFile 的 108 个格式操作单元均未验收。
 
+2026-10-14 卸载生命周期补充：NSIS 的 `PREUNINSTALL` 钩子在文件移除前调用 Studio 专用 `--remove-explorer-menu-current`。该入口只清理仍指向此次安装 EXE/DLL 位置的当前用户菜单；指向另一安装位置的 Studio 菜单保持原状。隔离注册表验证了全量当前、全量旧位置及混合记录。此项尚未经过真实 NSIS 安装/卸载与升级，安装菜单仍需用户主动选择；不把钩子接线等同于实体 Explorer 验收。
+
 ## 给 ZiFile 提供方的接口需求
 
 提供独立签名的 `com.zicode.zifile.archive` 插件包及每平台适配入口，逐能力声明格式、输入资源类型、最大输入数、读写权限、输出类型、超时与取消语义。列出/校验/创建/解压/更新/删除/重命名的请求、结果和限制按[完整矩阵](zifile-integration-matrix.json)与[接入要求](zifile-integration-requirements.md)交付。Studio 只接收版本化包和契约向量，不依赖 ZiFile 独立 EXE、Shell DLL、仓库源码或配置目录。提供方须解决 RAR 范围与许可冲突；Studio 还需完成受约束 native Worker、私有资源映射、稳定游标及写入事务。接收前 108 格均保持 `accepted=false`。

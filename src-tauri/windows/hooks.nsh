@@ -19,3 +19,13 @@
 
   webview2_done:
 !macroend
+
+!macro NSIS_HOOK_PREUNINSTALL
+  ; Only remove HKCU Explorer verbs owned by this exact installation path.
+  ; A newer Studio install at another path must keep its menu registration.
+  IfFileExists "$INSTDIR\zicode-studio-desktop.exe" 0 explorer_cleanup_done
+  ExecWait '"$INSTDIR\zicode-studio-desktop.exe" --remove-explorer-menu-current' $0
+  StrCmp $0 "0" explorer_cleanup_done
+  DetailPrint "ZiCode Studio Explorer menu cleanup was skipped or failed (code $0)."
+  explorer_cleanup_done:
+!macroend

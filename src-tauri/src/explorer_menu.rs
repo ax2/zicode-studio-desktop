@@ -222,6 +222,17 @@ mod platform {
                         .map_err(|e| e.to_string())?;
                 }
             }
+            MenuAction::RemoveCurrent if present == EntryState::Current => {
+                inspect_selection(root, base, exe)?;
+                if root.open_subkey_with_flags(&verb_path, KEY_READ).is_ok() {
+                    root.delete_subkey_all(&verb_path)
+                        .map_err(|e| e.to_string())?;
+                }
+                if root.open_subkey_with_flags(&class_path, KEY_READ).is_ok() {
+                    root.delete_subkey_all(&class_path)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -344,6 +355,11 @@ mod platform {
                         .map_err(|e| e.to_string())?;
                 }
                 MenuAction::Remove if *present != EntryState::Missing => {
+                    inspect(root, path, cmd, placeholder, *file)?;
+                    root.delete_subkey_all(path)
+                        .map_err(|e| format!("Cannot remove owned Explorer entry: {e}"))?;
+                }
+                MenuAction::RemoveCurrent if *present == EntryState::Current => {
                     // Recheck just before removing this exact product-owned subtree.
                     inspect(root, path, cmd, placeholder, *file)?;
                     root.delete_subkey_all(path)
@@ -355,8 +371,8 @@ mod platform {
         apply_selection(root, base, exe, action, selection)?;
         Ok(
             json!({"schemaVersion":1,"scope":"current-user","menu":"legacy","action":format!("{action:?}"),"total":ENTRIES.len()+1,
-            "installed":match action { MenuAction::Install => ENTRIES.len()+1, MenuAction::Remove => 0, _ => installed.iter().filter(|v| **v != EntryState::Missing).count() + usize::from(selection != EntryState::Missing) },
-            "stale":match action { MenuAction::Status => installed.iter().filter(|v| **v == EntryState::Stale).count() + usize::from(selection == EntryState::Stale), _ => 0 },
+            "installed":match action { MenuAction::Install => ENTRIES.len()+1, MenuAction::Remove => 0, MenuAction::RemoveCurrent => installed.iter().filter(|v| **v == EntryState::Stale).count() + usize::from(selection == EntryState::Stale), MenuAction::Status => installed.iter().filter(|v| **v != EntryState::Missing).count() + usize::from(selection != EntryState::Missing) },
+            "stale":match action { MenuAction::Status | MenuAction::RemoveCurrent => installed.iter().filter(|v| **v == EntryState::Stale).count() + usize::from(selection == EntryState::Stale), _ => 0 },
             "modernWindows11Menu":false}),
         )
     }
@@ -486,6 +502,36 @@ mod platform {
                 .open_subkey(format!("{base}\\Drive\\shell\\ZiCodeStudio.OpenFolder"))
                 .is_ok());
             key.set_value("ZiCodeStudioOwner", &OWNER).unwrap();
+            drop(key);
+            let other_install = "C:\\new-install\\zicode-studio-desktop.exe";
+            assert_eq!(
+                apply(&root, &base, other_install, MenuAction::RemoveCurrent).unwrap()["installed"],
+                5
+            );
+            assert!(root.open_subkey(&file_path).is_ok());
+            assert_eq!(
+                apply(&root, &base, exe, MenuAction::RemoveCurrent).unwrap()["installed"],
+                0
+            );
+            assert_eq!(
+                apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
+                5
+            );
+            let file_command = root
+                .open_subkey_with_flags(format!("{file_path}\\command"), winreg::enums::KEY_WRITE)
+                .unwrap();
+            file_command
+                .set_value("", &command(old_exe, "%1", true).unwrap())
+                .unwrap();
+            drop(file_command);
+            let retained = apply(&root, &base, exe, MenuAction::RemoveCurrent).unwrap();
+            assert_eq!(retained["installed"], 1);
+            assert_eq!(retained["stale"], 1);
+            assert!(root.open_subkey(&file_path).is_ok());
+            assert_eq!(
+                apply(&root, &base, exe, MenuAction::Install).unwrap()["installed"],
+                5
+            );
             assert!(apply(&root, &base, "C:\\another.exe", MenuAction::Remove).is_err());
             assert_eq!(
                 apply(&root, &base, exe, MenuAction::Remove).unwrap()["installed"],
@@ -495,7 +541,6 @@ mod platform {
                 apply(&root, &base, exe, MenuAction::Remove).unwrap()["installed"],
                 0
             );
-            drop(key);
             assert!(base.starts_with("Software\\ZiCodeStudio.Tests\\explorer-"));
             root.delete_subkey_all(&base).unwrap();
             std::fs::remove_file(dll).unwrap();

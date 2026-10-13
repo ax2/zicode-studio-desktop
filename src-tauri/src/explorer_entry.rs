@@ -16,6 +16,7 @@ const MAX_SELECTION: usize = 4;
 pub enum MenuAction {
     Install,
     Remove,
+    RemoveCurrent,
     Status,
 }
 
@@ -231,6 +232,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
             Some(
                 flag @ ("--install-explorer-menu"
                 | "--remove-explorer-menu"
+                | "--remove-explorer-menu-current"
                 | "--explorer-menu-status"),
             ) => {
                 if action.is_some() {
@@ -239,6 +241,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
                 action = Some(match flag {
                     "--install-explorer-menu" => MenuAction::Install,
                     "--remove-explorer-menu" => MenuAction::Remove,
+                    "--remove-explorer-menu-current" => MenuAction::RemoveCurrent,
                     _ => MenuAction::Status,
                 });
             }
@@ -468,6 +471,10 @@ mod tests {
         assert_eq!(
             parse(args(&["--install-explorer-menu"])).unwrap().action,
             Some(MenuAction::Install)
+        );
+        assert_eq!(
+            parse(args(&["--remove-explorer-menu-current"])).unwrap().action,
+            Some(MenuAction::RemoveCurrent)
         );
         assert!(parse(args(&["--install-explorer-menu", "--remove-explorer-menu"])).is_err());
         assert!(parse(args(&["--open-folder"])).is_err());

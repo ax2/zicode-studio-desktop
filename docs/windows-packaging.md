@@ -5,6 +5,7 @@
 ```text
 ZiCodeStudioDesktop\
 ├── zicode-studio-desktop.exe
+├── zicode_studio_shell.dll  (Windows Explorer 多选 COM 入口；实际资源位置按安装包布局)
 ├── pi\
 │   └── pi.exe
 ├── extensions\
@@ -64,3 +65,5 @@ ZiCodeStudioDesktop\
 正式分发还需要 Windows Authenticode 代码签名，以减少 SmartScreen 警告。
 仓库已公开，安装包可从 GitHub Releases 下载。当前尚未启用 Tauri 自动更新
 签名产物，新版本需要手动安装。
+
+2026-10-14：Windows 构建脚本在同一 Cargo target 中生成 Studio 自有多选 Shell DLL，并通过 `tauri.shell.windows.conf.json` 纳入 NSIS 资源。可选的当前用户 Explorer 菜单仍由用户在应用中安装；NSIS 预卸载钩子仅调用专用的当前安装路径清理入口，保留指向其他 Studio 安装位置的菜单。隔离注册表与 CLI 专项已验证精确清理，**尚未生成或卸载新的 NSIS 包**；安装目录中的 DLL 位置、真实卸载和升级后菜单保留行为仍需实包验收。
