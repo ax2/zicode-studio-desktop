@@ -200,6 +200,42 @@ async fn real_http_manual_directory_pages_and_loads_without_worker_or_pi() {
         stale_call.json::<Value>().await.unwrap()["error"]["code"],
         "catalog_changed"
     );
+    let selection_source = root.join("selection-source");
+    std::fs::create_dir_all(selection_source.join("runtime")).unwrap();
+    std::fs::write(selection_source.join("runtime/tools.wasm"), b"\0asm\x01\0\0\0").unwrap();
+    std::fs::write(selection_source.join("plugin.json"), serde_json::to_vec(&json!({
+        "schemaVersion":2,"id":"com.zicode.selection-fixture","name":"Selection fixture",
+        "description":"Studio metadata-only file selection","version":"0.1.0","publisher":"zicode",
+        "engines":{"zicode":">=0.1.0 <1.0.0","pluginApi":"^1.0.0"},
+        "requiredProfiles":{"file.input.hints.v1":"=1.0.0-preview.1"},
+        "runtime":{"wasi":"runtime/tools.wasm","resourceInputProfile":"resource.wasi.input.draft2"},
+        "permissions":{"optional":[{"name":"resource.read","reason":"chosen files"}]},
+        "contributes":{"capabilities":[
+            {"id":"only-text","inputSchema":{"type":"object"},"resourceInputMax":2,"fileInput":{"extensions":[".txt"]}},
+            {"id":"any-file","inputSchema":{"type":"object"},"resourceInputMax":2,"fileInput":{"anyFile":true}},
+            {"id":"legacy-unknown","inputSchema":{"type":"object"},"resourceInputMax":2}
+        ]}
+    })).unwrap()).unwrap();
+    {
+        let mut registry = host.state.plugins.lock().unwrap();
+        registry.install_developer(&selection_source).unwrap();
+        registry.set_enabled("programming", "com.zicode.selection-fixture", true).unwrap();
+        registry.set_permission("programming", "com.zicode.selection-fixture", "resource.read", true).unwrap();
+    }
+    let names = json!(["one.txt", "two.zip"]).to_string();
+    let selection: Value = client.get(&url).header("x-zicode-desktop-token", token)
+        .query(&[("sceneId","programming"),("resourceOnly","true"),
+            ("selectedFileCount","2"),("fileNames", names.as_str())])
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(selection["total"], 2);
+    assert_eq!(selection["items"][0]["capabilityId"], "any-file");
+    assert_eq!(selection["items"][0]["fileInputMatch"], "declared");
+    assert_eq!(selection["items"][1]["capabilityId"], "legacy-unknown");
+    let invalid = client.get(&url).header("x-zicode-desktop-token", token)
+        .query(&[("sceneId","programming"),("resourceOnly","true"),
+            ("selectedFileCount","3"),("fileNames", names.as_str())])
+        .send().await.unwrap();
+    assert_eq!(invalid.status(), StatusCode::BAD_REQUEST);
     let events: Vec<_> = events_rx.try_iter().collect();
     assert!(
         events.is_empty(),

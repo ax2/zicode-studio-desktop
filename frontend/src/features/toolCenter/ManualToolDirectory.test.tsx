@@ -67,7 +67,7 @@ it("asks the Host for tools that can accept the opened file count before paging"
     entries: vi.fn(async () => ["one.txt", "two.zip"]) } };
   const container = await mount(gateway);
   expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ resourceOnly: true,
-    selectedFileCount: 2, offset: 0 });
+    selectedFileCount: 2, fileNames: ["one.txt", "two.zip"], offset: 0 });
   expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBeUndefined();
   expect(container.textContent).toContain("support for at least 2 input files");
   expect(gateway.loadTool).not.toHaveBeenCalled();

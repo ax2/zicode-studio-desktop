@@ -53,6 +53,42 @@ fn explorer_selection_filters_capacity_before_paging_without_loading_tools() {
 }
 
 #[test]
+fn explorer_selection_matches_every_declared_filename_without_reading_files() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read chosen files"}
+    ])).unwrap();
+    let caps = plugin.manifest.contributes["capabilities"].as_array_mut().unwrap();
+    caps.truncate(3);
+    for cap in caps.iter_mut() { cap["resourceInputMax"] = json!(4); }
+    caps[0]["fileInput"] = json!({"extensions":[".txt"]});
+    caps[1]["fileInput"] = json!({"anyFile":true});
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    let mut query = CatalogQuery { scene_id:"programming".into(), resource_only:true,
+        selected_file_count:Some(2), file_names:Some(json!(["one.txt","two.zip"]).to_string()),
+        ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 2);
+    assert_eq!(page["items"][0]["capabilityId"], "text.001");
+    assert_eq!(page["items"][0]["fileInputMatch"], "declared");
+    assert_eq!(page["items"][1]["capabilityId"], "text.002");
+    assert_eq!(page["items"][1]["fileInputMatch"], "unknown");
+    query.file_names = Some(json!(["one.txt","two.txt"]).to_string());
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 3);
+    for invalid in ["not-json", "[]", "[\"one.txt\"]", "[\"../secret\",\"two.txt\"]",
+        "[\"same.txt\",\"same.txt\"]"] {
+        query.file_names = Some(invalid.into());
+        assert!(registry.manual_catalog(&query).is_err());
+    }
+    query.file_names = Some(json!(["one.txt","two.txt"]).to_string());
+    query.selected_file_count = Some(3);
+    assert!(registry.manual_catalog(&query).is_err());
+}
+
+#[test]
 fn file_hints_hide_declared_mismatches_but_keep_legacy_unknown() {
     let mut registry = tests::registry();
     let id = "com.zicode.catalog-fixture";

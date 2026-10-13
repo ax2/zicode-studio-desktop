@@ -39,10 +39,12 @@ describe("PluginCapabilityGateway", () => {
   it("forwards a bounded Explorer selection count as metadata-only discovery", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
-    await gateway.searchTools("programming", { resourceOnly: true, selectedFileCount: 2 });
+    await gateway.searchTools("programming", { resourceOnly: true, selectedFileCount: 2,
+      fileNames: ["one.txt", "two.zip"] });
     const url = fetchImpl.mock.calls[0][0];
     expect(url.pathname).toBe("/v2/plugin-tool-directory");
     expect(url.searchParams.get("selectedFileCount")).toBe("2");
+    expect(JSON.parse(url.searchParams.get("fileNames"))).toEqual(["one.txt", "two.zip"]);
     expect(url.searchParams.get("fileName")).toBeNull();
     expect(fetchImpl.mock.calls[0][1].body).toBeUndefined();
   });

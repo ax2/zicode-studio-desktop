@@ -47,7 +47,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter, workspace or plugin catalog invalidates the cursor.
   useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, fileFilter.fileName,
-    fileFilter.selectedFileCount, directoryFilter.enabled, scope.sceneId, scope.workspaceId, catalogRevision]);
+    fileFilter.selectedFileCount, fileFilter.fileNames, directoryFilter.enabled, scope.sceneId, scope.workspaceId, catalogRevision]);
   useEffect(() => {
     setCloseTarget(previous => previous && (previous.sceneId !== scope.sceneId || previous.workspaceId !== scope.workspaceId) ? null : previous);
   }, [scope.sceneId, scope.workspaceId]);
@@ -102,6 +102,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         ...(directoryFilter.enabled ? { directoryOnly: true } : {}),
         ...(fileFilter.enabled && fileFilter.fileName ? { fileName: fileFilter.fileName } : {}),
         ...(fileFilter.enabled && fileFilter.selectedFileCount ? { selectedFileCount: fileFilter.selectedFileCount } : {}),
+        ...(fileFilter.enabled && fileFilter.fileNames ? { fileNames: fileFilter.fileNames } : {}),
         ...(source ? { pluginId: source } : {}),
         ...(category ? { categoryId: category } : {}),
         ...(view !== "all" ? { view, workspaceId: scope.workspaceId } : {}) })
@@ -110,7 +111,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled, fileFilter.fileName, fileFilter.selectedFileCount, directoryFilter.ready, directoryFilter.enabled]);
+  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled, fileFilter.fileName, fileFilter.selectedFileCount, fileFilter.fileNames, directoryFilter.ready, directoryFilter.enabled]);
   return <div className="manual-tool-directory" ref={directory}>
     <fieldset ref={switcher} className="ui-toolbar tool-open-switcher" aria-label={t("Opened tools")}>
       <button ref={activeTool === null ? selectedButton : undefined} data-open-tool-id="" type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>

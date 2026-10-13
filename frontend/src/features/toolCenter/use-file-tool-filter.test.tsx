@@ -99,12 +99,12 @@ it("rechecks the active window's file hint when the entry revision changes", asy
   expect(entry).toHaveBeenCalledTimes(2);
 });
 
-it("enables resource discovery for a bounded Explorer selection without guessing a suffix", async () => {
+it("passes only bounded Explorer basenames for per-file hint matching", async () => {
   const api = gateway(async () => null);
   api.projectFiles = { ...api.projectFiles, entries: vi.fn(async () => ["one.zip", "two.txt"]) };
   const view = renderHook(() => useFileToolFilter(api, scope));
   await act(async () => {});
   expect(view.result.current).toMatchObject({ ready: true, enabled: true, failed: false,
-    fileName: null, selectedFileCount: 2 });
+    fileName: null, selectedFileCount: 2, fileNames: ["one.zip", "two.txt"] });
   view.unmount();
 });

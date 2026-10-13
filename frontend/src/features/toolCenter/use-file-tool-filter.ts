@@ -3,7 +3,8 @@ import type { ToolAccessScope } from "../commandPalette/tool-access";
 import type { ManualToolApi } from "./manual-tools";
 
 function validEntryName(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && !/[\\/:]/u.test(value) &&
+  return typeof value === "string" && value.length > 0 && value !== "." && value !== ".." &&
+    new TextEncoder().encode(value).length <= 1024 && !/[\\/:]/u.test(value) &&
     ![...value].some((char) => char.charCodeAt(0) < 32 ||
       (char.charCodeAt(0) >= 127 && char.charCodeAt(0) <= 159));
 }
@@ -18,6 +19,7 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
     failed: false,
     fileName: null as string | null,
     selectedFileCount: null as number | null,
+    fileNames: null as string[] | null,
   });
   const current =
     state.key === key
@@ -29,16 +31,17 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
           failed: false,
           fileName: null,
           selectedFileCount: null,
+          fileNames: null,
         };
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     function finish(enabled: boolean, failed: boolean, fileName: string | null = null,
-      selectedFileCount: number | null = null) {
+      selectedFileCount: number | null = null, fileNames: string[] | null = null) {
       if (!active) return;
       active = false;
       clearTimeout(timer);
-      setState({ key, ready: true, enabled, failed, fileName, selectedFileCount });
+      setState({ key, ready: true, enabled, failed, fileName, selectedFileCount, fileNames });
     }
     const files = api.projectFiles;
     setState({
@@ -48,6 +51,7 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
       failed: false,
       fileName: null,
       selectedFileCount: null,
+      fileNames: null,
     });
     if (typeof files?.entry === "function" || typeof files?.entries === "function") {
       timer = setTimeout(() => finish(false, true), 5000);
@@ -64,7 +68,7 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
           if (Array.isArray(selection) && selection.length >= 2 && selection.length <= 4 &&
             selection.every(validEntryName) &&
             new Set(selection).size === selection.length) {
-            finish(true, false, null, selection.length);
+            finish(true, false, null, selection.length, selection);
           } else if (selection == null || Array.isArray(selection) && selection.length === 0) {
             finish(false, false);
           } else finish(false, true);

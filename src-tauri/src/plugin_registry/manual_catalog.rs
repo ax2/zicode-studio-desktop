@@ -39,6 +39,8 @@ pub(crate) struct CatalogQuery {
     pub directory_only: bool,
     pub file_name: Option<String>,
     pub selected_file_count: Option<usize>,
+    /// JSON array of Explorer basenames; the Host never receives their paths here.
+    pub file_names: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -84,6 +86,21 @@ impl PluginRegistry {
             || !request.resource_only || request.directory_only || request.file_name.is_some()) {
             return Err("invalid_parameters");
         }
+        let selected_names = if let Some(raw) = request.file_names.as_deref() {
+            if raw.len() > 8192 || request.file_name.is_some() || !request.resource_only || request.directory_only {
+                return Err("invalid_parameters");
+            }
+            let names: Vec<String> = serde_json::from_str(raw).map_err(|_| "invalid_parameters")?;
+            if request.selected_file_count != Some(names.len())
+                || !(2..=4).contains(&names.len())
+                || names.iter().any(|name| !file_input::valid_name(name))
+                || names.iter().collect::<std::collections::HashSet<_>>().len() != names.len() {
+                return Err("invalid_parameters");
+            }
+            Some(names)
+        } else {
+            None
+        };
         if request.query.len() > 512 || request.offset > 1_000_000
             || request.plugin_id.as_ref().is_some_and(|id| id.len() > 256)
             || request.category_id.as_ref().is_some_and(|id| id.len() > 64) {
@@ -157,7 +174,14 @@ impl PluginRegistry {
                     continue;
                 };
                 let title = cap.get("title").and_then(Value::as_str).unwrap_or(id);
-                let file_match = request.file_name.as_deref().and_then(|name| file_input::matches(cap, name));
+                let file_match = if let Some(names) = selected_names.as_ref() {
+                    let matches: Vec<_> = names.iter().map(|name| file_input::matches(cap, name)).collect();
+                    if matches.contains(&Some(false)) { Some(false) }
+                    else if matches.iter().all(|matched| *matched == Some(true)) { Some(true) }
+                    else { None }
+                } else {
+                    request.file_name.as_deref().and_then(|name| file_input::matches(cap, name))
+                };
                 if file_match == Some(false) { continue; }
                 let tool_id = serde_json::to_string(&(&manifest.id, id)).expect("string tuple");
                 let access_id = tool_access_id(&manifest.id, id);
@@ -189,10 +213,10 @@ impl PluginRegistry {
                 let Some(rank) = tool_search::relevance(&terms, id, title, &aliases, description, &source_text) else {
                     continue;
                 };
-                let file_rank = u8::from(request.file_name.is_some() && file_match != Some(true));
+                let file_rank = u8::from((request.file_name.is_some() || selected_names.is_some()) && file_match != Some(true));
                 entries.push((file_rank, rank, json!({
                     "toolId":tool_id,"accessId":access_id,
-                    "fileInputMatch":request.file_name.as_ref().map(|_| if file_match == Some(true) {"declared"} else {"unknown"}),
+                    "fileInputMatch":(request.file_name.is_some() || selected_names.is_some()).then_some(if file_match == Some(true) {"declared"} else {"unknown"}),
                     "pluginId":manifest.id,"capabilityId":id,"title":title,
                     "categoryId":category,"description":description,
                     "applicationName":manifest.display_name.as_deref().unwrap_or(&manifest.name),

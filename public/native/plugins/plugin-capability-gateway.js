@@ -59,7 +59,7 @@ export class PluginCapabilityGateway {
     return this.#request(url);
   }
 
-  searchTools(sceneId, { query = "", offset = 0, revision = null, view = "all", workspaceId, accessRevision = null, pluginId, categoryId, resourceOnly = false, directoryOnly = false, fileName, selectedFileCount } = {}) {
+  searchTools(sceneId, { query = "", offset = 0, revision = null, view = "all", workspaceId, accessRevision = null, pluginId, categoryId, resourceOnly = false, directoryOnly = false, fileName, selectedFileCount, fileNames } = {}) {
     const url = this.#url("/v2/plugin-tool-directory");
     url.searchParams.set("sceneId", sceneId);
     url.searchParams.set("query", query);
@@ -71,6 +71,7 @@ export class PluginCapabilityGateway {
     if (directoryOnly) url.searchParams.set("directoryOnly", "true");
     if (resourceOnly && fileName) url.searchParams.set("fileName", fileName);
     if (resourceOnly && selectedFileCount !== undefined) url.searchParams.set("selectedFileCount", String(selectedFileCount));
+    if (resourceOnly && fileNames) url.searchParams.set("fileNames", JSON.stringify(fileNames));
     if (view !== "all") {
       url.searchParams.set("view", view);
       if (workspaceId) url.searchParams.set("workspaceId", workspaceId);
