@@ -4,6 +4,8 @@
 
 Studio 内部新增 `--open-selection <数量> <文件1> ...`，数量限定 2–4，逐个要求存在的本地普通文件、Unicode 绝对路径、无链接或 reparse，文件须互异且同属一个目录。跨进程交接由首进程重新校验并绑定接收窗口和工具会话；项目取共同父目录。启动不读取内容、不启动 Pi。可信命令 `get_project_resource_entries` 只返回当前窗口、会话、项目下的相对名称。文件资源工具筛选默认启用，但不根据多个不同后缀猜测匹配能力。
 
+2026-10-14 后续：多文件目录请求携带 `selectedFileCount`，Host 在统计来源、分类和分页之前，仅保留声明 `resourceInputMax >= 选中文件数` 的已获准 WASI 文件资源工具。单文件工具不会混在多文件结果里；关闭筛选后仍可浏览全部工具。参数限 2–4，须与 `resourceOnly=true` 同用，不可与单文件 `fileName` 或目录筛选混用。请求只含数量，不含路径或内容；类型声明仍须由用户在共享前核对，容量符合不代表 ZiFile 算法或格式可用。
+
 声明多资源输入的 WASI 工具可选择“使用已打开的文件”，先逐个准备只读元数据，再由用户确认共享，最后独立执行；总计最多 32 MiB。取消、切换入口或准备失败会撤回未提交预览；确认中途失败会撤回已发布资源。该入口是 Studio 自身的参数与授权链路，**尚未注册为 Explorer 多选菜单**，也不代表 ZiFile 创建归档已可用。现有传统文件右键保持单选。多选菜单需 Studio 自有 `IExplorerCommand` 接收 `IShellItemArray`、独立应用身份和实体右键验收，不能直接将静态命令模板扩展为不受控多选。参考 [Microsoft 选择模型](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model)、[静态与动态菜单](https://learn.microsoft.com/en-us/windows/win32/shell/shortcut-choose-method)及[打包桌面应用右键入口](https://learn.microsoft.com/windows/apps/desktop/modernize/integrate-packaged-app-with-file-explorer)。
 
 ## 已实现

@@ -19,6 +19,40 @@ fn multi_resource_count_requires_an_explicit_wasi_capability() {
 }
 
 #[test]
+fn explorer_selection_filters_capacity_before_paging_without_loading_tools() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read chosen files"}
+    ])).unwrap();
+    plugin.manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
+    plugin.manifest.contributes["capabilities"][204]["resourceInputMax"] = json!(2);
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    let mut query = CatalogQuery { scene_id: "programming".into(), resource_only: true,
+        selected_file_count: Some(2), ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 2);
+    assert_eq!(page["items"][0]["capabilityId"], "text.000");
+    assert_eq!(page["items"][1]["capabilityId"], "text.204");
+    assert_eq!(page["nextOffset"], Value::Null);
+    assert!(!page.to_string().contains("inputSchema"));
+    query.selected_file_count = Some(3);
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 1);
+    for count in [0, 1, 5] {
+        query.selected_file_count = Some(count);
+        assert!(registry.manual_catalog(&query).is_err());
+    }
+    query.selected_file_count = Some(2);
+    query.resource_only = false;
+    assert!(registry.manual_catalog(&query).is_err());
+    query.resource_only = true;
+    query.file_name = Some("one.txt".into());
+    assert!(registry.manual_catalog(&query).is_err());
+}
+
+#[test]
 fn file_hints_hide_declared_mismatches_but_keep_legacy_unknown() {
     let mut registry = tests::registry();
     let id = "com.zicode.catalog-fixture";

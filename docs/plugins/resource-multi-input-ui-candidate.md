@@ -1,5 +1,7 @@
 # 多资源输入界面与能力声明候选
 
+2026-10-14 Explorer 选择数量过滤：Studio 工具目录现在只向 Host 传 2–4 的 `selectedFileCount` 元数据，Host 在分页前按声明的 `resourceInputMax` 筛掉单输入或容量不足的能力。它沿用已有 `resourceOnly` 的 WASI/权限前置门禁，不读取文件，不自动加载详情或执行。取消文件筛选恢复全部目录。文件类型提示尚不支持对异构多文件组合做准确匹配，不能把数量过滤解释为格式兼容或 ZiFile 功能接受。
+
 日期：2026-10-13。适用范围：Studio 可信工具目录和 `resource.wasi.input.draft2`。这是当前源码候选，不是正式 `resource.v1` 或 ZiFile 原生归档能力。
 
 ## 能力声明

@@ -104,6 +104,7 @@ it("enables resource discovery for a bounded Explorer selection without guessing
   api.projectFiles = { ...api.projectFiles, entries: vi.fn(async () => ["one.zip", "two.txt"]) };
   const view = renderHook(() => useFileToolFilter(api, scope));
   await act(async () => {});
-  expect(view.result.current).toMatchObject({ ready: true, enabled: true, failed: false, fileName: null });
+  expect(view.result.current).toMatchObject({ ready: true, enabled: true, failed: false,
+    fileName: null, selectedFileCount: 2 });
   view.unmount();
 });

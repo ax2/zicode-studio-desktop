@@ -62,6 +62,35 @@ it("defaults a file launch to resource tools, with metadata-only reversible filt
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
+it("asks the Host for tools that can accept the opened file count before paging", async () => {
+  const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => null),
+    entries: vi.fn(async () => ["one.txt", "two.zip"]) } };
+  const container = await mount(gateway);
+  expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ resourceOnly: true,
+    selectedFileCount: 2, offset: 0 });
+  expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBeUndefined();
+  expect(container.textContent).toContain("support for at least 2 input files");
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("resets a paged directory when the opened selection size changes", async () => {
+  const entries = vi.fn().mockResolvedValueOnce(["one.txt", "two.txt"])
+    .mockResolvedValueOnce(["one.txt", "two.txt", "three.txt"]);
+  const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => null), entries } };
+  gateway.searchTools.mockResolvedValue({ items: [tool(0)], total: 205,
+    revision: "revision", nextOffset: 40 });
+  const container = await mount(gateway);
+  await click(container, "Next");
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ selectedFileCount: 2,
+    offset: 40, revision: "revision" });
+  await act(async () => window.dispatchEvent(new Event("zicode:entry-changed")));
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ selectedFileCount: 3,
+    offset: 0, revision: null });
+});
+
 it("keeps normal launches unfiltered and lets users opt into file tools", async () => {
   const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => null) } };
   const container = await mount(gateway);

@@ -17,6 +17,7 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
     enabled: false,
     failed: false,
     fileName: null as string | null,
+    selectedFileCount: null as number | null,
   });
   const current =
     state.key === key
@@ -27,15 +28,17 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
           enabled: false,
           failed: false,
           fileName: null,
+          selectedFileCount: null,
         };
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    function finish(enabled: boolean, failed: boolean, fileName: string | null = null) {
+    function finish(enabled: boolean, failed: boolean, fileName: string | null = null,
+      selectedFileCount: number | null = null) {
       if (!active) return;
       active = false;
       clearTimeout(timer);
-      setState({ key, ready: true, enabled, failed, fileName });
+      setState({ key, ready: true, enabled, failed, fileName, selectedFileCount });
     }
     const files = api.projectFiles;
     setState({
@@ -44,6 +47,7 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
       enabled: false,
       failed: false,
       fileName: null,
+      selectedFileCount: null,
     });
     if (typeof files?.entry === "function" || typeof files?.entries === "function") {
       timer = setTimeout(() => finish(false, true), 5000);
@@ -60,7 +64,7 @@ export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, en
           if (Array.isArray(selection) && selection.length >= 2 && selection.length <= 4 &&
             selection.every(validEntryName) &&
             new Set(selection).size === selection.length) {
-            finish(true, false);
+            finish(true, false, null, selection.length);
           } else if (selection == null || Array.isArray(selection) && selection.length === 0) {
             finish(false, false);
           } else finish(false, true);

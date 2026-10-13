@@ -31,6 +31,7 @@ const zhCN = {
   "Only file resource tools": "仅显示文件资源工具",
   "Only project directory tools": "仅显示项目目录工具",
   "Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.": "仅显示已启用且获准接收文件的工具。文件类型提示来自插件声明，提供文件前请核对支持范围。",
+  "Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.": "仅显示声明至少支持 {count} 个输入文件的工具。使用前请核对格式并确认提供文件。",
   "The opened file could not be checked. You can select the file tool filter manually.": "未能检查已打开的文件，可以手动选择文件工具筛选。",
   "The opened folder could not be checked. You can select the directory tool filter manually.": "未能检查已打开的文件夹，可以手动选择目录工具筛选。",
   "Choose from current project": "从当前项目选择",

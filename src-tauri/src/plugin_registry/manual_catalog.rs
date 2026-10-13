@@ -38,6 +38,7 @@ pub(crate) struct CatalogQuery {
     #[serde(default)]
     pub directory_only: bool,
     pub file_name: Option<String>,
+    pub selected_file_count: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -77,6 +78,10 @@ impl PluginRegistry {
         invalid_scene(&request.scene_id)?;
         if (request.resource_only && request.directory_only)
             || request.file_name.as_deref().is_some_and(|name| !request.resource_only || !file_input::valid_name(name)) {
+            return Err("invalid_parameters");
+        }
+        if request.selected_file_count.is_some_and(|count| !(2..=4).contains(&count)
+            || !request.resource_only || request.directory_only || request.file_name.is_some()) {
             return Err("invalid_parameters");
         }
         if request.query.len() > 512 || request.offset > 1_000_000
@@ -143,6 +148,11 @@ impl PluginRegistry {
                 continue;
             }
             for cap in caps {
+                if request.selected_file_count.is_some_and(|count|
+                    cap.get("resourceInputMax").and_then(Value::as_u64)
+                        .is_none_or(|maximum| maximum < count as u64)) {
+                    continue;
+                }
                 let Some(id) = cap.get("id").and_then(Value::as_str) else {
                     continue;
                 };

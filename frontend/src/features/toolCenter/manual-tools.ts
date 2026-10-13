@@ -24,7 +24,7 @@ export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<Ma
   resourceCalls?: { list(scope: { sceneId: string; workspaceId: string }): Promise<unknown[]> };
   reconcileResourceCall?: (...args: unknown[]) => Promise<unknown>;
   searchTools(sceneId: string, options: { query: string; offset: number; revision: string | null;
-    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean; directoryOnly?: boolean; fileName?: string }): Promise<ToolPage>;
+    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean; directoryOnly?: boolean; fileName?: string; selectedFileCount?: number }): Promise<ToolPage>;
   loadTool(sceneId: string, tool: { pluginId: string; capabilityId: string; revision: string }): Promise<ToolDetail>;
   invoke(sceneId: string, workspaceId: string, pluginId: string, capabilityId: string,
     input: Record<string, string | number | boolean>, options: { catalogRevision: string; captureResult?: boolean; callId?: string }): Promise<CapturedToolResponse>;
