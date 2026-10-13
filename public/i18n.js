@@ -7,6 +7,22 @@ export const supportedLocales = {
 };
 
 const zhCN = {
+  "Project directory": "项目目录",
+  "Studio directory selection": "Studio 目录选择",
+  "Studio · Share project directory names with this plugin": "Studio · 向此插件提供项目目录名称",
+  "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.": "仅提供目录当前层级的名称和文件或目录类型，不读取文件内容，也不会保存或发送给 AI。",
+  "Choose a project directory": "选择项目目录",
+  "Confirm directory sharing": "确认提供目录信息",
+  "Cancel directory sharing": "取消提供目录信息",
+  "Choose a directory inside the current project. Names are shared only after confirmation.": "请选择当前项目内的目录。确认后才会提供目录名称。",
+  "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.": "已选目录：{name} · 插件 {plugin}。确认后提供当前层级名称。",
+  "Could not select this project directory. Choose again.": "未能选择此项目目录，请重试。",
+  "Sharing the confirmed directory snapshot…": "正在提供已确认的目录快照…",
+  "Shared {count} directory entries. You can now execute the tool or cancel sharing.": "已提供 {count} 个目录条目。现在可以执行工具或取消提供。",
+  "Directory sharing failed. Choose the directory again.": "提供目录信息失败，请重新选择。",
+  "Directory sharing canceled. Waiting for preparation to finish.": "已取消提供目录信息，等待准备过程结束。",
+  "Directory sharing canceled.": "已取消提供目录信息。",
+  "Directory selection canceled.": "已取消选择目录。",
   "Plugin declares a matching filename suffix": "插件声明匹配此文件名",
   "Plugin has not declared file types": "插件未声明文件类型",
   "Only file resource tools": "仅显示文件资源工具",

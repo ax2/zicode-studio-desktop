@@ -76,7 +76,7 @@ Host原生运行时、资源/写入协议与提供方签名适配包完成后，
 
 2026-10-13 交付边界复核：只读检查 ZiFile 0.1.15 工作树，矩阵所列四份源码 SHA-256 仍匹配；没有 Studio 插件清单或 `.zicode-plugin` 包，ZiFile 未被修改。提供方下一交付应先给出独立 `com.zicode.zifile.archive` 的版本化清单、四平台/架构入口或明确支持矩阵、每个能力的格式与资源类型、签名文件清单、许可证/SBOM、协议正反例。若提供 WASI 只读子集，须标明仅能处理有界普通文件和受支持格式；完整目录创建、解压和原包更新仍须原生受约束运行时及写入协议，不能由子集补齐接受格。Studio 在收到包前保持所有 108 格 `accepted=false`。
 
-2026-10-13 Studio 后续前置：[单层目录元数据候选](local-directory-metadata-candidate.md)已有 Host 一次性确认、目录选择命令和受限快照；它不读取文件字节、递归目录或写入目标。当前尚无用户界面，不作为 ZiFile `archive.create` 或任何矩阵格的完成证据。ZiFile 如使用该候选，只能把它当小目录结构预览，并在新包中声明 `resource.directory.read`；完整归档仍需另立目录内容与写入协议。
+2026-10-13 Studio 后续前置：[单层目录元数据候选](local-directory-metadata-candidate.md)已有 Host 一次性确认、目录选择命令、受限快照和可信工具中心界面；它不读取文件字节、递归目录或写入目标。界面已做隔离测试和浏览器组件截图检查，实际 ZiFile 包及原生端到端仍待，因此不作为 `archive.create` 或任何矩阵格的完成证据。ZiFile 如使用该候选，请提供独立包中的 WASI 能力：清单同时声明 `resource.read` 与 `resource.directory.read`、`resource.wasi.input.draft2`，解析 `resource.local-directory.draft1` 的 UTF-8 JSON 单层 `{name,kind}`，给出空目录、4096项边界、撤权与错误正反例；只能将其用作小目录结构预览。完整归档仍需另立有界目录内容与写入协议。
 
 ## 2026-10-11 文件输入发现提示
 Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力声明真实后缀或明确anyFile，协商1.0.0-preview.1；声明缺失保持未知可见。应交付新包/摘要/正反例，不修改冻结包；发现匹配不代替读取授权、内容验证或实际算法接受。新自有夹具真实目录3/4切换、确认执行及旧夹具兼容通过，提供方实包/完整工具仍待。

@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
 import { createPluginResourceSelection } from "./plugin-resource-selection.js";
 import { createMultiResourceSelection } from "./plugin-multi-resource-selection.js";
+import { createPluginDirectoryResourceSelection } from "./plugin-directory-resource-selection.js";
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
@@ -45,11 +46,30 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
   const maxResources = detail.capability.resourceInputMax;
   const select = Number.isInteger(maxResources) && maxResources >= 2 && maxResources <= 4
     ? createMultiResourceSelection : createPluginResourceSelection;
-  const selection = select({ container: selectionContainer, plugin: { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] }, target, gateway, catalogRevision: detail.revision, maxResources, isCurrent: () => valid() && !running,
+  const plugin = { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] };
+  const selectionOptions = { container: selectionContainer, plugin, target, gateway, catalogRevision: detail.revision, maxResources, isCurrent: () => valid() && !running,
     onResource: value => {
       clearTimeout(timer); reference = value; result.textContent = ""; preview.clear();
       run.disabled = !value || !form || running;
-    } });
+    } };
+  const directoryAvailable = detail.permissions.some(p => p.name === "resource.directory.read" && p.granted) &&
+    ["choose", "prepare", "commit", "cancel"].every(key => typeof gateway.projectDirectories?.[key] === "function");
+  let selection = select(selectionOptions);
+  if (directoryAvailable) {
+    const mode = node("div", null, "ui-toolbar");
+    const files = button("Files", () => switchMode("files"));
+    const directory = button("Project directory", () => switchMode("directory"));
+    files.setAttribute("aria-pressed", "true"); directory.setAttribute("aria-pressed", "false");
+    mode.append(files, directory); selectionContainer.prepend(mode);
+    function switchMode(next) {
+      if (!valid() || running || (next === "files" && files.getAttribute("aria-pressed") === "true") ||
+          (next === "directory" && directory.getAttribute("aria-pressed") === "true")) return;
+      selection.destroy(); reference = null; run.disabled = true; result.textContent = ""; preview.clear();
+      files.setAttribute("aria-pressed", String(next === "files"));
+      directory.setAttribute("aria-pressed", String(next === "directory"));
+      selection = next === "directory" ? createPluginDirectoryResourceSelection(selectionOptions) : select(selectionOptions);
+    }
+  }
   void mountInputs(parameters, detail.capability.inputSchema).then(value => {
     if (!valid()) { value.destroy(); return; } form = value; run.disabled = !reference;
   }).catch(() => { if (valid()) status.textContent = t("This tool's parameter schema is not supported by the generic form. Choose another tool."); });
