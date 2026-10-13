@@ -1915,6 +1915,7 @@ document.addEventListener("sa-answer-task", async (event) => {
 });
 
 async function handleSuperAgentStartupSessions(sessions) {
+  if (target.runtimeMode === "tools" || route.sessionId.startsWith("tools-")) return;
   const action = selectSuperAgentStartupAction({
     alreadyLaunched: wasSuperAgentLaunched(),
     enabled: isSuperAgentEnabled(),
@@ -1937,6 +1938,7 @@ function taskCallForDispatchedInstance(instanceId) {
 }
 
 async function ensureSuperAgentStartupSession({ reloadAfterEnsure = true } = {}) {
+  if (target.runtimeMode === "tools" || route.sessionId.startsWith("tools-")) return;
   const invoke = globalThis.__TAURI__?.core?.invoke;
   if (!invoke || !isSuperAgentEnabled()) return;
   if (!superAgentEnsureInFlight) {
