@@ -7,6 +7,8 @@ mod engine_compatibility;
 mod profile_compatibility;
 pub(crate) mod manual_catalog;
 mod directory_metadata;
+#[path = "plugin_registry/manual_search.rs"]
+pub(crate) mod tool_search;
 mod execution_revision;
 pub(crate) mod runtime_contract;
 pub(crate) mod file_input;

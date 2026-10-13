@@ -1,7 +1,11 @@
-//! Deterministic metadata-only ranking for a large manual tool catalog.
+//! Deterministic metadata-only ranking shared by manual and Pi tool catalogs.
 use crate::plugin_registry::directory_metadata::normalize;
 
-pub(super) fn relevance(
+pub(crate) fn normalize_query(query: &str) -> String {
+    normalize(query).split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+pub(crate) fn relevance(
     terms: &[String],
     capability_id: &str,
     title: &str,

@@ -1,5 +1,30 @@
 use super::*;
 
+#[test]
+fn pi_catalog_ranks_exact_tools_before_broad_description_matches() {
+    let tool = |plugin_id: &str, capability: &str, title: &str, description: &str| {
+        PluginPiToolDescriptor {
+            plugin_id: plugin_id.into(),
+            name: capability.into(),
+            title: title.into(),
+            description: description.into(),
+            capability: capability.into(),
+            input_schema: json!({"type":"object"}),
+        }
+    };
+    let tools = vec![
+        tool("com.example.archive", "archive.list", "List archive", "Base64 archive data"),
+        tool("com.example.text", "text.base64", "Base64", "Encode text"),
+        tool("com.example.text", "text.base64.decode", "Decode Base64", "Decode text"),
+    ];
+    let query = tool_search::normalize_query("ＢＡＳＥ６４");
+    let matches = ranked_matches(&tools, &query);
+    assert_eq!(
+        matches.iter().map(|item| item.capability.as_str()).collect::<Vec<_>>(),
+        vec!["text.base64", "text.base64.decode", "archive.list"]
+    );
+}
+
 #[tokio::test]
 async fn real_http_contract_changes_invalidate_cursor_load_and_invocation() {
     use std::fs;

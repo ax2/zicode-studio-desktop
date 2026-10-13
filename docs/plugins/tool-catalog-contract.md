@@ -11,7 +11,7 @@
 
 toolId是JSON编码的[pluginId,capability]，不是显示名称/数组位置。摘要包含toolId、pluginId、capability、name、title、description、packageVersion、toolVersion。未声明工具版本返回null。同能力多个工具名采用按名称排序的规范入口；加载后使用宿主返回的name调用原invoke。摘要不返回inputSchema。
 
-查询按Unicode空白分词及Unicode小写折叠，多词分别匹配pluginId、capability、title、description；最长256 UTF8字节。尚不做NFKC/拼音推断。每页20项，cursor不可由客户端自行构造；HMAC绑定Host secret、完整runtime binding、query、revision和offset。目录/授权/包版本/schema变化导致旧游标失效，客户端重新搜索。修改查询不复用游标。
+查询按 Unicode NFKC 及小写规范化，再按空白分词；多词必须分别匹配 pluginId、capability、title、description，最长256 UTF-8字节。不做拼音推断。搜索结果先按能力ID或标题的精确、前缀、包含命中排序，再排说明和来源命中；同分保留稳定工具ID顺序。空查询仍按稳定工具ID排序。排序在分页前完成，避免精确工具被宽泛说明匹配挤到后页。每页20项，cursor不可由客户端自行构造；HMAC绑定Host secret、完整runtime binding、规范化query、revision和offset。目录/授权/包版本/schema变化导致旧游标失效，客户端重新搜索。修改查询不复用游标。
 
 Load仅接受当前revision，返回前检查当前包磁盘完整性。加载不增加权限；执行仍实时核对授权/场景/工作区/完整性/幂等缓存身份。搜索32KiB与load256KiB是响应上限；超限返回catalog_response_too_large(413)，不提供残缺schema。未知字段被serde拒绝(422)。cursor失效/伪造返回catalog_cursor_invalid(400)，revision改变返回catalog_revision_changed(409)。错误不带Broker token或工具输入。
 

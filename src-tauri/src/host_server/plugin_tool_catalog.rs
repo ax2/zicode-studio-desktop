@@ -1,5 +1,6 @@
 use super::*;
 use crate::plugin_registry::PluginPiToolDescriptor;
+use crate::plugin_registry::tool_search;
 use hmac::{Hmac, Mac};
 
 type ApiError = (StatusCode, Json<Value>);
@@ -39,6 +40,30 @@ fn rejected(code: &'static str) -> ApiError {
 fn tool_id(tool: &PluginPiToolDescriptor) -> String {
     serde_json::to_string(&(&tool.plugin_id, &tool.capability))
         .expect("string tuple is serializable")
+}
+
+fn ranked_matches<'a>(
+    tools: &'a [PluginPiToolDescriptor],
+    query: &str,
+) -> Vec<&'a PluginPiToolDescriptor> {
+    let terms: Vec<_> = query.split_whitespace().map(str::to_owned).collect();
+    let mut matches: Vec<_> = tools
+        .iter()
+        .filter_map(|tool| {
+            tool_search::relevance(
+                &terms,
+                &tool.capability,
+                &tool.title,
+                &[],
+                &tool.description,
+                &tool.plugin_id,
+            )
+            .map(|rank| (rank, tool))
+        })
+        .collect();
+    // Stable sort preserves the catalog's tool ID order for equal relevance.
+    matches.sort_by_key(|(rank, _)| *rank);
+    matches.into_iter().map(|(_, tool)| tool).collect()
 }
 
 fn catalog(registry: &PluginRegistry, scene: &str) -> (Vec<PluginPiToolDescriptor>, Value, String) {
@@ -161,12 +186,7 @@ pub(super) async fn search(
         &request.runtime_id,
         &request.session_id,
     )?;
-    let query = request
-        .query
-        .split_whitespace()
-        .map(str::to_lowercase)
-        .collect::<Vec<_>>()
-        .join(" ");
+    let query = tool_search::normalize_query(&request.query);
     let registry = state
         .plugins
         .lock()
@@ -180,17 +200,7 @@ pub(super) async fn search(
         .map(|cursor| decode_cursor(cursor, &state.desktop_token, &binding, &revision, &query))
         .transpose()?
         .unwrap_or(0);
-    let matches: Vec<_> = tools
-        .iter()
-        .filter(|tool| {
-            let text = format!(
-                "{} {} {} {}",
-                tool.plugin_id, tool.capability, tool.title, tool.description
-            )
-            .to_lowercase();
-            query.split_whitespace().all(|term| text.contains(term))
-        })
-        .collect();
+    let matches = ranked_matches(&tools, &query);
     if offset > matches.len() {
         return Err(rejected("catalog_cursor_invalid"));
     }

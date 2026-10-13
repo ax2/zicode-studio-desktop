@@ -1,8 +1,6 @@
 //! Read-only manual discovery. Never registers Pi tools, loads a view or starts a Worker.
 use super::*;
 use sha2::{Digest, Sha256};
-#[path = "manual_search.rs"]
-mod search;
 
 pub(crate) const PAGE_SIZE: usize = 40;
 
@@ -178,7 +176,7 @@ impl PluginRegistry {
                     .or_else(|| cap.get("description").and_then(Value::as_str)
                         .filter(|text| text.len() <= 512 && !text.chars().any(char::is_control)))
                     .unwrap_or("");
-                let Some(rank) = search::relevance(&terms, id, title, &aliases, description, &source_text) else {
+                let Some(rank) = tool_search::relevance(&terms, id, title, &aliases, description, &source_text) else {
                     continue;
                 };
                 let file_rank = u8::from(request.file_name.is_some() && file_match != Some(true));
