@@ -1,5 +1,7 @@
 # ZiFile 全功能插件接入清单与接口需求 draft2
 
+Explorer 入口的能力筛选、菜单数量和多选边界见[资源管理器工具入口映射](explorer-tool-entry-policy.md)；菜单注册由 Studio 持有，ZiFile 插件不向系统逐工具注册菜单项。
+
 2026-10-11 建立，2026-10-13 复核 Studio 接口。本清单覆盖现有独立产品能力；目前 Studio 接受的 ZiFile 功能为 **0**。这是接入前置记录，不是可安装插件发布。机器可读清单见 [18 格式 × 6 操作矩阵](zifile-integration-matrix.json)。
 
 ## 证据与范围

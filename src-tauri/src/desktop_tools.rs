@@ -122,6 +122,23 @@ pub(crate) fn open(app: &AppHandle) -> Result<(), String> {
     )
 }
 
+/// Open a separate tool-only window for the focused project's registered root.
+/// The window URL supplies only an identity; the path comes from trusted metadata.
+pub(crate) fn open_for_project_window(
+    app: &AppHandle,
+    window: &WebviewWindow,
+) -> Result<(), String> {
+    if !window.label().starts_with("native-workspace-")
+        || window.label().starts_with("native-workspace-tools-center")
+    {
+        return Err("No project window is focused".into());
+    }
+    let url = window.url().map_err(|error| error.to_string())?;
+    let (workspace_id, _) = route_identity(url.path())?;
+    let root = crate::resolve_workspace_root(app, workspace_id)?;
+    open_at(app, &root, Some("core.tools"))
+}
+
 fn open_at(app: &AppHandle, root: &Path, app_param: Option<&str>) -> Result<(), String> {
     open_at_with_intent(app, root, app_param, None)
 }
