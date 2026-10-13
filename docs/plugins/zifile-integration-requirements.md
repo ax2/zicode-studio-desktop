@@ -98,3 +98,5 @@ Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力�
 2026-10-14 补充 Host 内部一次性归档分页句柄：将已验证 `list` 输出的提供方 `nextCursor` 留在 Host，页面仅获得绑定插件包版本、资源内容版本、运行会话、查询与页大小的随机句柄。当前尚无真实 Host 路由或 ZiFile 提供方分页向量，不能证明稳定排序、撤权后的下一页请求或完整归档浏览；`HOST_ARCHIVE_EVENTS` 仍保持阻塞。
 
 2026-10-14 续：Host 的插件重载、禁用、权限变更、卸载、安装/回滚及发布者撤销现能主动废止相关待用归档句柄；资源显式撤销也会废止句柄。此项仅收紧内部生命周期，不提供真实归档翻页或 native 插件执行，矩阵状态仍不变。
+
+2026-10-14 通用输出边界补验：Studio 的有界 WASI 资源调用若返回普通 JSON，Host 现会在交付页面前执行与二进制结果相同的声明输出 schema/大小校验。真实 HTTP→Worker 合成向量包含不合 schema 的返回并获得 `invalid_output`，之后调用可恢复；见技术博客 `iterations/resource-output-contract-2026-10-14/`。这仅补齐将来有界 WASI 归档只读子集的通用协议门槛，不接收 ZiFile 实包、不扩展 32 MiB 输入上限、不解决目录树/密码/原生隔离/原子写入，108 格仍全为 `accepted=false`。

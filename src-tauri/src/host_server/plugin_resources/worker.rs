@@ -412,6 +412,7 @@ fn execute(
     {
         return Err(rejected("result_too_large"));
     }
+    output::validate_result(&output_contract, result)?;
     Ok(Execution { result: result.clone(), resources: None })
 }
 

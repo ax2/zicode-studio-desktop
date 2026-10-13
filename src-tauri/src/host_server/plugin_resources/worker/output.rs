@@ -57,7 +57,7 @@ pub(super) fn register(
     })
 }
 
-fn validate_result(
+pub(super) fn validate_result(
     capability: &crate::plugin_registry::PluginCapabilityDescriptor,
     result: &Value,
 ) -> Result<(), ApiError> {

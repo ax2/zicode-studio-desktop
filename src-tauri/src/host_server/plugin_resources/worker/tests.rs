@@ -70,11 +70,14 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     manifest["id"] = json!("com.zicode.studio.resource-fixture");
     manifest["name"] = json!("Studio Resource Fixture");
     manifest["displayName"] = json!("Studio资源契约验收");
+    manifest["schemaVersion"] = json!(2);
+    manifest["requiredProfiles"] = json!({"output.schema.v1":"=1.0.0-rc.1"});
     manifest["runtime"] = json!({"wasi":"runtime/tools.wasm","resourceInputProfile":PROFILE});
     manifest["activationEvents"] = json!(["onCapability:resource.inspect"]);
     manifest["contributes"] = json!({"activities":[],"views":[],"commands":[],"piTools":[],"capabilities":[{
         "id":"resource.inspect","title":"Resource fixture","resourceInputMax":2,
-        "inputSchema":{"type":"object","properties":{},"additionalProperties":false}
+        "inputSchema":{"type":"object","properties":{},"additionalProperties":false},
+        "outputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}
     }]});
     manifest["permissions"] = json!({"required":[],"optional":[{"name":"resource.read","reason":"Confirmed fixture input only"}]});
     std::fs::write(
@@ -82,7 +85,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         serde_json::to_vec(&manifest).unwrap(),
     )
     .unwrap();
-    std::fs::write(package.join("runtime/tools.wasm"),r#"(module
+    let module = r#"(module
         (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
         (import "zicode_resource_input_draft1" "size" (func $size (param i32) (result i64)))
         (import "zicode_resource_input_draft1" "read" (func $read (param i32 i64 i32 i32) (result i32)))
@@ -100,7 +103,8 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
                 i32.const 132 i32.load i32.const 0x2121646e i32.ne if unreachable end
             end
             i32.const 0 i32.const 64 i32.store i32.const 4 i32.const 19 i32.store
-            i32.const 1 i32.const 0 i32.const 1 i32.const 24 call $write drop))"#).unwrap();
+            i32.const 1 i32.const 0 i32.const 1 i32.const 24 call $write drop))"#;
+    std::fs::write(package.join("runtime/tools.wasm"), module).unwrap();
     let metadata =
         crate::metadata_store::MetadataStore::open(&root.join("metadata.sqlite3")).unwrap();
     let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
@@ -207,6 +211,25 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         response.json::<Value>().await.unwrap()["result"],
         json!({"text":"resource"})
     );
+    let installed = host.state.plugins.lock().unwrap()
+        .plugin_runtime_entry("programming", "com.zicode.studio.resource-fixture").unwrap().0;
+    std::fs::write(&installed, module.replace(r#"\22text\22"#, r#"\22oops\22"#)).unwrap();
+    let invalid_prepared = post("prepare", json!({"schemaVersion":1,"owner":owner,"mimeType":"application/octet-stream",
+        "byteLength":bytes.len(),"contentVersion":version})).await.unwrap();
+    assert_eq!(invalid_prepared.status(), StatusCode::OK);
+    let invalid_prepared: Value = invalid_prepared.json().await.unwrap();
+    let invalid_access = json!({"schemaVersion":1,"owner":owner,"resourceId":invalid_prepared["resourceId"],"contentVersion":version});
+    for (index, chunk) in bytes.chunks(MAX_CHUNK).enumerate() {
+        assert_eq!(post("append", json!({"access":invalid_access,"offset":index*MAX_CHUNK,
+            "dataBase64":base64::engine::general_purpose::STANDARD.encode(chunk)})).await.unwrap().status(), StatusCode::OK);
+    }
+    assert_eq!(post("commit", json!({"access":invalid_access,"confirmed":true})).await.unwrap().status(), StatusCode::OK);
+    let invalid = post("invoke-view", json!({"access":invalid_access,"toolCallId":uuid::Uuid::new_v4(),"input":{}}))
+        .await.unwrap();
+    assert_eq!(invalid.status(), StatusCode::CONFLICT);
+    assert_eq!(invalid.json::<Value>().await.unwrap()["error"]["code"], "invalid_output");
+    assert_eq!(post("revoke", invalid_access).await.unwrap().status(), StatusCode::OK);
+    std::fs::write(installed, module).unwrap();
     // Once the execution response has been consumed/discarded, query lifetime
     // independently without re-uploading, cancelling or running the Worker again.
     let status_request = json!({"schemaVersion":1,"owner":owner,"toolCallId":invocation["toolCallId"]});
@@ -465,7 +488,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
             "resourceBytes":300000,"confirmedSnapshotExecuted":true,"unconfirmedRejected":true,"schemaAndDesktopAuthEnforced":true,"staleCatalogPrepareRejectedWithoutAllocation":true,
             "workers":2,"busyRejected":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,"callAdmission":call_admission,
             "cancelledPid":first_event.1,"cancelLiveReapedPipesClosed":true,"secondPid":second_event.1,"secondPipesClosed":true,
-            "nextInvocationRecovered":true,"revokedPermissionRejected":true,"cancelAfterRevoke":true,"boundedVolatileAudit":true,
+            "nextInvocationRecovered":true,"nonBinaryInvalidOutputRejected":true,"revokedPermissionRejected":true,"cancelAfterRevoke":true,"boundedVolatileAudit":true,
             "automaticLifecycle":automatic_lifecycle,"automaticRuntimeStop":automatic_stop,"binaryOutput":binary_output,"resourceTransfer":resource_transfer,"resourceSave":resource_save,"savedLibrary":saved_library,"browserPreview":browser_preview,"devtoolsImageAlgorithm":false,"nativeUi":false,"phaseBoundary":"Workers held at startup by test observer; not instruction-level interruption"})).unwrap();
     }
     drop(runtime);

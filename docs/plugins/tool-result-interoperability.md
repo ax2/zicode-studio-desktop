@@ -11,7 +11,9 @@
 - `plugin-view-host.js` 将能力调用绑定当前插件、场景和工作区，插件不能用请求参数替换这些身份；现有 View SDK 没有跨插件结果传输方法。
 - 文本候选接受 `{text:string}`、返回 `data.text`。直接模块、实际HTTP/交付Worker、生产View和内置Pi目录动态加载的四步串联已通过。手工取文本再传入另一能力不是完整互通平台。
 - `ArtifactStore` 已有工作区/场景、MIME、内容版本和 provenance；其现有 handle 不能直接视为绑定插件、操作、有效期的资源授权。
-- 现有 WASI 为一次 stdin/stdout 调用，没有资源回调或长任务通道。不能靠新增 manifest 权限让插件访问路径、数据库或启动其他 EXE。
+- 当前 WASI 资源调用已有最多 4 个、合计 32 MiB 的有界输入和资源读写回调；大归档流式输入与长任务通道仍缺。不能靠新增 manifest 权限让插件访问路径、数据库或启动其他 EXE。
+
+2026-10-14 补验：普通 JSON 资源工具执行结果现与二进制输出一样，在返回页面前按能力声明的 `outputSchema`/`maxResultBytes` 验证。Studio 自制 schemaVersion 2、`output.schema.v1` WASI 夹具的真实 HTTP→Worker 专项证明不合 schema 的 JSON 被 Host 以 `invalid_output` 拒绝，后续正常调用仍可继续。该校验也适用于未来 ZiFile 的有界 WASI 只读子集；它不开放原生归档 Worker、不证明任何 ZiFile 算法或全部 DevTools 工具验收。
 
 ## 用户入口
 
