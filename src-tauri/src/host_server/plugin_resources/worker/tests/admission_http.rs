@@ -23,7 +23,37 @@ async fn error(host: &HostServer, client: &reqwest::Client, route: &str, body: V
     assert_eq!(response.status(),StatusCode::CONFLICT);
     assert_eq!(response.json::<Value>().await.unwrap()["error"]["code"],expected);
 }
+async fn secondary(host: &HostServer, client: &reqwest::Client, owner: &Value) -> Value {
+    let bytes = b"second!!";
+    let version = sha256_hex(bytes);
+    let prepared = post(host,client,"prepare",json!({"schemaVersion":1,"owner":owner,
+        "mimeType":"application/octet-stream","byteLength":bytes.len(),"contentVersion":version})).await;
+    assert_eq!(prepared.status(), StatusCode::OK);
+    let prepared: Value = prepared.json().await.unwrap();
+    let access = json!({"schemaVersion":1,"owner":owner,"resourceId":prepared["resourceId"],"contentVersion":version});
+    assert_eq!(post(host,client,"append",json!({"access":access,"offset":0,
+        "dataBase64":base64::engine::general_purpose::STANDARD.encode(bytes)})).await.status(),StatusCode::OK);
+    assert_eq!(post(host,client,"commit",json!({"access":access,"confirmed":true})).await.status(),StatusCode::OK);
+    access
+}
 pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, access: &Value) -> Value {
+    let additional = secondary(host, client, &access["owner"]).await;
+    let multi_prepare = json!({"schemaVersion":1,"access":access,
+        "additionalAccesses":[additional],"input":{}});
+    let multi_ticket: Value = post(host, client, "prepare-call", multi_prepare).await.json().await.unwrap();
+    let mut changed_multi = json!({"access":access,"additionalAccesses":[],
+        "callId":multi_ticket["callId"],"hostInstanceId":multi_ticket["hostInstanceId"],"input":{}});
+    error(host,client,"invoke-call",changed_multi.clone(),"resource_call_changed").await;
+    changed_multi["additionalAccesses"] = json!([additional]);
+    let multi_result = post(host, client, "invoke-call", changed_multi.clone()).await;
+    let multi_status = multi_result.status();
+    let multi_body: Value = multi_result.json().await.unwrap();
+    assert_eq!(multi_status, StatusCode::OK, "multi-source call: {multi_body}");
+    assert_eq!(multi_body["result"],json!({"text":"resource"}));
+    let mut replay = changed_multi;
+    replay["additionalAccesses"] = json!([]);
+    error(host,client,"invoke-call",replay,"resource_call_changed").await;
+    assert_eq!(post(host,client,"revoke",additional).await.status(),StatusCode::OK);
     let before = host.state.plugin_resource_workers.events.lock().unwrap().len();
     let ticket = prepare(host,client,access).await;
     let mut changed = invocation(access,&ticket); changed["input"] = json!({"changed":true});
@@ -87,7 +117,8 @@ pub(super) async fn verify(host: &HostServer, client: &reqwest::Client, access: 
     assert_eq!(host.state.plugin_resource_workers.slots.available_permits(),WORKERS);
     *host.state.plugin_resource_workers.observer.lock().unwrap() = None;
     host.state.plugins.lock().unwrap().set_permission("programming","com.zicode.studio.resource-fixture","resource.read",true).unwrap();
-    json!({"passed":true,"sealedPreparedNeverStarted":true,"completedReplayRejected":true,
+    json!({"passed":true,"multiSourceWorkerReadIndex1":true,"multiSourceFingerprintBound":true,
+        "sealedPreparedNeverStarted":true,"completedReplayRejected":true,
         "inputScopeAndHostBound":true,"legacyRouteCannotConsumeTicket":true,"missingIsNotAdmissible":true,
         "activeReconciliationWaitsForLeaseDrop":true,"recoveryAfterPermissionRevocation":true,
         "cancelledPid":started.1,"reapedPipesClosed":true,"slotsReleased":true,"desktopOnly":true})

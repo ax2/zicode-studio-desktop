@@ -82,7 +82,7 @@ impl Drop for Lease {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(in crate::host_server) struct Prepare {
-    schema_version: u32, access: Access, input: Value,
+    schema_version: u32, access: Access, #[serde(default)] additional_accesses: Vec<Access>, input: Value,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -92,10 +92,26 @@ pub(in crate::host_server) struct Reconcile {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(in crate::host_server) struct InvokeCall {
-    access: Access, call_id: String, host_instance_id: String, input: Value,
+    access: Access, #[serde(default)] additional_accesses: Vec<Access>, call_id: String, host_instance_id: String, input: Value,
 }
-fn fingerprint(access: &Access, input: &Value) -> String {
-    sha256_hex(&serde_json::to_vec(&json!([access, input])).expect("JSON is serializable"))
+pub(super) fn validate_accesses(access: &Access, additional: &[Access]) -> Result<(), ApiError> {
+    if additional.len() > 3 {
+        return Err(rejected("resource_input_too_large"));
+    }
+    let mut ids = std::collections::HashSet::new();
+    ids.insert(&access.resource_id);
+    for source in additional {
+        validate(source)?;
+        if source.owner != access.owner || !ids.insert(&source.resource_id) {
+            return Err(rejected("resource_call_invalid"));
+        }
+    }
+    Ok(())
+}
+fn fingerprint(access: &Access, additional: &[Access], input: &Value) -> String {
+    let value = if additional.is_empty() { json!([access, input]) }
+        else { json!([access, additional, input]) };
+    sha256_hex(&serde_json::to_vec(&value).expect("JSON is serializable"))
 }
 pub(super) fn key(state: &HostState, owner: &Owner, id: &str) -> Result<Key, ApiError> {
     let uuid = id.strip_prefix(PREFIX).ok_or_else(|| rejected("resource_call_invalid"))?;
@@ -113,9 +129,10 @@ pub(in crate::host_server) async fn prepare(
     desktop(&state, &headers)?;
     if request.schema_version != 1 { return Err(rejected("resource_schema_unsupported")); }
     validate(&request.access)?;
+    validate_accesses(&request.access, &request.additional_accesses)?;
     let id = format!("{PREFIX}{}", uuid::Uuid::new_v4());
     let key = key(&state, &request.access.owner, &id)?;
-    state.plugin_resource_workers.admissions.prepare(key, fingerprint(&request.access, &request.input)).map_err(rejected)?;
+    state.plugin_resource_workers.admissions.prepare(key, fingerprint(&request.access, &request.additional_accesses, &request.input)).map_err(rejected)?;
     Ok(Json(json!({"schemaVersion":1,"profile":PROFILE,"callId":id,
         "owner":request.access.owner,"hostInstanceId":state.plugin_resource_workers.instance_id,
         "phase":"prepared","expiresInSeconds":60,"persistent":false})))
@@ -137,12 +154,12 @@ pub(in crate::host_server) async fn invoke(
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     instance(&state, &request.host_instance_id)?;
-    invoke_request(state, headers, Invoke { access:request.access, tool_call_id:request.call_id,
+    invoke_request(state, headers, Invoke { access:request.access, additional_accesses:request.additional_accesses, tool_call_id:request.call_id,
         input:request.input, host_instance_id:Some(request.host_instance_id) }, true).await
 }
 pub(super) fn begin(state: &HostState, request: &Invoke) -> Result<Lease, ApiError> {
     state.plugin_resource_workers.admissions.begin(key(state, &request.access.owner, &request.tool_call_id)?,
-        &fingerprint(&request.access, &request.input)).map_err(rejected)
+        &fingerprint(&request.access, &request.additional_accesses, &request.input)).map_err(rejected)
 }
 
 #[cfg(test)]

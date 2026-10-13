@@ -30,7 +30,8 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
-    let pending=super::super::store::Pending::prepare(std::slice::from_ref(&request.access),proof,bundle.resources)?;
+    let sources = request.accesses().cloned().collect::<Vec<_>>();
+    let pending=super::super::store::Pending::prepare(&sources,proof,bundle.resources)?;
     #[cfg(test)] {
         let observer=state.plugin_resource_workers.observer.lock().unwrap().clone();
         if let Some(observer)=observer { observer("output_prepared",0); }
@@ -39,7 +40,9 @@ pub(super) fn register(
     if identity(state, &request.access.owner, None)? != proof {
         return Err(rejected("resource_authorization_changed"));
     }
-    authority::check_ancestors(state, &request.access, proof)?;
+    for access in request.accesses() {
+        authority::check_ancestors(state, access, proof)?;
+    }
     let mut store = state
         .plugin_resources
         .lock()

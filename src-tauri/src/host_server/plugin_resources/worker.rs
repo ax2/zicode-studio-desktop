@@ -52,10 +52,17 @@ impl Workers {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(in crate::host_server) struct Invoke {
     access: Access,
+    #[serde(skip)]
+    additional_accesses: Vec<Access>,
     tool_call_id: String,
     input: Value,
     #[serde(default)]
     host_instance_id: Option<String>,
+}
+impl Invoke {
+    fn accesses(&self) -> impl Iterator<Item = &Access> {
+        std::iter::once(&self.access).chain(self.additional_accesses.iter())
+    }
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -199,6 +206,10 @@ async fn invoke_request(
 ) -> Result<Json<Value>, ApiError> {
     desktop(&state, &headers)?;
     validate(&request.access)?;
+    if !admitted && !request.additional_accesses.is_empty() {
+        return Err(rejected("resource_call_invalid"));
+    }
+    admission::validate_accesses(&request.access, &request.additional_accesses)?;
     if let Some(instance) = &request.host_instance_id {
         if uuid::Uuid::parse_str(instance).is_err() {
             return Err(rejected("resource_call_invalid"));
@@ -311,12 +322,14 @@ fn execute(
     };
     // This proof incorporates the captured module bytes, not a later mutable file read.
     let proof = identity_module(state, owner, None, Some(&module))?;
-    authority::check_ancestors(state, &request.access, &proof)?;
-    let resource = state
-        .plugin_resources
-        .lock()
-        .map_err(|_| rejected("resource_store_unavailable"))?
-        .snapshot(&request.access, &proof)?;
+    for access in request.accesses() {
+        authority::check_ancestors(state, access, &proof)?;
+    }
+    let resources = {
+        let mut store = state.plugin_resources.lock()
+            .map_err(|_| rejected("resource_store_unavailable"))?;
+        request.accesses().map(|access| store.snapshot(access, &proof)).collect::<Result<Vec<_>, _>>()?
+    };
     if identity(state, owner, None)? != proof {
         return Err(rejected("resource_authorization_changed"));
     }
@@ -325,7 +338,7 @@ fn execute(
         "sceneId":scene,"input":request.input
     });
     if binary { worker_request["resourceOutputProfile"]=json!(crate::plugin_worker::resource_output::PROFILE); }
-    let frame=crate::plugin_worker::resource_input::encode_module_snapshot(worker_request,&[resource],&module).map_err(|_|rejected("resource_input_too_large"))?;
+    let frame=crate::plugin_worker::resource_input::encode_module_snapshot(worker_request,&resources,&module).map_err(|_|rejected("resource_input_too_large"))?;
     let executable =
         std::env::current_exe().map_err(|_| rejected("resource_worker_unavailable"))?;
     #[cfg(test)]
@@ -353,7 +366,7 @@ fn execute(
     let observer: Option<Observer> = None;
     let result = lifecycle::watch(cancelled, || {
         identity(state, owner, None).is_ok_and(|current| current == proof)
-            && authority::check_ancestors(state, &request.access, &proof).is_ok()
+            && request.accesses().all(|access| authority::check_ancestors(state, access, &proof).is_ok())
     }, || { if let Some(observer) = &observer { observer("authorization_lost", 0); } }, || worker_process::run_observed(
         command,
         frame,
@@ -372,7 +385,9 @@ fn execute(
     if identity(state, owner, None)? != proof {
         return Err(rejected("resource_authorization_changed"));
     }
-    authority::check_ancestors(state, &request.access, &proof)?;
+    for access in request.accesses() {
+        authority::check_ancestors(state, access, &proof)?;
+    }
     let (status, output) = result.map_err(|e| rejected(e.code))?;
     if cancelled.load(Ordering::Acquire) { return Err(rejected("worker_cancelled")); }
     if binary && status.success() {

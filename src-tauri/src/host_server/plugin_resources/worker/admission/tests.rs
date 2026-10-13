@@ -73,11 +73,28 @@ fn strict_requests_and_fingerprints_bind_resource_owner_and_input() {
     assert!(serde_json::from_value::<Prepare>(prepared.clone()).is_ok());
     let mut forbidden = prepared; forbidden["callId"] = json!(uuid::Uuid::new_v4());
     assert!(serde_json::from_value::<Prepare>(forbidden).is_err());
-    let first = fingerprint(&access, &json!({"flag":false,"count":0}));
-    assert_eq!(first, fingerprint(&access, &json!({"count":0,"flag":false})));
-    assert_ne!(first, fingerprint(&access, &json!({"count":1,"flag":false})));
+    let first = fingerprint(&access, &[], &json!({"flag":false,"count":0}));
+    assert_eq!(first, fingerprint(&access, &[], &json!({"count":0,"flag":false})));
+    assert_ne!(first, fingerprint(&access, &[], &json!({"count":1,"flag":false})));
     let mut changed = access.clone(); changed.owner.plugin_id = "other".into();
-    assert_ne!(first, fingerprint(&changed, &json!({"count":0,"flag":false})));
+    assert_ne!(first, fingerprint(&changed, &[], &json!({"count":0,"flag":false})));
     changed = access.clone(); changed.resource_id = uuid::Uuid::new_v4().to_string();
-    assert_ne!(first, fingerprint(&changed, &json!({"count":0,"flag":false})));
+    assert_ne!(first, fingerprint(&changed, &[], &json!({"count":0,"flag":false})));
+    let second = changed.clone();
+    let mut third = changed.clone(); third.resource_id = uuid::Uuid::new_v4().to_string();
+    assert!(validate_accesses(&access, &[second.clone(), third.clone()]).is_ok());
+    assert_ne!(first, fingerprint(&access, &[second.clone()], &json!({"count":0,"flag":false})));
+    assert_ne!(fingerprint(&access, &[second.clone(), third.clone()], &json!({})),
+        fingerprint(&access, &[third, second], &json!({})));
+    assert!(validate_accesses(&access, &[access.clone()]).is_err());
+    let mut foreign = access.clone(); foreign.owner.plugin_id = "foreign".into();
+    foreign.resource_id = uuid::Uuid::new_v4().to_string();
+    assert!(validate_accesses(&access, &[foreign]).is_err());
+    let second = Access { resource_id: uuid::Uuid::new_v4().to_string(), ..access.clone() };
+    let multi_prepare = json!({"schemaVersion":1,"access":access,
+        "additionalAccesses":[second],"input":{}});
+    assert!(serde_json::from_value::<Prepare>(multi_prepare.clone()).is_ok());
+    let mut unknown = multi_prepare;
+    unknown["sourcePaths"] = json!(["C:\\secret"]);
+    assert!(serde_json::from_value::<Prepare>(unknown).is_err());
 }

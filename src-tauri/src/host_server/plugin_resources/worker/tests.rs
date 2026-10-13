@@ -11,6 +11,9 @@ fn strict_invocation_cancellation_and_scope_reject_unknown_fields() {
     let access = json!({"schemaVersion":1,"owner":{"runtimeId":"r","sessionId":"s","pluginId":"p","capabilityId":"c"},"resourceId":uuid::Uuid::new_v4(),"contentVersion":"0".repeat(64)});
     let mut input = json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}});
     assert!(serde_json::from_value::<Invoke>(input.clone()).is_ok());
+    input["additionalAccesses"] = json!([access]);
+    assert!(serde_json::from_value::<Invoke>(input.clone()).is_err());
+    input.as_object_mut().unwrap().remove("additionalAccesses");
     input["workerPath"] = json!("forbidden");
     assert!(serde_json::from_value::<Invoke>(input).is_err());
     let mut cancel =
@@ -88,6 +91,13 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
             i32.const 0 call $size i64.const 300000 i64.ne if unreachable end
             i32.const 0 i64.const 299992 i32.const 73 i32.const 8 call $read
             i32.const 8 i32.ne if unreachable end
+            i32.const 1 call $size i64.const -1 i64.ne if
+                i32.const 1 call $size i64.const 8 i64.ne if unreachable end
+                i32.const 1 i64.const 0 i32.const 128 i32.const 8 call $read
+                i32.const 8 i32.ne if unreachable end
+                i32.const 128 i32.load i32.const 0x6f636573 i32.ne if unreachable end
+                i32.const 132 i32.load i32.const 0x2121646e i32.ne if unreachable end
+            end
             i32.const 0 i32.const 64 i32.store i32.const 4 i32.const 19 i32.store
             i32.const 1 i32.const 0 i32.const 1 i32.const 24 call $write drop))"#).unwrap();
     let metadata =
