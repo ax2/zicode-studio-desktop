@@ -34,6 +34,8 @@ applicationName、publisher、version、enabled、status、runtime；不含输�
 执行仍通过现有能力接口完成所有Host检查；本接口没有增加执行、取消或保存功能。
 不得把详情加载当作指定自定义View已定位，tool.open.v1仍为待版本化需求。
 
+`resourceOnly=true` 限定已启用、获授 `resource.read` 的 WASI draft2 文件资源工具；可进一步带经过验证的 `fileName` 匹配插件后缀声明。`directoryOnly=true` 单独限定已启用、同时声明并获授 `resource.read` 与 `resource.directory.read` 的 WASI draft2 工具；两种筛选不能同时使用。目录筛选只读元数据，不选择目录、读取名称、加载工具或执行。可信工具中心仅在当前桌面网关提供项目目录选择器时显示该选项；用户选择工具后仍需分别选择目录、确认共享和执行。
+
 ## 实现与验证边界
 
 注册表实现位于plugin_registry/manual_catalog.rs，HTTP适配位于host_server/manual_tool_catalog.rs；

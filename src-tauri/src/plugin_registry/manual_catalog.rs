@@ -35,6 +35,8 @@ pub(crate) struct CatalogQuery {
     pub category_id: Option<String>,
     #[serde(default)]
     pub resource_only: bool,
+    #[serde(default)]
+    pub directory_only: bool,
     pub file_name: Option<String>,
 }
 
@@ -73,7 +75,8 @@ impl PluginRegistry {
         access: Option<&crate::metadata_store::tool_access::ToolAccess>,
     ) -> Result<Value, &'static str> {
         invalid_scene(&request.scene_id)?;
-        if request.file_name.as_deref().is_some_and(|name| !request.resource_only || !file_input::valid_name(name)) {
+        if (request.resource_only && request.directory_only)
+            || request.file_name.as_deref().is_some_and(|name| !request.resource_only || !file_input::valid_name(name)) {
             return Err("invalid_parameters");
         }
         if request.query.len() > 512 || request.offset > 1_000_000
@@ -123,12 +126,18 @@ impl PluginRegistry {
             };
             let enabled = self.manual_enabled(&request.scene_id, plugin);
             // Metadata-only eligibility; the transfer Host rechecks authority and module bytes.
-            if request.resource_only && (!enabled
+            if (request.resource_only || request.directory_only) && (!enabled
                 || manifest.runtime.get("wasi").and_then(Value::as_str).is_none()
                 || manifest.runtime.get("resourceInputProfile").and_then(Value::as_str) != Some("resource.wasi.input.draft2")
                 || !manifest.permissions.required.iter().chain(&manifest.permissions.optional).any(|p| p.name == "resource.read")
                 || !self.state.scenes.get(&request.scene_id).and_then(|s| s.get(&manifest.id))
                     .and_then(|s| s.permissions.get("resource.read")).copied().unwrap_or(plugin.origin == PluginOrigin::BuiltIn)) {
+                continue;
+            }
+            if request.directory_only && (!manifest.permissions.required.iter().chain(&manifest.permissions.optional)
+                .any(|p| p.name == "resource.directory.read")
+                || !self.state.scenes.get(&request.scene_id).and_then(|s| s.get(&manifest.id))
+                    .and_then(|s| s.permissions.get("resource.directory.read")).copied().unwrap_or(false)) {
                 continue;
             }
             for cap in caps {

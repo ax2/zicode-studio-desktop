@@ -55,7 +55,10 @@ describe("ZiFile integration scope receipt", () => {
       profile: "resource.local-directory.draft1",
       maxEntries: 4096,
       maxSnapshotBytes: 2097152,
-      userInterfaceReady: false,
+      userInterfaceReady: true,
+      nativeWindowsVerified: true,
+      providerPackageVerified: false,
+      crossPlatformVerified: false,
       archiveOperationsAccepted: false,
     });
   });

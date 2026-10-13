@@ -29,6 +29,7 @@ const zhCN = {
   "Plugin declares a matching filename suffix": "插件声明匹配此文件名",
   "Plugin has not declared file types": "插件未声明文件类型",
   "Only file resource tools": "仅显示文件资源工具",
+  "Only project directory tools": "仅显示项目目录工具",
   "Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.": "仅显示已启用且获准接收文件的工具。文件类型提示来自插件声明，提供文件前请核对支持范围。",
   "The opened file could not be checked. You can select the file tool filter manually.": "未能检查已打开的文件，可以手动选择文件工具筛选。",
   "Choose from current project": "从当前项目选择",

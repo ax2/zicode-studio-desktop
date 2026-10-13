@@ -71,6 +71,23 @@ it("keeps normal launches unfiltered and lets users opt into file tools", async 
   expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0 }));
 });
 
+it("filters project directory tools separately without choosing or executing a directory", async () => {
+  const gateway = { ...api(), projectDirectories: { choose: vi.fn(async () => null) } };
+  const container = await mount(gateway);
+  const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+  expect(boxes).toHaveLength(2);
+  await act(async () => { boxes[1].click(); await vi.advanceTimersByTimeAsync(201); });
+  expect(boxes[1].checked).toBe(true);
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ directoryOnly: true, offset: 0, revision: null }));
+  await act(async () => { boxes[0].click(); await vi.advanceTimersByTimeAsync(201); });
+  expect(boxes[0].checked).toBe(true);
+  expect(boxes[1].checked).toBe(false);
+  expect(gateway.searchTools.mock.lastCall?.[1].directoryOnly).toBeUndefined();
+  expect(gateway.projectDirectories.choose).not.toHaveBeenCalled();
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
 it("keeps full opened-tool names and reveals the selected item without executing or reloading it", async () => {
   const gateway = api();
   const container = await mount(gateway);

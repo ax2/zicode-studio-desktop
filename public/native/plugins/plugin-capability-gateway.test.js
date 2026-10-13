@@ -97,14 +97,17 @@ describe("PluginCapabilityGateway", () => {
     await gateway.searchTools("programming", { fileName: "中文 & FILE.TXT" });
     expect(fetchImpl.mock.calls[1][0].searchParams.has("resourceOnly")).toBe(false);
     expect(fetchImpl.mock.calls[1][0].searchParams.has("fileName")).toBe(false);
+    await gateway.searchTools("programming", { directoryOnly: true });
+    expect(fetchImpl.mock.calls[2][0].searchParams.get("directoryOnly")).toBe("true");
+    expect(fetchImpl.mock.calls[2][0].searchParams.has("resourceOnly")).toBe(false);
     const source = { schemaVersion: 1, owner: { pluginId: "a" }, resourceId: "r", contentVersion: "v" };
     const target = { pluginId: "b" };
     await gateway.prepareResourceTransfer(source, target);
     await gateway.commitResourceTransfer(source, "grant");
-    expect(fetchImpl.mock.calls[2][0].pathname).toBe("/v2/plugin-resources/prepare-transfer");
-    expect(JSON.parse(fetchImpl.mock.calls[2][1].body)).toEqual({ schemaVersion: 1, source, target });
-    expect(fetchImpl.mock.calls[3][0].pathname).toBe("/v2/plugin-resources/commit-transfer");
-    expect(JSON.parse(fetchImpl.mock.calls[3][1].body)).toEqual({ schemaVersion: 1, source, grantId: "grant", confirmed: true });
+    expect(fetchImpl.mock.calls[3][0].pathname).toBe("/v2/plugin-resources/prepare-transfer");
+    expect(JSON.parse(fetchImpl.mock.calls[3][1].body)).toEqual({ schemaVersion: 1, source, target });
+    expect(fetchImpl.mock.calls[4][0].pathname).toBe("/v2/plugin-resources/commit-transfer");
+    expect(JSON.parse(fetchImpl.mock.calls[4][1].body)).toEqual({ schemaVersion: 1, source, grantId: "grant", confirmed: true });
   });
   it("passes category selection to Host and keeps old directory requests compatible", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ items: [] }) }));

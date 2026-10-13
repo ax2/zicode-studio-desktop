@@ -80,3 +80,29 @@ fn resource_targets_are_metadata_only_permission_scoped_and_paged() {
     let normal = CatalogQuery { resource_only: false, ..first };
     assert_eq!(registry.manual_catalog(&normal).unwrap()["total"], 205);
 }
+
+#[test]
+fn directory_targets_require_the_extra_grant_and_reject_mixed_filters() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read chosen resource"},
+        {"name":"resource.directory.read","reason":"read chosen directory names"}
+    ])).unwrap();
+    let query = CatalogQuery { scene_id: "programming".into(), directory_only: true, ..Default::default() };
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.directory.read".into(), true);
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 205);
+    assert_eq!(page["items"].as_array().unwrap().len(), 40);
+    assert!(!page.to_string().contains("inputSchema"));
+    let mixed = CatalogQuery { resource_only: true, ..query };
+    assert!(registry.manual_catalog(&mixed).is_err());
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.directory.read".into(), false);
+    let revoked = CatalogQuery { resource_only: false, ..mixed };
+    assert_eq!(registry.manual_catalog(&revoked).unwrap()["total"], 0);
+}

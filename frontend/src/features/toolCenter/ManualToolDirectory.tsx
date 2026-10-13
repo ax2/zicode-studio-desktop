@@ -21,6 +21,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const [source, setSource] = useState("");
   const [category, setCategory] = useState("");
   const fileFilter = useFileToolFilter(api, scope);
+  const [directoryOnly, setDirectoryOnly] = useState(false);
   const [cursor, setCursor] = useState<{ offset: number; revision: string | null; accessRevision?: number | null }>({ offset: 0, revision: null });
   const [page, setPage] = useState<ToolPage | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const selectedButton = useRef<HTMLButtonElement>(null);
   const consumedRequest = useRef<ToolOpenRequest | undefined>(undefined);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter, workspace or plugin catalog invalidates the cursor.
-  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, scope.sceneId, scope.workspaceId, catalogRevision]);
+  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, directoryOnly, scope.sceneId, scope.workspaceId, catalogRevision]);
   useEffect(() => {
     setCloseTarget(previous => previous && (previous.sceneId !== scope.sceneId || previous.workspaceId !== scope.workspaceId) ? null : previous);
   }, [scope.sceneId, scope.workspaceId]);
@@ -88,6 +89,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     const timer = setTimeout(() => {
       void api.searchTools(scope.sceneId, { query, ...cursor,
         ...(fileFilter.enabled ? { resourceOnly: true } : {}),
+        ...(directoryOnly ? { directoryOnly: true } : {}),
         ...(fileFilter.enabled && fileFilter.fileName ? { fileName: fileFilter.fileName } : {}),
         ...(source ? { pluginId: source } : {}),
         ...(category ? { categoryId: category } : {}),
@@ -97,7 +99,7 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled, fileFilter.fileName]);
+  }, [api, scope.sceneId, scope.workspaceId, query, cursor, view, source, category, fileFilter.ready, fileFilter.enabled, fileFilter.fileName, directoryOnly]);
   return <div className="manual-tool-directory" ref={directory}>
     <fieldset ref={switcher} className="ui-toolbar tool-open-switcher" aria-label={t("Opened tools")}>
       <button ref={activeTool === null ? selectedButton : undefined} data-open-tool-id="" type="button" className="ui-button ui-button--secondary" aria-pressed={activeTool === null} onClick={() => setActiveTool(null)}>{t("Tool directory")}</button>
@@ -118,8 +120,12 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     </fieldset>}
     <label className="tool-input-field">
       <span><input type="checkbox" checked={fileFilter.enabled} disabled={!fileFilter.ready}
-        onChange={event => { fileFilter.setEnabled(event.target.checked); setCursor({ offset: 0, revision: null }); }} /> {t("Only file resource tools")}</span>
+        onChange={event => { fileFilter.setEnabled(event.target.checked); if (event.target.checked) setDirectoryOnly(false); setCursor({ offset: 0, revision: null }); }} /> {t("Only file resource tools")}</span>
     </label>
+    {typeof api.projectDirectories?.choose === "function" && <label className="tool-input-field">
+      <span><input type="checkbox" checked={directoryOnly} disabled={!fileFilter.ready}
+        onChange={event => { setDirectoryOnly(event.target.checked); if (event.target.checked) fileFilter.setEnabled(false); setCursor({ offset: 0, revision: null }); }} /> {t("Only project directory tools")}</span>
+    </label>}
     <div className="tool-directory-filters">
     {page?.sources && <label className="tool-input-field">{t("Tool source")}
       <select className="ui-select" aria-label={t("Tool source")} value={source} disabled={loading} onChange={event => {
