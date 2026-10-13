@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.trace","sceneId":"coding","capabilityId":"devtools.trace.django.trace","commandId":null,"input":{"text":"Traceback (most recent call last):\n  File \"项目/视图.py\", line 15, in detail\ndjango.urls.exceptions.NoReverseMatch: 无法反向解析"}}

@@ -43,7 +43,10 @@ pub(super) async fn run_compute_candidate(
     .unwrap();
     let capability_prefix = format!("devtools.{family}.");
     let samples: Vec<Value> = cases["cases"].as_array().unwrap().iter()
-        .filter(|case| case["id"].as_str().unwrap().ends_with("-sample"))
+        .filter(|case| {
+            let id = case["id"].as_str().unwrap();
+            id.ends_with("-sample") || (family == "trace" && matches!(id, "java-single" | "python-single"))
+        })
         .map(|case| json!({"id":case["capabilityId"].as_str().unwrap().strip_prefix(capability_prefix.as_str()).unwrap(),"input":case["input"],"expectedText":case["expectedText"]}))
         .collect();
     assert_eq!(samples.len(), operation_count);

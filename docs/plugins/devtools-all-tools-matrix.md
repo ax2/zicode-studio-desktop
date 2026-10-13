@@ -6,7 +6,7 @@
 
 此前Windows开发Host通用工具工作台的Base64编码实际worker_timeout（5220ms）保留为previousManualToolAcceptance。优化dev运行时编译热点后，当前debug EXE的真实搜索→表单→编码/解码→结果分别494/626ms成功，工具页切换保留输入/结果。后续精确恢复5个JSON原冻结摘要，13文件及既有真实HTTP专项重新通过，旧失败保留。当前Inspect84/Transforms164个可表达Worker语义用例全通过，20个raw用例仍未覆盖；真实工作台JSON→YAML/URL解码基本样例1252/1015ms通过。见currentRuntimeVerification及iterations/fixture-integrity-2026-10-09；不替代Pi、完整scope或其他OS验收，完整接受仍0。
 
-状态统计：首批子能力已验证3项；候选包已接收待验收24项；待提供方插件包17项；待Host扩展43项；提供方规划未实现43项；提供方部分实现20项；待Host接口映射4项。
+状态统计：首批子能力已验证3项；候选包已接收待验收26项；待提供方插件包15项；待Host扩展43项；提供方规划未实现43项；提供方部分实现20项；待Host接口映射4项。
 
 | ID / 工具 | 独立版版本 / 状态 | 插件状态 | 接入评审路径 | 当前原因 |
 | --- | --- | --- | --- | --- |
@@ -125,8 +125,8 @@
 | docker-panel / Docker 本地面板 | 0.0.0 / planned | 提供方规划未实现 | service.v1 / 受控进程扩展 | 提供方目录标记planned，尚无该条目实现及插件交付证据。当前插件不能执行本机程序或读取任意环境配置；需用户指定可信程序、固定/受限参数、目录授权、超时取消和日志预算，不能调用DevTools.exe代替插件。 |
 | git-workbench / Git 工作区面板 | 0.0.0 / planned | 提供方规划未实现 | service.v1 / 受控进程扩展 | 提供方目录标记planned，尚无该条目实现及插件交付证据。当前插件不能执行本机程序或读取任意环境配置；需用户指定可信程序、固定/受限参数、目录授权、超时取消和日志预算，不能调用DevTools.exe代替插件。 |
 | parquet-workbench / Parquet / Arrow 工作台 | 0.0.0 / planned | 提供方规划未实现 | resource.v1；纯计算子集可先交付 | 提供方目录标记planned，尚无该条目实现及插件交付证据。缺少供第三方插件使用的通用资源句柄、流式读取/取消、结果存储与用户确认写入接口；Host已有内置能力不等于插件已可调用。 |
-| java-trace / Java 异常链 | 1.0.2 / implemented | 待提供方插件包 | compute.wasi.v1 / 新工具输入输出契约 | 没有交付该工具完整范围的独立WASI包；需固定输入/输出schema、工具版本、资源预算与正反例；首批仅text输入和8192字节不能直接覆盖所有新操作。 |
-| django-trace / Django / Python 堆栈 | 1.0.2 / implemented | 待提供方插件包 | compute.wasi.v1 / 新工具输入输出契约 | 没有交付该工具完整范围的独立WASI包；需固定输入/输出schema、工具版本、资源预算与正反例；首批仅text输入和8192字节不能直接覆盖所有新操作。 |
+| java-trace / Java 异常链 | 1.0.3 / implemented | 候选包已接收待验收 | compute.wasi.v1 / 新工具输入输出契约 | 未签名trace 0.1.0候选346文件摘要一致；Windows Pi/Host/Worker基本样例和10阶段权限通过。原生View、全部边界、签名安装及其他OS未验收。 |
+| django-trace / Django / Python 堆栈 | 1.0.3 / implemented | 候选包已接收待验收 | compute.wasi.v1 / 新工具输入输出契约 | 未签名trace 0.1.0候选346文件摘要一致；Windows Pi/Host/Worker基本样例和10阶段权限通过。原生View、全部边界、签名安装及其他OS未验收。 |
 | java-thread-dump / Java 线程转储分析 | 1.1.3 / implemented | 候选包已接收待验收 | diagnostics.compute.wasi.v1.proposal / 完整范围另行映射 | 已接收unsigned诊断候选0.1.2/工具1.1.3，456文件摘要一致；仅覆盖导入jstack/jcmd文本分析，不采集进程。Windows生产Worker 141/142语义结果通过、1失败，46原始字节用例不可由Worker原样交付单列skipped。保留candidate01/02失败证据。正式诊断profile/完整scope/签名安装与升级回滚/模型自主选工具/签名更新回滚/执行中取消生命周期/结果操作及其他OS仍待验收。 新包实际Windows发现/加载/Host-WASI-View的11基本样例和一次恢复通过，不替代边界、完整scope或正式profile验收。 新包真实Pi11报告、10授权阶段、55逐能力缓存拒绝与5独立工具对照通过，原候选02失败保留。 |
 | java-dependencies / Maven / Gradle 依赖冲突 | 1.1.3 / implemented | 候选包已接收待验收 | diagnostics.compute.wasi.v1.proposal / 完整范围另行映射 | 已接收unsigned诊断候选0.1.2/工具1.1.3，456文件摘要一致；仅覆盖导入Maven/Gradle依赖文本，不执行构建。Windows生产Worker 141/142语义结果通过、1失败，46原始字节用例不可由Worker原样交付单列skipped。保留candidate01/02失败证据。正式诊断profile/完整scope/签名安装与升级回滚/模型自主选工具/签名更新回滚/执行中取消生命周期/结果操作及其他OS仍待验收。 新包实际Windows发现/加载/Host-WASI-View的11基本样例和一次恢复通过，不替代边界、完整scope或正式profile验收。 新包真实Pi11报告、10授权阶段、55逐能力缓存拒绝与5独立工具对照通过，原候选02失败保留。 |
 | java-environment / JDK / 构建环境诊断 | 1.0.0 / implemented | 待Host扩展 | service.v1 / 受控进程扩展 | 当前插件不能执行本机程序或读取任意环境配置；需用户指定可信程序、固定/受限参数、目录授权、超时取消和日志预算，不能调用DevTools.exe代替插件。 |

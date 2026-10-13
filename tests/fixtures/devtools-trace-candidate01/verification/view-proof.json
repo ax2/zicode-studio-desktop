@@ -1,0 +1,33 @@
+{
+  "wasmSha256": "bb77ecac41351a9a8c3886dc0400c2705dd2003d3cfb52aa29e011d3ff43a35e",
+  "viewSha256": "e584b1679b9bfe6e4d9fef29b12ec88c0e225a4a009353a3d27bf4568eb3d82c",
+  "passed": true,
+  "offlinePass": true,
+  "results": [
+    {
+      "theme": "light",
+      "width": 1180,
+      "calls": 7,
+      "pass": true,
+      "actualWasi": true,
+      "actions": [
+        "java.trace",
+        "django.trace"
+      ]
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "calls": 7,
+      "pass": true,
+      "actualWasi": true,
+      "actions": [
+        "java.trace",
+        "django.trace"
+      ]
+    }
+  ],
+  "limitations": [
+    "Injected public SDK and actual WASI; not Studio desktop or native GUI acceptance"
+  ]
+}

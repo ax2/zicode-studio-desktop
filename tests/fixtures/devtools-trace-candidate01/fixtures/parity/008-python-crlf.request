@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.trace","sceneId":"coding","capabilityId":"devtools.trace.django.trace","commandId":null,"input":{"text":"Traceback (most recent call last):\r\n  File \"views.py\", line 7, in index\r\nValueError: bad"}}

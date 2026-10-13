@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.trace","sceneId":"coding","capabilityId":"devtools.trace.java.trace","commandId":null,"input":{"text":"java.lang.RuntimeException: outer\n\tat demo.Main.run(Unknown Source)\n\t... 3 common frames omitted"}}

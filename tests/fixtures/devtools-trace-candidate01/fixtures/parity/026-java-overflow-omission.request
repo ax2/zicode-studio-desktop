@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.trace","sceneId":"coding","capabilityId":"devtools.trace.java.trace","commandId":null,"input":{"text":"java.lang.RuntimeException: outer\n... 99999999999999999999999999 more"}}

@@ -19,6 +19,8 @@ mod compute_candidate_pi_tests;
 #[cfg(test)]
 mod inspect_pi_tests;
 #[cfg(test)]
+mod trace_pi_tests;
+#[cfg(test)]
 mod devtools_view_tests;
 mod git_stage;
 mod lifecycle;
