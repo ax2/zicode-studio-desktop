@@ -20,6 +20,9 @@ export class PluginCapabilityGateway {
     pickProjectDirectory = globalThis.__TAURI__?.core?.invoke
       ? workspaceId => globalThis.__TAURI__.core.invoke("select_project_resource_directory", { workspaceId })
       : null,
+    getProjectDirectoryEntry = globalThis.__TAURI__?.core?.invoke
+      ? workspaceId => globalThis.__TAURI__.core.invoke("get_project_directory_entry", { workspaceId })
+      : null,
   } = {}) {
     if (typeof fetchImpl !== "function") {
       throw new Error("Plugin capability gateway requires fetch");
@@ -39,6 +42,7 @@ export class PluginCapabilityGateway {
     } : null;
     this.projectDirectories = typeof pickProjectDirectory === "function" ? {
       choose: pickProjectDirectory,
+      entry: getProjectDirectoryEntry,
       prepare: (owner, relativePath) => this.#request(this.#url("/v2/plugin-resources/prepare-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath }) }),
       commit: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }) }),
       cancel: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/cancel-local-directory"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),

@@ -82,7 +82,7 @@ use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use explorer_menu::desktop_explorer_menu;
 mod project_file_picker;
-use project_file_picker::{get_project_resource_entry, select_project_resource_directory, select_project_resource_file};
+use project_file_picker::{get_project_directory_entry, get_project_resource_entry, select_project_resource_directory, select_project_resource_file};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_dialog::MessageDialogKind;
 use tauri_plugin_updater::UpdaterExt;
@@ -1926,6 +1926,7 @@ fn main() {
             select_project_resource_file,
             select_project_resource_directory,
             get_project_resource_entry,
+            get_project_directory_entry,
             desktop_entry_mode,
             open_folder_as_workspace,
             select_and_install_developer_plugin,

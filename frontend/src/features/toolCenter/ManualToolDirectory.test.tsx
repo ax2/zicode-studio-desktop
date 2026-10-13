@@ -88,6 +88,31 @@ it("filters project directory tools separately without choosing or executing a d
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
+it("defaults an Explorer folder launch to directory tools and restores all tools on request", async () => {
+  const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => null) },
+    projectDirectories: { entry: vi.fn(async () => "."), choose: vi.fn(async () => null) } };
+  const container = await mount(gateway);
+  expect(gateway.projectDirectories.entry).toHaveBeenCalledWith(scope.workspaceId);
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId,
+    expect.objectContaining({ directoryOnly: true, offset: 0, revision: null }));
+  const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+  expect(boxes[0].checked).toBe(false);
+  expect(boxes[1].checked).toBe(true);
+  await act(async () => { boxes[1].click(); await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools.mock.lastCall?.[1].directoryOnly).toBeUndefined();
+  expect(gateway.projectDirectories.choose).not.toHaveBeenCalled();
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("falls back to the full directory when the Explorer folder hint fails", async () => {
+  const gateway = { ...api(), projectDirectories: { entry: vi.fn(async () => { throw Error("unavailable"); }), choose: vi.fn(async () => null) } };
+  const container = await mount(gateway);
+  expect(container.textContent).toContain("The opened folder could not be checked");
+  expect(gateway.searchTools.mock.lastCall?.[1].directoryOnly).toBeUndefined();
+  expect(gateway.projectDirectories.choose).not.toHaveBeenCalled();
+});
+
 it("keeps full opened-tool names and reveals the selected item without executing or reloading it", async () => {
   const gateway = api();
   const container = await mount(gateway);

@@ -85,6 +85,28 @@ pub fn get_project_resource_entry(
     relative(&root, file).map(Some)
 }
 
+/// A folder launch is only a directory-tool discovery hint. It grants no read
+/// access and never exposes the absolute Explorer path to the WebView.
+#[tauri::command]
+pub fn get_project_directory_entry(
+    window: WebviewWindow,
+    workspace_id: String,
+) -> Result<Option<&'static str>, String> {
+    current(&window, &workspace_id)?;
+    let root = window
+        .state::<HostServer>()
+        .project_resource_root(&workspace_id)?;
+    Ok(directory_entry(
+        &root,
+        crate::explorer_entry::folder(),
+        crate::explorer_entry::drive_root_folder(),
+    ))
+}
+
+fn directory_entry(root: &Path, selected: Option<&Path>, drive_root: bool) -> Option<&'static str> {
+    (!drive_root && selected == Some(root)).then_some(".")
+}
+
 #[tauri::command]
 pub async fn select_project_resource_file(
     app: AppHandle,
@@ -120,6 +142,15 @@ pub async fn select_project_resource_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn folder_launch_hint_is_scoped_to_the_selected_project_and_not_the_drive() {
+        let selected = Path::new("selected-project");
+        let other = Path::new("other-project");
+        assert_eq!(directory_entry(selected, Some(selected), false), Some("."));
+        assert_eq!(directory_entry(other, Some(selected), false), None);
+        assert_eq!(directory_entry(selected, Some(selected), true), None);
+        assert_eq!(directory_entry(selected, None, false), None);
+    }
     #[test]
     fn selected_file_must_be_inside_project_and_only_relative_name_is_returned() {
         let scratch =

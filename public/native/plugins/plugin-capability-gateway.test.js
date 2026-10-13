@@ -39,8 +39,11 @@ describe("PluginCapabilityGateway", () => {
   it("keeps directory selection separate from explicit metadata sharing", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const choose = vi.fn(async () => "folder");
-    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" }, pickProjectDirectory: choose });
+    const entry = vi.fn(async () => ".");
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" }, pickProjectDirectory: choose, getProjectDirectoryEntry: entry });
     const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    expect(await gateway.projectDirectories.entry("workspace")).toBe(".");
+    expect(entry).toHaveBeenCalledWith("workspace");
     expect(await gateway.projectDirectories.choose("workspace")).toBe("folder");
     expect(fetchImpl).not.toHaveBeenCalled();
     await gateway.projectDirectories.prepare(owner, "folder");

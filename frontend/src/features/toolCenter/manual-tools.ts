@@ -19,7 +19,7 @@ export interface ToolDetail {
 }
 export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<ManualCallApi> {
   projectFiles?: { entry?: ((workspaceId: string) => Promise<unknown>) | null } | null;
-  projectDirectories?: { choose?: ((workspaceId: string) => Promise<unknown>) | null } | null;
+  projectDirectories?: { choose?: ((workspaceId: string) => Promise<unknown>) | null; entry?: ((workspaceId: string) => Promise<unknown>) | null } | null;
   resourceCalls?: { list(scope: { sceneId: string; workspaceId: string }): Promise<unknown[]> };
   reconcileResourceCall?: (...args: unknown[]) => Promise<unknown>;
   searchTools(sceneId: string, options: { query: string; offset: number; revision: string | null;
