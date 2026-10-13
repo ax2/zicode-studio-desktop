@@ -135,6 +135,18 @@ impl ArchivePageCursors {
             pending.retain(|_, entry| entry.binding.resource_id != resource_id);
         }
     }
+
+    pub(crate) fn invalidate_plugin(&self, plugin_id: &str) {
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.retain(|_, entry| entry.binding.plugin_id != plugin_id);
+        }
+    }
+
+    pub(crate) fn invalidate_all(&self) {
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.clear();
+        }
+    }
 }
 
 pub(crate) fn valid_provider_cursor(cursor: &str) -> bool {
@@ -212,5 +224,21 @@ mod tests {
             store.seal(binding(), "abcdefghijklmnop"),
             Err("archive_cursor_capacity")
         );
+    }
+
+    #[test]
+    fn plugin_lifecycle_releases_only_its_pending_cursors() {
+        let store = ArchivePageCursors::default();
+        let original = binding();
+        let first = store.seal(original.clone(), "abcdefghijklmnop").unwrap();
+        let mut other = original.clone();
+        other.plugin_id = "com.example.other".into();
+        let second = store.seal(other.clone(), "ponmlkjihgfedcba").unwrap();
+        store.invalidate_plugin(&original.plugin_id);
+        assert_eq!(store.take(&first, &original), Err("archive_cursor_invalid"));
+        assert_eq!(store.take(&second, &other), Ok("ponmlkjihgfedcba".into()));
+        let third = store.seal(other.clone(), "ponmlkjihgfedcba").unwrap();
+        store.invalidate_all();
+        assert_eq!(store.take(&third, &other), Err("archive_cursor_invalid"));
     }
 }

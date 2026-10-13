@@ -946,11 +946,13 @@ impl HostServer {
     }
 
     pub fn install_developer_plugin(&self, source: &std::path::Path) -> Result<String, String> {
-        self.state
+        let plugin_id = self.state
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .install_developer(source)
+            .install_developer(source)?;
+        self.state.archive_page_cursors.invalidate_plugin(&plugin_id);
+        Ok(plugin_id)
     }
 
     pub fn preview_signed_plugin(
@@ -969,11 +971,13 @@ impl HostServer {
         package: &std::path::Path,
         trust_publisher: bool,
     ) -> Result<String, String> {
-        self.state
+        let plugin_id = self.state
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .install_signed(package, trust_publisher)
+            .install_signed(package, trust_publisher)?;
+        self.state.archive_page_cursors.invalidate_plugin(&plugin_id);
+        Ok(plugin_id)
     }
 
     pub fn rollback_signed_plugin(&self, plugin_id: &str, version: &str) -> Result<(), String> {
@@ -981,7 +985,9 @@ impl HostServer {
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .rollback_signed(plugin_id, version)
+            .rollback_signed(plugin_id, version)?;
+        self.state.archive_page_cursors.invalidate_plugin(plugin_id);
+        Ok(())
     }
 
     pub fn revoke_plugin_publisher(&self, key_id: &str) -> Result<(), String> {
@@ -989,7 +995,9 @@ impl HostServer {
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .revoke_signed_publisher(key_id)
+            .revoke_signed_publisher(key_id)?;
+        self.state.archive_page_cursors.invalidate_all();
+        Ok(())
     }
 
     pub fn stop(mut self) {
@@ -3905,6 +3913,7 @@ async fn set_plugin_enablement(
                 &message,
             )
         })?;
+    state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -3933,6 +3942,7 @@ async fn set_plugin_permission(
                 &message,
             )
         })?;
+    state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -3954,6 +3964,7 @@ async fn reload_plugins(
             &message,
         )
     })?;
+    state.archive_page_cursors.invalidate_all();
     Ok(Json(json!({
         "reloaded": true,
         "diagnostics": registry.diagnostics(),
@@ -3976,6 +3987,7 @@ async fn uninstall_plugin(
                 &message,
             )
         })?;
+    state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "uninstalled": true,
@@ -7338,6 +7350,7 @@ mod tests {
                 "description": "Host API lifecycle test plugin",
                 "version": "1.0.0",
                 "publisher": "example",
+                "permissions": { "required": [], "optional": [{ "name": "storage.plugin", "reason": "Cursor lifecycle fixture" }] },
                 "contributes": {
                     "commands": [{ "id": "hostTest.run", "title": "Run" }]
                 }
@@ -7354,6 +7367,20 @@ mod tests {
             host.install_developer_plugin(&source).unwrap(),
             "com.example.host-test"
         );
+        let binding = crate::plugin_archive_cursor::Binding {
+            plugin_id: "com.example.host-test".into(),
+            package_version: "1.0.0".into(),
+            capability_id: "archive.list".into(),
+            scene_id: "programming".into(),
+            runtime_id: "runtime-a".into(),
+            session_id: "session-a".into(),
+            resource_id: "resource-a".into(),
+            content_version: "sha256:a".into(),
+            query: String::new(),
+            page_size: 20,
+        };
+        let provider_cursor = "abcdefghijklmnop";
+        let before_reload = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
         let client = reqwest::Client::builder().no_proxy().build().unwrap();
 
         let reload = client
@@ -7364,6 +7391,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(reload.status(), reqwest::StatusCode::OK);
+        assert_eq!(host.state.archive_page_cursors.take(&before_reload, &binding), Err("archive_cursor_invalid"));
         let listed: serde_json::Value = client
             .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
             .send()
@@ -7378,6 +7406,28 @@ mod tests {
             .iter()
             .any(|plugin| plugin["id"] == "com.example.host-test"));
 
+        let before_disabling = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+        let disabled = client
+            .post(format!("{}/v2/plugins/enablement", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&json!({"sceneId":"programming","pluginId":"com.example.host-test","enabled":false}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(disabled.status(), reqwest::StatusCode::OK);
+        assert_eq!(host.state.archive_page_cursors.take(&before_disabling, &binding), Err("archive_cursor_invalid"));
+        let before_permission = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+        let permission = client
+            .post(format!("{}/v2/plugins/permission", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&json!({"sceneId":"programming","pluginId":"com.example.host-test","permission":"storage.plugin","granted":false}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(permission.status(), reqwest::StatusCode::OK);
+        assert_eq!(host.state.archive_page_cursors.take(&before_permission, &binding), Err("archive_cursor_invalid"));
+        let before_uninstall = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+
         let uninstalled: serde_json::Value = client
             .post(format!("{}/v2/plugins/uninstall", host.origin()))
             .header("x-zicode-desktop-token", host.desktop_token())
@@ -7390,6 +7440,7 @@ mod tests {
             .unwrap();
         assert_eq!(uninstalled["uninstalled"], true);
         assert_eq!(uninstalled["dataPreserved"], true);
+        assert_eq!(host.state.archive_page_cursors.take(&before_uninstall, &binding), Err("archive_cursor_invalid"));
         assert!(source.join("plugin.json").is_file());
 
         host.stop_and_wait().await.unwrap();
