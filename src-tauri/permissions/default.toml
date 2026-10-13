@@ -225,6 +225,7 @@ permissions = [
   "allow-open-desktop-tool-center",
   "allow-set-desktop-tray-locale",
   "allow-get-project-resource-entry",
+  "allow-desktop-entry-mode",
   "allow-select-project-resource-file",
   "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",
@@ -272,3 +273,8 @@ permissions = [
 identifier = "allow-get-project-resource-entry"
 description = "Allow a trusted workspace window to inspect its explicit file launch name without reading content."
 commands.allow = ["get_project_resource_entry"]
+
+[[permission]]
+identifier = "allow-desktop-entry-mode"
+description = "Allow a trusted workspace window to identify its explicit desktop launch mode."
+commands.allow = ["desktop_entry_mode"]

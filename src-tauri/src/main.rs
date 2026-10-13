@@ -17,6 +17,7 @@ mod credential_broker;
 mod desktop_profile;
 mod desktop_tray;
 use desktop_tray::set_desktop_tray_locale;
+use explorer_entry::desktop_entry_mode;
 mod desktop_tools;
 use desktop_tools::open_desktop_tool_center;
 mod explorer_entry;
@@ -1921,6 +1922,7 @@ fn main() {
             desktop_explorer_menu,
             select_project_resource_file,
             get_project_resource_entry,
+            desktop_entry_mode,
             open_folder_as_workspace,
             select_and_install_developer_plugin,
             select_signed_plugin_package,

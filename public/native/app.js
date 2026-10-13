@@ -126,6 +126,10 @@ const route = parseAppRoute(window.location.pathname);
 if (route.name !== "session")
   throw new Error("Native ZiCode Studio Desktop requires a session route");
 
+const desktopEntryMode = globalThis.__TAURI__?.core?.invoke
+  ? globalThis.__TAURI__.core.invoke("desktop_entry_mode").catch(() => "regular")
+  : Promise.resolve("regular");
+
 initializeI18n();
 setupDesktopTrayLocale({ invoke: globalThis.__TAURI__?.core?.invoke, getLocale });
 applyTheme(getCurrentTheme());
@@ -1916,6 +1920,7 @@ document.addEventListener("sa-answer-task", async (event) => {
 
 async function handleSuperAgentStartupSessions(sessions) {
   if (target.runtimeMode === "tools" || route.sessionId.startsWith("tools-")) return;
+  if ((await desktopEntryMode) !== "regular") return;
   const action = selectSuperAgentStartupAction({
     alreadyLaunched: wasSuperAgentLaunched(),
     enabled: isSuperAgentEnabled(),
@@ -1939,6 +1944,7 @@ function taskCallForDispatchedInstance(instanceId) {
 
 async function ensureSuperAgentStartupSession({ reloadAfterEnsure = true } = {}) {
   if (target.runtimeMode === "tools" || route.sessionId.startsWith("tools-")) return;
+  if ((await desktopEntryMode) !== "regular") return;
   const invoke = globalThis.__TAURI__?.core?.invoke;
   if (!invoke || !isSuperAgentEnabled()) return;
   if (!superAgentEnsureInFlight) {

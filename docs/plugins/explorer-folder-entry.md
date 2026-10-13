@@ -10,6 +10,8 @@
 
 2026-10-13 实体复验修正：单文件夹传统菜单出现并成功传入`.zicode`测试文件夹；目录背景虽然状态为4/4，实际菜单最初没有Studio项。原因是背景verb写入了`MultiSelectModel=Single`，背景无选中项。安装逻辑现在仅为文件、文件夹、盘符设置该属性，背景项明确移除旧属性。新debug EXE对旧安装重新执行`--install-explorer-menu`后背景菜单实体可见，点击传入测试目录的`--open-folder "…\\."`；专项注册测试、Rust静态检查和本地构建通过。此入口按既有目录模式启动Pi；ZiFile工具仍未接入。盘符实体点击、卸载、现代一级菜单和其他OS继续待验。证据见技术博客`iterations/explorer-background-2026-10-13/work-log.md`。
 
+2026-10-13 后续：实体文件夹入口曾额外自动打开 Agent Inbox，造成第二个窗口和 Pi。可信桌面命令`desktop_entry_mode`现区分常规、文件夹、文件、工具启动；文件夹入口跳过 Agent Inbox 启动/补建，所选项目仍照常获得 Pi，用户显式进入其他会话不受此自动启动判断影响。真实`--open-folder`启动后稳定观察为所选项目窗口1个、所属Pi1个、Agent Inbox自动窗口0个；页面显示测试目录。物理托盘右键已看到四项，但隐藏/恢复/退出未完成实体点击验收。详见技术博客`iterations/explorer-folder-inbox-2026-10-13/work-log.md`。
+
 使用保留的当前debug或未来包含本功能的完整安装目录内EXE：
 
 ```powershell

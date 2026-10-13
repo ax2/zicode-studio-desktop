@@ -31,6 +31,20 @@ pub fn file() -> Option<&'static Path> {
     FILE.get().map(PathBuf::as_path)
 }
 
+#[tauri::command]
+pub fn desktop_entry_mode(window: tauri::WebviewWindow) -> Result<&'static str, String> {
+    crate::require_workspace_window(&window)?;
+    Ok(if file().is_some() {
+        "file"
+    } else if folder().is_some() {
+        "folder"
+    } else if tools_only() {
+        "tools"
+    } else {
+        "regular"
+    })
+}
+
 pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<MenuAction>, String> {
     let ParsedEntry {
         folder: path,
