@@ -12,7 +12,9 @@ pub fn available(app: &AppHandle) -> bool {
 }
 
 fn show_workspaces(app: &AppHandle) {
-    let mut windows: Vec<_> = app.webview_windows().into_iter()
+    let mut windows: Vec<_> = app
+        .webview_windows()
+        .into_iter()
         .filter(|(label, _)| label.starts_with("native-workspace-") || label == "bootstrap")
         .collect();
     windows.sort_by(|a, b| a.0.cmp(&b.0));
@@ -28,11 +30,18 @@ fn show_workspaces(app: &AppHandle) {
 }
 
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
+    let tools = MenuItem::with_id(app, "studio.tools", "打开工具中心", true, None::<&str>)?;
     let show = MenuItem::with_id(app, "studio.show", "显示 ZiCode Studio", true, None::<&str>)?;
-    let hide = MenuItem::with_id(app, "studio.hide", "隐藏所有窗口（继续运行）", true, None::<&str>)?;
+    let hide = MenuItem::with_id(
+        app,
+        "studio.hide",
+        "隐藏所有窗口（继续运行）",
+        true,
+        None::<&str>,
+    )?;
     let separator = PredefinedMenuItem::separator(app)?;
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &hide, &separator, &exit])?;
+    let menu = Menu::with_items(app, &[&tools, &show, &hide, &separator, &exit])?;
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
         .icon(icon)
@@ -40,6 +49,12 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
+            "studio.tools" => {
+                if let Err(error) = crate::desktop_tools::open(app) {
+                    log::warn!("[desktop-tray] tool center unavailable: {error}");
+                    show_workspaces(app);
+                }
+            }
             "studio.show" => show_workspaces(app),
             "studio.hide" => {
                 for (label, window) in app.webview_windows() {
@@ -55,11 +70,14 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if matches!(event, TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            }) {
+            if matches!(
+                event,
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                }
+            ) {
                 show_workspaces(tray.app_handle());
             }
         })

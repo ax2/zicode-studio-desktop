@@ -16,6 +16,8 @@ mod clipboard_inbox;
 mod credential_broker;
 mod desktop_profile;
 mod desktop_tray;
+mod desktop_tools;
+use desktop_tools::open_desktop_tool_center;
 mod explorer_entry;
 mod explorer_menu;
 mod document_import;
@@ -1056,7 +1058,7 @@ fn open_fresh_session_at_path(
         scene_id,
     )?;
     if let Some(window) =
-        source_window.filter(|window| window.label().starts_with("native-workspace-"))
+        source_window.filter(|window| desktop_tools::can_replace_window(window.label()))
     {
         return navigate_workspace_window(app, window, host.origin(), &target, app_param, true);
     }
@@ -1121,7 +1123,7 @@ fn open_workspace_at_path(
     };
 
     if let Some(window) =
-        source_window.filter(|window| window.label().starts_with("native-workspace-"))
+        source_window.filter(|window| desktop_tools::can_replace_window(window.label()))
     {
         return navigate_workspace_window(
             app,
@@ -1220,6 +1222,16 @@ fn open_native_workspace_window_with_app(
     app_param: Option<&str>,
 ) -> Result<(), String> {
     let label = format!("native-workspace-{}", target.workspace_id);
+    open_native_workspace_window_named(app, host, target, app_param, &label)
+}
+
+fn open_native_workspace_window_named(
+    app: &AppHandle,
+    host: &HostServer,
+    target: &RuntimeTarget,
+    app_param: Option<&str>,
+    label: &str,
+) -> Result<(), String> {
     let url = native_workspace_url(host.origin(), target, app_param)?;
     // The script is injected only into the native WebView and never served by
     // the HTTP Host. Guard its origin because WebViews can navigate elsewhere.
@@ -1230,7 +1242,7 @@ fn open_native_workspace_window_with_app(
     );
     let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
         .map_err(|error| format!("Failed to load window icon: {error}"))?;
-    let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url))
         .initialization_script(desktop_init)
         .data_directory(app_paths::webview_root()?)
         .title("ZiCode Studio Desktop")
@@ -1894,6 +1906,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
+            open_desktop_tool_center,
             desktop_explorer_menu,
             select_project_resource_file,
             get_project_resource_entry,
@@ -1953,6 +1966,7 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
+            app.manage(desktop_tools::ToolCenter::default());
             app.manage(BackgroundWorkerUpdateLease::default());
             if let Err(error) = desktop_tray::install(app) {
                 log::warn!("[desktop-tray] unavailable; normal window closing retained: {error}");
