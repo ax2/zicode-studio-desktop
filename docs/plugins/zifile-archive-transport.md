@@ -14,3 +14,5 @@ Studio 新增内部 `plugin_archive_transport`：Host 自行持有的命令经�
 Windows 定向测试启动真实子进程回放 Studio 自制的 `list-ok.jsonl`，覆盖完整成功、截断、错误 callId、非法时限、预先取消、非零退出和失败后再次成功。Rust 静态检查覆盖编译与严格 Clippy；测试仅验证传输候选，不证明 ZiFile 算法或其他 OS。ZiFile [108 格矩阵](zifile-integration-matrix.json)接受数仍为 0。
 
 后续需在不依赖 ZiFile 安装目录的前提下，从签名包选择经验证的 OS/架构入口并提供受约束原生执行环境；Host 应用资源版本、读/写授权、短期密码引用与 prepare/commit 状态机，再逐平台运行提供方适配向量。达到这些条件之前，不能对插件开放本内部函数。
+
+2026-10-14 后续增加内部 `plugin_archive_cursor`：完整 `list` 事件通过校验后，传输结果可将提供方 `nextCursor` 换成随机的 Host 句柄。句柄最多存活五分钟、单次消费，绑定插件与包版本、能力、场景、运行/会话、归档资源内容版本、查询及页大小；最多保留128个，撤销资源可清除。提供方令牌只在 Host 内存中保存。当前没有真实 Host 路由调用该转换，也没有从已授权资源提取上述绑定、验证下一页稳定排序或跨进程恢复；这仍不解除 `HOST_ARCHIVE_EVENTS` 和 native runtime 阻塞。

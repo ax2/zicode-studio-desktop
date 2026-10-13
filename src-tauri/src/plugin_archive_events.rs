@@ -221,8 +221,7 @@ impl ArchiveEventDecoder {
                         fields(payload, &["format", "nextCursor"])?;
                         if !payload["nextCursor"].is_null() {
                             let cursor = payload["nextCursor"].as_str().ok_or("invalid_cursor")?;
-                            if !(16..=512).contains(&cursor.len()) || !cursor.bytes().all(base64url)
-                            {
+                            if !crate::plugin_archive_cursor::valid_provider_cursor(cursor) {
                                 return Err("invalid_cursor");
                             }
                         }
@@ -339,10 +338,6 @@ fn bounded_text(value: &Value, max: usize) -> Result<&str, &'static str> {
         return Err("invalid_text");
     }
     Ok(text)
-}
-
-fn base64url(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
 }
 
 fn safe_relative_path(name: &str) -> bool {

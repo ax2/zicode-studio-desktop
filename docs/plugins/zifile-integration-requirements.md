@@ -94,3 +94,5 @@ Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力�
 新增一个必须由 ZiFile 明确解决的范围冲突：其 `AGENTS.md` 写明 RAR 创建不在范围内、RAR 读取需要许可证和安全审查；当前 README 和 core 源码却声明 RAR 5 创建及读操作。矩阵保留源码声明的 `providerDeclared=true`，对 RAR 的创建、列出、解压、校验另加 `PROVIDER_SCOPE_CONFLICT` 阻塞。提供方应统一产品规则、许可证/SBOM、安全审查与互操作向量，再交付版本化签名包；Studio 在冲突消除前不把这些操作展示为已接入。Studio 侧原生受约束 Worker、私有资源暂存、归档事件与原子写入事务仍需独立实现和逐平台验证。
 
 2026-10-14 Studio 内部[归档进程传输候选](zifile-archive-transport.md)已组合现有进程树控制和完整事件流校验。它只接收 Host 自行构建的命令，没有开放 native 包安装、文件或网络隔离及归档资源/写入授权；提供方仍须交付独立签名包和适配向量，108 格接受数不变。
+
+2026-10-14 补充 Host 内部一次性归档分页句柄：将已验证 `list` 输出的提供方 `nextCursor` 留在 Host，页面仅获得绑定插件包版本、资源内容版本、运行会话、查询与页大小的随机句柄。当前尚无真实 Host 路由或 ZiFile 提供方分页向量，不能证明稳定排序、撤权后的下一页请求或完整归档浏览；`HOST_ARCHIVE_EVENTS` 仍保持阻塞。
