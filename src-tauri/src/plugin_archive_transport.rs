@@ -22,8 +22,11 @@ impl ArchiveExecution {
         store: &plugin_archive_cursor::ArchivePageCursors,
         binding: plugin_archive_cursor::Binding,
     ) -> Result<Self, &'static str> {
-        if self.receipt.operation != "list" || self.receipt.status != "ok" {
+        if self.receipt.operation != "list" || self.receipt.status != "ok" || !binding.valid() {
             return Err("archive_cursor_invalid");
+        }
+        if self.receipt.entries > usize::from(binding.page_size) {
+            return Err("archive_page_exceeded");
         }
         let event = self
             .events
@@ -124,6 +127,43 @@ mod tests {
         assert_eq!(
             store.take(host, &cursor_binding()),
             Err("archive_cursor_invalid")
+        );
+    }
+
+    #[test]
+    fn rejects_page_larger_than_requested_before_sealing_cursor() {
+        let store = plugin_archive_cursor::ArchivePageCursors::default();
+        let provider = "abcdefghijklmnop0123456789";
+        let result = ArchiveExecution {
+            receipt: plugin_archive_events::Receipt {
+                call_id: CALL.into(),
+                operation: "list".into(),
+                status: "ok",
+                entries: 2,
+                progress: 0,
+            },
+            events: vec![serde_json::json!({"type":"result","payload":{"nextCursor":provider}})],
+        };
+        let mut binding = cursor_binding();
+        binding.page_size = 1;
+        assert_eq!(
+            result.seal_list_cursor(&store, binding.clone()).err(),
+            Some("archive_page_exceeded")
+        );
+        binding.page_size = 0;
+        let empty = ArchiveExecution {
+            receipt: plugin_archive_events::Receipt {
+                call_id: CALL.into(),
+                operation: "list".into(),
+                status: "ok",
+                entries: 0,
+                progress: 0,
+            },
+            events: vec![serde_json::json!({"type":"result","payload":{"nextCursor":null}})],
+        };
+        assert_eq!(
+            empty.seal_list_cursor(&store, binding).err(),
+            Some("archive_cursor_invalid")
         );
     }
 

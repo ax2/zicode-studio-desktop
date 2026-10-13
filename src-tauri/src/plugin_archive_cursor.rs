@@ -22,7 +22,7 @@ pub(crate) struct Binding {
 }
 
 impl Binding {
-    fn valid(&self) -> bool {
+    pub(crate) fn valid(&self) -> bool {
         [
             &self.plugin_id,
             &self.package_version,

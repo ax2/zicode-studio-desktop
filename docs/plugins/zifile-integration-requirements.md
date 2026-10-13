@@ -100,3 +100,5 @@ Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力�
 2026-10-14 续：Host 的插件重载、禁用、权限变更、卸载、安装/回滚及发布者撤销现能主动废止相关待用归档句柄；资源显式撤销也会废止句柄。此项仅收紧内部生命周期，不提供真实归档翻页或 native 插件执行，矩阵状态仍不变。
 
 2026-10-14 通用输出边界补验：Studio 的有界 WASI 资源调用若返回普通 JSON，Host 现会在交付页面前执行与二进制结果相同的声明输出 schema/大小校验。真实 HTTP→Worker 合成向量包含不合 schema 的返回并获得 `invalid_output`，之后调用可恢复；见技术博客 `iterations/resource-output-contract-2026-10-14/`。这仅补齐将来有界 WASI 归档只读子集的通用协议门槛，不接收 ZiFile 实包、不扩展 32 MiB 输入上限、不解决目录树/密码/原生隔离/原子写入，108 格仍全为 `accepted=false`。
+
+2026-10-14 归档分页内部边界增加请求页大小核对：完整事件流虽已限制最多 200 条，现在还会在封装 Host 游标前拒绝超过本次请求 `pageSize` 的页面，并对无下一页的结果验证绑定。尚无真实 ZiFile 插件或 Host 翻页路由，108 格仍全为 `accepted=false`。
