@@ -11408,6 +11408,7 @@ dependencies = [
  "base64 0.22.1",
  "boa_engine",
  "bytes",
+ "cap-std",
  "chrono",
  "dirs 5.0.1",
  "ed25519-dalek 2.2.0",

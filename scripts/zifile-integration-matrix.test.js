@@ -51,6 +51,13 @@ describe("ZiFile integration scope receipt", () => {
       maxTotalBytes: 33554432,
       archiveOperationsAccepted: false,
     });
+    expect(matrix.studio.localDirectoryMetadata).toEqual({
+      profile: "resource.local-directory.draft1",
+      maxEntries: 4096,
+      maxSnapshotBytes: 2097152,
+      userInterfaceReady: false,
+      archiveOperationsAccepted: false,
+    });
   });
   it("preserves provider format limitations and source identity", () => {
     const mutable = new Set([

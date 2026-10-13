@@ -613,6 +613,9 @@ impl HostServer {
             .route("/v2/plugin-resources/prepare-local-file", post(plugin_resources::local_file::prepare).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
             .route("/v2/plugin-resources/commit-local-file", post(plugin_resources::local_file::commit).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
             .route("/v2/plugin-resources/cancel-local-file", post(plugin_resources::local_file::cancel).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
+            .route("/v2/plugin-resources/prepare-local-directory", post(plugin_resources::local_directory::prepare).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
+            .route("/v2/plugin-resources/commit-local-directory", post(plugin_resources::local_directory::commit).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
+            .route("/v2/plugin-resources/cancel-local-directory", post(plugin_resources::local_directory::cancel).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
             .route("/v2/plugin-resources/status-local-file", post(plugin_resources::local_file::status::get).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
             .route("/v2/plugin-resources/append", post(plugin_resources::append))
             .route("/v2/plugin-resources/commit", post(plugin_resources::commit))
@@ -1292,6 +1295,9 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugin-resources/prepare-local-file"
             | "/v2/plugin-resources/commit-local-file"
             | "/v2/plugin-resources/cancel-local-file"
+            | "/v2/plugin-resources/prepare-local-directory"
+            | "/v2/plugin-resources/commit-local-directory"
+            | "/v2/plugin-resources/cancel-local-directory"
             | "/v2/plugin-resources/status-local-file"
             | "/v2/plugin-resources/append"
             | "/v2/plugin-resources/commit"

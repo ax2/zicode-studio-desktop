@@ -183,7 +183,10 @@ async fn http(actual: bool) {
         json!({"wasi":"runtime/tools.wasm","resourceInputProfile":"resource.wasi.input.draft2"});
     manifest["activationEvents"] = json!(["onCapability:resource.inspect"]);
     manifest["contributes"] = json!({"capabilities":[{"id":"resource.inspect","title":"Local File Fixture","inputSchema":{"type":"object","properties":{},"additionalProperties":false}}]});
-    manifest["permissions"] = json!({"required":[],"optional":[{"name":"resource.read","reason":"User confirmed local file snapshot"}]});
+    manifest["permissions"] = json!({"required":[],"optional":[
+        {"name":"resource.read","reason":"User confirmed local file snapshot"},
+        {"name":"resource.directory.read","reason":"User confirmed directory metadata snapshot"}
+    ]});
     fs::write(
         f.0.join("package/plugin.json"),
         serde_json::to_vec(&manifest).unwrap(),
@@ -272,6 +275,9 @@ async fn http(actual: bool) {
                 "resource.read",
                 true,
             )
+            .unwrap();
+        registry
+            .set_permission("programming", manifest["id"].as_str().unwrap(), "resource.directory.read", true)
             .unwrap();
         registry
             .set_enabled("programming", manifest["id"].as_str().unwrap(), true)
@@ -501,6 +507,56 @@ async fn http(actual: bool) {
                 .unwrap()
                 .insert(target.workspace_id.clone(), f.0.clone());
         }
+    }
+    if !actual {
+        fs::create_dir(f.0.join("selected-directory")).unwrap();
+        fs::write(f.0.join("selected-directory/entry.txt"), b"private content").unwrap();
+        let directory_request = json!({"schemaVersion":1,"owner":owner,"relativePath":"selected-directory"});
+        assert_eq!(client.post(format!("{}/v2/plugin-resources/prepare-local-directory", host.origin()))
+            .bearer_auth("provider-token").json(&directory_request).send().await.unwrap().status(),
+            StatusCode::FORBIDDEN);
+        let preview: Value = post("prepare-local-directory", directory_request.clone())
+            .await.unwrap().json().await.unwrap();
+        assert_eq!(preview["entryNamesRead"], false, "{preview}");
+        assert!(!preview.to_string().contains("entry.txt"));
+        let confirmed = json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"],"confirmed":true});
+        let imported: Value = post("commit-local-directory", confirmed.clone())
+            .await.unwrap().json().await.unwrap();
+        assert_eq!(imported["profile"], "resource.local-directory.draft1", "{imported}");
+        assert_eq!(imported["entryCount"], 1);
+        assert!(!imported.to_string().contains(f.0.to_str().unwrap()));
+        let read: Value = post("read-view", json!({"access":imported["access"],"offset":0,"length":4096}))
+            .await.unwrap().json().await.unwrap();
+        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD,
+            read["dataBase64"].as_str().unwrap()).unwrap();
+        let listing: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(listing["entries"], json!([{"name":"entry.txt","kind":"file"}]));
+        assert!(!String::from_utf8(bytes).unwrap().contains("private content"));
+        assert_eq!(post("commit-local-directory", confirmed).await.unwrap().json::<Value>().await.unwrap()
+            ["error"]["code"], "resource_directory_grant_unavailable");
+        let pending: Value = post("prepare-local-directory", directory_request.clone())
+            .await.unwrap().json().await.unwrap();
+        let cancelled = json!({"schemaVersion":1,"owner":owner,"grantId":pending["grantId"]});
+        assert_eq!(post("cancel-local-directory", cancelled.clone()).await.unwrap().json::<Value>()
+            .await.unwrap()["cancelled"], true);
+        assert_eq!(post("commit-local-directory", json!({"schemaVersion":1,"owner":owner,
+            "grantId":pending["grantId"],"confirmed":true})).await.unwrap().json::<Value>()
+            .await.unwrap()["error"]["code"], "resource_directory_grant_unavailable");
+        let preview: Value = post("prepare-local-directory", directory_request.clone())
+            .await.unwrap().json().await.unwrap();
+        host.state.plugins.lock().unwrap().set_permission("programming", manifest["id"].as_str().unwrap(),
+            "resource.directory.read", false).unwrap();
+        let rejected: Value = post("commit-local-directory", json!({"schemaVersion":1,"owner":owner,
+            "grantId":preview["grantId"],"confirmed":true})).await.unwrap().json().await.unwrap();
+        assert_eq!(rejected["error"]["code"], "permission_denied");
+        let revoked_read: Value = post("read-view", json!({"access":imported["access"],"offset":0,"length":4096}))
+            .await.unwrap().json().await.unwrap();
+        assert!(revoked_read.get("dataBase64").is_none(), "{revoked_read}");
+        host.state.plugins.lock().unwrap().set_permission("programming", manifest["id"].as_str().unwrap(),
+            "resource.directory.read", true).unwrap();
+        let regranted_read: Value = post("read-view", json!({"access":imported["access"],"offset":0,"length":4096}))
+            .await.unwrap().json().await.unwrap();
+        assert!(regranted_read.get("dataBase64").is_none(), "{regranted_read}");
     }
     if actual {
         let events = Arc::new(Mutex::new(Vec::new()));

@@ -3,7 +3,7 @@ use super::*;
 use std::path::{Path, PathBuf};
 #[cfg(test)]
 mod cancellation_http;
-mod files;
+pub(super) mod files;
 mod reading;
 pub(in crate::host_server) mod status;
 #[cfg(test)]
@@ -118,7 +118,7 @@ impl Grants {
     }
 }
 
-fn scope(state: &HostState, owner: &Owner) -> Result<(PathBuf, String), ApiError> {
+pub(super) fn scope(state: &HostState, owner: &Owner) -> Result<(PathBuf, String), ApiError> {
     // Reuse current package/module, permission, runtime/session and Broker generation binding.
     let (proof, _) = transfer::target_identity(state, owner)?;
     let target = state

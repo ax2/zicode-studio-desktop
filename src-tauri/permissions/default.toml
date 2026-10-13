@@ -219,6 +219,11 @@ identifier = "allow-select-project-resource-file"
 description = "Allow a trusted workspace window to select a file inside its current registered project; selection does not share content."
 commands.allow = ["select_project_resource_file"]
 
+[[permission]]
+identifier = "allow-select-project-resource-directory"
+description = "Allow a trusted workspace window to select a directory inside its current registered project; selection does not enumerate entries."
+commands.allow = ["select_project_resource_directory"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
@@ -227,6 +232,7 @@ permissions = [
   "allow-get-project-resource-entry",
   "allow-desktop-entry-mode",
   "allow-select-project-resource-file",
+  "allow-select-project-resource-directory",
   "allow-desktop-explorer-menu",
   "allow-list-automation-workspaces",
   "allow-background-automation-worker-status",

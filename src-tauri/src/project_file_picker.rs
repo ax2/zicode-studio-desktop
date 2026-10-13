@@ -35,6 +35,36 @@ fn relative(root: &Path, selected: &Path) -> Result<String, String> {
     Ok(parts.join("/"))
 }
 
+fn relative_directory(root: &Path, selected: &Path) -> Result<String, String> {
+    let selected = selected.canonicalize().map_err(|_| "Selected directory is unavailable")?;
+    let path = selected.strip_prefix(root).map_err(|_| "Choose a directory inside the current project")?;
+    if !selected.is_dir() { return Err("Choose a project directory".into()); }
+    if path.as_os_str().is_empty() { return Ok(".".into()); }
+    let parts = path.components().map(|component| match component {
+        std::path::Component::Normal(value) => value.to_str().ok_or("Unsupported directory name"),
+        _ => Err("Unsupported directory name"),
+    }).collect::<Result<Vec<_>, _>>()?;
+    Ok(parts.join("/"))
+}
+
+#[tauri::command]
+pub async fn select_project_resource_directory(
+    app: AppHandle, window: WebviewWindow, workspace_id: String,
+) -> Result<Option<String>, String> {
+    current(&window, &workspace_id)?;
+    let root = app.state::<HostServer>().project_resource_root(&workspace_id)?;
+    let initial = root.clone();
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog().file().set_directory(initial).blocking_pick_folder()
+    }).await.map_err(|_| "Directory picker is unavailable")?;
+    current(&window, &workspace_id)?;
+    if window.state::<HostServer>().project_resource_root(&workspace_id)? != root {
+        return Err("Project changed; choose the directory again".into());
+    }
+    picked.map(|directory| relative_directory(&root,
+        directory.as_path().ok_or("Choose a local project directory")?)).transpose()
+}
+
 #[tauri::command]
 pub fn get_project_resource_entry(
     window: WebviewWindow,
@@ -111,6 +141,10 @@ mod tests {
         assert!(relative(&project, &root.join("outside.zip")).is_err());
         assert!(relative(&project, &project).is_err());
         assert!(relative(&project, &project.join("missing")).is_err());
+        assert_eq!(relative_directory(&project, &project).unwrap(), ".");
+        assert_eq!(relative_directory(&project, &project.join("中文 空格&")).unwrap(), "中文 空格&");
+        assert!(relative_directory(&project, &root).is_err());
+        assert!(relative_directory(&project, &project.join("中文 空格&/a.zip")).is_err());
         assert!(root
             .canonicalize()
             .unwrap()

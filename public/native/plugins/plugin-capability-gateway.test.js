@@ -36,6 +36,27 @@ it("binds each additional resource to the same owner in both one-use requests", 
 });
 
 describe("PluginCapabilityGateway", () => {
+  it("keeps directory selection separate from explicit metadata sharing", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const choose = vi.fn(async () => "folder");
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" }, pickProjectDirectory: choose });
+    const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+    expect(await gateway.projectDirectories.choose("workspace")).toBe("folder");
+    expect(fetchImpl).not.toHaveBeenCalled();
+    await gateway.projectDirectories.prepare(owner, "folder");
+    await gateway.projectDirectories.commit(owner, "grant");
+    await gateway.projectDirectories.cancel(owner, "other-grant");
+    expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual([
+      "/v2/plugin-resources/prepare-local-directory",
+      "/v2/plugin-resources/commit-local-directory",
+      "/v2/plugin-resources/cancel-local-directory",
+    ]);
+    expect(fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body))).toEqual([
+      { schemaVersion: 1, owner, relativePath: "folder" },
+      { schemaVersion: 1, owner, grantId: "grant", confirmed: true },
+      { schemaVersion: 1, owner, grantId: "other-grant" },
+    ]);
+  });
   it("queries local file state without preparing, confirming or executing it", async () => {
     const state = { schemaVersion: 1, phase: "reading", executionFinished: false, cancellationRequested: true, contentRead: null };
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => state }));

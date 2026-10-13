@@ -26,6 +26,7 @@ mod tests;
 #[derive(Default)]
 pub(crate) struct Store {
     pub(super) file_imports: local_file::Grants,
+    pub(super) directory_imports: local_directory::Grants,
     records: HashMap<String, Record>,
     transfers: HashMap<String, transfer::Grant>,
     saves: HashMap<String, save::SaveGrant>,
@@ -37,8 +38,14 @@ pub(in crate::host_server::plugin_resources) use outputs::Pending;
 
 impl Store {
     pub(super) fn import_file(&mut self, owner: Owner, proof: String, bytes: Vec<u8>) -> Result<Value, ApiError> {
+        self.import_bytes(owner, proof, bytes, "application/octet-stream", "resource.local-file.draft1")
+    }
+    pub(super) fn import_directory(&mut self, owner: Owner, proof: String, bytes: Vec<u8>) -> Result<Value, ApiError> {
+        self.import_bytes(owner, proof, bytes, "text/plain", "resource.local-directory.draft1")
+    }
+    fn import_bytes(&mut self, owner: Owner, proof: String, bytes: Vec<u8>, mime: &str, profile: &str) -> Result<Value, ApiError> {
         let version = sha256_hex(&bytes);
-        let prepared = self.prepare(Prepare { schema_version: 1, owner: owner.clone(), mime_type: "application/octet-stream".into(),
+        let prepared = self.prepare(Prepare { schema_version: 1, owner: owner.clone(), mime_type: mime.into(),
             byte_length: bytes.len(), content_version: version.clone(), catalog_revision: None }, proof.clone())?;
         let access = Access { schema_version: 1, owner, resource_id: prepared["resourceId"].as_str().unwrap().into(), content_version: version };
         let result = (|| {
@@ -47,7 +54,7 @@ impl Store {
             }
             let mut result = self.commit(&access, &proof)?;
             result["access"] = serde_json::to_value(&access).unwrap();
-            result["profile"] = json!("resource.local-file.draft1");
+            result["profile"] = json!(profile);
             result["saved"] = json!(false);
             Ok(result)
         })();

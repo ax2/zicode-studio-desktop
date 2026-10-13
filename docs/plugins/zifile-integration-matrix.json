@@ -7,6 +7,13 @@
       "maxTotalBytes": 33554432,
       "archiveOperationsAccepted": false
     },
+    "localDirectoryMetadata": {
+      "profile": "resource.local-directory.draft1",
+      "maxEntries": 4096,
+      "maxSnapshotBytes": 2097152,
+      "userInterfaceReady": false,
+      "archiveOperationsAccepted": false
+    },
     "acceptedOperations": 0,
     "version": "0.4.2"
   },
@@ -1349,7 +1356,7 @@
     },
     {
       "id": "HOST_RESOURCE_MEDIATION",
-      "reason": "Worker v3 accepts host paths and raw optional passwords; bounded WASI multi-file inputs now exist but native private staging, short-lived password references, directory grants, large archive streaming and write-time version checks remain missing.",
+      "reason": "Worker v3 accepts host paths and raw optional passwords; bounded WASI multi-file inputs and a one-level directory metadata Host candidate exist, but native private staging, short-lived password references, directory content grants, large archive streaming and write-time version checks remain missing.",
       "owner": "Studio and ZiFile"
     },
     {
