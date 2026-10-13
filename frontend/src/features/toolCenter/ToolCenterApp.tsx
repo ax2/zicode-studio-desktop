@@ -8,6 +8,7 @@ import { ManualToolDirectory } from "./ManualToolDirectory";
 import type { ManualToolApi, ToolOpenRequest } from "./manual-tools";
 import type { ResourceTargetProvider } from "./ResourceToolRunner";
 import { ResourceCallRecords } from "./ResourceCallRecords";
+import { ToolWorkspacePicker, type ToolWorkspaceApi } from "./ToolWorkspacePicker";
 
 export interface ApplicationEntry extends PaletteCommand { category: string; source: string }
 export interface ToolCenterProps {
@@ -20,9 +21,10 @@ export interface ToolCenterProps {
   onOpen(entry: ApplicationEntry): void;
   onManage(): void;
   onCommands(): void;
+  workspaceApi?: ToolWorkspaceApi;
 }
 
-export function ToolCenterApp({ entries, accessStore, scope, toolApi, requestedTool, getResourceTarget, onOpen, onManage, onCommands }: ToolCenterProps) {
+export function ToolCenterApp({ entries, accessStore, scope, toolApi, requestedTool, getResourceTarget, onOpen, onManage, onCommands, workspaceApi }: ToolCenterProps) {
   const [section, setSection] = useState(toolApi && scope ? "tools" : "applications");
   useEffect(() => { if (requestedTool) setSection("tools"); }, [requestedTool]);
   const [query, setQuery] = useState("");
@@ -50,6 +52,7 @@ export function ToolCenterApp({ entries, accessStore, scope, toolApi, requestedT
       <div><h1 id="tool-center-title">{t("Applications and tools")}</h1>
         <p>{t("Find a tool or an application. Opening does not execute a tool.")}</p></div>
       <div className="ui-toolbar">
+        {workspaceApi && <ToolWorkspacePicker api={workspaceApi} currentWorkspaceId={scope?.workspaceId} />}
         <button type="button" className="ui-button ui-button--secondary" onClick={onCommands}>{t("Commands")}</button>
         <button type="button" className="ui-button ui-button--secondary" onClick={onManage}>{t("Manage plugins")}</button>
       </div>

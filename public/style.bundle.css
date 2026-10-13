@@ -7249,6 +7249,15 @@ body[data-active-plugin="core.help"] .help-center-navigation {
   min-height: 0;
 }
 .tool-center-header { display: flex; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.tool-center-header > .ui-toolbar { align-items: flex-start; flex-wrap: wrap; }
+.tool-workspace-picker { position: relative; }
+.tool-workspace-picker summary { list-style: none; cursor: pointer; }
+.tool-workspace-picker summary::-webkit-details-marker { display: none; }
+.tool-workspace-menu { position: absolute; z-index: 20; inset-inline-end: 0; top: calc(100% + var(--space-1)); width: min(25rem, 85vw); max-height: min(26rem, 65vh); overflow: auto; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--bg-solid); box-shadow: var(--shadow-lg); }
+.tool-workspace-list { display: flex; flex-direction: column; gap: var(--space-1); }
+.tool-workspace-list button { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; text-align: start; color: var(--text-primary); }
+.tool-workspace-list button[aria-current="true"] { opacity: 1; }
+.tool-workspace-list button span { color: var(--text-muted); font-size: var(--font-size-sm); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-center h1 { font-size: var(--font-size-2xl); margin: 0; }
 .tool-center h2 { font-size: var(--font-size-lg); margin: 0; }
 .tool-center p { margin: 0; }
@@ -7283,6 +7292,7 @@ body[data-active-plugin="core.tools"] .sidebar { display: none; }
 .tool-detail form, .tool-execution-result { scroll-margin-block-start: calc(var(--control-height-lg) + var(--space-4)); }
 .tool-result { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 50vh; overflow: auto; padding: var(--space-3); background: var(--bg-secondary); border-radius: var(--radius-sm); }
 @media (max-width: 720px) {
+  .tool-workspace-menu { inset-inline-start: 0; inset-inline-end: auto; width: min(25rem, calc(100vw - var(--space-12))); box-sizing: border-box; }
   dialog.tool-close-dialog { width: calc(100% - var(--space-6)); }
   .tool-center { padding: var(--space-3); }
   .tool-center-grid { grid-template-columns: minmax(0, 1fr); }

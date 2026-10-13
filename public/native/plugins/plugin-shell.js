@@ -519,6 +519,11 @@ export function setupPluginShell({
         toolApi: capabilityGateway,
         getResourceTarget: getTarget,
         scope: target ? { sceneId: target.sceneId, workspaceId: target.workspaceId } : undefined,
+        workspaceApi: globalThis.__TAURI__?.core?.invoke ? {
+          list: () => globalThis.__TAURI__.core.invoke("list_workspaces"),
+          switchTo: projectPath => globalThis.__TAURI__.core.invoke("switch_window_workspace", { projectPath, pluginId: TOOL_CENTER_ID }),
+          openFolder: () => globalThis.__TAURI__.core.invoke("open_folder_as_workspace", { pluginId: TOOL_CENTER_ID }),
+        } : undefined,
         onManage: () => activateFromNavigation(MANAGER_VIEW_ID),
         onCommands: openCommandPalette,
         onError: error => notify(String(error?.message ?? error)),

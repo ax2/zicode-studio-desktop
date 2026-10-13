@@ -2476,6 +2476,8 @@ const zhCN = {
   "Switch workspace (Ctrl+Shift+O)": "切换工作区 (Ctrl+Shift+O)",
   "Open the workspace switcher": "打开工作区切换器",
   "No other workspaces yet": "暂无其他工作区",
+  "Projects could not be loaded. Try again.": "项目列表加载失败，请重试。",
+  "Could not open the project. Try again.": "无法打开项目，请重试。",
   "New chat": "新建对话",
   Search: "搜索",
   "Search sessions": "搜索会话",
