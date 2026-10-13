@@ -7,6 +7,7 @@ use std::sync::Mutex;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EntryIntent {
     File(PathBuf),
+    Selection(Vec<PathBuf>),
     Folder(PathBuf),
     Drive,
     Tools,
@@ -16,6 +17,7 @@ impl EntryIntent {
     pub fn mode(&self) -> &'static str {
         match self {
             Self::File(_) => "file",
+            Self::Selection(_) => "selection",
             Self::Folder(_) => "folder",
             Self::Drive => "drive",
             Self::Tools => "tools",

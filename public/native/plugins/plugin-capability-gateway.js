@@ -17,6 +17,9 @@ export class PluginCapabilityGateway {
     getProjectFileEntry = globalThis.__TAURI__?.core?.invoke
       ? workspaceId => globalThis.__TAURI__.core.invoke("get_project_resource_entry", { workspaceId })
       : null,
+    getProjectFileEntries = globalThis.__TAURI__?.core?.invoke
+      ? workspaceId => globalThis.__TAURI__.core.invoke("get_project_resource_entries", { workspaceId })
+      : null,
     pickProjectDirectory = globalThis.__TAURI__?.core?.invoke
       ? workspaceId => globalThis.__TAURI__.core.invoke("select_project_resource_directory", { workspaceId })
       : null,
@@ -35,6 +38,7 @@ export class PluginCapabilityGateway {
     this.projectFiles = typeof pickProjectFile === "function" ? {
       choose: pickProjectFile,
       entry: getProjectFileEntry,
+      entries: getProjectFileEntries,
       prepare: (owner, relativePath) => this.#request(this.#url("/v2/plugin-resources/prepare-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, relativePath }) }),
       commit: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/commit-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId, confirmed: true }) }),
       cancel: (owner, grantId) => this.#request(this.#url("/v2/plugin-resources/cancel-local-file"), { method: "POST", body: JSON.stringify({ schemaVersion: 1, owner, grantId }) }),

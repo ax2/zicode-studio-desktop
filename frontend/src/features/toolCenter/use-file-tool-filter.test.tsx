@@ -98,3 +98,12 @@ it("rechecks the active window's file hint when the entry revision changes", asy
   expect(view.result.current.fileName).toBe("second.zip");
   expect(entry).toHaveBeenCalledTimes(2);
 });
+
+it("enables resource discovery for a bounded Explorer selection without guessing a suffix", async () => {
+  const api = gateway(async () => null);
+  api.projectFiles = { ...api.projectFiles, entries: vi.fn(async () => ["one.zip", "two.txt"]) };
+  const view = renderHook(() => useFileToolFilter(api, scope));
+  await act(async () => {});
+  expect(view.result.current).toMatchObject({ ready: true, enabled: true, failed: false, fileName: null });
+  view.unmount();
+});

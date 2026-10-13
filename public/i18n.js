@@ -311,6 +311,8 @@ const zhCN = {
     "最多选择 {count} 个文件并确认，总大小不超过 32 MiB。点击执行工具前不会运行。",
   "Choose a file for the plugin": "选择提供给插件的文件",
   "Choose files for the plugin": "选择提供给插件的多个文件",
+  "Use opened selection ({count} files)": "使用已打开的 {count} 个文件",
+  "Could not prepare opened files. Choose the files again.": "无法准备已打开的文件，请重新选择。",
   "Selected {count} files. Confirm sharing before running the tool.": "已选择 {count} 个文件。运行工具前请先确认提供。",
   "Choose at most {count} files totaling up to 32 MiB.": "最多选择 {count} 个文件，总大小不超过 32 MiB。",
   "Sharing file {current} of {total}…": "正在提供第 {current} / {total} 个文件…",

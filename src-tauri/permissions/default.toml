@@ -230,6 +230,7 @@ permissions = [
   "allow-open-desktop-tool-center",
   "allow-set-desktop-tray-locale",
   "allow-get-project-resource-entry",
+  "allow-get-project-resource-entries",
   "allow-get-project-directory-entry",
   "allow-desktop-entry-mode",
   "allow-select-project-resource-file",
@@ -280,6 +281,11 @@ permissions = [
 identifier = "allow-get-project-resource-entry"
 description = "Allow a trusted workspace window to inspect its explicit file launch name without reading content."
 commands.allow = ["get_project_resource_entry"]
+
+[[permission]]
+identifier = "allow-get-project-resource-entries"
+description = "Allow a trusted workspace window to inspect explicit selected file names without reading content."
+commands.allow = ["get_project_resource_entries"]
 
 [[permission]]
 identifier = "allow-get-project-directory-entry"

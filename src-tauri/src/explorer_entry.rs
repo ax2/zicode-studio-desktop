@@ -9,6 +9,8 @@ use crate::explorer_launch_state::{EntryIntent, ExplorerLaunchState};
 static FOLDER: OnceLock<PathBuf> = OnceLock::new();
 static TOOLS_ONLY: OnceLock<bool> = OnceLock::new();
 static FILE: OnceLock<PathBuf> = OnceLock::new();
+static SELECTION: OnceLock<Vec<PathBuf>> = OnceLock::new();
+const MAX_SELECTION: usize = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuAction {
@@ -22,13 +24,17 @@ struct ParsedEntry {
     action: Option<MenuAction>,
     tools: bool,
     file: Option<PathBuf>,
+    selection: Option<Vec<PathBuf>>,
 }
 
 pub fn folder() -> Option<&'static Path> {
     FOLDER.get().map(PathBuf::as_path)
 }
 pub fn tools_only() -> bool {
-    TOOLS_ONLY.get().copied().unwrap_or(false) || FILE.get().is_some() || drive_root_folder()
+    TOOLS_ONLY.get().copied().unwrap_or(false)
+        || FILE.get().is_some()
+        || SELECTION.get().is_some()
+        || drive_root_folder()
 }
 
 pub fn drive_root_folder() -> bool {
@@ -52,8 +58,14 @@ pub fn file() -> Option<&'static Path> {
     FILE.get().map(PathBuf::as_path)
 }
 
+pub fn selection() -> Option<&'static [PathBuf]> {
+    SELECTION.get().map(Vec::as_slice)
+}
+
 pub fn initial_intent() -> Option<EntryIntent> {
-    if let Some(path) = file() {
+    if let Some(paths) = selection() {
+        Some(EntryIntent::Selection(paths.to_vec()))
+    } else if let Some(path) = file() {
         Some(EntryIntent::File(path.to_path_buf()))
     } else if drive_root_folder() {
         Some(EntryIntent::Drive)
@@ -112,6 +124,9 @@ pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> 
         [flag, path] if *flag == "--open-file" => {
             Ok(Some(EntryIntent::File(local_file(PathBuf::from(*path))?)))
         }
+        [flag, count, paths @ ..] if *flag == "--open-selection" => {
+            Ok(Some(EntryIntent::Selection(selection_paths(count, paths)?)))
+        }
         [flag, path] if *flag == "--open-folder" => {
             let path = local_folder(PathBuf::from(*path))?;
             Ok(Some(if drive_root(&path) {
@@ -143,6 +158,7 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
         action,
         tools,
         file,
+        selection,
     } = parse(args)?;
     TOOLS_ONLY
         .set(tools)
@@ -156,6 +172,11 @@ pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<Menu
         FILE.set(file)
             .map_err(|_| "File entry already configured")?;
     }
+    if let Some(selection) = selection {
+        SELECTION
+            .set(selection)
+            .map_err(|_| "Selection entry already configured")?;
+    }
     Ok(action)
 }
 
@@ -165,6 +186,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     let mut action = None;
     let mut tools = false;
     let mut file = None;
+    let mut selection = None;
+    let mut unknown = false;
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--open-file") => {
@@ -174,6 +197,20 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
                 file = Some(local_file(PathBuf::from(
                     args.next().ok_or("--open-file requires an absolute file")?,
                 ))?);
+            }
+            Some("--open-selection") => {
+                if selection.is_some() {
+                    return Err("Only one selection may be opened".into());
+                }
+                let count = args.next().ok_or("--open-selection requires a count")?;
+                let count = count.to_str().ok_or("Selection count must be Unicode")?;
+                let length = selection_count(count)?;
+                let paths = (0..length)
+                    .map(|_| args.next().ok_or("Missing selected file"))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let paths = paths.iter().map(|path| path.to_str().ok_or("Selected path must be Unicode"))
+                    .collect::<Result<Vec<_>, _>>()?;
+                selection = Some(selection_paths(count, &paths)?);
             }
             Some("--tools-only") => {
                 if tools {
@@ -208,7 +245,7 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
             Some("--isolated-profile") => {
                 args.next().ok_or("Missing isolated profile")?;
             }
-            _ => {}
+            _ => unknown = true,
         }
     }
     if folder.is_some() && action.is_some() {
@@ -220,12 +257,44 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     if file.is_some() && (tools || folder.is_some() || action.is_some()) {
         return Err("File launch must be separate from tools, folder and menu operations".into());
     }
+    if selection.is_some() && (file.is_some() || tools || folder.is_some() || action.is_some()) {
+        return Err("Selection launch must be separate from other desktop operations".into());
+    }
+    if selection.is_some() && unknown {
+        return Err("Unexpected selection launch argument".into());
+    }
     Ok(ParsedEntry {
         folder,
         action,
         tools,
         file,
+        selection,
     })
+}
+
+fn selection_count(count: &str) -> Result<usize, String> {
+    let parsed = count.parse::<usize>().map_err(|_| "Invalid selection count")?;
+    if !(2..=MAX_SELECTION).contains(&parsed) || parsed.to_string() != count {
+        return Err("Selection must contain two to four files".into());
+    }
+    Ok(parsed)
+}
+
+fn selection_paths(count: &str, paths: &[&str]) -> Result<Vec<PathBuf>, String> {
+    if selection_count(count)? != paths.len() {
+        return Err("Selection count does not match the selected files".into());
+    }
+    let selected = paths.iter().map(|path| local_file(PathBuf::from(path)))
+        .collect::<Result<Vec<_>, _>>()?;
+    let parent = selected[0].parent();
+    if selected.iter().any(|path| path.parent() != parent) {
+        return Err("Selected files must share one project directory".into());
+    }
+    let mut unique = std::collections::HashSet::new();
+    if selected.iter().any(|path| !unique.insert(path.to_string_lossy().to_lowercase())) {
+        return Err("Selected files must be distinct".into());
+    }
+    Ok(selected)
 }
 
 fn local_folder(path: PathBuf) -> Result<PathBuf, String> {
@@ -351,6 +420,42 @@ mod tests {
         assert!(local_file(PathBuf::from(r"\\server\share\file.zip")).is_err());
         std::fs::remove_file(&file).unwrap();
         std::fs::remove_dir(&root).unwrap();
+    }
+    #[test]
+    fn bounded_file_selection_is_one_tool_intent_without_content_access() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../.cache/task-scratch")
+            .join(format!("studio-selection-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let one = root.join("中文 空格&.zip");
+        let two = root.join("next.txt");
+        std::fs::write(&one, b"one").unwrap();
+        std::fs::write(&two, b"two").unwrap();
+        let one_text = one.to_str().unwrap();
+        let two_text = two.to_str().unwrap();
+        let expected = vec![one.canonicalize().unwrap(), two.canonicalize().unwrap()];
+        assert_eq!(parse(args(&["--open-selection", "2", one_text, two_text])).unwrap().selection, Some(expected.clone()));
+        let executable = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+        assert_eq!(forwarded_intent(&[executable.clone(), "--open-selection".into(), "2".into(),
+            one_text.into(), two_text.into()]).unwrap(), Some(EntryIntent::Selection(expected)));
+        for input in [
+            vec!["--open-selection", "1", one_text],
+            vec!["--open-selection", "02", one_text, two_text],
+            vec!["--open-selection", "2", one_text],
+            vec!["--open-selection", "2", one_text, one_text],
+            vec!["--open-selection", "2", one_text, two_text, "extra.txt"],
+            vec!["--open-selection", "2", one_text, two_text, "--tools-only"],
+        ] { assert!(parse(args(&input)).is_err()); }
+        let other = root.join("other");
+        std::fs::create_dir(&other).unwrap();
+        let outside = other.join("third.txt");
+        std::fs::write(&outside, b"third").unwrap();
+        assert!(parse(args(&["--open-selection", "2", one_text, outside.to_str().unwrap()])).is_err());
+        std::fs::remove_file(&outside).unwrap();
+        std::fs::remove_dir(other).unwrap();
+        std::fs::remove_file(&one).unwrap();
+        std::fs::remove_file(&two).unwrap();
+        std::fs::remove_dir(root).unwrap();
     }
     fn args(values: &[&str]) -> Vec<OsString> {
         values.iter().map(OsString::from).collect()

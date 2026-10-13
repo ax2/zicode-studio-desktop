@@ -18,7 +18,8 @@ export interface ToolDetail {
   permissions: { name: string; reason: string; required: boolean; granted: boolean }[];
 }
 export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<ManualCallApi> {
-  projectFiles?: { entry?: ((workspaceId: string) => Promise<unknown>) | null } | null;
+  projectFiles?: { entry?: ((workspaceId: string) => Promise<unknown>) | null;
+    entries?: ((workspaceId: string) => Promise<unknown>) | null } | null;
   projectDirectories?: { choose?: ((workspaceId: string) => Promise<unknown>) | null; entry?: ((workspaceId: string) => Promise<unknown>) | null } | null;
   resourceCalls?: { list(scope: { sceneId: string; workspaceId: string }): Promise<unknown[]> };
   reconcileResourceCall?: (...args: unknown[]) => Promise<unknown>;

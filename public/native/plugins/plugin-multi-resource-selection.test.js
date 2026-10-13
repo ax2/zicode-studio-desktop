@@ -5,7 +5,7 @@ import { createMultiResourceSelection } from "./plugin-multi-resource-selection.
 
 const file = (name, text) => ({ name, size: text.length, type: "text/plain",
   arrayBuffer: vi.fn(async () => new TextEncoder().encode(text).buffer) });
-function setup() {
+function setup({ projectFiles } = {}) {
   setLocale("en"); vi.stubGlobal("crypto", webcrypto);
   document.body.innerHTML = "<main></main>";
   const first = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -15,7 +15,7 @@ function setup() {
     const id = [first, second][issued++]; lengths.set(id, request.byteLength); return { resourceId: id };
   }), appendResource: vi.fn(async (_access, offset, base64) => ({ uploadedBytes: offset + atob(base64).length })),
   commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: lengths.get(access.resourceId) })),
-  revokeResource: vi.fn(async () => ({})) };
+  revokeResource: vi.fn(async () => ({})), ...(projectFiles ? { projectFiles } : {}) };
   const onResource = vi.fn();
   const controller = createMultiResourceSelection({ container: document.querySelector("main"),
     plugin: { id: "provider", capabilities: [{ id: "archive.create" }] },
@@ -69,5 +69,39 @@ it("rejects excess selection and revokes a partial group on upload failure", asy
   expect(view.onResource).not.toHaveBeenCalled();
   expect(view.gateway.revokeResource).toHaveBeenCalledTimes(2);
   expect(document.querySelectorAll(".plugin-resource-file-list li")).toHaveLength(0);
+  view.controller.destroy();
+});
+
+it("prepares Explorer selection as metadata and shares snapshots only after confirmation", async () => {
+  const grants = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"];
+  const resources = ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"];
+  const version = "c".repeat(64);
+  let index = 0;
+  const projectFiles = {
+    entries: vi.fn(async () => ["中文.zip", "next.txt"]),
+    prepare: vi.fn(async (owner, relativePath) => ({ profile: "resource.local-file.draft1",
+      grantId: grants[index++], relativePath, byteLength: 3, contentRead: false, confirmed: false, owner })),
+    commit: vi.fn(async (owner, grantId) => { const position = grants.indexOf(grantId);
+      const access = { owner, resourceId: resources[position], contentVersion: version };
+      return { profile: "resource.local-file.draft1", confirmed: true, byteLength: 3,
+        resourceId: resources[position], contentVersion: version, access }; }),
+    cancel: vi.fn(async () => ({})),
+  };
+  const view = setup({ projectFiles });
+  await vi.waitFor(() => expect(view.button("Use opened selection (2 files)")).toBeTruthy());
+  expect(projectFiles.prepare).not.toHaveBeenCalled();
+  expect(projectFiles.commit).not.toHaveBeenCalled();
+  view.button("Use opened selection (2 files)").click();
+  await vi.waitFor(() => expect(view.button("Confirm file sharing").disabled).toBe(false));
+  expect(projectFiles.prepare).toHaveBeenCalledTimes(2);
+  expect(projectFiles.commit).not.toHaveBeenCalled();
+  expect(view.gateway.prepareResource).not.toHaveBeenCalled();
+  view.button("Confirm file sharing").click();
+  await vi.waitFor(() => expect(view.onResource).toHaveBeenCalledOnce());
+  expect(projectFiles.commit).toHaveBeenCalledTimes(2);
+  expect(view.onResource.mock.calls[0][0]).toMatchObject({ resourceId: resources[0],
+    additionalResources: [{ resourceId: resources[1], contentVersion: version }] });
+  view.button("Cancel file sharing").click();
+  expect(view.gateway.revokeResource).toHaveBeenCalledTimes(2);
   view.controller.destroy();
 });

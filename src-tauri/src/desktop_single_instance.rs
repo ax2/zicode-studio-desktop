@@ -181,6 +181,11 @@ fn dispatch(app: &AppHandle, args: &[String]) -> Result<(), String> {
                 .to_path_buf();
             desktop_tools::open_from_explorer(app, &root, EntryIntent::File(file))
         }
+        Some(EntryIntent::Selection(files)) => {
+            let root = files.first().and_then(|file| file.parent())
+                .ok_or("Selected files have no project directory")?.to_path_buf();
+            desktop_tools::open_from_explorer(app, &root, EntryIntent::Selection(files))
+        }
         Some(EntryIntent::Folder(folder)) => open_folder(app, &folder),
         Some(EntryIntent::Drive) => desktop_tools::open_from_explorer(
             app,

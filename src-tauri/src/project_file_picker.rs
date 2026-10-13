@@ -93,6 +93,34 @@ pub fn get_project_resource_entry(
     relative(&root, &file).map(Some)
 }
 
+/// Returns launch names only; no file bytes or absolute paths cross this boundary.
+/// Recheck the current window, project and session on every query.
+#[tauri::command]
+pub fn get_project_resource_entries(
+    window: WebviewWindow,
+    workspace_id: String,
+) -> Result<Vec<String>, String> {
+    current(&window, &workspace_id)?;
+    let route = window.url().map_err(|error| error.to_string())?;
+    let intent = window
+        .state::<ExplorerLaunchState>()
+        .intent(window.label(), route.path())?;
+    let files = match intent {
+        Some(EntryIntent::File(file)) => vec![file],
+        Some(EntryIntent::Selection(files)) => files,
+        _ => return Ok(Vec::new()),
+    };
+    let root = window
+        .state::<HostServer>()
+        .project_resource_root(&workspace_id)?;
+    files.iter().map(|file| {
+        if file.parent() != Some(root.as_path()) {
+            return Err("Selected files no longer belong to this project".into());
+        }
+        relative(&root, file)
+    }).collect()
+}
+
 /// A folder launch is only a directory-tool discovery hint. It grants no read
 /// access and never exposes the absolute Explorer path to the WebView.
 #[tauri::command]
