@@ -67,7 +67,7 @@ fn managed_window(label: &str) -> bool {
     label.starts_with("native-workspace-") || label == "bootstrap"
 }
 
-fn show_workspaces(app: &AppHandle) {
+pub(crate) fn show_workspaces(app: &AppHandle) {
     let preferred = app.try_state::<DesktopTray>().and_then(|tray| {
         tray.focused_window
             .lock()

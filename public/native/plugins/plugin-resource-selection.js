@@ -23,6 +23,7 @@ export function createPluginResourceSelection({
   let granted = null;
   let projectGrant = null;
   let entryPath = null;
+  let entryRequest = 0;
   const label = document.createElement("strong");
   label.textContent = t("Studio · Share a file with this plugin");
   const input = document.createElement("input");
@@ -54,18 +55,24 @@ export function createPluginResourceSelection({
   cancel.type = "button";
   cancel.className = "ui-button ui-button--secondary";
   const projectChoice = gateway.projectFiles ? document.createElement("button") : null;
+  function refreshOpenedFile() {
+    if (!projectChoice || typeof gateway.projectFiles?.entry !== "function") return;
+    const request = ++entryRequest;
+    void gateway.projectFiles.entry(target.workspaceId).then(path => {
+      if (!active || !isCurrent() || request !== entryRequest) return;
+      entryPath = typeof path === "string" && path ? path : null;
+      projectChoice.textContent = entryPath
+        ? t("Use opened file: {name}").replace("{name}", entryPath)
+        : t("Choose from current project");
+    }).catch(() => {});
+  }
   const fileStatus = createProjectFileStatus({ api: gateway.projectFiles, isCurrent: () => active && isCurrent() });
   if (projectChoice) {
     projectChoice.type = "button";
     projectChoice.className = "ui-button ui-button--secondary";
     projectChoice.textContent = t("Choose from current project");
-    if (typeof gateway.projectFiles.entry === "function") {
-      void gateway.projectFiles.entry(target.workspaceId).then(path => {
-        if (!active || !isCurrent() || typeof path !== "string" || !path) return;
-        entryPath = path;
-        projectChoice.textContent = t("Use opened file: {name}").replace("{name}", path);
-      }).catch(() => {});
-    }
+    refreshOpenedFile();
+    window.addEventListener("zicode:entry-changed", refreshOpenedFile);
     projectChoice.addEventListener("click", async () => {
       if (uploading || !active || !isCurrent()) return;
       clear();
@@ -250,6 +257,8 @@ export function createPluginResourceSelection({
   return {
     destroy() {
       active = false;
+      window.removeEventListener("zicode:entry-changed", refreshOpenedFile);
+      entryRequest++;
       clear();
       saved?.destroy();
       fileStatus.destroy();

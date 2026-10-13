@@ -28,6 +28,29 @@ struct BoundIntent {
     intent: EntryIntent,
 }
 
+fn promoted_folder_route(previous: &str, current: &str, intent: &EntryIntent) -> bool {
+    if !matches!(intent, EntryIntent::Folder(_)) {
+        return false;
+    }
+    let Some((prior_workspace, prior_session)) = previous
+        .strip_prefix("/app/workspaces/")
+        .and_then(|path| path.split_once("/sessions/"))
+    else {
+        return false;
+    };
+    let Some((workspace, session)) = current
+        .strip_prefix("/app/workspaces/")
+        .and_then(|path| path.split_once("/sessions/"))
+    else {
+        return false;
+    };
+    prior_workspace == workspace
+        && prior_session.starts_with("temporary-")
+        && !session.is_empty()
+        && !session.starts_with("temporary-")
+        && !session.contains('/')
+}
+
 #[derive(Default)]
 pub struct ExplorerLaunchState(Mutex<HashMap<String, BoundIntent>>);
 
@@ -56,13 +79,19 @@ impl ExplorerLaunchState {
     }
 
     pub fn intent(&self, label: &str, route: &str) -> Result<Option<EntryIntent>, String> {
-        Ok(self
+        let mut entries = self
             .0
             .lock()
-            .map_err(|_| "Explorer launch state is unavailable".to_string())?
-            .get(label)
-            .filter(|bound| bound.route == route)
-            .map(|bound| bound.intent.clone()))
+            .map_err(|_| "Explorer launch state is unavailable".to_string())?;
+        let Some(bound) = entries.get_mut(label) else {
+            return Ok(None);
+        };
+        if bound.route != route && promoted_folder_route(&bound.route, route, &bound.intent) {
+            // Host replaces a newly created temporary Pi session with its
+            // formal ID. A later navigation cannot promote this hint again.
+            bound.route = route.to_string();
+        }
+        Ok((bound.route == route).then(|| bound.intent.clone()))
     }
 
     pub fn forget(&self, label: &str) {
@@ -149,5 +178,59 @@ mod tests {
         assert!(state
             .bind("plugin-popup", "a", "one", EntryIntent::Tools)
             .is_err());
+    }
+
+    #[test]
+    fn folder_hint_survives_only_the_first_formal_session_binding() {
+        let state = ExplorerLaunchState::default();
+        let folder = EntryIntent::Folder(PathBuf::from("project"));
+        state
+            .bind(
+                "native-workspace-explorer-a",
+                "a",
+                "temporary-one",
+                folder.clone(),
+            )
+            .unwrap();
+        assert_eq!(
+            state
+                .intent(
+                    "native-workspace-explorer-a",
+                    "/app/workspaces/a/sessions/formal-one"
+                )
+                .unwrap(),
+            Some(folder)
+        );
+        assert_eq!(
+            state
+                .intent(
+                    "native-workspace-explorer-a",
+                    "/app/workspaces/a/sessions/formal-two"
+                )
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            state
+                .intent(
+                    "native-workspace-explorer-a",
+                    "/app/workspaces/b/sessions/formal-one"
+                )
+                .unwrap(),
+            None
+        );
+        let file = EntryIntent::File(PathBuf::from("archive.zip"));
+        state
+            .bind("native-workspace-file-a", "a", "temporary-two", file)
+            .unwrap();
+        assert_eq!(
+            state
+                .intent(
+                    "native-workspace-file-a",
+                    "/app/workspaces/a/sessions/formal-three"
+                )
+                .unwrap(),
+            None
+        );
     }
 }

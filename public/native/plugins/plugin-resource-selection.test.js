@@ -112,6 +112,19 @@ describe("trusted file confirmation controls", () => {
     expect(projectFiles.commit).not.toHaveBeenCalled();
     options.controller.destroy();
   });
+  it("refreshes a reused window's opened file without granting it", async () => {
+    const entry = vi.fn().mockResolvedValueOnce("first.zip").mockResolvedValueOnce("second.zip");
+    const projectFiles = { entry, choose: vi.fn(), prepare: vi.fn(), commit: vi.fn(), cancel: vi.fn() };
+    const options = setup(projectFiles);
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Use opened file: first.zip"));
+    window.dispatchEvent(new Event("zicode:entry-changed"));
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Use opened file: second.zip"));
+    expect(projectFiles.prepare).not.toHaveBeenCalled();
+    expect(projectFiles.commit).not.toHaveBeenCalled();
+    options.controller.destroy();
+    window.dispatchEvent(new Event("zicode:entry-changed"));
+    expect(entry).toHaveBeenCalledTimes(2);
+  });
   it("selects a project snapshot only after separate confirmation and cancels pending metadata grants", async () => {
     const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };

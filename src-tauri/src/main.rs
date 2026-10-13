@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_paths;
+mod application_context;
 mod article_markdown;
 mod articles;
 mod articles_config;
@@ -9,22 +10,23 @@ mod automation_inventory;
 mod automation_login_start;
 mod automation_persistence;
 mod automation_worker;
-mod application_context;
 mod backup_store;
 mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
 mod desktop_profile;
+mod desktop_single_instance;
+mod desktop_startup_gate;
 mod desktop_tray;
 use desktop_tray::set_desktop_tray_locale;
 use explorer_entry::desktop_entry_mode;
 mod desktop_tools;
 use desktop_tools::open_desktop_tool_center;
+mod document_import;
+mod e2ee;
 mod explorer_entry;
 mod explorer_launch_state;
 mod explorer_menu;
-mod document_import;
-mod e2ee;
 mod habit_tracker;
 mod host_data;
 mod host_router;
@@ -65,6 +67,7 @@ mod web_extract;
 mod web_watch;
 mod wechat_publish;
 
+use explorer_menu::desktop_explorer_menu;
 use host_server::HostServer;
 use metadata_store::MetadataStore;
 use native_pi_manager::NativePiManager;
@@ -81,9 +84,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use explorer_menu::desktop_explorer_menu;
 mod project_file_picker;
-use project_file_picker::{get_project_directory_entry, get_project_resource_entry, select_project_resource_directory, select_project_resource_file};
+use project_file_picker::{
+    get_project_directory_entry, get_project_resource_entry, select_project_resource_directory,
+    select_project_resource_file,
+};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_dialog::MessageDialogKind;
 use tauri_plugin_updater::UpdaterExt;
@@ -1025,12 +1030,25 @@ fn spawn_fresh_runtime(
     workspace_id: String,
     scene_id: Option<&str>,
 ) -> Result<RuntimeTarget, String> {
+    spawn_fresh_runtime_with_discovery(runtimes, launch, host, cwd, workspace_id, scene_id, false)
+}
+
+fn spawn_fresh_runtime_with_discovery(
+    runtimes: &NativePiManagerState,
+    launch: &PiLaunchResolver,
+    host: &HostServer,
+    cwd: &Path,
+    workspace_id: String,
+    scene_id: Option<&str>,
+    disable_auto_discovery: bool,
+) -> Result<RuntimeTarget, String> {
     let session_id = format!("temporary-{}", uuid::Uuid::new_v4().simple());
     let instance_id = format!("instance-{}", uuid::Uuid::new_v4().simple());
     let target = RuntimeTarget::new(workspace_id, session_id, instance_id)
         .with_scene(scene_id.unwrap_or("programming"));
     let cwd_str = cwd.to_string_lossy().into_owned();
     let mut launch_spec = launch.native_launch_spec(&cwd_str, None, &target)?;
+    launch_spec.disable_auto_discovery = disable_auto_discovery;
     host.configure_plugin_broker(&target, &mut launch_spec)?;
     runtimes.spawn(target.clone(), launch_spec)?;
     Ok(target)
@@ -1163,6 +1181,56 @@ fn open_workspace_at_path(
         if resume_session_id.is_none() {
             let _ = runtimes.stop(&target);
         }
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn open_workspace_at_path_from_explorer(
+    app: &AppHandle,
+    cwd: &Path,
+    label: &str,
+) -> Result<(), String> {
+    let launcher = app
+        .try_state::<WorkspaceLauncher>()
+        .ok_or("Workspace launcher is not ready")?;
+    let host = app
+        .try_state::<HostServer>()
+        .ok_or("Host server is not ready")?;
+    let runtimes = app
+        .try_state::<NativePiManagerState>()
+        .ok_or("Native runtime manager is not ready")?;
+    let workspace_id = launcher
+        .metadata
+        .lock()
+        .map_err(|_| "Workspace metadata is unavailable")?
+        .workspace_id_for_path(cwd)?;
+    host.register_workspace(&workspace_id, cwd.to_path_buf())?;
+    let target = spawn_fresh_runtime_with_discovery(
+        &runtimes,
+        &launcher.launch,
+        &host,
+        cwd,
+        workspace_id,
+        Some("programming"),
+        true,
+    )?;
+    if let Err(error) = app
+        .state::<explorer_launch_state::ExplorerLaunchState>()
+        .bind(
+            label,
+            &target.workspace_id,
+            &target.session_id,
+            explorer_launch_state::EntryIntent::Folder(cwd.to_path_buf()),
+        )
+    {
+        let _ = runtimes.stop(&target);
+        return Err(error);
+    }
+    if let Err(error) = open_native_workspace_window_named(app, &host, &target, None, label) {
+        app.state::<explorer_launch_state::ExplorerLaunchState>()
+            .forget(label);
+        let _ = runtimes.stop(&target);
         return Err(error);
     }
     Ok(())
@@ -1913,12 +1981,21 @@ fn main() {
     }
     let explorer_action = match explorer_entry::configure(std::env::args_os().skip(1)) {
         Ok(action) => action,
-        Err(error) => { eprintln!("[desktop-entry] {error}"); std::process::exit(2); }
+        Err(error) => {
+            eprintln!("[desktop-entry] {error}");
+            std::process::exit(2);
+        }
     };
     if let Some(action) = explorer_action {
         match explorer_menu::execute(action) {
-            Ok(status) => { println!("{status}"); return; }
-            Err(error) => { eprintln!("[explorer-menu] {error}"); std::process::exit(2); }
+            Ok(status) => {
+                println!("{status}");
+                return;
+            }
+            Err(error) => {
+                eprintln!("[explorer-menu] {error}");
+                std::process::exit(2);
+            }
         }
     }
     if !desktop_profile::is_isolated() {
@@ -1927,7 +2004,15 @@ fn main() {
         }
     }
 
-    tauri::Builder::default()
+    let context = application_context::create_desktop();
+    let startup_gate = desktop_startup_gate::acquire(&context.config().identifier)
+        .expect("cannot coordinate desktop startup");
+    let secondary_launches = Arc::new(desktop_single_instance::SecondaryLaunchQueue::default());
+    let secondary_receiver = secondary_launches.clone();
+    let application = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(move |app, args, _cwd| {
+            secondary_receiver.enqueue(app, args);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
@@ -1997,7 +2082,13 @@ fn main() {
                 .level_for("hyper", log::LevelFilter::Warn)
                 .build(),
         )
-        .setup(|app| {
+        .setup(move |app| {
+            if !desktop_profile::owns_lock() {
+                return Err(std::io::Error::other(
+                    "Isolated profile is already in use by another Studio process",
+                )
+                .into());
+            }
             app.manage(desktop_tools::ToolCenter::default());
             app.manage(BackgroundWorkerUpdateLease::default());
             if let Err(error) = desktop_tray::install(app) {
@@ -2042,6 +2133,7 @@ fn main() {
                     }
                 });
             }
+            secondary_launches.mark_ready(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -2128,37 +2220,38 @@ fn main() {
                 _ => {}
             }
         })
-        .build(application_context::create())
-        .expect("error while building tauri application")
-        .run(|app_handle: &tauri::AppHandle, event| {
-            match event {
-                // The builder's initial size is applied when the window is
-                // first shown, which can override an early set_size call.
-                // Re-apply the remembered size once all windows are ready so
-                // restore works deterministically on every launch.
-                tauri::RunEvent::Ready => {
-                    if let Some(state) = load_window_state() {
-                        for window in app_handle.webview_windows().values() {
-                            if window.label().starts_with("native-workspace-") {
-                                apply_window_state(window, app_handle, &state);
-                            }
+        .build(context)
+        .expect("error while building tauri application");
+    drop(startup_gate);
+    application.run(|app_handle: &tauri::AppHandle, event| {
+        match event {
+            // The builder's initial size is applied when the window is
+            // first shown, which can override an early set_size call.
+            // Re-apply the remembered size once all windows are ready so
+            // restore works deterministically on every launch.
+            tauri::RunEvent::Ready => {
+                if let Some(state) = load_window_state() {
+                    for window in app_handle.webview_windows().values() {
+                        if window.label().starts_with("native-workspace-") {
+                            apply_window_state(window, app_handle, &state);
                         }
                     }
                 }
-                tauri::RunEvent::Exit => {
-                    if let Some(host) = app_handle.try_state::<HostServer>() {
-                        host.request_shutdown();
-                        if let Err(error) = tauri::async_runtime::block_on(host.wait_for_shutdown()) {
-                            log::warn!("[host-shutdown] {error}");
-                        }
-                    }
-                    if let Some(manager) = app_handle.try_state::<NativePiManagerState>() {
-                        manager.stop_all();
-                    }
-                }
-                _ => {}
             }
-        });
+            tauri::RunEvent::Exit => {
+                if let Some(host) = app_handle.try_state::<HostServer>() {
+                    host.request_shutdown();
+                    if let Err(error) = tauri::async_runtime::block_on(host.wait_for_shutdown()) {
+                        log::warn!("[host-shutdown] {error}");
+                    }
+                }
+                if let Some(manager) = app_handle.try_state::<NativePiManagerState>() {
+                    manager.stop_all();
+                }
+            }
+            _ => {}
+        }
+    });
 }
 
 #[cfg(test)]

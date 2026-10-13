@@ -87,6 +87,7 @@ impl PiLaunchResolver {
             pi_version: locked_pi_version().to_owned(),
             path_env: build_augmented_path(portable_git.as_deref(), Some(&isolation.agent_dir)),
             environment,
+            disable_auto_discovery: false,
         })
     }
 

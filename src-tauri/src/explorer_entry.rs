@@ -28,9 +28,7 @@ pub fn folder() -> Option<&'static Path> {
     FOLDER.get().map(PathBuf::as_path)
 }
 pub fn tools_only() -> bool {
-    TOOLS_ONLY.get().copied().unwrap_or(false)
-        || FILE.get().is_some()
-        || drive_root_folder()
+    TOOLS_ONLY.get().copied().unwrap_or(false) || FILE.get().is_some() || drive_root_folder()
 }
 
 pub fn drive_root_folder() -> bool {
@@ -68,12 +66,75 @@ pub fn initial_intent() -> Option<EntryIntent> {
     }
 }
 
+/// The second process supplies only a launch request. The first process
+/// validates the executable and selected path again before binding a hint.
+pub fn forwarded_intent(args: &[String]) -> Result<Option<EntryIntent>, String> {
+    let Some((executable, arguments)) = args.split_first() else {
+        return Err("Missing launch executable".into());
+    };
+    let launched = PathBuf::from(executable.as_str())
+        .canonicalize()
+        .map_err(|_| "Launch executable is unavailable")?;
+    let current = std::env::current_exe()
+        .and_then(|path| path.canonicalize())
+        .map_err(|_| "Current executable is unavailable")?;
+    if launched != current {
+        return Err("Launch belongs to another Studio installation".into());
+    }
+    let mut entry_args = Vec::with_capacity(arguments.len());
+    let mut profile_seen = false;
+    let mut remaining = arguments.iter();
+    while let Some(argument) = remaining.next() {
+        if argument == "--isolated-profile" {
+            if profile_seen {
+                return Err("Duplicate isolated profile in secondary launch".into());
+            }
+            let root = remaining.next().ok_or("Missing isolated profile")?;
+            let expected = crate::desktop_profile::root()
+                .ok_or("Secondary launch has an unexpected isolated profile")?;
+            let actual = PathBuf::from(root)
+                .canonicalize()
+                .map_err(|_| "Secondary isolated profile is unavailable")?;
+            if actual != expected {
+                return Err("Secondary launch belongs to another isolated profile".into());
+            }
+            profile_seen = true;
+        } else {
+            entry_args.push(argument.as_str());
+        }
+    }
+    if crate::desktop_profile::is_isolated() && !profile_seen {
+        return Err("Secondary launch omitted its isolated profile".into());
+    }
+    match entry_args.as_slice() {
+        [] => Ok(None),
+        [flag] if *flag == "--tools-only" => Ok(Some(EntryIntent::Tools)),
+        [flag, path] if *flag == "--open-file" => {
+            Ok(Some(EntryIntent::File(local_file(PathBuf::from(*path))?)))
+        }
+        [flag, path] if *flag == "--open-folder" => {
+            let path = local_folder(PathBuf::from(*path))?;
+            Ok(Some(if drive_root(&path) {
+                EntryIntent::Drive
+            } else {
+                EntryIntent::Folder(path)
+            }))
+        }
+        _ => Err("Unsupported secondary Studio launch arguments".into()),
+    }
+}
+
 #[tauri::command]
 pub fn desktop_entry_mode(window: tauri::WebviewWindow) -> Result<&'static str, String> {
     crate::require_workspace_window(&window)?;
     let route = window.url().map_err(|error| error.to_string())?;
-    let state = window.try_state::<ExplorerLaunchState>().ok_or("Explorer launch state is unavailable")?;
-    Ok(state.intent(window.label(), route.path())?.as_ref().map_or("regular", EntryIntent::mode))
+    let state = window
+        .try_state::<ExplorerLaunchState>()
+        .ok_or("Explorer launch state is unavailable")?;
+    Ok(state
+        .intent(window.label(), route.path())?
+        .as_ref()
+        .map_or("regular", EntryIntent::mode))
 }
 
 pub fn configure(args: impl IntoIterator<Item = OsString>) -> Result<Option<MenuAction>, String> {
@@ -124,23 +185,11 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
                 if folder.is_some() {
                     return Err("Only one folder may be opened".into());
                 }
-                let path = PathBuf::from(
+                let path = local_folder(PathBuf::from(
                     args.next()
                         .ok_or("--open-folder requires an absolute directory")?,
-                );
-                if !path.is_absolute() || !path.is_dir() || path.to_str().is_none() {
-                    return Err("Folder must be an existing absolute Unicode directory".into());
-                }
-                #[cfg(windows)]
-                if !matches!(path.components().next(), Some(std::path::Component::Prefix(prefix))
-                    if matches!(prefix.kind(), std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)))
-                {
-                    return Err("Explorer entry accepts local drive directories only".into());
-                }
-                folder = Some(
-                    path.canonicalize()
-                        .map_err(|_| "Cannot resolve selected directory")?,
-                );
+                ))?;
+                folder = Some(path);
             }
             Some(
                 flag @ ("--install-explorer-menu"
@@ -179,6 +228,20 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<ParsedEntry, String
     })
 }
 
+fn local_folder(path: PathBuf) -> Result<PathBuf, String> {
+    if !path.is_absolute() || !path.is_dir() || path.to_str().is_none() {
+        return Err("Folder must be an existing absolute Unicode directory".into());
+    }
+    #[cfg(windows)]
+    if !matches!(path.components().next(), Some(std::path::Component::Prefix(prefix))
+        if matches!(prefix.kind(), std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)))
+    {
+        return Err("Explorer entry accepts local drive directories only".into());
+    }
+    path.canonicalize()
+        .map_err(|_| "Cannot resolve selected directory".into())
+}
+
 fn local_file(path: PathBuf) -> Result<PathBuf, String> {
     if !path.is_absolute() || path.to_str().is_none() {
         return Err("File must be an existing absolute Unicode regular file".into());
@@ -213,6 +276,49 @@ fn local_file(path: PathBuf) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn forwarded_launch_revalidates_executable_and_selected_file() {
+        let executable = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let directory =
+            std::env::temp_dir().join(format!("studio-forwarded-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let file = directory.join("中文 空格&.zip");
+        std::fs::write(&file, b"archive").unwrap();
+        assert_eq!(forwarded_intent(&[executable.clone()]).unwrap(), None);
+        assert_eq!(
+            forwarded_intent(&[
+                executable.clone(),
+                "--open-file".into(),
+                file.to_string_lossy().into_owned()
+            ])
+            .unwrap(),
+            Some(EntryIntent::File(file.canonicalize().unwrap()))
+        );
+        assert_eq!(
+            forwarded_intent(&[
+                executable.clone(),
+                "--open-folder".into(),
+                directory.to_string_lossy().into_owned()
+            ])
+            .unwrap(),
+            Some(EntryIntent::Folder(directory.canonicalize().unwrap()))
+        );
+        assert!(forwarded_intent(&[executable.clone(), "--open-file".into()]).is_err());
+        assert!(
+            forwarded_intent(&[executable.clone(), "--tools-only".into(), "extra".into()]).is_err()
+        );
+        std::fs::remove_file(&file).unwrap();
+        assert!(forwarded_intent(&[
+            executable,
+            "--open-file".into(),
+            file.to_string_lossy().into_owned()
+        ])
+        .is_err());
+        std::fs::remove_dir(&directory).unwrap();
+    }
     #[test]
     fn file_launch_validates_metadata_and_rejects_mixed_modes() {
         let root = std::env::temp_dir()

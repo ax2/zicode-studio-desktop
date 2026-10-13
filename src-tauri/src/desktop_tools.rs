@@ -6,7 +6,10 @@ use std::{
 };
 use tauri::{AppHandle, Manager, WebviewWindow};
 
-use crate::{HostServer, NativePiManagerState, RuntimeTarget, WorkspaceLauncher};
+use crate::{
+    explorer_launch_state::{EntryIntent, ExplorerLaunchState},
+    HostServer, NativePiManagerState, RuntimeTarget, WorkspaceLauncher,
+};
 
 const LABEL: &str = "native-workspace-tools-center";
 
@@ -67,7 +70,7 @@ pub(crate) fn project_window_label(app: &AppHandle, workspace: &str) -> String {
     }
 }
 
-fn route_identity(path: &str) -> Result<(&str, &str), String> {
+pub(crate) fn route_identity(path: &str) -> Result<(&str, &str), String> {
     let parts: Vec<_> = path.split('/').collect();
     match parts.as_slice() {
         ["", "app", "workspaces", workspace, "sessions", session]
@@ -120,6 +123,29 @@ pub(crate) fn open(app: &AppHandle) -> Result<(), String> {
 }
 
 fn open_at(app: &AppHandle, root: &Path, app_param: Option<&str>) -> Result<(), String> {
+    open_at_with_intent(app, root, app_param, None)
+}
+
+pub(crate) fn open_from_explorer(
+    app: &AppHandle,
+    root: &Path,
+    intent: EntryIntent,
+) -> Result<(), String> {
+    open_at_with_intent(app, root, Some("core.tools"), Some(intent))
+}
+
+fn notify_entry_change(window: &WebviewWindow) -> Result<(), String> {
+    window
+        .eval("window.dispatchEvent(new Event('zicode:entry-changed'))")
+        .map_err(|error| format!("Could not refresh Explorer entry: {error}"))
+}
+
+fn open_at_with_intent(
+    app: &AppHandle,
+    root: &Path,
+    app_param: Option<&str>,
+    intent: Option<EntryIntent>,
+) -> Result<(), String> {
     let state = app
         .try_state::<ToolCenter>()
         .ok_or("Tool center is not ready")?;
@@ -159,22 +185,38 @@ fn open_at(app: &AppHandle, root: &Path, app_param: Option<&str>) -> Result<(), 
     let existing = app.get_webview_window(&label);
     if let (Some(target), Some(window)) = (retained.get(&label), existing.as_ref()) {
         if runtimes.is_tool_session(target).unwrap_or(false) {
+            if let Some(intent) = intent {
+                app.state::<ExplorerLaunchState>().bind(
+                    &label,
+                    &target.workspace_id,
+                    &target.session_id,
+                    intent,
+                )?;
+                restore(window)?;
+                return notify_entry_change(window);
+            }
             return restore(window);
         }
     }
     host.register_workspace(&workspace_id, root)?;
     let target = new_target(workspace_id);
     host.start_tool_session(target.clone())?;
+    if let Some(intent) = intent.clone() {
+        if let Err(error) = app.state::<ExplorerLaunchState>().bind(
+            &label,
+            &target.workspace_id,
+            &target.session_id,
+            intent,
+        ) {
+            let _ = runtimes.stop(&target);
+            return Err(error);
+        }
+    }
     let opened = if let Some(window) = existing {
         crate::native_workspace_url(host.origin(), &target, app_param.or(Some("core.tools")))
             .and_then(|url| window.navigate(url).map_err(|error| error.to_string()))
             .and_then(|_| {
                 crate::set_window_workspace(app, &label, &target.workspace_id);
-                if let Some(entries) =
-                    app.try_state::<crate::explorer_launch_state::ExplorerLaunchState>()
-                {
-                    entries.forget(&label);
-                }
                 restore(&window)
             })
     } else {
@@ -187,8 +229,18 @@ fn open_at(app: &AppHandle, root: &Path, app_param: Option<&str>) -> Result<(), 
         )
     };
     if let Err(error) = opened {
+        app.state::<ExplorerLaunchState>().forget(&label);
         let _ = runtimes.stop(&target);
         return Err(error);
+    }
+    if intent.is_some() {
+        if let Some(window) = app.get_webview_window(&label) {
+            // A new page can still be loading; its initial query reads the
+            // bound state. An existing page needs an explicit refresh.
+            let _ = notify_entry_change(&window);
+        }
+    } else {
+        app.state::<ExplorerLaunchState>().forget(&label);
     }
     if let (Some(window), Some(title)) = (app.get_webview_window(&label), title) {
         if let Err(error) = window.set_title(&title) {

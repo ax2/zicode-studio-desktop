@@ -12,7 +12,7 @@ static PROFILE: OnceLock<Profile> = OnceLock::new();
 
 struct Profile {
     root: PathBuf,
-    _lock: File,
+    _lock: Option<File>,
 }
 
 pub fn root() -> Option<&'static Path> {
@@ -23,8 +23,15 @@ pub fn is_isolated() -> bool {
     root().is_some()
 }
 
+pub fn owns_lock() -> bool {
+    PROFILE.get().is_none_or(|profile| profile._lock.is_some())
+}
+
 pub fn pi_discovery_flags() -> &'static [&'static str] {
-    if is_isolated() || crate::explorer_entry::folder().is_some() || crate::explorer_entry::file().is_some() {
+    if is_isolated()
+        || crate::explorer_entry::folder().is_some()
+        || crate::explorer_entry::file().is_some()
+    {
         &[
             "--no-extensions",
             "--no-skills",
@@ -163,8 +170,9 @@ fn prepare(path: &Path) -> Result<Profile, String> {
         .truncate(false)
         .open(path.join("profile.lock"))
         .map_err(|error| error.to_string())?;
-    lock.try_lock_exclusive()
-        .map_err(|_| "Isolated profile is already in use".to_string())?;
+    // A second launch must reach the single-instance plugin so its Explorer
+    // request can be handed to the lock holder. It may not set up a Host.
+    let lock = lock.try_lock_exclusive().ok().map(|_| lock);
     let root = path.canonicalize().map_err(|error| error.to_string())?;
     Ok(Profile { root, _lock: lock })
 }
@@ -236,6 +244,23 @@ mod tests {
         let path = temp.join("owned-profile");
         initialize(["--isolated-profile".into(), path.clone().into_os_string()]).unwrap();
         let expected = path.canonicalize().unwrap();
+        let executable = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            crate::explorer_entry::forwarded_intent(&[
+                executable.clone(),
+                "--isolated-profile".into(),
+                expected.to_string_lossy().into_owned(),
+                "--tools-only".into(),
+            ])
+            .unwrap(),
+            Some(crate::explorer_launch_state::EntryIntent::Tools)
+        );
+        assert!(
+            crate::explorer_entry::forwarded_intent(&[executable, "--tools-only".into()]).is_err()
+        );
         assert_eq!(
             crate::app_paths::data_root().unwrap(),
             expected.join("data")
@@ -294,6 +319,7 @@ mod tests {
             pi_version: "test".into(),
             path_env: String::new(),
             environment: Default::default(),
+            disable_auto_discovery: false,
         };
         let args = spec.command_description().args;
         for flag in [
@@ -334,9 +360,12 @@ mod tests {
         let temp = Fixture::new();
         let path = temp.path().join("profile");
         let first = prepare(&path).unwrap();
-        assert!(prepare(&path).is_err());
+        assert!(first._lock.is_some());
+        let secondary = prepare(&path).unwrap();
+        assert!(secondary._lock.is_none());
+        drop(secondary);
         drop(first);
-        assert!(prepare(&path).is_ok());
+        assert!(prepare(&path).unwrap()._lock.is_some());
         fs::write(path.join("profile.json"), "{}").unwrap();
         assert!(prepare(&path).is_err());
     }

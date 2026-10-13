@@ -4,8 +4,8 @@ import type { ManualToolApi } from "./manual-tools";
 
 // Explorer folder intent narrows discovery only. Reading entries still needs
 // the separate directory grant and user confirmation in the Host.
-export function useDirectoryToolFilter(api: ManualToolApi, scope: ToolAccessScope) {
-  const key = JSON.stringify([scope.sceneId, scope.workspaceId]);
+export function useDirectoryToolFilter(api: ManualToolApi, scope: ToolAccessScope, entryRevision = 0) {
+  const key = JSON.stringify([scope.sceneId, scope.workspaceId, entryRevision]);
   const [state, setState] = useState({ key: "", ready: false, enabled: false, failed: false });
   const current = state.key === key ? state : {
     key, ready: typeof api.projectDirectories?.entry !== "function", enabled: false, failed: false,

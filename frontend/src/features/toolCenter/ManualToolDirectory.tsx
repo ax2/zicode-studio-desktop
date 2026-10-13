@@ -21,8 +21,9 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const [view, setView] = useState<ToolDirectoryView>("all");
   const [source, setSource] = useState("");
   const [category, setCategory] = useState("");
-  const fileFilter = useFileToolFilter(api, scope);
-  const directoryFilter = useDirectoryToolFilter(api, scope);
+  const [entryRevision, setEntryRevision] = useState(0);
+  const fileFilter = useFileToolFilter(api, scope, entryRevision);
+  const directoryFilter = useDirectoryToolFilter(api, scope, entryRevision);
   const [cursor, setCursor] = useState<{ offset: number; revision: string | null; accessRevision?: number | null }>({ offset: 0, revision: null });
   const [page, setPage] = useState<ToolPage | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,11 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const switcher = useRef<HTMLFieldSetElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
   const consumedRequest = useRef<ToolOpenRequest | undefined>(undefined);
+  useEffect(() => {
+    const refresh = () => setEntryRevision(value => value + 1);
+    window.addEventListener("zicode:entry-changed", refresh);
+    return () => window.removeEventListener("zicode:entry-changed", refresh);
+  }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter, workspace or plugin catalog invalidates the cursor.
   useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, directoryFilter.enabled, scope.sceneId, scope.workspaceId, catalogRevision]);
   useEffect(() => {

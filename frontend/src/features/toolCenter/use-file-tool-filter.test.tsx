@@ -85,3 +85,16 @@ it("recovers from synchronous native bridge errors", async () => {
   await act(async () => {});
   expect(view.result.current).toMatchObject({ ready: true, enabled: false, failed: true });
 });
+it("rechecks the active window's file hint when the entry revision changes", async () => {
+  const entry = vi.fn().mockResolvedValueOnce("first.zip").mockResolvedValueOnce("second.zip");
+  const api = gateway(entry);
+  const view = renderHook(({ revision }) => useFileToolFilter(api, scope, revision), {
+    initialProps: { revision: 0 },
+  });
+  await act(async () => {});
+  expect(view.result.current.fileName).toBe("first.zip");
+  view.rerender({ revision: 1 });
+  await act(async () => {});
+  expect(view.result.current.fileName).toBe("second.zip");
+  expect(entry).toHaveBeenCalledTimes(2);
+});

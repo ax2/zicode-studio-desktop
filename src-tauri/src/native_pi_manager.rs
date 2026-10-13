@@ -31,6 +31,7 @@ pub struct NativeLaunchSpec {
     pub pi_version: String,
     pub path_env: String,
     pub environment: BTreeMap<String, String>,
+    pub disable_auto_discovery: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,11 +44,17 @@ pub struct LaunchDescription {
 impl NativeLaunchSpec {
     pub fn command_description(&self) -> LaunchDescription {
         let mut args = Vec::new();
-        args.extend(
+        let discovery_flags = if self.disable_auto_discovery {
+            &[
+                "--no-extensions",
+                "--no-skills",
+                "--no-prompt-templates",
+                "--no-themes",
+            ][..]
+        } else {
             crate::desktop_profile::pi_discovery_flags()
-                .iter()
-                .map(|flag| flag.to_string()),
-        );
+        };
+        args.extend(discovery_flags.iter().map(|flag| flag.to_string()));
         for extension in &self.extensions {
             args.push("--extension".into());
             args.push(extension.to_string_lossy().into_owned());
@@ -285,6 +292,33 @@ impl NativePiManager {
             return Err("Runtime mode rejected: IdentityMismatch".into());
         }
         Ok(runtime.bridge.is_none())
+    }
+
+    pub(crate) fn is_discovery_disabled_ai_session(
+        &self,
+        target: &RuntimeTarget,
+    ) -> Result<bool, String> {
+        let runtimes = self
+            .inner
+            .runtimes
+            .lock()
+            .map_err(|_| "Native runtime registry lock poisoned".to_string())?;
+        let runtime = runtimes
+            .get(&target.instance_id)
+            .ok_or("Native runtime instance is not running")?;
+        if *runtime
+            .target
+            .lock()
+            .map_err(|_| "Native runtime target lock poisoned")?
+            != *target
+        {
+            return Err("Runtime mode rejected: IdentityMismatch".into());
+        }
+        Ok(runtime.bridge.is_some()
+            && runtime.launch.as_ref().is_some_and(|spec| {
+                spec.disable_auto_discovery
+                    || !crate::desktop_profile::pi_discovery_flags().is_empty()
+            }))
     }
 
     /// Stop runtimes for `temporary-*` sessions that are older than `grace`
@@ -908,6 +942,7 @@ mod tests {
             pi_version: env!("PI_STUDIO_PI_VERSION_BUNDLED").into(),
             path_env: "/usr/bin".into(),
             environment: BTreeMap::from([("PI_CODING_AGENT_DIR".into(), "/isolated/agent".into())]),
+            disable_auto_discovery: false,
         };
         let launch = spec.command_description();
         assert_eq!(launch.program, PathBuf::from("/embedded/pi"));

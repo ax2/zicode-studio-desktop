@@ -3,8 +3,8 @@ import type { ToolAccessScope } from "../commandPalette/tool-access";
 import type { ManualToolApi } from "./manual-tools";
 
 // File intent is metadata only. Detection and filtering never grant file access.
-export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope) {
-  const key = JSON.stringify([scope.sceneId, scope.workspaceId]);
+export function useFileToolFilter(api: ManualToolApi, scope: ToolAccessScope, entryRevision = 0) {
+  const key = JSON.stringify([scope.sceneId, scope.workspaceId, entryRevision]);
   const [state, setState] = useState({
     key: "",
     ready: false,

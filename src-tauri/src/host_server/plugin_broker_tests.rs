@@ -64,6 +64,7 @@ export default function (pi) {{
         extensions: vec![observer],
         pi_version: crate::pi_launch::locked_pi_version().into(),
         path_env: std::env::var("PATH").unwrap_or_default(),
+        disable_auto_discovery: false,
         environment: BTreeMap::from([
             ("HOME".into(), root.to_string_lossy().into_owned()),
             ("USERPROFILE".into(), root.to_string_lossy().into_owned()),
@@ -135,6 +136,7 @@ async fn runtime_plugin_http_enforces_identity_expiry_liveness_and_current_grant
         extensions: vec![],
         pi_version: "fixture".into(),
         path_env: String::new(),
+        disable_auto_discovery: false,
         environment: BTreeMap::new(),
     };
     configure_plugin_broker_for_state(&host.state, &target, &mut launch).unwrap();
