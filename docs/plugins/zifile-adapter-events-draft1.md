@@ -29,3 +29,5 @@ bun run scripts/verify-zifile-adapter-events.mjs <trace.jsonl> <operation> <arch
 ```
 
 仓库的 `tests/fixtures/zifile-adapter-events/list-ok.jsonl` 是**Studio 自制协议向量**，含一个标为危险的归档名；它不是 ZiFile 产物，也不证明归档算法接入。验证器不启动原生程序、不验包签名、不验证资源授权/游标真实性/写入原子性；真实 Host 解析器和三个桌面系统的运行证据必须在正式支持 native profile 前补齐。
+
+2026-10-14 Studio 增加了 `plugin_archive_events` 的 Rust 增量接收器和完整流解码入口：每行及总流有界，失败后接收器不可继续使用，完整流通过 `ended` 才向调用方返回事件。它复用本页的自制 JSONL 样例做同源协议检查。当前没有任何插件调用路径使用该模块，也未开放 native profile；Host 对资源版本、Worker 生命周期、分页游标真实性和写入事务的核对仍须在接线时实现，不能把此接收器当作 ZiFile 功能验收。

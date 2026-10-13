@@ -41,6 +41,8 @@ mod ocr;
 mod p2p;
 mod pi_launch;
 mod pi_rpc_bridge;
+#[cfg_attr(not(test), allow(dead_code))]
+mod plugin_archive_events;
 mod plugin_capabilities;
 mod plugin_package;
 mod plugin_registry;
