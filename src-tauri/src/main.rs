@@ -301,7 +301,11 @@ async fn open_folder_as_workspace(
         .as_path()
         .ok_or_else(|| "Selected folder is not a local path".to_string())?
         .to_path_buf();
-    open_workspace_at_path(&app, Some(&window), &path, None, plugin_id.as_deref())?;
+    if desktop_tools::source_is_tools(&window)? {
+        desktop_tools::open_project(app.clone(), path.clone(), plugin_id).await?;
+    } else {
+        open_workspace_at_path(&app, Some(&window), &path, None, plugin_id.as_deref())?;
+    }
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
@@ -413,6 +417,9 @@ async fn switch_window_workspace(
     let cwd = PathBuf::from(&project_path);
     if !cwd.is_dir() {
         return Err(format!("Project folder no longer exists: {project_path}"));
+    }
+    if desktop_tools::source_is_tools(&window)? {
+        return desktop_tools::open_project(app, cwd, plugin_id).await;
     }
     open_fresh_session_at_path(&app, Some(&window), &cwd, None, plugin_id.as_deref())
 }
@@ -1033,6 +1040,7 @@ fn open_fresh_session_at_path(
     scene_id: Option<&str>,
     app_param: Option<&str>,
 ) -> Result<(), String> {
+    let source_window = desktop_tools::project_navigation_source(source_window)?;
     let launcher = app
         .try_state::<WorkspaceLauncher>()
         .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
@@ -1062,7 +1070,7 @@ fn open_fresh_session_at_path(
     {
         return navigate_workspace_window(app, window, host.origin(), &target, app_param, true);
     }
-    let label = format!("native-workspace-{workspace_id}");
+    let label = desktop_tools::project_window_label(app, &workspace_id);
     if let Some(existing) = app.get_webview_window(&label) {
         return navigate_workspace_window(app, &existing, host.origin(), &target, app_param, true);
     }
@@ -1080,6 +1088,7 @@ fn open_workspace_at_path(
     resume_session_id: Option<&str>,
     app_param: Option<&str>,
 ) -> Result<(), String> {
+    let source_window = desktop_tools::project_navigation_source(source_window)?;
     let launcher = app
         .try_state::<WorkspaceLauncher>()
         .ok_or_else(|| "Workspace launcher is not ready".to_string())?;
@@ -1135,7 +1144,7 @@ fn open_workspace_at_path(
         );
     }
 
-    let label = format!("native-workspace-{workspace_id}");
+    let label = desktop_tools::project_window_label(app, &workspace_id);
     if let Some(existing) = app.get_webview_window(&label) {
         return navigate_workspace_window(
             app,
@@ -1221,7 +1230,7 @@ fn open_native_workspace_window_with_app(
     target: &RuntimeTarget,
     app_param: Option<&str>,
 ) -> Result<(), String> {
-    let label = format!("native-workspace-{}", target.workspace_id);
+    let label = desktop_tools::project_window_label(app, &target.workspace_id);
     open_native_workspace_window_named(app, host, target, app_param, &label)
 }
 
