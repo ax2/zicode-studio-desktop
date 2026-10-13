@@ -289,11 +289,32 @@ async fn http_resource_upload_confirmation_read_revoke_and_permission_boundaries
             .unwrap()["error"]["code"],
         "resource_unavailable"
     );
+    let cursor_binding = crate::plugin_archive_cursor::Binding {
+        plugin_id: "com.zicode.devtools.echo".into(),
+        package_version: "1.0.0".into(),
+        capability_id: "devtools.text.base64.encode".into(),
+        scene_id: "programming".into(),
+        runtime_id: target.instance_id.clone(),
+        session_id: target.session_id.clone(),
+        resource_id: access["resourceId"].as_str().unwrap().into(),
+        content_version: version.clone(),
+        query: String::new(),
+        page_size: 20,
+    };
+    let page = host
+        .state
+        .archive_page_cursors
+        .seal(cursor_binding.clone(), "abcdefghijklmnop")
+        .unwrap();
     assert!(desktop_post("revoke", access.clone())
         .await
         .unwrap()
         .status()
         .is_success());
+    assert_eq!(
+        host.state.archive_page_cursors.take(&page, &cursor_binding),
+        Err("archive_cursor_invalid")
+    );
     assert!(desktop_post("revoke", access.clone())
         .await
         .unwrap()

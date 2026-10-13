@@ -295,6 +295,8 @@ pub(super) async fn revoke(
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?;
         store.revoke(&request)?;
+        drop(store);
+        state.archive_page_cursors.invalidate_resource(&request.resource_id);
         Ok(json!({"schemaVersion":1,"revoked":true}))
     })
     .await
