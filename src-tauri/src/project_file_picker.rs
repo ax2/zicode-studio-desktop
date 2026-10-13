@@ -1,5 +1,9 @@
 //! File choice is not read authority. Content sharing still requires Host confirmation.
-use crate::{host_server::HostServer, WindowWorkspaceState};
+use crate::{
+    explorer_launch_state::{EntryIntent, ExplorerLaunchState},
+    host_server::HostServer,
+    WindowWorkspaceState,
+};
 use std::path::Path;
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
@@ -72,21 +76,21 @@ pub fn get_project_resource_entry(
 ) -> Result<Option<String>, String> {
     current(&window, &workspace_id)?;
     let route = window.url().map_err(|error| error.to_string())?;
-    if !crate::explorer_entry::owns_launch_window(window.label(), route.path()) {
+    let intent = window
+        .state::<ExplorerLaunchState>()
+        .intent(window.label(), route.path())?;
+    let Some(EntryIntent::File(file)) = intent else {
         return Ok(None);
-    }
+    };
     let root = window
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;
-    let Some(file) = crate::explorer_entry::file() else {
-        return Ok(None);
-    };
     // A launch file is scoped to its original parent project. Never carry it
     // into another window/project or expose its absolute path to plugins.
     if file.parent() != Some(root.as_path()) {
         return Ok(None);
     }
-    relative(&root, file).map(Some)
+    relative(&root, &file).map(Some)
 }
 
 /// A folder launch is only a directory-tool discovery hint. It grants no read
@@ -98,17 +102,16 @@ pub fn get_project_directory_entry(
 ) -> Result<Option<&'static str>, String> {
     current(&window, &workspace_id)?;
     let route = window.url().map_err(|error| error.to_string())?;
-    if !crate::explorer_entry::owns_launch_window(window.label(), route.path()) {
+    let intent = window
+        .state::<ExplorerLaunchState>()
+        .intent(window.label(), route.path())?;
+    let Some(EntryIntent::Folder(selected)) = intent else {
         return Ok(None);
-    }
+    };
     let root = window
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;
-    Ok(directory_entry(
-        &root,
-        crate::explorer_entry::folder(),
-        crate::explorer_entry::drive_root_folder(),
-    ))
+    Ok(directory_entry(&root, Some(&selected), false))
 }
 
 fn directory_entry(root: &Path, selected: Option<&Path>, drive_root: bool) -> Option<&'static str> {

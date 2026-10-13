@@ -21,6 +21,7 @@ use explorer_entry::desktop_entry_mode;
 mod desktop_tools;
 use desktop_tools::open_desktop_tool_center;
 mod explorer_entry;
+mod explorer_launch_state;
 mod explorer_menu;
 mod document_import;
 mod e2ee;
@@ -1214,6 +1215,9 @@ fn navigate_workspace_window(
         return Err(error.to_string());
     }
     set_window_workspace(app, window.label(), &target.workspace_id);
+    if let Some(entries) = app.try_state::<explorer_launch_state::ExplorerLaunchState>() {
+        entries.forget(window.label());
+    }
     let _ = window.set_focus();
     Ok(())
 }
@@ -1802,11 +1806,16 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         session_id,
         format!("instance-{}", uuid::Uuid::new_v4().simple()),
     );
-    explorer_entry::bind_launch_window(
-        format!("native-workspace-{}", target.workspace_id),
-        &target.workspace_id,
-        &target.session_id,
-    );
+    let launch_state = explorer_launch_state::ExplorerLaunchState::default();
+    if let Some(intent) = explorer_entry::initial_intent() {
+        launch_state.bind(
+            &format!("native-workspace-{}", target.workspace_id),
+            &target.workspace_id,
+            &target.session_id,
+            intent,
+        )?;
+    }
+    app.manage(launch_state);
     let launch_resolver = PiLaunchResolver::new(static_dir.clone());
     let runtimes = NativePiManager::new(256);
     let remote_auth = Arc::new(Mutex::new(RemoteAuth::new(metadata.clone())));
@@ -2082,6 +2091,11 @@ fn main() {
                 }
                 tauri::WindowEvent::Destroyed if label.starts_with("native-workspace-") => {
                     desktop_tray::forget_window(window.app_handle(), label);
+                    if let Some(entries) =
+                        window.try_state::<explorer_launch_state::ExplorerLaunchState>()
+                    {
+                        entries.forget(label);
+                    }
                     let workspace_id = window
                         .try_state::<WindowWorkspaceState>()
                         .and_then(|state| {

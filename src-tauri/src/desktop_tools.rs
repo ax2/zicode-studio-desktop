@@ -170,6 +170,11 @@ fn open_at(app: &AppHandle, root: &Path, app_param: Option<&str>) -> Result<(), 
             .and_then(|url| window.navigate(url).map_err(|error| error.to_string()))
             .and_then(|_| {
                 crate::set_window_workspace(app, &label, &target.workspace_id);
+                if let Some(entries) =
+                    app.try_state::<crate::explorer_launch_state::ExplorerLaunchState>()
+                {
+                    entries.forget(&label);
+                }
                 restore(&window)
             })
     } else {
