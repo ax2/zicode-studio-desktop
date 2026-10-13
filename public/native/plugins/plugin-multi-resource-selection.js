@@ -48,10 +48,10 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
       if (active && isCurrent()) status.textContent = t("Release was not confirmed. The resource will expire automatically.");
     });
   }
-  function reset() {
+  function reset({ clearInput = true } = {}) {
     revision++;
     selected = [];
-    input.value = "";
+    if (clearInput) input.value = "";
     list.replaceChildren();
     confirm.disabled = true;
     release();
@@ -59,7 +59,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   input.addEventListener("change", () => {
     if (uploading || !active || !isCurrent()) return;
     const files = Array.from(input.files ?? []);
-    reset();
+    reset({ clearInput: false });
     selected = files;
     const total = selected.reduce((sum, file) => sum + file.size, 0);
     const allowed = selected.length > 0 && selected.length <= maxResources &&
@@ -107,7 +107,12 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
       handedOff = true;
       status.textContent = t("Confirmed files shared. You can revoke them with Cancel.");
     } catch {
-      if (valid(token)) status.textContent = t("File sharing failed. Choose the files again to retry.");
+      if (valid(token)) {
+        selected = [];
+        input.value = "";
+        list.replaceChildren();
+        status.textContent = t("File sharing failed. Choose the files again to retry.");
+      }
     } finally {
       if (!handedOff) for (const item of published)
         void gateway.revokeResource(item.access).catch(() => {});

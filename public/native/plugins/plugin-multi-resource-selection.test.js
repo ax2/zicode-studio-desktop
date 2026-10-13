@@ -28,6 +28,16 @@ function setup() {
 }
 afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 
+it("keeps the browser file label after selection and clears it on cancellation", () => {
+  const view = setup(); const writes = [];
+  Object.defineProperty(view.input, "value", { configurable: true, get: () => "selected files", set: value => writes.push(value) });
+  view.choose([file("one.txt", "one"), file("two.txt", "two")]);
+  expect(writes).toEqual([]);
+  view.button("Cancel file sharing").click();
+  expect(writes).toEqual([""]);
+  view.controller.destroy();
+});
+
 it("keeps two distinct files private until confirmation, then revokes both", async () => {
   const view = setup(); const one = file("one.txt", "one"), two = file("two.txt", "two");
   view.choose([one, two]);
@@ -58,5 +68,6 @@ it("rejects excess selection and revokes a partial group on upload failure", asy
   await vi.waitFor(() => expect(document.body.textContent).toContain("Choose the files again"));
   expect(view.onResource).not.toHaveBeenCalled();
   expect(view.gateway.revokeResource).toHaveBeenCalledTimes(2);
+  expect(document.querySelectorAll(".plugin-resource-file-list li")).toHaveLength(0);
   view.controller.destroy();
 });
