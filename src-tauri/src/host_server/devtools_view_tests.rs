@@ -298,3 +298,66 @@ async fn trace_view_browser_invokes_actual_host_worker_and_displays_result() {
     }
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+#[ignore = "prepares an explicitly named isolated profile for native WebView2 acceptance"]
+fn prepare_trace_native_profile() {
+    let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let profile = PathBuf::from(std::env::var_os("ZICODE_TEST_NATIVE_PROFILE").unwrap());
+    assert!(profile.is_absolute());
+    let scratch = std::fs::canonicalize(project.join(".cache/task-scratch")).unwrap();
+    let parent = std::fs::canonicalize(profile.parent().unwrap()).unwrap();
+    assert!(
+        parent.starts_with(&scratch),
+        "profile must be owned task scratch"
+    );
+    let owner: Value =
+        serde_json::from_slice(&std::fs::read(parent.join("owner.json")).unwrap()).unwrap();
+    assert_eq!(
+        owner["purpose"],
+        "isolated native WebView2 Trace/Text acceptance"
+    );
+    crate::desktop_profile::initialize([
+        std::ffi::OsString::from("--isolated-profile"),
+        profile.clone().into_os_string(),
+    ])
+    .unwrap();
+    let root = crate::app_paths::plugins_root().unwrap();
+    let canonical_profile = std::fs::canonicalize(&profile).unwrap();
+    assert!(
+        root.starts_with(&canonical_profile),
+        "plugin root {} not under profile {}",
+        root.display(),
+        canonical_profile.display()
+    );
+    let mut registry = crate::plugin_registry::PluginRegistry::open(root).unwrap();
+    for (name, plugin_id) in [
+        ("devtools-trace-candidate01", "com.zicode.devtools.trace"),
+        ("devtools-text-dev57", "com.zicode.devtools.text"),
+    ] {
+        let source = project.join("tests/fixtures").join(name);
+        let receipt_path = if name == "devtools-text-dev57" {
+            project.join("tests/fixtures/devtools-text-dev57.acceptance.json")
+        } else {
+            project.join("tests/fixtures/devtools-trace-candidate01.verification.json")
+        };
+        let receipt: Value = serde_json::from_slice(&std::fs::read(receipt_path).unwrap()).unwrap();
+        for file in receipt["files"].as_array().unwrap() {
+            let bytes = std::fs::read(source.join(file["path"].as_str().unwrap())).unwrap();
+            let size = file["size"]
+                .as_u64()
+                .or_else(|| file["bytes"].as_u64())
+                .unwrap();
+            assert_eq!(bytes.len() as u64, size);
+            assert_eq!(format!("{:x}", Sha256::digest(bytes)), file["sha256"]);
+        }
+        registry.install_developer(&source).unwrap();
+        registry
+            .set_enabled("programming", plugin_id, true)
+            .unwrap();
+    }
+    eprintln!(
+        "Prepared isolated Trace/Text native profile: {}",
+        profile.display()
+    );
+}

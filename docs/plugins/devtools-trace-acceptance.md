@@ -18,7 +18,7 @@
 
 ## 未验收和重开条件
 
-真实 Studio 原生 View、签名安装/更新/回滚、取消和超时、结果接力、其他 OS 均待验收。提供方应交付正式签名容器；154 项源工具的完整接受数仍为 0。
+原生窗口中的工具中心单链路与结果接力见下节补验。Trace 自定义插件 View 在原生窗口、签名安装/更新/回滚、取消和超时、其他 OS 均待验收。提供方应交付正式签名容器；154 项源工具的完整接受数仍为 0。
 
 ### 2026-10-14 Chromium 页面至 Host/Worker 的执行展示
 
@@ -38,3 +38,10 @@
 - 首次逐条按提供方错误码直接比较为 36/40。差异 4 条均在 Studio 输入 schema 前置验证被拒：两项 8193 字符输入超过插件声明的 8192 字符上限，以及两项 `text` 类型错误。Worker 没有收到这 4 条；Studio 返回 `invalid_parameters`，不是提供方的 `INPUT_TOO_LARGE` 或 `INVALID_INPUT`。
 - 将这四条明确列为 Studio schema 拒绝，其余 36 条继续精确比对 Worker 的成功文本或业务错误码；最终复跑 40/40 符合各自层级预期，其中 **Worker 向量 36/36、Studio schema 拒绝 4/4**。这不等于 40 条提供方业务向量均通过 Worker，也不继承提供方 59 条原生/WASI 证据。最终收据保存在 `.cache/task-scratch/trace-vectors-0081ce9e-d727-43fb-bc43-d5ad9c80af6b/receipt.json`；首次差异收据 `trace-vectors-c799d7bd-428c-4478-bd3c-6d790d8c73c2/receipt.json`。
 - 对外错误码映射尚需统一：Studio 的 schema 错误与提供方业务错误是两层协议；目前界面若要展示提供方的具体超长提示，须先定义宿主验证错误的标准映射，不应绕开 schema 直接把越界输入交给 Worker。
+
+### 2026-10-14 Windows 原生 WebView2 工具中心补验
+
+- 使用仓库现有完整 debug EXE（应用版本 0.4.2）及专用 `--isolated-profile --tools-only`，在真实 Windows WebView2 工具中心安装、启用两份已冻结的未签名开发候选。准备测试在写入前限定目标为项目 `.cache/task-scratch` 下带本任务 `owner.json` 的目录，并逐文件核对候选收据。
+- `scripts/qa-native-trace-view.mjs` 通过该 WebView2 调试端口驱动真实界面：目录中发现 Django Trace，按需打开参数表单，执行并显示 `NoReverseMatch`；选择另一插件的 `devtools.text.json.format`，检查接力预览，显式确认后执行并显示接收方结果；再预览保存、显式确认并取得产物入口。脚本返回 `passed=true`、`nativeWebView2=true`、`receiverExecuted=true`、`savedAfterConfirmation=true`。隔离档案内存在对应产物元数据与内容文件。
+- 三张原生窗口截图在技术博客 `zicode-studio-desktop/screenshots/trace-native-2026-10-14/`，已检查结果、接收方结果和保存状态。测试进程已正常退出。细节见技术博客同日工作日志。
+- 这是 **工具中心的原生 WebView2 单链路**；尚未验证 Trace 自定义 iframe View 在原生窗口中打开。EXE 是此前保留的构建，不能用此证明当前源码重新构建可运行。签名插件生命周期、所有工具、其他 OS、取消/超时与错误恢复仍待验收，DevTools 完整接受数仍为 0/154。
