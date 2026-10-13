@@ -30,7 +30,7 @@ pub(super) fn register(
         return Err(rejected("result_too_large"));
     }
     validate_result(capability, &bundle.result)?;
-    let pending=super::super::store::Pending::prepare(&request.access,proof,bundle.resources)?;
+    let pending=super::super::store::Pending::prepare(std::slice::from_ref(&request.access),proof,bundle.resources)?;
     #[cfg(test)] {
         let observer=state.plugin_resource_workers.observer.lock().unwrap().clone();
         if let Some(observer)=observer { observer("output_prepared",0); }

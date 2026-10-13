@@ -20,19 +20,25 @@ impl Store {
     ) -> Result<Vec<(Access, String)>, ApiError> {
         self.check(access, proof)?;
         let mut ancestors = Vec::new();
-        let mut next = self
+        let mut pending = self
             .records
             .get(&access.resource_id)
-            .and_then(|r| r.parent.clone());
-        while let Some(parent) = next {
+            .map(|r| r.parents.clone())
+            .unwrap_or_default();
+        let mut seen = std::collections::HashSet::new();
+        while let Some(parent) = pending.pop() {
+            if !seen.insert(parent.access.resource_id.clone()) {
+                continue;
+            }
             if ancestors.len() >= MAX_RECORDS {
                 return Err(rejected("resource_unavailable"));
             }
             self.check(&parent.access, &parent.proof)?;
-            next = self
+            pending.extend(self
                 .records
                 .get(&parent.access.resource_id)
-                .and_then(|r| r.parent.clone());
+                .map(|r| r.parents.clone())
+                .unwrap_or_default());
             ancestors.push((parent.access, parent.proof));
         }
         Ok(ancestors)
@@ -138,10 +144,10 @@ impl Store {
                 expires: record
                     .expires
                     .min(Instant::now() + Duration::from_secs(900)),
-                parent: Some(Ancestor {
+                parents: vec![Ancestor {
                     access: source.clone(),
                     proof: source_proof.into(),
-                }),
+                }],
             };
             self.records.insert(access.resource_id.clone(), delegated);
             self.transfers.get_mut(id).unwrap().result = Some(access.clone());

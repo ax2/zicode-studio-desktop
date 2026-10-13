@@ -31,7 +31,7 @@ fn source(store: &mut Store) -> Access {
 }
 fn pending(source: &Access) -> Pending {
     Pending::prepare(
-        source,
+        std::slice::from_ref(source),
         "proof",
         vec![
             Blob {
@@ -106,4 +106,57 @@ fn quota_change_after_preparation_rejects_the_whole_output_group() {
         "resource_budget_exceeded"
     );
     assert_eq!(store.records.len(), MAX_RECORDS);
+}
+
+#[test]
+fn every_source_controls_a_derived_resource() {
+    for revoke_second in [false, true] {
+        let mut store = Store::default();
+        let first = source(&mut store);
+        let second = source(&mut store);
+        let sources = [first.clone(), second.clone()];
+        let output = Pending::prepare(&sources, "proof", vec![Blob {
+            mime_type: "text/plain".into(),
+            bytes: b"combined".to_vec(),
+        }]).unwrap();
+        let descriptors = store.publish_outputs(output, &AtomicBool::new(false)).unwrap();
+        assert_eq!(descriptors[0]["derivedFromAll"].as_array().unwrap().len(), 2);
+        let derived = Access {
+            schema_version: 1,
+            owner: first.owner.clone(),
+            resource_id: descriptors[0]["resourceId"].as_str().unwrap().into(),
+            content_version: descriptors[0]["contentVersion"].as_str().unwrap().into(),
+        };
+        assert_eq!(store.lineage(&derived, "proof").unwrap().len(), 2);
+        store.revoke(if revoke_second { &second } else { &first }).unwrap();
+        assert!(store.check(&derived, "proof").is_err());
+        assert_eq!(store.record_count(), 1);
+    }
+}
+
+#[test]
+fn missing_source_blocks_group_publication() {
+    for expire_second in [false, true] {
+        let mut store = Store::default();
+        let first = source(&mut store);
+        let second = source(&mut store);
+        let pending = Pending::prepare(&[first.clone(), second.clone()], "proof", vec![Blob {
+            mime_type: "text/plain".into(), bytes: b"combined".to_vec(),
+        }]).unwrap();
+        if expire_second {
+            store.records.get_mut(&second.resource_id).unwrap().expires = Instant::now() - Duration::from_secs(1);
+        } else {
+            store.revoke(&first).unwrap();
+        }
+        assert!(store.publish_outputs(pending, &AtomicBool::new(false)).is_err());
+        assert_eq!(store.record_count(), 1);
+    }
+}
+
+#[test]
+fn repeated_or_empty_sources_are_rejected() {
+    let mut store = Store::default();
+    let first = source(&mut store);
+    assert!(Pending::prepare(&[], "proof", vec![]).is_err());
+    assert!(Pending::prepare(&[first.clone(), first], "proof", vec![]).is_err());
 }

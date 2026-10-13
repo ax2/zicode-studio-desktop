@@ -14,7 +14,7 @@ struct Record {
     uploaded: usize,
     confirmed: bool,
     expires: Instant,
-    parent: Option<Ancestor>,
+    parents: Vec<Ancestor>,
 }
 
 #[derive(Clone)]
@@ -66,7 +66,7 @@ impl Store {
                 .records
                 .iter()
                 .filter(|(_, r)| {
-                    r.parent.as_ref().is_some_and(|ancestor| {
+                    r.parents.iter().any(|ancestor| {
                         !self.records.get(&ancestor.access.resource_id).is_some_and(|p| {
                             p.confirmed
                                 && p.version == ancestor.access.content_version
@@ -119,7 +119,7 @@ impl Store {
                 uploaded: 0,
                 confirmed: false,
                 expires: Instant::now() + Duration::from_secs(120),
-                parent: None,
+                parents: Vec::new(),
             },
         );
         Ok(

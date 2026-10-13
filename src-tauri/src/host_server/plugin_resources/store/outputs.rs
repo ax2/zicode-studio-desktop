@@ -4,7 +4,7 @@ use crate::plugin_worker::resource_output::{Blob, MAX_BYTES};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(in crate::host_server::plugin_resources) struct Pending {
-    source: Access,
+    sources: Vec<Access>,
     proof: String,
     total: usize,
     records: Vec<(String, Record)>,
@@ -13,10 +13,19 @@ pub(in crate::host_server::plugin_resources) struct Pending {
 
 impl Pending {
     pub(in crate::host_server::plugin_resources) fn prepare(
-        source: &Access,
+        sources: &[Access],
         proof: &str,
         blobs: Vec<Blob>,
     ) -> Result<Self, ApiError> {
+        let Some(source) = sources.first() else {
+            return Err(rejected("resource_metadata_invalid"));
+        };
+        let unique: std::collections::HashSet<_> = sources.iter().map(|s| &s.resource_id).collect();
+        if sources.len() > 4 || unique.len() != sources.len()
+            || sources.iter().any(|s| s.owner != source.owner)
+        {
+            return Err(rejected("resource_metadata_invalid"));
+        }
         let total = blobs
             .iter()
             .try_fold(0usize, |total, blob| total.checked_add(blob.bytes.len()))
@@ -44,10 +53,16 @@ impl Pending {
             let id = uuid::Uuid::new_v4().to_string();
             let version = sha256_hex(&blob.bytes);
             let length = blob.bytes.len();
-            descriptors.push(json!({"index":index,"resourceId":id,"contentVersion":version,
+            let lineage = sources.iter().map(|s| json!({"resourceId":s.resource_id,
+                "contentVersion":s.content_version})).collect::<Vec<_>>();
+            let mut descriptor = json!({"index":index,"resourceId":id,"contentVersion":version,
                 "mimeType":blob.mime_type,"byteLength":length,"expiresInSeconds":900,
                 "origin":"worker-output","saved":false,
-                "derivedFrom":{"resourceId":source.resource_id,"contentVersion":source.content_version}}));
+                "derivedFrom":{"resourceId":source.resource_id,"contentVersion":source.content_version}});
+            if sources.len() > 1 {
+                descriptor["derivedFromAll"] = json!(lineage);
+            }
+            descriptors.push(descriptor);
             pending.push((
                 id,
                 Record {
@@ -60,12 +75,14 @@ impl Pending {
                     uploaded: length,
                     confirmed: true,
                     expires: Instant::now() + Duration::from_secs(900),
-                    parent: Some(Ancestor { access: source.clone(), proof: proof.into() }),
+                    parents: sources.iter().map(|s| Ancestor {
+                        access: s.clone(), proof: proof.into(),
+                    }).collect(),
                 },
             ));
         }
         Ok(Self {
-            source: source.clone(),
+            sources: sources.to_vec(),
             proof: proof.into(),
             total,
             records: pending,
@@ -80,7 +97,9 @@ impl Store {
         pending: Pending,
         cancelled: &AtomicBool,
     ) -> Result<Value, ApiError> {
-        self.check(&pending.source, &pending.proof)?;
+        for source in &pending.sources {
+            self.check(source, &pending.proof)?;
+        }
         if self.records.len() + pending.records.len() > MAX_RECORDS
             || pending.total
                 > MAX_RESERVED.saturating_sub(self.records.values().map(|r| r.expected).sum())
@@ -103,7 +122,7 @@ impl Store {
         blobs: Vec<Blob>,
     ) -> Result<Value, ApiError> {
         self.publish_outputs(
-            Pending::prepare(source, proof, blobs)?,
+            Pending::prepare(std::slice::from_ref(source), proof, blobs)?,
             &AtomicBool::new(false),
         )
     }
