@@ -52,29 +52,43 @@ mod platform {
             else { format!("\"{exe}\" --open-folder \"{placeholder}\\.\"") })
     }
 
-    fn inspect(root: &RegKey, path: &str, expected: &str) -> Result<bool, String> {
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum EntryState { Missing, Current, Stale }
+
+    fn inspect(root: &RegKey, path: &str, expected: &str, placeholder: &str, file: bool) -> Result<EntryState, String> {
         let key = match root.open_subkey_with_flags(path, KEY_READ) {
             Ok(key) => key,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(EntryState::Missing),
             Err(e) => return Err(format!("Cannot inspect Explorer menu: {e}")),
         };
         let owner: String = key.get_value("ZiCodeStudioOwner").map_err(|_| "Existing Explorer entry has no matching owner")?;
         let actual: String = key.open_subkey("command").and_then(|k| k.get_value("")).map_err(|_| "Existing Explorer command is invalid")?;
-        if owner != OWNER || actual != expected { return Err("Explorer entry belongs to another command or installation".into()); }
+        if owner != OWNER { return Err("Explorer entry belongs to another command or installation".into()); }
+        let suffix = if file { format!("\" --open-file \"{placeholder}\"") }
+            else { format!("\" --open-folder \"{placeholder}\\.\"") };
+        let old_exe = actual.strip_prefix('"').and_then(|value| value.strip_suffix(&suffix))
+            .ok_or("Existing Explorer command is not a Studio entry")?;
+        let current_exe = expected.strip_prefix('"').and_then(|value| value.strip_suffix(&suffix))
+            .ok_or("Invalid current Explorer command")?;
+        let old_path = std::path::Path::new(old_exe);
+        if !old_path.is_absolute() || old_path.file_name() != std::path::Path::new(current_exe).file_name()
+            || command(old_exe, placeholder, file)? != actual {
+            return Err("Explorer entry belongs to another command or installation".into());
+        }
         for child in key.enum_keys() {
             if child.map_err(|e| e.to_string())? != "command" { return Err("Explorer entry contains an unexpected subkey".into()); }
         }
-        Ok(true)
+        Ok(if actual == expected { EntryState::Current } else { EntryState::Stale })
     }
 
     pub(super) fn apply(root: &RegKey, base: &str, exe: &str, action: MenuAction) -> Result<Value, String> {
         let plans: Vec<_> = ENTRIES.iter().map(|(kind, placeholder, file)| {
             let verb = if *file { "OpenFile" } else { "OpenFolder" };
-            Ok((format!("{base}\\{kind}\\shell\\ZiCodeStudio.{verb}"), command(exe, placeholder, *file)?, *file))
+            Ok((format!("{base}\\{kind}\\shell\\ZiCodeStudio.{verb}"), command(exe, placeholder, *file)?, *placeholder, *file))
         }).collect::<Result<_, String>>()?;
         // Preflight every verb before any mutation. A foreign entry blocks the operation.
-        let installed = plans.iter().map(|(path, cmd, _)| inspect(root, path, cmd)).collect::<Result<Vec<_>, _>>()?;
-        for ((path, cmd, file), present) in plans.iter().zip(&installed) {
+        let installed = plans.iter().map(|(path, cmd, placeholder, file)| inspect(root, path, cmd, placeholder, *file)).collect::<Result<Vec<_>, _>>()?;
+        for ((path, cmd, placeholder, file), present) in plans.iter().zip(&installed) {
             match action {
                 MenuAction::Install => {
                     let (key, _) = root.create_subkey(path).map_err(|e| format!("Cannot create Explorer entry: {e}"))?;
@@ -95,16 +109,17 @@ mod platform {
                     }
                     key.create_subkey("command").and_then(|(k, _)| k.set_value("", cmd)).map_err(|e| e.to_string())?;
                 }
-                MenuAction::Remove if *present => {
+                MenuAction::Remove if *present != EntryState::Missing => {
                     // Recheck just before removing this exact product-owned subtree.
-                    inspect(root, path, cmd)?;
+                    inspect(root, path, cmd, placeholder, *file)?;
                     root.delete_subkey_all(path).map_err(|e| format!("Cannot remove owned Explorer entry: {e}"))?;
                 }
                 _ => {}
             }
         }
         Ok(json!({"schemaVersion":1,"scope":"current-user","menu":"legacy","action":format!("{action:?}"),
-            "installed":match action { MenuAction::Install => ENTRIES.len(), MenuAction::Remove => 0, _ => installed.iter().filter(|v| **v).count() },
+            "installed":match action { MenuAction::Install => ENTRIES.len(), MenuAction::Remove => 0, _ => installed.iter().filter(|v| **v != EntryState::Missing).count() },
+            "stale":match action { MenuAction::Status => installed.iter().filter(|v| **v == EntryState::Stale).count(), _ => 0 },
             "modernWindows11Menu":false}))
     }
 
@@ -126,6 +141,13 @@ mod platform {
             assert_eq!(file.open_subkey("command").unwrap().get_value::<String, _>("").unwrap(),
                 format!("\"{exe}\" --open-file \"%1\""));
             drop(file);
+            let old_exe = "D:\\old install\\zicode-studio-desktop.exe";
+            let file_command = root.open_subkey_with_flags(format!("{file_path}\\command"), winreg::enums::KEY_WRITE).unwrap();
+            file_command.set_value("", &command(old_exe, "%1", true).unwrap()).unwrap();
+            drop(file_command);
+            assert_eq!(apply(&root, &base, exe, MenuAction::Status).unwrap()["stale"], 1);
+            assert_eq!(apply(&root, &base, exe, MenuAction::Install).unwrap()["stale"], 0);
+            assert_eq!(apply(&root, &base, exe, MenuAction::Status).unwrap()["stale"], 0);
             let background = root.open_subkey(format!("{base}\\Directory\\Background\\shell\\ZiCodeStudio.OpenFolder")).unwrap();
             assert!(background.get_value::<String, _>("MultiSelectModel").is_err());
             drop(background);

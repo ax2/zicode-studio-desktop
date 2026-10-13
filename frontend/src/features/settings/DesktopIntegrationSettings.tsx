@@ -6,6 +6,7 @@ type Invoke = (command: string, params: { action: Action }) => Promise<unknown>;
 interface MenuStatus {
   supported: boolean;
   installed?: number;
+  stale?: number;
   reason?: string;
 }
 
@@ -37,7 +38,9 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
           (value.supported &&
             (!Number.isInteger(value.installed) ||
               (value.installed ?? -1) < 0 ||
-              (value.installed ?? 5) > 4))
+              (value.installed ?? 5) > 4 ||
+              (value.stale !== undefined &&
+                (!Number.isInteger(value.stale) || value.stale < 0 || value.stale > (value.installed ?? -1)))))
         ) {
           throw new Error("Invalid Explorer status");
         }
@@ -81,7 +84,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
                 "Explorer menu status is unknown. Check again before changing it. An existing entry may belong to another installation.",
               )
             : status?.supported
-              ? `${t("Registered Explorer entries")}: ${status.installed}/4`
+              ? `${t("Registered Explorer entries")}: ${status.installed}/4${status.stale ? ` · ${status.stale} ${t("need repair after Studio moved")}` : ""}`
               : unavailable}
       </p>
       <div className="desktop-integration-actions">
@@ -96,10 +99,10 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
         <button
           type="button"
           className="ui-button ui-button--secondary ui-button--sm"
-          disabled={!enabled || status?.installed === 4}
+          disabled={!enabled || (status?.installed === 4 && !status.stale)}
           onClick={() => setPending("install")}
         >
-          {t("Add Explorer menu")}
+          {status?.stale ? t("Repair Explorer menu") : t("Add Explorer menu")}
         </button>
         <button
           type="button"
@@ -115,7 +118,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
           <p>
             {pending === "install"
               ? t(
-                  "Add file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation. Keep this Studio installation in its current location.",
+                  "Add or repair file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation.",
                 )
               : t(
                   "Remove the file and folder menus owned by this Studio installation for this Windows user?",

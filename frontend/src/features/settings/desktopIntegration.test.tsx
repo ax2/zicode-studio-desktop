@@ -115,11 +115,21 @@ it.each([3, 4])("handles a %i-entry installation without automatic writes", asyn
     expect(
       view.getByText(
         t(
-          "Add file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation. Keep this Studio installation in its current location.",
+          "Add or repair file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation.",
         ),
       ),
     ).toBeTruthy();
     fireEvent.click(view.getByText(t("Cancel")));
     expect(invoke).toHaveBeenCalledTimes(1);
   }
+});
+it("offers repair when registered commands point to a moved Studio", async () => {
+  const invoke = vi.fn().mockResolvedValueOnce({ supported: true, installed: 4, stale: 1 }).mockResolvedValueOnce({ supported: true, installed: 4, stale: 0 });
+  const view = render(<DesktopIntegrationSettings invoke={invoke} />);
+  await waitFor(() => expect(view.getByText(t("Repair Explorer menu"))).toHaveProperty("disabled", false));
+  expect(view.getByRole("status").textContent).toContain(`1 ${t("need repair after Studio moved")}`);
+  fireEvent.click(view.getByText(t("Repair Explorer menu")));
+  fireEvent.click(view.getByRole("button", { name: t("Confirm Explorer menu change") }));
+  await waitFor(() => expect(view.getByText(t("Add Explorer menu"))).toHaveProperty("disabled", true));
+  expect(invoke.mock.calls.map((call) => call[1].action)).toEqual(["status", "install"]);
 });
