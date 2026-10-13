@@ -45,6 +45,12 @@ describe("ZiFile integration scope receipt", () => {
     }
     expect(matrix.studio.acceptedOperations).toBe(0);
     expect(matrix.studio.nativeWorkerSupported).toBe(false);
+    expect(matrix.studio.boundedWasiMultiFileInput).toEqual({
+      profile: "resource.wasi.input.draft2",
+      maxFiles: 4,
+      maxTotalBytes: 33554432,
+      archiveOperationsAccepted: false,
+    });
   });
   it("preserves provider format limitations and source identity", () => {
     const mutable = new Set([
