@@ -11,7 +11,7 @@
 
 toolId是JSON编码的[pluginId,capability]，不是显示名称/数组位置。摘要包含toolId、pluginId、capability、name、title、description、packageVersion、toolVersion。未声明工具版本返回null。同能力多个工具名采用按名称排序的规范入口；加载后使用宿主返回的name调用原invoke。摘要不返回inputSchema。
 
-查询按 Unicode NFKC 及小写规范化，再按空白分词；多词必须分别匹配 pluginId、capability、title、description，最长256 UTF-8字节。不做拼音推断。搜索结果先按能力ID或标题的精确、前缀、包含命中排序，再排说明和来源命中；同分保留稳定工具ID顺序。空查询仍按稳定工具ID排序。排序在分页前完成，避免精确工具被宽泛说明匹配挤到后页。每页20项，cursor不可由客户端自行构造；HMAC绑定Host secret、完整runtime binding、规范化query、revision和offset。目录/授权/包版本/schema变化导致旧游标失效，客户端重新搜索。修改查询不复用游标。
+查询按 Unicode NFKC 及小写规范化，再按空白分词；多词必须分别匹配。可搜索当前获准 Pi 工具的能力 ID、Pi 标题、能力标题、`tool.directory.v1` 别名、Pi/能力/目录说明，以及插件 ID、名称、说明和发布者；最长256 UTF-8字节。不做拼音推断。搜索结果先按能力ID、标题或别名的精确、前缀、包含命中排序，再排说明和来源命中；同分保留稳定工具ID顺序。空查询仍按稳定工具ID排序。排序在分页前完成，避免精确工具被宽泛说明匹配挤到后页；摘要仍不返回别名或输入schema。每页20项，cursor不可由客户端自行构造；HMAC绑定Host secret、完整runtime binding、规范化query、revision和offset。目录/授权/包版本/schema变化导致旧游标失效，客户端重新搜索。修改查询不复用游标。
 
 Load仅接受当前revision，返回前检查当前包磁盘完整性。加载不增加权限；执行仍实时核对授权/场景/工作区/完整性/幂等缓存身份。搜索32KiB与load256KiB是响应上限；超限返回catalog_response_too_large(413)，不提供残缺schema。未知字段被serde拒绝(422)。cursor失效/伪造返回catalog_cursor_invalid(400)，revision改变返回catalog_revision_changed(409)。错误不带Broker token或工具输入。
 
@@ -21,7 +21,7 @@ revision 同时绑定当前已授权工具摘要、插件版本及这些工具�
 包括 capability inputSchema、可选 outputSchema/maxResultBytes。即使开发包同版本重装、
 Pi 工具摘要没有变化，能力契约改变也会使旧分页游标、旧 load 及带旧 revision 的 invoke 失效。
 能力稳定排序；字节相同重装及未被已授权 Pi 工具引用的能力变化不使目录失效。
-搜索仍只发摘要，不把全部结果 schema 带入每页响应。
+搜索仍只发摘要，不把全部结果 schema 带入每页响应。2026-10-14 后，修订还绑定已授权 Pi 工具所引用能力的可搜索目录元数据与插件来源文字；同版本修改别名会使旧游标、load 和带旧修订的 invoke 失效，未引用能力仍不影响修订。
 
 生产提供方变更必须提升插件版本，并同步自己的 Pi 输入元数据；同版本重装仅作为回归验证。
 这不检查 Pi 输入声明与能力输入声明语义等价，也不改变 legacy 无 toolId/revision 调用的兼容路径；

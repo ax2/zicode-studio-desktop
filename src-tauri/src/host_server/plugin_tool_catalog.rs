@@ -1,7 +1,8 @@
 use super::*;
-use crate::plugin_registry::PluginPiToolDescriptor;
+use crate::plugin_registry::{PluginDescriptor, PluginPiToolDescriptor};
 use crate::plugin_registry::tool_search;
 use hmac::{Hmac, Mac};
+use std::collections::{BTreeMap, BTreeSet};
 
 type ApiError = (StatusCode, Json<Value>);
 const PAGE_SIZE: usize = 20;
@@ -42,21 +43,67 @@ fn tool_id(tool: &PluginPiToolDescriptor) -> String {
         .expect("string tuple is serializable")
 }
 
+#[derive(serde::Serialize)]
+struct SearchMetadata {
+    aliases: Vec<String>,
+    description: String,
+    source: String,
+}
+
+type SearchIndex = BTreeMap<String, BTreeMap<String, SearchMetadata>>;
+
+fn search_index(plugins: &[PluginDescriptor], tools: &[PluginPiToolDescriptor]) -> SearchIndex {
+    let identities: BTreeSet<_> = tools.iter()
+        .map(|tool| (tool.plugin_id.as_str(), tool.capability.as_str()))
+        .collect();
+    let mut index = SearchIndex::new();
+    for plugin in plugins {
+        let manifest = &plugin.manifest;
+        let source = format!("{} {} {} {} {}", manifest.id, manifest.name,
+            manifest.display_name.as_deref().unwrap_or(""), manifest.description, manifest.publisher);
+        let Some(capabilities) = manifest.contributes.get("capabilities").and_then(Value::as_array) else {
+            continue;
+        };
+        for capability in capabilities {
+            let Some(id) = capability.get("id").and_then(Value::as_str) else { continue; };
+            if !identities.contains(&(manifest.id.as_str(), id)) { continue; }
+            let directory = capability.get("directory");
+            let mut aliases = vec![capability.get("title").and_then(Value::as_str).unwrap_or(id).to_owned()];
+            if let Some(extra) = directory.and_then(|value| value.get("aliases")).and_then(Value::as_array) {
+                aliases.extend(extra.iter().filter_map(Value::as_str).map(str::to_owned));
+            }
+            let description = format!("{} {}", capability.get("description").and_then(Value::as_str).unwrap_or(""),
+                directory.and_then(|value| value.get("description")).and_then(Value::as_str).unwrap_or(""));
+            index.entry(manifest.id.clone()).or_default().insert(id.to_owned(),
+                SearchMetadata { aliases, description, source: source.clone() });
+        }
+    }
+    index
+}
+
 fn ranked_matches<'a>(
     tools: &'a [PluginPiToolDescriptor],
+    index: &SearchIndex,
     query: &str,
 ) -> Vec<&'a PluginPiToolDescriptor> {
     let terms: Vec<_> = query.split_whitespace().map(str::to_owned).collect();
+    if terms.is_empty() {
+        return tools.iter().collect();
+    }
     let mut matches: Vec<_> = tools
         .iter()
         .filter_map(|tool| {
+            let metadata = index.get(&tool.plugin_id).and_then(|items| items.get(&tool.capability));
+            let aliases = metadata.map(|value| value.aliases.iter().map(String::as_str).collect::<Vec<_>>()).unwrap_or_default();
+            let description = metadata.map_or_else(|| tool.description.clone(), |value| format!("{} {}", tool.description, value.description));
+            let source = metadata.map_or(tool.plugin_id.as_str(), |value| value.source.as_str());
             tool_search::relevance(
                 &terms,
                 &tool.capability,
                 &tool.title,
-                &[],
-                &tool.description,
-                &tool.plugin_id,
+                &aliases,
+                &description,
+                source,
             )
             .map(|rank| (rank, tool))
         })
@@ -66,21 +113,22 @@ fn ranked_matches<'a>(
     matches.into_iter().map(|(_, tool)| tool).collect()
 }
 
-fn catalog(registry: &PluginRegistry, scene: &str) -> (Vec<PluginPiToolDescriptor>, Value, String) {
+fn catalog(registry: &PluginRegistry, scene: &str) -> (Vec<PluginPiToolDescriptor>, Value, String, SearchIndex) {
     let mut tools = registry.pi_tools(scene);
     tools.sort_by_key(|tool| (tool_id(tool), tool.name.clone()));
     tools.dedup_by_key(|tool| tool_id(tool));
-    let versions: std::collections::BTreeMap<_, _> = registry
-        .list(scene)
-        .into_iter()
+    let plugins = registry.list(scene);
+    let versions: std::collections::BTreeMap<_, _> = plugins
+        .iter()
         .filter(|plugin| {
             tools
                 .iter()
                 .any(|tool| tool.plugin_id == plugin.manifest.id)
         })
-        .map(|plugin| (plugin.manifest.id, plugin.manifest.version))
+        .map(|plugin| (plugin.manifest.id.clone(), plugin.manifest.version.clone()))
         .collect();
     let versions = json!(versions);
+    let search = search_index(&plugins, &tools);
     // A same-version development reinstall can change capability contracts without
     // changing Pi's input metadata. Bind every registered tool to its current contract.
     let identities: std::collections::BTreeSet<_> = tools
@@ -96,9 +144,9 @@ fn catalog(registry: &PluginRegistry, scene: &str) -> (Vec<PluginPiToolDescripto
         .collect();
     contracts.sort_by(|a, b| (&a.plugin_id, &a.id).cmp(&(&b.plugin_id, &b.id)));
     let revision = sha256_hex(
-        &serde_json::to_vec(&(&tools, &versions, &contracts)).expect("catalog is serializable"),
+        &serde_json::to_vec(&(&tools, &versions, &contracts, &search)).expect("catalog is serializable"),
     );
-    (tools, versions, revision)
+    (tools, versions, revision, search)
 }
 
 fn cursor_mac(
@@ -191,7 +239,7 @@ pub(super) async fn search(
         .plugins
         .lock()
         .map_err(|_| rejected("registry_unavailable"))?;
-    let (tools, versions, revision) = catalog(&registry, &record.target.scene_id);
+    let (tools, versions, revision, index) = catalog(&registry, &record.target.scene_id);
     let binding = serde_json::to_string(&(&record.target, &record.token_hash))
         .expect("runtime is serializable");
     let offset = request
@@ -200,7 +248,7 @@ pub(super) async fn search(
         .map(|cursor| decode_cursor(cursor, &state.desktop_token, &binding, &revision, &query))
         .transpose()?
         .unwrap_or(0);
-    let matches = ranked_matches(&tools, &query);
+    let matches = ranked_matches(&tools, &index, &query);
     if offset > matches.len() {
         return Err(rejected("catalog_cursor_invalid"));
     }
@@ -243,7 +291,7 @@ pub(super) async fn load(
         .plugins
         .lock()
         .map_err(|_| rejected("registry_unavailable"))?;
-    let (tools, versions, revision) = catalog(&registry, &record.target.scene_id);
+    let (tools, versions, revision, _) = catalog(&registry, &record.target.scene_id);
     if revision != request.revision {
         return Err(plugin_api_error(
             StatusCode::CONFLICT,
@@ -286,7 +334,7 @@ pub(super) fn validate_invocation(
         (Some(id), Some(revision)) if id.len() <= 1024 && revision.len() == 64 => (id, revision),
         _ => return Err(rejected("catalog_request_invalid")),
     };
-    let (tools, _, revision) = catalog(registry, scene);
+    let (tools, _, revision, _) = catalog(registry, scene);
     if revision != expected_revision {
         return Err(plugin_api_error(
             StatusCode::CONFLICT,

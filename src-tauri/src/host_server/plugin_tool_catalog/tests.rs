@@ -18,7 +18,7 @@ fn pi_catalog_ranks_exact_tools_before_broad_description_matches() {
         tool("com.example.text", "text.base64.decode", "Decode Base64", "Decode text"),
     ];
     let query = tool_search::normalize_query("ＢＡＳＥ６４");
-    let matches = ranked_matches(&tools, &query);
+    let matches = ranked_matches(&tools, &SearchIndex::new(), &query);
     assert_eq!(
         matches.iter().map(|item| item.capability.as_str()).collect::<Vec<_>>(),
         vec!["text.base64", "text.base64.decode", "archive.list"]
@@ -185,6 +185,40 @@ async fn real_http_contract_changes_invalidate_cursor_load_and_invocation() {
             "staleLoadStatus":load_status.as_u16(),"staleInvokeStatus":invoke_status.as_u16(),
             "refreshedLoadStatus":200,"unchangedReinstallStable":true,"unregisteredCapabilityStable":true}));
     }
+    manifest["requiredProfiles"]["tool.directory.v1"] = json!("=1.0.0-preview.1");
+    manifest["contributes"]["capabilities"][0]["directory"] = json!({
+        "categoryId":"text","aliases":["编码旧别名"],"description":"本地文本工具"
+    });
+    install(&manifest);
+    let alias_search = json!({"schemaVersion":1,"runtimeId":target.instance_id,
+        "sessionId":target.session_id,"query":"编码旧别名"});
+    let (status, alias_page) = post(&client, &search_url, &alias_search).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(alias_page["total"], 1);
+    assert_eq!(alias_page["items"][0]["capability"], "revision.0");
+    let old_revision = alias_page["revision"].as_str().unwrap().to_owned();
+    manifest["contributes"]["capabilities"][0]["directory"]["aliases"] = json!(["编码新别名"]);
+    install(&manifest);
+    let (status, stale_alias) = post(&client, &search_url, &alias_search).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(stale_alias["total"], 0);
+    assert_ne!(stale_alias["revision"], old_revision);
+    let mut new_alias_search = alias_search.clone();
+    new_alias_search["query"] = json!("编码新别名");
+    let current_alias_page = post(&client, &search_url, &new_alias_search).await.1;
+    assert_eq!(current_alias_page["total"], 1);
+    manifest["contributes"]["capabilities"][21]["directory"] = json!({
+        "categoryId":"text","aliases":["未注册别名"]
+    });
+    install(&manifest);
+    assert_eq!(post(&client, &search_url, &new_alias_search).await.1["revision"],
+        current_alias_page["revision"]);
+    let stale_load = json!({"schemaVersion":1,"runtimeId":target.instance_id,
+        "sessionId":target.session_id,"revision":old_revision,
+        "toolId":serde_json::to_string(&("com.synthetic.revision", "revision.0")).unwrap()});
+    assert_eq!(post(&client, &load_url, &stale_load).await.0, StatusCode::CONFLICT);
+    receipts.push(json!({"change":"directory-alias","oldAliasRemoved":true,
+        "newRevision":true,"unregisteredDirectoryStable":true,"staleLoadStatus":409}));
     host.state.runtimes.stop(&target).unwrap();
     drop(runtime);
     host.stop_and_wait().await.unwrap();
