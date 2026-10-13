@@ -4,7 +4,7 @@
 
 ## 当前实现
 
-Windows 当前用户可选择安装四类**传统**菜单：文件、文件夹、文件夹背景、盘符。文件入口只接收单个文件；2–4 个同目录普通文件的 `--open-selection` 已能由 Studio 接收并筛选可接收该数量的 WASI 工具，但 Explorer 还没有把整组选中项交给该入口。打开入口只传递意图；文件元数据预览、内容授权、加载和执行分开确认。托盘右键提供全局工具中心和当前项目工具中心；后者只取可信项目登记路径，打开工具会话，不自动运行插件。
+Windows 当前用户可选择安装五类**传统**菜单：文件、文件夹、文件夹背景、盘符，以及 2–4 个同目录普通文件的多选入口。前四项沿用静态 verb；第五项使用 Studio 自有 `IExplorerCommand` DLL 接收完整 `IShellItemArray`，交给 `--open-selection`，再筛选可接收该数量的 WASI 工具。打开入口只传递意图；文件元数据预览、内容授权、加载和执行分开确认。托盘右键提供全局工具中心和当前项目工具中心；后者只取可信项目登记路径，打开工具会话，不自动运行插件。
 
 ## 适合放在选择流程中的工具
 
@@ -21,9 +21,9 @@ Windows 当前用户可选择安装四类**传统**菜单：文件、文件夹�
 
 ## Windows 多选与现代菜单的独立工作
 
-传统静态 verb 的选择模型能控制显示数量，但现有 `%1` 命令不会给 Studio 一次传递完整 `IShellItemArray`；将 `MultiSelectModel` 改成 `Player` 不等于完成多选交接。整组文件入口需要独立的 COM `IExplorerCommand`（或等价 Shell 机制），在调用时取得选中集合、检查 2–4 个同目录本地普通文件，再交给已有 `--open-selection`；超出范围不显示或拒绝，不拆成多个窗口。Windows 11 现代一级菜单另需与应用包身份和扩展注册配套，不能把当前传统菜单称为现代一级菜单。参考 [微软选择模型](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model) 与 [打包桌面应用的 Explorer 菜单](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/integrate-packaged-app-with-file-explorer)。
+传统静态 verb 的选择模型能控制显示数量，但现有 `%1` 命令不会给 Studio 一次传递完整 `IShellItemArray`；将 `MultiSelectModel` 改成 `Player` 不等于完成多选交接。现已用独立 COM `IExplorerCommand` 接收选中集合、检查 2–4 个同目录本地普通文件，再交给已有 `--open-selection`；超出范围隐藏或拒绝，不拆成多个窗口。Windows 11 现代一级菜单另需与应用包身份和扩展注册配套，不能把当前传统菜单称为现代一级菜单。参考 [微软选择模型](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model) 与 [打包桌面应用的 Explorer 菜单](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/integrate-packaged-app-with-file-explorer)。
 
-Shell 扩展必须单独签名和卸载、只做有界参数交接，不在 Explorer 进程加载插件或处理归档。当前无此交付，现代菜单、实体多选点击与 ZiFile 的 108 个格式操作单元均未验收。
+Shell 扩展只做有界参数交接，不在 Explorer 进程加载插件或处理归档；Studio 的菜单卸载会删除自身归属的注册项。当前开发 DLL 未单独签名，Windows 打包后 DLL 位置与卸载注册仍需验收。真实 COM 激活及 `IShellItemArray` 判定已验证；实体多选右键点击、现代一级菜单与 ZiFile 的 108 个格式操作单元均未验收。
 
 ## 给 ZiFile 提供方的接口需求
 

@@ -7,6 +7,7 @@ interface MenuStatus {
   supported: boolean;
   installed?: number;
   stale?: number;
+  total?: number;
   reason?: string;
 }
 
@@ -32,13 +33,15 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
       try {
         const raw = await invoke("desktop_explorer_menu", { action });
         const value = raw as MenuStatus | null;
+        const total = value?.total ?? 4;
         if (
           !value ||
           typeof value.supported !== "boolean" ||
           (value.supported &&
-            (!Number.isInteger(value.installed) ||
+            (!Number.isInteger(total) || total < 4 || total > 16 ||
+              !Number.isInteger(value.installed) ||
               (value.installed ?? -1) < 0 ||
-              (value.installed ?? 5) > 4 ||
+              (value.installed ?? total + 1) > total ||
               (value.stale !== undefined &&
                 (!Number.isInteger(value.stale) || value.stale < 0 || value.stale > (value.installed ?? -1)))))
         ) {
@@ -84,7 +87,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
                 "Explorer menu status is unknown. Check again before changing it. An existing entry may belong to another installation.",
               )
             : status?.supported
-              ? `${t("Registered Explorer entries")}: ${status.installed}/4${status.stale ? ` · ${status.stale} ${t("need repair after Studio moved")}` : ""}`
+              ? `${t("Registered Explorer entries")}: ${status.installed}/${status.total ?? 4}${status.stale ? ` · ${status.stale} ${t("need repair after Studio moved")}` : ""}`
               : unavailable}
       </p>
       <div className="desktop-integration-actions">
@@ -99,7 +102,7 @@ export function DesktopIntegrationSettings({ invoke = nativeInvoke() }: { invoke
         <button
           type="button"
           className="ui-button ui-button--secondary ui-button--sm"
-          disabled={!enabled || (status?.installed === 4 && !status.stale)}
+          disabled={!enabled || (status?.installed === (status?.total ?? 4) && !status.stale)}
           onClick={() => setPending("install")}
         >
           {status?.stale ? t("Repair Explorer menu") : t("Add Explorer menu")}

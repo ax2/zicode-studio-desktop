@@ -1,0 +1,16 @@
+{
+  "bundle": {
+    "resources": {
+      "../public": "public",
+      "../extensions/dist": "extensions",
+      "../NOTICE": "NOTICE",
+      "../LICENSE": "LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "./resources/pi": "pi",
+      "./resources/portable-git": "portable-git",
+      "./resources/webview2": "webview2",
+      "./resources/bun": "bun",
+      "./resources/shell/zicode_studio_shell.dll": "zicode_studio_shell.dll"
+    }
+  }
+}

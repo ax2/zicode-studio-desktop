@@ -133,3 +133,9 @@ it("offers repair when registered commands point to a moved Studio", async () =>
   await waitFor(() => expect(view.getByText(t("Add Explorer menu"))).toHaveProperty("disabled", true));
   expect(invoke.mock.calls.map((call) => call[1].action)).toEqual(["status", "install"]);
 });
+it("shows the multi-selection COM entry without treating four legacy verbs as complete", async () => {
+  const invoke = vi.fn().mockResolvedValue({ supported: true, installed: 4, total: 5, stale: 0 });
+  const view = render(<DesktopIntegrationSettings invoke={invoke} />);
+  await waitFor(() => expect(view.getByText(`${t("Registered Explorer entries")}: 4/5`)).toBeTruthy());
+  expect(view.getByText(t("Add Explorer menu"))).toHaveProperty("disabled", false);
+});

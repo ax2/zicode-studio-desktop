@@ -28,3 +28,4 @@ src-tauri/resources/bun/*
 !src-tauri/resources/bun/.gitkeep
 # Pi session exports
 pi-session-*.html
+src-tauri/resources/shell/

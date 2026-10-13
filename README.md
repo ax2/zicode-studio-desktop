@@ -192,4 +192,4 @@ python -m mkdocs serve
 
 ## 桌面入口与归档工具
 
-开发主分支已加入系统托盘与关闭到托盘：窗口隐藏后继续运行，托盘提供显示、隐藏、退出。真实菜单点击和其他OS仍待验收。资源管理器右键与ZiFile全功能插件接入正在建设，当前不宣称已可用；范围和接口需求见[桌面入口与ZiFile接入](docs/plugins/desktop-entry-zifile.md)。正式v0.4.2安装包不包含这些后续开发修改。
+开发主分支已加入系统托盘与关闭到托盘：窗口隐藏后继续运行，托盘提供窗口控制、全局工具中心和当前项目工具入口。Windows 资源管理器已有当前用户五类传统菜单，包括由独立 COM DLL 交付 2–4 个同目录文件的多选入口；实体多选点击与安装包交付仍待验收。ZiFile 全功能插件尚未接入，范围和接口需求见[桌面入口与ZiFile接入](docs/plugins/desktop-entry-zifile.md)及[资源管理器工具入口](docs/plugins/explorer-tool-entry-policy.md)。正式 v0.4.2 安装包不包含这些后续开发修改。

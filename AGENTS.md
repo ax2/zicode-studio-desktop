@@ -52,7 +52,8 @@ and included in its default permission set; run `bun run check:permissions`.
 - `--open-selection` accepts only 2–4 distinct local regular files in one directory.
   It follows the same tool-only lifetime and per-window/session intent scope as
   `--open-file`; each file still needs a separate metadata preview and explicit
-  resource confirmation. The current Explorer file verb remains single-select.
+  resource confirmation. The static Explorer file verb remains single-select;
+  a separate Windows COM selection verb forwards the whole 2–4 file selection.
 - Session history and working directory are isolated per project/port
 - The embedded pi version is the source of truth: `pi --version` shown in the UI comes from `PI_STUDIO_PI_VERSION` (set by Rust at spawn time, populated from `scripts/pi-version.json`). A user-installed pi on `$PATH` is irrelevant and never touched.
 - User extensions under `~/.pi/agent/extensions/` and `<workspace>/.pi/extensions/` are still auto-loaded by the embedded pi (embedding doesn't disable user extensions).
