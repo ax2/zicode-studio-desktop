@@ -6,6 +6,8 @@
 
 2026-10-14 更新后实机：复用 `target/debug` 构建 0.4.2 EXE，`--explorer-menu-status` 返回当前用户 4/4、`stale=0`。主进程运行时，注册命令等价的文件、文件夹、盘符参数作为第二次启动均退出 0 且只留下同一 Studio PID；观察到工具窗口和文件夹 Pi 子进程，结束后无残留。实际工具中心截图已检查可读性。由于 Windows 前台窗口操作失败，真实 Explorer 菜单点击、设置页修复截图和托盘物理图标数仍未验收。详细证据及磁盘变化见技术博客 `iterations/explorer-native-check-2026-10-14/work-log.md`。
 
+2026-10-14 多文件续验：当前 `3bf1810f` debug EXE 在空的显式隔离 profile 以 `--tools-only` 启动，独立于已安装 Studio。另一进程以同一 profile 的 `--open-selection 2` 交付一个 `.txt` 和一个最小 `.zip`，退出码 0；原进程仍在，日志出现 `receiving secondary launch: selection`，隔离 profile 下 Pi 进程为 0。它验证真实 EXE 的参数交接及工具专用启动边界，不证明物理 Explorer 菜单点击、文件授权、按类型展示或工具执行。Computer Use 对该调试窗口两次返回 `failed to activate captured window`，所以无实体截图；具体记录及临时目录见技术博客 `iterations/explorer-isolated-selection-2026-10-14/work-log.md`。
+
 2026-10-14 前置：Explorer 文件、文件夹、盘符和显式工具启动意图改由 Host 进程内的 `ExplorerLaunchState` 按可信窗口标签及确切会话路由保存。选择其他会话或销毁窗口时清除；同一窗口重新绑定会替换旧意图。
 
 2026-10-14 接线：固定 `tauri-plugin-single-instance` 2.4.0 并优先注册；次进程参数在首进程排队，Host 就绪后重新核对 EXE、动作、所选路径与隔离 profile。工具窗口沿用原会话并刷新入口提示，文件内容仍须单独确认。文件夹请求复用当前自动发现已关闭的 AI 会话；若首进程只有普通 AI 窗口，则另建 Explorer 专属窗口和 Pi 会话，保留原草稿并禁用新会话的自动扩展、技能、模板和主题发现。debug、安装版及显式隔离 profile 使用不同应用标识。Windows 增加仅覆盖 Tauri `build()` 期间的命名互斥门闩，防止上游插件在 IPC 隐藏窗口尚未创建时让第二个进程继续启动。实机先发现新窗口加载前路由竞态及临时会话变正式 ID 后无法复用，两者均修正并在第三轮验证；失败和通过证据见技术博客项目的 `iterations/explorer-single-instance-2026-10-14/work-log.md`。全项接受条件仍未完成。
