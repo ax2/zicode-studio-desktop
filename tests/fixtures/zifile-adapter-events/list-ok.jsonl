@@ -1,0 +1,5 @@
+{"schemaVersion":1,"callId":"archive-call-12345678-1234-4123-8123-123456789abc","sequence":0,"type":"started","payload":{"operation":"list"}}
+{"schemaVersion":1,"callId":"archive-call-12345678-1234-4123-8123-123456789abc","sequence":1,"type":"entry","payload":{"entryId":"entry-1","name":"docs/readme.txt","kind":"file","uncompressedBytes":12,"compressedBytes":9,"safeRelativePath":true}}
+{"schemaVersion":1,"callId":"archive-call-12345678-1234-4123-8123-123456789abc","sequence":2,"type":"entry","payload":{"entryId":"entry-2","name":"../unsafe.txt","kind":"file","uncompressedBytes":5,"compressedBytes":5,"safeRelativePath":false}}
+{"schemaVersion":1,"callId":"archive-call-12345678-1234-4123-8123-123456789abc","sequence":3,"type":"result","payload":{"format":"Zip","nextCursor":null}}
+{"schemaVersion":1,"callId":"archive-call-12345678-1234-4123-8123-123456789abc","sequence":4,"type":"ended","payload":{"status":"ok"}}
