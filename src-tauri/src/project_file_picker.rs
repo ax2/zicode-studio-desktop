@@ -71,6 +71,10 @@ pub fn get_project_resource_entry(
     workspace_id: String,
 ) -> Result<Option<String>, String> {
     current(&window, &workspace_id)?;
+    let route = window.url().map_err(|error| error.to_string())?;
+    if !crate::explorer_entry::owns_launch_window(window.label(), route.path()) {
+        return Ok(None);
+    }
     let root = window
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;
@@ -93,6 +97,10 @@ pub fn get_project_directory_entry(
     workspace_id: String,
 ) -> Result<Option<&'static str>, String> {
     current(&window, &workspace_id)?;
+    let route = window.url().map_err(|error| error.to_string())?;
+    if !crate::explorer_entry::owns_launch_window(window.label(), route.path()) {
+        return Ok(None);
+    }
     let root = window
         .state::<HostServer>()
         .project_resource_root(&workspace_id)?;

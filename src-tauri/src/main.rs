@@ -1802,6 +1802,11 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         session_id,
         format!("instance-{}", uuid::Uuid::new_v4().simple()),
     );
+    explorer_entry::bind_launch_window(
+        format!("native-workspace-{}", target.workspace_id),
+        &target.workspace_id,
+        &target.session_id,
+    );
     let launch_resolver = PiLaunchResolver::new(static_dir.clone());
     let runtimes = NativePiManager::new(256);
     let remote_auth = Arc::new(Mutex::new(RemoteAuth::new(metadata.clone())));

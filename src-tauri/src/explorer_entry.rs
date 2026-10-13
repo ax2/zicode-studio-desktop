@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 static FOLDER: OnceLock<PathBuf> = OnceLock::new();
 static TOOLS_ONLY: OnceLock<bool> = OnceLock::new();
 static FILE: OnceLock<PathBuf> = OnceLock::new();
+static LAUNCH_WINDOW: OnceLock<(String, String)> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuAction {
@@ -51,9 +52,29 @@ pub fn file() -> Option<&'static Path> {
     FILE.get().map(PathBuf::as_path)
 }
 
+pub fn bind_launch_window(label: String, workspace_id: &str, session_id: &str) {
+    if file().is_some() || folder().is_some() {
+        let route = format!("/app/workspaces/{workspace_id}/sessions/{session_id}");
+        let _ = LAUNCH_WINDOW.set((label, route));
+    }
+}
+
+pub fn owns_launch_window(label: &str, route: &str) -> bool {
+    LAUNCH_WINDOW
+        .get()
+        .is_some_and(|(expected_label, expected_route)| {
+            expected_label == label && expected_route == route
+        })
+}
+
 #[tauri::command]
 pub fn desktop_entry_mode(window: tauri::WebviewWindow) -> Result<&'static str, String> {
     crate::require_workspace_window(&window)?;
+    let route = window.url().map_err(|error| error.to_string())?;
+    if !owns_launch_window(window.label(), route.path()) && (file().is_some() || folder().is_some())
+    {
+        return Ok("regular");
+    }
     Ok(if file().is_some() {
         "file"
     } else if drive_root_folder() {
@@ -204,6 +225,16 @@ fn local_file(path: PathBuf) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn launch_hint_is_scoped_to_original_window_and_session() {
+        let label = "native-workspace-example";
+        let route = "/app/workspaces/example/sessions/first";
+        LAUNCH_WINDOW.set((label.into(), route.into())).unwrap();
+        assert!(owns_launch_window(label, route));
+        assert!(!owns_launch_window("native-workspace-other", route));
+        assert!(!owns_launch_window(label, "/app/workspaces/example/sessions/second"));
+        assert!(!owns_launch_window(label, "/app/workspaces/other/sessions/first"));
+    }
     #[test]
     fn file_launch_validates_metadata_and_rejects_mixed_modes() {
         let root = std::env::temp_dir()
