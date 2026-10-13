@@ -99,6 +99,7 @@ mod tests {
             id: "c".into(),
             title: "c".into(),
             input_schema: json!({}),
+            resource_input_max: None,
             output_schema: Some(schema),
             max_result_bytes: None,
         };

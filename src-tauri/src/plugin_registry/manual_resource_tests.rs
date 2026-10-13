@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn multi_resource_count_requires_an_explicit_wasi_capability() {
+    let registry = tests::registry();
+    let mut manifest = registry.plugins.get("com.zicode.catalog-fixture").unwrap().manifest.clone();
+    manifest.runtime["wasi"] = json!("runtime/tools.wasm");
+    manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
+    assert!(validate_manifest(&manifest, None).is_ok());
+    for value in [json!(0), json!(1), json!(5), json!("4")] {
+        manifest.contributes["capabilities"][0]["resourceInputMax"] = value;
+        assert!(validate_manifest(&manifest, None).is_err());
+    }
+    manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
+    manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft1");
+    assert!(validate_manifest(&manifest, None).is_err());
+}
+
+#[test]
 fn file_hints_hide_declared_mismatches_but_keep_legacy_unknown() {
     let mut registry = tests::registry();
     let id = "com.zicode.catalog-fixture";
@@ -35,6 +52,7 @@ fn resource_targets_are_metadata_only_permission_scoped_and_paged() {
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
     let plugin = registry.plugins.get_mut(id).unwrap();
     plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
     plugin.manifest.permissions.optional = serde_json::from_value(json!([{"name":"resource.read","reason":"read chosen output"}])).unwrap();
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
     registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
@@ -42,6 +60,7 @@ fn resource_targets_are_metadata_only_permission_scoped_and_paged() {
     let detail_query = DetailQuery { scene_id: "programming".into(), plugin_id: id.into(), capability_id: "text.000".into(), revision: page["revision"].as_str().unwrap().into() };
     let detail = registry.manual_tool_detail(&detail_query).unwrap();
     assert_eq!(detail["resourceInputProfile"], "resource.wasi.input.draft2");
+    assert_eq!(detail["capability"]["resourceInputMax"], 4);
     assert!(detail["capability"].get("inputSchema").is_some());
     assert!(!detail.to_string().contains("tools.wasm"));
     assert_eq!(page["total"], 205);

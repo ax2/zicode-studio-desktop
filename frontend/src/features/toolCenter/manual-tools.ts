@@ -14,7 +14,7 @@ export interface ToolPage { items: ManualTool[]; total: number; revision: string
 export interface ToolDetail {
   resourceInputProfile?: string | null;
   pluginId: string; version: string; revision: string; enabled: boolean;
-  capability: { id: string; inputSchema: unknown };
+  capability: { id: string; inputSchema: unknown; resourceInputMax?: number };
   permissions: { name: string; reason: string; required: boolean; granted: boolean }[];
 }
 export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<ManualCallApi> {

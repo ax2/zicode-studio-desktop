@@ -88,6 +88,8 @@ pub struct PluginCapabilityDescriptor {
     pub title: String,
     pub input_schema: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_input_max: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_result_bytes: Option<usize>,
@@ -288,6 +290,7 @@ impl PluginRegistry {
                             input_schema: value.get("inputSchema").cloned().unwrap_or_else(
                                 || json!({ "type": "object", "additionalProperties": false }),
                             ),
+                            resource_input_max: value.get("resourceInputMax").and_then(Value::as_u64).map(|n| n as usize),
                             output_schema: value.get("outputSchema").cloned(),
                             max_result_bytes: value.get("maxResultBytes").and_then(Value::as_u64).map(|limit| limit as usize),
                         })
@@ -1510,6 +1513,15 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
             .get("inputSchema")
             .ok_or_else(|| "capabilities contribution is missing inputSchema".to_string())?;
         validate_input_schema(schema)?;
+        if let Some(maximum) = capability.get("resourceInputMax") {
+            if !matches!(maximum.as_u64(), Some(2..=4))
+                || manifest.runtime.get("resourceInputProfile").and_then(Value::as_str)
+                    != Some("resource.wasi.input.draft2")
+                || manifest.runtime.get("wasi").and_then(Value::as_str).is_none()
+            {
+                return Err("resourceInputMax requires a WASI resource input profile and a value from 2 to 4".into());
+            }
+        }
         directory_metadata::validate(manifest, capability)?;
         crate::plugin_capabilities::output_contract::validate_contribution(
             manifest.schema_version, &manifest.required_profiles, capability,

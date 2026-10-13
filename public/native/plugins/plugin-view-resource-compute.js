@@ -12,6 +12,7 @@ const CODES = new Set([
   "resource_plugin_unavailable", "broker_token_invalid", "resource_budget_exceeded", "resource_output_profile_unsupported", "invalid_output", "result_too_large",
   "resource_call_host_changed", "resource_status_unavailable",
   "resource_call_used", "resource_call_not_admissible", "resource_call_changed", "resource_call_budget_exceeded",
+  "resource_input_too_large",
   "resource_journal_unavailable", "resource_journal_full", "resource_journal_pending",
 ]);
 const fail = (code) => { throw new Error(`[${code}]`); };
@@ -28,7 +29,7 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
   };
   function validate(params, invoke) {
     const keys = new Set(invoke
-      ? ["capabilityId", "resourceId", "contentVersion", "toolCallId", "input"]
+      ? ["capabilityId", "resourceId", "contentVersion", "additionalResources", "toolCallId", "input"]
       : ["toolCallId"]);
     if (!params || typeof params !== "object" || Array.isArray(params) ||
         Object.keys(params).some((key) => !keys.has(key)) || !UUID.test(params.toolCallId ?? ""))
@@ -84,6 +85,13 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
         !params.capabilityId.trim() || params.capabilityId.length > 128 ||
         !UUID.test(params.resourceId ?? "") || !/^[0-9a-f]{64}$/.test(params.contentVersion ?? ""))
       fail("resource_request_invalid");
+    const additional = params.additionalResources ?? [];
+    if (!Array.isArray(additional) || additional.length > 3 || (additional.length && !recoverable) ||
+        new Set([params.resourceId, ...additional.map(resource => resource?.resourceId)]).size !== additional.length + 1 ||
+        additional.some(resource => !resource || Object.keys(resource).some(key => !["resourceId", "contentVersion"].includes(key)) ||
+          !UUID.test(resource.resourceId ?? "") || !/^[0-9a-f]{64}$/.test(resource.contentVersion ?? "")))
+      fail("resource_request_invalid");
+    if (additional.length) params.additionalResources = additional.map(resource => ({ ...resource }));
     if (recoverable ? ["prepareResourceCall", "invokeResourceCall", "reconcileResourceCall"].some(key => typeof gateway?.[key] !== "function") ||
       typeof gateway?.resourceCalls?.keep !== "function" || typeof gateway?.resourceCalls?.remove !== "function"
       : typeof gateway?.invokeResource !== "function" || typeof gateway?.cancelResource !== "function")

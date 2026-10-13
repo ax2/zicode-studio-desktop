@@ -22,6 +22,21 @@ function setup(onOutputs, recoverable = false) {
   return { computation, gateway, reply, change: () => { target = { ...target, sessionId: "new" }; } };
 }
 describe("isolated View resource computation", () => {
+  it("snapshots ordered additional sources for strict calls and rejects them on legacy calls", async () => {
+    const extra = { resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "b".repeat(64) };
+    const c = setup(undefined, true);
+    let release;
+    c.gateway.prepareResourceCall.mockImplementation(owner => new Promise(resolve => { release = () => resolve(admission(owner)); }));
+    const request = { ...params, additionalResources: [extra] };
+    const work = c.computation.invoke(request);
+    request.additionalResources[0].resourceId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    release(); await work;
+    const original = { resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "b".repeat(64) };
+    expect(c.gateway.prepareResourceCall.mock.calls[0][1].additionalResources).toEqual([original]);
+    expect(c.gateway.invokeResourceCall.mock.calls[0][1].additionalResources).toEqual([original]);
+    const legacy = setup(undefined, false);
+    await expect(legacy.computation.invoke({ ...params, additionalResources: [extra] })).rejects.toThrow("resource_request_invalid");
+  });
   it("does not execute when the durable record cannot be committed", async () => {
     const c = setup(undefined, true); c.gateway.resourceCalls.keep.mockRejectedValue(new Error("quota"));
     await expect(c.computation.invoke(params)).rejects.toThrow("resource_journal_unavailable");

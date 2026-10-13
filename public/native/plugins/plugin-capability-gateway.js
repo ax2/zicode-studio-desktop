@@ -104,16 +104,20 @@ export class PluginCapabilityGateway {
     });
   }
 
-  prepareResourceCall(owner, { resourceId, contentVersion, input = {} }) {
+  prepareResourceCall(owner, { resourceId, contentVersion, additionalResources = [], input = {} }) {
     return this.#request(this.#url("/v2/plugin-resources/prepare-call"), {
       method: "POST", body: JSON.stringify({ schemaVersion: 1,
-        access: { schemaVersion: 1, owner, resourceId, contentVersion }, input }),
+        access: { schemaVersion: 1, owner, resourceId, contentVersion },
+        ...(additionalResources.length ? { additionalAccesses: additionalResources.map(resource => ({ schemaVersion: 1, owner,
+          resourceId: resource.resourceId, contentVersion: resource.contentVersion })) } : {}), input }),
     });
   }
 
-  invokeResourceCall(owner, { resourceId, contentVersion, input = {} }, { callId, hostInstanceId }) {
+  invokeResourceCall(owner, { resourceId, contentVersion, additionalResources = [], input = {} }, { callId, hostInstanceId }) {
     return this.#request(this.#url("/v2/plugin-resources/invoke-call"), {
       method: "POST", body: JSON.stringify({ access: { schemaVersion: 1, owner, resourceId, contentVersion },
+        ...(additionalResources.length ? { additionalAccesses: additionalResources.map(resource => ({ schemaVersion: 1, owner,
+          resourceId: resource.resourceId, contentVersion: resource.contentVersion })) } : {}),
         input, callId, hostInstanceId }),
     });
   }

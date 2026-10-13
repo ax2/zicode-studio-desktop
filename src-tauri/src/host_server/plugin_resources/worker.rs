@@ -307,6 +307,9 @@ fn execute(
         let capability = registry
             .capability(&target.scene_id, &owner.plugin_id, &owner.capability_id)
             .ok_or_else(|| rejected("capability_unavailable"))?;
+        if request.additional_accesses.len() + 1 > capability.resource_input_max.unwrap_or(1) {
+            return Err(rejected("resource_profile_unsupported"));
+        }
         validate_value(&capability.input_schema, &request.input, "$")
             .map_err(|_| rejected("invalid_parameters"))?;
         let (path, kind) = registry

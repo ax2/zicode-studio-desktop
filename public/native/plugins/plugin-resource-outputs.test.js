@@ -28,4 +28,11 @@ describe("resource output reference boundary", () => {
     expect(() => normalizeResourceOutputs(reply([row(), { ...row(), index: 1 }]), source)).toThrow();
     expect(() => normalizeResourceOutputs(reply([{ ...row(), byteLength: 32 * 1024 * 1024 }, second]), source)).toThrow();
   });
+  it("keeps all declared input ancestors and rejects substituted ones", () => {
+    const multi = { ...source, additionalResources: [{ resourceId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", contentVersion: "c".repeat(64) }] };
+    const output = { ...row(), derivedFromAll: [source, multi.additionalResources[0]] };
+    expect(normalizeResourceOutputs(reply([output]), multi)[0].derivedFromAll).toEqual(output.derivedFromAll);
+    expect(() => normalizeResourceOutputs(reply([row()]), multi)).toThrow("resource_response_invalid");
+    expect(() => normalizeResourceOutputs(reply([{ ...output, derivedFromAll: [...output.derivedFromAll].reverse() }]), multi)).toThrow("resource_response_invalid");
+  });
 });

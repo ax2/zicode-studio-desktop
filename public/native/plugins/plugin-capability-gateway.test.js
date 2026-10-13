@@ -19,6 +19,22 @@ it("keeps resource prepare, one-use invoke and mutating reconciliation separate"
   expect(bodies[2]).toEqual({ schemaVersion: 1, owner, callId: ticket.callId, hostInstanceId: "host" });
 });
 
+it("binds each additional resource to the same owner in both one-use requests", async () => {
+  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const owner = { runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" };
+  const request = { resourceId: "first", contentVersion: "a", additionalResources: [
+    { resourceId: "second", contentVersion: "b" }, { resourceId: "third", contentVersion: "c" }], input: {} };
+  await gateway.prepareResourceCall(owner, request);
+  await gateway.invokeResourceCall(owner, request, { callId: "call", hostInstanceId: "host" });
+  const [prepared, invoked] = fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body));
+  expect(prepared.additionalAccesses).toEqual([
+    { schemaVersion: 1, owner, resourceId: "second", contentVersion: "b" },
+    { schemaVersion: 1, owner, resourceId: "third", contentVersion: "c" },
+  ]);
+  expect(invoked.additionalAccesses).toEqual(prepared.additionalAccesses);
+});
+
 describe("PluginCapabilityGateway", () => {
   it("queries local file state without preparing, confirming or executing it", async () => {
     const state = { schemaVersion: 1, phase: "reading", executionFinished: false, cancellationRequested: true, contentRead: null };

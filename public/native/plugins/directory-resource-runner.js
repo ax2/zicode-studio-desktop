@@ -1,5 +1,6 @@
 import { t } from "../../i18n.js";
 import { createPluginResourceSelection } from "./plugin-resource-selection.js";
+import { createMultiResourceSelection } from "./plugin-multi-resource-selection.js";
 import { createResourceComputation } from "./plugin-view-resource-compute.js";
 import { createResourcePreview } from "./plugin-resource-preview.js";
 import { createResourceTransfer } from "./plugin-resource-transfer.js";
@@ -41,7 +42,10 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
     onClear: () => { save?.clear(); transfer?.clear(); } });
   const computation = createResourceComputation({ instance, gateway, getTarget, isCurrent: valid, recoverable: true, onOutputs: (items, owner) => preview.show(items, owner) });
   const selectionContainer = node("div"); container.prepend(selectionContainer);
-  const selection = createPluginResourceSelection({ container: selectionContainer, plugin: { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] }, target, gateway, catalogRevision: detail.revision, isCurrent: () => valid() && !running,
+  const maxResources = detail.capability.resourceInputMax;
+  const select = Number.isInteger(maxResources) && maxResources >= 2 && maxResources <= 4
+    ? createMultiResourceSelection : createPluginResourceSelection;
+  const selection = select({ container: selectionContainer, plugin: { id: tool.pluginId, name: tool.applicationName, version: tool.version, capabilities: [{ id: tool.capabilityId, title: tool.title }] }, target, gateway, catalogRevision: detail.revision, maxResources, isCurrent: () => valid() && !running,
     onResource: value => {
       clearTimeout(timer); reference = value; result.textContent = ""; preview.clear();
       run.disabled = !value || !form || running;
@@ -89,7 +93,11 @@ export function createDirectoryResourceRunner({ container, tool, detail, gateway
       try { if (response.result?.ok !== false) await onSuccess(response); } catch { if (valid()) status.textContent = t("Tool completed, but history could not be saved."); }
       const verify = async () => {
         if (!valid() || running || reference !== access) return;
-        try { await read({ capabilityId: tool.capabilityId }, access, 0, 1); if (valid() && reference === access) timer = setTimeout(verify, 5000); }
+        try {
+          for (const resource of [access, ...(access.additionalResources ?? [])])
+            await read({ capabilityId: tool.capabilityId }, resource, 0, 1);
+          if (valid() && reference === access) timer = setTimeout(verify, 5000);
+        }
         catch { if (valid() && reference === access) { reference = null; run.disabled = true; result.textContent = ""; preview.clear(); status.textContent = t("Tool access expired or changed. Refresh tools and confirm sharing again."); } }
       };
       timer = setTimeout(verify, 5000);

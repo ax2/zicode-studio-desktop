@@ -283,7 +283,16 @@ const zhCN = {
   "Other applications": "其他应用",
   "Studio resource selection": "Studio 资源选择",
   "Studio · Share a file with this plugin": "Studio · 向此插件提供文件",
+  "Share files with this tool": "向此工具提供文件",
+  "Choose up to {count} files, then confirm. The total must be at most 32 MiB. Nothing runs until you execute the tool.":
+    "最多选择 {count} 个文件并确认，总大小不超过 32 MiB。点击执行工具前不会运行。",
   "Choose a file for the plugin": "选择提供给插件的文件",
+  "Choose files for the plugin": "选择提供给插件的多个文件",
+  "Selected {count} files. Confirm sharing before running the tool.": "已选择 {count} 个文件。运行工具前请先确认提供。",
+  "Choose at most {count} files totaling up to 32 MiB.": "最多选择 {count} 个文件，总大小不超过 32 MiB。",
+  "Sharing file {current} of {total}…": "正在提供第 {current} / {total} 个文件…",
+  "Confirmed files shared. You can revoke them with Cancel.": "已提供确认的文件，可点击取消撤销读取权限。",
+  "File sharing failed. Choose the files again to retry.": "提供文件失败，请重新选择多个文件后重试。",
   "Receiving tool": "接收工具",
   "Only this plugin and tool can read the confirmed snapshot. Nothing is saved or sent to AI.":
     "仅此插件和接收工具可读取已确认的文件快照。不会保存或发送给 AI。",

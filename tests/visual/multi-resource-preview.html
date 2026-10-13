@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio multi-resource control preview</title>
+<link rel="stylesheet" href="../../public/style.bundle.css">
+<style>
+  body { margin: 0; padding: 32px; background: #f5f7fb; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px; background: white; border-radius: 16px; }
+</style>
+<main></main>
+<script type="module">
+  import { createMultiResourceSelection } from "../../public/native/plugins/plugin-multi-resource-selection.js";
+  import { setLocale } from "../../public/i18n.js";
+  setLocale("zh-CN");
+  const owner = { runtimeId: "preview", sessionId: "preview", pluginId: "preview", capabilityId: "archive.create" };
+  const gateway = { prepareResource: async () => { throw new Error("Visual preview never grants access"); },
+    revokeResource: async () => ({}) };
+  createMultiResourceSelection({ container: document.querySelector("main"),
+    plugin: { id: owner.pluginId, capabilities: [{ id: owner.capabilityId }] },
+    target: { instanceId: owner.runtimeId, sessionId: owner.sessionId }, gateway,
+    isCurrent: () => true, onResource: () => {}, maxResources: 4 });
+  const files = new DataTransfer();
+  files.items.add(new File(["sample"], "项目说明.md", { type: "text/plain" }));
+  files.items.add(new File(["sample"], "图像资源.png", { type: "image/png" }));
+  const input = document.querySelector('input[type="file"]');
+  input.files = files.files;
+  input.dispatchEvent(new Event("change"));
+</script>
+</html>

@@ -5,11 +5,11 @@ import { createDirectoryResourceRunner } from "./directory-resource-runner.js";
 import { admission, reconciliation } from "../../../tests/helpers/resource-call-admission.js";
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const roots = [];
-function fixture(overrides = {}) {
+function fixture(overrides = {}, maxResources = 1) {
   setLocale("en"); vi.stubGlobal("crypto", webcrypto); document.body.innerHTML = "<main></main>";
   let target = { instanceId: "runtime", sessionId: "session", workspaceId: "workspace", sceneId: "programming" };
   const tool = { pluginId: "receiver", capabilityId: "consume", title: "Consume", applicationName: "Receiver", version: "1", runtime: "wasi" };
-  const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: "resource.wasi.input.draft2", capability: { id: tool.capabilityId, inputSchema: {} }, permissions: [{ name: "resource.read", granted: true }] };
+  const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: "resource.wasi.input.draft2", capability: { id: tool.capabilityId, inputSchema: {}, ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }] };
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
@@ -29,6 +29,26 @@ function fixture(overrides = {}) {
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("passes a confirmed two-file group through one-use invocation", async () => {
+    const f = fixture({}, 2);
+    const ids = [id, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]; let next = 0;
+    f.gateway.prepareResource.mockImplementation(async () => ({ resourceId: ids[next++] }));
+    const makeFile = text => ({ name: `${text}.txt`, size: 3, type: "text/plain",
+      arrayBuffer: async () => new TextEncoder().encode(text).buffer });
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", { value: [makeFile("one"), makeFile("two")] });
+    input.dispatchEvent(new Event("change"));
+    expect(f.gateway.prepareResource).not.toHaveBeenCalled();
+    f.button("Confirm file sharing").click();
+    await vi.waitFor(() => expect(f.button("Execute tool").disabled).toBe(false));
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(f.gateway.invokeResourceCall.mock.calls[0][1].additionalResources).toEqual([
+      { resourceId: ids[1], contentVersion: expect.stringMatching(/^[0-9a-f]{64}$/) },
+    ]);
+    f.button("Cancel file sharing").click();
+    expect(f.gateway.revokeResource).toHaveBeenCalledTimes(2);
+  });
   it("protects busy state across active and changed-Host checks without replaying", async () => {
     const f = fixture(); await f.share(); f.gateway.invokeResource.mockRejectedValue(new Error("lost response"));
     f.button("Execute tool").click(); await vi.waitFor(() => expect(f.button("Stop and recover call").hidden).toBe(false));

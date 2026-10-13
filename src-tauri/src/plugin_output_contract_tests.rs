@@ -159,6 +159,7 @@ fn capability(schema: Value) -> PluginCapabilityDescriptor {
         id: "main".into(),
         title: "Output".into(),
         input_schema: json!({}),
+        resource_input_max: None,
         output_schema: Some(schema),
         max_result_bytes: None,
     }

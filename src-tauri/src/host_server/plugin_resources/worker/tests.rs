@@ -73,7 +73,8 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     manifest["runtime"] = json!({"wasi":"runtime/tools.wasm","resourceInputProfile":PROFILE});
     manifest["activationEvents"] = json!(["onCapability:resource.inspect"]);
     manifest["contributes"] = json!({"activities":[],"views":[],"commands":[],"piTools":[],"capabilities":[{
-        "id":"resource.inspect","title":"Resource fixture","inputSchema":{"type":"object","properties":{},"additionalProperties":false}
+        "id":"resource.inspect","title":"Resource fixture","resourceInputMax":2,
+        "inputSchema":{"type":"object","properties":{},"additionalProperties":false}
     }]});
     manifest["permissions"] = json!({"required":[],"optional":[{"name":"resource.read","reason":"Confirmed fixture input only"}]});
     std::fs::write(
