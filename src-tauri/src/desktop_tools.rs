@@ -127,6 +127,39 @@ pub(crate) fn open(app: &AppHandle) -> Result<(), String> {
     )
 }
 
+pub(crate) enum ToolDirectoryView {
+    Favorites,
+    Recent,
+}
+
+/// Keep the tray bounded even when installed tool counts grow. The menu only
+/// navigates to a directory filter; tool loading and execution stay in Studio.
+pub(crate) fn open_view(app: &AppHandle, view: ToolDirectoryView) -> Result<(), String> {
+    let (route, event) = match view {
+        ToolDirectoryView::Favorites => (
+            "core.tools&toolView=favorites",
+            "window.dispatchEvent(new CustomEvent('zicode:tray-tool-view',{detail:'favorites'}))",
+        ),
+        ToolDirectoryView::Recent => (
+            "core.tools&toolView=recent",
+            "window.dispatchEvent(new CustomEvent('zicode:tray-tool-view',{detail:'recent'}))",
+        ),
+    };
+    let existing = app.get_webview_window(LABEL).is_some();
+    open_at(
+        app,
+        &crate::app_paths::global_workspace_root()?,
+        Some(route),
+    )?;
+    if existing {
+        app.get_webview_window(LABEL)
+            .ok_or("Tool center window is unavailable")?
+            .eval(event)
+            .map_err(|error| format!("Could not select tool view: {error}"))?;
+    }
+    Ok(())
+}
+
 /// Open a separate tool-only window for the focused project's registered root.
 /// The window URL supplies only an identity; the path comes from trusted metadata.
 pub(crate) fn open_for_project_window(

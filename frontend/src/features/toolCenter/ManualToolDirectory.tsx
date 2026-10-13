@@ -9,6 +9,7 @@ import { toolCategoryTitle } from "./tool-categories";
 import { useDirectoryToolFilter } from "./use-directory-tool-filter";
 import { useFileToolFilter } from "./use-file-tool-filter";
 import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, manualToolError } from "./manual-tools";
+import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
 
 export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, openApplication, requestedTool, getResourceTarget }: {
   api: ManualToolApi; scope: ToolAccessScope; accessStore?: ToolAccessStore;
@@ -18,7 +19,8 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   getResourceTarget?: ResourceTargetProvider;
 }) {
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<ToolDirectoryView>("all");
+  const [view, setView] = useState<ToolDirectoryView>(initialTrayToolView);
+  useEffect(() => subscribeTrayToolView(next => { setView(next); setCursor({ offset: 0, revision: null }); }), []);
   const [source, setSource] = useState("");
   const [category, setCategory] = useState("");
   const [entryRevision, setEntryRevision] = useState(0);

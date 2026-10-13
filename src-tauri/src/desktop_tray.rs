@@ -9,6 +9,8 @@ struct DesktopTray {
     icon: TrayIcon,
     tools: MenuItem<tauri::Wry>,
     project_tools: MenuItem<tauri::Wry>,
+    favorite_tools: MenuItem<tauri::Wry>,
+    recent_tools: MenuItem<tauri::Wry>,
     show: MenuItem<tauri::Wry>,
     hide: MenuItem<tauri::Wry>,
     exit: MenuItem<tauri::Wry>,
@@ -22,6 +24,8 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
         "zh-CN" => [
             "打开工具中心",
             "打开当前项目工具",
+            "收藏工具",
+            "最近使用的工具",
             "显示 ZiCode Studio",
             "隐藏所有窗口（继续运行）",
             "退出 ZiCode Studio",
@@ -30,6 +34,8 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
         "en" => [
             "Open tool center",
             "Open current project tools",
+            "Favorite tools",
+            "Recently used tools",
             "Show ZiCode Studio",
             "Hide all windows (keep running)",
             "Quit ZiCode Studio",
@@ -46,17 +52,23 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     tray.project_tools
         .set_text(labels[1])
         .map_err(|error| error.to_string())?;
-    tray.show
+    tray.favorite_tools
         .set_text(labels[2])
         .map_err(|error| error.to_string())?;
-    tray.hide
+    tray.recent_tools
         .set_text(labels[3])
         .map_err(|error| error.to_string())?;
-    tray.exit
+    tray.show
         .set_text(labels[4])
         .map_err(|error| error.to_string())?;
+    tray.hide
+        .set_text(labels[5])
+        .map_err(|error| error.to_string())?;
+    tray.exit
+        .set_text(labels[6])
+        .map_err(|error| error.to_string())?;
     tray.icon
-        .set_tooltip(Some(labels[5]))
+        .set_tooltip(Some(labels[7]))
         .map_err(|error| error.to_string())?;
     Ok(())
 }
@@ -138,6 +150,20 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         false,
         None::<&str>,
     )?;
+    let favorite_tools = MenuItem::with_id(
+        app,
+        "studio.tools.favorites",
+        "收藏工具",
+        true,
+        None::<&str>,
+    )?;
+    let recent_tools = MenuItem::with_id(
+        app,
+        "studio.tools.recent",
+        "最近使用的工具",
+        true,
+        None::<&str>,
+    )?;
     let show = MenuItem::with_id(app, "studio.show", "显示 ZiCode Studio", true, None::<&str>)?;
     let hide = MenuItem::with_id(
         app,
@@ -150,7 +176,16 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
-        &[&project_tools, &tools, &show, &hide, &separator, &exit],
+        &[
+            &project_tools,
+            &tools,
+            &favorite_tools,
+            &recent_tools,
+            &show,
+            &hide,
+            &separator,
+            &exit,
+        ],
     )?;
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
@@ -185,6 +220,17 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                     show_workspaces(app);
                 }
             }
+            "studio.tools.favorites" | "studio.tools.recent" => {
+                let view = if event.id.as_ref() == "studio.tools.favorites" {
+                    crate::desktop_tools::ToolDirectoryView::Favorites
+                } else {
+                    crate::desktop_tools::ToolDirectoryView::Recent
+                };
+                if let Err(error) = crate::desktop_tools::open_view(app, view) {
+                    log::warn!("[desktop-tray] filtered tool center unavailable: {error}");
+                    show_workspaces(app);
+                }
+            }
             "studio.show" => show_workspaces(app),
             "studio.hide" => {
                 for (label, window) in app.webview_windows() {
@@ -216,6 +262,8 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         icon: tray,
         tools,
         project_tools,
+        favorite_tools,
+        recent_tools,
         show,
         hide,
         exit,

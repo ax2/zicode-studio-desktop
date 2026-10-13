@@ -773,6 +773,14 @@ export function setupPluginShell({
     updateActivitySelection(activePluginId);
   };
   window.addEventListener("zicode:locale-changed", handleLocaleChange);
+  const handleTrayToolView = event => {
+    const view = event.detail;
+    if (view !== "favorites" && view !== "recent") return;
+    void activateFromNavigation(TOOL_CENTER_ID).then(opened => {
+      if (opened) window.dispatchEvent(new CustomEvent("zicode:tool-view", { detail: view }));
+    }).catch(error => notify(String(error?.message ?? error)));
+  };
+  window.addEventListener("zicode:tray-tool-view", handleTrayToolView);
 
   // Ctrl/Cmd+1..9 switch to the first nine activity-bar applications in their
   // visible order (Chat first). Ignored while typing in a field so numeric
@@ -862,6 +870,7 @@ export function setupPluginShell({
       for (const application of new Set(applicationViews.values())) application.destroy?.();
       pluginViewHost?.destroy?.();
       window.removeEventListener("zicode:locale-changed", handleLocaleChange);
+      window.removeEventListener("zicode:tray-tool-view", handleTrayToolView);
       window.removeEventListener("resize", handleMobileShellChange);
       document.removeEventListener("keydown", handleActivityShortcut);
       globalThis.removeEventListener?.("popstate", handlePluginPopState);

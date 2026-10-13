@@ -9,6 +9,7 @@ import type { ManualToolApi, ToolOpenRequest } from "./manual-tools";
 import type { ResourceTargetProvider } from "./ResourceToolRunner";
 import { ResourceCallRecords } from "./ResourceCallRecords";
 import { ToolWorkspacePicker, type ToolWorkspaceApi } from "./ToolWorkspacePicker";
+import { initialTrayToolView, subscribeTrayToolView } from "./tray-tool-view";
 
 export interface ApplicationEntry extends PaletteCommand { category: string; source: string }
 export interface ToolCenterProps {
@@ -29,7 +30,8 @@ export function ToolCenterApp({ entries, accessStore, scope, toolApi, catalogRev
   const [section, setSection] = useState(toolApi && scope ? "tools" : "applications");
   useEffect(() => { if (requestedTool) setSection("tools"); }, [requestedTool]);
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<"all" | "favorites" | "recent">("all");
+  const [view, setView] = useState(initialTrayToolView);
+  useEffect(() => subscribeTrayToolView(next => { setView(next); setPage(0); }), []);
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(0);
   const access = useToolAccess(accessStore, scope);
