@@ -181,7 +181,8 @@ impl PluginRegistry {
                 let Some(rank) = search::relevance(&terms, id, title, &aliases, description, &source_text) else {
                     continue;
                 };
-                entries.push((rank, json!({
+                let file_rank = u8::from(request.file_name.is_some() && file_match != Some(true));
+                entries.push((file_rank, rank, json!({
                     "toolId":tool_id,"accessId":access_id,
                     "fileInputMatch":request.file_name.as_ref().map(|_| if file_match == Some(true) {"declared"} else {"unknown"}),
                     "pluginId":manifest.id,"capabilityId":id,"title":title,
@@ -194,12 +195,13 @@ impl PluginRegistry {
                 })));
             }
         }
-        entries.sort_by(|(a_rank, a), (b_rank, b)| {
+        entries.sort_by(|(a_file_rank, a_rank, a), (b_file_rank, b_rank, b)| {
             if request.view == CatalogView::Recent {
                 let ranks = ranks.as_ref().expect("recent view has ranks");
                 ranks[a["accessId"].as_str().unwrap()].cmp(&ranks[b["accessId"].as_str().unwrap()])
             } else {
-                a_rank.cmp(b_rank).then_with(|| a["toolId"].as_str().cmp(&b["toolId"].as_str()))
+                a_file_rank.cmp(b_file_rank).then_with(|| a_rank.cmp(b_rank))
+                    .then_with(|| a["toolId"].as_str().cmp(&b["toolId"].as_str()))
             }
         });
         let total = entries.len();
@@ -207,7 +209,7 @@ impl PluginRegistry {
             .into_iter()
             .skip(request.offset)
             .take(PAGE_SIZE)
-            .map(|(_, tool)| tool)
+            .map(|(_, _, tool)| tool)
             .collect();
         let next = (request.offset.saturating_add(items.len()) < total)
             .then_some(request.offset + items.len());

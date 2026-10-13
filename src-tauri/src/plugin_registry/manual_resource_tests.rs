@@ -1,4 +1,5 @@
 use super::*;
+use crate::metadata_store::tool_access::{RecentEntry, ToolAccess};
 
 #[test]
 fn multi_resource_count_requires_an_explicit_wasi_capability() {
@@ -42,6 +43,43 @@ fn file_hints_hide_declared_mismatches_but_keep_legacy_unknown() {
     query.file_name = Some("file.txt".into());
     query.resource_only = false;
     assert!(registry.manual_catalog(&query).is_err());
+}
+
+#[test]
+fn explorer_file_match_precedes_legacy_unknown_before_paging() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read chosen file"}
+    ])).unwrap();
+    plugin.manifest.contributes["capabilities"][204]["fileInput"] = json!({"extensions":[".zip"]});
+    plugin.manifest.contributes["capabilities"][203]["fileInput"] = json!({"extensions":[".png"]});
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    let mut query = CatalogQuery { scene_id:"programming".into(), resource_only:true,
+        file_name:Some("Archive.ZIP".into()), ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 204);
+    assert_eq!(page["items"][0]["capabilityId"], "text.204");
+    assert_eq!(page["items"][0]["fileInputMatch"], "declared");
+    assert_eq!(page["items"][1]["capabilityId"], "text.000");
+    query.offset = 40;
+    query.revision = Some(page["revision"].as_str().unwrap().into());
+    assert_eq!(registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"], "text.039");
+    query.offset = 0;
+    query.revision = None;
+    query.file_name = None;
+    assert_eq!(registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"], "text.000");
+
+    query.file_name = Some("Archive.ZIP".into());
+    let access = ToolAccess { favorites: vec![tool_access_id(id,"text.000"), tool_access_id(id,"text.204")],
+        recent: ["text.000", "text.204"].map(|cap| RecentEntry { id:tool_access_id(id,cap), used_at:1 }).to_vec(),
+        ..Default::default() };
+    query.view = CatalogView::Favorites;
+    assert_eq!(registry.manual_catalog_with_access(&query,Some(&access)).unwrap()["items"][0]["capabilityId"], "text.204");
+    query.view = CatalogView::Recent;
+    assert_eq!(registry.manual_catalog_with_access(&query,Some(&access)).unwrap()["items"][0]["capabilityId"], "text.000");
 }
 
 #[test]
