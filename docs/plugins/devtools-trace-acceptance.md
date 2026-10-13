@@ -18,4 +18,11 @@
 
 ## 未验收和重开条件
 
-真实 Studio 原生 View、全部边界与错误向量、签名安装/更新/回滚、取消和超时、结果接力、其他 OS 均待验收。提供方有 59 条原生/WASI 证据；本次 Studio 只实际执行了两条基本样例和权限生命周期，不能据此继承 59 条完整结论。提供方应交付正式签名容器；Studio 继续验收完整 View/Worker/生命周期。154 项源工具的完整接受数仍为 0。
+真实 Studio 原生 View、签名安装/更新/回滚、取消和超时、结果接力、其他 OS 均待验收。提供方应交付正式签名容器；154 项源工具的完整接受数仍为 0。
+
+### 2026-10-14 冻结向量的 Studio Worker 复核
+
+- 新增单独的忽略测试 `trace_candidate_vectors_through_studio_broker`，先按包外收据逐文件核对 346 个冻结文件，再经 Studio `CapabilityBroker` 和当前 Windows 生产 Worker 执行 `fixtures/trace.json` 的 40 条用例。隔离注册表与审计数据在测试后删除，仅保留不含输入文本的紧凑收据。
+- 首次逐条按提供方错误码直接比较为 36/40。差异 4 条均在 Studio 输入 schema 前置验证被拒：两项 8193 字符输入超过插件声明的 8192 字符上限，以及两项 `text` 类型错误。Worker 没有收到这 4 条；Studio 返回 `invalid_parameters`，不是提供方的 `INPUT_TOO_LARGE` 或 `INVALID_INPUT`。
+- 将这四条明确列为 Studio schema 拒绝，其余 36 条继续精确比对 Worker 的成功文本或业务错误码；最终复跑 40/40 符合各自层级预期，其中 **Worker 向量 36/36、Studio schema 拒绝 4/4**。这不等于 40 条提供方业务向量均通过 Worker，也不继承提供方 59 条原生/WASI 证据。最终收据保存在 `.cache/task-scratch/trace-vectors-0081ce9e-d727-43fb-bc43-d5ad9c80af6b/receipt.json`；首次差异收据 `trace-vectors-c799d7bd-428c-4478-bd3c-6d790d8c73c2/receipt.json`。
+- 对外错误码映射尚需统一：Studio 的 schema 错误与提供方业务错误是两层协议；目前界面若要展示提供方的具体超长提示，须先定义宿主验证错误的标准映射，不应绕开 schema 直接把越界输入交给 Worker。
