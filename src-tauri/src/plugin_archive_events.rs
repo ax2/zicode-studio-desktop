@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 use std::io::Read;
 
-const MAX_STREAM: usize = 512 * 1024;
+pub(crate) const MAX_STREAM: usize = 512 * 1024;
 const MAX_LINE: usize = 16 * 1024;
 const MAX_EVENTS: usize = 1304;
 const MAX_ENTRIES: usize = 200;

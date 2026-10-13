@@ -43,6 +43,8 @@ mod pi_launch;
 mod pi_rpc_bridge;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_events;
+#[cfg_attr(not(test), allow(dead_code))]
+mod plugin_archive_transport;
 mod plugin_capabilities;
 mod plugin_package;
 mod plugin_registry;
