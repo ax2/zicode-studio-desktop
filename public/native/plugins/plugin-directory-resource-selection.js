@@ -1,5 +1,16 @@
 import { t } from "../../i18n.js";
 
+function sameOwner(actual, expected) {
+  return (
+    actual !== null &&
+    typeof actual === "object" &&
+    actual.runtimeId === expected.runtimeId &&
+    actual.sessionId === expected.sessionId &&
+    actual.pluginId === expected.pluginId &&
+    actual.capabilityId === expected.capabilityId
+  );
+}
+
 // Trusted Studio UI. The picker returns a project-relative path; only commit
 // enumerates names, and only the confirmed resource is passed to the Worker.
 export function createPluginDirectoryResourceSelection({
@@ -77,6 +88,7 @@ export function createPluginDirectoryResourceSelection({
     const token = revision;
     choose.disabled = true;
     panel.setAttribute("aria-busy", "true");
+    let stage = "picker";
     status.textContent = t(
       "Choose a directory inside the current project. Names are shared only after confirmation.",
     );
@@ -89,7 +101,9 @@ export function createPluginDirectoryResourceSelection({
       }
       if (typeof path !== "string" || !path || path.startsWith("/") || /^[A-Za-z]:/.test(path))
         throw new Error("invalid path");
+      stage = "prepare";
       const prepared = await gateway.projectDirectories.prepare(owner, path);
+      stage = "response";
       if (!valid(token)) {
         if (prepared?.grantId)
           void gateway.projectDirectories.cancel(owner, prepared.grantId).catch(() => {});
@@ -100,7 +114,7 @@ export function createPluginDirectoryResourceSelection({
         prepared.confirmed !== false ||
         prepared.entryNamesRead !== false ||
         prepared.relativePath !== path ||
-        JSON.stringify(prepared.owner) !== JSON.stringify(owner) ||
+        !sameOwner(prepared.owner, owner) ||
         typeof prepared.grantId !== "string" ||
         !/^[0-9a-f-]{36}$/i.test(prepared.grantId)
       ) {
@@ -115,9 +129,25 @@ export function createPluginDirectoryResourceSelection({
       )
         .replace("{name}", path)
         .replace("{plugin}", `${plugin.name} ${plugin.version}`);
-    } catch {
-      if (valid(token))
-        status.textContent = t("Could not select this project directory. Choose again.");
+    } catch (failure) {
+      if (valid(token)) {
+        const code =
+          typeof failure?.code === "string" && /^[a-z_]{1,64}$/.test(failure.code)
+            ? failure.code
+            : "unknown";
+        status.textContent =
+          stage === "picker"
+            ? t(
+                "Directory picker could not use this selection. Check the current project and retry.",
+              )
+            : stage === "prepare"
+              ? t(
+                  "Directory access could not be prepared ({code}). Check permission and retry.",
+                ).replace("{code}", code)
+              : t(
+                  "Directory preparation returned unexpected metadata. Refresh the tool and retry.",
+                );
+      }
     } finally {
       busy = false;
       if (active && isCurrent()) {
@@ -146,7 +176,7 @@ export function createPluginDirectoryResourceSelection({
         !Number.isInteger(result.entryCount) ||
         result.entryCount < 0 ||
         result.entryCount > 4096 ||
-        JSON.stringify(result.access?.owner) !== JSON.stringify(owner) ||
+        !sameOwner(result.access?.owner, owner) ||
         typeof result.access?.resourceId !== "string" ||
         typeof result.access?.contentVersion !== "string"
       ) {

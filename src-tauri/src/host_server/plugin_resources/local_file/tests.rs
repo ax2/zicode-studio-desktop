@@ -197,10 +197,14 @@ async fn http(actual: bool) {
         (import "zicode_resource_input_draft1" "size" (func $size (param i32) (result i64)))
         (import "zicode_resource_input_draft1" "read" (func $read (param i32 i64 i32 i32) (result i32)))
         (memory (export "memory") 1) (data (i32.const 64) "{\22value\22:\22XXXX\22}")
+        (data (i32.const 96) "{\22value\22:\22directory\22}")
         (func (export "_start")
-            i32.const 0 call $size i64.const 4 i64.ne if unreachable end
+            i32.const 0 call $size i64.const 4 i64.lt_u if unreachable end
             i32.const 0 i64.const 0 i32.const 74 i32.const 4 call $read i32.const 4 i32.ne if unreachable end
             i32.const 0 i32.const 64 i32.store i32.const 4 i32.const 16 i32.store
+            i32.const 74 i32.load8_u i32.const 123 i32.eq if
+                i32.const 0 i32.const 96 i32.store i32.const 4 i32.const 21 i32.store
+            end
             i32.const 1 i32.const 0 i32.const 1 i32.const 24 call $write drop))"#).unwrap();
     let metadata =
         crate::metadata_store::MetadataStore::open(&f.0.join("metadata.sqlite3")).unwrap();
@@ -601,6 +605,28 @@ async fn http(actual: bool) {
         assert_eq!(output["result"]["value"], "abcd", "{output}");
         assert!(!imported.to_string().contains("relativePath"));
         assert!(!imported.to_string().contains(f.0.to_str().unwrap()));
+        fs::create_dir(f.0.join("selected-directory")).unwrap();
+        fs::write(f.0.join("selected-directory/entry.txt"), b"private content").unwrap();
+        let preview: Value = post("prepare-local-directory", json!({"schemaVersion":1,"owner":owner,"relativePath":"selected-directory"}))
+            .await.unwrap().json().await.unwrap();
+        assert_eq!(preview["entryNamesRead"], false, "{preview}");
+        assert!(!preview.to_string().contains("entry.txt"));
+        let directory: Value = post("commit-local-directory", json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"],"confirmed":true}))
+            .await.unwrap().json().await.unwrap();
+        assert_eq!(directory["profile"], "resource.local-directory.draft1", "{directory}");
+        assert_eq!(directory["entryCount"], 1);
+        assert!(!directory.to_string().contains(f.0.to_str().unwrap()));
+        let listing: Value = post("read-view", json!({"access":directory["access"],"offset":0,"length":4096}))
+            .await.unwrap().json().await.unwrap();
+        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD,
+            listing["dataBase64"].as_str().unwrap()).unwrap();
+        assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap()["entries"],
+            json!([{"name":"entry.txt","kind":"file"}]));
+        assert!(!String::from_utf8(bytes).unwrap().contains("private content"));
+        let directory_output: Value = post("invoke-view",
+            json!({"access":directory["access"],"toolCallId":uuid::Uuid::new_v4(),"input":{}}))
+            .await.unwrap().json().await.unwrap();
+        assert_eq!(directory_output["result"]["value"], "directory", "{directory_output}");
         let events = events.lock().unwrap();
         let started: Vec<_> = events
             .iter()
@@ -617,13 +643,13 @@ async fn http(actual: bool) {
             .filter(|(event, _)| *event == "reaped")
             .map(|(_, pid)| *pid)
             .collect();
-        assert_eq!(started.len(), 1);
+        assert_eq!(started.len(), 2);
         assert_eq!(started, reaped);
         assert_eq!(started, closed);
         println!("Worker lifetime events: {events:?}");
         drop(events);
         println!(
-            "actual local file HTTP→confirmed snapshot→WASI result passed; fixture={}",
+            "actual local file and directory HTTP→confirmed snapshots→WASI results passed; fixture={}",
             f.0.display()
         );
     }

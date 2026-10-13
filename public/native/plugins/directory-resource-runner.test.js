@@ -31,10 +31,11 @@ afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubA
 describe("directory-owned resource execution", () => {
   it("requires separate directory selection, sharing confirmation and execution", async () => {
     const owner = { runtimeId: "runtime", sessionId: "session", pluginId: "receiver", capabilityId: "consume" };
+    const serializedOwner = { capabilityId: "consume", pluginId: "receiver", runtimeId: "runtime", sessionId: "session" };
     const projectDirectories = {
       choose: vi.fn(async () => "src"),
-      prepare: vi.fn(async () => ({ profile: "resource.local-directory.draft1", confirmed: false, entryNamesRead: false, relativePath: "src", owner, grantId: id })),
-      commit: vi.fn(async () => ({ profile: "resource.local-directory.draft1", confirmed: true, entryCount: 2, access: { schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) } })),
+      prepare: vi.fn(async () => ({ profile: "resource.local-directory.draft1", confirmed: false, entryNamesRead: false, relativePath: "src", owner: serializedOwner, grantId: id })),
+      commit: vi.fn(async () => ({ profile: "resource.local-directory.draft1", confirmed: true, entryCount: 2, access: { schemaVersion: 1, owner: serializedOwner, resourceId: id, contentVersion: "a".repeat(64) } })),
       cancel: vi.fn(async () => ({})),
     };
     const f = fixture({ projectDirectories }, 1, true);
@@ -54,7 +55,7 @@ describe("directory-owned resource execution", () => {
     await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
     expect(f.gateway.invokeResource.mock.calls[0][1]).toMatchObject({ resourceId: id, contentVersion: "a".repeat(64) });
     f.button("Files").click();
-    expect(f.gateway.revokeResource).toHaveBeenCalledWith({ schemaVersion: 1, owner, resourceId: id, contentVersion: "a".repeat(64) });
+    expect(f.gateway.revokeResource).toHaveBeenCalledWith({ schemaVersion: 1, owner: serializedOwner, resourceId: id, contentVersion: "a".repeat(64) });
     expect(f.button("Execute tool").disabled).toBe(true);
   });
   it("cancels a pending directory grant without executing", async () => {
@@ -66,6 +67,18 @@ describe("directory-owned resource execution", () => {
     f.button("Cancel directory sharing").click();
     expect(projectDirectories.cancel).toHaveBeenCalledWith(owner, id);
     expect(projectDirectories.commit).not.toHaveBeenCalled();
+    expect(f.button("Execute tool").disabled).toBe(true);
+  });
+  it("identifies directory preparation failures without exposing a raw path", async () => {
+    const projectDirectories = {
+      choose: vi.fn(async () => "."),
+      prepare: vi.fn(async () => { throw Object.assign(new Error("private path E:\\secret"), { code: "resource_directory_unavailable" }); }),
+      commit: vi.fn(), cancel: vi.fn(),
+    };
+    const f = fixture({ projectDirectories }, 1, true);
+    f.button("Project directory").click(); f.button("Choose a project directory").click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain("resource_directory_unavailable"));
+    expect(document.body.textContent).not.toContain("E:\\secret");
     expect(f.button("Execute tool").disabled).toBe(true);
   });
   it("revokes a directory resource returned after the user canceled confirmation", async () => {
