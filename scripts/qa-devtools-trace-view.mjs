@@ -173,8 +173,50 @@ async function main() {
       writeFileSync(path, Buffer.from(capture.data, "base64"));
       screenshots.push(path);
     }
+    await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1180, height: 800, deviceScaleFactor: 1, mobile: false });
+    const clickButton = (pattern, selector = ".plugin-result-actions button") => evaluate(cdp, undefined, `(() => {
+      const button = [...document.querySelectorAll(${JSON.stringify(selector)})]
+        .find(item => new RegExp(${JSON.stringify(pattern)}).test(item.textContent));
+      if (!button || button.disabled) return false;
+      button.click();
+      return true;
+    })()`);
+    if (!await clickButton("发送到工具|Send to tool")) throw new Error("Trace result transfer action missing");
+    await until(() => clickButton("JSON 格式化|JSON format", ".plugin-result-target-list button"), "JSON receiver selection");
+    await until(async () => {
+      const panel = await evaluate(cdp, undefined, "document.querySelector('.plugin-result-actions')?.innerText || ''");
+      return /发送预览|Transfer preview/.test(panel) && panel.includes("NoReverseMatch");
+    }, "transfer preview").catch(async (error) => {
+      const panel = await evaluate(cdp, undefined, "document.querySelector('.plugin-result-actions')?.innerText || ''");
+      throw new Error(`${error.message}; panel=${panel.slice(0, 900)}`);
+    });
+    if (!await clickButton("确认发送并执行|Confirm transfer and run")) throw new Error("Transfer confirmation missing");
+    const transferred = await until(async () => {
+      const panel = await evaluate(cdp, undefined, "document.querySelector('.plugin-result-actions')?.innerText || ''");
+      return panel.includes("NoReverseMatch") && /接收工具处理结果|Receiver result/.test(panel) ? panel : null;
+    }, "receiver result").catch(async (error) => {
+      const panel = await evaluate(cdp, undefined, "document.querySelector('.plugin-result-actions')?.innerText || ''");
+      throw new Error(`${error.message}; panel=${panel.slice(0, 900)}`);
+    });
+    if (!transferred.includes("NoReverseMatch")) throw new Error("Receiver output was not displayed");
+    const transferCapture = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    const transferPath = join(screenshotDir, "trace-to-text-receiver-1180x800.png");
+    writeFileSync(transferPath, Buffer.from(transferCapture.data, "base64"));
+    screenshots.push(transferPath);
+    if (!await clickButton("预览保存|Preview save")) throw new Error("Save preview action missing");
+    await until(async () => {
+      const panel = await evaluate(cdp, undefined, "document.querySelector('.plugin-result-actions')?.innerText || ''");
+      return /保存预览|Save preview/.test(panel) && panel.includes("NoReverseMatch");
+    }, "save preview");
+    if (!await clickButton("确认保存|Confirm save")) throw new Error("Save confirmation missing");
+    await until(async () => {
+      const panel = await evaluate(cdp, undefined, "document.querySelector('.plugin-result-actions')?.innerText || ''");
+      return /已保存到当前工作区|Saved to the current workspace/.test(panel);
+    }, "confirmed artifact save");
+    const savedLink = await evaluate(cdp, undefined, "!!document.querySelector('.plugin-result-actions button')");
+    if (!savedLink) throw new Error("Saved artifact acknowledgement did not include an artifact link");
     if (errors.length) throw new Error(`Chromium runtime exception: ${errors[0]}`);
-    process.stdout.write(`${JSON.stringify({ passed: true, results, screenshots })}\n`);
+    process.stdout.write(`${JSON.stringify({ passed: true, results, transferred: true, savedAfterConfirmation: true, screenshots })}\n`);
   } finally {
     frameCdp?.close();
     cdp?.close();

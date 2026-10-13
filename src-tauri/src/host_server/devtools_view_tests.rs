@@ -165,6 +165,16 @@ async fn trace_view_browser_invokes_actual_host_worker_and_displays_result() {
         assert_eq!(bytes.len() as u64, file["size"].as_u64().unwrap());
         assert_eq!(format!("{:x}", Sha256::digest(bytes)), file["sha256"]);
     }
+    let text_source = project.join("tests/fixtures/devtools-text-dev57");
+    let text_receipt: Value = serde_json::from_slice(
+        &std::fs::read(project.join("tests/fixtures/devtools-text-dev57.acceptance.json")).unwrap(),
+    )
+    .unwrap();
+    for file in text_receipt["files"].as_array().unwrap() {
+        let bytes = std::fs::read(text_source.join(file["path"].as_str().unwrap())).unwrap();
+        assert_eq!(bytes.len() as u64, file["bytes"].as_u64().unwrap());
+        assert_eq!(format!("{:x}", Sha256::digest(bytes)), file["sha256"]);
+    }
 
     let root = project
         .join(".cache/task-scratch")
@@ -221,6 +231,10 @@ async fn trace_view_browser_invokes_actual_host_worker_and_displays_result() {
         registry.install_developer(&source).unwrap();
         registry
             .set_enabled("programming", "com.zicode.devtools.trace", true)
+            .unwrap();
+        registry.install_developer(&text_source).unwrap();
+        registry
+            .set_enabled("programming", "com.zicode.devtools.text", true)
             .unwrap();
     }
     host.state

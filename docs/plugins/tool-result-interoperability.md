@@ -4,6 +4,8 @@
 
 后续源码进展：[成功文本结果保存Host候选协议](result-save-contract.md)已实现有界暂存、作用域/来源绑定、保存预览和确认提交。生产父页面预览/确认/取消已接通，真实最小接收页面的保存和工作区切换已验证，完整原生桌面仍待验收。文本发送Host候选见[result-transfer-contract.md](result-transfer-contract.md)；它不等于通用资源授权或完整结果平台。实际证据分别保存在plugin-result-save-ui-2026-10-08和plugin-result-transfer-2026-10-08档案。
 
+2026-10-14 补充两份冻结但未签名的 DevTools 候选在真实 Chromium Studio 页面、Host 和 Worker 中的单链路：Trace Django 结果经可信父页面预览，确认后交给 Text JSON 格式化；接收结果再次预览、确认并保存至隔离工作区。可见结果、保存回执及截图见[Trace 接收记录](devtools-trace-acceptance.md)。这仅证明单次开发候选接力与确认保存，不满足本页阶段 2/3 的全部版本、撤权、冲突、恢复、原生窗口和跨平台门槛。
+
 ## 当前证据与缺口
 
 - `plugin-view-host.js` 将能力调用绑定当前插件、场景和工作区，插件不能用请求参数替换这些身份；现有 View SDK 没有跨插件结果传输方法。

@@ -24,7 +24,13 @@
 
 - Studio 新增可重复的隔离 Host 验收入口 `trace_view_browser_invokes_actual_host_worker_and_displays_result` 和浏览器脚本 `scripts/qa-devtools-trace-view.mjs`。运行前按包外收据核对 Trace 候选全部 346 文件；Host 安装并启用开发候选，真实 Chrome 加载 Studio 的 `plugin-view-host.js`，插件 iframe 经页面 SDK 请求宿主，再由保留的 Studio Windows EXE 以生产 Worker 模式运行 WASI。
 - Java 与 Django 两项示例均从页面按钮发起，分别在可见结果中检查 `NullPointerException` 与 `NoReverseMatch`；隔离测试 1/1 通过。收据与 1180×800、390×800 截图保存在技术博客档案 `screenshots/trace-view-2026-10-14/`。截图已人工查看：文本与结果可读，390px 窄屏需在 iframe 中继续向下滚动才能看到结果全文；验收容器底部有横向滚动条，需在正式原生窗口复核布局。
-- 该证据覆盖 Chromium 页面、Studio Host 和 Worker 的发现、加载、执行与结果展示。它没有启动 Tauri 原生窗口，也没有验证签名插件安装、升级、回滚、取消、结果接力或跨平台。正式接受数仍为 0/154。
+- 该阶段证据覆盖 Chromium 页面、Studio Host 和 Worker 的发现、加载、执行与结果展示。结果接力见下节补验；本阶段没有启动 Tauri 原生窗口，也没有验证签名插件安装、升级、回滚、取消或跨平台。正式接受数仍为 0/154。
+
+### 2026-10-14 跨插件接力与确认保存补验
+
+- 上述隔离 Host 测试再安装已冻结的 `com.zicode.devtools.text` 开发候选，并先按其包外收据核对文件。Trace Django 页面结果通过 Studio 可信父页面的“发送到工具”搜索真实接收能力 `devtools.text.json.format`；页面显示字段与 837 字节结果的预览，只有显式点选“确认发送并执行”后才经 Host/Worker 调用接收方。接收方格式化后的 JSON 在父页面可见，包含 `NoReverseMatch`。
+- 接着对接收方结果执行“预览保存”→“确认保存”，页面收到已保存状态和产物入口。最终专项测试 1/1 通过；收据中的 `transferred=true`、`savedAfterConfirmation=true`，代表这条隔离工作区流程的观察结果。新增 1180×800 接收结果截图已人工查看，保存在技术博客同一 `screenshots/trace-view-2026-10-14/` 目录。
+- 这两份仍是未签名开发候选；浏览器验收不代替原生 Tauri 窗口、正式签名安装/更新/回滚、跨平台或 154 项逐工具验收。正式接受数仍为 0/154。
 
 ### 2026-10-14 冻结向量的 Studio Worker 复核
 
