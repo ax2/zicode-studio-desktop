@@ -16,6 +16,7 @@ mod clipboard_inbox;
 mod credential_broker;
 mod desktop_profile;
 mod desktop_tray;
+use desktop_tray::set_desktop_tray_locale;
 mod desktop_tools;
 use desktop_tools::open_desktop_tool_center;
 mod explorer_entry;
@@ -1916,6 +1917,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             open_desktop_tool_center,
+            set_desktop_tray_locale,
             desktop_explorer_menu,
             select_project_resource_file,
             get_project_resource_entry,

@@ -10,6 +10,11 @@ description = "Allow a trusted workspace to restore the independent Host-owned t
 commands.allow = ["open_desktop_tool_center"]
 
 [[permission]]
+identifier = "allow-set-desktop-tray-locale"
+description = "Allow a trusted workspace to update native tray labels to the selected interface language."
+commands.allow = ["set_desktop_tray_locale"]
+
+[[permission]]
 identifier = "allow-open-folder-as-workspace"
 description = "Allow opening the native folder picker to spawn a new workspace window."
 commands.allow = ["open_folder_as_workspace"]
@@ -218,6 +223,7 @@ commands.allow = ["select_project_resource_file"]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
   "allow-open-desktop-tool-center",
+  "allow-set-desktop-tray-locale",
   "allow-get-project-resource-entry",
   "allow-select-project-resource-file",
   "allow-desktop-explorer-menu",

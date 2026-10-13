@@ -4,7 +4,28 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, Tray
 use tauri::{AppHandle, Manager};
 
 struct DesktopTray {
-    _icon: TrayIcon,
+    icon: TrayIcon,
+    tools: MenuItem<tauri::Wry>,
+    show: MenuItem<tauri::Wry>,
+    hide: MenuItem<tauri::Wry>,
+    exit: MenuItem<tauri::Wry>,
+}
+
+#[tauri::command]
+pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> Result<(), String> {
+    crate::require_workspace_window(&window)?;
+    let labels = match locale.as_str() {
+        "zh-CN" => ["打开工具中心", "显示 ZiCode Studio", "隐藏所有窗口（继续运行）", "退出 ZiCode Studio", "ZiCode Studio Desktop · 关闭窗口后继续运行"],
+        "en" => ["Open tool center", "Show ZiCode Studio", "Hide all windows (keep running)", "Quit ZiCode Studio", "ZiCode Studio Desktop · Runs after windows close"],
+        _ => return Err("Unsupported tray locale".into()),
+    };
+    let tray = window.try_state::<DesktopTray>().ok_or("Desktop tray is unavailable")?;
+    tray.tools.set_text(labels[0]).map_err(|error| error.to_string())?;
+    tray.show.set_text(labels[1]).map_err(|error| error.to_string())?;
+    tray.hide.set_text(labels[2]).map_err(|error| error.to_string())?;
+    tray.exit.set_text(labels[3]).map_err(|error| error.to_string())?;
+    tray.icon.set_tooltip(Some(labels[4])).map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 pub fn available(app: &AppHandle) -> bool {
@@ -82,6 +103,6 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             }
         })
         .build(app)?;
-    app.manage(DesktopTray { _icon: tray });
+    app.manage(DesktopTray { icon: tray, tools, show, hide, exit });
     Ok(())
 }

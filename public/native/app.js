@@ -28,6 +28,7 @@ import { MOBILE_SHELL_QUERY, setupSidebarToggle } from "../ui/sidebar-toggle.js"
 import { buildCommandCatalog, resolveComposerInput } from "./composer/slash-commands.js";
 import { ExtensionUiHost } from "./extensions/extension-ui-host.js";
 import { createChatDraftHandoff } from "./features/chat-draft-handoff.js";
+import { setupDesktopTrayLocale } from "./features/desktop-tray-locale.js";
 import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
 import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
 import { createNotesChatHandoff } from "./features/notes-chat-handoff.js";
@@ -126,6 +127,7 @@ if (route.name !== "session")
   throw new Error("Native ZiCode Studio Desktop requires a session route");
 
 initializeI18n();
+setupDesktopTrayLocale({ invoke: globalThis.__TAURI__?.core?.invoke, getLocale });
 applyTheme(getCurrentTheme());
 document.body.dataset.runtime = "native";
 
