@@ -8,6 +8,8 @@
 
 2026-10-13 本机当前用户已显式安装四类传统菜单，安装前0/4、安装后状态4/4；这是本机注册验证，未完成资源管理器实体菜单点击和卸载验收。保留的debug EXE路径和检查证据见技术博客`iterations/explorer-live-install-2026-10-13/work-log.md`。
 
+2026-10-13 实体复验修正：单文件夹传统菜单出现并成功传入`.zicode`测试文件夹；目录背景虽然状态为4/4，实际菜单最初没有Studio项。原因是背景verb写入了`MultiSelectModel=Single`，背景无选中项。安装逻辑现在仅为文件、文件夹、盘符设置该属性，背景项明确移除旧属性。新debug EXE对旧安装重新执行`--install-explorer-menu`后背景菜单实体可见，点击传入测试目录的`--open-folder "…\\."`；专项注册测试、Rust静态检查和本地构建通过。此入口按既有目录模式启动Pi；ZiFile工具仍未接入。盘符实体点击、卸载、现代一级菜单和其他OS继续待验。证据见技术博客`iterations/explorer-background-2026-10-13/work-log.md`。
+
 使用保留的当前debug或未来包含本功能的完整安装目录内EXE：
 
 ```powershell

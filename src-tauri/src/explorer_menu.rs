@@ -82,7 +82,17 @@ mod platform {
                     let label = if *file { "在 Studio 中选择文件工具" } else { "在 ZiCode Studio 中打开" };
                     key.set_value("MUIVerb", &label).map_err(|e| e.to_string())?;
                     key.set_value("Icon", &format!("\"{exe}\",0")).map_err(|e| e.to_string())?;
-                    key.set_value("MultiSelectModel", &"Single").map_err(|e| e.to_string())?;
+                    // A background verb has no selected item. Windows hides it when
+                    // MultiSelectModel=Single is present, even though the key exists.
+                    if path.contains("\\Directory\\Background\\") {
+                        match key.delete_value("MultiSelectModel") {
+                            Ok(()) => {}
+                            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                            Err(e) => return Err(e.to_string()),
+                        }
+                    } else {
+                        key.set_value("MultiSelectModel", &"Single").map_err(|e| e.to_string())?;
+                    }
                     key.create_subkey("command").and_then(|(k, _)| k.set_value("", cmd)).map_err(|e| e.to_string())?;
                 }
                 MenuAction::Remove if *present => {
@@ -116,6 +126,9 @@ mod platform {
             assert_eq!(file.open_subkey("command").unwrap().get_value::<String, _>("").unwrap(),
                 format!("\"{exe}\" --open-file \"%1\""));
             drop(file);
+            let background = root.open_subkey(format!("{base}\\Directory\\Background\\shell\\ZiCodeStudio.OpenFolder")).unwrap();
+            assert!(background.get_value::<String, _>("MultiSelectModel").is_err());
+            drop(background);
             // Simulate an older installation with only the three folder verbs.
             root.delete_subkey_all(&file_path).unwrap();
             assert_eq!(apply(&root, &base, exe, MenuAction::Status).unwrap()["installed"], 3);
