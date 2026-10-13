@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/style-theme.css">
   <link rel="stylesheet" href="/design-system.css">
   <link rel="stylesheet" href="/native/plugins/plugin-view-host.css">
+  <script type="importmap">{"imports":{"i18n":"/i18n.js"}}</script>
   <style>
     html, body { height: 100%; margin: 0; }
     body { display: flex; flex-direction: column; }
@@ -27,7 +28,8 @@
     const gateway = new PluginHostGateway();
     const registry = new BuiltinPluginRegistry({ hostGateway: gateway });
     await registry.setScene('programming');
-    const plugin = registry.list().find(item => item.id === 'com.zicode.devtools.text');
+    const candidateId = new URLSearchParams(location.search).get('plugin') || 'com.zicode.devtools.text';
+    const plugin = registry.list().find(item => item.id === candidateId);
     if (!plugin?.enabled) throw new Error('Candidate is not enabled');
     let target = { sceneId: 'programming', workspaceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' };
     const host = setupPluginViewHost({

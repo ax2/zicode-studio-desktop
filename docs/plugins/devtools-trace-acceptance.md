@@ -20,6 +20,12 @@
 
 真实 Studio 原生 View、签名安装/更新/回滚、取消和超时、结果接力、其他 OS 均待验收。提供方应交付正式签名容器；154 项源工具的完整接受数仍为 0。
 
+### 2026-10-14 Chromium 页面至 Host/Worker 的执行展示
+
+- Studio 新增可重复的隔离 Host 验收入口 `trace_view_browser_invokes_actual_host_worker_and_displays_result` 和浏览器脚本 `scripts/qa-devtools-trace-view.mjs`。运行前按包外收据核对 Trace 候选全部 346 文件；Host 安装并启用开发候选，真实 Chrome 加载 Studio 的 `plugin-view-host.js`，插件 iframe 经页面 SDK 请求宿主，再由保留的 Studio Windows EXE 以生产 Worker 模式运行 WASI。
+- Java 与 Django 两项示例均从页面按钮发起，分别在可见结果中检查 `NullPointerException` 与 `NoReverseMatch`；隔离测试 1/1 通过。收据与 1180×800、390×800 截图保存在技术博客档案 `screenshots/trace-view-2026-10-14/`。截图已人工查看：文本与结果可读，390px 窄屏需在 iframe 中继续向下滚动才能看到结果全文；验收容器底部有横向滚动条，需在正式原生窗口复核布局。
+- 该证据覆盖 Chromium 页面、Studio Host 和 Worker 的发现、加载、执行与结果展示。它没有启动 Tauri 原生窗口，也没有验证签名插件安装、升级、回滚、取消、结果接力或跨平台。正式接受数仍为 0/154。
+
 ### 2026-10-14 冻结向量的 Studio Worker 复核
 
 - 新增单独的忽略测试 `trace_candidate_vectors_through_studio_broker`，先按包外收据逐文件核对 346 个冻结文件，再经 Studio `CapabilityBroker` 和当前 Windows 生产 Worker 执行 `fixtures/trace.json` 的 40 条用例。隔离注册表与审计数据在测试后删除，仅保留不含输入文本的紧凑收据。
