@@ -2163,6 +2163,16 @@ fn main() {
                         }
                     }
                 }
+                tauri::WindowEvent::CloseRequested { api, .. } if label == "bootstrap" => {
+                    // A startup window may be the only visible way back into Studio.
+                    // Keep the same tray lifetime as project windows when recovery exists.
+                    if desktop_tray::available(window.app_handle()) {
+                        match window.hide() {
+                            Ok(()) => api.prevent_close(),
+                            Err(error) => log::warn!("[desktop-tray] could not hide bootstrap: {error}"),
+                        }
+                    }
+                }
                 tauri::WindowEvent::Focused(true) if label.starts_with("native-workspace-") => {
                     desktop_tray::remember_focus(window.app_handle(), label);
                     let workspace_id = window
