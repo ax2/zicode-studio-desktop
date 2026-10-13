@@ -1756,7 +1756,10 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         roots
     };
     let (cwd, session_path) = if tools_only {
-        let root = explorer_entry::file().and_then(Path::parent).unwrap_or(&default_cwd);
+        let root = explorer_entry::file()
+            .and_then(Path::parent)
+            .or_else(|| explorer_entry::folder().filter(|_| !explorer_entry::drive_root_folder()))
+            .unwrap_or(&default_cwd);
         (root.to_string_lossy().into_owned(), None)
     } else {
         match explorer_entry::folder() {

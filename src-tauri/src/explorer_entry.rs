@@ -25,7 +25,27 @@ pub fn folder() -> Option<&'static Path> {
     FOLDER.get().map(PathBuf::as_path)
 }
 pub fn tools_only() -> bool {
-    TOOLS_ONLY.get().copied().unwrap_or(false) || FILE.get().is_some()
+    TOOLS_ONLY.get().copied().unwrap_or(false)
+        || FILE.get().is_some()
+        || drive_root_folder()
+}
+
+pub fn drive_root_folder() -> bool {
+    FOLDER.get().is_some_and(|path| drive_root(path))
+}
+
+fn drive_root(path: &Path) -> bool {
+    #[cfg(windows)]
+    {
+        path.parent().is_none()
+            && matches!(path.components().next(), Some(std::path::Component::Prefix(prefix))
+                if matches!(prefix.kind(), std::path::Prefix::Disk(_) | std::path::Prefix::VerbatimDisk(_)))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        false
+    }
 }
 pub fn file() -> Option<&'static Path> {
     FILE.get().map(PathBuf::as_path)
@@ -36,6 +56,8 @@ pub fn desktop_entry_mode(window: tauri::WebviewWindow) -> Result<&'static str, 
     crate::require_workspace_window(&window)?;
     Ok(if file().is_some() {
         "file"
+    } else if drive_root_folder() {
+        "drive"
     } else if folder().is_some() {
         "folder"
     } else if tools_only() {
@@ -243,6 +265,17 @@ mod tests {
             .unwrap()
             .folder
             .is_none());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn drive_root_is_distinct_from_an_ordinary_folder() {
+        let project = std::env::current_dir().unwrap().canonicalize().unwrap();
+        let root = project.ancestors().last().unwrap();
+        assert!(drive_root(root));
+        assert!(!drive_root(&project));
+        let parsed = parse(args(&["--open-folder", root.to_str().unwrap()])).unwrap();
+        assert!(drive_root(parsed.folder.as_deref().unwrap()));
     }
 
     #[test]
