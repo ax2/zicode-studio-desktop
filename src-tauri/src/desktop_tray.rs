@@ -70,7 +70,9 @@ pub fn remember_focus(app: &AppHandle, label: &str) {
         if let Ok(mut focused) = tray.focused_window.lock() {
             *focused = Some(label.to_string());
         }
-        let _ = tray.project_tools.set_enabled(project_window(label));
+        let _ = tray
+            .project_tools
+            .set_enabled(crate::desktop_tools::project_context_window(label));
     }
 }
 
@@ -98,10 +100,6 @@ fn focus_index(labels: &[String], preferred: Option<&str>) -> Option<usize> {
 
 fn managed_window(label: &str) -> bool {
     label.starts_with("native-workspace-") || label == "bootstrap"
-}
-
-fn project_window(label: &str) -> bool {
-    label.starts_with("native-workspace-") && !label.starts_with("native-workspace-tools-center")
 }
 
 pub(crate) fn show_workspaces(app: &AppHandle) {
@@ -228,7 +226,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{focus_index, managed_window, project_window};
+    use super::{focus_index, managed_window};
 
     #[test]
     fn tray_restores_recent_window_and_keeps_bootstrap_as_fallback() {
@@ -247,8 +245,15 @@ mod tests {
         assert!(managed_window("bootstrap"));
         assert!(managed_window("native-workspace-tools-center"));
         assert!(!managed_window("plugin-popup"));
-        assert!(project_window("native-workspace-alpha"));
-        assert!(!project_window("native-workspace-tools-center-alpha"));
-        assert!(!project_window("bootstrap"));
+        assert!(crate::desktop_tools::project_context_window(
+            "native-workspace-alpha"
+        ));
+        assert!(crate::desktop_tools::project_context_window(
+            "native-workspace-tools-center-alpha"
+        ));
+        assert!(!crate::desktop_tools::project_context_window(
+            "native-workspace-tools-center"
+        ));
+        assert!(!crate::desktop_tools::project_context_window("bootstrap"));
     }
 }

@@ -19,6 +19,11 @@ pub(crate) fn can_replace_window(label: &str) -> bool {
         && !label.starts_with("native-workspace-tools-center-")
 }
 
+/// A project tool center retains its trusted project identity even when focused.
+pub(crate) fn project_context_window(label: &str) -> bool {
+    label.starts_with("native-workspace-") && label != LABEL
+}
+
 #[derive(Default)]
 pub(crate) struct ToolCenter(Mutex<HashMap<String, RuntimeTarget>>);
 
@@ -128,9 +133,7 @@ pub(crate) fn open_for_project_window(
     app: &AppHandle,
     window: &WebviewWindow,
 ) -> Result<(), String> {
-    if !window.label().starts_with("native-workspace-")
-        || window.label().starts_with("native-workspace-tools-center")
-    {
+    if !project_context_window(window.label()) {
         return Err("No project window is focused".into());
     }
     let url = window.url().map_err(|error| error.to_string())?;
@@ -304,6 +307,12 @@ mod tests {
         assert!(!can_replace_window("bootstrap"));
         assert!(can_replace_window("native-workspace-project"));
         assert!(!can_replace_window("native-workspace-tools-center-project"));
+        assert!(project_context_window("native-workspace-project"));
+        assert!(project_context_window(
+            "native-workspace-tools-center-project"
+        ));
+        assert!(!project_context_window(LABEL));
+        assert!(!project_context_window("bootstrap"));
     }
 
     #[test]
