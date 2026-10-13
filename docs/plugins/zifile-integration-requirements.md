@@ -82,3 +82,9 @@ Host原生运行时、资源/写入协议与提供方签名适配包完成后，
 
 ## 2026-10-11 文件输入发现提示
 Studio新增[file.input.hints.v1 预览契约](file-input-hints.md)，按能力声明真实后缀或明确anyFile，协商1.0.0-preview.1；声明缺失保持未知可见。应交付新包/摘要/正反例，不修改冻结包；发现匹配不代替读取授权、内容验证或实际算法接受。新自有夹具真实目录3/4切换、确认执行及旧夹具兼容通过，提供方实包/完整工具仍待。
+
+## 2026-10-14 提供方边界复核
+
+只读复核本机 `E:\zifile`：HEAD 仍为 `327a993706f4423c23ad4f6b79646e29a178b5b1`，矩阵登记的 core、archive、worker-protocol、worker 四份源码 SHA-256 均匹配；工作树有 ZiFile 其他会话的未提交修改，Studio 没有更改它。仓库中仍未发现 Studio 插件清单或 `.zicode-plugin` 交付包。故 108 格全部维持 `accepted=false`，不能把本轮 Explorer 单实例交接或自制 WASI 夹具计入 ZiFile 算法接受。
+
+新增一个必须由 ZiFile 明确解决的范围冲突：其 `AGENTS.md` 写明 RAR 创建不在范围内、RAR 读取需要许可证和安全审查；当前 README 和 core 源码却声明 RAR 5 创建及读操作。矩阵保留源码声明的 `providerDeclared=true`，对 RAR 的创建、列出、解压、校验另加 `PROVIDER_SCOPE_CONFLICT` 阻塞。提供方应统一产品规则、许可证/SBOM、安全审查与互操作向量，再交付版本化签名包；Studio 在冲突消除前不把这些操作展示为已接入。Studio 侧原生受约束 Worker、私有资源暂存、归档事件与原子写入事务仍需独立实现和逐平台验证。

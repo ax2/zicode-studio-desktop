@@ -1204,7 +1204,8 @@
             "PROVIDER_PACKAGE",
             "HOST_NATIVE_RUNTIME",
             "HOST_RESOURCE_MEDIATION",
-            "HOST_ARCHIVE_EVENTS"
+            "HOST_ARCHIVE_EVENTS",
+            "PROVIDER_SCOPE_CONFLICT"
           ],
           "providerDeclared": true
         },
@@ -1222,7 +1223,8 @@
             "HOST_NATIVE_RUNTIME",
             "HOST_RESOURCE_MEDIATION",
             "HOST_ARCHIVE_EVENTS",
-            "HOST_ARCHIVE_WRITE"
+            "HOST_ARCHIVE_WRITE",
+            "PROVIDER_SCOPE_CONFLICT"
           ],
           "providerDeclared": true
         },
@@ -1233,7 +1235,8 @@
             "PROVIDER_PACKAGE",
             "HOST_NATIVE_RUNTIME",
             "HOST_RESOURCE_MEDIATION",
-            "HOST_ARCHIVE_EVENTS"
+            "HOST_ARCHIVE_EVENTS",
+            "PROVIDER_SCOPE_CONFLICT"
           ],
           "providerDeclared": true
         },
@@ -1245,7 +1248,8 @@
             "HOST_NATIVE_RUNTIME",
             "HOST_RESOURCE_MEDIATION",
             "HOST_ARCHIVE_EVENTS",
-            "HOST_ARCHIVE_WRITE"
+            "HOST_ARCHIVE_WRITE",
+            "PROVIDER_SCOPE_CONFLICT"
           ],
           "providerDeclared": true
         }
@@ -1344,7 +1348,7 @@
     ]
   },
   "date": "2026-10-11",
-  "studioReviewDate": "2026-10-13",
+  "studioReviewDate": "2026-10-14",
   "schemaVersion": 1,
   "blockers": [
     {
@@ -1375,6 +1379,11 @@
     {
       "id": "PROVIDER_FORMAT_OPERATION",
       "reason": "Current supports_update excludes single-file streams, RAR and CAB; rename uses the same gate. Use explicit extract and recreate as a separate confirmed workflow where format capabilities allow.",
+      "owner": "ZiFile"
+    },
+    {
+      "id": "PROVIDER_SCOPE_CONFLICT",
+      "reason": "ZiFile AGENTS.md excludes RAR creation and requires license/security review for RAR read, while current README and core sources declare RAR 5 creation and read operations. Provider must reconcile scope and supply license/security plus interoperability evidence before Studio accepts these operations.",
       "owner": "ZiFile"
     }
   ]
