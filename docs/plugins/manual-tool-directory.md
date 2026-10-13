@@ -14,8 +14,9 @@
 
 每项仅含稳定toolId（pluginId/capabilityId的JSON字符串元组）、accessId（该元组的SHA256收藏标识）、pluginId、capabilityId、title、
 applicationName、publisher、version、enabled、status、runtime；不含输入输出schema、脚本、文件路径或用户内容。
-搜索名称、工具ID/标题、应用描述及发布者；Unicode小写、空白分词、全部词匹配，按稳定toolId排序。
-支持工具级全部/收藏/最近筛选及来源筛选，先筛选再分页，详见下方当前进展。暂未实现NFKC、别名、任务分类、相关度排序或跨页面索引缓存。
+搜索名称、工具ID/标题、应用描述、发布者及已声明别名；Unicode NFKC 和小写归一、空白分词、全部词匹配。非空查询先按工具ID/标题/别名的精确、前缀、包含匹配，再按能力描述、来源匹配排序，同分按稳定toolId打破；空查询仍按toolId稳定排序，最近使用仍按使用顺序。排序与筛选均发生在分页前。
+支持工具级全部/收藏/最近、来源和任务分类筛选。分类与别名来自版本化 `tool.directory.v1` 元数据；旧插件归入未分类。当前仍无跨请求索引缓存，每次请求会遍历当前注册表。
+若未声明目录专用简述，目录卡片和搜索使用能力原有的安全有界 `description`（最多 512 UTF-8 字节且无控制字符）；超限的旧描述不放入分页摘要，详情仍按需加载。
 
 安装但当前场景禁用的工具仍可发现，status=plugin_disabled；enabled时为available_to_request。
 后者只表示可以请求调用，**不保证运行时、权限、输入、业务条件或契约校验通过**。

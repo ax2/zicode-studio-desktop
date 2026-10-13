@@ -1,6 +1,8 @@
 //! Read-only manual discovery. Never registers Pi tools, loads a view or starts a Worker.
 use super::*;
 use sha2::{Digest, Sha256};
+#[path = "manual_search.rs"]
+mod search;
 
 pub(crate) const PAGE_SIZE: usize = 40;
 
@@ -125,6 +127,8 @@ impl PluginRegistry {
                 continue;
             };
             let enabled = self.manual_enabled(&request.scene_id, plugin);
+            let source_text = format!("{} {} {} {} {}", manifest.id, manifest.name,
+                manifest.display_name.as_deref().unwrap_or(""), manifest.description, manifest.publisher);
             // Metadata-only eligibility; the transfer Host rechecks authority and module bytes.
             if (request.resource_only || request.directory_only) && (!enabled
                 || manifest.runtime.get("wasi").and_then(Value::as_str).is_none()
@@ -168,24 +172,16 @@ impl PluginRegistry {
                 if request.category_id.as_ref().is_some_and(|selected| !selected.is_empty() && selected != category) {
                     continue;
                 }
-                let text = format!(
-                    "{} {} {} {} {} {}",
-                    manifest.id,
-                    manifest.name,
-                    manifest.display_name.as_deref().unwrap_or(""),
-                    manifest.description,
-                    manifest.publisher,
-                    format_args!("{id} {title}")
-                )
-                ;
                 let aliases = metadata.and_then(|m| m.get("aliases")).and_then(Value::as_array)
-                    .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(" ")).unwrap_or_default();
-                let description = metadata.and_then(|m| m.get("description")).and_then(Value::as_str).unwrap_or("");
-                let text = directory_metadata::normalize(&format!("{text} {aliases} {description}"));
-                if !terms.iter().all(|term| text.contains(term)) {
+                    .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>()).unwrap_or_default();
+                let description = metadata.and_then(|m| m.get("description")).and_then(Value::as_str)
+                    .or_else(|| cap.get("description").and_then(Value::as_str)
+                        .filter(|text| text.len() <= 512 && !text.chars().any(char::is_control)))
+                    .unwrap_or("");
+                let Some(rank) = search::relevance(&terms, id, title, &aliases, description, &source_text) else {
                     continue;
-                }
-                entries.push(json!({
+                };
+                entries.push((rank, json!({
                     "toolId":tool_id,"accessId":access_id,
                     "fileInputMatch":request.file_name.as_ref().map(|_| if file_match == Some(true) {"declared"} else {"unknown"}),
                     "pluginId":manifest.id,"capabilityId":id,"title":title,
@@ -195,15 +191,15 @@ impl PluginRegistry {
                     "enabled":enabled,"status":if enabled {"available_to_request"} else {"plugin_disabled"},
                     "runtime":if plugin.origin == PluginOrigin::BuiltIn {"builtin"}
                         else if manifest.runtime.get("wasi").is_some() {"wasi"} else {"javascript"}
-                }));
+                })));
             }
         }
-        entries.sort_by(|a, b| {
+        entries.sort_by(|(a_rank, a), (b_rank, b)| {
             if request.view == CatalogView::Recent {
                 let ranks = ranks.as_ref().expect("recent view has ranks");
                 ranks[a["accessId"].as_str().unwrap()].cmp(&ranks[b["accessId"].as_str().unwrap()])
             } else {
-                a["toolId"].as_str().cmp(&b["toolId"].as_str())
+                a_rank.cmp(b_rank).then_with(|| a["toolId"].as_str().cmp(&b["toolId"].as_str()))
             }
         });
         let total = entries.len();
@@ -211,6 +207,7 @@ impl PluginRegistry {
             .into_iter()
             .skip(request.offset)
             .take(PAGE_SIZE)
+            .map(|(_, tool)| tool)
             .collect();
         let next = (request.offset.saturating_add(items.len()) < total)
             .then_some(request.offset + items.len());
