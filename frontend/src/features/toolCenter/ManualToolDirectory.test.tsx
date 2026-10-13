@@ -341,6 +341,26 @@ it("binds the next page to its revision and returns to the directory start", asy
   expect(gateway.loadTool).not.toHaveBeenCalled(); expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
+it("refreshes a retained directory after the plugin catalog changes without closing opened tools", async () => {
+  const gateway = api();
+  gateway.searchTools.mockResolvedValue({ items: [tool(0)], total: 205, revision: "old", nextOffset: 40 });
+  const container = await mount(gateway);
+  await click(container, "Open tool");
+  await click(container, "Tool directory");
+  await click(container, "Next");
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "old" });
+
+  gateway.searchTools.mockResolvedValue({ items: [tool(1)], total: 1, revision: "new", nextOffset: null });
+  await act(async () => roots.at(-1)?.render(<ManualToolDirectory api={gateway} scope={scope} catalogRevision={1} openApplication={() => undefined} />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null });
+  expect(container.textContent).toContain("1 tools");
+  expect(container.textContent).toContain("Text 1");
+  expect(container.querySelectorAll(".tool-open-item")).toHaveLength(1);
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
 it("filters by the whole catalog source and resets pagination without loading tools", async () => {
   const gateway = api();
   gateway.searchTools.mockResolvedValue({ items: [tool(0)], total: 205, revision: "revision", nextOffset: 40,

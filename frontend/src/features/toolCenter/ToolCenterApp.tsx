@@ -16,6 +16,7 @@ export interface ToolCenterProps {
   accessStore?: ToolAccessStore;
   scope?: ToolAccessScope;
   toolApi?: ManualToolApi;
+  catalogRevision?: number;
   requestedTool?: ToolOpenRequest;
   getResourceTarget?: ResourceTargetProvider;
   onOpen(entry: ApplicationEntry): void;
@@ -24,7 +25,7 @@ export interface ToolCenterProps {
   workspaceApi?: ToolWorkspaceApi;
 }
 
-export function ToolCenterApp({ entries, accessStore, scope, toolApi, requestedTool, getResourceTarget, onOpen, onManage, onCommands, workspaceApi }: ToolCenterProps) {
+export function ToolCenterApp({ entries, accessStore, scope, toolApi, catalogRevision, requestedTool, getResourceTarget, onOpen, onManage, onCommands, workspaceApi }: ToolCenterProps) {
   const [section, setSection] = useState(toolApi && scope ? "tools" : "applications");
   useEffect(() => { if (requestedTool) setSection("tools"); }, [requestedTool]);
   const [query, setQuery] = useState("");
@@ -62,7 +63,7 @@ export function ToolCenterApp({ entries, accessStore, scope, toolApi, requestedT
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={section === "tools"} onClick={() => setSection("tools")}>{t("Individual tools")}</button>
       <button type="button" className="ui-button ui-button--secondary" aria-pressed={section === "applications"} onClick={() => setSection("applications")}>{t("Full applications")}</button>
     </fieldset>}
-    {toolApi && scope && <div hidden={section !== "tools"}><ManualToolDirectory api={toolApi} scope={scope} accessStore={accessStore} requestedTool={requestedTool} getResourceTarget={getResourceTarget}
+    {toolApi && scope && <div hidden={section !== "tools"}><ManualToolDirectory api={toolApi} scope={scope} accessStore={accessStore} catalogRevision={catalogRevision} requestedTool={requestedTool} getResourceTarget={getResourceTarget}
       openApplication={pluginId => {
         const entry = entries.find(candidate => candidate.id === `${pluginId}:open`);
         return entry ? () => onOpen(entry) : undefined;

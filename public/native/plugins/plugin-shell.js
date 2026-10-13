@@ -135,6 +135,7 @@ export function setupPluginShell({
 
   let activePluginId = CHAT_PLUGIN_ID;
   const toolCenter = createRetainedToolCenter(mountToolCenter);
+  let catalogRevision = 0;
   let pendingUnavailablePluginId = null;
   const activityBadges = new Map();
   let managerFilter = loadManagerFilter();
@@ -517,6 +518,7 @@ export function setupPluginShell({
         entries: applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation),
         accessStore: toolAccessStore,
         toolApi: capabilityGateway,
+        catalogRevision,
         getResourceTarget: getTarget,
         scope: target ? { sceneId: target.sceneId, workspaceId: target.workspaceId } : undefined,
         workspaceApi: globalThis.__TAURI__?.core?.invoke ? {
@@ -753,6 +755,7 @@ export function setupPluginShell({
   }
 
   const unsubscribe = registry.subscribe(() => {
+    catalogRevision += 1;
     if (!SHELL_VIEW_IDS.has(activePluginId) && !registry.isEnabled(activePluginId)) {
       activate(CHAT_PLUGIN_ID, { focus: false });
       return;

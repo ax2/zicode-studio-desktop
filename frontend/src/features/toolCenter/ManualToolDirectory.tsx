@@ -9,8 +9,9 @@ import { toolCategoryTitle } from "./tool-categories";
 import { useFileToolFilter } from "./use-file-tool-filter";
 import { type ManualTool, type ManualToolApi, type ToolPage, type ToolDirectoryView, type ToolOpenRequest, manualToolError } from "./manual-tools";
 
-export function ManualToolDirectory({ api, scope, accessStore, openApplication, requestedTool, getResourceTarget }: {
+export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, openApplication, requestedTool, getResourceTarget }: {
   api: ManualToolApi; scope: ToolAccessScope; accessStore?: ToolAccessStore;
+  catalogRevision?: number;
   openApplication(pluginId: string): (() => void) | undefined;
   requestedTool?: ToolOpenRequest;
   getResourceTarget?: ResourceTargetProvider;
@@ -34,8 +35,8 @@ export function ManualToolDirectory({ api, scope, accessStore, openApplication, 
   const switcher = useRef<HTMLFieldSetElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
   const consumedRequest = useRef<ToolOpenRequest | undefined>(undefined);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter or workspace invalidates the catalog cursor.
-  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, scope.sceneId, scope.workspaceId]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed filter, workspace or plugin catalog invalidates the cursor.
+  useEffect(() => { setCursor({ offset: 0, revision: null }); }, [fileFilter.enabled, scope.sceneId, scope.workspaceId, catalogRevision]);
   useEffect(() => {
     setCloseTarget(previous => previous && (previous.sceneId !== scope.sceneId || previous.workspaceId !== scope.workspaceId) ? null : previous);
   }, [scope.sceneId, scope.workspaceId]);
