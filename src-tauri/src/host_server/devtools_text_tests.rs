@@ -348,6 +348,7 @@ async fn devtools_candidate_invokes_real_worker_through_authenticated_http_host(
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires ZICODE_TEST_WORKER_EXE and its frozen Pi/broker resources"]
 async fn embedded_pi_invokes_candidate_worker_and_rejects_revoked_cached_tool() {
+    let fill_budget = std::env::var_os("ZICODE_TEST_FILL_PLUGIN_BUDGET").is_some();
     let executable = PathBuf::from(std::env::var_os("ZICODE_TEST_WORKER_EXE").unwrap());
     let delivery = executable.parent().unwrap();
     let build: Value =
@@ -387,7 +388,9 @@ async fn embedded_pi_invokes_candidate_worker_and_rejects_revoked_cached_tool() 
     let module_url = reqwest::Url::from_file_path(&extension).unwrap();
     std::fs::write(&observer, format!(r#"import {{ setupPluginBroker }} from {};
 export default function (pi) {{
+  const generic = process.env.ZICODE_TEST_FILL_PLUGIN_BUDGET === "1";
   const tools = new Map();
+  const catalog = new Map();
   setupPluginBroker(new Proxy(pi, {{ get(target, key) {{
     if (key === "registerTool") return tool => {{ tools.set(tool.name, tool); target.registerTool(tool); }};
     return target[key];
@@ -395,12 +398,15 @@ export default function (pi) {{
   pi.registerCommand("devtools-accept", {{ handler: async (phase, ctx) => {{
     const before = pi.getActiveTools();
     if (phase !== "revoked") {{
-      if (phase === "run" && tools.size !== 2) throw new Error("Expected only discovery tools at startup");
+      if (phase === "run" && (generic ? tools.size !== 131 : ![2, 3].includes(tools.size))) throw new Error("Unexpected startup tool count");
       const page = (await tools.get("studio_plugin_search").execute("discover-" + phase, {{query:"com.zicode.devtools.text"}}, new AbortController().signal)).details;
       if (page.items.length !== 5) throw new Error("Expected five discoverable candidate tools");
       for (const item of page.items) {{
-        await tools.get("studio_plugin_load").execute("load-" + item.name, {{toolId:item.toolId, revision:page.revision}}, new AbortController().signal);
-        if (!pi.getAllTools().some(tool => tool.name === item.name) || !pi.getActiveTools().includes(item.name)) throw new Error("Actual SDK dynamic registration failed");
+        const admission = (await tools.get("studio_plugin_load").execute("load-" + item.name, {{toolId:item.toolId, revision:page.revision}}, new AbortController().signal)).details;
+        catalog.set(item.name, {{toolId:item.toolId, revision:page.revision}});
+        if (generic) {{
+          if (admission.mode !== "generic" || admission.callTool !== "studio_plugin_call" || pi.getAllTools().some(tool => tool.name === item.name)) throw new Error("Generic fallback did not preserve the typed tool budget");
+        }} else if (!pi.getAllTools().some(tool => tool.name === item.name) || !pi.getActiveTools().includes(item.name)) throw new Error("Actual SDK dynamic registration failed");
       }}
       if (!before.every(name => pi.getActiveTools().includes(name))) throw new Error("Existing active tools were lost");
       const cancelled = new AbortController(); cancelled.abort();
@@ -409,10 +415,19 @@ export default function (pi) {{
         throw new Error("Cancelled search unexpectedly succeeded");
       }} catch (error) {{ if (error.name !== "AbortError") throw error; }}
     }}
-    const execute = async (name, id, text) => (await tools.get(name).execute(phase + "-" + id, {{text}}, new AbortController().signal)).details;
+    const execute = async (name, id, text) => {{
+      const selection = catalog.get(name);
+      return generic
+        ? (await tools.get("studio_plugin_call").execute(phase + "-" + id, {{...selection, input:{{text}}}}, new AbortController().signal)).details
+        : (await tools.get(name).execute(phase + "-" + id, {{text}}, new AbortController().signal)).details;
+    }};
     if (phase === "restored") {{
       try {{
-        await tools.get("devtools_text_base64_encode").execute("run-candidate-cache", {{text:"hello"}}, new AbortController().signal);
+        if (generic) {{
+          await tools.get("studio_plugin_call").execute("run-candidate-cache", {{...catalog.get("devtools_text_base64_encode"), input:{{text:"hello"}}}}, new AbortController().signal);
+        }} else {{
+          await tools.get("devtools_text_base64_encode").execute("run-candidate-cache", {{text:"hello"}}, new AbortController().signal);
+        }}
         throw new Error("Old authority cache unexpectedly succeeded");
       }} catch (error) {{ if (!String(error).includes("[idempotency_authority_changed]")) throw error; }}
     }}
@@ -504,6 +519,15 @@ export default function (pi) {{
         ]),
     };
     configure_plugin_broker_for_state(&host.state, &target, &mut launch).unwrap();
+    if fill_budget {
+        let tools: Vec<_> = (0..128).map(|index| json!({
+            "pluginId":"com.synthetic.budget","capability":format!("budget.{index}"),
+            "name":format!("budget_{index}"),"title":"Budget fixture",
+            "description":"Never invoked","inputSchema":{"type":"object"}
+        })).collect();
+        launch.environment.insert("PI_DESKTOP_PLUGIN_TOOLS".into(), serde_json::to_string(&tools).unwrap());
+        launch.environment.insert("ZICODE_TEST_FILL_PLUGIN_BUDGET".into(), "1".into());
+    }
     let mut events = host.state.runtimes.subscribe();
     host.state.runtimes.spawn(target.clone(), launch).unwrap();
     for phase in ["run", "revoked", "restored"] {

@@ -30,9 +30,9 @@ Pi 工具摘要没有变化，能力契约改变也会使旧分页游标、旧 l
 
 ## 启动与运行时
 
-Studio启动内置Pi时设置PI_DESKTOP_PLUGIN_CATALOG=1，兼容字段PI_DESKTOP_PLUGIN_TOOLS固定为[]；不会把全部工具schema塞入Windows环境变量。仅注册studio_plugin_search/load，选择后取schema并动态注册、激活，保留已有活动工具。两个名称保留给Studio内置扩展。Pi工具查询API在扩展初始化时尚不可用，名称冲突检查在实际load执行时进行。
+Studio启动内置Pi时设置PI_DESKTOP_PLUGIN_CATALOG=1，兼容字段PI_DESKTOP_PLUGIN_TOOLS固定为[]；不会把全部工具schema塞入Windows环境变量。注册 `studio_plugin_search`、`studio_plugin_load` 和 `studio_plugin_call` 三个目录工具。通常选择后取schema并动态注册、激活，保留已有活动工具；三个名称保留给Studio内置扩展。Pi工具查询API在扩展初始化时尚不可用，名称冲突检查在实际load执行时进行。
 
-每会话最多加载128个工具、256KiB累计schema元数据，超过时明确拒绝新增，不截断授权目录；搜索页不包含schema。当前没有自动淘汰已加载工具。目录请求15秒超时并传递AbortSignal；WASI执行预算保持既有5秒。运行中Worker取消、包更新全链路、模型自主发现、跨平台及完整桌面壳仍需专项验收。消费者保留旧快照解析用于旧宿主兼容。
+每会话最多动态注册128个具体工具、256KiB累计schema元数据，不截断授权目录；搜索页不包含schema。达到预算时，`studio_plugin_load` 返回 `mode:generic`、当前输入schema和 `studio_plugin_call` 入口，不注册第129个具体工具；模型须依据该schema构造输入，再携带已加载toolId/revision调用通用入口。通用入口只接受本会话已按需加载的身份，调用前再次向Host加载以检查版本/权限/签名，执行时Host再次验证输入schema、授权、调用身份及当前修订。通用入口最多保留2048个轻量身份，不缓存其schema，也不自动淘汰已注册工具；满额时明确要求新会话。其参数校验不如具体工具的Pi参数schema，错误输入会由Host拒绝。目录请求15秒超时并传递AbortSignal；WASI执行预算保持既有5秒。运行中Worker取消、包更新全链路、模型自主发现、跨平台及完整桌面壳仍需专项验收。消费者保留旧快照解析用于旧宿主兼容。
 
 真实Pi验收使用实际SDK注册与激活方法，observer只捕获定义用于确定性执行，不替换SDK；没有向模型发送数据，不能代替模型自主使用工具验收。已覆盖五能力及串联、业务错误、取消搜索、撤权拒绝旧修订、重新授权恢复、已有活动工具保留。千项目录是合成摘要规模证据，不是1000个已实现DevTools工具。
 

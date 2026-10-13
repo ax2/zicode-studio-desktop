@@ -25,7 +25,7 @@ describe("plugin catalog consumer", () => {
     const pi = fakePi();
     pi.getAllTools = () => { throw new Error("Extension runtime not initialized"); };
     setupPluginBroker(pi as never, environment);
-    expect([...pi.registered.keys()]).toEqual(["studio_plugin_search", "studio_plugin_load"]);
+    expect([...pi.registered.keys()]).toEqual(["studio_plugin_search", "studio_plugin_call", "studio_plugin_load"]);
   });
   it("enforces aggregate metadata bytes before registering another tool", async () => {
     const pi = fakePi();
@@ -39,7 +39,8 @@ describe("plugin catalog consumer", () => {
     const load = pi.registered.get("studio_plugin_load")?.execute;
     if (!load) throw new Error("Load tool missing");
     await load("first", { toolId: pluginToolId(tool(0)), revision }, new AbortController().signal);
-    await expect(load("second", { toolId: pluginToolId(tool(1)), revision }, new AbortController().signal)).rejects.toThrow("plugin_tool_budget_exceeded");
+    const fallback = await load("second", { toolId: pluginToolId(tool(1)), revision }, new AbortController().signal) as { details: Record<string, unknown> };
+    expect(fallback.details).toMatchObject({ loaded: false, mode: "generic", callTool: "studio_plugin_call", toolId: pluginToolId(tool(1)) });
     expect(pi.registered.has("fixture_1")).toBe(false);
     expect([...pi.active]).toEqual(["read", "bash", "fixture_0"]);
   });
@@ -50,7 +51,7 @@ describe("plugin catalog consumer", () => {
       ? response({ schemaVersion: 1, revision, toolId: pluginToolId(candidate), tool: candidate })
       : response({ result: { text: "result" } }));
     setupPluginBroker(pi as never, environment, request as never);
-    expect(pi.registered.size).toBe(2);
+    expect(pi.registered.size).toBe(3);
     const load = pi.registered.get("studio_plugin_load")?.execute;
     if (!load) throw new Error("Load tool missing");
     const input = { toolId: pluginToolId(candidate), revision };
@@ -66,15 +67,39 @@ describe("plugin catalog consumer", () => {
       toolCallId: "invoke-a", toolId: pluginToolId(candidate), catalogRevision: revision, toolName: candidate.name });
   });
 
-  it("refuses tool-count exhaustion, foreign name collision, cancellation and mismatched load identity", async () => {
-    for (const mode of ["count", "collision", "cancel", "mismatch"] as const) {
+  it("uses a bounded generic call after 128 typed tools without changing the active set", async () => {
+    const pi = fakePi();
+    const initial = Array.from({ length: 128 }, (_, i) => tool(i));
+    const candidate = tool(129);
+    const request = vi.fn(async (url: string) => url.endsWith("/load")
+      ? response({ schemaVersion: 1, revision, toolId: pluginToolId(candidate), tool: candidate })
+      : response({ result: { ok: true, data: { text: "result" } } }));
+    setupPluginBroker(pi as never, { ...environment, PI_DESKTOP_PLUGIN_TOOLS: JSON.stringify(initial) }, request as never);
+    const load = pi.registered.get("studio_plugin_load")?.execute;
+    const call = pi.registered.get("studio_plugin_call")?.execute;
+    if (!load || !call) throw new Error("Catalog tools missing");
+    const before = pi.registered.size;
+    const loaded = await load("load-129", { toolId: pluginToolId(candidate), revision }, new AbortController().signal) as { details: Record<string, unknown> };
+    expect(loaded.details).toMatchObject({ loaded: false, mode: "generic", inputSchema: candidate.inputSchema });
+    expect(pi.registered.size).toBe(before);
+    expect([...pi.active]).toEqual(["read", "bash"]);
+    const output = await call("invoke-129", { toolId: pluginToolId(candidate), revision, input: { text: "hello" } }, new AbortController().signal) as { details: unknown };
+    expect(output.details).toEqual({ ok: true, data: { text: "result" } });
+    const [, options] = request.mock.calls.at(-1) as unknown as [string, RequestInit];
+    expect(JSON.parse(options.body as string)).toMatchObject({ toolCallId: "invoke-129", toolId: pluginToolId(candidate),
+      catalogRevision: revision, toolName: candidate.name, input: { text: "hello" } });
+    await expect(call("unknown", { toolId: pluginToolId(tool(130)), revision, input: {} }, new AbortController().signal)).rejects.toThrow("plugin_tool_not_loaded");
+    await expect(call("stale", { toolId: pluginToolId(candidate), revision: "b".repeat(64), input: {} }, new AbortController().signal)).rejects.toThrow("plugin_tool_not_loaded");
+  });
+
+  it("refuses foreign name collision, cancellation and mismatched load identity", async () => {
+    for (const mode of ["collision", "cancel", "mismatch"] as const) {
       const pi = fakePi();
-      const initial = mode === "count" ? Array.from({ length: 128 }, (_, i) => tool(i)) : [];
       const candidate = tool(129);
       if (mode === "collision") candidate.name = "read";
       const request = vi.fn(async () => response({ schemaVersion: 1, revision,
         toolId: mode === "mismatch" ? "wrong" : pluginToolId(candidate), tool: candidate }));
-      setupPluginBroker(pi as never, { ...environment, PI_DESKTOP_PLUGIN_TOOLS: JSON.stringify(initial) }, request as never);
+      setupPluginBroker(pi as never, environment, request as never);
       const before = pi.registered.size;
       const controller = new AbortController();
       if (mode === "cancel") controller.abort();

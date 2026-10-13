@@ -1540,6 +1540,9 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
         if !valid_pi_tool_name(name) {
             return Err(format!("Invalid Pi tool name {name}"));
         }
+        if matches!(name, "studio_plugin_search" | "studio_plugin_load" | "studio_plugin_call") {
+            return Err(format!("Pi tool name {name} is reserved for the Studio catalog"));
+        }
         let capability = tool
             .get("capability")
             .and_then(Value::as_str)
@@ -2807,6 +2810,23 @@ mod tests {
         assert!(load_manifest(&root)
             .unwrap_err()
             .contains("references undeclared capability"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn reserves_catalog_tool_names_before_plugin_installation() {
+        let root = temp_root("reserved-catalog-tool");
+        for name in ["studio_plugin_search", "studio_plugin_load", "studio_plugin_call"] {
+            let mut manifest = developer_manifest("com.example.reserved-tool");
+            manifest["contributes"]["capabilities"] = json!([{
+                "id": "example.search", "inputSchema": { "type": "object" }
+            }]);
+            manifest["contributes"]["piTools"] = json!([{
+                "name": name, "capability": "example.search", "inputSchema": { "type": "object" }
+            }]);
+            write_manifest(&root, manifest);
+            assert!(load_manifest(&root).unwrap_err().contains("reserved for the Studio catalog"));
+        }
         let _ = fs::remove_dir_all(root);
     }
 
