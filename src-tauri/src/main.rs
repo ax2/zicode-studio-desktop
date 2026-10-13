@@ -2056,6 +2056,7 @@ fn main() {
                     }
                 }
                 tauri::WindowEvent::Focused(true) if label.starts_with("native-workspace-") => {
+                    desktop_tray::remember_focus(window.app_handle(), label);
                     let workspace_id = window
                         .try_state::<WindowWorkspaceState>()
                         .and_then(|state| {
@@ -2075,6 +2076,7 @@ fn main() {
                     }
                 }
                 tauri::WindowEvent::Destroyed if label.starts_with("native-workspace-") => {
+                    desktop_tray::forget_window(window.app_handle(), label);
                     let workspace_id = window
                         .try_state::<WindowWorkspaceState>()
                         .and_then(|state| {
@@ -2097,6 +2099,12 @@ fn main() {
                             manager.stop_workspace(&workspace_id);
                         }
                     }
+                }
+                tauri::WindowEvent::Focused(true) if label == "bootstrap" => {
+                    desktop_tray::remember_focus(window.app_handle(), label);
+                }
+                tauri::WindowEvent::Destroyed if label == "bootstrap" => {
+                    desktop_tray::forget_window(window.app_handle(), label);
                 }
                 _ => {}
             }

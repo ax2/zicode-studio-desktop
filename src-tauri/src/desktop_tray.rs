@@ -1,4 +1,5 @@
 //! Desktop lifecycle only; hiding never stops a workspace or starts a tool.
+use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
@@ -9,6 +10,7 @@ struct DesktopTray {
     show: MenuItem<tauri::Wry>,
     hide: MenuItem<tauri::Wry>,
     exit: MenuItem<tauri::Wry>,
+    focused_window: Mutex<Option<String>>,
 }
 
 #[tauri::command]
@@ -32,11 +34,50 @@ pub fn available(app: &AppHandle) -> bool {
     app.try_state::<DesktopTray>().is_some()
 }
 
+pub fn remember_focus(app: &AppHandle, label: &str) {
+    if let Some(tray) = app.try_state::<DesktopTray>() {
+        if let Ok(mut focused) = tray.focused_window.lock() {
+            *focused = Some(label.to_string());
+        }
+    }
+}
+
+pub fn forget_window(app: &AppHandle, label: &str) {
+    if let Some(tray) = app.try_state::<DesktopTray>() {
+        if let Ok(mut focused) = tray.focused_window.lock() {
+            if focused.as_deref() == Some(label) {
+                *focused = None;
+            }
+        }
+    }
+}
+
+fn focus_index(labels: &[String], preferred: Option<&str>) -> Option<usize> {
+    preferred
+        .and_then(|label| labels.iter().position(|candidate| candidate == label))
+        .or_else(|| {
+            labels
+                .iter()
+                .position(|label| label.starts_with("native-workspace-"))
+        })
+        .or_else(|| (!labels.is_empty()).then_some(0))
+}
+
+fn managed_window(label: &str) -> bool {
+    label.starts_with("native-workspace-") || label == "bootstrap"
+}
+
 fn show_workspaces(app: &AppHandle) {
+    let preferred = app.try_state::<DesktopTray>().and_then(|tray| {
+        tray.focused_window
+            .lock()
+            .ok()
+            .and_then(|focused| focused.clone())
+    });
     let mut windows: Vec<_> = app
         .webview_windows()
         .into_iter()
-        .filter(|(label, _)| label.starts_with("native-workspace-") || label == "bootstrap")
+        .filter(|(label, _)| managed_window(label))
         .collect();
     windows.sort_by(|a, b| a.0.cmp(&b.0));
     // Restore every project window; do not navigate or replace its current state.
@@ -45,8 +86,11 @@ fn show_workspaces(app: &AppHandle) {
             log::warn!("[desktop-tray] restore failed: {error}");
         }
     }
-    if let Some((_, window)) = windows.first() {
-        let _ = window.set_focus();
+    let labels: Vec<_> = windows.iter().map(|(label, _)| label.clone()).collect();
+    if let Some(index) = focus_index(&labels, preferred.as_deref()) {
+        if let Err(error) = windows[index].1.set_focus() {
+            log::warn!("[desktop-tray] focus failed: {error}");
+        }
     }
 }
 
@@ -79,7 +123,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             "studio.show" => show_workspaces(app),
             "studio.hide" => {
                 for (label, window) in app.webview_windows() {
-                    if label.starts_with("native-workspace-") {
+                    if managed_window(&label) {
                         if let Err(error) = window.hide() {
                             log::warn!("[desktop-tray] hide failed: {error}");
                         }
@@ -103,6 +147,37 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             }
         })
         .build(app)?;
-    app.manage(DesktopTray { icon: tray, tools, show, hide, exit });
+    app.manage(DesktopTray {
+        icon: tray,
+        tools,
+        show,
+        hide,
+        exit,
+        focused_window: Mutex::new(None),
+    });
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{focus_index, managed_window};
+
+    #[test]
+    fn tray_restores_recent_window_and_keeps_bootstrap_as_fallback() {
+        let labels = vec![
+            "bootstrap".to_string(),
+            "native-workspace-alpha".to_string(),
+            "native-workspace-tools-center".to_string(),
+        ];
+        assert_eq!(
+            focus_index(&labels, Some("native-workspace-tools-center")),
+            Some(2)
+        );
+        assert_eq!(focus_index(&labels, Some("destroyed")), Some(1));
+        assert_eq!(focus_index(&labels[..1], None), Some(0));
+        assert_eq!(focus_index(&[], None), None);
+        assert!(managed_window("bootstrap"));
+        assert!(managed_window("native-workspace-tools-center"));
+        assert!(!managed_window("plugin-popup"));
+    }
 }
