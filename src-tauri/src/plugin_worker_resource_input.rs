@@ -281,6 +281,8 @@ mod tests {
         assert_eq!(parsed.resources[0].descriptor.mime_type, "application/x-zicode-archive-targzip");
         assert_eq!(parsed.resources[0].bytes, bytes);
         h["resources"][0]["mimeType"] = json!("text/html");
+        assert!(read(frame(h.clone(), bytes).as_slice()).is_ok());
+        h["resources"][0]["mimeType"] = json!("application/x-unsupported-output");
         assert!(read(frame(h, bytes).as_slice()).is_err());
     }
 

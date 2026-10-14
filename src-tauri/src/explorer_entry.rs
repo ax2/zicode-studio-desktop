@@ -354,12 +354,14 @@ mod tests {
             .unwrap()
             .to_string_lossy()
             .into_owned();
-        let directory =
-            std::env::temp_dir().join(format!("studio-forwarded-{}", uuid::Uuid::new_v4()));
+        let directory = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("studio-forwarded-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir(&directory).unwrap();
         let file = directory.join("中文 空格&.zip");
         std::fs::write(&file, b"archive").unwrap();
-        assert_eq!(forwarded_intent(&[executable.clone()]).unwrap(), None);
+        assert_eq!(forwarded_intent(std::slice::from_ref(&executable)).unwrap(), None);
         assert_eq!(
             forwarded_intent(&[
                 executable.clone(),

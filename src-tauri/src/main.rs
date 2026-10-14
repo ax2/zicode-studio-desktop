@@ -2242,7 +2242,10 @@ fn main() {
         })
         .build(context)
         .expect("error while building tauri application");
+    #[cfg(windows)]
     drop(startup_gate);
+    #[cfg(not(windows))]
+    let _ = startup_gate;
     application.run(|app_handle: &tauri::AppHandle, event| {
         match event {
             // The builder's initial size is applied when the window is

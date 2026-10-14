@@ -86,9 +86,24 @@ pub(crate) fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
     use std::sync::atomic::AtomicBool;
 
     const CALL: &str = "archive-call-12345678-1234-4123-8123-123456789abc";
+
+    #[cfg(not(windows))]
+    #[test]
+    fn rejects_invalid_transport_budget_before_launch() {
+        let command = crate::process_command::new_command(std::env::current_exe().unwrap());
+        assert_eq!(run(command, vec![], CALL, "list", Duration::ZERO, None).err(),
+            Some("archive_timeout_invalid"));
+        let command = crate::process_command::new_command(std::env::current_exe().unwrap());
+        assert_eq!(run(command, vec![0; MAX_REQUEST + 1], CALL, "list", Duration::from_secs(1), None).err(),
+            Some("archive_request_too_large"));
+        let command = crate::process_command::new_command(std::env::current_exe().unwrap());
+        assert_eq!(run(command, vec![], CALL, "list", MAX_TIMEOUT + Duration::from_secs(1), None).err(),
+            Some("archive_timeout_invalid"));
+    }
 
     fn cursor_binding() -> plugin_archive_cursor::Binding {
         plugin_archive_cursor::Binding {

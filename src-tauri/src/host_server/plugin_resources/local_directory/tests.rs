@@ -87,7 +87,17 @@ fn directory_path_and_snapshot_are_bounded_and_never_read_file_content() {
     }
     assert!(open_directory(&fixture.0, "a.txt").is_err());
     fs::write(fixture.0.join("b.txt"), b"more").unwrap();
-    assert!(snapshot(&directory, &before, &control).is_err());
+    // Some file systems retain the same directory timestamp for rapid writes.
+    // If the metadata stamp does not change, the committed snapshot must still
+    // include the new entry rather than publish an incomplete listing.
+    match snapshot(&directory, &before, &control) {
+        Err((_, Json(error))) => assert_eq!(error["error"]["code"], "resource_directory_changed"),
+        Ok((bytes, count)) => {
+            assert_eq!(count, 3);
+            let listing: Value = serde_json::from_slice(&bytes).unwrap();
+            assert!(listing["entries"].as_array().unwrap().iter().any(|entry| entry["name"] == "b.txt"));
+        }
+    }
 }
 
 #[test]
