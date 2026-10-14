@@ -115,6 +115,7 @@ describe("help center React app", () => {
     renderHelp(fetchImpl);
 
     await waitFor(() => expect(screen.getByText("快速开始")).toBeTruthy());
+    await waitFor(() => expect(document.querySelector(".help-center-toc-link")?.textContent).toBe("创建会话"));
     expect(document.querySelector(".help-center-tree-icon")?.textContent).toBe("✦");
     expect(
       (document.querySelector(".help-center-tree-branch") as HTMLDetailsElement | null)?.open,
@@ -122,7 +123,6 @@ describe("help center React app", () => {
     expect(document.querySelector(".help-center-article")?.textContent).toContain("创建会话");
     expect(document.querySelector(".help-center-hero")?.textContent).toContain("快速开始");
     expect(document.querySelector(".help-center-toc-title")?.textContent).toBe("本页目录");
-    expect(document.querySelector(".help-center-toc-link")?.textContent).toBe("创建会话");
   });
 
   it("filters the documentation tree by search query", async () => {
