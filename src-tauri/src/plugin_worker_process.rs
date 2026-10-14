@@ -173,11 +173,22 @@ pub(crate) fn run_observed(
         }
     })();
     if tree.terminate().is_err() {
-        #[cfg(test)]
-        eprintln!("worker_cleanup_failed stage=after_result pid={pid}");
-        let _ = child.kill();
-        let _ = child.wait();
-        return Err(Error { code: "worker_cleanup_failed", message: "Cannot confirm plugin Worker process tree termination" });
+        // macOS may reject signalling a group whose leader has just exited but
+        // has not yet been reaped. Reap the direct child and retry the group;
+        // a surviving descendant must still be terminated successfully.
+        let direct_child_reaped = match child.try_wait() {
+            Ok(Some(_)) => true,
+            Ok(None) => match child.kill() {
+                Ok(()) => child.wait().is_ok(),
+                Err(_) => matches!(child.try_wait(), Ok(Some(_))),
+            },
+            Err(_) => false,
+        };
+        if !direct_child_reaped || tree.terminate().is_err() {
+            #[cfg(test)]
+            eprintln!("worker_cleanup_failed stage=after_result pid={pid}");
+            return Err(Error { code: "worker_cleanup_failed", message: "Cannot confirm plugin Worker process tree termination" });
+        }
     }
     if result.is_err() {
         let _ = child.kill();

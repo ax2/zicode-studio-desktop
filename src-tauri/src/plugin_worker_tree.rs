@@ -100,15 +100,6 @@ impl Tree {
 #[cfg(unix)]
 impl Tree {
     fn attach(child: &Child) -> Result<Self, ()> {
-        #[cfg(test)]
-        eprintln!(
-            "worker_group_attached pid={} pgid={} parent_pgid={} uid={} euid={}",
-            child.id(),
-            unsafe { libc::getpgid(child.id() as i32) },
-            unsafe { libc::getpgrp() },
-            unsafe { libc::getuid() },
-            unsafe { libc::geteuid() }
-        );
         Ok(Self(std::cell::Cell::new(child.id() as i32)))
     }
     pub(super) fn terminate(&self) -> Result<(), ()> {
@@ -139,11 +130,8 @@ impl Tree {
                 _ => {
                     #[cfg(test)]
                     eprintln!(
-                        "worker_group_cleanup_failed pgid={group} errno={:?} current_child_pgid={} child_alive={} group_exists={}",
-                        error.raw_os_error(),
-                        unsafe { libc::getpgid(group) },
-                        unsafe { libc::kill(group, 0) },
-                        unsafe { libc::kill(-group, 0) }
+                        "worker_group_cleanup_failed pgid={group} errno={:?}",
+                        error.raw_os_error()
                     );
                     return Err(());
                 }
