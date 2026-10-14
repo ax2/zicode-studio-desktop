@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 const MAX_PENDING: usize = 128;
+const MAX_PER_PLUGIN: usize = 16;
 const LIFETIME: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -75,6 +76,14 @@ impl ArchivePageCursors {
             .lock()
             .map_err(|_| "archive_cursor_unavailable")?;
         pending.retain(|_, entry| entry.expires > now);
+        if pending
+            .values()
+            .filter(|entry| entry.binding.plugin_id == binding.plugin_id)
+            .count()
+            >= MAX_PER_PLUGIN
+        {
+            return Err("archive_cursor_capacity");
+        }
         if pending.len() >= MAX_PENDING {
             return Err("archive_cursor_capacity");
         }
@@ -215,13 +224,35 @@ mod tests {
     }
 
     #[test]
-    fn limits_pending_pages_without_eviction() {
+    fn limits_each_plugin_without_starving_other_plugins() {
         let store = ArchivePageCursors::default();
-        for _ in 0..MAX_PENDING {
+        for _ in 0..MAX_PER_PLUGIN {
             store.seal(binding(), "abcdefghijklmnop").unwrap();
         }
         assert_eq!(
             store.seal(binding(), "abcdefghijklmnop"),
+            Err("archive_cursor_capacity")
+        );
+        let mut other = binding();
+        other.plugin_id = "com.example.other".into();
+        let handle = store.seal(other.clone(), "ponmlkjihgfedcba").unwrap();
+        assert_eq!(store.take(&handle, &other), Ok("ponmlkjihgfedcba".into()));
+    }
+
+    #[test]
+    fn preserves_global_capacity_across_plugins() {
+        let store = ArchivePageCursors::default();
+        for plugin in 0..(MAX_PENDING / MAX_PER_PLUGIN) {
+            let mut owner = binding();
+            owner.plugin_id = format!("com.example.plugin-{plugin}");
+            for _ in 0..MAX_PER_PLUGIN {
+                store.seal(owner.clone(), "abcdefghijklmnop").unwrap();
+            }
+        }
+        let mut ninth = binding();
+        ninth.plugin_id = "com.example.ninth".into();
+        assert_eq!(
+            store.seal(ninth, "abcdefghijklmnop"),
             Err("archive_cursor_capacity")
         );
     }
