@@ -99,6 +99,11 @@ export function setupPluginViewHost({
       ) {
         throw new Error(t("Plugin view response did not match its declaration."));
       }
+      const inert = globalThis.document.createElement("template");
+      inert.innerHTML = document.html;
+      if (inert.content.querySelector("script[src], link[rel~='stylesheet'][href]")) {
+        throw new Error(t("Plugin view must include its scripts and styles in the HTML file."));
+      }
       const channel = crypto.randomUUID();
       const iframe = globalThis.document.createElement("iframe");
       iframe.className = "plugin-view-frame";

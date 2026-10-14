@@ -3241,6 +3241,7 @@ const zhCN = {
   "Loading plugin view…": "正在加载插件界面…",
   "Plugin view could not be loaded": "无法加载插件界面",
   "Plugin view response did not match its declaration.": "插件界面响应与声明不匹配。",
+  "Plugin view must include its scripts and styles in the HTML file.": "插件界面须将脚本和样式包含在 HTML 文件内。",
   "This plugin does not contribute a main view.": "此插件未提供主视图。",
   "This plugin does not contribute a function view.": "此插件未提供功能区视图。",
   "Discard unsaved plugin changes?": "放弃尚未保存的插件修改吗？",

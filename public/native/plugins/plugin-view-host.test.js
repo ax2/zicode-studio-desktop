@@ -80,6 +80,24 @@ it("starts the trusted main view at the top after leaving a scrolled manager", a
 });
 
 describe("PluginViewHost", () => {
+  it.each([
+    "<main>Candidate<script src='limits.js'></script></main>",
+    "<link rel='stylesheet' href='view.css'><main>Candidate</main>",
+    "<!doctype html><html><head><script src='limits.js'></script></head><body>Candidate</body></html>",
+  ])("reports external View assets before mounting an inert iframe", async (html) => {
+    setLocale("en");
+    const { gateway, host } = setup();
+    gateway.viewSource.mockImplementation(async (_sceneId, pluginId, viewId) => ({
+      view: { pluginId, viewId, location: "main", html },
+    }));
+    host.renderContent(document.getElementById("content"), PLUGIN);
+    await vi.waitFor(() => expect(document.querySelector(".plugin-view-error")).toBeTruthy());
+    expect(document.querySelector(".plugin-view-error").textContent).toContain(
+      "Plugin view must include its scripts and styles in the HTML file.",
+    );
+    expect(document.querySelector("iframe")).toBeNull();
+    host.destroy();
+  });
   it("shows trusted model consent before a one-use Host call and rejects changed targets", async () => {
     const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "runtime", sessionId: "session" };
     const capabilityGateway = {

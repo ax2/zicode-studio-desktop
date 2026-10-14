@@ -2,6 +2,8 @@
 
 这是暂时阻塞清单，不是永久放弃名单。dev.105共154条目均未完整验收；首批5子能力和诊断候选接收不代表完整scope。下表逐项列原因/责任方/重开条件，原始scope见[JSON](devtools-all-tools-matrix.json)。
 
+2026-10-14 `agent-runner` 的在途无签名模型辅助 View 候选只覆盖一次有界模型生成，明确排除 MCP、RAG、文件、跨工具接力、后台任务和运行中取消。只读检查发现候选 HTML 引用相对 `limits.js`，而 Studio `srcdoc` CSP 禁止外部脚本；已向提供方原会话反馈需内联/构建打包后再交付。Studio 新增挂载前明确报错，避免空白 View。这不是签名包或运行验收，也不改变下表冻结 dev.105 版本与 0/154 完整接受数；见[模型生成预览](model-generation-preview.md)。
+
 独立程序双EXE/MSI更新不能原样作为Studio插件功能；插件生命周期由Studio管理，可另拆通用算法。其他条目没有被证明永久不兼容；已完成子能力可先交付。
 
 此前Base64工作台执行超时5220ms的失败证据保留；优化后编码/解码基本样例494/626ms成功，未改Worker预算。原HTTP专项的5个JSON漂移已证明为排版差异，备份后精确恢复原冻结摘要，13文件完整验证及原专项重新通过，原失败保留且未改期望值。当前Inspect84/Transforms164个Worker语义用例与工作台JSON→YAML/URL解码基本样例1252/1015ms通过；20个raw用例未覆盖，旧Pi超时尚未重验，完整scope/生命周期/签名/其他OS仍待。见iterations/fixture-integrity-2026-10-09及JSON currentRuntimeVerification；不将临时阻塞从154范围删除。
