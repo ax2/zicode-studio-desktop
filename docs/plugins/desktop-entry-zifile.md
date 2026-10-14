@@ -1,5 +1,7 @@
 # 桌面入口与 ZiFile 接入
 
+2026-10-14 解锁后实体复验：Windows 11 资源管理器的单文件与文件夹传统菜单均已实际点击。`README.md` 的“在 Studio 中选择文件工具”打开当前 debug EXE 工具中心并显示文件名和“内容尚未提供”；项目文件夹的“在 ZiCode Studio 中打开”打开对应工作区与文件面板。一级菜单仍没有 Studio 项，文件夹一级菜单的 ZiFile 项属于独立 ZiFile。此轮未执行插件；托盘物理菜单操作、2–4 文件实体多选、正式 ZiFile/DevTools 包仍待验收。证据边界见技术博客 `iterations/explorer-unlocked-click-2026-10-14/work-log.md`。
+
 2026-10-14 最新开发状态：Windows 当前用户的第五个传统菜单已由 Studio 自有 COM DLL 注册，接收 2–4 个同目录普通文件。真实 COM 激活、Shell 选区判定、启动交接及开发版菜单状态 5/5 已核对；实体多选右键点击、安装包交付和最终工具界面仍待验收。下方早期“四项”“尚无多选”的段落保留历史时间线，当前状态以[多选阶段日志](explorer-tool-entry-policy.md)为准。ZiFile 实包依旧未收到，108 格接受数为 0。
 
 2026-10-14 后续：Studio 已实现内部 `--open-selection` 2–4 同目录文件交接、可信相对名称提示及逐文件显式共享确认，供声明多资源输入的 WASI 工具使用；尚无 Explorer 多选注册、ZiFile 实包或归档写入。现有四项传统右键与单选声明不变。技术边界见[文件入口](explorer-file-entry.md)。
