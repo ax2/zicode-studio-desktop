@@ -33,3 +33,13 @@ it("shows storage failure without disabling ordinary tools and retries the read"
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(store.read).toHaveBeenCalledTimes(2);
 });
+
+it("recovers a startup Host connection failure without asking for a manual retry", async () => {
+  const store = { read: vi.fn().mockRejectedValueOnce(new Error("ZiCode Studio Desktop Host runtime is disconnected"))
+    .mockResolvedValue(emptyAccess()), mutate: vi.fn() };
+  render(<CommandPaletteApp commands={[{ id: "tool", label: "Text", action() {} }]}
+    scope={{ sceneId: "s", workspaceId: "w" }} accessStore={store} onRun={vi.fn()} />);
+  await waitFor(() => expect(store.read).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", { name: t("Favorite selected command") }).hasAttribute("disabled")).toBe(false));
+  expect(screen.queryByRole("alert")).toBeNull();
+});
