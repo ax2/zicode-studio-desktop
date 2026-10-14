@@ -389,19 +389,15 @@ fn validate_package_path(path: &str) -> Result<(), String> {
         return Err(format!("Signed package path escapes its root: {path}"));
     }
     for component in path.split('/') {
-        let upper = component
-            .split('.')
-            .next()
-            .unwrap_or(component)
-            .to_ascii_uppercase();
-        let reserved = matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-            || upper.strip_prefix("COM").is_some_and(|suffix| {
-                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-            })
-            || upper.strip_prefix("LPT").is_some_and(|suffix| {
-                matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
-            });
-        if reserved || component.ends_with(' ') || component.ends_with('.') {
+        if component.is_empty()
+            || component.len() > 255
+            || crate::portable_path::reserved_windows_device_name(component)
+            || component.ends_with(' ')
+            || component.ends_with('.')
+            || component
+                .chars()
+                .any(|c| c.is_control() || matches!(c, '<' | '>' | '"' | '|' | '?' | '*'))
+        {
             return Err(format!(
                 "Signed package uses a reserved Windows path: {path}"
             ));
@@ -663,7 +659,7 @@ mod tests {
 
         let device_root = root("device");
         let mut device_files = valid_files();
-        device_files.insert("assets/CON.txt".into(), b"device".to_vec());
+        device_files.insert("assets/COM¹.txt".into(), b"device".to_vec());
         let (device, _) = build_package(&device_root, device_files);
         assert!(verify_package(&device, &device_root.join("registry"))
             .unwrap_err()
@@ -672,6 +668,23 @@ mod tests {
         fs::remove_dir_all(signature_root).unwrap();
         fs::remove_dir_all(collision_root).unwrap();
         fs::remove_dir_all(device_root).unwrap();
+    }
+
+    #[test]
+    fn rejects_nonportable_signed_package_components() {
+        for path in [
+            "assets/CON.txt".to_string(),
+            "assets/LPT².log".to_string(),
+            "assets/bad?.txt".to_string(),
+            "assets/control\u{0001}.txt".to_string(),
+            format!("assets/{}", "a".repeat(256)),
+            "assets//file.txt".to_string(),
+        ] {
+            assert!(super::validate_package_path(&path).is_err(), "{path:?}");
+        }
+        for path in ["assets/COM10.txt", "assets/普通文件.wasm"] {
+            assert!(super::validate_package_path(path).is_ok(), "{path:?}");
+        }
     }
 
     #[test]

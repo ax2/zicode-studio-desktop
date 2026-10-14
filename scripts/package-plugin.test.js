@@ -75,4 +75,16 @@ describe("package-plugin", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Sensitive or generated file");
   });
+
+  it("rejects a file that would replace the signed package manifest", () => {
+    const { key, plugin, root } = fixture();
+    writeFileSync(join(plugin, "package.json"), "{}");
+    const result = spawnSync(
+      "bun",
+      ["run", "scripts/package-plugin.js", plugin, "--key", key, "--out", join(root, "bad.zicode-plugin")],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Invalid package path: package.json");
+  });
 });

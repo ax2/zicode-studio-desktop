@@ -9,6 +9,7 @@ const MAX_PACKAGE_BYTES = 50 * 1024 * 1024;
 const BLOCKED_NAMES = new Set([".env", ".env.local", ".env.production"]);
 const BLOCKED_EXTENSIONS = new Set([".key", ".pem", ".pfx", ".p12", ".map"]);
 const SKIPPED_DIRECTORIES = new Set([".git", "node_modules", "dist-private"]);
+const RESERVED_WINDOWS_NAMES = /^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|(?:COM|LPT)[1-9¹²³])$/u;
 
 const args = process.argv.slice(2);
 const sourceArg = args[0];
@@ -96,7 +97,7 @@ function collectFiles(root) {
       }
       if (stats.size > MAX_FILE_BYTES) throw new Error(`File exceeds 10 MiB: ${absolute}`);
       const path = relative(root, absolute).split(sep).join("/");
-      if (!path || path.includes("..") || path.includes(":")) {
+      if (!portablePackagePath(path)) {
         throw new Error(`Invalid package path: ${path}`);
       }
       const bytes = readFileSync(absolute);
@@ -110,7 +111,27 @@ function collectFiles(root) {
   if (!collected.some((entry) => entry.path === "plugin.json")) {
     throw new Error("Package is missing plugin.json");
   }
+  const folded = new Set();
+  for (const entry of collected) {
+    const key = entry.path.toLowerCase();
+    if (folded.has(key)) throw new Error(`Duplicate portable package path: ${entry.path}`);
+    folded.add(key);
+  }
   return collected.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function portablePackagePath(path) {
+  return path.length > 0 && Buffer.byteLength(path, "utf8") <= 512
+    && path.toLowerCase() !== "package.json"
+    && !path.includes("\\") && !path.includes(":")
+    && path.split("/").every((part) => {
+      const base = part.split(".")[0].toUpperCase();
+      return part.length > 0 && part !== "." && part !== ".."
+        && Buffer.byteLength(part, "utf8") <= 255
+        && !/[<>:"|?*\p{Cc}]/u.test(part)
+        && !/[. ]$/u.test(part)
+        && !RESERVED_WINDOWS_NAMES.test(base);
+    });
 }
 
 function sha256(bytes) {

@@ -77,6 +77,7 @@ describe("ZiFile adapter event draft1 conformance", () => {
     ["terminal_mismatch", fixture.replace('"status":"ok"', '"status":"error"')],
     ["invalid_format", fixture.replace('"format":"Zip"', '"format":"Unknown"')],
     ["invalid_text", fixture.replace("docs/readme.txt", "bad\\nname")],
+    ["invalid_text", fixture.replace("docs/readme.txt", "bad\u0085name")],
     ["invalid_shape", fixture.replace('"nextCursor":null', '"nextCursor":null,"path":"C:\\\\secret"')],
     ["unsafe_entry_flag", fixture.replace('"name":"../unsafe.txt","kind":"file","uncompressedBytes":5,"compressedBytes":5,"safeRelativePath":false', '"name":"../unsafe.txt","kind":"file","uncompressedBytes":5,"compressedBytes":5,"safeRelativePath":true')],
     ["invalid_cursor", fixture.replace('"nextCursor":null', '"nextCursor":"C:\\\\private"')],
@@ -101,7 +102,7 @@ describe("ZiFile adapter event draft1 conformance", () => {
     expect(() => verify(trace(...many))).toThrow("entry_budget_exceeded");
   });
 
-  it.each(["../escape", "folder\\..\\escape", "C:/private", "//server/share", "NUL.txt", "data:stream", "trailing. "])(
+  it.each(["../escape", "folder\\..\\escape", "C:/private", "//server/share", "NUL.txt", "COM¹.txt", "nested/LPT².log", "CONIN$/file", `folder/${"a".repeat(256)}`, "data:stream", "trailing. "])(
     "rejects unsafeRelativePath=true for %s",
     (name) => {
       const entry = JSON.parse(fixture.split("\n")[1]);

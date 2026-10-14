@@ -19,10 +19,8 @@ const MAX_EVENTS = 1304;
 const MAX_ENTRIES = 200;
 const MAX_PROGRESS = 1000;
 const CALL_ID = /^archive-call-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const RESERVED_PATH_PARTS = new Set([
-  "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-  "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-]);
+const RESERVED_PATH_PARTS = new Set(["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"]);
+const RESERVED_SERIAL_PORT = /^(?:COM|LPT)[1-9¹²³]$/u;
 
 function reject(code) {
   const error = new Error(code);
@@ -48,8 +46,7 @@ function boundedText(value, maximum) {
     reject("invalid_text");
   }
   for (const character of value) {
-    const code = character.codePointAt(0);
-    if (code < 32 || code === 127) reject("invalid_text");
+    if (/\p{Cc}/u.test(character)) reject("invalid_text");
   }
 }
 
@@ -57,9 +54,9 @@ function safeRelativePath(name) {
   const normalized = name.replaceAll("\\", "/");
   return !normalized.startsWith("/")
     && normalized.split("/").every((part) => {
-      if (!part || part === "." || part === ".." || /[<>:"|?*]/u.test(part) || /[. ]$/u.test(part)) return false;
+      if (!part || Buffer.byteLength(part, "utf8") > 255 || part === "." || part === ".." || /[<>:"|?*]/u.test(part) || /[. ]$/u.test(part)) return false;
       const base = part.split(".")[0].toUpperCase();
-      return !RESERVED_PATH_PARTS.has(base);
+      return !RESERVED_PATH_PARTS.has(base) && !RESERVED_SERIAL_PORT.test(base);
     });
 }
 
