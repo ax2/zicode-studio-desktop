@@ -45,3 +45,10 @@
 - `scripts/qa-native-trace-view.mjs` 通过该 WebView2 调试端口驱动真实界面：目录中发现 Django Trace，按需打开参数表单，执行并显示 `NoReverseMatch`；选择另一插件的 `devtools.text.json.format`，检查接力预览，显式确认后执行并显示接收方结果；再预览保存、显式确认并取得产物入口。脚本返回 `passed=true`、`nativeWebView2=true`、`receiverExecuted=true`、`savedAfterConfirmation=true`。隔离档案内存在对应产物元数据与内容文件。
 - 三张原生窗口截图在技术博客 `zicode-studio-desktop/screenshots/trace-native-2026-10-14/`，已检查结果、接收方结果和保存状态。测试进程已正常退出。细节见技术博客同日工作日志。
 - 这是 **工具中心的原生 WebView2 单链路**；尚未验证 Trace 自定义 iframe View 在原生窗口中打开。EXE 是此前保留的构建，不能用此证明当前源码重新构建可运行。签名插件生命周期、所有工具、其他 OS、取消/超时与错误恢复仍待验收，DevTools 完整接受数仍为 0/154。
+
+### 2026-10-14 解锁后当前 debug EXE 的原生复验
+
+- 当前 `9a4a8cff` 源码构建的 `target/debug/zicode-studio-desktop.exe` 为 123,082,752 字节，SHA-256 `abaac5553ccf04e9c0477797d7d4c75346b54495343bb7d3a38d8c61fb8b9221`；应用版本仍为 0.4.2。复用原有 `trace-native-20261014/profile`，没有复制运行目录或重建程序。执行前将 profile 中的 Trace 346 文件、Text 13 文件逐一与 Studio 冻结夹具比较 SHA-256，均为 0 差异、无额外文件。
+- 真实 Windows WebView2 工具中心出现 23 项（16 内置 + Trace 2 + Text 5）。手工打开 Text 的 Base64 编码，按需加载参数表单，输入合成文本 `ZiCode Studio`，实际 Worker 返回并在原生界面显示 `WmlDb2RlIFN0dWRpbw==`。点击“发送到工具”后列出 7 个兼容接收能力；选择同包 Base64 解码后先显示 20 字节预览，明确点击“确认发送并执行”才运行接收 Worker，结果为 `ZiCode Studio`。这次没有点击保存；不能把出现“预览保存”按钮记作本轮保存验收。
+- 1442×931 浅色窗口截图已目视检查，归档于技术博客 `screenshots/devtools-native-resume-2026-10-14/base64-roundtrip.jpg`。详情与接力结果可读，没有观察到主界面崩溃。关闭窗口后其可见主窗消失而进程仍存活，符合当前关闭到托盘的路径；未直接观察实体托盘图标或右键菜单。完成后按 EXE 路径、隔离 profile 和参数校验进程身份，仅停止本轮调试进程。
+- 此复验覆盖当前 EXE 上一条未签名开发候选的“发现 → 加载 → 执行 → 展示 → 经确认接力”。它不验证正式签名安装、当前 DevTools 独立版全部版本与范围、Trace 自定义 View、保存、系统托盘右键、其他系统或 154 项逐工具完整接受；计数保持 0/154，ZiFile 0/108。
