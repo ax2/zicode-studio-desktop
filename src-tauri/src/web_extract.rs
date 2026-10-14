@@ -5,7 +5,6 @@ use ego_tree::NodeRef;
 use encoding_rs::{Encoding, GB18030, UTF_16BE, UTF_16LE};
 use scraper::{ElementRef, Html, Node, Selector};
 use serde::Serialize;
-use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
 #[derive(Serialize)]
@@ -17,65 +16,6 @@ pub struct WebArticle {
     pub image: Option<String>,
     pub content_markdown: String,
     pub text_length: usize,
-}
-
-/// 判定 IP 是否公网可达（禁止回环/私有/链路本地/保留段）。
-pub fn is_public_ip(address: IpAddr) -> bool {
-    match address {
-        IpAddr::V4(address) => {
-            let [a, b, c, _] = address.octets();
-            !(address.is_private()
-                || address.is_loopback()
-                || address.is_link_local()
-                || address.is_unspecified()
-                || address.is_multicast()
-                || address.is_broadcast()
-                || a == 0
-                || (a == 100 && (64..=127).contains(&b))
-                || (a == 192 && b == 0 && c == 2)
-                || (a == 198 && b == 51 && c == 100)
-                || (a == 203 && b == 0 && c == 113)
-                || (a == 198 && (18..=19).contains(&b)))
-        }
-        IpAddr::V6(address) => {
-            let first = address.segments()[0];
-            !(address.is_loopback()
-                || address.is_unspecified()
-                || address.is_multicast()
-                || (first & 0xfe00) == 0xfc00
-                || (first & 0xffc0) == 0xfe80)
-        }
-    }
-}
-
-fn validate_public_url(url: &reqwest::Url) -> Result<(), String> {
-    if !matches!(url.scheme(), "http" | "https")
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
-        return Err("Only credential-free HTTP(S) URLs are allowed".to_string());
-    }
-    let host = url
-        .host_str()
-        .ok_or_else(|| "URL host is missing".to_string())?;
-    if host.eq_ignore_ascii_case("localhost") || host.ends_with(".localhost") {
-        return Err("Loopback and private network URLs are not allowed".to_string());
-    }
-    let port = url
-        .port_or_known_default()
-        .ok_or_else(|| "URL port is invalid".to_string())?;
-    let addresses: Vec<SocketAddr> = if let Ok(address) = host.parse::<IpAddr>() {
-        vec![SocketAddr::new(address, port)]
-    } else {
-        (host, port)
-            .to_socket_addrs()
-            .map_err(|_| "Cannot resolve the web page host".to_string())?
-            .collect()
-    };
-    if addresses.is_empty() || addresses.iter().any(|address| !is_public_ip(address.ip())) {
-        return Err("Loopback and private network URLs are not allowed".to_string());
-    }
-    Ok(())
 }
 
 fn parse_charset_from_content_type(content_type: &str) -> Option<String> {
@@ -160,94 +100,44 @@ pub fn decode_html_bytes(bytes: &[u8], content_type: &str) -> String {
 /// 阻塞式抓取 + 正文提取，供 Pi 工具与无需异步运行时的调用方使用。
 pub fn fetch_and_extract(raw_url: &str) -> Result<WebArticle, String> {
     const MAX_BYTES: usize = 2 * 1024 * 1024;
-    const MAX_REDIRECTS: usize = 5;
-    let mut url =
-        reqwest::Url::parse(raw_url).map_err(|_| "Enter a valid HTTP(S) URL".to_string())?;
-    let client = reqwest::blocking::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(Duration::from_secs(20))
-        .user_agent("ZiCode-Notes-Capture/1.0")
-        .build()
-        .map_err(|_| "Cannot initialize web capture".to_string())?;
-    for redirect_count in 0..=MAX_REDIRECTS {
-        validate_public_url(&url)?;
-        let response = client
-            .get(url.clone())
-            .header(
-                reqwest::header::ACCEPT,
-                "text/html, text/plain;q=0.8, application/xhtml+xml;q=0.7",
-            )
-            .send()
-            .map_err(|_| "Cannot retrieve the web page".to_string())?;
-        if response.status().is_redirection() {
-            if redirect_count == MAX_REDIRECTS {
-                return Err("The web page redirected too many times".to_string());
-            }
-            let location = response
-                .headers()
-                .get(reqwest::header::LOCATION)
-                .and_then(|value| value.to_str().ok())
-                .ok_or_else(|| "The web page returned an invalid redirect".to_string())?;
-            url = url
-                .join(location)
-                .map_err(|_| "Redirect URL is invalid".to_string())?;
-            continue;
-        }
-        if !response.status().is_success() {
-            return Err(format!(
-                "The web page returned HTTP {}",
-                response.status().as_u16()
-            ));
-        }
-        let content_type = response
-            .headers()
-            .get(reqwest::header::CONTENT_TYPE)
-            .and_then(|value| value.to_str().ok())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        let is_plain = content_type.starts_with("text/plain");
-        if !content_type.is_empty()
-            && !content_type.starts_with("text/html")
-            && !is_plain
-            && !content_type.starts_with("application/xhtml+xml")
-        {
-            return Err("Only HTML and plain-text pages can be captured".to_string());
-        }
-        if response
-            .content_length()
-            .is_some_and(|length| length > MAX_BYTES as u64)
-        {
-            return Err("The web page exceeds the 2 MiB capture limit".to_string());
-        }
-        let bytes = response
-            .bytes()
-            .map_err(|_| "Web page download failed".to_string())?;
-        if bytes.len() > MAX_BYTES {
-            return Err("The web page exceeds the 2 MiB capture limit".to_string());
-        }
-        let text = decode_html_bytes(&bytes, &content_type);
-        let article = if is_plain {
-            WebArticle {
-                title: url
-                    .path_segments()
-                    .and_then(|mut segments| segments.rfind(|value| !value.is_empty()))
-                    .unwrap_or("Captured page")
-                    .to_string(),
-                byline: None,
-                site_name: None,
-                image: None,
-                content_markdown: text.trim().to_string(),
-                text_length: text_len(&text),
-            }
-        } else {
-            extract(&text, url.as_ref())
-        };
-        if article.content_markdown.trim().is_empty() {
-            return Err("No readable page content was found".to_string());
-        }
-        return Ok(article);
+    let page = crate::public_http::get(
+        raw_url,
+        MAX_BYTES,
+        Duration::from_secs(20),
+        "ZiCode-Notes-Capture/1.0",
+        Some("text/html, text/plain;q=0.8, application/xhtml+xml;q=0.7"),
+        true,
+    )?;
+    let is_plain = page.content_type.starts_with("text/plain");
+    if !page.content_type.is_empty()
+        && !page.content_type.starts_with("text/html")
+        && !is_plain
+        && !page.content_type.starts_with("application/xhtml+xml")
+    {
+        return Err("Only HTML and plain-text pages can be captured".to_string());
     }
-    Err("The web page could not be captured".to_string())
+    let text = decode_html_bytes(&page.bytes, &page.content_type);
+    let article = if is_plain {
+        WebArticle {
+            title: page
+                .url
+                .path_segments()
+                .and_then(|mut segments| segments.rfind(|value| !value.is_empty()))
+                .unwrap_or("Captured page")
+                .to_string(),
+            byline: None,
+            site_name: None,
+            image: None,
+            content_markdown: text.trim().to_string(),
+            text_length: text_len(&text),
+        }
+    } else {
+        extract(&text, page.url.as_ref())
+    };
+    if article.content_markdown.trim().is_empty() {
+        return Err("No readable page content was found".to_string());
+    }
+    Ok(article)
 }
 
 const NOISE_TAGS: &[&str] = &[

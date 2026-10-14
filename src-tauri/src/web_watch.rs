@@ -66,28 +66,7 @@ fn write_file(workspace_root: &Path, file: &WatchFile) -> Result<(), String> {
 }
 
 fn validate_url(raw_url: &str) -> Result<reqwest::Url, String> {
-    let url = reqwest::Url::parse(raw_url.trim()).map_err(|_| "URL is invalid".to_string())?;
-    if url.scheme() != "https" && url.scheme() != "http" {
-        return Err("Only http and https URLs are supported".to_string());
-    }
-    let host = url
-        .host_str()
-        .ok_or_else(|| "URL has no host".to_string())?;
-    let addresses: Vec<std::net::IpAddr> = host.parse().map(|ip| vec![ip]).unwrap_or_else(|_| {
-        std::net::ToSocketAddrs::to_socket_addrs(&(host, 80))
-            .map(|iter| iter.map(|addr| addr.ip()).collect())
-            .unwrap_or_default()
-    });
-    if addresses.is_empty() {
-        return Err("URL host cannot be resolved".to_string());
-    }
-    if let Some(address) = addresses
-        .iter()
-        .find(|address| !crate::web_extract::is_public_ip(**address))
-    {
-        return Err(format!("URL host resolves to a private address {address}"));
-    }
-    Ok(url)
+    crate::public_http::validate_url(raw_url.trim())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -97,36 +76,17 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 fn fetch_page(url: &reqwest::Url) -> Result<(Vec<u8>, Option<String>), String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .user_agent("ZiCode-WebWatch/1.0")
-        .build()
-        .map_err(|error| format!("Cannot build web client: {error}"))?;
-    let response = client
-        .get(url.clone())
-        .send()
-        .map_err(|error| format!("Page is unreachable: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!("Page returned HTTP {}", response.status()));
-    }
-    let content_type = response
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let bytes = response
-        .bytes()
-        .map_err(|error| format!("Cannot read page body: {error}"))?;
-    let bytes = bytes.to_vec();
-    if bytes.len() > MAX_BODY_BYTES {
-        return Err(format!(
-            "Page exceeds the {MAX_BODY_BYTES} byte watch limit"
-        ));
-    }
-    let text = crate::web_extract::decode_html_bytes(&bytes, &content_type);
-    let title = crate::web_extract::extract(&text, url.as_str()).title;
-    Ok((bytes, Some(title)))
+    let page = crate::public_http::get(
+        url.as_str(),
+        MAX_BODY_BYTES,
+        std::time::Duration::from_secs(30),
+        "ZiCode-WebWatch/1.0",
+        None,
+        true,
+    )?;
+    let text = crate::web_extract::decode_html_bytes(&page.bytes, &page.content_type);
+    let title = crate::web_extract::extract(&text, page.url.as_str()).title;
+    Ok((page.bytes, Some(title)))
 }
 
 pub fn add(workspace_root: &Path, name: &str, url: &str) -> Result<WatchItem, String> {

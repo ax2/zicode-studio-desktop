@@ -58,6 +58,7 @@ mod project_environment;
 mod project_storage;
 mod project_tasks;
 mod project_terminal;
+mod public_http;
 mod relay_client;
 mod relay_protocol;
 mod remote_access_config;
