@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REPOSITORY = "earendil-works/pi-mono";
+const REPOSITORY = "earendil-works/pi";
 const RELEASE_API = `https://api.github.com/repos/${REPOSITORY}/releases`;
 const LOCK_PATH = path.join(__dirname, "pi-version.json");
 const REQUIRED_ASSETS = [

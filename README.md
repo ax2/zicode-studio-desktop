@@ -94,7 +94,7 @@ bun run update:pi
 bun run update:pi -- 0.83.0
 ```
 
-该命令会从 `earendil-works/pi-mono` Release 读取六个平台资源的 GitHub
+该命令会从 `earendil-works/pi` Release 读取六个平台资源的 GitHub
 SHA-256 摘要，原子更新 `scripts/pi-version.json`，下载当前平台二进制并执行
 RPC 冒烟测试。每日检查工作流使用同一套锁文件生成逻辑，避免只改版本号却遗留旧摘要。
 
