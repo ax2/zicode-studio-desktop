@@ -13,7 +13,10 @@ pub(super) async fn verify(
     let mut manifest = template.clone();
     manifest["id"] = json!("com.zicode.studio.archive-output-fixture");
     manifest["schemaVersion"] = json!(2);
-    manifest["requiredProfiles"] = json!({"output.schema.v1":"=1.0.0-rc.1"});
+    manifest["requiredProfiles"] = json!({
+        "output.schema.v1":"=1.0.0-rc.1",
+        "resource.output.types.v1":"=1.0.0-preview.1"
+    });
     manifest["runtime"]["resourceOutputProfile"] =
         json!(crate::plugin_worker::resource_output::PROFILE);
     manifest["contributes"]["capabilities"] = json!([{"id":"archive.fixture","title":"Archive output fixture",

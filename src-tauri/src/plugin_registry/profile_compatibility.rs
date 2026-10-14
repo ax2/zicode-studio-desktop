@@ -54,8 +54,9 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             "compute.wasi.v1" | "output.schema.v1" => {
                 Version::parse("1.0.0-rc.1").map_err(|_| "Host profile version is invalid")?
             }
-            "tool.directory.v1" | "file.input.hints.v1" => Version::parse("1.0.0-preview.1")
-                .map_err(|_| "Host profile version is invalid")?,
+            "tool.directory.v1" | "file.input.hints.v1" | "resource.output.types.v1" => {
+                Version::parse("1.0.0-preview.1").map_err(|_| "Host profile version is invalid")?
+            }
             _ => return Err("Required plugin profile is unsupported".into()),
         };
         if !matches_range(range, &version).map_err(|_| "Invalid plugin profile range")? {
@@ -83,6 +84,26 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             })
     {
         return Err("output.schema.v1 requires an output contract declaration".into());
+    }
+    if requirements.contains_key("resource.output.types.v1")
+        && (!requirements.contains_key("output.schema.v1")
+            || manifest
+                .runtime
+                .get("wasi")
+                .and_then(serde_json::Value::as_str)
+                .is_none()
+            || manifest
+                .runtime
+                .get("resourceInputProfile")
+                .and_then(serde_json::Value::as_str)
+                != Some("resource.wasi.input.draft2")
+            || manifest
+                .runtime
+                .get("resourceOutputProfile")
+                .and_then(serde_json::Value::as_str)
+                != Some(crate::plugin_worker::resource_output::PROFILE))
+    {
+        return Err("resource.output.types.v1 requires output.schema.v1 and a WASI resource input and output runtime".into());
     }
     Ok(())
 }
@@ -134,6 +155,39 @@ mod tests {
         assert!(validate(&value).is_ok());
         value.schema_version = 3;
         assert!(validate(&value).is_err());
+    }
+    #[test]
+    fn output_types_profile_requires_the_exact_resource_runtime() {
+        let mut value = manifest(json!({
+            "resource.output.types.v1":"=1.0.0-preview.1",
+            "output.schema.v1":"=1.0.0-rc.1"
+        }));
+        value.contributes = json!({"capabilities":[{"id":"result","inputSchema":{"type":"object"},"outputSchema":{"type":"object"}}]});
+        value.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+        value.runtime["resourceOutputProfile"] =
+            json!(crate::plugin_worker::resource_output::PROFILE);
+        super::super::validate_manifest(&value, None).unwrap();
+        for (field, replacement) in [
+            ("wasi", Value::Null),
+            ("resourceInputProfile", Value::Null),
+            ("resourceOutputProfile", Value::Null),
+            (
+                "resourceOutputProfile",
+                json!("resource.wasi.output.draft2"),
+            ),
+        ] {
+            let mut invalid = value.clone();
+            if replacement.is_null() {
+                invalid.runtime.as_object_mut().unwrap().remove(field);
+            } else {
+                invalid.runtime[field] = replacement;
+            }
+            assert!(super::super::validate_manifest(&invalid, None).is_err());
+        }
+        value.required_profiles = json!({"resource.output.types.v1":"=1.0.0-preview.2"});
+        assert!(super::super::validate_manifest(&value, None).is_err());
+        value.required_profiles = json!({"resource.output.types.v1":"=1.0.0-preview.1"});
+        assert!(super::super::validate_manifest(&value, None).is_err());
     }
     #[test]
     fn new_schema_rejects_missing_malformed_unbounded_and_non_wasi_requirements() {

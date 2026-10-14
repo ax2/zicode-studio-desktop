@@ -28,7 +28,7 @@ Worker 成功退出、完整严格帧/摘要/结果 JSON 验证、父进程和�
 
 二进制资源候选对声明的 capability.outputSchema 校验 result JSON；不符合时固定 invalid_output，整组输出均不登记。未声明schema时仍执行JSON大小和严格帧检查。真实Host专项追加“合法原始帧、已封存2MiB输出、JSON字段类型错误”场景，收据单列 invalidOutputSchemaRegisteredNothing；原旧JSON资源路径暂未追加此schema行为，仍待统一协议评估。
 
-统一校验：Host二进制分支复用既有 output.schema.v1 校验器，执行 capability.maxResultBytes（同时受全局上限约束）、oneOf及嵌套类型/约束，不另写较弱的schema解析器。验证错误映射为固定invalid_output，字节预算错误为result_too_large。当前资源调用仍要求非null JSON结果；纯null结果加资源输出需要后续协议评估，不能静默宣称支持。声明输出契约须manifest schemaVersion=2并requiredProfiles指定output.schema.v1兼容版本；本候选资源profile仍放在runtime字段，不加入正式supported profiles列表。
+统一校验：Host二进制分支复用既有 output.schema.v1 校验器，执行 capability.maxResultBytes（同时受全局上限约束）、oneOf及嵌套类型/约束，不另写较弱的schema解析器。验证错误映射为固定invalid_output，字节预算错误为result_too_large。当前资源调用仍要求非null JSON结果；纯null结果加资源输出需要后续协议评估，不能静默宣称支持。声明输出契约须manifest schemaVersion=2并requiredProfiles指定output.schema.v1兼容版本；runtime 中的资源输出标识仍为内部 draft1。当前源码另有 [resource.output.types.v1 预览版](resource-output-types-profile.md) 协商扩展 MIME 索引；这不是正式稳定 resource.v1。
 
 ## 发布实现修正
 

@@ -30,6 +30,7 @@ ZiDevTools 负责工具算法、输入输出、工具版本、独立 UI、插件
 “独立版 implemented”不等于“插件 implemented”。Windows 专有功能不得标记全平台。
 所有功能最终有映射，不为赶进度让插件启动独立 EXE、访问任意路径或另起无鉴权 HTTP 服务。
 未来 profile 需先定义版本化请求/结果、权限、资源上限和取消契约，再由 Studio 实现通用接口。
+当前源码已提供 [resource.output.types.v1 预览版](resource-output-types-profile.md)，仅协商 WASI 输出 MIME 索引 5–26 与固定保存后缀；插件须同时声明 `output.schema.v1` 和资源输入/输出运行标识。它不替代未发布的 `resource.v1`，也不表示任何提供方资源工具已完成接入。
 资源调用状态的 Studio-only 候选扩展见 [resource.call.status.draft1](resource-call-status.md)；
 目录资源详情与接力父界面已接入显式核对，当前不向提供方宣告完整恢复支持；延迟请求封存、控制器销毁与跨重启恢复仍待完成。
 Host 已新增[一次性调用准入候选](resource-call-admission.md)，验证原子消费/封存与迟到请求拒绝；父界面仍待切换，不能将其保证套用到旧调用路径。

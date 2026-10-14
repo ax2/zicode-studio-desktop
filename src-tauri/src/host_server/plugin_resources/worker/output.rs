@@ -18,9 +18,11 @@ pub(super) fn register(
     frame: &[u8],
     cancelled: &std::sync::atomic::AtomicBool,
     capability: &crate::plugin_registry::PluginCapabilityDescriptor,
+    extended_output_types: bool,
 ) -> Result<Execution, ApiError> {
     let bundle = crate::plugin_worker::resource_output::decode(frame)
         .map_err(|_| rejected("worker_protocol_error"))?;
+    validate_types(&bundle, extended_output_types)?;
     if bundle.result.is_null()
         || serde_json::to_vec(&bundle.result)
             .map_err(|_| rejected("worker_protocol_error"))?
@@ -57,6 +59,21 @@ pub(super) fn register(
     })
 }
 
+fn validate_types(
+    bundle: &crate::plugin_worker::resource_output::Bundle,
+    extended_output_types: bool,
+) -> Result<(), ApiError> {
+    if !extended_output_types
+        && bundle
+            .resources
+            .iter()
+            .any(|item| crate::plugin_output_types::requires_profile(&item.mime_type))
+    {
+        return Err(rejected("resource_output_profile_unsupported"));
+    }
+    Ok(())
+}
+
 pub(super) fn validate_result(
     capability: &crate::plugin_registry::PluginCapabilityDescriptor,
     result: &Value,
@@ -75,6 +92,26 @@ pub(super) fn validate_result(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn output_types_require_the_manifest_profile_before_publication() {
+        let mut bundle = crate::plugin_worker::resource_output::Bundle {
+            binary: true,
+            result: json!({}),
+            resources: vec![crate::plugin_worker::resource_output::Blob {
+                mime_type: "image/png".into(),
+                bytes: vec![1],
+            }],
+        };
+        assert!(validate_types(&bundle, false).is_ok());
+        for mime in ["application/x-zicode-archive-zip", "text/html", "application/x-zicode-sqlite"] {
+            bundle.resources[0].mime_type = mime.into();
+            assert_eq!(
+                validate_types(&bundle, false).unwrap_err().1 .0["error"]["code"],
+                "resource_output_profile_unsupported"
+            );
+            assert!(validate_types(&bundle, true).is_ok());
+        }
+    }
     #[test]
     fn output_profile_requires_exact_explicit_manifest_selection() {
         assert!(!selection(&json!({})).unwrap());

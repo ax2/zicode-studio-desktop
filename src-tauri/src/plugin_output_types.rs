@@ -31,6 +31,12 @@ pub(crate) const MIMES: &[&str] = &[
     "application/x-zicode-sqlite",
 ];
 
+// The first five MIME indices predate manifest negotiation. New types require
+// the explicit resource.output.types.v1 profile before Host publication.
+pub(crate) fn requires_profile(mime: &str) -> bool {
+    MIMES[5..].contains(&mime)
+}
+
 pub(crate) fn extension(mime: &str) -> Option<&'static str> {
     match mime {
         "application/octet-stream" => Some("bin"),
@@ -91,5 +97,8 @@ mod tests {
         assert_eq!(extension("text/html"), Some("html"));
         assert_eq!(extension("application/x-zicode-sqlite"), Some("sqlite"));
         assert_eq!(extension("application/javascript"), None);
+        assert!(!requires_profile("image/png"));
+        assert!(requires_profile("application/x-zicode-archive-zip"));
+        assert!(requires_profile("text/html"));
     }
 }

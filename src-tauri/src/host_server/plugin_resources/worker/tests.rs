@@ -352,8 +352,20 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     assert_ne!(independent_event.1, first_event.1);
     assert_ne!(independent_event.1, second_event.1);
     assert_eq!(host.state.plugin_resource_workers.slots.available_permits(), 0);
-    assert!(host.state.plugins.try_lock().is_ok());
-    assert!(host.state.capability_broker.try_lock().is_ok());
+    // An unrelated Host request may hold either lock for a moment. Prove that
+    // active Workers do not retain them, rather than sampling one instant.
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if host.state.plugins.try_lock().is_ok()
+                && host.state.capability_broker.try_lock().is_ok()
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("active Workers retained the registry or broker lock");
     assert_eq!(
         tokio::time::timeout(
             Duration::from_secs(2),

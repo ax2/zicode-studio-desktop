@@ -1,6 +1,6 @@
 # 资源 Worker 原始二进制输出候选 draft.1
 
-2026-10-10，内部标识 `resource.wasi.output.draft1`。这是 Worker 输出承载基础，不是公开 Host profile、完整 resource.v1 或 DevTools 图片工具验收。不得据此声明生产 Host 已支持资源结果。
+2026-10-10，内部标识 `resource.wasi.output.draft1`。这是 Worker 输出承载基础，不是完整 resource.v1 或 DevTools 图片工具验收。当前源码另有 [resource.output.types.v1 预览版](resource-output-types-profile.md)用于协商扩展 MIME 索引；未发布正式稳定资源 API，也不得据此声明生产 Host 已接受提供方结果。
 
 ## 显式选择与兼容
 

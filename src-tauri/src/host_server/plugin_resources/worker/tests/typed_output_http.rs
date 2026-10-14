@@ -14,7 +14,10 @@ pub(super) async fn verify(
     let plugin_id = "com.zicode.studio.typed-output-fixture";
     manifest["id"] = json!(plugin_id);
     manifest["schemaVersion"] = json!(2);
-    manifest["requiredProfiles"] = json!({"output.schema.v1":"=1.0.0-rc.1"});
+    manifest["requiredProfiles"] = json!({
+        "output.schema.v1":"=1.0.0-rc.1",
+        "resource.output.types.v1":"=1.0.0-preview.1"
+    });
     manifest["runtime"]["resourceOutputProfile"] =
         json!(crate::plugin_worker::resource_output::PROFILE);
     manifest["contributes"]["capabilities"] = json!([{
@@ -105,9 +108,25 @@ pub(super) async fn verify(
         i32.const 404 local.get $jsonlen i32.store
         i32.const 1 i32.const 400 i32.const 1 i32.const 408 call $json drop))"#;
     std::fs::write(consumer_package.join("runtime/tools.wasm"), consumer_module).unwrap();
+    let legacy_id = "com.zicode.studio.typed-output-unnegotiated";
+    let legacy_package = root.join("typed-output-unnegotiated-package");
+    std::fs::create_dir_all(legacy_package.join("runtime")).unwrap();
+    let mut legacy_manifest = manifest.clone();
+    legacy_manifest["id"] = json!(legacy_id);
+    legacy_manifest["requiredProfiles"] = json!({"output.schema.v1":"=1.0.0-rc.1"});
+    std::fs::write(
+        legacy_package.join("plugin.json"),
+        serde_json::to_vec(&legacy_manifest).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(legacy_package.join("runtime/tools.wasm"), module).unwrap();
     {
         let mut registry = host.state.plugins.lock().unwrap();
-        for (id, path) in [(plugin_id, &package), (consumer_id, &consumer_package)] {
+        for (id, path) in [
+            (plugin_id, &package),
+            (consumer_id, &consumer_package),
+            (legacy_id, &legacy_package),
+        ] {
             registry.install_developer(path).unwrap();
             registry.set_enabled("programming", id, true).unwrap();
             registry
@@ -138,6 +157,32 @@ pub(super) async fn verify(
         "pluginId":plugin_id,"capabilityId":"typed.fixture"});
     let consumer_owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,
         "pluginId":consumer_id,"capabilityId":"typed.consume"});
+    let legacy_owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,
+        "pluginId":legacy_id,"capabilityId":"typed.fixture"});
+    let legacy_source = output_http::material(host, client, &legacy_owner, b"x").await;
+    let before = host.state.plugin_resources.lock().unwrap().record_count();
+    let rejected = output_http::post(
+        host,
+        client,
+        "invoke-view",
+        json!({"access":legacy_source,"toolCallId":uuid::Uuid::new_v4(),"input":{}}),
+    )
+    .await;
+    assert_eq!(rejected.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        rejected.json::<Value>().await.unwrap()["error"]["code"],
+        "resource_output_profile_unsupported"
+    );
+    assert_eq!(
+        host.state.plugin_resources.lock().unwrap().record_count(),
+        before
+    );
+    assert_eq!(
+        output_http::post(host, client, "revoke", legacy_source)
+            .await
+            .status(),
+        StatusCode::OK
+    );
     let source = output_http::material(host, client, &owner, b"x").await;
     let invoked = output_http::post(
         host,
@@ -269,5 +314,6 @@ pub(super) async fn verify(
     json!({"passed":true,"workerMimeIndices":[25,26],"confirmedSave":true,
         "generatedExtensions":["html","sqlite"],"savedLibraryVisible":true,
         "confirmedCrossPluginTransfer":true,"consumerCheckedExactBytes":true,
+        "unnegotiatedTypeRejectedBeforePublication":true,
         "providerAlgorithm":false,"nativeUi":false})
 }

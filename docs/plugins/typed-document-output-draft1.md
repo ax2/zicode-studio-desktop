@@ -2,6 +2,8 @@
 
 2026-10-14。Studio 的内部 `resource.wasi.output.draft1` 追加四种输出类型，服务于 DevTools 的 CSV、Markdown、HTML 和 SQLite 交付。Worker 的既有 MIME 索引 0–22 不变，新索引依次为 23–26。类型声明只确定保存后缀和有限预览方式，**不检验文件内容、执行 HTML/SQL，也不代表 DevTools 实包或完整工具已接入**。
 
+索引 5–26 的使用现需由插件清单声明 [resource.output.types.v1 预览版](resource-output-types-profile.md)；Host 在登记资源前拒绝未协商的扩展类型。原有 0–4 类型保持兼容。
+
 | 索引 | MIME | 固定保存后缀 | 可信预览 |
 | ---: | --- | --- | --- |
 | 23 | `text/csv` | `.csv` | 最多 128 KiB 严格 UTF-8 文字 |

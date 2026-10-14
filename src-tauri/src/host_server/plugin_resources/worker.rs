@@ -280,7 +280,7 @@ fn execute(
         return Err(rejected("worker_cancelled"));
     }
     let owner = &request.access.owner;
-    let (module, scene, binary, output_contract) = {
+    let (module, scene, binary, extended_output_types, output_contract) = {
         let registry = state
             .plugins
             .lock()
@@ -334,7 +334,9 @@ fn execute(
         let module = plugin_results::module_snapshot::read(&path)
             .map_err(|_| rejected("resource_module_unavailable"))?;
         let binary=output::selection(&plugin.manifest.runtime)?;
-        (module, target.scene_id, binary, capability)
+        let extended_output_types=plugin.manifest.required_profiles
+            .get("resource.output.types.v1").is_some();
+        (module, target.scene_id, binary, extended_output_types, capability)
     };
     // This proof incorporates the captured module bytes, not a later mutable file read.
     let proof = identity_module(state, owner, None, Some(&module))?;
@@ -407,7 +409,7 @@ fn execute(
     let (status, output) = result.map_err(|e| rejected(e.code))?;
     if cancelled.load(Ordering::Acquire) { return Err(rejected("worker_cancelled")); }
     if binary && status.success() {
-        return output::register(state, request, &proof, &output, cancelled, &output_contract);
+        return output::register(state, request, &proof, &output, cancelled, &output_contract, extended_output_types);
     }
     let response: Value =
         serde_json::from_slice(&output).map_err(|_| rejected("worker_protocol_error"))?;
