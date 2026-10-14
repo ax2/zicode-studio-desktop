@@ -146,9 +146,13 @@ pub(crate) fn run_observed(
                 if status.is_some() {
                     // Even a successful parent exit can leave inherited pipe
                     // handles in descendants. Reclaim them before awaiting EOF.
-                    tree.terminate().map_err(|_| Error {
-                        code: "worker_cleanup_failed",
-                        message: "Cannot confirm plugin Worker process tree termination",
+                    tree.terminate().map_err(|_| {
+                        #[cfg(test)]
+                        eprintln!("worker_cleanup_failed stage=after_exit pid={pid}");
+                        Error {
+                            code: "worker_cleanup_failed",
+                            message: "Cannot confirm plugin Worker process tree termination",
+                        }
                     })?;
                 }
             }
@@ -169,13 +173,22 @@ pub(crate) fn run_observed(
         }
     })();
     if tree.terminate().is_err() {
+        #[cfg(test)]
+        eprintln!("worker_cleanup_failed stage=after_result pid={pid}");
         let _ = child.kill();
         let _ = child.wait();
         return Err(Error { code: "worker_cleanup_failed", message: "Cannot confirm plugin Worker process tree termination" });
     }
     if result.is_err() {
         let _ = child.kill();
-        if child.wait().is_err() {
+        if let Err(error) = child.wait() {
+            #[cfg(test)]
+            eprintln!(
+                "worker_cleanup_failed stage=wait pid={pid} errno={:?}",
+                error.raw_os_error()
+            );
+            #[cfg(not(test))]
+            let _ = error;
             return Err(Error {
                 code: "worker_cleanup_failed",
                 message: "Cannot confirm plugin Worker termination",

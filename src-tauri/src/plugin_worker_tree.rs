@@ -115,7 +115,8 @@ impl Tree {
                 self.0.set(0);
                 return Ok(());
             }
-            match std::io::Error::last_os_error().raw_os_error() {
+            let error = std::io::Error::last_os_error();
+            match error.raw_os_error() {
                 // A signal may interrupt the call without changing the group.
                 Some(libc::EINTR) if interruptions < 8 => {
                     interruptions += 1;
@@ -126,7 +127,14 @@ impl Tree {
                     self.0.set(0);
                     return Ok(());
                 }
-                _ => return Err(()),
+                _ => {
+                    #[cfg(test)]
+                    eprintln!(
+                        "worker_group_cleanup_failed pgid={group} errno={:?}",
+                        error.raw_os_error()
+                    );
+                    return Err(());
+                }
             }
         }
     }
