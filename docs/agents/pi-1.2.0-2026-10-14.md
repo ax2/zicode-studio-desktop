@@ -8,6 +8,7 @@
 - `bun run typecheck:extensions-source`、`bun run check`、`bun run build:extensions` 通过。`bun run check` 仍报告仓库既有 143 个 warning、10 个 info，以及设计检查中的 1 个内联样式提示。
 - Finance 与 Inbox 扩展均在 Pi 1.2.0 上完成命令加载、本地插件 HTTP 往返与正常退出；不包含真实模型调用或外部凭据。
 - `bun run build:local` 复用 `target/debug`，最终 EXE 为 `target/debug/zicode-studio-desktop.exe`，SHA-256 `447B29E50AF10265430235D8B704DF09B85D557088D0F687B0B74576B1A3A9E7`。未生成新版正式安装包。
+- 当前 EXE 的只读 `--explorer-menu-status` 返回传统菜单 `installed=5/total=5`、`stale=0`、当前用户范围；它只证明注册状态，不证明实体 Explorer 点击或 Windows 11 一级菜单。
 - 更新包依赖后没有实际启动这个 EXE 的原生 WebView 会话。一次沿用旧隔离 profile 的运行与 `/health` 读取命令被自动批准审查以 `blocked by policy` 拒绝，命令未执行；没有改用别的 profile 重试。不能据此声称新版 EXE 的运行态 Pi 健康页或系统托盘已验收。
 
 ## 磁盘与接入范围
