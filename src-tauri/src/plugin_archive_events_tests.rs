@@ -113,6 +113,28 @@ fn rejects_untrusted_event_shapes_and_poisoned_stream() {
 }
 
 #[test]
+fn windows_device_names_cannot_be_flagged_safe_for_extraction() {
+    let long_name = "a".repeat(256);
+    for name in ["COM¹.txt", "nested/LPT².log", "CONIN$/file", "NUL.tar.gz"]
+        .into_iter()
+        .chain(std::iter::once(long_name.as_str()))
+    {
+        let mut decoder = ArchiveEventDecoder::new(CALL, "list").unwrap();
+        decoder
+            .accept_line(&line(0, "started", json!({"operation":"list"})))
+            .unwrap();
+        let entry = |safe| line(1, "entry", json!({"entryId":"one","name":name,
+            "kind":"file","uncompressedBytes":1,"compressedBytes":1,
+            "safeRelativePath":safe}));
+        assert_eq!(decoder.accept_line(&entry(true)), Err("unsafe_entry_flag"), "{name}");
+
+        let mut display = ArchiveEventDecoder::new(CALL, "list").unwrap();
+        display.accept_line(&line(0, "started", json!({"operation":"list"}))).unwrap();
+        assert!(display.accept_line(&entry(false)).is_ok(), "{name}");
+    }
+}
+
+#[test]
 fn rejects_serialization_and_budget_violations() {
     let mut decoder = ArchiveEventDecoder::new(CALL, "test").unwrap();
     let mut first = line(0, "started", json!({"operation":"test"}));

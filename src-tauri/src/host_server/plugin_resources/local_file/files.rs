@@ -7,18 +7,11 @@ pub(in crate::host_server::plugin_resources) fn components(relative: &str) -> Re
     }
     let parts: Vec<_> = relative.split('/').collect();
     for part in &parts {
-        let base = part.split('.').next().unwrap_or("").to_ascii_uppercase();
-        let reserved = matches!(
-            base.as_str(),
-            "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
-        ) || (base.len() == 4
-            && (base.starts_with("COM") || base.starts_with("LPT"))
-            && matches!(base.as_bytes()[3], b'1'..=b'9'));
         if part.is_empty()
             || matches!(*part, "." | "..")
             || part.len() > 255
             || part.ends_with(['.', ' '])
-            || reserved
+            || crate::portable_path::reserved_windows_device_name(part)
             || part.chars().any(|c| {
                 c.is_control() || matches!(c, '\\' | ':' | '<' | '>' | '"' | '|' | '?' | '*')
             })

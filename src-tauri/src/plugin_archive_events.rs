@@ -347,38 +347,14 @@ fn safe_relative_path(name: &str) -> bool {
     }
     normalized.split('/').all(|part| {
         if part.is_empty()
+            || part.len() > 255
             || matches!(part, "." | "..")
             || part.bytes().any(|b| b"<>:\"|?*".contains(&b))
             || part.ends_with(['.', ' '])
         {
             return false;
         }
-        let base = part.split('.').next().unwrap_or("").to_ascii_uppercase();
-        !matches!(
-            base.as_str(),
-            "CON"
-                | "PRN"
-                | "AUX"
-                | "NUL"
-                | "COM1"
-                | "COM2"
-                | "COM3"
-                | "COM4"
-                | "COM5"
-                | "COM6"
-                | "COM7"
-                | "COM8"
-                | "COM9"
-                | "LPT1"
-                | "LPT2"
-                | "LPT3"
-                | "LPT4"
-                | "LPT5"
-                | "LPT6"
-                | "LPT7"
-                | "LPT8"
-                | "LPT9"
-        )
+        !crate::portable_path::reserved_windows_device_name(part)
     })
 }
 

@@ -61,7 +61,7 @@ fn request(id: String) -> FileGrant {
 fn portable_names_and_schemas_never_accept_paths_or_extra_authority() {
     for value in [
         "", "/a", "../a", "a/../b", "a//b", "C:/a", "a\\b", "a:stream", "a\0b", "a.", "a ",
-        "NUL.txt", "COM1", "a/*",
+        "NUL.txt", "COM1", "COM¹.txt", "nested/LPT².log", "a/*",
     ] {
         assert!(files::components(value).is_err(), "{value:?}");
     }

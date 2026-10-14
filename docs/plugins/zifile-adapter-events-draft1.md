@@ -33,3 +33,5 @@ bun run scripts/verify-zifile-adapter-events.mjs <trace.jsonl> <operation> <arch
 2026-10-14 Studio 增加了 `plugin_archive_events` 的 Rust 增量接收器和完整流解码入口：每行及总流有界，失败后接收器不可继续使用，完整流通过 `ended` 才向调用方返回事件。它复用本页的自制 JSONL 样例做同源协议检查。当前没有任何插件调用路径使用该模块，也未开放 native profile；Host 对资源版本、Worker 生命周期、分页游标真实性和写入事务的核对仍须在接线时实现，不能把此接收器当作 ZiFile 功能验收。
 
 2026-10-14 后续：[内部进程传输候选](zifile-archive-transport.md)将既有 Worker 进程树生命周期与完整事件流校验组合，在成功退出并验证全部事件前不交付任何结果。它仍没有签名 native 入口、资源/密码映射、分页游标和写入状态机；上段“没有任何插件调用路径使用该模块”继续成立。ZiFile 接受数仍为 0。
+
+2026-10-14 路径边界复核：`safeRelativePath:true` 的 Host 校验与项目文件资源共用 Windows 设备名判断，包含 `COM¹`/`LPT²` 等保留名称；每个路径段还限制为最多 255 个 UTF-8 字节。危险条目仍允许以 `safeRelativePath:false` 展示。定向 Rust 用例和严格静态检查已通过；这只是事件接收边界，不等于解压路径、真实 ZiFile Worker 或 108 项格式操作已验收。实际解压前仍须复验归档条目、链接和目标目录。
