@@ -48,15 +48,72 @@ pub(super) async fn verify(
         i32.const 144 i32.const 128 i32.store i32.const 148 i32.const 2 i32.store
         i32.const 1 i32.const 144 i32.const 1 i32.const 152 call $json drop))"#;
     std::fs::write(package.join("runtime/tools.wasm"), module).unwrap();
+    let consumer_id = "com.zicode.studio.typed-output-consumer";
+    let consumer_package = root.join("typed-output-consumer-package");
+    std::fs::create_dir_all(consumer_package.join("runtime")).unwrap();
+    let mut consumer_manifest = template.clone();
+    consumer_manifest["id"] = json!(consumer_id);
+    consumer_manifest["contributes"]["capabilities"] = json!([{
+        "id":"typed.consume","title":"Consume typed output",
+        "inputSchema":{"type":"object","additionalProperties":false},
+        "outputSchema":{"type":"object","properties":{"received":{"type":"string"}},
+            "required":["received"],"additionalProperties":false}
+    }]);
+    std::fs::write(
+        consumer_package.join("plugin.json"),
+        serde_json::to_vec(&consumer_manifest).unwrap(),
+    )
+    .unwrap();
+    let consumer_module = r#"(module
+      (import "zicode_resource_input_draft1" "size" (func $size (param i32) (result i64)))
+      (import "zicode_resource_input_draft1" "read" (func $read (param i32 i64 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "fd_write" (func $json (param i32 i32 i32 i32) (result i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 128) "<script>alert(1)</script>")
+      (data (i32.const 192) "SQLite format 3\00")
+      (data (i32.const 256) "{\22received\22:\22html\22}")
+      (data (i32.const 300) "{\22received\22:\22sqlite\22}")
+      (func (export "_start") (local $length i32) (local $expected i32)
+        (local $jsonptr i32) (local $jsonlen i32) (local $index i32)
+        i32.const 0 call $size
+        i64.const 25 i64.eq
+        if
+          i32.const 25 local.set $length
+          i32.const 128 local.set $expected
+          i32.const 256 local.set $jsonptr
+          i32.const 19 local.set $jsonlen
+        else
+          i32.const 0 call $size i64.const 16 i64.ne if unreachable end
+          i32.const 16 local.set $length
+          i32.const 192 local.set $expected
+          i32.const 300 local.set $jsonptr
+          i32.const 21 local.set $jsonlen
+        end
+        i32.const 0 i64.const 0 i32.const 0 local.get $length call $read
+        local.get $length i32.ne if unreachable end
+        block $done
+          loop $compare
+            local.get $index local.get $length i32.ge_u br_if $done
+            local.get $index i32.load8_u
+            local.get $expected local.get $index i32.add i32.load8_u
+            i32.ne if unreachable end
+            local.get $index i32.const 1 i32.add local.set $index
+            br $compare
+          end
+        end
+        i32.const 400 local.get $jsonptr i32.store
+        i32.const 404 local.get $jsonlen i32.store
+        i32.const 1 i32.const 400 i32.const 1 i32.const 408 call $json drop))"#;
+    std::fs::write(consumer_package.join("runtime/tools.wasm"), consumer_module).unwrap();
     {
         let mut registry = host.state.plugins.lock().unwrap();
-        registry.install_developer(&package).unwrap();
-        registry
-            .set_enabled("programming", plugin_id, true)
-            .unwrap();
-        registry
-            .set_permission("programming", plugin_id, "resource.read", true)
-            .unwrap();
+        for (id, path) in [(plugin_id, &package), (consumer_id, &consumer_package)] {
+            registry.install_developer(path).unwrap();
+            registry.set_enabled("programming", id, true).unwrap();
+            registry
+                .set_permission("programming", id, "resource.read", true)
+                .unwrap();
+        }
         registry
             .set_enabled("programming", "com.zicode.artifacts", true)
             .unwrap();
@@ -79,6 +136,8 @@ pub(super) async fn verify(
         .insert(target.workspace_id.clone(), workspace.clone());
     let owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,
         "pluginId":plugin_id,"capabilityId":"typed.fixture"});
+    let consumer_owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,
+        "pluginId":consumer_id,"capabilityId":"typed.consume"});
     let source = output_http::material(host, client, &owner, b"x").await;
     let invoked = output_http::post(
         host,
@@ -134,6 +193,48 @@ pub(super) async fn verify(
         assert_eq!(saved["receipt"]["mimeType"], mime);
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
         saved_ids.push(prepared["grantId"].clone());
+
+        let transfer = output_http::post(
+            host,
+            client,
+            "prepare-transfer",
+            json!({"schemaVersion":1,"source":derived,"target":consumer_owner}),
+        )
+        .await;
+        assert_eq!(transfer.status(), StatusCode::OK);
+        let transfer = transfer.json::<Value>().await.unwrap();
+        assert_eq!(transfer["mimeType"], mime);
+        assert_eq!(transfer["requiresConfirmation"], true);
+        let mut commit = json!({"schemaVersion":1,"source":derived,
+            "grantId":transfer["grantId"],"confirmed":false});
+        let denied = output_http::post(host, client, "commit-transfer", commit.clone()).await;
+        assert_eq!(
+            denied.json::<Value>().await.unwrap()["error"]["code"],
+            "resource_confirmation_required"
+        );
+        commit["confirmed"] = json!(true);
+        let transferred = output_http::post(host, client, "commit-transfer", commit).await;
+        assert_eq!(transferred.status(), StatusCode::OK);
+        let transferred = transferred.json::<Value>().await.unwrap();
+        assert_eq!(
+            transferred["reference"]["contentVersion"],
+            row["contentVersion"]
+        );
+        let access = json!({"schemaVersion":1,"owner":consumer_owner,
+            "resourceId":transferred["reference"]["resourceId"],
+            "contentVersion":transferred["reference"]["contentVersion"]});
+        let consumed = output_http::post(
+            host,
+            client,
+            "invoke-view",
+            json!({"access":access,"toolCallId":uuid::Uuid::new_v4(),"input":{}}),
+        )
+        .await;
+        assert_eq!(consumed.status(), StatusCode::OK);
+        assert_eq!(
+            consumed.json::<Value>().await.unwrap()["result"]["received"],
+            extension
+        );
     }
     let listed = client
         .get(format!(
@@ -167,5 +268,6 @@ pub(super) async fn verify(
     );
     json!({"passed":true,"workerMimeIndices":[25,26],"confirmedSave":true,
         "generatedExtensions":["html","sqlite"],"savedLibraryVisible":true,
+        "confirmedCrossPluginTransfer":true,"consumerCheckedExactBytes":true,
         "providerAlgorithm":false,"nativeUi":false})
 }
