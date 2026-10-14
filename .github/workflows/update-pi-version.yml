@@ -182,7 +182,33 @@ jobs:
           *This PR was opened automatically by the [check pi updates](${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}) workflow.*
           PREOF
 
-          gh pr create \
+          if gh pr create \
             --repo "$GITHUB_REPOSITORY" \
             --title "chore: bump embedded pi v${CURRENT} → v${NEW}" \
-            --body-file "$RUNNER_TEMP/pi-pr-body.md"
+            --body-file "$RUNNER_TEMP/pi-pr-body.md"; then
+            exit 0
+          fi
+
+          # A repository setting can reject PR creation even when this job has
+          # contents/pull-requests write. Restore only the exact ref we pushed.
+          if ! ACTIVE=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" \
+            --state open --json number --jq '.[0].number // empty'); then
+            echo "::warning::Could not check whether a PR was created; leaving the branch untouched."
+            exit 1
+          fi
+          if [ -n "$ACTIVE" ]; then
+            echo "PR #$ACTIVE now exists for v$NEW."
+            exit 0
+          fi
+          PUSHED_TIP=$(git rev-parse HEAD)
+          if [ -n "$REMOTE_TIP" ]; then
+            git push --force-with-lease="refs/heads/$BRANCH:$PUSHED_TIP" \
+              origin "$REMOTE_TIP:refs/heads/$BRANCH" \
+              || echo "::warning::Could not restore the previous update branch tip."
+          else
+            git push --force-with-lease="refs/heads/$BRANCH:$PUSHED_TIP" \
+              origin ":refs/heads/$BRANCH" \
+              || echo "::warning::Could not remove this run's new update branch."
+          fi
+          echo "::error::Could not create the pi update PR. Check the repository Actions setting for creating pull requests."
+          exit 1
