@@ -98,6 +98,19 @@ describe("PluginViewHost", () => {
     expect(document.querySelector("iframe")).toBeNull();
     host.destroy();
   });
+  it("keeps another plugin view available when one view has unsupported assets", async () => {
+    const { gateway, host } = setup();
+    gateway.viewSource.mockImplementation(async (_sceneId, pluginId, viewId) => ({
+      view: { pluginId, viewId, location: viewId.endsWith("sidebar") ? "sidebar" : "main",
+        html: viewId.endsWith("sidebar") ? "<main>Available</main>" : "<script src='remote.js'></script>" },
+    }));
+    host.renderNavigation(document.getElementById("navigation"), PLUGIN);
+    host.renderContent(document.getElementById("content"), PLUGIN);
+    await vi.waitFor(() => expect(document.querySelector("#content .plugin-view-error")).toBeTruthy());
+    await vi.waitFor(() => expect(document.querySelector("#navigation iframe")).toBeTruthy());
+    expect(document.querySelector("#content iframe")).toBeNull();
+    host.destroy();
+  });
   it("shows trusted model consent before a one-use Host call and rejects changed targets", async () => {
     const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "runtime", sessionId: "session" };
     const capabilityGateway = {
