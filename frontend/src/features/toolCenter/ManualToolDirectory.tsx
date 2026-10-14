@@ -107,7 +107,16 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
         ...(category ? { categoryId: category } : {}),
         ...(view !== "all" ? { view, workspaceId: scope.workspaceId } : {}) })
         .then(value => { if (active) setPage(value); })
-        .catch(reason => { if (active) { setPage(null); setError(manualToolError(reason)); } })
+        .catch(reason => {
+          if (!active) return;
+          setPage(null);
+          if (cursor.revision && reason && typeof reason === "object" && "code" in reason && reason.code === "catalog_changed") {
+            // A paged snapshot is obsolete. Refresh metadata from page one without closing tools.
+            setCursor({ offset: 0, revision: null });
+          } else {
+            setError(manualToolError(reason));
+          }
+        })
         .finally(() => { if (active) setLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
