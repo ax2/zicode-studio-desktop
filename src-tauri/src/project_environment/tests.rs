@@ -181,7 +181,9 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
     let info = manager
         .open_with_environment(&f.0, "one", 80, 24, &f.environment())
         .unwrap();
-    let completed = tokio::time::timeout(Duration::from_secs(12), async {
+    // Cold Windows runners may spend more than 12 seconds initializing
+    // PowerShell and PSReadLine before their first prompt appears.
+    let completed = tokio::time::timeout(Duration::from_secs(30), async {
         use base64::Engine;
         let mut offset = 0;
         let mut terminal_output = String::new();
