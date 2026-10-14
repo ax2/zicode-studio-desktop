@@ -4,6 +4,8 @@
 
 2026-10-14 `agent-runner` 的在途无签名模型辅助 View 候选只覆盖一次有界模型生成，明确排除 MCP、RAG、文件、跨工具接力、后台任务和运行中取消。只读检查发现候选 HTML 引用相对 `limits.js`，而 Studio `srcdoc` CSP 禁止外部脚本；已向提供方原会话反馈需内联/构建打包后再交付。Studio 新增挂载前明确报错，避免空白 View。这不是签名包或运行验收，也不改变下表冻结 dev.105 版本与 0/154 完整接受数；见[模型生成预览](model-generation-preview.md)。
 
+同日后续只读观察：提供方把校验模块内联进 28,698 字节的 View HTML（SHA-256 `067306698937bd4a674918d8131337748bea1173eb33b56e7ab6beb680435049`），外部脚本/样式引用检出 0 项。该文件仍属未提交、未冻结候选；其修复不替代 Studio Host、原生 UI、模型端点或全量 Agent 任务验收。
+
 独立程序双EXE/MSI更新不能原样作为Studio插件功能；插件生命周期由Studio管理，可另拆通用算法。其他条目没有被证明永久不兼容；已完成子能力可先交付。
 
 此前Base64工作台执行超时5220ms的失败证据保留；优化后编码/解码基本样例494/626ms成功，未改Worker预算。原HTTP专项的5个JSON漂移已证明为排版差异，备份后精确恢复原冻结摘要，13文件完整验证及原专项重新通过，原失败保留且未改期望值。当前Inspect84/Transforms164个Worker语义用例与工作台JSON→YAML/URL解码基本样例1252/1015ms通过；20个raw用例未覆盖，旧Pi超时尚未重验，完整scope/生命周期/签名/其他OS仍待。见iterations/fixture-integrity-2026-10-09及JSON currentRuntimeVerification；不将临时阻塞从154范围删除。
