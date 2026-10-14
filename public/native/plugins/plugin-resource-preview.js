@@ -1,5 +1,6 @@
 import { t } from "../../i18n.js";
 import { loadResourcePreview } from "./plugin-resource-preview-load.js";
+import { isTextOutput } from "./plugin-output-formats.js";
 
 export function createResourcePreview({ container, read, isCurrent, plugin, onTransfer, onSave, onClear = () => {} }) {
   const panel = document.createElement("section");
@@ -46,7 +47,7 @@ export function createResourcePreview({ container, read, isCurrent, plugin, onTr
       const label = t("Output {number}").replace("{number}", resource.index + 1);
       const metadata = node("span", `${label} · ${resource.mimeType} · ${resource.byteLength.toLocaleString()} ${t("bytes")}`);
       const preview = button(t("Preview {name}").replace("{name}", label), () => void open(resource, token));
-      const limit = resource.mimeType === "text/plain" ? 128 * 1024 : 8 * 1024 * 1024;
+      const limit = isTextOutput(resource.mimeType) ? 128 * 1024 : 8 * 1024 * 1024;
       preview.disabled = resource.byteLength > limit;
       if (preview.disabled) row.append(node("span", t("This result is too large to preview.")));
       row.append(metadata, preview); panel.append(row);

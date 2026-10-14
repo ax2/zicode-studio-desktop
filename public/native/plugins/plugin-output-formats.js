@@ -23,6 +23,10 @@ export const OUTPUT_EXTENSIONS = Object.freeze({
   "application/x-zicode-archive-brotli": "br",
   "application/x-zicode-archive-rar": "rar",
   "application/x-zicode-archive-cab": "cab",
+  "text/csv": "csv",
+  "text/markdown": "md",
+  "text/html": "html",
+  "application/x-zicode-sqlite": "sqlite",
 });
 
 export function outputExtension(mime) {
@@ -30,5 +34,9 @@ export function outputExtension(mime) {
 }
 
 export function isBinaryOutput(mime) {
-  return mime === "application/octet-stream" || mime.startsWith("application/x-zicode-archive-");
+  return mime === "application/octet-stream" || mime === "application/x-zicode-sqlite" || mime.startsWith("application/x-zicode-archive-");
+}
+
+export function isTextOutput(mime) {
+  return mime === "text/plain" || mime === "text/csv" || mime === "text/markdown" || mime === "text/html";
 }

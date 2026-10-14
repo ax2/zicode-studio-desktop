@@ -14,6 +14,14 @@ describe("bounded parent preview reads", () => {
     const c = await fixture();
     expect(await loadResourcePreview(c)).toEqual({ kind: "text", text: "<script>local text</script>" });
   });
+  it("returns HTML and Markdown only as inert UTF-8 text and SQLite as hex", async () => {
+    for (const mime of ["text/csv", "text/markdown", "text/html"]) {
+      const c = await fixture(new TextEncoder().encode("<script>alert(1)</script>"), mime);
+      expect(await loadResourcePreview(c)).toEqual({ kind: "text", text: "<script>alert(1)</script>" });
+    }
+    const sqlite = await fixture(new Uint8Array([0x53, 0x51, 0x4c]), "application/x-zicode-sqlite");
+    expect(await loadResourcePreview(sqlite)).toEqual({ kind: "binary", text: "53 51 4c" });
+  });
   it("reads 32KiB chunks and only displays the first 256 binary bytes", async () => {
     const c = await fixture(new Uint8Array(65537).fill(173), "application/octet-stream");
     const result = await loadResourcePreview(c);

@@ -47,3 +47,25 @@ fn derived_archive_output_prepares_a_named_confirmed_save() {
     assert!(result["preview"]["relativePath"].as_str().unwrap().ends_with("/result.tar.gz"));
     assert_eq!(result["preview"]["mimeType"], "application/x-zicode-archive-targzip");
 }
+
+#[test]
+fn document_and_database_outputs_prepare_fixed_extensions() {
+    let mut store = Store::default();
+    let source = source(&mut store);
+    for (mime, extension) in [
+        ("text/csv", "csv"), ("text/markdown", "md"),
+        ("text/html", "html"), ("application/x-zicode-sqlite", "sqlite"),
+    ] {
+        let rows = store.register_outputs(&source, "proof", vec![
+            crate::plugin_worker::resource_output::Blob { mime_type: mime.into(), bytes: b"sample".to_vec() },
+        ]).unwrap();
+        let output = &rows[0];
+        let access = Access { schema_version: 1, owner: source.owner.clone(),
+            resource_id: output["resourceId"].as_str().unwrap().into(),
+            content_version: output["contentVersion"].as_str().unwrap().into() };
+        let prepared = store.prepare_save(&access, "proof", "destination".into(),
+            std::path::PathBuf::from("unused"), "workspace", "0.1.0").unwrap();
+        assert!(prepared["preview"]["relativePath"].as_str().unwrap().ends_with(&format!("/result.{extension}")));
+        assert_eq!(prepared["preview"]["mimeType"], mime);
+    }
+}

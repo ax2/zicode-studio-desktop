@@ -25,6 +25,10 @@ pub(crate) const MIMES: &[&str] = &[
     "application/x-zicode-archive-brotli",
     "application/x-zicode-archive-rar",
     "application/x-zicode-archive-cab",
+    "text/csv",
+    "text/markdown",
+    "text/html",
+    "application/x-zicode-sqlite",
 ];
 
 pub(crate) fn extension(mime: &str) -> Option<&'static str> {
@@ -52,6 +56,10 @@ pub(crate) fn extension(mime: &str) -> Option<&'static str> {
         "application/x-zicode-archive-brotli" => Some("br"),
         "application/x-zicode-archive-rar" => Some("rar"),
         "application/x-zicode-archive-cab" => Some("cab"),
+        "text/csv" => Some("csv"),
+        "text/markdown" => Some("md"),
+        "text/html" => Some("html"),
+        "application/x-zicode-sqlite" => Some("sqlite"),
         _ => None,
     }
 }
@@ -71,7 +79,7 @@ mod tests {
                 "text/plain"
             ]
         );
-        assert_eq!(MIMES.len(), 23);
+        assert_eq!(MIMES.len(), 27);
         let mut suffixes = std::collections::HashSet::new();
         for mime in MIMES {
             let suffix = extension(mime).unwrap();
@@ -80,6 +88,8 @@ mod tests {
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.'));
             assert!(suffixes.insert(suffix));
         }
-        assert_eq!(extension("text/html"), None);
+        assert_eq!(extension("text/html"), Some("html"));
+        assert_eq!(extension("application/x-zicode-sqlite"), Some("sqlite"));
+        assert_eq!(extension("application/javascript"), None);
     }
 }

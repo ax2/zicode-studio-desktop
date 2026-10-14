@@ -182,7 +182,7 @@ fn derived_outputs_are_atomic_scoped_immutable_and_follow_source_revocation() {
     let grandchild=store.register_outputs(&foreign,"proof",vec![blob()]).unwrap();
     assert_eq!(store.records.len(),4);
     let before=store.records.len();
-    assert!(store.register_outputs(&source,"proof",vec![blob(),Blob {mime_type:"text/html".into(),bytes:vec![]}]).is_err());
+    assert!(store.register_outputs(&source,"proof",vec![blob(),Blob {mime_type:"application/javascript".into(),bytes:vec![]}]).is_err());
     assert_eq!(store.records.len(),before);
     store.revoke(&source).unwrap();
     assert!(store.records.is_empty());

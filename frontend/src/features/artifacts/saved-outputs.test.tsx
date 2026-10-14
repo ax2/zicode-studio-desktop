@@ -18,7 +18,7 @@ describe("saved plugin output library",()=>{
     await waitFor(()=>expect(g.list).toHaveBeenCalledTimes(2));expect(g.list.mock.calls[1]).toMatchObject(["programming","ws",{query:"copy",offset:0}]);
   });
   it("verifies on click and renders saved HTML-looking content as literal text",async()=>{
-    const g=gateway();g.read.mockResolvedValue(new TextEncoder().encode("<b>x").buffer);const row={...item,receipt:{...item.receipt,byteLength:4}};g.list.mockResolvedValue({...page,items:[row]});
+    const g=gateway();g.read.mockResolvedValue(new TextEncoder().encode("<b>x").buffer);const row={...item,receipt:{...item.receipt,byteLength:4,mimeType:"text/html",relativePath:`.zicode/outputs/${id}/result.html`}};g.list.mockResolvedValue({...page,items:[row]});
     render(<SavedOutputs gateway={g} getTarget={target}/>);fireEvent.click(screen.getByText("Saved plugin files"));await screen.findByText("test.source · copy");
     fireEvent.click(screen.getByText("Preview saved file"));await screen.findByDisplayValue("<b>x");expect(document.querySelector(".saved-output-preview b")).toBeNull();
     expect(g.read).toHaveBeenCalledTimes(1);fireEvent.click(screen.getByText("Close preview"));expect(document.querySelector(".saved-output-preview")).toBeNull();
@@ -54,5 +54,8 @@ describe("saved plugin output library",()=>{
     expect(validSavedOutput({...item,receipt},"ws")).toBe(true);
     expect(validSavedOutput({...item,receipt:{...receipt,relativePath:`.zicode/outputs/${id}/result.bin`}},"ws")).toBe(false);
     expect(validSavedOutput({...item,receipt:{...receipt,mimeType:"text/html"}},"ws")).toBe(false);
+    for (const [mimeType,extension] of [["text/csv","csv"],["text/markdown","md"],["text/html","html"],["application/x-zicode-sqlite","sqlite"]]) {
+      expect(validSavedOutput({...item,receipt:{...receipt,mimeType,relativePath:`.zicode/outputs/${id}/result.${extension}`}},"ws")).toBe(true);
+    }
   });
 });

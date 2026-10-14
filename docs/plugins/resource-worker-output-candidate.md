@@ -20,6 +20,8 @@
 
 MIME 索引：0 octet-stream、1 PNG、2 JPEG、3 WebP、4 text/plain。它们是内容标签，不是图片解码/像素或 UTF-8 安全证明。可以创建零字节输出，但仍必须明确封存。
 
+2026-10-14 扩展：原有 0–22 索引保持不变，23 `text/csv`、24 `text/markdown`、25 `text/html`、26 `application/x-zicode-sqlite` 追加为固定输出类型。它们只保留受控保存和下载的 `.csv`、`.md`、`.html`、`.sqlite` 后缀；不证明 CSV/HTML/SQLite 内容格式正确。文本预览严格 UTF-8 解码后作为文字节点显示，不渲染 HTML；SQLite 仅十六进制预览。下载仍以 `application/octet-stream` 和附件方式交付，不将 HTML 当作当前应用页面执行。完整边界见 [文档与数据库输出类型候选](typed-document-output-draft1.md)。
+
 错误：-1 参数/索引/范围/状态不符，-2 guest memory 不可读，-3 次数或总预算耗尽，-4 预留失败。每次 create/write/finish 尝试都计数，最多4096次，包含错误；最多四项、累计声明32MiB。封存后不允许写入，不提供覆盖、删除、资源搜索、文件路径、网络或用户存储权限。
 
 guest 正常结束且 stdout 为一项有界 JSON 后，所有创建输出必须已封存。未封存、WASI trap/非零退出或结果 JSON 失败，整次调用失败，不发送任何部分资源。父进程取消/超时或管道清理失败不能作为成功结果。

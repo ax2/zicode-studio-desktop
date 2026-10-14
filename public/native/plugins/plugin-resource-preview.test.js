@@ -14,7 +14,7 @@ function fixture() {
 afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();vi.unstubAllGlobals();loadResourcePreview.mockReset();});
 describe("trusted parent output preview",()=>{
   it("does not read before a click and renders text using textContent",async()=>{
-    const c=fixture();loadResourcePreview.mockResolvedValue({kind:"text",text:"<img src=private>"});c.show();
+    const c=fixture();c.resource.mimeType="text/html";loadResourcePreview.mockResolvedValue({kind:"text",text:"<img src=private>"});c.show();
     expect(loadResourcePreview).not.toHaveBeenCalled();document.querySelector("button").click();await flush();
     expect(document.querySelector("pre").textContent).toBe("<img src=private>");expect(document.querySelector("img")).toBeNull();
     c.controller.destroy();expect(document.querySelector("section")).toBeNull();

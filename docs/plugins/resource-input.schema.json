@@ -56,7 +56,11 @@
             "application/x-zicode-archive-lz4",
             "application/x-zicode-archive-brotli",
             "application/x-zicode-archive-rar",
-            "application/x-zicode-archive-cab"
+            "application/x-zicode-archive-cab",
+            "text/csv",
+            "text/markdown",
+            "text/html",
+            "application/x-zicode-sqlite"
           ]
         },
         "byteLength": { "type": "integer", "minimum": 0, "maximum": 33554432 },

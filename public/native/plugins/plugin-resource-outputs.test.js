@@ -25,7 +25,7 @@ describe("resource output reference boundary", () => {
   });
   it("rejects source substitution, invalid budgets, MIME, UUID and state", () => {
     for (const extra of [{ index: 1 }, { resourceId: source.resourceId }, { contentVersion: "B".repeat(64) },
-      { mimeType: "text/html" }, { byteLength: -1 }, { byteLength: 32 * 1024 * 1024 + 1 },
+      { mimeType: "application/javascript" }, { byteLength: -1 }, { byteLength: 32 * 1024 * 1024 + 1 },
       { expiresInSeconds: 901 }, { expiresInSeconds: 0 }, { saved: true }, { origin: "upload" },
       { derivedFrom: { ...source, contentVersion: "c".repeat(64) } }])
       expect(() => normalizeResourceOutputs(reply([{ ...row(), ...extra }]), source)).toThrow("resource_response_invalid");

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { decodeResourceImage } from "../../../../public/native/plugins/plugin-resource-image.js";
 import { t } from "../../shared/i18n.js";
 import { formatBytes } from "./logic";
-import { isBinarySavedOutput, savedOutputExtension } from "./saved-output-formats";
+import { isBinarySavedOutput, isTextSavedOutput, savedOutputExtension } from "./saved-output-formats";
 import { type SavedOutput, type SavedOutputGateway, type SavedOutputPage, validSavedOutput } from "./saved-output-types";
 
 export function SavedOutputs({ gateway, getTarget }: {
@@ -46,7 +46,7 @@ export function SavedOutputs({ gateway, getTarget }: {
     try {
       const receipt = item.receipt;
       if (!validSavedOutput(item, scope.workspace)) throw new Error();
-      const limit = download ? 32 * 1024 * 1024 : receipt.mimeType === "text/plain" ? 128 * 1024 : 8 * 1024 * 1024;
+      const limit = download ? 32 * 1024 * 1024 : isTextSavedOutput(receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024;
       if (receipt.byteLength > limit) throw new Error();
       const bytes = new Uint8Array(await gateway.read(scope.scene, scope.workspace, item, scope.signal));
       if (!scope.valid()) return;
@@ -59,8 +59,8 @@ export function SavedOutputs({ gateway, getTarget }: {
         const anchor = document.createElement("a"); anchor.href = url; anchor.download = `result-${receipt.saveId}.${extension}`;
         document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
         setSelected(item); setPreview({ notice: t("Verified original file downloaded.") });
-      } else if (receipt.mimeType === "text/plain" || isBinarySavedOutput(receipt.mimeType)) {
-        setSelected(item); setPreview({ text: receipt.mimeType === "text/plain" ? new TextDecoder("utf-8", { fatal: true }).decode(bytes) : [...bytes.subarray(0, 256)].map(b => b.toString(16).padStart(2, "0")).join(" ") });
+      } else if (isTextSavedOutput(receipt.mimeType) || isBinarySavedOutput(receipt.mimeType)) {
+        setSelected(item); setPreview({ text: isTextSavedOutput(receipt.mimeType) ? new TextDecoder("utf-8", { fatal: true }).decode(bytes) : [...bytes.subarray(0, 256)].map(b => b.toString(16).padStart(2, "0")).join(" ") });
       } else {
         const result = await decodeResourceImage(bytes, receipt.mimeType, scope.valid) as { blob: Blob };
         if (!scope.valid()) return;
@@ -106,7 +106,7 @@ export function SavedOutputs({ gateway, getTarget }: {
         <span>{item.receipt.relativePath}</span><span>{item.receipt.mimeType} · {formatBytes(item.receipt.byteLength)}</span>
         <span>{t("Recorded package version")}: {item.receipt.source.packageVersion}</span>
         <div className="saved-outputs-actions">
-          <button type="button" disabled={busy || item.receipt.byteLength > (item.receipt.mimeType === "text/plain" ? 128 * 1024 : 8 * 1024 * 1024)} className="ui-button ui-button--secondary" onClick={() => void read(item, false)}>{t("Preview saved file")}</button>
+          <button type="button" disabled={busy || item.receipt.byteLength > (isTextSavedOutput(item.receipt.mimeType) ? 128 * 1024 : 8 * 1024 * 1024)} className="ui-button ui-button--secondary" onClick={() => void read(item, false)}>{t("Preview saved file")}</button>
           <button type="button" disabled={busy} className="ui-button ui-button--secondary" onClick={() => void read(item, true)}>{t("Download saved file")}</button>
         </div>
       </li>)}</ul>

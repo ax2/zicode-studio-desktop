@@ -54,7 +54,7 @@ fn output_header_enforces_metadata_lengths_versions_and_escaping_before_writing(
     }
     for (index, mime, length, version) in [
         (1, "text/plain", 0, "0".repeat(64)),
-        (0, "text/html", 0, "0".repeat(64)),
+        (0, "application/javascript", 0, "0".repeat(64)),
         (0, "text/plain", MAX_BYTES + 1, "0".repeat(64)),
         (0, "text/plain", 0, "A".repeat(64)),
     ] {
@@ -92,6 +92,23 @@ fn archive_output_frame_preserves_format_without_a_caller_filename() {
         write(&mut frame, &bundle).unwrap();
         let decoded = decode(&frame).unwrap();
         assert_eq!(decoded.resources[0].mime_type, mime);
+        assert_eq!(crate::plugin_output_types::extension(mime), Some(extension));
+    }
+}
+
+#[test]
+fn document_output_frame_keeps_fixed_type_without_a_caller_filename() {
+    for (mime, extension) in [
+        ("text/csv", "csv"), ("text/markdown", "md"),
+        ("text/html", "html"), ("application/x-zicode-sqlite", "sqlite"),
+    ] {
+        let bundle = Bundle { binary: true, result: json!({}),
+            resources: vec![Blob { mime_type: mime.into(), bytes: b"untrusted content".to_vec() }] };
+        let mut frame = Vec::new();
+        write(&mut frame, &bundle).unwrap();
+        let decoded = decode(&frame).unwrap();
+        assert_eq!(decoded.resources[0].mime_type, mime);
+        assert_eq!(decoded.resources[0].bytes, b"untrusted content");
         assert_eq!(crate::plugin_output_types::extension(mime), Some(extension));
     }
 }
