@@ -1,4 +1,4 @@
-//! At most one scoped authorization watcher per admitted resource Worker (two slots).
+//! At most one scoped authorization watcher per admitted resource Worker (three slots).
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;

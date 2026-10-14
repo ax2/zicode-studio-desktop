@@ -6,9 +6,10 @@ use std::process::Stdio;
 use std::sync::atomic::Ordering;
 
 const PROFILE: &str = "resource.wasi.input.draft2";
-const WORKERS: usize = 2;
+const WORKERS: usize = 3;
 mod lifecycle;
 mod output;
+mod slots;
 pub(in crate::host_server) mod admission;
 struct Execution { result: Value, resources: Option<Value> }
 type Observer = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
@@ -16,6 +17,7 @@ pub(crate) struct Workers {
     admissions: admission::Calls,
     instance_id: String,
     slots: Arc<tokio::sync::Semaphore>,
+    plugin_slots: slots::PluginSlots,
     events: Mutex<VecDeque<Value>>,
     #[cfg(test)]
     pub(super) executable: Mutex<Option<PathBuf>>,
@@ -28,6 +30,7 @@ impl Default for Workers {
             admissions: admission::Calls::default(),
             instance_id: uuid::Uuid::new_v4().to_string(),
             slots: Arc::new(tokio::sync::Semaphore::new(WORKERS)),
+            plugin_slots: slots::PluginSlots::default(),
             events: Mutex::new(VecDeque::new()),
             #[cfg(test)]
             executable: Mutex::new(None),
@@ -235,11 +238,21 @@ async fn invoke_request(
                 "Resource computation is busy",
             )
         })?;
+    let plugin_slot = state
+        .plugin_resource_workers
+        .plugin_slots
+        .try_acquire(&request.access.owner.plugin_id)
+        .map_err(|_| plugin_api_error(
+            StatusCode::TOO_MANY_REQUESTS,
+            "resource_worker_busy",
+            "Resource computation is busy",
+        ))?;
     let lease = if let Some((target, key)) = legacy_scope {
         WorkerLease::Legacy(state.plugin_calls.begin(&target.instance_id, &target.session_id, &key, &request.access.owner.plugin_id).map_err(rejected)?)
     } else { WorkerLease::Admitted(admission::begin(&state, &request)?) };
     tokio::task::spawn_blocking(move || {
         let _permit=permit;
+        let _plugin_slot=plugin_slot;
         let lease=lease;
         let started=Instant::now();
         let operation_id=uuid::Uuid::new_v4().to_string();
