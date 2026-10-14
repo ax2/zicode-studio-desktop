@@ -80,6 +80,7 @@ export const CHECKS = [
   {
     id: "resource-worker-http",
     command: "cargo",
+    receipt: "resource-worker-http-receipt.json",
     args: ["test", "--manifest-path", MANIFEST, "--locked", "--bin", "zicode-studio-desktop",
       RESOURCE_WORKER_TEST, "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
@@ -181,14 +182,24 @@ export function runStep(step, { cwd, directory, env, spawn = spawnSync }) {
   } finally {
     closeSync(fd);
   }
+  let receiptError = null;
+  if (result.status === 0 && step.receipt) {
+    try {
+      const receipt = JSON.parse(readFileSync(join(directory, step.receipt), "utf8"));
+      if (receipt?.passed !== true) receiptError = "receipt_failed";
+    } catch (error) {
+      receiptError = error?.code === "ENOENT" ? "receipt_missing" : "receipt_invalid";
+    }
+  }
   return {
     id: step.id,
     command: [step.command, ...step.args],
-    status: outcome(result, step.advisory),
+    status: receiptError ? "failed" : outcome(result, step.advisory),
     advisory: Boolean(step.advisory),
     exitCode: result.status ?? null,
     signal: result.signal ?? null,
-    errorCode: result.error?.code ?? (result.error ? "spawn_failed" : null),
+    errorCode: receiptError ?? result.error?.code ?? (result.error ? "spawn_failed" : null),
+    receipt: !receiptError && result.status === 0 ? step.receipt ?? null : null,
     durationMs: Date.now() - started,
     log,
   };
@@ -239,10 +250,11 @@ export function summary(report) {
   ];
   for (const step of report.steps)
     lines.push(
-      `| ${step.id} | ${step.status} | ${step.exitCode ?? "unknown"} | [log](${step.log}) |`,
+      `| ${step.id} | ${step.status}${step.errorCode ? ` (${step.errorCode})` : ""} | ${step.exitCode ?? "unknown"} | [log](${step.log}) |`,
     );
-  if (report.steps.some((step) => step.id === "resource-worker-http" && step.status === "passed"))
-    lines.push("", "Resource Worker: [structured receipt](resource-worker-http-receipt.json).");
+  const resourceWorker = report.steps.find((step) => step.id === "resource-worker-http");
+  if (resourceWorker?.status === "passed" && resourceWorker.receipt)
+    lines.push("", `Resource Worker: [structured receipt](${resourceWorker.receipt}).`);
   lines.push("", "## Tool versions", "", "| Tool | Version | Result |", "| --- | --- | --- |");
   for (const [tool, result] of Object.entries(report.tools ?? {})) {
     lines.push(

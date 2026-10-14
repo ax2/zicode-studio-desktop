@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -82,15 +82,38 @@ describe("developer platform evidence", () => {
     expect(workerBinaryPath("/checkout", "linux", "x86_64-unknown-linux-gnu")).toBe(join("/checkout", "target", "x86_64-unknown-linux-gnu", "debug", "zicode-studio-desktop"));
     const directory = mkdtempSync(join(tmpdir(), "zicode-worker-check-"));
     try {
-      const spawn = vi.fn(() => ({ status: 0 }));
+      const spawn = vi.fn((_command, _args, options) => {
+        writeFileSync(options.env.ZICODE_TEST_HOST_RESOURCE_EVIDENCE, '{"passed":true}');
+        return { status: 0 };
+      });
       const step = CHECKS.find((item) => item.id === "resource-worker-http");
       const result = runStep(step, { cwd: directory, directory, env: { KEEP: "yes" }, spawn });
       expect(result.status).toBe("passed");
+      expect(result.receipt).toBe("resource-worker-http-receipt.json");
       expect(spawn.mock.calls[0][2].env).toMatchObject({
         KEEP: "yes",
         ZICODE_TEST_RESOURCE_WORKER_EXE: workerBinaryPath(directory),
         ZICODE_TEST_HOST_RESOURCE_EVIDENCE: join(directory, "resource-worker-http-receipt.json"),
       });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails a real Worker step when its structured receipt is absent or untrusted", () => {
+    const directory = mkdtempSync(join(tmpdir(), "zicode-worker-receipt-"));
+    try {
+      const step = CHECKS.find((item) => item.id === "resource-worker-http");
+      const options = { cwd: directory, directory, env: {}, spawn: () => ({ status: 0 }) };
+      expect(runStep(step, options)).toMatchObject({ status: "failed", errorCode: "receipt_missing", receipt: null });
+      const receipt = join(directory, step.receipt);
+      writeFileSync(receipt, '{"passed":false}');
+      expect(runStep(step, options)).toMatchObject({ status: "failed", errorCode: "receipt_failed", receipt: null });
+      writeFileSync(receipt, '{broken');
+      const invalid = runStep(step, options);
+      expect(invalid).toMatchObject({ status: "failed", errorCode: "receipt_invalid", receipt: null });
+      expect(summary({ platform: "win32", architecture: "x64", status: "failed", startedAt: "now", steps: [invalid] }))
+        .toContain("resource-worker-http | failed (receipt_invalid) | 0");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
