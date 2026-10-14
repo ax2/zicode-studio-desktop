@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = "src-tauri/Cargo.toml";
 const TOOLCHAIN_TEST = "project_tasks::multilanguage_tests::checks_real_cargo_and_go_projects";
+const RESOURCE_WORKER_TEST = "host_server::plugin_resources::worker::tests::actual_http_authorized_resource_worker_cancel_quota_disconnect_and_recovery";
 const TARGET_REPOSITORY = JSON.parse(
   readFileSync(join(ROOT, "scripts", "release-repository.json"), "utf8"),
 ).repository;
@@ -76,6 +77,16 @@ export const CHECKS = [
     args: ["check", "--manifest-path", MANIFEST, "--locked", "--all-targets"],
   },
   { id: "rust-tests", command: "cargo", args: ["test", "--manifest-path", MANIFEST, "--locked"] },
+  {
+    id: "resource-worker-http",
+    command: "cargo",
+    args: ["test", "--manifest-path", MANIFEST, "--locked", "--bin", "zicode-studio-desktop",
+      RESOURCE_WORKER_TEST, "--", "--ignored", "--exact", "--nocapture"],
+    environment: ({ cwd, directory, env }) => ({
+      ZICODE_TEST_RESOURCE_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET),
+      ZICODE_TEST_HOST_RESOURCE_EVIDENCE: join(directory, "resource-worker-http-receipt.json"),
+    }),
+  },
   {
     id: "embedded-pi-host-plugin",
     command: "cargo",
@@ -146,6 +157,11 @@ export function aggregateStatus(steps) {
   return steps.some((step) => step.status === "warning") ? "passed_with_warnings" : "passed";
 }
 
+export function workerBinaryPath(cwd, platform = process.platform, rustTarget = null) {
+  return join(cwd, "target", ...(rustTarget?.trim() ? [rustTarget.trim()] : []), "debug",
+    platform === "win32" ? "zicode-studio-desktop.exe" : "zicode-studio-desktop");
+}
+
 export function runStep(step, { cwd, directory, env, spawn = spawnSync }) {
   const started = Date.now();
   const log = `${step.id}.log`;
@@ -154,7 +170,7 @@ export function runStep(step, { cwd, directory, env, spawn = spawnSync }) {
   try {
     result = spawn(step.command, step.args, {
       cwd,
-      env,
+      env: { ...env, ...(step.environment?.({ cwd, directory, env }) ?? {}) },
       shell: false,
       windowsHide: true,
       stdio: ["ignore", fd, fd],
@@ -225,6 +241,8 @@ export function summary(report) {
     lines.push(
       `| ${step.id} | ${step.status} | ${step.exitCode ?? "unknown"} | [log](${step.log}) |`,
     );
+  if (report.steps.some((step) => step.id === "resource-worker-http" && step.status === "passed"))
+    lines.push("", "Resource Worker: [structured receipt](resource-worker-http-receipt.json).");
   lines.push("", "## Tool versions", "", "| Tool | Version | Result |", "| --- | --- | --- |");
   for (const [tool, result] of Object.entries(report.tools ?? {})) {
     lines.push(

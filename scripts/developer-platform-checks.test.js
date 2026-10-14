@@ -8,6 +8,7 @@ import {
   outcome,
   runStep,
   summary,
+  workerBinaryPath,
 } from "./developer-platform-checks.mjs";
 
 describe("developer platform evidence", () => {
@@ -51,6 +52,12 @@ describe("developer platform evidence", () => {
     expect(pi.advisory).not.toBe(true);
     expect(CHECKS.findIndex((step) => step.id === "embedded-pi-resource")).toBeLessThan(CHECKS.indexOf(pi));
     expect(CHECKS.findIndex((step) => step.id === "bundled-extension-resources")).toBeLessThan(CHECKS.indexOf(pi));
+    const resource = CHECKS.find((step) => step.id === "resource-worker-http");
+    expect(resource.args.some((arg) => arg.endsWith("actual_http_authorized_resource_worker_cancel_quota_disconnect_and_recovery"))).toBe(true);
+    expect(resource.args).toContain("--ignored");
+    expect(resource.args).toContain("--exact");
+    expect(resource.advisory).not.toBe(true);
+    expect(CHECKS.findIndex((step) => step.id === "rust-tests")).toBeLessThan(CHECKS.indexOf(resource));
     expect(CHECKS.find((step) => step.id === "python-venv-lifecycle").args).toContain(
       "project_tasks::python_tests::runs_unittest_with_a_real_project_environment",
     );
@@ -67,6 +74,26 @@ describe("developer platform evidence", () => {
     expect(
       CHECKS.some((step) => step.args.includes("build") || step.args.includes("release")),
     ).toBe(false);
+  });
+
+  it("passes the platform binary and a per-run receipt to the real Worker check", () => {
+    expect(workerBinaryPath("/checkout", "linux")).toBe(join("/checkout", "target", "debug", "zicode-studio-desktop"));
+    expect(workerBinaryPath("C:\\checkout", "win32")).toBe(join("C:\\checkout", "target", "debug", "zicode-studio-desktop.exe"));
+    expect(workerBinaryPath("/checkout", "linux", "x86_64-unknown-linux-gnu")).toBe(join("/checkout", "target", "x86_64-unknown-linux-gnu", "debug", "zicode-studio-desktop"));
+    const directory = mkdtempSync(join(tmpdir(), "zicode-worker-check-"));
+    try {
+      const spawn = vi.fn(() => ({ status: 0 }));
+      const step = CHECKS.find((item) => item.id === "resource-worker-http");
+      const result = runStep(step, { cwd: directory, directory, env: { KEEP: "yes" }, spawn });
+      expect(result.status).toBe("passed");
+      expect(spawn.mock.calls[0][2].env).toMatchObject({
+        KEEP: "yes",
+        ZICODE_TEST_RESOURCE_WORKER_EXE: workerBinaryPath(directory),
+        ZICODE_TEST_HOST_RESOURCE_EVIDENCE: join(directory, "resource-worker-http-receipt.json"),
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("captures a thrown launch error and keeps Windows children hidden without a shell", () => {
