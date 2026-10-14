@@ -256,6 +256,30 @@ export function setupPluginViewHost({
             instance.iframe.isConnected &&
             instance.resourceTarget === resourceViewTarget(getTarget()),
         });
+      case "listServiceModels": {
+        if (typeof capabilityGateway?.listServiceModels !== "function") {
+          throw new Error("Plugin model catalog is unavailable");
+        }
+        const target = getTarget();
+        if (
+          instances.get(instance.instanceKey) !== instance ||
+          !instance.iframe.isConnected ||
+          instance.resourceTarget !== resourceViewTarget(target) ||
+          !target?.instanceId ||
+          !target?.sessionId
+        ) {
+          throw new Error("Plugin runtime changed");
+        }
+        const cursor = request.params?.cursor ?? null;
+        if (cursor !== null && (typeof cursor !== "string" || !/^\d{1,4}$/.test(cursor))) {
+          throw new Error("Model catalog cursor is invalid");
+        }
+        return capabilityGateway.listServiceModels({
+          runtimeId: target.instanceId,
+          sessionId: target.sessionId,
+          pluginId: instance.plugin.id,
+        }, cursor);
+      }
       case "notify": {
         const message = request.params?.message;
         if (typeof message !== "string" || !message.trim() || message.length > 1_000) {
@@ -489,6 +513,9 @@ function sandboxBridge(channel) {
     }),
     capabilities: Object.freeze({
       invoke: (capabilityId, input = {}) => request("invokeCapability", { capabilityId, input }),
+    }),
+    services: Object.freeze({
+      models: Object.freeze({ list: (cursor = null) => request("listServiceModels", { cursor }) }),
     }),
     resources: Object.freeze({
       invoke: (options) => request("invokeResource", options),

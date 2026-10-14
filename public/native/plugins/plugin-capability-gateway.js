@@ -59,6 +59,13 @@ export class PluginCapabilityGateway {
     return this.#request(url);
   }
 
+  listServiceModels(owner, cursor = null) {
+    return this.#request(this.#url("/v2/plugin-services/models"), {
+      method: "POST",
+      body: JSON.stringify({ schemaVersion: 1, ...owner, ...(cursor ? { cursor } : {}) }),
+    });
+  }
+
   searchTools(sceneId, { query = "", offset = 0, revision = null, view = "all", workspaceId, accessRevision = null, pluginId, categoryId, resourceOnly = false, directoryOnly = false, fileName, selectedFileCount, fileNames } = {}) {
     const url = this.#url("/v2/plugin-tool-directory");
     url.searchParams.set("sceneId", sceneId);

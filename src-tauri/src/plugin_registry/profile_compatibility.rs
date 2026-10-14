@@ -54,7 +54,10 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             "compute.wasi.v1" | "output.schema.v1" => {
                 Version::parse("1.0.0-rc.1").map_err(|_| "Host profile version is invalid")?
             }
-            "tool.directory.v1" | "file.input.hints.v1" | "resource.output.types.v1" => {
+            "tool.directory.v1"
+            | "file.input.hints.v1"
+            | "resource.output.types.v1"
+            | "model.catalog.read.v1" => {
                 Version::parse("1.0.0-preview.1").map_err(|_| "Host profile version is invalid")?
             }
             _ => return Err("Required plugin profile is unsupported".into()),
@@ -104,6 +107,18 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
                 != Some(crate::plugin_worker::resource_output::PROFILE))
     {
         return Err("resource.output.types.v1 requires output.schema.v1 and a WASI resource input and output runtime".into());
+    }
+    if requirements.contains_key("model.catalog.read.v1")
+        && !manifest
+            .permissions
+            .required
+            .iter()
+            .chain(&manifest.permissions.optional)
+            .any(|permission| permission.name == "model.catalog.read")
+    {
+        return Err(
+            "model.catalog.read.v1 requires a model.catalog.read permission declaration".into(),
+        );
     }
     Ok(())
 }
@@ -188,6 +203,18 @@ mod tests {
         assert!(super::super::validate_manifest(&value, None).is_err());
         value.required_profiles = json!({"resource.output.types.v1":"=1.0.0-preview.1"});
         assert!(super::super::validate_manifest(&value, None).is_err());
+    }
+    #[test]
+    fn model_catalog_profile_requires_an_explicit_permission() {
+        let mut value = manifest(json!({"model.catalog.read.v1":"=1.0.0-preview.1"}));
+        assert!(validate(&value).is_err());
+        value.permissions.optional = serde_json::from_value(json!([
+            {"name":"model.catalog.read","reason":"List selected scene models"}
+        ]))
+        .unwrap();
+        assert!(validate(&value).is_ok());
+        value.required_profiles = json!({"model.catalog.read.v1":"^1.0.0"});
+        assert!(validate(&value).is_err());
     }
     #[test]
     fn new_schema_rejects_missing_malformed_unbounded_and_non_wasi_requirements() {

@@ -25,6 +25,7 @@ mod devtools_view_tests;
 mod git_stage;
 mod lifecycle;
 mod model_tools_http;
+mod plugin_services;
 mod plugin_tool_auth;
 mod plugin_call_lifecycle;
 mod plugin_tool_execution;
@@ -599,6 +600,10 @@ impl HostServer {
             .route("/v2/plugins/reload", post(reload_plugins))
             .route("/v2/plugins/uninstall", post(uninstall_plugin))
             .route("/v2/plugin-views/source", get(read_plugin_view_source))
+            .route(
+                "/v2/plugin-services/models",
+                post(plugin_services::models).layer(DefaultBodyLimit::max(4 * 1024)),
+            )
             .route("/v2/plugin-capabilities", get(list_plugin_capabilities))
             .route("/v2/plugin-tool-directory", get(manual_tool_catalog::search))
             .route("/v2/plugin-tool-directory/detail", get(manual_tool_catalog::detail))
@@ -1293,6 +1298,7 @@ fn desktop_plugin_http_path(path: &str) -> bool {
     matches!(
         path,
         "/v2/plugin-views/source"
+            | "/v2/plugin-services/models"
             | "/v2/plugin-capabilities/call-protocol"
             | "/v2/plugin-capabilities/prepare-call"
             | "/v2/plugin-capabilities/cancel-call"

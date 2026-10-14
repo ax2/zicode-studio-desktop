@@ -36,6 +36,15 @@ it("binds each additional resource to the same owner in both one-use requests", 
 });
 
 describe("PluginCapabilityGateway", () => {
+  it("sends only Host-derived ownership and cursor for model discovery", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ models: [] }) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    await gateway.listServiceModels({ runtimeId: "r", sessionId: "s", pluginId: "p" }, "128");
+    expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-services/models");
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({
+      schemaVersion: 1, runtimeId: "r", sessionId: "s", pluginId: "p", cursor: "128",
+    });
+  });
   it("forwards a bounded Explorer selection count as metadata-only discovery", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });

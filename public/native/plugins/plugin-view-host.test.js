@@ -80,6 +80,32 @@ it("starts the trusted main view at the top after leaving a scrolled manager", a
 });
 
 describe("PluginViewHost", () => {
+  it("derives model catalog identity from the trusted runtime and rejects an old view", async () => {
+    const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "runtime", sessionId: "session" };
+    const capabilityGateway = {
+      listServiceModels: vi.fn(async () => ({ schemaVersion: 1, operation: "models.list", result: { models: [] } })),
+    };
+    const { host } = setup({ capabilityGateway, getTarget: () => target });
+    host.renderContent(document.getElementById("content"), PLUGIN);
+    await vi.waitFor(() => expect(document.querySelector("iframe")).toBeTruthy());
+    const iframe = document.querySelector("iframe");
+    const postMessage = vi.spyOn(iframe.contentWindow, "postMessage");
+    sendFrom(iframe, { type: "request", requestId: "models", method: "listServiceModels",
+      params: { pluginId: "com.other.plugin", sceneId: "other" } });
+    await vi.waitFor(() => expect(capabilityGateway.listServiceModels).toHaveBeenCalledWith({
+      runtimeId: "runtime", sessionId: "session", pluginId: PLUGIN.id,
+    }, null));
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: "models", result: { schemaVersion: 1, operation: "models.list", result: { models: [] } },
+    }), "*"));
+    target.instanceId = "replaced";
+    sendFrom(iframe, { type: "request", requestId: "stale", method: "listServiceModels", params: {} });
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: "stale", error: expect.any(String),
+    }), "*"));
+    expect(capabilityGateway.listServiceModels).toHaveBeenCalledTimes(1);
+    host.destroy();
+  });
   it("transports fixed error codes without forwarding private Host messages", async () => {
     const { host, capabilityGateway } = setup();
     capabilityGateway.invoke.mockRejectedValue(
