@@ -443,6 +443,37 @@ it("shows a first-page catalog error without retrying until requested", async ()
   expect(container.textContent).toContain("Text 1");
 });
 
+it("reloads an opened tool against the current catalog after a stale detail response", async () => {
+  const gateway = api();
+  gateway.loadTool.mockRejectedValueOnce({ code: "catalog_changed" });
+  gateway.searchTools.mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "old", nextOffset: null })
+    .mockResolvedValueOnce({ items: [{ ...tool(0), version: "0.2.0" }], total: 1, revision: "new", nextOffset: null });
+  const container = await mount(gateway);
+  await click(container, "Open tool");
+  expect(container.textContent).toContain("Tool changed");
+  expect(gateway.invoke).not.toHaveBeenCalled();
+  await click(container, "Reload tool details");
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", {
+    query: "text.0", pluginId: "fixture", offset: 0, revision: null });
+  expect(gateway.loadTool).toHaveBeenLastCalledWith("programming", {
+    pluginId: "fixture", capabilityId: "text.0", revision: "new" });
+  expect(container.textContent).toContain("0.2.0");
+  expect(container.querySelector("form")).not.toBeNull();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("does not switch an opened tool to a different capability on reload", async () => {
+  const gateway = api(); gateway.loadTool.mockRejectedValueOnce({ code: "capability_changed" });
+  gateway.searchTools.mockResolvedValueOnce({ items: [tool(0)], total: 1, revision: "old", nextOffset: null })
+    .mockResolvedValueOnce({ items: [tool(1)], total: 1, revision: "new", nextOffset: null });
+  const container = await mount(gateway);
+  await click(container, "Open tool");
+  await click(container, "Reload tool details");
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("unavailable");
+  expect(gateway.loadTool).toHaveBeenCalledTimes(1);
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
 it("refreshes a retained directory after the plugin catalog changes without closing opened tools", async () => {
   const gateway = api();
   gateway.searchTools.mockResolvedValue({ items: [tool(0)], total: 205, revision: "old", nextOffset: 40 });

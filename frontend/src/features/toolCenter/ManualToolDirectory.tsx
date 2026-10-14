@@ -30,11 +30,13 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
   const [page, setPage] = useState<ToolPage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [opened, setOpened] = useState<{ tool: ManualTool; revision: string }[]>([]);
+  const [opened, setOpened] = useState<{ tool: ManualTool; revision: string; reloadCount?: number }[]>([]);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [runningTools, setRunningTools] = useState<string[]>([]);
   const [closeTarget, setCloseTarget] = useState<{ toolId: string; title: string; trigger: HTMLButtonElement; sceneId: string; workspaceId: string } | null>(null);
   const runningToolsRef = useRef<string[]>([]);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
   const access = useToolAccess(accessStore, scope);
   const directory = useRef<HTMLDivElement>(null);
   const switcher = useRef<HTMLFieldSetElement>(null);
@@ -217,8 +219,25 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     </>}
     </div>
     {opened.map(item => <div key={item.tool.toolId} hidden={activeTool !== item.tool.toolId}>
-      <ManualToolSession key={JSON.stringify([scope.sceneId, scope.workspaceId, item.tool.toolId])}
+      <ManualToolSession key={JSON.stringify([scope.sceneId, scope.workspaceId, item.tool.toolId, item.revision, item.reloadCount])}
         onDirectory={() => setActiveTool(null)} api={api} scope={scope} tool={item.tool} revision={item.revision} accessStore={accessStore}
+        onReload={async () => {
+          if (runningToolsRef.current.includes(item.tool.toolId)) throw Object.assign(new Error("Tool is still running"), { code: "manual_call_busy" });
+          const requestedScene = scope.sceneId, requestedWorkspace = scope.workspaceId;
+          const fresh = await api.searchTools(scope.sceneId, { query: item.tool.capabilityId,
+            pluginId: item.tool.pluginId, offset: 0, revision: null });
+          const replacement = fresh.items.find(candidate => candidate.toolId === item.tool.toolId &&
+            candidate.pluginId === item.tool.pluginId && candidate.capabilityId === item.tool.capabilityId);
+          if (!replacement) throw Object.assign(new Error("Tool no longer available"), { code: "capability_unavailable" });
+          await api.loadTool(scope.sceneId, { pluginId: replacement.pluginId,
+            capabilityId: replacement.capabilityId, revision: fresh.revision });
+          if (scopeRef.current.sceneId !== requestedScene || scopeRef.current.workspaceId !== requestedWorkspace) {
+            throw Object.assign(new Error("Tool context changed"), { code: "catalog_changed" });
+          }
+          if (runningToolsRef.current.includes(item.tool.toolId)) throw Object.assign(new Error("Tool is still running"), { code: "manual_call_busy" });
+          setOpened(previous => previous.map(entry => entry.tool.toolId === item.tool.toolId
+            ? { tool: replacement, revision: fresh.revision, reloadCount: (entry.reloadCount ?? 0) + 1 } : entry));
+        }}
         onRecentChange={access.retry} getResourceTarget={getResourceTarget}
         onBusy={busy => {
           runningToolsRef.current = busy ? [...new Set([...runningToolsRef.current, item.tool.toolId])] : runningToolsRef.current.filter(id => id !== item.tool.toolId);

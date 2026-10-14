@@ -20,6 +20,7 @@ export interface ManualToolDetailProps {
   onRecentChange?(): void;
   getResourceTarget?: ResourceTargetProvider;
   resourceSession?: ResourceSessionOwner;
+  onReload?(): Promise<void>;
 }
 
 export function ManualToolDetail(props: ManualToolDetailProps) {
@@ -27,13 +28,15 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, resourceSession, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, resourceSession, onReload, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const [detail, setDetail] = useState<ToolDetail | null>(null);
   const detailId = useId();
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
+  const [stale, setStale] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [invalidField, setInvalidField] = useState("");
   const [recording, setRecording] = useState(false);
   const running = call.busy || recording;
@@ -61,7 +64,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     alive.current = true;
     void api.loadTool(scope.sceneId, { pluginId: tool.pluginId, capabilityId: tool.capabilityId, revision })
       .then(value => { if (alive.current) setDetail(value); })
-      .catch(reason => { if (alive.current) setError(manualToolError(reason)); });
+      .catch(reason => { if (alive.current) { setError(manualToolError(reason)); setStale(isStaleToolError(reason)); } });
     return () => { alive.current = false; };
   }, [api, scope.sceneId, tool.pluginId, tool.capabilityId, revision]);
   const fields = detail ? toolFields(detail.capability.inputSchema) : null;
@@ -71,7 +74,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   async function execute() {
     if (!supported || running || actionBusy || !detail?.enabled || call.supported === null) return;
     const prepared = prepareToolInput(fields, values);
-    setError(""); setInvalidField(""); setResult(null); setCaptured(null);
+    setError(""); setStale(false); setInvalidField(""); setResult(null); setCaptured(null);
     if ("error" in prepared) {
       setError(prepared.error); setInvalidField(prepared.field);
       document.getElementById(`${detailId}-${prepared.field}`)?.focus();
@@ -90,7 +93,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
         catch { if (alive.current) setError("Tool completed, but history could not be saved."); }
       }
     } catch (reason) {
-      if (alive.current && !(reason && typeof reason === "object" && "code" in reason && reason.code === "worker_cancelled")) setError(manualToolError(reason));
+      if (alive.current && !(reason && typeof reason === "object" && "code" in reason && reason.code === "worker_cancelled")) {
+        setError(manualToolError(reason)); setStale(isStaleToolError(reason));
+      }
     }
     finally { if (alive.current) setRecording(false); }
   }
@@ -99,6 +104,12 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     <p className="tool-center-source">{tool.applicationName} · {tool.version}</p>
     {!detail && !error && <p role="status">{t("Loading tool details…")}</p>}
     {error && !call.notice && call.phase !== "cancelled" && <p role="alert">{t(error)}</p>}
+    {stale && onReload && <button type="button" className="ui-button ui-button--secondary"
+      disabled={running || actionBusy || resourceBusy || reloading} onClick={() => {
+        setReloading(true);
+        void onReload().catch(reason => { if (alive.current) setError(manualToolError(reason)); })
+          .finally(() => { if (alive.current) setReloading(false); });
+      }}>{t(reloading ? "Reloading tool details…" : "Reload tool details")}</button>}
     {call.phase === "cancelled" && <p role="status">{t("Tool cancelled. No result was kept.")}</p>}
     {call.notice && <p role="status" key={call.notice}>{t(call.notice)}</p>}
     {detail && <>
@@ -133,4 +144,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       onBusy={setActionBusy} />}
     <ToolCallDiagnostics trace={call.trace} tool={tool} />
   </section>;
+}
+
+function isStaleToolError(reason: unknown): boolean {
+  return Boolean(reason && typeof reason === "object" && "code" in reason &&
+    (reason.code === "catalog_changed" || reason.code === "capability_changed"));
 }
