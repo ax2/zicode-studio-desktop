@@ -37,9 +37,11 @@ if (process.platform === "win32") {
     process.exit(1);
   }
   const output = path.join(root, "target", profile, "zicode_studio_shell.dll");
-  const staged = path.join(root, "src-tauri", "resources", "shell", "zicode_studio_shell.dll");
-  fs.mkdirSync(path.dirname(staged), { recursive: true });
-  fs.copyFileSync(output, staged);
+  if (!local) {
+    const staged = path.join(root, "src-tauri", "resources", "shell", "zicode_studio_shell.dll");
+    fs.mkdirSync(path.dirname(staged), { recursive: true });
+    fs.copyFileSync(output, staged);
+  }
 }
 
 console.log(
@@ -48,7 +50,9 @@ console.log(
     : `[build-desktop] Building ${process.platform} bundles: ${bundles}`,
 );
 const buildArgs = local ? ["--debug", "--no-bundle"] : ["--bundles", bundles];
-if (process.platform === "win32") buildArgs.push("--config", "src-tauri/tauri.shell.windows.conf.json");
+// A local no-bundle build already has the Shell DLL beside the EXE in target/debug.
+// Bundling it again tries to overwrite a file Explorer may have loaded.
+if (process.platform === "win32" && !local) buildArgs.push("--config", "src-tauri/tauri.shell.windows.conf.json");
 const result = spawnSync(process.execPath, ["run", "tauri", "build", ...buildArgs], {
   cwd: root,
   env,

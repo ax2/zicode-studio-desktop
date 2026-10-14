@@ -6,6 +6,7 @@ mod output_admission_http;
 mod preview_browser;
 mod admission_http;
 mod archive_save_http;
+mod typed_output_http;
 mod cross_plugin_http;
 
 #[test]
@@ -443,6 +444,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     let automatic_lifecycle = lifecycle_http::verify(&host, &client, &access, &target).await;
     let binary_output=output_http::verify(&host,&client,&root,&target,&manifest).await;
     let archive_output=archive_save_http::verify(&host,&client,&root,&target,&manifest).await;
+    let typed_output=typed_output_http::verify(&host,&client,&root,&target,&manifest).await;
     let resource_transfer = super::super::transfer::tests::verify(&host, &root, &target, &manifest).await;
     let resource_save = super::super::save::tests::http::verify(&host, &root, &target).await;
     let saved_library = super::super::library::tests::http::verify(&host, &root, &target).await;
@@ -509,7 +511,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
             "workers":WORKERS,"busyRejected":true,"independentPluginStartedWithTwoBusyAndCompleted":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,"callAdmission":call_admission,
             "cancelledPid":first_event.1,"cancelLiveReapedPipesClosed":true,"secondPid":second_event.1,"secondPipesClosed":true,
             "nextInvocationRecovered":true,"nonBinaryInvalidOutputRejected":true,"revokedPermissionRejected":true,"cancelAfterRevoke":true,"boundedVolatileAudit":true,
-            "automaticLifecycle":automatic_lifecycle,"automaticRuntimeStop":automatic_stop,"binaryOutput":binary_output,"archiveOutput":archive_output,"resourceTransfer":resource_transfer,"resourceSave":resource_save,"savedLibrary":saved_library,"browserPreview":browser_preview,"devtoolsImageAlgorithm":false,"nativeUi":false,"phaseBoundary":"Workers held at startup by test observer; not instruction-level interruption"})).unwrap();
+            "automaticLifecycle":automatic_lifecycle,"automaticRuntimeStop":automatic_stop,"binaryOutput":binary_output,"archiveOutput":archive_output,"typedOutput":typed_output,"resourceTransfer":resource_transfer,"resourceSave":resource_save,"savedLibrary":saved_library,"browserPreview":browser_preview,"devtoolsImageAlgorithm":false,"nativeUi":false,"phaseBoundary":"Workers held at startup by test observer; not instruction-level interruption"})).unwrap();
     }
     drop(runtime);
     host.stop_and_wait().await.unwrap();
