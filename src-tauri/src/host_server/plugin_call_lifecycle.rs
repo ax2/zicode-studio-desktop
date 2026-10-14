@@ -7,6 +7,7 @@ type Key = (String, String, String);
 const CAPACITY: usize = 2048;
 const PER_RUNTIME: usize = 128;
 const ACTIVE_LIMIT: usize = 64;
+const ACTIVE_PER_PLUGIN_LIMIT: usize = 8;
 const RETENTION: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Copy, PartialEq)]
@@ -18,6 +19,7 @@ enum Phase {
 struct Entry {
     flag: Arc<AtomicBool>,
     phase: Phase,
+    plugin_id: Option<String>,
     changed: Instant,
 }
 #[derive(Clone, Default)]
@@ -77,7 +79,7 @@ impl Calls {
         }
         Ok(())
     }
-    pub fn begin(&self, runtime: &str, session: &str, call: &str) -> Result<Lease, &'static str> {
+    pub fn begin(&self, runtime: &str, session: &str, call: &str, plugin_id: &str) -> Result<Lease, &'static str> {
         let key = (runtime.into(), session.into(), call.into());
         let mut entries = self.0.lock().map_err(|_| "plugin_calls_unavailable")?;
         Self::prune(&mut entries);
@@ -92,6 +94,9 @@ impl Calls {
             .filter(|entry| entry.phase == Phase::Active)
             .count()
             >= ACTIVE_LIMIT
+            || entries.values().filter(|entry| {
+                entry.phase == Phase::Active && entry.plugin_id.as_deref() == Some(plugin_id)
+            }).count() >= ACTIVE_PER_PLUGIN_LIMIT
         {
             return Err("plugin_call_budget_exceeded");
         }
@@ -106,6 +111,7 @@ impl Calls {
             Entry {
                 flag: flag.clone(),
                 phase: Phase::Active,
+                plugin_id: Some(plugin_id.into()),
                 changed: Instant::now(),
             },
         );
@@ -128,6 +134,7 @@ impl Calls {
         let entry = entries.entry(key).or_insert_with(|| Entry {
             flag: Arc::new(AtomicBool::new(true)),
             phase: Phase::PendingCancel,
+            plugin_id: None,
             changed: Instant::now(),
         });
         if entry.phase == Phase::Finished {
@@ -165,7 +172,7 @@ mod tests {
         assert!(calls.0.lock().unwrap().is_empty());
         calls.cancel("r", "s", "c").unwrap();
         assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("cancel_pending", false, true));
-        let lease = calls.begin("r", "s", "c").unwrap();
+        let lease = calls.begin("r", "s", "c", "plugin.a").unwrap();
         assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("active", false, true));
         assert_eq!(calls.snapshot("other", "s", "c").unwrap(), ("unknown", false, false));
         assert_eq!(calls.snapshot("r", "other", "c").unwrap(), ("unknown", false, false));
@@ -186,14 +193,14 @@ mod tests {
         let calls = Calls::default();
         let mut leases = Vec::new();
         for index in 0..ACTIVE_LIMIT {
-            leases.push(calls.begin(&index.to_string(), "s", "active").unwrap());
+            leases.push(calls.begin(&index.to_string(), "s", "active", &format!("plugin.{index}")).unwrap());
         }
         assert_eq!(
-            calls.begin("extra", "s", "active").err().unwrap(),
+            calls.begin("extra", "s", "active", "plugin.extra").err().unwrap(),
             "plugin_call_budget_exceeded"
         );
         leases.pop();
-        assert!(calls.begin("extra", "s", "active").is_ok());
+        assert!(calls.begin("extra", "s", "active", "plugin.extra").is_ok());
         drop(leases);
         let calls = Calls::default();
         for index in 0..CAPACITY {
@@ -212,22 +219,37 @@ mod tests {
         assert_eq!(calls.0.lock().unwrap().len(), CAPACITY);
     }
     #[test]
+    fn one_plugin_cannot_exhaust_active_calls_across_runtimes() {
+        let calls = Calls::default();
+        calls.cancel("runtime", "session", "pending").unwrap();
+        let mut leases = Vec::new();
+        for index in 0..ACTIVE_PER_PLUGIN_LIMIT {
+            leases.push(calls.begin(&format!("runtime-{index}"), "session", "call", "plugin.a").unwrap());
+        }
+        assert_eq!(calls.begin("another-runtime", "session", "call", "plugin.a").err().unwrap(), "plugin_call_budget_exceeded");
+        let independent = calls.begin("runtime", "session", "independent", "plugin.b").unwrap();
+        assert!(!independent.flag.load(Ordering::Acquire));
+        drop(leases.pop());
+        assert!(calls.begin("another-runtime", "session", "call", "plugin.a").is_ok());
+        assert!(calls.begin("runtime", "session", "pending", "plugin.b").unwrap().flag.load(Ordering::Acquire));
+    }
+    #[test]
     fn cancellation_covers_pending_active_finished_and_scope_boundaries() {
         let calls = Calls::default();
         assert_eq!(calls.cancel("a", "s", "x").unwrap(), ("pending", false));
-        let pending = calls.begin("a", "s", "x").unwrap();
+        let pending = calls.begin("a", "s", "x", "plugin.a").unwrap();
         assert!(pending.flag.load(Ordering::Acquire));
-        let other = calls.begin("b", "s", "x").unwrap();
+        let other = calls.begin("b", "s", "x", "plugin.b").unwrap();
         assert!(!other.flag.load(Ordering::Acquire));
         assert_eq!(
-            calls.begin("b", "s", "x").err().unwrap(),
+            calls.begin("b", "s", "x", "plugin.b").err().unwrap(),
             "plugin_call_in_progress"
         );
         assert_eq!(calls.cancel("b", "s", "x").unwrap(), ("requested", false));
         assert!(other.flag.load(Ordering::Acquire));
         drop(other);
         assert_eq!(calls.cancel("b", "s", "x").unwrap(), ("finished", true));
-        let retry = calls.begin("b", "s", "x").unwrap();
+        let retry = calls.begin("b", "s", "x", "plugin.b").unwrap();
         assert!(!retry.flag.load(Ordering::Acquire));
     }
     #[test]
@@ -241,7 +263,7 @@ mod tests {
             "plugin_call_budget_exceeded"
         );
         assert!(calls.cancel("b", "s", "independent").is_ok());
-        drop(calls.begin("a", "s", "0").unwrap());
+        drop(calls.begin("a", "s", "0", "plugin.a").unwrap());
         assert!(calls.cancel("a", "s", "new").is_ok());
         let mut entries = calls.0.lock().unwrap();
         for entry in entries.values_mut() {

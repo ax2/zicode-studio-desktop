@@ -236,7 +236,7 @@ async fn invoke_request(
             )
         })?;
     let lease = if let Some((target, key)) = legacy_scope {
-        WorkerLease::Legacy(state.plugin_calls.begin(&target.instance_id, &target.session_id, &key).map_err(rejected)?)
+        WorkerLease::Legacy(state.plugin_calls.begin(&target.instance_id, &target.session_id, &key, &request.access.owner.plugin_id).map_err(rejected)?)
     } else { WorkerLease::Admitted(admission::begin(&state, &request)?) };
     tokio::task::spawn_blocking(move || {
         let _permit=permit;

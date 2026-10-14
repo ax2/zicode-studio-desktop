@@ -68,12 +68,35 @@ pub(super) async fn invoke(
     let record =
         plugin_tool_auth::authorize(&state, &headers, &request.runtime_id, &request.session_id)?;
     let call_target = plugin_tool_auth::call_target(&state, &record)?;
+    let plugin_id = {
+        let registry = state.plugins.lock().map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+        })?;
+        plugin_tool_catalog::validate_invocation(
+            &registry,
+            &record.target.scene_id,
+            &request.tool_name,
+            request.tool_id.as_deref(),
+            request.catalog_revision.as_deref(),
+        )?;
+        registry
+            .pi_tools(&record.target.scene_id)
+            .into_iter()
+            .find(|tool| tool.name == request.tool_name)
+            .map(|tool| tool.plugin_id)
+            .ok_or_else(|| plugin_api_error(
+                StatusCode::NOT_FOUND,
+                "tool_unavailable",
+                "The tool is missing, disabled, or not granted for this scene",
+            ))?
+    };
     let lease = state
         .plugin_calls
         .begin(
             &call_target.instance_id,
             &call_target.session_id,
             &request.tool_call_id,
+            &plugin_id,
         )
         .map_err(call_error)?;
     let result = tokio::task::spawn_blocking(move || {
@@ -112,6 +135,13 @@ pub(super) async fn invoke(
                     "The tool is missing, disabled, or not granted for this scene",
                 )
             })?;
+        if tool.plugin_id != plugin_id {
+            return Err(plugin_api_error(
+                StatusCode::CONFLICT,
+                "catalog_revision_changed",
+                "Search and load this tool again before invoking it",
+            ));
+        }
         let mut broker = state.capability_broker.lock().map_err(|_| {
             plugin_api_error(
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -234,7 +264,7 @@ mod tests {
         let lease = host
             .state
             .plugin_calls
-            .begin(&issued.instance_id, &issued.session_id, "active")
+            .begin(&issued.instance_id, &issued.session_id, "active", "fixture.plugin")
             .unwrap();
         let target = host
             .state
