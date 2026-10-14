@@ -8,4 +8,6 @@ Studio 的外部 WASI 工具执行不占用 Host Broker 锁，但准备阶段仍
 
 资源 WASI 调用另有专用进程池，现设全局 3 个、每插件 2 个活动名额。同一插件原有的双调用能力保留，第三个同插件请求返回现有 `resource_worker_busy`；另一个插件可取得剩余名额。名额覆盖完整阻塞任务生命周期，HTTP 等待者断开时不会提前释放；任务结束或失败后自动释放。该层仍依赖可信桌面入口和后续资源授权核验，不替代真正的文件与网络隔离。
 
+当前 Windows 真实 HTTP 验收使用两个独立的 Studio 自制资源插件：前一个插件的两次 Worker 调用仍在活动时，后一个插件进程已启动，三个全局名额均占用；释放测试门闩后独立插件返回预期结果，取消、进程回收和后续调用恢复通过。验收收据见技术博客 `iterations/resource-worker-cross-plugin-http-2026-10-14/verification.json`。这是 Host 与通用 WASI 路径证据，不证明正式 DevTools/ZiFile 插件、用户界面或其他系统已通过。
+
 验证记录见技术博客档案 `iterations/plugin-worker-fairness-2026-10-14/work-log.md`。

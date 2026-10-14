@@ -6,6 +6,7 @@ mod output_admission_http;
 mod preview_browser;
 mod admission_http;
 mod archive_save_http;
+mod cross_plugin_http;
 
 #[test]
 fn strict_invocation_cancellation_and_scope_reject_unknown_fields() {
@@ -289,6 +290,10 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         "invalid_parameters"
     );
 
+    let independent_access = cross_plugin_http::confirmed_input(
+        &host, &client, &root, &target, &manifest, module, &bytes,
+    ).await;
+
     let (event_tx, event_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let release_rx = Arc::new(Mutex::new(release_rx));
@@ -339,6 +344,13 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         .status(),
         StatusCode::TOO_MANY_REQUESTS
     );
+    let independent = spawn(json!({"access":independent_access,
+        "toolCallId":uuid::Uuid::new_v4(),"input":{}}));
+    let independent_event = event_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(independent_event.0, "started");
+    assert_ne!(independent_event.1, first_event.1);
+    assert_ne!(independent_event.1, second_event.1);
+    assert_eq!(host.state.plugin_resource_workers.slots.available_permits(), 0);
     assert!(host.state.plugins.try_lock().is_ok());
     assert!(host.state.capability_broker.try_lock().is_ok());
     assert_eq!(
@@ -378,7 +390,12 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
     assert_eq!(cancelling["cancellationRequested"], true);
     release_tx.send(()).unwrap();
     release_tx.send(()).unwrap();
+    release_tx.send(()).unwrap();
     let cancelled = first.await.unwrap();
+    let independent_response = independent.await.unwrap();
+    assert_eq!(independent_response.status(), StatusCode::OK);
+    assert_eq!(independent_response.json::<Value>().await.unwrap()["result"],
+        json!({"text":"resource"}));
     let finished: Value = post("call-status", cancellation.clone()).await.unwrap().json().await.unwrap();
     assert_eq!(finished["phase"], "finished");
     assert_eq!(finished["executionFinished"], true);
@@ -402,6 +419,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
         assert!(events.contains(&(event, first_event.1)));
     }
     assert!(events.contains(&("pipes_closed", second_event.1)));
+    assert!(events.contains(&("pipes_closed", independent_event.1)));
     *host.state.plugin_resource_workers.observer.lock().unwrap() = None;
     assert_eq!(
         post(
@@ -488,7 +506,7 @@ async fn actual_http_authorized_resource_worker_cancel_quota_disconnect_and_reco
             .unwrap();
         serde_json::to_writer_pretty(file,&json!({"passed":true,"surface":"real HTTP Host + current Studio EXE + Studio-owned WASI fixture",
             "resourceBytes":300000,"confirmedSnapshotExecuted":true,"unconfirmedRejected":true,"schemaAndDesktopAuthEnforced":true,"staleCatalogPrepareRejectedWithoutAllocation":true,
-            "workers":WORKERS,"busyRejected":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,"callAdmission":call_admission,
+            "workers":WORKERS,"busyRejected":true,"independentPluginStartedWithTwoBusyAndCompleted":true,"disconnectKeptPermit":true,"bootstrapWhileBusy":true,"registryAndBrokerLocksReleased":true,"callAdmission":call_admission,
             "cancelledPid":first_event.1,"cancelLiveReapedPipesClosed":true,"secondPid":second_event.1,"secondPipesClosed":true,
             "nextInvocationRecovered":true,"nonBinaryInvalidOutputRejected":true,"revokedPermissionRejected":true,"cancelAfterRevoke":true,"boundedVolatileAudit":true,
             "automaticLifecycle":automatic_lifecycle,"automaticRuntimeStop":automatic_stop,"binaryOutput":binary_output,"archiveOutput":archive_output,"resourceTransfer":resource_transfer,"resourceSave":resource_save,"savedLibrary":saved_library,"browserPreview":browser_preview,"devtoolsImageAlgorithm":false,"nativeUi":false,"phaseBoundary":"Workers held at startup by test observer; not instruction-level interruption"})).unwrap();
