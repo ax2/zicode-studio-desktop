@@ -59,6 +59,7 @@ import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usa
 import { ConvNav } from "./react/conv-nav.js";
 import { showNativeDialog } from "./react/dialog.js";
 import { confirmPluginDiscard } from "./plugins/plugin-discard-confirmation.js";
+import { confirmPluginModelGeneration } from "./plugins/plugin-model-consent.js";
 import { setupDocumentsApp } from "./react/documents.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
@@ -873,6 +874,8 @@ const pluginViewHost = setupPluginViewHost({
   notify: notifications.notify,
   executeCommand: (commandId, args) => pluginShell?.executeCommand(commandId, args),
   confirmDiscard: (message) => confirmPluginDiscard(message, showNativeDialog),
+  confirmModelGeneration: (preview, pluginName) =>
+    confirmPluginModelGeneration(preview, pluginName, showNativeDialog),
 });
 const notesGateway = new NotesGateway({
   fetchImpl: hostFetch,

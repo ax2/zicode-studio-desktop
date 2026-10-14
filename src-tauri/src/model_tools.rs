@@ -154,6 +154,26 @@ pub fn complete(
     prompt: String,
     timeout: Duration,
 ) -> Result<Value, String> {
+    complete_inner(endpoint, key, prompt, timeout, None)
+}
+
+pub fn complete_limited(
+    endpoint: &ModelEndpoint,
+    key: Option<&str>,
+    prompt: String,
+    timeout: Duration,
+    max_output_tokens: u32,
+) -> Result<Value, String> {
+    complete_inner(endpoint, key, prompt, timeout, Some(max_output_tokens))
+}
+
+fn complete_inner(
+    endpoint: &ModelEndpoint,
+    key: Option<&str>,
+    prompt: String,
+    timeout: Duration,
+    max_output_tokens: Option<u32>,
+) -> Result<Value, String> {
     if endpoint.choice.requires_key && key.is_none_or(|key| key.trim().is_empty()) {
         return Err("model_credential_unavailable".into());
     }
@@ -173,9 +193,13 @@ pub fn complete(
         builder = builder.no_proxy();
     }
     let client = builder.build().map_err(|_| "model_client_unavailable")?;
-    let mut request = client.post(endpoint.url.clone()).json(&json!({
+    let mut body = json!({
         "model": endpoint.choice.model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2
-    }));
+    });
+    if let Some(max_output_tokens) = max_output_tokens {
+        body["max_tokens"] = json!(max_output_tokens);
+    }
+    let mut request = client.post(endpoint.url.clone()).json(&body);
     if endpoint.choice.requires_key {
         request = request.bearer_auth(key.unwrap_or_default());
     }

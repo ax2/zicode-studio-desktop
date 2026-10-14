@@ -80,6 +80,39 @@ it("starts the trusted main view at the top after leaving a scrolled manager", a
 });
 
 describe("PluginViewHost", () => {
+  it("shows trusted model consent before a one-use Host call and rejects changed targets", async () => {
+    const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "runtime", sessionId: "session" };
+    const capabilityGateway = {
+      prepareModelGeneration: vi.fn(async () => ({ grantId: "private-grant", displayName: "Model",
+        destination: "https://model.example", inputBytes: 4, materialCount: 0, promptPreview: "{}" })),
+      commitModelGeneration: vi.fn(async () => ({ schemaVersion: 1, operation: "model.generate",
+        result: { text: "done" } })),
+    };
+    const confirmModelGeneration = vi.fn(async () => true);
+    const { host } = setup({ capabilityGateway, getTarget: () => target, confirmModelGeneration });
+    host.renderContent(document.getElementById("content"), PLUGIN);
+    await vi.waitFor(() => expect(document.querySelector("iframe")).toBeTruthy());
+    const iframe = document.querySelector("iframe");
+    const postMessage = vi.spyOn(iframe.contentWindow, "postMessage");
+    const input = { modelRef: "model-ref", goal: "test", materials: [], maxOutputTokens: 64, deadlineMs: 1000 };
+    sendFrom(iframe, { type: "request", requestId: "generate", method: "generateModel", params: input });
+    await vi.waitFor(() => expect(capabilityGateway.commitModelGeneration).toHaveBeenCalledWith({
+      runtimeId: "runtime", sessionId: "session", pluginId: PLUGIN.id,
+    }, "private-grant", true, 1000));
+    expect(confirmModelGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      destination: "https://model.example" }), PLUGIN.name);
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: "generate", result: expect.objectContaining({ operation: "model.generate" }),
+    }), "*"));
+    expect(JSON.stringify(postMessage.mock.calls)).not.toContain("private-grant");
+    target.instanceId = "replaced";
+    sendFrom(iframe, { type: "request", requestId: "stale", method: "generateModel", params: input });
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: "stale", error: expect.any(String),
+    }), "*"));
+    expect(capabilityGateway.prepareModelGeneration).toHaveBeenCalledTimes(1);
+    host.destroy();
+  });
   it("derives model catalog identity from the trusted runtime and rejects an old view", async () => {
     const target = { sceneId: "programming", workspaceId: "workspace", instanceId: "runtime", sessionId: "session" };
     const capabilityGateway = {

@@ -146,6 +146,7 @@ struct HostState {
     plugin_calls: plugin_call_lifecycle::Calls,
     manual_tool_calls: manual_tool_calls::Calls,
     plugin_results: Mutex<plugin_results::Store>,
+    model_generation_grants: Mutex<plugin_services::Grants>,
     plugin_resources: Mutex<plugin_resources::Store>,
     archive_page_cursors: crate::plugin_archive_cursor::ArchivePageCursors,
     plugin_resource_operations: plugin_resources::Operations,
@@ -444,6 +445,7 @@ impl HostServer {
             plugin_calls: plugin_call_lifecycle::Calls::default(),
             manual_tool_calls: manual_tool_calls::Calls::default(),
             plugin_results: Mutex::new(plugin_results::Store::default()),
+            model_generation_grants: Mutex::new(plugin_services::Grants::default()),
             plugin_resources: Mutex::new(plugin_resources::Store::default()),
             archive_page_cursors: crate::plugin_archive_cursor::ArchivePageCursors::default(),
             plugin_resource_operations: plugin_resources::Operations::default(),
@@ -603,6 +605,14 @@ impl HostServer {
             .route(
                 "/v2/plugin-services/models",
                 post(plugin_services::models).layer(DefaultBodyLimit::max(4 * 1024)),
+            )
+            .route(
+                "/v2/plugin-services/model-generation/prepare",
+                post(plugin_services::prepare_generation).layer(DefaultBodyLimit::max(48 * 1024)),
+            )
+            .route(
+                "/v2/plugin-services/model-generation/commit",
+                post(plugin_services::commit_generation).layer(DefaultBodyLimit::max(4 * 1024)),
             )
             .route("/v2/plugin-capabilities", get(list_plugin_capabilities))
             .route("/v2/plugin-tool-directory", get(manual_tool_catalog::search))
@@ -1299,6 +1309,8 @@ fn desktop_plugin_http_path(path: &str) -> bool {
         path,
         "/v2/plugin-views/source"
             | "/v2/plugin-services/models"
+            | "/v2/plugin-services/model-generation/prepare"
+            | "/v2/plugin-services/model-generation/commit"
             | "/v2/plugin-capabilities/call-protocol"
             | "/v2/plugin-capabilities/prepare-call"
             | "/v2/plugin-capabilities/cancel-call"
@@ -3920,6 +3932,7 @@ async fn set_plugin_enablement(
             )
         })?;
     state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -3949,6 +3962,7 @@ async fn set_plugin_permission(
             )
         })?;
     state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -3971,6 +3985,7 @@ async fn reload_plugins(
         )
     })?;
     state.archive_page_cursors.invalidate_all();
+    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
     Ok(Json(json!({
         "reloaded": true,
         "diagnostics": registry.diagnostics(),
@@ -3994,6 +4009,7 @@ async fn uninstall_plugin(
             )
         })?;
     state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "uninstalled": true,

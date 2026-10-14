@@ -1021,6 +1021,9 @@ const zhCN = {
   "Disable only for a model service that does not require authentication.":
     "仅对无需鉴权的模型服务关闭此项。",
   "Model service": "模型服务",
+  "Send to model": "发送给模型",
+  "Data to send": "待发送内容",
+  "Send {bytes} bytes from {plugin} to {model} at {destination}?": "向 {destination} 的 {model} 发送插件 {plugin} 提供的 {bytes} 字节内容？",
   "Choose a configured model": "请选择已配置的模型",
   "Add an OpenAI-compatible channel and models in Settings. Local services can disable authentication.":
     "请在设置中添加 OpenAI 兼容渠道和模型。本地服务可关闭鉴权。",

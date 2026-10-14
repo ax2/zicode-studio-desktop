@@ -103,6 +103,20 @@ fn translates_and_summarizes_through_an_explicit_local_service_without_credentia
 }
 
 #[test]
+fn bounded_plugin_model_request_sets_output_token_budget() {
+    let payload = json!({"choices":[{"message":{"content":"ok"}}]}).to_string();
+    let (url, worker) = mock_server(vec![(200, payload, String::new())]);
+    let result = complete_limited(
+        &local_endpoint(&url, false), None, "bounded prompt".into(),
+        Duration::from_secs(3), 128,
+    ).unwrap();
+    assert_eq!(crate::translation::extract_text(&result).as_deref(), Some("ok"));
+    let request = &worker.join().unwrap()[0];
+    assert!(request.contains("\"max_tokens\":128"));
+    assert!(request.contains("bounded prompt"));
+}
+
+#[test]
 fn requires_explicit_scene_model_and_never_exposes_config_credentials() {
     let root = std::env::temp_dir().join(format!("zicode-model-tools-{}", uuid::Uuid::new_v4()));
     let digest = Sha256::digest(b"programming");

@@ -45,6 +45,22 @@ describe("PluginCapabilityGateway", () => {
       schemaVersion: 1, runtimeId: "r", sessionId: "s", pluginId: "p", cursor: "128",
     });
   });
+  it("keeps plugin-supplied scope out of model generation prepare and consumes a one-use grant", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    const owner = { runtimeId: "trusted-runtime", sessionId: "trusted-session", pluginId: "trusted-plugin" };
+    await gateway.prepareModelGeneration(owner, { modelRef: "model-ref", goal: "Summarize",
+      materials: [], maxOutputTokens: 128, deadlineMs: 1000,
+      runtimeId: "spoofed", pluginId: "spoofed", sceneId: "spoofed" });
+    await gateway.commitModelGeneration(owner, "one-use", true, 1000);
+    expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual([
+      "/v2/plugin-services/model-generation/prepare", "/v2/plugin-services/model-generation/commit",
+    ]);
+    const [prepare, commit] = fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body));
+    expect(prepare).toEqual({ schemaVersion: 1, modelRef: "model-ref", goal: "Summarize",
+      materials: [], maxOutputTokens: 128, deadlineMs: 1000, ...owner });
+    expect(commit).toEqual({ schemaVersion: 1, ...owner, grantId: "one-use", confirmed: true });
+  });
   it("forwards a bounded Explorer selection count as metadata-only discovery", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });

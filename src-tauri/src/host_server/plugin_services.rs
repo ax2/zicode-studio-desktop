@@ -1,5 +1,7 @@
 //! Read-only service discovery for authenticated desktop plugin views.
 //! This is a narrow negotiated preview, not the proposed service.v1 profile.
+mod model_generation;
+pub(super) use model_generation::{commit_generation, prepare_generation, Grants};
 use super::*;
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -112,15 +114,7 @@ fn project_models(
         .skip(offset)
         .take(MAX_MODELS)
         .map(|choice| {
-            let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC key");
-            mac.update(
-                &serde_json::to_vec(&(scene, owner, &choice.provider, &choice.model, &choice.endpoint))
-                    .expect("model identity"),
-            );
-            let model_ref = format!(
-                "model-{}",
-                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes())
-            );
+            let model_ref = model_ref(choice, secret, scene, owner);
             let display_name: String = choice.name.trim().chars().take(128).collect();
             json!({"modelRef":model_ref,"displayName":if display_name.is_empty() { "Model" } else { &display_name },
                 "providerKind":"host_managed","supportsCancellation":false})
@@ -131,6 +125,23 @@ fn project_models(
         result["nextCursor"] = json!((offset + MAX_MODELS).to_string());
     }
     result
+}
+
+fn model_ref(
+    choice: &crate::model_tools::ModelChoice,
+    secret: &str,
+    scene: &str,
+    owner: &(String, String, String),
+) -> String {
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC key");
+    mac.update(
+        &serde_json::to_vec(&(scene, owner, &choice.provider, &choice.model, &choice.endpoint))
+            .expect("model identity"),
+    );
+    format!(
+        "model-{}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes())
+    )
 }
 
 #[cfg(test)]

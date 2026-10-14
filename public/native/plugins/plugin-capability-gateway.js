@@ -66,6 +66,21 @@ export class PluginCapabilityGateway {
     });
   }
 
+  prepareModelGeneration(owner, input) {
+    const { modelRef, goal, materials, maxOutputTokens, deadlineMs } = input;
+    return this.#request(this.#url("/v2/plugin-services/model-generation/prepare"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, modelRef, goal, materials,
+        maxOutputTokens, deadlineMs, ...owner }),
+    });
+  }
+
+  commitModelGeneration(owner, grantId, confirmed, deadlineMs = 30_000) {
+    return this.#request(this.#url("/v2/plugin-services/model-generation/commit"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, grantId, confirmed }),
+      timeoutMs: Math.min(130_000, Math.max(30_000, deadlineMs + 10_000)),
+    });
+  }
+
   searchTools(sceneId, { query = "", offset = 0, revision = null, view = "all", workspaceId, accessRevision = null, pluginId, categoryId, resourceOnly = false, directoryOnly = false, fileName, selectedFileCount, fileNames } = {}) {
     const url = this.#url("/v2/plugin-tool-directory");
     url.searchParams.set("sceneId", sceneId);
@@ -296,10 +311,11 @@ export class PluginCapabilityGateway {
 
   async #request(url, options = {}) {
     const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const timeout = setTimeout(() => controller?.abort(), this.#timeoutMs);
+    const { timeoutMs = this.#timeoutMs, ...requestOptions } = options;
+    const timeout = setTimeout(() => controller?.abort(), timeoutMs);
     try {
       const response = await this.#fetch(url, {
-        ...options,
+        ...requestOptions,
         headers: {
           accept: "application/json",
           ...(options.body ? { "content-type": "application/json" } : {}),

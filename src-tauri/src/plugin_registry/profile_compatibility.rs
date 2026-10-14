@@ -57,7 +57,8 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             "tool.directory.v1"
             | "file.input.hints.v1"
             | "resource.output.types.v1"
-            | "model.catalog.read.v1" => {
+            | "model.catalog.read.v1"
+            | "model.generate.v1" => {
                 Version::parse("1.0.0-preview.1").map_err(|_| "Host profile version is invalid")?
             }
             _ => return Err("Required plugin profile is unsupported".into()),
@@ -119,6 +120,14 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
         return Err(
             "model.catalog.read.v1 requires a model.catalog.read permission declaration".into(),
         );
+    }
+    if requirements.contains_key("model.generate.v1")
+        && (!requirements.contains_key("model.catalog.read.v1")
+            || !manifest.permissions.required.iter()
+                .chain(&manifest.permissions.optional)
+                .any(|permission| permission.name == "model.generate"))
+    {
+        return Err("model.generate.v1 requires model.catalog.read.v1 and a model.generate permission declaration".into());
     }
     Ok(())
 }

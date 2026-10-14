@@ -20,6 +20,7 @@ export function setupPluginViewHost({
   notify = () => {},
   executeCommand = () => {},
   confirmDiscard = (message) => globalThis.confirm?.(message) ?? false,
+  confirmModelGeneration = () => false,
 } = {}) {
   if (!gateway) return null;
 
@@ -280,6 +281,36 @@ export function setupPluginViewHost({
           pluginId: instance.plugin.id,
         }, cursor);
       }
+      case "generateModel": {
+        if (typeof capabilityGateway?.prepareModelGeneration !== "function" ||
+          typeof capabilityGateway?.commitModelGeneration !== "function") {
+          throw new Error("Plugin model generation is unavailable");
+        }
+        const target = getTarget();
+        const isCurrent = () => instances.get(instance.instanceKey) === instance &&
+          instance.iframe.isConnected && instance.resourceTarget === resourceViewTarget(getTarget());
+        if (!isCurrent() || !target?.instanceId || !target?.sessionId) {
+          throw new Error("Plugin runtime changed");
+        }
+        const input = request.params;
+        if (!input || typeof input !== "object" || typeof input.modelRef !== "string" ||
+          typeof input.goal !== "string" || !Array.isArray(input.materials)) {
+          throw new Error("Model generation input is invalid");
+        }
+        const owner = { runtimeId: target.instanceId, sessionId: target.sessionId,
+          pluginId: instance.plugin.id };
+        const preview = await capabilityGateway.prepareModelGeneration(owner, input);
+        if (!isCurrent()) throw new Error("Plugin runtime changed");
+        const approved = await confirmModelGeneration(preview, instance.plugin.name);
+        if (!approved || !isCurrent()) {
+          await capabilityGateway.commitModelGeneration(owner, preview.grantId, false).catch(() => {});
+          throw Object.assign(new Error("Model request cancelled"), { code: "model_request_cancelled" });
+        }
+        const result = await capabilityGateway.commitModelGeneration(owner, preview.grantId, true,
+          Number(input.deadlineMs) || 30_000);
+        if (!isCurrent()) throw new Error("Plugin runtime changed");
+        return result;
+      }
       case "notify": {
         const message = request.params?.message;
         if (typeof message !== "string" || !message.trim() || message.length > 1_000) {
@@ -468,7 +499,7 @@ function sandboxBridge(channel) {
       const timeout = setTimeout(() => {
         pending.delete(requestId);
         reject(failure("Plugin view request timed out", "plugin_view_timeout"));
-      }, 30_000);
+      }, method === "generateModel" ? 150_000 : 30_000);
       pending.set(requestId, { reject, resolve, timeout, cancellation });
       send({ type: "request", requestId, method, params });
     });
@@ -515,7 +546,10 @@ function sandboxBridge(channel) {
       invoke: (capabilityId, input = {}) => request("invokeCapability", { capabilityId, input }),
     }),
     services: Object.freeze({
-      models: Object.freeze({ list: (cursor = null) => request("listServiceModels", { cursor }) }),
+      models: Object.freeze({
+        list: (cursor = null) => request("listServiceModels", { cursor }),
+        generate: (input) => request("generateModel", input),
+      }),
     }),
     resources: Object.freeze({
       invoke: (options) => request("invokeResource", options),
