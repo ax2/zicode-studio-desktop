@@ -30,3 +30,5 @@ DevTools 原开发会话当前使用 `E:\zi-devtools`，其 HEAD 同为 `65f9aa6
 原会话已写出 `E:\zi-devtools\contracts\studio-host-capabilities\draft-20261014\` 的 `service.v1` / `desktop.v1` 请求、响应和事件 schema 及示例。该目录当前未提交，README 明示仅为提供方提案；Studio 的 `requiredProfiles` 仍必须拒绝这两个未发布 profile，不能把示例计为 Host 实现或签名包交付。Studio 后续应按正式修订冻结 schema 与 conformance 向量，再实现可信 View 身份注入、用户许可、异步调用、取消/撤权和逐平台桌面回调。
 
 接收评审已向 DevTools 原会话反馈两项需要机器校验的边界：JSON Schema 的 `maxLength` 不等于 UTF-8 字节预算，任务目标 2 KiB 和资料合计 32 KiB 需要 Host 的总量校验；请求体中的 `consentId` / `userGestureId` 不是授权证明，必须由 Studio 可信交互生成、一次性消费，并绑定插件、场景、操作及权限代次。上述问题未关闭前不发布 profile，也不增加 154 项完整接受数。
+
+提供方后续草案已增加 `x-host-utf8-*` 与可信单次授权注释，以及 15 个安全向量（文件 `vectors.json` SHA-256 `bdf1caf20e47225385df325d975f02346530b367f9fa8eedde0caf0f31140e8a`，仅标识本次未提交工作树）。Studio 接收侧只读运行其轻量 guard：5 个 JSON Schema、6 个请求/事件示例、4 个响应示例和 15 个安全向量结构检查退出 0。该脚本不是通用 JSON Schema 引擎，也没有执行 Studio Host，因此仅把前述两项从“提案缺失”改为“已有提供方向量、待 Studio 正式契约与实现验证”；`service.v1` / `desktop.v1` 仍不得宣告支持。
