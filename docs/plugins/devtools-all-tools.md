@@ -1,5 +1,7 @@
 # Zi DevTools 全部工具插件接入目标
 
+2026-10-14 增补[Worker 并发隔离](worker-isolation-budget.md)：单插件活动调用上限 8、全局 64；范围及验证边界见文档。完整工具接受数不变。
+
 2026-10-14 只读发现提供方未提交目录中 `agent-runner` 与 `super-clipboard` 范围、版本变化，但目录版本号仍为 dev.105；冻结基线暂不覆盖，接口与交付要求见[在途目录变化](devtools-catalog-drift-2026-10-14.md)。
 
 2026-10-13 补充：[Trace 候选接收与当前运行记录](devtools-trace-acceptance.md)接收并核对 Java/Django 两项未签名候选；Windows Pi→Host→Worker 发现、按需加载、两条基本样例及10阶段权限生命周期通过。真实原生 View、全部边界、签名生命周期和其他 OS 待验收，完整接受仍为0。

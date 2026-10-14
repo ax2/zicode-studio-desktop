@@ -71,6 +71,11 @@ struct CachedInvocation {
     result: Value,
 }
 
+struct WorkerReservation {
+    plugin_id: String,
+    lease: std::sync::Weak<()>,
+}
+
 pub struct CapabilityBroker {
     #[cfg(test)]
     pub(crate) worker_executable: Option<PathBuf>,
@@ -83,7 +88,7 @@ pub struct CapabilityBroker {
     audit_path: PathBuf,
     idempotency: HashMap<String, CachedInvocation>,
     idempotency_order: VecDeque<String>,
-    worker_reservations: HashMap<String, std::sync::Weak<()>>,
+    worker_reservations: HashMap<String, WorkerReservation>,
 }
 
 impl CapabilityBroker {
@@ -196,7 +201,7 @@ impl CapabilityBroker {
             });
         let outcome = if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
             Err(CapabilityError::new("worker_cancelled", "Plugin call cancelled before execution"))
-        } else if cache_key.as_ref().is_some_and(|key| self.worker_reservations.get(key).is_some_and(|entry| entry.strong_count() > 0)) {
+        } else if cache_key.as_ref().is_some_and(|key| self.worker_reservations.get(key).is_some_and(|entry| entry.lease.strong_count() > 0)) {
             Err(CapabilityError::new("plugin_call_in_progress", "This invocation is already running"))
         } else if let Some(key) = &cache_key {
             self.invoke_cached(registry, &invocation, key, &request_hash, cancelled)

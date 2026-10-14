@@ -2,6 +2,32 @@ use super::*;
 #[path = "plugin_detached_worker_tests/cache_tests.rs"]
 mod cache_tests;
 
+#[test]
+fn worker_capacity_is_reserved_per_plugin_and_releases_expired_jobs() {
+    let mut reservations = HashMap::new();
+    let mut leases = Vec::new();
+    for index in 0..MAX_ACTIVE_WORKERS_PER_PLUGIN {
+        let lease = Arc::new(());
+        reservations.insert(format!("first-{index}"), WorkerReservation {
+            plugin_id: "first".into(), lease: Arc::downgrade(&lease),
+        });
+        leases.push(lease);
+    }
+    assert!(worker_budget_exceeded(&reservations, "first"));
+    assert!(!worker_budget_exceeded(&reservations, "second"));
+    leases.pop();
+    reservations.retain(|_, entry| entry.lease.strong_count() > 0);
+    assert!(!worker_budget_exceeded(&reservations, "first"));
+    for index in reservations.len()..MAX_ACTIVE_WORKERS {
+        let lease = Arc::new(());
+        reservations.insert(format!("other-{index}"), WorkerReservation {
+            plugin_id: format!("other-{index}"), lease: Arc::downgrade(&lease),
+        });
+        leases.push(lease);
+    }
+    assert!(worker_budget_exceeded(&reservations, "second"));
+}
+
 fn fixture() -> (
     PathBuf,
     PluginRegistry,

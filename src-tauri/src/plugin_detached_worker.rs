@@ -3,6 +3,14 @@ use super::*;
 use crate::plugin_registry::PluginOrigin;
 use std::io::Read;
 
+const MAX_ACTIVE_WORKERS: usize = 64;
+const MAX_ACTIVE_WORKERS_PER_PLUGIN: usize = 8;
+
+fn worker_budget_exceeded(reservations: &HashMap<String, WorkerReservation>, plugin_id: &str) -> bool {
+    reservations.len() >= MAX_ACTIVE_WORKERS
+        || reservations.values().filter(|entry| entry.plugin_id == plugin_id).count() >= MAX_ACTIVE_WORKERS_PER_PLUGIN
+}
+
 pub(crate) enum Dispatch {
     Complete(Result<Value, CapabilityError>),
     Worker(Box<Invocation>),
@@ -48,7 +56,7 @@ impl CapabilityBroker {
             .zip(request.tool_call_id.as_ref())
             .map(|pair| serde_json::to_string(&pair).expect("String tuple is serializable"));
         self.worker_reservations
-            .retain(|_, entry| entry.strong_count() > 0);
+            .retain(|_, entry| entry.lease.strong_count() > 0);
         if !external
             || key.as_ref().is_some_and(|key| {
                 self.idempotency.contains_key(key) || self.worker_reservations.contains_key(key)
@@ -91,7 +99,7 @@ impl CapabilityBroker {
                     "Capability input is too large",
                 ));
             }
-            if self.worker_reservations.len() >= 64 {
+            if worker_budget_exceeded(&self.worker_reservations, &request.plugin_id) {
                 return Err(CapabilityError::new(
                     "plugin_call_budget_exceeded",
                     "Too many active plugin Workers",
@@ -116,8 +124,10 @@ impl CapabilityBroker {
                 let reservation_key = key
                     .clone()
                     .unwrap_or_else(|| format!("unkeyed:{}", uuid::Uuid::new_v4()));
-                self.worker_reservations
-                    .insert(reservation_key.clone(), Arc::downgrade(&reservation));
+                self.worker_reservations.insert(reservation_key.clone(), WorkerReservation {
+                    plugin_id: request.plugin_id.clone(),
+                    lease: Arc::downgrade(&reservation),
+                });
                 let epoch = registry.execution_revision(&request.scene_id, &request.plugin_id);
                 Dispatch::Worker(Box::new(Invocation {
                     request,
