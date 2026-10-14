@@ -148,4 +148,16 @@ describe("developer platform evidence", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("explains a failed checkout probe without including its stdout", () => {
+    const text = summary({
+      platform: "linux", architecture: "x64", status: "failed", dirty: null,
+      startedAt: "now", steps: [], sourceChecks: {
+        gitRevision: { status: "passed", exitCode: 0, signal: null, errorCode: null, diagnostic: null },
+        gitStatus: { status: "failed", exitCode: null, signal: "SIGTERM", errorCode: "ETIMEDOUT", diagnostic: "git status timed out" },
+      },
+    });
+    expect(text).toContain("gitStatus | failed | unknown | SIGTERM | ETIMEDOUT | git status timed out");
+    expect(text).toContain("Working tree modified: unknown");
+  });
 });

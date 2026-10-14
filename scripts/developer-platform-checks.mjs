@@ -214,7 +214,21 @@ function capture(command, args) {
     timeout: 15000,
     maxBuffer: 128 * 1024,
   });
-  return { status: outcome(result), value: result.status === 0 ? result.stdout.trim() : null };
+  const diagnostic = String(result.stderr || result.error?.message || "")
+    .replace(/\s+/g, " ").trim().slice(0, 512);
+  return {
+    status: outcome(result),
+    value: result.status === 0 ? result.stdout.trim() : null,
+    exitCode: result.status ?? null,
+    signal: result.signal ?? null,
+    errorCode: result.error?.code ?? null,
+    diagnostic: diagnostic || null,
+  };
+}
+
+function sourceProbe(result) {
+  const { status, exitCode, signal, errorCode, diagnostic } = result;
+  return { status, exitCode, signal, errorCode, diagnostic };
 }
 
 export function summary(report) {
@@ -226,6 +240,15 @@ export function summary(report) {
     `Platform: ${report.platform} / ${report.architecture}`,
     `Revision: ${report.revision ?? "unknown"}`,
     `Working tree modified: ${report.dirty ?? "unknown"}`,
+    ...(report.sourceChecks ? [
+      "",
+      "## Source probes",
+      "",
+      "| Probe | Result | Exit code | Signal | Error code | Diagnostic |",
+      "| --- | --- | --- | --- | --- | --- |",
+      ...Object.entries(report.sourceChecks).map(([name, probe]) =>
+        `| ${name} | ${probe.status} | ${probe.exitCode ?? "unknown"} | ${probe.signal ?? "none"} | ${probe.errorCode ?? "none"} | ${(probe.diagnostic ?? "none").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("|", "\\|")} |`),
+    ] : []),
     ...(report.ci
       ? [
           `CI repository: ${report.ci.repository}`,
@@ -324,13 +347,14 @@ export function main(args = process.argv.slice(2)) {
         !dirty.value,
     );
   const report = {
-    schemaVersion: 5,
+    schemaVersion: 6,
     rustTestThreads: process.env.RUST_TEST_THREADS || null,
     status: "running",
     platform: process.platform,
     architecture: process.arch,
     revision: revision.value,
     dirty: dirty.status === "passed" ? Boolean(dirty.value) : null,
+    sourceChecks: { gitRevision: sourceProbe(revision), gitStatus: sourceProbe(dirty) },
     ci,
     startedAt: new Date().toISOString(),
     finishedAt: null,
