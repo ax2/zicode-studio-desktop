@@ -66,3 +66,5 @@ Rust静态和专项结果、实际目录启动与截图见技术博客项目档�
 桌面命令仅接受status/install/remove，校验工作区窗口及Host origin；非Windows返回不可用，独立验收profile返回禁用状态且后端拒绝写入。LAN浏览器没有桌面调用桥时隐藏本节。设置确认交互专项使用模拟响应；本机实际验收只核对独立profile禁用与参数拒绝，不等同真实Explorer安装验收。
 
 2026-10-11 后续修复：设置hash在Host异步目录加载后保持，Windows通用/配置/旧app参数冲突/未知tab四种实际刷新通过。记录见项目档案iterations/settings-route-restore-2026-10-11；刷新期间Tauri通信回退与旧callback警告仍保留，其他OS待验收。
+
+2026-10-14 实体菜单补验：在 Windows 11 文件资源管理器的项目目录背景点击“显示更多选项”中的“在 ZiCode Studio 中打开”，当前 debug EXE 实际收到 `--open-folder "E:\zicode-studio-desktop\."`；原生 WebView 项目栏显示对应目录。进入工具中心后默认启用项目目录工具筛选，当前无匹配且获准的工具，显示 0 项。现代一级菜单未出现 Studio 项；盘符和目录选中项仍未实体点击。证据见技术博客 `iterations/explorer-native-menu-2026-10-14/work-log.md`。

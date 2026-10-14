@@ -248,6 +248,8 @@ const zhCN = {
   "{count} tools": "{count} 个工具",
   "Open tool": "打开工具",
   "No matching tools": "没有匹配的工具",
+  "Selected file: {name}. Its contents have not been shared.": "已选择文件：{name}。尚未提供文件内容。",
+  "Selected files: {names}. Their contents have not been shared.": "已选择文件：{names}。尚未提供文件内容。",
   "Tool pages": "工具分页",
   "Reload tools": "重新加载工具",
   "Reload tool details": "重新加载工具详情",

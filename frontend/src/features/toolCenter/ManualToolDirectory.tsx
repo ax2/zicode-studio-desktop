@@ -177,6 +177,12 @@ export function ManualToolDirectory({ api, scope, accessStore, catalogRevision, 
     </div>
     <p className="tool-center-source">{t("Browsing loads metadata only. Choose a tool to load its input form.")}</p>
     {fileFilter.enabled && <p className="tool-center-source">{t("Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.")}</p>}
+    {fileFilter.enabled && fileFilter.fileName && <p role="status" className="tool-center-source">
+      {t("Selected file: {name}. Its contents have not been shared.").replace("{name}", fileFilter.fileName)}
+    </p>}
+    {fileFilter.enabled && fileFilter.fileNames && <p role="status" className="tool-center-source">
+      {t("Selected files: {names}. Their contents have not been shared.").replace("{names}", fileFilter.fileNames.join(", "))}
+    </p>}
     {fileFilter.enabled && fileFilter.selectedFileCount && <p className="tool-center-source">{t("Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.").replace("{count}", String(fileFilter.selectedFileCount))}</p>}
     {fileFilter.failed && <p role="status">{t("The opened file could not be checked. You can select the file tool filter manually.")}</p>}
     {directoryFilter.failed && <p role="status">{t("The opened folder could not be checked. You can select the directory tool filter manually.")}</p>}

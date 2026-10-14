@@ -53,11 +53,13 @@ it("defaults a file launch to resource tools, with metadata-only reversible filt
   expect(gateway.projectFiles.entry).toHaveBeenCalledWith(scope.workspaceId);
   expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBe("中文 & file.txt");
   expect(container.textContent).toContain("Plugin has not declared file types");
+  expect(container.textContent).toContain("Selected file: 中文 & file.txt. Its contents have not been shared.");
   expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0, revision: null }));
   const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
   expect(input?.checked).toBe(true);
   await act(async () => { input?.click(); await vi.advanceTimersByTimeAsync(201); });
   expect(gateway.searchTools.mock.lastCall?.[1].resourceOnly).toBeUndefined();
+  expect(container.textContent).not.toContain("Selected file:");
   expect(gateway.loadTool).not.toHaveBeenCalled();
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
@@ -70,6 +72,7 @@ it("asks the Host for tools that can accept the opened file count before paging"
     selectedFileCount: 2, fileNames: ["one.txt", "two.zip"], offset: 0 });
   expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBeUndefined();
   expect(container.textContent).toContain("support for at least 2 input files");
+  expect(container.textContent).toContain("Selected files: one.txt, two.zip. Their contents have not been shared.");
   expect(gateway.loadTool).not.toHaveBeenCalled();
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
