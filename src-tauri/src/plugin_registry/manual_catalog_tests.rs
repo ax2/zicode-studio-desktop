@@ -244,3 +244,91 @@ fn built_in_translation_is_searchable_by_its_displayed_chinese_name() {
         }), "search query: {query}");
     }
 }
+
+#[test]
+fn built_in_notes_have_searchable_chinese_names_and_a_shared_category() {
+    let mut registry = registry();
+    let value = super::super::builtin_manifests()
+        .into_iter()
+        .map(|(value, _, _)| value)
+        .find(|value| value["id"] == "com.zicode.notes")
+        .unwrap();
+    let manifest: PluginManifest = serde_json::from_value(value).unwrap();
+    super::super::validate_manifest(&manifest, None).unwrap();
+    registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
+        execution_revision: uuid::Uuid::new_v4(),
+        publisher_identity: None,
+        manifest,
+        origin: PluginOrigin::BuiltIn,
+        core: false,
+        enabled_by_default: true,
+        package_root: None,
+    });
+    for (query, capability) in [
+        ("搜索笔记", "notes.search"),
+        ("读取笔记", "notes.get"),
+        ("创建笔记", "notes.create"),
+        ("提取网页正文", "notes.extractWeb"),
+    ] {
+        let page = registry.manual_catalog(&CatalogQuery {
+            scene_id: "programming".into(),
+            query: query.into(),
+            category_id: Some("knowledge".into()),
+            ..Default::default()
+        }).unwrap();
+        assert_eq!(page["total"], 1, "search query: {query}");
+        assert_eq!(page["items"][0]["capabilityId"], capability);
+        assert_eq!(page["items"][0]["categoryId"], "knowledge");
+    }
+}
+
+#[test]
+fn every_builtin_tool_has_a_category_and_a_chinese_search_alias() {
+    let mut registry = registry();
+    registry.plugins.clear();
+    for (value, core, enabled_by_default) in super::super::builtin_manifests() {
+        let manifest: PluginManifest = serde_json::from_value(value).unwrap();
+        super::super::validate_manifest(&manifest, None).unwrap();
+        registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
+            execution_revision: uuid::Uuid::new_v4(),
+            publisher_identity: None,
+            manifest,
+            origin: PluginOrigin::BuiltIn,
+            core,
+            enabled_by_default,
+            package_root: None,
+        });
+    }
+    let query = CatalogQuery { scene_id: "programming".into(), ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 16);
+    assert!(page["categories"].as_array().unwrap().iter().all(|entry| {
+        entry["id"] != "uncategorized"
+    }));
+    for (search, capability) in [
+        ("加入剪贴板收件箱", "clipboard.add"),
+        ("查看剪贴板收件箱", "clipboard.list"),
+        ("导入文档", "documents.import"),
+        ("习惯列表", "habits.list"),
+        ("习惯打卡", "habits.toggle"),
+        ("排版证件照", "idphoto.layout"),
+        ("处理图片", "imagetools.process"),
+        ("拼接图片", "imagetools.concat"),
+        ("新建笔记", "notes.create"),
+        ("提取网页正文", "notes.extractWeb"),
+        ("读取笔记", "notes.get"),
+        ("搜索笔记", "notes.search"),
+        ("图片文字识别", "ocr.text"),
+        ("翻译文本", "translate.text"),
+        ("添加网页监控", "watch.add"),
+        ("检查网页监控", "watch.check"),
+    ] {
+        let result = registry.manual_catalog(&CatalogQuery {
+            scene_id: "programming".into(),
+            query: search.into(),
+            ..Default::default()
+        }).unwrap();
+        assert_eq!(result["total"], 1, "search query: {search}");
+        assert_eq!(result["items"][0]["capabilityId"], capability);
+    }
+}

@@ -1802,13 +1802,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.notes",
                 "name": "Notes",
                 "description": "Local-first Markdown notebooks and web capture.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": [
                     "onView:notes.library",
                     "onCommand:notes.captureUrl",
@@ -1831,6 +1832,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "notes.search",
                             "title": "Search notes",
+                            "directory": { "categoryId": "knowledge", "aliases": ["搜索笔记", "笔记查找"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -1844,6 +1846,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "notes.get",
                             "title": "Read note",
+                            "directory": { "categoryId": "knowledge", "aliases": ["读取笔记", "查看笔记"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -1857,6 +1860,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "notes.create",
                             "title": "Create note",
+                            "directory": { "categoryId": "knowledge", "aliases": ["新建笔记", "创建笔记"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -1876,6 +1880,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "notes.extractWeb",
                             "title": "Extract web article",
+                            "directory": { "categoryId": "knowledge", "aliases": ["提取网页正文", "网页文章提取"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -1963,13 +1968,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.ocr",
                 "name": "OCR",
                 "description": "Extract text from screenshots and images using the system OCR engine.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": ["onView:ocr.workbench", "onCapability:ocr.text"],
                 "contributes": {
                     "activities": [{ "id": "ocr", "title": "OCR", "order": 110 }],
@@ -1982,6 +1988,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "ocr.text",
                             "title": "Extract text from image",
+                            "directory": { "categoryId": "text", "aliases": ["图片文字识别", "提取图片文字"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2020,13 +2027,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.watch",
                 "name": "Web Watch",
                 "description": "Detect when public web pages change with content hash checks.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": ["onView:watch.center", "onCapability:watch.check"],
                 "contributes": {
                     "activities": [{ "id": "watch", "title": "Web Watch", "order": 109 }],
@@ -2039,6 +2047,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "watch.add",
                             "title": "Add page watcher",
+                            "directory": { "categoryId": "web", "aliases": ["添加网页监控", "监控网页"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2052,6 +2061,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "watch.check",
                             "title": "Check page watcher",
+                            "directory": { "categoryId": "web", "aliases": ["检查网页监控", "检查网页变化"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2170,13 +2180,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.habits",
                 "name": "Habits",
                 "description": "Track daily habits and metrics with streaks and history.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": [
                     "onView:habits.dashboard",
                     "onCapability:habits.list",
@@ -2193,11 +2204,13 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "habits.list",
                             "title": "List habits",
+                            "directory": { "categoryId": "other", "aliases": ["查看习惯", "习惯列表"] },
                             "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
                         },
                         {
                             "id": "habits.toggle",
                             "title": "Toggle habit",
+                            "directory": { "categoryId": "other", "aliases": ["切换习惯状态", "习惯打卡"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2269,13 +2282,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.idphoto",
                 "name": "ID Photo",
                 "description": "ID photo layout: crop to templates, replace backgrounds, and arrange printable sheets.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": ["onView:idphoto.workbench", "onCapability:idphoto.layout"],
                 "contributes": {
                     "activities": [{ "id": "idphoto", "title": "ID Photo", "order": 200 }],
@@ -2288,6 +2302,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "idphoto.layout",
                             "title": "证件照排版",
+                            "directory": { "categoryId": "media", "aliases": ["排版证件照", "ID photo layout"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2339,13 +2354,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.imagetools",
                 "name": "Image Tools",
                 "description": "Image toolbox: resize, format/quality conversion, flip, rotate and grid concat.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": ["onView:imagetools.workbench", "onCapability:imagetools.process", "onCapability:imagetools.concat"],
                 "contributes": {
                     "activities": [{ "id": "imagetools", "title": "Image Tools", "order": 250 }],
@@ -2358,6 +2374,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "imagetools.process",
                             "title": "Process image",
+                            "directory": { "categoryId": "media", "aliases": ["处理图片", "图片处理"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2382,6 +2399,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "imagetools.concat",
                             "title": "Concat images",
+                            "directory": { "categoryId": "media", "aliases": ["拼接图片", "图片拼接"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2444,13 +2462,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.clipboard",
                 "name": "Clipboard",
                 "description": "A quick capture inbox for text and URLs before you organize them.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": [
                     "onView:clipboard.inbox",
                     "onCapability:clipboard.add",
@@ -2467,6 +2486,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "clipboard.add",
                             "title": "Add to clipboard inbox",
+                            "directory": { "categoryId": "text", "aliases": ["加入剪贴板收件箱", "收藏剪贴板文本"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
@@ -2480,6 +2500,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "clipboard.list",
                             "title": "List clipboard inbox",
+                            "directory": { "categoryId": "text", "aliases": ["查看剪贴板收件箱", "剪贴板收件箱列表"] },
                             "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
                         }
                     ],
@@ -2518,13 +2539,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.documents",
                 "name": "Documents",
                 "description": "Import PDF and DOCX files as readable Markdown.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": ["onView:documents.workbench", "onCapability:documents.import"],
                 "contributes": {
                     "activities": [{ "id": "documents", "title": "Documents", "order": 260 }],
@@ -2537,6 +2559,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "documents.import",
                             "title": "Import document",
+                            "directory": { "categoryId": "files", "aliases": ["导入文档", "文档导入"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,
