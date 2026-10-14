@@ -17,6 +17,8 @@ export async function confirmPluginModelGeneration(preview, pluginName, showDial
     .replace("{model}", preview.displayName.replace(/\s+/g, " "))
     .replace("{destination}", preview.destination);
   const title = `${heading}\n\n--- 1. ${t("Data to send")} preview ---\n${formatted}`;
-  const response = await showDialog({ method: "select", title, options: [send] }, container);
+  const timeout = Number.isFinite(preview.expiresInMs)
+    ? Math.max(1, Math.min(preview.expiresInMs, 120_000)) : 120_000;
+  const response = await showDialog({ method: "select", title, options: [send], timeout }, container);
   return response?.value === send;
 }

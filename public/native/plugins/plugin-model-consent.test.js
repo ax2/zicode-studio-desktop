@@ -8,11 +8,13 @@ it("shows the complete Host-built outbound prompt and destination before approva
   setLocale("en");
   document.body.innerHTML = '<div id="dialog-container" class="hidden"></div>';
   const preview = { promptPreview: JSON.stringify({ goal: "Explain", materials: [{ text: "sample data" }] }),
-    destination: "https://model.example", displayName: "Example", inputBytes: 18 };
-  const showDialog = vi.fn(async ({ title, options }) => {
+    destination: "https://model.example", displayName: "Example", inputBytes: 18,
+    expiresInMs: 120_000 };
+  const showDialog = vi.fn(async ({ title, options, timeout }) => {
     expect(title).toContain("https://model.example");
     expect(title).toContain("sample data");
     expect(options).toEqual(["Send to model"]);
+    expect(timeout).toBe(120_000);
     return { value: "Send to model" };
   });
   expect(await confirmPluginModelGeneration(preview, "Example plugin", showDialog)).toBe(true);

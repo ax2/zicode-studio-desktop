@@ -499,7 +499,7 @@ function sandboxBridge(channel) {
       const timeout = setTimeout(() => {
         pending.delete(requestId);
         reject(failure("Plugin view request timed out", "plugin_view_timeout"));
-      }, method === "generateModel" ? 150_000 : 30_000);
+      }, method === "generateModel" ? 255_000 : 30_000);
       pending.set(requestId, { reject, resolve, timeout, cancellation });
       send({ type: "request", requestId, method, params });
     });
