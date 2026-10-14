@@ -2104,13 +2104,14 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         ),
         (
             json!({
-                "schemaVersion": 1,
+                "schemaVersion": 2,
                 "id": "com.zicode.translate",
                 "name": "Translate",
                 "description": "Translate text between languages using the configured model.",
                 "version": "0.1.0",
                 "publisher": "zicode",
-                "engines": { "pluginApi": "^1.0.0" },
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
                 "activationEvents": ["onView:translate.workbench", "onCapability:translate.text"],
                 "contributes": {
                     "activities": [{ "id": "translate", "title": "Translate", "order": 107 }],
@@ -2123,6 +2124,7 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                         {
                             "id": "translate.text",
                             "title": "Translate text",
+                            "directory": { "categoryId": "text", "aliases": ["翻译", "翻译文本"] },
                             "inputSchema": {
                                 "type": "object",
                                 "additionalProperties": false,

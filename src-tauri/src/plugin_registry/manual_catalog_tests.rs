@@ -212,3 +212,35 @@ fn search_and_stale_detail_have_explicit_boundaries() {
         "invalid_parameters"
     );
 }
+
+#[test]
+fn built_in_translation_is_searchable_by_its_displayed_chinese_name() {
+    let mut registry = registry();
+    let value = super::super::builtin_manifests()
+        .into_iter()
+        .map(|(value, _, _)| value)
+        .find(|value| value["id"] == "com.zicode.translate")
+        .unwrap();
+    let manifest: PluginManifest = serde_json::from_value(value).unwrap();
+    super::super::validate_manifest(&manifest, None).unwrap();
+    registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
+        execution_revision: uuid::Uuid::new_v4(),
+        publisher_identity: None,
+        manifest,
+        origin: PluginOrigin::BuiltIn,
+        core: false,
+        enabled_by_default: true,
+        package_root: None,
+    });
+    for query in ["翻译", "翻译文本", "Translate"] {
+        let page = registry.manual_catalog(&CatalogQuery {
+            scene_id: "programming".into(),
+            query: query.into(),
+            ..Default::default()
+        }).unwrap();
+        assert!(page["items"].as_array().unwrap().iter().any(|item| {
+            item["pluginId"] == "com.zicode.translate"
+                && item["capabilityId"] == "translate.text"
+        }), "search query: {query}");
+    }
+}
