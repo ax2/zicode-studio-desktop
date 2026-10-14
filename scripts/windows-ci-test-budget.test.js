@@ -13,5 +13,5 @@ it("bounds Windows harness concurrency while preserving explicit platform settin
   expect(windows).toContain('RUST_TEST_THREADS: "2"');
   expect(windows).toContain("scripts/check-rust.sh");
   expect(read("./check-rust.sh")).toContain('cargo test --manifest-path "$MANIFEST"');
-  expect(read("../src-tauri/src/project_environment/tests.rs")).toContain('tokio::time::timeout(Duration::from_secs(12)');
+  expect(read("../src-tauri/src/project_environment/tests.rs")).toContain('tokio::time::timeout(Duration::from_secs(30)');
 });
