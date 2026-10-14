@@ -4,3 +4,4 @@ scripts/with-linux-notifications.sh text eol=lf
 
 # Provider deliveries are byte-frozen, including JSON/JS/text files and receipts.
 tests/fixtures/devtools-*/** -text
+tests/fixtures/zifile-adapter-events/** -text
