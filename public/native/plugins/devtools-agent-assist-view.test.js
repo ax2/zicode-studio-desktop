@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
 import { afterEach, expect, it, vi } from "vitest";
 import { verifyDevtoolsPackage } from "../../../scripts/verify-devtools-package.mjs";
 import { setupPluginViewHost } from "./plugin-view-host.js";
@@ -72,4 +73,66 @@ it("receives the byte-frozen DevTools model View and mounts it in Studio's sandb
     "devtools.agent-assist.main",
   );
   host.destroy();
+});
+
+it("runs the candidate View script through model selection, generation and result rendering", async () => {
+  const list = vi.fn(async () => ({
+    schemaVersion: 1,
+    operation: "models.list",
+    result: {
+      models: [{
+        modelRef: "opaque-model-ref",
+        displayName: "Fixture model",
+        providerKind: "host_managed",
+        supportsCancellation: false,
+      }],
+    },
+  }));
+  const generate = vi.fn(async (input) => ({
+    schemaVersion: 1,
+    operation: "model.generate",
+    result: { text: "<script>candidate output</script>" },
+  }));
+  const dom = new JSDOM(html, {
+    runScripts: "dangerously",
+    beforeParse(window) {
+      window.TextEncoder = TextEncoder;
+      window.TextDecoder = TextDecoder;
+      window.zicode = {
+        ready: async () => ({ sceneId: "fixture-scene" }),
+        services: { models: { list, generate } },
+      };
+    },
+  });
+  try {
+    const { document, Event } = dom.window;
+    await vi.waitFor(() => expect(document.getElementById("refresh-models").disabled).toBe(false));
+    document.getElementById("refresh-models").click();
+    await vi.waitFor(() => expect(list).toHaveBeenCalledOnce());
+    await vi.waitFor(() => {
+      expect(document.querySelector('#model-select option[value="0"]')).toBeTruthy();
+      expect(document.getElementById("form-fields").disabled).toBe(false);
+    });
+    document.getElementById("goal").value = "Summarize the supplied goal";
+    document.getElementById("goal").dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("generation-form").dispatchEvent(new Event("submit", {
+      bubbles: true,
+      cancelable: true,
+    }));
+    await vi.waitFor(() => expect(generate).toHaveBeenCalledOnce());
+    expect(generate.mock.calls[0][0]).toMatchObject({
+      modelRef: "opaque-model-ref",
+      goal: "Summarize the supplied goal",
+      materials: [],
+      maxOutputTokens: 1024,
+      deadlineMs: 60000,
+    });
+    await vi.waitFor(() => expect(document.getElementById("result-text").textContent)
+      .toBe("<script>candidate output</script>"));
+    expect(document.getElementById("result-card").hidden).toBe(false);
+    expect(document.getElementById("generation-status").textContent).toContain("生成完成");
+    expect(document.querySelector("#result-text script")).toBeNull();
+  } finally {
+    dom.window.close();
+  }
 });
