@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "kind": "unsigned-provider-candidate",
+  "packageId": "com.zicode.devtools.agent-assist",
+  "packageVersion": "0.1.0",
+  "candidateDirectory": "release/agent-assist-preview-0.1.0-candidate-03",
+  "createdAt": "2026-10-14T22:07:02+08:00",
+  "sourceRevision": "65f9aa63c831a4540bdd5731aa4da3de76dbd4b8",
+  "sourceWorkingTreeDirty": true,
+  "platform": {
+    "os": "Windows",
+    "release": "11",
+    "architecture": "AMD64"
+  },
+  "contract": {
+    "version": "1.0.0-preview.1",
+    "checksumManifestSha256": "03a5003c83a1a0a543407fb1371d3599d4fc646cdc6d93fbaa6cb605aac64831"
+  },
+  "profiles": {
+    "model.catalog.read.v1": "=1.0.0-preview.1",
+    "model.generate.v1": "=1.0.0-preview.1"
+  },
+  "permissions": [
+    "model.catalog.read",
+    "model.generate"
+  ],
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "README.md",
+      "size": 2843,
+      "sha256": "f8f3f790b994fdbfe4070149f4309c88be91bf937a30e3cce98796c2f25a2713"
+    },
+    {
+      "path": "catalog.json",
+      "size": 1357,
+      "sha256": "f6a11e5aa17d7feea16ef08b655a0ebbadbec7cc98dd11d13cd0d07676540b38"
+    },
+    {
+      "path": "plugin.json",
+      "size": 1550,
+      "sha256": "93682c83e3ce92a31d7dd368485fe90b59026268948026a8c9da2c0b78b06994"
+    },
+    {
+      "path": "schemas/model-generation-input.schema.json",
+      "size": 1477,
+      "sha256": "4163eb3291a18a92574a37d53dc01f7f2368d6a28e46589d5963b4a3d33bb63e"
+    },
+    {
+      "path": "views/main.html",
+      "size": 28698,
+      "sha256": "067306698937bd4a674918d8131337748bea1173eb33b56e7ab6beb680435049"
+    }
+  ],
+  "directoryIndexSha256": "ce63d09d2a666839526329b97d615869806657db5f0a11639512e580c632798a",
+  "tests": [
+    {
+      "command": "node --test plugins/agent-assist-preview/tests/limits.test.cjs",
+      "status": "passed",
+      "summary": "ℹ cancelled 0 | ℹ skipped 0 | ℹ todo 0 | ℹ duration_ms 119.8797"
+    },
+    {
+      "command": "C:\\Users\\ax2\\AppData\\Local\\Programs\\Python\\Python314\\python.exe scripts/sync_studio_plugin_map.py --check",
+      "status": "passed",
+      "summary": "Plugin migration: 154 catalog items, {'compute_candidate': 41, 'overlap_integration': 0, 'await_host': 50, 'standalone_incomplete': 63}; accepted capabilities=0"
+    }
+  ],
+  "signature": {
+    "signed": false,
+    "publisherKeyAvailable": false
+  },
+  "acceptance": {
+    "providerCandidate": true,
+    "studioReceiptVerified": false,
+    "nativeStudioEndToEnd": "pending",
+    "pending": [
+      "signature installation",
+      "permission revocation",
+      "model request",
+      "update/rollback",
+      "uninstall"
+    ]
+  },
+  "limitations": [
+    "jsdom mock-Host coverage does not enforce Chromium iframe sandbox or CSP",
+    "No Studio native installation, permission dialog, or live model request has been verified"
+  ]
+}

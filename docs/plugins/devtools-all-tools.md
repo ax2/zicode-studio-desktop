@@ -1,5 +1,7 @@
 # Zi DevTools 全部工具插件接入目标
 
+2026-10-15 接收模型辅助 View candidate-03 的冻结副本和外置摘要，6件文件完整性及 Studio 组件挂载通过；这是 `agent-runner` 的有限单轮文字模型预览，不含 MCP、RAG、文件、跨工具接力或后台任务。原生签名安装、权限与实际模型调用待验收，154项完整接受数仍为0；见[阻塞原因](devtools-blocked-tools.md)。
+
 2026-10-14 增补[Worker 并发隔离](worker-isolation-budget.md)：单插件活动调用上限 8、全局 64；范围及验证边界见文档。完整工具接受数不变。
 
 2026-10-14 只读发现提供方未提交目录中 `agent-runner` 与 `super-clipboard` 范围、版本变化，但目录版本号仍为 dev.105；冻结基线暂不覆盖，接口与交付要求见[在途目录变化](devtools-catalog-drift-2026-10-14.md)。

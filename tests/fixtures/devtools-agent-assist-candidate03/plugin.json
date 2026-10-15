@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.agent-assist",
+  "name": "ZiDevTools Agent Assist Preview",
+  "displayName": "ZiDevTools 模型辅助",
+  "description": "在 Studio 中选择模型，对用户明确提供的目标与文本资料生成一轮可审阅回答。仅为模型辅助视图，不包含 MCP 调用或 Agent 自动执行。",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "model.catalog.read.v1": "=1.0.0-preview.1",
+    "model.generate.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onView:devtools.agent-assist.main"
+  ],
+  "contributes": {
+    "activities": [
+      {
+        "id": "devtools.agent-assist",
+        "title": "ZiDevTools 模型辅助",
+        "order": 860
+      }
+    ],
+    "views": [
+      {
+        "id": "devtools.agent-assist.main",
+        "activity": "devtools.agent-assist",
+        "location": "main",
+        "title": "模型辅助",
+        "entry": "views/main.html"
+      }
+    ],
+    "capabilities": [],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "model.catalog.read",
+        "reason": "由用户点击后列出当前 Studio 场景已配置的模型名称与不透明引用。"
+      },
+      {
+        "name": "model.generate",
+        "reason": "用户点击生成后，逐次审阅并确认本次发送给所选模型的完整目标与资料。"
+      }
+    ],
+    "optional": []
+  }
+}

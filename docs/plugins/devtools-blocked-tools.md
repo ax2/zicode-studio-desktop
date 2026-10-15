@@ -6,6 +6,8 @@
 
 同日后续只读观察：提供方把校验模块内联进 28,698 字节的 View HTML（SHA-256 `067306698937bd4a674918d8131337748bea1173eb33b56e7ab6beb680435049`），外部脚本/样式引用检出 0 项。该文件仍属未提交、未冻结候选；其修复不替代 Studio Host、原生 UI、模型端点或全量 Agent 任务验收。
 
+2026-10-15 接收更新：DevTools 交付 `agent-assist-preview-0.1.0-candidate-03` 目录与包外大小/SHA清单，Studio 在 `tests/fixtures/devtools-agent-assist-candidate03/` 冻结逐字节副本及同名 `.verification.json`。原目录和副本分别通过只读逐文件校验（6件、37,022字节；清单 SHA-256 `16e9f334dc5aa1da00f36fa4ec66f80a4210ade2b7f9b9da2779905d19c491cf`）；真实候选页面经过 Studio 组件加载检查，可挂载在 `allow-scripts` 沙箱，且无外部资产错误。清单记录提供方源码 dirty、候选未签名；Studio 原生安装、权限确认/撤销、模型请求及完整 Agent scope 未验收，0/154 不变。原条目中的“未冻结”保留为此前状态，不代表当前接收结果。
+
 独立程序双EXE/MSI更新不能原样作为Studio插件功能；插件生命周期由Studio管理，可另拆通用算法。其他条目没有被证明永久不兼容；已完成子能力可先交付。
 
 此前Base64工作台执行超时5220ms的失败证据保留；优化后编码/解码基本样例494/626ms成功，未改Worker预算。原HTTP专项的5个JSON漂移已证明为排版差异，备份后精确恢复原冻结摘要，13文件完整验证及原专项重新通过，原失败保留且未改期望值。当前Inspect84/Transforms164个Worker语义用例与工作台JSON→YAML/URL解码基本样例1252/1015ms通过；20个raw用例未覆盖，旧Pi超时尚未重验，完整scope/生命周期/签名/其他OS仍待。见iterations/fixture-integrity-2026-10-09及JSON currentRuntimeVerification；不将临时阻塞从154范围删除。
