@@ -28,6 +28,7 @@ it("receives the byte-frozen DevTools model View and mounts it in Studio's sandb
     verified: true,
     fileCount: 6,
     logicalBytes: 37022,
+    indexSha256: "16e9f334dc5aa1da00f36fa4ec66f80a4210ade2b7f9b9da2779905d19c491cf",
     signatureVerified: false,
     runtimeAccepted: false,
     fullToolAcceptance: false,
