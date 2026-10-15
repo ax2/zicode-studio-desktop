@@ -8,7 +8,7 @@
 
 ## 当前证据与缺口
 
-- `plugin-view-host.js` 将能力调用绑定当前插件、场景和工作区，插件不能用请求参数替换这些身份；现有 View SDK 没有跨插件结果传输方法。
+- `plugin-view-host.js` 将能力调用绑定当前插件、场景和工作区，插件不能用请求参数替换这些身份。可信父页面在 Host 捕获成功的能力调用结果后提供显式“发送到/保存到”面板；View SDK 没有跨插件结果传输方法。`model.generate.v1` 的服务结果尚未进入此父页面结果目录，见[模型生成预览](model-generation-preview.md)。
 - 文本候选接受 `{text:string}`、返回 `data.text`。直接模块、实际HTTP/交付Worker、生产View和内置Pi目录动态加载的四步串联已通过。手工取文本再传入另一能力不是完整互通平台。
 - `ArtifactStore` 已有工作区/场景、MIME、内容版本和 provenance；其现有 handle 不能直接视为绑定插件、操作、有效期的资源授权。
 - 当前 WASI 资源调用已有最多 4 个、合计 32 MiB 的有界输入和资源读写回调；大归档流式输入与长任务通道仍缺。不能靠新增 manifest 权限让插件访问路径、数据库或启动其他 EXE。
