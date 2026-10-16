@@ -109,13 +109,33 @@ impl Tree {
         if group == 0 {
             return Ok(());
         }
-        if unsafe { libc::kill(-group, libc::SIGKILL) } == 0
-            || std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
-        {
-            self.0.set(0);
-            Ok(())
-        } else {
-            Err(())
+        let mut interruptions = 0;
+        loop {
+            if unsafe { libc::kill(-group, libc::SIGKILL) } == 0 {
+                self.0.set(0);
+                return Ok(());
+            }
+            let error = std::io::Error::last_os_error();
+            match error.raw_os_error() {
+                // A signal may interrupt the call without changing the group.
+                Some(libc::EINTR) if interruptions < 8 => {
+                    interruptions += 1;
+                    continue;
+                }
+                // The group has already exited between observing the Worker and cleanup.
+                Some(libc::ESRCH) => {
+                    self.0.set(0);
+                    return Ok(());
+                }
+                _ => {
+                    #[cfg(test)]
+                    eprintln!(
+                        "worker_group_cleanup_failed pgid={group} errno={:?}",
+                        error.raw_os_error()
+                    );
+                    return Err(());
+                }
+            }
         }
     }
 }
