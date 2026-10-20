@@ -351,7 +351,8 @@ export function setupPluginViewHost({
       if (data.type === "cancelRequest" && typeof data.requestId === "string") {
         void instance.requestCancellations?.get(data.requestId)?.();
       } else if (data.type === "request" && typeof data.requestId === "string") {
-        respond(instance, data.requestId, null, new Error("Plugin runtime changed"));
+        respond(instance, data.requestId, null,
+          data.method === "readResource" ? "[resource_view_changed]" : new Error("Plugin runtime changed"));
       } else if (data.type === "openToolResult" || data.type === "openViewOperationResult") {
         const intent = toolOpenIntents.get(instance.plugin.id);
         if (intent?.requestId === data.requestId && intent.instanceKey === instance.instanceKey &&

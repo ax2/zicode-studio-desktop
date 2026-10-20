@@ -7,7 +7,7 @@ pub(super) fn verify_receipt(
     receipt: &std::path::Path,
     expected_file_count: usize,
 ) {
-    let output = std::process::Command::new("bun")
+    let output = crate::process_command::new_command("bun")
         .current_dir(project)
         .arg("run")
         .arg("verify:devtools-package")

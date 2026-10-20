@@ -13,7 +13,7 @@ async fn current_inspect_tool_open_candidate_survives_real_host_view_lifecycle()
         .canonicalize()
         .unwrap();
     let verify = |directory: &std::path::Path| {
-        let output = std::process::Command::new("bun")
+        let output = crate::process_command::new_command("bun")
             .current_dir(&project)
             .arg("run")
             .arg("verify:devtools-package")

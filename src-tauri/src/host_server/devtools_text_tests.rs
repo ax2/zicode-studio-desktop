@@ -493,7 +493,7 @@ async fn embedded_pi_invokes_candidate_worker_and_rejects_revoked_cached_tool() 
         for relative in ["pi/pi.exe", "extensions/plugin-broker.mjs"] {
             assert!(delivery.join(relative).is_file(), "missing {relative}");
         }
-        let version = std::process::Command::new(delivery.join("pi/pi.exe"))
+        let version = crate::process_command::new_command(delivery.join("pi/pi.exe"))
             .arg("--version")
             .output()
             .unwrap();

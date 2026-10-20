@@ -245,7 +245,7 @@ async fn delivered_json_candidate_runs_confirmed_object_transfer_and_save() {
         .canonicalize()
         .unwrap();
     let verify_receipt = |package: &std::path::Path| {
-        let output = std::process::Command::new("bun")
+        let output = crate::process_command::new_command("bun")
             .current_dir(&project)
             .arg("run")
             .arg("verify:devtools-package")

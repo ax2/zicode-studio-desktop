@@ -8,7 +8,7 @@ async fn frozen_json_candidate_search_load_execute_and_revoke_in_embedded_pi() {
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let source = project.join("tests/fixtures/devtools-json-object-candidate06");
     let receipt = project.join("tests/fixtures/devtools-json-object-candidate06.verification.json");
-    let output = std::process::Command::new("bun")
+    let output = crate::process_command::new_command("bun")
         .current_dir(&project)
         .arg("run")
         .arg("verify:devtools-package")
