@@ -28,6 +28,22 @@ it("ignores scalar default annotations while preserving explicit false, zero and
   expect(prepareToolInput(fields ?? [], { flag: "1", count: "0", text: "" })).toEqual({ input: { flag: false, count: 0, text: "" } });
 });
 
+it("does not suggest invalid or unbounded declared defaults", () => {
+  const fields = toolFields({ type: "object", properties: {
+    tooLong: { type: "string", maxLength: 2, default: "long" },
+    invalidChoice: { type: "string", enum: ["a"], default: "b" },
+    unsafeNumber: { type: "integer", default: 9007199254740992 },
+    hugeText: { type: "string", default: "x".repeat(81) },
+    multiline: { type: "string", default: "one\ntwo" },
+    valid: { type: "number", minimum: 0, default: 0 },
+  } });
+  expect(fields?.map(field => [field.key, field.suggested])).toEqual([
+    ["tooLong", undefined], ["invalidChoice", undefined], ["unsafeNumber", undefined],
+    ["hugeText", undefined], ["multiline", undefined], ["valid", { input: "0", preview: "0" }],
+  ]);
+  expect(prepareToolInput(fields ?? [], {})).toEqual({ input: {} });
+});
+
 it("does not treat annotation support as support for references or unknown constraints", () => {
   for (const parse of [textFields, toolFields]) {
     expect(parse({ $id: 42, type: "object", properties: {} })).toBeNull();

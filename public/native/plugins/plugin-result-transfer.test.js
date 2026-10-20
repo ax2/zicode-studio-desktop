@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../i18n.js";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
+import { toolCategoryTitle } from "./tool-category-title.js";
 
 const source = {
   scope: {
@@ -37,6 +38,8 @@ function setup(locale = "zh-CN") {
       result: { ok: true, data: { text: "encoded" } },
       resultRef: { resultId: "next" },
     })),
+    cancelTransfer: vi.fn(async () => ({ schemaVersion: 1, status: "cancellation_requested" })),
+    transferStatus: vi.fn(async () => ({ schemaVersion: 1, status: "ready" })),
   };
   const onCancel = vi.fn();
   const onResult = vi.fn();
@@ -150,7 +153,7 @@ it("keeps pages bounded and rejects business failure as a new successful result"
   await vi.waitFor(() => expect(document.body.textContent).toContain("下一页工具"));
   click("下一页工具");
   await vi.waitFor(() =>
-    expect(gateway.searchTargets).toHaveBeenCalledWith(source.scope, "result", "", 20, "r"),
+    expect(gateway.searchTargets).toHaveBeenCalledWith(source.scope, "result", "", 20, "r", expect.objectContaining({ signal: expect.any(AbortSignal) })),
   );
   click("编码");
   await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
@@ -169,13 +172,13 @@ it("returns to the same search page without executing and invalidates the old co
   click("Search tools");
   await vi.waitFor(() => expect(document.body.textContent).toContain("Next tool page"));
   click("Next tool page");
-  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "encode", 20, "r"));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "encode", 20, "r", expect.objectContaining({ signal: expect.any(AbortSignal) })));
   await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
   click("field text");
   await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
   const oldConfirm = [...document.querySelectorAll("button")].find(node => node.textContent === "Confirm transfer and run");
   click("Change receiver");
-  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "encode", 20, "r"));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "encode", 20, "r", expect.objectContaining({ signal: expect.any(AbortSignal) })));
   expect(document.querySelector('input[type="search"]').value).toBe("encode");
   expect(document.activeElement).toBe(document.querySelector('input[type="search"]'));
   oldConfirm.click(); expect(gateway.commitTransfer).not.toHaveBeenCalled();
@@ -223,6 +226,70 @@ it("locks receiver and input editing during confirmed computation", async () => 
   expect(gateway.commitTransfer).toHaveBeenCalledTimes(1);
 });
 
+it("requests Host cancellation during confirmed computation and waits for the final outcome", async () => {
+  const { gateway, onResult } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  let finish;
+  gateway.commitTransfer.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  click("Confirm transfer and run");
+  click("Cancel transfer");
+  await vi.waitFor(() => expect(gateway.cancelTransfer).toHaveBeenCalledWith(source.scope, "grant"));
+  expect(document.body.textContent).toContain("waiting for the receiver outcome");
+  expect(onResult).not.toHaveBeenCalled();
+  finish({ error: { code: "worker_cancelled" } });
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Receiver tool cancelled"));
+  expect(onResult).not.toHaveBeenCalled();
+});
+
+it("shows a successful receiver result if completion wins the cancellation race", async () => {
+  const { gateway, onResult } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  let finish;
+  gateway.commitTransfer.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  gateway.cancelTransfer.mockResolvedValue({ schemaVersion: 1, status: "completed" });
+  click("Confirm transfer and run");
+  click("Cancel transfer");
+  await vi.waitFor(() => expect(gateway.cancelTransfer).toHaveBeenCalledOnce());
+  finish({ result: { ok: true, data: { text: "completed" } }, resultRef: { resultId: "next" } });
+  await vi.waitFor(() => expect(onResult).toHaveBeenCalledOnce());
+});
+
+it("recovers a completed receiver result after the commit connection fails without repeating execution", async () => {
+  const { gateway, onResult } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  gateway.commitTransfer.mockRejectedValueOnce(new Error("connection lost"));
+  gateway.transferStatus.mockResolvedValueOnce({ schemaVersion: 1, status: "completed",
+    response: { result: { ok: true, data: { text: "recovered" } }, resultRef: { resultId: "next" } } });
+  click("Confirm transfer and run");
+  await vi.waitFor(() => expect(onResult).toHaveBeenCalledOnce());
+  expect(onResult.mock.calls[0][0].result.data.text).toBe("recovered");
+  expect(gateway.commitTransfer).toHaveBeenCalledTimes(1);
+  expect(gateway.transferStatus).toHaveBeenCalledWith(source.scope, "grant");
+});
+
+it("keeps confirmation disabled while a disconnected receiver is running, then recovers by status", async () => {
+  const { gateway, onResult } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  click("field text");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
+  gateway.commitTransfer.mockRejectedValueOnce(new Error("connection lost"));
+  gateway.transferStatus.mockResolvedValueOnce({ schemaVersion: 1, status: "running" })
+    .mockResolvedValueOnce({ schemaVersion: 1, status: "completed",
+      response: { result: { ok: true, data: { text: "later" } } } });
+  click("Confirm transfer and run");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("still running"));
+  expect([...document.querySelectorAll("button")].find(node => node.textContent === "Confirm transfer and run").disabled).toBe(true);
+  click("Check receiver outcome");
+  await vi.waitFor(() => expect(onResult).toHaveBeenCalledOnce());
+  expect(gateway.commitTransfer).toHaveBeenCalledTimes(1);
+});
+
 it("offers receiver reselection after preview rejection and blocks it after scope change", async () => {
   const { gateway, switchTarget } = setup("en");
   gateway.prepareTransfer.mockRejectedValue(new Error("target_changed"));
@@ -237,14 +304,48 @@ it("uses project favorites and recent with access revision pagination, without e
   await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
   gateway.searchTargets.mockResolvedValue({ items: [target], total: 22, revision: "personalized", accessRevision: 7, nextOffset: 20 });
   click("Favorites");
-  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, { view: "favorites", accessRevision: null }));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, expect.objectContaining({ view: "favorites", accessRevision: null, signal: expect.any(AbortSignal) })));
   await vi.waitFor(() => expect(document.body.textContent).toContain("Next tool page"));
   click("Next tool page");
-  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 20, "personalized", { view: "favorites", accessRevision: 7 }));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 20, "personalized", expect.objectContaining({ view: "favorites", accessRevision: 7, signal: expect.any(AbortSignal) })));
   await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
   click("Recent");
-  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, { view: "recent", accessRevision: null }));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, expect.objectContaining({ view: "recent", accessRevision: null, signal: expect.any(AbortSignal) })));
   expect(gateway.prepareTransfer).not.toHaveBeenCalled(); expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("filters a large ordinary result receiver directory by source and category before loading inputs", async () => {
+  const { gateway } = setup("en");
+  gateway.searchTargets.mockResolvedValue({ items: [target], total: 22, revision: "filtered", accessRevision: 7,
+    nextOffset: 20, sources: [{ pluginId: "receiver", title: "Receiver tools", count: 22 }],
+    categories: [{ id: "text", count: 22 }] });
+  click("Search tools");
+  await vi.waitFor(() => expect(document.querySelector('select[aria-label="Tool source"] option[value="receiver"]')).toBeTruthy());
+  const sourceSelect = document.querySelector('select[aria-label="Tool source"]');
+  sourceSelect.value = "receiver"; sourceSelect.dispatchEvent(new Event("change"));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null,
+    expect.objectContaining({ pluginId: "receiver", signal: expect.any(AbortSignal) })));
+  const categorySelect = document.querySelector('select[aria-label="Tool category"]');
+  categorySelect.value = "text"; categorySelect.dispatchEvent(new Event("change"));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null,
+    expect.objectContaining({ pluginId: "receiver", categoryId: "text", signal: expect.any(AbortSignal) })));
+  click("Favorites");
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null,
+    expect.objectContaining({ view: "favorites", pluginId: "receiver", categoryId: "text", accessRevision: null })));
+  expect(gateway.prepareTransfer).not.toHaveBeenCalled();
+});
+
+it("explains global facet counts and localizes declared category titles", async () => {
+  const { gateway } = setup();
+  gateway.searchTargets.mockResolvedValue({ items: [target], total: 2, revision: "facets", nextOffset: null,
+    sources: [{ pluginId: "receiver", title: "接收工具", count: 2 }],
+    categories: [{ id: "uncategorized", count: 7 }, { id: "code", count: 1 }] });
+  click("搜索工具");
+  await vi.waitFor(() => expect(document.querySelector('select[aria-label="工具分类"] option[value="uncategorized"]')?.textContent).toBe("未分类 · 7"));
+  expect(document.querySelector('select[aria-label="工具分类"] option[value="code"]')?.textContent).toBe("编码与调试 · 1");
+  expect(document.body.textContent).toContain("筛选项数字统计当前视图的全部兼容字段");
+  expect(toolCategoryTitle("provider-custom")).toBe("provider-custom");
+  expect(gateway.prepareTransfer).not.toHaveBeenCalled();
 });
 
 it("ignores late personalized pages and keeps selected view when changing receiver", async () => {
@@ -257,7 +358,7 @@ it("ignores late personalized pages and keeps selected view when changing receiv
   await Promise.resolve(); expect(document.body.textContent).not.toContain("obsolete favorite");
   click("field text"); await vi.waitFor(() => expect(document.body.textContent).toContain("Change receiver"));
   click("Change receiver");
-  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, "r", { view: "recent", accessRevision: null }));
+  await vi.waitFor(() => expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, "r", expect.objectContaining({ view: "recent", accessRevision: null, signal: expect.any(AbortSignal) })));
   expect(gateway.commitTransfer).not.toHaveBeenCalled();
 });
 
@@ -270,6 +371,40 @@ it("requires explicit refresh after access revision conflict without replaying o
   expect(document.body.textContent).not.toContain("internal host detail");
   click("Search tools");
   await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
-  expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, { view: "favorites", accessRevision: null });
+  expect(gateway.searchTargets).toHaveBeenLastCalledWith(source.scope, "result", "", 0, null, expect.objectContaining({ view: "favorites", accessRevision: null, signal: expect.any(AbortSignal) }));
   expect(gateway.commitTransfer).not.toHaveBeenCalled();
+});
+
+it("aborts superseded and cancelled receiver searches", async () => {
+  const { gateway, onCancel } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  const signals = [];
+  gateway.searchTargets.mockImplementation((_scope, _resultId, _query, _offset, _revision, options) => {
+    signals.push(options.signal);
+    return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () =>
+      reject(Object.assign(new Error("cancelled"), { code: "plugin_capability_cancelled" })), { once: true }));
+  });
+  click("Favorites");
+  expect(signals[0].aborted).toBe(false);
+  click("Recent");
+  expect(signals[0].aborted).toBe(true);
+  expect(signals[1].aborted).toBe(false);
+  click("Cancel transfer");
+  expect(signals[1].aborted).toBe(true);
+  expect(onCancel).toHaveBeenCalledOnce();
+});
+
+it("aborts an in-flight receiver search when its controller is destroyed", async () => {
+  const { gateway, controller } = setup("en");
+  await vi.waitFor(() => expect(document.body.textContent).toContain("field text"));
+  let signal;
+  gateway.searchTargets.mockImplementation((_scope, _resultId, _query, _offset, _revision, options) => {
+    signal = options.signal;
+    return new Promise((_resolve, reject) => signal.addEventListener("abort", () =>
+      reject(Object.assign(new Error("cancelled"), { code: "plugin_capability_cancelled" })), { once: true }));
+  });
+  click("Favorites");
+  expect(signal.aborted).toBe(false);
+  controller.destroy();
+  expect(signal.aborted).toBe(true);
 });

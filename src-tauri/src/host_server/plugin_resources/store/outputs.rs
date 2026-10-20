@@ -21,7 +21,8 @@ impl Pending {
             return Err(rejected("resource_metadata_invalid"));
         };
         let unique: std::collections::HashSet<_> = sources.iter().map(|s| &s.resource_id).collect();
-        if sources.len() > 4 || unique.len() != sources.len()
+        if sources.len() > 4
+            || unique.len() != sources.len()
             || sources.iter().any(|s| s.owner != source.owner)
         {
             return Err(rejected("resource_metadata_invalid"));
@@ -34,7 +35,10 @@ impl Pending {
         if blobs.len() > 4 {
             return Err(rejected("resource_budget_exceeded"));
         }
-        if blobs.iter().any(|b| crate::plugin_output_types::extension(&b.mime_type).is_none()) {
+        if blobs
+            .iter()
+            .any(|b| crate::plugin_output_types::extension(&b.mime_type).is_none())
+        {
             return Err(rejected("resource_metadata_invalid"));
         }
         // Build every record before mutation. No fallible validation after first insertion.
@@ -44,8 +48,13 @@ impl Pending {
             let id = uuid::Uuid::new_v4().to_string();
             let version = sha256_hex(&blob.bytes);
             let length = blob.bytes.len();
-            let lineage = sources.iter().map(|s| json!({"resourceId":s.resource_id,
-                "contentVersion":s.content_version})).collect::<Vec<_>>();
+            let lineage = sources
+                .iter()
+                .map(|s| {
+                    json!({"resourceId":s.resource_id,
+                "contentVersion":s.content_version})
+                })
+                .collect::<Vec<_>>();
             let mut descriptor = json!({"index":index,"resourceId":id,"contentVersion":version,
                 "mimeType":blob.mime_type,"byteLength":length,"expiresInSeconds":900,
                 "origin":"worker-output","saved":false,
@@ -66,9 +75,13 @@ impl Pending {
                     uploaded: length,
                     confirmed: true,
                     expires: Instant::now() + Duration::from_secs(900),
-                    parents: sources.iter().map(|s| Ancestor {
-                        access: s.clone(), proof: proof.into(),
-                    }).collect(),
+                    parents: sources
+                        .iter()
+                        .map(|s| Ancestor {
+                            access: s.clone(),
+                            proof: proof.into(),
+                        })
+                        .collect(),
                 },
             ));
         }

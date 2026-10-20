@@ -15,6 +15,7 @@ interface StorageEntry {
 export interface ProjectStorageReport {
   directory: string;
   checkedAt: string;
+  scanMode: "quick" | "deep";
   availableBytes?: number;
   entries: StorageEntry[];
 }
@@ -26,6 +27,7 @@ function readReport(value: unknown, directory: string): ProjectStorageReport {
     report.directory !== directory ||
     typeof report.checkedAt !== "string" ||
     !Number.isFinite(Date.parse(report.checkedAt)) ||
+    !["quick", "deep"].includes(String(report.scanMode)) ||
     (report.availableBytes !== undefined &&
       (!Number.isSafeInteger(report.availableBytes) || Number(report.availableBytes) < 0)) ||
     !Array.isArray(report.entries) ||
@@ -79,7 +81,25 @@ function entryStatus(entry: StorageEntry): string {
   return t("Directory could not be scanned");
 }
 
+function hasInconsistentDetail(entries: StorageEntry[]): boolean {
+  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  return ["target", "src-tauri/target", ".cache"].some((parent) =>
+    byPath.get(parent)?.status === "complete" &&
+    entries.some((entry) => entry.path.startsWith(`${parent}/`) && entry.status !== "complete"),
+  );
+}
+
 function entryGuidance(path: string): string {
+  if (path === ".cache/task-scratch")
+    return t(
+      "Temporary acceptance files may be referenced by project records. Check ownership and references before removing any of them.",
+    );
+  if (path.endsWith("/debug/deps") || path.endsWith("/debug/build"))
+    return t("Reusable Cargo compilation artifacts. Removing them makes later builds compile dependencies again.");
+  if (path.endsWith("/debug/incremental"))
+    return t("Cargo incremental compilation sessions. Check the active build profile before reviewing old sessions.");
+  if (path.endsWith("/debug") || path.endsWith("/release"))
+    return t("Contains a runtime and build artifacts. Keep the current runnable version and its required resources.");
   if (path === "target" || path === "src-tauri/target")
     return t(
       "Usually Rust build output. Finish running builds and confirm the project can rebuild before removing it.",
@@ -125,7 +145,7 @@ function scanError(reason: unknown): string {
 interface ProjectStoragePanelProps {
   workspaceId?: string;
   directory?: string;
-  readStorage?: (workspaceId: string, directory: string) => Promise<unknown>;
+  readStorage?: (workspaceId: string, directory: string, deep?: boolean) => Promise<unknown>;
   openEntry?: (workspaceId: string, relativePath: string) => Promise<void>;
 }
 
@@ -142,10 +162,11 @@ function ScopedProjectStoragePanel({
   readStorage,
   openEntry,
 }: ProjectStoragePanelProps) {
-  const [retry, setRetry] = useState(0);
+  const [request, setRequest] = useState({ revision: 0, deep: false });
   const [scans, setScans] = useState<{
     current: ProjectStorageReport;
     previous: ProjectStorageReport | null;
+    requestedDeep: boolean;
   } | null>(null);
   const result = scans?.current ?? null;
   const [loading, setLoading] = useState(false);
@@ -173,12 +194,16 @@ function ScopedProjectStoragePanel({
     setLoading(true);
     setError("");
     void Promise.resolve()
-      .then(() => readStorage(workspaceId, directory))
+      .then(() => readStorage(workspaceId, directory, request.deep))
       .then((value) => readReport(value, directory))
       .then(
         (report) => {
           if (active)
-            setScans((previous) => ({ current: report, previous: previous?.current ?? null }));
+            setScans((previous) => ({
+              current: report,
+              previous: previous?.current ?? null,
+              requestedDeep: request.deep,
+            }));
         },
         (reason) => {
           if (active) setError(scanError(reason));
@@ -190,7 +215,7 @@ function ScopedProjectStoragePanel({
     return () => {
       active = false;
     };
-  }, [workspaceId, directory, readStorage, retry]);
+  }, [workspaceId, directory, readStorage, request]);
 
   return (
     <section
@@ -201,20 +226,33 @@ function ScopedProjectStoragePanel({
       <header className="project-environment-header">
         <h2>{t("Project storage")}</h2>
         {readStorage && workspaceId ? (
-          <button
-            type="button"
-            className="ui-button ui-button--secondary"
-            disabled={loading}
-            onClick={() => setRetry((value) => value + 1)}
-          >
-            {t("Scan project storage")}
-          </button>
+          <div className="ui-toolbar">
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              disabled={loading}
+              onClick={() => setRequest((value) => ({ revision: value.revision + 1, deep: false }))}
+            >
+              {t("Scan project storage")}
+            </button>
+            <button
+              type="button"
+              className="ui-button ui-button--secondary"
+              disabled={loading}
+              onClick={() => setRequest((value) => ({ revision: value.revision + 1, deep: true }))}
+            >
+              {t("Deep storage scan")}
+            </button>
+          </div>
         ) : null}
       </header>
       <p>
         {t(
           "This is a read-only, bounded scan of common generated directories. Sizes are logical file sizes, not an estimate of reclaimable disk space. Review each directory before removing it.",
         )}
+      </p>
+      <p className="project-environment-hint">
+        {t("The deep read-only scan may take up to three minutes. Time limits or inaccessible entries can leave parts incomplete.")}
       </p>
       <p className="project-environment-hint">
         {t("Storage scan directory")}: <strong>{directory || t("Workspace root")}</strong>
@@ -225,14 +263,18 @@ function ScopedProjectStoragePanel({
         <p>{t("Open a project folder to inspect its storage.")}</p>
       ) : (
         <>
-          {loading ? <p role="status">{t("Scanning project storage…")}</p> : null}
+          {loading ? <p role="status">{t(request.deep ? "Deep storage scan in progress…" : "Scanning project storage…")}</p> : null}
           {error ? <p role="alert">{error}</p> : null}
           {openError ? <p role="alert">{openError}</p> : null}
-          {result ? (
+          {result && !loading && !error ? (
             <>
               <p>
                 {t("Last storage scan")}: {new Date(result.checkedAt).toLocaleString()}
+                {` · ${t(result.scanMode === "deep" ? "Deep storage scan" : "Quick storage scan")}`}
               </p>
+              {scans?.requestedDeep && result.scanMode !== "deep" ? (
+                <p role="alert">{t("The storage scan ran in quick mode despite a deep scan request.")}</p>
+              ) : null}
               <p>
                 {result.availableBytes === undefined
                   ? t("Available volume space was not reported for this scan.")
@@ -243,7 +285,25 @@ function ScopedProjectStoragePanel({
               ) : null}
               {result.entries.length ? (
                 <>
+                  {hasInconsistentDetail(result.entries) ? (
+                    <p role="alert">
+                      {t("Detail status conflicts with its complete parent. Verify with a separate read-only inventory before cleanup.")}
+                    </p>
+                  ) : null}
+                  {result.entries.some((entry) => entry.status !== "complete") ? (
+                    <p role="status">
+                      {t("Some directories remain incomplete. Observed sizes may be lower bounds, not cleanup estimates.")}
+                    </p>
+                  ) : null}
                   <p>{t("Largest observed directories first")}</p>
+                  {result.entries.some((entry) =>
+                    entry.path.startsWith("target/") ||
+                    entry.path.startsWith("src-tauri/target/") ||
+                    entry.path === ".cache/task-scratch") ? (
+                    <p className="project-environment-hint">
+                      {t("Detail rows are included in their parent directory; do not add them to the total.")}
+                    </p>
+                  ) : null}
                   <ul className="project-environment-list">
                     {result.entries
                       .slice()
@@ -256,8 +316,9 @@ function ScopedProjectStoragePanel({
                           <strong>{entry.path}</strong>
                           {entry.status === "complete" || entry.status === "partial" ? (
                             <span>
-                              {entry.status === "partial" ? "≥ " : ""}
-                              {size(entry.bytes)} · {entry.status === "partial" ? "≥ " : ""}
+                              {entry.status === "partial" && entry.bytes === 0
+                                ? t("Size not observed")
+                                : `${entry.status === "partial" ? "≥ " : ""}${size(entry.bytes)}`} · {entry.status === "partial" ? "≥ " : ""}
                               {entry.files} {t("files")}
                             </span>
                           ) : null}

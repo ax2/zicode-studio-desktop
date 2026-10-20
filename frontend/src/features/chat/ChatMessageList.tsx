@@ -129,7 +129,7 @@ function ChatItem({
     case "history-loaded":
       return <HistoryLoadedStatus key={item.seq} />;
     case "tool":
-      return <ToolCard key={item.seq} item={item} />;
+      return <ToolCard key={item.seq} item={item} container={container} />;
   }
 }
 
@@ -867,7 +867,10 @@ function ModelErrorCard({
   );
 }
 
-function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
+function ToolCard({ item, container }: {
+  item: Extract<ChatFeedItem, { kind: "tool" }>;
+  container: HTMLElement;
+}) {
   const [localExpanded, setLocalExpanded] = useState<boolean | null>(null);
   const expanded = localExpanded ?? item.expanded;
   const [copyState, setCopyState] = useState<"" | "copied" | "failed">("");
@@ -877,8 +880,14 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
     if (copyTimer.current) clearTimeout(copyTimer.current);
   }, []);
   const argsPreview = getArgsPreview(item.toolName, item.args);
+  const stageLabel = item.status === "pending" || item.status === "streaming"
+    ? toolStageLabel(item.toolName)
+    : "";
   const argsJson = formatJson(item.args);
   const displayOutput = item.isError ? friendlyToolError(item.output) ?? item.output : item.output;
+  const reusable = !item.history && !item.isError && item.status === "complete"
+    ? reusablePluginResult(item.result)
+    : null;
   const isEdit =
     (item.toolName === "edit" || item.toolName === "Edit") &&
     item.args &&
@@ -918,8 +927,8 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
                 </svg>
               </span>
               <span className="tool-name">{item.toolName}</span>
-              {toolStageLabel(item.toolName) ? (
-                <span className="tool-stage">{t(toolStageLabel(item.toolName))}</span>
+              {stageLabel ? (
+                <span className="tool-stage">{t(stageLabel)}</span>
               ) : null}
               {argsPreview ? <span className="tool-args-preview">{argsPreview}</span> : null}
             </span>
@@ -928,6 +937,20 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
           </span>
         </button>
         <div className="tool-header-right">
+          {reusable ? (
+            <button
+              type="button"
+              className="tool-action-btn plugin-result-use-btn"
+              aria-label={t("Use plugin result")}
+              title={t("Use plugin result")}
+              onClick={() => {
+                container.dispatchEvent(new CustomEvent("pluginresultaction", {
+                  bubbles: true,
+                  detail: reusable,
+                }));
+              }}
+            >{t("Use result")}</button>
+          ) : null}
           <button
             type="button"
             className="tool-action-btn copy-output-btn"
@@ -978,6 +1001,27 @@ function ToolCard({ item }: { item: Extract<ChatFeedItem, { kind: "tool" }> }) {
       )}
     </div>
   );
+}
+
+function reusablePluginResult(result: unknown) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return null;
+  const details = (result as { details?: unknown }).details;
+  if (!details || typeof details !== "object" || Array.isArray(details)) return null;
+  const value = details as Record<string, unknown>;
+  if (value.ok !== true || !value.studioResult || typeof value.studioResult !== "object" ||
+      Array.isArray(value.studioResult)) return null;
+  const source = value.studioResult as Record<string, unknown>;
+  const ref = source.resultRef;
+  if (!ref || typeof ref !== "object" || Array.isArray(ref)) return null;
+  const reference = ref as Record<string, unknown>;
+  if (!((reference.schemaVersion === 1 && reference.mimeType === "text/plain") ||
+      (reference.schemaVersion === 2 && reference.mimeType === "application/json")) ||
+      typeof reference.resultId !== "string" ||
+      !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(reference.resultId) ||
+      typeof source.pluginId !== "string" || !source.pluginId ||
+      typeof source.capabilityId !== "string" || !source.capabilityId) return null;
+  return { result: value, resultRef: reference, pluginId: source.pluginId,
+    capabilityId: source.capabilityId };
 }
 
 function getArgsPreview(_toolName: string, args: Record<string, unknown>): string {

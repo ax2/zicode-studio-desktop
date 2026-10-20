@@ -29,9 +29,12 @@ export function ManualToolResultActions({ response, scope, gateway, onBusy, acce
       gateway: {
         prepareSave: (...args) => gateway.prepareSave(...args),
         commitSave: (...args) => commit("commitSave", ...args),
+        ...(gateway.saveStatus ? { saveStatus: gateway.saveStatus.bind(gateway) } : {}),
         searchTargets: (...args) => gateway.searchTargets(...args),
         prepareTransfer: (...args) => gateway.prepareTransfer(...args),
         commitTransfer: (...args) => commit("commitTransfer", ...args),
+        cancelTransfer: (...args) => gateway.cancelTransfer(...args),
+        transferStatus: (...args) => gateway.transferStatus(...args),
       },
       isCurrent: candidate => active && candidate?.sceneId === sceneId && candidate.workspaceId === workspaceId,
       onReceiverExecuted: accessStore ? receiver => recordReceiverRecent(receiver, accessStore, () => active,

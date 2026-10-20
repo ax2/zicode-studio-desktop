@@ -1,4 +1,66 @@
+2026-10-18：Release 资产校验器现只读取当前 `CARGO_TARGET_DIR`（缺省为仓库 `target`）的 EXE 与 bundle，不再回退到旧 `src-tauri/target`；路径与既有资产策略专项 18/18 通过，未执行远端发布。见[阶段记录](iterations/2026-10-18-release-single-target-verifier.md)。
+
+2026-10-18：跨平台插件清单门禁从两份固定样本扩为自动枚举 13 份冻结正例；已有专项断言错误的 URL 文本资源负例保留排除。当前本机预检 13/13、相关 16/16 及静态检查通过；新规则尚无远端四平台运行，见[阶段记录](iterations/2026-10-18-plugin-profile-ci-coverage.md)。
+
+2026-10-18：Studio 工具中心具体能力直达现在复核目录修订；即使插件版本字符串相同，异步应用切换期间发生目录更新也会拒绝旧选择。外壳 38/38、前端静态检查通过；真实原生同版本升级和其他系统仍待，见[阶段记录](iterations/2026-10-18-tool-open-catalog-revision.md)。同日补齐 View 的迟到 `opened` 回执写入最近使用前的目录修订复核，38/38 与静态检查通过；当前 Debug EXE 尚未包含该改动，见[回执阶段记录](iterations/2026-10-18-tool-open-recent-revision-ack.md)。
+
+2026-10-17：Studio 自有合成 `tool.open.v1` 插件已在隔离真实 Host HTTP 生命周期验证安装、轻量摘要、启用前后 View 读取和再次撤权，Rust 定向 1/1、静态检查通过。后续补上当前工作区/运行会话与插件版本回执复核，并阻断旧 View 将能力调用带入新工作区；相关五文件 74/74 通过。真实 Tauri UI、提供方实包和其他系统仍待，见[阶段记录](iterations/2026-10-17-tool-open-profile.md)。
+
+2026-10-17：普通文本结果“发送到工具”目录增加来源/分类筛选，并在 Host 分页前应用；52 项前端、1 项真实 Host HTTP 及当前 Windows Debug 的 Text 执行→Trace 来源筛选 7→2 项通过。旧候选缺分类声明，正式包与百项真实目录仍待，见[阶段记录](iterations/2026-10-17-text-result-receiver-facets.md)。
+
+同日续进：接收目录和资源接力目录共用 `tool.directory.v1` 分类中文标题；普通文本目录明确说明筛选数字按当前视图全量计数。43 项专项与当前 Debug 真窗口的“未分类 · 7”、Trace 列表 2 项布局复核通过，见同一[阶段记录](iterations/2026-10-17-text-result-receiver-facets.md)。
+
+2026-10-17：资源接收目录增加上一页及范围/总数，单页不显示翻页栏。41 项模拟目录往返、21 项定向测试与当前 Windows Debug 两候选真实界面复验通过；真实百项兼容工具的原生分页仍待，见[阶段记录](iterations/2026-10-17-resource-receiver-pagination.md)。
+
+2026-10-17：普通文本结果接收目录现取消新搜索、取消或卸载后的旧 HTTP 请求；定向测试 51/51、类型及项目检查通过，最新 Debug 源与运行目录资产摘要一致。真实慢 Host 的原生取消仍待验，见[阶段记录](iterations/2026-10-17-text-result-receiver-search-cancel.md)。
+
+2026-10-17：资源接收目录现由 Host 在分页与来源/分类计数前排除输出工具自身；41 项合成目录得到完整 40 项首页和一致计数，Rust 2 项、前端 50 项专项通过。当前版本原生弹窗与正式包仍待验，见[阶段记录](iterations/2026-10-17-resource-receiver-prepage-exclusion.md)。
+
+2026-10-17：资源结果接力弹窗现沿用可取消搜索，在新查询、输入变化与关闭时终止过期目录请求；现有 MIME、来源/分类、收藏/最近与分页保持。网关和接力专项 48 项通过，真实慢 Host 与当前弹窗原生验收仍待，见[阶段记录](iterations/2026-10-17-resource-receiver-search-cancel.md)。
+
+2026-10-17：百项工具目录与命令面板现主动取消输入/视图/工作区变化后的过期搜索请求；65 项定向测试与 Windows Debug 24→3→2 项真实筛选、截图通过，慢 Host 和其他平台仍待，见[阶段记录](iterations/2026-10-17-tool-search-cancellation.md)。
+
+2026-10-17：四平台 Developer platform 检查现包含插件清单 profile 的独立非建议性预检；续加 `tool.open.v1` 精确版本、schemaVersion、主 View 和能力结构提示及 Studio 合成样本，本地最新 16 项专项和双清单 CLI 通过。四平台 CI 仍待包含该修改的远端运行，见[阶段记录](iterations/2026-10-17-plugin-profile-cross-platform-gate.md)。
+
+2026-10-17：Windows Debug 工具窗口关闭后原进程保活，同隔离 profile 二次启动恢复同一窗口和 24 项工具目录；真实截图已归档。任务栏通知区未出现在界面工具可操作窗口列表中，实体托盘右键菜单仍待验，见[阶段记录](iterations/2026-10-17-tray-close-restore-native.md)。
+
+2026-10-17：Windows 11 Explorer 实体多选已完成两文件经典右键菜单到 Studio `--open-selection 2` 的真实交接，以及五文件菜单隐藏的负例；Studio 只显示基本名和待确认状态，0 项匹配工具未自动执行。见[阶段记录](iterations/2026-10-17-explorer-multiselect-native-menu.md)。ZiFile 0/108、DevTools 0/154，现代菜单与跨平台仍待。
+
+2026-10-17：签名插件包安装前可展开并搜索清单中的具体工具；154 项合成目录前端验证、Windows Debug 五项签名测试包的真实预览与过滤截图通过。未安装测试包，其他系统和完整 DevTools 154 项仍待验，见[阶段记录](iterations/2026-10-17-signed-plugin-tool-list.md)。
+
+2026-10-17：内嵌 Pi 与本机资源已是 GitHub 最新 v1.3.0；将 Studio 扩展编译依赖 `pi-coding-agent`、`pi-tui` 从 1.2.0 精确对齐到 1.3.0，冻结安装、扩展源码类型检查、三扩展打包和内嵌 Pi RPC 6/6 通过。完整 Studio 扩展原生运行及跨平台仍待，见[阶段记录](iterations/2026-10-17-pi-sdk-alignment.md)。
+
+同日续进：`bun run check` 现在校验 Pi SDK 与嵌入式版本一致；自动 Pi 更新工作流同步锁定扩展依赖并纳入自动 PR。检查及 YAML 解析已过，远端工作流未触发；见同一[阶段记录](iterations/2026-10-17-pi-sdk-alignment.md)。
+
+同日续验：嵌入式 Pi 1.3.0 在隔离临时配置真实加载 Studio bridge、Broker 与 Inbox 扩展；开发场景命令与本机测试插件的成功/失败调用通过，且确认没有 `qveris_` 工具泄入。原生 DevTools 包与跨平台验收未覆盖，见同一[阶段记录](iterations/2026-10-17-pi-sdk-alignment.md)。
+
+2026-10-17：工具中心保留 1–3 项已打开标签，4 项及以上改用单个来源可辨的选择器和当前工具关闭按钮。31/31 定向测试、TypeScript、代码/设计检查、React 与 CSS 打包通过；Windows Debug 1442×931 真窗口截图确认无横向滚动，四项下拉、关闭确认与按钮对比度可见，Home/Enter 切换后正文和关闭目标同步更新；约 802 px 原生窄窗口及无遮挡复核也已检查。720 px 以下、鼠标下拉选择及跨平台仍待验。见[阶段记录](iterations/2026-10-17-opened-tool-picker.md)。
+
+2026-10-17：已启用的 Inspect 0.1.1 隔离安装在当前 Windows 0.4.2 Debug 原生窗口完成 8/8 工具发现、按需加载、执行与展示；非法 YAML 显示 `INVALID_INPUT` 后相邻工具仍可重新执行。安装副本对外部收据 606/606 文件和目录索引复核通过，结果截图已检查。横向已打开工具标签在 8 项时需要滚动；正式签名、其他系统与完整源工具范围仍待，154 项完整接受仍为 0。见[阶段记录](iterations/2026-10-17-inspect-011-current-debug-native.md)。
+
+2026-10-17：当前 Windows 0.4.2 Debug 原生窗口完成两份独立无签名 DevTools 候选的 Text Base64 解码 → Trace Java 异常链反向跨包接力；两份安装目录逐文件核对外部收据 13/13、346/346。预览、显式确认、接收执行和结构化结果展示可见，未保存或发送模型。正式签名及其他 OS 仍待，完整接受 0/154。见[阶段记录](iterations/2026-10-17-text-to-trace-native-transfer.md)。
+
+2026-10-17：通用插件表单现允许用户显式填入有效的声明默认值，未点击时仍不向插件注入默认参数；定向 22/22、类型/静态与中文词条检查通过。Windows 0.4.2 Debug 图片候选表单截图确认 `webp`、`1600`、`82` 经点击后才进入输入框，未提供文件时未执行。当前 Inspect 独立隔离配置的启用及 Pi 权限也已只读复核；其历史 8/8 原生验收不算作本轮重测。见[阶段记录](iterations/2026-10-17-declared-plugin-defaults.md)。
+
+2026-10-16：复核后续插件接入改动并修复图片资源接收错误的中文缺失。`bun run check`、`bun run check:rust:static` 和完整 `bun run test` 通过（293文件/2069项）；Tauri 48命令权限、Windows子进程策略及3371项中文词条检查通过。Pi 1.3.0 的 Windows RPC 冒烟也通过；GUI截图与macOS/Linux实机验收仍待完成。
+2026-10-16：真实 Host/WASI 图片验收新增“生成 PNG → 显式 grant 接力到独立插件 → 接收端校验签名”的链路，并确认图片插件对损坏图返回 `INVALID_IMAGE` 后，兄弟接收工具仍可执行。定向 Rust 用例 1/1、Rust 静态检查通过；真实原生界面、崩溃注入和非 Windows 仍待。实现与失败记录见[Host 接收端迭代](iterations/2026-10-16-host-resource-receiver.md)。
 # 开发者个人平台推进计划
+
+2026-10-17：修复插件 View HTTP GET 主动中止、等待超时与确认弹窗在途取消，并防止迟到取消误关下一弹窗；33 项相关前端用例通过，本地 Debug EXE 构建成功并检查了隔离工具窗口截图。真实授权弹窗和提供方包的完整链路、跨平台原生验收仍待，见[阶段记录](iterations/2026-10-17-http-get-view-cancel.md)。
+
+2026-10-17：View 父页面现拒绝同一实例重复的在途 requestId，避免一个 ID 引发两次执行或覆盖取消句柄；18 项定向测试和静态检查通过。提供方签名容器仍未交付，见[阶段记录](iterations/2026-10-17-plugin-view-request-id-isolation.md)。
+
+2026-10-17：插件任务中心增加桌面专用的工作区任务详情与最近 64 条状态事件，按需展开并隔离读取失败；Host 定向、前端、类型与静态检查通过，本地 Debug EXE 和任务中心空状态截图已检查。真实提供方任务详情原生展开仍待，见[阶段记录](iterations/2026-10-17-plugin-task-detail.md)。
+
+2026-10-16：在真实 Windows Debug tools-only 窗口复核插件资源链：冻结 ZiDevTools 图片候选生成 WebP，显式转交内置 OCR 得到 `text/plain`；类型化接收目录正确排除图片工具，并保留[阶段记录](iterations/2026-10-16-host-resource-ocr/work-log.md)和技术档案截图。当前没有兼容文本接收器，已提出[提供方接口需求](plugins/devtools-text-resource-interface-request.md)，完整第三工具执行、显式保存、签名包及其他 OS 继续待验收。
+
+2026-10-16：补全[受控 HTTP GET 插件接口合同](plugins/service-http-get-contract.md)，并为本地 HTTPS 接入验证加入测试专属根证书。
+测试确认未经信任的 CA 被拒，测试状态明确信任后，同一 Host route 可按固定 endpoint 成功读取；正式运行不开放 CA 注入。
+操作系统根证书成功、公网 DNS、完整 Pi/View、插件实包和跨平台 conformance 仍待验收。
+
+2026-10-16：按提供方当前未提交迁移清单发现 `spring-actuator` 1.1.1 新增后台任务与 JSON 报告范围，现有 HTTP profile 不覆盖；已形成[任务与报告 Host 接口需求](plugins/devtools-actuator-task-interface-request.md)。同次只读目录比较发现 37 项 scope/版本变化和 5 项状态变化；未覆盖冻结矩阵，等稳定 source revision 与收据后重算。全工具接受仍为0/154。
+现有任务中心数据源是 Super Agent 工作流记录，模型生成 Host 调用也是内存 grant 加前台终态响应，不能当作通用插件后台任务存储；插件任务需独立、按 Host 身份隔离并支持有序恢复与撤权。
+提供方活动工作树已出现 HTTP-only Actuator View 和未发布任务生命周期草案；Studio 反馈了结果引用暴露、身份信任、事件恢复和无效向量问题，仍未收到冻结包，完整验收保持0/154。
 
 2026-10-11：[接力预览修改与接收工具重选](plugins/transfer-reselection.md)。
 查询位置/输入草稿保留与旧确认失效已实现；Windows真实插件View接力、保存并打开产物，
@@ -119,7 +181,8 @@ Ruby、PHP、Java 和 Python 的主要工具分组现进一步按具体清单区
 项目文件侧栏现按每页 200 项继续加载，后续页会核对目录清单摘要，变化时要求刷新；旧客户端仍使用原列表响应。见[文件分页日志](iterations/2026-09-29-file-browser-pagination.md)。超过 100000 个扫描条目的目录与三平台真实界面仍待处理。
 文件页现在拒绝缺失条目数组或偏移不连续的响应，避免把协议异常显示成空目录或重复追加错误页面；见[文件页响应日志](iterations/2026-09-29-file-page-response-integrity.md)。
 文件侧栏的默认应用打开动作现由 Host 按工作区 ID 和相对路径解析，支持文件与子目录，同时拒绝链接逃逸；见[工作区条目打开日志](iterations/2026-09-29-workspace-entry-open.md)。
-当前远程矩阵尚未运行；它是验证流程基础，不是 macOS/Linux 已通过的证据。
+截至 2026-10-17，公开 `main` 的 [Developer platform 运行 38950680629](https://github.com/ax2/zicode-studio-desktop/actions/runs/38950680629) 最终四平台任务成功：Windows 首次因 PowerShell PTY 测试失败，仅重跑失败任务的 attempt 2 通过。首次失败仍待定位；详见 [Windows CI 核对记录](iterations/2026-10-17-windows-ci-pty-audit.md)。此运行不代表当前本地未提交源码、原生插件界面或正式发布已验收。
+后续本地源码已把冻结 DevTools Inspect 7 项实际 WASI/Pi/Worker 专项接入必需矩阵；[本机验证与跨平台待验范围](iterations/2026-10-17-devtools-inspect-ci-gate.md)独立记录。上述公开运行尚未包含这项新增门槛。
 2026-10-01 按 ZiCode 仓库显式查询，远端默认分支仍没有开发者平台矩阵工作流，最近可见 Release 运行失败且没有 Job 清单；本地 `gh` 已修正默认仓库，工作流与交付证据仍需推进，见[仓库上下文记录](iterations/2026-10-01-github-repo-context.md)。
 Release 草稿与 Pi 更新 PR 的工作流命令现显式指定 GitHub 目标仓库，Pi 更新流程也复用仓库身份门槛；远端真实执行待验收，见[工作流目标仓库日志](iterations/2026-10-01-workflow-repository-target.md)。
 Pi 更新流程现约束进入后续 Shell 的上游版本格式，并以同一 Job 的临时文件拼接 Release notes，避免固定 Actions 输出分隔符承载上游文本；远端旧工作流仍因缺失标签失败，本地修改尚未发布，见[上游输入边界日志](iterations/2026-10-01-pi-update-release-input.md)。
@@ -476,6 +539,11 @@ Git 工作区进程边界已统一清除继承的 `GIT_*` 变量，状态读取�
 工具目录详情异常隔离已接入，独立故障不卸载其他工具；实际故障注入与截图证据、未覆盖故障模式见[异常隔离说明](plugins/tool-view-failure-isolation.md)。
 
 ## 2026-10-10 Pi1.1.0真实DevTools链路
+
+2026-10-17：工具专用会话任务中心只呈现插件任务，不再触发 AI 任务读取或轮询；56 项定向测试与 Windows Debug 空状态截图已核对。真实提供方任务仍待接入；见[阶段记录](iterations/2026-10-17-tools-only-task-center.md)。
+
+2026-10-17：桌面只读插件任务详情可按需加载更早状态事件；Host 1/1、前端 59/59、Windows 隔离 70 事件记录的真实翻页与浅色桌面截图已核对。合成数据不计入提供方工具验收；见[事件分页记录](iterations/2026-10-17-plugin-task-event-pagination.md)。
+
 当前debug EXE保持6c14d757，单target编译新版Pi锁定测试Host一次，Inspect7/Transforms23基本操作与各10权限阶段通过；150旧缓存拒绝、11独立对照、50Worker回收/管道关闭。三个原始包13/493/797文件逐SHA通过。矩阵current证据更新，旧记录保留历史；154项状态及完整接受0不变。没有模型/原生界面/其他OS/签名生命周期验收。清理本轮两夹具被自动审批拒绝（无具体原因），实际删除0，6812396B/1346文件保留并给手工清单；不重试。详见[复验记录](E:/zicode-studio-desktop/docs/plugins/pi-1.1-devtools-acceptance.md)及技术档案iterations/pi-1.1-devtools-2026-10-10。
 
 2026-10-10：插件调用在带错误码的响应失败后保留执行锁，需有效Host终态证明才允许用户再次执行；取消/查询/退休凭据统一检查outcome。107项前端相关用例与生产工具中心模拟Host浏览器验证通过，真实Host/原生本轮未重验；见[终态证明](plugins/manual-call-terminal-proof.md)。
@@ -491,3 +559,33 @@ Git 工作区进程边界已统一清除继承的 `GIT_*` 变量，状态读取�
 
 
 2026-10-11 新增持续交付范围：托盘及其右键、Explorer按文件类型的少量工具入口、ZiFile归档全功能独立插件；详见[范围和接口需求](plugins/desktop-entry-zifile.md)。当前仅托盘首阶段已实现，Explorer/native归档插件待实现，不计全集完成。
+2026-10-17：隔离 Windows Debug 原生观察发现 JSON Object candidate-06 虽可搜索两个工具，前端通用表单却不识别 Host 已支持的 `maxProperties`，导致误报需额外宿主支持；现已补齐对象属性上下界并修正禁用提示。前端专项 15/15、项目检查、类型检查和复用缓存的本地 Debug 构建通过。新 EXE 启动后用户中止界面控制，真实新表单截图、执行及转交仍待验；完整 DevTools 接受 0/154。见[阶段记录](iterations/2026-10-17-json-object-generic-form.md)。
+
+2026-10-17：HTTP 插件服务审计 Writer 初始化故障现限制在该服务内，主 Host、静态界面和其他插件路由继续可用；HTTP 准备请求返回稳定 503 且无残留授权。真实 Host 专项验证及其边界见[阶段记录](iterations/2026-10-17-http-audit-host-isolation.md)。
+
+2026-10-17：隔离 Windows Debug 原生窗口已确认 JSON Object 两项工具可发现，摘要工具的必填对象表单按需加载并消除了额外宿主支持误报；插件仍禁用，未执行。HTTP 审计故障码加入 View 固定恢复提示，前端定向 4/4 与项目检查通过；新提示尚未包含在现有 EXE。见[阶段记录](iterations/2026-10-17-json-form-native-and-http-error.md)。
+
+2026-10-17：Spring Actuator 0.1.1 candidate-02 冻结并逐文件核验；真实 Studio Host 定向测试完成禁用/权限、View 源路由及显式确认后的固定 health GET。它仍是无签名局部候选，原生界面和全部工具范围未验，见[阶段记录](iterations/2026-10-17-spring-actuator-candidate02-intake.md)。
+
+2026-10-17：HTTP 插件 View 请求等待由 30 秒对齐为 75 秒，覆盖最长 60 秒确认与 8 秒网络预算；超时仍发 Host 取消并保留终态区分。27 项定向测试及项目检查通过，原生长等待仍待验，见[阶段记录](iterations/2026-10-17-http-view-confirmation-budget.md)。
+
+2026-10-17：Studio 增加 `application.directory.v1` 接收侧预览，View-only 插件可在有界合同下声明分类、别名和用途；工具中心按需打开应用，不增加侧栏图标。旧候选继续归“其他应用”，真实新版提供方包与原生截图待验，见[阶段记录](iterations/2026-10-17-application-directory-profile.md)。
+
+同日接收侧补充隔离 Host HTTP 生命周期专项：合成 View 插件安装后轻量列表保留目录元数据，禁用时拒绝 View，启用后加载 HTML，再禁用后重新拒绝；提供方实包与原生窗口仍待验。
+
+2026-10-17：插件列表新增可选轻量投影，WebView 浏览工具中心和插件管理时不再随所有插件接收完整能力 Schema、运行时路径及 Pi 工具定义；按需详情与默认完整响应保留。验证及边界见[阶段记录](iterations/2026-10-17-plugin-list-summary.md)。
+
+2026-10-17：手动工具目录修订值改为固定缓冲流式哈希，避免每次搜索分配完整清单 JSON 字节块；205 项合成夹具确认与旧 SHA-256 一致，搜索仍遍历注册表。见[阶段记录](iterations/2026-10-17-manual-catalog-streaming-revision.md)。
+
+2026-10-17：Studio 接收侧加入可选 `tool.open.v1`，具体工具入口可向声明协议的同包主 View 发送已声明能力 ID，并等待绑定当前帧的定位回执；旧包打开首页并提示不支持精确定位。合成沙箱浏览器截图与定向检查见[阶段记录](iterations/2026-10-17-tool-open-profile.md)。真实 ZiDevTools 新包和原生窗口待验。
+
+2026-10-18：隔离 Windows Debug 真窗口复核现有 Inspect 0.1.1 的工具目录搜索、按需表单、Unicode 执行与 JSON 结果展示；截图归档。此证据仅覆盖一项已有能力，不覆盖新签名包、百项真实目录或跨平台，详见[阶段记录](iterations/2026-10-18-inspect-unicode-native-recheck.md)。
+
+2026-10-18：Pi 插件目录响应改为严格 UTF-8 解码，损坏元数据返回固定错误；目录专项 12/12、扩展类型检查及项目检查通过。JSON Object 仍按用户决定禁用，真实 Host/跨平台待验，见[阶段记录](iterations/2026-10-18-pi-catalog-strict-utf8.md)。
+
+2026-10-18：跨平台平台检查中四个真实 Worker 专项改为按 `CARGO_TARGET_DIR` 定位 EXE，保留默认路径及 `CARGO_BUILD_TARGET` 子目录；路径与环境传递专项 9/9 通过，真实覆盖构建和四平台 CI 待验，见[阶段记录](iterations/2026-10-18-platform-worker-target-override.md)。
+
+2026-10-18：Pi Broker 把插件 `ok:false` 业务响应标为 `isError:true`，保留原始结果但不给失败详情附带接力引用；扩展定向 5/5、类型与项目检查通过。嵌入 Pi 模型全链待验，见[阶段记录](iterations/2026-10-18-pi-business-error.md)。
+
+2026-10-18：上述业务失败标记已在内嵌 Pi 1.3.0 隔离 RPC 的真实扩展注册/直接工具调用中补验通过；合成 Host 响应不代表真实 Studio Host/Worker 或模型自主调用。旧 Debug 增量目录已消失而 Debug/Release EXE 均保留，见[清理后态](iterations/2026-10-18-manual-incremental-cleanup-observation.md)。
+2026-10-18：复用当前 `target/debug` 完成本地 0.4.2 构建，新 EXE 在 `--isolated-profile --tools-only` 下经 Windows 真窗口确认工具中心可用；直接启动曾被单实例交给旧安装版，因此未误记为新 Debug 验收。上游最新 Pi 仍为 v1.3.0，六资产摘要匹配现有锁定文件；未升级或发布。原生 DevTools 候选安装与其他系统仍待，见[阶段记录](iterations/2026-10-18-debug-current-runtime.md)。

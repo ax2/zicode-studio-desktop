@@ -129,6 +129,27 @@ describe("BuiltinPluginRegistry", () => {
     expect(registry.isEnabled("com.example.local")).toBe(true);
   });
 
+  it("projects a validated activity directory into a View application's search metadata", async () => {
+    const directory = { categoryId: "system", aliases: ["Spring health"], description: "Read service health" };
+    const hostGateway = { list: vi.fn(async () => ({ diagnostics: [], plugins: [{
+      schemaVersion: 2, id: "com.example.actuator", name: "Actuator", description: "Default",
+      version: "0.1.0", publisher: "example", core: false, enabled: true, origin: "developer", toolOpenProfile: true,
+      viewOperationDirectoryProfile: true,
+      contributes: { activities: [{ id: "actuator", title: "Actuator", directory }],
+        views: [{ id: "actuator.main", activity: "actuator", location: "main" }],
+        viewOperations: [{ id: "actuator.health", title: "Health", viewId: "actuator.main", directory }] },
+      permissions: { required: [], optional: [] }, permissionGrants: {},
+    }] })) };
+    const registry = new BuiltinPluginRegistry({ storage: memoryStorage(), hostGateway });
+    await registry.setScene("programming");
+    expect(registry.get("com.example.actuator").appDirectory).toEqual(directory);
+    expect(registry.get("com.example.actuator").toolOpenProfile).toBe(true);
+    expect(registry.get("com.example.actuator").viewOperationDirectoryProfile).toBe(true);
+    expect(registry.get("com.example.actuator").viewOperations).toEqual([
+      { id: "actuator.health", title: "Health", viewId: "actuator.main", directory },
+    ]);
+  });
+
   it("reloads and uninstalls developer plugins without exposing those actions for built-ins", async () => {
     const plugins = [
           {

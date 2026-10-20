@@ -3,6 +3,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseWithoutDuplicateKeys } from "./strict-json-keys.mjs";
 
 const OPERATIONS = new Set(["list", "test", "create", "extract", "update", "rename"]);
 const FORMATS = new Set([
@@ -135,7 +136,7 @@ export function verifyArchiveAdapterEvents(trace, { callId, operation }) {
     if (!line || Buffer.byteLength(line, "utf8") > MAX_LINE_BYTES) reject("event_size_exceeded");
     let event;
     try {
-      event = JSON.parse(line);
+      event = parseWithoutDuplicateKeys(line);
     } catch {
       reject("invalid_json");
     }

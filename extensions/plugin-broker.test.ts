@@ -45,7 +45,9 @@ describe("plugin broker", () => {
     };
     const request = vi.fn(
       async (_url: string, _options: RequestInit) =>
-        new Response(JSON.stringify({ result: { matches: [] } })),
+        new Response(JSON.stringify({ result: { matches: [] }, resultRef: {
+          schemaVersion: 1, resultId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", mimeType: "text/plain",
+        } })),
     );
     setupPluginBroker(
       pi as never,
@@ -66,7 +68,11 @@ describe("plugin broker", () => {
       signal: AbortSignal,
     ) => Promise<unknown>;
     const result = await execute("tool-call-1", { query: "roadmap" }, new AbortController().signal);
-    expect(result).toMatchObject({ details: { matches: [] } });
+    expect(result).toMatchObject({ details: { matches: [], studioResult: {
+      pluginId: "com.zicode.notes", capabilityId: "notes.search",
+      resultRef: { resultId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+    } } });
+    expect((result as { content: Array<{ text: string }> }).content[0].text).toBe('{"matches":[]}');
     const [, options] = request.mock.calls[0];
     expect((options.headers as Record<string, string>).Authorization).toBe(
       "Bearer secret-runtime-token",
@@ -77,6 +83,7 @@ describe("plugin broker", () => {
       toolCallId: "tool-call-1",
       toolName: "notes_search",
       input: { query: "roadmap" },
+      captureResult: true,
     });
   });
 });

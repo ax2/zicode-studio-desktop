@@ -6,9 +6,16 @@ use std::io::Read;
 const MAX_ACTIVE_WORKERS: usize = 64;
 const MAX_ACTIVE_WORKERS_PER_PLUGIN: usize = 8;
 
-fn worker_budget_exceeded(reservations: &HashMap<String, WorkerReservation>, plugin_id: &str) -> bool {
+fn worker_budget_exceeded(
+    reservations: &HashMap<String, WorkerReservation>,
+    plugin_id: &str,
+) -> bool {
     reservations.len() >= MAX_ACTIVE_WORKERS
-        || reservations.values().filter(|entry| entry.plugin_id == plugin_id).count() >= MAX_ACTIVE_WORKERS_PER_PLUGIN
+        || reservations
+            .values()
+            .filter(|entry| entry.plugin_id == plugin_id)
+            .count()
+            >= MAX_ACTIVE_WORKERS_PER_PLUGIN
 }
 
 pub(crate) enum Dispatch {
@@ -47,9 +54,9 @@ impl CapabilityBroker {
         cancelled: &AtomicBool,
     ) -> Dispatch {
         // Built-in handlers can write Host data and retain their existing transaction path.
-        let external = registry.list(&request.scene_id).iter().any(|plugin| {
-            plugin.manifest.id == request.plugin_id && plugin.origin != PluginOrigin::BuiltIn
-        });
+        let external = registry
+            .plugin_origin(&request.plugin_id)
+            .is_some_and(|origin| origin != PluginOrigin::BuiltIn);
         let key = request
             .idempotency_scope
             .as_ref()
@@ -124,10 +131,13 @@ impl CapabilityBroker {
                 let reservation_key = key
                     .clone()
                     .unwrap_or_else(|| format!("unkeyed:{}", uuid::Uuid::new_v4()));
-                self.worker_reservations.insert(reservation_key.clone(), WorkerReservation {
-                    plugin_id: request.plugin_id.clone(),
-                    lease: Arc::downgrade(&reservation),
-                });
+                self.worker_reservations.insert(
+                    reservation_key.clone(),
+                    WorkerReservation {
+                        plugin_id: request.plugin_id.clone(),
+                        lease: Arc::downgrade(&reservation),
+                    },
+                );
                 let epoch = registry.execution_revision(&request.scene_id, &request.plugin_id);
                 Dispatch::Worker(Box::new(Invocation {
                     request,
@@ -166,7 +176,8 @@ impl CapabilityBroker {
                 ));
             }
             let current = self.current_capability(registry, &job.request)?;
-            if registry.execution_revision(&job.request.scene_id, &job.request.plugin_id) != job.epoch
+            if registry.execution_revision(&job.request.scene_id, &job.request.plugin_id)
+                != job.epoch
                 || serde_json::to_value(&current).ok() != serde_json::to_value(&job.capability).ok()
                 || module_hash(registry, &job.request)? != job.module_hash
             {
@@ -195,7 +206,11 @@ impl CapabilityBroker {
                 key.clone(),
                 CachedInvocation {
                     request_hash: job.request_hash.clone(),
-                    authority: cache_authority::Authority::new(job.epoch, &job.capability, Some(job.module_hash.clone())),
+                    authority: cache_authority::Authority::new(
+                        job.epoch,
+                        &job.capability,
+                        Some(job.module_hash.clone()),
+                    ),
                     result: result.clone(),
                 },
             );

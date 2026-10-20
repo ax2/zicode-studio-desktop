@@ -51,3 +51,38 @@ fn metadata_rejects_unknown_invalid_and_unbounded_fields() {
     }
     assert_eq!(normalize("ＢＡＳＥ６４　É e\u{301} ①"), "base64 é é 1");
 }
+
+#[test]
+fn application_metadata_requires_its_own_profile_and_uses_bounded_taxonomy() {
+    let mut manifest = manifest();
+    manifest.required_profiles = json!({"application.directory.v1":"=1.0.0-preview.1"});
+    manifest.contributes = json!({"activities":[{"id":"example.application","title":"Example",
+        "directory":{"categoryId":"code","aliases":["开发工具"],"description":"Project tools"}}],
+        "views":[{"id":"example.main","activity":"example.application","location":"main"}]});
+    super::super::validate_manifest(&manifest, None).unwrap();
+    manifest.required_profiles = json!({});
+    assert_eq!(
+        super::super::validate_manifest(&manifest, None).unwrap_err(),
+        "Missing requiredProfiles declarations: application.directory.v1"
+    );
+    manifest.required_profiles = json!({"application.directory.v1":"=1.0.0-preview.2"});
+    assert!(super::super::validate_manifest(&manifest, None).is_err());
+    manifest.required_profiles = json!({"application.directory.v1":"=1.0.0-preview.1"});
+    for invalid in [
+        json!({"categoryId":"arbitrary"}),
+        json!({"categoryId":"code","aliases":["Ａ","a"]}),
+        json!({"categoryId":"code","description":"bad\ntext"}),
+        json!({"categoryId":"code","icon":"extra"}),
+    ] {
+        manifest.contributes["activities"][0]["directory"] = invalid;
+        assert!(super::super::validate_manifest(&manifest, None).is_err());
+    }
+    manifest.contributes["activities"][0]["directory"] = json!({"categoryId":"code"});
+    manifest.contributes["activities"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({
+            "id":"example.secondary","title":"Secondary","directory":{"categoryId":"data"}
+        }));
+    assert!(super::super::validate_manifest(&manifest, None).is_err());
+}

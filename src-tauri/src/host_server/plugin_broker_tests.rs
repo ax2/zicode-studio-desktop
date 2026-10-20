@@ -72,10 +72,11 @@ export default function (pi) {{
                 "PI_CODING_AGENT_DIR".into(),
                 root.join("agent").to_string_lossy().into_owned(),
             ),
-            ("NO_PROXY".into(), "127.0.0.1,localhost".into()),
         ]),
     };
     configure_plugin_broker_for_state(&host.state, &target, &mut launch).unwrap();
+    assert!(launch.environment["NO_PROXY"].split(',').any(|entry| entry == "127.0.0.1"));
+    assert_eq!(launch.environment["no_proxy"], launch.environment["NO_PROXY"]);
     assert_eq!(launch.environment["PI_DESKTOP_PLUGIN_CATALOG"], "1");
     assert_eq!(launch.environment["PI_DESKTOP_PLUGIN_TOOLS"], "[]");
     let mut events = host.state.runtimes.subscribe();

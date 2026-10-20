@@ -1,0 +1,431 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.inspect",
+  "name": "ZiDevTools Inspect",
+  "displayName": "ZiDevTools 格式与检查",
+  "description": "Complete bounded standalone format conversion and inspection operations; no Host resources.",
+  "version": "0.1.2",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "activationEvents": [
+    "onView:devtools.inspect.main",
+    "onCapability:devtools.inspect.color.convert",
+    "onCapability:devtools.inspect.yaml.to_json",
+    "onCapability:devtools.inspect.yaml.from_json",
+    "onCapability:devtools.inspect.cidr.inspect",
+    "onCapability:devtools.inspect.jwt.inspect",
+    "onCapability:devtools.inspect.unicode.inspect",
+    "onCapability:devtools.inspect.unicode.nfc",
+    "onCapability:devtools.inspect.unicode.nfkc"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm"
+  },
+  "contributes": {
+    "activities": [
+      {
+        "id": "devtools.inspect",
+        "title": "格式与检查",
+        "order": 852
+      }
+    ],
+    "views": [
+      {
+        "id": "devtools.inspect.main",
+        "activity": "devtools.inspect",
+        "location": "main",
+        "title": "格式与检查",
+        "entry": "views/main.html"
+      }
+    ],
+    "capabilities": [
+      {
+        "id": "devtools.inspect.color.convert",
+        "title": "HEX / RGB / HSL",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "color converter",
+            "convert color code",
+            "颜色转换",
+            "HEX RGB HSL"
+          ],
+          "description": "Convert supplied HEX, RGB, or HSL color text locally; this is not a screen color picker."
+        }
+      },
+      {
+        "id": "devtools.inspect.yaml.to_json",
+        "title": "YAML → JSON",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "YAML to JSON",
+            "convert YAML",
+            "YAML 转 JSON",
+            "YAML 转换"
+          ],
+          "description": "Convert one supplied YAML document to JSON locally; duplicate keys use the last value."
+        }
+      },
+      {
+        "id": "devtools.inspect.yaml.from_json",
+        "title": "JSON → YAML",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "data",
+          "aliases": [
+            "JSON to YAML",
+            "convert JSON to YAML",
+            "JSON 转 YAML",
+            "转成 YAML"
+          ],
+          "description": "Convert supplied JSON text to YAML locally while preserving large integer text."
+        }
+      },
+      {
+        "id": "devtools.inspect.cidr.inspect",
+        "title": "IPv4 CIDR",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "web",
+          "aliases": [
+            "IPv4 CIDR calculator",
+            "subnet calculator",
+            "CIDR 子网计算",
+            "网段计算"
+          ],
+          "description": "Calculate IPv4 CIDR network details from pasted text; does not connect to or scan a network."
+        }
+      },
+      {
+        "id": "devtools.inspect.jwt.inspect",
+        "title": "JWT 内容",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "security",
+          "aliases": [
+            "JWT decoder",
+            "JWT payload",
+            "JWT 解码",
+            "令牌内容查看"
+          ],
+          "description": "Decode JWT header and payload locally; does not verify signature, expiry, or trust."
+        }
+      },
+      {
+        "id": "devtools.inspect.unicode.inspect",
+        "title": "Unicode 码点",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "Unicode code points",
+            "invisible characters",
+            "Unicode 码点",
+            "不可见字符检查"
+          ],
+          "description": "Inspect code points, UTF-8 bytes, and common invisible characters in supplied text."
+        }
+      },
+      {
+        "id": "devtools.inspect.unicode.nfc",
+        "title": "NFC 规范化",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "Unicode NFC",
+            "normalize NFC",
+            "Unicode NFC 规范化",
+            "NFC 文本规范化"
+          ],
+          "description": "Normalize supplied text to Unicode NFC; this changes the text representation."
+        }
+      },
+      {
+        "id": "devtools.inspect.unicode.nfkc",
+        "title": "NFKC 规范化",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "Unicode NFKC",
+            "normalize NFKC",
+            "Unicode NFKC 规范化",
+            "NFKC 文本规范化"
+          ],
+          "description": "Normalize supplied text to Unicode NFKC; compatibility normalization may change meaning."
+        }
+      }
+    ],
+    "piTools": [
+      {
+        "name": "devtools_inspect_color_convert",
+        "title": "HEX / RGB / HSL",
+        "description": "Run bounded local HEX / RGB / HSL on supplied UTF-8 text, at most 8192 bytes. No file or network access.",
+        "capability": "devtools.inspect.color.convert",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_yaml_to_json",
+        "title": "YAML → JSON",
+        "description": "Run bounded local YAML → JSON on supplied UTF-8 text, at most 8192 bytes. No file or network access.",
+        "capability": "devtools.inspect.yaml.to_json",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_yaml_from_json",
+        "title": "JSON → YAML",
+        "description": "Run bounded local JSON → YAML on supplied UTF-8 text, at most 8192 bytes. No file or network access.",
+        "capability": "devtools.inspect.yaml.from_json",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_cidr_inspect",
+        "title": "IPv4 CIDR",
+        "description": "Run bounded local IPv4 CIDR on supplied UTF-8 text, at most 8192 bytes. No file or network access.",
+        "capability": "devtools.inspect.cidr.inspect",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_jwt_inspect",
+        "title": "JWT 内容",
+        "description": "Run bounded local JWT 内容 on supplied UTF-8 text, at most 8192 bytes. JWT inspection never verifies signature, expiry or trust. No file or network access.",
+        "capability": "devtools.inspect.jwt.inspect",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_unicode_inspect",
+        "title": "Unicode 码点",
+        "description": "Run bounded local Unicode 码点 on supplied UTF-8 text, at most 8192 bytes. NFKC may change text meaning; character attention flags are not a full security audit. No file or network access.",
+        "capability": "devtools.inspect.unicode.inspect",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_unicode_nfc",
+        "title": "NFC 规范化",
+        "description": "Run bounded local NFC 规范化 on supplied UTF-8 text, at most 8192 bytes. NFKC may change text meaning; character attention flags are not a full security audit. No file or network access.",
+        "capability": "devtools.inspect.unicode.nfc",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "devtools_inspect_unicode_nfkc",
+        "title": "NFKC 规范化",
+        "description": "Run bounded local NFKC 规范化 on supplied UTF-8 text, at most 8192 bytes. NFKC may change text meaning; character attention flags are not a full security audit. No file or network access.",
+        "capability": "devtools.inspect.unicode.nfkc",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [],
+    "optional": [
+      {
+        "name": "pi.tools.register",
+        "reason": "显式授权后允许当前场景的 AI 使用文本工具"
+      }
+    ]
+  },
+  "requiredProfiles": {
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "tool.open.v1": "=1.0.0-preview.1"
+  }
+}

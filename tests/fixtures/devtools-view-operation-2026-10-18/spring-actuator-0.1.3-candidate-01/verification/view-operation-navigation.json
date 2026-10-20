@@ -1,0 +1,207 @@
+{
+  "status": "passed",
+  "browser": "Playwright / installed Edge, Browser plugin not available",
+  "profile": "view.operation.directory.v1@=1.0.0-preview.1",
+  "cases": [
+    {
+      "operationId": "devtools.agent-assist.models",
+      "theme": "light",
+      "viewport": [
+        1180,
+        900
+      ],
+      "status": "opened",
+      "focus": "refresh-models",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "agent-assist-preview-light-models.png",
+      "viewSha256": "3c2ee3f7730e6ba3fb7a51507aecbad92e38872d22ea761323c5b2a5f4397468",
+      "manifestSha256": "23b0d702f4eba2e18c99dfd4c45c78322c4f2d499a597d0b08330e15c0c2505c"
+    },
+    {
+      "operationId": "devtools.agent-assist.generate",
+      "theme": "light",
+      "viewport": [
+        1180,
+        900
+      ],
+      "status": "opened",
+      "focus": "generate",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "agent-assist-preview-light-generate.png",
+      "viewSha256": "3c2ee3f7730e6ba3fb7a51507aecbad92e38872d22ea761323c5b2a5f4397468",
+      "manifestSha256": "23b0d702f4eba2e18c99dfd4c45c78322c4f2d499a597d0b08330e15c0c2505c"
+    },
+    {
+      "operationId": "devtools.agent-assist.models",
+      "theme": "dark",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "opened",
+      "focus": "refresh-models",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "agent-assist-preview-dark-models.png",
+      "viewSha256": "3c2ee3f7730e6ba3fb7a51507aecbad92e38872d22ea761323c5b2a5f4397468",
+      "manifestSha256": "23b0d702f4eba2e18c99dfd4c45c78322c4f2d499a597d0b08330e15c0c2505c"
+    },
+    {
+      "operationId": "devtools.agent-assist.generate",
+      "theme": "dark",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "opened",
+      "focus": "generate",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "agent-assist-preview-dark-generate.png",
+      "viewSha256": "3c2ee3f7730e6ba3fb7a51507aecbad92e38872d22ea761323c5b2a5f4397468",
+      "manifestSha256": "23b0d702f4eba2e18c99dfd4c45c78322c4f2d499a597d0b08330e15c0c2505c"
+    },
+    {
+      "operationId": "devtools.spring-actuator.health",
+      "theme": "light",
+      "viewport": [
+        1180,
+        900
+      ],
+      "status": "opened",
+      "focus": "endpoint",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-light-health.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.info",
+      "theme": "light",
+      "viewport": [
+        1180,
+        900
+      ],
+      "status": "opened",
+      "focus": "endpoint",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-light-info.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.metrics",
+      "theme": "light",
+      "viewport": [
+        1180,
+        900
+      ],
+      "status": "opened",
+      "focus": "endpoint",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-light-metrics.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.summary",
+      "theme": "light",
+      "viewport": [
+        1180,
+        900
+      ],
+      "status": "opened",
+      "focus": "result-title",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-light-summary.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.health",
+      "theme": "dark",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "opened",
+      "focus": "endpoint",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-dark-health.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.info",
+      "theme": "dark",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "opened",
+      "focus": "endpoint",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-dark-info.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.metrics",
+      "theme": "dark",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "opened",
+      "focus": "endpoint",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-dark-metrics.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    },
+    {
+      "operationId": "devtools.spring-actuator.summary",
+      "theme": "dark",
+      "viewport": [
+        390,
+        844
+      ],
+      "status": "opened",
+      "focus": "result-title",
+      "busyStatus": "unsupported",
+      "noAutomaticRequest": true,
+      "preservesDraftAndResult": true,
+      "screenshot": "spring-actuator-dark-summary.png",
+      "viewSha256": "adff5c9f142f9d0cf42064bf1d639d768233f0a1fde98f37344422dad856b047",
+      "manifestSha256": "cffaed4479ad9589a839d601a4f3359bf689f923b0e899984fd77c181e219250"
+    }
+  ],
+  "limitations": [
+    "Synthetic public SDK in opaque sandbox; no real Studio installation or transport acceptance",
+    "Approval/decline is simulated; no real model or HTTP request",
+    "Host revision, workspace, disabled-plugin and timeout isolation remain Host-owned acceptance"
+  ],
+  "signatureVerified": false,
+  "runtimeAccepted": false,
+  "fullToolAcceptance": false
+}

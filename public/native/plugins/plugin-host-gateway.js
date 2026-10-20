@@ -21,6 +21,7 @@ export class PluginHostGateway {
   async list(sceneId) {
     const url = this.#url("/v2/plugins");
     url.searchParams.set("sceneId", sceneId);
+    url.searchParams.set("summary", "true");
     return this.#request(url);
   }
 

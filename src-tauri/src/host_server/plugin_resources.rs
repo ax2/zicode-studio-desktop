@@ -1,14 +1,14 @@
 //! Candidate resource input grants. No filesystem access or WASI callback.
-mod operations;
-mod store;
 mod authority;
-pub(super) mod transfer;
+pub(super) mod library;
+pub(super) mod local_directory;
+pub(super) mod local_file;
+mod operations;
 pub(super) mod save;
 mod save_files;
-pub(super) mod library;
+mod store;
+pub(super) mod transfer;
 pub(super) mod worker;
-pub(super) mod local_file;
-pub(super) mod local_directory;
 use super::*;
 pub(crate) use operations::Operations;
 use std::time::Instant;
@@ -137,9 +137,8 @@ fn identity_module(
         .lock()
         .map_err(|_| rejected("registry_unavailable"))?;
     let plugin = registry
-        .list(&target.scene_id)
-        .into_iter()
-        .find(|p| p.manifest.id == owner.plugin_id && p.enabled)
+        .execution_plugin(&target.scene_id, &owner.plugin_id)
+        .filter(|p| p.enabled)
         .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
     if plugin.permission_grants.get("resource.read") != Some(&true) {
         return Err(plugin_api_error(
@@ -187,15 +186,35 @@ pub(super) async fn prepare(
     blocking(state.clone(), move || {
         let proof = identity(&state, &request.owner, None)?;
         if let Some(revision) = &request.catalog_revision {
-            if revision.len() != 64 { return Err(rejected("catalog_changed")); }
-            let target = state.runtimes.statuses().map_err(|_| rejected("runtime_unavailable"))?
-                .into_iter().find(|s| s.target.instance_id == request.owner.runtime_id && s.target.session_id == request.owner.session_id)
-                .ok_or_else(|| rejected("runtime_stopped"))?.target;
-            state.plugins.lock().map_err(|_| rejected("registry_unavailable"))?
+            if revision.len() != 64 {
+                return Err(rejected("catalog_changed"));
+            }
+            let target = state
+                .runtimes
+                .statuses()
+                .map_err(|_| rejected("runtime_unavailable"))?
+                .into_iter()
+                .find(|s| {
+                    s.target.instance_id == request.owner.runtime_id
+                        && s.target.session_id == request.owner.session_id
+                })
+                .ok_or_else(|| rejected("runtime_stopped"))?
+                .target;
+            state
+                .plugins
+                .lock()
+                .map_err(|_| rejected("registry_unavailable"))?
                 .manual_tool_detail(&crate::plugin_registry::manual_catalog::DetailQuery {
-                    scene_id: target.scene_id, plugin_id: request.owner.plugin_id.clone(), capability_id: request.owner.capability_id.clone(), revision: revision.clone(),
-                }).map_err(|_| rejected("catalog_changed"))?;
-            if identity(&state, &request.owner, None)? != proof { return Err(rejected("resource_authorization_changed")); }
+                    scene_id: target.scene_id,
+                    plugin_id: request.owner.plugin_id.clone(),
+                    capability_id: request.owner.capability_id.clone(),
+                    revision: revision.clone(),
+                    resource_mime_type: None,
+                })
+                .map_err(|_| rejected("catalog_changed"))?;
+            if identity(&state, &request.owner, None)? != proof {
+                return Err(rejected("resource_authorization_changed"));
+            }
         }
         let mut store = state
             .plugin_resources
@@ -271,7 +290,12 @@ pub(super) async fn read(
             &request.access.owner.runtime_id,
             &request.access.owner.session_id,
         )?;
-        let proof = authority::identity_access(&state, &request.access, Some(&authorized.token_hash), None)?;
+        let proof = authority::identity_access(
+            &state,
+            &request.access,
+            Some(&authorized.token_hash),
+            None,
+        )?;
         let mut store = state
             .plugin_resources
             .lock()
@@ -296,7 +320,9 @@ pub(super) async fn revoke(
             .map_err(|_| rejected("resource_store_unavailable"))?;
         store.revoke(&request)?;
         drop(store);
-        state.archive_page_cursors.invalidate_resource(&request.resource_id);
+        state
+            .archive_page_cursors
+            .invalidate_resource(&request.resource_id);
         Ok(json!({"schemaVersion":1,"revoked":true}))
     })
     .await

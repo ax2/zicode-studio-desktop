@@ -37,6 +37,8 @@ applicationName、publisher、version、enabled、status、runtime；不含输�
 
 `resourceOnly=true` 限定已启用、获授 `resource.read` 的 WASI draft2 文件资源工具；可进一步带经过验证的 `fileName` 匹配插件后缀声明。`directoryOnly=true` 单独限定已启用、同时声明并获授 `resource.read` 与 `resource.directory.read` 的 WASI draft2 工具；两种筛选不能同时使用。目录筛选只读元数据，不选择目录、读取名称、加载工具或执行。可信工具中心仅在当前桌面网关提供项目目录选择器时显示该选项；用户选择工具后仍需分别选择目录、确认共享和执行。
 
+资源输出接力可在 `resourceOnly=true`、有效 `resourceMimeType` 搜索中成对传 `excludePluginId` 和 `excludeCapabilityId`，在来源/分类计数和分页前排除输出工具自身。缺一项或超长值返回 `invalid_parameters`；旧客户端不传时行为不变。这个筛选只改变目录结果，不能代替用户确认共享、Host 授权和接收工具执行。见[分页前排除阶段记录](../iterations/2026-10-17-resource-receiver-prepage-exclusion.md)。
+
 ## 实现与验证边界
 
 注册表实现位于plugin_registry/manual_catalog.rs，HTTP适配位于host_server/manual_tool_catalog.rs；
@@ -47,9 +49,10 @@ applicationName、publisher、version、enabled、status、runtime；不含输�
 
 真实Windows调试程序中，273项声明能力（含205项Studio验收夹具）搜索、分页、选择、执行与结果展示已检查；不能把夹具计作DevTools工具。此前Base64执行5220ms超时保留；优化dev运行时编译热点后，当前EXE真实编码/解码两个基本样例494/626ms成功，工具页切换保留输入/结果。154项全量工具验收仍为0。证据见iterations/tool-workbench-2026-10-09与iterations/wasi-startup-2026-10-09；自动结果传递/保存不由本项证明。
 
-规范文本结果已接入兼容接收工具搜索、映射预览/确认执行与保存预览/确认；仅Host既有resultRef支持范围可用。类型输入不扩大文本结果映射的能力；Studio类型夹具输出显示result_profile_unsupported符合现有边界，不能据此声称任意Worker结果可接力。原生取消、新表单写入授权流程、离开整个工具中心的草稿保护、工具任务分类仍待完成。页面退出不代表取消执行。仅检查1442×931浅色Windows截图；控制台健康、其他视口/主题/平台待验证。
+规范文本结果已接入兼容接收工具搜索、映射预览/确认执行与保存预览/确认；仅Host既有resultRef支持范围可用。类型输入不扩大文本结果映射的能力；Studio类型夹具输出显示result_profile_unsupported符合现有边界，不能据此声称任意Worker结果可接力。同一场景/工作区内切到其他应用再返回，Shell 保留工具中心 React 实例和未提交输入；2026-10-18 当前外壳定向用例复验通过。工作区切换和窗口退出时的未保存草稿提示/恢复、原生取消、新表单写入授权流程、工具任务分类仍待完成。页面退出不代表取消执行。此前仅检查1442×931浅色Windows截图；本次没有新界面截图，控制台健康、其他视口/主题/平台待验证。见[作用域复核](../iterations/2026-10-18-retained-tool-draft-scope.md)。
 
 本轮日志及真实HTTP记录见技术博客项目档案iterations/manual-tool-catalog-2026-10-09；以终态记录为准。
 当前目录每次读取都扫描/哈希manifest，响应虽分页，Host内部并非增量索引；更大规模需要独立基准与有界索引设计。
+2026-10-17 补充：修订值的 JSON 已改为固定缓冲流式哈希，避免每次分配完整清单字节块；仍会序列化/哈希全部清单并遍历工具，因此不承诺搜索耗时或增量索引性能。见[阶段记录](../iterations/2026-10-17-manual-catalog-streaming-revision.md)。
 
 2026-10-09类型输入验证：Studio自有临时Worker夹具，经命令面板发现→按需加载→显式执行→结果展示，实际收到count=0/flag=false/mode=0.5/note=""/ratio=1.25及正确类型，可选布尔字段未出现。9007199254740993在客户端拒绝且该插件审计记录0；修正后唯一成功审计94ms。76项前端定向回归/check/React构建通过；全量typecheck保留Habits/Watch两项既有错误。复用EXE303fd49a，未构建Rust/发布；临时安装2文件清理且源证据保留。见技术博客iterations/typed-tool-inputs-2026-10-09，不提高154完整工具验收数。

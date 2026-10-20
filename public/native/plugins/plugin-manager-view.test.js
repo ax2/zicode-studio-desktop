@@ -48,6 +48,16 @@ function setup(overrides = {}) {
   };
   const installDeveloperPlugin =
     overrides.installDeveloperPlugin ?? vi.fn().mockResolvedValue("com.example.local");
+  const selectDeveloperPlugin = overrides.selectDeveloperPlugin ?? vi.fn().mockResolvedValue({
+    sourcePath: "C:/plugins/local",
+    contentSha256: "aa".repeat(32),
+    pluginId: "com.example.local",
+    name: "Local tools",
+    version: "1.0.0",
+    publisher: "example",
+    permissions: ["storage.plugin"],
+    capabilityCount: 0,
+  });
   const selectSignedPlugin = overrides.selectSignedPlugin ?? null;
   const installSignedPlugin = overrides.installSignedPlugin ?? null;
   renderPluginManagerView({
@@ -56,6 +66,7 @@ function setup(overrides = {}) {
     getTarget: () => ({ sceneId: "research" }),
     notify: overrides.notify ?? vi.fn(),
     renderIcon: () => document.createElement("span"),
+    selectDeveloperPlugin,
     installDeveloperPlugin,
     selectSignedPlugin,
     installSignedPlugin,
@@ -115,10 +126,13 @@ describe("renderPluginManagerView", () => {
     expect(onFilterChange).toHaveBeenCalledWith("installed");
   });
 
-  it("installs through the native picker callback and reloads the active scene", async () => {
+  it("installs a reviewed local plugin and reloads the active scene", async () => {
     const { registry, installDeveloperPlugin } = setup();
 
     button("Install local plugin").click();
+    await vi.waitFor(() => expect(button("Install reviewed plugin")).toBeTruthy());
+    expect(installDeveloperPlugin).not.toHaveBeenCalled();
+    button("Install reviewed plugin").click();
 
     await vi.waitFor(() => {
       expect(installDeveloperPlugin).toHaveBeenCalledTimes(1);
@@ -129,10 +143,19 @@ describe("renderPluginManagerView", () => {
   it("confirms an unknown publisher fingerprint before installing a signed package", async () => {
     const selectSignedPlugin = vi.fn().mockResolvedValue({
       packagePath: "C:/plugins/example.zicode-plugin",
+      manifestSha256: "cd".repeat(32),
       pluginId: "com.example.signed",
+      name: "Signed example",
+      version: "1.2.3",
       publisher: "Example Publisher",
       publisherKeyId: "ab".repeat(32),
       permissions: ["storage.plugin"],
+      capabilityCount: 3,
+      capabilities: [
+        { id: "text.normalize", title: "Normalize text" },
+        { id: "text.inspect", title: "Inspect text" },
+        { id: "text.encode", title: "Encode text" },
+      ],
       trusted: false,
     });
     const installSignedPlugin = vi.fn().mockResolvedValue("com.example.signed");
@@ -146,10 +169,42 @@ describe("renderPluginManagerView", () => {
     button("Install signed package").click();
 
     await vi.waitFor(() => {
+      expect(document.querySelector(".plugin-manager-preview")?.textContent).toContain("Signed example");
+      expect(document.querySelector(".plugin-manager-preview")?.textContent).toContain("Declared tools: 3");
+      expect(installSignedPlugin).not.toHaveBeenCalled();
+    });
+    button("Install reviewed signed package").click();
+
+    await vi.waitFor(() => {
       expect(confirmPublisher).toHaveBeenCalledWith(expect.stringContaining("ab".repeat(32)));
-      expect(installSignedPlugin).toHaveBeenCalledWith("C:/plugins/example.zicode-plugin", true);
+      expect(installSignedPlugin).toHaveBeenCalledWith("C:/plugins/example.zicode-plugin", "cd".repeat(32), true);
       expect(registry.setScene).toHaveBeenCalledWith("research");
     });
+  });
+
+  it("cancels a signed preview without installing", async () => {
+    const installSignedPlugin = vi.fn();
+    setup({
+      selectSignedPlugin: vi.fn().mockResolvedValue({
+        packagePath: "C:/plugins/example.zicode-plugin",
+        manifestSha256: "ef".repeat(32),
+        pluginId: "com.example.signed",
+        name: "Signed example",
+        version: "1.2.3",
+        publisher: "Example Publisher",
+        publisherKeyId: "ab".repeat(32),
+        permissions: [],
+        capabilityCount: 0,
+        capabilities: [],
+        trusted: true,
+      }),
+      installSignedPlugin,
+    });
+    button("Install signed package").click();
+    await vi.waitFor(() => expect(button("Install reviewed signed package")).toBeTruthy());
+    document.querySelector(".plugin-manager-preview button:last-child").click();
+    await vi.waitFor(() => expect(document.querySelector(".plugin-manager-preview")).toBeNull());
+    expect(installSignedPlugin).not.toHaveBeenCalled();
   });
 
   it("refreshes the Host registry and uninstalls only after confirmation", async () => {

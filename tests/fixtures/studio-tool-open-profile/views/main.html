@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<body>
+  <main>
+    <h1>Studio Tool Open Fixture</h1>
+    <p id="location">Choose the Echo tool in Studio.</p>
+  </main>
+  <script>
+    window.zicode.navigation.onOpenTool(({ capabilityId }) => {
+      if (capabilityId !== "studio.fixture.echo") return "not_found";
+      document.getElementById("location").textContent = "Echo tool selected";
+      return "opened";
+    });
+  </script>
+</body>
+</html>

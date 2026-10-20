@@ -29,16 +29,43 @@ fn plain(value: &Value, limit: usize) -> bool {
 }
 
 pub(super) fn validate(manifest: &PluginManifest, capability: &Value) -> Result<(), String> {
-    let Some(metadata) = capability.get("directory") else {
+    validate_for(manifest, capability, "tool.directory.v1", "Directory")
+}
+
+pub(super) fn validate_activity(manifest: &PluginManifest, activity: &Value) -> Result<(), String> {
+    validate_for(
+        manifest,
+        activity,
+        "application.directory.v1",
+        "Application directory",
+    )
+}
+
+pub(super) fn validate_view_operation(
+    manifest: &PluginManifest,
+    operation: &Value,
+) -> Result<(), String> {
+    validate_for(
+        manifest,
+        operation,
+        "view.operation.directory.v1",
+        "View operation directory",
+    )
+}
+
+fn validate_for(
+    manifest: &PluginManifest,
+    contribution: &Value,
+    profile: &str,
+    label: &str,
+) -> Result<(), String> {
+    let Some(metadata) = contribution.get("directory") else {
         return Ok(());
     };
-    if manifest.schema_version != 2
-        || manifest
-            .required_profiles
-            .get("tool.directory.v1")
-            .is_none()
-    {
-        return Err("Directory metadata requires schemaVersion 2 and tool.directory.v1".into());
+    if manifest.schema_version != 2 || manifest.required_profiles.get(profile).is_none() {
+        return Err(format!(
+            "{label} metadata requires schemaVersion 2 and {profile}"
+        ));
     }
     let object = metadata.as_object().ok_or("Invalid directory metadata")?;
     if object

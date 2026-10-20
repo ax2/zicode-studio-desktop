@@ -15,6 +15,11 @@ describe("public View error contract", () => {
       "capability_changed",
       "plugin_call_budget_exceeded",
       "plugin_execution_failed",
+      "view_call_cancel_unavailable",
+      "view_call_protocol_invalid",
+      "view_call_outcome_unknown",
+      "catalog_changed",
+      "manual_call_budget_exceeded",
     ]) {
       const result = publicViewError(
         Object.assign(new Error("private report token path"), { code }),
@@ -33,6 +38,18 @@ describe("public View error contract", () => {
     expect(publicViewError("Plugin command is not declared").error).toBe(
       "Plugin command is not declared",
     );
+  });
+  it("shows a fixed recovery hint when HTTP auditing blocks the service", () => {
+    expect(publicViewError(Object.assign(new Error("private audit path"), {
+      code: "http_service_audit_unavailable",
+    }))).toEqual({
+      errorCode: "http_service_audit_unavailable",
+      error: "Service audit is unavailable; restart Studio after repairing its audit storage",
+    });
+    expect(publicViewError(new Error("[http_service_unavailable]"))).toEqual({
+      errorCode: "http_service_unavailable",
+      error: "Service is unavailable; retry later",
+    });
   });
   it("rejects unknown codes and never forwards arbitrary messages", () => {
     for (const input of [

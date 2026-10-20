@@ -5,6 +5,8 @@
 
 整体目标已调整为通过插件体系覆盖ZiDevTools全部工具，包含已实现、进行中和规划项。首批五能力仅是接入切片；逐项状态、当前阻塞原因与完成标准见[全部工具接入目标](devtools-all-tools.md)。冻结首批契约保持不变，后续能力通过版本化扩展推进。
 
+2026-10-17 增加单独的 [`result.json.v1` Studio 候选接口](result-json-profile.md)，用于对象类型的结果捕获、显式转交和 JSON 成果保存。提供方独立版本及 conformance 需求已发至 DevTools 原开发会话；当前没有真实提供方包可据此验收，冻结首批契约不变。
+
 ## 1. 独立构建与职责
 
 ZiDevTools 维护自己的纯 Rust 工具核心、独立 egui 程序和插件构建适配器。
@@ -25,7 +27,10 @@ View 以单个 HTML 的隔离 `srcdoc` 运行；脚本和样式须内联或在�
 | compute.wasi.v1 | 首批目标，现有 Host 有执行基础 | 文本、编码、JSON 等有界纯计算；无文件、网络、进程、持久状态 |
 | resource.v1 | 内部候选渐进验证，正式v1未发布 | 由 Host 授权资源句柄，流式读写、预览、冲突及恢复；数据/图片/目录工具 |
 | model.catalog.read.v1 | Studio 只读预览 `1.0.0-preview.1` | [按当前运行时、插件及场景授权列出不透明模型引用](model-catalog-preview.md)；不能调用模型 |
-| model.generate.v1 | Studio 受控预览 `1.0.0-preview.1` | [View 逐次确认后由 Host 调用已配置模型](model-generation-preview.md)；无运行中取消、来源证明或通用服务总线 |
+| model.generate.v1 | Studio 受控预览 `1.0.0-preview.1` | [View 逐次确认后由 Host 调用已配置模型](model-generation-preview.md)；支持有界在途取消及来源证明，但不提供通用服务总线 |
+| resource.wasi.image.resize.v1 | Studio Host 已实现预览profile `1.0.0-preview.1`；提供方实包、目标系统峰值内存及完整流程待验收 | [能力级图片缩放预算](resource-image-resize-preview.md)；仅一张 PNG/JPEG/WebP，单个256MiB guest、30B fuel、10秒、全局2/插件1及512MiB/调用准入预留；不赋予文件路径、网络或批量权限 |
+| `service.http.get.v1` | Studio Host 源码实现 `1.0.0-preview.1`；专项 conformance 未完成，不可声明支持 | [受控只读 HTTP GET 预览契约](service-http-get-preview.md)；仅 Host 代理的 Actuator health/info/metrics 固定 GET，每次确认；不提供任意 HTTP 客户端 |
+| `plugin.task.lifecycle.v1` | Studio Host 尚未实现；合同草案 `1.0.0-preview.1` | [通用任务生命周期合同](plugin-task-lifecycle-profile.md)；定义 Host 路由、可信父界面身份注入、注册操作处理器边界、持久状态、事件恢复、取消、撤权与安全摘要；不授予任意后台执行或操作权限，也不替代操作专用 profile |
 | service.v1 | 设计待实施，不可宣称支持 | Host 受控网络、任务、服务、数据库与模型访问；权限、取消和生命周期 |
 | desktop.v1 | 设计待实施，不可宣称支持 | 录屏、剪贴板、快捷键等按 OS 单独声明与验证 |
 
@@ -33,13 +38,18 @@ View 以单个 HTML 的隔离 `srcdoc` 运行；脚本和样式须内联或在�
 “独立版 implemented”不等于“插件 implemented”。Windows 专有功能不得标记全平台。
 所有功能最终有映射，不为赶进度让插件启动独立 EXE、访问任意路径或另起无鉴权 HTTP 服务。
 未来 profile 需先定义版本化请求/结果、权限、资源上限和取消契约，再由 Studio 实现通用接口。
+任务生命周期草案先定义跨插件的 Host 状态和恢复语义；实际任务仍须组合具体网络/资源/模型能力，草案不对 manifest 开放。
 当前源码已提供 [resource.output.types.v1 预览版](resource-output-types-profile.md)，仅协商 WASI 输出 MIME 索引 5–26 与固定保存后缀；插件须同时声明 `output.schema.v1` 和资源输入/输出运行标识。它不替代未发布的 `resource.v1`，也不表示任何提供方资源工具已完成接入。
 资源调用状态的 Studio-only 候选扩展见 [resource.call.status.draft1](resource-call-status.md)；
 目录资源详情与接力父界面已接入显式核对，当前不向提供方宣告完整恢复支持；延迟请求封存、控制器销毁与跨重启恢复仍待完成。
 Host 已新增[一次性调用准入候选](resource-call-admission.md)，验证原子消费/封存与迟到请求拒绝；父界面仍待切换，不能将其保证套用到旧调用路径。
 当前 WASI stdin/stdout 是一次调用，无法通过声明权限凭空获得 Host 回调或双向 RPC。
 
-2026-10-14 Studio 内部公共网页 GET 边界已收敛到 `public_http`：笔记网页采集与网页监控逐跳检查公共地址，并按各自预算截断读取；没有配置代理的直连会把本次核验的 DNS 地址固定到连接。本机实际依赖环境代理访问外网，故两个现有内置功能保留配置代理支持：此时代理自行解析目标，无法声称连接地址已固定。首次禁代理 smoke 失败、恢复内置代理后真实网页 smoke 成功，均已记录。此代码不提供插件身份、逐目标许可、凭据引用、任务取消、审计或 View 回调；未来插件服务不能默认继承内置代理路径。`service.v1` 与插件网络调用继续保持未支持，提供方不得在清单中声明。代理身份与目标校验、DNS 解析耗时及其他系统仍需单独设计和验证。
+2026-10-14 Studio 内部公共网页 GET 边界已收敛到 `public_http`：笔记网页采集与网页监控逐跳检查公共地址，并按各自预算截断读取；没有配置代理的直连会把本次核验的 DNS 地址固定到连接。本机实际依赖环境代理访问外网，故两个现有内置功能保留配置代理支持：此时代理自行解析目标，无法声称连接地址已固定。此代码不提供插件身份、逐目标许可、凭据引用、任务取消、审计或 View 回调；未来插件服务不能默认继承内置代理路径。`service.v1` 与插件网络调用继续保持未支持，提供方不得在清单中声明。代理身份与目标校验、DNS 解析耗时及其他系统仍需单独设计和验证。
+
+2026-10-15 为解除 `spring-actuator` 的宿主接口阻塞，新增 `service.http.get.v1 = 1.0.0-preview.1`。Studio 工作树已有受控 Host 路由、profile/权限门控及 View 确认桥源码；该 profile 不继承 `public_http`，只允许固定 Actuator GET enum、Host 逐次确认、DNS复核并固定地址、无代理/重定向/凭据、受限响应及超时取消。专项 Rust/真实 Host conformance 与结构化审计仍未闭环，提供方独立包、正反向 fixtures、Pi/View 收据及其他OS验证也待交付；当前不能标记为已支持或接受。
+
+Host 接口实现与验收状态分开维护：[2026-10-15 实现记录](../iterations/2026-10-15-http-get-host-implementation.md)。
 
 ## 3. 包、标识与交付物
 
@@ -64,6 +74,31 @@ Host 已新增[一次性调用准入候选](resource-call-admission.md)，验证
 包不得包含 node_modules、target、Pi、Bun、Ollama、模型权重、用户数据库、服务配置或凭据。
 总展开内容最多 50 MiB、文件最多 2048、单文件最多 10 MiB；WASI 模块另限 2 MiB。
 超过限额先拆包/裁剪依赖，不静默提高 Host 限额。
+
+`inputSchema` 是 Host 当前支持的 JSON Schema 子集，不是完整 Draft 2020-12
+验证器。根类型必须是 object；子声明仅接受 object、array、string、integer、
+number、boolean、null 类型，以及 properties/required/additionalProperties（布尔）、
+items、min/maxLength、min/maxItems、minimum/maximum、enum、const 和
+`$schema`/`$id`/title/description/default 注解。安装时逐层拒绝未知关键字、
+不支持的类型及无效界限；`pattern`、`format`、组合 schema、`$ref` 等目前不能
+声明为已生效的输入约束。需要这些语义的工具应提出版本化 Host 接口需求，
+不能依赖通用表单或 Worker 内部校验替代安装门槛。
+
+`output.schema.v1` 也只实现 Host 声明和运行校验子集。输出 schema 的
+`required` 项必须是唯一字符串，`type` 联合数组不得重复，`enum` 不得为空，
+`$schema`/`$id`/title/description 必须为字符串，`examples` 必须为数组。
+安装时拒绝无效声明，Worker 返回值仍按 schema 与 `maxResultBytes` 逐次校验；
+它不表示 Host 支持完整 JSON Schema。
+
+交付前可用 Studio 的只读声明预检一次查看一个或多个 manifest 中的 profile 缺项：
+`bun run check:plugin-manifest-profiles -- <候选目录>/plugin.json [另一个候选目录/plugin.json ...]`。
+批量模式逐包返回 `path`、`issues` 或 `error`，最多 256 个显式路径；单包模式
+保留原有 `issues` 输出形状。重复路径只检查一次，某包读取失败仍列出其余包。
+它针对已出现的 `directory`、`fileInput`、`resourceInputMimeTypes`、
+`outputSchema` 和 `maxResultBytes` 字段，列出对应的 `requiredProfiles` 缺失项；
+退出码 1 表示有缺项，2 表示输入或读取错误。预检只检查声明是否存在，
+不检查 manifest 完整性、版本兼容、schema 内容、包收据、签名或执行结果；
+即使退出码 0，也必须以 Host 安装校验和真实运行验收为准。
 
 ## 4. 首批 ABI：compute.wasi.v1
 
@@ -90,7 +125,7 @@ message 为可展示、不含原始输入/凭据/堆栈的短说明，最多 240
 未知协议主版本拒绝执行，新增可选字段需要双方兼容测试；破坏性输入/输出变化使用新主版本/Capability ID。
 
 当前 Host 上限：模块 2 MiB，内存 64 MiB，栈 2 MiB，fuel 10,000,000，执行进程 5 秒，
-Worker 请求 256 KiB，stdout 1 MiB，stderr 64 KiB；View 消息上限是 64K **字符**。
+Worker 完整序列化请求（含路径、处理器与输入）最多 256 KiB，stdout 1 MiB，stderr 64 KiB；View 消息上限是 64K **字符**。Host 的通用 Capability 入口先检查 16 MiB 输入上限，以兼容内置图片/文档能力；它不会提高独立插件 Worker 的 256 KiB 请求上限。大文件应走已声明的受控资源协议，不应塞进普通工具参数。
 本 profile 收紧为输入 text UTF-8 最多 8192 字节、序列化请求和响应各最多 48 KiB，
 提供方在解析/分配前后检查字节与结构上限。输出上限也适用于错误路径。
 无预打开目录、环境变量、网络、宿主路径或跨调用状态；v1 不提供进度事件/长任务/持久化。

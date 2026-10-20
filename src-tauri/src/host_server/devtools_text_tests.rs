@@ -201,7 +201,130 @@ fn actual_signed_candidate_lifecycle_rejects_tampered_rollback_and_preserves_dat
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires ZICODE_TEST_WORKER_EXE pointing to the same-source delivered app"]
+#[ignore = "requires ZICODE_TEST_SIGNED_ROOT with receiver test-signed packages"]
+async fn signed_replacement_revokes_old_version_tasks_only_after_success() {
+    use crate::plugin_task_store::{Owner, State, Store};
+
+    let signed_root = PathBuf::from(std::env::var_os("ZICODE_TEST_SIGNED_ROOT").unwrap());
+    let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let root = project
+        .join(".cache/task-scratch")
+        .join(format!("signed-task-replacement-{}", uuid::Uuid::new_v4()));
+    let public = root.join("public");
+    std::fs::create_dir_all(&public).unwrap();
+    std::fs::write(
+        root.join("owner.json"),
+        json!({"purpose":"signed Host task replacement acceptance", "lifetime":"remove on success; retain failure evidence", "pid":std::process::id()}).to_string(),
+    ).unwrap();
+    let metadata = MetadataStore::open(&root.join("metadata.sqlite3")).unwrap();
+    let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+    let host = HostServer::start(public, NativePiManager::new(16), auth)
+        .await
+        .unwrap();
+    let plugin_id = "com.zicode.devtools.text";
+    let first = signed_root.join("first.zicode-plugin");
+    let second = signed_root.join("second.zicode-plugin");
+    let tampered = signed_root.join("tampered.zicode-plugin");
+    assert_eq!(host.install_signed_plugin(&first, true).unwrap(), plugin_id);
+
+    let store = Arc::new(Store::open(&host.state.plugin_task_database).unwrap());
+    *host.state.plugin_task_store.lock().unwrap() = Some(store.clone());
+    let owner = |version: &str| Owner {
+        workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
+        scene_id: "programming".into(),
+        plugin_id: plugin_id.into(),
+        package_version: version.into(),
+        profile_version: "1.0.0-preview.1".into(),
+        operation_id: "text.convert".into(),
+    };
+    let old = owner("0.1.0");
+    let old_task = store
+        .submit(&old, "signed_task_old_version", &json!({"text":"hello"}))
+        .unwrap();
+    store
+        .transition(&old, &old_task.task_ref, State::Running)
+        .unwrap();
+    assert!(host.install_signed_plugin(&tampered, false).is_err());
+    assert_eq!(
+        store.snapshot(&old, &old_task.task_ref).unwrap().state,
+        "running"
+    );
+
+    assert_eq!(
+        host.install_signed_plugin(&second, false).unwrap(),
+        plugin_id
+    );
+    assert_eq!(
+        store.snapshot(&old, &old_task.task_ref).unwrap().state,
+        "revoked"
+    );
+    let current = owner("0.1.1");
+    let current_task = store
+        .submit(
+            &current,
+            "signed_task_new_version",
+            &json!({"text":"world"}),
+        )
+        .unwrap();
+    store
+        .transition(&current, &current_task.task_ref, State::Running)
+        .unwrap();
+    host.rollback_signed_plugin(plugin_id, "0.1.0").unwrap();
+    assert_eq!(
+        store
+            .snapshot(&current, &current_task.task_ref)
+            .unwrap()
+            .state,
+        "revoked"
+    );
+    let publisher_key_id = host.preview_signed_plugin(&first).unwrap().publisher_key_id;
+    let publisher_task = store
+        .submit(&old, "signed_task_publisher", &json!({"text":"publisher"}))
+        .unwrap();
+    store
+        .transition(&old, &publisher_task.task_ref, State::Running)
+        .unwrap();
+    let mut unrelated = old.clone();
+    unrelated.plugin_id = "com.example.unrelated".into();
+    let shutdown_task = store
+        .submit(&unrelated, "signed_task_shutdown", &json!({"text":"again"}))
+        .unwrap();
+    store
+        .transition(&unrelated, &shutdown_task.task_ref, State::Running)
+        .unwrap();
+    host.revoke_plugin_publisher(&publisher_key_id).unwrap();
+    assert_eq!(
+        store
+            .snapshot(&old, &publisher_task.task_ref)
+            .unwrap()
+            .state,
+        "revoked"
+    );
+    assert_eq!(
+        store
+            .snapshot(&unrelated, &shutdown_task.task_ref)
+            .unwrap()
+            .state,
+        "running"
+    );
+    host.request_shutdown();
+    let stopped = store.snapshot(&unrelated, &shutdown_task.task_ref).unwrap();
+    assert_eq!(stopped.state, "interrupted");
+    host.request_shutdown();
+    assert_eq!(
+        store
+            .snapshot(&unrelated, &shutdown_task.task_ref)
+            .unwrap()
+            .latest_sequence,
+        stopped.latest_sequence
+    );
+    drop(store);
+    host.stop_and_wait().await.unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires ZICODE_TEST_WORKER_EXE; optional ZICODE_TEST_SIGNED_ROOT uses receiver test-signed package"]
 async fn devtools_candidate_invokes_real_worker_through_authenticated_http_host() {
     let executable = PathBuf::from(
         std::env::var_os("ZICODE_TEST_WORKER_EXE")
@@ -240,13 +363,24 @@ async fn devtools_candidate_invokes_real_worker_through_authenticated_http_host(
         .await
         .unwrap();
     let plugin_id = "com.zicode.devtools.text";
-    {
+    if let Some(signed_root) = std::env::var_os("ZICODE_TEST_SIGNED_ROOT") {
+        let package = PathBuf::from(signed_root).join("first.zicode-plugin");
+        let preview = host.preview_signed_plugin(&package).unwrap();
+        assert_eq!(preview.plugin_id, plugin_id);
+        assert_eq!(
+            host.install_signed_plugin(&package, true).unwrap(),
+            plugin_id
+        );
+    } else {
         let mut registry = host.state.plugins.lock().unwrap();
         assert_eq!(registry.install_developer(&source).unwrap(), plugin_id);
-        registry
-            .set_enabled("programming", plugin_id, true)
-            .unwrap();
     }
+    host.state
+        .plugins
+        .lock()
+        .unwrap()
+        .set_enabled("programming", plugin_id, true)
+        .unwrap();
     host.state
         .capability_broker
         .lock()
@@ -346,29 +480,48 @@ async fn devtools_candidate_invokes_real_worker_through_authenticated_http_host(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires ZICODE_TEST_WORKER_EXE and its frozen Pi/broker resources"]
+#[ignore = "requires ZICODE_TEST_WORKER_EXE and Pi/broker resources; Debug mode needs ZICODE_TEST_DEBUG_RUNTIME"]
 async fn embedded_pi_invokes_candidate_worker_and_rejects_revoked_cached_tool() {
     let fill_budget = std::env::var_os("ZICODE_TEST_FILL_PLUGIN_BUDGET").is_some();
     let executable = PathBuf::from(std::env::var_os("ZICODE_TEST_WORKER_EXE").unwrap());
     let delivery = executable.parent().unwrap();
-    let build: Value =
-        serde_json::from_slice(&std::fs::read(delivery.join("BUILD.json")).unwrap()).unwrap();
-    for relative in [
-        "ZiCode Studio Desktop.exe",
-        "pi/pi.exe",
-        "extensions/plugin-broker.mjs",
-    ] {
-        let record = build["files"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|file| file["path"] == relative)
-            .expect("Frozen runtime evidence missing");
-        let bytes = std::fs::read(delivery.join(relative)).unwrap();
+    if std::env::var_os("ZICODE_TEST_DEBUG_RUNTIME").is_some() {
         assert_eq!(
-            format!("{:x}", Sha256::digest(bytes)).to_uppercase(),
-            record["sha256"]
+            executable.file_name().and_then(|name| name.to_str()),
+            Some("zicode-studio-desktop.exe")
         );
+        for relative in ["pi/pi.exe", "extensions/plugin-broker.mjs"] {
+            assert!(delivery.join(relative).is_file(), "missing {relative}");
+        }
+        let version = std::process::Command::new(delivery.join("pi/pi.exe"))
+            .arg("--version")
+            .output()
+            .unwrap();
+        assert!(version.status.success());
+        assert_eq!(
+            String::from_utf8_lossy(&version.stdout).trim(),
+            crate::pi_launch::locked_pi_version()
+        );
+    } else {
+        let build: Value =
+            serde_json::from_slice(&std::fs::read(delivery.join("BUILD.json")).unwrap()).unwrap();
+        for relative in [
+            "ZiCode Studio Desktop.exe",
+            "pi/pi.exe",
+            "extensions/plugin-broker.mjs",
+        ] {
+            let record = build["files"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|file| file["path"] == relative)
+                .expect("Frozen runtime evidence missing");
+            let bytes = std::fs::read(delivery.join(relative)).unwrap();
+            assert_eq!(
+                format!("{:x}", Sha256::digest(bytes)).to_uppercase(),
+                record["sha256"]
+            );
+        }
     }
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let root = project
@@ -465,11 +618,18 @@ export default function (pi) {{
         .await
         .unwrap();
     let plugin_id = "com.zicode.devtools.text";
+    if let Some(signed_root) = std::env::var_os("ZICODE_TEST_SIGNED_ROOT") {
+        let package = PathBuf::from(signed_root).join("first.zicode-plugin");
+        assert_eq!(
+            host.install_signed_plugin(&package, true).unwrap(),
+            plugin_id
+        );
+    } else {
+        host.install_developer_plugin(&project.join("tests/fixtures/devtools-text-dev57"))
+            .unwrap();
+    }
     {
         let mut registry = host.state.plugins.lock().unwrap();
-        registry
-            .install_developer(&project.join("tests/fixtures/devtools-text-dev57"))
-            .unwrap();
         registry
             .set_enabled("programming", plugin_id, true)
             .unwrap();
@@ -507,10 +667,8 @@ export default function (pi) {{
         extensions: vec![observer],
         pi_version: crate::pi_launch::locked_pi_version().into(),
         path_env: std::env::var("PATH").unwrap_or_default(),
-        disable_auto_discovery: false,
+        disable_auto_discovery: true,
         environment: BTreeMap::from([
-            ("HOME".into(), root.to_string_lossy().into_owned()),
-            ("USERPROFILE".into(), root.to_string_lossy().into_owned()),
             (
                 "PI_CODING_AGENT_DIR".into(),
                 root.join("agent").to_string_lossy().into_owned(),
@@ -520,13 +678,22 @@ export default function (pi) {{
     };
     configure_plugin_broker_for_state(&host.state, &target, &mut launch).unwrap();
     if fill_budget {
-        let tools: Vec<_> = (0..128).map(|index| json!({
-            "pluginId":"com.synthetic.budget","capability":format!("budget.{index}"),
-            "name":format!("budget_{index}"),"title":"Budget fixture",
-            "description":"Never invoked","inputSchema":{"type":"object"}
-        })).collect();
-        launch.environment.insert("PI_DESKTOP_PLUGIN_TOOLS".into(), serde_json::to_string(&tools).unwrap());
-        launch.environment.insert("ZICODE_TEST_FILL_PLUGIN_BUDGET".into(), "1".into());
+        let tools: Vec<_> = (0..128)
+            .map(|index| {
+                json!({
+                    "pluginId":"com.synthetic.budget","capability":format!("budget.{index}"),
+                    "name":format!("budget_{index}"),"title":"Budget fixture",
+                    "description":"Never invoked","inputSchema":{"type":"object"}
+                })
+            })
+            .collect();
+        launch.environment.insert(
+            "PI_DESKTOP_PLUGIN_TOOLS".into(),
+            serde_json::to_string(&tools).unwrap(),
+        );
+        launch
+            .environment
+            .insert("ZICODE_TEST_FILL_PLUGIN_BUDGET".into(), "1".into());
     }
     let mut events = host.state.runtimes.subscribe();
     host.state.runtimes.spawn(target.clone(), launch).unwrap();

@@ -13,6 +13,12 @@ import { ResourceToolRunner, type ResourceTargetProvider } from "./ResourceToolR
 import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 
+const hostResourceReceivers = new Map([
+  ["com.zicode.resource-inspector/image.inspect", "resource.host.image-input.v1"],
+  ["com.zicode.ocr/ocr.resource-text", "resource.host.ocr-input.v1"],
+  ["com.zicode.text-inspector/text.inspect", "resource.host.text-input.v1"],
+]);
+
 export interface ManualToolDetailProps {
   tool: ManualTool; revision: string; api: ManualToolApi; scope: ToolAccessScope;
   accessStore?: ToolAccessStore; onOpenApplication?: () => void;
@@ -70,7 +76,9 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   const fields = detail ? toolFields(detail.capability.inputSchema) : null;
   const permissionNeeded = detail?.permissions.some(permission => permission.required && permission.name !== "pi.tools.register");
   const supported = detail && fields && tool.runtime !== "builtin" && !permissionNeeded;
-  const resourceTool = detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi";
+  const hostResourceProfile = hostResourceReceivers.get(`${tool.pluginId}/${tool.capabilityId}`);
+  const resourceTool = (detail?.resourceInputProfile === "resource.wasi.input.draft2" && tool.runtime === "wasi") ||
+    (tool.runtime === "builtin" && hostResourceProfile !== undefined && detail?.resourceInputProfile === hostResourceProfile);
   async function execute() {
     if (!supported || running || actionBusy || !detail?.enabled || call.supported === null) return;
     const prepared = prepareToolInput(fields, values);
@@ -117,6 +125,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
       {detail.permissions.length > 0 && <details><summary>{t("Declared permissions")}</summary>
         {detail.permissions.map(permission => <p key={permission.name}>{permission.name} · {t(permission.granted ? "Granted" : "Not granted")} — {permission.reason}</p>)}
       </details>}
+      {!detail.enabled && <p>{t("Enable this plugin in Plugin Manager before running its tools.")}</p>}
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
         accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {result !== null && <button type="button" className="ui-button ui-button--secondary" onClick={() => jumpTo(resultRef.current)}>{t("View latest execution")}</button>}
@@ -134,7 +143,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
           </button>}
           {call.phase === "uncertain" && <button type="button" className="ui-button ui-button--secondary" onClick={() => { void call.checkStatus(); }}>{t("Check tool status")}</button>}
         </div>
-      </form> : <p>{t("This tool needs its application UI or additional Host support. The generic form cannot run it.")}</p>}
+      </form> : detail.enabled && <p>{t("This tool needs its application UI or additional Host support. The generic form cannot run it.")}</p>}
     </>}
     {onOpenApplication && <button type="button" className="ui-button ui-button--secondary" disabled={running || actionBusy || resourceBusy} onClick={onOpenApplication}>{t("Open application")}</button>}
     {result !== null && <ManualToolResultView result={result} sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}

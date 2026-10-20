@@ -1,5 +1,5 @@
 //! Bounded output.schema.v1 preview subset; unknown validation keywords fail closed.
-use super::{schema_constraints, validate_value, CapabilityError, MAX_CAPABILITY_OUTPUT_BYTES};
+use super::{validate_value, CapabilityError, MAX_CAPABILITY_OUTPUT_BYTES};
 use crate::plugin_registry::PluginCapabilityDescriptor;
 use serde_json::{json, Map, Value};
 
@@ -94,6 +94,8 @@ fn declaration(schema: &Value) -> Result<(), String> {
                 | "maximum"
                 | "minItems"
                 | "maxItems"
+                | "minProperties"
+                | "maxProperties"
                 | "oneOf"
                 | "$schema"
                 | "$id"
@@ -108,16 +110,34 @@ fn declaration(schema: &Value) -> Result<(), String> {
     if let Some(kind) = schema.get("type") {
         let valid = kind.as_str().is_some_and(known_type)
             || kind.as_array().is_some_and(|types| {
+                let mut names = std::collections::HashSet::new();
                 !types.is_empty()
                     && types.len() <= 7
-                    && types.iter().all(|t| t.as_str().is_some_and(known_type))
+                    && types.iter().all(|t| {
+                        t.as_str()
+                            .is_some_and(|name| known_type(name) && names.insert(name))
+                    })
             });
         if !valid {
             return Err("Invalid output schema type".into());
         }
     }
-    schema_constraints::validate_declaration(schema)?;
-    for (low, high) in [("minLength", "maxLength"), ("minItems", "maxItems")] {
+    for keyword in ["$schema", "$id", "title", "description"] {
+        if object.get(keyword).is_some_and(|value| !value.is_string()) {
+            return Err(format!("Output schema {keyword} must be a string"));
+        }
+    }
+    if object
+        .get("examples")
+        .is_some_and(|value| !value.is_array())
+    {
+        return Err("Output schema examples must be an array".into());
+    }
+    for (low, high) in [
+        ("minLength", "maxLength"),
+        ("minItems", "maxItems"),
+        ("minProperties", "maxProperties"),
+    ] {
         for key in [low, high] {
             if schema
                 .get(key)
@@ -151,19 +171,28 @@ fn declaration(schema: &Value) -> Result<(), String> {
     {
         return Err("Inverted output numeric bounds".into());
     }
-    if schema
-        .get("additionalProperties")
-        .is_some_and(|value| !value.is_boolean())
-    {
-        return Err("additionalProperties must be boolean".into());
+    if let Some(additional) = schema.get("additionalProperties") {
+        if additional.is_object() {
+            declaration(additional)?;
+        } else if !additional.is_boolean() {
+            return Err("additionalProperties must be boolean or a schema".into());
+        }
     }
     if let Some(required) = schema.get("required") {
-        if !required
-            .as_array()
-            .is_some_and(|items| items.iter().all(Value::is_string))
-        {
-            return Err("Invalid required declaration".into());
+        let items = required.as_array().ok_or("Invalid required declaration")?;
+        let mut names = std::collections::HashSet::new();
+        for item in items {
+            let name = item.as_str().ok_or("Invalid required declaration")?;
+            if !names.insert(name) {
+                return Err("Duplicate required output property".into());
+            }
         }
+    }
+    if schema
+        .get("enum")
+        .is_some_and(|value| value.as_array().is_none_or(|items| items.is_empty()))
+    {
+        return Err("Output schema enum must be a nonempty array".into());
     }
     if let Some(properties) = schema.get("properties") {
         for child in properties
@@ -255,6 +284,12 @@ fn matches_value(
     for key in ["type", "oneOf", "items"] {
         base.remove(key);
     }
+    if schema
+        .get("additionalProperties")
+        .is_some_and(Value::is_object)
+    {
+        base.remove("additionalProperties");
+    }
     if let Some(properties) = schema.get("properties").and_then(Value::as_object) {
         base.insert(
             "properties".into(),
@@ -275,6 +310,21 @@ fn matches_value(
                 if !matches_value(child, item, budget)? {
                     return Ok(false);
                 }
+            }
+        }
+    }
+    if let (Some(additional), Some(items)) = (
+        schema
+            .get("additionalProperties")
+            .filter(|item| item.is_object()),
+        value.as_object(),
+    ) {
+        let declared = schema.get("properties").and_then(Value::as_object);
+        for (key, item) in items {
+            if declared.is_none_or(|properties| !properties.contains_key(key))
+                && !matches_value(additional, item, budget)?
+            {
+                return Ok(false);
             }
         }
     }

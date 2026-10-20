@@ -126,6 +126,9 @@ impl HostServer {
         self.state.runtimes.stop_all();
         self.state.project_tasks.stop_all();
         self.state.terminals.stop_all();
+        if let Err(code) = super::plugin_task_center::interrupt_active_tasks_now(&self.state) {
+            log::error!("[picot-host] plugin task shutdown reconciliation failed: {code}");
+        }
         if let Some(handle) = &self.lan_shutdown {
             handle.graceful_shutdown(Some(Duration::from_secs(5)));
         }

@@ -7,6 +7,57 @@ fn access_id(index: usize) -> String {
 }
 
 #[test]
+fn view_operations_share_search_facets_and_history_without_becoming_executable_tools() {
+    let mut registry = registry();
+    let mut view_plugin = registry.plugins.values().next().unwrap().clone();
+    view_plugin.manifest.id = "com.zicode.view-fixture".into();
+    view_plugin.manifest.schema_version = 2;
+    view_plugin.manifest.engines = json!({"zicode":">=0.4.2 <1.0.0","pluginApi":"^1.0.0"});
+    view_plugin.manifest.required_profiles = json!({"view.operation.directory.v1":"=1.0.0-preview.1"});
+    view_plugin.manifest.contributes = json!({
+        "activities":[{"id":"example.application","title":"Example"}],
+        "views":[{"id":"example.main","activity":"example.application",
+            "location":"main","title":"Main","entry":"views/main.html"}],
+        "viewOperations":[{"id":"example.health","title":"Health","viewId":"example.main",
+            "directory":{"categoryId":"system","aliases":["服务健康"],"description":"Show health panel"}}],
+        "capabilities":[],"commands":[],"piTools":[]
+    });
+    super::super::validate_manifest(&view_plugin.manifest, None).unwrap();
+    registry.plugins.insert(view_plugin.manifest.id.clone(), view_plugin);
+    let mut query = CatalogQuery { scene_id:"programming".into(), query:"服务健康".into(),
+        include_view_operations:true,
+        category_id:Some("system".into()), ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 1);
+    let operation = &page["items"][0];
+    assert_eq!(operation["kind"], "view-operation");
+    assert_eq!(operation["operationId"], "example.health");
+    assert_eq!(operation["viewId"], "example.main");
+    assert!(operation.get("capabilityId").is_none());
+    assert_eq!(operation["accessId"], view_operation_access_id("com.zicode.view-fixture", "example.health"));
+    assert_eq!(page["categories"].as_array().unwrap().iter().find(|value| value["id"] == "system").unwrap()["count"], 1);
+    assert_eq!(page["sources"].as_array().unwrap().iter().find(|value| value["pluginId"] == "com.zicode.view-fixture").unwrap()["count"], 1);
+    let access = ToolAccess { favorites:vec![operation["accessId"].as_str().unwrap().into()],
+        recent:vec![RecentEntry { id:operation["accessId"].as_str().unwrap().into(), used_at:1 }],
+        ..Default::default() };
+    query.query.clear(); query.view = CatalogView::Favorites;
+    assert_eq!(registry.manual_catalog_with_access(&query, Some(&access)).unwrap()["total"], 1);
+    query.view = CatalogView::Recent;
+    assert_eq!(registry.manual_catalog_with_access(&query, Some(&access)).unwrap()["total"], 1);
+    query.view = CatalogView::All; query.resource_only = true; query.category_id = None;
+    query.plugin_id = Some("com.zicode.view-fixture".into());
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
+    query.resource_only = false; query.directory_only = true;
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
+    query.directory_only = false;
+    query.include_view_operations = false;
+    assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
+    assert_eq!(registry.manual_tool_detail(&DetailQuery { scene_id:"programming".into(),
+        plugin_id:"com.zicode.view-fixture".into(), capability_id:"example.health".into(),
+        revision:page["revision"].as_str().unwrap().into(), resource_mime_type:None }).unwrap_err(), "tool_unavailable");
+}
+
+#[test]
 fn manual_sources_cover_full_scoped_lists_before_search_filter_and_paging() {
     let mut registry = registry();
     let mut other = registry.plugins.values().next().unwrap().clone();
@@ -91,7 +142,9 @@ pub(super) fn registry() -> PluginRegistry {
             "com.zicode.catalog-fixture".into(),
             InstalledPlugin {
                 execution_revision: uuid::Uuid::new_v4(),
+                content_digest: None,
                 publisher_identity: None,
+                retained_versions: Vec::new(),
                 manifest,
                 origin: PluginOrigin::Developer,
                 core: false,
@@ -108,6 +161,23 @@ pub(super) fn registry() -> PluginRegistry {
 #[test]
 fn metadata_pages_are_bounded_stable_and_independent_of_pi_permission() {
     let registry = registry();
+    let mut manifests: Vec<_> = registry
+        .plugins
+        .values()
+        .map(|plugin| &plugin.manifest)
+        .collect();
+    manifests.sort_by(|a, b| a.id.cmp(&b.id));
+    let previous_bytes = serde_json::to_vec(&(
+        "programming",
+        registry.result_epoch(),
+        &registry.state,
+        manifests,
+    ))
+    .unwrap();
+    assert_eq!(
+        registry.manual_revision("programming"),
+        format!("{:x}", Sha256::digest(previous_bytes))
+    );
     let mut query = CatalogQuery {
         scene_id: "programming".into(),
         ..Default::default()
@@ -144,6 +214,7 @@ fn metadata_pages_are_bounded_stable_and_independent_of_pi_permission() {
             plugin_id: "com.zicode.catalog-fixture".into(),
             capability_id: "text.204".into(),
             revision,
+            resource_mime_type: None,
         })
         .unwrap();
     assert_eq!(
@@ -169,6 +240,7 @@ fn search_and_stale_detail_have_explicit_boundaries() {
         plugin_id: "com.zicode.catalog-fixture".into(),
         capability_id: "text.204".into(),
         revision: page["revision"].as_str().unwrap().to_owned(),
+        resource_mime_type: None,
     };
     registry
         .scene_plugin_state_mut("programming", &detail.plugin_id)
@@ -225,7 +297,9 @@ fn built_in_translation_is_searchable_by_its_displayed_chinese_name() {
     super::super::validate_manifest(&manifest, None).unwrap();
     registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
         execution_revision: uuid::Uuid::new_v4(),
+        content_digest: None,
         publisher_identity: None,
+        retained_versions: Vec::new(),
         manifest,
         origin: PluginOrigin::BuiltIn,
         core: false,
@@ -257,7 +331,9 @@ fn built_in_notes_have_searchable_chinese_names_and_a_shared_category() {
     super::super::validate_manifest(&manifest, None).unwrap();
     registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
         execution_revision: uuid::Uuid::new_v4(),
+        content_digest: None,
         publisher_identity: None,
+        retained_versions: Vec::new(),
         manifest,
         origin: PluginOrigin::BuiltIn,
         core: false,
@@ -291,7 +367,9 @@ fn every_builtin_tool_has_a_category_and_a_chinese_search_alias() {
         super::super::validate_manifest(&manifest, None).unwrap();
         registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
             execution_revision: uuid::Uuid::new_v4(),
+            content_digest: None,
             publisher_identity: None,
+            retained_versions: Vec::new(),
             manifest,
             origin: PluginOrigin::BuiltIn,
             core,
@@ -331,4 +409,60 @@ fn every_builtin_tool_has_a_category_and_a_chinese_search_alias() {
         assert_eq!(result["total"], 1, "search query: {search}");
         assert_eq!(result["items"][0]["capabilityId"], capability);
     }
+}
+
+#[test]
+fn host_resource_receiver_is_only_offered_for_explicit_resource_sharing() {
+    let mut registry = registry();
+    registry.plugins.clear();
+    for (value, core, enabled_by_default) in super::super::builtin_manifests() {
+        let manifest: PluginManifest = serde_json::from_value(value).unwrap();
+        super::super::validate_manifest(&manifest, None).unwrap();
+        registry.plugins.insert(manifest.id.clone(), InstalledPlugin {
+            execution_revision: uuid::Uuid::new_v4(), content_digest: None, publisher_identity: None, retained_versions: Vec::new(), manifest,
+            origin: PluginOrigin::BuiltIn, core, enabled_by_default, package_root: None,
+        });
+    }
+    let query = CatalogQuery { scene_id: "programming".into(), resource_only: true,
+        resource_mime_type: Some("image/png".into()), ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 1);
+    assert_eq!(page["items"][0]["pluginId"], crate::plugin_resource_execution::HOST_IMAGE_INSPECTOR_PLUGIN_ID);
+    assert_eq!(page["items"][0]["capabilityId"], crate::plugin_resource_execution::HOST_IMAGE_INSPECTOR_CAPABILITY_ID);
+    assert_eq!(page["items"][0]["runtime"], "builtin");
+    let detail = registry.manual_tool_detail(&DetailQuery {
+        scene_id: "programming".into(),
+        plugin_id: crate::plugin_resource_execution::HOST_IMAGE_INSPECTOR_PLUGIN_ID.into(),
+        capability_id: crate::plugin_resource_execution::HOST_IMAGE_INSPECTOR_CAPABILITY_ID.into(),
+        revision: page["revision"].as_str().unwrap().into(),
+        resource_mime_type: Some("image/png".into()),
+    }).unwrap();
+    assert_eq!(detail["resourceInputProfile"], crate::plugin_resource_execution::HOST_IMAGE_INPUT_PROFILE);
+    let normal = registry.manual_catalog(&CatalogQuery { scene_id: "programming".into(), ..Default::default() }).unwrap();
+    assert!(!normal.to_string().contains("com.zicode.resource-inspector"));
+    assert!(!normal.to_string().contains("com.zicode.text-inspector"));
+    let text = registry.manual_catalog(&CatalogQuery { scene_id: "programming".into(),
+        resource_only: true, resource_mime_type: Some("text/plain".into()), ..Default::default() }).unwrap();
+    assert_eq!(text["total"], 1);
+    assert_eq!(text["items"][0]["pluginId"], crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_PLUGIN_ID);
+    let excluded = registry.manual_catalog(&CatalogQuery { scene_id: "programming".into(),
+        resource_only: true, resource_mime_type: Some("text/plain".into()),
+        exclude_plugin_id: Some(crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_PLUGIN_ID.into()),
+        exclude_capability_id: Some(crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_CAPABILITY_ID.into()),
+        ..Default::default() }).unwrap();
+    assert_eq!(excluded["total"], 0);
+    assert_eq!(excluded["items"], json!([]));
+    assert_eq!(excluded["sources"], json!([]));
+    assert_eq!(excluded["categories"], json!([]));
+    assert!(registry.manual_catalog(&CatalogQuery { scene_id: "programming".into(),
+        resource_only: true, resource_mime_type: Some("text/plain".into()),
+        exclude_plugin_id: Some(crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_PLUGIN_ID.into()),
+        ..Default::default() }).is_err());
+    assert!(registry.manual_catalog(&CatalogQuery { scene_id: "programming".into(),
+        exclude_plugin_id: Some(crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_PLUGIN_ID.into()),
+        exclude_capability_id: Some(crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_CAPABILITY_ID.into()),
+        ..Default::default() }).is_err());
+    let directory = CatalogQuery { resource_only: false, directory_only: true,
+        resource_mime_type: None, ..query };
+    assert_eq!(registry.manual_catalog(&directory).unwrap()["total"], 0);
 }

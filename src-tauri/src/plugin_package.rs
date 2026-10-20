@@ -56,6 +56,8 @@ struct SignaturePayload<'a> {
 #[serde(rename_all = "camelCase")]
 pub struct SignedPluginPreview {
     pub package_path: String,
+    /// SHA-256 of signed package.json, which binds the complete declared file hashes.
+    pub manifest_sha256: String,
     pub plugin_id: String,
     pub name: String,
     pub version: String,
@@ -63,11 +65,21 @@ pub struct SignedPluginPreview {
     pub publisher_key_id: String,
     pub trusted: bool,
     pub permissions: Vec<String>,
+    pub capability_count: usize,
+    pub capabilities: Vec<SignedPluginCapabilityPreview>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SignedPluginCapabilityPreview {
+    pub id: String,
+    pub title: String,
 }
 
 #[derive(Debug)]
 pub struct VerifiedPackage {
     pub(crate) integrity: serde_json::Value,
+    pub manifest_sha256: String,
     pub package_path: PathBuf,
     pub manifest: PluginManifest,
     pub publisher: PackagePublisher,
@@ -75,12 +87,10 @@ pub struct VerifiedPackage {
     files: Vec<PackageFile>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublisherTrustStore {
-    #[serde(default = "trust_store_version")]
     version: u32,
-    #[serde(default)]
     publishers: BTreeMap<String, TrustedPublisher>,
 }
 
@@ -91,10 +101,6 @@ struct TrustedPublisher {
     public_key: String,
     #[serde(default)]
     revoked: bool,
-}
-
-fn trust_store_version() -> u32 {
-    1
 }
 
 pub fn verify_package(package_path: &Path, plugin_root: &Path) -> Result<VerifiedPackage, String> {
@@ -183,26 +189,16 @@ pub fn verify_package(package_path: &Path, plugin_root: &Path) -> Result<Verifie
     let plugin_bytes = read_archive_entry(&mut archive, "plugin.json", MAX_FILE_BYTES)?;
     let manifest: PluginManifest = serde_json::from_slice(&plugin_bytes)
         .map_err(|error| format!("Plugin manifest is invalid: {error}"))?;
-    // Reject unsupported engines before preview, extraction or publisher trust.
-    crate::plugin_registry::runtime_contract::validate(&manifest.runtime)?;
-    crate::plugin_registry::file_input::validate_manifest(&manifest)?;
+    // Preview must reject all unsupported manifest profiles before asking for trust.
+    crate::plugin_registry::validate_manifest(&manifest, None)?;
     if manifest.publisher.trim() != signed.publisher.name.trim() {
         return Err("Plugin publisher does not match the signed publisher".into());
     }
-    let store = load_trust_store(plugin_root);
-    let trust = store.publishers.get(&signed.publisher.key_id);
-    if trust.is_some_and(|publisher| publisher.revoked) {
-        return Err(format!(
-            "Publisher {} has been revoked",
-            signed.publisher.key_id
-        ));
-    }
-    let trusted = trust.is_some_and(|publisher| {
-        publisher.public_key == signed.publisher.public_key && !publisher.revoked
-    });
+    let trusted = publisher_trust_status(plugin_root, &signed.publisher)?;
     Ok(VerifiedPackage {
         integrity: serde_json::to_value(&signed)
             .map_err(|error| format!("Cannot preserve package signature proof: {error}"))?,
+        manifest_sha256: hex_sha256(&package_manifest_bytes),
         package_path,
         manifest,
         publisher: signed.publisher,
@@ -224,8 +220,29 @@ pub fn preview_package(
         .chain(&verified.manifest.permissions.optional)
         .map(|permission| permission.name.clone())
         .collect();
+    let capabilities: Vec<SignedPluginCapabilityPreview> = verified
+        .manifest
+        .contributes
+        .get("capabilities")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|capability| {
+            let id = capability.get("id")?.as_str()?;
+            let title = capability
+                .get("title")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(id);
+            Some(SignedPluginCapabilityPreview {
+                id: id.to_owned(),
+                title: title.to_owned(),
+            })
+        })
+        .collect();
+    let capability_count = capabilities.len();
     Ok(SignedPluginPreview {
         package_path: verified.package_path.to_string_lossy().into_owned(),
+        manifest_sha256: verified.manifest_sha256,
         plugin_id: verified.manifest.id,
         name: verified.manifest.name,
         version: verified.manifest.version,
@@ -233,12 +250,14 @@ pub fn preview_package(
         publisher_key_id: verified.publisher.key_id,
         trusted: verified.trusted,
         permissions,
+        capability_count,
+        capabilities,
     })
 }
 
 pub fn trust_publisher(plugin_root: &Path, publisher: &PackagePublisher) -> Result<(), String> {
     validate_publisher(publisher)?;
-    let mut store = load_trust_store(plugin_root);
+    let mut store = load_trust_store(plugin_root)?;
     if store
         .publishers
         .get(&publisher.key_id)
@@ -260,8 +279,33 @@ pub fn trust_publisher(plugin_root: &Path, publisher: &PackagePublisher) -> Resu
     save_trust_store(plugin_root, &store)
 }
 
+pub fn publisher_trust_status(
+    plugin_root: &Path,
+    publisher: &PackagePublisher,
+) -> Result<bool, String> {
+    let store = load_trust_store(plugin_root)?;
+    let trust = store.publishers.get(&publisher.key_id);
+    if trust.is_some_and(|candidate| candidate.revoked) {
+        return Err(format!("Publisher {} has been revoked", publisher.key_id));
+    }
+    Ok(trust.is_some_and(|candidate| candidate.public_key == publisher.public_key))
+}
+
+pub fn forget_new_publisher_trust(
+    plugin_root: &Path,
+    publisher: &PackagePublisher,
+) -> Result<(), String> {
+    let mut store = load_trust_store(plugin_root)?;
+    match store.publishers.get(&publisher.key_id) {
+        Some(candidate) if candidate.public_key == publisher.public_key && !candidate.revoked => {}
+        _ => return Err("New publisher trust changed before installation rollback".into()),
+    }
+    store.publishers.remove(&publisher.key_id);
+    save_trust_store(plugin_root, &store)
+}
+
 pub fn revoke_publisher(plugin_root: &Path, key_id: &str) -> Result<(), String> {
-    let mut store = load_trust_store(plugin_root);
+    let mut store = load_trust_store(plugin_root)?;
     let publisher = store
         .publishers
         .get_mut(key_id)
@@ -271,10 +315,12 @@ pub fn revoke_publisher(plugin_root: &Path, key_id: &str) -> Result<(), String> 
 }
 
 pub fn publisher_is_trusted(plugin_root: &Path, key_id: &str, public_key: &str) -> bool {
-    load_trust_store(plugin_root)
-        .publishers
-        .get(key_id)
-        .is_some_and(|publisher| publisher.public_key == public_key && !publisher.revoked)
+    load_trust_store(plugin_root).is_ok_and(|store| {
+        store
+            .publishers
+            .get(key_id)
+            .is_some_and(|publisher| publisher.public_key == public_key && !publisher.revoked)
+    })
 }
 
 pub fn extract_verified_package(
@@ -293,6 +339,9 @@ pub fn extract_verified_package(
             .map_err(|error| format!("Cannot reopen signed package archive: {error}"))?;
         for declared in &package.files {
             let bytes = read_archive_entry(&mut archive, &declared.path, declared.size)?;
+            if bytes.len() as u64 != declared.size || hex_sha256(&bytes) != declared.sha256 {
+                return Err(format!("Package file hash mismatch: {}", declared.path));
+            }
             let target = destination.join(&declared.path);
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent)
@@ -428,15 +477,27 @@ fn trust_store_path(plugin_root: &Path) -> PathBuf {
     plugin_root.join("trust").join("publishers.json")
 }
 
-fn load_trust_store(plugin_root: &Path) -> PublisherTrustStore {
+fn load_trust_store(plugin_root: &Path) -> Result<PublisherTrustStore, String> {
     let path = trust_store_path(plugin_root);
-    let Ok(bytes) = fs::read(path) else {
-        return PublisherTrustStore {
-            version: 1,
-            publishers: BTreeMap::new(),
-        };
+    let bytes = match fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(PublisherTrustStore {
+                version: 1,
+                publishers: BTreeMap::new(),
+            });
+        }
+        Err(error) => return Err(format!("Cannot read publisher trust store: {error}")),
     };
-    serde_json::from_slice(&bytes).unwrap_or_default()
+    let store: PublisherTrustStore = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("Publisher trust store is invalid: {error}"))?;
+    if store.version != 1 {
+        return Err(format!(
+            "Unsupported publisher trust store version {}",
+            store.version
+        ));
+    }
+    Ok(store)
 }
 
 fn save_trust_store(plugin_root: &Path, store: &PublisherTrustStore) -> Result<(), String> {
@@ -508,8 +569,9 @@ pub(crate) fn write_test_signed_package(
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_verified_package, hex_sha256, preview_package, trust_publisher, verify_package,
-        PackageFile, PackagePublisher, SignaturePayload, SignedPackageManifest,
+        extract_verified_package, forget_new_publisher_trust, hex_sha256, preview_package,
+        publisher_is_trusted, revoke_publisher, trust_publisher, verify_package, PackageFile,
+        PackagePublisher, SignaturePayload, SignedPackageManifest,
     };
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use ed25519_dalek::{Signer, SigningKey};
@@ -624,6 +686,99 @@ mod tests {
         if root.exists() {
             fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    #[test]
+    fn preview_digest_changes_when_signed_payload_changes_without_manifest_change() {
+        let root = root("preview-payload-identity");
+        let plugin_root = root.join("registry");
+        let files = valid_files();
+        let (package, _) = build_package(&root, files.clone());
+        let original = preview_package(&package, &plugin_root).unwrap();
+        assert_eq!(original.capability_count, 0);
+
+        let mut changed = files;
+        changed.insert(
+            "assets/readme.txt".into(),
+            b"different verified content".to_vec(),
+        );
+        let (replacement, _) = build_package(&root, changed);
+        let updated = preview_package(&replacement, &plugin_root).unwrap();
+        assert_eq!(original.plugin_id, updated.plugin_id);
+        assert_eq!(original.version, updated.version);
+        assert_ne!(original.manifest_sha256, updated.manifest_sha256);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn preview_lists_every_declared_tool_before_install() {
+        let root = root("preview-capabilities");
+        let plugin_root = root.join("registry");
+        let mut files = valid_files();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&files["plugin.json"]).unwrap();
+        manifest["contributes"]["capabilities"] = serde_json::json!([
+            {"id":"text.normalize", "title":"Normalize text", "inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
+            {"id":"text.inspect", "title":"Inspect text", "inputSchema":{"type":"object","properties":{},"additionalProperties":false}}
+        ]);
+        files.insert("plugin.json".into(), serde_json::to_vec(&manifest).unwrap());
+        let (package, _) = build_package(&root, files);
+        let preview = preview_package(&package, &plugin_root).unwrap();
+        assert_eq!(preview.capability_count, 2);
+        assert_eq!(preview.capabilities[0].id, "text.normalize");
+        assert_eq!(preview.capabilities[0].title, "Normalize text");
+        assert_eq!(preview.capabilities[1].id, "text.inspect");
+        assert_eq!(preview.capabilities[1].title, "Inspect text");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn corrupt_trust_store_blocks_mutation_without_losing_existing_data() {
+        let root = root("corrupt-trust-store");
+        let plugin_root = root.join("registry");
+        let (package, publisher) = build_package(&root, valid_files());
+        let trust_file = plugin_root.join("trust/publishers.json");
+        fs::create_dir_all(trust_file.parent().unwrap()).unwrap();
+        let original = br#"{"version":1,"publishers":{"existing":"truncated"}"#.to_vec();
+        fs::write(&trust_file, &original).unwrap();
+
+        assert!(preview_package(&package, &plugin_root)
+            .unwrap_err()
+            .contains("Publisher trust store is invalid"));
+        assert!(trust_publisher(&plugin_root, &publisher).is_err());
+        assert!(revoke_publisher(&plugin_root, &publisher.key_id).is_err());
+        assert!(forget_new_publisher_trust(&plugin_root, &publisher).is_err());
+        assert!(!publisher_is_trusted(
+            &plugin_root,
+            &publisher.key_id,
+            &publisher.public_key
+        ));
+        assert_eq!(fs::read(&trust_file).unwrap(), original);
+        for invalid in [
+            br#"{"version":1}"#.as_slice(),
+            br#"{"version":2,"publishers":{}}"#.as_slice(),
+        ] {
+            fs::write(&trust_file, invalid).unwrap();
+            assert!(trust_publisher(&plugin_root, &publisher).is_err());
+            assert_eq!(fs::read(&trust_file).unwrap(), invalid);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_package_contents_changed_after_verification() {
+        let root = root("changed-after-verification");
+        let (package, _) = build_package(&root, valid_files());
+        let verified = verify_package(&package, &root.join("registry")).unwrap();
+        let mut changed = valid_files();
+        changed.insert("assets/readme.txt".into(), b"tampered content".to_vec());
+        build_package(&root, changed);
+        let destination = root.join("extracted");
+        assert!(extract_verified_package(&verified, &destination)
+            .unwrap_err()
+            .contains("Package file hash mismatch"));
+        assert!(!destination.exists());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

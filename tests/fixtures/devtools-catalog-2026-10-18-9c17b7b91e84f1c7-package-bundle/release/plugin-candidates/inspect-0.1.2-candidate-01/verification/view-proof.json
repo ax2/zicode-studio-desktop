@@ -1,0 +1,50 @@
+{
+  "viewSha256": "1dc530574eb0e8c5e5def94aec4ef09842395664411bb57531b6a1612359c482",
+  "wasmSha256": "1db3fc37df01cd3a8371320d4f897a7fdf750c87e6202b736ed6870f046b8f29",
+  "profile": {
+    "id": "tool.open.v1",
+    "version": "=1.0.0-preview.1"
+  },
+  "cases": [
+    {
+      "id": "declared-color-converter",
+      "result": "opened",
+      "selectedAction": "color.convert",
+      "capabilityInvocations": 0
+    },
+    {
+      "id": "unknown-capability",
+      "result": "not_found",
+      "selectionPreserved": true,
+      "capabilityInvocations": 0
+    },
+    {
+      "id": "slow-view-callback",
+      "status": "unsupported",
+      "lateAckIgnored": true,
+      "capabilityInvocations": 0,
+      "elapsedMs": 4500
+    }
+  ],
+  "browserResults": [
+    {
+      "theme": "light",
+      "width": 1180,
+      "height": 900,
+      "path": "screenshots/inspect-tool-open-20261017/inspect-tool-open-light.png",
+      "sha256": "83b7b82b75443f993389c7c8a3614e0adbf5cd9c81f8eb42cb2141bfaf245bea"
+    },
+    {
+      "theme": "dark",
+      "width": 1180,
+      "height": 900,
+      "path": "screenshots/inspect-tool-open-20261017/inspect-tool-open-dark.png",
+      "sha256": "a4a74810bf1cee1fb3be811f346411efb1ede0874a01dc5bc2925530eb66ff1c"
+    }
+  ],
+  "limitations": [
+    "SDK-shaped local bridge tests provider View routing; this is not Studio Host installation or scene lifecycle acceptance.",
+    "No capability execution, permission grant, file write or service operation is exercised by tool-open callbacks.",
+    "Studio must verify host channel/request correlation, timeout, stale frame, permission revocation and scene switching."
+  ]
+}

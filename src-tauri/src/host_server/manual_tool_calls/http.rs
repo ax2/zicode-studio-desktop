@@ -61,17 +61,13 @@ pub(in crate::host_server) async fn prepare(
                 plugin_id: request.plugin_id.clone(),
                 capability_id: request.capability_id.clone(),
                 revision: revision.clone(),
+                resource_mime_type: None,
             })
             .map_err(rejected)?;
         if detail["enabled"] != true {
             return Err(rejected("plugin_disabled"));
         }
-        let supported = registry.list(&request.scene_id).iter().any(|plugin| {
-            plugin.manifest.id == request.plugin_id
-                && plugin.origin != PluginOrigin::BuiltIn
-                && (plugin.manifest.runtime["worker"].is_string()
-                    || plugin.manifest.runtime["wasi"].is_string())
-        });
+        let supported = registry.has_external_runtime(&request.plugin_id);
         if !supported {
             return Err(rejected("manual_call_runtime_unsupported"));
         }

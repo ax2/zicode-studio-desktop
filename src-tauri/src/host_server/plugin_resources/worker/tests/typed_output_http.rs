@@ -56,8 +56,10 @@ pub(super) async fn verify(
     std::fs::create_dir_all(consumer_package.join("runtime")).unwrap();
     let mut consumer_manifest = template.clone();
     consumer_manifest["id"] = json!(consumer_id);
+    consumer_manifest["requiredProfiles"]["resource.input.types.v1"] = json!("=1.0.0-preview.1");
     consumer_manifest["contributes"]["capabilities"] = json!([{
         "id":"typed.consume","title":"Consume typed output",
+        "resourceInputMimeTypes":["text/html","application/x-zicode-sqlite"],
         "inputSchema":{"type":"object","additionalProperties":false},
         "outputSchema":{"type":"object","properties":{"received":{"type":"string"}},
             "required":["received"],"additionalProperties":false}

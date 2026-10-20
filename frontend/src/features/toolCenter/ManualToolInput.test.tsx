@@ -35,6 +35,53 @@ it("keeps required empty string legal and counts Unicode code points",async()=>{
   await submit();expect(api.invoke).toHaveBeenLastCalledWith("programming","workspace","fixture","typed",{text:""},{catalogRevision:"rev"});
   await change("text","😀");await submit();expect(api.invoke).toHaveBeenLastCalledWith("programming","workspace","fixture","typed",{text:"😀"},{catalogRevision:"rev"});
 });
+it("keeps bounded short strings compact without changing their multiline value",async()=>{
+  const {api,field,change,submit}=await mount({type:"object",required:["short"],properties:{
+    short:{type:"string",maxLength:4},long:{type:"string"},
+  }});
+  expect(field("short").tagName).toBe("TEXTAREA");
+  expect(field("short").getAttribute("rows")).toBe("1");
+  expect(field("short").classList.contains("tool-input-short-text")).toBe(true);
+  expect(field("long").getAttribute("rows")).toBe("6");
+  await change("short","a\nb");await submit();
+  expect(api.invoke).toHaveBeenCalledWith("programming","workspace","fixture","typed",{short:"a\nb"},{catalogRevision:"rev"});
+});
+it("offers declared scalar defaults only after an explicit click",async()=>{
+  const {api,container,field,submit}=await mount({type:"object",properties:{
+    width:{type:"string",default:"1600",minLength:1,maxLength:4},
+    format:{type:"string",enum:["png","webp"],default:"webp"},
+    enabled:{type:"boolean",default:false},
+  }});
+  await submit();
+  expect(api.invoke).toHaveBeenLastCalledWith("programming","workspace","fixture","typed",{}, {catalogRevision:"rev"});
+  const useDefault=async(preview:string)=>{
+    const button=Array.from(container.querySelectorAll("button")).find(node=>node.textContent?.includes(`Use declared default: ${preview}`));
+    expect(button).toBeTruthy();
+    await act(async()=>fireEvent.click(button as HTMLButtonElement));
+  };
+  await useDefault("1600"); await useDefault("webp"); await useDefault("false");
+  expect(field("width").value).toBe("1600");
+  expect(field("format").value).toBe("1");
+  expect(field("enabled").value).toBe("1");
+  await submit();
+  expect(api.invoke).toHaveBeenLastCalledWith("programming","workspace","fixture","typed",
+    {width:"1600",format:"webp",enabled:false},{catalogRevision:"rev"});
+});
+it("renders structured JSON fields and invokes with arrays and objects",async()=>{
+  const {api,field,change,submit,container}=await mount({type:"object",required:["files","options"],properties:{
+    files:{type:"array",items:{type:"string"},minItems:1},
+    options:{type:"object",properties:{dryRun:{type:"boolean"}}},
+  }});
+  expect(field("files").tagName).toBe("TEXTAREA");
+  expect(field("files").getAttribute("aria-describedby")).toContain("hint");
+  await submit();expect(api.invoke).not.toHaveBeenCalled();expect(document.activeElement).toBe(field("files"));
+  await change("files",'["one.txt","two.txt"]');await change("options",'{"dryRun":true}');await submit();
+  expect(api.invoke).toHaveBeenCalledWith("programming","workspace","fixture","typed",
+    {files:["one.txt","two.txt"],options:{dryRun:true}},{catalogRevision:"rev"});
+  await change("files",'[9007199254740993]');await submit();
+  expect(api.invoke).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("number");
+});
 
 it("keeps required fields first in provider order and renders plain accessible descriptions", async()=>{
   const schema={type:"object",required:["text","count"],properties:{

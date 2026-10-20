@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { isImeComposing } from "../../shared/ime";
-import { type ManualTool, type ManualToolApi, type ToolDirectoryView, type ToolPage, manualToolError } from "../toolCenter/manual-tools";
+import { type DirectoryItem, type ManualToolApi, type ToolDirectoryView, type ToolPage, manualToolError } from "../toolCenter/manual-tools";
+import { toolCategoryTitle } from "../toolCenter/tool-categories";
 import type { ToolAccessScope } from "./tool-access";
 
 export interface ToolCommandSource {
   api: ManualToolApi;
   scope: ToolAccessScope;
-  onOpen(tool: ManualTool, revision: string): void;
+  onOpen(tool: DirectoryItem, revision: string): void;
 }
 
 export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ToolDirectoryView>("all");
+  const [source, setSource] = useState("");
+  const [category, setCategory] = useState("");
   const [cursor, setCursor] = useState<{ offset: number; revision: string | null; accessRevision?: number | null }>({ offset: 0, revision: null });
   const [page, setPage] = useState<ToolPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,16 +25,31 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
   const composing = useRef(false);
   useEffect(() => { input.current?.focus(); }, []);
   useEffect(() => {
+    const refresh = () => {
+      setPage(null); setLoading(true); setCursor({ offset: 0, revision: null });
+      input.current?.focus();
+    };
+    window.addEventListener("zicode:plugin-catalog-changed", refresh);
+    return () => window.removeEventListener("zicode:plugin-catalog-changed", refresh);
+  }, []);
+  useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true); setPage(null); setError(""); setSelected(0);
     const timer = setTimeout(() => {
-      void api.searchTools(scope.sceneId, { query, ...cursor, view, workspaceId: scope.workspaceId })
+      void api.searchTools(scope.sceneId, { query, ...cursor, view, workspaceId: scope.workspaceId, includeViewOperations: true,
+        ...(source ? { pluginId: source } : {}), ...(category ? { categoryId: category } : {}) }, controller.signal)
         .then(value => { if (active) setPage(value); })
-        .catch(reason => { if (active) setError(manualToolError(reason)); })
+        .catch(reason => {
+          if (!active) return;
+          if (cursor.revision && reason && typeof reason === "object" && "code" in reason && reason.code === "catalog_changed") {
+            setCursor({ offset: 0, revision: null });
+          } else setError(manualToolError(reason));
+        })
         .finally(() => { if (active) setLoading(false); });
     }, 200);
-    return () => { active = false; clearTimeout(timer); };
-  }, [api, scope.sceneId, scope.workspaceId, query, view, cursor]);
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
+  }, [api, scope.sceneId, scope.workspaceId, query, view, source, category, cursor]);
   useEffect(() => {
     document.getElementById(`tool-command-${selected}`)?.scrollIntoView?.({ block: "nearest" });
   }, [selected]);
@@ -43,7 +61,8 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
     input.current?.focus();
   }
   function open(index: number) {
-    if (!loading && page?.items[index]) onOpen(page.items[index], page.revision);
+    if (!loading && page?.items[index] && !(page.items[index].kind === "view-operation" && !page.items[index].enabled))
+      onOpen(page.items[index], page.revision);
   }
   return <>
     <input ref={input} className="command-palette-search" type="search" value={query} maxLength={128}
@@ -67,15 +86,34 @@ export function ToolCommandPicker({ api, scope, onOpen }: ToolCommandSource) {
         {t(value === "all" ? "All tools" : value === "favorites" ? "Favorite tools" : "Recently used tools")}
       </button>)}
     </fieldset>
+    {(page?.sources || page?.categories) && <div className="command-palette-filters">
+      {page.sources && <select className="ui-select" aria-label={t("Tool source")} value={source} onChange={event => {
+        setSource(event.target.value); reset(); input.current?.focus();
+      }}>
+        <option value="">{t("All tool sources")}</option>
+        {source && !page.sources.some(item => item.pluginId === source) && <option value={source}>{t("Source unavailable in this list")}</option>}
+        {page.sources.map(item => <option key={item.pluginId} value={item.pluginId}>
+          {item.title} · {item.count}{item.enabled ? "" : ` · ${t("Plugin is disabled")}`}
+        </option>)}
+      </select>}
+      {page.categories && <select className="ui-select" aria-label={t("Tool category")} value={category} onChange={event => {
+        setCategory(event.target.value); reset(); input.current?.focus();
+      }}>
+        <option value="">{t("All tool categories")}</option>
+        {category && !page.categories.some(item => item.id === category) && <option value={category}>{t("Category unavailable in this list")}</option>}
+        {page.categories.map(item => <option key={item.id} value={item.id}>{toolCategoryTitle(item.id)} · {item.count}</option>)}
+      </select>}
+    </div>}
     <p className="command-palette-count" role="status" aria-live="polite">{loading ? t("Loading tools…") : page ? t("{count} tools").replace("{count}", String(page.total)) : ""}</p>
     {error && <div role="alert">{t(error)} <button type="button" className="ui-button ui-button--secondary" onClick={reset}>{t("Reload tools")}</button></div>}
     <div id="tool-command-results" className="command-palette-results" role="listbox" aria-label={t("Individual tools")} aria-busy={loading}>
       {!loading && page?.items.map((tool, index) => <button key={tool.toolId} type="button" role="option" id={`tool-command-${index}`}
+        disabled={tool.kind === "view-operation" && !tool.enabled}
         aria-selected={selected === index} aria-posinset={cursor.offset + index + 1} aria-setsize={page.total}
         className={`command-item${selected === index ? " selected" : ""}`} onMouseEnter={() => setSelected(index)} onClick={() => open(index)}>
         <span className="command-icon" aria-hidden="true">⌘</span><span className="command-copy">
           <span className="command-label">{tool.title}</span>
-          <span className="command-desc">{tool.applicationName} · {tool.version}{tool.enabled ? "" : ` · ${t("Plugin is disabled")}`}</span>
+          <span className="command-desc">{tool.applicationName} · {tool.version}{tool.kind === "view-operation" ? ` · ${t("Opens in application")}` : ""}{tool.enabled ? "" : ` · ${t("Plugin is disabled")}`}</span>
         </span>
       </button>)}
       {!loading && page?.total === 0 && <p className="command-empty">{t("No matching tools")}</p>}

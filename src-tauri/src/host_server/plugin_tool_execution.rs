@@ -84,11 +84,13 @@ pub(super) async fn invoke(
             .into_iter()
             .find(|tool| tool.name == request.tool_name)
             .map(|tool| tool.plugin_id)
-            .ok_or_else(|| plugin_api_error(
-                StatusCode::NOT_FOUND,
-                "tool_unavailable",
-                "The tool is missing, disabled, or not granted for this scene",
-            ))?
+            .ok_or_else(|| {
+                plugin_api_error(
+                    StatusCode::NOT_FOUND,
+                    "tool_unavailable",
+                    "The tool is missing, disabled, or not granted for this scene",
+                )
+            })?
     };
     let lease = state
         .plugin_calls
@@ -142,6 +144,19 @@ pub(super) async fn invoke(
                 "Search and load this tool again before invoking it",
             ));
         }
+        let capture_request = CapabilityInvokeRequest {
+            scene_id: record.target.scene_id.clone(),
+            workspace_id: record.target.workspace_id.clone(),
+            plugin_id: tool.plugin_id.clone(),
+            capability_id: tool.capability.clone(),
+            input: Value::Null,
+            capture_result: request.capture_result,
+            catalog_revision: None,
+            call_id: None,
+        };
+        let result_proof = request
+            .capture_result
+            .then(|| plugin_results::source_proof(&registry, &capture_request));
         let mut broker = state.capability_broker.lock().map_err(|_| {
             plugin_api_error(
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -163,8 +178,10 @@ pub(super) async fn invoke(
             },
             &lease.flag,
         );
-        match dispatch {
+        let result = match dispatch {
             crate::plugin_capabilities::detached_worker::Dispatch::Complete(outcome) => {
+                drop(broker);
+                drop(registry);
                 outcome.map_err(capability_api_error)
             }
             crate::plugin_capabilities::detached_worker::Dispatch::Worker(mut job) => {
@@ -202,11 +219,27 @@ pub(super) async fn invoke(
                 })?;
                 let outcome =
                     broker.finish_worker_invocation(&registry, *job, outcome, &lease.flag);
+                drop(broker);
+                drop(registry);
                 authorized?;
                 catalog_current?;
                 outcome.map_err(capability_api_error)
             }
+        }?;
+        let mut response = json!({"result":result});
+        if let Some(proof) = result_proof {
+            let registry = state.plugins.lock().map_err(|_| {
+                plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+            })?;
+            let captured = proof.and_then(|proof| {
+                plugin_results::capture(&state, &registry, &capture_request, &proof, &result)
+            });
+            match captured {
+                Ok(reference) => response["resultRef"] = reference,
+                Err((_, error)) => response["resultCaptureError"] = error.0["error"].clone(),
+            }
         }
+        Ok(response)
     })
     .await
     .map_err(|_| {
@@ -216,7 +249,7 @@ pub(super) async fn invoke(
             "Plugin execution task failed",
         )
     })??;
-    Ok(Json(json!({"result":result})))
+    Ok(Json(result))
 }
 
 #[cfg(test)]
@@ -264,7 +297,12 @@ mod tests {
         let lease = host
             .state
             .plugin_calls
-            .begin(&issued.instance_id, &issued.session_id, "active", "fixture.plugin")
+            .begin(
+                &issued.instance_id,
+                &issued.session_id,
+                "active",
+                "fixture.plugin",
+            )
             .unwrap();
         let target = host
             .state

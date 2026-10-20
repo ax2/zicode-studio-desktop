@@ -1,0 +1,143 @@
+{
+  "source": {
+    "revision": "255c967f0d45892bcd1f509f10fe3d19798907ab",
+    "dirty": true
+  },
+  "profile": "compute.wasi.v1",
+  "status": "unsigned provider candidate; not Host-accepted",
+  "sourceFiles": [
+    {
+      "path": ".cargo/config.toml",
+      "sha256": "ddd5848c616800b1c22f7cbd72cf41bcdb941596024a45509bc04509c6aeb6d4"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "8dc988679689f0570ae5b7fb6034255faa1fb49f9548a2363c568dc4050efa77"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "8ee96631ab902966f90eb72fabc3cb1bc9f73e67c6b69ebfaad98ac96ae9c813"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/catalog.example.json",
+      "sha256": "19a7fc620ae404d6e26e2ee0d6669666b9c9b557ee626974e63d24b28d5d1eef"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/delivery.schema.json",
+      "sha256": "1c6cd9b5ecdea721cc28b4fdb0b3df2bb6619b619e7b034dfeb4e2af73f7a967"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/fixtures.json",
+      "sha256": "6b36ed7bb777ca31742ce7a7dd9da19b78d8c86a4487016bb8f61c15c5f3cde4"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/input.schema.json",
+      "sha256": "8cdb632eb4532a1575fa00a8d47580f71fcea9c9178552384ecdcaa54b53bd7b"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/package-format.md",
+      "sha256": "20a9790e54f7d22af4cedb55d434ed5f775c436d9a4dd03356926e92805f35ab"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/plugin.example.json",
+      "sha256": "2fc693a8c661c689dd77942f0a795a20ba8bb655a5371774a0b28fc5b727d2b2"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/README.md",
+      "sha256": "5c58214b1cbf083bace7de39e7fca7396a9b8f932bc7ec4a2c448fdde45b252a"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/request.schema.json",
+      "sha256": "8149ad109970d8579de0ee57ad73024e760ef405461e37ce0fe1ff40036bb8c0"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/result.schema.json",
+      "sha256": "ca41c8ddba049431662e75c8a0d3b7c78ee49cd8f4eb49d8f99d2e559151c30f"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/SHA256SUMS.json",
+      "sha256": "dd0688c009fa2d0600ab2d5af038a19efb5e1e26910619c1aede84aa668873f9"
+    },
+    {
+      "path": "contracts/studio-devtools/v1/SPEC.md",
+      "sha256": "109c735a64e0245f34ba4a1a6d3759d305e94884ff65907887ff0032cd963854"
+    },
+    {
+      "path": "crates/zi-text-core/Cargo.toml",
+      "sha256": "7fecbe9becf91fa51d3aab40aed71704bc8c2cf3e0e1f496a5f72e289be271f7"
+    },
+    {
+      "path": "crates/zi-text-core/src/lib.rs",
+      "sha256": "b5e27182f6953a0d733a055739fbfd64b75501c57f00cf662d3a8ae9a9ed7cdb"
+    },
+    {
+      "path": "crates/zi-text-core/src/transforms.rs",
+      "sha256": "006a24f99736638dde1f84dc9d3766049a5179d26e2854012c347229a5483b4f"
+    },
+    {
+      "path": "crates/zi-text-wasi/Cargo.toml",
+      "sha256": "0b2518e380a0ac725050e917b297a4bbe415e022a0a7f770b00630977cae9719"
+    },
+    {
+      "path": "crates/zi-text-wasi/src/main.rs",
+      "sha256": "faf8d3a7f3ede807e1be02e90340a87396ac345e6755b9da86575ab53a140143"
+    },
+    {
+      "path": "plugins/transforms/catalog.json",
+      "sha256": "40efd995deab03876ff9626e11314310b67c763d04284ab3a288691f2aef6f70"
+    },
+    {
+      "path": "plugins/transforms/fixtures.json",
+      "sha256": "be1b2e852efd5da334952e2b0c21f39c38550d714aa6405a5ebd0870adc0279c"
+    },
+    {
+      "path": "plugins/transforms/plugin.json",
+      "sha256": "b0db394c1fedeae518d4e83c0032145c04b4e7bf00acb654bcf8783feba64ff7"
+    },
+    {
+      "path": "plugins/transforms/README.md",
+      "sha256": "1a07db406254c938e3db9edf4648e852329972ac66062fddf0ac6a46cc6f0ff0"
+    },
+    {
+      "path": "plugins/transforms/request.schema.json",
+      "sha256": "ccc1b6419d220736b8f2d9c2b3a634f158a5ee5f107d3422b963df46961002b5"
+    },
+    {
+      "path": "plugins/transforms/views/main.html",
+      "sha256": "bb0ce9056018b05790d82b9401f42009cb7a7ef5228794f5bfb884f506278f94"
+    },
+    {
+      "path": "scripts/package_transforms_plugin.py",
+      "sha256": "695bfceeccbf00976f4ea4a358eea4d5427911be2bb423f9daac3e61aedd2cb4"
+    },
+    {
+      "path": "scripts/run_text_wasi.mjs",
+      "sha256": "8fbe77a8a23c8d44284df436173e79e16779e09c2ab6956e43d9793c5302411d"
+    },
+    {
+      "path": "scripts/sync_transforms_plugin.py",
+      "sha256": "6e260b1c52014f4c4f76e048d8eeb82a96c4c9ddeb78cac359dbb9288d70e63c"
+    },
+    {
+      "path": "scripts/verify_diagnostics_fuel.py",
+      "sha256": "75ae086e3b92b8a0052ecf86ada2096f0603c315647c51e7af63ec27565c604e"
+    },
+    {
+      "path": "scripts/verify_transforms_schema.py",
+      "sha256": "a8b0c91e4dedfa1e819d28768d1f3b5cb90bae5b65b6fba32ece86dd7125d7a8"
+    },
+    {
+      "path": "scripts/verify_transforms_wasi.py",
+      "sha256": "556314fb48496bfb8ccd6d4c1724b78f8c39f3b2cf28bafa5e06a88d9bedc4ea"
+    },
+    {
+      "path": "src/tools.rs",
+      "sha256": "90b35487a90386bdea216fd7b22c75eea6ef9b9f6af3ae67b14d17c243e8e8fa"
+    },
+    {
+      "path": "src/tools_extra.rs",
+      "sha256": "ee66dedb1be906843c329a8d54de7b2d68d2d92e1aba187d46863f6505d1dcba"
+    }
+  ],
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)"
+}

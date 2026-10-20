@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "kind": "unsigned-provider-candidate",
+  "packageId": "com.zicode.devtools.agent-assist",
+  "packageVersion": "0.1.1",
+  "candidateDirectory": "release/agent-assist-preview-0.1.1-candidate-02",
+  "createdAt": "2026-10-18T10:58:48+08:00",
+  "sourceRevision": "08bc7e427e99f594a4fa92e3366b71027f0b11e1",
+  "sourceWorkingTreeDirty": true,
+  "platform": {
+    "os": "Windows",
+    "release": "11",
+    "architecture": "AMD64"
+  },
+  "contract": {
+    "version": "1.0.0-preview.1",
+    "checksumManifestSha256": "03a5003c83a1a0a543407fb1371d3599d4fc646cdc6d93fbaa6cb605aac64831"
+  },
+  "profiles": {
+    "model.catalog.read.v1": "=1.0.0-preview.1",
+    "model.generate.v1": "=1.0.0-preview.1"
+  },
+  "permissions": [
+    "model.catalog.read",
+    "model.generate"
+  ],
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "README.md",
+      "size": 3442,
+      "sha256": "44f516d279282d23057941219a334391616be4bf53f4ba88c0f442b5667ddc63"
+    },
+    {
+      "path": "catalog.json",
+      "size": 1358,
+      "sha256": "18a2b6d6fa2785158d476b7afbd5c113f4ad44da996c88d9f2749720a20f0e97"
+    },
+    {
+      "path": "plugin.json",
+      "size": 1550,
+      "sha256": "6413e5d44eb349bf34050a166f1135bb4b31d7a2dfdb6bab2c629af87c23c759"
+    },
+    {
+      "path": "schemas/model-generation-input.schema.json",
+      "size": 1477,
+      "sha256": "4163eb3291a18a92574a37d53dc01f7f2368d6a28e46589d5963b4a3d33bb63e"
+    },
+    {
+      "path": "views/main.html",
+      "size": 32346,
+      "sha256": "2122658904306ba62623ce0cfcbb3620c235431e5f03f06208a80238ba621bd3"
+    }
+  ],
+  "directoryIndexSha256": "28cef544d9a46c264763d5c3ac0e447adc224bec989df2ccacacc83462af0f3a",
+  "tests": [
+    {
+      "command": "node --test plugins/agent-assist-preview/tests/limits.test.cjs",
+      "status": "passed",
+      "summary": "ℹ cancelled 0 | ℹ skipped 0 | ℹ todo 0 | ℹ duration_ms 165.2271"
+    },
+    {
+      "command": "C:\\Users\\ax2\\AppData\\Local\\Programs\\Python\\Python314\\python.exe scripts/sync_studio_plugin_map.py --check",
+      "status": "passed",
+      "summary": "Plugin migration: 154 catalog items, {'compute_candidate': 41, 'overlap_integration': 0, 'await_host': 51, 'standalone_incomplete': 62}; accepted capabilities=0"
+    },
+    {
+      "command": "C:\\Users\\ax2\\AppData\\Local\\Programs\\Python\\Python314\\python.exe scripts/verify_agent_assist_preview_view.py --width 1180 --height 900 --theme light --output E:\\zi-devtools\\target\\agent-assist-sandbox-011-c02\\desktop-proof.json --screenshot E:\\zi-devtools\\target\\agent-assist-sandbox-011-c02\\view-desktop.png",
+      "status": "passed",
+      "summary": "Agent Assist sandbox View passed: msedge.exe, 1180x900 light; no external page requests"
+    },
+    {
+      "command": "C:\\Users\\ax2\\AppData\\Local\\Programs\\Python\\Python314\\python.exe scripts/verify_agent_assist_preview_view.py --width 390 --height 844 --theme dark --output E:\\zi-devtools\\target\\agent-assist-sandbox-011-c02\\mobile-proof.json --screenshot E:\\zi-devtools\\target\\agent-assist-sandbox-011-c02\\view-mobile.png",
+      "status": "passed",
+      "summary": "Agent Assist sandbox View passed: msedge.exe, 390x844 dark; no external page requests"
+    }
+  ],
+  "viewProofs": [
+    {
+      "pass": true,
+      "browser": "msedge.exe",
+      "viewSha256": "2122658904306ba62623ce0cfcbb3620c235431e5f03f06208a80238ba621bd3",
+      "harnessSha256": "cc9551962bd4ac4e8591a5ff9ec23be6ec9d0f10bd051f749aabbb6814e40329",
+      "viewport": {
+        "width": 1180,
+        "height": 900,
+        "devicePixelRatio": 1,
+        "prefersDark": false
+      },
+      "sandbox": "allow-scripts; opaque origin; frameElement inaccessible",
+      "initialFrameWidth": 1100,
+      "csp": "default-src 'none'; script/style inline; connect-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'",
+      "modelsReadByUserAction": 1,
+      "generationRequests": 3,
+      "resultInteractions": {
+        "modelSelectionPreserved": true,
+        "inputsLockedWhilePending": true,
+        "staleInputWarning": true,
+        "rejectionPreservedPreviousAnswer": true,
+        "resultJumpFocus": true,
+        "selectionMatchesAnswer": true,
+        "clearPreservesDraft": true,
+        "noHorizontalOverflow": true
+      },
+      "rejectionKeptResultHidden": true,
+      "approvalReturnedLocalFixture": true,
+      "userMaterialMarkedUntrusted": true,
+      "outerPageRequests": [
+        "/",
+        "/favicon.ico"
+      ],
+      "runtimeExceptions": [],
+      "screenshot": "view-desktop.png",
+      "screenshotSha256": "a22f66b4527a8357e8dc339791c414c645e15125936a8b158394c6349bf5a6c3",
+      "resultScreenshot": "view-desktop-result.png",
+      "resultScreenshotSha256": "5532e5826ff353fac1445c9fd1c8d64697a7fe3cbd754fb4953cf0a665992c2a",
+      "limitations": [
+        "Mock Studio Host; no real model provider or network generation",
+        "Does not verify Studio native permission UI, profile negotiation, or plugin installation"
+      ]
+    },
+    {
+      "pass": true,
+      "browser": "msedge.exe",
+      "viewSha256": "2122658904306ba62623ce0cfcbb3620c235431e5f03f06208a80238ba621bd3",
+      "harnessSha256": "cc9551962bd4ac4e8591a5ff9ec23be6ec9d0f10bd051f749aabbb6814e40329",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "devicePixelRatio": 1,
+        "prefersDark": true
+      },
+      "sandbox": "allow-scripts; opaque origin; frameElement inaccessible",
+      "initialFrameWidth": 354,
+      "csp": "default-src 'none'; script/style inline; connect-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'",
+      "modelsReadByUserAction": 1,
+      "generationRequests": 3,
+      "resultInteractions": {
+        "modelSelectionPreserved": true,
+        "inputsLockedWhilePending": true,
+        "staleInputWarning": true,
+        "rejectionPreservedPreviousAnswer": true,
+        "resultJumpFocus": true,
+        "selectionMatchesAnswer": true,
+        "clearPreservesDraft": true,
+        "noHorizontalOverflow": true
+      },
+      "rejectionKeptResultHidden": true,
+      "approvalReturnedLocalFixture": true,
+      "userMaterialMarkedUntrusted": true,
+      "outerPageRequests": [
+        "/",
+        "/favicon.ico"
+      ],
+      "runtimeExceptions": [],
+      "screenshot": "view-mobile.png",
+      "screenshotSha256": "ccb33c0c2f45e852661189bf5dd5ed0f985e1c1ec62a09371d10fc6215147d9f",
+      "resultScreenshot": "view-mobile-result.png",
+      "resultScreenshotSha256": "556f92bc304681b46b108d815a0ba3346488ef677cce50f8e61a866c707f406d",
+      "limitations": [
+        "Mock Studio Host; no real model provider or network generation",
+        "Does not verify Studio native permission UI, profile negotiation, or plugin installation"
+      ]
+    }
+  ],
+  "signature": {
+    "signed": false,
+    "publisherKeyAvailable": false
+  },
+  "acceptance": {
+    "providerCandidate": true,
+    "studioReceiptVerified": false,
+    "nativeStudioEndToEnd": "pending",
+    "pending": [
+      "signature installation",
+      "permission revocation",
+      "model request",
+      "update/rollback",
+      "uninstall"
+    ]
+  },
+  "limitations": [
+    "jsdom mock-Host coverage does not enforce Chromium iframe sandbox or CSP",
+    "No Studio native installation, permission dialog, or live model request has been verified"
+  ],
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  },
+  "receiptRevision": 1,
+  "revisesReceipt": "agent-assist-preview-0.1.1-candidate-02-verification.json"
+}

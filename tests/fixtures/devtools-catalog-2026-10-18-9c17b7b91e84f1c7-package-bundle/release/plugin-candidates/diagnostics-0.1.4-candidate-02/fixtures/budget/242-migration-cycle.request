@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.diagnostics","sceneId":"coding","capabilityId":"devtools.diagnostics.django.migrations","commandId":null,"input":{"text":"[ ] app.a ... (app.b)\n[ ] app.b ... (app.a)","secondary":""}}

@@ -18,7 +18,7 @@ export function ProjectStorageView({
   revision: number;
   api: Pick<ProjectRunnerApi, "directories">;
   onDirectoryChange(directory: string): void;
-  readStorage?: (workspaceId: string, directory: string) => Promise<ProjectStorageReport>;
+  readStorage?: (workspaceId: string, directory: string, deep?: boolean) => Promise<ProjectStorageReport>;
   openEntry?: (workspaceId: string, relativePath: string) => Promise<void>;
 }) {
   const [directoryRevision, setDirectoryRevision] = useState(0);

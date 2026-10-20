@@ -1,0 +1,278 @@
+{
+  "source": {
+    "revision": "08bc7e427e99f594a4fa92e3366b71027f0b11e1",
+    "dirty": true
+  },
+  "profile": "compute.wasi.v1@=1.0.0-rc.1",
+  "diagnosticsProfile": "diagnostics.compute.wasi.v1.proposal",
+  "diagnosticsSchemaVersion": "2.0.0-rc.1",
+  "requiredProfiles": {
+    "compute.wasi.v1": "=1.0.0-rc.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "status": "unsigned candidate; diagnostic profile and schema proposal not Host-accepted",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "sourceFiles": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "3c86a4e4d1c7b51d67b743694053305ef614f92e1a5115b12875cb9a6f9aa3fc"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "41dfa45bceb2e522279a6d524433c3d8d1546b7add9033b7eed6f0580b17ff78"
+    },
+    {
+      "path": "docs/tools.json",
+      "sha256": "b179fc23896f4fdc8ba220c547a86994d613fb407d6aa920a6d353fe2c8d5e20"
+    },
+    {
+      "path": "scripts/sync_diagnostics_plugin.py",
+      "sha256": "c9aa656051d2f44e96d4bb604d4a69991bfbd7a0801c66c74ec299c522a4966d"
+    },
+    {
+      "path": "scripts/package_diagnostics_plugin.py",
+      "sha256": "eea401f3d3fc143d34c52480130e040625962cd5790e3e1c317d3b17bcbb3430"
+    },
+    {
+      "path": "scripts/verify_diagnostics_wasi.py",
+      "sha256": "5fa0c535e43100418279795d018d9f1ad8da28877939b404639e900608c0bfd0"
+    },
+    {
+      "path": "scripts/verify_diagnostics_fuel.py",
+      "sha256": "f9fcaf27548f101b258be2604ac989177b320de445277eafe62ef57328358d1d"
+    },
+    {
+      "path": "scripts/verify_diagnostics_cold.py",
+      "sha256": "8d0fcd35623de0218fb091574ab40a833fe258c234b7c8a72fbdb9b7fa46ee41"
+    },
+    {
+      "path": "scripts/verify_diagnostics_view.py",
+      "sha256": "0fc9876c56bc0359132d0a65e62dc573ae0d5fd95f37b8978399cd589123b2c0"
+    },
+    {
+      "path": "scripts/cdp_client.py",
+      "sha256": "c26a1b1c5e5a0ca540792713d5c3c8aea18c01da9eb783d8dd60eb5c7e6513a6"
+    },
+    {
+      "path": "scripts/bootstrap_diagnostics_engine.py",
+      "sha256": "4e9464726a4596d3ff12114f95bb7fb8ce9aa0b4c9d2d62db2679f1645e7dba5"
+    },
+    {
+      "path": "scripts/diagnostics_vectors.py",
+      "sha256": "360a5b781e397b0bd647ba61d751e0d6091b382d7e834de345b44b115ff1e2c3"
+    },
+    {
+      "path": "scripts/run_text_wasi.mjs",
+      "sha256": "8fbe77a8a23c8d44284df436173e79e16779e09c2ab6956e43d9793c5302411d"
+    },
+    {
+      "path": "scripts/diagnostics_output_contract.py",
+      "sha256": "f3e08d83ebd838140fd35a34005d6a106b0b9ab19e7e49a533e46025a07af984"
+    },
+    {
+      "path": "scripts/tool_directory.py",
+      "sha256": "a800c84a6923ad3753eaa159dee32057ea948ea3acc37395e33c084e5a9cb040"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/build.rs",
+      "sha256": "0530fc8ceff883c7a7fc2df75cdc7b304e34daa69e244c00457de073c8cbaabf"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/Cargo.toml",
+      "sha256": "0510b6fdbd00204232068c0253e2f266aa176fb4d8222ea57b89ecc30becbb3a"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/README.md",
+      "sha256": "c59151498baa7c014695d3a94365fdad918d8faa41cd1c5185ef811689084fae"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/catalog.rs",
+      "sha256": "96593fc188669cca7fc62c962e83aeda949e8fc7e84d3a42ac03b794df27cea3"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/config_json.rs",
+      "sha256": "b46c7dcb749824306fea526ec0bfeee9f4d3350070e65cee3c42c444172962f6"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/contracts.rs",
+      "sha256": "770916ed9f235b066bafd2a601ef8ba3c5622885eec19f40cc3c6c4ec615781e"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/django.rs",
+      "sha256": "3b09f2e5c20509e2d816dfad10ee96156a9ae0cbc2bf54224bec90c149defa7c"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/java.rs",
+      "sha256": "443a2376e4a4b244189e8030a262d6ce88ffbba535a4981fb0a2e957842bde84"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/lib.rs",
+      "sha256": "8264061b9b7c6d1da85a214b3c98f698dede901bdf9ca6d53418a241bad06a25"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/parser_tests.rs",
+      "sha256": "b0797129201dfc40762000ddb9cda211cb00d5dfecafa3e84943bfcbcdfe937b"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/text_parse.rs",
+      "sha256": "35dd2bf1d1c88a84d75b8b28d365caf37677ae261040a4f4744f01499c56a5f5"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/tests/fixtures/jcmd-thread-dump-jdk21.json",
+      "sha256": "ea7737fede5707e444224af9ac2ca14b27c8d5880c54d2b0057c2ab7e47f10f6"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/Cargo.toml",
+      "sha256": "c37ed5ef4396e2d5e54c400c3a9740b8a1c9bb98717c10b1d1b9e7d081d3d9d6"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/examples/output_boundary.rs",
+      "sha256": "0b92fa1491e59b1e63014cefab339b10b339b6011ed2a302db7bb15e33cc1534"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/lib.rs",
+      "sha256": "575d02d5cd96cec2e29cf74b626b4503aa0514c58f7061aea2f1cf07c2707daa"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/main.rs",
+      "sha256": "cecb187296ddaeb9f268f739e4190a7901b4720d62a4c8337e34005fb592d489"
+    },
+    {
+      "path": "contracts/diagnostics/v1/input.schema.json",
+      "sha256": "c17b756aa267cb0d975d367d55c758c439a0fe1ccd365646bbdc21c0a7e7701d"
+    },
+    {
+      "path": "contracts/diagnostics/v1/request.schema.json",
+      "sha256": "87a72f2a071e82878c5bebdf0b400f30ad6cfa876d2ff402ce9cfe7da06f9d94"
+    },
+    {
+      "path": "contracts/diagnostics/v1/result.schema.json",
+      "sha256": "5ad30ea915e1cc266fec485a87d9187c5f14205acd7ef0fe86811ad476fea57c"
+    },
+    {
+      "path": "contracts/diagnostics/v2/generated-by.schema.json",
+      "sha256": "85eca32a9c19bde7bd68b16b7f1fdc7c93c5027611938f0d3d1d551b5bffc16c"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/celery.report.input.schema.json",
+      "sha256": "c7f8682cf7151d37d1cdd159de16cb2189c2a919c710a23cc41c26ae5e0e35a1"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/celery.report.report.schema.json",
+      "sha256": "f2ccb488737c0299fbff74c699c435852e77b0fd265c69baa2a3a7a4bc3cafc4"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.checks.input.schema.json",
+      "sha256": "ec111f074770d11a901e4cff7402b19f6dd1fdc41f9c8dc5ea527b2267c47974"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.checks.report.schema.json",
+      "sha256": "527a00dd54173ec2162e23c56ab74b0c120eb74447c4a40b09deae63128c3c12"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.migrations.input.schema.json",
+      "sha256": "fcbeff718b2f6629d8d537f48fecb6faef64d7db2de1f360661917fa51984669"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.migrations.report.schema.json",
+      "sha256": "92e6b809a30bef496453f055b052cd8f9430afd23ed7d407a7b532081b453b04"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.openapi.input.schema.json",
+      "sha256": "b6fcd2884853619e2596189ed1c9304dc9f44c8b12f7bf972c7df5d331fff3dc"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.openapi.report.schema.json",
+      "sha256": "2e7a517c6eb7d578302e137c50cb460902ebebd88bbc41cf125d116aff504e89"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.sql.input.schema.json",
+      "sha256": "5fe6dbb3d8eeba970cf2af4178870a345d9099ef8ba390e37e11f175c3798199"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.sql.report.schema.json",
+      "sha256": "7addd3cbc43fae7b30eb7f1ae99164d8921d3778eed395d79e010a4d8d8d047a"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.urls.input.schema.json",
+      "sha256": "9e6dd23e59ccde97d7d5cee1247dd2b32ca34c2bb2b8b57a88ff15cb8965e068"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/django.urls.report.schema.json",
+      "sha256": "d418f97a77d40220a33927cc3692c9a2482e42170d499e562f6b69c3826a4d7b"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.dependencies.input.schema.json",
+      "sha256": "265b2e41c4c00e9491b19e649817bb5ea7fac28941c92d48da0c4b63a3cd3038"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.dependencies.report.schema.json",
+      "sha256": "c1aff4b8e2d26ab57992efafbc34ba2f40427c9f58dc561ae0c584ce8df5c782"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.gc.input.schema.json",
+      "sha256": "3275e03af34e9b786afe70edaaaa8c1768217e14d6fd44aae3132ccf05ab5af2"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.gc.report.schema.json",
+      "sha256": "e3228b29dbb7b64ce363051e1cf5be1ee00f3ab5e078c1933be54395a63ca333"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.jfr_json.input.schema.json",
+      "sha256": "d1b2f1af239e49f80a94ced1fe4b7d09991c31b1b2659c38d0ded86724596f62"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.jfr_json.report.schema.json",
+      "sha256": "25d396e1210831e06dd2677051b0cb3d6d02dcf494ebce6acb1569f84b9ab693"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.threads.input.schema.json",
+      "sha256": "c6008a8b3645855b748f94cbedd8cde0801ef61c36e6d145820d35faf0ef6701"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/java.threads.report.schema.json",
+      "sha256": "f15baa41d863213b5b2e5209819bc3e6f58459258820376b0d47c97fe787baa9"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/spring.config.input.schema.json",
+      "sha256": "0b3a29ab7ec4741398e68352bbc21245988d1f26d0141a607be019a93cfcac23"
+    },
+    {
+      "path": "contracts/diagnostics/v2/operations/spring.config.report.schema.json",
+      "sha256": "2ba395108b90fcb6a6846b348c5bd6bf79dfea3318c96fbcbec11f6ea53d2e1c"
+    },
+    {
+      "path": "contracts/diagnostics/v2/report.schema.json",
+      "sha256": "73af4e40bee6b5a62d31d49a0a412e61db07d3f617618af4bfdb7894633ebfb6"
+    },
+    {
+      "path": "contracts/diagnostics/v2/request.schema.json",
+      "sha256": "d479153323c4c1b0c6fd1b63f7dcdaa19d7c5b78ffcb0147ed66eb2a49bf6fcc"
+    },
+    {
+      "path": "contracts/diagnostics/v2/result.schema.json",
+      "sha256": "80e165ec3b491192f5f267aeeeddb4a9f5f95c146cb3969c0ae70f02e04b2d6e"
+    },
+    {
+      "path": "plugins/diagnostics/catalog.json",
+      "sha256": "4c227a7cb2b93704bf7fb195607204353f40531b8189f157638c4fba5ac9f56d"
+    },
+    {
+      "path": "plugins/diagnostics/plugin.json",
+      "sha256": "36bdced7b1120d9d6bac16d97b57467663267f5a4c9c00b95a3a3139abd29fee"
+    },
+    {
+      "path": "plugins/diagnostics/README.md",
+      "sha256": "ab9717bdee4556457bcf18b32605050f9630711713a7fb61e47104d62d235348"
+    },
+    {
+      "path": "plugins/diagnostics/views/main.html",
+      "sha256": "f1a2c7ff8cfc422fc02aca89d68b27b076e5e442ed1304ab95730490afe54335"
+    },
+    {
+      "path": "plugins/diagnostics/views/spring-actuator-preview.html",
+      "sha256": "003616ac4c9c60cae69edec688afa6efec29cf8f9420379678856766e5f12b6a"
+    }
+  ]
+}

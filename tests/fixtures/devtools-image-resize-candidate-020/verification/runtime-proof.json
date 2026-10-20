@@ -1,0 +1,1001 @@
+{
+  "wasmSha256": "c21151d3b84237ab93e386c979235b525ad451218aa1934b0a128fa225b85f63",
+  "nativeSha256": "968d8649edd82f7e3d035a13950668493cc21ab13cac6f6531b055920d3ab8db",
+  "inputSchemaSha256": "6fc3d6f36f407e5cfdb176bfb963b29a95b845606cbdd9dc1f507b75fd6a35f8",
+  "cases": [
+    {
+      "case": "png-to-png",
+      "guestExecutionMs": 0.761,
+      "moduleCompileMs": 209.694,
+      "instantiateMs": 0.205,
+      "directRuntimeWallMs": 236.156,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999371346,
+      "fuelUsed": 628654,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 146,
+        "height": 8,
+        "mimeType": "image/png",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/png",
+          "byteLength": 146,
+          "sha256": "4459dcb86ed585afca51580c7929eae102116a3e0932442632abebb6079fd2a6",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "PNG",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "4459dcb86ed585afca51580c7929eae102116a3e0932442632abebb6079fd2a6",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 146
+        }
+      }
+    },
+    {
+      "case": "legacy-png-to-png",
+      "guestExecutionMs": 0.675,
+      "moduleCompileMs": 208.887,
+      "instantiateMs": 0.155,
+      "directRuntimeWallMs": 225.248,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999369792,
+      "fuelUsed": 630208,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 146,
+        "height": 8,
+        "mimeType": "image/png",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/png",
+          "byteLength": 146,
+          "sha256": "4459dcb86ed585afca51580c7929eae102116a3e0932442632abebb6079fd2a6",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "PNG",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "png-to-jpeg",
+      "guestExecutionMs": 0.627,
+      "moduleCompileMs": 192.355,
+      "instantiateMs": 0.156,
+      "directRuntimeWallMs": 223.74,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999326049,
+      "fuelUsed": 673951,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 633,
+        "height": 8,
+        "mimeType": "image/jpeg",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/jpeg",
+          "byteLength": 633,
+          "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "JPEG"
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 633
+        }
+      }
+    },
+    {
+      "case": "legacy-png-to-jpeg",
+      "guestExecutionMs": 0.63,
+      "moduleCompileMs": 192.994,
+      "instantiateMs": 0.173,
+      "directRuntimeWallMs": 216.321,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999324444,
+      "fuelUsed": 675556,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 633,
+        "height": 8,
+        "mimeType": "image/jpeg",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/jpeg",
+          "byteLength": 633,
+          "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "JPEG"
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "png-to-webp",
+      "guestExecutionMs": 0.826,
+      "moduleCompileMs": 190.546,
+      "instantiateMs": 0.197,
+      "directRuntimeWallMs": 220.815,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998817639,
+      "fuelUsed": 1182361,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 200,
+        "height": 8,
+        "mimeType": "image/webp",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/webp",
+          "byteLength": 200,
+          "sha256": "08ab681c03040242f10fc3cd2cce3b7192d533d463daab0996054437e0e88d5b",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "WEBP",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "08ab681c03040242f10fc3cd2cce3b7192d533d463daab0996054437e0e88d5b",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 200
+        }
+      }
+    },
+    {
+      "case": "legacy-png-to-webp",
+      "guestExecutionMs": 0.938,
+      "moduleCompileMs": 245.705,
+      "instantiateMs": 0.18,
+      "directRuntimeWallMs": 262.186,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998816125,
+      "fuelUsed": 1183875,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 200,
+        "height": 8,
+        "mimeType": "image/webp",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/webp",
+          "byteLength": 200,
+          "sha256": "08ab681c03040242f10fc3cd2cce3b7192d533d463daab0996054437e0e88d5b",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "WEBP",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "jpeg-to-png",
+      "guestExecutionMs": 0.693,
+      "moduleCompileMs": 196.79,
+      "instantiateMs": 0.16,
+      "directRuntimeWallMs": 226.913,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998417027,
+      "fuelUsed": 1582973,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 145,
+        "height": 8,
+        "mimeType": "image/png",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/png",
+          "byteLength": 145,
+          "sha256": "fedd1d98e6bc09008d1f697e771fa8b6ceb6e50371d13081abf27f3b7ca45a60",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "PNG"
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "fedd1d98e6bc09008d1f697e771fa8b6ceb6e50371d13081abf27f3b7ca45a60",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 145
+        }
+      }
+    },
+    {
+      "case": "legacy-jpeg-to-png",
+      "guestExecutionMs": 0.781,
+      "moduleCompileMs": 184.841,
+      "instantiateMs": 0.176,
+      "directRuntimeWallMs": 202.482,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998415247,
+      "fuelUsed": 1584753,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 145,
+        "height": 8,
+        "mimeType": "image/png",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/png",
+          "byteLength": 145,
+          "sha256": "fedd1d98e6bc09008d1f697e771fa8b6ceb6e50371d13081abf27f3b7ca45a60",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "PNG"
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "jpeg-to-jpeg",
+      "guestExecutionMs": 0.688,
+      "moduleCompileMs": 173.764,
+      "instantiateMs": 0.16,
+      "directRuntimeWallMs": 201.999,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998363925,
+      "fuelUsed": 1636075,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 633,
+        "height": 8,
+        "mimeType": "image/jpeg",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/jpeg",
+          "byteLength": 633,
+          "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "JPEG"
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 633
+        }
+      }
+    },
+    {
+      "case": "legacy-jpeg-to-jpeg",
+      "guestExecutionMs": 0.667,
+      "moduleCompileMs": 171.725,
+      "instantiateMs": 0.192,
+      "directRuntimeWallMs": 190.409,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998362662,
+      "fuelUsed": 1637338,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 633,
+        "height": 8,
+        "mimeType": "image/jpeg",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/jpeg",
+          "byteLength": 633,
+          "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "JPEG"
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "jpeg-to-webp",
+      "guestExecutionMs": 0.658,
+      "moduleCompileMs": 188.367,
+      "instantiateMs": 0.174,
+      "directRuntimeWallMs": 212.736,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29997993436,
+      "fuelUsed": 2006564,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 160,
+        "height": 8,
+        "mimeType": "image/webp",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/webp",
+          "byteLength": 160,
+          "sha256": "e309b02d859e2f74ccdacea7cd8dd90ea96dd029324639a67e17c862b1cb5760",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "WEBP"
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "e309b02d859e2f74ccdacea7cd8dd90ea96dd029324639a67e17c862b1cb5760",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 160
+        }
+      }
+    },
+    {
+      "case": "legacy-jpeg-to-webp",
+      "guestExecutionMs": 0.656,
+      "moduleCompileMs": 204.795,
+      "instantiateMs": 0.155,
+      "directRuntimeWallMs": 220.108,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29997992007,
+      "fuelUsed": 2007993,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 160,
+        "height": 8,
+        "mimeType": "image/webp",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/webp",
+          "byteLength": 160,
+          "sha256": "e309b02d859e2f74ccdacea7cd8dd90ea96dd029324639a67e17c862b1cb5760",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "WEBP"
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "webp-to-png",
+      "guestExecutionMs": 1.035,
+      "moduleCompileMs": 204.861,
+      "instantiateMs": 0.143,
+      "directRuntimeWallMs": 221.296,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999384908,
+      "fuelUsed": 615092,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 146,
+        "height": 8,
+        "mimeType": "image/png",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/png",
+          "byteLength": 146,
+          "sha256": "4459dcb86ed585afca51580c7929eae102116a3e0932442632abebb6079fd2a6",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "PNG",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "4459dcb86ed585afca51580c7929eae102116a3e0932442632abebb6079fd2a6",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 146
+        }
+      }
+    },
+    {
+      "case": "legacy-webp-to-png",
+      "guestExecutionMs": 0.591,
+      "moduleCompileMs": 170.197,
+      "instantiateMs": 0.139,
+      "directRuntimeWallMs": 184.431,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999383128,
+      "fuelUsed": 616872,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 146,
+        "height": 8,
+        "mimeType": "image/png",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/png",
+          "byteLength": 146,
+          "sha256": "4459dcb86ed585afca51580c7929eae102116a3e0932442632abebb6079fd2a6",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "PNG",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "webp-to-jpeg",
+      "guestExecutionMs": 0.496,
+      "moduleCompileMs": 156.517,
+      "instantiateMs": 0.161,
+      "directRuntimeWallMs": 173.692,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999340522,
+      "fuelUsed": 659478,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 633,
+        "height": 8,
+        "mimeType": "image/jpeg",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/jpeg",
+          "byteLength": 633,
+          "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "JPEG"
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 633
+        }
+      }
+    },
+    {
+      "case": "legacy-webp-to-jpeg",
+      "guestExecutionMs": 0.651,
+      "moduleCompileMs": 170.301,
+      "instantiateMs": 0.16,
+      "directRuntimeWallMs": 188.922,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999339002,
+      "fuelUsed": 660998,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 633,
+        "height": 8,
+        "mimeType": "image/jpeg",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/jpeg",
+          "byteLength": 633,
+          "sha256": "1e9a63fc3bc23f644a2862d67d14256cb53476ed4edaadc61c2eadbe504cd361",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGB",
+            "format": "JPEG"
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "webp-to-webp",
+      "guestExecutionMs": 0.591,
+      "moduleCompileMs": 152.406,
+      "instantiateMs": 0.15,
+      "directRuntimeWallMs": 169.767,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998832187,
+      "fuelUsed": 1167813,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 200,
+        "height": 8,
+        "mimeType": "image/webp",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/webp",
+          "byteLength": 200,
+          "sha256": "08ab681c03040242f10fc3cd2cce3b7192d533d463daab0996054437e0e88d5b",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "WEBP",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": true,
+      "nativeComparison": {
+        "byteIdentical": true,
+        "sha256": "08ab681c03040242f10fc3cd2cce3b7192d533d463daab0996054437e0e88d5b",
+        "metadata": {
+          "sourceWidth": 32,
+          "sourceHeight": 16,
+          "width": 16,
+          "height": 8,
+          "byteLength": 200
+        }
+      }
+    },
+    {
+      "case": "legacy-webp-to-webp",
+      "guestExecutionMs": 0.614,
+      "moduleCompileMs": 180.235,
+      "instantiateMs": 0.164,
+      "directRuntimeWallMs": 196.123,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29998830667,
+      "fuelUsed": 1169333,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 3,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "byteLength": 200,
+        "height": 8,
+        "mimeType": "image/webp",
+        "ok": true,
+        "sourceHeight": 16,
+        "sourceWidth": 32,
+        "width": 16
+      },
+      "outputResources": [
+        {
+          "mimeType": "image/webp",
+          "byteLength": 200,
+          "sha256": "08ab681c03040242f10fc3cd2cce3b7192d533d463daab0996054437e0e88d5b",
+          "decodedOutput": {
+            "size": [
+              16,
+              8
+            ],
+            "mode": "RGBA",
+            "format": "WEBP",
+            "alphaSample": 73
+          }
+        }
+      ],
+      "inputSchemaValid": false
+    },
+    {
+      "case": "invalid-maxWidth-18",
+      "guestExecutionMs": 0.61,
+      "moduleCompileMs": 176.536,
+      "instantiateMs": 0.161,
+      "directRuntimeWallMs": 202.414,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999948626,
+      "fuelUsed": 51374,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 0,
+      "outputCalls": 0,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "error": {
+          "code": "INVALID_PARAMETERS",
+          "message": "缩放宽度、格式或质量参数无效"
+        },
+        "ok": false
+      },
+      "inputSchemaValid": false
+    },
+    {
+      "case": "invalid-maxWidth-19",
+      "guestExecutionMs": 0.319,
+      "moduleCompileMs": 181.872,
+      "instantiateMs": 0.15,
+      "directRuntimeWallMs": 196.522,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999956503,
+      "fuelUsed": 43497,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 0,
+      "outputCalls": 0,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "error": {
+          "code": "INVALID_PARAMETERS",
+          "message": "缩放宽度、格式或质量参数无效"
+        },
+        "ok": false
+      },
+      "inputSchemaValid": false
+    },
+    {
+      "case": "invalid-maxWidth-20",
+      "guestExecutionMs": 0.196,
+      "moduleCompileMs": 177.793,
+      "instantiateMs": 0.161,
+      "directRuntimeWallMs": 193.685,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999948110,
+      "fuelUsed": 51890,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 0,
+      "outputCalls": 0,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "error": {
+          "code": "INVALID_PARAMETERS",
+          "message": "缩放宽度、格式或质量参数无效"
+        },
+        "ok": false
+      },
+      "inputSchemaValid": false
+    },
+    {
+      "case": "invalid-quality-21",
+      "guestExecutionMs": 0.31,
+      "moduleCompileMs": 160.485,
+      "instantiateMs": 0.163,
+      "directRuntimeWallMs": 174.962,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999949183,
+      "fuelUsed": 50817,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 0,
+      "outputCalls": 0,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "error": {
+          "code": "INVALID_PARAMETERS",
+          "message": "缩放宽度、格式或质量参数无效"
+        },
+        "ok": false
+      },
+      "inputSchemaValid": false
+    },
+    {
+      "case": "damaged-png",
+      "guestExecutionMs": 0.376,
+      "moduleCompileMs": 179.673,
+      "instantiateMs": 0.184,
+      "directRuntimeWallMs": 204.562,
+      "fuelBudget": 30000000000,
+      "fuelRemaining": 29999949015,
+      "fuelUsed": 50985,
+      "linearMemoryBytesAtEnd": 2293760,
+      "memoryHostLimitBytes": 268435456,
+      "moduleMemoryCeilingBytes": 268435456,
+      "inputReadCalls": 1,
+      "outputCalls": 0,
+      "error": null,
+      "stderr": "",
+      "result": {
+        "error": {
+          "code": "INVALID_IMAGE",
+          "message": "输入内容不是受支持的 PNG、JPEG 或 WebP 图片"
+        },
+        "ok": false
+      },
+      "inputSchemaValid": true
+    }
+  ],
+  "passed": true,
+  "limitations": [
+    "Direct WASI only; no Studio runtime or resource store",
+    "Small 32x16 fixtures; no claim of a new 16MP or concurrency benchmark",
+    "30B fuel / 256MiB guest limit; no production 10-second lifecycle deadline test"
+  ]
+}

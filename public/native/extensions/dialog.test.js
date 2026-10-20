@@ -82,4 +82,37 @@ describe("native extension dialog", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await promise;
   });
+
+  it("dismisses the active dialog when its cancellation signal resolves", async () => {
+    document.body.innerHTML = '<div id="dialog-container" class="hidden"></div>';
+    let dismiss;
+    const dismissSignal = new Promise((resolve) => { dismiss = resolve; });
+    const container = document.getElementById("dialog-container");
+    const result = showNativeDialog({ method: "confirm", title: "Allow service GET?" },
+      container, { dismissSignal });
+    expect(container.classList.contains("hidden")).toBe(false);
+    dismiss();
+    await expect(result).resolves.toEqual({ cancelled: true });
+    expect(container.classList.contains("hidden")).toBe(true);
+    expect(container.querySelector(".dialog")).toBeNull();
+  });
+
+  it("does not let a late cancellation close a later dialog", async () => {
+    document.body.innerHTML = '<div id="dialog-container" class="hidden"></div>';
+    let dismiss;
+    const dismissSignal = new Promise((resolve) => { dismiss = resolve; });
+    const container = document.getElementById("dialog-container");
+    const first = showNativeDialog({ method: "confirm", title: "First?" },
+      container, { dismissSignal });
+    [...container.querySelectorAll(".dialog-actions button")][1].click();
+    await expect(first).resolves.toEqual({ confirmed: true });
+
+    const second = showNativeDialog({ method: "confirm", title: "Second?" }, container);
+    dismiss();
+    await Promise.resolve();
+    expect(container.classList.contains("hidden")).toBe(false);
+    expect(container.querySelector(".dialog-title")?.textContent).toContain("Second?");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await expect(second).resolves.toEqual({ cancelled: true });
+  });
 });

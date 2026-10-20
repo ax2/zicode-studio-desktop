@@ -1,0 +1,74 @@
+{
+  "wasmSha256": "de8c6e2429c0abd282c4e339951e8fcece4c7ddb5e393983a9de7f3bb66f15bb",
+  "viewSha256": "bb0ce9056018b05790d82b9401f42009cb7a7ef5228794f5bfb884f506278f94",
+  "results": [
+    {
+      "theme": "light",
+      "width": 1180,
+      "pass": true,
+      "calls": 30,
+      "actions": [
+        "url.encode",
+        "url.decode",
+        "html.escape",
+        "html.unescape",
+        "string.escape",
+        "string.unescape",
+        "hex.encode",
+        "hex.decode",
+        "case.camel",
+        "case.pascal",
+        "case.snake",
+        "case.kebab",
+        "stats.inspect",
+        "lines.deduplicate",
+        "lines.ascending",
+        "lines.descending",
+        "lines.nonempty",
+        "lines.trim",
+        "number.from2",
+        "number.from8",
+        "number.from10",
+        "number.from16",
+        "url.inspect"
+      ],
+      "actualWasi": true
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "pass": true,
+      "calls": 30,
+      "actions": [
+        "url.encode",
+        "url.decode",
+        "html.escape",
+        "html.unescape",
+        "string.escape",
+        "string.unescape",
+        "hex.encode",
+        "hex.decode",
+        "case.camel",
+        "case.pascal",
+        "case.snake",
+        "case.kebab",
+        "stats.inspect",
+        "lines.deduplicate",
+        "lines.ascending",
+        "lines.descending",
+        "lines.nonempty",
+        "lines.trim",
+        "number.from2",
+        "number.from8",
+        "number.from10",
+        "number.from16",
+        "url.inspect"
+      ],
+      "actualWasi": true
+    }
+  ],
+  "offlinePass": true,
+  "limitations": [
+    "Injected public SDK fixture with actual WASI; not actual Studio bridge, permissions, Pi or lifecycle acceptance"
+  ]
+}

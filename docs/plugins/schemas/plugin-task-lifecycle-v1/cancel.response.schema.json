@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "taskRef", "status", "state", "error"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operation": { "const": "task.cancel" },
+    "taskRef": { "$ref": "common.schema.json#/$defs/taskRef" },
+    "status": { "enum": ["requested", "finished"] },
+    "state": { "$ref": "common.schema.json#/$defs/state" },
+    "error": { "type": "null" }
+  }
+}

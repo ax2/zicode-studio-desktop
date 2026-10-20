@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.transforms","sceneId":"coding","capabilityId":"devtools.transforms.lines.deduplicate","commandId":null,"input":{"text":"b\r\na\r\nb\r\n"}}

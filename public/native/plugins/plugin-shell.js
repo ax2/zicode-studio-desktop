@@ -11,6 +11,7 @@ import {
 import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
 import { pluginCommandEntries } from "./plugin-command-entries.js";
 import { createBuiltinPluginRegistry } from "./plugin-registry.js";
+import { resourceViewTarget } from "./plugin-view-resource.js";
 
 const CHAT_PLUGIN_ID = "core.chat";
 const MANAGER_VIEW_ID = "core.pluginManager";
@@ -44,6 +45,7 @@ export function setupPluginShell({
   openCommandPalette = () => {},
   toolAccessStore = undefined,
   openFinanceWorkbench = () => {},
+  selectDeveloperPlugin = null,
   installDeveloperPlugin = null,
   selectSignedPlugin = null,
   installSignedPlugin = null,
@@ -69,6 +71,7 @@ export function setupPluginShell({
   ].filter(Boolean);
   const surfaceStates = new WeakMap();
   let pendingDisabledPluginId = null;
+  let failedRenderPluginId = null;
   const applicationViews = new Map(
     Object.entries({
       "com.zicode.notes": notesApp,
@@ -98,6 +101,23 @@ export function setupPluginShell({
     else element.setAttribute("aria-hidden", original.ariaHidden);
     if (!original.inert) element.removeAttribute("inert");
     surfaceStates.delete(element);
+  }
+
+  function showPluginViewFailure(container, location) {
+    container.replaceChildren();
+    const panel = document.createElement("div");
+    panel.className = "plugin-view-error";
+    const title = document.createElement("strong");
+    title.textContent = t("Plugin view could not be loaded");
+    panel.append(title);
+    if (location === "main") {
+      const frame = document.createElement("section");
+      frame.className = "plugin-view-frame-container plugin-view-frame-container--main";
+      frame.append(panel);
+      container.append(frame);
+    } else {
+      container.append(panel);
+    }
   }
 
   const activityBarHost = document.createElement("div");
@@ -420,7 +440,44 @@ export function setupPluginShell({
     closeMobileActivityMenu({ discardHistory: true });
     await activate(pluginId, { historyMode: "push" });
     if (activePluginId === pluginId) requestFunctionArea();
-    return activePluginId === pluginId;
+    return activePluginId === pluginId && failedRenderPluginId !== pluginId;
+  }
+
+  async function openViewOperationFromDirectory(operation, revision, scope) {
+    if (operation?.kind !== "view-operation" || !operation.operationId || !operation.viewId ||
+      !scope?.sceneId || !scope?.workspaceId || !capabilityGateway || !pluginViewHost) return false;
+    const changed = () => Object.assign(new Error(t("Tool changed. Reload its details before retrying.")),
+      { code: "catalog_changed" });
+    const directoryRevision = catalogRevision;
+    const current = () => {
+      const target = getTarget();
+      const plugin = registry.get(operation.pluginId);
+      return target?.sceneId === scope.sceneId && target?.workspaceId === scope.workspaceId &&
+        catalogRevision === directoryRevision && plugin?.enabled === true &&
+        plugin.version === operation.version && plugin.viewOperationDirectoryProfile === true &&
+        plugin.viewOperations?.some(item => item.id === operation.operationId && item.viewId === operation.viewId) &&
+        plugin.views?.some(view => view.id === operation.viewId && view.location === "main");
+    };
+    if (!current()) throw changed();
+    const fresh = await capabilityGateway.searchTools(scope.sceneId, { query: operation.operationId,
+      pluginId: operation.pluginId, offset: 0, revision, includeViewOperations: true });
+    if (!current() || !fresh.items?.some(item => item.kind === "view-operation" &&
+      item.accessId === operation.accessId && item.operationId === operation.operationId &&
+      item.viewId === operation.viewId && item.version === operation.version)) {
+      throw changed();
+    }
+    if (!(await activateFromNavigation(operation.pluginId))) return false;
+    if (!current()) throw changed();
+    const mainViews = registry.get(operation.pluginId)?.views?.filter(view => view.location === "main") ?? [];
+    if (mainViews[0]?.id !== operation.viewId) {
+      pluginViewHost.renderContent(pluginMain, registry.get(operation.pluginId), operation.viewId);
+    }
+    return pluginViewHost.openViewOperation(registry.get(operation.pluginId), operation.operationId,
+      operation.viewId, () => {
+        if (!current() || !toolAccessStore) return;
+        void toolAccessStore.mutate(scope, { kind: "recentRecord", id: operation.accessId })
+          .catch(error => notify(error?.message ?? String(error)));
+      }, current);
   }
 
   function requestFunctionArea() {
@@ -499,7 +556,11 @@ export function setupPluginShell({
       return;
     }
     if ((plugin?.origin === "developer" || plugin?.origin === "signed") && pluginViewHost) {
-      pluginViewHost.renderNavigation(pluginSidebar, plugin);
+      try {
+        pluginViewHost.renderNavigation(pluginSidebar, plugin);
+      } catch {
+        showPluginViewFailure(pluginSidebar, "sidebar");
+      }
       return;
     }
   }
@@ -514,8 +575,37 @@ export function setupPluginShell({
     pluginMain.replaceChildren();
     if (pluginId === TOOL_CENTER_ID) {
       const target = getTarget();
+      const directoryTarget = resourceViewTarget(target);
+      const directoryRevision = catalogRevision;
       toolCenter.show(pluginMain, {
         entries: applicationDirectory(registry.list(), pluginAvailableOnClient, t, activateFromNavigation),
+        onOpenViewOperation: openViewOperationFromDirectory,
+        onOpenToolApplication: async (pluginId, capabilityId, version, entry) => {
+          try {
+            const currentDirectoryTarget = () => resourceViewTarget(getTarget()) === directoryTarget;
+            const currentPluginVersion = () => registry.get(pluginId)?.version === version;
+            const currentDirectoryRevision = () => catalogRevision === directoryRevision;
+            if (!currentDirectoryTarget() || !currentPluginVersion() || !currentDirectoryRevision()) {
+              notify(t("Tool changed. Reload its details before retrying."));
+              return;
+            }
+            if (!(await activateFromNavigation(pluginId))) return;
+            if (!currentDirectoryTarget() || !currentPluginVersion() || !currentDirectoryRevision()) {
+              notify(t("Tool changed. Reload its details before retrying."));
+              return;
+            }
+            pluginViewHost?.openTool?.(registry.get(pluginId), capabilityId, () => {
+              const target = getTarget();
+              if (!entry.id || !target?.workspaceId || !toolAccessStore ||
+                resourceViewTarget(target) !== directoryTarget || !currentPluginVersion() ||
+                !currentDirectoryRevision()) return;
+              void toolAccessStore.mutate({ sceneId: target.sceneId ?? "programming", workspaceId: target.workspaceId },
+                { kind: "recentRecord", id: entry.id }).catch((error) => notify(error?.message ?? String(error)));
+            });
+          } catch {
+            notify(t("Could not open this application. Try again."));
+          }
+        },
         accessStore: toolAccessStore,
         toolApi: capabilityGateway,
         catalogRevision,
@@ -547,7 +637,15 @@ export function setupPluginShell({
     }
     const plugin = registry.get(pluginId);
     if ((plugin?.origin === "developer" || plugin?.origin === "signed") && pluginViewHost) {
-      pluginViewHost.renderContent(pluginMain, plugin);
+      failedRenderPluginId = null;
+      try {
+        pluginViewHost.renderContent(pluginMain, plugin);
+      } catch {
+        failedRenderPluginId = pluginId;
+        try { pluginViewHost.deactivate?.(pluginId); } catch { /* Keep shell navigation available. */ }
+        showPluginViewFailure(pluginMain, "main");
+        notify(t("Plugin view could not be loaded"));
+      }
       return;
     }
     if (pluginId === MANAGER_VIEW_ID) {
@@ -558,6 +656,7 @@ export function setupPluginShell({
         getTarget,
         notify,
         renderIcon: iconSvg,
+        selectDeveloperPlugin,
         installDeveloperPlugin,
         selectSignedPlugin,
         installSignedPlugin,
@@ -693,6 +792,7 @@ export function setupPluginShell({
 
   function setTarget(nextTarget = getTarget?.()) {
     toolCenter.setScope(nextTarget);
+    window.dispatchEvent(new Event("zicode:tool-target-changed"));
     for (const application of applicationViews.values()) application.setTarget?.(nextTarget);
     pluginViewHost?.setTarget?.(nextTarget);
     if (activePluginId !== CHAT_PLUGIN_ID) renderMain(activePluginId);
@@ -756,6 +856,7 @@ export function setupPluginShell({
 
   const unsubscribe = registry.subscribe(() => {
     catalogRevision += 1;
+    window.dispatchEvent(new Event("zicode:plugin-catalog-changed"));
     if (!SHELL_VIEW_IDS.has(activePluginId) && !registry.isEnabled(activePluginId)) {
       activate(CHAT_PLUGIN_ID, { focus: false });
       return;
@@ -830,6 +931,7 @@ export function setupPluginShell({
   return {
     activate,
     async openManualTool(tool, revision, scope) {
+      if (tool?.kind === "view-operation") return openViewOperationFromDirectory(tool, revision, scope);
       const matchesScope = () => {
         const target = getTarget();
         return target?.sceneId === scope.sceneId && target?.workspaceId === scope.workspaceId;

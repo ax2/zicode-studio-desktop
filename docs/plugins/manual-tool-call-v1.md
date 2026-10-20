@@ -11,6 +11,8 @@
 3. `POST /invoke`：原请求加callId。Host校验完整作用域和请求摘要，单次消费句柄，再按现有执行路径检查当前目录、权限和schema。执行期间不持有注册表或broker锁。旧无callId请求保持既有行为，不能通过本扩展取消。
 4. `POST /cancel-call` 或 `/call-status`：提交 `{schemaVersion:1,callId,scope:{sceneId,workspaceId,pluginId,capabilityId}}`。取消仅作用于已登记的匹配调用，未知句柄不会创建墓碑。即使插件被禁用或撤权，匹配的既有调用仍可请求取消。
 
+2026-10-18 Studio View 接收侧复用：当前 Host 的 `/v2/plugin-views/source` 附带加载时的 `catalogRevision`，可信父页以该修订按能力 ID 读取详情、准备句柄并代理 `capabilities.invoke`。详情接口按声明查找，不要求能力出现在当前搜索页；iframe 无法直接调用上述可信接口，也拿不到句柄。取消 ACK 和结果未知时的恢复边界见 [View 能力取消状态](view-capability-cancellation-gap.md)。该扩展未更改提供方包协议。
+
 ## 状态与终态
 
 2026-10-10 前端补强：已发放句柄后的请求错误不会直接解锁；终态 outcome 必须为有效非空字符串，取消/查询/退休证明一致校验。具体规则与验证边界见[结束证明说明](manual-call-terminal-proof.md)。

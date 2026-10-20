@@ -10,7 +10,8 @@ fn prepared(store: &mut Store, data: &[u8]) -> Access {
     let version = sha256_hex(data);
     let response = store
         .prepare(
-            Prepare { catalog_revision: None,
+            Prepare {
+                catalog_revision: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "application/octet-stream".into(),
@@ -110,7 +111,8 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
         .is_err());
     let mut store = Store::default();
     for _ in 0..4 {
-        let mut req = Prepare { catalog_revision: None,
+        let mut req = Prepare {
+            catalog_revision: None,
             schema_version: 1,
             owner: Owner {
                 runtime_id: "r".into(),
@@ -123,7 +125,8 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
             content_version: sha256_hex(b"not-uploaded"),
         };
         store.prepare(req, "proof".into()).unwrap();
-        req = Prepare { catalog_revision: None,
+        req = Prepare {
+            catalog_revision: None,
             schema_version: 1,
             owner: Owner {
                 runtime_id: "r".into(),
@@ -139,7 +142,8 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
     }
     assert!(store
         .prepare(
-            Prepare { catalog_revision: None,
+            Prepare {
+                catalog_revision: None,
                 schema_version: 1,
                 owner: Owner {
                     runtime_id: "r".into(),
@@ -164,50 +168,132 @@ fn reserved_budget_counts_unuploaded_bytes_and_record_limit() {
 #[test]
 fn derived_outputs_are_atomic_scoped_immutable_and_follow_source_revocation() {
     use crate::plugin_worker::resource_output::Blob;
-    let mut store=Store::default();
-    let source=prepared(&mut store,b"input");
-    assert!(store.register_outputs(&source,"proof",vec![]).is_err());
-    store.append(&source,"proof",0,b"input".to_vec()).unwrap();
-    store.commit(&source,"proof").unwrap();
-    let blob=||Blob {mime_type:"application/octet-stream".into(),bytes:vec![173;100000]};
-    assert!(store.register_outputs(&source,"changed",vec![blob()]).is_err());
-    let results=store.register_outputs(&source,"proof",vec![blob(),Blob {mime_type:"text/plain".into(),bytes:vec![]}]).unwrap();
-    let child=Access {schema_version:1,owner:source.owner.clone(),resource_id:results[0]["resourceId"].as_str().unwrap().into(),content_version:results[0]["contentVersion"].as_str().unwrap().into()};
-    assert_eq!(store.snapshot(&child,"proof").unwrap().bytes,vec![173;100000]);
-    assert_eq!(store.read(&child,"proof",99999,10).unwrap()["byteLength"],1);
-    assert!(store.append(&child,"proof",100000,vec![1]).is_err());
-    let mut foreign=child; foreign.owner.capability_id="other".into();
-    assert!(store.snapshot(&foreign,"proof").is_err());
-    foreign.owner=source.owner.clone();
-    let grandchild=store.register_outputs(&foreign,"proof",vec![blob()]).unwrap();
-    assert_eq!(store.records.len(),4);
-    let before=store.records.len();
-    assert!(store.register_outputs(&source,"proof",vec![blob(),Blob {mime_type:"application/javascript".into(),bytes:vec![]}]).is_err());
-    assert_eq!(store.records.len(),before);
+    let mut store = Store::default();
+    let source = prepared(&mut store, b"input");
+    assert!(store.register_outputs(&source, "proof", vec![]).is_err());
+    store
+        .append(&source, "proof", 0, b"input".to_vec())
+        .unwrap();
+    store.commit(&source, "proof").unwrap();
+    let blob = || Blob {
+        mime_type: "application/octet-stream".into(),
+        bytes: vec![173; 100000],
+    };
+    assert!(store
+        .register_outputs(&source, "changed", vec![blob()])
+        .is_err());
+    let results = store
+        .register_outputs(
+            &source,
+            "proof",
+            vec![
+                blob(),
+                Blob {
+                    mime_type: "text/plain".into(),
+                    bytes: vec![],
+                },
+            ],
+        )
+        .unwrap();
+    let child = Access {
+        schema_version: 1,
+        owner: source.owner.clone(),
+        resource_id: results[0]["resourceId"].as_str().unwrap().into(),
+        content_version: results[0]["contentVersion"].as_str().unwrap().into(),
+    };
+    assert_eq!(
+        store.snapshot(&child, "proof").unwrap().bytes,
+        vec![173; 100000]
+    );
+    assert_eq!(
+        store.read(&child, "proof", 99999, 10).unwrap()["byteLength"],
+        1
+    );
+    assert!(store.append(&child, "proof", 100000, vec![1]).is_err());
+    let mut foreign = child;
+    foreign.owner.capability_id = "other".into();
+    assert!(store.snapshot(&foreign, "proof").is_err());
+    foreign.owner = source.owner.clone();
+    let grandchild = store
+        .register_outputs(&foreign, "proof", vec![blob()])
+        .unwrap();
+    assert_eq!(store.records.len(), 4);
+    let before = store.records.len();
+    assert!(store
+        .register_outputs(
+            &source,
+            "proof",
+            vec![
+                blob(),
+                Blob {
+                    mime_type: "application/javascript".into(),
+                    bytes: vec![]
+                }
+            ]
+        )
+        .is_err());
+    assert_eq!(store.records.len(), before);
     store.revoke(&source).unwrap();
     assert!(store.records.is_empty());
-    assert!(store.snapshot(&foreign,"proof").is_err());
+    assert!(store.snapshot(&foreign, "proof").is_err());
     assert!(grandchild[0]["resourceId"].is_string());
 }
 
 #[test]
 fn derived_outputs_share_reserved_budget_and_expiry_with_inputs() {
     use crate::plugin_worker::resource_output::Blob;
-    let mut store=Store::default();
-    let source=prepared(&mut store,b"");store.commit(&source,"proof").unwrap();
-    for _ in 1..MAX_RECORDS {prepared(&mut store,b"");}
-    assert!(store.register_outputs(&source,"proof",vec![Blob{mime_type:"text/plain".into(),bytes:vec![]}]).is_err());
-    assert_eq!(store.records.len(),MAX_RECORDS);
-    store.records.retain(|id,_|id==&source.resource_id);
-    let rows=store.register_outputs(&source,"proof",vec![Blob{mime_type:"text/plain".into(),bytes:b"data".to_vec()}]).unwrap();
-    assert_eq!(rows[0]["saved"],false);
-    store.records.get_mut(&source.resource_id).unwrap().expires=Instant::now()-Duration::from_secs(1);
-    store.prune(); assert!(store.records.is_empty());
-    for _ in 0..4 {
-        let pending=prepared(&mut store,b"");
-        store.records.get_mut(&pending.resource_id).unwrap().expected=MAX_RESOURCE;
+    let mut store = Store::default();
+    let source = prepared(&mut store, b"");
+    store.commit(&source, "proof").unwrap();
+    for _ in 1..MAX_RECORDS {
+        prepared(&mut store, b"");
     }
-    let source=prepared(&mut store,b""); store.commit(&source,"proof").unwrap();
-    assert!(store.register_outputs(&source,"proof",vec![Blob{mime_type:"text/plain".into(),bytes:vec![1]}]).is_err());
-    assert_eq!(store.records.len(),5);
+    assert!(store
+        .register_outputs(
+            &source,
+            "proof",
+            vec![Blob {
+                mime_type: "text/plain".into(),
+                bytes: vec![]
+            }]
+        )
+        .is_err());
+    assert_eq!(store.records.len(), MAX_RECORDS);
+    store.records.retain(|id, _| id == &source.resource_id);
+    let rows = store
+        .register_outputs(
+            &source,
+            "proof",
+            vec![Blob {
+                mime_type: "text/plain".into(),
+                bytes: b"data".to_vec(),
+            }],
+        )
+        .unwrap();
+    assert_eq!(rows[0]["saved"], false);
+    store.records.get_mut(&source.resource_id).unwrap().expires =
+        Instant::now() - Duration::from_secs(1);
+    store.prune();
+    assert!(store.records.is_empty());
+    for _ in 0..4 {
+        let pending = prepared(&mut store, b"");
+        store
+            .records
+            .get_mut(&pending.resource_id)
+            .unwrap()
+            .expected = MAX_RESOURCE;
+    }
+    let source = prepared(&mut store, b"");
+    store.commit(&source, "proof").unwrap();
+    assert!(store
+        .register_outputs(
+            &source,
+            "proof",
+            vec![Blob {
+                mime_type: "text/plain".into(),
+                bytes: vec![1]
+            }]
+        )
+        .is_err());
+    assert_eq!(store.records.len(), 5);
 }

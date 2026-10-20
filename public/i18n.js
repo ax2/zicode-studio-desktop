@@ -10,40 +10,59 @@ const zhCN = {
   "Project directory": "项目目录",
   "Studio directory selection": "Studio 目录选择",
   "Studio · Share project directory names with this plugin": "Studio · 向此插件提供项目目录名称",
-  "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.": "仅提供目录当前层级的名称和文件或目录类型，不读取文件内容，也不会保存或发送给 AI。",
+  "Only names and file or directory types from one level are shared. No file contents are read. Nothing is saved or sent to AI.":
+    "仅提供目录当前层级的名称和文件或目录类型，不读取文件内容，也不会保存或发送给 AI。",
   "Choose a project directory": "选择项目目录",
   "Confirm directory sharing": "确认提供目录信息",
   "Cancel directory sharing": "取消提供目录信息",
-  "Choose a directory inside the current project. Names are shared only after confirmation.": "请选择当前项目内的目录。确认后才会提供目录名称。",
-  "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.": "已选目录：{name} · 插件 {plugin}。确认后提供当前层级名称。",
+  "Choose a directory inside the current project. Names are shared only after confirmation.":
+    "请选择当前项目内的目录。确认后才会提供目录名称。",
+  "Selected directory: {name} · plugin {plugin}. Confirm to share one level of names.":
+    "已选目录：{name} · 插件 {plugin}。确认后提供当前层级名称。",
   "Could not select this project directory. Choose again.": "未能选择此项目目录，请重试。",
   "Sharing the confirmed directory snapshot…": "正在提供已确认的目录快照…",
-  "Shared {count} directory entries. You can now execute the tool or cancel sharing.": "已提供 {count} 个目录条目。现在可以执行工具或取消提供。",
+  "Shared {count} directory entries. You can now execute the tool or cancel sharing.":
+    "已提供 {count} 个目录条目。现在可以执行工具或取消提供。",
   "Directory sharing failed. Choose the directory again.": "提供目录信息失败，请重新选择。",
-  "Directory sharing canceled. Waiting for preparation to finish.": "已取消提供目录信息，等待准备过程结束。",
+  "Directory sharing canceled. Waiting for preparation to finish.":
+    "已取消提供目录信息，等待准备过程结束。",
   "Directory sharing canceled.": "已取消提供目录信息。",
   "Directory selection canceled.": "已取消选择目录。",
-  "Directory picker could not use this selection. Check the current project and retry.": "目录选择器无法使用所选目录，请检查当前项目并重试。",
-  "Directory access could not be prepared ({code}). Check permission and retry.": "无法准备目录授权（{code}），请检查权限后重试。",
-  "Directory preparation returned unexpected metadata. Refresh the tool and retry.": "目录准备结果格式不符，请刷新工具后重试。",
+  "Directory picker could not use this selection. Check the current project and retry.":
+    "目录选择器无法使用所选目录，请检查当前项目并重试。",
+  "Directory access could not be prepared ({code}). Check permission and retry.":
+    "无法准备目录授权（{code}），请检查权限后重试。",
+  "Directory preparation returned unexpected metadata. Refresh the tool and retry.":
+    "目录准备结果格式不符，请刷新工具后重试。",
   "Plugin declares a matching filename suffix": "插件声明匹配此文件名",
+  "Plugin declares support for every selected filename": "插件声明支持每个选中文件名",
   "Plugin has not declared file types": "插件未声明文件类型",
   "Only file resource tools": "仅显示文件资源工具",
   "Only project directory tools": "仅显示项目目录工具",
-  "Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.": "仅显示已启用且获准接收文件的工具。文件类型提示来自插件声明，提供文件前请核对支持范围。",
-  "Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.": "仅显示声明至少支持 {count} 个输入文件的工具。使用前请核对格式并确认提供文件。",
-  "The opened file could not be checked. You can select the file tool filter manually.": "未能检查已打开的文件，可以手动选择文件工具筛选。",
-  "The opened folder could not be checked. You can select the directory tool filter manually.": "未能检查已打开的文件夹，可以手动选择目录工具筛选。",
+  "Shows enabled tools with file read permission. File type hints are plugin declarations; check supported formats before sharing.":
+    "仅显示已启用且获准接收文件的工具。文件类型提示来自插件声明，提供文件前请核对支持范围。",
+  "Showing tools that declare support for at least {count} input files. Confirm formats and sharing before use.":
+    "仅显示声明至少支持 {count} 个输入文件的工具。使用前请核对格式并确认提供文件。",
+  "The opened file could not be checked. You can select the file tool filter manually.":
+    "未能检查已打开的文件，可以手动选择文件工具筛选。",
+  "The opened folder could not be checked. You can select the directory tool filter manually.":
+    "未能检查已打开的文件夹，可以手动选择目录工具筛选。",
   "Choose from current project": "从当前项目选择",
   "Use opened file: {name}": "使用已打开文件：{name}",
-  "Choose a file inside the current project. It will only be shared after confirmation.": "请选择当前项目内的文件。选择后仍需确认，才会提供给工具。",
-  "Could not select this project file. Choose a file inside the current project again.": "未能选择此项目文件，请重新选择当前项目内的文件。",
+  "Choose a file inside the current project. It will only be shared after confirmation.":
+    "请选择当前项目内的文件。选择后仍需确认，才会提供给工具。",
+  "Could not select this project file. Choose a file inside the current project again.":
+    "未能选择此项目文件，请重新选择当前项目内的文件。",
   "Desktop integration": "桌面集成",
-  "Open files in the tool center or folders in Studio from Explorer. Windows 11 may show this under Show more options.": "从资源管理器右键菜单打开文件工具中心或项目文件夹。Windows 11 可能将此入口放在“显示更多选项”中。",
-  "Explorer menu changes are disabled in this acceptance profile.": "当前验收配置禁止修改资源管理器菜单。",
-  "Explorer menus are available in the Windows desktop app.": "资源管理器菜单仅在 Windows 桌面程序中可用。",
+  "Open files in the tool center or folders in Studio from Explorer. Windows 11 may show this under Show more options.":
+    "从资源管理器右键菜单打开文件工具中心或项目文件夹。Windows 11 可能将此入口放在“显示更多选项”中。",
+  "Explorer menu changes are disabled in this acceptance profile.":
+    "当前验收配置禁止修改资源管理器菜单。",
+  "Explorer menus are available in the Windows desktop app.":
+    "资源管理器菜单仅在 Windows 桌面程序中可用。",
   "Checking Explorer menu…": "正在核对资源管理器菜单…",
-  "Explorer menu status is unknown. Check again before changing it. An existing entry may belong to another installation.": "菜单状态未知，请重新核对后再修改。已有条目可能属于其他安装位置。",
+  "Explorer menu status is unknown. Check again before changing it. An existing entry may belong to another installation.":
+    "菜单状态未知，请重新核对后再修改。已有条目可能属于其他安装位置。",
   "Registered Explorer entries": "已注册的右键入口",
   "Check menu status": "核对菜单状态",
   "Add Explorer menu": "添加右键菜单",
@@ -51,126 +70,192 @@ const zhCN = {
   "need repair after Studio moved": "项因 Studio 位置变化需要修复",
   "Remove Explorer menu": "移除右键菜单",
   "Confirm Explorer menu change": "确认修改右键菜单",
-  "Add or repair file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation.": "为当前 Windows 用户添加或修复文件、文件夹、目录背景和盘符菜单？文件将打开工具中心，提供文件和执行工具需分别确认。",
-  "Remove the file and folder menus owned by this Studio installation for this Windows user?": "移除当前 Windows 用户下属于此 Studio 安装位置的文件和目录菜单？",
+  "Add or repair file, folder, folder background and drive menus for this Windows user? Files open the tool center; sharing and execution require separate confirmation.":
+    "为当前 Windows 用户添加或修复文件、文件夹、目录背景和盘符菜单？文件将打开工具中心，提供文件和执行工具需分别确认。",
+  "Remove the file and folder menus owned by this Studio installation for this Windows user?":
+    "移除当前 Windows 用户下属于此 Studio 安装位置的文件和目录菜单？",
   "Call troubleshooting details": "调用排查信息",
   "Call troubleshooting record": "调用排查记录",
-  "Only call identifiers, times and status codes are kept here. Inputs, results and raw error messages are excluded. Closing this tool clears this record.": "这里只保留调用标识、时间和状态码，不含输入、结果或原始错误消息；关闭此工具后清除。",
-  "The tool request reported an execution timeout. Confirm its status before running again.": "工具请求报告执行超时。再次执行前请先核对状态。",
-  "The connection timed out. The tool may still be running. Check its status before retrying.": "连接超时，工具可能仍在运行。再次执行前请先查询状态。",
-  "The tool request reported a computation limit. Confirm its status before running again.": "工具请求报告计算量超限。再次执行前请先核对状态。",
-  "The tool request reported a memory access error. Confirm its status before running again.": "工具请求报告内存访问错误。再次执行前请先核对状态。",
-  "The tool request reported a stack limit. Confirm its status before running again.": "工具请求报告栈空间超限。再次执行前请先核对状态。",
-  "The tool request reported an execution error. Confirm its status before running again.": "工具请求报告执行错误。再次执行前请先核对状态。",
-  "A previous call for this tool still needs recovery. Review tool call records before running again.": "此工具仍有待恢复的调用。再次运行前，请先核对工具调用记录。",
-  "Call recovery records are full. Review or explicitly forget old records before running again.": "调用恢复记录已满。再次运行前，请核对或明确忘记旧记录。",
+  "Only call identifiers, times and status codes are kept here. Inputs, results and raw error messages are excluded. Closing this tool clears this record.":
+    "这里只保留调用标识、时间和状态码，不含输入、结果或原始错误消息；关闭此工具后清除。",
+  "The tool request reported an execution timeout. Confirm its status before running again.":
+    "工具请求报告执行超时。再次执行前请先核对状态。",
+  "The connection timed out. The tool may still be running. Check its status before retrying.":
+    "连接超时，工具可能仍在运行。再次执行前请先查询状态。",
+  "The tool request reported a computation limit. Confirm its status before running again.":
+    "工具请求报告计算量超限。再次执行前请先核对状态。",
+  "The tool request reported a memory access error. Confirm its status before running again.":
+    "工具请求报告内存访问错误。再次执行前请先核对状态。",
+  "The tool request reported a stack limit. Confirm its status before running again.":
+    "工具请求报告栈空间超限。再次执行前请先核对状态。",
+  "The tool request reported an execution error. Confirm its status before running again.":
+    "工具请求报告执行错误。再次执行前请先核对状态。",
+  "A previous call for this tool still needs recovery. Review tool call records before running again.":
+    "此工具仍有待恢复的调用。再次运行前，请先核对工具调用记录。",
+  "Call recovery records are full. Review or explicitly forget old records before running again.":
+    "调用恢复记录已满。再次运行前，请核对或明确忘记旧记录。",
 
   "Review tool call records": "核对工具调用记录",
   "Refresh call records": "刷新调用记录",
-  "Call metadata stays in this desktop or browser profile, without inputs or results. Recovery seals unstarted calls or requests cancellation. A different Host cannot confirm old work.": "调用记录保留在当前桌面或浏览器配置中，不含输入或结果。恢复会封存未开始的调用或请求取消；宿主更换后无法确认旧调用。",
-  "Stored calls are not proof of completion or saved results.": "已记录的调用不代表执行结束或结果已保存。",
+  "Call metadata stays in this desktop or browser profile, without inputs or results. Recovery seals unstarted calls or requests cancellation. A different Host cannot confirm old work.":
+    "调用记录保留在当前桌面或浏览器配置中，不含输入或结果。恢复会封存未开始的调用或请求取消；宿主更换后无法确认旧调用。",
+  "Stored calls are not proof of completion or saved results.":
+    "已记录的调用不代表执行结束或结果已保存。",
   "No stored tool calls in this project.": "此项目没有待核对的工具调用记录。",
-  "Call records are unavailable. Existing records were kept.": "暂时无法读取或更新调用记录，已有记录已保留。",
+  "Call records are unavailable. Existing records were kept.":
+    "暂时无法读取或更新调用记录，已有记录已保留。",
   "Forget call record": "忘记调用记录",
-  "Forget this local record? This does not cancel or confirm execution. Check the original runtime before running again.": "忘记此本地记录？这不会取消或确认执行。再次运行前请检查原运行环境。",
-  "Local record forgotten. No execution was cancelled or confirmed.": "已忘记本地记录，没有取消或确认任何执行。",
-  "Call recovery storage is unavailable. No execution was started. Review existing call records or storage access.": "无法保存调用恢复记录，本次未启动执行。请核对已有调用记录或存储权限。",
+  "Forget this local record? This does not cancel or confirm execution. Check the original runtime before running again.":
+    "忘记此本地记录？这不会取消或确认执行。再次运行前请检查原运行环境。",
+  "Local record forgotten. No execution was cancelled or confirmed.":
+    "已忘记本地记录，没有取消或确认任何执行。",
+  "Call recovery storage is unavailable. No execution was started. Review existing call records or storage access.":
+    "无法保存调用恢复记录，本次未启动执行。请核对已有调用记录或存储权限。",
 
   "Stop and recover call": "停止并恢复调用",
   "Sealing or cancelling the call…": "正在封存未开始的调用或请求取消…",
-  "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion.": "执行结果尚不确定。恢复将封存未开始的调用，或请求取消后核对是否结束。",
-  "One-use tool calls are unavailable. Update Studio before running this tool.": "当前 Studio 不支持一次性工具调用，请更新后再运行此工具。",
-  "This call was sealed before execution. Review inputs before starting a new run.": "此次调用已在执行前封存。请检查输入后发起新的调用。",
-  "This call can no longer start. Its earlier outcome and result were not recovered. Review inputs before a new run.": "此次调用已不能再启动；未恢复之前的执行情况和结果。请检查输入后发起新的调用。",
-  "Cancellation requested. The tool is still active; wait and recover again.": "已请求取消，工具尚未结束；请等待后再次恢复。",
+  "Execution outcome is unknown. Recovery seals an unstarted call or requests cancellation before checking completion.":
+    "执行结果尚不确定。恢复将封存未开始的调用，或请求取消后核对是否结束。",
+  "One-use tool calls are unavailable. Update Studio before running this tool.":
+    "当前 Studio 不支持一次性工具调用，请更新后再运行此工具。",
+  "This call was sealed before execution. Review inputs before starting a new run.":
+    "此次调用已在执行前封存。请检查输入后发起新的调用。",
+  "This call can no longer start. Its earlier outcome and result were not recovered. Review inputs before a new run.":
+    "此次调用已不能再启动；未恢复之前的执行情况和结果。请检查输入后发起新的调用。",
+  "Cancellation requested. The tool is still active; wait and recover again.":
+    "已请求取消，工具尚未结束；请等待后再次恢复。",
 
   "Completion unconfirmed": "待确认结束",
   "Cancel execution": "取消执行",
   "Checking tool status…": "正在核对执行状态…",
-  "Execution outcome is unknown. Check tool status before running again.": "执行结果尚不确定。再次运行前，请先核对执行状态。",
-  "Tool is still running. Wait or cancel, then check again.": "工具仍在执行。请等待或请求取消，再次核对状态。",
-  "Execution status is unknown. Running again is blocked; no result has been recovered.": "无法确认执行状态。已限制再次运行，尚未恢复结果。",
-  "Tool execution has ended. Its result was not recovered. Review inputs before starting a new run.": "已确认工具执行结束，未恢复原结果。请检查输入后再发起新的执行。",
-  "Tool status could not be confirmed. Running again remains blocked.": "暂时无法核对执行状态，仍限制再次运行。",
-  "Studio restarted. The previous execution cannot be confirmed. Running again remains blocked.": "Studio 已重启，无法确认之前的执行状态，仍限制再次运行。",
-  "Tool status checks are unavailable. Update Studio before running this tool.": "当前 Studio 不支持执行状态核对，请更新后再运行此工具。",
+  "Execution outcome is unknown. Check tool status before running again.":
+    "执行结果尚不确定。再次运行前，请先核对执行状态。",
+  "Tool is still running. Wait or cancel, then check again.":
+    "工具仍在执行。请等待或请求取消，再次核对状态。",
+  "Execution status is unknown. Running again is blocked; no result has been recovered.":
+    "无法确认执行状态。已限制再次运行，尚未恢复结果。",
+  "Tool execution has ended. Its result was not recovered. Review inputs before starting a new run.":
+    "已确认工具执行结束，未恢复原结果。请检查输入后再发起新的执行。",
+  "Tool status could not be confirmed. Running again remains blocked.":
+    "暂时无法核对执行状态，仍限制再次运行。",
+  "Studio restarted. The previous execution cannot be confirmed. Running again remains blocked.":
+    "Studio 已重启，无法确认之前的执行状态，仍限制再次运行。",
+  "Tool status checks are unavailable. Update Studio before running this tool.":
+    "当前 Studio 不支持执行状态核对，请更新后再运行此工具。",
   "Review save records": "核对保存记录",
-  "Snapshot verified at the last check; later changes are possible.": "最近核对时快照完整；之后仍可能发生变化。",
+  "Snapshot verified at the last check; later changes are possible.":
+    "最近核对时快照完整；之后仍可能发生变化。",
   "Search save records": "搜索保存记录",
   "Save records": "保存记录",
-  "Save records could not be loaded. Check project access or Host support.": "无法加载保存记录，请检查项目权限或当前宿主是否支持此功能。",
-  "Records survive closing the tool. Publication metadata does not prove file integrity or that an unfinished save stopped. Checks only read files; nothing is retried or deleted.": "关闭工具后仍可查阅记录。发布记录不能证明文件内容完整，也不能证明未完成的保存已停止。核对只读取文件，不会重试或删除。",
+  "Save records could not be loaded. Check project access or Host support.":
+    "无法加载保存记录，请检查项目权限或当前宿主是否支持此功能。",
+  "Records survive closing the tool. Publication metadata does not prove file integrity or that an unfinished save stopped. Checks only read files; nothing is retried or deleted.":
+    "关闭工具后仍可查阅记录。发布记录不能证明文件内容完整，也不能证明未完成的保存已停止。核对只读取文件，不会重试或删除。",
   "Publication record found; file contents are not checked.": "已找到发布记录，尚未核对文件内容。",
-  "Publication not observed; the save outcome is uncertain.": "尚未观察到发布记录，保存结果仍不确定。",
+  "Publication not observed; the save outcome is uncertain.":
+    "尚未观察到发布记录，保存结果仍不确定。",
   "Check saved file": "核对已保存文件",
-  "You confirmed this save. Checking or closing this dialog does not undo or repeat the write.": "你已确认此保存操作。核对文件或关闭此窗口都不会撤销或重复写入。",
-  "Check the saved receipt and file contents. This only reads the project; it does not retry saving.": "核对已保存文件的来源记录和内容。此操作只读取项目，不会重试保存。",
+  "You confirmed this save. Checking or closing this dialog does not undo or repeat the write.":
+    "你已确认此保存操作。核对文件或关闭此窗口都不会撤销或重复写入。",
+  "Check the saved receipt and file contents. This only reads the project; it does not retry saving.":
+    "核对已保存文件的来源记录和内容。此操作只读取项目，不会重试保存。",
   "Checking saved file…": "正在核对已保存文件…",
   "Verified saved file: {path}": "已核对保存文件：{path}",
-  "The saved file could not be verified. The save may still have completed. Check the original project before saving again; no write was retried.": "暂时无法核对保存文件，但保存可能已完成。再次保存前请检查原项目；没有重试写入。",
+  "The saved file could not be verified. The save may still have completed. Check the original project before saving again; no write was retried.":
+    "暂时无法核对保存文件，但保存可能已完成。再次保存前请检查原项目；没有重试写入。",
   "Tool view unavailable": "工具界面暂不可用",
-  "This tool's view failed. Other tools are still available.": "此工具界面发生异常，其他工具仍可使用。",
-  "An operation may still be running or may have completed. Check its effects before reopening this tool. Nothing was retried automatically.": "之前的操作可能仍在执行，也可能已经完成。重新打开工具前请先核对操作结果；系统没有自动重试。",
+  "This tool's view failed. Other tools are still available.":
+    "此工具界面发生异常，其他工具仍可使用。",
+  "An operation may still be running or may have completed. Check its effects before reopening this tool. Nothing was retried automatically.":
+    "之前的操作可能仍在执行，也可能已经完成。重新打开工具前请先核对操作结果；系统没有自动重试。",
   "Saved plugin files": "已保存的插件文件",
   "Use a saved project file": "从项目已保存文件选择",
-  "Resource tool unavailable. Check the live session, plugin permissions and refresh its details.": "资源工具不可用。请检查当前会话和插件权限，再刷新工具详情。",
-  "Cancellation could not be confirmed. Wait before running again.": "暂时无法确认取消，请等待执行结束后再操作。",
+  "Resource tool unavailable. Check the live session, plugin permissions and refresh its details.":
+    "资源工具不可用。请检查当前会话和插件权限，再刷新工具详情。",
+  "Cancellation could not be confirmed. Wait before running again.":
+    "暂时无法确认取消，请等待执行结束后再操作。",
   "Select saved file": "选择此文件",
-  "Selecting a saved file does not share it. Confirm file sharing with the receiving tool to continue.": "选择文件不会立即共享。请确认接收工具，再点击确认提供文件。",
-  "Files you confirmed saving in this project. Download separately; these files are not included in artifact JSON exports.": "这里是你确认保存到当前项目的文件。请单独下载；交付物 JSON 导出不包含这些文件。",
+  "Selecting a saved file does not share it. Confirm file sharing with the receiving tool to continue.":
+    "选择文件不会立即共享。请确认接收工具，再点击确认提供文件。",
+  "Files you confirmed saving in this project. Download separately; these files are not included in artifact JSON exports.":
+    "这里是你确认保存到当前项目的文件。请单独下载；交付物 JSON 导出不包含这些文件。",
   "Search saved plugin files": "搜索已保存的插件文件",
-  "Saved files could not be loaded. Check project access and refresh.": "无法加载已保存文件，请检查项目访问权限后刷新。",
-  "The saved file changed, is unavailable, or access was revoked. Refresh before trying again.": "文件已变化、无法读取或访问权限已撤销，请刷新后重试。",
+  "Saved files could not be loaded. Check project access and refresh.":
+    "无法加载已保存文件，请检查项目访问权限后刷新。",
+  "The saved file changed, is unavailable, or access was revoked. Refresh before trying again.":
+    "文件已变化、无法读取或访问权限已撤销，请刷新后重试。",
   "Saved file access changed. Refresh the library.": "已保存文件的访问状态发生变化，请刷新文件库。",
   "Verified original file downloaded.": "已校验并下载原始文件。",
   "File contents are verified only when opened.": "打开时才校验文件内容。",
-  "Some incomplete or changed records were skipped. Existing files were kept.": "已跳过部分不完整或已变化的记录，原文件仍保留。",
+  "Some incomplete or changed records were skipped. Existing files were kept.":
+    "已跳过部分不完整或已变化的记录，原文件仍保留。",
   "Recorded package version": "记录的插件版本",
   "Preview saved file": "预览已保存文件",
   "Download saved file": "下载已保存文件",
   "Saved plugin file preview": "已保存插件文件预览",
   "Save output to this project": "将输出保存到当前项目",
-  "The saved file changed or the destination already exists. Nothing was overwritten.": "已保存文件发生变化，或目标位置已存在；没有覆盖任何文件。",
-  "Save access changed or expired. Review the result and prepare a new confirmation.": "保存授权已变化或过期，请检查结果并重新准备确认。",
-  "The output storage or confirmation limit has been reached. Review saved files before trying again.": "输出存储或确认数量已达上限，请检查已保存文件后重试。",
-  "Save could not be confirmed. Check the project output directory before retrying; no automatic retry was made.": "无法确认保存结果，请先检查项目输出目录再重试；不会自动重试。",
+  "The saved file changed or the destination already exists. Nothing was overwritten.":
+    "已保存文件发生变化，或目标位置已存在；没有覆盖任何文件。",
+  "Save access changed or expired. Review the result and prepare a new confirmation.":
+    "保存授权已变化或过期，请检查结果并重新准备确认。",
+  "The output storage or confirmation limit has been reached. Review saved files before trying again.":
+    "输出存储或确认数量已达上限，请检查已保存文件后重试。",
+  "Save could not be confirmed. Check the project output directory before retrying; no automatic retry was made.":
+    "无法确认保存结果，请先检查项目输出目录再重试；不会自动重试。",
   "Preparing save preview…": "正在准备保存预览…",
   "Current project · {path}": "当前项目 · {path}",
-  "A new file and provenance receipt will be created. Existing files will not be replaced. This copy remains after resource access expires.": "将创建一个新文件及来源记录，不会替换已有文件。资源授权过期后，保存的副本仍会保留。",
+  "A new file and provenance receipt will be created. Existing files will not be replaced. This copy remains after resource access expires.":
+    "将创建一个新文件及来源记录，不会替换已有文件。资源授权过期后，保存的副本仍会保留。",
   "Save confirmation expires in 60 seconds.": "保存确认将在 60 秒后过期。",
   "Confirm save file": "确认保存文件",
-  "Review the destination and size. No file has been written yet.": "请检查保存位置和大小，目前尚未写入文件。",
+  "Review the destination and size. No file has been written yet.":
+    "请检查保存位置和大小，目前尚未写入文件。",
   "Saving output…": "正在保存输出…",
   "Saved in the current project: {path}": "已保存到当前项目：{path}",
   "Saved to the original project: {path}": "已保存到原项目：{path}",
-  "A confirmed save request ended after switching views. Check the project output directory before retrying.": "已确认的保存请求在切换页面后结束，请先检查项目输出目录再重试。",
-  "Tool timed out. Inputs are kept; review before running again.": "工具执行超时，已保留输入；请检查后再次运行。",
+  "A confirmed save request ended after switching views. Check the project output directory before retrying.":
+    "已确认的保存请求在切换页面后结束，请先检查项目输出目录再重试。",
+  "Tool timed out. Inputs are kept; review before running again.":
+    "工具执行超时，已保留输入；请检查后再次运行。",
   "Tool execution was cancelled. Inputs are kept.": "工具执行已取消，已保留输入。",
-  "Tool access expired or changed. Refresh tools and confirm sharing again.": "工具授权已过期或发生变化，请刷新工具并重新确认共享。",
-  "This tool's parameter schema is not supported by the generic form. Choose another tool.": "通用表单暂不支持此工具的参数格式，请选择其他工具。",
+  "Tool access expired or changed. Refresh tools and confirm sharing again.":
+    "工具授权已过期或发生变化，请刷新工具并重新确认共享。",
+  "This tool's parameter schema is not supported by the generic form. Choose another tool.":
+    "通用表单暂不支持此工具的参数格式，请选择其他工具。",
   "Send output to a tool": "将输出传给工具",
-  "Share only this output with one tool in this session. Nothing is saved or run automatically.": "仅向当前会话中的一个工具共享此项输出，不会自动保存或执行。",
+  "Share only this output with one tool in this session. Nothing is saved or run automatically.":
+    "仅向当前会话中的一个工具共享此项输出，不会自动保存或执行。",
   "Search receiving tools": "搜索接收工具",
   "Close transfer": "关闭转交",
-  "Transfer unavailable. Refresh the tools and review access before trying again.": "无法转交，请刷新工具目录并检查授权后重试。",
+  "Transfer unavailable. Refresh the tools and review access before trying again.":
+    "无法转交，请刷新工具目录并检查授权后重试。",
   "Searching tools…": "正在搜索工具…",
-  "Choose a receiving tool. Parameters load only after selection.": "请选择接收工具，选中后才加载参数。",
+  "Choose a receiving tool. Parameters load only after selection.":
+    "请选择接收工具，选中后才加载参数。",
   "No compatible receiving tools on this page.": "本页没有可接收此输出的工具。",
   "Loading tool parameters…": "正在加载工具参数…",
   "Review sharing before running this tool.": "运行工具前请先检查共享范围。",
   "Review sharing": "检查共享范围",
-  "Confirm access to this output only. This does not approve saving or running the tool.": "仅确认读取此项输出，不代表同意保存数据或执行工具。",
+  "Confirm access to this output only. This does not approve saving or running the tool.":
+    "仅确认读取此项输出，不代表同意保存数据或执行工具。",
   "Confirm sharing": "确认共享",
   "Cancel sharing": "取消共享",
   "Sharing confirmation expires in 60 seconds.": "共享确认将在 60 秒后过期。",
   "Run receiving tool": "运行接收工具",
-  "Output shared. Review parameters, then run the tool separately.": "输出已共享，请检查参数后单独运行工具。",
+  "Output shared. Review parameters, then run the tool separately.":
+    "输出已共享，请检查参数后单独运行工具。",
   "Cancellation requested. Waiting for the tool to finish.": "已请求取消，正在等待工具结束。",
   "Running receiving tool…": "正在运行接收工具…",
   "Receiving tool finished. Results have not been saved.": "接收工具已完成，结果尚未保存。",
-  "Tool did not finish successfully. Inputs are kept; review access or cancellation before running again.": "工具未成功完成，已保留输入；请检查授权或取消状态后再次运行。",
+  "Tool reported an error. Inputs are kept and no result was saved.":
+    "工具返回错误，已保留输入，未保存任何结果。",
+  "Tool did not finish successfully. Inputs are kept; review access or cancellation before running again.":
+    "工具未成功完成，已保留输入；请检查授权或取消状态后再次运行。",
+  "Accepted file types: {types}": "可接收的文件类型：{types}",
+  "This tool does not accept the shared file type. Resolve this call before choosing a compatible file.":
+    "此工具不接收已共享文件的类型。请先结束或恢复本次调用，再选择兼容文件。",
   "Studio output preview": "Studio 输出预览",
-  "bytes": "字节",
+  bytes: "字节",
   "Studio · Output files": "Studio · 输出文件",
   "Preview locally. These results have not been saved.": "仅在本机预览，结果尚未保存。",
   "Output {number}": "输出 {number}",
@@ -184,45 +269,77 @@ const zhCN = {
   "Binary preview · first 256 bytes": "二进制预览 · 前 256 字节",
   "Text preview": "文本预览",
   "Preview expired or access was revoked.": "预览已过期或读取权限已撤销。",
-  "Preview unavailable. The result may have expired or its format is unsupported.": "无法预览，结果可能已过期或格式不受支持。",
+  "Preview unavailable. The result may have expired or its format is unsupported.":
+    "无法预览，结果可能已过期或格式不受支持。",
   "Running…": "运行中…",
   "Preparing tool…": "正在准备工具…",
   "Cancel tool": "取消执行",
   "Cancelling…": "正在取消…",
   "Check tool status": "查询执行状态",
+  "The tool is running. Wait for its response.": "工具正在运行，等待执行响应。",
+  "Request tool stop": "请求停止工具",
+  "Tool result is unknown. Check its status before running it again.":
+    "工具结果尚不确定。再次运行前请先查询状态。",
+  "Stop requested. The tool may still be running.": "已请求停止，工具可能仍在运行。",
+  "The tool may still be running. Check again or request it to stop.":
+    "工具可能仍在运行。请再次查询或请求停止。",
+  "The tool stopped. Its response was not received.": "工具已停止，但未收到执行响应。",
+  "The tool ended, but its response is unavailable. Check its effects before running it again.":
+    "工具已结束，但响应不可用。再次运行前请先核对执行效果。",
+  "Tool status is unavailable. The tool may still be running.":
+    "无法获取工具状态，工具可能仍在运行。",
   "Tool cancelled. No result was kept.": "工具已取消，未保留执行结果。",
-  "Switching pages keeps this tool running. Return here to check or cancel it before closing the window.": "切换页面后工具继续运行；关闭窗口前，请回到此处查看状态或取消执行。",
-  "Connection interrupted. The tool may still be running. Check its status before retrying.": "连接已中断，工具可能仍在运行。重新执行前请先查询状态。",
+  "Switching pages keeps this tool running. Return here to check or cancel it before closing the window.":
+    "切换页面后工具继续运行；关闭窗口前，请回到此处查看状态或取消执行。",
+  "Connection interrupted. The tool may still be running. Check its status before retrying.":
+    "连接已中断，工具可能仍在运行。重新执行前请先查询状态。",
   "The tool has ended. Waiting for its response.": "工具已结束，正在等待执行响应。",
   "Cancellation requested. Waiting for the tool to stop.": "已请求取消，正在等待工具停止。",
-  "Cancellation could not be confirmed. The tool may still be running.": "未能确认取消，工具可能仍在运行。",
-  "The tool ended, but its response is unavailable. Check before running it again.": "工具已结束，但未能取得响应；请核对后再决定是否重新执行。",
-  "The tool is still running. You can request cancellation again.": "工具仍在运行，可以再次请求取消。",
+  "Cancellation could not be confirmed. The tool may still be running.":
+    "未能确认取消，工具可能仍在运行。",
+  "The tool ended, but its response is unavailable. Check before running it again.":
+    "工具已结束，但未能取得响应；请核对后再决定是否重新执行。",
+  "The tool is still running. You can request cancellation again.":
+    "工具仍在运行，可以再次请求取消。",
   "Status is unavailable. The tool may still be running.": "无法获取执行状态，工具可能仍在运行。",
-  "True": "是（true）",
-  "False": "否（false）",
+  True: "是（true）",
+  False: "否（false）",
   "Empty text": "空文本",
   "Not provided": "不传入",
   "Choose a value for this required field.": "请为必填项选择一个值。",
   "Choose one of the available values.": "请选择列表中的值。",
   "Text length does not match this field's limits.": "文本长度不符合此字段的限制。",
   "Enter a value for this required field.": "请填写此必填项。",
-  "Enter a finite number without losing precision.": "请输入有限数值；当前数值无法准确传递，请调整输入。",
+  "Enter a finite number without losing precision.":
+    "请输入有限数值；当前数值无法准确传递，请调整输入。",
   "Enter a safe whole number.": "请输入安全整数范围内的整数。",
   "Number is outside this field's allowed range.": "数值超出此字段允许的范围。",
+  "Enter JSON for this required field.": "请为此必填项输入 JSON。",
+  "JSON input exceeds the 32 KiB form limit.": "JSON 输入超过表单的 32 KiB 限制。",
+  "JSON contains a number that cannot be preserved exactly.": "JSON 含有无法准确传递的数值。",
+  "Enter a JSON array.": "请输入 JSON 数组。",
+  "Enter a JSON object.": "请输入 JSON 对象。",
+  "Enter valid JSON.": "请输入有效的 JSON。",
+  "JSON object contains duplicate keys.": "JSON 对象包含重复键。",
+  "Enter a JSON array (up to 32 KiB).": "请输入 JSON 数组（最多 32 KiB）。",
+  "Enter a JSON object (up to 32 KiB).": "请输入 JSON 对象（最多 32 KiB）。",
   "Whole number (within the safe integer range)": "整数（限安全整数范围）",
   "Number (decimal or exponent notation)": "数值（支持小数或科学计数法）",
-  "This tool needs its application UI or additional Host support. The generic form cannot run it.": "此工具需要应用界面或额外的宿主支持，当前通用表单无法执行。",
-  "Opening does not execute a tool. Use Enter to open; Esc to cancel.": "打开不会执行工具。按 Enter 打开，按 Esc 取消。",
+  "This tool needs its application UI or additional Host support. The generic form cannot run it.":
+    "此工具需要应用界面或额外的宿主支持，当前通用表单无法执行。",
+  "Opening does not execute a tool. Use Enter to open; Esc to cancel.":
+    "打开不会执行工具。按 Enter 打开，按 Esc 取消。",
   "Directory type": "目录类型",
   "Full applications": "完整应用",
   "Input text": "输入文本",
   "Required input": "必填输入",
   "Optional input · omitted until edited": "可选输入 · 未编辑时不提交",
+  "Use declared default": "填入声明的默认值",
   "Tool inputs": "工具输入",
   "View latest execution": "查看最近执行结果",
   "Back to inputs": "返回输入",
-  "Find a tool or an application. Opening does not execute a tool.": "直接查找工具或应用。打开不会执行工具。",
+  "Find a tool or an application. Opening does not execute a tool.":
+    "直接查找工具或应用。打开不会执行工具。",
   "Individual tools": "具体工具",
   "Search individual tools": "搜索具体工具",
   "Tool category": "工具分类",
@@ -241,15 +358,24 @@ const zhCN = {
   "Security tools": "安全工具",
   "Other tools": "其他工具",
   "Uncategorized tools": "未分类",
+  "Filter counts cover all compatible mappings in this view; the result list applies every selected filter.":
+    "筛选项数字统计当前视图的全部兼容字段；结果列表会同时应用所选条件。",
   "Search tool names or uses": "搜索工具名称或用途",
-  "Browsing loads metadata only. Choose a tool to load its input form.": "浏览目录仅加载工具信息，选择工具后再加载输入表单。",
+  "Browsing loads metadata only. Choose a tool to load its input form.":
+    "浏览目录仅加载工具信息，选择工具后再加载输入表单。",
+  "Browsing loads metadata only. Choose an entry to open it.":
+    "浏览目录仅加载条目信息；选择后再打开相应工具或应用。",
   "Loading tools…": "正在加载工具…",
   "Loading tool details…": "正在加载工具详情…",
   "{count} tools": "{count} 个工具",
   "Open tool": "打开工具",
+  "Open in application": "在应用中打开",
+  "Opens in application": "在应用中打开",
   "No matching tools": "没有匹配的工具",
-  "Selected file: {name}. Its contents have not been shared.": "已选择文件：{name}。尚未提供文件内容。",
-  "Selected files: {names}. Their contents have not been shared.": "已选择文件：{names}。尚未提供文件内容。",
+  "Selected file: {name}. Its contents have not been shared.":
+    "已选择文件：{name}。尚未提供文件内容。",
+  "Selected files: {names}. Their contents have not been shared.":
+    "已选择文件：{names}。尚未提供文件内容。",
   "Tool pages": "工具分页",
   "Reload tools": "重新加载工具",
   "Reload tool details": "重新加载工具详情",
@@ -262,9 +388,11 @@ const zhCN = {
   "Declared permissions": "声明的权限",
   "Not granted": "未授权",
   "Choose a value": "请选择",
-  "Inputs stay in this page. Leaving does not cancel a running tool.": "输入仅保留在当前工具中心；离开页面不会取消正在运行的工具。",
+  "Inputs stay in this page. Leaving does not cancel a running tool.":
+    "输入仅保留在当前工具中心；离开页面不会取消正在运行的工具。",
   "Execute tool": "执行工具",
-  "This tool needs its application UI or additional Host support. The generic text form cannot run it.": "此工具需要应用专用界面或额外的宿主支持，通用文本表单暂不支持执行。",
+  "This tool needs its application UI or additional Host support. The generic text form cannot run it.":
+    "此工具需要应用专用界面或额外的宿主支持，通用文本表单暂不支持执行。",
   "Open application": "打开应用",
   "Last successful result": "最近一次成功结果",
   "Latest execution": "本次执行",
@@ -276,28 +404,33 @@ const zhCN = {
   "Tool list": "工具列表",
   "Tool source": "工具来源",
   "Plugin is disabled": "插件已禁用",
-  "Previous": "上一页",
-  "Next": "下一页",
+  "Enable this plugin in Plugin Manager before running its tools.": "请先在插件管理中启用此插件，再运行其工具。",
+  Previous: "上一页",
+  Next: "下一页",
   "All tool sources": "全部工具来源",
   "Source unavailable in this list": "此列表中没有该来源的工具",
   "All tools": "全部工具",
   "Favorite tools": "收藏的工具",
   "Recently used tools": "最近使用的工具",
-  "This list belongs to the current workspace and scene. Removed tools are hidden.": "列表按当前工作区和场景保存；已移除的工具不再显示。",
+  "This list belongs to the current workspace and scene. Removed tools are hidden.":
+    "列表按当前工作区和场景保存；已移除的工具不再显示。",
   "Tool history could not be loaded or saved.": "无法读取或保存工具使用记录。",
   "Tool completed, but history could not be saved.": "工具已完成，但未能保存使用记录。",
-  "Tool changed. Reload its details before retrying.": "工具已变更，请重新加载详情后再执行。重新加载会清空当前输入和结果。",
+  "Tool changed. Reload its details before retrying.":
+    "工具已变更，请重新加载详情后再执行。重新加载会清空当前输入和结果。",
   "Tool timed out. Its result is unavailable.": "工具运行超时，未获得结果。",
-  "Tool is unavailable. Check plugin enablement and permissions.": "工具当前不可用，请检查插件启用状态和权限。",
+  "Tool is unavailable. Check plugin enablement and permissions.":
+    "工具当前不可用，请检查插件启用状态和权限。",
   "Tool request failed. Reload and retry.": "工具请求失败，请重新加载后再试。",
   "Applications and tools": "应用与工具中心",
-  "Find an application, then choose its tool. Opening does not execute a tool.": "找到应用，再选择其中的工具。打开应用不会执行工具。",
+  "Find an application, then choose its tool. Opening does not execute a tool.":
+    "找到应用，再选择其中的工具。打开应用不会执行工具。",
   "Search applications and tools": "搜索应用与工具",
   "Search names, uses or tool keywords": "搜索名称、用途或工具关键词",
   "Application views": "应用视图",
-  "Category": "分类",
+  Category: "分类",
   "All categories": "全部分类",
-  "Favorite": "收藏",
+  Favorite: "收藏",
   "Favorite applications": "收藏的应用",
   "Recently opened applications": "最近打开",
   "{matched} / {total} applications": "{matched} / {total} 个应用",
@@ -318,11 +451,15 @@ const zhCN = {
   "Choose files for the plugin": "选择提供给插件的多个文件",
   "Use opened selection ({count} files)": "使用已打开的 {count} 个文件",
   "Could not prepare opened files. Choose the files again.": "无法准备已打开的文件，请重新选择。",
-  "Selected {count} files. Confirm sharing before running the tool.": "已选择 {count} 个文件。运行工具前请先确认提供。",
-  "Choose at most {count} files totaling up to 32 MiB.": "最多选择 {count} 个文件，总大小不超过 32 MiB。",
+  "Selected {count} files. Confirm sharing before running the tool.":
+    "已选择 {count} 个文件。运行工具前请先确认提供。",
+  "Choose at most {count} files totaling up to 32 MiB.":
+    "最多选择 {count} 个文件，总大小不超过 32 MiB。",
   "Sharing file {current} of {total}…": "正在提供第 {current} / {total} 个文件…",
-  "Confirmed files shared. You can revoke them with Cancel.": "已提供确认的文件，可点击取消撤销读取权限。",
-  "File sharing failed. Choose the files again to retry.": "提供文件失败，请重新选择多个文件后重试。",
+  "Confirmed files shared. You can revoke them with Cancel.":
+    "已提供确认的文件，可点击取消撤销读取权限。",
+  "File sharing failed. Choose the files again to retry.":
+    "提供文件失败，请重新选择多个文件后重试。",
   "Receiving tool": "接收工具",
   "Only this plugin and tool can read the confirmed snapshot. Nothing is saved or sent to AI.":
     "仅此插件和接收工具可读取已确认的文件快照。不会保存或发送给 AI。",
@@ -337,26 +474,42 @@ const zhCN = {
   "File preparation status": "文件准备状态",
   "Check file preparation status": "核对文件准备状态",
   "Checking file preparation status…": "正在核对文件准备状态…",
-  "File preparation status is unknown. Do not assume it has finished.": "无法确认文件准备状态，请勿据此认定后台任务已结束。",
-  "The file has not been read. Select and confirm it again if needed.": "文件尚未读取，如需提供请重新选择并确认。",
+  "File preparation status is unknown. Do not assume it has finished.":
+    "无法确认文件准备状态，请勿据此认定后台任务已结束。",
+  "The file has not been read. Select and confirm it again if needed.":
+    "文件尚未读取，如需提供请重新选择并确认。",
   "Cancellation requested; file preparation has not ended.": "已请求取消，文件准备尚未结束。",
   "The file is still being prepared.": "文件准备仍在进行。",
-  "A file snapshot was created. This status does not restore the file or execute a tool.": "文件快照曾创建成功；此状态不会恢复文件或自动执行工具。",
+  "A file snapshot was created. This status does not restore the file or execute a tool.":
+    "文件快照曾创建成功；此状态不会恢复文件或自动执行工具。",
   "File preparation was cancelled and has ended.": "文件准备已取消并结束。",
-  "File preparation failed and has ended. Select and confirm again if needed.": "文件准备已失败并结束，如需重试请重新选择和确认。",
-  "File preparation timed out and has ended. Select and confirm again if needed.": "文件准备已超时并结束，如需重试请重新选择和确认。",
-  "File sharing response was not confirmed. Check preparation status before selecting again.": "未确认提供文件的响应，重新选择前请先核对准备状态。",
-  "File sharing canceled. Waiting for preparation to finish.": "已取消提供文件，正在等待准备过程结束。",
+  "File preparation failed and has ended. Select and confirm again if needed.":
+    "文件准备已失败并结束，如需重试请重新选择和确认。",
+  "File preparation timed out and has ended. Select and confirm again if needed.":
+    "文件准备已超时并结束，如需重试请重新选择和确认。",
+  "File sharing response was not confirmed. Check preparation status before selecting again.":
+    "未确认提供文件的响应，重新选择前请先核对准备状态。",
+  "File sharing canceled. Waiting for preparation to finish.":
+    "已取消提供文件，正在等待准备过程结束。",
   "Preparing the confirmed file…": "正在准备已确认的文件…",
   "Sharing {bytes} of {total} bytes…": "正在提供 {bytes} / {total} 字节…",
   "Confirmed file shared. You can revoke it with Cancel.":
     "已提供确认的文件，可点击取消撤销读取权限。",
   "File sharing failed. Select the file again to retry.": "提供文件失败，请重新选择文件后重试。",
+  "This image is invalid or exceeds the receiver's format or size limits.":
+    "此图片格式无效，或超出接收工具的格式和大小限制。",
+  "This resource is invalid or exceeds the receiver's format or size limits.":
+    "此资源无效，或超出接收工具的格式和大小限制。",
+  "Local OCR could not recognize this image. Check that a Windows OCR language pack is installed.":
+    "本机 OCR 无法识别此图片。请检查是否已安装对应的 Windows OCR 语言包。",
+  "OCR recognized {count} characters. Review its text resource below to transfer or save.":
+    "OCR 已识别 {count} 个字符。请在下方检查文本资源，再选择转交或保存。",
   "Studio result saving": "Studio 结果保存",
   "{tool} result": "{tool} 结果",
   "Save title": "保存标题",
   "Preview save": "预览保存",
-  "Could not prepare save: {error}": "无法准备保存：{error}",
+  "Could not prepare save. Review the current workspace and try again.":
+    "无法准备保存。请检查当前工作区后重试。",
   "Send to tool": "发送到工具",
   "Transferred result": "发送处理结果",
   "Studio · Receiver result": "Studio · 接收工具处理结果",
@@ -365,9 +518,17 @@ const zhCN = {
   "Confirm save": "确认保存",
   "Saved to the current workspace artifacts.": "已保存到当前工作区的交付物。",
   "View saved artifact": "查看已保存产物",
-  "Save failed: {error}": "保存失败：{error}",
+  "Save outcome is uncertain. Check workspace artifacts before saving again; this view will not retry the write.":
+    "保存结果尚不确定。再次保存前请检查工作区交付物；此页面不会重试写入。",
+  "Check save status": "检查保存状态",
+  "Checking saved artifact…": "正在检查已保存产物…",
+  "Verified saved artifact in the current workspace.": "已确认产物保存在当前工作区。",
+  "The save could not be verified. Check workspace artifacts before saving again; no write was retried.":
+    "尚无法确认保存结果。再次保存前请检查工作区交付物；未重试写入。",
   "Cancel save": "取消保存",
   "Save preview: {title}": "保存预览：{title}",
+  "JSON object will be saved as application/json.": "JSON 对象将按 application/json 保存。",
+  "JSON object will be passed to an object input field.": "JSON 对象将直接传入接收工具的对象输入字段。",
   "New artifact · {bytes} bytes · plugin {version}": "新建交付物 · {bytes} 字节 · 插件 {version}",
   "Workspace: {workspace}": "工作区：{workspace}",
   "Search receiver tools": "搜索接收工具",
@@ -392,12 +553,25 @@ const zhCN = {
   "Change receiver": "更换接收工具",
   "Receiver tool views": "接收工具列表",
   Favorites: "收藏",
-  "The receiver list changed. Search again to refresh it.": "接收工具列表已变化，请重新搜索以刷新列表。",
-  "Favorites and recent use this project's tool history and show only compatible receivers.": "收藏和最近使用沿用当前项目的工具记录，仅显示可接收本次结果的工具。",
+  "The receiver list changed. Search again to refresh it.":
+    "接收工具列表已变化，请重新搜索以刷新列表。",
+  "Favorites and recent use this project's tool history and show only compatible receivers.":
+    "收藏和最近使用沿用当前项目的工具记录，仅显示可接收本次结果的工具。",
   "No matching tools. Currently supports local WASI computation with string fields.":
     "没有匹配工具。目前支持使用文本字段的本地 WASI 计算工具。",
   "Confirm transfer and run": "确认发送并执行",
   "Running receiver tool…": "正在执行接收工具…",
+  "Requesting receiver cancellation…": "正在请求取消接收工具…",
+  "Cancellation requested; waiting for the receiver outcome…": "已请求取消，正在等待接收工具的最终结果…",
+  "Could not request cancellation: {error}": "无法请求取消：{error}",
+  "Transfer outcome is uncertain after cancellation. Do not run it again.": "取消后的执行结果尚不确定，请勿再次执行。",
+  "Receiver tool cancelled": "接收工具已取消",
+  "Check receiver outcome": "查询接收工具结果",
+  "Checking receiver outcome…": "正在查询接收工具结果…",
+  "Receiver tool is still running. Check its outcome again.": "接收工具仍在运行，请稍后再次查询结果。",
+  "No receiver execution is recorded yet. Choose a receiver again if needed.": "尚无接收工具执行记录。如需继续，请重新选择接收工具。",
+  "Could not check receiver outcome: {error}": "无法查询接收工具结果：{error}",
+  "Receiver already completed. Checking its outcome…": "接收工具已完成，正在查询最终结果…",
   "Receiver tool failed: {error}": "接收工具未成功：{error}",
   "Transfer failed: {error}": "发送失败：{error}",
   "Confirm to send this data to the selected tool. It will not be saved or sent to a model automatically.":
@@ -1022,8 +1196,24 @@ const zhCN = {
     "仅对无需鉴权的模型服务关闭此项。",
   "Model service": "模型服务",
   "Send to model": "发送给模型",
+  "Allow this plugin to read from a service?": "允许此插件读取服务数据吗？",
+  "Service origin": "服务地址",
+  Request: "请求",
+  Network: "网络范围",
+  "Response limit": "响应上限",
+  "No credentials, cookies, request body, or proxy are used.":
+    "不会发送凭据、Cookie、请求正文或使用代理。",
+  "TLS certificate validation is enabled.": "已启用 TLS 证书验证。",
+  "This local HTTP request is not encrypted.": "此本地 HTTP 请求未加密。",
+  public: "公网",
+  private: "私有网络",
+  loopback: "本机回环",
+  hostname: "域名（批准后解析）",
+  "The hostname is resolved only after approval. Private or loopback results are blocked; use localhost or a literal IP for local services.":
+    "批准后才解析此域名。私网或回环地址会被拒绝；访问本机服务请使用 localhost 或明确的 IP 地址。",
   "Data to send": "待发送内容",
-  "Send {bytes} bytes from {plugin} to {model} at {destination}?": "向 {destination} 的 {model} 发送插件 {plugin} 提供的 {bytes} 字节内容？",
+  "Send {bytes} bytes from {plugin} to {model} at {destination}?":
+    "向 {destination} 的 {model} 发送插件 {plugin} 提供的 {bytes} 字节内容？",
   "Choose a configured model": "请选择已配置的模型",
   "Add an OpenAI-compatible channel and models in Settings. Local services can disable authentication.":
     "请在设置中添加 OpenAI 兼容渠道和模型。本地服务可关闭鉴权。",
@@ -1414,7 +1604,20 @@ const zhCN = {
     "项目存储检查仅在桌面应用中可用。",
   "Open a project folder to inspect its storage.": "请先打开项目目录，再检查存储占用。",
   "Scan project storage": "扫描项目存储",
+  "Deep storage scan": "深度扫描",
+  "Quick storage scan": "快速扫描",
   "Scanning project storage…": "正在扫描项目存储…",
+  "Deep storage scan in progress…": "正在深度扫描项目存储…",
+  "The storage scan ran in quick mode despite a deep scan request.":
+    "请求深度扫描，但实际执行了快速扫描。",
+  "The deep read-only scan may take up to three minutes. Time limits or inaccessible entries can leave parts incomplete.":
+    "深度扫描只读，最长可能需要三分钟；超时或不可访问的条目会使部分结果不完整。",
+  "Some directories remain incomplete. Observed sizes may be lower bounds, not cleanup estimates.":
+    "部分目录未扫描完整。已观察到的大小可能只是下界，不能作为可清理空间的估算。",
+  "Cargo detail status conflicts with its complete parent. Verify with a separate read-only inventory before cleanup.":
+    "Cargo 分项状态与标为完整的父目录不一致。清理前请用独立的只读盘点核对。",
+  "Detail status conflicts with its complete parent. Verify with a separate read-only inventory before cleanup.":
+    "明细状态与标为完整的父目录不一致。清理前请用独立的只读盘点核对。",
   "Could not complete the project storage scan.": "无法完成项目存储扫描。",
   "Another project storage scan is still running. Wait, then try again.":
     "另一个项目存储扫描仍在运行，请稍后重试。",
@@ -1424,6 +1627,18 @@ const zhCN = {
   "Available on the selected directory's volume": "所选目录所在卷的可用空间",
   "Available volume space was not reported for this scan.": "本次扫描未提供所在卷的可用空间。",
   "Largest observed directories first": "按已观察到的目录大小排序",
+  "Cargo detail rows are included in their parent target directory; do not add them to the total.":
+    "Cargo 子目录的大小已包含在父级 target 中，请勿重复相加。",
+  "Detail rows are included in their parent directory; do not add them to the total.":
+    "明细行已计入上级目录，不要重复相加。",
+  "Temporary acceptance files may be referenced by project records. Check ownership and references before removing any of them.":
+    "临时验收文件可能被项目档案引用。清理前请核对归属和引用。",
+  "Reusable Cargo compilation artifacts. Removing them makes later builds compile dependencies again.":
+    "这是可复用的 Cargo 编译产物；移除后续构建将重新编译依赖。",
+  "Cargo incremental compilation sessions. Check the active build profile before reviewing old sessions.":
+    "这是 Cargo 增量编译会话；整理旧会话前请先核对当前构建配置。",
+  "Contains a runtime and build artifacts. Keep the current runnable version and its required resources.":
+    "这里包含运行程序和构建产物；请保留当前可运行版本及其所需资源。",
   "Usually Rust build output. Finish running builds and confirm the project can rebuild before removing it.":
     "通常是 Rust 构建产物。移除前请先结束正在运行的构建，并确认项目可以重新构建。",
   "Installed JavaScript dependencies. Check the lockfile and package manager before recreating them.":
@@ -1441,6 +1656,7 @@ const zhCN = {
   "{size} across {count} hard-linked files; deleting this directory may free less space.":
     "{count} 个有其他硬链接的文件，逻辑大小共 {size}；删除此目录可能释放更少空间。",
   "Partial scan": "扫描不完整",
+  "Size not observed": "尚未取得大小",
   "Linked directory skipped": "已跳过链接目录",
   "Directory could not be scanned": "无法扫描目录",
   "entries skipped": "项已跳过",
@@ -2012,6 +2228,8 @@ const zhCN = {
   "Expand outline": "展开大纲",
   "Collapse outline": "收起大纲",
   "Copy output": "复制输出",
+  "Use plugin result": "使用插件结果",
+  "Use result": "使用结果",
   "Tool output copied": "工具输出已复制",
   "Unable to copy tool output. Check browser clipboard permission.":
     "无法复制工具输出，请检查浏览器剪贴板权限。",
@@ -2520,6 +2738,7 @@ const zhCN = {
   "No other workspaces yet": "暂无其他工作区",
   "Projects could not be loaded. Try again.": "项目列表加载失败，请重试。",
   "Could not open the project. Try again.": "无法打开项目，请重试。",
+  "Could not open this application. Try again.": "无法打开此应用，请重试。",
   "New chat": "新建对话",
   Search: "搜索",
   "Search sessions": "搜索会话",
@@ -3189,6 +3408,7 @@ const zhCN = {
   "Manage plugins": "管理插件",
   "Open Plugin Manager": "打开管理插件",
   "Plugin views": "插件功能区",
+  Plugin: "插件",
   "Plugin Manager": "插件管理",
   "Plugin manager": "插件管理",
   "Plugin not enabled": "插件未启用",
@@ -3199,7 +3419,16 @@ const zhCN = {
   "Manage application plugins independently from Pi extensions. State and permissions are scoped to the current scene.":
     "管理独立于 Pi 扩展的应用插件。启用状态与权限按当前场景隔离。",
   "Install local plugin": "安装本地插件",
+  "Review local plugin": "核对本地插件",
+  "Declared tools": "声明的工具",
+  "Install reviewed plugin": "安装已核对插件",
+  "Unsigned development package. It will be disabled until you enable it and grant permissions.":
+    "无签名开发插件。安装后默认禁用，需自行启用并授予权限。",
   "Install signed package": "安装签名插件包",
+  "Review signed package": "核对签名插件包",
+  "Install reviewed signed package": "安装已核对签名包",
+  "Publisher already trusted": "发布者已受信任",
+  "Publisher approval required": "安装前需确认发布者信任",
   "Trust publisher": "信任发布者",
   "Key fingerprint": "密钥指纹",
   Permissions: "权限",
@@ -3240,8 +3469,13 @@ const zhCN = {
   "Developer plugin": "开发者插件",
   "Loading plugin view…": "正在加载插件界面…",
   "Plugin view could not be loaded": "无法加载插件界面",
+  "This application does not support opening that tool directly.": "此应用不支持直接定位该工具。",
+  "The application did not confirm the requested tool location.": "应用未确认已定位到所选工具。",
+  "The application did not confirm the requested operation location.": "应用未确认已定位到所选操作。",
+  "This application does not support opening that operation directly.": "此应用暂不支持直接定位到该操作。",
   "Plugin view response did not match its declaration.": "插件界面响应与声明不匹配。",
-  "Plugin view must include its scripts and styles in the HTML file.": "插件界面须将脚本和样式包含在 HTML 文件内。",
+  "Plugin view must include its scripts and styles in the HTML file.":
+    "插件界面须将脚本和样式包含在 HTML 文件内。",
   "This plugin does not contribute a main view.": "此插件未提供主视图。",
   "This plugin does not contribute a function view.": "此插件未提供功能区视图。",
   "Discard unsaved plugin changes?": "放弃尚未保存的插件修改吗？",
@@ -3532,6 +3766,7 @@ const zhCN = {
     "恢复回滚未完成。请停止使用此工作区并保留备份。待恢复文件位于：",
   "The backup contains no restorable app data.": "备份中没有可恢复的应用数据。",
   "Choose a .zicode-plugin package file.": "请选择 .zicode-plugin 插件包文件。",
+  "The plugin package changed after preview. Select it again.": "插件包在预览后已变化，请重新选择。",
   "The plugin package is too large.": "插件包过大。",
   "The plugin package is damaged or incomplete.": "插件包已损坏或不完整。",
   "The plugin package is not valid for this app (manifest or signature mismatch).":
@@ -3712,6 +3947,35 @@ const zhCN = {
   "Artifact created": "产物已创建",
   "No project activity yet": "暂无项目活动",
   "Task center": "任务中心",
+  "Plugin tasks": "插件任务",
+  "This tool session shows plugin tasks. Open an AI session to manage AI tasks.":
+    "当前工具会话仅显示插件任务。打开 AI 会话可管理 AI 任务。",
+  "Plugin tool runs for this workspace. Task history is read-only here.":
+    "当前工作区的插件工具任务。此处仅可查看任务记录。",
+  "Could not load plugin tasks": "无法加载插件任务",
+  "Loading plugin tasks…": "正在加载插件任务…",
+  "No plugin tasks in this workspace": "当前工作区暂无插件任务",
+  "Show plugin task details": "查看任务详情",
+  "Hide plugin task details": "收起任务详情",
+  "Plugin task details": "插件任务详情",
+  "Loading plugin task details…": "正在加载任务详情…",
+  "Could not load plugin task details": "无法加载任务详情",
+  "Plugin task cancellation requested": "已请求取消，等待执行结束",
+  "Load earlier plugin task events": "加载更早的任务事件",
+  "Loading earlier plugin task events…": "正在加载更早的任务事件…",
+  "Could not load earlier plugin task events": "无法加载更早的任务事件",
+  "Load more": "加载更多",
+  "Plugin task queued": "排队中",
+  "Plugin task running": "运行中",
+  "Plugin task awaiting confirmation": "等待确认",
+  "Plugin task succeeded": "已成功",
+  "Plugin task partially completed": "部分完成",
+  "Plugin task declined": "已拒绝",
+  "Plugin task failed": "失败",
+  "Plugin task cancelled": "已取消",
+  "Plugin task permission revoked": "权限已撤销",
+  "Plugin task interrupted": "已中断",
+  "Plugin task state unavailable": "状态不可用",
   "Task filters": "任务筛选",
   "Monitor background work, recover failures, and return to results.":
     "监控后台工作、恢复失败任务并快速返回结果。",

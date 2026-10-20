@@ -11423,6 +11423,7 @@ dependencies = [
  "base64 0.22.1",
  "boa_engine",
  "bytes",
+ "cap-fs-ext",
  "cap-std",
  "chrono",
  "dirs 5.0.1",

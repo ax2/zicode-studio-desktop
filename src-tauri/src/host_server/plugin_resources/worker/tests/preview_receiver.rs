@@ -18,7 +18,11 @@ pub(super) fn install(host: &HostServer, root: &std::path::Path, template: &Valu
             "flag":{"type":"boolean","title":"保留标记"}},"additionalProperties":false},
         "outputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}
     }]});
-    std::fs::write(package.join("plugin.json"), serde_json::to_vec(&manifest).unwrap()).unwrap();
+    std::fs::write(
+        package.join("plugin.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
     // Consume bytes through the resource ABI. This is transport evidence, not an image algorithm.
     std::fs::write(package.join("runtime/tools.wasm"), r#"(module
       (import "zicode_resource_input_draft1" "size" (func $size (param i32) (result i64)))
@@ -33,5 +37,7 @@ pub(super) fn install(host: &HostServer, root: &std::path::Path, template: &Valu
     let mut registry = host.state.plugins.lock().unwrap();
     registry.install_developer(&package).unwrap();
     registry.set_enabled("programming", id, true).unwrap();
-    registry.set_permission("programming", id, "resource.read", true).unwrap();
+    registry
+        .set_permission("programming", id, "resource.read", true)
+        .unwrap();
 }

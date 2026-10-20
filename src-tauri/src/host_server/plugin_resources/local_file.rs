@@ -11,6 +11,36 @@ mod tests;
 const MAX_BYTES: usize = 32 * 1024 * 1024;
 const TTL: Duration = Duration::from_secs(120);
 
+// An Explorer filename is only a hint for UTF-8 text. Image types come from
+// the bytes; each image receiver still validates the full decoder output.
+fn mime_for_local_file(relative: &str, bytes: &[u8]) -> &'static str {
+    match image::guess_format(bytes) {
+        Ok(image::ImageFormat::Png) => return "image/png",
+        Ok(image::ImageFormat::Jpeg) => return "image/jpeg",
+        Ok(image::ImageFormat::WebP) => return "image/webp",
+        _ => {}
+    }
+    if std::str::from_utf8(bytes).is_ok() {
+        let extension = Path::new(relative)
+            .extension()
+            .and_then(|part| part.to_str())
+            .unwrap_or("");
+        if extension.eq_ignore_ascii_case("txt") {
+            return "text/plain";
+        }
+        if extension.eq_ignore_ascii_case("csv") {
+            return "text/csv";
+        }
+        if extension.eq_ignore_ascii_case("md") {
+            return "text/markdown";
+        }
+        if extension.eq_ignore_ascii_case("html") || extension.eq_ignore_ascii_case("htm") {
+            return "text/html";
+        }
+    }
+    "application/octet-stream"
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(in crate::host_server) struct PrepareFile {
@@ -42,6 +72,16 @@ pub(super) struct Grants(
     status::Receipts,
 );
 impl Grants {
+    pub(super) fn invalidate_runtime(&mut self, runtime_id: &str) {
+        self.0
+            .retain(|_, grant| grant.owner.runtime_id != runtime_id);
+        for active in self.1.values() {
+            if active.owner.runtime_id == runtime_id {
+                active.control.cancel();
+            }
+        }
+    }
+
     fn prune(&mut self) {
         self.0.retain(|_, g| g.expires > Instant::now());
     }
@@ -120,7 +160,7 @@ impl Grants {
 
 pub(super) fn scope(state: &HostState, owner: &Owner) -> Result<(PathBuf, String), ApiError> {
     // Reuse current package/module, permission, runtime/session and Broker generation binding.
-    let (proof, _) = transfer::target_identity(state, owner)?;
+    let (proof, _) = transfer::target_identity(state, owner, None)?;
     let target = state
         .runtimes
         .statuses()
@@ -210,7 +250,8 @@ pub(in crate::host_server) async fn commit(
         // Serialize publication with cancellation. A request after publication cannot
         // revoke a resource by grant ID; the explicit resource revoke API owns that.
         control.check()?;
-        let result = store.import_file(request.owner, grant.proof, bytes);
+        let mime = mime_for_local_file(&grant.relative, &bytes);
+        let result = store.import_file(request.owner, grant.proof, bytes, mime);
         if result.is_ok() {
             control.published();
         }

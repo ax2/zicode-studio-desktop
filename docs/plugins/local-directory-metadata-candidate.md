@@ -1,5 +1,12 @@
 # 本地目录元数据资源候选 draft1
 
+2026-10-17 后续句柄加固：逐级元数据预检查之后，最终打开改用
+`open_dir_nofollow`，Windows 对已打开句柄再次检查重解析点属性。
+本机替换路径回归先观察普通目录、再以同名链接替换，最终打开被拒绝；
+目录模块 4/4 和 Rust 静态检查通过。该证据不覆盖所有并发竞态、junction
+类别或其他系统，也不把单层元数据提升为完整目录树资源。
+见[阶段记录](../iterations/2026-10-17-directory-handle-nofollow.md)。
+
 2026-10-13。Studio 可信桌面 Host 的候选能力，用于让用户把项目内一个目录的**单层名称与类型**明确共享给一个 WASI 工具。它不是完整 `resource.v1`、归档目录授权或 ZiFile 接入验收。
 
 ## 选择与授权
@@ -9,6 +16,8 @@
 `POST /v2/plugin-resources/prepare-local-directory` 请求 `{schemaVersion:1,owner,relativePath}`。仅桌面令牌可调用，要求活跃 Host 工具会话、WASI `resource.wasi.input.draft2`、已有 `resource.read` 与另行声明且已授予的 `resource.directory.read`。路径必须为 `.` 或有效的项目相对路径；不能是绝对路径、父目录、链接或特殊设备。准备阶段只核对目录对象元数据和授权，不读取条目名。返回一次性 `grantId`、相对路径和 `entryNamesRead:false`，有效期120秒。
 
 `POST /v2/plugin-resources/commit-local-directory` 携带 `{schemaVersion:1,owner,grantId,confirmed:true}`。票据先消耗；重新核对工作区、会话、插件版本/权限、目录身份后，才枚举单层条目。最多4096项，序列化结果最多2MiB，限时30秒。已观察到的符号链接、非普通文件/目录、无法表示为安全相对名的条目会使整个快照失败；cap-std 将相对访问约束在项目目录句柄下。资源内容是 UTF-8 JSON：`{schemaVersion:1,profile:"resource.local-directory.draft1",entries:[{name,kind}]}`，以 `text/plain` 形式存入现有可撤销的资源 Store。结果只包含名称和 `file`/`directory` 类型，不含绝对路径或文件内容。
+
+2026-10-17 加固：Windows 逐级打开相对目录及枚举单层条目时，均检查元数据的 `FILE_ATTRIBUTE_REPARSE_POINT`；junction 和其他重解析点按不支持处理，不能仅依赖 `is_symlink()`。Windows 实际目录符号链接回归验证了中间路径与枚举条目两处拒绝，原有单层快照与 Host HTTP 授权流程保持通过。此回归不等于所有 junction 类型、路径替换竞态或其他系统都完成验收；详见[阶段记录](../iterations/2026-10-17-directory-reparse-guard.md)。
 
 `POST /v2/plugin-resources/cancel-local-directory` 可取消待确认票据，并在枚举中请求协作式取消。若操作已发布，不能靠旧票据撤回资源；应使用资源撤销接口。响应中断不能推断未发布，客户端不得自动重放确认。目录读取使用现有有界阻塞操作池，取消无法强行中断正在等待的单次 OS 目录调用。
 

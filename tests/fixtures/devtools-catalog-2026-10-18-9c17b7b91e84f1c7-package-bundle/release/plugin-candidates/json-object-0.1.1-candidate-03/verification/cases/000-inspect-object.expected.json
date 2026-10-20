@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","data":{"keyCount":4,"keys":["enabled","items","name","nested"],"maxDepth":3,"serializedBytes":66,"value":{"enabled":true,"items":[null,1],"name":"Zi","nested":{"count":3}},"valueTypes":{"enabled":"boolean","items":"array","name":"string","nested":"object"}},"error":null,"ok":true}

@@ -1,0 +1,484 @@
+{
+  "source": {
+    "revision": "65f9aa63c831a4540bdd5731aa4da3de76dbd4b8",
+    "dirty": true
+  },
+  "contract": "zicode.devtools-plugin/1.0.0-rc.1",
+  "contractIndexSha256": "dd0688c009fa2d0600ab2d5af038a19efb5e1e26910619c1aede84aa668873f9",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "status": "unsigned candidate; not Host-accepted",
+  "sourceFiles": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "b8503aa405fcea55964c2fa70f6b26637a17883a0c196bde85f501551897c136"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "ae1bb4f547fb12d0f637b5406c82ee88f2011a6726306865ca83bcb55a054644"
+    },
+    {
+      "path": "docs/tools.json",
+      "sha256": "02b2627c8d606b03eefd7a7151d3c3ad20f3ecc4a2ff282e3e1340226910d2de"
+    },
+    {
+      "path": "scripts/package_text_plugin.py",
+      "sha256": "d8681b6e913abcccb48e9913fa8fd5b0dc372995fe2d65a3ef0026e87f3f4caa"
+    },
+    {
+      "path": "scripts/verify_text_wasi.py",
+      "sha256": "8202b350a4140ff809beae60c43a5306767a7473655fc4cf843108190092a18d"
+    },
+    {
+      "path": "scripts/verify_text_plugin_view.py",
+      "sha256": "b922f31066b07d40b9ba0727f59fdc55ee718f13f77bea9d252430dcae58e1e3"
+    },
+    {
+      "path": "scripts/cdp_client.py",
+      "sha256": "c26a1b1c5e5a0ca540792713d5c3c8aea18c01da9eb783d8dd60eb5c7e6513a6"
+    },
+    {
+      "path": "scripts/sync_studio_plugin_map.py",
+      "sha256": "bbe48d10163bd3b706b1353ad699983d23c94d274e442c13062d263205b57672"
+    },
+    {
+      "path": "src/tools.rs",
+      "sha256": "4a40e188bafdfbe1a8f92af0539de394769858eecbc4cf3e648a24d49bfec47e"
+    },
+    {
+      "path": "src/sql_formatter.rs",
+      "sha256": "b586986ba1978503b8eade1864104e0a28df47df01c944d6e0ce361f267eacc3"
+    },
+    {
+      "path": "docs/studio-plugin-migration.json",
+      "sha256": "3eb8b495867e50531af65597f1b7afc50c94ac3c69a4e7655911108e4fcb8c7a"
+    },
+    {
+      "path": "docs/studio-plugin-handoff.md",
+      "sha256": "a4e88a16253a70aee7d4ad7e252dd03fe1842067b1409dd82eb1fce9cf0c9cfc"
+    },
+    {
+      "path": "plugins/text/README.md",
+      "sha256": "ff38765a4a62f77ba061c43da43ad55514b01ef5739abb5142ef6002b06c86ec"
+    },
+    {
+      "path": "plugins/text/views/main.html",
+      "sha256": "72d11d3334ac7a4651780c25fbe2d56e52f6147bd5bed29414440cff59fb6185"
+    },
+    {
+      "path": "crates/zi-character-core/src/legacy.rs",
+      "sha256": "2f7885da73d463e49db858432db64ba35d9b0b3b9e6d347165c9df870d09bf3c"
+    },
+    {
+      "path": "crates/zi-character-core/src/lib.rs",
+      "sha256": "761c1620ff0c13866dcd624413ad588aef4609956c63c8f42043776795f62268"
+    },
+    {
+      "path": "crates/zi-character-core/src/tests.rs",
+      "sha256": "aef5791f491355dfafb81fa1cad1d831c75841b7d953a4918657e5c4be6c1a71"
+    },
+    {
+      "path": "crates/zi-compare-wasi/examples/phase_probe.rs",
+      "sha256": "5fda27c1e3def3948f234a8a7f45dc3046cb794c064ebad7172046dcb8c506b9"
+    },
+    {
+      "path": "crates/zi-compare-wasi/src/lib.rs",
+      "sha256": "111a497a0fc407f66ff32badd86bca87c2bba1bfa00c2dc65a1d67fece6dfd30"
+    },
+    {
+      "path": "crates/zi-compare-wasi/src/main.rs",
+      "sha256": "0388dd06fdc4332c169741f0fdd40789389fd08ead240be6bae924bedaf09e91"
+    },
+    {
+      "path": "crates/zi-compare-wasi/src/tests.rs",
+      "sha256": "de78cc50ffdaef13e41cb21a458a2de6f6a5ca503f46dc105e810fa94c87f4d6"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/build.rs",
+      "sha256": "0530fc8ceff883c7a7fc2df75cdc7b304e34daa69e244c00457de073c8cbaabf"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/catalog.rs",
+      "sha256": "6d2814e9da5d945091a6ea377b07fc69d35eda76e96eb7b1b5b5e1cd081067ba"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/config_json.rs",
+      "sha256": "b46c7dcb749824306fea526ec0bfeee9f4d3350070e65cee3c42c444172962f6"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/contracts.rs",
+      "sha256": "c935129f9d89c16bdb58e63ea26c4af33ab0b5c0f1272f13845ba5dac62336b4"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/django.rs",
+      "sha256": "3b09f2e5c20509e2d816dfad10ee96156a9ae0cbc2bf54224bec90c149defa7c"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/java.rs",
+      "sha256": "f7d8e71befb96390e9630d7904dce0c723f3e3f54ad8ff160e9afbcb057224fd"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/lib.rs",
+      "sha256": "a25ccb0e8d01ac84c300425bff0da283f6a2e5305dabca42255f96590f609dce"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/parser_tests.rs",
+      "sha256": "79e6ab0a26907365a372e22367c31a2e27a63c274dadba8637679c33dbc2de2f"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/src/text_parse.rs",
+      "sha256": "35dd2bf1d1c88a84d75b8b28d365caf37677ae261040a4f4744f01499c56a5f5"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/examples/output_boundary.rs",
+      "sha256": "0b92fa1491e59b1e63014cefab339b10b339b6011ed2a302db7bb15e33cc1534"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/lib.rs",
+      "sha256": "575d02d5cd96cec2e29cf74b626b4503aa0514c58f7061aea2f1cf07c2707daa"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/src/main.rs",
+      "sha256": "cecb187296ddaeb9f268f739e4190a7901b4720d62a4c8337e34005fb592d489"
+    },
+    {
+      "path": "crates/zi-diff-core/examples/clock_probe.rs",
+      "sha256": "872cdcb7225beba440e02d99518d648793a6a1e804bd751c9045ac25d04342b5"
+    },
+    {
+      "path": "crates/zi-diff-core/src/direct.rs",
+      "sha256": "5ea3c33b21d1be211e4ada90520cd66d50b1b3f995497ebae9bd0100ce19cc7a"
+    },
+    {
+      "path": "crates/zi-diff-core/src/disjoint.rs",
+      "sha256": "147817db4db581885941d5ab5640569dce7c11ff32370e098540449538d7618c"
+    },
+    {
+      "path": "crates/zi-diff-core/src/lib.rs",
+      "sha256": "be86540d27f0faf469e18c78969219fc2821d4d68be15b0cf326f4da0563bb5f"
+    },
+    {
+      "path": "crates/zi-diff-core/src/tests.rs",
+      "sha256": "4254432ecaffd8f3eb711629d3bb99acff98896717e8f8e0b2ad473117cb914d"
+    },
+    {
+      "path": "crates/zi-fields-wasi/src/lib.rs",
+      "sha256": "81b0b98f7bcf963cdc1661394c8e36ba906b9bc56adae30376428972f9e31390"
+    },
+    {
+      "path": "crates/zi-fields-wasi/src/main.rs",
+      "sha256": "7880d9ed3174d53df9308ac8706baeddb48530cbc6e9f2c64b4cf8560782295a"
+    },
+    {
+      "path": "crates/zi-fields-wasi/src/tests.rs",
+      "sha256": "995caa978c28dc6b64986e28f8b275e1da46ede4621ebf9b8c9f4a0c7178b1ff"
+    },
+    {
+      "path": "crates/zi-image-core/examples/image_core_benchmark.rs",
+      "sha256": "14cb28d6abfbdf5ffa3ffa2ece9db5d61d62dde5643e041e06383703afbc80de"
+    },
+    {
+      "path": "crates/zi-image-core/src/lib.rs",
+      "sha256": "3f201f3f0c140a676a178f79863b03c76a853451e1824f265527d7593e54d495"
+    },
+    {
+      "path": "crates/zi-image-wasi/build.rs",
+      "sha256": "319e0c5b9bd5b2dbff7bb4a35ea9058ecf7e4bb62f1d87b18583f04cbae1a3d0"
+    },
+    {
+      "path": "crates/zi-image-wasi/src/main.rs",
+      "sha256": "102c7b947b811abe06ac28941b8e2c37b80ea42b0788725bf49f0c66e4df5eaf"
+    },
+    {
+      "path": "crates/zi-inspect-core/src/lib.rs",
+      "sha256": "1cffa9562ebc440e51687906227cb2ad2b82f6fa3950500db50ea90028f1b2dc"
+    },
+    {
+      "path": "crates/zi-inspect-wasi/src/main.rs",
+      "sha256": "a4bb761b72eea4f14ddf37905daf7dddd39814f0c06618b898b77a0ae05286fc"
+    },
+    {
+      "path": "crates/zi-json-core/examples/portability.rs",
+      "sha256": "8bbd7e28d5bb453a66909aabfbaebf5c6705bfcf8c793ca08e64e93aabb57d43"
+    },
+    {
+      "path": "crates/zi-json-core/src/legacy.rs",
+      "sha256": "e2df5ecb6ac10009050eb19a2b8c4c9c17b5eb020ea4cf9a4a40900a2aaa4f7a"
+    },
+    {
+      "path": "crates/zi-json-core/src/lib.rs",
+      "sha256": "fd65925d485158c3fa5dd3f8ceef8fd0334e9359910f2b59d5824117f3806529"
+    },
+    {
+      "path": "crates/zi-json-core/src/tests.rs",
+      "sha256": "5d134234e321c452569a6b426c349d7a33660c36c31c22386117e0109d35fc7e"
+    },
+    {
+      "path": "crates/zi-msi-actions/src/lib.rs",
+      "sha256": "9a302b250c0c98eb9d1a4a6bc90ec50632ae7ed2a9dcb887bb80cd088677fd40"
+    },
+    {
+      "path": "crates/zi-regex-core/src/empty.rs",
+      "sha256": "7f6b4fec8b839f354fc41ebb06b68b1b42afbbb73d16399da77244e99016bd62"
+    },
+    {
+      "path": "crates/zi-regex-core/src/legacy.rs",
+      "sha256": "272b287ca7d690a5b966254127b6e5ffad4fb6dadb143f3832328ea9e2508088"
+    },
+    {
+      "path": "crates/zi-regex-core/src/lib.rs",
+      "sha256": "98508f8244f0521f0a68aeb17ef74d15d56ee6e22db640991092b911b252adba"
+    },
+    {
+      "path": "crates/zi-regex-core/src/literal_repeat.rs",
+      "sha256": "fb896b069429df5ad0f59435b26b0b8309a52ccad38d56f5e92d121f522a7ad4"
+    },
+    {
+      "path": "crates/zi-regex-core/src/tests.rs",
+      "sha256": "910afc216e588aa06ac94417f4e7a7dabaa7cdf511dbc6352cf20538db085c3f"
+    },
+    {
+      "path": "crates/zi-shell-core/examples/capability_inspect.rs",
+      "sha256": "3185aa3d03917c3f0012dc11c7b4a76ad94ebef9d5ab9d966fbdaa34650a8000"
+    },
+    {
+      "path": "crates/zi-shell-core/examples/msi_fixture_state/capabilities.rs",
+      "sha256": "33dd7a85404f094cf711483f2aa7b75cb31b9a37732ab1fa6740f95045659b18"
+    },
+    {
+      "path": "crates/zi-shell-core/examples/msi_fixture_state.rs",
+      "sha256": "a8a6647a60d860109e5040f5556d10cc37c37b6a1e1fdc3eb05b94a35daf91c1"
+    },
+    {
+      "path": "crates/zi-shell-core/src/capability_image.rs",
+      "sha256": "eb5e9166235c687930143ac9433186ba32127a0908fd1c25bf033f7d6182039c"
+    },
+    {
+      "path": "crates/zi-shell-core/src/capability_image_tests.rs",
+      "sha256": "e5f01cfd02c4465e71c590972ef93db5155f578945073343369f7899c35979f8"
+    },
+    {
+      "path": "crates/zi-shell-core/src/capability_manifest.rs",
+      "sha256": "2952d9b6653e0a276b691c192b3089dd64486483be4c6bcb174ce8ab1e2beb38"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/audit/native/identity.rs",
+      "sha256": "5f2c261eb908000c6c4eb9f57ee1ce60e50164c2b68620d769316f34e124319b"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/audit/native.rs",
+      "sha256": "d4bdeeb3a511aa15c97ba77472f965c39764a03ae4c0c2c08ca20e212468a1cb"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/audit.rs",
+      "sha256": "adc4e6d9aa99dce33e4fc7c751936ab702c48c43c95585b300fecd3c5e64cb73"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/installer/tests.rs",
+      "sha256": "2a492a8dca8be7d2bba9aa3dc9b696e76f64628b29870ce8ed6c3bb7d432db5f"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/installer.rs",
+      "sha256": "996732e122aef677566cdc1273ed75ce4a2e0f8157666638bd4210dd5f3cea57"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/msi_operation/tests.rs",
+      "sha256": "6be27d8553cee7bf003512e766bb98fffa6734416371f87452fcc89d808503d3"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/msi_operation.rs",
+      "sha256": "dcc094b21c1705ce83108206f356c4cd02b09254d77cdb450b45eb14c07dcf70"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/joint/tests.rs",
+      "sha256": "5495a53bfe8a3049664610b2ef483256fe2b8851f74d42bf59da9d4910af9ea6"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/joint.rs",
+      "sha256": "5305583fd5ee0c126a85e0e95022000d6bb91022ed6fdf59380a924f6a96d331"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/cancellation.rs",
+      "sha256": "c450d182a3027eeaa4943a128587d5af60a4168e61b507cb7660a5bcc3c108d9"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/completion.rs",
+      "sha256": "30dda3d94f00244e717b245113483d2c23ac2a58ba8031ce1375424ed0f0ab28"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/restoration.rs",
+      "sha256": "8cb8ac290f6df99f13311a48b75eb13009d4d0b0c536dd0b05e0be545e04b608"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/security.rs",
+      "sha256": "5ecb8b6d29d62843adf68faefe84b3936d6f8170f2623fff731bd29f7057c36c"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/serialization.rs",
+      "sha256": "d19a2ce8c242c8685f48205637fb9963aee717236ce540a048005f3e95515ef3"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery/tests.rs",
+      "sha256": "9b605e34bf8a09843e5a9ac43971439161b8df1e982097235547f884ea31dcb0"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/recovery.rs",
+      "sha256": "83132703fa2e16504b2737863c37ca412686be05de3706d9ff840818c3dba4ad"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store/tests.rs",
+      "sha256": "e084c58bfbe24a9358a3a33d764dd24b10f646e4ab417466e099a0b982642e7e"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/store.rs",
+      "sha256": "12ad83744803664d712e617b3d597ae810177fae72f2ed947629548a887acb0e"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle/tests.rs",
+      "sha256": "f18733e439737e2a2fb4bae367f1ec2e0af7ff4f3cd9ee06aecc6215f251f909"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer/lifecycle.rs",
+      "sha256": "d4f114f439f2238adb1ad9f417b2720ca3e7d0b601ed6039eb3f38334bed7d98"
+    },
+    {
+      "path": "crates/zi-shell-core/src/explorer.rs",
+      "sha256": "767c59378b671ed6a67e62afbd651f5af26ddb6c064e9a28d6c31b23c895f0f1"
+    },
+    {
+      "path": "crates/zi-shell-core/src/file_actions.rs",
+      "sha256": "78abfb00a5169eb3c94db1dc1caa9625244a6b39cf23642d9adaeea6c22ea1d0"
+    },
+    {
+      "path": "crates/zi-shell-core/src/lib.rs",
+      "sha256": "0adef2607c98f7fd9b65f59ff8773d61a1a3b9eaaf0ebdce8477509c0f032810"
+    },
+    {
+      "path": "crates/zi-shell-core/src/msi.rs",
+      "sha256": "c6f5a944a776787ade6f1d1d7df0181c5fe908c17b96fdb8e11f35caaa384a45"
+    },
+    {
+      "path": "crates/zi-shell-core/src/paths.rs",
+      "sha256": "343584586ef1b5110f713f2bc8454bf02a05915870bd0db6bb9cb935f4fb3fef"
+    },
+    {
+      "path": "crates/zi-shell-core/src/quote.rs",
+      "sha256": "5c1a38107b53cf5c812922c7517efc5683960739828ca039cda27fc7d673f526"
+    },
+    {
+      "path": "crates/zi-text-core/src/lib.rs",
+      "sha256": "db528aa0794d3833541c6b191c89d7fb3121e6fbf285c61947010ecac3b83612"
+    },
+    {
+      "path": "crates/zi-text-core/src/sql.rs",
+      "sha256": "d2ce87e314629083c0e4493f2778aa3cf931d2c3a473ab66338f15b6f61f48ca"
+    },
+    {
+      "path": "crates/zi-text-core/src/transforms.rs",
+      "sha256": "006a24f99736638dde1f84dc9d3766049a5179d26e2854012c347229a5483b4f"
+    },
+    {
+      "path": "crates/zi-text-resource-wasi/src/main.rs",
+      "sha256": "5ab02f50bc1d55130d791a78ee6c33f1c9fd3d17892842158085a783358e4720"
+    },
+    {
+      "path": "crates/zi-text-wasi/src/main.rs",
+      "sha256": "faf8d3a7f3ede807e1be02e90340a87396ac345e6755b9da86575ab53a140143"
+    },
+    {
+      "path": "crates/zi-trace-core/build.rs",
+      "sha256": "7c571beff6b0c6e03a310ff89d76f51b19397dd3fa14a3814fad6a68fa755e36"
+    },
+    {
+      "path": "crates/zi-trace-core/src/legacy.rs",
+      "sha256": "6527844f6b763c8842ef80a7bacf36f5af46f0db015090de1d365e44e1723bee"
+    },
+    {
+      "path": "crates/zi-trace-core/src/lib.rs",
+      "sha256": "2873d67a7868688a4e35e2a47ea69b78807d6f94f62f2a1b5973fb50f7a10bb0"
+    },
+    {
+      "path": "crates/zi-trace-core/src/scan.rs",
+      "sha256": "befd216c73f25ee4dcd28ece18069ddb7650667df208a936f6660b0975d32074"
+    },
+    {
+      "path": "crates/zi-trace-wasi/src/main.rs",
+      "sha256": "9f409400bbd51c052a30d8c32cf99fffddc23c899d59f85771741d0fd0af4f5f"
+    },
+    {
+      "path": "crates/zi-character-core/Cargo.toml",
+      "sha256": "d18fffd323df6b3cc252676cb09ecc84e35f90e53871e335f0141f0f8cea2d67"
+    },
+    {
+      "path": "crates/zi-compare-wasi/Cargo.toml",
+      "sha256": "9bf112b3935711d552f9735b6a1c12b3507d25c7d773f509d7ca7dbc9e7a5252"
+    },
+    {
+      "path": "crates/zi-diagnostics-core/Cargo.toml",
+      "sha256": "812e1af11f899485cfff1164e960b3b10f64fd351a52d04005dba61217acafc5"
+    },
+    {
+      "path": "crates/zi-diagnostics-wasi/Cargo.toml",
+      "sha256": "dc5d89b7311e5b3151fb81aa46380ee8ce5d1c75d7e17aa72584441e06b9b190"
+    },
+    {
+      "path": "crates/zi-diff-core/Cargo.toml",
+      "sha256": "916e6a8ad89a63904d4deba829fd41028571f9f1142108e9ec492f1d23911889"
+    },
+    {
+      "path": "crates/zi-fields-wasi/Cargo.toml",
+      "sha256": "647012f43af4ebcb0f8489f11244192496835e3599ad53b5e39e0eec7dd4a589"
+    },
+    {
+      "path": "crates/zi-image-core/Cargo.toml",
+      "sha256": "f8334243a4859662c0684ea1a1a11c6e19cc846c75b1c2d5ba9d9408269523f9"
+    },
+    {
+      "path": "crates/zi-image-wasi/Cargo.toml",
+      "sha256": "b0d1e344f54483217a9e7985cdbae69961a9f3fc38fbe452c022f947f00d6e4a"
+    },
+    {
+      "path": "crates/zi-inspect-core/Cargo.toml",
+      "sha256": "785929fe7d8741b1eb69f4661f4d173d65c2cac4848719f9ccfdc3a42aa74ace"
+    },
+    {
+      "path": "crates/zi-inspect-wasi/Cargo.toml",
+      "sha256": "39ca527f93f31930a010e298b984ecabb9a2c6c7a3f8b4152b1aad37f3a4a1dd"
+    },
+    {
+      "path": "crates/zi-json-core/Cargo.toml",
+      "sha256": "ad6b87789eafddb3ea4a5ae2d26253c5c5f986b26fbbbc96e46c4d19156cfa94"
+    },
+    {
+      "path": "crates/zi-msi-actions/Cargo.toml",
+      "sha256": "4f6e4ace183dc89ee9e9204c749d7a767bbc25a9aa1be6e75cc7e7fe330c7ff4"
+    },
+    {
+      "path": "crates/zi-regex-core/Cargo.toml",
+      "sha256": "fb948426fc080fcc2acfc8adef6be377fa8ba44796923a9617e799b288b61a13"
+    },
+    {
+      "path": "crates/zi-shell-core/Cargo.toml",
+      "sha256": "ce042d665216b315117bbb3b7db4987255593d90ddcc8487ef25b00e9760b3d6"
+    },
+    {
+      "path": "crates/zi-text-core/Cargo.toml",
+      "sha256": "37b6d15a06a11506839a24ecf3793e3f7bb9e55fbac70daf6bb28ec1c72a1d29"
+    },
+    {
+      "path": "crates/zi-text-resource-wasi/Cargo.toml",
+      "sha256": "b737411611a7830b39dd227176a9013676010393dcaf48e7d170d3531de2ee80"
+    },
+    {
+      "path": "crates/zi-text-wasi/Cargo.toml",
+      "sha256": "0b2518e380a0ac725050e917b297a4bbe415e022a0a7f770b00630977cae9719"
+    },
+    {
+      "path": "crates/zi-trace-core/Cargo.toml",
+      "sha256": "3fa9d4926b970acd0e5dfdcd8c552a970f57adf80147c65319918679abf648a6"
+    },
+    {
+      "path": "crates/zi-trace-wasi/Cargo.toml",
+      "sha256": "18100efb758064e012fb6c9609119f63642ff636ab0f00306c90d4b42aeeea62"
+    }
+  ]
+}

@@ -21,6 +21,12 @@ async fn embedded_pi_candidate03_reports_and_enforces_permission_changes() {
     run_diagnostics_candidate("devtools-diagnostics-candidate03", false).await;
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires current ZICODE_TEST_WORKER_EXE and embedded Pi/broker; run alone"]
+async fn embedded_pi_candidate014_reports_and_enforces_permission_changes() {
+    run_diagnostics_candidate("devtools-diagnostics-0.1.4-candidate-01", false).await;
+}
+
 async fn run_diagnostics_candidate(fixture_name: &str, expect_legacy_fuel_errors: bool) {
     let executable = PathBuf::from(std::env::var_os("ZICODE_TEST_WORKER_EXE").unwrap());
     let delivery = executable.parent().unwrap();
@@ -60,27 +66,30 @@ async fn run_diagnostics_candidate(fixture_name: &str, expect_legacy_fuel_errors
     let actions: Value = serde_json::from_str(actions).unwrap();
     assert_eq!(actions.as_array().unwrap().len(), 11);
     std::fs::write(root.join("samples.json"), actions.to_string()).unwrap();
-    let script = include_str!("diagnostics_pi_observer.txt")
-        .replace(
-            "__EXPECTED_FAILURES__",
-            if expect_legacy_fuel_errors {
-                "[\"django.migrations\", \"celery.report\"]"
-            } else {
-                "[]"
-            },
-        )
-        .replace(
-            "__BROKER_MODULE__",
-            &serde_json::to_string(module_url.as_str()).unwrap(),
-        )
-        .replace(
-            "__SAMPLES_FILE__",
-            &serde_json::to_string(root.join("samples.json").to_str().unwrap()).unwrap(),
-        )
-        .replace(
-            "__RECEIPT_FILE__",
-            &serde_json::to_string(root.join("receipt.json").to_str().unwrap()).unwrap(),
-        );
+    let script = std::fs::read_to_string(
+        project.join("src-tauri/src/host_server/diagnostics_pi_observer.txt"),
+    )
+    .unwrap()
+    .replace(
+        "__EXPECTED_FAILURES__",
+        if expect_legacy_fuel_errors {
+            "[\"django.migrations\", \"celery.report\"]"
+        } else {
+            "[]"
+        },
+    )
+    .replace(
+        "__BROKER_MODULE__",
+        &serde_json::to_string(module_url.as_str()).unwrap(),
+    )
+    .replace(
+        "__SAMPLES_FILE__",
+        &serde_json::to_string(root.join("samples.json").to_str().unwrap()).unwrap(),
+    )
+    .replace(
+        "__RECEIPT_FILE__",
+        &serde_json::to_string(root.join("receipt.json").to_str().unwrap()).unwrap(),
+    );
     std::fs::write(&observer, script).unwrap();
     crate::desktop_profile::initialize([
         std::ffi::OsString::from("--isolated-profile"),

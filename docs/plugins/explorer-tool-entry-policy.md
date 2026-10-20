@@ -1,5 +1,9 @@
 # 资源管理器工具入口与 ZiFile 能力映射
 
+2026-10-17 当前 Debug 隔离 Windows 工具窗口点击关闭后隐藏而 PID 继续存活；同 profile 正常二次启动恢复原窗口及 24 项目录工具，截图已归档。此项补齐托盘保活生命周期的实体证据，任务栏图标右键菜单仍未实体点击，见[阶段记录](../iterations/2026-10-17-tray-close-restore-native.md)。
+
+2026-10-17 实体 Windows 11 Explorer 双文件右键正向补验：经典菜单“在 Studio 中选择文件工具”把 `AGENTS.md`、`biome.json` 作为 `--open-selection 2` 交给当前 Debug，Studio 工具专用窗口只显示基本名和待确认状态，未读取或执行。五文件反向补验时经典菜单隐藏 Studio 项。截图和边界见[阶段记录](../iterations/2026-10-17-explorer-multiselect-native-menu.md)。这不增加 ZiFile 0/108 或 DevTools 0/154 的完整接受数。
+
 2026-10-14。Studio 拥有系统菜单和工具选择界面；提供方插件只声明能力，不自行向 Explorer 注册每个工具。这样安装上百个工具时，系统菜单仍只有一个 Studio 入口，进入工具中心后按所选资源筛选、搜索、分类、收藏和最近使用。
 
 ## 当前实现
@@ -15,6 +19,8 @@ Windows 当前用户可选择安装五类**传统**菜单：文件、文件夹�
 2026-10-14 实体单项菜单补验：目录背景和 `README.md` 文件各自通过 Windows 11“显示更多选项”的传统菜单启动当前 debug EXE。前者打开项目并可进入默认目录筛选，后者直接打开默认文件资源筛选的工具专用窗口；两者当前均为 0 个匹配且获准的插件候选。现代一级菜单没有 Studio 项；实体多选、盘符、目录选中项和托盘右键仍待单独点击。详情见技术博客 `iterations/explorer-native-menu-2026-10-14/work-log.md`。
 
 2026-10-14 后续原生观察：当前 debug EXE 的 `--explorer-menu-status` 为传统菜单 5/5、stale 0。在 Windows 11 文件资源管理器中对项目的 `src-tauri` 文件夹实体右键，一级菜单可见 ZiFile，进入“显示更多选项”后可见“在 ZiCode Studio 中打开”。这只证明已选中文件夹的 Studio 传统菜单可见，尚未点击该项，因此其启动交接、2–4 文件多选、盘符和托盘实体操作仍未由此次观察验收。隔离工具会话中原生 WebView2 的工具中心显示 16 个内置工具及分类、搜索、收藏/最近入口；无 ZiFile 实包，108 格接受数仍为 0。此次观察见技术博客 `iterations/explorer-selected-folder-2026-10-14/work-log.md`。
+
+2026-10-17 当前 Debug 原生参数交接补验：对已运行的 `--isolated-profile` 实例启动第二个同 EXE 进程，传入 `--open-selection 2` 及项目根目录两个普通文件。第二进程退出，现有实例打开独立工具会话；Windows 原生窗口显示两个基本名 `AGENTS.md`、`README.md`、未共享文件内容、仅显示至少支持 2 个输入文件的工具，以及 0 个匹配项。0 项与此隔离配置缺少多文件提供方一致，不能据此证明 ZiFile 创建归档可用。复核时菜单状态仍为传统 5/5；文件资源管理器窗口捕获失败，实体多选右键点击及 COM 到参数的前半段仍待验收。未读取或执行选中文件，未写入项目。见[阶段记录](../iterations/2026-10-17-explorer-selection-handoff.md)。
 
 ## 适合放在选择流程中的工具
 

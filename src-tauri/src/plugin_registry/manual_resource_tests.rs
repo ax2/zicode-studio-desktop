@@ -2,9 +2,74 @@ use super::*;
 use crate::metadata_store::tool_access::{RecentEntry, ToolAccess};
 
 #[test]
+fn resource_mime_query_returns_only_exactly_declared_receivers() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read explicitly shared resource"}
+    ])).unwrap();
+    plugin.manifest.contributes["capabilities"][0]["resourceInputMimeTypes"] = json!(["image/png"]);
+    plugin.manifest.contributes["capabilities"][1]["resourceInputMimeTypes"] = json!(["text/plain"]);
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+
+    let mut query = CatalogQuery {
+        scene_id: "programming".into(), resource_only: true,
+        resource_mime_type: Some("text/plain".into()), ..Default::default()
+    };
+    let text = registry.manual_catalog(&query).unwrap();
+    assert_eq!(text["total"], 1);
+    assert_eq!(text["items"][0]["capabilityId"], "text.001");
+    assert_eq!(text["items"][0]["resourceInputMimeTypes"], json!(["text/plain"]));
+    let revision = text["revision"].as_str().unwrap().to_owned();
+    let details = DetailQuery {
+        scene_id: "programming".into(), plugin_id: id.into(), capability_id: "text.001".into(),
+        revision: revision.clone(), resource_mime_type: Some("text/plain".into()),
+    };
+    assert!(registry.manual_tool_detail(&details).is_ok());
+    assert_eq!(registry.manual_tool_detail(&DetailQuery { resource_mime_type: None, ..details.clone() }).unwrap_err(), "catalog_changed");
+    query.resource_mime_type = Some("image/png".into());
+    assert_eq!(registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"], "text.000");
+    query.resource_mime_type = Some("image/*".into());
+    assert_eq!(registry.manual_catalog(&query).unwrap_err(), "invalid_parameters");
+}
+
+#[test]
+fn receiver_exclusion_precedes_paging_and_facets() {
+    let mut registry = tests::registry();
+    let id = "com.zicode.catalog-fixture";
+    let plugin = registry.plugins.get_mut(id).unwrap();
+    plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
+    plugin.manifest.permissions.optional = serde_json::from_value(json!([
+        {"name":"resource.read","reason":"read explicitly shared resource"}
+    ])).unwrap();
+    for cap in plugin.manifest.contributes["capabilities"].as_array_mut().unwrap().iter_mut().take(41) {
+        cap["resourceInputMimeTypes"] = json!(["text/plain"]);
+    }
+    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    let query = CatalogQuery { scene_id: "programming".into(), resource_only: true,
+        resource_mime_type: Some("text/plain".into()),
+        exclude_plugin_id: Some(id.into()), exclude_capability_id: Some("text.000".into()),
+        ..Default::default() };
+    let page = registry.manual_catalog(&query).unwrap();
+    assert_eq!(page["total"], 40);
+    assert_eq!(page["items"].as_array().unwrap().len(), 40);
+    assert_eq!(page["items"][0]["capabilityId"], "text.001");
+    assert_eq!(page["nextOffset"], Value::Null);
+    assert_eq!(page["sources"][0]["count"], 40);
+    assert_eq!(page["categories"][0]["count"], 40);
+}
+
+#[test]
 fn multi_resource_count_requires_an_explicit_wasi_capability() {
     let registry = tests::registry();
-    let mut manifest = registry.plugins.get("com.zicode.catalog-fixture").unwrap().manifest.clone();
+    let mut manifest = registry
+        .plugins
+        .get("com.zicode.catalog-fixture")
+        .unwrap()
+        .manifest
+        .clone();
     manifest.runtime["wasi"] = json!("runtime/tools.wasm");
     manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
     manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
@@ -26,12 +91,20 @@ fn explorer_selection_filters_capacity_before_paging_without_loading_tools() {
     plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
     plugin.manifest.permissions.optional = serde_json::from_value(json!([
         {"name":"resource.read","reason":"read chosen files"}
-    ])).unwrap();
+    ]))
+    .unwrap();
     plugin.manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
     plugin.manifest.contributes["capabilities"][204]["resourceInputMax"] = json!(2);
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
-    let mut query = CatalogQuery { scene_id: "programming".into(), resource_only: true,
-        selected_file_count: Some(2), ..Default::default() };
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.read".into(), true);
+    let mut query = CatalogQuery {
+        scene_id: "programming".into(),
+        resource_only: true,
+        selected_file_count: Some(2),
+        ..Default::default()
+    };
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 2);
     assert_eq!(page["items"][0]["capabilityId"], "text.000");
@@ -60,30 +133,47 @@ fn explorer_selection_matches_every_declared_filename_without_reading_files() {
     plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
     plugin.manifest.permissions.optional = serde_json::from_value(json!([
         {"name":"resource.read","reason":"read chosen files"}
-    ])).unwrap();
-    let caps = plugin.manifest.contributes["capabilities"].as_array_mut().unwrap();
+    ]))
+    .unwrap();
+    let caps = plugin.manifest.contributes["capabilities"]
+        .as_array_mut()
+        .unwrap();
     caps.truncate(3);
-    for cap in caps.iter_mut() { cap["resourceInputMax"] = json!(4); }
+    for cap in caps.iter_mut() {
+        cap["resourceInputMax"] = json!(4);
+    }
     caps[0]["fileInput"] = json!({"extensions":[".txt"]});
     caps[1]["fileInput"] = json!({"anyFile":true});
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
-    let mut query = CatalogQuery { scene_id:"programming".into(), resource_only:true,
-        selected_file_count:Some(2), file_names:Some(json!(["one.txt","two.zip"]).to_string()),
-        ..Default::default() };
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.read".into(), true);
+    let mut query = CatalogQuery {
+        scene_id: "programming".into(),
+        resource_only: true,
+        selected_file_count: Some(2),
+        file_names: Some(json!(["one.txt", "two.zip"]).to_string()),
+        ..Default::default()
+    };
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 2);
     assert_eq!(page["items"][0]["capabilityId"], "text.001");
     assert_eq!(page["items"][0]["fileInputMatch"], "declared");
     assert_eq!(page["items"][1]["capabilityId"], "text.002");
     assert_eq!(page["items"][1]["fileInputMatch"], "unknown");
-    query.file_names = Some(json!(["one.txt","two.txt"]).to_string());
+    query.file_names = Some(json!(["one.txt", "two.txt"]).to_string());
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 3);
-    for invalid in ["not-json", "[]", "[\"one.txt\"]", "[\"../secret\",\"two.txt\"]",
-        "[\"same.txt\",\"same.txt\"]"] {
+    for invalid in [
+        "not-json",
+        "[]",
+        "[\"one.txt\"]",
+        "[\"../secret\",\"two.txt\"]",
+        "[\"same.txt\",\"same.txt\"]",
+    ] {
         query.file_names = Some(invalid.into());
         assert!(registry.manual_catalog(&query).is_err());
     }
-    query.file_names = Some(json!(["one.txt","two.txt"]).to_string());
+    query.file_names = Some(json!(["one.txt", "two.txt"]).to_string());
     query.selected_file_count = Some(3);
     assert!(registry.manual_catalog(&query).is_err());
 }
@@ -94,13 +184,25 @@ fn file_hints_hide_declared_mismatches_but_keep_legacy_unknown() {
     let id = "com.zicode.catalog-fixture";
     let plugin = registry.plugins.get_mut(id).unwrap();
     plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
-    plugin.manifest.permissions.optional = serde_json::from_value(json!([{"name":"resource.read","reason":"read chosen file"}])).unwrap();
-    let caps = plugin.manifest.contributes["capabilities"].as_array_mut().unwrap();
+    plugin.manifest.permissions.optional =
+        serde_json::from_value(json!([{"name":"resource.read","reason":"read chosen file"}]))
+            .unwrap();
+    let caps = plugin.manifest.contributes["capabilities"]
+        .as_array_mut()
+        .unwrap();
     caps.truncate(3);
     caps[0]["fileInput"] = json!({"extensions":[".txt"]});
     caps[1]["fileInput"] = json!({"extensions":[".png"]});
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
-    let mut query = CatalogQuery { scene_id: "programming".into(), resource_only: true, file_name: Some("中文.TXT".into()), ..Default::default() };
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.read".into(), true);
+    let mut query = CatalogQuery {
+        scene_id: "programming".into(),
+        resource_only: true,
+        file_name: Some("中文.TXT".into()),
+        ..Default::default()
+    };
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 2);
     assert_eq!(page["items"][0]["fileInputMatch"], "declared");
@@ -123,12 +225,20 @@ fn explorer_file_match_precedes_legacy_unknown_before_paging() {
     plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
     plugin.manifest.permissions.optional = serde_json::from_value(json!([
         {"name":"resource.read","reason":"read chosen file"}
-    ])).unwrap();
+    ]))
+    .unwrap();
     plugin.manifest.contributes["capabilities"][204]["fileInput"] = json!({"extensions":[".zip"]});
     plugin.manifest.contributes["capabilities"][203]["fileInput"] = json!({"extensions":[".png"]});
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
-    let mut query = CatalogQuery { scene_id:"programming".into(), resource_only:true,
-        file_name:Some("Archive.ZIP".into()), ..Default::default() };
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.read".into(), true);
+    let mut query = CatalogQuery {
+        scene_id: "programming".into(),
+        resource_only: true,
+        file_name: Some("Archive.ZIP".into()),
+        ..Default::default()
+    };
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 204);
     assert_eq!(page["items"][0]["capabilityId"], "text.204");
@@ -136,36 +246,77 @@ fn explorer_file_match_precedes_legacy_unknown_before_paging() {
     assert_eq!(page["items"][1]["capabilityId"], "text.000");
     query.offset = 40;
     query.revision = Some(page["revision"].as_str().unwrap().into());
-    assert_eq!(registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"], "text.039");
+    assert_eq!(
+        registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"],
+        "text.039"
+    );
     query.offset = 0;
     query.revision = None;
     query.file_name = None;
-    assert_eq!(registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"], "text.000");
+    assert_eq!(
+        registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"],
+        "text.000"
+    );
 
     query.file_name = Some("Archive.ZIP".into());
-    let access = ToolAccess { favorites: vec![tool_access_id(id,"text.000"), tool_access_id(id,"text.204")],
-        recent: ["text.000", "text.204"].map(|cap| RecentEntry { id:tool_access_id(id,cap), used_at:1 }).to_vec(),
-        ..Default::default() };
+    let access = ToolAccess {
+        favorites: vec![
+            tool_access_id(id, "text.000"),
+            tool_access_id(id, "text.204"),
+        ],
+        recent: ["text.000", "text.204"]
+            .map(|cap| RecentEntry {
+                id: tool_access_id(id, cap),
+                used_at: 1,
+            })
+            .to_vec(),
+        ..Default::default()
+    };
     query.view = CatalogView::Favorites;
-    assert_eq!(registry.manual_catalog_with_access(&query,Some(&access)).unwrap()["items"][0]["capabilityId"], "text.204");
+    assert_eq!(
+        registry
+            .manual_catalog_with_access(&query, Some(&access))
+            .unwrap()["items"][0]["capabilityId"],
+        "text.204"
+    );
     query.view = CatalogView::Recent;
-    assert_eq!(registry.manual_catalog_with_access(&query,Some(&access)).unwrap()["items"][0]["capabilityId"], "text.000");
+    assert_eq!(
+        registry
+            .manual_catalog_with_access(&query, Some(&access))
+            .unwrap()["items"][0]["capabilityId"],
+        "text.000"
+    );
 }
 
 #[test]
 fn resource_targets_are_metadata_only_permission_scoped_and_paged() {
     let mut registry = tests::registry();
     let id = "com.zicode.catalog-fixture";
-    let query = CatalogQuery { scene_id: "programming".into(), resource_only: true, ..Default::default() };
+    let query = CatalogQuery {
+        scene_id: "programming".into(),
+        resource_only: true,
+        ..Default::default()
+    };
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
     let plugin = registry.plugins.get_mut(id).unwrap();
     plugin.manifest.runtime["resourceInputProfile"] = json!("resource.wasi.input.draft2");
     plugin.manifest.contributes["capabilities"][0]["resourceInputMax"] = json!(4);
-    plugin.manifest.permissions.optional = serde_json::from_value(json!([{"name":"resource.read","reason":"read chosen output"}])).unwrap();
+    plugin.manifest.permissions.optional =
+        serde_json::from_value(json!([{"name":"resource.read","reason":"read chosen output"}]))
+            .unwrap();
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.read".into(), true);
     let page = registry.manual_catalog(&query).unwrap();
-    let detail_query = DetailQuery { scene_id: "programming".into(), plugin_id: id.into(), capability_id: "text.000".into(), revision: page["revision"].as_str().unwrap().into() };
+    let detail_query = DetailQuery {
+        scene_id: "programming".into(),
+        plugin_id: id.into(),
+        capability_id: "text.000".into(),
+        revision: page["revision"].as_str().unwrap().into(),
+        resource_mime_type: None,
+    };
     let detail = registry.manual_tool_detail(&detail_query).unwrap();
     assert_eq!(detail["resourceInputProfile"], "resource.wasi.input.draft2");
     assert_eq!(detail["capability"]["resourceInputMax"], 4);
@@ -175,17 +326,33 @@ fn resource_targets_are_metadata_only_permission_scoped_and_paged() {
     assert_eq!(page["items"].as_array().unwrap().len(), 40);
     assert!(!page.to_string().contains("inputSchema"));
     assert!(!page.to_string().contains("tools.wasm"));
-    let next = CatalogQuery { offset: 40, revision: Some(page["revision"].as_str().unwrap().into()), ..query };
-    assert_eq!(registry.manual_catalog(&next).unwrap()["items"][0]["capabilityId"], "text.040");
+    let next = CatalogQuery {
+        offset: 40,
+        revision: Some(page["revision"].as_str().unwrap().into()),
+        ..query
+    };
+    assert_eq!(
+        registry.manual_catalog(&next).unwrap()["items"][0]["capabilityId"],
+        "text.040"
+    );
     registry.scene_plugin_state_mut("programming", id).enabled = Some(false);
-    let first = CatalogQuery { offset: 0, revision: None, ..next };
+    let first = CatalogQuery {
+        offset: 0,
+        revision: None,
+        ..next
+    };
     assert_eq!(registry.manual_catalog(&first).unwrap()["total"], 0);
     registry.scene_plugin_state_mut("programming", id).enabled = Some(true);
-    registry.plugins.get_mut(id).unwrap().manifest.runtime = json!({"entry":"runtime/tools.js","resourceInputProfile":"resource.wasi.input.draft2"});
+    registry.plugins.get_mut(id).unwrap().manifest.runtime =
+        json!({"entry":"runtime/tools.js","resourceInputProfile":"resource.wasi.input.draft2"});
     assert_eq!(registry.manual_catalog(&first).unwrap()["total"], 0);
-    registry.plugins.get_mut(id).unwrap().manifest.runtime = json!({"wasi":"runtime/tools.wasm","resourceInputProfile":"resource.wasi.input.draft1"});
+    registry.plugins.get_mut(id).unwrap().manifest.runtime =
+        json!({"wasi":"runtime/tools.wasm","resourceInputProfile":"resource.wasi.input.draft1"});
     assert_eq!(registry.manual_catalog(&first).unwrap()["total"], 0);
-    let normal = CatalogQuery { resource_only: false, ..first };
+    let normal = CatalogQuery {
+        resource_only: false,
+        ..first
+    };
     assert_eq!(registry.manual_catalog(&normal).unwrap()["total"], 205);
 }
 
@@ -198,19 +365,39 @@ fn directory_targets_require_the_extra_grant_and_reject_mixed_filters() {
     plugin.manifest.permissions.optional = serde_json::from_value(json!([
         {"name":"resource.read","reason":"read chosen resource"},
         {"name":"resource.directory.read","reason":"read chosen directory names"}
-    ])).unwrap();
-    let query = CatalogQuery { scene_id: "programming".into(), directory_only: true, ..Default::default() };
+    ]))
+    .unwrap();
+    let query = CatalogQuery {
+        scene_id: "programming".into(),
+        directory_only: true,
+        ..Default::default()
+    };
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.read".into(), true);
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.read".into(), true);
     assert_eq!(registry.manual_catalog(&query).unwrap()["total"], 0);
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.directory.read".into(), true);
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.directory.read".into(), true);
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 205);
     assert_eq!(page["items"].as_array().unwrap().len(), 40);
     assert!(!page.to_string().contains("inputSchema"));
-    let mixed = CatalogQuery { resource_only: true, ..query };
+    let mixed = CatalogQuery {
+        resource_only: true,
+        ..query
+    };
     assert!(registry.manual_catalog(&mixed).is_err());
-    registry.scene_plugin_state_mut("programming", id).permissions.insert("resource.directory.read".into(), false);
-    let revoked = CatalogQuery { resource_only: false, ..mixed };
+    registry
+        .scene_plugin_state_mut("programming", id)
+        .permissions
+        .insert("resource.directory.read".into(), false);
+    let revoked = CatalogQuery {
+        resource_only: false,
+        ..mixed
+    };
     assert_eq!(registry.manual_catalog(&revoked).unwrap()["total"], 0);
 }

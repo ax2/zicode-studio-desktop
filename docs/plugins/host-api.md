@@ -2,6 +2,8 @@
 
 本文命名空间是总体设计，不能据此假设全部已经提供。当前隔离View资源读取候选的实际签名与限制见下面的resources节；尚未实现的接口不能由提供方发布为已支持。
 
+成功 WASI 结果的 `result.json.v1` 为单独的显式 Host 候选 profile，详见[结构化结果协议](result-json-profile.md)。它不向插件 View 增加跨插件操作，也不改变默认文本 v1 结果。
+
 ## 当前隔离View资源读取候选
 
 源码SDK提供 `zicode.resources.read({capabilityId,resourceId,contentVersion,offset?,length?})`，返回确认资源的有界Base64分块；不是文件路径读取。每次最多32KiB，默认偏移0，SDK最多32项等待、30秒超时。身份由可信父窗绑定，结果版本/偏移/编码严格校验；目标变化或View销毁后不再交付结果。桌面token不交给插件，子窗仍为opaque sandbox且connect-src none。
@@ -211,7 +213,7 @@ P6 内置 Artifacts 使用同源 Host 路由，并只返回不含本地路径的
 - Manifest 校验 Pi Tool 到 Capability 的映射与工具名，当前场景拒绝重名工具；
 - `notes.search`、`notes.get` 和 `notes.create` 在 Host 内执行；搜索只返回插件数据根
   目录下的相对路径；
-- 输入上限 256 KiB、输出上限 1 MiB，Pi 调用按 Runtime + `toolCallId` 幂等；
+- 独立插件 Worker 的完整序列化请求上限 256 KiB、输出上限 1 MiB；通用 Capability 入口另有 16 MiB 预检上限，供内置图片/文档能力使用，不能据此认为独立插件可接收 16 MiB 参数。Pi 调用按 Runtime + `toolCallId` 幂等；
 - 审计为 JSONL，只记录调用元数据和输入哈希，不记录输入、结果或密钥。
 
 隔离 Worker Runtime、调用取消的 Host 侧主动传播、真实并发配额和长任务 Handle 尚未

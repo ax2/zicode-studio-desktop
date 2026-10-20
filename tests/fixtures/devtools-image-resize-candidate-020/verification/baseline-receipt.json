@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "kind": "unsigned-provider-candidate",
+  "packageId": "com.zicode.devtools.image",
+  "packageVersion": "0.1.1",
+  "candidateDirectory": "release/plugin-candidates/image-resize-0.1.1-candidate-02",
+  "sourceRevision": "65f9aa63c831a4540bdd5731aa4da3de76dbd4b8",
+  "sourceWorkingTreeDirty": true,
+  "platform": {
+    "os": "Windows",
+    "release": "11",
+    "architecture": "AMD64"
+  },
+  "contract": {
+    "version": "1.0.0-preview.1",
+    "profile": "resource.wasi.image.resize.v1",
+    "manifestSchemaVersion": 2
+  },
+  "profiles": {
+    "resource.wasi.image.resize.v1": "=1.0.0-preview.1",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "resource.output.types.v1": "=1.0.0-preview.1"
+  },
+  "permissions": [
+    "resource.read"
+  ],
+  "sourceTool": {
+    "id": "image-workflow",
+    "version": "0.11.0",
+    "status": "in-progress",
+    "catalogPath": "docs/tools.json",
+    "catalogSha256": "6884b26aae4043147999a0f9e5026ea51537744911e10aa0c1e9ace807b8e7f8",
+    "scope": "开发中：逐步图片操作、独立工作实例、流程库搜索收藏最近、实例任务中心和跨实例接力。流程实例共享会话载荷预算，默认1024MiB、界面可调64..8192MiB；共享像素与编码按实际分配容量去重计数，后台任务先预留，保留旧结果和未收取结果，超额拒绝新分配。仍保留每次运行256MiB累计限制。开发版载入选定文件在读取缓冲和像素解码之前预留，按文件身份复核和取消释放；内存设置通过摘要同一行菜单展开。其他图片工具、缩略图/GPU和编解码器内部临时分配尚未统一；不是进程总内存上限。公共插件端口及物理交互验收继续开发。 内存设置菜单支持内部点击与数值编辑，点击外部或Esc关闭；预算错误单独提示，有效修改后清除。明暗实际72MiB图片、128MiB成功/64MiB拒绝保留原额度/256MiB成功验证通过。 开发版单图与流程共享载荷池：读取缓冲、缩放新像素、编码增长与实际预览解码先预留，未收取编码结果持续计入。失败保留旧图片与有效结果；待输入路径和已载入来源独立，保存核对已载入来源。单图页可直接调整同一预算。其他图片入口、接力准备、thumbnail/GPU及编解码器内部临时内存未统一，不是进程总内存上限。 新增Windows本机image.ocr步骤：对当前图片使用用户首选OCR语言，文字最多1MiB作为本次运行报告，用户可预览并主动复制；图片不变，流程定义不包含识别内容且不自动接力。OCR引擎内部临时内存未计入图片会话池，WinRT识别调用不能中途取消；跨平台通用插件端口仍待实现；OCR报告支持明确选择后进入统一工具接力并由用户确认目标 图片流程信息步骤的 JSON 报告 schema2 增加来源工具独立版本、程序版本和不含机器名/用户名/路径的 SHA-256 运行环境指纹。"
+  },
+  "scope": {
+    "included": [
+      "one user-authorized PNG/JPEG/WebP image resource",
+      "resize to a bounded maximum width",
+      "encode one PNG/JPEG/WebP derived resource"
+    ],
+    "excluded": [
+      "batch operations",
+      "crop or annotate",
+      "EXIF cleanup",
+      "OCR",
+      "persistent library",
+      "filesystem paths",
+      "network",
+      "automatic save/overwrite"
+    ]
+  },
+  "signature": {
+    "signed": false,
+    "publisherKeyAvailable": false,
+    "format": "unsigned directory; no .zicode-plugin container"
+  },
+  "acceptance": {
+    "providerCandidate": true,
+    "studioReceiptVerified": false,
+    "nativeStudioEndToEnd": "pending"
+  },
+  "wasm": {
+    "path": "runtime/tools.wasm",
+    "size": 1028463,
+    "sha256": "a38e4743475f33f8c04aed87e064c942067956d4d0a366a4a12e36371df8f77a",
+    "memoryCeilingBytes": 268435456
+  },
+  "studioWorker": {
+    "path": "E:\\zicode-studio-desktop\\target\\debug\\zicode-studio-desktop.exe",
+    "sha256": "0b3ae21ed1bb9852aafb1407d84aaaccbdb53e04d02850811e9f6d260546845f"
+  },
+  "functionalEvidence": {
+    "path": "target/image-resource-benchmark/results.json",
+    "sha256": "aac8936362b94b6e498afd74629010a933c811ba742a673043bb3aba0a9cc335",
+    "profile": "resource.wasi.image.resize.v1@1.0.0-preview.1",
+    "fixtureNames": [
+      "4mp",
+      "16mp",
+      "2mp-transparent",
+      "profile-over-edge",
+      "damaged"
+    ],
+    "formatMatrixCases": 9,
+    "tests": [
+      {
+        "name": "Studio Worker resize fixtures (4 MP, near 16 MP, transparent PNG)",
+        "status": "passed"
+      },
+      {
+        "name": "Studio Worker PNG/JPEG/WebP input-output matrix",
+        "status": "passed"
+      },
+      {
+        "name": "Studio Worker rejects over-profile image dimensions",
+        "status": "passed"
+      },
+      {
+        "name": "Studio Worker rejects damaged image without output",
+        "status": "passed"
+      },
+      {
+        "name": "Studio Worker rejects invalid width parameters without output",
+        "status": "passed"
+      },
+      {
+        "name": "Studio Worker rejects MIME/file-format mismatch without output",
+        "status": "passed"
+      },
+      {
+        "name": "Studio Worker rejects output above 32 MiB",
+        "status": "passed"
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "README.md",
+      "size": 1526,
+      "sha256": "9b50978bb59daaeec40fc9af8a0b38f0018aef7723260914a609e450feea58a9"
+    },
+    {
+      "path": "catalog.json",
+      "size": 952,
+      "sha256": "7118ce6b91fcc9949cdb5b59e85550ada35c993dd05c0d87d5ffd003053fc5b5"
+    },
+    {
+      "path": "plugin.json",
+      "size": 3104,
+      "sha256": "6f7ce6851bb1d2ab762b5010372e548049619383ef546d9bdafde47a1c97371b"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 1028463,
+      "sha256": "a38e4743475f33f8c04aed87e064c942067956d4d0a366a4a12e36371df8f77a"
+    },
+    {
+      "path": "schemas/resize-input.schema.json",
+      "size": 648,
+      "sha256": "cea5b7c7cfd357a4c3c352806be67c90bbd4eeb076c47895de1ea97a8914b3ee"
+    },
+    {
+      "path": "schemas/resize-output.schema.json",
+      "size": 877,
+      "sha256": "d929f3e54f53d6b01f1da15fa2d022302740261de976f4e4297e2b05f880ca00"
+    }
+  ],
+  "directoryIndexSha256": "ef8cfd90cb11e6685f0e32e89e55f10ec53af564468f0bfde6cae025baace257",
+  "candidateTreeSha256": "ef8cfd90cb11e6685f0e32e89e55f10ec53af564468f0bfde6cae025baace257",
+  "limitations": [
+    "No signing key was used; this directory is not an installable signed .zicode-plugin package.",
+    "Studio worker-mode execution verifies module/framing behavior, not package installation, user authorization, resource registration, preview, transfer, save, cancellation, leases or concurrency acceptance.",
+    "Current Host image-output registration requires exactly one output resource before validating the result; zero-resource adapter failures therefore map to invalid_output and do not preserve adapter error codes. Host-level negative-result handling remains an acceptance blocker.",
+    "WASI/native resizing has a bounded one-channel delta in two WebP-input fixtures; see full semantic comparisons in the benchmark receipt."
+  ]
+}

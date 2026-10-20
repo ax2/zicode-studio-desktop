@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -50,6 +51,68 @@ it("hashes the exact file inventory without copying, executing or claiming accep
   });
   expect(receipt.files).toEqual(f.files);
   expect(readFileSync(join(f.directory, "tools.wasm"))).toEqual(before);
+});
+
+it("recomputes a declared compact JSON files-array index", async () => {
+  const f = fixture();
+  const directoryIndexEncoding = {
+    hash: "SHA-256",
+    encoding: "UTF-8",
+    content: "files array in listed order",
+    objectKeyOrder: ["path", "size", "sha256"],
+    ensureAscii: false,
+    separators: [",", ":"],
+    trailingNewline: false,
+  };
+  const directoryIndexSha256 = createHash("sha256")
+    .update(JSON.stringify(f.files), "utf8")
+    .digest("hex");
+  writeFileSync(
+    f.index,
+    JSON.stringify({ files: f.files, directoryIndexEncoding, directoryIndexSha256 }),
+  );
+  const receipt = await verifyDevtoolsPackage(f.directory, f.index);
+  expect(receipt.directoryIndex).toEqual({ status: "matched", sha256: directoryIndexSha256 });
+
+  writeFileSync(
+    f.index,
+    JSON.stringify({
+      files: f.files,
+      directoryIndexEncoding,
+      directoryIndexSha256: "0".repeat(64),
+    }),
+  );
+  await expect(verifyDevtoolsPackage(f.directory, f.index)).rejects.toThrow(
+    "package_directory_index_mismatch",
+  );
+});
+
+it("reports an unspecified index encoding without claiming to have checked it", async () => {
+  const f = fixture();
+  writeFileSync(f.index, JSON.stringify({ files: f.files, directoryIndexSha256: "0".repeat(64) }));
+  const receipt = await verifyDevtoolsPackage(f.directory, f.index);
+  expect(receipt.directoryIndex).toEqual({ status: "encoding-unverified" });
+});
+
+it("fails command-line intake when a declared directory index cannot be verified", () => {
+  const f = fixture();
+  writeFileSync(
+    f.index,
+    JSON.stringify({
+      files: f.files,
+      directoryIndexEncoding: "compact JSON described in prose",
+      directoryIndexSha256: "0".repeat(64),
+    }),
+  );
+  const run = spawnSync(
+    process.execPath,
+    [resolve("scripts/verify-devtools-package.mjs"), f.directory, f.index],
+    { encoding: "utf8" },
+  );
+  expect(run.status).toBe(1);
+  const report = JSON.parse(run.stdout);
+  expect(report.verified).toBe(true);
+  expect(report.directoryIndex).toEqual({ status: "encoding-unverified" });
 });
 
 it("verifies the original receiver bytes index without changing its expected digests", async () => {

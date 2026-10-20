@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operation", "task", "error"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operation": { "type": "string", "maxLength": 64 },
+    "task": { "type": "null" },
+    "error": { "$ref": "common.schema.json#/$defs/error" }
+  }
+}

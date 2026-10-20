@@ -252,9 +252,11 @@ function isTypingTarget(target) {
 }
 
 /**
- * Workspace switcher: list every registered workspace and switch the current
- * window to the selected project in place. Also renders the shared workspace
- * bar (current project name + path) as a passive label and offers "Open
+ * Workspace switcher: list every registered workspace and ask the native host
+ * to open the selected project. In explicit tools-only mode the host opens a
+ * separate project window; AI sessions can navigate the current window. It
+ * also renders the shared workspace bar (current project name + path) as a
+ * passive label and offers "Open
  * folder as workspace" inside the switcher menu so the folder picker stays
  * reachable without a dedicated button. Falls back to a hidden control on
  * remote/browser clients that cannot invoke native window navigation.

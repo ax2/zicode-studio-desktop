@@ -1,0 +1,18 @@
+{
+  "profile": "tool.directory.v1",
+  "profileVersion": "1.0.0-preview.1",
+  "packageId": "com.zicode.devtools.url-text-resource",
+  "packageVersion": "0.1.1",
+  "capabilities": [
+    {
+      "id": "devtools.transforms.url.encode",
+      "categoryId": "text",
+      "aliases": [
+        "URL 编码",
+        "文本资源 URL 编码",
+        "URL encode resource"
+      ],
+      "description": "接收用户授权的 UTF-8 文本资源并进行 URL 编码；保留源字节数与明确错误结果。"
+    }
+  ]
+}

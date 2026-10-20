@@ -102,18 +102,105 @@ fn translates_and_summarizes_through_an_explicit_local_service_without_credentia
     }
 }
 
-#[test]
-fn bounded_plugin_model_request_sets_output_token_budget() {
+#[tokio::test]
+async fn bounded_plugin_model_request_sets_output_token_budget() {
     let payload = json!({"choices":[{"message":{"content":"ok"}}]}).to_string();
     let (url, worker) = mock_server(vec![(200, payload, String::new())]);
-    let result = complete_limited(
-        &local_endpoint(&url, false), None, "bounded prompt".into(),
-        Duration::from_secs(3), 128,
-    ).unwrap();
-    assert_eq!(crate::translation::extract_text(&result).as_deref(), Some("ok"));
+    let result = complete_limited_cancellable(
+        &local_endpoint(&url, false),
+        None,
+        "bounded prompt".into(),
+        Duration::from_secs(3),
+        128,
+        tokio_util::sync::CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        crate::translation::extract_text(&result).as_deref(),
+        Some("ok")
+    );
     let request = &worker.join().unwrap()[0];
     assert!(request.contains("\"max_tokens\":128"));
     assert!(request.contains("bounded prompt"));
+}
+
+#[tokio::test]
+async fn cancellable_plugin_model_request_closes_an_in_flight_http_connection() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}/v1", listener.local_addr().unwrap());
+    let (received_tx, received_rx) = std::sync::mpsc::channel();
+    let worker = thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < deadline, "fixture request timed out");
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(error) => panic!("fixture accept: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let mut bytes = Vec::new();
+        loop {
+            let mut chunk = [0_u8; 2048];
+            let count = stream.read(&mut chunk).unwrap();
+            assert!(count > 0);
+            bytes.extend_from_slice(&chunk[..count]);
+            if let Some(end) = bytes.windows(4).position(|window| window == b"\r\n\r\n") {
+                let header = String::from_utf8_lossy(&bytes[..end]).to_lowercase();
+                let length: usize = header
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:"))
+                    .unwrap()
+                    .trim()
+                    .parse()
+                    .unwrap();
+                if bytes.len() >= end + 4 + length {
+                    break;
+                }
+            }
+        }
+        received_tx.send(()).unwrap();
+        let mut extra = [0_u8; 1];
+        stream
+            .read(&mut extra)
+            .map(|count| count == 0)
+            .unwrap_or(false)
+    });
+    let endpoint = local_endpoint(&url, false);
+    let cancellation = tokio_util::sync::CancellationToken::new();
+    let request_cancellation = cancellation.clone();
+    let request = tokio::spawn(async move {
+        complete_limited_cancellable(
+            &endpoint,
+            None,
+            "cancel me".into(),
+            Duration::from_secs(5),
+            128,
+            request_cancellation,
+        )
+        .await
+    });
+    tokio::task::spawn_blocking(move || {
+        received_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("model request did not reach local service");
+    })
+    .await
+    .unwrap();
+    cancellation.cancel();
+    assert_eq!(
+        request.await.unwrap().unwrap_err(),
+        "model_request_cancelled"
+    );
+    assert!(worker.join().unwrap(), "cancelled HTTP socket stayed open");
 }
 
 #[test]

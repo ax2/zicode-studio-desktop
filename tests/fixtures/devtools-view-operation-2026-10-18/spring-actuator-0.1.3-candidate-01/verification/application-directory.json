@@ -1,0 +1,20 @@
+{
+  "profile": "application.directory.v1",
+  "version": "=1.0.0-preview.1",
+  "packageId": "com.zicode.devtools.spring-actuator",
+  "activity": {
+    "id": "devtools.spring-actuator",
+    "title": "Spring Actuator",
+    "order": 870,
+    "directory": {
+      "categoryId": "system",
+      "aliases": [
+        "Spring健康检查",
+        "Actuator诊断",
+        "Spring health",
+        "service diagnostics"
+      ],
+      "description": "逐次确认读取Spring Actuator的health、info或metrics端点，并查看响应摘要。"
+    }
+  }
+}

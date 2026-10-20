@@ -20,9 +20,14 @@ description = "Allow opening the native folder picker to spawn a new workspace w
 commands.allow = ["open_folder_as_workspace"]
 
 [[permission]]
-identifier = "allow-select-and-install-developer-plugin"
-description = "Allow selecting and installing a validated local developer plugin package."
-commands.allow = ["select_and_install_developer_plugin"]
+identifier = "allow-select-developer-plugin-package"
+description = "Allow selecting and validating a local developer plugin package without installation."
+commands.allow = ["select_developer_plugin_package"]
+
+[[permission]]
+identifier = "allow-install-previewed-developer-plugin"
+description = "Allow installing a developer plugin only after its previewed content digest is rechecked."
+commands.allow = ["install_previewed_developer_plugin"]
 
 [[permission]]
 identifier = "allow-select-signed-plugin-package"
@@ -246,7 +251,8 @@ permissions = [
   "allow-finish-background-automation-worker-update",
   "allow-inspect-project-storage",
   "allow-open-folder-as-workspace",
-  "allow-select-and-install-developer-plugin",
+  "allow-select-developer-plugin-package",
+  "allow-install-previewed-developer-plugin",
   "allow-select-signed-plugin-package",
   "allow-install-signed-plugin-package",
   "allow-rollback-signed-plugin-package",

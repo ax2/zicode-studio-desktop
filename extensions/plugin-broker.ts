@@ -1,8 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { setupPluginCatalog } from "./plugin-catalog";
-import { createPluginInvokeClient } from "./plugin-invoke-client";
+import { createPluginInvokeEnvelopeClient } from "./plugin-invoke-client";
 import { type PluginToolSnapshot, readPluginTools } from "./plugin-tool-snapshot";
+import { pluginToolResult } from "./plugin-tool-result";
 
 export type { PluginToolSnapshot } from "./plugin-tool-snapshot";
 
@@ -22,7 +23,7 @@ export function setupPluginBroker(
   const snapshot = readPluginTools(environment.PI_DESKTOP_PLUGIN_TOOLS);
   const tools = snapshot.tools;
   if (!origin || !token || !runtimeId || !sessionId) return;
-  const invoke = createPluginInvokeClient({ origin, token, runtimeId, sessionId }, request);
+  const invoke = createPluginInvokeEnvelopeClient({ origin, token, runtimeId, sessionId }, request);
 
   const register = (tool: PluginToolSnapshot, proof?: { toolId: string; revision: string }) => {
     pi.registerTool({
@@ -37,13 +38,11 @@ export function setupPluginBroker(
             toolName: tool.name,
             ...(proof ? { toolId: proof.toolId, catalogRevision: proof.revision } : {}),
             input,
+            captureResult: true,
           },
           signal,
         );
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(result) }],
-          details: result,
-        };
+        return pluginToolResult(result, tool);
       },
     });
   };

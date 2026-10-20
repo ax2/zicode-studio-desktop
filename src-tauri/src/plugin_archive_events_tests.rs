@@ -13,6 +13,21 @@ fn line(sequence: usize, kind: &str, payload: Value) -> Vec<u8> {
 }
 
 #[test]
+fn rejects_duplicate_event_keys_before_accepting_any_result() {
+    let mut decoder = ArchiveEventDecoder::new(CALL, "list").unwrap();
+    let mut duplicate = format!(
+        r#"{{"schemaVersion":1,"callId":"{CALL}","sequence":0,"type":"started","payload":{{"operation":"list","operation":"test"}}}}"#
+    )
+    .into_bytes();
+    duplicate.push(b'\n');
+    assert_eq!(decoder.accept_line(&duplicate), Err("invalid_json"));
+    assert_eq!(
+        decoder.accept_line(&line(0, "started", json!({"operation":"list"}))),
+        Err("decoder_failed")
+    );
+}
+
+#[test]
 fn accepts_bounded_list_and_failure_terminal() {
     let mut decoder = ArchiveEventDecoder::new(CALL, "list").unwrap();
     decoder

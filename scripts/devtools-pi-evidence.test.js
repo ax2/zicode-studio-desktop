@@ -24,6 +24,34 @@ it("keeps full acceptance separate from a current basic Pi replay", () => {
   }
 });
 
+it("keeps every source tool and its current disposition in both exhaustive matrices", () => {
+  const ids = matrix.tools.map((tool) => tool.sourceToolId);
+  const expectedIds = new Set(ids);
+  expect(ids).toHaveLength(matrix.totalTools);
+  expect(expectedIds.size).toBe(matrix.totalTools);
+
+  const statusCounts = matrix.tools.reduce((counts, tool) => {
+    counts[tool.integrationStatus] = (counts[tool.integrationStatus] ?? 0) + 1;
+    return counts;
+  }, {});
+  expect(statusCounts).toEqual(matrix.counts);
+
+  for (const name of ["devtools-all-tools-matrix.md", "devtools-blocked-tools.md"]) {
+    const text = readFileSync(new URL(`../docs/plugins/${name}`, import.meta.url), "utf8");
+    const tableIds = [...text.matchAll(/^\|\s*([a-z0-9-]+)\s*\/\s/gm)].map((match) => match[1]);
+    expect(tableIds).toHaveLength(matrix.totalTools);
+    expect(new Set(tableIds)).toEqual(expectedIds);
+  }
+
+  for (const tool of matrix.tools) {
+    expect(tool.reason).toBeTruthy();
+    expect(tool.owner).toBeTruthy();
+    expect(tool.unblockCondition).toBeTruthy();
+    expect(typeof tool.acceptedFullTool).toBe("boolean");
+  }
+  expect(matrix.fullToolsAccepted).toBe(0);
+});
+
 it("links each current basic tool replay to the same runtime evidence", () => {
   const tools = matrix.tools.filter((tool) => tool.currentPiBasicVerification);
   expect(tools.length).toBeGreaterThan(0);

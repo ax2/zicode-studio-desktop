@@ -1,8 +1,33 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { getLocale, setLocale } from "../../shared/i18n";
 import { PluginManagerViewApp } from "./PluginManagerViewApp";
 
 afterEach(cleanup);
+
+it("finds plugins by their localized display name and original name", () => {
+  const previousLocale = getLocale();
+  setLocale("zh-CN");
+  try {
+    const { container } = render(
+      <PluginManagerViewApp
+        registry={{
+          list: () => [
+            { id: "builtin-ocr", name: "OCR", description: "Image text recognition", enabled: true },
+          ],
+        }}
+      />,
+    );
+    const search = screen.getByRole("searchbox");
+    fireEvent.change(search, { target: { value: "文字识别" } });
+    expect(container.querySelectorAll(".plugin-manager-card")).toHaveLength(1);
+    expect(screen.getByText("文字识别")).toBeTruthy();
+    fireEvent.change(search, { target: { value: "OCR" } });
+    expect(container.querySelectorAll(".plugin-manager-card")).toHaveLength(1);
+  } finally {
+    setLocale(previousLocale);
+  }
+});
 
 it("keeps real manager icons and action identity correct after jumping to a distant page", async () => {
   const plugins = Array.from({ length: 1000 }, (_, i) => ({

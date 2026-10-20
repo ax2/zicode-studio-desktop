@@ -1,0 +1,14 @@
+{
+  "wasmSha256": "bb77ecac41351a9a8c3886dc0400c2705dd2003d3cfb52aa29e011d3ff43a35e",
+  "requestSchemaSha256": "d4f42e9db396f935614c4539767ea4776c4269a9cb4367ec1d956d73b31ce77a",
+  "catalogSha256": "f307c911baf499948b1656db42574288d881410b9defb83ed8c5010cb281112e",
+  "fixtureProofSha256": "740aef20c72f9cf2e1a5a76e13b3b04346e2e9fe763d04ecdc20a6efa69e8aad",
+  "contractIndexSha256": "dd0688c009fa2d0600ab2d5af038a19efb5e1e26910619c1aede84aa668873f9",
+  "resultCases": 59,
+  "successfulRequestCases": 19,
+  "catalogOperations": 2,
+  "binding": "Only pluginId.const specialized; frozen snapshot preserved",
+  "limitations": [
+    "Provider schema validation; not production Host acceptance"
+  ]
+}

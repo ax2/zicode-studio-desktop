@@ -68,6 +68,23 @@
   flex-wrap: wrap;
 }
 
+.command-palette-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0 var(--space-3);
+  flex-shrink: 0;
+}
+
+.command-palette-filters .ui-select {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 480px) {
+  .command-palette-filters { grid-template-columns: minmax(0, 1fr); }
+}
+
 .command-palette-results {
   overflow-y: auto;
   overscroll-behavior: contain;

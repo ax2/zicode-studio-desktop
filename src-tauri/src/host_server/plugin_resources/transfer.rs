@@ -17,7 +17,11 @@ pub(in crate::host_server) struct CommitTransfer {
     confirmed: bool,
 }
 
-pub(super) fn target_identity(state: &HostState, target: &Owner) -> Result<(String, Value), ApiError> {
+pub(super) fn target_identity(
+    state: &HostState,
+    target: &Owner,
+    mime_type: Option<&str>,
+) -> Result<(String, Value), ApiError> {
     let proof = identity(state, target, None)?;
     let runtime = state
         .runtimes
@@ -33,25 +37,9 @@ pub(super) fn target_identity(state: &HostState, target: &Owner) -> Result<(Stri
         .lock()
         .map_err(|_| rejected("registry_unavailable"))?;
     let plugin = registry
-        .list(&runtime.target.scene_id)
-        .into_iter()
-        .find(|p| p.manifest.id == target.plugin_id && p.enabled)
+        .execution_plugin(&runtime.target.scene_id, &target.plugin_id)
+        .filter(|p| p.enabled)
         .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
-    if plugin
-        .manifest
-        .runtime
-        .get("resourceInputProfile")
-        .and_then(Value::as_str)
-        != Some("resource.wasi.input.draft2")
-    {
-        return Err(rejected("resource_profile_unsupported"));
-    }
-    let (_, kind) = registry
-        .plugin_runtime_entry(&runtime.target.scene_id, &target.plugin_id)
-        .map_err(|_| rejected("resource_module_unavailable"))?;
-    if kind != "wasi" {
-        return Err(rejected("resource_profile_unsupported"));
-    }
     let capability = registry
         .capability(
             &runtime.target.scene_id,
@@ -59,6 +47,57 @@ pub(super) fn target_identity(state: &HostState, target: &Owner) -> Result<(Stri
             &target.capability_id,
         )
         .ok_or_else(|| rejected("capability_unavailable"))?;
+    if mime_type.is_some_and(|mime| {
+        !capability
+            .resource_input_mime_types
+            .as_ref()
+            .is_some_and(|types| types.iter().any(|item| item == mime))
+    }) {
+        return Err(rejected("resource_input_type_unsupported"));
+    }
+    let profile = plugin
+        .manifest
+        .contributes
+        .get("capabilities")
+        .and_then(Value::as_array)
+        .and_then(|caps| {
+            caps.iter()
+                .find(|cap| cap.get("id").and_then(Value::as_str) == Some(&target.capability_id))
+        })
+        .and_then(|cap| cap.get("resourceInputProfile").and_then(Value::as_str))
+        .or_else(|| {
+            plugin
+                .manifest
+                .runtime
+                .get("resourceInputProfile")
+                .and_then(Value::as_str)
+        });
+    if profile == Some("resource.wasi.input.draft2") {
+        let (_, kind) = registry
+            .plugin_runtime_entry(&runtime.target.scene_id, &target.plugin_id)
+            .map_err(|_| rejected("resource_module_unavailable"))?;
+        if kind != "wasi" {
+            return Err(rejected("resource_profile_unsupported"));
+        }
+    } else if !(plugin.origin == crate::plugin_registry::PluginOrigin::BuiltIn
+        && ((profile == Some(crate::plugin_resource_execution::HOST_IMAGE_INPUT_PROFILE)
+            && target.plugin_id
+                == crate::plugin_resource_execution::HOST_IMAGE_INSPECTOR_PLUGIN_ID
+            && target.capability_id
+                == crate::plugin_resource_execution::HOST_IMAGE_INSPECTOR_CAPABILITY_ID)
+            || (cfg!(target_os = "windows")
+                && profile == Some(crate::plugin_resource_execution::HOST_OCR_INPUT_PROFILE)
+                && target.plugin_id == crate::plugin_resource_execution::HOST_OCR_PLUGIN_ID
+                && target.capability_id
+                    == crate::plugin_resource_execution::HOST_OCR_CAPABILITY_ID)
+            || (profile == Some(crate::plugin_resource_execution::HOST_TEXT_INPUT_PROFILE)
+                && target.plugin_id
+                    == crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_PLUGIN_ID
+                && target.capability_id
+                    == crate::plugin_resource_execution::HOST_TEXT_INSPECTOR_CAPABILITY_ID)))
+    {
+        return Err(rejected("resource_profile_unsupported"));
+    }
     Ok((
         proof,
         json!({"pluginId":target.plugin_id,"capabilityId":target.capability_id,
@@ -78,7 +117,13 @@ pub(in crate::host_server) async fn prepare(
     }
     blocking(state.clone(), move || {
         let source_proof = authority::identity_access(&state, &request.source, None, None)?;
-        let (target_proof, presentation) = target_identity(&state, &request.target)?;
+        let mime_type = state
+            .plugin_resources
+            .lock()
+            .map_err(|_| rejected("resource_store_unavailable"))?
+            .resource_mime_type(&request.source, &source_proof)?;
+        let (target_proof, presentation) =
+            target_identity(&state, &request.target, Some(&mime_type))?;
         let mut result = state
             .plugin_resources
             .lock()
@@ -108,12 +153,12 @@ pub(in crate::host_server) async fn commit(
     }
     blocking(state.clone(), move || {
         let source_proof = authority::identity_access(&state, &request.source, None, None)?;
-        let target = state
+        let (target, mime_type) = state
             .plugin_resources
             .lock()
             .map_err(|_| rejected("resource_store_unavailable"))?
             .transfer_target(&request.source, &request.grant_id)?;
-        let (target_proof, _) = target_identity(&state, &target)?;
+        let (target_proof, _) = target_identity(&state, &target, Some(&mime_type))?;
         state
             .plugin_resources
             .lock()

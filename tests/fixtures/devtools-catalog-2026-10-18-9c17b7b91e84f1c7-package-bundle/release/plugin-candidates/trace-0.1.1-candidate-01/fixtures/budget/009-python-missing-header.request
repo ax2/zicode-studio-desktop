@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.trace","sceneId":"coding","capabilityId":"devtools.trace.django.trace","commandId":null,"input":{"text":"  File \"views.py\", line 7, in index\n    unknown()"}}

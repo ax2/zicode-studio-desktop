@@ -1,8 +1,14 @@
 # Pi工具目录协议实现候选
 
+2026-10-18 内部工具目录、能力和命令投影改从注册表内存清单读取，避免每次查询读取所有签名包元数据；目标插件执行时的签名与模块校验仍保留。真实 HTTP 千项目录、场景状态和 Worker 缓存边界专项通过；慢盘与正式提供方实包仍待验，见[阶段记录](../iterations/2026-10-18-memory-only-plugin-projections.md)。
+
+2026-10-18 Studio 将签名包的目录详情校验移出全局插件注册表锁；校验后重新鉴权并复核目录修订、工具与安装身份。签名升级测试及真实 HTTP 千项目录测试通过；慢盘并发时延、真实签名提供方包和其他系统仍待验收。见[阶段记录](../iterations/2026-10-18-signed-catalog-load-isolation.md)。
+
 状态：schemaVersion 1，Studio内置Pi启动已启用目录模式。2026-10-08真实Pi SDK→目录搜索/加载→动态注册及激活→Host→独立WASI Worker已验证；冻结新交付和完整桌面壳验收以本轮档案为准。此协议是Studio内部Broker协议，不改变提供方冻结插件契约。
 
 原有POST /v2/plugin-tools/invoke保持不变。目录使用同一Broker Bearer token，绑定当前运行实例/会话/场景/工作区；desktop token和配对设备token不能替代Broker token。请求不能传入workspace/scene覆盖绑定。停止或令牌到期拒绝请求。
+
+2026-10-17 增补：invoke 可选 `captureResult:true`，默认 false。成功的文本结果可由 Host 捕获并在原有 `result` 旁返回 `resultRef`；捕获失败返回 `resultCaptureError`，不得改变原始工具结果或把业务失败伪装成成功。Studio 的 Pi Broker 仅把合法文本引用放进 Pi 结果的 `details.studioResult`，不改变 `content`。该引用不是跨工具调用授权：Broker 令牌不能提交 `/v2/plugin-results/prepare-transfer`，必须由可信桌面端预览并在用户确认后使用桌面令牌提交。目录修订与执行时授权检查继续生效。真实嵌入 Pi 和 Worker 的定向证据见[Text 0.3.0 候选阶段记录](../iterations/2026-10-17-text-candidate03-intake.md)；原生界面确认及跨独立插件仍待验。
 
 | 请求 | 正文字段 | 返回 |
 | --- | --- | --- |
@@ -40,7 +46,7 @@ Studio启动内置Pi时设置PI_DESKTOP_PLUGIN_CATALOG=1，兼容字段PI_DESKTO
 
 目录加载后的工具及旧快照工具共用 `plugin-invoke-client.ts`。单次 invoke 从请求到完整响应累计最多15秒；流式统计响应最多2MiB（包含Host JSON包装），严格UTF-8/对象/显式result校验。该上限是客户端保护，不增加Worker的1MiB输出预算，也不改变冻结提供方ABI。
 
-调用取消立即停止客户端等待并取消读取、释放响应流。分别显示 `plugin_request_cancelled`、`plugin_request_timeout`、`plugin_response_too_large`、`plugin_response_invalid` 或 `plugin_transport_error`。Host拒绝只保留已知错误码，未知码降为HTTP状态；不转发原始服务message或传输异常。业务 `ok:false` 仍作为原始工具结果交给既有业务处理，不冒充传输成功即业务成功。
+调用取消立即停止客户端等待并取消读取、释放响应流。分别显示 `plugin_request_cancelled`、`plugin_request_timeout`、`plugin_response_too_large`、`plugin_response_invalid` 或 `plugin_transport_error`。Host拒绝只保留已知错误码，未知码降为HTTP状态；不转发原始服务message或传输异常。业务 `ok:false` 保留原始工具响应；Pi Broker 将其标为 `isError:true`，且不附带可接力结果引用，不能把 HTTP 成功冒充工具业务成功。见[阶段记录](../iterations/2026-10-18-pi-business-error.md)。
 
 客户端取消不证明已经停止Host中的Worker执行，也不能撤销已授权的写入。Host已有Worker预算仍生效，已接入Host/Pi候选取消通道，运行中WASI回收已获HTTP及Pi同调用专项证据，原生入口仍需验收。自动重试未启用；调用ID及幂等规则保持不变。
 

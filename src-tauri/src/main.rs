@@ -42,17 +42,21 @@ mod p2p;
 mod pi_launch;
 mod pi_rpc_bridge;
 #[cfg_attr(not(test), allow(dead_code))]
-mod plugin_archive_events;
-#[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_cursor;
-mod portable_path;
+#[allow(dead_code)] // Internal store; task routes stay disabled until handler conformance.
+mod plugin_task_store;
+#[cfg_attr(not(test), allow(dead_code))]
+mod plugin_archive_events;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_transport;
 mod plugin_capabilities;
+mod plugin_json_decode;
+mod plugin_output_types;
 mod plugin_package;
 mod plugin_registry;
+mod plugin_resource_execution;
 mod plugin_worker;
-mod plugin_output_types;
+mod portable_path;
 mod process_command;
 mod project_environment;
 mod project_storage;
@@ -95,8 +99,8 @@ use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 mod project_file_picker;
 use project_file_picker::{
-    get_project_directory_entry, get_project_resource_entry, get_project_resource_entries, select_project_resource_directory,
-    select_project_resource_file,
+    get_project_directory_entry, get_project_resource_entries, get_project_resource_entry,
+    select_project_resource_directory, select_project_resource_file,
 };
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_dialog::MessageDialogKind;
@@ -311,7 +315,13 @@ async fn open_folder_as_workspace(
     window: WebviewWindow,
     plugin_id: Option<String>,
 ) -> Result<Option<String>, String> {
-    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+    let picker_app = app.clone();
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        picker_app.dialog().file().blocking_pick_folder()
+    })
+    .await
+    .map_err(|error| format!("Workspace folder picker task failed: {error}"))?;
+    let Some(picked) = picked else {
         return Ok(None);
     };
     let path = picked
@@ -326,53 +336,87 @@ async fn open_folder_as_workspace(
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
-/// Select a local developer plugin directory, validate and copy it into the
-/// managed plugin registry. Cancelling the picker has no side effects.
+/// Select and validate a local developer plugin directory without installing it.
 #[tauri::command]
-async fn select_and_install_developer_plugin(app: AppHandle) -> Result<Option<String>, String> {
-    let Some(picked) = app.dialog().file().blocking_pick_folder() else {
-        return Ok(None);
-    };
-    let source = picked
-        .as_path()
-        .ok_or_else(|| "Selected plugin folder is not a local path".to_string())?;
-    let host = app
-        .try_state::<HostServer>()
-        .ok_or_else(|| "Host server is not ready".to_string())?;
-    host.install_developer_plugin(source).map(Some)
+async fn select_developer_plugin_package(
+    app: AppHandle,
+) -> Result<Option<plugin_registry::DeveloperPluginPreview>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(picked) = app.dialog().file().blocking_pick_folder() else {
+            return Ok(None);
+        };
+        let source = picked
+            .as_path()
+            .ok_or_else(|| "Selected plugin folder is not a local path".to_string())?;
+        let host = app
+            .try_state::<HostServer>()
+            .ok_or_else(|| "Host server is not ready".to_string())?;
+        host.preview_developer_plugin(source).map(Some)
+    })
+    .await
+    .map_err(|error| format!("Developer plugin preview task failed: {error}"))?
+}
+
+#[tauri::command]
+async fn install_previewed_developer_plugin(
+    app: AppHandle,
+    source_path: String,
+    content_sha256: String,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let host = app
+            .try_state::<HostServer>()
+            .ok_or_else(|| "Host server is not ready".to_string())?;
+        host.install_previewed_developer_plugin(Path::new(&source_path), &content_sha256)
+    })
+    .await
+    .map_err(|error| format!("Developer plugin installation task failed: {error}"))?
 }
 
 #[tauri::command]
 async fn select_signed_plugin_package(
     app: AppHandle,
 ) -> Result<Option<SignedPluginPreview>, String> {
-    let Some(picked) = app
-        .dialog()
-        .file()
-        .add_filter("ZiCode plugin", &["zicode-plugin"])
-        .blocking_pick_file()
-    else {
-        return Ok(None);
-    };
-    let path = picked
-        .as_path()
-        .ok_or_else(|| "Selected signed plugin is not a local file".to_string())?;
-    let host = app
-        .try_state::<HostServer>()
-        .ok_or_else(|| "Host server is not ready".to_string())?;
-    host.preview_signed_plugin(path).map(Some)
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(picked) = app
+            .dialog()
+            .file()
+            .add_filter("ZiCode plugin", &["zicode-plugin"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = picked
+            .as_path()
+            .ok_or_else(|| "Selected signed plugin is not a local file".to_string())?;
+        let host = app
+            .try_state::<HostServer>()
+            .ok_or_else(|| "Host server is not ready".to_string())?;
+        host.preview_signed_plugin(path).map(Some)
+    })
+    .await
+    .map_err(|error| format!("Signed plugin preview task failed: {error}"))?
 }
 
 #[tauri::command]
 async fn install_signed_plugin_package(
     app: AppHandle,
     package_path: String,
+    manifest_sha256: String,
     trust_publisher: bool,
 ) -> Result<String, String> {
-    let host = app
-        .try_state::<HostServer>()
-        .ok_or_else(|| "Host server is not ready".to_string())?;
-    host.install_signed_plugin(Path::new(&package_path), trust_publisher)
+    tauri::async_runtime::spawn_blocking(move || {
+        let host = app
+            .try_state::<HostServer>()
+            .ok_or_else(|| "Host server is not ready".to_string())?;
+        host.install_previewed_signed_plugin(
+            Path::new(&package_path),
+            &manifest_sha256,
+            trust_publisher,
+        )
+    })
+    .await
+    .map_err(|error| format!("Signed plugin installation task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -381,18 +425,26 @@ async fn rollback_signed_plugin_package(
     plugin_id: String,
     version: String,
 ) -> Result<(), String> {
-    let host = app
-        .try_state::<HostServer>()
-        .ok_or_else(|| "Host server is not ready".to_string())?;
-    host.rollback_signed_plugin(&plugin_id, &version)
+    tauri::async_runtime::spawn_blocking(move || {
+        let host = app
+            .try_state::<HostServer>()
+            .ok_or_else(|| "Host server is not ready".to_string())?;
+        host.rollback_signed_plugin(&plugin_id, &version)
+    })
+    .await
+    .map_err(|error| format!("Signed plugin rollback task failed: {error}"))?
 }
 
 #[tauri::command]
 async fn revoke_plugin_publisher(app: AppHandle, key_id: String) -> Result<(), String> {
-    let host = app
-        .try_state::<HostServer>()
-        .ok_or_else(|| "Host server is not ready".to_string())?;
-    host.revoke_plugin_publisher(&key_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        let host = app
+            .try_state::<HostServer>()
+            .ok_or_else(|| "Host server is not ready".to_string())?;
+        host.revoke_plugin_publisher(&key_id)
+    })
+    .await
+    .map_err(|error| format!("Plugin publisher revocation task failed: {error}"))?
 }
 
 /// Open a brand-new session in the given workspace (identified by its
@@ -582,6 +634,7 @@ async fn inspect_project_storage(
     app: AppHandle,
     workspace_id: String,
     directory: String,
+    deep: Option<bool>,
 ) -> Result<project_storage::StorageReport, String> {
     let root = resolve_workspace_root(&app, &workspace_id)?;
     let gate = PROJECT_STORAGE_SCAN_LIMIT
@@ -592,9 +645,10 @@ async fn inspect_project_storage(
         .map_err(|_| "project_storage_busy".to_string())?;
     let worker = tauri::async_runtime::spawn_blocking(move || {
         let _permit = permit;
-        project_storage::inspect(&root, &directory)
+        project_storage::inspect(&root, &directory, deep.unwrap_or(false))
     });
-    match tokio::time::timeout(std::time::Duration::from_secs(8), worker).await {
+    let timeout = if deep.unwrap_or(false) { 190 } else { 8 };
+    match tokio::time::timeout(std::time::Duration::from_secs(timeout), worker).await {
         Ok(Ok(result)) => result,
         Ok(Err(_)) => Err("project_storage_unavailable".into()),
         Err(_) => Err("project_storage_timeout".into()),
@@ -615,6 +669,7 @@ fn delete_workspace(app: AppHandle, workspace_id: String) -> Result<String, Stri
     if let Some(reason) = protected_workspace_reason(&workspace_root)? {
         return Err(reason);
     }
+    app.state::<HostServer>().close_workspace(&workspace_id)?;
     let trash_root = crate::app_paths::data_root()?.join("trash");
     let trash_dir = move_workspace_app_data_to_trash(&workspace_root, &trash_root)?;
     let manifest = serde_json::json!({
@@ -1839,7 +1894,11 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     let (cwd, session_path) = if tools_only {
         let root = explorer_entry::file()
             .and_then(Path::parent)
-            .or_else(|| explorer_entry::selection().and_then(|files| files.first()).and_then(|file| file.parent()))
+            .or_else(|| {
+                explorer_entry::selection()
+                    .and_then(|files| files.first())
+                    .and_then(|file| file.parent())
+            })
             .or_else(|| explorer_entry::folder().filter(|_| !explorer_entry::drive_root_folder()))
             .unwrap_or(&default_cwd);
         (root.to_string_lossy().into_owned(), None)
@@ -2039,7 +2098,8 @@ fn main() {
             get_project_directory_entry,
             desktop_entry_mode,
             open_folder_as_workspace,
-            select_and_install_developer_plugin,
+            select_developer_plugin_package,
+            install_previewed_developer_plugin,
             select_signed_plugin_package,
             install_signed_plugin_package,
             rollback_signed_plugin_package,
@@ -2225,6 +2285,11 @@ fn main() {
                                 if focused_workspace.as_deref() == Some(workspace_id.as_str()) {
                                     *focused_workspace = None;
                                 }
+                            }
+                        }
+                        if let Some(host) = window.try_state::<HostServer>() {
+                            if let Err(error) = host.close_workspace(&workspace_id) {
+                                log::warn!("Cannot close plugin workspace {workspace_id}: {error}");
                             }
                         }
                         if let Some(manager) = window.try_state::<NativePiManagerState>() {

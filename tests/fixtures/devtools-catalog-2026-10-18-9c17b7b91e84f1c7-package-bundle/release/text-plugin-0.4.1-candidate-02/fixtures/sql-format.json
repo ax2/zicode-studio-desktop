@@ -1,0 +1,15 @@
+{
+  "sourceToolId": "sql-format",
+  "sourceToolVersion": "0.3.1",
+  "operations": [
+    {
+      "capabilityId": "devtools.text.sql.format",
+      "input": "select id,name from users where active=true",
+      "expected": "SELECT id, name\nFROM users\nWHERE active = TRUE"
+    }
+  ],
+  "limitations": [
+    "generic dialect only",
+    "no semantic validation or database connection"
+  ]
+}

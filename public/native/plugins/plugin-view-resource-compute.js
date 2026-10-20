@@ -3,6 +3,7 @@ import { normalizeResourceOutputs } from "./plugin-resource-outputs.js";
 import { normalizeResourceAdmission, normalizeResourceReconciliation } from "./resource-call-admission.js";
 
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const RESOURCE_INPUT_PROFILES = new Set(["resource.wasi.input.draft2", "resource.host.image-input.v1", "resource.host.ocr-input.v1", "resource.host.text-input.v1"]);
 const CODES = new Set([
   "resource_worker_busy", "resource_confirmation_required", "permission_denied",
   "runtime_stopped", "resource_unavailable", "resource_authorization_changed",
@@ -13,6 +14,9 @@ const CODES = new Set([
   "resource_call_host_changed", "resource_status_unavailable",
   "resource_call_used", "resource_call_not_admissible", "resource_call_changed", "resource_call_budget_exceeded",
   "resource_input_too_large",
+  "resource_input_invalid",
+  "resource_input_type_unsupported",
+  "resource_ocr_failed",
   "resource_journal_unavailable", "resource_journal_full", "resource_journal_pending",
 ]);
 const fail = (code) => { throw new Error(`[${code}]`); };
@@ -86,6 +90,8 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
         !UUID.test(params.resourceId ?? "") || !/^[0-9a-f]{64}$/.test(params.contentVersion ?? ""))
       fail("resource_request_invalid");
     const additional = params.additionalResources ?? [];
+    const expectedProfile = instance.resourceInputProfile ?? "resource.wasi.input.draft2";
+    if (!RESOURCE_INPUT_PROFILES.has(expectedProfile)) fail("resource_profile_unsupported");
     if (!Array.isArray(additional) || additional.length > 3 || (additional.length && !recoverable) ||
         new Set([params.resourceId, ...additional.map(resource => resource?.resourceId)]).size !== additional.length + 1 ||
         additional.some(resource => !resource || Object.keys(resource).some(key => !["resourceId", "contentVersion"].includes(key)) ||
@@ -145,7 +151,8 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
       const source = result?.source;
       if (result?.schemaVersion !== 1 || !UUID.test(result.operationId ?? "") ||
           source?.pluginId !== owner.pluginId || source?.capabilityId !== owner.capabilityId ||
-          source?.contentVersion !== params.contentVersion || source?.profile !== "resource.wasi.input.draft2" ||
+          source?.contentVersion !== params.contentVersion ||
+          source?.profile !== expectedProfile ||
           typeof source?.packageVersion !== "string" || source.packageVersion.length > 128 ||
           result.result == null || new TextEncoder().encode(JSON.stringify(result.result)).length > 1024 * 1024)
         fail("resource_response_invalid");

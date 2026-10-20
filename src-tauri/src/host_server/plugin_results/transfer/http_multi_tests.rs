@@ -81,6 +81,11 @@ async fn exercise(real_worker: bool) {
         }
     }
     let events = Arc::new(Mutex::new(Vec::new()));
+    let gate = Arc::new(Mutex::new(None::<std::sync::mpsc::Receiver<()>>));
+    let (gate_started_tx, gate_started_rx) = std::sync::mpsc::channel();
+    let (gate_release_tx, gate_release_rx) = std::sync::mpsc::channel();
+    let mut gate_started_rx = Some(gate_started_rx);
+    let mut gate_release_rx = Some(gate_release_rx);
     let starts = || {
         events
             .lock()
@@ -91,9 +96,17 @@ async fn exercise(real_worker: bool) {
     };
     if real_worker {
         let observed = events.clone();
+        let blocked = gate.clone();
         host.state.capability_broker.lock().unwrap().worker_observer =
             Some(Arc::new(move |event, pid| {
                 observed.lock().unwrap().push((event, pid));
+                if event == "started" {
+                    let release = blocked.lock().unwrap().take();
+                    if let Some(release) = release {
+                        let _ = gate_started_tx.send(());
+                        release.recv_timeout(Duration::from_secs(15)).unwrap();
+                    }
+                }
             }));
         host.state
             .capability_broker
@@ -181,6 +194,16 @@ async fn exercise(real_worker: bool) {
         assert_eq!(preview["preview"]["inputs"], valid_inputs);
         assert_eq!(preview["preview"]["text"], "c291cmNl");
         let mut commit = json!({"scope":scope,"grantId":preview["grantId"],"confirmed":false});
+        let status_request = json!({"scope":scope,"grantId":preview["grantId"]});
+        let ready: Value = post("/v2/plugin-results/transfer-status", status_request.clone())
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(ready["status"], "ready");
+        assert!(ready.get("response").is_none());
+        assert_eq!(starts(), before_preview);
         assert_eq!(
             post("/v2/plugin-results/commit-transfer", commit.clone())
                 .await
@@ -189,18 +212,211 @@ async fn exercise(real_worker: bool) {
             StatusCode::CONFLICT
         );
         assert_eq!(starts(), before_preview);
-        if real_worker {
-            commit["confirmed"] = json!(true);
-            let response: Value = post("/v2/plugin-results/commit-transfer", commit.clone())
+        if field == "left" {
+            let unused: Value = post(
+                "/v2/plugin-results/prepare-transfer",
+                json!({"scope":scope,"resultId":reference["resultId"],
+                    "target":{"pluginId":"com.example.compare","capabilityId":"compare.lines"},
+                    "field":field,"inputs":valid_inputs}),
+            )
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+            let cancellation = json!({"scope":scope,"grantId":unused["grantId"]});
+            assert_eq!(
+                client
+                    .post(format!(
+                        "{}/v2/plugin-results/transfer-status",
+                        host.origin()
+                    ))
+                    .json(&cancellation)
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::FORBIDDEN
+            );
+            let mut mismatched = cancellation.clone();
+            mismatched["scope"]["workspaceId"] = json!("other-workspace");
+            assert_eq!(
+                post("/v2/plugin-results/transfer-status", mismatched)
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::CONFLICT
+            );
+            assert_eq!(
+                client
+                    .post(format!(
+                        "{}/v2/plugin-results/cancel-transfer",
+                        host.origin()
+                    ))
+                    .json(&cancellation)
+                    .send()
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::FORBIDDEN
+            );
+            let cancelled: Value = post("/v2/plugin-results/cancel-transfer", cancellation)
                 .await
                 .unwrap()
                 .json()
                 .await
                 .unwrap();
+            assert_eq!(cancelled["status"], "cancelled");
+            let cancelled_status: Value = post(
+                "/v2/plugin-results/transfer-status",
+                json!({"scope":scope,"grantId":unused["grantId"]}),
+            )
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+            assert_eq!(cancelled_status["status"], "cancelled");
+            assert_eq!(
+                post(
+                    "/v2/plugin-results/commit-transfer",
+                    json!({"scope":scope,"grantId":unused["grantId"],"confirmed":true}),
+                )
+                .await
+                .unwrap()
+                .status(),
+                StatusCode::CONFLICT
+            );
+            assert_eq!(starts(), before_preview);
+        }
+        if real_worker {
+            commit["confirmed"] = json!(true);
+            let response: Value = if field == "left" {
+                *gate.lock().unwrap() = gate_release_rx.take();
+                let pending = post("/v2/plugin-results/commit-transfer", commit.clone());
+                let pending = tokio::spawn(async move { pending.await.unwrap() });
+                let started = gate_started_rx.take().unwrap();
+                tokio::task::spawn_blocking(move || {
+                    started.recv_timeout(Duration::from_secs(5)).unwrap()
+                })
+                .await
+                .unwrap();
+                let running: Value =
+                    post("/v2/plugin-results/transfer-status", status_request.clone())
+                        .await
+                        .unwrap()
+                        .json()
+                        .await
+                        .unwrap();
+                assert_eq!(running["status"], "running");
+                assert!(running.get("response").is_none());
+                let directory = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    post(
+                        "/v2/plugin-results/targets",
+                        json!({"scope":scope,
+                    "resultId":reference["resultId"],"query":"Compare input observer"}),
+                    ),
+                )
+                .await;
+                let independent = tokio::time::timeout(
+                    Duration::from_secs(5),
+                    post("/v2/plugin-capabilities/invoke", invocation.clone()),
+                )
+                .await;
+                let duplicate = tokio::time::timeout(
+                    Duration::from_secs(2),
+                    post("/v2/plugin-results/commit-transfer", commit.clone()),
+                )
+                .await;
+                let cancel: Value = post(
+                    "/v2/plugin-results/cancel-transfer",
+                    json!({"scope":scope,"grantId":commit["grantId"]}),
+                )
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+                assert_eq!(cancel["status"], "cancellation_requested");
+                let cancelling: Value =
+                    post("/v2/plugin-results/transfer-status", status_request.clone())
+                        .await
+                        .unwrap()
+                        .json()
+                        .await
+                        .unwrap();
+                assert_eq!(cancelling["status"], "cancellation_requested");
+                let still_running = !pending.is_finished();
+                gate_release_tx.send(()).unwrap();
+                assert!(
+                    still_running,
+                    "transfer must still be waiting for its Worker"
+                );
+                assert_eq!(directory.unwrap().unwrap().status(), StatusCode::OK);
+                let independent: Value = independent.unwrap().unwrap().json().await.unwrap();
+                assert_eq!(independent["result"]["data"]["text"], "c291cmNl");
+                assert_eq!(duplicate.unwrap().unwrap().status(), StatusCode::CONFLICT);
+                let stopped: Value = pending.await.unwrap().json().await.unwrap();
+                assert_eq!(stopped["error"]["code"], "worker_cancelled");
+                assert!(stopped.get("resultRef").is_none());
+                let recovered: Value =
+                    post("/v2/plugin-results/transfer-status", status_request.clone())
+                        .await
+                        .unwrap()
+                        .json()
+                        .await
+                        .unwrap();
+                assert_eq!(recovered["status"], "completed");
+                assert_eq!(recovered["response"]["error"]["code"], "worker_cancelled");
+                assert_eq!(
+                    post("/v2/plugin-results/commit-transfer", commit.clone())
+                        .await
+                        .unwrap()
+                        .status(),
+                    StatusCode::CONFLICT
+                );
+                let replacement: Value = post(
+                    "/v2/plugin-results/prepare-transfer",
+                    json!({"scope":scope,"resultId":reference["resultId"],
+                        "target":{"pluginId":"com.example.compare","capabilityId":"compare.lines"},
+                        "field":field,"inputs":valid_inputs}),
+                )
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+                commit["grantId"] = replacement["grantId"].clone();
+                post("/v2/plugin-results/commit-transfer", commit.clone())
+                    .await
+                    .unwrap()
+                    .json()
+                    .await
+                    .unwrap()
+            } else {
+                post("/v2/plugin-results/commit-transfer", commit.clone())
+                    .await
+                    .unwrap()
+                    .json()
+                    .await
+                    .unwrap()
+            };
             assert_eq!(
                 response["result"]["data"]["request"]["input"][field],
                 "c291cmNl"
             );
+            let completed: Value = post(
+                "/v2/plugin-results/transfer-status",
+                json!({"scope":scope,"grantId":commit["grantId"]}),
+            )
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+            assert_eq!(completed["status"], "completed");
+            assert_eq!(completed["response"]["resultRef"], response["resultRef"]);
             assert_eq!(
                 response["result"]["data"]["request"]["input"][other],
                 "other\r\n中"
@@ -255,14 +471,14 @@ async fn exercise(real_worker: bool) {
         .artifacts
         .is_empty());
     host.stop_and_wait().await.unwrap();
-    assert_eq!(starts(), if real_worker { 4 } else { 0 });
+    assert_eq!(starts(), if real_worker { 6 } else { 0 });
     let events = events.lock().unwrap().clone();
     assert_eq!(
         events
             .iter()
             .filter(|(event, _)| *event == "pipes_closed")
             .count(),
-        if real_worker { 4 } else { 0 }
+        if real_worker { 6 } else { 0 }
     );
     let receipt = json!({"passed":true,"realWorker":real_worker,"mappings":2,"replays":if real_worker {2} else {0},"artifactsSaved":0,"hostStopped":true,"workerEvents":events,"devtoolsDiffAccepted":false});
     std::fs::write(root.join("receipt.json"), receipt.to_string()).unwrap();

@@ -32,3 +32,13 @@ DevTools 原开发会话当前使用 `E:\zi-devtools`，其 HEAD 同为 `65f9aa6
 接收评审已向 DevTools 原会话反馈两项需要机器校验的边界：JSON Schema 的 `maxLength` 不等于 UTF-8 字节预算，任务目标 2 KiB 和资料合计 32 KiB 需要 Host 的总量校验；请求体中的 `consentId` / `userGestureId` 不是授权证明，必须由 Studio 可信交互生成、一次性消费，并绑定插件、场景、操作及权限代次。上述问题未关闭前不发布 profile，也不增加 154 项完整接受数。
 
 提供方后续草案已增加 `x-host-utf8-*` 与可信单次授权注释，以及 15 个安全向量（文件 `vectors.json` SHA-256 `bdf1caf20e47225385df325d975f02346530b367f9fa8eedde0caf0f31140e8a`，仅标识本次未提交工作树）。Studio 接收侧只读运行其轻量 guard：5 个 JSON Schema、6 个请求/事件示例、4 个响应示例和 15 个安全向量结构检查退出 0。该脚本不是通用 JSON Schema 引擎，也没有执行 Studio Host，因此仅把前述两项从“提案缺失”改为“已有提供方向量、待 Studio 正式契约与实现验证”；`service.v1` / `desktop.v1` 仍不得宣告支持。
+
+## 2026-10-16 目录在途变化（非冻结输入）
+
+Studio 对 `E:\zi-devtools` 做只读快照检查。提供方 HEAD 为 `65f9aa63c831a4540bdd5731aa4da3de76dbd4b8`；`docs/tools.json` 与 `docs/studio-plugin-migration.json` 均有未提交修改。目录头仍为 `0.82.0-dev.105`，更新日期为 `2026-10-16`。HEAD 与当前工作树的目录比较为 154→154 个 ID、无增删；37 个工具条目同时发生 `tool_version` 与 `scope` 变化，5 项状态从 planned 改为 in-progress：`sql-format`、`plugin-updates`、`plugin-market`、`command-collections`、`artifact-hub`。其余 32 个变化条目状态不变。
+
+变化 ID：`files`、`http`、`sql-format`、`encoding-detect`、`image-tools`、`image-batch`、`image-metadata`、`plugins`、`mcp-inspector`、`agent-runner`、`agent-replay`、`browser-clipper`、`plugin-updates`、`plugin-market`、`global-launcher`、`command-collections`、`java-thread-dump`、`java-dependencies`、`java-environment`、`java-gc-log`、`java-jfr`、`spring-config`、`spring-actuator`、`django-environment`、`django-migrations`、`django-sql`、`django-urls`、`django-drf`、`django-checks`、`celery-diagnostics`、`task-center`、`artifact-hub`、`advanced-calculator`、`screenshot-workbench`、`super-clipboard`、`text-flow`、`image-workflow`。
+
+该时点 `docs/tools.json` SHA-256 为 `30caf81e1b1b9821f2ba72c5c8c09deb9b7a7f29e4c27a01e66be71b64f686ab`，迁移清单 SHA-256 为 `23a3c8ef1a7241b291d9b869c2005778e05d12e99caf4aaa0457c8585cb712c7`。两者只标识未提交活动工作树，不是提供方发布收据。Studio 冻结矩阵保留其原基线哈希，不因相同版本字符串而覆盖更新；完整接受数保持 0/154。已把精确差异与摘要发给 DevTools 原会话，请其完成当前修改后提供稳定 revision、clean/dirty 状态、摘要和逐工具 scope/version 差异；不要求本地开发变更应用版本号。
+
+当前未提交迁移清单中的 `spring-actuator` 为 1.1.1，范围除 health/info/metrics 固定 GET 外，还包含异步状态进入后台任务中心、通用摘要/工作台详细报告，以及带工具版本和便携环境指纹的 JSON 导出。现有 Studio `service.http.get.v1` 仅覆盖固定 HTTP 调用，不能代表任务生命周期或报告交付。已要求提供方逐项给出任务请求/事件/终态/取消/撤权 schema 与向量，并说明报告如何通过 Studio 结果/资源接口输出和经用户确认保存；HTTP-only 子集必须明确拆分能力与未交付范围。Studio 侧在新接口定稿前不提前宣称支持这些扩展。

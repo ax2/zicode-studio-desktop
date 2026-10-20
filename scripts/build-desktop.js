@@ -29,14 +29,14 @@ const root = path.resolve(__dirname, "..");
 
 if (process.platform === "win32") {
   const profile = local ? "debug" : "release";
-  const shellArgs = ["build", "--manifest-path", path.join(root, "shell", "Cargo.toml"), "--target-dir", path.join(root, "target")];
+  const shellArgs = ["build", "--manifest-path", path.join(root, "shell", "Cargo.toml"), "--target-dir", env.CARGO_TARGET_DIR];
   if (!local) shellArgs.push("--release");
   const shell = spawnSync("cargo", shellArgs, { cwd: root, env, stdio: "inherit", windowsHide: true });
   if (shell.error || shell.status !== 0) {
     console.error(`[build-desktop] Explorer selection bridge failed: ${shell.error?.message ?? shell.status}`);
     process.exit(1);
   }
-  const output = path.join(root, "target", profile, "zicode_studio_shell.dll");
+  const output = path.join(env.CARGO_TARGET_DIR, profile, "zicode_studio_shell.dll");
   if (!local) {
     const staged = path.join(root, "src-tauri", "resources", "shell", "zicode_studio_shell.dll");
     fs.mkdirSync(path.dirname(staged), { recursive: true });

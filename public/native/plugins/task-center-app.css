@@ -243,6 +243,12 @@ button.task-center-summary-card:focus-visible {
   gap: var(--space-3);
 }
 
+.plugin-task-event-list {
+  max-block-size: calc(var(--space-8) * 16);
+  list-style-position: inside;
+  overflow-y: auto;
+}
+
 .task-center-workspace-group {
   display: grid;
   gap: var(--space-3);

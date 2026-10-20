@@ -1,6 +1,23 @@
 use sha2::{Digest, Sha256};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires frozen Trace 0.1.1 package/receipt, evidence directory and current Worker/Pi; run alone"]
+async fn embedded_pi_trace_011_both_operations_and_permission_lifecycle() {
+    let external = super::compute_candidate_pi_tests::ExternalCandidate {
+        source: std::path::PathBuf::from(std::env::var_os("ZICODE_TEST_TRACE_011_DIR").unwrap()),
+        receipt: std::path::PathBuf::from(
+            std::env::var_os("ZICODE_TEST_TRACE_011_RECEIPT").unwrap(),
+        ),
+        evidence_dir: std::path::PathBuf::from(
+            std::env::var_os("ZICODE_TEST_TRACE_011_PI_EVIDENCE_DIR").unwrap(),
+        ),
+        expected_file_count: 352,
+    };
+    super::compute_candidate_pi_tests::run_compute_candidate_external("trace", 2, None, external)
+        .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires frozen ZICODE_TEST_WORKER_EXE and embedded Pi/broker; run alone"]
 async fn embedded_pi_trace_both_operations_and_enforces_permission_changes() {
     let project = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

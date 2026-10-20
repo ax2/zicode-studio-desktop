@@ -36,6 +36,7 @@ backup，只有新包成功注册后才删除 backup。失败会恢复旧包。�
 
 ```text
 GET  /v2/plugins?sceneId=<scene>
+GET  /v2/plugins?sceneId=<scene>&summary=true
 POST /v2/plugins/enablement
 POST /v2/plugins/permission
 POST /v2/plugins/reload
@@ -45,9 +46,14 @@ POST /v2/plugin-capabilities/invoke
 GET  /v2/plugin-views/source
 ```
 
-前五个 API 管理 Contribution 元数据、启停和权限。后两个 API 是 Chat/应用层的
+上述插件管理 API 管理 Contribution 元数据、启停和权限；Capability API 是 Chat/应用层的
 Capability 入口，Host 会重新检查当前 Scene、插件启用状态和输入 Schema。目录选择安装
 只通过本地 Tauri 命令提供，远程浏览器不能提交本机路径。
+
+`summary=true` 是 Studio WebView 的轻量目录投影，保留应用 activity/View/command、
+能力 ID/标题/说明、权限和安装状态，但不返回运行时位置、Pi 工具定义及能力输入/输出
+Schema。默认不带该参数的原有完整响应保持兼容。能力执行仍须走按需详情及 Host
+授权路由；目录摘要不能作为执行合同。
 
 `examples/plugins/view-demo` 是当前可运行的最小 View 示例。它只使用内联静态资源，
 由 Host 注入 `window.zicode` 消息 SDK；iframe 没有 `allow-same-origin`、网络权限或
@@ -143,26 +149,20 @@ zicode.commands.register("timestamp.copy", (args, call) => ({
 
 ## 带主界面的插件
 
-插件 View 不能直接 import Shell 模块。由 Host 注入的 SDK 建立握手：
+插件 View 不能直接 import Shell 模块。当前 Host 在沙箱中注入 `window.zicode`：
 
-```ts
-import { connectPluginView } from "@zicode/plugin-sdk/view";
-
-const view = await connectPluginView({
-  viewId: "notes.editor",
-  apiVersion: "1.0",
-});
-
-const note = await view.capabilities.invoke(
-  "com.zicode.notes",
+```js
+const context = await window.zicode.ready();
+const controller = new AbortController();
+const note = await window.zicode.capabilities.invoke(
   "notes.get",
-  { noteId: view.route.resource },
+  { noteId: "example" },
+  { signal: controller.signal },
 );
-
-view.onThemeChanged((theme) => {
-  document.documentElement.dataset.theme = theme.id;
-});
+// When this View no longer needs the call: controller.abort();
 ```
+
+能力只能调用本插件声明的 ID。`AbortSignal` 是可选项；当前 Studio 对外部 Worker/WASI 能力使用 Host 单次调用句柄请求取消。旧 Host 或不支持该运行时时，带 `signal` 的请求会在执行前拒绝；不带 `signal` 的旧调用继续工作。取消请求不证明 Worker 已退出，原响应可能仍成功；响应丢失时结果未知。详见 [View 能力取消状态](view-capability-cancellation-gap.md)。
 
 View 必须处理：
 

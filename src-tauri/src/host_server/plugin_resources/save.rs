@@ -3,47 +3,133 @@ use super::*;
 use std::path::PathBuf;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(in crate::host_server) struct PrepareSave { schema_version: u32, source: Access }
+pub(in crate::host_server) struct PrepareSave {
+    schema_version: u32,
+    source: Access,
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(in crate::host_server) struct CommitSave { schema_version: u32, source: Access, grant_id: String, confirmed: bool }
+pub(in crate::host_server) struct CommitSave {
+    schema_version: u32,
+    source: Access,
+    grant_id: String,
+    confirmed: bool,
+}
 
-fn destination(state: &HostState, source: &Access) -> Result<(String, PathBuf, String, String), ApiError> {
-    let target = state.runtimes.statuses().map_err(|_| rejected("runtime_unavailable"))?.into_iter()
-        .find(|status| status.target.instance_id == source.owner.runtime_id && status.target.session_id == source.owner.session_id)
-        .ok_or_else(|| rejected("runtime_stopped"))?.target;
-    let root = state.data.workspace_roots().read().map_err(|_| rejected("resource_save_workspace_unavailable"))?
-        .get(&target.workspace_id).cloned().ok_or_else(|| rejected("resource_save_workspace_unavailable"))?;
-    let root = root.canonicalize().map_err(|_| rejected("resource_save_workspace_unavailable"))?;
-    let registry = state.plugins.lock().map_err(|_| rejected("registry_unavailable"))?;
-    if !registry.list(&target.scene_id).iter().any(|p| p.manifest.id == "com.zicode.artifacts" && p.enabled
-        && p.permission_grants.get("storage.plugin") == Some(&true)) { return Err(rejected("permission_denied")); }
-    let proof = sha256_hex(&serde_json::to_vec(&json!([target.workspace_id, root,
-        registry.execution_revision(&target.scene_id, "com.zicode.artifacts")])).unwrap());
-    let version = registry.list(&target.scene_id).into_iter().find(|p| p.manifest.id == source.owner.plugin_id)
-        .ok_or_else(|| rejected("resource_plugin_unavailable"))?.manifest.version;
+fn destination(
+    state: &HostState,
+    source: &Access,
+) -> Result<(String, PathBuf, String, String), ApiError> {
+    let target = state
+        .runtimes
+        .statuses()
+        .map_err(|_| rejected("runtime_unavailable"))?
+        .into_iter()
+        .find(|status| {
+            status.target.instance_id == source.owner.runtime_id
+                && status.target.session_id == source.owner.session_id
+        })
+        .ok_or_else(|| rejected("runtime_stopped"))?
+        .target;
+    let root = state
+        .data
+        .workspace_roots()
+        .read()
+        .map_err(|_| rejected("resource_save_workspace_unavailable"))?
+        .get(&target.workspace_id)
+        .cloned()
+        .ok_or_else(|| rejected("resource_save_workspace_unavailable"))?;
+    let root = root
+        .canonicalize()
+        .map_err(|_| rejected("resource_save_workspace_unavailable"))?;
+    let registry = state
+        .plugins
+        .lock()
+        .map_err(|_| rejected("registry_unavailable"))?;
+    if !registry
+        .execution_plugin(&target.scene_id, "com.zicode.artifacts")
+        .is_some_and(|p| p.enabled && p.permission_grants.get("storage.plugin") == Some(&true))
+    {
+        return Err(rejected("permission_denied"));
+    }
+    let proof = sha256_hex(
+        &serde_json::to_vec(&json!([
+            target.workspace_id,
+            root,
+            registry.execution_revision(&target.scene_id, "com.zicode.artifacts")
+        ]))
+        .unwrap(),
+    );
+    let version = registry
+        .execution_plugin(&target.scene_id, &source.owner.plugin_id)
+        .ok_or_else(|| rejected("resource_plugin_unavailable"))?
+        .manifest
+        .version;
     Ok((proof, root, target.workspace_id, version))
 }
 
-pub(in crate::host_server) async fn prepare(State(state): State<Arc<HostState>>, headers: HeaderMap, Json(request): Json<PrepareSave>) -> Result<Json<Value>, ApiError> {
-    desktop(&state, &headers)?; validate(&request.source)?;
-    if request.schema_version != 1 { return Err(rejected("resource_schema_unsupported")); }
+pub(in crate::host_server) async fn prepare(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+    Json(request): Json<PrepareSave>,
+) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    validate(&request.source)?;
+    if request.schema_version != 1 {
+        return Err(rejected("resource_schema_unsupported"));
+    }
     blocking(state.clone(), move || {
         let proof = authority::identity_access(&state, &request.source, None, None)?;
         let (destination, workspace, id, version) = destination(&state, &request.source)?;
-        let root = save_files::location(&workspace, false)?; save_files::quota(&root, 0)?;
-        state.plugin_resources.lock().map_err(|_| rejected("resource_store_unavailable"))?
-            .prepare_save(&request.source, &proof, destination, workspace, &id, &version)
-    }).await
+        let write_gate = state
+            .workspace_write_gates
+            .gate(&id)
+            .map_err(|_| rejected("resource_store_unavailable"))?;
+        let write_guard = write_gate
+            .lock()
+            .map_err(|_| rejected("resource_store_unavailable"))?;
+        if *write_guard {
+            return Err(rejected("resource_workspace_closed"));
+        }
+        let root = save_files::location(&workspace, false)?;
+        save_files::quota(&root, 0)?;
+        state
+            .plugin_resources
+            .lock()
+            .map_err(|_| rejected("resource_store_unavailable"))?
+            .prepare_save(
+                &request.source,
+                &proof,
+                destination,
+                workspace,
+                &id,
+                &version,
+            )
+    })
+    .await
 }
 
-pub(in crate::host_server) async fn commit(State(state): State<Arc<HostState>>, headers: HeaderMap, Json(request): Json<CommitSave>) -> Result<Json<Value>, ApiError> {
-    desktop(&state, &headers)?; validate(&request.source)?;
-    if request.schema_version != 1 { return Err(rejected("resource_schema_unsupported")); }
-    if !request.confirmed { return Err(rejected("resource_confirmation_required")); }
+pub(in crate::host_server) async fn commit(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+    Json(request): Json<CommitSave>,
+) -> Result<Json<Value>, ApiError> {
+    desktop(&state, &headers)?;
+    validate(&request.source)?;
+    if request.schema_version != 1 {
+        return Err(rejected("resource_schema_unsupported"));
+    }
+    if !request.confirmed {
+        return Err(rejected("resource_confirmation_required"));
+    }
     blocking(state.clone(), move || {
         let proof = authority::identity_access(&state, &request.source, None, None)?;
-        let (destination_proof, _, _, _) = destination(&state, &request.source)?;
+        let (destination_proof, _, workspace_id, _) = destination(&state, &request.source)?;
+        let write_gate = state.workspace_write_gates.gate(&workspace_id)
+            .map_err(|_| rejected("resource_store_unavailable"))?;
+        let write_guard = write_gate.lock()
+            .map_err(|_| rejected("resource_store_unavailable"))?;
+        if *write_guard { return Err(rejected("resource_workspace_closed")); }
         let (grant, chunks) = {
             let mut store = state.plugin_resources.lock().map_err(|_| rejected("resource_store_unavailable"))?;
             let grant = store.save_grant(&request.source, &request.grant_id, &proof, &destination_proof)?;

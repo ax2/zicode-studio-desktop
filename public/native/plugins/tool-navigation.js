@@ -1,3 +1,5 @@
+import { toolCategoryName } from "./tool-category-title.js";
+
 export const TOOL_CENTER_ID = "core.tools";
 export const PRIMARY_ACTIVITY_IDS = Object.freeze([
   "core.chat", "com.zicode.projects", "com.zicode.tasks", "com.zicode.notes",
@@ -34,16 +36,21 @@ export function isDirectoryApplication(plugin) {
 
 // Metadata only: never load a view or execute a capability while enumerating.
 export function applicationDirectory(plugins, isAvailable, translate, openPlugin) {
-  return plugins.filter(plugin => plugin.enabled && isAvailable(plugin) &&
+  return plugins.filter(plugin => isAvailable(plugin) &&
+    (plugin.enabled || plugin.origin === "developer" || plugin.origin === "signed") &&
     isDirectoryApplication(plugin))
     .map(plugin => ({
       id: `${plugin.id}:open`,
       label: translate(plugin.name),
-      desc: translate(plugin.description ?? ""),
-      category: APPLICATION_CATEGORIES[plugin.id] ?? "Other applications",
+      desc: translate(plugin.appDirectory?.description ?? plugin.description ?? ""),
+      category: plugin.appDirectory?.categoryId
+        ? toolCategoryName(plugin.appDirectory.categoryId)
+        : APPLICATION_CATEGORIES[plugin.id] ?? "Other applications",
       source: plugin.publisher ?? plugin.id,
-      keywords: [plugin.id, plugin.publisher, ...(plugin.capabilities ?? []).flatMap(cap => [cap.id, cap.title])]
+      disabled: !plugin.enabled,
+      keywords: [plugin.id, plugin.publisher, ...(plugin.appDirectory?.aliases ?? []),
+        ...(plugin.capabilities ?? []).flatMap(cap => [cap.id, cap.title])]
         .filter(value => typeof value === "string"),
-      action: () => openPlugin(plugin.id),
+      action: plugin.enabled ? () => openPlugin(plugin.id) : undefined,
     }));
 }

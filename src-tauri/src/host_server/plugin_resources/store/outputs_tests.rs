@@ -10,7 +10,8 @@ fn source(store: &mut Store) -> Access {
     let version = sha256_hex(b"");
     let row = store
         .prepare(
-            Prepare { catalog_revision: None,
+            Prepare {
+                catalog_revision: None,
                 schema_version: 1,
                 owner: owner.clone(),
                 mime_type: "text/plain".into(),
@@ -115,12 +116,22 @@ fn every_source_controls_a_derived_resource() {
         let first = source(&mut store);
         let second = source(&mut store);
         let sources = [first.clone(), second.clone()];
-        let output = Pending::prepare(&sources, "proof", vec![Blob {
-            mime_type: "text/plain".into(),
-            bytes: b"combined".to_vec(),
-        }]).unwrap();
-        let descriptors = store.publish_outputs(output, &AtomicBool::new(false)).unwrap();
-        assert_eq!(descriptors[0]["derivedFromAll"].as_array().unwrap().len(), 2);
+        let output = Pending::prepare(
+            &sources,
+            "proof",
+            vec![Blob {
+                mime_type: "text/plain".into(),
+                bytes: b"combined".to_vec(),
+            }],
+        )
+        .unwrap();
+        let descriptors = store
+            .publish_outputs(output, &AtomicBool::new(false))
+            .unwrap();
+        assert_eq!(
+            descriptors[0]["derivedFromAll"].as_array().unwrap().len(),
+            2
+        );
         let derived = Access {
             schema_version: 1,
             owner: first.owner.clone(),
@@ -128,7 +139,9 @@ fn every_source_controls_a_derived_resource() {
             content_version: descriptors[0]["contentVersion"].as_str().unwrap().into(),
         };
         assert_eq!(store.lineage(&derived, "proof").unwrap().len(), 2);
-        store.revoke(if revoke_second { &second } else { &first }).unwrap();
+        store
+            .revoke(if revoke_second { &second } else { &first })
+            .unwrap();
         assert!(store.check(&derived, "proof").is_err());
         assert_eq!(store.record_count(), 1);
     }
@@ -140,15 +153,24 @@ fn missing_source_blocks_group_publication() {
         let mut store = Store::default();
         let first = source(&mut store);
         let second = source(&mut store);
-        let pending = Pending::prepare(&[first.clone(), second.clone()], "proof", vec![Blob {
-            mime_type: "text/plain".into(), bytes: b"combined".to_vec(),
-        }]).unwrap();
+        let pending = Pending::prepare(
+            &[first.clone(), second.clone()],
+            "proof",
+            vec![Blob {
+                mime_type: "text/plain".into(),
+                bytes: b"combined".to_vec(),
+            }],
+        )
+        .unwrap();
         if expire_second {
-            store.records.get_mut(&second.resource_id).unwrap().expires = Instant::now() - Duration::from_secs(1);
+            store.records.get_mut(&second.resource_id).unwrap().expires =
+                Instant::now() - Duration::from_secs(1);
         } else {
             store.revoke(&first).unwrap();
         }
-        assert!(store.publish_outputs(pending, &AtomicBool::new(false)).is_err());
+        assert!(store
+            .publish_outputs(pending, &AtomicBool::new(false))
+            .is_err());
         assert_eq!(store.record_count(), 1);
     }
 }

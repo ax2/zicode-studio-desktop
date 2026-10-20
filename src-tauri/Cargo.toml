@@ -31,6 +31,7 @@ notify-rust = "=4.11.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 cap-std = "3.4.5"
+cap-fs-ext = "3.4.5"
 jsonc-parser = { version = "=0.34.0", features = ["serde"] }
 semver = "1"
 unicode-normalization = "=0.1.25"
@@ -86,7 +87,9 @@ russh = "0.62.7"
 russh-sftp = "2.4.0"
 
 [profile.dev]
-incremental = true
+# Keep one reusable dev/test artifact set instead of accumulating large
+# incremental compiler sessions across repeated local checks and edits.
+incremental = false
 # Keep useful stack/module information without full type/variable debug data.
 # Tests inherit this profile, avoiding an additional dependency profile.
 debug = 1

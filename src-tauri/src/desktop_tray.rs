@@ -1,9 +1,10 @@
 //! Desktop lifecycle only; hiding never stops a workspace or starts a tool.
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 struct DesktopTray {
     icon: TrayIcon,
@@ -15,6 +16,55 @@ struct DesktopTray {
     hide: MenuItem<tauri::Wry>,
     exit: MenuItem<tauri::Wry>,
     focused_window: Mutex<Option<String>>,
+    locale: Mutex<String>,
+    exit_prompt_open: AtomicBool,
+}
+
+fn exit_prompt_labels(locale: &str) -> (&'static str, &'static str, &'static str) {
+    if locale == "en" {
+        (
+            "Quit Studio? Running tools will stop and unsaved results may be lost.",
+            "Quit Studio",
+            "Keep running",
+        )
+    } else {
+        (
+            "退出 Studio？正在运行的工具将停止，尚未保存的结果可能丢失。",
+            "退出 Studio",
+            "继续运行",
+        )
+    }
+}
+
+fn confirm_exit(app: &AppHandle) {
+    let Some(tray) = app.try_state::<DesktopTray>() else {
+        return;
+    };
+    if tray.exit_prompt_open.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let locale = tray
+        .locale
+        .lock()
+        .map(|value| value.clone())
+        .unwrap_or_default();
+    let (message, quit, keep) = exit_prompt_labels(&locale);
+    let callback_app = app.clone();
+    app.dialog()
+        .message(message)
+        .title("ZiCode Studio Desktop")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            quit.into(),
+            keep.into(),
+        ))
+        .show(move |confirmed| {
+            if confirmed {
+                callback_app.exit(0);
+            } else if let Some(tray) = callback_app.try_state::<DesktopTray>() {
+                tray.exit_prompt_open.store(false, Ordering::Release);
+            }
+        });
 }
 
 #[tauri::command]
@@ -70,6 +120,10 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     tray.icon
         .set_tooltip(Some(labels[7]))
         .map_err(|error| error.to_string())?;
+    *tray
+        .locale
+        .lock()
+        .map_err(|_| "Desktop tray locale is unavailable")? = locale;
     Ok(())
 }
 
@@ -241,8 +295,9 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                     }
                 }
             }
-            // Use the existing Host shutdown barrier and managed Pi cleanup.
-            "studio.exit" => app.exit(0),
+            // Confirmation covers all tool types; keep the existing Host shutdown
+            // barrier and managed Pi cleanup after an explicit exit decision.
+            "studio.exit" => confirm_exit(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -268,13 +323,15 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         hide,
         exit,
         focused_window: Mutex::new(None),
+        locale: Mutex::new("zh-CN".into()),
+        exit_prompt_open: AtomicBool::new(false),
     });
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{focus_index, managed_window};
+    use super::{exit_prompt_labels, focus_index, managed_window};
 
     #[test]
     fn tray_restores_recent_window_and_keeps_bootstrap_as_fallback() {
@@ -303,5 +360,15 @@ mod tests {
             "native-workspace-tools-center"
         ));
         assert!(!crate::desktop_tools::project_context_window("bootstrap"));
+    }
+
+    #[test]
+    fn exit_prompt_explains_running_work_in_both_languages() {
+        let chinese = exit_prompt_labels("zh-CN");
+        let english = exit_prompt_labels("en");
+        assert!(chinese.0.contains("尚未保存"));
+        assert!(english.0.contains("unsaved results"));
+        assert_ne!(chinese.1, chinese.2);
+        assert_ne!(english.1, english.2);
     }
 }

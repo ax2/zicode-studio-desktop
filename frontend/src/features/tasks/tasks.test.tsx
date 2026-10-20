@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n.js";
+import type { TaskCenterTarget } from "./approve-task";
 import {
   dateRangeLabel,
   filteredTasks,
@@ -719,6 +720,34 @@ describe("task center React app", () => {
 
     app.destroy();
     container.remove();
+  });
+
+  it("keeps a tools-only task center on plugin tasks without calling AI task storage", async () => {
+    let target: TaskCenterTarget = { sceneId: "programming", workspaceId: "workspace-a",
+      sessionId: "tools-one", instanceId: "instance-a", runtimeMode: "tools" };
+    const call = mockCall([]);
+    const listPluginTasks = vi.fn(async () => ({ tasks: [], nextCursor: null }));
+    const app = createTaskCenterApp({ call, listPluginTasks, getTarget: () => target });
+    const navigation = document.createElement("div");
+    const content = document.createElement("div");
+    document.body.append(navigation, content);
+    app.renderNavigation(navigation);
+    app.renderContent(content);
+    await waitFor(() => expect(content.textContent).toContain("当前工作区暂无插件任务"));
+    expect(navigation.textContent).toContain("插件任务");
+    expect(content.textContent).not.toContain("无法加载任务");
+    expect(content.querySelector(".task-center-header-actions")).toBeNull();
+    expect(call).not.toHaveBeenCalled();
+    await app.refresh();
+    expect(call).not.toHaveBeenCalled();
+
+    target = { ...target, runtimeMode: "ai", sessionId: "ai-one" };
+    app.setTarget();
+    await waitFor(() => expect(call).toHaveBeenCalledWith("read_super_agent_tasks",
+      undefined, { target }));
+    app.destroy();
+    navigation.remove();
+    content.remove();
   });
 });
 

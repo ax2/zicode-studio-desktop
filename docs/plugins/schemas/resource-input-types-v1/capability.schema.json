@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zicode.com/schemas/resource-input-types-v1/capability.schema.json",
+  "title": "Resource input type declaration",
+  "type": "object",
+  "properties": {
+    "resourceInputMimeTypes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 128,
+        "pattern": "^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$"
+      }
+    }
+  },
+  "required": ["resourceInputMimeTypes"],
+  "additionalProperties": true
+}

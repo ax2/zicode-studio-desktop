@@ -94,24 +94,55 @@ async fn lost(
     if cause == "unrelated" {
         {
             let mut registry = host.state.plugins.lock().unwrap();
-            registry.set_permission("programming", "com.zicode.artifacts", "storage.plugin", false).unwrap();
-            registry.set_permission("programming", "com.zicode.artifacts", "storage.plugin", true).unwrap();
-            registry.set_enabled("programming", "com.zicode.artifacts", true).unwrap();
-            registry.set_enabled("other-scene", "com.zicode.studio.resource-fixture", true).unwrap();
+            registry
+                .set_permission(
+                    "programming",
+                    "com.zicode.artifacts",
+                    "storage.plugin",
+                    false,
+                )
+                .unwrap();
+            registry
+                .set_permission(
+                    "programming",
+                    "com.zicode.artifacts",
+                    "storage.plugin",
+                    true,
+                )
+                .unwrap();
+            registry
+                .set_enabled("programming", "com.zicode.artifacts", true)
+                .unwrap();
+            registry
+                .set_enabled("other-scene", "com.zicode.studio.resource-fixture", true)
+                .unwrap();
             registry.reload_developer_plugins().unwrap();
         }
         // Keep the Worker suspended across several watcher intervals. Any cancellation
         // event is a failure; elapsed time alone is not evidence of successful execution.
-        assert!(matches!(events_rx.recv_timeout(Duration::from_millis(350)), Err(mpsc::RecvTimeoutError::Timeout)));
+        assert!(matches!(
+            events_rx.recv_timeout(Duration::from_millis(350)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ));
         release_tx.send(()).unwrap();
-        let response = tokio::time::timeout(Duration::from_secs(5), task).await.unwrap().unwrap();
+        let response = tokio::time::timeout(Duration::from_secs(5), task)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         let body: Value = response.json().await.unwrap();
         assert_eq!(body["result"]["text"], "resource");
         let events: Vec<_> = events_rx.try_iter().collect();
-        for name in ["reaped", "pipes_closed"] { assert!(events.contains(&(name, started.1))); }
-        assert!(!events.iter().any(|event| matches!(event.0, "cancel_live" | "authorization_lost")));
-        assert_eq!(host.state.plugin_resource_workers.slots.available_permits(), WORKERS);
+        for name in ["reaped", "pipes_closed"] {
+            assert!(events.contains(&(name, started.1)));
+        }
+        assert!(!events
+            .iter()
+            .any(|event| matches!(event.0, "cancel_live" | "authorization_lost")));
+        assert_eq!(
+            host.state.plugin_resource_workers.slots.available_permits(),
+            WORKERS
+        );
         *host.state.plugin_resource_workers.observer.lock().unwrap() = None;
         return json!({"cause":cause,"pid":started.1,"automaticCancellation":false,"resultPreserved":true,"reapedPipesClosed":true,"slotsReleased":true});
     }
@@ -172,7 +203,13 @@ async fn lost(
     );
     let detection_ms = changed.elapsed().as_millis();
     if cause == "permission" {
-        let status = post(host, client, "call-status", json!({"schemaVersion":1,"owner":access["owner"],"toolCallId":call_id})).await;
+        let status = post(
+            host,
+            client,
+            "call-status",
+            json!({"schemaVersion":1,"owner":access["owner"],"toolCallId":call_id}),
+        )
+        .await;
         assert_eq!(status.status(), StatusCode::OK);
         let status: Value = status.json().await.unwrap();
         assert_eq!(status["phase"], "active");

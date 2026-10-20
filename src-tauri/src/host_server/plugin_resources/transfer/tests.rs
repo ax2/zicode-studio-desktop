@@ -18,6 +18,20 @@ fn confirmation_requests_reject_owner_override_and_paths() {
     }
 }
 
+fn reinstall_target_with_mime(host: &HostServer, package: &std::path::Path, mime_type: &str) {
+    let manifest_path = package.join("plugin.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["contributes"]["capabilities"][0]["resourceInputMimeTypes"] = json!([mime_type]);
+    std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    host.state
+        .plugins
+        .lock()
+        .unwrap()
+        .install_developer(package)
+        .unwrap();
+}
+
 pub(in crate::host_server::plugin_resources) async fn verify(
     host: &HostServer,
     root: &std::path::Path,
@@ -39,6 +53,10 @@ pub(in crate::host_server::plugin_resources) async fn verify(
             manifest["runtime"]["resourceOutputProfile"] =
                 json!(crate::plugin_worker::resource_output::PROFILE);
             manifest["contributes"]["capabilities"][0]["outputSchema"] = json!({"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false});
+        } else {
+            manifest["requiredProfiles"]["resource.input.types.v1"] = json!("=1.0.0-preview.1");
+            manifest["contributes"]["capabilities"][0]["resourceInputMimeTypes"] =
+                json!(["application/octet-stream"]);
         }
         std::fs::write(
             package.join("plugin.json"),
@@ -96,11 +114,42 @@ pub(in crate::host_server::plugin_resources) async fn verify(
             .status(),
         StatusCode::FORBIDDEN
     );
+    let target_package = root.join("com.zicode.studio.transfer-target");
+    reinstall_target_with_mime(host, &target_package, "text/plain");
+    let mismatched = post(host, &client, "prepare-transfer", prepare.clone())
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(
+        mismatched["error"]["code"],
+        "resource_input_type_unsupported"
+    );
+    reinstall_target_with_mime(host, &target_package, "application/octet-stream");
     let prepared = post(host, &client, "prepare-transfer", prepare.clone()).await;
     assert_eq!(prepared.status(), StatusCode::OK);
     let prepared = prepared.json::<Value>().await.unwrap();
     assert_eq!(prepared["requiresConfirmation"], true);
     assert_eq!(prepared["byteLength"], 300000);
+    let stale_commit =
+        json!({"schemaVersion":1,"source":source,"grantId":prepared["grantId"],"confirmed":true});
+    reinstall_target_with_mime(host, &target_package, "text/plain");
+    let changed = post(host, &client, "commit-transfer", stale_commit.clone())
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(changed["error"]["code"], "resource_input_type_unsupported");
+    reinstall_target_with_mime(host, &target_package, "application/octet-stream");
+    let restored = post(host, &client, "commit-transfer", stale_commit)
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    assert_eq!(restored["error"]["code"], "resource_authorization_changed");
+    let prepared = post(host, &client, "prepare-transfer", prepare.clone()).await;
+    assert_eq!(prepared.status(), StatusCode::OK);
+    let prepared = prepared.json::<Value>().await.unwrap();
     let commit =
         json!({"schemaVersion":1,"source":source,"grantId":prepared["grantId"],"confirmed":true});
     let mut unconfirmed = commit.clone();
@@ -321,7 +370,7 @@ pub(in crate::host_server::plugin_resources) async fn verify(
     .await
     .status()
     .is_success());
-    json!({"passed":true,"profile":"resource.transfer.draft1","bytes":300000,"brokerDenied":true,"unconfirmedDenied":true,"ownerOverrideDenied":true,"singleResourceOnReplay":true,"sourceWorkerOutputTransferred":true,"realWorkerExecutedTransferredInput":true,"targetPermissionRevocationAndRegrantDenied":true,"sourcePermissionRevocationAndRegrantDenied":true,"sourceRevocationCascades":true,"unrelatedTargetFreshInputReadable":true,"nativeUi":false,"providerAlgorithm":false})
+    json!({"passed":true,"profile":"resource.transfer.draft1","bytes":300000,"brokerDenied":true,"unconfirmedDenied":true,"ownerOverrideDenied":true,"mimeTypeMismatchDenied":true,"changedDeclarationGrantDenied":true,"singleResourceOnReplay":true,"sourceWorkerOutputTransferred":true,"realWorkerExecutedTransferredInput":true,"targetPermissionRevocationAndRegrantDenied":true,"sourcePermissionRevocationAndRegrantDenied":true,"sourceRevocationCascades":true,"unrelatedTargetFreshInputReadable":true,"nativeUi":false,"providerAlgorithm":false})
 }
 
 const COPY_OUTPUT: &str = r#"(module

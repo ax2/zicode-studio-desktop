@@ -1,0 +1,171 @@
+{
+  "fixtureKind": "plugin-runtime",
+  "wasmBytes": 218589,
+  "wasmSha256": "97113b847130f981e388c19d1929bc5e17039f65e342b275048108c34602fd8a",
+  "wasmtimeVersion": "36.0.0",
+  "budget": {
+    "fuel": 10000000,
+    "deadlineSeconds": 5,
+    "memoryBytes": 67108864,
+    "guestStackBytes": 2097152
+  },
+  "engineProvenance": {
+    "pythonBindingVersion": "36.0.0",
+    "nativeEngineVersion": "36.0.2",
+    "sourceUrl": "https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.2/wasmtime-v36.0.2-x86_64-windows-c-api.zip",
+    "releaseArchiveSha256": "ae93e1949d169ac4412c735c08ecb4dee841023549d83f69c6e98cefca22e734",
+    "dllPath": "E:\\zi-devtools\\target\\wasmtime-36.0.2\\wasmtime\\win32-x86_64\\_wasmtime.dll",
+    "dllSha256": "e001d681b140a3b6a382f8cfa50bf1b5e81d809b6be11b77a84a3a96bee06e5b",
+    "limitations": [
+      "Official independent C-API engine, not Studio executable",
+      "Release archive verified and consumed in memory; no ZIP retained"
+    ]
+  },
+  "cases": [
+    {
+      "id": "inspect-object",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 100531,
+      "fuelRemaining": 9899469,
+      "elapsedMs": 1.492,
+      "memoryBytes": 2162688,
+      "requestBytes": 224,
+      "resultBytes": 314,
+      "requestSha256": "b5ae440131950749f286d5ad471e6191434f22cd5192180e8b1385e5715b26a3",
+      "expectedSha256": "22dd8d6024575168ff12cb44190a0d1978fc29f79bed3510a42e11098bb19465",
+      "expectedError": null
+    },
+    {
+      "id": "receive-object",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 69329,
+      "fuelRemaining": 9930671,
+      "elapsedMs": 0.71,
+      "memoryBytes": 2162688,
+      "requestBytes": 224,
+      "resultBytes": 211,
+      "requestSha256": "19df3f2d501c0b9f1865ab59159d10c4af7f7a6c7cad4264100d47124e05b035",
+      "expectedSha256": "cda8d57c7f1e779382912c2116010a631260baa7b12a3d996a6fea503e97dec4",
+      "expectedError": null
+    },
+    {
+      "id": "inspect-empty-object",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 44735,
+      "fuelRemaining": 9955265,
+      "elapsedMs": 0.603,
+      "memoryBytes": 2162688,
+      "requestBytes": 160,
+      "resultBytes": 147,
+      "requestSha256": "5c704e67f294c99ee2457aaeba81785373383b08ff4d4dd323ac32ed8597417c",
+      "expectedSha256": "d93251315d833e4030e3830a4c0b356a413b914acd23f32664d8b83f7f78bf50",
+      "expectedError": null
+    },
+    {
+      "id": "reject-array",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 27950,
+      "fuelRemaining": 9972050,
+      "elapsedMs": 0.685,
+      "memoryBytes": 2162688,
+      "requestBytes": 163,
+      "resultBytes": 128,
+      "requestSha256": "c7743d852bd840d0d70050df71ab8e3fca1619c0353133824a7305bf2034475d",
+      "expectedSha256": "4d5f5804bf6ce8bdbc72131baf2078f8807aa26d6ec9399e28e9fafe853361da",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "id": "reject-string",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 27187,
+      "fuelRemaining": 9972813,
+      "elapsedMs": 0.673,
+      "memoryBytes": 2162688,
+      "requestBytes": 164,
+      "resultBytes": 128,
+      "requestSha256": "0136d05d88901bd4abe83f2a6b792ef970ad56f23f3bb47276c60b032e01a8dc",
+      "expectedSha256": "4d5f5804bf6ce8bdbc72131baf2078f8807aa26d6ec9399e28e9fafe853361da",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "id": "reject-extra-input",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 27633,
+      "fuelRemaining": 9972367,
+      "elapsedMs": 0.659,
+      "memoryBytes": 2162688,
+      "requestBytes": 158,
+      "resultBytes": 119,
+      "requestSha256": "843f354ca1dcb27c6d748a3a3d83ef6e013ad1c552486543e9e7074679f901c5",
+      "expectedSha256": "d346e9bb18b3bb5dc73bae0b6a0ef86633035d5975d1c3633f8a3ed6331212d4",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "id": "reject-duplicate-key",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 30299,
+      "fuelRemaining": 9969701,
+      "elapsedMs": 0.587,
+      "memoryBytes": 2162688,
+      "requestBytes": 159,
+      "resultBytes": 119,
+      "requestSha256": "8d53fa76141a1e518ea0cc17065918a3caca29a5fda523be95e622b2cd9fb7bf",
+      "expectedSha256": "c121638e6e809c3d772db72acef3398393c18fed6c820cb04fb8d560a6899d89",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "id": "reject-value-over-8k",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 263977,
+      "fuelRemaining": 9736023,
+      "elapsedMs": 1.104,
+      "memoryBytes": 2228224,
+      "requestBytes": 8358,
+      "resultBytes": 127,
+      "requestSha256": "54c5af5711579d166365a70b6b88e05db5872b61942672724514d860882d0ca3",
+      "expectedSha256": "03c8afa625775354553182283335662c2556338387f5e84d01ab42d82f469e61",
+      "expectedError": "INPUT_TOO_LARGE"
+    },
+    {
+      "id": "reject-129-fields",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 563526,
+      "fuelRemaining": 9436474,
+      "elapsedMs": 0.783,
+      "memoryBytes": 2162688,
+      "requestBytes": 1358,
+      "resultBytes": 131,
+      "requestSha256": "473aea0d4dc65b93e04581804d27b6b1dffa6bce9ff4d963496679d8884adc3e",
+      "expectedSha256": "54b33dcaa051bb2a8657f094744c853e93e9adb304a0974d2083f31f2b5d1d15",
+      "expectedError": "INVALID_INPUT"
+    },
+    {
+      "id": "reject-envelope-over-48k",
+      "passBudget": true,
+      "trap": null,
+      "fuelUsed": 19283,
+      "fuelRemaining": 9980717,
+      "elapsedMs": 1.055,
+      "memoryBytes": 2228224,
+      "requestBytes": 49153,
+      "resultBytes": 122,
+      "requestSha256": "094bfd917517fdb605b63c5a47e3d6c12857b6a9bfb17b55c94ff6a41f0e8932",
+      "expectedSha256": "a8ba625aa2b04d6bedce31176e0581056c2164d07c580f81d902f94ae6249ff6",
+      "expectedError": "INPUT_TOO_LARGE"
+    }
+  ],
+  "failures": [],
+  "limitations": [
+    "Independent Wasmtime C-API; not Studio Host acceptance",
+    "No inherited environment or preopened directories; stdout redirected to runner files"
+  ]
+}

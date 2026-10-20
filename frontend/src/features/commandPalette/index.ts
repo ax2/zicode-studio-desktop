@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { CommandPaletteRoot } from "./CommandPaletteRoot";
-import type { ManualTool, ManualToolApi } from "../toolCenter/manual-tools";
+import { manualToolError, type DirectoryItem, type ManualToolApi } from "../toolCenter/manual-tools";
 import {
   type PaletteCommand,
   type PaletteCommandSource,
@@ -14,6 +14,8 @@ export interface CommandPaletteHandle {
   open(): void;
   close(options?: { restoreFocus?: boolean }): void;
 }
+
+export { manualToolError };
 
 export function setupCommandPalette({
   button,
@@ -27,6 +29,7 @@ export function setupCommandPalette({
   getToolApi,
   onOpenTool,
   onError = console.error,
+  onToolError = onError,
 }: {
   button?: HTMLElement | null;
   palette?: HTMLElement | null;
@@ -37,8 +40,9 @@ export function setupCommandPalette({
   getScope?: () => ToolAccessScope;
   toolApi?: ManualToolApi;
   getToolApi?: () => ManualToolApi | undefined;
-  onOpenTool?: (tool: ManualTool, revision: string, scope: ToolAccessScope) => unknown;
+  onOpenTool?: (tool: DirectoryItem, revision: string, scope: ToolAccessScope) => unknown;
   onError?: (error: unknown) => void;
+  onToolError?: (error: unknown) => void;
 } = {}): CommandPaletteHandle {
   if (!button || !palette || !overlay || !list) {
     return {
@@ -55,6 +59,7 @@ export function setupCommandPalette({
   const root: Root = createRoot(container);
   let previousFocus: HTMLElement | null = null;
   let openGeneration = 0;
+  let openedScope: ToolAccessScope | undefined;
 
   function close({ restoreFocus = true }: { restoreFocus?: boolean } = {}) {
     panel.classList.add("hidden");
@@ -66,6 +71,7 @@ export function setupCommandPalette({
       (previousFocus?.isConnected ? previousFocus : trigger).focus();
     }
     previousFocus = null;
+    openedScope = undefined;
   }
 
   function runCommand(command: PaletteCommand, scope?: ToolAccessScope) {
@@ -77,6 +83,7 @@ export function setupCommandPalette({
     const activeToolApi = getToolApi?.() ?? toolApi;
     const scope = getScope?.();
     const fixedScope = scope ? { sceneId: scope.sceneId, workspaceId: scope.workspaceId } : undefined;
+    openedScope = fixedScope;
     const active = document.activeElement;
     previousFocus =
       active instanceof HTMLElement &&
@@ -95,9 +102,9 @@ export function setupCommandPalette({
           scope: fixedScope,
           tools: activeToolApi && onOpenTool && fixedScope ? {
             api: activeToolApi, scope: fixedScope,
-            onOpen: (tool: ManualTool, revision: string) => {
+            onOpen: (tool: DirectoryItem, revision: string) => {
               close({ restoreFocus: false });
-              void Promise.resolve().then(() => onOpenTool(tool, revision, fixedScope)).catch(onError);
+              void Promise.resolve().then(() => onOpenTool(tool, revision, fixedScope)).catch(onToolError);
             },
           } : undefined,
           onRun: (command: PaletteCommand) => runCommand(command, fixedScope),
@@ -109,6 +116,13 @@ export function setupCommandPalette({
 
   trigger.addEventListener("click", open);
   backdrop.addEventListener("click", () => close());
+  window.addEventListener("zicode:tool-target-changed", () => {
+    if (panel.classList.contains("hidden")) return;
+    const current = getScope?.();
+    if (openedScope?.sceneId !== current?.sceneId || openedScope?.workspaceId !== current?.workspaceId) {
+      close({ restoreFocus: false });
+    }
+  });
 
   document.addEventListener("keydown", (event) => {
     if (panel.classList.contains("hidden")) return;
@@ -120,7 +134,7 @@ export function setupCommandPalette({
     if (event.key !== "Tab") return;
     const focusable = [
       ...panel.querySelectorAll(
-        "button:not(:disabled), input, [href], [tabindex]",
+        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex]",
       ),
     ].filter((element) => element.getAttribute("tabindex") !== "-1");
     if (focusable.length === 0) return;

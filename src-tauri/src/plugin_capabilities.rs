@@ -1,15 +1,15 @@
-#[path = "plugin_worker_process.rs"]
-pub(crate) mod worker_process;
-#[path = "plugin_schema_constraints.rs"]
-pub(crate) mod schema_constraints;
-#[path = "plugin_output_contract.rs"]
-pub(crate) mod output_contract;
-#[path = "plugin_detached_worker.rs"]
-pub(crate) mod detached_worker;
 #[path = "plugin_cache_authority.rs"]
 mod cache_authority;
+#[path = "plugin_detached_worker.rs"]
+pub(crate) mod detached_worker;
+#[path = "plugin_output_contract.rs"]
+pub(crate) mod output_contract;
+#[path = "plugin_schema_constraints.rs"]
+pub(crate) mod schema_constraints;
 #[path = "plugin_worker_launch.rs"]
 mod worker_launch;
+#[path = "plugin_worker_process.rs"]
+pub(crate) mod worker_process;
 
 use crate::notes_vault::NotesVault;
 use crate::plugin_registry::{PluginCapabilityDescriptor, PluginRegistry};
@@ -21,8 +21,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -145,6 +145,7 @@ impl CapabilityBroker {
         })
     }
 
+    #[cfg(test)]
     pub fn invoke(
         &mut self,
         registry: &PluginRegistry,
@@ -166,7 +167,7 @@ impl CapabilityBroker {
         let input_hash = hex_sha256(&input_bytes);
         if input_bytes.len() > MAX_CAPABILITY_INPUT_BYTES {
             let error =
-                CapabilityError::new("payload_too_large", "Capability input exceeds 256 KiB");
+                CapabilityError::new("payload_too_large", "Capability input exceeds 16 MiB");
             self.write_audit(AuditRecord {
                 timestamp_ms: now_millis(),
                 caller: &invocation.caller,
@@ -200,15 +201,28 @@ impl CapabilityBroker {
                 serde_json::to_string(&(scope, call)).expect("String tuple is serializable")
             });
         let outcome = if cancelled.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-            Err(CapabilityError::new("worker_cancelled", "Plugin call cancelled before execution"))
-        } else if cache_key.as_ref().is_some_and(|key| self.worker_reservations.get(key).is_some_and(|entry| entry.lease.strong_count() > 0)) {
-            Err(CapabilityError::new("plugin_call_in_progress", "This invocation is already running"))
+            Err(CapabilityError::new(
+                "worker_cancelled",
+                "Plugin call cancelled before execution",
+            ))
+        } else if cache_key.as_ref().is_some_and(|key| {
+            self.worker_reservations
+                .get(key)
+                .is_some_and(|entry| entry.lease.strong_count() > 0)
+        }) {
+            Err(CapabilityError::new(
+                "plugin_call_in_progress",
+                "This invocation is already running",
+            ))
         } else if let Some(key) = &cache_key {
             self.invoke_cached(registry, &invocation, key, &request_hash, cancelled)
         } else {
             self.invoke_uncached(registry, &invocation, cancelled)
         };
-        if outcome.as_ref().is_err_and(|error| matches!(error.code, "worker_protocol_error" | "result_too_large")) {
+        if outcome
+            .as_ref()
+            .is_err_and(|error| matches!(error.code, "worker_protocol_error" | "result_too_large"))
+        {
             if let Some(key) = &cache_key {
                 self.idempotency.remove(key);
                 self.idempotency_order.retain(|entry| entry != key);
@@ -304,7 +318,7 @@ impl CapabilityBroker {
         if input.len() > MAX_CAPABILITY_INPUT_BYTES {
             return Err(CapabilityError::new(
                 "payload_too_large",
-                "Command arguments exceed 256 KiB",
+                "Command arguments exceed 16 MiB",
             ));
         }
         let plugin_id = registry
@@ -624,7 +638,8 @@ impl CapabilityBroker {
         input: Value,
         cancelled: Option<&AtomicBool>,
     ) -> Result<Value, CapabilityError> {
-        worker_launch::WorkerLaunch::prepare(self, registry, scene_id, plugin_id, handler, input)?.run(cancelled)
+        worker_launch::WorkerLaunch::prepare(self, registry, scene_id, plugin_id, handler, input)?
+            .run(cancelled)
     }
 
     fn get_note(&self, workspace_id: &str, input: &Value) -> Result<Value, CapabilityError> {
@@ -833,7 +848,11 @@ struct AuditRecord<'a> {
     error_code: Option<&'a str>,
 }
 
-pub(crate) fn validate_value(schema: &Value, value: &Value, path: &str) -> Result<(), CapabilityError> {
+pub(crate) fn validate_value(
+    schema: &Value,
+    value: &Value,
+    path: &str,
+) -> Result<(), CapabilityError> {
     let schema_type = schema.get("type").and_then(Value::as_str);
     let valid_type = match schema_type {
         Some("object") => value.is_object(),
@@ -989,33 +1008,52 @@ mod tests {
 
     #[test]
     fn cancelled_invocation_is_audited_without_caching_or_leaking_input() {
-        let scratch = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
+        let scratch =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
         fs::create_dir_all(&scratch).unwrap();
         let fixture = scratch.join(format!("broker-cancel-{}", uuid::Uuid::new_v4()));
         fs::create_dir(&fixture).unwrap();
-        fs::write(fixture.join("owner.json"), r#"{"purpose":"broker cancellation audit and retry; remove on success"}"#).unwrap();
+        fs::write(
+            fixture.join("owner.json"),
+            r#"{"purpose":"broker cancellation audit and retry; remove on success"}"#,
+        )
+        .unwrap();
         let plugin_root = fixture.join("plugins");
         let registry = PluginRegistry::open(plugin_root.clone()).unwrap();
         let mut broker = CapabilityBroker::new(plugin_root.clone()).unwrap();
         let invocation = CapabilityInvocation {
-            caller: "chat".into(), scene_id: "programming".into(),
+            caller: "chat".into(),
+            scene_id: "programming".into(),
             workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
-            plugin_id: "com.zicode.notes".into(), capability_id: "notes.search".into(),
-            tool_call_id: Some("cancel-fixture".into()), idempotency_scope: Some("fixture-runtime".into()),
+            plugin_id: "com.zicode.notes".into(),
+            capability_id: "notes.search".into(),
+            tool_call_id: Some("cancel-fixture".into()),
+            idempotency_scope: Some("fixture-runtime".into()),
             input: json!({"query":"private-cancel-test-input", "limit":5}),
         };
         let flag = std::sync::atomic::AtomicBool::new(true);
-        assert_eq!(broker.invoke_cancellable(&registry, invocation.clone(), Some(&flag)).unwrap_err().code, "worker_cancelled");
+        assert_eq!(
+            broker
+                .invoke_cancellable(&registry, invocation.clone(), Some(&flag))
+                .unwrap_err()
+                .code,
+            "worker_cancelled"
+        );
         assert!(broker.idempotency.is_empty());
         let audit = fs::read_to_string(plugin_root.join("audit/capabilities.jsonl")).unwrap();
         assert!(audit.contains("worker_cancelled"));
         assert!(!audit.contains("private-cancel-test-input"));
         flag.store(false, std::sync::atomic::Ordering::Release);
-        assert!(broker.invoke_cancellable(&registry, invocation, Some(&flag)).is_ok());
+        assert!(broker
+            .invoke_cancellable(&registry, invocation, Some(&flag))
+            .is_ok());
         assert_eq!(broker.idempotency.len(), 1);
         drop(broker);
         drop(registry);
-        assert!(fixture.canonicalize().unwrap().starts_with(scratch.canonicalize().unwrap()));
+        assert!(fixture
+            .canonicalize()
+            .unwrap()
+            .starts_with(scratch.canonicalize().unwrap()));
         fs::remove_dir_all(fixture).unwrap();
     }
 
@@ -1250,10 +1288,22 @@ mod tests {
         registry
             .set_permission("programming", "com.zicode.notes", "pi.tools.register", true)
             .unwrap();
-        assert_eq!(broker.invoke(&registry, invocation.clone()).unwrap_err().code, "idempotency_authority_changed");
+        assert_eq!(
+            broker
+                .invoke(&registry, invocation.clone())
+                .unwrap_err()
+                .code,
+            "idempotency_authority_changed"
+        );
         let mut fresh = invocation;
         fresh.tool_call_id = Some("fresh-after-review".into());
-        assert_eq!(broker.invoke(&registry, fresh).unwrap()["matches"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            broker.invoke(&registry, fresh).unwrap()["matches"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
         drop(broker);
         drop(registry);
         drop(scoped);

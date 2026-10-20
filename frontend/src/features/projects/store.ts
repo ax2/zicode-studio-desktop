@@ -77,7 +77,7 @@ export interface DataGatewayLike {
 }
 
 export interface ProjectWorkspaceOptions {
-  readStorage?: (workspaceId: string, directory: string) => Promise<ProjectStorageReport>;
+  readStorage?: (workspaceId: string, directory: string, deep?: boolean) => Promise<ProjectStorageReport>;
   openStorageEntry?: (workspaceId: string, relativePath: string) => Promise<void>;
   canRunProjectTasks?: boolean;
   controlGateway?: {
@@ -133,7 +133,7 @@ export type ProjectView =
   | "work";
 
 interface ProjectWorkspaceState {
-  readStorage?: (workspaceId: string, directory: string) => Promise<ProjectStorageReport>;
+  readStorage?: (workspaceId: string, directory: string, deep?: boolean) => Promise<ProjectStorageReport>;
   openStorageEntry?: (workspaceId: string, relativePath: string) => Promise<void>;
   canStageGit: boolean;
   canUnstageGit: boolean;

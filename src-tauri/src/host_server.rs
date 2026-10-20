@@ -9,41 +9,63 @@ mod automation_schedule;
 mod automation_task_schedule;
 mod automation_workspace_sync;
 #[cfg(test)]
-mod devtools_text_tests;
+mod application_directory_host_tests;
 #[cfg(test)]
-mod diagnostics_pi_tests;
-#[cfg(test)]
-mod transforms_pi_tests;
+mod tool_open_host_tests;
 #[cfg(test)]
 mod compute_candidate_pi_tests;
 #[cfg(test)]
+mod devtools_json_candidate_pi_tests;
+#[cfg(test)]
+mod devtools_text_candidate03_pi_tests;
+#[cfg(test)]
+mod devtools_text_candidate03_tests;
+#[cfg(test)]
+mod devtools_text_tests;
+#[cfg(test)]
+mod devtools_view_tests;
+#[cfg(test)]
+mod diagnostics_pi_tests;
+mod git_stage;
+#[cfg(test)]
+mod inspect_011_host_tests;
+#[cfg(test)]
 mod inspect_pi_tests;
+#[cfg(test)]
+mod text_pi_tests;
+mod lifecycle;
+mod manual_tool_calls;
+mod manual_tool_catalog;
+mod model_tools_http;
+mod plugin_call_lifecycle;
+mod plugin_desktop_execution;
+mod plugin_resources;
+mod plugin_results;
+mod plugin_services;
+mod plugin_task_center;
+mod plugin_tool_auth;
+mod plugin_tool_catalog;
+mod plugin_tool_execution;
 #[cfg(test)]
 mod trace_pi_tests;
 #[cfg(test)]
-mod devtools_view_tests;
-mod git_stage;
-mod lifecycle;
-mod model_tools_http;
-mod plugin_services;
-mod plugin_tool_auth;
-mod plugin_call_lifecycle;
-mod plugin_tool_execution;
-mod plugin_desktop_execution;
-mod manual_tool_catalog;
-mod manual_tool_calls;
+mod transforms_pi_tests;
 #[cfg(test)]
 mod wasi_cancel_tests;
 #[cfg(test)]
 mod worker_test_observer;
-mod plugin_tool_catalog;
-mod plugin_results;
-mod plugin_resources;
 impl HostServer {
     pub(crate) fn project_resource_root(&self, workspace: &str) -> Result<PathBuf, String> {
-        self.state.data.workspace_roots().read().map_err(|_| "Project is unavailable".to_string())?
-            .get(workspace).cloned().ok_or_else(|| "Project is unavailable".to_string())?
-            .canonicalize().map_err(|_| "Project is unavailable".to_string())
+        self.state
+            .data
+            .workspace_roots()
+            .read()
+            .map_err(|_| "Project is unavailable".to_string())?
+            .get(workspace)
+            .cloned()
+            .ok_or_else(|| "Project is unavailable".to_string())?
+            .canonicalize()
+            .map_err(|_| "Project is unavailable".to_string())
     }
 }
 #[cfg(test)]
@@ -66,7 +88,7 @@ use crate::notes_vault::{
 };
 use crate::pi_launch::{list_installed_apps, open_external, open_in_app, PiLaunchResolver};
 use crate::plugin_capabilities::{CapabilityBroker, CapabilityError, CapabilityInvocation};
-use crate::plugin_package::SignedPluginPreview;
+use crate::plugin_package::{preview_package, verify_package, SignedPluginPreview};
 use crate::plugin_registry::{PluginOrigin, PluginRegistry};
 use crate::relay_client::{page_origin_of, RelayAgentConfig, RelayAgentState, RelayAgentStatus};
 use crate::remote_auth::{PairingError, RemoteAuth};
@@ -142,11 +164,16 @@ struct HostState {
     session_owners: Mutex<std::collections::HashMap<RuntimeTarget, String>>,
     data: HostDataPlane,
     plugins: Mutex<PluginRegistry>,
+    plugin_catalog_search_slots: Arc<tokio::sync::Semaphore>,
     capability_broker: Mutex<CapabilityBroker>,
     plugin_calls: plugin_call_lifecycle::Calls,
     manual_tool_calls: manual_tool_calls::Calls,
     plugin_results: Mutex<plugin_results::Store>,
     model_generation_grants: Mutex<plugin_services::Grants>,
+    http_get_grants: Mutex<plugin_services::HttpGetGrants>,
+    http_get_audit: Option<plugin_services::HttpGetAudit>,
+    plugin_task_database: PathBuf,
+    plugin_task_store: Mutex<Option<Arc<crate::plugin_task_store::Store>>>,
     plugin_resources: Mutex<plugin_resources::Store>,
     archive_page_cursors: crate::plugin_archive_cursor::ArchivePageCursors,
     plugin_resource_operations: plugin_resources::Operations,
@@ -154,11 +181,28 @@ struct HostState {
     notes: Mutex<NotesVault>,
     artifacts: Mutex<ArtifactStore>,
     plugin_tokens: Mutex<HashMap<String, RuntimePluginToken>>,
+    workspace_write_gates: WorkspaceWriteGates,
     pi_launch: PiLaunchResolver,
     allowed_origin: String,
     allowed_origins: HashSet<String>,
     desktop_token: String,
     remote_access: RemoteAccessRuntime,
+}
+
+#[derive(Default)]
+struct WorkspaceWriteGates(Mutex<HashMap<String, Arc<Mutex<bool>>>>);
+
+impl WorkspaceWriteGates {
+    fn gate(&self, workspace_id: &str) -> Result<Arc<Mutex<bool>>, String> {
+        let mut gates = self
+            .0
+            .lock()
+            .map_err(|_| "Workspace write gates are unavailable".to_string())?;
+        Ok(gates
+            .entry(workspace_id.to_owned())
+            .or_insert_with(|| Arc::new(Mutex::new(false)))
+            .clone())
+    }
 }
 
 pub struct HostServer {
@@ -338,6 +382,16 @@ impl HostServer {
         let capability_broker = CapabilityBroker::new(plugin_root.clone())
             .map_err(|error| format!("Cannot initialize plugin capability broker: {error}"))?
             .with_workspace_registry(workspace_roots.clone(), system_root.clone());
+        let http_get_audit = match plugin_services::HttpGetAudit::new(plugin_root.clone()) {
+            Ok(audit) => Some(audit),
+            Err(error) => {
+                log::error!(
+                    "[plugin-http] audit unavailable at startup ({:?}); HTTP plugin service disabled",
+                    error.kind()
+                );
+                None
+            }
+        };
         let artifacts = ArtifactStore::new(plugin_root.clone())
             .map_err(|error| format!("Cannot initialize Artifacts store: {error}"))?
             .with_workspace_registry(workspace_roots, system_root);
@@ -441,11 +495,16 @@ impl HostServer {
             session_owners: Mutex::new(std::collections::HashMap::new()),
             data,
             plugins: Mutex::new(plugins),
+            plugin_catalog_search_slots: Arc::new(tokio::sync::Semaphore::new(4)),
             capability_broker: Mutex::new(capability_broker),
             plugin_calls: plugin_call_lifecycle::Calls::default(),
             manual_tool_calls: manual_tool_calls::Calls::default(),
             plugin_results: Mutex::new(plugin_results::Store::default()),
             model_generation_grants: Mutex::new(plugin_services::Grants::default()),
+            http_get_grants: Mutex::new(plugin_services::HttpGetGrants::default()),
+            http_get_audit,
+            plugin_task_database: plugin_root.join("plugin-task-state.sqlite3"),
+            plugin_task_store: Mutex::new(None),
             plugin_resources: Mutex::new(plugin_resources::Store::default()),
             archive_page_cursors: crate::plugin_archive_cursor::ArchivePageCursors::default(),
             plugin_resource_operations: plugin_resources::Operations::default(),
@@ -453,6 +512,7 @@ impl HostServer {
             notes: Mutex::new(notes),
             artifacts: Mutex::new(artifacts),
             plugin_tokens: Mutex::new(HashMap::new()),
+            workspace_write_gates: WorkspaceWriteGates::default(),
             pi_launch: PiLaunchResolver::new(static_dir.clone()),
             allowed_origin: loopback_origin.clone(),
             allowed_origins,
@@ -541,9 +601,18 @@ impl HostServer {
             // broker. Do not serve the desktop UI, data APIs, or mobile routes.
             let worker_app = Router::new()
                 .route("/v2/plugin-tools/invoke", post(invoke_plugin_tool))
-                .route("/v2/plugin-tools/cancel", post(plugin_tool_execution::cancel))
-                .route("/v2/plugin-tools/catalog/search", post(plugin_tool_catalog::search))
-                .route("/v2/plugin-tools/catalog/load", post(plugin_tool_catalog::load))
+                .route(
+                    "/v2/plugin-tools/cancel",
+                    post(plugin_tool_execution::cancel),
+                )
+                .route(
+                    "/v2/plugin-tools/catalog/search",
+                    post(plugin_tool_catalog::search),
+                )
+                .route(
+                    "/v2/plugin-tools/catalog/load",
+                    post(plugin_tool_catalog::load),
+                )
                 .layer(DefaultBodyLimit::max(MAX_HTTP_BODY_BYTES))
                 .with_state(state.clone());
             let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -614,55 +683,225 @@ impl HostServer {
                 "/v2/plugin-services/model-generation/commit",
                 post(plugin_services::commit_generation).layer(DefaultBodyLimit::max(4 * 1024)),
             )
+            .route(
+                "/v2/plugin-services/model-generation/cancel",
+                post(plugin_services::cancel_generation).layer(DefaultBodyLimit::max(4 * 1024)),
+            )
+            .route(
+                "/v2/plugin-services/http-get/prepare",
+                post(plugin_services::prepare_http_get).layer(DefaultBodyLimit::max(4 * 1024)),
+            )
+            .route(
+                "/v2/plugin-services/http-get/commit",
+                post(plugin_services::commit_http_get).layer(DefaultBodyLimit::max(4 * 1024)),
+            )
+            .route(
+                "/v2/plugin-services/http-get/cancel",
+                post(plugin_services::cancel_http_get).layer(DefaultBodyLimit::max(4 * 1024)),
+            )
+            .route(
+                "/v2/plugin-task-center/workspace",
+                post(plugin_task_center::workspace).layer(DefaultBodyLimit::max(2 * 1024)),
+            )
+            .route(
+                "/v2/plugin-task-center/detail",
+                post(plugin_task_center::detail).layer(DefaultBodyLimit::max(2 * 1024)),
+            )
             .route("/v2/plugin-capabilities", get(list_plugin_capabilities))
-            .route("/v2/plugin-tool-directory", get(manual_tool_catalog::search))
-            .route("/v2/plugin-tool-directory/detail", get(manual_tool_catalog::detail))
-            .route("/v2/plugin-capabilities/call-protocol", get(manual_tool_calls::protocol))
-            .route("/v2/plugin-capabilities/prepare-call", post(manual_tool_calls::prepare).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
-            .route("/v2/plugin-capabilities/cancel-call", post(manual_tool_calls::cancel))
-            .route("/v2/plugin-capabilities/call-status", post(manual_tool_calls::status))
-            .route("/v2/plugin-capabilities/reconcile-call", post(manual_tool_calls::reconcile))
+            .route(
+                "/v2/plugin-tool-directory",
+                get(manual_tool_catalog::search),
+            )
+            .route(
+                "/v2/plugin-tool-directory/detail",
+                get(manual_tool_catalog::detail),
+            )
+            .route(
+                "/v2/plugin-capabilities/call-protocol",
+                get(manual_tool_calls::protocol),
+            )
+            .route(
+                "/v2/plugin-capabilities/prepare-call",
+                post(manual_tool_calls::prepare)
+                    .layer(axum::extract::DefaultBodyLimit::max(128 * 1024)),
+            )
+            .route(
+                "/v2/plugin-capabilities/cancel-call",
+                post(manual_tool_calls::cancel),
+            )
+            .route(
+                "/v2/plugin-capabilities/call-status",
+                post(manual_tool_calls::status),
+            )
+            .route(
+                "/v2/plugin-capabilities/reconcile-call",
+                post(manual_tool_calls::reconcile),
+            )
             .route(
                 "/v2/plugin-capabilities/invoke",
                 post(invoke_plugin_capability),
             )
             .route("/v2/plugin-commands/invoke", post(invoke_plugin_command))
-            .route("/v2/plugin-results/prepare-save", post(plugin_results::prepare))
-            .route("/v2/plugin-resources/prepare", post(plugin_resources::prepare))
-            .route("/v2/plugin-resources/prepare-local-file", post(plugin_resources::local_file::prepare).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/commit-local-file", post(plugin_resources::local_file::commit).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/cancel-local-file", post(plugin_resources::local_file::cancel).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/prepare-local-directory", post(plugin_resources::local_directory::prepare).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/commit-local-directory", post(plugin_resources::local_directory::commit).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/cancel-local-directory", post(plugin_resources::local_directory::cancel).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/status-local-file", post(plugin_resources::local_file::status::get).layer(axum::extract::DefaultBodyLimit::max(16 * 1024)))
-            .route("/v2/plugin-resources/append", post(plugin_resources::append))
-            .route("/v2/plugin-resources/commit", post(plugin_resources::commit))
+            .route(
+                "/v2/plugin-results/prepare-save",
+                post(plugin_results::prepare),
+            )
+            .route(
+                "/v2/plugin-resources/prepare",
+                post(plugin_resources::prepare),
+            )
+            .route(
+                "/v2/plugin-resources/prepare-local-file",
+                post(plugin_resources::local_file::prepare)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/commit-local-file",
+                post(plugin_resources::local_file::commit)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/cancel-local-file",
+                post(plugin_resources::local_file::cancel)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/prepare-local-directory",
+                post(plugin_resources::local_directory::prepare)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/commit-local-directory",
+                post(plugin_resources::local_directory::commit)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/cancel-local-directory",
+                post(plugin_resources::local_directory::cancel)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/status-local-file",
+                post(plugin_resources::local_file::status::get)
+                    .layer(axum::extract::DefaultBodyLimit::max(16 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/append",
+                post(plugin_resources::append),
+            )
+            .route(
+                "/v2/plugin-resources/commit",
+                post(plugin_resources::commit),
+            )
             .route("/v2/plugin-resources/read", post(plugin_resources::read))
-            .route("/v2/plugin-resources/read-view", post(plugin_resources::read_view))
-            .route("/v2/plugin-resources/invoke-view", post(plugin_resources::worker::invoke).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
-            .route("/v2/plugin-resources/cancel-view", post(plugin_resources::worker::cancel))
-            .route("/v2/plugin-resources/call-status", post(plugin_resources::worker::status))
-            .route("/v2/plugin-resources/prepare-call", post(plugin_resources::worker::admission::prepare).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
-            .route("/v2/plugin-resources/invoke-call", post(plugin_resources::worker::admission::invoke).layer(axum::extract::DefaultBodyLimit::max(128 * 1024)))
-            .route("/v2/plugin-resources/reconcile-call", post(plugin_resources::worker::admission::reconcile))
-            .route("/v2/plugin-resources/worker-audit-view", post(plugin_resources::worker::audit))
-            .route("/v2/plugin-resources/revoke", post(plugin_resources::revoke))
-            .route("/v2/plugin-resources/prepare-transfer", post(plugin_resources::transfer::prepare))
-            .route("/v2/plugin-resources/commit-transfer", post(plugin_resources::transfer::commit))
-            .route("/v2/plugin-resources/prepare-save", post(plugin_resources::save::prepare))
-            .route("/v2/plugin-resources/commit-save", post(plugin_resources::save::commit))
-            .route("/v2/plugin-resources/saved-outputs", get(plugin_resources::library::list))
-            .route("/v2/plugin-resources/saved-output", get(plugin_resources::library::read))
-            .route("/v2/plugin-resources/save-attempts", get(plugin_resources::library::attempts))
-            .route("/v2/plugin-results/commit-save", post(plugin_results::commit))
-            .route("/v2/plugin-results/prepare-transfer", post(plugin_results::transfer::prepare))
-            .route("/v2/plugin-results/targets", post(plugin_results::transfer::targets::search))
-            .route("/v2/plugin-results/commit-transfer", post(plugin_results::transfer::commit))
+            .route(
+                "/v2/plugin-resources/read-view",
+                post(plugin_resources::read_view),
+            )
+            .route(
+                "/v2/plugin-resources/invoke-view",
+                post(plugin_resources::worker::invoke)
+                    .layer(axum::extract::DefaultBodyLimit::max(128 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/cancel-view",
+                post(plugin_resources::worker::cancel),
+            )
+            .route(
+                "/v2/plugin-resources/call-status",
+                post(plugin_resources::worker::status),
+            )
+            .route(
+                "/v2/plugin-resources/prepare-call",
+                post(plugin_resources::worker::admission::prepare)
+                    .layer(axum::extract::DefaultBodyLimit::max(128 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/invoke-call",
+                post(plugin_resources::worker::admission::invoke)
+                    .layer(axum::extract::DefaultBodyLimit::max(128 * 1024)),
+            )
+            .route(
+                "/v2/plugin-resources/reconcile-call",
+                post(plugin_resources::worker::admission::reconcile),
+            )
+            .route(
+                "/v2/plugin-resources/worker-audit-view",
+                post(plugin_resources::worker::audit),
+            )
+            .route(
+                "/v2/plugin-resources/revoke",
+                post(plugin_resources::revoke),
+            )
+            .route(
+                "/v2/plugin-resources/prepare-transfer",
+                post(plugin_resources::transfer::prepare),
+            )
+            .route(
+                "/v2/plugin-resources/commit-transfer",
+                post(plugin_resources::transfer::commit),
+            )
+            .route(
+                "/v2/plugin-resources/prepare-save",
+                post(plugin_resources::save::prepare),
+            )
+            .route(
+                "/v2/plugin-resources/commit-save",
+                post(plugin_resources::save::commit),
+            )
+            .route(
+                "/v2/plugin-resources/saved-outputs",
+                get(plugin_resources::library::list),
+            )
+            .route(
+                "/v2/plugin-resources/saved-output",
+                get(plugin_resources::library::read),
+            )
+            .route(
+                "/v2/plugin-resources/save-attempts",
+                get(plugin_resources::library::attempts),
+            )
+            .route(
+                "/v2/plugin-results/commit-save",
+                post(plugin_results::commit),
+            )
+            .route(
+                "/v2/plugin-results/save-status",
+                post(plugin_results::save_status),
+            )
+            .route(
+                "/v2/plugin-results/prepare-transfer",
+                post(plugin_results::transfer::prepare),
+            )
+            .route(
+                "/v2/plugin-results/targets",
+                post(plugin_results::transfer::targets::search),
+            )
+            .route(
+                "/v2/plugin-results/commit-transfer",
+                post(plugin_results::transfer::commit),
+            )
+            .route(
+                "/v2/plugin-results/cancel-transfer",
+                post(plugin_results::transfer::cancel),
+            )
+            .route(
+                "/v2/plugin-results/transfer-status",
+                post(plugin_results::transfer::status),
+            )
             .route("/v2/plugin-tools/invoke", post(invoke_plugin_tool))
-            .route("/v2/plugin-tools/cancel", post(plugin_tool_execution::cancel))
-                .route("/v2/plugin-tools/catalog/search", post(plugin_tool_catalog::search))
-                .route("/v2/plugin-tools/catalog/load", post(plugin_tool_catalog::load))
+            .route(
+                "/v2/plugin-tools/cancel",
+                post(plugin_tool_execution::cancel),
+            )
+            .route(
+                "/v2/plugin-tools/catalog/search",
+                post(plugin_tool_catalog::search),
+            )
+            .route(
+                "/v2/plugin-tools/catalog/load",
+                post(plugin_tool_catalog::load),
+            )
             .route("/v2/notes", get(list_notes))
             .route("/v2/notes/knowledge", get(list_note_knowledge))
             .route("/v2/notes/changes", get(list_note_changes))
@@ -916,10 +1155,102 @@ impl HostServer {
     /// data become reachable over the data plane. Used when opening a new
     /// folder as a workspace after startup.
     pub fn register_workspace(&self, workspace_id: &str, root: PathBuf) -> Result<(), String> {
+        let gate = self.state.workspace_write_gates.gate(workspace_id)?;
+        let mut closed = gate
+            .lock()
+            .map_err(|_| "Workspace write gate is unavailable".to_string())?;
         self.state
             .data
             .register_workspace(workspace_id, root)
-            .map_err(|error| format!("Cannot register workspace: {error:?}"))
+            .map_err(|error| format!("Cannot register workspace: {error:?}"))?;
+        *closed = false;
+        Ok(())
+    }
+
+    /// Stop plugin work owned by a closing workspace without touching other
+    /// workspaces or removing this workspace's readable task history.
+    pub fn close_workspace(&self, workspace_id: &str) -> Result<(), String> {
+        if workspace_id.is_empty() || workspace_id.len() > 256 {
+            return Err("Invalid workspace ID".into());
+        }
+        let gate = self.state.workspace_write_gates.gate(workspace_id)?;
+        let mut closed = gate
+            .lock()
+            .map_err(|_| "Workspace write gate is unavailable".to_string())?;
+        *closed = true;
+        let mut runtime_ids = self
+            .state
+            .runtimes
+            .statuses()?
+            .into_iter()
+            .filter(|status| status.target.workspace_id == workspace_id)
+            .map(|status| status.target.instance_id)
+            .collect::<HashSet<_>>();
+        {
+            let mut tokens = self
+                .state
+                .plugin_tokens
+                .lock()
+                .map_err(|_| "Plugin token store is unavailable".to_string())?;
+            tokens.retain(|runtime_id, record| {
+                if record.target.workspace_id == workspace_id {
+                    runtime_ids.insert(runtime_id.clone());
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+        self.state
+            .manual_tool_calls
+            .invalidate_workspace(workspace_id);
+        self.state
+            .model_generation_grants
+            .lock()
+            .map_err(|_| "Model grants are unavailable".to_string())?
+            .invalidate_workspace(workspace_id);
+        self.state
+            .http_get_grants
+            .lock()
+            .map_err(|_| "HTTP grants are unavailable".to_string())?
+            .invalidate_workspace(workspace_id);
+        self.state
+            .plugin_results
+            .lock()
+            .map_err(|_| "Plugin results are unavailable".to_string())?
+            .invalidate_workspace(workspace_id);
+        {
+            let mut resources = self
+                .state
+                .plugin_resources
+                .lock()
+                .map_err(|_| "Plugin resources are unavailable".to_string())?;
+            for runtime_id in &runtime_ids {
+                resources.invalidate_runtime(runtime_id);
+            }
+        }
+        for runtime_id in &runtime_ids {
+            self.state.plugin_calls.invalidate_runtime(runtime_id);
+            self.state
+                .plugin_resource_workers
+                .invalidate_runtime(runtime_id);
+            self.state
+                .archive_page_cursors
+                .invalidate_runtime(runtime_id);
+        }
+        self.state.runtimes.stop_workspace(workspace_id);
+        if self
+            .state
+            .runtimes
+            .statuses()?
+            .iter()
+            .any(|status| status.target.workspace_id == workspace_id)
+        {
+            return Err("Workspace runtime is still active".into());
+        }
+        plugin_task_center::interrupt_workspace_tasks_now(&self.state, workspace_id)
+            .map_err(str::to_string)?;
+        Ok(())
     }
 
     pub fn scene_id_for_session(
@@ -961,12 +1292,77 @@ impl HostServer {
     }
 
     pub fn install_developer_plugin(&self, source: &std::path::Path) -> Result<String, String> {
-        let plugin_id = self.state
+        let managed_root = self
+            .state
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .install_developer(source)?;
-        self.state.archive_page_cursors.invalidate_plugin(&plugin_id);
+            .root()
+            .to_path_buf();
+        let prepared =
+            crate::plugin_registry::PreparedDeveloperInstall::prepare(&managed_root, source, None)?;
+        let committed = {
+            let mut registry = self
+                .state
+                .plugins
+                .lock()
+                .map_err(|_| "Plugin registry is unavailable".to_string())?;
+            registry.commit_prepared_developer(prepared)?
+        };
+        let plugin_id = committed.plugin_id().to_string();
+        drop(committed);
+        self.state
+            .archive_page_cursors
+            .invalidate_plugin(&plugin_id);
+        self.revoke_plugin_tasks_after_replacement(&plugin_id);
+        Ok(plugin_id)
+    }
+
+    pub fn preview_developer_plugin(
+        &self,
+        source: &std::path::Path,
+    ) -> Result<crate::plugin_registry::DeveloperPluginPreview, String> {
+        let managed_root = self
+            .state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .root()
+            .to_path_buf();
+        crate::plugin_registry::PluginRegistry::preview_developer_package(&managed_root, source)
+    }
+
+    pub fn install_previewed_developer_plugin(
+        &self,
+        source: &std::path::Path,
+        content_sha256: &str,
+    ) -> Result<String, String> {
+        let managed_root = self
+            .state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .root()
+            .to_path_buf();
+        let prepared = crate::plugin_registry::PreparedDeveloperInstall::prepare(
+            &managed_root,
+            source,
+            Some(content_sha256),
+        )?;
+        let committed = {
+            let mut registry = self
+                .state
+                .plugins
+                .lock()
+                .map_err(|_| "Plugin registry is unavailable".to_string())?;
+            registry.commit_prepared_developer(prepared)?
+        };
+        let plugin_id = committed.plugin_id().to_string();
+        drop(committed);
+        self.state
+            .archive_page_cursors
+            .invalidate_plugin(&plugin_id);
+        self.revoke_plugin_tasks_after_replacement(&plugin_id);
         Ok(plugin_id)
     }
 
@@ -974,11 +1370,14 @@ impl HostServer {
         &self,
         package: &std::path::Path,
     ) -> Result<SignedPluginPreview, String> {
-        self.state
+        let root = self
+            .state
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .preview_signed(package)
+            .root()
+            .to_path_buf();
+        preview_package(package, &root)
     }
 
     pub fn install_signed_plugin(
@@ -986,12 +1385,46 @@ impl HostServer {
         package: &std::path::Path,
         trust_publisher: bool,
     ) -> Result<String, String> {
-        let plugin_id = self.state
+        self.install_signed_plugin_with_preview(package, None, trust_publisher)
+    }
+
+    pub fn install_previewed_signed_plugin(
+        &self,
+        package: &std::path::Path,
+        manifest_sha256: &str,
+        trust_publisher: bool,
+    ) -> Result<String, String> {
+        self.install_signed_plugin_with_preview(package, Some(manifest_sha256), trust_publisher)
+    }
+
+    fn install_signed_plugin_with_preview(
+        &self,
+        package: &std::path::Path,
+        expected_manifest_sha256: Option<&str>,
+        trust_publisher: bool,
+    ) -> Result<String, String> {
+        let root = self
+            .state
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
-            .install_signed(package, trust_publisher)?;
-        self.state.archive_page_cursors.invalidate_plugin(&plugin_id);
+            .root()
+            .to_path_buf();
+        let verified = verify_package(package, &root)?;
+        if expected_manifest_sha256.is_some_and(|expected| expected != verified.manifest_sha256) {
+            return Err("Signed plugin package changed after preview; select it again".into());
+        }
+        let prepared = crate::plugin_registry::PreparedSignedInstall::prepare(&root, verified)?;
+        let plugin_id = self
+            .state
+            .plugins
+            .lock()
+            .map_err(|_| "Plugin registry is unavailable".to_string())?
+            .install_prepared_signed(prepared, trust_publisher)?;
+        self.state
+            .archive_page_cursors
+            .invalidate_plugin(&plugin_id);
+        self.revoke_plugin_tasks_after_replacement(&plugin_id);
         Ok(plugin_id)
     }
 
@@ -1002,16 +1435,28 @@ impl HostServer {
             .map_err(|_| "Plugin registry is unavailable".to_string())?
             .rollback_signed(plugin_id, version)?;
         self.state.archive_page_cursors.invalidate_plugin(plugin_id);
+        self.revoke_plugin_tasks_after_replacement(plugin_id);
         Ok(())
     }
 
+    fn revoke_plugin_tasks_after_replacement(&self, plugin_id: &str) {
+        if let Err(code) = plugin_task_center::revoke_plugin_tasks_now(&self.state, plugin_id, None)
+        {
+            log::error!("[picot-host] plugin task replacement reconciliation failed: {code}");
+        }
+    }
+
     pub fn revoke_plugin_publisher(&self, key_id: &str) -> Result<(), String> {
-        self.state
+        let affected = self
+            .state
             .plugins
             .lock()
             .map_err(|_| "Plugin registry is unavailable".to_string())?
             .revoke_signed_publisher(key_id)?;
         self.state.archive_page_cursors.invalidate_all();
+        for plugin_id in affected {
+            self.revoke_plugin_tasks_after_replacement(&plugin_id);
+        }
         Ok(())
     }
 
@@ -1042,6 +1487,35 @@ fn configure_plugin_broker_for_state(
     launch: &mut NativeLaunchSpec,
 ) -> Result<(), String> {
     let token = issue_runtime_plugin_token(state, target)?;
+    // Pi's HTTP client honors inherited proxy settings. Keep provider proxy
+    // access, but ensure calls to this process's loopback broker stay local.
+    let mut no_proxy = Vec::<String>::new();
+    let configured = ["NO_PROXY", "no_proxy"]
+        .into_iter()
+        .filter_map(|name| launch.environment.get(name).cloned());
+    let inherited = if crate::desktop_profile::is_isolated() {
+        Vec::new()
+    } else {
+        ["NO_PROXY", "no_proxy"]
+            .into_iter()
+            .filter_map(|name| std::env::var(name).ok())
+            .collect()
+    };
+    for value in configured.chain(inherited) {
+        for entry in value.split(',').map(str::trim).filter(|entry| !entry.is_empty()) {
+            if !no_proxy.iter().any(|known| known.eq_ignore_ascii_case(entry)) {
+                no_proxy.push(entry.to_string());
+            }
+        }
+    }
+    for loopback in ["127.0.0.1", "localhost", "::1"] {
+        if !no_proxy.iter().any(|known| known.eq_ignore_ascii_case(loopback)) {
+            no_proxy.push(loopback.into());
+        }
+    }
+    let no_proxy = no_proxy.join(",");
+    launch.environment.insert("NO_PROXY".into(), no_proxy.clone());
+    launch.environment.insert("no_proxy".into(), no_proxy);
     launch.environment.insert(
         "PI_DESKTOP_PLUGIN_HOST_ORIGIN".into(),
         state.allowed_origin.clone(),
@@ -1049,10 +1523,9 @@ fn configure_plugin_broker_for_state(
     launch
         .environment
         .insert("PI_DESKTOP_PLUGIN_BROKER_TOKEN".into(), token);
-    launch.environment.insert(
-        "PI_DESKTOP_PLUGIN_TOOLS".into(),
-        "[]".into(),
-    );
+    launch
+        .environment
+        .insert("PI_DESKTOP_PLUGIN_TOOLS".into(), "[]".into());
     // Discover schemas through the authenticated catalog instead of putting an
     // unbounded snapshot in the Windows process environment.
     launch
@@ -1311,6 +1784,9 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugin-services/models"
             | "/v2/plugin-services/model-generation/prepare"
             | "/v2/plugin-services/model-generation/commit"
+            | "/v2/plugin-services/model-generation/cancel"
+            | "/v2/plugin-task-center/workspace"
+            | "/v2/plugin-task-center/detail"
             | "/v2/plugin-capabilities/call-protocol"
             | "/v2/plugin-capabilities/prepare-call"
             | "/v2/plugin-capabilities/cancel-call"
@@ -1347,6 +1823,9 @@ fn desktop_plugin_http_path(path: &str) -> bool {
             | "/v2/plugin-resources/saved-outputs"
             | "/v2/plugin-resources/saved-output"
             | "/v2/plugin-resources/save-attempts"
+            | "/v2/plugin-results/save-status"
+            | "/v2/plugin-results/cancel-transfer"
+            | "/v2/plugin-results/transfer-status"
     )
 }
 
@@ -1633,6 +2112,8 @@ struct ImportSessionsRequest {
 #[serde(rename_all = "camelCase")]
 struct PluginsQuery {
     scene_id: String,
+    #[serde(default)]
+    summary: bool,
 }
 
 #[derive(Deserialize)]
@@ -1703,6 +2184,8 @@ struct PluginToolInvokeRequest {
     catalog_revision: Option<String>,
     #[serde(default)]
     input: Value,
+    #[serde(default)]
+    capture_result: bool,
 }
 
 #[derive(Deserialize)]
@@ -2016,10 +2499,19 @@ async fn list_plugins(
     let registry = state.plugins.lock().map_err(|_| {
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
+    let plugins = if query.summary {
+        registry.list_summary(&query.scene_id)
+    } else {
+        registry
+            .list(&query.scene_id)
+            .iter()
+            .map(|plugin| json!(plugin))
+            .collect::<Vec<_>>()
+    };
     Ok(Json(json!({
         "schemaVersion": 1,
         "sceneId": query.scene_id,
-        "plugins": registry.list(&query.scene_id),
+        "plugins": plugins,
         "diagnostics": registry.diagnostics(),
     })))
 }
@@ -2028,12 +2520,7 @@ async fn read_plugin_view_source(
     State(state): State<Arc<HostState>>,
     Query(query): Query<PluginViewQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    let document = registry
-        .view_document(&query.scene_id, &query.plugin_id, &query.view_id)
-        .map_err(|message| {
+    let view_error = |message: String| {
             let (status, code) = if message.contains("not enabled") {
                 (StatusCode::FORBIDDEN, "plugin_not_enabled")
             } else if message.contains("Unknown") || message.contains("does not declare") {
@@ -2044,10 +2531,31 @@ async fn read_plugin_view_source(
                 (StatusCode::UNPROCESSABLE_ENTITY, "view_invalid")
             };
             plugin_api_error(status, code, &message)
+    };
+    let (snapshot, revision) = {
+        let registry = state.plugins.lock().map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
         })?;
+        (registry.view_snapshot(&query.scene_id, &query.plugin_id, &query.view_id)
+            .map_err(view_error)?, registry.manual_revision(&query.scene_id))
+    };
+    let read_snapshot = snapshot.clone();
+    let document = tokio::task::spawn_blocking(move || read_snapshot.read())
+        .await
+        .map_err(|_| plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "view_read_unavailable", ""))?
+        .map_err(view_error)?;
+    let registry = state.plugins.lock().map_err(|_| {
+        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+    })?;
+    let current = registry.view_snapshot(&query.scene_id, &query.plugin_id, &query.view_id)
+        .map_err(view_error)?;
+    if current != snapshot || registry.manual_revision(&query.scene_id) != revision {
+        return Err(plugin_api_error(StatusCode::CONFLICT, "view_changed", "Reload the plugin view"));
+    }
     Ok(Json(json!({
         "schemaVersion": 1,
         "sceneId": query.scene_id,
+        "catalogRevision": revision,
         "view": document,
     })))
 }
@@ -3919,20 +4427,40 @@ async fn set_plugin_enablement(
     State(state): State<Arc<HostState>>,
     Json(request): Json<PluginEnablementRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let mut registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    registry
-        .set_enabled(&request.scene_id, &request.plugin_id, request.enabled)
-        .map_err(|message| {
-            plugin_api_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "enablement_rejected",
-                &message,
-            )
+    {
+        let mut registry = state.plugins.lock().map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
         })?;
-    state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
-    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
+        registry
+            .set_enabled(&request.scene_id, &request.plugin_id, request.enabled)
+            .map_err(|message| {
+                plugin_api_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "enablement_rejected",
+                    &message,
+                )
+            })?;
+    }
+    state
+        .archive_page_cursors
+        .invalidate_plugin(&request.plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() {
+        grants.invalidate_plugin(&request.plugin_id);
+    }
+    if let Ok(mut grants) = state.http_get_grants.lock() {
+        grants.invalidate_plugin(&request.plugin_id);
+    }
+    if !request.enabled {
+        if let Err(code) = plugin_task_center::revoke_plugin_tasks(
+            state.clone(),
+            request.plugin_id.clone(),
+            Some(request.scene_id.clone()),
+        )
+        .await
+        {
+            log::warn!("[plugin-tasks] disable state update failed: {code}");
+        }
+    }
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -3944,25 +4472,45 @@ async fn set_plugin_permission(
     State(state): State<Arc<HostState>>,
     Json(request): Json<PluginPermissionRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let mut registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    registry
-        .set_permission(
-            &request.scene_id,
-            &request.plugin_id,
-            &request.permission,
-            request.granted,
-        )
-        .map_err(|message| {
-            plugin_api_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "permission_rejected",
-                &message,
-            )
+    {
+        let mut registry = state.plugins.lock().map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
         })?;
-    state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
-    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
+        registry
+            .set_permission(
+                &request.scene_id,
+                &request.plugin_id,
+                &request.permission,
+                request.granted,
+            )
+            .map_err(|message| {
+                plugin_api_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "permission_rejected",
+                    &message,
+                )
+            })?;
+    }
+    state
+        .archive_page_cursors
+        .invalidate_plugin(&request.plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() {
+        grants.invalidate_plugin(&request.plugin_id);
+    }
+    if let Ok(mut grants) = state.http_get_grants.lock() {
+        grants.invalidate_plugin(&request.plugin_id);
+    }
+    if !request.granted {
+        if let Err(code) = plugin_task_center::revoke_plugin_tasks(
+            state.clone(),
+            request.plugin_id.clone(),
+            Some(request.scene_id.clone()),
+        )
+        .await
+        {
+            log::warn!("[plugin-tasks] permission state update failed: {code}");
+        }
+    }
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -3974,21 +4522,45 @@ async fn set_plugin_permission(
 async fn reload_plugins(
     State(state): State<Arc<HostState>>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let mut registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    registry.reload_developer_plugins().map_err(|message| {
+    let (reload_result, changed, diagnostics) = {
+        let mut registry = state.plugins.lock().map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
+        })?;
+        let before = registry.installed_execution_revisions();
+        let reload_result = registry.reload_developer_plugins();
+        let after = registry.installed_execution_revisions();
+        let changed = before
+            .into_iter()
+            .filter_map(|(plugin_id, revision)| {
+                (after.get(&plugin_id) != Some(&revision)).then_some(plugin_id)
+            })
+            .collect::<Vec<_>>();
+        (reload_result, changed, registry.diagnostics().to_vec())
+    };
+    for plugin_id in changed {
+        state.archive_page_cursors.invalidate_plugin(&plugin_id);
+        if let Ok(mut grants) = state.model_generation_grants.lock() {
+            grants.invalidate_plugin(&plugin_id);
+        }
+        if let Ok(mut grants) = state.http_get_grants.lock() {
+            grants.invalidate_plugin(&plugin_id);
+        }
+        if let Err(code) =
+            plugin_task_center::revoke_plugin_tasks(state.clone(), plugin_id, None).await
+        {
+            log::warn!("[plugin-tasks] reload state update failed: {code}");
+        }
+    }
+    reload_result.map_err(|message| {
         plugin_api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "plugin_reload_failed",
             &message,
         )
     })?;
-    state.archive_page_cursors.invalidate_all();
-    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
     Ok(Json(json!({
         "reloaded": true,
-        "diagnostics": registry.diagnostics(),
+        "diagnostics": diagnostics,
     })))
 }
 
@@ -3996,20 +4568,35 @@ async fn uninstall_plugin(
     State(state): State<Arc<HostState>>,
     Json(request): Json<PluginUninstallRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let mut registry = state.plugins.lock().map_err(|_| {
-        plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
-    })?;
-    registry
-        .uninstall_developer(&request.plugin_id)
-        .map_err(|message| {
-            plugin_api_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "uninstall_rejected",
-                &message,
-            )
+    {
+        let mut registry = state.plugins.lock().map_err(|_| {
+            plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
         })?;
-    state.archive_page_cursors.invalidate_plugin(&request.plugin_id);
-    if let Ok(mut grants) = state.model_generation_grants.lock() { grants.invalidate(); }
+        registry
+            .uninstall_developer(&request.plugin_id)
+            .map_err(|message| {
+                plugin_api_error(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "uninstall_rejected",
+                    &message,
+                )
+            })?;
+    }
+    state
+        .archive_page_cursors
+        .invalidate_plugin(&request.plugin_id);
+    if let Ok(mut grants) = state.model_generation_grants.lock() {
+        grants.invalidate_plugin(&request.plugin_id);
+    }
+    if let Ok(mut grants) = state.http_get_grants.lock() {
+        grants.invalidate_plugin(&request.plugin_id);
+    }
+    if let Err(code) =
+        plugin_task_center::revoke_plugin_tasks(state.clone(), request.plugin_id.clone(), None)
+            .await
+    {
+        log::warn!("[plugin-tasks] uninstall state update failed: {code}");
+    }
     Ok(Json(json!({
         "pluginId": request.plugin_id,
         "uninstalled": true,
@@ -4079,7 +4666,9 @@ async fn bootstrap_target(
         .runtimes
         .target_for_session(&query.workspace_id, &query.session_id)
     {
-        let tools = state.runtimes.is_tool_session(&target)
+        let tools = state
+            .runtimes
+            .is_tool_session(&target)
             .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_mode_failed"))?;
         let mut value = serde_json::to_value(target)
             .map_err(|_| api_error(StatusCode::INTERNAL_SERVER_ERROR, "runtime_target_failed"))?;
@@ -4476,9 +5065,14 @@ async fn dispatch(
                     .runtimes
                     .target_for_session_id(session_id)
                     .ok_or(("runtime_not_found", "Runtime session is not running".into()))?;
-                if state.runtimes.is_tool_session(&target)
-                    .map_err(|message| ("snapshot_failed", message))? {
-                    let snapshot = state.runtimes.snapshot(&target)
+                if state
+                    .runtimes
+                    .is_tool_session(&target)
+                    .map_err(|message| ("snapshot_failed", message))?
+                {
+                    let snapshot = state
+                        .runtimes
+                        .snapshot(&target)
                         .map_err(|message| ("snapshot_failed", message))?;
                     return Ok(json!({
                         "type":"runtime_snapshot", "requestId":request_id,
@@ -4537,13 +5131,24 @@ async fn dispatch(
                 }));
             }
             if frame.get("type").and_then(Value::as_str) == Some("runtime_capabilities_request") {
-                let instance = frame.get("instanceId").and_then(Value::as_str)
+                let instance = frame
+                    .get("instanceId")
+                    .and_then(Value::as_str)
                     .ok_or(("invalid_instance", "instanceId is required".into()))?;
-                let target = state.runtimes.statuses()
+                let target = state
+                    .runtimes
+                    .statuses()
                     .map_err(|message| ("runtime_unavailable", message))?
-                    .into_iter().find(|status| status.target.instance_id == instance)
-                    .ok_or(("runtime_not_found", "Runtime instance is not running".into()))?.target;
-                let tools = state.runtimes.is_tool_session(&target)
+                    .into_iter()
+                    .find(|status| status.target.instance_id == instance)
+                    .ok_or((
+                        "runtime_not_found",
+                        "Runtime instance is not running".into(),
+                    ))?
+                    .target;
+                let tools = state
+                    .runtimes
+                    .is_tool_session(&target)
                     .map_err(|message| ("runtime_unavailable", message))?;
                 return Ok(json!({
                     "type": "runtime_capabilities",
@@ -5476,9 +6081,7 @@ fn ensure_notes_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let notes = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.notes")
+        .execution_plugin(scene_id, "com.zicode.notes")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5510,9 +6113,7 @@ fn ensure_idphoto_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.idphoto")
+        .execution_plugin(scene_id, "com.zicode.idphoto")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5544,9 +6145,7 @@ fn ensure_imagetools_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.imagetools")
+        .execution_plugin(scene_id, "com.zicode.imagetools")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5578,9 +6177,7 @@ fn ensure_documents_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.documents")
+        .execution_plugin(scene_id, "com.zicode.documents")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5612,9 +6209,7 @@ fn ensure_clipboard_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.clipboard")
+        .execution_plugin(scene_id, "com.zicode.clipboard")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5646,9 +6241,7 @@ fn ensure_habits_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.habits")
+        .execution_plugin(scene_id, "com.zicode.habits")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5680,9 +6273,7 @@ fn ensure_translate_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.translate")
+        .execution_plugin(scene_id, "com.zicode.translate")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5714,9 +6305,7 @@ fn ensure_watch_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.watch")
+        .execution_plugin(scene_id, "com.zicode.watch")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5748,9 +6337,7 @@ fn ensure_articles_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.articles")
+        .execution_plugin(scene_id, "com.zicode.articles")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5782,9 +6369,7 @@ fn ensure_ocr_authorized(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let plugin = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.ocr")
+        .execution_plugin(scene_id, "com.zicode.ocr")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5816,9 +6401,8 @@ fn ensure_notes_network_permission(
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
     let granted = registry
-        .list(scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.notes" && plugin.enabled)
+        .execution_plugin(scene_id, "com.zicode.notes")
+        .filter(|plugin| plugin.enabled)
         .and_then(|plugin| plugin.permission_grants.get("network.fetch").copied())
         .unwrap_or(false);
     if !granted {
@@ -5839,10 +6423,8 @@ fn ensure_artifacts_authorized(
     let registry = state.plugins.lock().map_err(|_| {
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
-    let plugins = registry.list(scene_id);
-    let artifacts = plugins
-        .iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.artifacts")
+    let artifacts = registry
+        .execution_plugin(scene_id, "com.zicode.artifacts")
         .filter(|plugin| plugin.enabled)
         .ok_or_else(|| {
             plugin_api_error(
@@ -5864,9 +6446,9 @@ fn ensure_artifacts_authorized(
         ));
     }
     if let Some(plugin_id) = source_plugin_id {
-        let source_enabled = plugins
-            .iter()
-            .any(|plugin| plugin.manifest.id == plugin_id && plugin.enabled);
+        let source_enabled = registry
+            .execution_plugin(scene_id, plugin_id)
+            .is_some_and(|plugin| plugin.enabled);
         if !source_enabled {
             return Err(plugin_api_error(
                 StatusCode::FORBIDDEN,
@@ -6288,7 +6870,9 @@ fn capability_api_error(error: CapabilityError) -> (StatusCode, Json<Value>) {
         "capability_unavailable" | "command_not_available" | "plugin_not_active" => {
             StatusCode::NOT_FOUND
         }
-        "idempotency_conflict" | "idempotency_authority_changed" | "worker_cancelled" => StatusCode::CONFLICT,
+        "idempotency_conflict" | "idempotency_authority_changed" | "worker_cancelled" => {
+            StatusCode::CONFLICT
+        }
         "storage_unavailable" | "serialization_failed" => StatusCode::INTERNAL_SERVER_ERROR,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };
@@ -6648,12 +7232,51 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 17);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 19);
         assert!(before["plugins"]
             .as_array()
             .unwrap()
             .iter()
             .any(|plugin| plugin["id"] == "core.chat"));
+
+        let summary: Value = client
+            .get(format!(
+                "{}/v2/plugins?sceneId=programming&summary=true",
+                host.origin()
+            ))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(
+            summary["plugins"].as_array().unwrap().len(),
+            before["plugins"].as_array().unwrap().len()
+        );
+        let full_bytes = serde_json::to_vec(&before).unwrap().len();
+        let summary_bytes = serde_json::to_vec(&summary).unwrap().len();
+        println!("plugin list JSON bytes: full={full_bytes} summary={summary_bytes}");
+        assert!(summary_bytes < full_bytes);
+        let notes = summary["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|plugin| plugin["id"] == "com.zicode.notes")
+            .unwrap();
+        assert!(notes["contributes"]["capabilities"].is_array());
+        let full_notes = before["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|plugin| plugin["id"] == "com.zicode.notes")
+            .unwrap();
+        assert_eq!(notes["enabled"], full_notes["enabled"]);
+        assert_eq!(notes["permissionGrants"], full_notes["permissionGrants"]);
+        assert!(notes["contributes"]["capabilities"][0]
+            .get("inputSchema")
+            .is_none());
+        assert!(notes.get("runtime").is_none());
 
         let response = client
             .post(format!("{}/v2/plugins/enablement", host.origin()))
@@ -6782,6 +7405,21 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(other_scene.status(), reqwest::StatusCode::FORBIDDEN);
+
+        fs::remove_file(package.join("views/main.html")).unwrap();
+        let broken_view = client
+            .get(&source_url)
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(broken_view.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
+        let listing = client
+            .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(listing.status(), reqwest::StatusCode::OK);
 
         host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
@@ -7352,6 +7990,361 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn closing_workspace_stops_only_its_plugin_runtime_and_task_state() {
+        use crate::plugin_task_store::{Owner, State, Store};
+
+        let temp = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.cache/task-scratch")
+            .join(format!(
+                "host-plugin-workspace-close-{}",
+                uuid::Uuid::new_v4()
+            ));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(
+            temp.join("owner.json"),
+            json!({
+                "purpose":"plugin workspace close acceptance",
+                "lifetime":"remove on success; retain failure evidence",
+                "pid":std::process::id()
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(16), auth)
+            .await
+            .unwrap();
+        let first_workspace = uuid::Uuid::new_v4().to_string();
+        let other_workspace = uuid::Uuid::new_v4().to_string();
+        for workspace_id in [&first_workspace, &other_workspace] {
+            let root = temp.join(workspace_id);
+            fs::create_dir_all(&root).unwrap();
+            host.register_workspace(workspace_id, root).unwrap();
+        }
+        let first_runtime = RuntimeTarget::new(&first_workspace, "session-a", "runtime-a");
+        let other_runtime = RuntimeTarget::new(&other_workspace, "session-b", "runtime-b");
+        host.start_tool_session(first_runtime.clone()).unwrap();
+        host.start_tool_session(other_runtime.clone()).unwrap();
+        let binding = |runtime: &RuntimeTarget| crate::plugin_archive_cursor::Binding {
+            plugin_id: "com.zicode.close-fixture".into(),
+            package_version: "0.1.0".into(),
+            capability_id: "archive.list".into(),
+            scene_id: "programming".into(),
+            runtime_id: runtime.instance_id.clone(),
+            session_id: runtime.session_id.clone(),
+            resource_id: "resource-a".into(),
+            content_version: "sha256:a".into(),
+            query: String::new(),
+            page_size: 20,
+        };
+        let first_binding = binding(&first_runtime);
+        let other_binding = binding(&other_runtime);
+        let first_cursor = host
+            .state
+            .archive_page_cursors
+            .seal(first_binding.clone(), "abcdefghijklmnop")
+            .unwrap();
+        let other_cursor = host
+            .state
+            .archive_page_cursors
+            .seal(other_binding.clone(), "qrstuvwxyzABCDEF")
+            .unwrap();
+        let owner = |workspace_id: &str| Owner {
+            workspace_id: workspace_id.into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.zicode.close-fixture".into(),
+            package_version: "0.1.0".into(),
+            profile_version: "1.0.0-preview.1".into(),
+            operation_id: "archive.list".into(),
+        };
+        let first_owner = owner(&first_workspace);
+        let other_owner = owner(&other_workspace);
+        let store = Arc::new(Store::open(&host.state.plugin_task_database).unwrap());
+        *host.state.plugin_task_store.lock().unwrap() = Some(store.clone());
+        let first_task = store
+            .submit(&first_owner, "workspace_close_first", &json!({}))
+            .unwrap();
+        let other_task = store
+            .submit(&other_owner, "workspace_close_other", &json!({}))
+            .unwrap();
+        store
+            .transition(&first_owner, &first_task.task_ref, State::Running)
+            .unwrap();
+        store
+            .transition(&other_owner, &other_task.task_ref, State::Running)
+            .unwrap();
+
+        host.close_workspace(&first_workspace).unwrap();
+        host.close_workspace(&first_workspace).unwrap();
+        assert!(host
+            .state
+            .runtimes
+            .statuses()
+            .unwrap()
+            .iter()
+            .all(|status| status.target.workspace_id != first_workspace));
+        assert!(host
+            .state
+            .runtimes
+            .statuses()
+            .unwrap()
+            .iter()
+            .any(|status| status.target.workspace_id == other_workspace));
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&first_cursor, &first_binding),
+            Err("archive_cursor_invalid")
+        );
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&other_cursor, &other_binding),
+            Ok("qrstuvwxyzABCDEF".into())
+        );
+        assert_eq!(
+            store
+                .snapshot(&first_owner, &first_task.task_ref)
+                .unwrap()
+                .state,
+            "interrupted"
+        );
+        assert_eq!(
+            store
+                .snapshot(&other_owner, &other_task.task_ref)
+                .unwrap()
+                .state,
+            "running"
+        );
+        assert!(host
+            .state
+            .plugin_tokens
+            .lock()
+            .unwrap()
+            .values()
+            .all(|token| token.target.workspace_id != first_workspace));
+        assert!(*host
+            .state
+            .workspace_write_gates
+            .gate(&first_workspace)
+            .unwrap()
+            .lock()
+            .unwrap());
+        host.register_workspace(&first_workspace, temp.join(&first_workspace))
+            .unwrap();
+        assert!(!*host
+            .state
+            .workspace_write_gates
+            .gate(&first_workspace)
+            .unwrap()
+            .lock()
+            .unwrap());
+
+        drop(store);
+        host.stop_and_wait().await.unwrap();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
+    async fn signed_proof_replacement_reload_revokes_only_its_host_state() {
+        use crate::plugin_package::{
+            extract_verified_package, verify_package, write_test_signed_package,
+        };
+        use crate::plugin_task_store::{Owner, State, Store};
+
+        let temp = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.cache/task-scratch")
+            .join(format!("host-signed-reload-{}", uuid::Uuid::new_v4()));
+        let public = temp.join("public");
+        fs::create_dir_all(&public).unwrap();
+        fs::write(
+            temp.join("owner.json"),
+            json!({
+                "purpose": "signed Host reload lifecycle acceptance",
+                "lifetime": "remove on success; retain failure evidence",
+                "pid": std::process::id()
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(public.join("index.html"), "ZiCode Studio Desktop").unwrap();
+        let manifest = json!({
+            "schemaVersion": 1,
+            "id": "com.zicode.host-signed-reload",
+            "name": "Signed reload fixture",
+            "description": "Host signed proof reload fixture",
+            "version": "0.1.0",
+            "publisher": "zicode"
+        });
+        let packages = temp.join("packages");
+        let first = write_test_signed_package(&packages, &manifest, "first.zicode-plugin");
+        let metadata = MetadataStore::open(&temp.join("picot.sqlite3")).unwrap();
+        let auth = Arc::new(Mutex::new(RemoteAuth::new(Arc::new(Mutex::new(metadata)))));
+        let host = HostServer::start(public, NativePiManager::new(16), auth)
+            .await
+            .unwrap();
+        let plugin_id = "com.zicode.host-signed-reload";
+        let preview = host.preview_signed_plugin(&first).unwrap();
+        let approved_bytes = fs::read(&first).unwrap();
+        let replacement = write_test_signed_package(
+            &packages,
+            &json!({
+                "schemaVersion": 1,
+                "id": "com.zicode.preview-replacement",
+                "name": "Replacement fixture",
+                "description": "Must not install under an earlier approval",
+                "version": "0.1.0",
+                "publisher": "zicode"
+            }),
+            "replacement.zicode-plugin",
+        );
+        fs::copy(&replacement, &first).unwrap();
+        assert!(host
+            .install_previewed_signed_plugin(&first, &preview.manifest_sha256, true)
+            .unwrap_err()
+            .contains("changed after preview"));
+        assert!(!host.preview_signed_plugin(&replacement).unwrap().trusted);
+        fs::write(&first, approved_bytes).unwrap();
+        assert_eq!(
+            host.install_previewed_signed_plugin(&first, &preview.manifest_sha256, true)
+                .unwrap(),
+            plugin_id
+        );
+
+        let binding = crate::plugin_archive_cursor::Binding {
+            plugin_id: plugin_id.into(),
+            package_version: "0.1.0".into(),
+            capability_id: "archive.list".into(),
+            scene_id: "programming".into(),
+            runtime_id: "runtime-a".into(),
+            session_id: "session-a".into(),
+            resource_id: "resource-a".into(),
+            content_version: "sha256:a".into(),
+            query: String::new(),
+            page_size: 20,
+        };
+        let owner = Owner {
+            workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
+            scene_id: "programming".into(),
+            plugin_id: plugin_id.into(),
+            package_version: "0.1.0".into(),
+            profile_version: "1.0.0-preview.1".into(),
+            operation_id: "archive.list".into(),
+        };
+        let store = Arc::new(Store::open(&host.state.plugin_task_database).unwrap());
+        *host.state.plugin_task_store.lock().unwrap() = Some(store.clone());
+        let task = store
+            .submit(&owner, "signed_reload_task", &json!({}))
+            .unwrap();
+        store
+            .transition(&owner, &task.task_ref, State::Running)
+            .unwrap();
+        let mut unrelated = owner.clone();
+        unrelated.plugin_id = "com.zicode.unrelated".into();
+        let other = store
+            .submit(&unrelated, "signed_reload_other", &json!({}))
+            .unwrap();
+        store
+            .transition(&unrelated, &other.task_ref, State::Running)
+            .unwrap();
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let reload = || {
+            client
+                .post(format!("{}/v2/plugins/reload", host.origin()))
+                .header("x-zicode-desktop-token", host.desktop_token())
+                .json(&json!({}))
+                .send()
+        };
+        let same_cursor = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), "abcdefghijklmnop")
+            .unwrap();
+        let unchanged = reload().await.unwrap();
+        assert_eq!(unchanged.status(), reqwest::StatusCode::OK);
+        assert_eq!(
+            unchanged.json::<Value>().await.unwrap()["diagnostics"],
+            json!([])
+        );
+        assert_eq!(
+            host.state.archive_page_cursors.take(&same_cursor, &binding),
+            Ok("abcdefghijklmnop".into())
+        );
+        assert_eq!(
+            store.snapshot(&owner, &task.task_ref).unwrap().state,
+            "running"
+        );
+
+        let mut second_manifest = manifest;
+        second_manifest["testContentMarker"] = json!("different signed bytes");
+        let second = write_test_signed_package(&packages, &second_manifest, "second.zicode-plugin");
+        let registry_root = temp.join("test-plugin-registry");
+        let verified = verify_package(&second, &registry_root).unwrap();
+        let managed = registry_root.join("signed").join(plugin_id);
+        fs::rename(&managed, registry_root.join("previous-signed-package")).unwrap();
+        extract_verified_package(&verified, &managed).unwrap();
+        fs::write(
+            registry_root
+                .join("signed-metadata")
+                .join(format!("{plugin_id}.json")),
+            serde_json::to_vec(&json!({
+                "pluginId": verified.manifest.id,
+                "version": verified.manifest.version,
+                "publisherKeyId": verified.publisher.key_id,
+                "publisherPublicKey": verified.publisher.public_key,
+                "integrity": verified.integrity
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let changed_cursor = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), "qrstuvwxyzABCDEF")
+            .unwrap();
+        let changed = reload().await.unwrap();
+        assert_eq!(changed.status(), reqwest::StatusCode::OK);
+        assert_eq!(
+            changed.json::<Value>().await.unwrap()["diagnostics"],
+            json!([])
+        );
+        let listed: Value = client
+            .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(listed["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|plugin| plugin["id"] == plugin_id && plugin["origin"] == "signed"));
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&changed_cursor, &binding),
+            Err("archive_cursor_invalid")
+        );
+        assert_eq!(
+            store.snapshot(&owner, &task.task_ref).unwrap().state,
+            "revoked"
+        );
+        assert_eq!(
+            store.snapshot(&unrelated, &other.task_ref).unwrap().state,
+            "running"
+        );
+
+        drop(store);
+        host.stop_and_wait().await.unwrap();
+        remove_temp_dir_when_released(&temp).await;
+    }
+
+    #[tokio::test]
     async fn installs_reloads_and_uninstalls_a_developer_plugin_without_removing_source_data() {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -7385,8 +8378,11 @@ mod tests {
         let host = HostServer::start(public, NativePiManager::new(32), auth)
             .await
             .unwrap();
+        let preview = host.preview_developer_plugin(&source).unwrap();
+        assert_eq!(preview.plugin_id, "com.example.host-test");
         assert_eq!(
-            host.install_developer_plugin(&source).unwrap(),
+            host.install_previewed_developer_plugin(&source, &preview.content_sha256)
+                .unwrap(),
             "com.example.host-test"
         );
         let binding = crate::plugin_archive_cursor::Binding {
@@ -7402,7 +8398,45 @@ mod tests {
             page_size: 20,
         };
         let provider_cursor = "abcdefghijklmnop";
-        let before_reload = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+        let before_reload = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), provider_cursor)
+            .unwrap();
+        let store = Arc::new(
+            crate::plugin_task_store::Store::open(&host.state.plugin_task_database).unwrap(),
+        );
+        *host.state.plugin_task_store.lock().unwrap() = Some(store.clone());
+        let owner = crate::plugin_task_store::Owner {
+            workspace_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
+            scene_id: "programming".into(),
+            plugin_id: "com.example.host-test".into(),
+            package_version: "1.0.0".into(),
+            profile_version: "1.0.0-preview.1".into(),
+            operation_id: "archive.list".into(),
+        };
+        let task = store
+            .submit(&owner, "host_reload_task", &json!({}))
+            .unwrap();
+        store
+            .transition(
+                &owner,
+                &task.task_ref,
+                crate::plugin_task_store::State::Running,
+            )
+            .unwrap();
+        let mut unrelated_owner = owner.clone();
+        unrelated_owner.plugin_id = "com.example.unrelated".into();
+        let unrelated_task = store
+            .submit(&unrelated_owner, "host_reload_unrelated", &json!({}))
+            .unwrap();
+        store
+            .transition(
+                &unrelated_owner,
+                &unrelated_task.task_ref,
+                crate::plugin_task_store::State::Running,
+            )
+            .unwrap();
         let client = reqwest::Client::builder().no_proxy().build().unwrap();
 
         let reload = client
@@ -7413,7 +8447,16 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(reload.status(), reqwest::StatusCode::OK);
-        assert_eq!(host.state.archive_page_cursors.take(&before_reload, &binding), Err("archive_cursor_invalid"));
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&before_reload, &binding),
+            Ok(provider_cursor.to_string())
+        );
+        assert_eq!(
+            store.snapshot(&owner, &task.task_ref).unwrap().state,
+            "running"
+        );
         let listed: serde_json::Value = client
             .get(format!("{}/v2/plugins?sceneId=programming", host.origin()))
             .send()
@@ -7428,7 +8471,86 @@ mod tests {
             .iter()
             .any(|plugin| plugin["id"] == "com.example.host-test"));
 
-        let before_disabling = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+        let before_content_reload = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), provider_cursor)
+            .unwrap();
+        let managed_asset =
+            temp.join("test-plugin-registry/developer/com.example.host-test/asset.txt");
+        fs::write(&managed_asset, b"changed package content").unwrap();
+        let content_reload = client
+            .post(format!("{}/v2/plugins/reload", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&json!({}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(content_reload.status(), reqwest::StatusCode::OK);
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&before_content_reload, &binding),
+            Err("archive_cursor_invalid")
+        );
+        assert_eq!(
+            store.snapshot(&owner, &task.task_ref).unwrap().state,
+            "revoked"
+        );
+        assert_eq!(
+            store
+                .snapshot(&unrelated_owner, &unrelated_task.task_ref)
+                .unwrap()
+                .state,
+            "running"
+        );
+
+        let before_changed_reload = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), provider_cursor)
+            .unwrap();
+        let managed_manifest =
+            temp.join("test-plugin-registry/developer/com.example.host-test/plugin.json");
+        let mut changed_manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&managed_manifest).unwrap()).unwrap();
+        changed_manifest["version"] = json!("1.0.1");
+        fs::write(
+            &managed_manifest,
+            serde_json::to_vec(&changed_manifest).unwrap(),
+        )
+        .unwrap();
+        let changed_reload = client
+            .post(format!("{}/v2/plugins/reload", host.origin()))
+            .header("x-zicode-desktop-token", host.desktop_token())
+            .json(&json!({}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(changed_reload.status(), reqwest::StatusCode::OK);
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&before_changed_reload, &binding),
+            Err("archive_cursor_invalid")
+        );
+        assert_eq!(
+            store.snapshot(&owner, &task.task_ref).unwrap().state,
+            "revoked"
+        );
+        assert_eq!(
+            store
+                .snapshot(&unrelated_owner, &unrelated_task.task_ref)
+                .unwrap()
+                .state,
+            "running"
+        );
+
+        let before_disabling = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), provider_cursor)
+            .unwrap();
         let disabled = client
             .post(format!("{}/v2/plugins/enablement", host.origin()))
             .header("x-zicode-desktop-token", host.desktop_token())
@@ -7437,8 +8559,17 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(disabled.status(), reqwest::StatusCode::OK);
-        assert_eq!(host.state.archive_page_cursors.take(&before_disabling, &binding), Err("archive_cursor_invalid"));
-        let before_permission = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&before_disabling, &binding),
+            Err("archive_cursor_invalid")
+        );
+        let before_permission = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), provider_cursor)
+            .unwrap();
         let permission = client
             .post(format!("{}/v2/plugins/permission", host.origin()))
             .header("x-zicode-desktop-token", host.desktop_token())
@@ -7447,8 +8578,17 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(permission.status(), reqwest::StatusCode::OK);
-        assert_eq!(host.state.archive_page_cursors.take(&before_permission, &binding), Err("archive_cursor_invalid"));
-        let before_uninstall = host.state.archive_page_cursors.seal(binding.clone(), provider_cursor).unwrap();
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&before_permission, &binding),
+            Err("archive_cursor_invalid")
+        );
+        let before_uninstall = host
+            .state
+            .archive_page_cursors
+            .seal(binding.clone(), provider_cursor)
+            .unwrap();
 
         let uninstalled: serde_json::Value = client
             .post(format!("{}/v2/plugins/uninstall", host.origin()))
@@ -7462,9 +8602,15 @@ mod tests {
             .unwrap();
         assert_eq!(uninstalled["uninstalled"], true);
         assert_eq!(uninstalled["dataPreserved"], true);
-        assert_eq!(host.state.archive_page_cursors.take(&before_uninstall, &binding), Err("archive_cursor_invalid"));
+        assert_eq!(
+            host.state
+                .archive_page_cursors
+                .take(&before_uninstall, &binding),
+            Err("archive_cursor_invalid")
+        );
         assert!(source.join("plugin.json").is_file());
 
+        drop(store);
         host.stop_and_wait().await.unwrap();
         remove_temp_dir_when_released(&temp).await;
     }
@@ -7875,4 +9021,3 @@ mod tests {
         remove_temp_dir_when_released(&temp).await;
     }
 }
-

@@ -1,0 +1,85 @@
+{
+  "profile": "tool.directory.v1",
+  "profileVersion": "1.0.0-preview.1",
+  "packageId": "com.zicode.devtools.text",
+  "packageVersion": "0.4.1",
+  "capabilities": [
+    {
+      "id": "devtools.text.json.format",
+      "categoryId": "data",
+      "aliases": [
+        "JSON formatter",
+        "pretty print JSON",
+        "JSON 格式化",
+        "JSON 美化"
+      ],
+      "description": "Format supplied JSON text locally using the plugin's bounded compatibility rules."
+    },
+    {
+      "id": "devtools.text.json.minify",
+      "categoryId": "data",
+      "aliases": [
+        "JSON minifier",
+        "compact JSON",
+        "JSON 压缩",
+        "JSON 最小化"
+      ],
+      "description": "Remove insignificant whitespace from supplied JSON text locally using bounded compatibility rules."
+    },
+    {
+      "id": "devtools.text.json.validate",
+      "categoryId": "data",
+      "aliases": [
+        "JSON validator",
+        "check JSON",
+        "JSON 校验",
+        "JSON 验证"
+      ],
+      "description": "Validate supplied JSON text against the plugin's duplicate-key, depth, and safe-integer restrictions."
+    },
+    {
+      "id": "devtools.text.base64.encode",
+      "categoryId": "data",
+      "aliases": [
+        "Base64 encoder",
+        "encode Base64",
+        "Base64 编码",
+        "文本转 Base64"
+      ],
+      "description": "Encode supplied UTF-8 text as standard Base64 locally; no file input is read."
+    },
+    {
+      "id": "devtools.text.base64.decode",
+      "categoryId": "data",
+      "aliases": [
+        "Base64 decoder",
+        "decode Base64",
+        "Base64 解码",
+        "Base64 转文本"
+      ],
+      "description": "Decode standard Base64 text locally and return UTF-8 text; no file input is read."
+    },
+    {
+      "id": "devtools.text.sha256",
+      "categoryId": "security",
+      "aliases": [
+        "SHA-256 hash",
+        "text checksum",
+        "SHA-256 哈希",
+        "文本摘要"
+      ],
+      "description": "Calculate SHA-256 for supplied UTF-8 text; this does not verify files or establish authenticity."
+    },
+    {
+      "id": "devtools.text.sql.format",
+      "categoryId": "code",
+      "aliases": [
+        "SQL formatter",
+        "format SQL query",
+        "SQL 格式化",
+        "SQL 美化"
+      ],
+      "description": "Format pasted SQL using the generic default dialect; does not connect to a database or validate semantics."
+    }
+  ]
+}

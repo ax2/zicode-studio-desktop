@@ -31,6 +31,11 @@ export function ResourceToolRunner({ tool, detail, api, getTarget, scope, access
         await accessStore.mutate({ sceneId, workspaceId }, { kind: "recentRecord", id: tool.accessId });
         if (active) callbacks.current.onRecentChange?.();
       },
+      onReceiverExecuted: async (receiver: ManualTool) => {
+        if (!active || !accessStore || !currentTarget() || !receiver.accessId) return;
+        await accessStore.mutate({ sceneId, workspaceId }, { kind: "recentRecord", id: receiver.accessId });
+        if (active) callbacks.current.onRecentChange?.();
+      },
     });
     return { destroy() { active = false; runner.destroy(); } };
     };

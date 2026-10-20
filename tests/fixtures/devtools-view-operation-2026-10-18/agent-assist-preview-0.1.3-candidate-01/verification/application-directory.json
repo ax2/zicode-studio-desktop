@@ -1,0 +1,20 @@
+{
+  "profile": "application.directory.v1",
+  "version": "=1.0.0-preview.1",
+  "packageId": "com.zicode.devtools.agent-assist",
+  "activity": {
+    "id": "devtools.agent-assist",
+    "title": "ZiDevTools 模型辅助",
+    "order": 860,
+    "directory": {
+      "categoryId": "ai",
+      "aliases": [
+        "模型辅助",
+        "AI问答",
+        "Agent Assist",
+        "model assistant"
+      ],
+      "description": "选择当前场景模型，对目标与文字资料进行一轮生成；发送前逐次确认，不自动调用工具。"
+    }
+  }
+}

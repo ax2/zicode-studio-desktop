@@ -1,6 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { PluginCapabilityGateway } from "./plugin-capability-gateway.js";
 
+it("sends result transfer cancellation only to the desktop Host route", async () => {
+  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ schemaVersion: 1, status: "cancellation_requested" }) }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const scope = { sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "text" };
+  await gateway.cancelTransfer(scope, "grant");
+  expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-results/cancel-transfer");
+  expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, grantId: "grant" });
+});
+
+it("queries transfer status without committing or cancelling it", async () => {
+  const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ schemaVersion: 1, status: "running" }) }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const scope = { sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "text" };
+  expect(await gateway.transferStatus(scope, "grant")).toEqual({ schemaVersion: 1, status: "running" });
+  expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-results/transfer-status");
+  expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, grantId: "grant" });
+});
+
 it("keeps resource prepare, one-use invoke and mutating reconciliation separate", async () => {
   const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
   const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
@@ -17,6 +35,44 @@ it("keeps resource prepare, one-use invoke and mutating reconciliation separate"
   expect(bodies[0]).toEqual({ schemaVersion: 1, access: { schemaVersion: 1, owner, resourceId: "id", contentVersion: "hash" }, input: input.input });
   expect(bodies[1]).toEqual({ access: bodies[0].access, input: input.input, callId: ticket.callId, hostInstanceId: "host" });
   expect(bodies[2]).toEqual({ schemaVersion: 1, owner, callId: ticket.callId, hostInstanceId: "host" });
+});
+
+it("allows the Host OCR deadline to finish before timing out a resource invoke", async () => {
+  vi.useFakeTimers();
+  try {
+    let signal;
+    const fetchImpl = vi.fn((_url, options) => {
+      signal = options.signal;
+      return new Promise((_resolve, reject) => signal.addEventListener("abort", () =>
+        reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true }));
+    });
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    const pending = gateway.invokeResourceCall({ runtimeId: "r", sessionId: "s", pluginId: "p", capabilityId: "c" },
+      { resourceId: "id", contentVersion: "hash" }, { callId: "call", hostInstanceId: "host" });
+    const completion = expect(pending).rejects.toMatchObject({ code: "plugin_capability_timeout" });
+    await vi.advanceTimersByTimeAsync(45_000);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(45_000);
+    await completion;
+  } finally { vi.useRealTimers(); }
+});
+
+it("cancels an obsolete directory fetch without reporting a timeout or invoking a tool", async () => {
+  const fetchImpl = vi.fn((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () =>
+      reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
+  }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const controller = new AbortController();
+  const pending = gateway.searchTools("programming", { query: "old" }, controller.signal);
+  controller.abort();
+  await expect(pending).rejects.toMatchObject({ code: "plugin_capability_cancelled" });
+  expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-tool-directory");
+  const alreadyCancelled = new AbortController();
+  alreadyCancelled.abort();
+  await expect(gateway.searchTools("programming", { query: "new" }, alreadyCancelled.signal))
+    .rejects.toMatchObject({ code: "plugin_capability_cancelled" });
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
 });
 
 it("binds each additional resource to the same owner in both one-use requests", async () => {
@@ -48,18 +104,42 @@ describe("PluginCapabilityGateway", () => {
   it("keeps plugin-supplied scope out of model generation prepare and consumes a one-use grant", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
-    const owner = { runtimeId: "trusted-runtime", sessionId: "trusted-session", pluginId: "trusted-plugin" };
+    const owner = { workspaceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", runtimeId: "trusted-runtime",
+      sessionId: "trusted-session", pluginId: "trusted-plugin" };
     await gateway.prepareModelGeneration(owner, { modelRef: "model-ref", goal: "Summarize",
       materials: [], maxOutputTokens: 128, deadlineMs: 1000,
-      runtimeId: "spoofed", pluginId: "spoofed", sceneId: "spoofed" });
-    await gateway.commitModelGeneration(owner, "one-use", true, 1000);
+      runtimeId: "spoofed", pluginId: "spoofed", sceneId: "spoofed" }, "operation-id");
+    await gateway.commitModelGeneration(owner, "one-use", true, 1000, "operation-id");
+    await gateway.cancelModelGeneration(owner, "operation-id");
     expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual([
       "/v2/plugin-services/model-generation/prepare", "/v2/plugin-services/model-generation/commit",
+      "/v2/plugin-services/model-generation/cancel",
     ]);
-    const [prepare, commit] = fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body));
+    const [prepare, commit, cancel] = fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body));
     expect(prepare).toEqual({ schemaVersion: 1, modelRef: "model-ref", goal: "Summarize",
-      materials: [], maxOutputTokens: 128, deadlineMs: 1000, ...owner });
-    expect(commit).toEqual({ schemaVersion: 1, ...owner, grantId: "one-use", confirmed: true });
+      materials: [], maxOutputTokens: 128, deadlineMs: 1000, operationId: "operation-id", ...owner });
+    expect(commit).toEqual({ schemaVersion: 1, ...owner, grantId: "one-use", confirmed: true,
+      operationId: "operation-id" });
+    expect(cancel).toEqual({ schemaVersion: 1, ...owner, operationId: "operation-id" });
+  });
+  it("uses fixed Host HTTP service routes and sends no plugin-controlled ownership fields", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    const owner = { workspaceId: "workspace", runtimeId: "runtime", sessionId: "session", pluginId: "plugin" };
+    await gateway.prepareHttpGet(owner, { origin: "http://127.0.0.1:8080", endpoint: "health",
+      runtimeId: "spoofed", pluginId: "spoofed", method: "POST", path: "/admin" }, "operation");
+    await gateway.commitHttpGet(owner, "private-grant", true, "operation");
+    await gateway.cancelHttpGet(owner, "operation");
+    expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual([
+      "/v2/plugin-services/http-get/prepare", "/v2/plugin-services/http-get/commit",
+      "/v2/plugin-services/http-get/cancel",
+    ]);
+    const [prepare, commit, cancel] = fetchImpl.mock.calls.map(([, options]) => JSON.parse(options.body));
+    expect(prepare).toEqual({ schemaVersion: 1, ...owner, origin: "http://127.0.0.1:8080",
+      endpoint: "health", operationId: "operation" });
+    expect(commit).toEqual({ schemaVersion: 1, ...owner, grantId: "private-grant",
+      confirmed: true, operationId: "operation" });
+    expect(cancel).toEqual({ schemaVersion: 1, ...owner, operationId: "operation" });
   });
   it("forwards a bounded Explorer selection count as metadata-only discovery", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
@@ -72,6 +152,14 @@ describe("PluginCapabilityGateway", () => {
     expect(JSON.parse(url.searchParams.get("fileNames"))).toEqual(["one.txt", "two.zip"]);
     expect(url.searchParams.get("fileName")).toBeNull();
     expect(fetchImpl.mock.calls[0][1].body).toBeUndefined();
+  });
+  it("forwards the exact source MIME type for resource receiver discovery", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    await gateway.searchTools("programming", { resourceOnly: true, resourceMimeType: "text/plain" });
+    expect(fetchImpl.mock.calls[0][0].searchParams.get("resourceMimeType")).toBe("text/plain");
+    await gateway.loadTool("programming", { pluginId: "receiver", capabilityId: "read", revision: "revision", resourceMimeType: "text/plain" });
+    expect(fetchImpl.mock.calls[1][0].searchParams.get("resourceMimeType")).toBe("text/plain");
   });
   it("keeps directory selection separate from explicit metadata sharing", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
@@ -127,6 +215,15 @@ describe("PluginCapabilityGateway", () => {
     expect(fetchImpl.mock.calls.map(([url]) => url.pathname)).toEqual(["/v2/plugin-resources/prepare-save", "/v2/plugin-resources/commit-save"]);
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ schemaVersion: 1, source });
     expect(JSON.parse(fetchImpl.mock.calls[1][1].body)).toEqual({ schemaVersion: 1, source, grantId: "grant", confirmed: true });
+  });
+  it("queries ordinary result save status without issuing another write", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ schemaVersion: 1, status: "unknown" }) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    const scope = { workspaceId: "w", sceneId: "programming", pluginId: "p", capabilityId: "c" };
+    await gateway.saveStatus(scope, "grant");
+    expect(fetchImpl.mock.calls[0][0].pathname).toBe("/v2/plugin-results/save-status");
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, grantId: "grant" });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).confirmed).toBeUndefined();
   });
   it("filters resource receivers and separates prepare from explicit confirmation", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
@@ -203,6 +300,20 @@ describe("PluginCapabilityGateway", () => {
     expect(fetchImpl.mock.calls[1][0].pathname).toBe("/v2/plugin-tool-directory/detail");
     expect(Object.fromEntries(fetchImpl.mock.calls[1][0].searchParams)).toEqual({ sceneId: "programming", pluginId: "provider", capabilityId: "text.convert", revision: "rev" });
     expect(fetchImpl.mock.calls.every(([, options]) => !options.body && !options.method)).toBe(true);
+  });
+  it("forwards a receiver exclusion for Host validation", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ items: [] }) }));
+    const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+    const options = { resourceOnly: true, resourceMimeType: "text/plain",
+      excludePluginId: "source", excludeCapabilityId: "produce" };
+    await gateway.searchTools("programming", options);
+    const typed = fetchImpl.mock.calls[0][0].searchParams;
+    expect(typed.get("excludePluginId")).toBe("source");
+    expect(typed.get("excludeCapabilityId")).toBe("produce");
+    await gateway.searchTools("programming", { ...options, resourceOnly: false });
+    expect(fetchImpl.mock.calls[1][0].searchParams.get("excludePluginId")).toBe("source");
+    await gateway.searchTools("programming");
+    expect(fetchImpl.mock.calls[2][0].searchParams.has("excludePluginId")).toBe(false);
   });
   it("routes resource computation and independent cancellation with parent-derived owner", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
@@ -331,6 +442,19 @@ it("keeps legacy all search bodies and includes only personalized access fences"
   const scope = { sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "encode" };
   await gateway.searchTargets(scope, "result", "query", 0, null);
   await gateway.searchTargets(scope, "result", "query", 20, "revision", { view: "favorites", accessRevision: 0 });
+  await gateway.searchTargets(scope, "result", "query", 0, null, { pluginId: "receiver", categoryId: "text" });
   expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ scope, resultId: "result", query: "query", offset: 0, revision: null });
   expect(JSON.parse(fetchImpl.mock.calls[1][1].body)).toEqual({ scope, resultId: "result", query: "query", offset: 20, revision: "revision", view: "favorites", accessRevision: 0 });
+  expect(JSON.parse(fetchImpl.mock.calls[2][1].body)).toEqual({ scope, resultId: "result", query: "query", offset: 0, revision: null, pluginId: "receiver", categoryId: "text" });
+});
+
+it("cancels result receiver directory requests with the caller signal", async () => {
+  const fetchImpl = vi.fn((_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })), { once: true });
+  }));
+  const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const controller = new AbortController();
+  const pending = gateway.searchTargets({ sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "encode" }, "result", "", 0, null, { signal: controller.signal });
+  controller.abort();
+  await expect(pending).rejects.toMatchObject({ code: "plugin_capability_cancelled" });
 });

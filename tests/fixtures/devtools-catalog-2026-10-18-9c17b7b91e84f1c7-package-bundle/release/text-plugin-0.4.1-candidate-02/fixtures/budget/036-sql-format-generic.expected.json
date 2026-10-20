@@ -1,0 +1,1 @@
+{"contractVersion":"1.0.0-rc.1","ok":true,"data":{"text":"SELECT id, name\nFROM users\nWHERE active = TRUE"},"error":null}

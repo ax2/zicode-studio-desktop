@@ -6,6 +6,7 @@ import * as path from "node:path";
 import { verifyExecutableTarget } from "./executable-architecture.mjs";
 import {
   missingReleaseBundlesMessage,
+  releaseBundleDirectory,
   validateReleaseBundleName,
   validateReleaseBundleTypes,
 } from "./release-artifact-policy.mjs";
@@ -26,46 +27,30 @@ if (!requested?.length || !tag || !repository) {
 }
 validateReleaseBundleTypes(process.env.PI_TARGET_PLATFORM, requested);
 
-const cargoTargetDir = process.env.CARGO_TARGET_DIR?.trim();
-const cargoBuildTarget = process.env.CARGO_BUILD_TARGET?.trim();
-const targetDirectories = cargoTargetDir
-  ? path.isAbsolute(cargoTargetDir)
-    ? [cargoTargetDir]
-    : [cargoTargetDir, path.join("src-tauri", cargoTargetDir)]
-  : ["target", path.join("src-tauri", "target")];
-const bundleDirectories = [
-  ...new Set(
-    targetDirectories.map((directory) =>
-      path.resolve(directory, ...(cargoBuildTarget ? [cargoBuildTarget] : []), "release", "bundle"),
-    ),
-  ),
-];
+const bundleDirectory = releaseBundleDirectory(
+  process.cwd(),
+  process.env.CARGO_TARGET_DIR,
+  process.env.CARGO_BUILD_TARGET,
+);
 
 const files = [];
 const executableName = `zicode-studio-desktop${process.env.PI_TARGET_PLATFORM === "windows-x64" ? ".exe" : ""}`;
-const executables = bundleDirectories
-  .map((directory) => path.join(path.dirname(directory), executableName))
-  .filter((file) => fs.existsSync(file));
-if (executables.length !== 1)
-  throw new Error(`Expected one release executable, found ${executables.length}`);
-verifyExecutableTarget(executables[0], process.env.PI_TARGET_PLATFORM);
+const executable = path.join(path.dirname(bundleDirectory), executableName);
+if (!fs.existsSync(executable)) throw new Error(`Release executable missing: ${executable}`);
+verifyExecutableTarget(executable, process.env.PI_TARGET_PLATFORM);
 for (const type of requested) {
   const bundle = bundleTypes[type];
   if (!bundle) throw new Error(`Unsupported release bundle type: ${type}`);
-  const directories = bundleDirectories.map((root) => path.join(root, bundle.directory));
-  const matches = directories.flatMap((directory) =>
-    fs.existsSync(directory)
-      ? fs
-          .readdirSync(directory)
-          .filter((name) => name.endsWith(bundle.extension))
-          .map((name) => path.join(directory, name))
-          .filter((filePath) => fs.lstatSync(filePath).isFile())
-      : [],
-  );
+  const directory = path.join(bundleDirectory, bundle.directory);
+  const matches = fs.existsSync(directory)
+    ? fs
+        .readdirSync(directory)
+        .filter((name) => name.endsWith(bundle.extension))
+        .map((name) => path.join(directory, name))
+        .filter((filePath) => fs.lstatSync(filePath).isFile())
+    : [];
   if (matches.length !== 1) {
-    throw new Error(
-      `Expected one ${type} bundle across ${directories.join(", ")}, found ${matches.length}`,
-    );
+    throw new Error(`Expected one ${type} bundle in ${directory}, found ${matches.length}`);
   }
   const filePath = matches[0];
   validateReleaseBundleName(process.env.PI_TARGET_PLATFORM, type, filePath);

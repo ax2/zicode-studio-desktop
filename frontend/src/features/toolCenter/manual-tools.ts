@@ -1,16 +1,25 @@
 import type { CapturedToolResponse, ResultActionsGateway } from "../../../../public/native/plugins/plugin-result-actions.js";
 import type { ManualCallApi } from "./manual-call-protocol";
+import type { ToolInputValue } from "./tool-json-input";
 
 export interface ManualTool {
+  kind?: "capability";
   toolId: string; accessId: string; pluginId: string; capabilityId: string; title: string;
   applicationName: string; publisher: string; version: string; enabled: boolean; runtime: string;
   categoryId?: string; description?: string;
   fileInputMatch?: "declared" | "unknown" | null;
 }
+export interface ViewOperation {
+  kind: "view-operation";
+  toolId: string; accessId: string; pluginId: string; operationId: string; viewId: string; title: string;
+  applicationName: string; publisher: string; version: string; enabled: boolean; runtime: "view";
+  categoryId?: string; description?: string;
+}
+export type DirectoryItem = ManualTool | ViewOperation;
 export type ToolDirectoryView = "all" | "favorites" | "recent";
 export interface ToolOpenRequest { tool: ManualTool; revision: string }
 export interface ToolSource { pluginId: string; title: string; count: number; enabled: boolean }
-export interface ToolPage { items: ManualTool[]; total: number; revision: string; nextOffset: number | null; accessRevision?: number | null; sources?: ToolSource[]; categories?: { id: string; count: number }[] }
+export interface ToolPage { items: DirectoryItem[]; total: number; revision: string; nextOffset: number | null; accessRevision?: number | null; sources?: ToolSource[]; categories?: { id: string; count: number }[] }
 export interface ToolDetail {
   resourceInputProfile?: string | null;
   pluginId: string; version: string; revision: string; enabled: boolean;
@@ -24,10 +33,10 @@ export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<Ma
   resourceCalls?: { list(scope: { sceneId: string; workspaceId: string }): Promise<unknown[]> };
   reconcileResourceCall?: (...args: unknown[]) => Promise<unknown>;
   searchTools(sceneId: string, options: { query: string; offset: number; revision: string | null;
-    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean; directoryOnly?: boolean; fileName?: string; selectedFileCount?: number; fileNames?: string[] }): Promise<ToolPage>;
+    view?: ToolDirectoryView; workspaceId?: string; accessRevision?: number | null; pluginId?: string; categoryId?: string; resourceOnly?: boolean; directoryOnly?: boolean; includeViewOperations?: boolean; fileName?: string; selectedFileCount?: number; fileNames?: string[] }, signal?: AbortSignal): Promise<ToolPage>;
   loadTool(sceneId: string, tool: { pluginId: string; capabilityId: string; revision: string }): Promise<ToolDetail>;
   invoke(sceneId: string, workspaceId: string, pluginId: string, capabilityId: string,
-    input: Record<string, string | number | boolean>, options: { catalogRevision: string; captureResult?: boolean; callId?: string }): Promise<CapturedToolResponse>;
+    input: Record<string, ToolInputValue>, options: { catalogRevision: string; captureResult?: boolean; callId?: string }): Promise<CapturedToolResponse>;
 }
 export function supportsResultActions(api: ManualToolApi): api is ManualToolApi & ResultActionsGateway {
   return [api.prepareSave, api.commitSave, api.searchTargets, api.prepareTransfer, api.commitTransfer].every(method => typeof method === "function");

@@ -478,8 +478,55 @@ describe("chat feed renderers", () => {
     tools.finalizeToolCard("tc-1", { content: [{ type: "text", text: "done" }] }, false);
     await flush();
     expect(container.querySelector(".tool-status")?.textContent).toBe("完成");
+    expect(container.querySelector(".tool-stage")).toBeNull();
     expect(container.querySelector(".tool-output")?.textContent).toBe("done");
   });
+
+  it("offers only successful live plugin text results to the trusted parent", async () => {
+    const container = makeContainer();
+    const tools = await toolRenderer(container);
+    const received = vi.fn();
+    container.addEventListener("pluginresultaction", received);
+    const resultRef = { schemaVersion: 1, resultId: "22222222-2222-4222-8222-222222222222", mimeType: "text/plain" };
+    tools.createToolCard({ toolCallId: "plugin-1", toolName: "sql_format", args: {}, status: "pending" });
+    tools.finalizeToolCard("plugin-1", { content: [{ type: "text", text: "SELECT 1" }],
+      details: { ok: true, data: { text: "SELECT 1" }, studioResult: {
+        resultRef, pluginId: "com.zicode.devtools.text", capabilityId: "sql.format" } } }, false);
+    await flush();
+    const use = container.querySelector<HTMLButtonElement>('.tool-header-right button:not(.copy-output-btn)');
+    expect(use).toBeTruthy();
+    use?.click();
+    expect(received).toHaveBeenCalledOnce();
+    expect(received.mock.calls[0][0].detail.resultRef).toEqual(resultRef);
+    expect(container.querySelector(".tool-output")?.textContent).toBe("SELECT 1");
+    tools.createToolCard({ toolCallId: "plugin-2", toolName: "sql_format", args: {}, status: "pending" });
+    tools.finalizeToolCard("plugin-2", { content: [{ type: "text", text: "error" }],
+      details: { ok: false, studioResult: { resultRef, pluginId: "p", capabilityId: "c" } } }, false);
+    await flush();
+    expect(container.querySelectorAll('.tool-header-right button:not(.copy-output-btn)')).toHaveLength(1);
+  });
+
+  it("offers a live JSON object result only with the paired version and MIME", async () => {
+    const container = makeContainer();
+    const tools = await toolRenderer(container);
+    const received = vi.fn();
+    container.addEventListener("pluginresultaction", received);
+    const resultRef = { schemaVersion: 2, resultId: "22222222-2222-4222-8222-222222222222", mimeType: "application/json" };
+    tools.createToolCard({ toolCallId: "json-1", toolName: "structured_tool", args: {}, status: "pending" });
+    tools.finalizeToolCard("json-1", { content: [{ type: "text", text: '{"count":2}' }],
+      details: { ok: true, data: { count: 2 }, studioResult: {
+        resultRef, pluginId: "com.example.structured", capabilityId: "parse.object" } } }, false);
+    await flush();
+    container.querySelector<HTMLButtonElement>('.tool-header-right button:not(.copy-output-btn)')?.click();
+    expect(received.mock.calls[0][0].detail.resultRef).toEqual(resultRef);
+    tools.createToolCard({ toolCallId: "json-2", toolName: "structured_tool", args: {}, status: "pending" });
+    tools.finalizeToolCard("json-2", { content: [{ type: "text", text: "bad" }],
+      details: { ok: true, studioResult: { resultRef: { ...resultRef, schemaVersion: 1 },
+        pluginId: "com.example.structured", capabilityId: "parse.object" } } }, false);
+    await flush();
+    expect(container.querySelectorAll('.tool-header-right button:not(.copy-output-btn)')).toHaveLength(1);
+  });
+
 
   it("maps tool names to human-friendly stage labels", () => {
     expect(toolStageLabel("bash")).toBe("Running a command");

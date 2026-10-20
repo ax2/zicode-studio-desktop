@@ -11,12 +11,16 @@ export default function (pi) {
   } }));
   const signal = () => new AbortController().signal;
   const search = async () => (await tools.get("studio_plugin_search").execute("discover", {query:"com.zicode.devtools.diagnostics"}, signal())).details;
-  const execute = async (sample, id) => (await tools.get("devtools_diagnostics_" + sample.id.replaceAll(".", "_")).execute(id, {text:sample.text, secondary:sample.secondary}, signal())).details;
+  const execute = async (sample, id) => {
+    const input = {text: sample.text};
+    if (sample.secondary) input.secondary = sample.secondary;
+    return (await tools.get("devtools_diagnostics_" + sample.id.replaceAll(".", "_")).execute(id, input, signal())).details;
+  };
   pi.registerCommand("devtools-accept", { handler: async (phase, ctx) => {
     let activeSample;
     try {
       if (phase === "unauthorized") {
-        if (tools.size !== 2 || (await search()).items.length !== 0) throw new Error("Unauthorized tools exposed");
+        if ([...tools.keys()].some(name => name.startsWith("devtools_diagnostics_")) || (await search()).items.length !== 0) throw new Error("Unauthorized tools exposed");
         const textPage = (await tools.get("studio_plugin_search").execute("control-discover", {query:"com.zicode.devtools.text"}, signal())).details;
         const control = textPage.items.find(item => item.name === "devtools_text_base64_encode");
         if (!control) throw new Error("Independent control tool missing");
@@ -42,7 +46,7 @@ export default function (pi) {
         if (phase === "run") {
           const cancelled = new AbortController(); cancelled.abort();
           try { await tools.get("studio_plugin_search").execute("cancelled", {query:"java"}, cancelled.signal); throw new Error("Cancelled search accepted"); }
-          catch (error) { if (error.name !== "AbortError") throw error; }
+          catch (error) { if (!String(error).includes("[catalog_request_cancelled]")) throw error; }
           for (const sample of samples) {
             activeSample = sample.id;
             const start = Date.now();
@@ -76,6 +80,8 @@ export default function (pi) {
       receipt.failedPhase = phase;
       if (activeSample) receipt.failedSample = activeSample;
       receipt.failureClass = String(error).match(/\[[a-z_0-9]+\]/)?.[0] ?? "observer_assertion";
+      receipt.failureSummary = String(error).slice(0, 256);
+      receipt.registeredToolNames = [...tools.keys()].sort();
       save();
       ctx.ui.notify("diagnostics Pi failed: " + phase, "error");
     }

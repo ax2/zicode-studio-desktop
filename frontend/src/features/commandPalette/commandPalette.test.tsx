@@ -29,6 +29,21 @@ afterEach(async () => {
 });
 
 describe("command palette (React)", () => {
+  it("closes a stale palette when its scene or workspace changes", async () => {
+    const elements = mount();
+    const current = { sceneId: "programming", workspaceId: "first" };
+    setupCommandPalette({ ...elements, commands: [{ label: "Settings" }], getScope: () => current });
+    await act(async () => elements.button.click());
+    await act(async () => window.dispatchEvent(new Event("zicode:tool-target-changed")));
+    expect(elements.palette.classList.contains("hidden")).toBe(false);
+    current.workspaceId = "second";
+    await act(async () => window.dispatchEvent(new Event("zicode:tool-target-changed")));
+    expect(elements.palette.classList.contains("hidden")).toBe(true);
+    await act(async () => elements.button.click());
+    current.sceneId = "finance";
+    await act(async () => window.dispatchEvent(new Event("zicode:tool-target-changed")));
+    expect(elements.palette.classList.contains("hidden")).toBe(true);
+  });
   it("searches concrete tools only on demand and opens without recording execution history", async () => {
     setLocale("en");
     const elements = mount(); const onOpenTool = vi.fn();
@@ -45,6 +60,28 @@ describe("command palette (React)", () => {
     expect(onOpenTool).toHaveBeenCalledWith(tool,"rev",scope);
     expect(elements.palette.classList.contains("hidden")).toBe(true);
     expect(accessStore.mutate).not.toHaveBeenCalled(); expect(toolApi.invoke).not.toHaveBeenCalled();
+  });
+  it("reports tool navigation failures through the tool error handler", async () => {
+    setLocale("en");
+    const elements = mount();
+    const failure = { code: "catalog_changed", message: "private provider detail" };
+    const onToolError = vi.fn();
+    const onError = vi.fn();
+    const tool = {toolId:"tool-1",accessId:"manual.tool:1",pluginId:"fixture",capabilityId:"text",title:"Fixture text",applicationName:"Fixture",publisher:"Studio",version:"0.1.0",enabled:true,runtime:"wasi"};
+    const toolApi = {searchTools:vi.fn(async()=>({items:[tool],total:1,revision:"rev",nextOffset:null})),loadTool:vi.fn(),invoke:vi.fn()};
+    setupCommandPalette({
+      ...elements, commands:[], toolApi,
+      getScope:()=>({sceneId:"programming",workspaceId:"fixture"}),
+      onOpenTool:()=>Promise.reject(failure), onToolError, onError,
+    });
+    await act(async()=>elements.button.click());
+    await act(async()=>[...elements.list.querySelectorAll("button")].find(button=>button.textContent === "Individual tools")?.click());
+    await vi.waitFor(()=>expect(elements.list.textContent).toContain("Fixture text"));
+    await act(async()=>elements.list.querySelector('[role="option"]')?.dispatchEvent(new MouseEvent("click",{bubbles:true})));
+    await vi.waitFor(()=>expect(onToolError).toHaveBeenCalledWith(failure));
+    expect(onError).not.toHaveBeenCalled();
+    expect(elements.palette.classList.contains("hidden")).toBe(true);
+    expect(toolApi.invoke).not.toHaveBeenCalled();
   });
   it("pages, jumps to boundaries, announces results and preserves ordinary Home caret navigation", () => {
     const elements = mount();

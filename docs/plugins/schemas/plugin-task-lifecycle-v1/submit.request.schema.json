@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operationId", "idempotencyKey", "input"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operationId": { "$ref": "common.schema.json#/$defs/operationId" },
+    "idempotencyKey": { "$ref": "common.schema.json#/$defs/idempotencyKey" },
+    "input": {
+      "type": "object",
+      "maxProperties": 64,
+      "description": "Validated against the operation-specific input schema before task creation."
+    }
+  }
+}

@@ -29,20 +29,37 @@ pub(super) async fn search(
     let access = if query.view == CatalogView::All {
         None
     } else {
-        let workspace = query.workspace_id.as_deref().ok_or_else(|| error("invalid_parameters"))?;
-        state.data.workspace_root_path(workspace).map_err(|_| error("invalid_parameters"))?;
+        let workspace = query
+            .workspace_id
+            .as_deref()
+            .ok_or_else(|| error("invalid_parameters"))?;
+        state
+            .data
+            .workspace_root_path(workspace)
+            .map_err(|_| error("invalid_parameters"))?;
         let metadata = state.tool_access.clone();
         let scene = query.scene_id.clone();
         let workspace = workspace.to_owned();
-        Some(tokio::task::spawn_blocking(move || {
-            metadata.lock().map_err(|_| ())?.read_tool_access(&scene, &workspace).map_err(|_| ())
-        }).await.map_err(|_| error("tool_access_unavailable"))?
-            .map_err(|_| error("tool_access_unavailable"))?)
+        Some(
+            tokio::task::spawn_blocking(move || {
+                metadata
+                    .lock()
+                    .map_err(|_| ())?
+                    .read_tool_access(&scene, &workspace)
+                    .map_err(|_| ())
+            })
+            .await
+            .map_err(|_| error("tool_access_unavailable"))?
+            .map_err(|_| error("tool_access_unavailable"))?,
+        )
     };
     let registry = state.plugins.lock().map_err(|_| {
         plugin_api_error(StatusCode::SERVICE_UNAVAILABLE, "registry_unavailable", "")
     })?;
-    registry.manual_catalog_with_access(&query, access.as_ref()).map(Json).map_err(error)
+    registry
+        .manual_catalog_with_access(&query, access.as_ref())
+        .map(Json)
+        .map_err(error)
 }
 
 pub(super) async fn detail(

@@ -1,20 +1,23 @@
 import { textFields } from "./manual-tools";
+import { editableJsonSchema, parseToolJson, type ToolInputValue } from "./tool-json-input";
 
 export type ToolScalar = string | number | boolean;
 export interface ToolField {
-  key: string; label: string; description?: string; required: boolean; kind: "string" | "integer" | "number" | "boolean";
+  key: string; label: string; description?: string; required: boolean; kind: "string" | "integer" | "number" | "boolean" | "array" | "object";
   choices?: ToolScalar[]; minLength?: number; maxLength?: number; minimum?: number; maximum?: number;
+  suggested?: { input: string; preview: string };
 }
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-/** A declared flat schema only. Unknown constraints must not silently disappear. */
+/** Host-supported schemas only. Structured fields use a bounded JSON editor. */
 export function toolFields(schema: unknown): ToolField[] | null {
   if (!object(schema) || schema.type !== "object" || !object(schema.properties)) return null;
-  if (Object.keys(schema).some(key => !["type", "properties", "required", "additionalProperties", "title", "description", "$schema", "$id"].includes(key))) return null;
+  if (Object.keys(schema).some(key => !["type", "properties", "required", "additionalProperties", "minProperties", "maxProperties", "title", "description", "$schema", "$id"].includes(key))) return null;
+  if (!editableJsonSchema(schema)) return null;
   if (schema.$id !== undefined && typeof schema.$id !== "string") return null;
   if (schema.additionalProperties !== undefined && typeof schema.additionalProperties !== "boolean") return null;
-  if (schema.required !== undefined && (!Array.isArray(schema.required) || !schema.required.every(key => typeof key === "string" && Object.hasOwn(schema.properties as object, key)))) return null;
+  if (schema.required !== undefined && (!Array.isArray(schema.required) || !schema.required.every(key => typeof key === "string" && Object.hasOwn(schema.properties as object, key)) || new Set(schema.required).size !== schema.required.length)) return null;
   const required = (schema.required ?? []) as string[];
   const entries = Object.entries(schema.properties);
   if (entries.length > 16) return null;
@@ -38,18 +41,41 @@ export function toolFields(schema: unknown): ToolField[] | null {
         if (finite(bound)) field[name] = bound;
       }
       if (field.minimum !== undefined && field.maximum !== undefined && field.minimum > field.maximum) return null;
+    } else if (kind === "array" || kind === "object") {
+      if (!editableJsonSchema(declaration)) return null;
     } else return null;
-    if (declaration.enum !== undefined) {
+    if (kind !== "array" && kind !== "object" && declaration.enum !== undefined) {
       if (!Array.isArray(declaration.enum) || !declaration.enum.length || declaration.enum.length > 40 || !declaration.enum.every(value =>
         kind === "string" ? typeof value === "string" : kind === "boolean" ? typeof value === "boolean" : finite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value)) && (kind !== "integer" || Number.isSafeInteger(value)))) return null;
       field.choices = declaration.enum as ToolScalar[];
       if (new Set(field.choices.map(value => JSON.stringify(value))).size !== field.choices.length) return null;
     }
     if (kind === "boolean" && !field.choices) field.choices = [true, false];
+    field.suggested = scalarSuggestion(field, declaration.default);
     fields.push(field);
   }
   // Keep provider order within each group; keys and submitted values are unchanged.
   return fields.sort((a, b) => Number(b.required) - Number(a.required));
+}
+
+function scalarSuggestion(field: ToolField, declared: unknown): ToolField["suggested"] {
+  if (field.kind === "array" || field.kind === "object" || declared === undefined) return undefined;
+  if (typeof declared === "string" && field.kind !== "string") return undefined;
+  if (typeof declared === "boolean" && field.kind !== "boolean") return undefined;
+  if (typeof declared === "number" && (field.kind !== "integer" && field.kind !== "number" || !Number.isFinite(declared) || Object.is(declared, -0))) return undefined;
+  if (!["string", "number", "boolean"].includes(typeof declared)) return undefined;
+  const preview = String(declared);
+  const characters = [...preview];
+  if (characters.length > 80 || characters.some(character => {
+    const code = character.codePointAt(0) ?? 0;
+    return code < 32 || (code >= 127 && code <= 159) || code === 0x2028 || code === 0x2029;
+  })) return undefined;
+  const choiceIndex = field.choices?.findIndex(choice => Object.is(choice, declared));
+  if (choiceIndex === -1) return undefined;
+  const input = choiceIndex === undefined ? preview : String(choiceIndex);
+  const prepared = prepareToolInput([{ ...field, required: true }], { [field.key]: input });
+  if ("error" in prepared || !Object.is(prepared.input[field.key], declared)) return undefined;
+  return { input, preview };
 }
 
 const numericLiteral = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
@@ -65,9 +91,9 @@ function decimal(value: string): string {
   while (digits.endsWith("0")) { digits = digits.slice(0, -1); power++; }
   return `${negative ? "-" : ""}${digits}e${power}`;
 }
-export type PreparedToolInput = { input: Record<string, ToolScalar> } | { error: string; field: string };
+export type PreparedToolInput = { input: Record<string, ToolInputValue> } | { error: string; field: string };
 export function prepareToolInput(fields: ToolField[], values: Record<string, string>): PreparedToolInput {
-  const input: Record<string, ToolScalar> = Object.create(null);
+  const input: Record<string, ToolInputValue> = Object.create(null);
   for (const field of fields) {
     const raw = Object.hasOwn(values, field.key) ? values[field.key] : undefined;
     const fail = (error: string): PreparedToolInput => ({ error, field: field.key });
@@ -84,6 +110,15 @@ export function prepareToolInput(fields: ToolField[], values: Record<string, str
       const length = [...value].length;
       if (length < (field.minLength ?? 0) || length > (field.maxLength ?? 32768)) return fail("Text length does not match this field's limits.");
       input[field.key] = value;
+    } else if (field.kind === "array" || field.kind === "object") {
+      const text = raw?.trim() ?? "";
+      if (!text) {
+        if (field.required) return fail("Enter JSON for this required field.");
+        continue;
+      }
+      const parsed = parseToolJson(text, field.kind);
+      if ("error" in parsed) return fail(parsed.error);
+      input[field.key] = parsed.value;
     } else {
       const text = raw?.trim() ?? "";
       if (!text) {

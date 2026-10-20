@@ -1,0 +1,19 @@
+{
+  "profile": "tool.directory.v1",
+  "profileVersion": "1.0.0-preview.1",
+  "packageId": "com.zicode.devtools.image",
+  "packageVersion": "0.2.0",
+  "capabilities": [
+    {
+      "id": "devtools.image.resize",
+      "categoryId": "media",
+      "aliases": [
+        "图片缩放",
+        "调整图片大小",
+        "image resize",
+        "resize PNG JPEG WebP"
+      ],
+      "description": "缩放用户授权的一张图片并生成派生资源；PNG/WebP无损，质量设置仅影响JPEG。"
+    }
+  ]
+}

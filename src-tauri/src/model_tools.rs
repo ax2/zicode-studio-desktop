@@ -1,4 +1,5 @@
 //! Explicit, scene-scoped model choices for translation and article summaries.
+use futures_util::StreamExt;
 use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -157,14 +158,73 @@ pub fn complete(
     complete_inner(endpoint, key, prompt, timeout, None)
 }
 
-pub fn complete_limited(
+pub async fn complete_limited_cancellable(
     endpoint: &ModelEndpoint,
     key: Option<&str>,
     prompt: String,
     timeout: Duration,
     max_output_tokens: u32,
+    cancellation: tokio_util::sync::CancellationToken,
 ) -> Result<Value, String> {
-    complete_inner(endpoint, key, prompt, timeout, Some(max_output_tokens))
+    if endpoint.choice.requires_key && key.is_none_or(|key| key.trim().is_empty()) {
+        return Err("model_credential_unavailable".into());
+    }
+    if cancellation.is_cancelled() {
+        return Err("model_request_cancelled".into());
+    }
+    let mut builder = reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::none());
+    let host = endpoint
+        .url
+        .host_str()
+        .unwrap_or_default()
+        .trim_matches(['[', ']']);
+    if host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+    {
+        builder = builder.no_proxy();
+    }
+    let client = builder.build().map_err(|_| "model_client_unavailable")?;
+    let body = json!({
+        "model": endpoint.choice.model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2,
+        "max_tokens": max_output_tokens,
+    });
+    let mut request = client.post(endpoint.url.clone()).json(&body);
+    if endpoint.choice.requires_key {
+        request = request.bearer_auth(key.unwrap_or_default());
+    }
+    let completion = async move {
+        let response = request
+            .send()
+            .await
+            .map_err(|_| "model_request_unavailable")?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "model_request_failed:{}",
+                response.status().as_u16()
+            ));
+        }
+        let mut stream = response.bytes_stream();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|_| "model_response_invalid")?;
+            if bytes.len().saturating_add(chunk.len()) as u64 > MAX_BYTES {
+                return Err("model_response_too_large".into());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        serde_json::from_slice(&bytes).map_err(|_| "model_response_invalid".into())
+    };
+    tokio::select! {
+        biased;
+        _ = cancellation.cancelled() => Err("model_request_cancelled".into()),
+        result = completion => result,
+    }
 }
 
 fn complete_inner(

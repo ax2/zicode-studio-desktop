@@ -1,0 +1,1 @@
+ZiDevTools Text 0.4.1. MIT. Rust core dependencies: serde/serde_json (MIT OR Apache-2.0), base64 (MIT OR Apache-2.0), sha2 and RustCrypto dependencies (MIT OR Apache-2.0), sqlformat (MIT OR Apache-2.0). Rust standard library (MIT OR Apache-2.0).

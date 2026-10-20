@@ -194,13 +194,14 @@ describe("desktop three-region layout contract", () => {
     );
   });
 
-  it("defers the palette's workspace-switcher click past its own bubbling", () => {
-    // The switcher closes when an outside click reaches the document listener;
-    // running the palette command must schedule the button click asynchronously
-    // so the palette item's own click cannot close the freshly opened menu.
+  it("opens the visible workspace switcher after closing the palette", () => {
+    expect(appJs).toMatch(/function openVisibleWorkspaceSwitcher\(\)[\s\S]*?\.tool-workspace-picker > summary/);
+    expect(appJs).toMatch(/sidebarToggleController\?\.setCollapsed\(false\)/);
+    expect(appJs).toMatch(/if \(!switcher \|\| getComputedStyle\(switcher\)\.display === "none"\)/);
     expect(appJs).toMatch(
-      /label: t\("Switch workspace"\)[\s\S]{0,600}setTimeout\(\s*\(\s*\) =>\s*document\.getElementById\("workspace-switcher-btn"\)\?\.click\(\),/,
+      /label: t\("Switch workspace"\)[\s\S]{0,600}setTimeout\(openVisibleWorkspaceSwitcher, 0\)/,
     );
+    expect(appJs).toMatch(/switchWorkspace: \(\) => \{[\s\S]{0,250}commandPaletteHandle\.close\([\s\S]{0,120}openVisibleWorkspaceSwitcher\(\)/);
   });
 
   it("documents the workspace switcher and per-workspace data layout in Help", () => {

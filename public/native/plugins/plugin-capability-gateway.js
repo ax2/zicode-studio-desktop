@@ -1,6 +1,9 @@
 import { createSavedOutputGateway } from "./saved-output-gateway.js";
 import { createResourceCallJournal } from "./resource-call-journal.js";
 const DEFAULT_TIMEOUT_MS = 30_000;
+// Windows OCR can run for 45 seconds inside Host; allow response transfer and
+// cancellation to finish before treating the execution outcome as uncertain.
+const RESOURCE_INVOKE_TIMEOUT_MS = 90_000;
 
 export class PluginCapabilityGateway {
   #fetch;
@@ -66,22 +69,50 @@ export class PluginCapabilityGateway {
     });
   }
 
-  prepareModelGeneration(owner, input) {
+  prepareModelGeneration(owner, input, operationId = null) {
     const { modelRef, goal, materials, maxOutputTokens, deadlineMs } = input;
     return this.#request(this.#url("/v2/plugin-services/model-generation/prepare"), {
       method: "POST", body: JSON.stringify({ schemaVersion: 1, modelRef, goal, materials,
-        maxOutputTokens, deadlineMs, ...owner }),
+        maxOutputTokens, deadlineMs, ...(operationId ? { operationId } : {}), ...owner }),
     });
   }
 
-  commitModelGeneration(owner, grantId, confirmed, deadlineMs = 30_000) {
+  commitModelGeneration(owner, grantId, confirmed, deadlineMs = 30_000, operationId = null) {
     return this.#request(this.#url("/v2/plugin-services/model-generation/commit"), {
-      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, grantId, confirmed }),
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, grantId, confirmed,
+        ...(operationId ? { operationId } : {}) }),
       timeoutMs: Math.min(130_000, Math.max(30_000, deadlineMs + 10_000)),
     });
   }
 
-  searchTools(sceneId, { query = "", offset = 0, revision = null, view = "all", workspaceId, accessRevision = null, pluginId, categoryId, resourceOnly = false, directoryOnly = false, fileName, selectedFileCount, fileNames } = {}) {
+  cancelModelGeneration(owner, operationId) {
+    return this.#request(this.#url("/v2/plugin-services/model-generation/cancel"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, operationId }),
+    });
+  }
+
+  prepareHttpGet(owner, input, operationId) {
+    const { origin, endpoint } = input;
+    return this.#request(this.#url("/v2/plugin-services/http-get/prepare"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, origin, endpoint, operationId }),
+      timeoutMs: 10_000,
+    });
+  }
+
+  commitHttpGet(owner, grantId, confirmed, operationId) {
+    return this.#request(this.#url("/v2/plugin-services/http-get/commit"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, grantId, confirmed, operationId }),
+      timeoutMs: 12_000,
+    });
+  }
+
+  cancelHttpGet(owner, operationId) {
+    return this.#request(this.#url("/v2/plugin-services/http-get/cancel"), {
+      method: "POST", body: JSON.stringify({ schemaVersion: 1, ...owner, operationId }),
+    });
+  }
+
+  searchTools(sceneId, { query = "", offset = 0, revision = null, view = "all", workspaceId, accessRevision = null, pluginId, categoryId, resourceOnly = false, resourceMimeType, excludePluginId, excludeCapabilityId, directoryOnly = false, includeViewOperations = false, fileName, selectedFileCount, fileNames } = {}, signal) {
     const url = this.#url("/v2/plugin-tool-directory");
     url.searchParams.set("sceneId", sceneId);
     url.searchParams.set("query", query);
@@ -90,7 +121,11 @@ export class PluginCapabilityGateway {
     if (pluginId) url.searchParams.set("pluginId", pluginId);
     if (categoryId) url.searchParams.set("categoryId", categoryId);
     if (resourceOnly) url.searchParams.set("resourceOnly", "true");
+    if (resourceOnly && resourceMimeType) url.searchParams.set("resourceMimeType", resourceMimeType);
+    if (excludePluginId !== undefined) url.searchParams.set("excludePluginId", excludePluginId);
+    if (excludeCapabilityId !== undefined) url.searchParams.set("excludeCapabilityId", excludeCapabilityId);
     if (directoryOnly) url.searchParams.set("directoryOnly", "true");
+    if (includeViewOperations && !resourceOnly && !directoryOnly) url.searchParams.set("includeViewOperations", "true");
     if (resourceOnly && fileName) url.searchParams.set("fileName", fileName);
     if (resourceOnly && selectedFileCount !== undefined) url.searchParams.set("selectedFileCount", String(selectedFileCount));
     if (resourceOnly && fileNames) url.searchParams.set("fileNames", JSON.stringify(fileNames));
@@ -99,15 +134,16 @@ export class PluginCapabilityGateway {
       if (workspaceId) url.searchParams.set("workspaceId", workspaceId);
       if (accessRevision !== null) url.searchParams.set("accessRevision", String(accessRevision));
     }
-    return this.#request(url);
+    return this.#request(url, { signal });
   }
 
-  loadTool(sceneId, { pluginId, capabilityId, revision }) {
+  loadTool(sceneId, { pluginId, capabilityId, revision, resourceMimeType }) {
     const url = this.#url("/v2/plugin-tool-directory/detail");
     url.searchParams.set("sceneId", sceneId);
     url.searchParams.set("pluginId", pluginId);
     url.searchParams.set("capabilityId", capabilityId);
     url.searchParams.set("revision", revision);
+    if (resourceMimeType) url.searchParams.set("resourceMimeType", resourceMimeType);
     return this.#request(url);
   }
 
@@ -161,6 +197,7 @@ export class PluginCapabilityGateway {
         ...(additionalResources.length ? { additionalAccesses: additionalResources.map(resource => ({ schemaVersion: 1, owner,
           resourceId: resource.resourceId, contentVersion: resource.contentVersion })) } : {}),
         input, callId, hostInstanceId }),
+      timeoutMs: RESOURCE_INVOKE_TIMEOUT_MS,
     });
   }
 
@@ -282,11 +319,20 @@ export class PluginCapabilityGateway {
     });
   }
 
-  searchTargets(scope, resultId, query = "", offset = 0, revision = null, { view = "all", accessRevision = null } = {}) {
+  saveStatus(scope, grantId) {
+    return this.#request(this.#url("/v2/plugin-results/save-status"), {
+      method: "POST",
+      body: JSON.stringify({ scope, grantId }),
+    });
+  }
+
+  searchTargets(scope, resultId, query = "", offset = 0, revision = null, { view = "all", accessRevision = null, pluginId, categoryId, signal } = {}) {
     return this.#request(this.#url("/v2/plugin-results/targets"), {
       method: "POST",
       body: JSON.stringify({ scope, resultId, query, offset, revision,
-        ...(view !== "all" ? { view, ...(accessRevision !== null ? { accessRevision } : {}) } : {}), }),
+        ...(view !== "all" ? { view, ...(accessRevision !== null ? { accessRevision } : {}) } : {}),
+        ...(pluginId ? { pluginId } : {}), ...(categoryId ? { categoryId } : {}), }),
+      signal,
     });
   }
 
@@ -305,13 +351,34 @@ export class PluginCapabilityGateway {
     });
   }
 
+  cancelTransfer(scope, grantId) {
+    return this.#request(this.#url("/v2/plugin-results/cancel-transfer"), {
+      method: "POST",
+      body: JSON.stringify({ scope, grantId }),
+    });
+  }
+
+  transferStatus(scope, grantId) {
+    return this.#request(this.#url("/v2/plugin-results/transfer-status"), {
+      method: "POST",
+      body: JSON.stringify({ scope, grantId }),
+    });
+  }
+
   #url(path) {
     return new URL(path, this.#location?.origin ?? globalThis.location?.origin);
   }
 
   async #request(url, options = {}) {
     const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const { timeoutMs = this.#timeoutMs, ...requestOptions } = options;
+    const { timeoutMs = this.#timeoutMs, signal: externalSignal, ...requestOptions } = options;
+    if (externalSignal?.aborted) {
+      const cancelled = new Error("Plugin capability request cancelled");
+      cancelled.code = "plugin_capability_cancelled";
+      throw cancelled;
+    }
+    const abort = () => controller?.abort();
+    externalSignal?.addEventListener("abort", abort, { once: true });
     const timeout = setTimeout(() => controller?.abort(), timeoutMs);
     try {
       const response = await this.#fetch(url, {
@@ -321,7 +388,7 @@ export class PluginCapabilityGateway {
           ...(options.body ? { "content-type": "application/json" } : {}),
           ...options.headers,
         },
-        signal: controller?.signal,
+        signal: controller?.signal ?? externalSignal,
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -334,6 +401,11 @@ export class PluginCapabilityGateway {
       return body;
     } catch (error) {
       if (error?.name === "AbortError") {
+        if (externalSignal?.aborted) {
+          const cancelled = new Error("Plugin capability request cancelled");
+          cancelled.code = "plugin_capability_cancelled";
+          throw cancelled;
+        }
         const timeout = new Error("Plugin capability request timed out");
         timeout.code = "plugin_capability_timeout";
         throw timeout;
@@ -341,6 +413,7 @@ export class PluginCapabilityGateway {
       throw error;
     } finally {
       clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abort);
     }
   }
 }

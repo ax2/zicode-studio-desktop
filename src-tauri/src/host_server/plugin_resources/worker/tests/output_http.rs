@@ -22,8 +22,18 @@ pub(super) async fn material(
     owner: &Value,
     bytes: &[u8],
 ) -> Value {
+    material_with_mime(host, client, owner, "application/octet-stream", bytes).await
+}
+
+pub(super) async fn material_with_mime(
+    host: &HostServer,
+    client: &reqwest::Client,
+    owner: &Value,
+    mime_type: &str,
+    bytes: &[u8],
+) -> Value {
     let version = sha256_hex(bytes);
-    let response=post(host,client,"prepare",json!({"schemaVersion":1,"owner":owner,"mimeType":"application/octet-stream","byteLength":bytes.len(),"contentVersion":version})).await;
+    let response=post(host,client,"prepare",json!({"schemaVersion":1,"owner":owner,"mimeType":mime_type,"byteLength":bytes.len(),"contentVersion":version})).await;
     assert_eq!(response.status(), StatusCode::OK);
     let resource = response.json::<Value>().await.unwrap();
     let access = json!({"schemaVersion":1,"owner":owner,"resourceId":resource["resourceId"],"contentVersion":version});
@@ -259,7 +269,8 @@ pub(super) async fn verify(
     );
     std::fs::write(installed, module).unwrap();
     *host.state.plugin_resource_workers.observer.lock().unwrap() = None;
-    let publication=super::output_admission_http::verify(host,client,&owner,&bytes,target).await;
+    let publication =
+        super::output_admission_http::verify(host, client, &owner, &bytes, target).await;
     let rows = events.lock().unwrap();
     let starts: Vec<_> = rows.iter().filter(|r| r.0 == "started").collect();
     assert_eq!(starts.len(), 4);

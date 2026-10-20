@@ -1,0 +1,48 @@
+{
+  "packageId": "com.zicode.devtools.inspect",
+  "packageVersion": "0.1.2",
+  "status": "unsigned provider candidate; not Studio Host accepted",
+  "requiredProfiles": {
+    "tool.directory.v1": "=1.0.0-preview.1",
+    "tool.open.v1": "=1.0.0-preview.1"
+  },
+  "baseCandidate": "release/plugin-candidates/inspect-0.1.1-candidate-02",
+  "baseCandidateUnmodified": true,
+  "runtimeModuleReused": true,
+  "runtimeWasmSha256": "1db3fc37df01cd3a8371320d4f897a7fdf750c87e6202b736ed6870f046b8f29",
+  "sourceFiles": [
+    {
+      "path": "scripts/package_inspect_tool_open_plugin.py",
+      "sha256": "32cf79854891a043621ff92f6594ee13c43fb2ce6c762dc5599f8ec3388f60d5"
+    },
+    {
+      "path": "plugins/inspect/plugin.json",
+      "sha256": "3d21551c54f1bedd935cc4c2b6c448b40c28dd9249f0a8fc31b6e4582a037e02"
+    },
+    {
+      "path": "plugins/inspect/catalog.json",
+      "sha256": "3c0b6cac67190d2c898cbd97daa804b23a6893749bef6c31df023839045a9a92"
+    },
+    {
+      "path": "plugins/inspect/views/main.html",
+      "sha256": "4e3d2f674bde74c90c879341042fc1dbc1b1beed621d062a73ec04fcba4cf99e"
+    },
+    {
+      "path": "contracts/studio-tool-open/1.0.0-preview.1/README.md",
+      "sha256": "5bc51b86b1cc731ca0a64d58d6de4183a0da88679f7a5f012977022bd4dec9af"
+    },
+    {
+      "path": "release/plugin-candidates/inspect-0.1.1-candidate-02/runtime/tools.wasm",
+      "sha256": "1db3fc37df01cd3a8371320d4f897a7fdf750c87e6202b736ed6870f046b8f29"
+    },
+    {
+      "path": "release/plugin-candidates/inspect-0.1.1-candidate-02/verification/view-proof.json",
+      "sha256": "26ed944dd9aace98597b00db8732c6064b76d3bb4bbdf439949c24caa5767375"
+    }
+  ],
+  "limitations": [
+    "The tool.open.v1 profile and receiver lifecycle are not accepted until Studio verifies this candidate.",
+    "A location acknowledgement is not capability authorization or execution success.",
+    "The slow callback is a separate receiver-boundary fixture, not production View code."
+  ]
+}

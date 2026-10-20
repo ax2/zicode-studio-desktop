@@ -14,9 +14,17 @@ pub(super) struct Lease {
 
 impl PluginSlots {
     pub(super) fn try_acquire(&self, plugin_id: &str) -> Result<Lease, &'static str> {
+        self.try_acquire_with_limit(plugin_id, PER_PLUGIN)
+    }
+
+    pub(super) fn try_acquire_with_limit(
+        &self,
+        plugin_id: &str,
+        maximum: usize,
+    ) -> Result<Lease, &'static str> {
         let mut active = self.0.lock().map_err(|_| "resource_worker_busy")?;
         let count = active.entry(plugin_id.to_owned()).or_default();
-        if *count >= PER_PLUGIN {
+        if *count >= maximum {
             return Err("resource_worker_busy");
         }
         *count += 1;
@@ -62,5 +70,28 @@ mod tests {
         drop(second);
         drop(independent);
         assert!(slots.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn image_resize_reservations_limit_global_and_per_plugin_concurrency() {
+        let global = Arc::new(tokio::sync::Semaphore::new(
+            crate::plugin_resource_execution::IMAGE_RESIZE_MAX_CALLS,
+        ));
+        let plugins = PluginSlots::default();
+
+        let first_global = global.clone().try_acquire_owned().unwrap();
+        let first_plugin = plugins.try_acquire_with_limit("images", 1).unwrap();
+        assert!(plugins.try_acquire_with_limit("images", 1).is_err());
+
+        let second_global = global.clone().try_acquire_owned().unwrap();
+        let second_plugin = plugins.try_acquire_with_limit("other-images", 1).unwrap();
+        assert!(global.clone().try_acquire_owned().is_err());
+
+        drop(first_global);
+        drop(first_plugin);
+        assert!(global.clone().try_acquire_owned().is_ok());
+        assert!(plugins.try_acquire_with_limit("images", 1).is_ok());
+        drop(second_global);
+        drop(second_plugin);
     }
 }

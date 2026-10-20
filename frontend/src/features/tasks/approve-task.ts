@@ -11,6 +11,7 @@ export type TaskCenterTarget = {
   instanceId?: string;
   sessionId?: string;
   cwd?: string;
+  runtimeMode?: "ai" | "tools";
 };
 
 type TaskCall = (
@@ -24,8 +25,8 @@ type TaskCall = (
 }>;
 
 export function sameTaskTarget(a: TaskCenterTarget | null, b: TaskCenterTarget | null): boolean {
-  return JSON.stringify([a?.sceneId, a?.workspaceId, a?.instanceId, a?.cwd]) ===
-    JSON.stringify([b?.sceneId, b?.workspaceId, b?.instanceId, b?.cwd]);
+  return JSON.stringify([a?.sceneId, a?.workspaceId, a?.sessionId, a?.instanceId, a?.cwd, a?.runtimeMode]) ===
+    JSON.stringify([b?.sceneId, b?.workspaceId, b?.sessionId, b?.instanceId, b?.cwd, b?.runtimeMode]);
 }
 
 export async function approveExistingTask(call: TaskCall, taskId: string, target: TaskCenterTarget | null) {

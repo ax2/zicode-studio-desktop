@@ -52,6 +52,9 @@ export default function (pi) {
       if (!pi.getAllTools().some((tool) => tool.name === "smoke_plugin_tool")) {
         throw new Error("Bundled plugin tool registration missing");
       }
+      if (${JSON.stringify(inbox)} && pi.getAllTools().some((tool) => tool.name.startsWith("qveris_"))) {
+        throw new Error("Finance tools leaked into the development scene");
+      }
       const result = await captured.execute("smoke-call", { message: "roundtrip" }, new AbortController().signal);
       if (result.details?.message !== "roundtrip" || result.details?.verified !== true
         || JSON.parse(result.content[0].text).verified !== true) {
@@ -80,7 +83,7 @@ const subprocess = Bun.spawn(
     env: {
       ...smokeRuntimeEnvironment(temp),
       PI_DESKTOP_SCENE_ID: scene,
-      PI_DESKTOP_INSTANCE_ID: "finance-smoke",
+      PI_DESKTOP_INSTANCE_ID: inbox ? "inbox-smoke" : "finance-smoke",
       PI_DESKTOP_PLUGIN_HOST_ORIGIN: `http://127.0.0.1:${brokerServer.port}`,
       PI_DESKTOP_PLUGIN_BROKER_TOKEN: "local-fixture-only",
       PI_DESKTOP_PLUGIN_RUNTIME_ID: "smoke-runtime",
@@ -88,12 +91,8 @@ const subprocess = Bun.spawn(
       PI_DESKTOP_PLUGIN_TOOLS: JSON.stringify([{ pluginId: "smoke", name: "smoke_plugin_tool",
         title: "Smoke fixture", description: "Registration fixture only", capability: "smoke.read",
         inputSchema: { type: "object", properties: {} } }]),
-      PI_DESKTOP_ALLOWED_TOOLS: JSON.stringify([
-        "qveris_status",
-        "qveris_discover",
-        "qveris_inspect",
-        "qveris_call",
-        "finance_backtest",
+      PI_DESKTOP_ALLOWED_TOOLS: JSON.stringify(inbox ? ["smoke_plugin_tool"] : [
+        "qveris_status", "qveris_discover", "qveris_inspect", "qveris_call", "finance_backtest",
       ]),
     },
     stdin: "pipe",

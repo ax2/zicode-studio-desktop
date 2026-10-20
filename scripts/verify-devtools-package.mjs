@@ -2,7 +2,7 @@
 // runtime acceptance, and never copies a package or runs provider code.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, readFile, readdir, realpath } from "node:fs/promises";
+import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,6 +42,27 @@ async function digestFile(path) {
   return { size, sha256: hash.digest("hex") };
 }
 
+function verifyDirectoryIndex(index, sizeField) {
+  if (!index.directoryIndexSha256) return { status: "absent" };
+  const encoding = index.directoryIndexEncoding;
+  if (
+    sizeField !== "size" ||
+    encoding?.hash !== "SHA-256" ||
+    encoding?.encoding !== "UTF-8" ||
+    encoding?.content !== "files array in listed order" ||
+    JSON.stringify(encoding.objectKeyOrder) !== '["path","size","sha256"]' ||
+    encoding.ensureAscii !== false ||
+    JSON.stringify(encoding.separators) !== '[",",":"]' ||
+    encoding.trailingNewline !== false
+  ) {
+    return { status: "encoding-unverified" };
+  }
+  const files = index.files.map(({ path, size, sha256 }) => ({ path, size, sha256 }));
+  const digest = createHash("sha256").update(JSON.stringify(files), "utf8").digest("hex");
+  if (digest !== index.directoryIndexSha256) reject("package_directory_index_mismatch");
+  return { status: "matched", sha256: digest };
+}
+
 export async function verifyDevtoolsPackage(packageDirectory, verificationFile) {
   const requestedRoot = resolve(packageDirectory);
   if (!(await lstat(requestedRoot)).isDirectory()) reject("package_root_invalid");
@@ -78,11 +99,7 @@ export async function verifyDevtoolsPackage(packageDirectory, verificationFile) 
     const size = item[sizeField];
     const key = portablePath(item?.path);
     if (expected.has(key)) reject("package_duplicate_path");
-    if (
-      !Number.isSafeInteger(size) ||
-      size < 0 ||
-      !/^[a-f0-9]{64}$/.test(item.sha256 ?? "")
-    )
+    if (!Number.isSafeInteger(size) || size < 0 || !/^[a-f0-9]{64}$/.test(item.sha256 ?? ""))
       reject("package_digest_invalid");
     expected.set(key, { ...item, size });
     logicalBytes += size;
@@ -121,6 +138,7 @@ export async function verifyDevtoolsPackage(packageDirectory, verificationFile) 
   }
   // A receipt describes this observation, not a durable lock on a mutable folder.
   if (!(await readFile(indexPath)).equals(indexBytes)) reject("package_index_changed");
+  const directoryIndex = verifyDirectoryIndex(index, sizeField);
   return {
     schemaVersion: 1,
     indexFormat: sizeField === "size" ? "provider-size" : "legacy-receiver-bytes",
@@ -128,6 +146,7 @@ export async function verifyDevtoolsPackage(packageDirectory, verificationFile) 
     fileCount: verified.length,
     logicalBytes,
     indexSha256: createHash("sha256").update(indexBytes).digest("hex"),
+    directoryIndex,
     files: verified,
     signatureVerified: false,
     runtimeAccepted: false,
@@ -140,9 +159,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     if (process.argv.length !== 4)
       reject("usage: verify-devtools-package <directory> <external-verification.json>");
-    console.log(
-      JSON.stringify(await verifyDevtoolsPackage(process.argv[2], process.argv[3]), null, 2),
-    );
+    const result = await verifyDevtoolsPackage(process.argv[2], process.argv[3]);
+    console.log(JSON.stringify(result, null, 2));
+    // File hashes can match while a declared directory index remains unverified.
+    // Keep the detailed receipt, but do not let an automated intake treat it as complete.
+    if (result.directoryIndex.status === "encoding-unverified") process.exitCode = 1;
   } catch (error) {
     console.error(JSON.stringify({ verified: false, code: error.code ?? error.message }));
     process.exitCode = 1;

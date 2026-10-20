@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.studio.tool-open-fixture",
+  "name": "Studio Tool Open Fixture",
+  "description": "Synthetic manifest for the tool.open.v1 profile preflight",
+  "version": "0.1.0",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "tool.open.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": ["onView:studio.fixture.main"],
+  "contributes": {
+    "activities": [{ "id": "studio.fixture", "title": "Fixture" }],
+    "views": [{ "id": "studio.fixture.main", "activity": "studio.fixture", "location": "main", "title": "Fixture", "entry": "views/main.html" }],
+    "capabilities": [{ "id": "studio.fixture.echo", "title": "Echo", "inputSchema": { "type": "object" } }],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": { "required": [], "optional": [] }
+}

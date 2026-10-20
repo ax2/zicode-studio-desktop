@@ -1,6 +1,7 @@
 //! Explicit, one-use, read-only directory metadata snapshots for a trusted desktop UI.
 //! No absolute path or directory handle reaches a plugin Worker.
 use super::*;
+use cap_fs_ext::DirExt;
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
 use std::path::{Path, PathBuf};
@@ -87,6 +88,16 @@ pub(super) struct Grants {
 }
 
 impl Grants {
+    pub(super) fn invalidate_runtime(&mut self, runtime_id: &str) {
+        self.pending
+            .retain(|_, grant| grant.owner.runtime_id != runtime_id);
+        for active in self.active.values() {
+            if active.owner.runtime_id == runtime_id {
+                active.control.cancel();
+            }
+        }
+    }
+
     fn prune(&mut self) {
         self.pending
             .retain(|_, grant| grant.expires > Instant::now());
@@ -189,9 +200,8 @@ fn authorize(state: &HostState, owner: &Owner) -> Result<(PathBuf, String, Strin
         .lock()
         .map_err(|_| rejected("registry_unavailable"))?;
     let plugin = registry
-        .list(&scene)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == owner.plugin_id && plugin.enabled)
+        .execution_plugin(&scene, &owner.plugin_id)
+        .filter(|plugin| plugin.enabled)
         .ok_or_else(|| rejected("resource_plugin_unavailable"))?;
     if !plugin
         .manifest
@@ -236,17 +246,49 @@ fn open_directory(root: &Path, relative: &str) -> Result<Dir, ApiError> {
             let meta = parent
                 .symlink_metadata(part)
                 .map_err(|_| rejected("resource_directory_unavailable"))?;
+            #[cfg(windows)]
+            {
+                use cap_std::fs::MetadataExt;
+                if meta.file_attributes()
+                    & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT
+                    != 0
+                {
+                    return Err(rejected("resource_directory_path_invalid"));
+                }
+            }
             if !meta.is_dir() || meta.file_type().is_symlink() {
                 return Err(rejected("resource_directory_path_invalid"));
             }
-            handles.push(
-                parent
-                    .open_dir(part)
-                    .map_err(|_| rejected("resource_directory_unavailable"))?,
-            );
+            handles.push(open_checked_child(parent, part)?);
         }
     }
     Ok(handles.pop().expect("root directory present"))
+}
+
+fn open_checked_child(parent: &Dir, part: &str) -> Result<Dir, ApiError> {
+    // The earlier metadata check describes a stable path, but the entry can
+    // be replaced before this open. Bind no-follow to the opened handle.
+    let child = parent
+        .open_dir_nofollow(part)
+        .map_err(|_| rejected("resource_directory_path_invalid"))?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        let opened = child
+            .try_clone()
+            .map_err(|_| rejected("resource_directory_unavailable"))?
+            .into_std_file();
+        if opened
+            .metadata()
+            .map_err(|_| rejected("resource_directory_unavailable"))?
+            .file_attributes()
+            & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT
+            != 0
+        {
+            return Err(rejected("resource_directory_path_invalid"));
+        }
+    }
+    Ok(child)
 }
 
 fn stamp(directory: &Dir) -> Result<String, ApiError> {
@@ -325,9 +367,20 @@ fn snapshot(
         if !folded.insert(name.to_lowercase()) {
             return Err(rejected("resource_directory_name_unsupported"));
         }
-        let kind = entry
-            .file_type()
+        let meta = directory
+            .symlink_metadata(&name)
             .map_err(|_| rejected("resource_directory_unavailable"))?;
+        #[cfg(windows)]
+        {
+            use cap_std::fs::MetadataExt;
+            if meta.file_attributes()
+                & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT
+                != 0
+            {
+                return Err(rejected("resource_directory_entry_unsupported"));
+            }
+        }
+        let kind = meta.file_type();
         if kind.is_symlink() || !(kind.is_file() || kind.is_dir()) {
             return Err(rejected("resource_directory_entry_unsupported"));
         }

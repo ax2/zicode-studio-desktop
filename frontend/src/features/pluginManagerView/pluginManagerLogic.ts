@@ -72,6 +72,7 @@ export function helpPageForPlugin(pluginId: string): string | null {
 export function friendlyPluginError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   const fallbacks: Array<[RegExp, string]> = [
+    [/changed after preview/i, t("The plugin package changed after preview. Select it again.")],
     [/must use the \.zicode-plugin extension/i, t("Choose a .zicode-plugin package file.")],
     [
       /no larger than (50 MiB|10 MiB)|exceeds 50 MiB|exceeds 10 MiB|expands beyond/i,

@@ -1,0 +1,53 @@
+{
+  "revision": "08bc7e427e99f594a4fa92e3366b71027f0b11e1",
+  "dirty": true,
+  "sourceToolVersion": "0.12.0",
+  "files": [
+    {
+      "path": ".cargo/config.toml",
+      "sha256": "c4e35fed661da5cb7c446e2cf0250f8f7f3a5657a33d0291827d75afdf416113"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "41dfa45bceb2e522279a6d524433c3d8d1546b7add9033b7eed6f0580b17ff78"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "3c86a4e4d1c7b51d67b743694053305ef614f92e1a5115b12875cb9a6f9aa3fc"
+    },
+    {
+      "path": "crates/zi-image-core/Cargo.toml",
+      "sha256": "f8334243a4859662c0684ea1a1a11c6e19cc846c75b1c2d5ba9d9408269523f9"
+    },
+    {
+      "path": "crates/zi-image-core/examples/image_core_benchmark.rs",
+      "sha256": "14cb28d6abfbdf5ffa3ffa2ece9db5d61d62dde5643e041e06383703afbc80de"
+    },
+    {
+      "path": "crates/zi-image-core/src/lib.rs",
+      "sha256": "3f201f3f0c140a676a178f79863b03c76a853451e1824f265527d7593e54d495"
+    },
+    {
+      "path": "crates/zi-image-wasi/Cargo.toml",
+      "sha256": "b0d1e344f54483217a9e7985cdbae69961a9f3fc38fbe452c022f947f00d6e4a"
+    },
+    {
+      "path": "crates/zi-image-wasi/build.rs",
+      "sha256": "319e0c5b9bd5b2dbff7bb4a35ea9058ecf7e4bb62f1d87b18583f04cbae1a3d0"
+    },
+    {
+      "path": "crates/zi-image-wasi/src/main.rs",
+      "sha256": "bbf9cb8c53c34b3a27177477934dcc1f2bebe1c3145a558330c533ec22e9904f"
+    },
+    {
+      "path": "scripts/benchmark_studio_image_resource.py",
+      "sha256": "3944b004a11213472b59fdaa07fb3a41683653a91ea20a177c45d995b0462bef"
+    },
+    {
+      "path": "scripts/verify_image_resize_revision.py",
+      "sha256": "813a7463f6111411215fbdae3a6562d2167b917f751fd7ee40ac65c79353945a"
+    }
+  ],
+  "buildCommand": "scripts/dev.ps1 -UseUserCache dt-image-plugin --offline",
+  "wasmSha256": "c21151d3b84237ab93e386c979235b525ad451218aa1934b0a128fa225b85f63"
+}

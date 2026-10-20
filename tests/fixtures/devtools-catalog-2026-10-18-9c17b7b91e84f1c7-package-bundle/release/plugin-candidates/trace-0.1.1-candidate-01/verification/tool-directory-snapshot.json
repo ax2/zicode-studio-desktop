@@ -1,0 +1,30 @@
+{
+  "profile": "tool.directory.v1",
+  "profileVersion": "1.0.0-preview.1",
+  "packageId": "com.zicode.devtools.trace",
+  "packageVersion": "0.1.1",
+  "capabilities": [
+    {
+      "id": "devtools.trace.java.trace",
+      "categoryId": "code",
+      "aliases": [
+        "Java stack trace",
+        "Java exception chain",
+        "Java 堆栈分析",
+        "Java 异常链"
+      ],
+      "description": "Analyze pasted Java printStackTrace text and show exception and frame clues; findings are not confirmed causes."
+    },
+    {
+      "id": "devtools.trace.django.trace",
+      "categoryId": "code",
+      "aliases": [
+        "Django traceback",
+        "Python stack trace",
+        "Django 堆栈分析",
+        "Python 异常追踪"
+      ],
+      "description": "Analyze pasted Python or Django traceback text; paths remain text and the project is not executed."
+    }
+  ]
+}

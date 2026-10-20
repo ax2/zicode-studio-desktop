@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "packageId": "com.zicode.devtools.agent-assist",
+  "packageVersion": "0.1.2",
+  "baseline": {
+    "path": "release/agent-assist-preview-0.1.1-candidate-02",
+    "receiptPath": "release/plugin-candidates/agent-assist-preview-0.1.1-candidate-02-verification-revision-01.json",
+    "receiptSha256": "d106bc09f6c61bab249b2b6e66434dae8ede55cb17656920bb53273349354838",
+    "packageId": "com.zicode.devtools.agent-assist",
+    "packageVersion": "0.1.1",
+    "fileCount": 6,
+    "totalBytes": 41270,
+    "candidateTreeSha256": "28cef544d9a46c264763d5c3ac0e447adc224bec989df2ccacacc83462af0f3a",
+    "directoryIndexSha256": "28cef544d9a46c264763d5c3ac0e447adc224bec989df2ccacacc83462af0f3a",
+    "directoryIndexStatus": "matched",
+    "signature": "unsigned-or-unverified",
+    "runtimeAccepted": false
+  },
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "README.md",
+      "size": 4223,
+      "sha256": "5896adb2b89b5ddfd9757f4d216a24da13dc82af5b8866ed57e5c8952525ed7e"
+    },
+    {
+      "path": "catalog.json",
+      "size": 1442,
+      "sha256": "57e60b77b46120ad5f47b7e45ccba5a4fed57553511ff4901aa427d1d184cb11"
+    },
+    {
+      "path": "plugin.json",
+      "size": 2026,
+      "sha256": "71218c51b841f3507e77e33132a661fbd6839c5cc541e2d3f74aeb9fd636f61a"
+    },
+    {
+      "path": "schemas/model-generation-input.schema.json",
+      "size": 1477,
+      "sha256": "4163eb3291a18a92574a37d53dc01f7f2368d6a28e46589d5963b4a3d33bb63e"
+    },
+    {
+      "path": "verification/application-directory-baseline-receipt.json",
+      "size": 7873,
+      "sha256": "d106bc09f6c61bab249b2b6e66434dae8ede55cb17656920bb53273349354838"
+    },
+    {
+      "path": "verification/application-directory.json",
+      "size": 559,
+      "sha256": "76c629e5afabbf636c38441dd9f6232023e5722134ca669afbbc4682cf6a7fbc"
+    },
+    {
+      "path": "views/main.html",
+      "size": 32346,
+      "sha256": "2122658904306ba62623ce0cfcbb3620c235431e5f03f06208a80238ba621bd3"
+    }
+  ],
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  },
+  "directoryIndexSha256": "06e6179b69db5c2ea443c1a9c9835df7cf4fb98603643b7fed15d88d982db910",
+  "viewSha256": "2122658904306ba62623ce0cfcbb3620c235431e5f03f06208a80238ba621bd3",
+  "signatureVerified": false,
+  "runtimeAccepted": false,
+  "fullToolAcceptance": false,
+  "limitations": [
+    "Metadata-only revision; View and all executable/schema bytes retained from verified baseline",
+    "Two application entries only; six View operations are not independently discoverable or Pi callable",
+    "Baseline runtime proofs are historical; no new Studio installation or native UI acceptance"
+  ]
+}

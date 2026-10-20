@@ -1,0 +1,12 @@
+{
+  "pythonBindingVersion": "36.0.0",
+  "nativeEngineVersion": "36.0.2",
+  "sourceUrl": "https://github.com/bytecodealliance/wasmtime/releases/download/v36.0.2/wasmtime-v36.0.2-x86_64-windows-c-api.zip",
+  "releaseArchiveSha256": "ae93e1949d169ac4412c735c08ecb4dee841023549d83f69c6e98cefca22e734",
+  "dllPath": "E:\\zi-devtools\\target\\wasmtime-36.0.2\\wasmtime\\win32-x86_64\\_wasmtime.dll",
+  "dllSha256": "e001d681b140a3b6a382f8cfa50bf1b5e81d809b6be11b77a84a3a96bee06e5b",
+  "limitations": [
+    "Official independent C-API engine, not Studio executable",
+    "Release archive verified and consumed in memory; no ZIP retained"
+  ]
+}

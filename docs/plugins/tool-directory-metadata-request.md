@@ -1,5 +1,7 @@
 # 工具目录分类与搜索元数据需求（草案，未协商生效）
 
+2026-10-17 接收侧增量证据：Studio 在当前 Windows Debug 中已验证 Text 结果接收目录来源筛选 7→2，但冻结 Text 0.1.0、Trace 0.1.0 与新 Inspect 0.1.1 候选的能力级 `directory.categoryId` 覆盖分别为 0/5、0/2、0/8；三包均为 schemaVersion 1。旧包可归“未分类”，不能提供跨插件类别浏览。已将下一个独立候选按 [tool.directory.v1](tool-directory-v1.md) 的 schemaVersion 2、精确 profile、逐能力主类/别名/用途、独立收据和稳定目录快照交付需求发给授权 DevTools 原会话；不得修改冻结旧候选或把部分功能称为全部 scope。另见[阶段核对](../iterations/2026-10-17-provider-directory-readiness.md)。
+
 日期：2026-10-09。责任边界：Studio定义Host目录与交互；DevTools在独立构建中声明/生成工具元数据。此文不修改冻结的1.0.0-rc.1契约，不要求立即修改既有收到的插件包。
 
 后续2026-10-10：Studio已开始实现独立 [tool.directory.v1 / 1.0.0-preview.1](tool-directory-v1.md)。以下保留原始需求背景；当前具体字段、预算、共同分类与兼容行为以该新扩展为准。提供方尚未交付采用新扩展的实包，不能将Studio合成验收视为DevTools已接入分类。

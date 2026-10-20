@@ -1,0 +1,1039 @@
+{
+  "schemaVersion": 1,
+  "kind": "ZiDevTools immutable source catalog directory revision",
+  "revisionId": "devtools-catalog-2026-10-18-9c17b7b91e84f1c7",
+  "revisionSha256": "9c17b7b91e84f1c7f83f82bdb81fe6553b01fc7699a1c423a54b7f153b65f830",
+  "sourceCatalogVersion": "0.82.0-dev.105",
+  "source": {
+    "gitHead": "08bc7e427e99f594a4fa92e3366b71027f0b11e1",
+    "workingTreeDirty": true
+  },
+  "sourceDirectories": [
+    {
+      "path": "sources/tools.json",
+      "sha256": "b179fc23896f4fdc8ba220c547a86994d613fb407d6aa920a6d353fe2c8d5e20",
+      "toolCount": 154
+    },
+    {
+      "path": "sources/studio-plugin-migration.json",
+      "sha256": "b66b06b81792c60abe077cef4240ad8e038f2764df73990993d9545c80337179",
+      "toolCount": 154,
+      "acceptedCapabilities": 0
+    }
+  ],
+  "changeSummary": {
+    "baseline": "Studio frozen dev.105",
+    "added": 0,
+    "removed": 0,
+    "versionStatusChanged": 78,
+    "scopeChanged": 72,
+    "discoveryChanged": 76,
+    "statusCounts": {
+      "implemented": 92,
+      "in-progress": 35,
+      "planned": 27
+    }
+  },
+  "packages": [
+    {
+      "path": "release/agent-assist-preview-0.1.1-candidate-02",
+      "receiptPath": "release/plugin-candidates/agent-assist-preview-0.1.1-candidate-02-verification-revision-01.json",
+      "receiptSha256": "d106bc09f6c61bab249b2b6e66434dae8ede55cb17656920bb53273349354838",
+      "packageId": "com.zicode.devtools.agent-assist",
+      "packageVersion": "0.1.1",
+      "fileCount": 6,
+      "totalBytes": 41270,
+      "candidateTreeSha256": "28cef544d9a46c264763d5c3ac0e447adc224bec989df2ccacacc83462af0f3a",
+      "directoryIndexSha256": "28cef544d9a46c264763d5c3ac0e447adc224bec989df2ccacacc83462af0f3a",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "agent-runner"
+      ],
+      "capabilities": [],
+      "viewOperations": [
+        "devtools.agent-assist.generate",
+        "devtools.agent-assist.models"
+      ],
+      "scopeRows": [
+        {
+          "sourceToolId": "agent-runner",
+          "operationId": "devtools.agent-assist.generate",
+          "scopeKind": "single_turn_model_assistance_view",
+          "scope": "用户主动读取模型目录或逐次确认后进行一轮文字生成；不包含MCP、RAG和自动执行。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned页面候选；真实Studio权限、模型请求、安装与完整Agent范围尚未验收",
+          "executionSurface": "view",
+          "viewId": "devtools.agent-assist.main"
+        },
+        {
+          "sourceToolId": "agent-runner",
+          "operationId": "devtools.agent-assist.models",
+          "scopeKind": "single_turn_model_assistance_view",
+          "scope": "用户主动读取模型目录或逐次确认后进行一轮文字生成；不包含MCP、RAG和自动执行。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned页面候选；真实Studio权限、模型请求、安装与完整Agent范围尚未验收",
+          "executionSurface": "view",
+          "viewId": "devtools.agent-assist.main"
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/diagnostics-0.1.4-candidate-02",
+      "receiptPath": "release/plugin-candidates/diagnostics-0.1.4-candidate-02-verification.json",
+      "receiptSha256": "1a3e55cbb84513949b15cf234538f45bf5d030a07f569b24f534fe1398060478",
+      "packageId": "com.zicode.devtools.diagnostics",
+      "packageVersion": "0.1.4",
+      "fileCount": 653,
+      "totalBytes": 5565367,
+      "candidateTreeSha256": "ba9836bf02da0503e747820fe61a949ea6d8739a3372166af2ed05998409a7bb",
+      "directoryIndexSha256": "3c596ae4ef0fd0a6b1b01f1b7a36978faa2f7579872ff1eb73f80f3f195615a7",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "celery-diagnostics",
+        "django-checks",
+        "django-drf",
+        "django-migrations",
+        "django-sql",
+        "django-urls",
+        "java-dependencies",
+        "java-gc-log",
+        "java-jfr",
+        "java-thread-dump",
+        "spring-config"
+      ],
+      "capabilities": [
+        "devtools.diagnostics.celery.report",
+        "devtools.diagnostics.django.checks",
+        "devtools.diagnostics.django.migrations",
+        "devtools.diagnostics.django.openapi",
+        "devtools.diagnostics.django.sql",
+        "devtools.diagnostics.django.urls",
+        "devtools.diagnostics.java.dependencies",
+        "devtools.diagnostics.java.gc",
+        "devtools.diagnostics.java.jfr_json",
+        "devtools.diagnostics.java.threads",
+        "devtools.diagnostics.spring.config"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "celery-diagnostics",
+          "operationId": "celery.report",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "Celery任务日志导入分析；Broker/Worker操作另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "django-checks",
+          "operationId": "django.checks",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "检查输出导入分析；manage.py执行另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "django-drf",
+          "operationId": "django.openapi",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "两份OpenAPI JSON差异；联网另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "django-migrations",
+          "operationId": "django.migrations",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "迁移计划/SQL导入文本分析；数据库/迁移执行另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "django-sql",
+          "operationId": "django.sql",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "SQL查询日志JSON数组归一化与重复分析；执行另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "django-urls",
+          "operationId": "django.urls",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "URL导入列表检索；项目加载另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "java-dependencies",
+          "operationId": "java.dependencies",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "Maven/Gradle依赖导入文本分析；构建执行另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "java-gc-log",
+          "operationId": "java.gc",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "GC日志导入文本分析；文件获取/进程采集另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "java-jfr",
+          "operationId": "java.jfr_json",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "JFR导入JSON分析；二进制读取/导出另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "java-thread-dump",
+          "operationId": "java.threads",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "jstack/jcmd导入文本分析；进程采集另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "spring-config",
+          "operationId": "spring.config",
+          "scopeKind": "completed_imported_report_subset",
+          "scope": "两份JSON/YAML配置差异与脱敏；在线Actuator另需Host",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选目录；诊断schema/profile/错误码及完整Host生命周期待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/inspect-0.1.2-candidate-01",
+      "receiptPath": "release/plugin-candidates/inspect-0.1.2-candidate-01-verification-revision-01.json",
+      "receiptSha256": "29afb75e81cea5e7606ad238708b6bef796809eb1df8ee9ab58e66b1b011c202",
+      "packageId": "com.zicode.devtools.inspect",
+      "packageVersion": "0.1.2",
+      "fileCount": 616,
+      "totalBytes": 2341254,
+      "candidateTreeSha256": "1d3af04bb9e35fa9594a673ff71058e56ffbb94e516f4086dba275472d1678ee",
+      "directoryIndexSha256": "1d3af04bb9e35fa9594a673ff71058e56ffbb94e516f4086dba275472d1678ee",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "cidr",
+        "color",
+        "jwt",
+        "unicode",
+        "yaml"
+      ],
+      "capabilities": [
+        "devtools.inspect.cidr.inspect",
+        "devtools.inspect.color.convert",
+        "devtools.inspect.jwt.inspect",
+        "devtools.inspect.unicode.inspect",
+        "devtools.inspect.unicode.nfc",
+        "devtools.inspect.unicode.nfkc",
+        "devtools.inspect.yaml.from_json",
+        "devtools.inspect.yaml.to_json"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "cidr",
+          "operationId": "cidr.inspect",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "IPv4 掩码、网络地址与可用范围",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "color",
+          "operationId": "color.convert",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "HEX、RGB、HSL 颜色表示",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "jwt",
+          "operationId": "jwt.inspect",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "查看 Header 与 Payload；不验证签名",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "unicode",
+          "operationId": "unicode.inspect",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "Unicode 码点、UTF-8 字节、常见不可见字符标记与 NFC/NFKC 规范化",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "unicode",
+          "operationId": "unicode.nfc",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "Unicode 码点、UTF-8 字节、常见不可见字符标记与 NFC/NFKC 规范化",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "unicode",
+          "operationId": "unicode.nfkc",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "Unicode 码点、UTF-8 字节、常见不可见字符标记与 NFC/NFKC 规范化",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "yaml",
+          "operationId": "yaml.from_json",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "YAML 与 JSON 双向转换",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "yaml",
+          "operationId": "yaml.to_json",
+          "scopeKind": "complete_inspection_operation_within_plugin_budget",
+          "scope": "YAML 与 JSON 双向转换",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned 0.1.2新候选已完成提供方验证；tool.open.v1的Host安装/撤权/切场景仍待接收方验收，0.1.1冻结保留",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/json-object-0.1.1-candidate-03",
+      "receiptPath": "release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json",
+      "receiptSha256": "757c53ddf8b0e0ef0c4dc2c66d466682fe5920c8bbed7e42d7b0c15c037beb9a",
+      "packageId": "com.zicode.devtools.json-object",
+      "packageVersion": "0.1.1",
+      "fileCount": 43,
+      "totalBytes": 371860,
+      "candidateTreeSha256": "ea76508d7e0987ae914730bcaeabdf1988570687cc5227be2a30e377635981cc",
+      "directoryIndexSha256": "ea76508d7e0987ae914730bcaeabdf1988570687cc5227be2a30e377635981cc",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "json"
+      ],
+      "capabilities": [
+        "devtools.json.object.inspect",
+        "devtools.json.object.receive"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "json",
+          "operationId": "devtools.json.object.inspect",
+          "scopeKind": "structured_object_result",
+          "scope": "根值必须为 JSON object；输入对象最多 8 KiB、128 个根字段、64 层与 4096 节点，请求/结果最多 48 KiB。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned provider candidate; Studio Host profile negotiation, real JSON capture/transfer/save and lifecycle remain unverified",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "json",
+          "operationId": "devtools.json.object.receive",
+          "scopeKind": "object_receiver_for_confirmed_transfer",
+          "scope": "仅作为已捕获 JSON object 的显式接收端；保持对象类型，受 8 KiB 输入、128 字段、48 KiB envelope 限制。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned provider candidate; Studio Host profile negotiation, real JSON capture/transfer/save and lifecycle remain unverified",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/spring-actuator-0.1.1-candidate-02",
+      "receiptPath": "release/plugin-candidates/spring-actuator-0.1.1-candidate-02-verification-revision-01.json",
+      "receiptSha256": "b662d2f028ba70f0327fe19ca17753bc18ea5f54a7d4651c7f762399b0786036",
+      "packageId": "com.zicode.devtools.spring-actuator",
+      "packageVersion": "0.1.1",
+      "fileCount": 42,
+      "totalBytes": 130016,
+      "candidateTreeSha256": "0dd71f6761e641a39d421e91bcfd7a952cf8f6b62a905bc7189839c70017f304",
+      "directoryIndexSha256": "89dd2facddf4ead4d234cf902dcdbd1cbf08fde3ffdd9ec3be42b6b68a55d330",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "spring-actuator"
+      ],
+      "capabilities": [],
+      "viewOperations": [
+        "devtools.spring-actuator.health",
+        "devtools.spring-actuator.info",
+        "devtools.spring-actuator.metrics",
+        "devtools.spring-actuator.summary"
+      ],
+      "scopeRows": [
+        {
+          "sourceToolId": "spring-actuator",
+          "operationId": "devtools.spring-actuator.health",
+          "scopeKind": "fixed_host_http_get_candidate",
+          "scope": null,
+          "pluginStatus": "candidate",
+          "blockingReason": "真实Pi到Host到View、系统根证书和公网DNS尚未验收",
+          "executionSurface": "view",
+          "viewId": "devtools.spring-actuator.main"
+        },
+        {
+          "sourceToolId": "spring-actuator",
+          "operationId": "devtools.spring-actuator.info",
+          "scopeKind": "fixed_host_http_get_candidate",
+          "scope": null,
+          "pluginStatus": "candidate",
+          "blockingReason": "真实Pi到Host到View、系统根证书和公网DNS尚未验收",
+          "executionSurface": "view",
+          "viewId": "devtools.spring-actuator.main"
+        },
+        {
+          "sourceToolId": "spring-actuator",
+          "operationId": "devtools.spring-actuator.metrics",
+          "scopeKind": "fixed_host_http_get_candidate",
+          "scope": null,
+          "pluginStatus": "candidate",
+          "blockingReason": "真实Pi到Host到View、系统根证书和公网DNS尚未验收",
+          "executionSurface": "view",
+          "viewId": "devtools.spring-actuator.main"
+        },
+        {
+          "sourceToolId": "spring-actuator",
+          "operationId": "devtools.spring-actuator.summary",
+          "scopeKind": "view_summary_candidate",
+          "scope": null,
+          "pluginStatus": "candidate",
+          "blockingReason": null,
+          "executionSurface": "view",
+          "viewId": "devtools.spring-actuator.main"
+        }
+      ]
+    },
+    {
+      "path": "release/text-plugin-0.4.1-candidate-02",
+      "receiptPath": "release/plugin-candidates/text-plugin-0.4.1-candidate-02-verification-revision-01.json",
+      "receiptSha256": "f9911bcb4a1e56e627b25605d7ee460e1ce32f082e1758928131256723bd8f02",
+      "packageId": "com.zicode.devtools.text",
+      "packageVersion": "0.4.1",
+      "fileCount": 112,
+      "totalBytes": 1032175,
+      "candidateTreeSha256": "7460f8c2b4844fc9349854e7c93f5bdf7938adcc2a4dd05aaa301b73ede285e6",
+      "directoryIndexSha256": "7c6b1a226526eb35eb0acc4a0d571652bc29049e9cf5bd8d18267c55a39dde9f",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "base64",
+        "json",
+        "sha256",
+        "sql-format"
+      ],
+      "capabilities": [
+        "devtools.text.base64.decode",
+        "devtools.text.base64.encode",
+        "devtools.text.json.format",
+        "devtools.text.json.minify",
+        "devtools.text.json.validate",
+        "devtools.text.sha256",
+        "devtools.text.sql.format"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "base64",
+          "operationId": "devtools.text.base64.decode",
+          "scopeKind": "complete_text_operation_within_plugin_budget",
+          "scope": "标准Base64解码并验证UTF-8结果。 输入上限8192 UTF-8字节，序列化结果上限48 KiB。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；Base64/SHA View逐项检查及Studio Host/Pi仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "base64",
+          "operationId": "devtools.text.base64.encode",
+          "scopeKind": "complete_text_operation_within_plugin_budget",
+          "scope": "UTF-8文本编码为标准Base64。 输入上限8192 UTF-8字节，序列化结果上限48 KiB。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；Base64/SHA View逐项检查及Studio Host/Pi仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "json",
+          "operationId": "devtools.text.json.format",
+          "scopeKind": "complete_standalone_json_action",
+          "scope": "格式化JSON；单输入UTF-8文本，运行时限制8192字节、64层JSON、拒绝重复键/不安全整数。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；Studio真实安装/权限/PI/Host生命周期仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "json",
+          "operationId": "devtools.text.json.minify",
+          "scopeKind": "complete_standalone_json_action",
+          "scope": "压缩JSON；单输入UTF-8文本，运行时限制8192字节、64层JSON、拒绝重复键/不安全整数。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；Studio真实安装/权限/PI/Host生命周期仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "json",
+          "operationId": "devtools.text.json.validate",
+          "scopeKind": "complete_standalone_json_action",
+          "scope": "校验JSON；单输入UTF-8文本，运行时限制8192字节、64层JSON、拒绝重复键/不安全整数。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；Studio真实安装/权限/PI/Host生命周期仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "sha256",
+          "operationId": "devtools.text.sha256",
+          "scopeKind": "complete_text_operation_within_plugin_budget",
+          "scope": "按原始UTF-8字节计算SHA-256。 输入上限8192 UTF-8字节，序列化结果上限48 KiB。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；Base64/SHA View逐项检查及Studio Host/Pi仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "sql-format",
+          "operationId": "devtools.text.sql.format",
+          "scopeKind": "partial_standalone_formatter",
+          "scope": "通用SQL词法模式和默认缩进/关键字大小写；不提供桌面工具的PostgreSQL/MySQL/SQLite/SQL Server方言选择。",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned且不完整提供方候选；SQL桌面方言选项、Studio安装/权限/PI/Host生命周期仍待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/trace-0.1.1-candidate-01",
+      "receiptPath": "release/plugin-candidates/trace-0.1.1-candidate-01-verification.json",
+      "receiptSha256": "abc8d9a4d895538e7508627f3ba37719569b18992e1276f51634473ed15d6244",
+      "packageId": "com.zicode.devtools.trace",
+      "packageVersion": "0.1.1",
+      "fileCount": 352,
+      "totalBytes": 1428569,
+      "candidateTreeSha256": "2e8b35249384757bc1c809bf971e2feccfc9396211a4efde7ca4f29fda9820c0",
+      "directoryIndexSha256": "2e8b35249384757bc1c809bf971e2feccfc9396211a4efde7ca4f29fda9820c0",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "django-trace",
+        "java-trace"
+      ],
+      "capabilities": [
+        "devtools.trace.django.trace",
+        "devtools.trace.java.trace"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "django-trace",
+          "operationId": "django.trace",
+          "scopeKind": "complete_trace_operation_within_plugin_budget",
+          "scope": "离线整理标准 Python Traceback、异常链和 Django 规则提示；保留截断标记，不运行项目",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选已冻结；实际Host安装/权限/生命周期/Worker/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "java-trace",
+          "operationId": "java.trace",
+          "scopeKind": "complete_trace_operation_within_plugin_budget",
+          "scope": "离线整理标准 Java 异常、cause/suppressed 层级与帧位置；不推断真实根因或展开省略帧",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选已冻结；实际Host安装/权限/生命周期/Worker/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/transforms-0.1.1-candidate-01",
+      "receiptPath": "release/plugin-candidates/transforms-0.1.1-candidate-01-verification.json",
+      "receiptSha256": "21e926ca790a40eec3887e6ea4865cfb209672bb00afba4e81f76b44482c2268",
+      "packageId": "com.zicode.devtools.transforms",
+      "packageVersion": "0.1.1",
+      "fileCount": 804,
+      "totalBytes": 4421575,
+      "candidateTreeSha256": "4f2c7cc1c3b70ba0ae05344bf0eb83b54d17f8f7e661d4ae808a35da934e25b3",
+      "directoryIndexSha256": "4f2c7cc1c3b70ba0ae05344bf0eb83b54d17f8f7e661d4ae808a35da934e25b3",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "case-convert",
+        "hex",
+        "html-escape",
+        "lines",
+        "number",
+        "text-escape",
+        "text-stats",
+        "url",
+        "url-inspect"
+      ],
+      "capabilities": [
+        "devtools.transforms.case.camel",
+        "devtools.transforms.case.kebab",
+        "devtools.transforms.case.pascal",
+        "devtools.transforms.case.snake",
+        "devtools.transforms.hex.decode",
+        "devtools.transforms.hex.encode",
+        "devtools.transforms.html.escape",
+        "devtools.transforms.html.unescape",
+        "devtools.transforms.lines.ascending",
+        "devtools.transforms.lines.deduplicate",
+        "devtools.transforms.lines.descending",
+        "devtools.transforms.lines.nonempty",
+        "devtools.transforms.lines.trim",
+        "devtools.transforms.number.from10",
+        "devtools.transforms.number.from16",
+        "devtools.transforms.number.from2",
+        "devtools.transforms.number.from8",
+        "devtools.transforms.stats.inspect",
+        "devtools.transforms.string.escape",
+        "devtools.transforms.string.unescape",
+        "devtools.transforms.url.decode",
+        "devtools.transforms.url.encode",
+        "devtools.transforms.url.inspect"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "case-convert",
+          "operationId": "case.camel",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "camel、Pascal、snake 与 kebab 命名",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "case-convert",
+          "operationId": "case.kebab",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "camel、Pascal、snake 与 kebab 命名",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "case-convert",
+          "operationId": "case.pascal",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "camel、Pascal、snake 与 kebab 命名",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "case-convert",
+          "operationId": "case.snake",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "camel、Pascal、snake 与 kebab 命名",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "hex",
+          "operationId": "hex.decode",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "UTF-8 文本与十六进制字节互转",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "hex",
+          "operationId": "hex.encode",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "UTF-8 文本与十六进制字节互转",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "html-escape",
+          "operationId": "html.escape",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "HTML 特殊字符转义与还原",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "html-escape",
+          "operationId": "html.unescape",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "HTML 特殊字符转义与还原",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "lines",
+          "operationId": "lines.ascending",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "稳定去重、排序、去空行与空白处理",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "lines",
+          "operationId": "lines.deduplicate",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "稳定去重、排序、去空行与空白处理",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "lines",
+          "operationId": "lines.descending",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "稳定去重、排序、去空行与空白处理",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "lines",
+          "operationId": "lines.nonempty",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "稳定去重、排序、去空行与空白处理",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "lines",
+          "operationId": "lines.trim",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "稳定去重、排序、去空行与空白处理",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "number",
+          "operationId": "number.from10",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "二、八、十、十六进制互转",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "number",
+          "operationId": "number.from16",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "二、八、十、十六进制互转",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "number",
+          "operationId": "number.from2",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "二、八、十、十六进制互转",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "number",
+          "operationId": "number.from8",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "二、八、十、十六进制互转",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "text-escape",
+          "operationId": "string.escape",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "JSON 字符串转义与还原",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "text-escape",
+          "operationId": "string.unescape",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "JSON 字符串转义与还原",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "text-stats",
+          "operationId": "stats.inspect",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "字符、字节、行数与词段统计",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "url",
+          "operationId": "url.decode",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "URL 参数百分号编码与还原",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "url",
+          "operationId": "url.encode",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "URL 参数百分号编码与还原",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        },
+        {
+          "sourceToolId": "url-inspect",
+          "operationId": "url.inspect",
+          "scopeKind": "complete_transform_operation_within_plugin_budget",
+          "scope": "解析协议、主机、路径和重复查询参数",
+          "pluginStatus": "candidate",
+          "blockingReason": "unsigned提供方候选；完整Host安装/权限/生命周期/Pi待验收",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    },
+    {
+      "path": "release/plugin-candidates/url-text-resource-0.1.1-candidate-01",
+      "receiptPath": "release/plugin-candidates/url-text-resource-0.1.1-candidate-01-verification.json",
+      "receiptSha256": "5ac954cbb98f82102878b4c799dcbcc7bb02d2ddba08a3867eeea8019b4be10f",
+      "packageId": "com.zicode.devtools.url-text-resource",
+      "packageVersion": "0.1.1",
+      "fileCount": 95,
+      "totalBytes": 687946,
+      "candidateTreeSha256": "7a2fc4de330654ce4a0a910ea262373f6bffad0719e8574da673edecf60cf353",
+      "directoryIndexSha256": "7a2fc4de330654ce4a0a910ea262373f6bffad0719e8574da673edecf60cf353",
+      "directoryIndexStatus": "matched",
+      "signature": "unsigned-or-unverified",
+      "runtimeAccepted": false,
+      "sourceToolIds": [
+        "url"
+      ],
+      "capabilities": [
+        "devtools.transforms.url.encode"
+      ],
+      "viewOperations": [],
+      "scopeRows": [
+        {
+          "sourceToolId": "url",
+          "operationId": "devtools.transforms.url.encode",
+          "scopeKind": "explicit_text_resource_receiver",
+          "scope": "单个用户授权的text/plain资源，1至8192 UTF-8字节；返回编码文本、源字节数或7种明确业务错误。",
+          "pluginStatus": "candidate",
+          "blockingReason": "与transforms共享同一能力ID，隔离接收测试只启用一个提供方；真实Host资源授权、撤权、取消和跨工具接力尚未验收。",
+          "executionSurface": "capability",
+          "viewId": null
+        }
+      ]
+    }
+  ],
+  "capabilityProviderConflicts": [
+    {
+      "capabilityId": "devtools.transforms.url.encode",
+      "providers": [
+        {
+          "packageId": "com.zicode.devtools.transforms",
+          "packageVersion": "0.1.1",
+          "path": "release/plugin-candidates/transforms-0.1.1-candidate-01"
+        },
+        {
+          "packageId": "com.zicode.devtools.url-text-resource",
+          "packageVersion": "0.1.1",
+          "path": "release/plugin-candidates/url-text-resource-0.1.1-candidate-01"
+        }
+      ],
+      "resolution": "select_one_provider_for_isolated_acceptance; concurrent_activation_not_verified"
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "size": 1002,
+      "sha256": "eac2382f01af1112ee1c46903a73c825284c56c85949de4052c3802cd310d604"
+    },
+    {
+      "path": "comparison/frozen-dev105.json",
+      "size": 47755,
+      "sha256": "5aaedb69086d2d25547ad86eecd98936fa38465bff11745dcf6c1eb1d096ee99"
+    },
+    {
+      "path": "package-map.json",
+      "size": 161586,
+      "sha256": "ff0d95caeff97fbe0ec2bdf7c84883c653fce7bd77a78a447c6f555e82e2731f"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.agent-assist-0.1.1-verification.json",
+      "size": 7873,
+      "sha256": "d106bc09f6c61bab249b2b6e66434dae8ede55cb17656920bb53273349354838"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.diagnostics-0.1.4-verification.json",
+      "size": 552734,
+      "sha256": "1a3e55cbb84513949b15cf234538f45bf5d030a07f569b24f534fe1398060478"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.inspect-0.1.2-verification.json",
+      "size": 113873,
+      "sha256": "29afb75e81cea5e7606ad238708b6bef796809eb1df8ee9ab58e66b1b011c202"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.json-object-0.1.1-verification.json",
+      "size": 33384,
+      "sha256": "757c53ddf8b0e0ef0c4dc2c66d466682fe5920c8bbed7e42d7b0c15c037beb9a"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.spring-actuator-0.1.1-verification.json",
+      "size": 79166,
+      "sha256": "b662d2f028ba70f0327fe19ca17753bc18ea5f54a7d4651c7f762399b0786036"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.text-0.4.1-verification.json",
+      "size": 114517,
+      "sha256": "f9911bcb4a1e56e627b25605d7ee460e1ce32f082e1758928131256723bd8f02"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.trace-0.1.1-verification.json",
+      "size": 174143,
+      "sha256": "abc8d9a4d895538e7508627f3ba37719569b18992e1276f51634473ed15d6244"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.transforms-0.1.1-verification.json",
+      "size": 453868,
+      "sha256": "21e926ca790a40eec3887e6ea4865cfb209672bb00afba4e81f76b44482c2268"
+    },
+    {
+      "path": "package-receipts/com.zicode.devtools.url-text-resource-0.1.1-verification.json",
+      "size": 17931,
+      "sha256": "5ac954cbb98f82102878b4c799dcbcc7bb02d2ddba08a3867eeea8019b4be10f"
+    },
+    {
+      "path": "sources/studio-plugin-migration.json",
+      "size": 295759,
+      "sha256": "b66b06b81792c60abe077cef4240ad8e038f2764df73990993d9545c80337179"
+    },
+    {
+      "path": "sources/tools.json",
+      "size": 353865,
+      "sha256": "b179fc23896f4fdc8ba220c547a86994d613fb407d6aa920a6d353fe2c8d5e20"
+    }
+  ],
+  "directoryIndexSha256": "5a56fd019df64abb8d5a43df7d197ee30ea7e98e51e7d9a5419657684ff57a32",
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  },
+  "packageSha256": null,
+  "signatureVerified": false,
+  "runtimeAccepted": false,
+  "fullToolAcceptance": false,
+  "limitations": [
+    "Unsigned source-directory snapshot; no .zicode-plugin container or signing key.",
+    "This receipt proves source and candidate directory bytes only; Studio Host installation, Worker, Pi, lifecycle, and runtime acceptance remain unverified.",
+    "Tool catalog status or source package mapping does not count as plugin acceptance."
+  ]
+}

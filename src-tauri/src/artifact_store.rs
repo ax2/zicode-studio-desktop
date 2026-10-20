@@ -351,6 +351,45 @@ impl ArtifactStore {
         })
     }
 
+    /// Find an exact metadata match across the entire workspace directory.
+    /// Unlike the UI list, a recovery lookup must not stop before filtering
+    /// when other scenes have filled the bounded listing window.
+    pub fn find_matching<F>(
+        &self,
+        scene_id: &str,
+        matches: F,
+    ) -> Result<Option<ArtifactDocument>, ArtifactError>
+    where
+        F: Fn(&ArtifactDescriptor) -> bool,
+    {
+        validate_scene_id(scene_id)?;
+        let entries = fs::read_dir(self.items_dir())
+            .map_err(|_| ArtifactError::new("storage_unavailable", "Cannot read artifacts"))?;
+        for entry in entries {
+            let entry = entry
+                .map_err(|_| ArtifactError::new("storage_unavailable", "Cannot read artifacts"))?;
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json")
+                || path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|name| name.ends_with(".content.json"))
+            {
+                continue;
+            }
+            let bytes = fs::read(&path).map_err(|_| {
+                ArtifactError::new("storage_unavailable", "Cannot read artifact metadata")
+            })?;
+            let descriptor: ArtifactDescriptor = serde_json::from_slice(&bytes).map_err(|_| {
+                ArtifactError::new("artifact_corrupt", "Artifact metadata is damaged")
+            })?;
+            if descriptor.scene_id == scene_id && matches(&descriptor) {
+                return self.get(scene_id, &descriptor.id).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
     pub fn create(&self, draft: ArtifactDraft) -> Result<ArtifactDocument, ArtifactError> {
         let scene_id = validate_scene_id(&draft.scene_id)?;
         let plugin_id = validate_plugin_id(&draft.plugin_id)?;
@@ -680,6 +719,62 @@ mod tests {
     use serde_json::json;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn exact_lookup_reads_past_the_ui_list_window_and_reports_corrupt_metadata() {
+        let scratch = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../.cache/task-scratch");
+        let root = scratch.join(format!("artifact-lookup-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("owner.json"),
+            r#"{"purpose":"artifact exact lookup beyond UI list bound","lifetime":"remove on success; keep on failure"}"#,
+        )
+        .unwrap();
+        let store = ArtifactStore::new(root.join("plugins")).unwrap();
+        let workspace_id = "11111111-1111-4111-8111-111111111111";
+        let scoped = store.scoped(workspace_id).unwrap();
+        let saved = scoped
+            .create(ArtifactDraft {
+                workspace_id: workspace_id.into(),
+                scene_id: "programming".into(),
+                plugin_id: "com.zicode.devtools.text".into(),
+                kind: "file".into(),
+                title: "Saved result".into(),
+                summary: String::new(),
+                mime_type: "text/plain".into(),
+                provenance: json!({"saveGrantDigest":"matching-digest"}),
+                content: json!("saved text"),
+            })
+            .unwrap();
+        let items = root
+            .join("plugin-data/com.zicode.artifacts/items")
+            .join(workspace_id);
+        let mut decoy = saved.descriptor.clone();
+        decoy.scene_id = "other-scene".into();
+        let bytes = serde_json::to_vec(&decoy).unwrap();
+        for index in 0..4_002 {
+            fs::write(items.join(format!("decoy-{index:04}.json")), &bytes).unwrap();
+        }
+        let found = scoped
+            .find_matching("programming", |item| {
+                item.plugin_id == "com.zicode.devtools.text"
+                    && item.provenance["saveGrantDigest"] == "matching-digest"
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(found.descriptor.id, saved.descriptor.id);
+        assert_eq!(found.content, "saved text");
+        fs::write(items.join("broken.json"), b"{").unwrap();
+        assert_eq!(
+            scoped
+                .find_matching("programming", |_| false)
+                .unwrap_err()
+                .code,
+            "artifact_corrupt"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn creates_lists_reads_and_version_deletes_opaque_artifacts() {

@@ -1,0 +1,92 @@
+{
+  "$schema": "./schema.json",
+  "profile": "tool.directory.v1",
+  "profileVersion": "1.0.0-preview.1",
+  "capabilities": {
+    "devtools.inspect.color.convert": {
+      "categoryId": "data",
+      "aliases": ["color converter", "convert color code", "颜色转换", "HEX RGB HSL"],
+      "description": "Convert supplied HEX, RGB, or HSL color text locally; this is not a screen color picker."
+    },
+    "devtools.inspect.yaml.to_json": {
+      "categoryId": "data",
+      "aliases": ["YAML to JSON", "convert YAML", "YAML 转 JSON", "YAML 转换"],
+      "description": "Convert one supplied YAML document to JSON locally; duplicate keys use the last value."
+    },
+    "devtools.inspect.yaml.from_json": {
+      "categoryId": "data",
+      "aliases": ["JSON to YAML", "convert JSON to YAML", "JSON 转 YAML", "转成 YAML"],
+      "description": "Convert supplied JSON text to YAML locally while preserving large integer text."
+    },
+    "devtools.inspect.cidr.inspect": {
+      "categoryId": "web",
+      "aliases": ["IPv4 CIDR calculator", "subnet calculator", "CIDR 子网计算", "网段计算"],
+      "description": "Calculate IPv4 CIDR network details from pasted text; does not connect to or scan a network."
+    },
+    "devtools.inspect.jwt.inspect": {
+      "categoryId": "security",
+      "aliases": ["JWT decoder", "JWT payload", "JWT 解码", "令牌内容查看"],
+      "description": "Decode JWT header and payload locally; does not verify signature, expiry, or trust."
+    },
+    "devtools.inspect.unicode.inspect": {
+      "categoryId": "text",
+      "aliases": ["Unicode code points", "invisible characters", "Unicode 码点", "不可见字符检查"],
+      "description": "Inspect code points, UTF-8 bytes, and common invisible characters in supplied text."
+    },
+    "devtools.inspect.unicode.nfc": {
+      "categoryId": "text",
+      "aliases": ["Unicode NFC", "normalize NFC", "Unicode NFC 规范化", "NFC 文本规范化"],
+      "description": "Normalize supplied text to Unicode NFC; this changes the text representation."
+    },
+    "devtools.inspect.unicode.nfkc": {
+      "categoryId": "text",
+      "aliases": ["Unicode NFKC", "normalize NFKC", "Unicode NFKC 规范化", "NFKC 文本规范化"],
+      "description": "Normalize supplied text to Unicode NFKC; compatibility normalization may change meaning."
+    },
+    "devtools.trace.java.trace": {
+      "categoryId": "code",
+      "aliases": ["Java stack trace", "Java exception chain", "Java 堆栈分析", "Java 异常链"],
+      "description": "Analyze pasted Java printStackTrace text and show exception and frame clues; findings are not confirmed causes."
+    },
+    "devtools.trace.django.trace": {
+      "categoryId": "code",
+      "aliases": ["Django traceback", "Python stack trace", "Django 堆栈分析", "Python 异常追踪"],
+      "description": "Analyze pasted Python or Django traceback text; paths remain text and the project is not executed."
+    },
+    "devtools.text.json.format": {
+      "categoryId": "data",
+      "aliases": ["JSON formatter", "pretty print JSON", "JSON 格式化", "JSON 美化"],
+      "description": "Format supplied JSON text locally using the plugin's bounded compatibility rules."
+    },
+    "devtools.text.json.minify": {
+      "categoryId": "data",
+      "aliases": ["JSON minifier", "compact JSON", "JSON 压缩", "JSON 最小化"],
+      "description": "Remove insignificant whitespace from supplied JSON text locally using bounded compatibility rules."
+    },
+    "devtools.text.json.validate": {
+      "categoryId": "data",
+      "aliases": ["JSON validator", "check JSON", "JSON 校验", "JSON 验证"],
+      "description": "Validate supplied JSON text against the plugin's duplicate-key, depth, and safe-integer restrictions."
+    },
+    "devtools.text.sql.format": {
+      "categoryId": "code",
+      "aliases": ["SQL formatter", "format SQL query", "SQL 格式化", "SQL 美化"],
+      "description": "Format pasted SQL using the generic default dialect; does not connect to a database or validate semantics."
+    },
+    "devtools.text.base64.encode": {
+      "categoryId": "data",
+      "aliases": ["Base64 encoder", "encode Base64", "Base64 编码", "文本转 Base64"],
+      "description": "Encode supplied UTF-8 text as standard Base64 locally; no file input is read."
+    },
+    "devtools.text.base64.decode": {
+      "categoryId": "data",
+      "aliases": ["Base64 decoder", "decode Base64", "Base64 解码", "Base64 转文本"],
+      "description": "Decode standard Base64 text locally and return UTF-8 text; no file input is read."
+    },
+    "devtools.text.sha256": {
+      "categoryId": "security",
+      "aliases": ["SHA-256 hash", "text checksum", "SHA-256 哈希", "文本摘要"],
+      "description": "Calculate SHA-256 for supplied UTF-8 text; this does not verify files or establish authenticity."
+    }
+  }
+}

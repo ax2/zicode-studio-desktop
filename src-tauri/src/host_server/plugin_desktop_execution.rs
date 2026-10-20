@@ -33,9 +33,8 @@ pub(super) async fn invoke(
                 let desktop = desktop_http_token_authorized(&headers, &state.desktop_token);
                 if !desktop
                     && (request.capture_result
-                        || registry.list(&request.scene_id).iter().any(|plugin| {
-                            plugin.manifest.id == request.plugin_id
-                                && plugin.origin != PluginOrigin::BuiltIn
+                        || registry.plugin_origin(&request.plugin_id).is_some_and(|origin| {
+                            origin != PluginOrigin::BuiltIn
                         }))
                 {
                     return Err(plugin_api_error(StatusCode::FORBIDDEN, "desktop_only", ""));
@@ -47,6 +46,7 @@ pub(super) async fn invoke(
                             plugin_id: request.plugin_id.clone(),
                             capability_id: request.capability_id.clone(),
                             revision: revision.clone(),
+                            resource_mime_type: None,
                         })
                         .map_err(|code| {
                             plugin_api_error(

@@ -45,6 +45,7 @@ export function showNativeDialog(
     };
 
     let root: Root | null = null;
+    let finished = false;
     flushSync(() => {
       root = createRoot(activeContainer);
       root.render(
@@ -103,6 +104,8 @@ export function showNativeDialog(
     document.addEventListener("keydown", keyHandler);
 
     function finish(result: NativeDialogResult) {
+      if (finished) return;
+      finished = true;
       if (timeout) clearTimeout(timeout);
       document.removeEventListener("keydown", keyHandler);
       root?.unmount();

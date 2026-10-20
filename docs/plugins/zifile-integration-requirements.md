@@ -1,5 +1,16 @@
 # ZiFile 全功能插件接入清单与接口需求 draft2
 
+2026-10-18 Studio 内部归档事件接收器现递归拒绝重复 JSON 键，包括转义后同名键；Windows Rust 静态与定向真实进程专项通过。该门槛不开放 `runtime.native`，不证明真实 ZiFile 插件或其他系统，108 格接受仍为 0；见[阶段记录](../iterations/2026-10-18-archive-strict-json.md)。
+
+2026-10-18 Studio 将内部归档事件传输的真实子进程专项加入 macOS/Linux 的现有 Rust CI 测试路径；Windows 静态门槛与归档传输 3/3 已通过，其他系统尚无运行收据。此项不开放 `runtime.native`，没有提供 OS 沙箱、ZiFile 实包或写入协议，108 格接受仍为 0；见[阶段记录](../iterations/2026-10-18-archive-transport-platform-gate.md)。
+
+2026-10-17 Studio 的 Windows 11 Explorer 实体多选菜单已完成两文件显示/点击/传参/工具中心展示，以及五文件隐藏的正反验收；文件内容未交给插件，当前无匹配的多文件提供方工具。此证据仅覆盖系统入口，不解除原生 Worker、目录树、密码引用和写入事务等缺口，18×6 格完整接受仍 0/108；见[阶段记录](../iterations/2026-10-17-explorer-multiselect-native-menu.md)。
+
+2026-10-17 Studio 加固现有单层目录元数据候选的句柄打开，拒绝检查后
+替换的目录链接；这没有提供目录树/大归档字节流、原生 ZiFile Worker
+沙箱或密码引用。108 个格式操作单元接受数仍为 0，见
+[阶段记录](../iterations/2026-10-17-directory-handle-nofollow.md)。
+
 Explorer 入口的能力筛选、菜单数量和多选边界见[资源管理器工具入口映射](explorer-tool-entry-policy.md)；菜单注册由 Studio 持有，ZiFile 插件不向系统逐工具注册菜单项。
 
 2026-10-11 建立，2026-10-13 复核 Studio 接口。本清单覆盖现有独立产品能力；目前 Studio 接受的 ZiFile 功能为 **0**。这是接入前置记录，不是可安装插件发布。机器可读清单见 [18 格式 × 6 操作矩阵](zifile-integration-matrix.json)。

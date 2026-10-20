@@ -1,0 +1,61 @@
+{
+  "kind": "directory-metadata-only",
+  "baseline": {
+    "path": "release/transforms-0.1.0-candidate-02",
+    "receiptPath": "release/plugin-candidates/transforms-0.1.0-candidate-02-verification-revision-01.json",
+    "receiptSha256": "a8d76696f037e0c932952e68e1b620144d8a24ae739889a820859be9c796975f",
+    "packageId": "com.zicode.devtools.transforms",
+    "packageVersion": "0.1.0",
+    "fileCount": 798,
+    "totalBytes": 3920494,
+    "candidateTreeSha256": "53474d18d37accfc9a5747979bb737ec023a9da34b6bf8644c3bbfb8d21c6de4",
+    "directoryIndexSha256": "53474d18d37accfc9a5747979bb737ec023a9da34b6bf8644c3bbfb8d21c6de4",
+    "directoryIndexStatus": "matched",
+    "signature": "unsigned-or-unverified",
+    "runtimeAccepted": false
+  },
+  "changedFiles": [
+    {
+      "path": "README.md",
+      "beforeSha256": "1a07db406254c938e3db9edf4648e852329972ac66062fddf0ac6a46cc6f0ff0",
+      "afterSha256": "ef6ffd14d84327d012cd3974a0eab3687ff078333faa50515c0402322d376a36"
+    },
+    {
+      "path": "catalog.json",
+      "beforeSha256": "c7809c8eacf2a130eaf09fcb42b479b08745dc2b963ceb47fb1481f565d00c65",
+      "afterSha256": "370bc307989fffe84eadb6f39b984b7fac3250200f1fe57a81af585bfb681d10"
+    },
+    {
+      "path": "plugin.json",
+      "beforeSha256": "351a77ee971c527aad764033ebfd64f0e965dbe1afdd467c3970446266b3ed92",
+      "afterSha256": "d3445c177647e665f06415d347e49b22bb3072ee73ab138984397c845d5a87d1"
+    }
+  ],
+  "runtimeFilesChanged": false,
+  "permissionsChanged": false,
+  "hostAccepted": false,
+  "manifestSha256": "d3445c177647e665f06415d347e49b22bb3072ee73ab138984397c845d5a87d1",
+  "catalogSha256": "370bc307989fffe84eadb6f39b984b7fac3250200f1fe57a81af585bfb681d10",
+  "metadataSources": [
+    {
+      "path": "plugins/transforms/plugin.json",
+      "sha256": "d3445c177647e665f06415d347e49b22bb3072ee73ab138984397c845d5a87d1"
+    },
+    {
+      "path": "plugins/transforms/catalog.json",
+      "sha256": "4a6603abb48577473c72e71b15995af1f08431d124de5605a4d8b8a3583d6ac5"
+    },
+    {
+      "path": "contracts/studio-tool-directory/1.0.0-preview.1/capabilities.json",
+      "sha256": "19e642ee78cdb11e632bcb0d7b55a958133c3eaa1e00001baab2077d41cf2f4d"
+    },
+    {
+      "path": "scripts/package_directory_revision.py",
+      "sha256": "815ca64456fb61a8f9a87ceb5de1c3ba5d7a93a6cfb3b0640d79250a1258d7cd"
+    },
+    {
+      "path": "scripts/tool_directory.py",
+      "sha256": "a3ac8874e18998abd9670858a68b48649917786264b1075ade03ff135b340b66"
+    }
+  ]
+}

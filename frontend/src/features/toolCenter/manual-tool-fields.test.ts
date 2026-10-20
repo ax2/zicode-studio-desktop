@@ -28,12 +28,29 @@ it("rejects precision loss, overflow, underflow, negative zero and non-JSON numb
   const integer = toolFields({type:"object",properties:{value:{type:"integer"}}}) ?? [];
   for(const raw of ["1.2","9007199254740992"]) expect(prepareToolInput(integer,{value:raw})).toHaveProperty("error");
 });
+it("prepares JSON arrays and objects without converting them to strings", () => {
+  const fields = toolFields({type:"object",required:["entries","options"],properties:{
+    entries:{type:"array",items:{type:"string"},minItems:1},
+    options:{type:"object",additionalProperties:false,required:["enabled"],properties:{enabled:{type:"boolean"}}},
+  }}) ?? [];
+  expect(fields.map(field => field.kind)).toEqual(["array","object"]);
+  expect(prepareToolInput(fields,{entries:'["a","b"]',options:'{"enabled":false}'})).toEqual({input:{entries:["a","b"],options:{enabled:false}}});
+  expect(prepareToolInput(fields,{entries:'{"a":1}',options:'{}'})).toMatchObject({field:"entries"});
+  expect(prepareToolInput(fields,{entries:'[9007199254740993]',options:'{}'})).toMatchObject({field:"entries"});
+});
+it("renders Host-supported object property limits at the root and within JSON fields", () => {
+  const fields = toolFields({ type: "object", minProperties: 1, maxProperties: 1,
+    properties: { value: { type: "object", maxProperties: 128 } }, required: ["value"], additionalProperties: false });
+  expect(fields?.map(field => field.kind)).toEqual(["object"]);
+  expect(prepareToolInput(fields ?? [], { value: '{"name":"ZiCode"}' })).toEqual({ input: { value: { name: "ZiCode" } } });
+  expect(toolFields({ type: "object", minProperties: 2, maxProperties: 1, properties: {} })).toBeNull();
+});
 it("rejects unsupported or malformed schema declarations instead of dropping constraints", () => {
   for(const schema of [
     {type:"object",required:"value",properties:{}},
     {type:"object",required:["toString"],properties:{}},
     {type:"object",additionalProperties:{type:"string"},properties:{}},
-    ...[{type:"array"},{type:"object"},{type:"null"},{type:"integer",minimum:5,maximum:1},{type:"integer",minimum:9007199254740992},{type:"number",exclusiveMinimum:0},{type:"number",multipleOf:2},{type:"boolean",enum:[]},{type:"boolean",enum:[true,true]},{type:"number",enum:["1"]},{type:"integer",enum:[1.1]},{type:"number",enum:[9007199254740992]},{type:"string",minLength:40000,maxLength:50000}].map(value=>({type:"object",properties:{value}})),
+    ...[{type:"null"},{type:"array",items:{type:"string",pattern:"x"}},{type:"object",properties:{value:{type:"string",format:"uri"}}},{type:"integer",minimum:5,maximum:1},{type:"integer",minimum:9007199254740992},{type:"number",exclusiveMinimum:0},{type:"number",multipleOf:2},{type:"boolean",enum:[]},{type:"boolean",enum:[true,true]},{type:"number",enum:["1"]},{type:"integer",enum:[1.1]},{type:"number",enum:[9007199254740992]},{type:"string",minLength:40000,maxLength:50000}].map(value=>({type:"object",properties:{value}})),
   ]) expect(toolFields(schema)).toBeNull();
 });
 it("validates selected enum constraints and keeps prototype-named fields as own input data", () => {

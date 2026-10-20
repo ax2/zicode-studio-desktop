@@ -1,6 +1,195 @@
 # Zi DevTools 全部工具插件接入目标
 
+2026-10-18 Transforms 0.1.1 续验：冻结 804 文件候选在当前 Windows Debug 的真实 Pi/Broker/Host/Worker 中完成 23/23 项能力的精确文本样例与十阶段权限生命周期；本地 CI 格式收据门槛通过。原生界面、正式签名、完整输入范围与四系统 CI 仍待，完整接受仍 **0/154**。见[Transforms 阶段记录](../iterations/2026-10-18-transforms-011-studio.md)。
+
+2026-10-18 Trace 0.1.1 续验：Studio 将冻结 352 文件候选在当前 Windows Debug 的真实 Pi/Broker/Host/Worker 中执行 Java、Django/Python 两项精确文本样例及十阶段权限生命周期；本地结构化收据门槛通过。原生界面、正式签名、完整输入范围和四系统 CI 仍待，完整接受仍 **0/154**。见[Trace 阶段记录](../iterations/2026-10-18-trace-011-studio.md)。
+
+2026-10-18 Text 0.4.1 续验：冻结 112 文件候选在当前 Windows Debug 的真实 Pi/Broker/Host/Worker 中完成七项精确文本输出、无效输入恢复及十阶段权限生命周期；独立 Inspect 对照插件保持可运行，开发平台检查加入结构化收据门槛。本地测试与门槛校验通过，原生界面、正式签名及四系统 CI 仍待；完整接受仍 **0/154**。见[Text 阶段记录](../iterations/2026-10-18-text-041-studio.md)。
+
+2026-10-18 Inspect 0.1.2 续验：Studio 对冻结 616 文件候选完成当前 Windows Debug 的真实 Host/Worker 8 项精确输出及内嵌 Pi/Broker 10 阶段权限生命周期（发现、按需加载、执行、撤销、禁用、卸载和重新授权）。开发平台检查增加对应两个必过步骤；本地门槛专项通过，四系统 CI 与原生界面仍待。候选未签名，完整接受仍 **0/154**。见[Inspect 0.1.2 阶段记录](../iterations/2026-10-18-inspect-012-studio.md)。
+
+2026-10-18 新版全目录接收：Studio 冻结 `ba45d264d48bf094` 修订，154 个源 ID 中 34 个有十包候选操作映射，120 个仍无映射；十包本地字节和清单对账 10/10 通过，共声明 55 项 capability 与 6 项 View 操作。新增 Image Resize 0.2.0 只覆盖 `image-workflow` 的缩放子功能。完整[154 项逐项缺口](devtools-catalog-revision-gaps-devtools-catalog-2026-10-18-ba45d264d48bf094.md)和[接收记录](../iterations/2026-10-18-devtools-catalog-ba45-intake.md)已同步；签名、原生完整流程与全部源工具功能仍待，完整接受 **0/154**。JSON Object 按用户决定保持禁用。
+
+同日 View 候选续进：Agent Assist 与 Spring Actuator 两份独立 0.1.3 未签名候选逐文件收据匹配；隔离 Host HTTP 显式发现 2/4 项 View 操作，开发平台检查纳入收据门槛。这些 View 定位入口不是可调用 capability，原生 Studio 定位仍待验。见[View 阶段记录](../iterations/2026-10-18-view-operation-navigation.md)。
+
+接收方进一步以两份冻结 0.1.3 页面执行 6/6 专项：Studio 沙箱 iframe 和六个操作 ID 均有独立 View 消息，当前 `sandboxBridge` 与提供方页面脚本在隔离 DOM 内完成 `openViewOperationResult=opened` 回执，且定位不自动触发模型或 HTTP 请求。原生 Tauri WebView 安装、启用、授权和点击仍待验，完整接受仍 **0/154**。
+
+该 6 项专项现被列入四系统共用开发平台检查脚本的独立非建议级门槛；本机门槛定义和页面专项 15/15 通过。其他系统 CI 与原生 WebView 仍需各自的运行证据，见[View 阶段记录](../iterations/2026-10-18-view-operation-navigation.md)。
+
+同日 Image Resize 0.2.0 续验：冻结 11 文件包通过收据核验，并在当前 Windows Debug Worker 的真实隔离 Host/WASI 流程中完成缩放、派生输出、显式确认跨插件接力、内建检查和失败后恢复；旧 0.1.1 回归亦通过。开发平台检查现要求该 0.2.0 用例，其他系统 CI 结果、原生界面、正式签名和完整 `image-workflow` 仍待。四个本轮失败 scratch 因自动审批策略拒绝未能清理，精确手工候选见[接收记录](../iterations/2026-10-18-devtools-catalog-ba45-intake.md)；完整接受仍 **0/154**。
+
+2026-10-18 新修订接收：Studio 已冻结并独立核验提供方 `9c17b7b91e84f1c7` 目录和九份无签名候选。54 项 capability 与 6 项 View 操作对应实际包声明；九包映射 33/154 个源 ID，121 个仍无包操作映射。先前 Spring 孤项及 27 项 capability 目录元数据缺口在新候选的静态声明层解决。View 操作不是 Pi 动态工具；签名包、完整源工具范围和九包全量真实运行尚未验收。完整接受仍 **0/154**，JSON Object 依用户决定保持禁用。见[九包接收记录](../iterations/2026-10-18-devtools-catalog-9c17-nine-packages-intake.md)及[154 项逐项缺口](devtools-catalog-revision-gaps-devtools-catalog-2026-10-18-9c17b7b91e84f1c7.md)。以下较早修订的数字保留为历史记录。
+
+同日续验：冻结 URL 文本资源 0.1.1 候选已通过当前源码测试程序的隔离真实 Host 与现有 Debug EXE Worker 的资源确认、转交和编码执行；旧 0.1.0 因缺当前必需 profile 被 Host 拒绝。此为一项合成输入的程序化流程，未验原生界面、Pi（该包未声明 Pi 工具）、正式签名或其他平台；完整接受仍 **0/154**。证据见上述[接收记录](../iterations/2026-10-18-devtools-catalog-9c17-nine-packages-intake.md)。
+
+九包隔离注册表安装准入 9/9 通过，默认全禁用、权限全未授权；用户配置没有安装。Agent Assist 与 Spring 的六项 View 操作尚缺包内单项目录及 Studio 对应 profile，不能按能力工具计数或注册给 Pi；[接口需求](view-operation-directory-request-2026-10-18.md)已反馈提供方。完整接受仍 **0/154**。
+
+Studio 已实现[View 操作目录 Host 预览](view-operation-directory-v1.md)的清单校验与轻量列表投影，合成正反例及隔离注册表通过；统一搜索、收藏/最近、定位回执和提供方新版包仍待。现有九包不会因该预览自动获得单项入口或可调用能力，完整接受仍 **0/154**。见[阶段记录](../iterations/2026-10-18-view-operation-host-profile.md)。
+
+2026-10-18 最新接收：提供方 `d084f541be736aed` 不可变修订和 Diagnostics 0.1.4 已按原字节冻结；Studio 核对 11 文件的 154 ID 目录、六包实际文件和收据。Diagnostics 的输出契约和 11 项目录元数据静态预检通过，剩余 27 项能力缺目录元数据；Spring 映射、正式签名包和原生界面验收仍缺。[154 项逐项缺口](devtools-catalog-revision-gaps-devtools-catalog-2026-10-18-d084f541be736aed.md)与[接收记录](../iterations/2026-10-18-devtools-catalog-d084-diagnostics-014-intake.md)记录范围。完整接受 **0/154**，JSON Object 依用户决定保持禁用。
+
+同日续验：Diagnostics 0.1.4 已在当前 Windows Debug 的隔离 Host/Worker/Pi 中按目录加载并完成 11/11 项合成报告、权限/启停/卸载十阶段；正式签名安装、原生 UI、结果接力、完整源工具范围和跨平台仍待，完整接受仍 **0/154**。证据与限制见上述接收记录。
+
+2026-10-18 接收方对已声明候选目录的操作增加双向覆盖与重复声明校验；冻结 `3c7c...`、中间 `41ae...` 通过，后续 `d7d...` 因 Text 收据映射不一致仍拒绝。该校验只证明目录声明一致，不提高完整接受数，详见[阶段记录](../iterations/2026-10-18-devtools-catalog-bidirectional-validation.md)。
+
+六包实际清单与冻结映射的[独立只读审计](../iterations/2026-10-18-devtools-six-candidate-audit.md)确认 53/53 操作可对应实际能力，同时量化 38 项缺目录分类元数据、四份冻结收据仍为目录索引编码未核验、Text 七项缺逐操作收据引用；提供方后续四份修订收据已单独核验匹配，但需下一不可变修订正式绑定。完整接受仍 0/154。
+
+当前冻结修订的[154 项逐项缺口清单](devtools-catalog-revision-gaps-2026-10-18.md)已按提供方未覆盖范围生成；32 项候选标签中只有 31 项具有本修订六包的操作映射，`spring-actuator` 是未映射孤项。清单不提高完整工具接受数，见[阶段记录](../iterations/2026-10-18-devtools-revision-gap-ledger.md)。
+
+2026-10-18 Studio 已只读冻结提供方独立目录修订 `devtools-catalog-2026-10-18-3c7c5aa8ad679a14`，11/11 文件、目录索引及语义映射通过接收校验。154 项源目录中六个无签名候选包映射到 31 个不同源 ID；这只是候选关联，正式签名、完整 scope 与运行验收仍缺，完整接受仍 0/154。JSON 对象候选的修订收据已匹配，但按用户决定保持禁用。见[本次接收记录](../iterations/2026-10-18-devtools-catalog-revision-intake.md)。以下同日较早的活动目录观察保留为历史证据，不代表本次冻结修订。
+
+2026-10-18 最新只读接收对账：提供方未提交活动目录仍为 154 ID，但相对冻结 dev.105 的版本/状态 76、scope 70、discovery 76 项变化；其中 discovery 比上一观察新增 58 项关键词/别名变化。正式签名包仍为 0，须由提供方交付新的不可变目录版本与包收据，不能原地更新冻结矩阵。JSON 对象 candidate-07 逐文件 37/37 匹配，但包内字节与 candidate-06 完全相同，包外目录索引编码仍不可机器核验；用户暂不启用决定不变，完整接受仍 0/154。见[目录需求](devtools-catalog-release-request-2026-10-18.md)与[JSON 收据需求](devtools-json-object-candidate07-receipt-request-2026-10-18.md)。
+
+2026-10-18 后续只读对账：活动目录与迁移表摘要再次变化，但 154 ID 和版本/状态 76、scope 70、discovery 18 项相对冻结快照的差异数量未变；候选包/能力映射继续变化，`acceptedCapabilities=0`、正式签名包 0。保留旧观察并以[更新的交付需求](devtools-catalog-release-request-2026-10-18.md)追踪最新摘要；冻结矩阵与完整接受 0/154 不变。
+
+2026-10-18 晚些时候只读对账发现提供方活动目录仍为 154 ID，但同名 `dev.105` 相对冻结快照已有 76 项版本/状态、70 项 scope、18 项 discovery 变化；当前两份源文件未提交，正式签名插件包计数 0。Studio 保留冻结矩阵，已形成[下一版目录与包交付需求](devtools-catalog-release-request-2026-10-18.md)，完整接受仍 0/154。
+
+2026-10-18 Studio 签名插件列表改用发现/重载时缓存的发布者与可回退版本元数据，避免管理界面刷新在全局注册表锁内读取所有签名包磁盘目录。安装/升级/回退/撤销专项和目标包完整性拒绝通过；首次版本缓存时序失败已修正并保留记录。百真实签名包慢盘及本轮源码跨平台运行待验，154 项完整接受仍 0。见[阶段记录](../iterations/2026-10-18-signed-listing-cache.md)。
+
+2026-10-18 Studio 结果来源证明、捕获和确认保存改为目标插件内存快照；接收工具搜索改为内存全目录投影，避免单项结果接力读取无关签名包磁盘元数据。Rust 静态与 5 项结果专项通过，其中 Studio 派生 WASI 包经真实 Worker 的结构化对象接力通过。用户暂不启用的 JSON 对象候选保持禁用，正式提供方全集与跨平台未验，154 项完整接受仍 0。见[阶段记录](../iterations/2026-10-18-result-targeted-projection.md)。
+
+2026-10-18 手动工具准备与桌面能力调用的目标插件来源/运行时判断已改用内存清单，不再为一个调用构造全插件列表并读取无关签名包元数据。Rust 静态检查与 Inspect 8/8 真实 Host/Worker 回归通过；合成 View 的手动准备 HTTP、真实 Worker 取消与回收专项随后也通过。百签名包慢盘时延、原生窗口和其他平台待验。154 项完整接受仍为 0。见[阶段记录](../iterations/2026-10-18-targeted-runtime-lookup.md)。
+
+2026-10-18 Studio 对 Inspect 0.1.1 无签名候选复验：独立 Host/真实 Worker 8/8，嵌入 Pi/Broker 的 8 项结果和 10 个授权/安装阶段通过；成功 scratch 已清理。当前测试 Host 源码与保留 Worker EXE 的组合得到验证，原生窗口未在本轮运行。用户选择暂不启用的 JSON 对象插件保持禁用，154 项完整接受仍为 0。见[复验记录](../iterations/2026-10-18-inspect-current-chain-recheck.md)。
+
+2026-10-18 提供方目录对比默认核验矩阵指向的冻结 dev.105 快照及其 SHA-256，并比较范围与发现元数据；已知 Django/Java Trace 历史版本差异单列，不误报为新漂移。定向 4/4 通过。用户选择暂不启用隔离 JSON 对象插件，真实执行与结果接力待验收，完整接受仍 0/154。见[阶段记录](../iterations/2026-10-18-provider-catalog-drift-guard.md)。
+
+2026-10-17 Studio 自有合成 `tool.open.v1` 夹具通过真实 Host 安装/轻量列表/禁用 403/启用 View 源读取/再次禁用 403 的隔离 HTTP 生命周期；后续增加目标切换和插件版本的 View 回执复核，五文件 74/74 通过。这验证 Studio 接收端边界，不代表 ZiDevTools 已交付支持该 profile 的包或完成原生定位，154 项完整接受仍 0/154。见[阶段记录](../iterations/2026-10-17-tool-open-profile.md)。
+
+2026-10-18 ZiDevTools 交付 Inspect 0.1.2 无签名 `tool.open.v1` 候选目录。Studio 核验 616/616 文件及清单预检；原收据的目录索引编码为文字描述，后来提供方新增结构化修订收据，Studio 独立核验目录索引 `matched`。隔离 Windows Host 专项对真实候选安装副本、默认禁用、8 项列表摘要、主 View 读取及重新禁用后的 403 通过；候选 View JS 与 Studio SDK 的浏览器层定位专项对 8 项 ID 均返回 `opened`，未知 ID 返回 `not_found`，未触发执行；Studio React 目录点击到主 View 消息发送也有独立集成专项通过。原生窗口中的完整可见流程、签名和跨平台仍待验收。用户选择禁用的 JSON 对象插件及其权限未改。154 项完整接受保持 0/154；详见[接收记录](../iterations/2026-10-18-inspect-012-tool-open-intake.md)与[收据接口修订需求](inspect-012-receipt-interface-request.md)。
+
+2026-10-17 Studio 为大量 View 应用增加 `application.directory.v1` 预览接收能力：提供方可在 activity 声明分类、别名和用途，Host 有界校验，工具中心无新增侧栏图标地筛选/搜索。既有 Spring candidate-02 未声明此 profile，继续归“其他应用”，也没有可调用 capability；需下一独立版本与收据，154 项完整接受仍为 0/154。见[合同](application-directory-v1.md)及[阶段记录](../iterations/2026-10-17-application-directory-profile.md)。
+
+2026-10-17 Spring Actuator 候选核验后，Studio 将 HTTP View 桥等待预算从 30 秒调为 75 秒，使其覆盖 60 秒确认弹窗与 8 秒网络请求；超时仍向 Host 请求取消。27 项定向测试通过，原生长等待尚未验；154 项完整接受仍为 0/154。见[阶段记录](../iterations/2026-10-17-http-view-confirmation-budget.md)。
+
+2026-10-17 Studio 冻结 Spring Actuator 0.1.1 candidate-02 无签名评审目录，42/42 文件与包外收据一致；真实 Host 定向测试验证禁用/授权、View 源加载、确认前不联网、确认后固定 health GET 与 503 JSON 诊断结果。原生 View 操作、正式签名、完整独立工具范围与其他平台未验，154 项完整接受仍 0/154。见[阶段记录](../iterations/2026-10-17-spring-actuator-candidate02-intake.md)。
+
+2026-10-17 Studio 的 `service.http.get.v1` 成功响应审计故障复核已在真实 Host 中通过：终态审计追加失败时返回稳定错误、不新增跨工具结果引用；正常请求/拒绝/取消同次通过。这只关闭 Spring Actuator Host 的一项失败边界，轮转恢复、其他网络 conformance、提供方正式包和完整 scope 仍待，完整接受仍 0/154。见[阶段记录](../iterations/2026-10-17-http-audit-fault-conformance.md)。
+
+2026-10-17 Studio 冻结并逐文件核对无签名 JSON Object candidate-06（37 文件、328,768 字节），真实 Host/Worker 已完成对象源工具→明确确认→对象接收工具→再次捕获→保存，嵌入 Pi 已完成搜索、按需加载、调用和撤权拒绝。此包是 `result.json.v1` 协议样本；未完成原生 UI、正式签名、其他平台或 154 项逐项接受，完整接受仍 0/154。见[阶段记录](../iterations/2026-10-17-json-provider-candidate06.md)。
+
+2026-10-17 最新只读核对：提供方活动 `docs/tools.json` 仍为 154 ID、无增删，但相对 Studio 既有矩阵已有 69 项版本/状态漂移；当前文件未提交，不能直接覆盖矩阵。Inspect 0.1.1、冻结 Text/Trace 三包共 15 个能力均未声明 `tool.directory.v1` 分类，`plugin-candidates` 下仍无正式 `.zicode-plugin`。Studio 已向授权的 DevTools 原会话发送精确目录元数据与稳定包/收据需求；见[阶段记录](../iterations/2026-10-17-provider-directory-readiness.md)。完整接受仍 0/154。
+
+2026-10-17 Studio 资源接收目录在 Host 分页和 facet 计数前排除输出工具自身，41 项合成同 MIME 目录仍给出完整 40 项首页；Rust 2 项、前端 50 项专项通过。该目录修正不代表正式 DevTools 实包或全部 154 项已接入，见[阶段记录](../iterations/2026-10-17-resource-receiver-prepage-exclusion.md)。
+
+2026-10-17 Studio 的输出接力目录已具备 MIME、来源/分类、收藏/最近和分页；现在补上新查询或关闭时的在途搜索取消，网关与接力专项 48 项通过。当前版本真实弹窗及正式 DevTools 包仍待验收，154 项完整接受数不变；见[阶段记录](../iterations/2026-10-17-resource-receiver-search-cancel.md)。
+
+2026-10-17 Studio 工具目录和命令面板现在会取消过期目录搜索请求，真实 Windows Debug 中已有 Inspect 0.1.1 的目录 24→3→2 项筛选及截图通过；这改善了百项目录交互，不等于 154 项全量提供方包已接入，见[阶段记录](../iterations/2026-10-17-tool-search-cancellation.md)。
+
+2026-10-17 Studio 签名包预览现列出每项工具的 ID/标题，折叠列表可搜索；154 项合成清单前端测试、Windows Debug 五项签名测试包只读预览与截图已核对。未安装提供方新包，完整接受仍 0/154；见[阶段记录](../iterations/2026-10-17-signed-plugin-tool-list.md)。
+
+2026-10-17 Studio 签名包选择改为只读预览，显示工具数、权限、密钥指纹与信任状态，需再次明确点击才安装；Windows 隔离 Debug 真实窗口已核对预览卡，未安装测试包。签名清单摘要的载荷绑定有专项回归。此项只改 Studio 通用安装体验，正式 DevTools 全量接受仍 0/154；见[阶段记录](../iterations/2026-10-17-signed-plugin-review.md)。
+
+2026-10-17 Studio 签名插件的验签后解包与暂存清单校验已移到注册表锁外；提交阶段仍重读发布者信任、执行版本与回滚检查。无信任确认时暂存目录清理有定向断言，签名相关 7 项通过、2 项外部候选专项 ignored；严格 Clippy、本地 Debug 构建及隔离启动烟测通过。尚无正式 DevTools 签名包可做原生全链验收，154 项完整接受仍为 0；见[阶段记录](../iterations/2026-10-17-signed-extraction-lock-scope.md)。
+
+2026-10-17 Studio 开发插件安装现先在注册表锁外核对源目录摘要、复制到唯一暂存目录并复核清单与内容，再在锁内切换插件和刷新状态；旧包备份在释放锁后删除。失败准备会清理本次暂存，Windows 重解析点在复制遍历时显式拒绝。相关开发插件测试 11/11、真实 Host 预览→安装专项 1/1、Rust 静态检查通过；新 Debug EXE 已构建并完成隔离启动存活检查。并发延迟、原生安装操作与其他平台仍待验，完整 154 项接受仍 0。见[阶段记录](../iterations/2026-10-17-developer-install-lock-scope.md)。
+
+2026-10-17 Studio 开发插件只读预览的完整目录摘要扫描现于注册表锁外执行；Host 只短暂读取受管根路径，其他插件操作不必等待候选目录读取。安装阶段的源目录/暂存摘要复核保持原约束。静态门槛通过，定向测试与空间收尾见[阶段记录](../iterations/2026-10-17-developer-preview-lock-scope.md)；此改动不提高 154 项完整接受数。
+
+2026-10-17 Studio 本地开发插件改为“选择目录并只读预览 → 用户明确安装”的两阶段流程。预览显示身份、版本、发布者、能力数量及声明权限；安装前和复制到暂存后均核对目录内容 SHA-256，源目录发生变化就要求重新预览。Inspect 0.1.1 的真实 Windows Debug 管理页已显示 8 项能力预览卡，本轮没有点击安装；Rust/前端定向各 1/1、静态检查和本地 Debug 构建通过。此流程不改变无签名候选的正式验收状态，154 项完整接受仍为 0；见[阶段记录](../iterations/2026-10-17-developer-plugin-preview.md)。
+
+2026-10-17 Studio 开发插件安装路径补齐复制后完整清单一致性与失败暂存清理，避免同 ID/版本但权限或能力变动的目录进入安装，也避免无效暂存积累。定向 1/1 与 Rust 静态检查通过；这不替代正式签名包完整性或提供方全量工具验收，见[阶段记录](../iterations/2026-10-17-developer-plugin-staging-integrity.md)。
+
+2026-10-17 Studio Host 接收端现在一次合并报告通用 `requiredProfiles` 缺项。冻结 URL 文本资源 candidate-02 的原样清单同时报缺 `output.schema.v1`、`tool.directory.v1`，仍拒绝安装；注册表专项 61/61 与 Rust 静态检查通过。提供方仍需新候选/收据，真实 Worker/原生界面及全部工具接受没有因此完成；见[阶段记录](../iterations/2026-10-17-plugin-profile-aggregate-error.md)。
+
+2026-10-17 目录漂移接收门槛：Studio 新增只读差异脚本，显式传入提供方版本化 `tools.json` 才比较 154 项 ID、版本、状态；可再指定冻结快照核对 scope 文本与发现元数据。当前未冻结的 DevTools 工作树 ID 仍为 154，相对历史矩阵有 66 项版本/状态变化，相对冻结 dev.105 有 62 项 scope 文本、12 项发现元数据变化；冻结 dev.105 与历史矩阵本身还有两项版本差异。现不自动覆盖矩阵或抬高完整接受计数，等待正式快照及包外摘要核对；见[阶段记录](../iterations/2026-10-17-provider-catalog-drift.md)。
+
+2026-10-17 矩阵来源校验：修正 `catalogSnapshotPath` 指向实际已记录摘要的 `dev.105`；新增自动检查冻结目录和迁移清单摘要、154 项精确覆盖、逐项 scope/状态/阻塞说明、状态及完整接受计数。Trace 两项后续版本观察保留显式例外，不视为冻结快照的逐行版本，也不改变 0/154 的完整接受数。见[阶段记录](../iterations/2026-10-17-devtools-matrix-provenance.md)。
+
+2026-10-17 Studio 将仓库内冻结的旧 Inspect 7 项实际 WASI/Pi/Worker 专项接入 Developer platform 必需矩阵；本机 Windows 7 项与十阶段权限生命周期通过，CI 收据与隔离 scratch 清理经核对。当前公开四平台成功运行使用旧源码，尚未验证该新门槛在 macOS/Linux；它不等于 Inspect 0.1.1 的 8 项或全部 154 项正式接受。详见[阶段记录](../iterations/2026-10-17-devtools-inspect-ci-gate.md)。
+
+2026-10-17 Studio 通用工具中心已把 4 项及以上的已打开工具折成单个选择器，目录搜索/分类/收藏/最近及按需表单维持原路径；这解决了 Inspect 8 项复验观察到的横向标签拥挤。31 项定向测试、类型/设计检查、React 与 CSS 打包通过；Windows 1442×931 真窗口截图确认四项下拉、当前工具关闭确认、改进后的按钮对比度及无横向滚动，Home/Enter 切换已复验。窄窗口及跨平台待验。此改动不新增提供方能力，不改变 154 项完整接受数（0）；见[阶段记录](../iterations/2026-10-17-opened-tool-picker.md)。
+
+2026-10-17 当前 0.4.2 Windows Debug 对已启用的 Inspect 0.1.1 隔离安装重新完成 8/8 原生目录发现、按需表单、执行和结果展示，并观察无效 YAML 返回 `INVALID_INPUT` 后相邻工具仍能成功执行。已安装 606 文件/目录索引与包外收据复核通过，截图归档；旧 Debug 的 8/8 和同包接力证据不重复计数。横向工具标签在同时打开 8 项时需要滚动。该候选仍无签名，其他 OS、模型自主调用和完整源工具范围未验，154 项完整接受仍 0；见[当前 Debug 复验](../iterations/2026-10-17-inspect-011-current-debug-native.md)。
+
+2026-10-17 当前 0.4.2 Windows Debug 原生窗口使用两份分别交付的无签名
+DevTools Text 与 Trace 候选，完成 Base64 解码 → Java 异常链的**反向跨包**
+预览、显式确认、执行和结果展示。两份已安装目录分别核对外部收据
+13/13、346/346 文件；没有保存或发送给模型。此证据补足真实独立插件
+结果互通方向，但正式签名生命周期、完整工具范围和其他系统仍待验，
+完整接受保持 0/154。见[原生阶段记录](../iterations/2026-10-17-text-to-trace-native-transfer.md)。
+
+2026-10-17 接收 Text 0.3.0 candidate-03：15 文件收据核对通过，Windows
+当前 Debug Worker 与真实 HTTP Host/Worker 已运行新增 JSON 校验、通用 SQL
+格式化基本样例，并经 Host 目录搜索、按需加载和动态调用；包含无令牌、
+业务错误和停用拒绝。后续真实嵌入 Pi 已发现 7 项候选工具、按需加载并
+执行两项新增能力，撤权后旧工具被拒绝；仍未验证模型自主选工具。
+同一候选的 SQL 文本结果已在真实 Host/Worker 中经过预览、未确认拒绝、
+确认后转交 Base64 编码并返回新结果引用；这只验证同包跨能力的协议链路。
+提供方当前 JSON 1.2.0、
+SQL 格式化 in-progress 0.3.1 与 dev.105 冻结矩阵不同；SQL 候选尚不覆盖
+独立程序的方言和格式选项。原生 UI、签名及其他 OS 未验，完整工具
+接受仍 0/154。详见[阶段记录](../iterations/2026-10-17-text-candidate03-intake.md)。
+
+2026-10-17 Studio 加固未来目录类工具共用的单层项目目录入口：每级使用
+不跟随链接的句柄打开，Windows 再核对打开后重解析点；目录专项 4/4
+通过，含检查后同名条目被链接替换。尚无目录树/文件字节授权或提供方正式
+签名包，完整接受仍 0/154。见[阶段记录](../iterations/2026-10-17-directory-handle-nofollow.md)。
+
+2026-10-17 Studio 修复输出 `oneOf` 被输入声明白名单误拒的问题，并补齐输出
+声明中重复 `required`/联合 `type`、空 `enum` 与注解类型的安装门槛；
+通用 Capability 16 MiB 预检和插件 Worker 256 KiB 请求的边界已分别说明。
+输出协议回归 3/3，随后保留 Windows Debug EXE 的真实 Worker 用例 1/1 通过；
+这不是签名提供方包验收，
+完整接受仍 0/154。详见[阶段记录](../iterations/2026-10-17-plugin-output-schema-isolation.md)。
+
+2026-10-17 Studio 通用工具表单可对 Host 支持的 array/object 字段使用
+有界 JSON 编辑器，保留结构化输入类型，并拒绝重复键、精度损失和未实现的
+schema 关键字。前端工作台 130/130、类型/静态检查与组件浏览器截图通过；
+尚无签名提供方包的原生完整流程，完整接受仍 0/154。范围与截图边界见
+[迭代记录](../iterations/2026-10-17-structured-tool-input.md)。
+
+2026-10-17 Studio 收紧通用插件 `inputSchema` 安装门槛：逐层拒绝 Host
+尚未实现的关键字与类型、错误的长度/数量/数值界限、重复 required 项及非对象子声明，
+避免百余工具接入时把未生效约束误当成有效约束。协议子集见
+[互操作规范](devtools-interoperability.md)，实现与回归见
+[本轮记录](../iterations/2026-10-17-plugin-input-schema-gate.md)。
+这是 Studio 侧协议可靠性改进；未安装或验收提供方新包，完整接受仍 0/154。
+
+2026-10-17 新 Diagnostics 0.1.3 审核目录只读接收：503 文件、4,287,534 字节与包外收据逐项路径/长度/SHA-256 一致，但目录未签名、包摘要为 null。其清单要求 `output.schema.v1` 却无任何 `outputSchema`/`maxResultBytes`，Studio Host 安装门禁会拒绝；快速提示现可报此项。188 项预算/功能与亮暗 View 为提供方收据证据，Studio 未运行新包；接口需求与边界见[接收记录](../iterations/2026-10-17-diagnostics-013-intake.md)。完整接受仍 0/154。
+
+2026-10-17 Studio 目录读取候选补充 Windows 重解析点门槛：逐级目录和单层枚举均显式拒绝 `FILE_ATTRIBUTE_REPARSE_POINT`；实际 Windows 符号链接回归、目录模块 3/3 和相关 Host HTTP 1/1 通过。它保护供文件、去重、目录对比等工具共用的单层元数据入口，但仍不提供递归文件字节流或正式 `resource.v1`，不改变 154 项完整接受数；见[阶段记录](../iterations/2026-10-17-directory-reparse-guard.md)。
+
+2026-10-17 后续接收门槛：Studio 对 `E:\zi-devtools\release\plugin-candidates` 只读复核仍未见 `.zicode-plugin`。已向授权的 DevTools 原会话明确要求优先交付一个可重复构建的正式签名容器和独立收据，允许先覆盖范围清楚的文本/SQL 子能力，但必须如实标记部分 scope；manifest 要声明实际使用的 `tool.directory.v1`、`output.schema.v1`，收据要固定包 SHA-256、签名发布者、文件清单和向量结果。Studio 不读取对方源码作为运行依赖，不把未签名目录或接收端临时测试包记为正式交付。待收到绝对包/收据路径后逐字节核对并完成真实 Host/Worker/Pi/界面验收；完整接受仍 0/154。
+
+2026-10-17 接收 `url-text-resource-0.1.0-candidate-02` 的未签名目录收据：Studio 对原目录及冻结副本各核对 92 个文件、603,424 字节，SHA-256 全部一致。真实 Host/Worker 门槛在注册表安装阶段失败，因为能力带 `directory` 元数据但缺 `tool.directory.v1` 必需声明；其 `outputSchema`/`maxResultBytes` 还需要 `output.schema.v1`。需求已发给 DevTools 原会话，请其生成新候选，不能改冻存候选。没有 Worker 执行或原生展示，完整接受仍 0/154；见[接收记录](../iterations/2026-10-17-url-text-resource-intake.md)。
+
+2026-10-16 提供方新生成 `spring-actuator-0.1.1-candidate-02`，更新收据报告22个 Draft 2020-12 schema 与21项 schema vectors 通过，并覆盖 cursor/event/confirmation/resource vectors；View guard 用例通过。Studio独立核对审核目录42个文件、130,016字节的路径/长度/SHA-256及文件集合，全部匹配且没有 `.pyc`。但收据仍为 `packageSha256=null`、未签名 review directory、非 `.zicode-plugin`，源码 dirty，manifest仅HTTP GET、scope不完整；未安装/运行，完整接受仍0/154。
+
+2026-10-16 之后复核提供方 0.1.1 候选收据：审核目录 `E:\zi-devtools\release\plugin-candidates\spring-actuator-0.1.1-candidate-01` 有42个文件、172,765逻辑字节；我按收据逐项核验路径/长度/SHA-256，42项完全匹配。收据 `packageSha256=null`，明确是未签名、不可安装的 review directory；manifest仍只声明HTTP GET，完整scope未交付。收据还包含37,273字节 Python `__pycache__`，已要求提供方从候选清单剔除并重生成收据。Studio未导入/运行，完整接受仍0/154。
+
+2026-10-16 后续只读复核：提供方已在 `confirm.request.schema.json` 中加入 Host 生成的 `confirmationId`，并增加确认过期、步骤/目标/权限代次不匹配及重放拒绝向量。最新快照为41个文件、171,668逻辑字节，仍无 `.zicode-plugin`/receipt，manifest仍仅声明 HTTP GET，catalog仍明确完整 scope 未交付。Studio未运行或导入活动候选；完整接受仍0/154。
+
+2026-10-16 11:20 CST 重新读取 `E:\zi-devtools\plugins\spring-actuator` 活动候选：40个文件、154,945逻辑字节，目录未跟踪且无 `.zicode-plugin`；manifest仅声明 `service.http.get.v1@=1.0.0-preview.1`，catalog仍为 `scopeComplete=false`、`fullSourceToolDelivered=false`。任务提案 README 已映射 Studio 五个 Host 路由，但 confirm schema 缺少 Studio 草案要求的 Host 生成一次性 `confirmationId`；已发回原 DevTools 会话，尚待复核。未接收/导入候选，完整接受仍0/154。
+
+2026-10-16 为 Java/Django 环境诊断形成 [`service.environment.inspect.v1` 接口需求](devtools-environment-interface-request.md)，覆盖受控选择可信程序、固定检查、结果脱敏、确认和取消。它仍是需求草案，未实现 Host profile、未获提供方确认，也不改变完整工具接受数。
+
+Spring Actuator 的受控 HTTP GET Host 实现状态见 [`service.http.get.v1` 预览记录](service-http-get-preview.md)：固定路由、View 确认、loopback HTTP/TLS 成功与拒绝路径、结构化审计及在途取消已有定向Host证据；操作系统默认根证书、公网DNS与完整跨平台conformance、真实提供方包和Pi/View验收仍待完成。该Host能力进展不等于工具已接入；全目录接受数仍为0/154。
+
+2026-10-16 对当前 `E:\zi-devtools` 未提交目录做只读比较：154项无增删，但37项工具版本与范围变化、5项由planned转为in-progress，目录版本头仍为 `0.82.0-dev.105`。这是活动工作树而非冻结交付，Studio保留旧矩阵基线；差异和文件摘要见[目录漂移审计](devtools-catalog-drift-2026-10-14.md#2026-10-16-目录在途变化非冻结输入)。
+
+同次核对发现提供方 `spring-actuator` 1.1.1 scope 新增后台任务中心与 JSON 报告导出，而当前 Host HTTP GET profile 不含任务生命周期和文件结果交付。Studio已形成[后台任务与报告接口需求](devtools-actuator-task-interface-request.md)，等待提供方正式 schema/fixtures；HTTP-only 子集不计为全工具接受。
+
+2026-10-16 提供方活动工作树出现未提交的 Spring Actuator HTTP View 和 `plugin.task.lifecycle.v1` 草案；目录自身仍标明 HTTP-only、未覆盖完整 source scope。Studio只读审查已反馈结果引用泄露、身份封装、事件恢复、重复 JSON 键及缺失的结果资源提案文件；未收包、未发布任务 profile，0/154不变。详见[接口需求与草案评审](devtools-actuator-task-interface-request.md#提供方草案审查结果2026-10-16活动工作树)。
+
+后续两次只读复核观察到上述多项已在活动草案中修订，最新快照为32文件、61,416逻辑字节，但仍未提交、未打包、无稳定收据。报告 provenance/时间/指纹 Host 绑定、报告字段一致性、任务回放序号/终态可机器验证及 origin 解析向量仍未解决；具体反馈见[任务与报告接口需求](devtools-actuator-task-interface-request.md)。不得将其HTTP子集或草案计入完整接入，DevTools仍0/154。
+
+紧接着的活动候选更新增至33文件、64,999逻辑字节；严格重新解析发现新编辑的 `report.schema.json` 有 JSON 语法错误，`report-facts.schema.json` 的条件约束层级也不正确。旧快照 JSON 解析通过不能用于当前文件。仍无插件包或稳定收据，0/154不变；档案记录见[迭代审查](../iterations/2026-10-16-devtools-actuator-task-interface.md#current-schema-follow-up-2026-10-16)。
+
+严格重复键扫描复查当前候选（33文件、64,989字节）后确认26个 JSON 中有2个错误：报告 schema 语法无效，facts schema 重复定义 `items` 键。上述更正已反馈提供方；没有接收包，接入状态仍0/154。
+
+提供方后续修复了 facts schema 重复键及 item 条件层级；当前33文件、65,113字节，严格解析仅剩 `report.schema.json` 的语法错误。报告边界负向 vectors 仍缺，插件包和收据仍未交付，0/154。
+
+其后任务回放 schema 增加了 required cursor/snapshot 字段；最新观察33文件、65,329字节，严格解析仍仅 `report.schema.json` 一处错误。报告反例向量和插件包仍待提供方完成。
+
+后续候选增至35文件、73,797字节，新添报告与 cursor 负向向量，但无可执行 schema/vector 验证器，报告 README 的文件引用也未同步；`report.schema.json` 仍解析失败。无 `.zicode-plugin`/receipt，0/154。
+
+后续更新修正报告 schema 语法并新增 `verify-contract.py`；28个 JSON 严格解析、脚本自带报告/cursor向量均通过。但该脚本未调用其 schema validator 函数，不能证明向量经过 JSON Schema 校验；Studio已反馈修正要求。候选36文件、89,451字节，无包/收据，完整接受仍0/154。
+
+提供方随后接通了自定义 schema evaluator，并修复其误用 facts fragment 的首轮断言；当前观察38文件、129,809字节，29个 JSON 解析及其 10 resource、9 custom schema、10 cursor vectors 均通过。该结果限于自定义 validator 覆盖范围，未形成正式包或 Studio 运行验收，0/154。
 2026-10-15 接收模型辅助 View candidate-03 的冻结副本和外置摘要，6件文件完整性及 Studio 组件挂载通过；这是 `agent-runner` 的有限单轮文字模型预览，不含 MCP、RAG、文件、跨工具接力或后台任务。原生签名安装、权限与实际模型调用待验收，154项完整接受数仍为0；见[阻塞原因](devtools-blocked-tools.md)。
+
+2026-10-15 后续图片可移植化进展：ZiDevTools 独立仓库新增 `zi-image-core` 和单能力 `zi-image-wasi`，后者只实现 `devtools.image.resize`。诊断收据显示直连三项分别需5.638B、2.125B、22.532B fuel，16MP线性内存峰值200,540,160 bytes；旧版Studio Worker以10M fuel执行三项均失败，属历史结果。Studio现已实现[能力级图片缩放预览profile](resource-image-resize-preview.md)：30B fuel、10秒、单个256MiB guest memory、全局2/插件1、512MiB/次准入预留（聚合1GiB），并通过静态检查和4项定向测试。准入预留不是OS进程硬内存限制；目标平台峰值内存、实际插件包/目录/权限/界面流程仍待验收。ZiDevTools 尚未交付 `.zicode-plugin`；完整DevTools工具验收仍0/154。
 
 2026-10-14 增补[Worker 并发隔离](worker-isolation-budget.md)：单插件活动调用上限 8、全局 64；范围及验证边界见文档。完整工具接受数不变。
 
@@ -45,7 +234,7 @@
 
 后续已将5个JSON排版漂移文件精确恢复到原冻结SHA，索引和WASM未改，13文件完整验证及既有真实HTTP专项重新通过，旧失败保留。当前EXE另完成Inspect84/Transforms164个可表达Worker语义用例（0失败，20个不能原样传输的raw用例单列未覆盖）及真实工作台JSON→YAML/URL解码两个基本样例1252/1015ms。见JSON currentRuntimeVerification及技术博客iterations/fixture-integrity-2026-10-09。该阶段Pi失败未重验，不能用Worker/UI通过替代；后续当前Pi证据见[2026-10-11生命周期回放](devtools-current-pi-lifecycle.md)，全工具接受仍0。
 
-当前主状态与机器清单一致：3项试点子集有历史验证、26项候选包已接收待完整验收、15项待提供方插件包、43项待Host扩展、4项待Host管理接口映射、20项提供方部分实现、43项规划未实现，合计154项。每项只计入一个主状态；其额外接口需求仍记录在行内。纯计算评审路径不是可行性证明，实包/预算/授权/跨平台仍要验证。
+当前主状态与机器清单一致：3项试点子集有历史验证、27项候选包已接收待完整验收、13项待提供方插件包、43项待Host扩展、4项待Host管理接口映射、1项待Host符合性验收、20项提供方部分实现、43项规划未实现，合计154项。每项只计入一个主状态；其额外接口需求仍记录在行内。纯计算评审路径不是可行性证明，实包/预算/授权/跨平台仍要验证。
 
 目录条目不等于能力数量。每个工具需继续拆分其操作、输入类型、输出、平台和写入行为；部分完成必须展示已验证子能力和未覆盖范围，不能用一个操作通过代表整个工具完成。合成1000条摘要只是规模测试，不计作实际工具接入。
 
@@ -404,3 +593,18 @@ Studio 目录资源工具及跨工具接力现支持调用前捕获 Host 身份�
 154项完整接受仍0。跨Host/换origin、原生进程崩溃与安装迁移、原结果恢复、正式resource.v1和真实DevTools全集仍待；本地记录不是持久执行收据。target净增0，保留失败夹具211,752B；版本0.4.2与正式安装包未变。见[恢复记录契约](resource-call-journal.md)及技术档案iterations/resource-call-journal-2026-10-11/work-log.md。
 
 2026-10-11 补充：[三个实包间的文本接力](cross-package-transfer.md)完成真实Windows JSON/YAML/URL往返、明确确认和JWT输入业务失败后改选恢复；1来源invoke/5接力commit/0保存，双视口截图实看。仅限定样例，完整154接受仍0。
+
+## 2026-10-15 图片工作流交接与当前边界
+
+提供方报告 `image-workflow 0.10.0 / in-progress`，图片到文本的新接力 UI 在浅色/深色原生窗口验收通过。随后交付单 capability `com.zicode.devtools.image@0.1.1` unsigned directory，只包含 `devtools.image.resize`，不包含完整 `image-workflow`、流程实例/UI、裁剪/OCR/批处理等功能。Studio 将候选冻结到 `tests/fixtures/devtools-image-resize-candidate02/` 并按包外 receipt 核验通过；本机 Windows Debug EXE 的真实 HTTP Host 验收已通过：插件安装/目录发现、resource.read 授权、PNG WASI resize、派生输出登记与读回摘要验证，损坏图片安全失败且无输出。2026-10-16 又完成真实原生 Studio 窗口目录安装、权限门、工具发现/按需打开、资源确认、动态调用和2×1 PNG本机预览；“发送到工具”面板无兼容接收工具，未接力、未保存，界面截图未归档。另确认内置 OCR 不声明当前 WASI 资源输入profile，不能直接接收该派生图；原生 UI 损坏图失败恢复未验。签名包、接力保存、取消/撤权/并发、其他平台和完整算法范围仍待。完整图片流程和154项工具全接受都不成立；`fullToolsAccepted=0` 保持。详细证据见[图片接入记录](resource-image-resize-preview.md)与[图片接口需求](devtools-image-interface-requirements.md)。
+
+2026-10-16 Host 后端补验：上述冻结图片候选的 PNG 输出，经 `confirmed=true` Host grant 交给独立 Studio-owned WASI conformance 接收夹具；接收端使用 `resource.wasi.input.draft2` 读回并校验 PNG 签名。图片插件对损坏图返回 `INVALID_IMAGE` 后，另一个 WASI 接收工具仍继续成功执行。真实 ignored Host/Worker 用例 1/1 通过。Studio 原生“发送到工具”目录仍没有另一个已安装 DevTools 接收包；本补验不改图片候选的签名状态，不增加 `fullToolsAccepted`，仍为0/154。详细过程及失败记录见[Host 接收端档案](../iterations/2026-10-16-host-resource-receiver.md)与[结果互通证据](tool-result-interoperability.md)。
+## 2026-10-17 Inspect 0.1.1 审核目录
+
+新候选 `inspect-0.1.1-candidate-01` 的外部收据与实际 606 个文件、2,319,279 字节逐项匹配；接收端独立重算目录索引通过。清单列出 8 个能力，快速 profile 提示无问题。它仍是无签名目录，Studio 未安装或执行此版本；正式包、Host/Worker/Pi 链路及完整 154 项范围均待验收，完整接受数保持 0/154。详见[只读接收记录](../iterations/2026-10-17-inspect-011-intake.md)。
+## 2026-10-17 Inspect 0.1.1 实际 Host/Worker 执行
+
+接收端在隔离 Windows Test Host 中使用真实生产 Worker，对新候选的 8 个能力逐项执行并与提供方样例精确比较，8/8 通过；无桌面令牌、非法 YAML、停用后调用边界均符合预期。外部候选和安装后的隔离副本各自匹配同一 606 文件收据与目录索引。矩阵五个来源工具指向该版本证据，颜色工具状态改为“已收到候选”。这仍是无签名开发目录，未验证 Pi、原生 Tool Center、正式签名生命周期或其他 OS，完整接受数保持 0/154。详见[阶段记录](../iterations/2026-10-17-inspect-011-host-worker.md)。
+## 2026-10-17 Inspect 0.1.1 Pi/Broker 权限链
+
+无签名 Inspect 0.1.1 候选在隔离 Windows Test Host 中由内嵌 Pi 1.3.0 经过 Broker 动态发现/加载/调用真实 Worker：8 个操作精确匹配，10 个权限与安装阶段通过，旧目录缓存拒绝 40 次、旧授权拒绝 24 次、独立工具对照 6 次，19 个 Worker 均关闭管道并回收。测试脚本的旧“两启动工具”假设与当前三工具 Broker 不符，首次两次失败证据已保留，修正后通过。正式签名安装、模型自主选择、原生 UI、完整输入/取消/接力以及其他系统待验，154 工具完整接受仍为 0。失败 scratch 的精确清理被自动审批拒绝，未绕过；见[阶段记录](../iterations/2026-10-17-inspect-011-pi.md)。

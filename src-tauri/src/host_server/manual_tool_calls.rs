@@ -76,6 +76,21 @@ fn fingerprint(request: &CapabilityInvokeRequest) -> String {
     )
 }
 impl Calls {
+    pub(super) fn invalidate_workspace(&self, workspace_id: &str) {
+        if let Ok(mut entries) = self.0.lock() {
+            for entry in entries.values_mut() {
+                if entry.scope.workspace_id == workspace_id {
+                    entry.flag.store(true, Ordering::Release);
+                    if entry.phase == Phase::Prepared {
+                        entry.phase = Phase::Finished;
+                        entry.changed = Instant::now();
+                        entry.outcome = Some("manual_call_not_started".into());
+                    }
+                }
+            }
+        }
+    }
+
     // Active leases never expire. Under the same lock as begin, seal prepared handles
     // or prove an absent handle cannot start. An instance mismatch proves nothing.
     fn reconcile(&self, scope: &Scope, id: &str, instance_id: &str) -> Result<Value, ApiError> {

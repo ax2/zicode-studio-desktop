@@ -151,6 +151,12 @@ impl ArchivePageCursors {
         }
     }
 
+    pub(crate) fn invalidate_runtime(&self, runtime_id: &str) {
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.retain(|_, entry| entry.binding.runtime_id != runtime_id);
+        }
+    }
+
     pub(crate) fn invalidate_all(&self) {
         if let Ok(mut pending) = self.pending.lock() {
             pending.clear();

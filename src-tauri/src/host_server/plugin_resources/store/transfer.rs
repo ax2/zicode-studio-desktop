@@ -4,9 +4,9 @@ const MAX_GRANTS: usize = 16;
 const TTL: Duration = Duration::from_secs(60);
 
 pub(super) struct Grant {
-    source: Access,
+    pub(super) source: Access,
     source_proof: String,
-    target: Owner,
+    pub(super) target: Owner,
     target_proof: String,
     expires: Instant,
     result: Option<Access>,
@@ -34,11 +34,12 @@ impl Store {
                 return Err(rejected("resource_unavailable"));
             }
             self.check(&parent.access, &parent.proof)?;
-            pending.extend(self
-                .records
-                .get(&parent.access.resource_id)
-                .map(|r| r.parents.clone())
-                .unwrap_or_default());
+            pending.extend(
+                self.records
+                    .get(&parent.access.resource_id)
+                    .map(|r| r.parents.clone())
+                    .unwrap_or_default(),
+            );
             ancestors.push((parent.access, parent.proof));
         }
         Ok(ancestors)
@@ -86,7 +87,7 @@ impl Store {
         &mut self,
         source: &Access,
         id: &str,
-    ) -> Result<Owner, ApiError> {
+    ) -> Result<(Owner, String), ApiError> {
         self.transfers.retain(|_, g| g.expires > Instant::now());
         let grant = self
             .transfers
@@ -97,7 +98,13 @@ impl Store {
                     && g.source.content_version == source.content_version
             })
             .ok_or_else(|| rejected("resource_transfer_unavailable"))?;
-        Ok(grant.target.clone())
+        let mime = self
+            .records
+            .get(&source.resource_id)
+            .filter(|record| record.confirmed && record.version == source.content_version)
+            .map(|record| record.mime.clone())
+            .ok_or_else(|| rejected("resource_unavailable"))?;
+        Ok((grant.target.clone(), mime))
     }
 
     pub(in crate::host_server::plugin_resources) fn commit_transfer(
@@ -107,7 +114,7 @@ impl Store {
         source_proof: &str,
         target_proof: &str,
     ) -> Result<Value, ApiError> {
-        let target = self.transfer_target(source, id)?;
+        let (target, _) = self.transfer_target(source, id)?;
         self.check(source, source_proof)?;
         let grant = &self.transfers[id];
         if grant.source_proof != source_proof || grant.target_proof != target_proof {

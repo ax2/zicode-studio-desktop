@@ -8,6 +8,8 @@ ZiFile 现有 `Envelope<WorkerEvent>` 使用 `version:3`，事件为 `archive_st
 
 每行一条 UTF-8 JSON，以 LF 结束，事件对象**恰好**包含 `schemaVersion:1`、Host 提供的 `callId`、从 0 连续递增的 `sequence`、`type`、`payload`。`callId` 形式为 `archive-call-<UUIDv4>`。第一条必须是 `started`，最后一条必须是 `ended`；中间恰有一个 `result`、`error` 或 `cancelled` 终态。结束状态必须与终态相符。串调用、乱序、重复、无终态、终态后事件和额外字段均拒绝。
 
+任何对象层级均不得出现重复 JSON 键；比较在 JSON 字符串转义解码之后进行，例如 `sequence` 与 `se\u0071uence` 视为同名并拒绝。提供方命令行校验器与 Studio 内部 Rust 接收器均以 `invalid_json` 拒绝此类事件。上述限制不表示已开放 native 插件。
+
 | type | payload | 要求 |
 | --- | --- | --- |
 | `started` | `{operation}` | 六种操作：`list/test/create/extract/update/rename`，与 Host 预期一致 |

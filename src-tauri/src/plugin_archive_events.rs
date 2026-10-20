@@ -128,7 +128,7 @@ impl ArchiveEventDecoder {
         if line[..line.len() - 1].contains(&b'\n') {
             return Err("invalid_line_ending");
         }
-        let event: Value = serde_json::from_slice(line).map_err(|_| "invalid_json")?;
+        let event: Value = crate::plugin_json_decode::parse(line).map_err(|_| "invalid_json")?;
         fields(
             &event,
             &["schemaVersion", "callId", "sequence", "type", "payload"],

@@ -1,0 +1,63 @@
+{
+  "wasmSha256": "2df08c2a21a66a8598c9ec2b73493cf77d3e70c025ff305c79379a6303ec62b0",
+  "viewSha256": "eb518643d2c249024c9a1d23b8c8520e9836917c3383c48b8cdadd1ca4486961",
+  "browser": "msedge.exe",
+  "results": [
+    {
+      "theme": "light",
+      "width": 1180,
+      "height": 900,
+      "devicePixelRatio": 1,
+      "pass": true,
+      "calls": 11,
+      "actions": [
+        "java.threads",
+        "java.dependencies",
+        "java.gc",
+        "java.jfr_json",
+        "spring.config",
+        "django.migrations",
+        "django.sql",
+        "django.urls",
+        "django.openapi",
+        "django.checks",
+        "celery.report"
+      ],
+      "actualWasi": true,
+      "screenshot": "view-light.png",
+      "screenshotSha256": "6781751d19613dd51603a3d5006e0b9dad96152a1fec688ae31f81b84d6896df",
+      "pageErrors": []
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "devicePixelRatio": 1,
+      "pass": true,
+      "calls": 11,
+      "actions": [
+        "java.threads",
+        "java.dependencies",
+        "java.gc",
+        "java.jfr_json",
+        "spring.config",
+        "django.migrations",
+        "django.sql",
+        "django.urls",
+        "django.openapi",
+        "django.checks",
+        "celery.report"
+      ],
+      "actualWasi": true,
+      "screenshot": "view-dark.png",
+      "screenshotSha256": "e369ccc539585cadd48b42fd83a8ea9eb81fd74f8cecaa1ef90f1d36e53bd5e1",
+      "pageErrors": []
+    }
+  ],
+  "offlinePass": true,
+  "limitations": [
+    "Actual Chromium View with injected public SDK-shaped bridge",
+    "Each action invokes the actual WASI module through a loopback-only harness",
+    "Not Studio bridge, permissions, package lifecycle, or Host acceptance"
+  ]
+}

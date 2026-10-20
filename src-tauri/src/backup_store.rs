@@ -362,14 +362,16 @@ pub fn create_workspace_backup(
     workspace_id: &str,
     workspace_root: &Path,
 ) -> Result<WorkspaceBackup, String> {
-    create_workspace_backup_inner(workspace_id, workspace_root, true)
+    create_workspace_backup_inner(workspace_id, workspace_root, true, None)?
+        .ok_or_else(|| "Manual backup was unexpectedly skipped".to_string())
 }
 
 fn create_workspace_backup_inner(
     workspace_id: &str,
     workspace_root: &Path,
     prune: bool,
-) -> Result<WorkspaceBackup, String> {
+    skip_if_identical_to: Option<&WorkspaceBackup>,
+) -> Result<Option<WorkspaceBackup>, String> {
     validate_workspace_id(workspace_id)?;
     let data_root = workspace_root.join(".zicode");
     if !is_plain_directory(&data_root) {
@@ -409,6 +411,16 @@ fn create_workspace_backup_inner(
             return Err("This workspace has no app data to back up yet".to_string());
         }
         let content_sha256 = checksum_apps(&staging, &apps)?;
+        if skip_if_identical_to.is_some_and(|previous| {
+            previous.apps == apps
+                && previous.content_sha256.as_deref() == Some(content_sha256.as_str())
+                && is_plain_directory(&directory.join(&previous.id))
+                && backup_entries_match(&directory.join(&previous.id), previous)
+                && checksum_apps(&directory.join(&previous.id), &apps)
+                    .is_ok_and(|checksum| checksum == content_sha256)
+        }) {
+            return Ok(None);
+        }
         let info = WorkspaceBackup {
             format_version: CURRENT_BACKUP_FORMAT,
             id,
@@ -423,18 +435,26 @@ fn create_workspace_backup_inner(
         atomic_json_write(&staging.join("backup.json"), &info)?;
         fs::rename(&staging, &target)
             .map_err(|error| format!("Cannot finalize backup: {error}"))?;
-        Ok(info)
+        Ok(Some(info))
     })();
-    if result.is_err() {
-        let _ = fs::remove_dir_all(&staging);
-    }
-    let info = result?;
+    let info = match result {
+        Ok(Some(info)) => info,
+        Ok(None) => {
+            fs::remove_dir_all(&staging)
+                .map_err(|error| format!("Cannot remove unchanged backup staging: {error}"))?;
+            return Ok(None);
+        }
+        Err(error) => {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error);
+        }
+    };
     if prune {
         if let Err(error) = prune_old_backups(workspace_id, &[]) {
             log::warn!("Cannot prune workspace backups after creation: {error}");
         }
     }
-    Ok(info)
+    Ok(Some(info))
 }
 
 /// List backups for a workspace, newest first.
@@ -611,8 +631,12 @@ pub fn restore_workspace_backup(
     }
     // Keep the selected snapshot until restoration completes. A rollback
     // snapshot at the retention limit must not prune the selected source.
-    let pre_restore = match create_workspace_backup_inner(workspace_id, workspace_root, false) {
-        Ok(backup) => backup,
+    let pre_restore = match create_workspace_backup_inner(workspace_id, workspace_root, false, None) {
+        Ok(Some(backup)) => backup,
+        Ok(None) => {
+            let _ = fs::remove_dir_all(&staging);
+            return Err("Pre-restore backup was unexpectedly skipped".to_string());
+        }
         Err(error) => {
             let _ = fs::remove_dir_all(&staging);
             return Err(error);
@@ -697,17 +721,17 @@ pub fn backup_if_due(
     workspace_root: &Path,
     now_secs: u64,
 ) -> Result<Option<WorkspaceBackup>, String> {
-    if let Some(latest) = list_workspace_backups(workspace_id)?
+    let latest = list_workspace_backups(workspace_id)?
         .into_iter()
-        .find(has_restorable_metadata)
-    {
+        .find(has_restorable_metadata);
+    if let Some(latest) = &latest {
         if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(&latest.created_at) {
             if (now_secs as i64) < parsed.timestamp() + BACKUP_INTERVAL_SECS as i64 {
                 return Ok(None);
             }
         }
     }
-    create_workspace_backup(workspace_id, workspace_root).map(Some)
+    create_workspace_backup_inner(workspace_id, workspace_root, true, latest.as_ref())
 }
 
 #[cfg(test)]
@@ -795,9 +819,47 @@ mod tests {
         // Same day: no second backup.
         let again = backup_if_due(&workspace_id, &workspace, now + 3600).unwrap();
         assert!(again.is_none());
-        // One day later: due again.
+        // An unchanged workspace does not consume another full backup slot.
         let due = backup_if_due(&workspace_id, &workspace, now + 86_400 + 60).unwrap();
-        assert!(due.is_some());
+        assert!(due.is_none());
+        assert_eq!(list_workspace_backups(&workspace_id).unwrap().len(), 1);
+        assert_eq!(fs::read_dir(backups_root().unwrap().join(&workspace_id)).unwrap().count(), 1);
+        fs::write(workspace.join(".zicode").join("notes").join("a.md"), "changed").unwrap();
+        let changed = backup_if_due(&workspace_id, &workspace, now + 86_400 + 61).unwrap();
+        assert!(changed.is_some());
+        assert_eq!(list_workspace_backups(&workspace_id).unwrap().len(), 2);
+        cleanup(&workspace_id);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn automatic_backup_replaces_a_corrupt_latest_snapshot_even_when_source_is_unchanged() {
+        let root = test_root();
+        let workspace = root.join("ws-corrupt");
+        let workspace_id = unique_workspace_id("ws-corrupt");
+        let notes = workspace.join(".zicode").join("notes");
+        fs::create_dir_all(&notes).unwrap();
+        fs::write(notes.join("a.md"), "original").unwrap();
+        let first = create_workspace_backup(&workspace_id, &workspace).unwrap();
+        fs::write(
+            backups_root()
+                .unwrap()
+                .join(&workspace_id)
+                .join(&first.id)
+                .join("notes")
+                .join("a.md"),
+            "corrupted",
+        )
+        .unwrap();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let replacement = backup_if_due(&workspace_id, &workspace, now + 86_400 + 60)
+            .unwrap()
+            .unwrap();
+        assert_ne!(replacement.id, first.id);
+        assert_eq!(list_workspace_backups(&workspace_id).unwrap().len(), 2);
         cleanup(&workspace_id);
         let _ = fs::remove_dir_all(&root);
     }

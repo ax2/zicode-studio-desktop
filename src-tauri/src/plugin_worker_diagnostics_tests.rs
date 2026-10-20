@@ -44,6 +44,7 @@ fn measure_compute_timeout_candidates_in_current_engine() {
                 scene_id: "programming".into(),
                 capability_id: Some(case["capabilityId"].as_str().unwrap().into()),
                 command_id: None,
+                execution_profile: None,
                 input: case["input"].clone(),
             });
             let exact = result.as_ref().is_ok_and(|value| {
@@ -109,6 +110,7 @@ fn measure_diagnostics_candidate_in_actual_engine() {
             scene_id: "programming".into(),
             capability_id: Some(format!("devtools.diagnostics.{id}")),
             command_id: None,
+            execution_profile: None,
             input: json!({"text":action["text"],"secondary":action["secondary"]}),
         });
         let code = match &result {
@@ -132,4 +134,101 @@ fn measure_diagnostics_candidate_in_actual_engine() {
         serde_json::to_writer_pretty(file, &json!({"observationCompleted":true,"rows":results,
             "profileAccepted":false,"hostDeadlineTested":false,"fuel":10000000,"guestMemoryMiB":64})).unwrap();
     }
+}
+
+#[test]
+#[ignore = "frozen Diagnostics 0.1.4 module in Studio Wasmtime; no Host/Pi acceptance"]
+fn diagnostics_candidate014_runs_eleven_samples_with_output_contract() {
+    use crate::plugin_capabilities::output_contract;
+    use crate::plugin_registry::PluginCapabilityDescriptor;
+    use sha2::{Digest, Sha256};
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/fixtures/devtools-diagnostics-0.1.4-candidate-01");
+    let module = root.join("runtime/tools.wasm");
+    let module_sha256 = format!("{:x}", Sha256::digest(fs::read(&module).unwrap()));
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("plugin.json")).unwrap()).unwrap();
+    let html = fs::read_to_string(root.join("views/main.html")).unwrap();
+    let actions: Vec<Value> = serde_json::from_str(
+        html.split("const actions = ")
+            .nth(1)
+            .unwrap()
+            .split("; // diagnostic-actions-end")
+            .next()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(actions.len(), 11);
+    let mut rows = Vec::new();
+    for action in actions {
+        let id = action["id"].as_str().unwrap();
+        let capability_id = format!("devtools.diagnostics.{id}");
+        let declared = manifest["contributes"]["capabilities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|capability| capability["id"] == capability_id)
+            .unwrap();
+        let descriptor: PluginCapabilityDescriptor = serde_json::from_value(json!({
+            "pluginId": "com.zicode.devtools.diagnostics",
+            "id": capability_id,
+            "title": declared["title"],
+            "inputSchema": declared["inputSchema"],
+            "outputSchema": declared["outputSchema"],
+            "maxResultBytes": declared["maxResultBytes"]
+        }))
+        .unwrap();
+        let mut input = json!({"text":action["text"]});
+        if declared["inputSchema"]["properties"]
+            .get("secondary")
+            .is_some()
+        {
+            input["secondary"] = action["secondary"].clone();
+        }
+        let started = Instant::now();
+        let result = execute_wasi(&WorkerRequest {
+            worker_path: module.to_string_lossy().into_owned(),
+            worker_kind: "wasi".into(),
+            plugin_id: "com.zicode.devtools.diagnostics".into(),
+            scene_id: "programming".into(),
+            capability_id: Some(capability_id),
+            command_id: None,
+            execution_profile: None,
+            input,
+        });
+        let outcome = match &result {
+            Ok(value) if value["ok"] == true => {
+                if output_contract::validate_result(&descriptor, value).is_err() {
+                    "output_contract_rejected"
+                } else if value["data"]["text"]
+                    .as_str()
+                    .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                    .is_some_and(|report| report.is_object())
+                {
+                    "report"
+                } else {
+                    "invalid_report_text"
+                }
+            }
+            Ok(_) => "provider_error",
+            Err(error) => failures::public(Some(error)).0,
+        };
+        eprintln!("Diagnostics 0.1.4 Studio engine {id}: {outcome}");
+        rows.push(json!({"id":id,"outcome":outcome,"durationMs":started.elapsed().as_millis()}));
+    }
+    if let Some(path) = std::env::var_os("ZICODE_DIAGNOSTIC_014_ENGINE_EVIDENCE") {
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .unwrap();
+        serde_json::to_writer_pretty(
+            file,
+            &json!({"moduleSha256":module_sha256,"rows":rows,
+            "hostDeadlineTested":false,"piAccepted":false,"fuel":10000000,"guestMemoryMiB":64}),
+        )
+        .unwrap();
+    }
+    assert!(rows.iter().all(|row| row["outcome"] == "report"));
 }

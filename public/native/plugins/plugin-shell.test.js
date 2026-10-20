@@ -31,6 +31,46 @@ function registry() {
 
 const originalMatchMedia = globalThis.matchMedia;
 
+it("revalidates a View operation before navigation and records recent only after acknowledgement", async () => {
+  const target = { sceneId: "programming", workspaceId: "fixture", sessionId: "session-a" };
+  const pluginId = "com.example.view-operation";
+  const testRegistry = new BuiltinPluginRegistry({
+    plugins: [{ id: "core.chat", name: "Chat", core: true, enabledByDefault: true },
+      { id: pluginId, name: "View App", version: "0.1.0", enabledByDefault: true, hasActivity: true,
+        viewOperationDirectoryProfile: true,
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        viewOperations: [{ id: "fixture.health", title: "Health", viewId: "fixture.main" }] }],
+    storage: { getItem: () => null, setItem: () => {} },
+  });
+  const operation = { kind: "view-operation", toolId: "view-1", accessId: "view.operation:1",
+    pluginId, operationId: "fixture.health", viewId: "fixture.main", title: "Health",
+    applicationName: "View App", publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "view" };
+  const gateway = { searchTools: vi.fn(async () => ({ items: [operation], total: 1,
+    revision: "rev", nextOffset: null })), loadTool: vi.fn(), invoke: vi.fn() };
+  const access = { schemaVersion: 1, revision: 0, favorites: [], recent: [] };
+  const toolAccessStore = { read: vi.fn(async () => access), mutate: vi.fn(async () => access) };
+  const pluginViewHost = { openViewOperation: vi.fn(() => true), setTarget: vi.fn(), destroy: vi.fn() };
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, toolAccessStore, getTarget: () => target });
+  try {
+    expect(await shell.openManualTool(operation, "rev", target)).toBe(true);
+    expect(gateway.searchTools).toHaveBeenCalledWith("programming", { query: "fixture.health",
+      pluginId, offset: 0, revision: "rev", includeViewOperations: true });
+    expect(pluginViewHost.openViewOperation).toHaveBeenCalledWith(expect.objectContaining({ id: pluginId }),
+      "fixture.health", "fixture.main", expect.any(Function), expect.any(Function));
+    expect(toolAccessStore.mutate).not.toHaveBeenCalled();
+    pluginViewHost.openViewOperation.mock.calls[0][3]();
+    await vi.waitFor(() => expect(toolAccessStore.mutate).toHaveBeenCalledWith(target,
+      { kind: "recentRecord", id: "view.operation:1" }));
+    expect(gateway.loadTool).not.toHaveBeenCalled();
+    expect(gateway.invoke).not.toHaveBeenCalled();
+    await expect(shell.openManualTool(operation, "rev", { ...target, workspaceId: "other" })).rejects.toThrow();
+    expect(pluginViewHost.openViewOperation).toHaveBeenCalledTimes(1);
+  } finally {
+    shell.destroy();
+  }
+});
+
 it("opens a scoped concrete tool without remounting its existing draft or executing", async () => {
   const target = {sceneId:"programming",workspaceId:"fixture"};
   const gateway = {
@@ -54,6 +94,302 @@ it("opens a scoped concrete tool without remounting its existing draft or execut
   expect(gateway.loadTool).toHaveBeenCalledTimes(1);
   await expect(shell.openManualTool(tool,"rev",{...target,workspaceId:"other"})).rejects.toThrow();
   shell.destroy();
+});
+
+it("does not send an old directory choice into a workspace entered during app activation", async () => {
+  let target = { sceneId: "programming", workspaceId: "first", sessionId: "session-a" };
+  const pluginId = "com.example.tool-open";
+  const testRegistry = new BuiltinPluginRegistry({
+    plugins: [{ id: "core.chat", name: "Chat", core: true, enabledByDefault: true },
+      { id: pluginId, name: "Tool App", version: "0.1.0", enabledByDefault: true, hasActivity: true,
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        capabilities: [{ id: "fixture.run", title: "Run" }], toolOpenProfile: true }],
+    storage: { getItem: () => null, setItem: () => {} },
+  });
+  const tool = { toolId: "fixture.run", accessId: `manual.tool:${pluginId}`,
+    pluginId, capabilityId: "fixture.run", title: "Run", applicationName: "Tool App",
+    publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "wasi" };
+  const gateway = {
+    searchTools: vi.fn(async () => ({ items: [tool], total: 1, revision: "rev", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "rev", enabled: true,
+      capability: { id: "fixture.run", inputSchema: { type: "object", properties: {} } }, permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const pluginViewHost = { openTool: vi.fn(), setTarget: vi.fn(), destroy: vi.fn() };
+  const notify = vi.fn();
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, getTarget: () => target, notify });
+  try {
+    await shell.activate("core.tools");
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Run"));
+    const button = (label) => [...document.querySelectorAll("button")]
+      .find((candidate) => candidate.textContent === label);
+    button("Open tool").click();
+    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    button("Open application").click();
+    target = { sceneId: "programming", workspaceId: "second", sessionId: "session-b" };
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+      "Tool changed. Reload its details before retrying."));
+    expect(pluginViewHost.openTool).not.toHaveBeenCalled();
+    expect(gateway.invoke).not.toHaveBeenCalled();
+  } finally {
+    shell.destroy();
+  }
+});
+
+it("records a direct application tool only after its View confirms the current target", async () => {
+  let target = { sceneId: "programming", workspaceId: "first", sessionId: "session-a" };
+  const pluginId = "com.example.recent-tool";
+  const testRegistry = new BuiltinPluginRegistry({
+    plugins: [{ id: "core.chat", name: "Chat", core: true, enabledByDefault: true },
+      { id: pluginId, name: "Tool App", version: "0.1.0", enabledByDefault: true, hasActivity: true,
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        capabilities: [{ id: "fixture.run", title: "Run" }], toolOpenProfile: true },
+      { id: "com.example.other", name: "Other", enabledByDefault: true }],
+    storage: { getItem: () => null, setItem: () => {} },
+  });
+  const tool = { toolId: "fixture.run", accessId: `manual.tool:${pluginId}`,
+    pluginId, capabilityId: "fixture.run", title: "Run", applicationName: "Tool App",
+    publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "wasi" };
+  const gateway = {
+    searchTools: vi.fn(async () => ({ items: [tool], total: 1, revision: "rev", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "rev", enabled: true,
+      capability: { id: "fixture.run", inputSchema: { type: "object", properties: {} } }, permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const access = { schemaVersion: 1, revision: 0, favorites: [], recent: [] };
+  const toolAccessStore = { read: vi.fn(async () => access), mutate: vi.fn(async () => access) };
+  const pluginViewHost = { openTool: vi.fn(() => true), setTarget: vi.fn(), destroy: vi.fn() };
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, toolAccessStore, getTarget: () => target });
+  const openApplication = async () => {
+    const previousOpens = pluginViewHost.openTool.mock.calls.length;
+    await shell.activate("core.tools");
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Run"));
+    const button = label => [...document.querySelectorAll("button")]
+      .find(candidate => candidate.textContent === label);
+    button("Open tool").click();
+    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    button("Open application").click();
+    await vi.waitFor(() => expect(pluginViewHost.openTool).toHaveBeenCalledTimes(previousOpens + 1));
+    return pluginViewHost.openTool.mock.calls.at(-1)[2];
+  };
+  try {
+    const oldConfirmation = await openApplication();
+    expect(toolAccessStore.mutate).not.toHaveBeenCalled();
+    target = { ...target, workspaceId: "second" };
+    oldConfirmation();
+    await Promise.resolve();
+    expect(toolAccessStore.mutate).not.toHaveBeenCalled();
+    const staleConfirmation = await openApplication();
+    await testRegistry.setEnabled("com.example.other", false);
+    staleConfirmation();
+    await Promise.resolve();
+    expect(toolAccessStore.mutate).not.toHaveBeenCalled();
+    const currentConfirmation = await openApplication();
+    currentConfirmation();
+    await vi.waitFor(() => expect(toolAccessStore.mutate).toHaveBeenCalledWith(
+      { sceneId: "programming", workspaceId: "second" }, { kind: "recentRecord", id: expect.any(String) }));
+    expect(gateway.invoke).not.toHaveBeenCalled();
+  } finally {
+    shell.destroy();
+  }
+});
+
+it("does not send a stale tool choice to an upgraded plugin view", async () => {
+  const target = { sceneId: "programming", workspaceId: "fixture", sessionId: "session-a" };
+  const pluginId = "com.example.tool-open-version";
+  const testRegistry = new BuiltinPluginRegistry({
+    plugins: [{ id: "core.chat", name: "Chat", core: true, enabledByDefault: true },
+      { id: pluginId, name: "Tool App", version: "0.1.0", enabledByDefault: true, hasActivity: true,
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        capabilities: [{ id: "fixture.run", title: "Run" }], toolOpenProfile: true }],
+    storage: { getItem: () => null, setItem: () => {} },
+  });
+  let upgradeDuringNavigation = false;
+  let versionReads = 0;
+  const getPlugin = testRegistry.get.bind(testRegistry);
+  vi.spyOn(testRegistry, "get").mockImplementation((id) => {
+    const plugin = getPlugin(id);
+    if (upgradeDuringNavigation && id === pluginId && ++versionReads > 1) plugin.version = "0.2.0";
+    return plugin;
+  });
+  const tool = { toolId: "fixture.run", accessId: `manual.tool:${pluginId}`,
+    pluginId, capabilityId: "fixture.run", title: "Run", applicationName: "Tool App",
+    publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "wasi" };
+  const gateway = {
+    searchTools: vi.fn(async () => ({ items: [tool], total: 1, revision: "rev", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "rev", enabled: true,
+      capability: { id: "fixture.run", inputSchema: { type: "object", properties: {} } }, permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const pluginViewHost = { openTool: vi.fn(), setTarget: vi.fn(), destroy: vi.fn() };
+  const notify = vi.fn();
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, getTarget: () => target, notify });
+  try {
+    await shell.activate("core.tools");
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Run"));
+    const button = (label) => [...document.querySelectorAll("button")]
+      .find((candidate) => candidate.textContent === label);
+    button("Open tool").click();
+    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    upgradeDuringNavigation = true;
+    button("Open application").click();
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+      "Tool changed. Reload its details before retrying."));
+    expect(versionReads).toBeGreaterThan(1);
+    expect(pluginViewHost.openTool).not.toHaveBeenCalled();
+    expect(gateway.invoke).not.toHaveBeenCalled();
+  } finally {
+    shell.destroy();
+  }
+});
+
+it("rejects a directory choice when the catalog changes during application activation", async () => {
+  const target = { sceneId: "programming", workspaceId: "fixture", sessionId: "session-a" };
+  const pluginId = "com.example.same-version";
+  const testRegistry = new BuiltinPluginRegistry({
+    plugins: [{ id: "core.chat", name: "Chat", core: true, enabledByDefault: true },
+      { id: pluginId, name: "Tool App", version: "0.1.0", enabledByDefault: true, hasActivity: true,
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        capabilities: [{ id: "fixture.run", title: "Run" }], toolOpenProfile: true },
+      { id: "com.example.other", name: "Other", enabledByDefault: true }],
+    storage: { getItem: () => null, setItem: () => {} },
+  });
+  const tool = { toolId: "fixture.run", accessId: `manual.tool:${pluginId}`,
+    pluginId, capabilityId: "fixture.run", title: "Run", applicationName: "Tool App",
+    publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "wasi" };
+  const gateway = {
+    searchTools: vi.fn(async () => ({ items: [tool], total: 1, revision: "rev", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "rev", enabled: true,
+      capability: { id: "fixture.run", inputSchema: { type: "object", properties: {} } }, permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const pluginViewHost = { openTool: vi.fn(), setTarget: vi.fn(), destroy: vi.fn() };
+  const notify = vi.fn();
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, getTarget: () => target, notify });
+  const refreshDuringActivation = event => {
+    if (event.detail?.pluginId === pluginId) void testRegistry.setEnabled("com.example.other", false);
+  };
+  try {
+    await shell.activate("core.tools");
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Run"));
+    const button = label => [...document.querySelectorAll("button")]
+      .find(candidate => candidate.textContent === label);
+    button("Open tool").click();
+    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    document.addEventListener("zicode:active-plugin-changed", refreshDuringActivation);
+    button("Open application").click();
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+      "Tool changed. Reload its details before retrying."));
+    expect(testRegistry.get(pluginId).version).toBe("0.1.0");
+    expect(pluginViewHost.openTool).not.toHaveBeenCalled();
+    expect(gateway.invoke).not.toHaveBeenCalled();
+  } finally {
+    document.removeEventListener("zicode:active-plugin-changed", refreshDuringActivation);
+    shell.destroy();
+  }
+});
+
+it("keeps the shell usable when a tool application fails during direct opening", async () => {
+  const target = { sceneId: "programming", workspaceId: "fixture", sessionId: "session-a" };
+  const pluginId = "com.example.tool-open-failure";
+  const testRegistry = new BuiltinPluginRegistry({
+    plugins: [{ id: "core.chat", name: "Chat", core: true, enabledByDefault: true },
+      { id: pluginId, name: "Tool App", version: "0.1.0", enabledByDefault: true, hasActivity: true,
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        capabilities: [{ id: "fixture.run", title: "Run" }], toolOpenProfile: true }],
+    storage: { getItem: () => null, setItem: () => {} },
+  });
+  const tool = { toolId: "fixture.run", accessId: `manual.tool:${pluginId}`,
+    pluginId, capabilityId: "fixture.run", title: "Run", applicationName: "Tool App",
+    publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "wasi" };
+  const gateway = {
+    searchTools: vi.fn(async () => ({ items: [tool], total: 1, revision: "rev", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "rev", enabled: true,
+      capability: { id: "fixture.run", inputSchema: { type: "object", properties: {} } }, permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const pluginViewHost = { openTool: vi.fn(() => { throw new Error("private plugin failure"); }),
+    setTarget: vi.fn(), destroy: vi.fn() };
+  const notify = vi.fn();
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, getTarget: () => target, notify });
+  try {
+    await shell.activate("core.tools");
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Run"));
+    const button = (label) => [...document.querySelectorAll("button")]
+      .find((candidate) => candidate.textContent === label);
+    button("Open tool").click();
+    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    button("Open application").click();
+    await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+      "Could not open this application. Try again."));
+    expect(notify).not.toHaveBeenCalledWith("private plugin failure");
+    expect(gateway.invoke).not.toHaveBeenCalled();
+    await shell.activate("core.chat");
+    expect(shell.getActivePluginId()).toBe("core.chat");
+    await shell.activate("core.tools");
+    expect(shell.getActivePluginId()).toBe("core.tools");
+  } finally {
+    shell.destroy();
+  }
+});
+
+it("contains a developer view render failure and keeps other shell destinations available", async () => {
+  const pluginId = "com.example.failed-view";
+  const target = { sceneId: "programming", workspaceId: "fixture", sessionId: "session-a" };
+  const testRegistry = new BuiltinPluginRegistry({
+    storage: { getItem: () => null, setItem: () => {} },
+    hostGateway: { list: vi.fn(async () => ({ diagnostics: [], plugins: [{
+      id: pluginId, name: "Failed View", version: "0.1.0", publisher: "Fixture",
+      origin: "developer", enabled: true, requiredProfiles: { "tool.open.v1": "=1.0.0-preview.1" },
+      contributes: { activities: [{ id: "fixture", title: "Fixture" }],
+        views: [{ id: "fixture.main", location: "main", entry: "views/main.html" }],
+        capabilities: [{ id: "fixture.run", title: "Run" }] },
+    }] })) },
+  });
+  const tool = { toolId: "fixture.run", accessId: `manual.tool:${pluginId}`,
+    pluginId, capabilityId: "fixture.run", title: "Run", applicationName: "Failed View",
+    publisher: "Fixture", version: "0.1.0", enabled: true, runtime: "wasi" };
+  const gateway = {
+    searchTools: vi.fn(async () => ({ items: [tool], total: 1, revision: "rev", nextOffset: null })),
+    loadTool: vi.fn(async () => ({ pluginId, version: "0.1.0", revision: "rev", enabled: true,
+      capability: { id: "fixture.run", inputSchema: { type: "object", properties: {} } }, permissions: [] })),
+    invoke: vi.fn(),
+  };
+  const pluginViewHost = {
+    renderNavigation: vi.fn(() => { throw new Error("private sidebar failure"); }),
+    renderContent: vi.fn(() => { throw new Error("private main failure"); }),
+    openTool: vi.fn(), deactivate: vi.fn(), setTarget: vi.fn(), destroy: vi.fn(),
+  };
+  const notify = vi.fn();
+  const shell = setupPluginShell({ registry: testRegistry, capabilityGateway: gateway,
+    pluginViewHost, getTarget: () => target, notify });
+  try {
+    await vi.waitFor(() => expect(testRegistry.get(pluginId)?.enabled).toBe(true));
+    await shell.activate("core.tools");
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Run"));
+    const button = (label) => [...document.querySelectorAll("button")]
+      .find((candidate) => candidate.textContent === label);
+    button("Open tool").click();
+    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    button("Open application").click();
+    await vi.waitFor(() => expect(shell.getActivePluginId()).toBe(pluginId));
+    expect(document.body.textContent).toContain("Plugin view could not be loaded");
+    expect(notify).toHaveBeenCalledWith("Plugin view could not be loaded");
+    expect(pluginViewHost.openTool).not.toHaveBeenCalled();
+    expect(gateway.invoke).not.toHaveBeenCalled();
+    expect(JSON.stringify(notify.mock.calls)).not.toContain("private main failure");
+    await shell.activate("core.chat");
+    expect(shell.getActivePluginId()).toBe("core.chat");
+    await shell.activate("core.tools");
+    expect(shell.getActivePluginId()).toBe("core.tools");
+  } finally {
+    shell.destroy();
+  }
 });
 
 beforeEach(() => {

@@ -1,0 +1,1 @@
+{"pluginId":"com.zicode.devtools.trace","sceneId":"coding","capabilityId":"devtools.trace.java.trace","commandId":null,"input":{"text":"Exception in thread \"main\" java.lang.OutOfMemoryError: heap\n\tat java.base/java.lang.Thread.run(Native Method)\njava.io.IOException: separate"}}

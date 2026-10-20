@@ -13,14 +13,27 @@ fn pi_catalog_ranks_exact_tools_before_broad_description_matches() {
         }
     };
     let tools = vec![
-        tool("com.example.archive", "archive.list", "List archive", "Base64 archive data"),
+        tool(
+            "com.example.archive",
+            "archive.list",
+            "List archive",
+            "Base64 archive data",
+        ),
         tool("com.example.text", "text.base64", "Base64", "Encode text"),
-        tool("com.example.text", "text.base64.decode", "Decode Base64", "Decode text"),
+        tool(
+            "com.example.text",
+            "text.base64.decode",
+            "Decode Base64",
+            "Decode text",
+        ),
     ];
     let query = tool_search::normalize_query("ＢＡＳＥ６４");
     let matches = ranked_matches(&tools, &SearchIndex::new(), &query);
     assert_eq!(
-        matches.iter().map(|item| item.capability.as_str()).collect::<Vec<_>>(),
+        matches
+            .iter()
+            .map(|item| item.capability.as_str())
+            .collect::<Vec<_>>(),
         vec!["text.base64", "text.base64.decode", "archive.list"]
     );
 }
@@ -211,12 +224,17 @@ async fn real_http_contract_changes_invalidate_cursor_load_and_invocation() {
         "categoryId":"text","aliases":["未注册别名"]
     });
     install(&manifest);
-    assert_eq!(post(&client, &search_url, &new_alias_search).await.1["revision"],
-        current_alias_page["revision"]);
+    assert_eq!(
+        post(&client, &search_url, &new_alias_search).await.1["revision"],
+        current_alias_page["revision"]
+    );
     let stale_load = json!({"schemaVersion":1,"runtimeId":target.instance_id,
         "sessionId":target.session_id,"revision":old_revision,
         "toolId":serde_json::to_string(&("com.synthetic.revision", "revision.0")).unwrap()});
-    assert_eq!(post(&client, &load_url, &stale_load).await.0, StatusCode::CONFLICT);
+    assert_eq!(
+        post(&client, &load_url, &stale_load).await.0,
+        StatusCode::CONFLICT
+    );
     receipts.push(json!({"change":"directory-alias","oldAliasRemoved":true,
         "newRevision":true,"unregisteredDirectoryStable":true,"staleLoadStatus":409}));
     host.state.runtimes.stop(&target).unwrap();
@@ -321,6 +339,28 @@ async fn real_http_catalog_pages_thousand_authorized_tools_and_rechecks_grants()
             .status(),
         StatusCode::UNAUTHORIZED
     );
+    let occupied: Vec<_> = (0..4)
+        .map(|_| {
+            host.state
+                .plugin_catalog_search_slots
+                .clone()
+                .try_acquire_owned()
+                .unwrap()
+        })
+        .collect();
+    let busy = client
+        .post(&search_url)
+        .bearer_auth(token)
+        .json(&request)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(busy.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(
+        busy.json::<Value>().await.unwrap()["error"]["code"],
+        "catalog_busy"
+    );
+    drop(occupied);
     let mut ids = HashSet::new();
     let mut first_cursor = None;
     let mut revision: String;

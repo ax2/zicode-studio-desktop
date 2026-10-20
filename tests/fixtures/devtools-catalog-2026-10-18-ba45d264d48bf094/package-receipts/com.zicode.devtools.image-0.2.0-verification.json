@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "packageId": "com.zicode.devtools.image",
+  "packageVersion": "0.2.0",
+  "historicalBaseline": {
+    "path": "release/plugin-candidates/image-resize-0.1.1-candidate-02",
+    "receiptPath": "release/plugin-candidates/image-resize-0.1.1-candidate-02-verification.json",
+    "receiptSha256": "9934cd3eb751fac04f064c141b696d70ffdbbc0dad503c397b0ba8c77d688ecb",
+    "packageId": "com.zicode.devtools.image",
+    "packageVersion": "0.1.1",
+    "fileCount": 7,
+    "totalBytes": 1036667,
+    "candidateTreeSha256": "ef8cfd90cb11e6685f0e32e89e55f10ec53af564468f0bfde6cae025baace257",
+    "directoryIndexSha256": "ef8cfd90cb11e6685f0e32e89e55f10ec53af564468f0bfde6cae025baace257",
+    "directoryIndexStatus": "encoding-unverified",
+    "signature": "unsigned-or-unverified",
+    "runtimeAccepted": false
+  },
+  "files": [
+    {
+      "path": "LICENSE",
+      "size": 1097,
+      "sha256": "9c2c89b705d4867136b15febaedc94a0ab4cfc32e98ad05f11abe8d837310732"
+    },
+    {
+      "path": "README.md",
+      "size": 2330,
+      "sha256": "97dcbe820e005590ef7e6b79c3fdda0b58f5e90f78a4fc7124df97166da10f94"
+    },
+    {
+      "path": "catalog.json",
+      "size": 1048,
+      "sha256": "63fbc12c4d3c9985f0dd4b16987692de32bde7da42ba02b07e0e21894a8699dd"
+    },
+    {
+      "path": "plugin.json",
+      "size": 4334,
+      "sha256": "4fabcad132624b8423c3f32619e8669ecb144666d75a00afa8d8738136a250d2"
+    },
+    {
+      "path": "runtime/tools.wasm",
+      "size": 1038933,
+      "sha256": "c21151d3b84237ab93e386c979235b525ad451218aa1934b0a128fa225b85f63"
+    },
+    {
+      "path": "schemas/resize-input.schema.json",
+      "size": 671,
+      "sha256": "6fc3d6f36f407e5cfdb176bfb963b29a95b845606cbdd9dc1f507b75fd6a35f8"
+    },
+    {
+      "path": "schemas/resize-output.schema.json",
+      "size": 877,
+      "sha256": "d929f3e54f53d6b01f1da15fa2d022302740261de976f4e4297e2b05f880ca00"
+    },
+    {
+      "path": "verification/baseline-receipt.json",
+      "size": 7298,
+      "sha256": "9934cd3eb751fac04f064c141b696d70ffdbbc0dad503c397b0ba8c77d688ecb"
+    },
+    {
+      "path": "verification/runtime-proof.json",
+      "size": 28152,
+      "sha256": "84fcc7c553d2451ae4e3f66b1283a87993b5a69fd0428492365a7a7294635fd6"
+    },
+    {
+      "path": "verification/source-provenance.json",
+      "size": 1869,
+      "sha256": "eecaef6236c68201d26dcfb565fbf4f2f97c76c5543b62e64e658f262ed2bccd"
+    },
+    {
+      "path": "verification/tool-directory-snapshot.json",
+      "size": 515,
+      "sha256": "108694d54a6948c165dbb2c6e549a3016126a88ffba0ba5c7be7de06461412d8"
+    }
+  ],
+  "directoryIndexEncoding": {
+    "hash": "SHA-256",
+    "encoding": "UTF-8",
+    "content": "files array in listed order",
+    "objectKeyOrder": [
+      "path",
+      "size",
+      "sha256"
+    ],
+    "ensureAscii": false,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "trailingNewline": false
+  },
+  "directoryIndexSha256": "23cd5a17250ad50261146d1fb4ea0ad3f977220f7d1bb18a57fc129acce7470c",
+  "wasmSha256": "c21151d3b84237ab93e386c979235b525ad451218aa1934b0a128fa225b85f63",
+  "signatureVerified": false,
+  "runtimeAccepted": false,
+  "fullToolAcceptance": false,
+  "limitations": [
+    "Unsigned provider candidate; no installation or native Studio acceptance",
+    "New numeric adapter; source image-workflow 0.12.0 has broader scope than this single capability",
+    "Historical Worker claims retained as provenance, not newly reproduced or validated against current Host binaries",
+    "New direct WASI cases cover small format/parameter fixtures, not full 16MP/deadline/concurrency acceptance"
+  ]
+}

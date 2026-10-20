@@ -3,6 +3,28 @@ use super::*;
 mod cancellation;
 use futures_util::{SinkExt, StreamExt};
 use std::fs;
+
+#[test]
+fn local_file_import_uses_image_bytes_and_validated_text_hint() {
+    let mut png = Vec::new();
+    image::DynamicImage::new_rgba8(2, 2)
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    assert_eq!(mime_for_local_file("renamed.bin", &png), "image/png");
+    assert_eq!(
+        mime_for_local_file("fake.png", b"not an image"),
+        "application/octet-stream"
+    );
+    assert_eq!(
+        mime_for_local_file("note.TXT", "你好".as_bytes()),
+        "text/plain"
+    );
+    assert_eq!(
+        mime_for_local_file("note.txt", &[0xff]),
+        "application/octet-stream"
+    );
+    assert_eq!(mime_for_local_file("data.csv", b"a,b\n1,2"), "text/csv");
+}
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
@@ -60,8 +82,22 @@ fn request(id: String) -> FileGrant {
 #[test]
 fn portable_names_and_schemas_never_accept_paths_or_extra_authority() {
     for value in [
-        "", "/a", "../a", "a/../b", "a//b", "C:/a", "a\\b", "a:stream", "a\0b", "a.", "a ",
-        "NUL.txt", "COM1", "COM¹.txt", "nested/LPT².log", "a/*",
+        "",
+        "/a",
+        "../a",
+        "a/../b",
+        "a//b",
+        "C:/a",
+        "a\\b",
+        "a:stream",
+        "a\0b",
+        "a.",
+        "a ",
+        "NUL.txt",
+        "COM1",
+        "COM¹.txt",
+        "nested/LPT².log",
+        "a/*",
     ] {
         assert!(files::components(value).is_err(), "{value:?}");
     }
@@ -140,7 +176,12 @@ fn grants_are_bounded_expiring_one_use_and_wrong_owner_cannot_consume_them() {
 fn imported_bytes_use_existing_quota_hash_revoke_and_confirmation_semantics() {
     let mut store = Store::default();
     let result = store
-        .import_file(owner(), "proof".into(), b"abcd".to_vec())
+        .import_file(
+            owner(),
+            "proof".into(),
+            b"abcd".to_vec(),
+            "application/octet-stream",
+        )
         .unwrap();
     let access: Access = serde_json::from_value(result["access"].clone()).unwrap();
     assert_eq!(access.content_version, sha256_hex(b"abcd"));
@@ -149,9 +190,13 @@ fn imported_bytes_use_existing_quota_hash_revoke_and_confirmation_semantics() {
     store.revoke(&access).unwrap();
     assert!(store.snapshot(&access, "proof").is_err());
     for _ in 0..32 {
-        store.import_file(owner(), "proof".into(), vec![]).unwrap();
+        store
+            .import_file(owner(), "proof".into(), vec![], "application/octet-stream")
+            .unwrap();
     }
-    assert!(store.import_file(owner(), "proof".into(), vec![]).is_err());
+    assert!(store
+        .import_file(owner(), "proof".into(), vec![], "application/octet-stream")
+        .is_err());
     assert_eq!(store.record_count(), 32);
 }
 
@@ -281,7 +326,12 @@ async fn http(actual: bool) {
             )
             .unwrap();
         registry
-            .set_permission("programming", manifest["id"].as_str().unwrap(), "resource.directory.read", true)
+            .set_permission(
+                "programming",
+                manifest["id"].as_str().unwrap(),
+                "resource.directory.read",
+                true,
+            )
             .unwrap();
         registry
             .set_enabled("programming", manifest["id"].as_str().unwrap(), true)
@@ -354,7 +404,9 @@ async fn http(actual: bool) {
     };
     let owner = json!({"runtimeId":target.instance_id,"sessionId":target.session_id,"pluginId":manifest["id"],"capabilityId":"resource.inspect"});
     let prepare = json!({"schemaVersion":1,"owner":owner,"relativePath":"中文 空格&.zip"});
-    if !actual { cancellation_http::verify(&host, &client, &prepare).await; }
+    if !actual {
+        cancellation_http::verify(&host, &client, &prepare).await;
+    }
     assert_eq!(
         client
             .post(format!(
@@ -515,52 +567,166 @@ async fn http(actual: bool) {
     if !actual {
         fs::create_dir(f.0.join("selected-directory")).unwrap();
         fs::write(f.0.join("selected-directory/entry.txt"), b"private content").unwrap();
-        let directory_request = json!({"schemaVersion":1,"owner":owner,"relativePath":"selected-directory"});
-        assert_eq!(client.post(format!("{}/v2/plugin-resources/prepare-local-directory", host.origin()))
-            .bearer_auth("provider-token").json(&directory_request).send().await.unwrap().status(),
-            StatusCode::FORBIDDEN);
+        let directory_request =
+            json!({"schemaVersion":1,"owner":owner,"relativePath":"selected-directory"});
+        assert_eq!(
+            client
+                .post(format!(
+                    "{}/v2/plugin-resources/prepare-local-directory",
+                    host.origin()
+                ))
+                .bearer_auth("provider-token")
+                .json(&directory_request)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
         let preview: Value = post("prepare-local-directory", directory_request.clone())
-            .await.unwrap().json().await.unwrap();
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
         assert_eq!(preview["entryNamesRead"], false, "{preview}");
         assert!(!preview.to_string().contains("entry.txt"));
-        let confirmed = json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"],"confirmed":true});
+        let confirmed =
+            json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"],"confirmed":true});
         let imported: Value = post("commit-local-directory", confirmed.clone())
-            .await.unwrap().json().await.unwrap();
-        assert_eq!(imported["profile"], "resource.local-directory.draft1", "{imported}");
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(
+            imported["profile"], "resource.local-directory.draft1",
+            "{imported}"
+        );
         assert_eq!(imported["entryCount"], 1);
         assert!(!imported.to_string().contains(f.0.to_str().unwrap()));
-        let read: Value = post("read-view", json!({"access":imported["access"],"offset":0,"length":4096}))
-            .await.unwrap().json().await.unwrap();
-        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD,
-            read["dataBase64"].as_str().unwrap()).unwrap();
+        let read: Value = post(
+            "read-view",
+            json!({"access":imported["access"],"offset":0,"length":4096}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+        let bytes = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            read["dataBase64"].as_str().unwrap(),
+        )
+        .unwrap();
         let listing: Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(listing["entries"], json!([{"name":"entry.txt","kind":"file"}]));
-        assert!(!String::from_utf8(bytes).unwrap().contains("private content"));
-        assert_eq!(post("commit-local-directory", confirmed).await.unwrap().json::<Value>().await.unwrap()
-            ["error"]["code"], "resource_directory_grant_unavailable");
+        assert_eq!(
+            listing["entries"],
+            json!([{"name":"entry.txt","kind":"file"}])
+        );
+        assert!(!String::from_utf8(bytes)
+            .unwrap()
+            .contains("private content"));
+        assert_eq!(
+            post("commit-local-directory", confirmed)
+                .await
+                .unwrap()
+                .json::<Value>()
+                .await
+                .unwrap()["error"]["code"],
+            "resource_directory_grant_unavailable"
+        );
         let pending: Value = post("prepare-local-directory", directory_request.clone())
-            .await.unwrap().json().await.unwrap();
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
         let cancelled = json!({"schemaVersion":1,"owner":owner,"grantId":pending["grantId"]});
-        assert_eq!(post("cancel-local-directory", cancelled.clone()).await.unwrap().json::<Value>()
-            .await.unwrap()["cancelled"], true);
-        assert_eq!(post("commit-local-directory", json!({"schemaVersion":1,"owner":owner,
-            "grantId":pending["grantId"],"confirmed":true})).await.unwrap().json::<Value>()
-            .await.unwrap()["error"]["code"], "resource_directory_grant_unavailable");
+        assert_eq!(
+            post("cancel-local-directory", cancelled.clone())
+                .await
+                .unwrap()
+                .json::<Value>()
+                .await
+                .unwrap()["cancelled"],
+            true
+        );
+        assert_eq!(
+            post(
+                "commit-local-directory",
+                json!({"schemaVersion":1,"owner":owner,
+            "grantId":pending["grantId"],"confirmed":true})
+            )
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()["error"]["code"],
+            "resource_directory_grant_unavailable"
+        );
         let preview: Value = post("prepare-local-directory", directory_request.clone())
-            .await.unwrap().json().await.unwrap();
-        host.state.plugins.lock().unwrap().set_permission("programming", manifest["id"].as_str().unwrap(),
-            "resource.directory.read", false).unwrap();
-        let rejected: Value = post("commit-local-directory", json!({"schemaVersion":1,"owner":owner,
-            "grantId":preview["grantId"],"confirmed":true})).await.unwrap().json().await.unwrap();
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        host.state
+            .plugins
+            .lock()
+            .unwrap()
+            .set_permission(
+                "programming",
+                manifest["id"].as_str().unwrap(),
+                "resource.directory.read",
+                false,
+            )
+            .unwrap();
+        let rejected: Value = post(
+            "commit-local-directory",
+            json!({"schemaVersion":1,"owner":owner,
+            "grantId":preview["grantId"],"confirmed":true}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
         assert_eq!(rejected["error"]["code"], "permission_denied");
-        let revoked_read: Value = post("read-view", json!({"access":imported["access"],"offset":0,"length":4096}))
-            .await.unwrap().json().await.unwrap();
+        let revoked_read: Value = post(
+            "read-view",
+            json!({"access":imported["access"],"offset":0,"length":4096}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
         assert!(revoked_read.get("dataBase64").is_none(), "{revoked_read}");
-        host.state.plugins.lock().unwrap().set_permission("programming", manifest["id"].as_str().unwrap(),
-            "resource.directory.read", true).unwrap();
-        let regranted_read: Value = post("read-view", json!({"access":imported["access"],"offset":0,"length":4096}))
-            .await.unwrap().json().await.unwrap();
-        assert!(regranted_read.get("dataBase64").is_none(), "{regranted_read}");
+        host.state
+            .plugins
+            .lock()
+            .unwrap()
+            .set_permission(
+                "programming",
+                manifest["id"].as_str().unwrap(),
+                "resource.directory.read",
+                true,
+            )
+            .unwrap();
+        let regranted_read: Value = post(
+            "read-view",
+            json!({"access":imported["access"],"offset":0,"length":4096}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+        assert!(
+            regranted_read.get("dataBase64").is_none(),
+            "{regranted_read}"
+        );
     }
     if actual {
         let events = Arc::new(Mutex::new(Vec::new()));
@@ -607,26 +773,66 @@ async fn http(actual: bool) {
         assert!(!imported.to_string().contains(f.0.to_str().unwrap()));
         fs::create_dir(f.0.join("selected-directory")).unwrap();
         fs::write(f.0.join("selected-directory/entry.txt"), b"private content").unwrap();
-        let preview: Value = post("prepare-local-directory", json!({"schemaVersion":1,"owner":owner,"relativePath":"selected-directory"}))
-            .await.unwrap().json().await.unwrap();
+        let preview: Value = post(
+            "prepare-local-directory",
+            json!({"schemaVersion":1,"owner":owner,"relativePath":"selected-directory"}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
         assert_eq!(preview["entryNamesRead"], false, "{preview}");
         assert!(!preview.to_string().contains("entry.txt"));
-        let directory: Value = post("commit-local-directory", json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"],"confirmed":true}))
-            .await.unwrap().json().await.unwrap();
-        assert_eq!(directory["profile"], "resource.local-directory.draft1", "{directory}");
+        let directory: Value = post(
+            "commit-local-directory",
+            json!({"schemaVersion":1,"owner":owner,"grantId":preview["grantId"],"confirmed":true}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+        assert_eq!(
+            directory["profile"], "resource.local-directory.draft1",
+            "{directory}"
+        );
         assert_eq!(directory["entryCount"], 1);
         assert!(!directory.to_string().contains(f.0.to_str().unwrap()));
-        let listing: Value = post("read-view", json!({"access":directory["access"],"offset":0,"length":4096}))
-            .await.unwrap().json().await.unwrap();
-        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD,
-            listing["dataBase64"].as_str().unwrap()).unwrap();
-        assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap()["entries"],
-            json!([{"name":"entry.txt","kind":"file"}]));
-        assert!(!String::from_utf8(bytes).unwrap().contains("private content"));
-        let directory_output: Value = post("invoke-view",
-            json!({"access":directory["access"],"toolCallId":uuid::Uuid::new_v4(),"input":{}}))
-            .await.unwrap().json().await.unwrap();
-        assert_eq!(directory_output["result"]["value"], "directory", "{directory_output}");
+        let listing: Value = post(
+            "read-view",
+            json!({"access":directory["access"],"offset":0,"length":4096}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+        let bytes = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            listing["dataBase64"].as_str().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&bytes).unwrap()["entries"],
+            json!([{"name":"entry.txt","kind":"file"}])
+        );
+        assert!(!String::from_utf8(bytes)
+            .unwrap()
+            .contains("private content"));
+        let directory_output: Value = post(
+            "invoke-view",
+            json!({"access":directory["access"],"toolCallId":uuid::Uuid::new_v4(),"input":{}}),
+        )
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+        assert_eq!(
+            directory_output["result"]["value"], "directory",
+            "{directory_output}"
+        );
         let events = events.lock().unwrap();
         let started: Vec<_> = events
             .iter()
@@ -699,7 +905,14 @@ async fn http(actual: bool) {
             .unwrap());
         println!("Tool-only session stopped; pending grants and confirmed resource reads rejected");
     }
-    assert!(host.state.plugin_resources.lock().unwrap().file_imports.1.is_empty());
+    assert!(host
+        .state
+        .plugin_resources
+        .lock()
+        .unwrap()
+        .file_imports
+        .1
+        .is_empty());
     host.stop_and_wait().await.unwrap();
     drop(runtime);
 }

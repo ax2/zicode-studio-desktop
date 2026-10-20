@@ -4,6 +4,7 @@ import { t } from "i18n";
 import { createPluginResultTransfer } from "./plugin-result-transfer.js";
 import { openSavedArtifact } from "../features/artifact-navigation.js";
 export function createPluginResultActions({ container, gateway, isCurrent, onReceiverExecuted, onOpenSaved = openSavedArtifact }) {
+  const artifactIdPattern = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
   const panel = document.createElement("section");
   panel.className = "plugin-result-actions";
   panel.hidden = true;
@@ -42,19 +43,16 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     const status = element("p");
     status.setAttribute("role", "status");
     const preview = button(t("Preview save"), async () => {
-      if (!valid(token)) return;
+      if (!valid(token) || current.saveOutcomeUnknown) return;
       preview.disabled = true;
       if (send) send.disabled = true;
       try {
         const response = await gateway.prepareSave(current.scope, current.resultId, title.value);
         if (!valid(token)) return;
         showPreview(response, token);
-      } catch (error) {
+      } catch {
         if (valid(token)) {
-          status.textContent = t("Could not prepare save: {error}").replace(
-            "{error}",
-            error.message,
-          );
+          status.textContent = t("Could not prepare save. Review the current workspace and try again.");
           preview.disabled = false;
           if (send) send.disabled = false;
         }
@@ -94,25 +92,38 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       ),
       ...[content, title, preview, send, status].filter(Boolean),
     );
+    if (current.saveOutcomeUnknown) {
+      preview.disabled = true;
+      status.textContent = t("Save outcome is uncertain. Check workspace artifacts before saving again; this view will not retry the write.");
+    }
   }
   function show(response, scope, transferred = false) {
     revision += 1;
     transfer?.destroy();
+    const resultText = response?.resultRef?.mimeType === "application/json" && response?.result?.data && typeof response.result.data === "object"
+      ? JSON.stringify(response.result.data)
+      : typeof response?.result?.data?.text === "string"
+      ? response.result.data.text
+      : typeof response?.result?.text === "string"
+        ? response.result.text
+        : undefined;
+    const successful = response?.result?.ok === true ||
+      (response?.operation === "model.generate" && typeof resultText === "string");
     current = response?.resultRef
       ? {
           scope,
           resultId: response.resultRef.resultId,
           transferred,
-          text: response.result?.data?.text,
+          text: resultText,
         }
       : null;
     panel.hidden = !current || !valid(revision);
     panel.replaceChildren();
     if (!active || !isCurrent(scope)) return;
     if (current) offer();
-    else if (response?.result?.ok === true && response.resultCaptureError) {
+    else if (successful && response.resultCaptureError) {
       panel.hidden = false;
-      if (transferred) panel.append(element("pre", response.result?.data?.text));
+      if (typeof resultText === "string") panel.append(element("pre", resultText));
       panel.append(
         element(
           "p",
@@ -137,18 +148,43 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
       try {
         const saved = await gateway.commitSave(current.scope, response.grantId);
         if (!valid(token)) return;
+        if (saved?.schemaVersion !== 1 || typeof saved.replayed !== "boolean" ||
+            !artifactIdPattern.test(saved.artifact?.id ?? "")) throw new Error("invalid_save_receipt");
         panel.replaceChildren(element("p", t("Saved to the current workspace artifacts.")));
-        const artifactId = saved?.artifact?.id;
-        if (typeof artifactId === "string" && artifactId && artifactId.length <= 128) {
-          panel.append(button(t("View saved artifact"), () => {
-            if (valid(token)) onOpenSaved(artifactId, current.scope);
-          }));
-        }
-      } catch (error) {
+        panel.append(button(t("View saved artifact"), () => {
+          if (valid(token)) onOpenSaved(saved.artifact.id, current.scope);
+        }));
+      } catch {
         if (valid(token)) {
-          status.textContent = t("Save failed: {error}").replace("{error}", error.message);
-          confirm.disabled = false;
+          current.saveOutcomeUnknown = true;
+          status.textContent = t("Save outcome is uncertain. Check workspace artifacts before saving again; this view will not retry the write.");
+          confirm.remove();
           cancel.disabled = false;
+          cancel.textContent = t("Close");
+          if (typeof gateway.saveStatus === "function") {
+            const check = button(t("Check save status"), () => { void verifySaveStatus(); });
+            async function verifySaveStatus() {
+              if (!valid(token) || check.disabled) return;
+              check.disabled = true;
+              status.textContent = t("Checking saved artifact…");
+              try {
+                const outcome = await gateway.saveStatus(current.scope, response.grantId);
+                if (!valid(token)) return;
+                if (outcome?.schemaVersion === 1 && outcome.status === "saved" && artifactIdPattern.test(outcome.artifactId ?? "")) {
+                  panel.replaceChildren(element("p", t("Verified saved artifact in the current workspace.")),
+                    button(t("View saved artifact"), () => { if (valid(token)) onOpenSaved(outcome.artifactId, current.scope); }));
+                  return;
+                }
+                status.textContent = t("The save could not be verified. Check workspace artifacts before saving again; no write was retried.");
+              } catch {
+                if (valid(token)) status.textContent = t("The save could not be verified. Check workspace artifacts before saving again; no write was retried.");
+              } finally {
+                if (valid(token)) check.disabled = false;
+              }
+            }
+            panel.insertBefore(check, cancel);
+            void verifySaveStatus();
+          }
         }
       }
     });
@@ -159,6 +195,7 @@ export function createPluginResultActions({ container, gateway, isCurrent, onRec
     });
     panel.replaceChildren(
       element("strong", t("Save preview: {title}").replace("{title}", preview.title)),
+      ...(preview.mimeType === "application/json" ? [element("p", t("JSON object will be saved as application/json."))] : []),
       element(
         "p",
         t("New artifact · {bytes} bytes · plugin {version}")

@@ -1,0 +1,70 @@
+{
+  "kind": "directory-metadata-only",
+  "baseline": {
+    "path": "release/plugin-candidates/json-object-0.1.0-candidate-07",
+    "receiptPath": "release/plugin-candidates/json-object-0.1.0-candidate-07-verification-revision-01.json",
+    "receiptSha256": "ff9909ae8b73d569e02eeb9b5c3c5d28730d9d6e8e46a636712a83ef24816b85",
+    "packageId": "com.zicode.devtools.json-object",
+    "packageVersion": "0.1.0",
+    "fileCount": 37,
+    "totalBytes": 328768,
+    "candidateTreeSha256": "2a7ffb740adb9df3406069a04a1250ec9239d22d8ef53350031bfbe3a1df2040",
+    "directoryIndexSha256": "9479917a473acd40e1ef1b9f826c286de53ce2adcabbdc15b3bb72718fdcb3c1",
+    "directoryIndexStatus": "matched",
+    "signature": "unsigned-or-unverified",
+    "runtimeAccepted": false
+  },
+  "changedFiles": [
+    {
+      "path": "README.md",
+      "beforeSha256": "eddb96edd92ecb67117ec6c21261b6a8ec7483b0063dbd6e42828d7634d89c80",
+      "afterSha256": "1f8c42071922cc6b849952d2d0c3e06a714fa7f1cccd02abd78b4dac1a8dead5"
+    },
+    {
+      "path": "catalog.json",
+      "beforeSha256": "843ff74bb994ba7f293aa1483aea9203547217f66322d624354ef018cd26e3fa",
+      "afterSha256": "fdd77c7c6dec63d563d6c5a15da77fc9bc839b9607e1aa5759985834d9c30045"
+    },
+    {
+      "path": "plugin.json",
+      "beforeSha256": "ada25a4cbb701d687f1bf2ab7fcfac07257200fd41a82d303b7c8b4ee03c80bc",
+      "afterSha256": "4ce43459b85948f8a1b7bbaf0ea36e7d47a428b461974f79a5b37a516898f9fc"
+    },
+    {
+      "path": "verification/verify_json_object_wasi.py",
+      "beforeSha256": "521cefe0eed812a5ae8db53fc27519495e3b75e9a486c3dd314a6faee370f7d4",
+      "afterSha256": "0c02cd8d859ad50877d1259d59747ea0ef64494f7ac409497fe7dba89a40c12e"
+    }
+  ],
+  "runtimeFilesChanged": false,
+  "permissionsChanged": false,
+  "hostAccepted": false,
+  "manifestSha256": "4ce43459b85948f8a1b7bbaf0ea36e7d47a428b461974f79a5b37a516898f9fc",
+  "catalogSha256": "fdd77c7c6dec63d563d6c5a15da77fc9bc839b9607e1aa5759985834d9c30045",
+  "metadataSources": [
+    {
+      "path": "plugins/json-object/plugin.json",
+      "sha256": "4ce43459b85948f8a1b7bbaf0ea36e7d47a428b461974f79a5b37a516898f9fc"
+    },
+    {
+      "path": "plugins/json-object/catalog.json",
+      "sha256": "f7f6ce49fa684cf3ed97bcde840fadc5555f609bba5a8355f1a441024bb76f99"
+    },
+    {
+      "path": "contracts/studio-tool-directory/1.0.0-preview.1/capabilities.json",
+      "sha256": "19e642ee78cdb11e632bcb0d7b55a958133c3eaa1e00001baab2077d41cf2f4d"
+    },
+    {
+      "path": "scripts/package_directory_revision.py",
+      "sha256": "59c01e58820f3cbe489563c322e8e50d23cc745093fb0242b93bad3848e4e67d"
+    },
+    {
+      "path": "scripts/tool_directory.py",
+      "sha256": "a3ac8874e18998abd9670858a68b48649917786264b1075ade03ff135b340b66"
+    },
+    {
+      "path": "scripts/verify_json_object_wasi.py",
+      "sha256": "0c02cd8d859ad50877d1259d59747ea0ef64494f7ac409497fe7dba89a40c12e"
+    }
+  ]
+}

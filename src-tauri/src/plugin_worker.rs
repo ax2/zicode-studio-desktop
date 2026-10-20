@@ -4,22 +4,22 @@ use serde_json::Value;
 use std::fs;
 use std::io;
 use std::path::Path;
-#[path = "plugin_worker_failures.rs"]
-pub(crate) mod failures;
-#[path = "plugin_worker_stack.rs"]
-mod execution_stack;
 #[cfg(test)]
 #[path = "plugin_worker_diagnostics_tests.rs"]
 mod diagnostics_tests;
+#[path = "plugin_worker_stack.rs"]
+mod execution_stack;
+#[path = "plugin_worker_failures.rs"]
+pub(crate) mod failures;
 #[path = "plugin_worker_resource_input.rs"]
 pub(crate) mod resource_input;
+#[path = "plugin_worker_resource_output.rs"]
+pub(crate) mod resource_output;
 #[cfg(test)]
 #[path = "plugin_worker_resource_process_tests.rs"]
 mod resource_process_tests;
 #[path = "plugin_worker_resource_reads.rs"]
 mod resource_reads;
-#[path = "plugin_worker_resource_output.rs"]
-pub(crate) mod resource_output;
 #[path = "plugin_worker_resource_writes.rs"]
 mod resource_writes;
 const MAX_WORKER_BYTES: u64 = 1024 * 1024;
@@ -35,6 +35,8 @@ struct WorkerRequest {
     capability_id: Option<String>,
     #[serde(default)]
     command_id: Option<String>,
+    #[serde(default)]
+    execution_profile: Option<String>,
     scene_id: String,
     input: Value,
 }
@@ -55,8 +57,13 @@ pub fn run_stdio() -> i32 {
     let response = resource_input::read(io::stdin().lock()).and_then(|input| {
         let binary = match input.request.get("resourceOutputProfile") {
             None => false,
-            Some(Value::String(profile)) if profile == resource_output::PROFILE
-                && !input.resources.is_empty() && input.module.is_some() => true,
+            Some(Value::String(profile))
+                if profile == resource_output::PROFILE
+                    && !input.resources.is_empty()
+                    && input.module.is_some() =>
+            {
+                true
+            }
             _ => return Err("Unsupported resource output profile".into()),
         };
         let request = serde_json::from_value::<WorkerRequest>(input.request)
@@ -64,16 +71,24 @@ pub fn run_stdio() -> i32 {
         if input.resources.is_empty() {
             execute(request).map(resource_output::Bundle::json)
         } else {
-            execution_stack::execute(move || execute_wasi_bundle(
-                &request, wasmtime::OptLevel::None, input.resources, input.module, binary,
-            ))
+            execution_stack::execute(move || {
+                execute_wasi_bundle(
+                    &request,
+                    wasmtime::OptLevel::None,
+                    input.resources,
+                    input.module,
+                    binary,
+                )
+            })
         }
     });
     let output = match response {
-        Ok(bundle) if bundle.binary => return match resource_output::write(io::stdout().lock(), &bundle) {
-            Ok(()) => 0,
-            Err(_) => 2,
-        },
+        Ok(bundle) if bundle.binary => {
+            return match resource_output::write(io::stdout().lock(), &bundle) {
+                Ok(()) => 0,
+                Err(_) => 2,
+            }
+        }
         Ok(result) => WorkerResponse {
             ok: true,
             result: Some(result.result),
@@ -185,7 +200,8 @@ fn execute_wasi_snapshot(
     resources: Vec<resource_input::Resource>,
     module_snapshot: Option<Vec<u8>>,
 ) -> Result<Value, String> {
-    execute_wasi_bundle(request, optimization, resources, module_snapshot, false).map(|bundle| bundle.result)
+    execute_wasi_bundle(request, optimization, resources, module_snapshot, false)
+        .map(|bundle| bundle.result)
 }
 
 fn execute_wasi_bundle(
@@ -217,6 +233,15 @@ fn execute_wasi_bundle(
         }
     }
     let resource_mode = !resources.is_empty();
+    let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
+        request.execution_profile.as_deref(),
+    );
+    if request.execution_profile.is_some() && !image_resize_profile {
+        return Err("Unsupported resource execution profile".into());
+    }
+    if image_resize_profile && (!resource_mode || !binary) {
+        return Err("Image resize execution profile requires resource input and output".into());
+    }
     let mut envelope = serde_json::json!({
         "pluginId": request.plugin_id,
         "sceneId": request.scene_id,
@@ -225,7 +250,9 @@ fn execute_wasi_bundle(
         "input": request.input,
     });
     if resource_mode {
-        if binary { envelope["resourceOutputProfile"] = Value::String(resource_output::PROFILE.into()); }
+        if binary {
+            envelope["resourceOutputProfile"] = Value::String(resource_output::PROFILE.into());
+        }
         envelope["resourceInputProfile"] = Value::String(
             if module_snapshot.is_some() {
                 "resource.wasi.input.draft2"
@@ -252,7 +279,10 @@ fn execute_wasi_bundle(
     let engine =
         Engine::new(&config).map_err(|error| format!("Cannot start WASI engine: {error}"))?;
     #[cfg(test)]
-    eprintln!("WASI phase=engine_ready elapsed_us={}", started.elapsed().as_micros());
+    eprintln!(
+        "WASI phase=engine_ready elapsed_us={}",
+        started.elapsed().as_micros()
+    );
     let module = if let Some(bytes) = &module_snapshot {
         Module::new(&engine, bytes)
     } else {
@@ -262,7 +292,10 @@ fn execute_wasi_bundle(
     #[cfg(test)]
     let compiled = started.elapsed();
     #[cfg(test)]
-    eprintln!("WASI phase=module_compiled elapsed_us={}", compiled.as_micros());
+    eprintln!(
+        "WASI phase=module_compiled elapsed_us={}",
+        compiled.as_micros()
+    );
     struct WasiState {
         context: WasiP1Ctx,
         limits: StoreLimits,
@@ -275,7 +308,9 @@ fn execute_wasi_bundle(
     if resource_mode {
         resource_reads::link(&mut linker, |state| &mut state.reads)?;
     }
-    if binary { resource_writes::link(&mut linker, |state| &mut state.writes)?; }
+    if binary {
+        resource_writes::link(&mut linker, |state| &mut state.writes)?;
+    }
     let wasi = WasiCtxBuilder::new()
         .stdin(stdin)
         .stdout(stdout.clone())
@@ -283,9 +318,18 @@ fn execute_wasi_bundle(
         .args(&["zicode-plugin"])
         .build_p1();
     let limits = StoreLimitsBuilder::new()
-        .memory_size(if resource_mode { 256 } else { 64 } * 1024 * 1024)
+        .memory_size(
+            if image_resize_profile {
+                crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
+            } else if resource_mode {
+                256
+            } else {
+                64
+            } * 1024
+                * 1024,
+        )
         .instances(1)
-        .memories(2)
+        .memories(if image_resize_profile { 1 } else { 2 })
         .tables(4)
         .build();
     let mut store = Store::new(
@@ -299,7 +343,11 @@ fn execute_wasi_bundle(
     );
     store.limiter(|state| &mut state.limits);
     store
-        .set_fuel(10_000_000)
+        .set_fuel(if image_resize_profile {
+            crate::plugin_resource_execution::IMAGE_RESIZE_FUEL
+        } else {
+            10_000_000
+        })
         .map_err(|error| format!("Cannot set WASI execution budget: {error}"))?;
     let instance = linker
         .instantiate(&mut store, &module)
@@ -310,11 +358,18 @@ fn execute_wasi_bundle(
     #[cfg(test)]
     let execution_started = std::time::Instant::now();
     #[cfg(test)]
-    eprintln!("WASI phase=guest_start elapsed_us={}", started.elapsed().as_micros());
+    eprintln!(
+        "WASI phase=guest_start elapsed_us={}",
+        started.elapsed().as_micros()
+    );
     let execution = start.call(&mut store, ());
     #[cfg(test)]
-    eprintln!("WASI budgets compile_ms={} execution_ms={} fuel_remaining={}",
-        compiled.as_millis(), execution_started.elapsed().as_millis(), store.get_fuel().unwrap_or(0));
+    eprintln!(
+        "WASI budgets compile_ms={} execution_ms={} fuel_remaining={}",
+        compiled.as_millis(),
+        execution_started.elapsed().as_millis(),
+        store.get_fuel().unwrap_or(0)
+    );
     if let Err(error) = execution {
         // Preview1 proc_exit(0) is a successful command termination, but
         // still require one complete JSON result below. Nonzero exits/traps fail.
@@ -336,9 +391,14 @@ fn execute_wasi_bundle(
         compiled.as_millis(),
         started.elapsed().as_millis()
     );
-    let result = serde_json::from_slice(&bytes).map_err(|_| "WASI module stdout must be one JSON value".to_string())?;
+    let result = serde_json::from_slice(&bytes)
+        .map_err(|_| "WASI module stdout must be one JSON value".to_string())?;
     let resources = store.into_data().writes.finish()?;
-    Ok(resource_output::Bundle { binary, result, resources })
+    Ok(resource_output::Bundle {
+        binary,
+        result,
+        resources,
+    })
 }
 
 #[cfg(test)]
@@ -364,6 +424,7 @@ mod tests {
             plugin_id: "com.example.demo".into(),
             capability_id: Some("demo.echo".into()),
             command_id: None,
+            execution_profile: None,
             scene_id: "programming".into(),
             input: json!({ "value": "hello" }),
         })
@@ -387,6 +448,7 @@ mod tests {
             plugin_id: "com.example.demo".into(),
             capability_id: None,
             command_id: Some("demo.run".into()),
+            execution_profile: None,
             scene_id: "programming".into(),
             input: json!({ "message": "done" }),
         })
@@ -423,6 +485,7 @@ mod tests {
             plugin_id: "com.example.wasi".into(),
             capability_id: Some("demo.echo".into()),
             command_id: None,
+            execution_profile: None,
             scene_id: "programming".into(),
             input: json!({ "value": "hello" }),
         })
@@ -459,6 +522,7 @@ mod tests {
                 plugin_id: "com.example.exit".into(),
                 capability_id: Some("exit.test".into()),
                 command_id: None,
+                execution_profile: None,
                 scene_id: "programming".into(),
                 input: json!({}),
             });
@@ -490,6 +554,7 @@ mod tests {
                 plugin_id: "com.zicode.devtools.text".into(),
                 capability_id: Some(capability.into()),
                 command_id: None,
+                execution_profile: None,
                 scene_id: "programming".into(),
                 input,
             })
@@ -591,6 +656,7 @@ mod tests {
             plugin_id: plugin.clone(),
             capability_id: Some("devtools.text.base64.encode".into()),
             command_id: None,
+            execution_profile: None,
             scene_id: "programming".into(),
             input: json!({"text":"hello"}),
         })
@@ -628,6 +694,7 @@ mod tests {
             plugin_id: "com.zicode.devtools.text".into(),
             capability_id: Some("devtools.text.sha256".into()),
             command_id: None,
+            execution_profile: None,
             scene_id: "programming".into(),
             input: json!({"text":"hello"}),
         };

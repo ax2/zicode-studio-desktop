@@ -79,7 +79,8 @@ mod tests {
             let result = execute_wasi(&WorkerRequest {
                 worker_path: path.to_string_lossy().into_owned(), worker_kind: "wasi".into(),
                 plugin_id: "test.failure".into(), capability_id: Some("test.failure".into()),
-                command_id: None, scene_id: "programming".into(), input: serde_json::json!({}),
+                command_id: None, execution_profile: None,
+                scene_id: "programming".into(), input: serde_json::json!({}),
             });
             assert_eq!(public(Some(&result.unwrap_err())).0, expected);
         }

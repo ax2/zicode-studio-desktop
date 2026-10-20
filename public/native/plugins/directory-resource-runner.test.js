@@ -5,13 +5,14 @@ import { createDirectoryResourceRunner } from "./directory-resource-runner.js";
 import { admission, reconciliation } from "../../../tests/helpers/resource-call-admission.js";
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const roots = [];
-function fixture(overrides = {}, maxResources = 1, directory = false) {
+function fixture(overrides = {}, maxResources = 1, directory = false, receiver = null) {
   setLocale("en"); vi.stubGlobal("crypto", webcrypto); document.body.innerHTML = "<main></main>";
   let target = { instanceId: "runtime", sessionId: "session", workspaceId: "workspace", sceneId: "programming" };
-  const tool = { pluginId: "receiver", capabilityId: "consume", title: "Consume", applicationName: "Receiver", version: "1", runtime: "wasi" };
-  const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: "resource.wasi.input.draft2", capability: { id: tool.capabilityId, inputSchema: {}, ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
+  const tool = { pluginId: "receiver", capabilityId: "consume", title: "Consume", applicationName: "Receiver", version: "1", runtime: "wasi", ...receiver };
+  const profile = receiver?.resourceInputProfile ?? "resource.wasi.input.draft2";
+  const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: profile, capability: { id: tool.capabilityId, inputSchema: {}, ...(receiver?.resourceInputMimeTypes ? { resourceInputMimeTypes: receiver.resourceInputMimeTypes } : {}), ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
-    invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" }, result: { text: "received <script>literal</script>" } })), ...overrides };
+    invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
   gateway.prepareResourceCall = vi.fn(async owner => admission(owner));
   gateway.reconcileResourceCall = vi.fn(async (owner, ticket) => reconciliation(owner, ticket.callId));
@@ -29,6 +30,44 @@ function fixture(overrides = {}, maxResources = 1, directory = false) {
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("shows declared input MIME types and explains a mismatched file without losing recovery", async () => {
+    const f = fixture({}, 1, false, { resourceInputMimeTypes: ["text/plain"] });
+    expect(document.body.textContent).toContain("Accepted file types: text/plain");
+    await f.share();
+    f.gateway.invokeResource.mockRejectedValue({ code: "resource_input_type_unsupported" });
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(document.body.textContent).toContain("does not accept the shared file type"));
+    expect(document.body.textContent).toContain("Stop and recover call");
+    expect(f.button("Stop and recover call").hidden).toBe(false);
+  });
+  it("explains invalid resource input while keeping uncertain calls locked", async () => {
+    const f = fixture(); await f.share();
+    f.gateway.invokeResource.mockRejectedValue({ code: "resource_input_invalid", message: "private E:\\secret" });
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.button("Stop and recover call").hidden).toBe(false));
+    expect(document.body.textContent).toContain("This resource is invalid or exceeds the receiver's format or size limits.");
+    expect(document.body.textContent).toContain("Execution outcome is unknown");
+    expect(document.body.textContent).not.toContain("E:\\secret");
+    expect(f.button("Execute tool").disabled).toBe(true);
+  });
+  it("runs only the fixed built-in Host image, OCR and text receivers after explicit file confirmation", async () => {
+    for (const receiver of [
+      { pluginId: "com.zicode.resource-inspector", capabilityId: "image.inspect", resourceInputProfile: "resource.host.image-input.v1" },
+      { pluginId: "com.zicode.ocr", capabilityId: "ocr.resource-text", resourceInputProfile: "resource.host.ocr-input.v1" },
+      { pluginId: "com.zicode.text-inspector", capabilityId: "text.inspect", resourceInputProfile: "resource.host.text-input.v1" },
+    ]) {
+      const f = fixture({}, 1, false, { ...receiver, runtime: "builtin" });
+      await f.share();
+      expect(f.gateway.invokeResource).not.toHaveBeenCalled();
+      f.button("Execute tool").click();
+      await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+      expect(f.gateway.invokeResource.mock.calls[0][0]).toMatchObject({ pluginId: receiver.pluginId, capabilityId: receiver.capabilityId });
+      f.controller.destroy();
+    }
+    const unknown = fixture({}, 1, false, { pluginId: "other", capabilityId: "resource.read", resourceInputProfile: "resource.host.text-input.v1", runtime: "builtin" });
+    expect(document.body.textContent).toContain("Resource tool unavailable");
+    expect(unknown.gateway.prepareResource).not.toHaveBeenCalled();
+  });
   it("requires separate directory selection, sharing confirmation and execution", async () => {
     const owner = { runtimeId: "runtime", sessionId: "session", pluginId: "receiver", capabilityId: "consume" };
     const serializedOwner = { capabilityId: "consume", pluginId: "receiver", runtimeId: "runtime", sessionId: "session" };
@@ -131,6 +170,15 @@ describe("directory-owned resource execution", () => {
     f.button("Stop and recover call").click(); await vi.waitFor(() => expect(document.body.textContent).toContain("Studio restarted"));
     expect(f.button("Execute tool").disabled).toBe(true); expect(f.gateway.invokeResource).toHaveBeenCalledOnce();
   });
+  it("shows only a fixed public failure code while a call needs recovery", async () => {
+    const f = fixture(); await f.share();
+    f.gateway.invokeResource.mockRejectedValue({ code: "resource_ocr_failed", message: "private E:\\secret" });
+    f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.button("Stop and recover call").hidden).toBe(false));
+    expect(document.body.textContent).toContain("resource_ocr_failed");
+    expect(document.body.textContent).not.toContain("E:\\secret");
+    expect(f.button("Execute tool").disabled).toBe(true);
+  });
   it("opens without reading/running, confirms catalog-bound input, then executes separately and escapes output", async () => {
     const f = fixture(); expect(f.gateway.prepareResource).not.toHaveBeenCalled(); expect(f.gateway.invokeResource).not.toHaveBeenCalled();
     await f.share(); expect(f.gateway.prepareResource).toHaveBeenCalledWith(expect.objectContaining({ catalogRevision: "a".repeat(64), owner: { runtimeId: "runtime", sessionId: "session", pluginId: "receiver", capabilityId: "consume" } })); expect(f.gateway.invokeResource).not.toHaveBeenCalled();
@@ -165,6 +213,10 @@ describe("directory-owned resource execution", () => {
   it("does not record business errors as successful recent use", async () => {
     const f = fixture(); await f.share(); const original = f.gateway.invokeResource.getMockImplementation();
     f.gateway.invokeResource.mockImplementation(async (...args) => ({ ...await original(...args), result: { ok: false, error: { code: "INVALID_INPUT" } } }));
-    f.button("Execute tool").click(); await vi.waitFor(() => expect(document.querySelector(".tool-result").textContent).toContain("INVALID_INPUT")); expect(f.onSuccess).not.toHaveBeenCalled();
+    f.button("Execute tool").click(); await vi.waitFor(() => expect(document.querySelector(".tool-result").textContent).toContain("INVALID_INPUT"));
+    expect(document.body.textContent).toContain("Tool reported an error. Inputs are kept and no result was saved.");
+    expect(document.body.textContent).not.toContain("Receiving tool finished. Results have not been saved.");
+    expect(f.button("Execute tool").disabled).toBe(false);
+    expect(f.onSuccess).not.toHaveBeenCalled();
   });
 });

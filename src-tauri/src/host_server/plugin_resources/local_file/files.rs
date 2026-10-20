@@ -1,7 +1,9 @@
 use super::*;
 use std::fs::{File, OpenOptions};
 
-pub(in crate::host_server::plugin_resources) fn components(relative: &str) -> Result<Vec<&str>, ApiError> {
+pub(in crate::host_server::plugin_resources) fn components(
+    relative: &str,
+) -> Result<Vec<&str>, ApiError> {
     if relative.is_empty() || relative.len() > 4096 || relative.split('/').count() > 64 {
         return Err(rejected("resource_file_path_invalid"));
     }

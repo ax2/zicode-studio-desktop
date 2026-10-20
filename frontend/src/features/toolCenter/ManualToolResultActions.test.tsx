@@ -18,12 +18,15 @@ async function mount() {
   const recentChanged = vi.fn();
   const gateway = {
     prepareSave: vi.fn(async () => ({ grantId: "save-grant", preview: { title: "QA", text: "a+b 中", byteLength: 7, packageVersion: "1", workspaceId: "workspace" } })),
-    commitSave: vi.fn(async () => ({})),
+    commitSave: vi.fn(async () => ({ schemaVersion: 1, artifact: { id: "11111111-1111-4111-8111-111111111111" }, replayed: false })),
+    saveStatus: vi.fn(async (): Promise<{ schemaVersion: number; status: "saved" | "unknown"; artifactId?: string }> => ({ schemaVersion: 1, status: "unknown" })),
     searchTargets: vi.fn(async () => ({ revision: "catalog", total: 1, nextOffset: null,
       items: [{ title: "Encode", pluginId: "target", capabilityId: "encode", field: "text" }] })),
     prepareTransfer: vi.fn(async () => ({ grantId: "transfer-grant", preview: { text: "a+b 中", field: "text", inputs: {}, byteLength: 7,
       workspaceId: "workspace", target: { pluginId: "target", packageVersion: "1" } } })),
     commitTransfer: vi.fn(async (): Promise<CapturedToolResponse> => ({ result: { ok: true, data: { text: "encoded" } }, resultRef: { resultId: "receiver-result" }, replayed: false })),
+    cancelTransfer: vi.fn(async () => ({ schemaVersion: 1, status: "cancellation_requested" as const })),
+    transferStatus: vi.fn(async () => ({ schemaVersion: 1, status: "ready" as const })),
   };
   const busy = vi.fn();
   const container = document.createElement("div"); document.body.append(container);
@@ -50,10 +53,22 @@ it("previews and cancels without writing; only confirmation uses the Host grant"
   expect(container.textContent).toContain("Saved to the current workspace artifacts.");
 });
 
+it("recovers a lost save receipt through the tool center without repeating the write", async () => {
+  const { container, gateway, click } = await mount();
+  gateway.commitSave.mockRejectedValueOnce(new Error("response lost"));
+  gateway.saveStatus.mockResolvedValueOnce({ schemaVersion: 1, status: "saved", artifactId: "11111111-1111-4111-8111-111111111111" });
+  await click("Preview save");
+  await click("Confirm save");
+  await vi.waitFor(() => expect(container.textContent).toContain("Verified saved artifact"));
+  expect(gateway.saveStatus).toHaveBeenCalledWith(scope, "save-grant");
+  expect(gateway.commitSave).toHaveBeenCalledTimes(1);
+});
+
 it("searches compatible receivers and executes only after confirming the field mapping", async () => {
   const { container, gateway, busy, click, store, recentChanged } = await mount();
   await click("Send to tool");
-  expect(gateway.searchTargets).toHaveBeenCalledWith(scope, "source-result", "", 0, null);
+  expect(gateway.searchTargets).toHaveBeenCalledWith(scope, "source-result", "", 0, null,
+    { signal: expect.any(AbortSignal) });
   await click("Encode · target · field text");
   expect(gateway.prepareTransfer).toHaveBeenCalledWith(scope, "source-result", { pluginId: "target", capabilityId: "encode" }, "text", {});
   expect(gateway.commitTransfer).not.toHaveBeenCalled();

@@ -31,6 +31,16 @@ pub(super) struct Lease {
 }
 
 impl Calls {
+    pub fn invalidate_runtime(&self, runtime_id: &str) {
+        if let Ok(mut entries) = self.0.lock() {
+            for (key, entry) in entries.iter_mut() {
+                if key.0 == runtime_id {
+                    entry.flag.store(true, Ordering::Release);
+                }
+            }
+        }
+    }
+
     // A read never reserves a cancellation tombstone or refreshes retention.
     // Unknown is deliberately not evidence that a delayed request cannot start.
     pub fn snapshot(
@@ -41,18 +51,20 @@ impl Calls {
     ) -> Result<(&'static str, bool, bool), &'static str> {
         let mut entries = self.0.lock().map_err(|_| "plugin_calls_unavailable")?;
         Self::prune(&mut entries);
-        Ok(match entries.get(&(runtime.into(), session.into(), call.into())) {
-            None => ("unknown", false, false),
-            Some(entry) => (
-                match entry.phase {
-                    Phase::PendingCancel => "cancel_pending",
-                    Phase::Active => "active",
-                    Phase::Finished => "finished",
-                },
-                entry.phase == Phase::Finished,
-                entry.flag.load(Ordering::Acquire),
-            ),
-        })
+        Ok(
+            match entries.get(&(runtime.into(), session.into(), call.into())) {
+                None => ("unknown", false, false),
+                Some(entry) => (
+                    match entry.phase {
+                        Phase::PendingCancel => "cancel_pending",
+                        Phase::Active => "active",
+                        Phase::Finished => "finished",
+                    },
+                    entry.phase == Phase::Finished,
+                    entry.flag.load(Ordering::Acquire),
+                ),
+            },
+        )
     }
     fn prune(entries: &mut HashMap<Key, Entry>) {
         entries
@@ -79,7 +91,13 @@ impl Calls {
         }
         Ok(())
     }
-    pub fn begin(&self, runtime: &str, session: &str, call: &str, plugin_id: &str) -> Result<Lease, &'static str> {
+    pub fn begin(
+        &self,
+        runtime: &str,
+        session: &str,
+        call: &str,
+        plugin_id: &str,
+    ) -> Result<Lease, &'static str> {
         let key = (runtime.into(), session.into(), call.into());
         let mut entries = self.0.lock().map_err(|_| "plugin_calls_unavailable")?;
         Self::prune(&mut entries);
@@ -94,9 +112,13 @@ impl Calls {
             .filter(|entry| entry.phase == Phase::Active)
             .count()
             >= ACTIVE_LIMIT
-            || entries.values().filter(|entry| {
-                entry.phase == Phase::Active && entry.plugin_id.as_deref() == Some(plugin_id)
-            }).count() >= ACTIVE_PER_PLUGIN_LIMIT
+            || entries
+                .values()
+                .filter(|entry| {
+                    entry.phase == Phase::Active && entry.plugin_id.as_deref() == Some(plugin_id)
+                })
+                .count()
+                >= ACTIVE_PER_PLUGIN_LIMIT
         {
             return Err("plugin_call_budget_exceeded");
         }
@@ -168,24 +190,48 @@ mod tests {
     #[test]
     fn snapshots_are_scoped_read_only_and_never_extend_retention() {
         let calls = Calls::default();
-        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("unknown", false, false));
+        assert_eq!(
+            calls.snapshot("r", "s", "c").unwrap(),
+            ("unknown", false, false)
+        );
         assert!(calls.0.lock().unwrap().is_empty());
         calls.cancel("r", "s", "c").unwrap();
-        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("cancel_pending", false, true));
+        assert_eq!(
+            calls.snapshot("r", "s", "c").unwrap(),
+            ("cancel_pending", false, true)
+        );
         let lease = calls.begin("r", "s", "c", "plugin.a").unwrap();
-        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("active", false, true));
-        assert_eq!(calls.snapshot("other", "s", "c").unwrap(), ("unknown", false, false));
-        assert_eq!(calls.snapshot("r", "other", "c").unwrap(), ("unknown", false, false));
+        assert_eq!(
+            calls.snapshot("r", "s", "c").unwrap(),
+            ("active", false, true)
+        );
+        assert_eq!(
+            calls.snapshot("other", "s", "c").unwrap(),
+            ("unknown", false, false)
+        );
+        assert_eq!(
+            calls.snapshot("r", "other", "c").unwrap(),
+            ("unknown", false, false)
+        );
         // Active execution must not expire, even beyond terminal retention.
         calls.0.lock().unwrap().values_mut().next().unwrap().changed = Instant::now() - RETENTION;
         assert_eq!(calls.snapshot("r", "s", "c").unwrap().0, "active");
         drop(lease);
-        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("finished", true, true));
+        assert_eq!(
+            calls.snapshot("r", "s", "c").unwrap(),
+            ("finished", true, true)
+        );
         let changed = calls.0.lock().unwrap().values().next().unwrap().changed;
         calls.snapshot("r", "s", "c").unwrap();
-        assert_eq!(calls.0.lock().unwrap().values().next().unwrap().changed, changed);
+        assert_eq!(
+            calls.0.lock().unwrap().values().next().unwrap().changed,
+            changed
+        );
         calls.0.lock().unwrap().values_mut().next().unwrap().changed = Instant::now() - RETENTION;
-        assert_eq!(calls.snapshot("r", "s", "c").unwrap(), ("unknown", false, false));
+        assert_eq!(
+            calls.snapshot("r", "s", "c").unwrap(),
+            ("unknown", false, false)
+        );
         assert!(calls.0.lock().unwrap().is_empty());
     }
     #[test]
@@ -193,10 +239,22 @@ mod tests {
         let calls = Calls::default();
         let mut leases = Vec::new();
         for index in 0..ACTIVE_LIMIT {
-            leases.push(calls.begin(&index.to_string(), "s", "active", &format!("plugin.{index}")).unwrap());
+            leases.push(
+                calls
+                    .begin(
+                        &index.to_string(),
+                        "s",
+                        "active",
+                        &format!("plugin.{index}"),
+                    )
+                    .unwrap(),
+            );
         }
         assert_eq!(
-            calls.begin("extra", "s", "active", "plugin.extra").err().unwrap(),
+            calls
+                .begin("extra", "s", "active", "plugin.extra")
+                .err()
+                .unwrap(),
             "plugin_call_budget_exceeded"
         );
         leases.pop();
@@ -224,14 +282,32 @@ mod tests {
         calls.cancel("runtime", "session", "pending").unwrap();
         let mut leases = Vec::new();
         for index in 0..ACTIVE_PER_PLUGIN_LIMIT {
-            leases.push(calls.begin(&format!("runtime-{index}"), "session", "call", "plugin.a").unwrap());
+            leases.push(
+                calls
+                    .begin(&format!("runtime-{index}"), "session", "call", "plugin.a")
+                    .unwrap(),
+            );
         }
-        assert_eq!(calls.begin("another-runtime", "session", "call", "plugin.a").err().unwrap(), "plugin_call_budget_exceeded");
-        let independent = calls.begin("runtime", "session", "independent", "plugin.b").unwrap();
+        assert_eq!(
+            calls
+                .begin("another-runtime", "session", "call", "plugin.a")
+                .err()
+                .unwrap(),
+            "plugin_call_budget_exceeded"
+        );
+        let independent = calls
+            .begin("runtime", "session", "independent", "plugin.b")
+            .unwrap();
         assert!(!independent.flag.load(Ordering::Acquire));
         drop(leases.pop());
-        assert!(calls.begin("another-runtime", "session", "call", "plugin.a").is_ok());
-        assert!(calls.begin("runtime", "session", "pending", "plugin.b").unwrap().flag.load(Ordering::Acquire));
+        assert!(calls
+            .begin("another-runtime", "session", "call", "plugin.a")
+            .is_ok());
+        assert!(calls
+            .begin("runtime", "session", "pending", "plugin.b")
+            .unwrap()
+            .flag
+            .load(Ordering::Acquire));
     }
     #[test]
     fn cancellation_covers_pending_active_finished_and_scope_boundaries() {

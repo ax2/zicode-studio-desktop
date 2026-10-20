@@ -1,5 +1,16 @@
 # 开发磁盘与产物管理规则
 
+2026-10-18 后态复核：旧 `target/debug/incremental` 已不存在，项目 `target` 的完整只读扫描从 30,041,815,353 字节/75,961 文件变为 27,251,694,764 字节/74,162 文件；Debug/Release EXE 均保留。用户表示会手工清理，代理没有删除或重试此前被拒绝的操作。见[后态记录](../iterations/2026-10-18-manual-incremental-cleanup-observation.md)。下文 24 目录的描述是清理前历史记录。
+
+2026-10-18：Windows 开发和本地/正式构建入口的 Explorer Shell 桥接 DLL
+现在与 Tauri 主构建共用 `scripts/cargo-path.js` 解析后的 `CARGO_TARGET_DIR`。
+此前这两个入口把 DLL 的 `--target-dir` 写死为仓库 `target`，而主构建尊重
+环境覆盖，设置其他目标路径时会生成第二套 Cargo 输出；正式构建还会从错误
+目标路径寻找 DLL。默认路径不变。仅完成脚本语法与源码路径核对；由于 E 卷
+空间不足，没有启动新的 Rust 构建，显式覆盖路径的真实构建仍待验。
+
+2026-10-18：`E:\zicode-studio-desktop\target\debug\incremental` 当前 24 目录、1,799 文件、2,790,120,589 逻辑字节。`[profile.dev].incremental=false` 且旧 41 个拒绝路径均已不在此目录；但本次针对当前目录的定向 PowerShell 删除再次被自动审批以 `blocked by policy` 拒绝。实际删除 0。不要改用子路径、脚本或其他工具重试；用户可按[阶段记录](../iterations/2026-10-18-tool-open-recent-ack.md)核对后手工处理。`target/debug` 中完整可运行资源与 EXE 不属于此候选。
+
 ## 最新保留策略（2026-10-10）
 
 用户要求 debug 和 release 各只保留最后一个完整运行版本。日常继续覆盖复用
@@ -62,11 +73,18 @@ Pi 升级先验证上游摘要、运行包布局、RPC 与产品扩展，再更�
 
 记录删除文件数量/逻辑字节及清理前后卷空间；若无合适候选，就记录无需清理。
 本规则与只读审计脚本不代表已实现计划清理服务。
+
+需要逐项查看 `.cache/task-scratch` 时，运行
+`pwsh -NoProfile -File scripts/storage-scratch-inventory.ps1 -Top 20`。
+该脚本只统计顶层条目的逻辑大小、文件数、链接或读取异常及 `owner.json` 是否存在，
+并输出 `ReferencesChecked=false`；它不核对文档和外部归档的引用，也不授权删除。
+`UnknownEntries` 非零时先查清链接或读取失败，不能据此推断目录可清理。
+
 ## 本地开发与缓存配置（2026-10-09）
 
 日常使用bun run dev；只在需要本地EXE时使用bun run build:local，debug/no-bundle复用target/debug，不复制一整套运行资源到新日期目录。bun run build用于有意打包发布，不自动发布远端，也不自动修改版本号。本地开发继续0.1.0，以Git revision/dirty和验证日期定位变化。
 
-Cargo dev使用debug=1保留有限调试信息；test继承dev，不另设不同依赖优化profile。incremental保持true，release优化保持既有配置。debug设置变化使首次后续编译失效重建一次，本轮不为了配置验证进行完整编译或清空旧缓存。后续实际新配置编译后的体积/耗时需另测，不能把预计优化记作已释放字节。
+Cargo dev/test使用`debug=1`保留有限调试信息，并复用同一依赖优化profile。`incremental=false`避免日常编辑与重复检查持续积累大体积增量会话；代价是修改Rust后需要重新编译crate，首次采用新profile也会重新生成受影响产物。release配置保持既有值。旧增量目录不由此自动删除，实际节省量与编译耗时仍需后续观测，不把配置意图记作已释放字节。
 
 Cargo官方说明：https://doc.rust-lang.org/cargo/reference/profiles.html 。统一target路径，尊重并记录显式CARGO_TARGET_DIR；避免轮次切换RUSTFLAGS/feature/profile产生多套缓存。
 

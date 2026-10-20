@@ -8,9 +8,13 @@ fn worker_capacity_is_reserved_per_plugin_and_releases_expired_jobs() {
     let mut leases = Vec::new();
     for index in 0..MAX_ACTIVE_WORKERS_PER_PLUGIN {
         let lease = Arc::new(());
-        reservations.insert(format!("first-{index}"), WorkerReservation {
-            plugin_id: "first".into(), lease: Arc::downgrade(&lease),
-        });
+        reservations.insert(
+            format!("first-{index}"),
+            WorkerReservation {
+                plugin_id: "first".into(),
+                lease: Arc::downgrade(&lease),
+            },
+        );
         leases.push(lease);
     }
     assert!(worker_budget_exceeded(&reservations, "first"));
@@ -20,9 +24,13 @@ fn worker_capacity_is_reserved_per_plugin_and_releases_expired_jobs() {
     assert!(!worker_budget_exceeded(&reservations, "first"));
     for index in reservations.len()..MAX_ACTIVE_WORKERS {
         let lease = Arc::new(());
-        reservations.insert(format!("other-{index}"), WorkerReservation {
-            plugin_id: format!("other-{index}"), lease: Arc::downgrade(&lease),
-        });
+        reservations.insert(
+            format!("other-{index}"),
+            WorkerReservation {
+                plugin_id: format!("other-{index}"),
+                lease: Arc::downgrade(&lease),
+            },
+        );
         leases.push(lease);
     }
     assert!(worker_budget_exceeded(&reservations, "second"));
@@ -180,16 +188,35 @@ fn unrelated_mutations_preserve_worker_but_identical_reinstall_invalidates_it() 
     let result = || Ok(json!({"ok":true,"data":{"text":"aGVsbG8="}}));
     let job = prepare(&mut broker, &registry, &request);
     let global = registry.result_epoch();
-    registry.set_enabled("other-scene", &request.plugin_id, true).unwrap();
-    registry.set_permission("programming", "com.zicode.artifacts", "storage.plugin", false).unwrap();
+    registry
+        .set_enabled("other-scene", &request.plugin_id, true)
+        .unwrap();
+    registry
+        .set_permission(
+            "programming",
+            "com.zicode.artifacts",
+            "storage.plugin",
+            false,
+        )
+        .unwrap();
     registry.reload_developer_plugins().unwrap();
     assert_ne!(global, registry.result_epoch());
-    broker.finish_worker_invocation(&registry, *job, result(), &flag).unwrap();
+    broker
+        .finish_worker_invocation(&registry, *job, result(), &flag)
+        .unwrap();
     let mut fresh = request.clone();
     fresh.tool_call_id = Some("fresh-reinstall-check".into());
     let job = prepare(&mut broker, &registry, &fresh);
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    registry.install_developer(&project.join("tests/fixtures/devtools-text-dev57")).unwrap();
-    assert_eq!(broker.finish_worker_invocation(&registry, *job, result(), &flag).unwrap_err().code, "capability_changed");
+    registry
+        .install_developer(&project.join("tests/fixtures/devtools-text-dev57"))
+        .unwrap();
+    assert_eq!(
+        broker
+            .finish_worker_invocation(&registry, *job, result(), &flag)
+            .unwrap_err()
+            .code,
+        "capability_changed"
+    );
     assert!(broker.worker_reservations.is_empty());
 }

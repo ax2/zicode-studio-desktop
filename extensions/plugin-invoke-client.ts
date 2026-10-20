@@ -40,8 +40,10 @@ const HOST_CODES = new Set([
   "worker_output_too_large",
 ]);
 
-export function createPluginInvokeClient(binding: BrokerBinding, request: typeof fetch) {
-  return async (input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> => {
+export type PluginInvokeEnvelope = { result: unknown; resultRef?: unknown; resultCaptureError?: unknown };
+
+export function createPluginInvokeEnvelopeClient(binding: BrokerBinding, request: typeof fetch) {
+  return async (input: Record<string, unknown>, signal?: AbortSignal): Promise<PluginInvokeEnvelope> => {
     const controller = new AbortController();
     const cancel = () => controller.abort();
     signal?.addEventListener("abort", cancel, { once: true });
@@ -113,7 +115,7 @@ export function createPluginInvokeClient(binding: BrokerBinding, request: typeof
       }
       if (!Object.hasOwn(payload, "result"))
         throw new PluginClientError("[plugin_response_invalid] Plugin Host returned no result");
-      return (payload as { result: unknown }).result;
+      return payload as PluginInvokeEnvelope;
     } catch (error) {
       if (signal?.aborted || timedOut) {
         clearTimeout(timer);
@@ -138,4 +140,10 @@ export function createPluginInvokeClient(binding: BrokerBinding, request: typeof
       }
     }
   };
+}
+
+export function createPluginInvokeClient(binding: BrokerBinding, request: typeof fetch) {
+  const invoke = createPluginInvokeEnvelopeClient(binding, request);
+  return async (input: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> =>
+    (await invoke(input, signal)).result;
 }

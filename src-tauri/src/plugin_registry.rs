@@ -1,17 +1,31 @@
 use crate::plugin_package::{
-    extract_verified_package, preview_package, publisher_is_trusted, revoke_publisher,
-    trust_publisher, verify_package, SignedPluginPreview,
+    extract_verified_package, forget_new_publisher_trust, publisher_is_trusted,
+    publisher_trust_status, revoke_publisher, trust_publisher, VerifiedPackage,
 };
-mod signed_integrity;
-mod engine_compatibility;
-mod profile_compatibility;
-pub(crate) mod manual_catalog;
+#[cfg(test)]
+use crate::plugin_package::{preview_package, verify_package, SignedPluginPreview};
 mod directory_metadata;
+pub(crate) mod directory_projection;
+mod developer_install;
+mod engine_compatibility;
+mod execution_revision;
+pub(crate) mod file_input;
+pub(crate) mod manual_catalog;
+mod package_content;
+mod profile_compatibility;
+#[cfg(test)]
+#[path = "plugin_registry/provider_bundle_tests.rs"]
+mod provider_bundle_tests;
+pub(super) mod resource_input_types;
+pub(crate) mod runtime_contract;
+mod signed_integrity;
+mod view_document;
+mod view_operation_directory;
+mod signed_install;
+pub(crate) use developer_install::{CommittedDeveloperInstall, PreparedDeveloperInstall};
+pub(crate) use signed_install::PreparedSignedInstall;
 #[path = "plugin_registry/manual_search.rs"]
 pub(crate) mod tool_search;
-mod execution_revision;
-pub(crate) mod runtime_contract;
-pub(crate) mod file_input;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -27,7 +41,7 @@ const MAX_PACKAGE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_VIEW_DOCUMENT_BYTES: u64 = 1024 * 1024;
 const MAX_WORKER_DOCUMENT_BYTES: u64 = 1024 * 1024;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginManifest {
     pub schema_version: u32,
@@ -52,7 +66,7 @@ pub struct PluginManifest {
     pub permissions: ManifestPermissions,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestPermissions {
     #[serde(default)]
@@ -61,7 +75,7 @@ pub struct ManifestPermissions {
     pub optional: Vec<ManifestPermission>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestPermission {
     pub name: String,
@@ -82,6 +96,37 @@ pub struct PluginDescriptor {
     pub retained_versions: Vec<String>,
 }
 
+pub(crate) struct PluginExecutionSnapshot {
+    pub manifest: PluginManifest,
+    pub origin: PluginOrigin,
+    pub enabled: bool,
+    pub permission_grants: BTreeMap<String, bool>,
+}
+
+struct PluginListing<'a> {
+    manifest: &'a PluginManifest,
+    origin: PluginOrigin,
+    enabled: bool,
+    core: bool,
+    permission_grants: BTreeMap<String, bool>,
+    publisher_key_id: Option<String>,
+    retained_versions: Vec<String>,
+}
+
+impl PluginListing<'_> {
+    fn into_descriptor(self) -> PluginDescriptor {
+        PluginDescriptor {
+            manifest: self.manifest.clone(),
+            origin: self.origin,
+            enabled: self.enabled,
+            core: self.core,
+            permission_grants: self.permission_grants,
+            publisher_key_id: self.publisher_key_id,
+            retained_versions: self.retained_versions,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginCapabilityDescriptor {
@@ -91,6 +136,10 @@ pub struct PluginCapabilityDescriptor {
     pub input_schema: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resource_input_max: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_input_mime_types: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_profile: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -135,10 +184,25 @@ pub struct PluginDiagnostic {
     pub message: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeveloperPluginPreview {
+    pub source_path: String,
+    pub content_sha256: String,
+    pub plugin_id: String,
+    pub name: String,
+    pub version: String,
+    pub publisher: String,
+    pub permissions: Vec<String>,
+    pub capability_count: usize,
+}
+
 #[derive(Clone, Debug)]
 struct InstalledPlugin {
     execution_revision: uuid::Uuid,
+    content_digest: Option<[u8; 32]>,
     publisher_identity: Option<(String, String)>,
+    retained_versions: Vec<String>,
     manifest: PluginManifest,
     origin: PluginOrigin,
     core: bool,
@@ -194,6 +258,10 @@ pub struct PluginRegistry {
 }
 
 impl PluginRegistry {
+    pub(crate) fn root(&self) -> &Path {
+        &self.root
+    }
+
     pub fn open(root: PathBuf) -> Result<Self, String> {
         fs::create_dir_all(root.join("developer"))
             .map_err(|error| format!("Cannot create plugin registry directory: {error}"))?;
@@ -216,6 +284,92 @@ impl PluginRegistry {
     }
 
     pub fn list(&self, scene_id: &str) -> Vec<PluginDescriptor> {
+        self.listings(scene_id)
+            .into_iter()
+            .map(PluginListing::into_descriptor)
+            .collect()
+    }
+
+    pub(crate) fn list_summary(&self, scene_id: &str) -> Vec<Value> {
+        self.listings(scene_id)
+            .iter()
+            .map(directory_projection::summary)
+            .collect()
+    }
+
+    fn plugin_enabled(&self, scene_id: &str, plugin: &InstalledPlugin) -> bool {
+        plugin.core
+            || self
+                .state
+                .scenes
+                .get(scene_id)
+                .and_then(|scene| scene.get(&plugin.manifest.id))
+                .and_then(|state| state.enabled)
+                .unwrap_or(plugin.enabled_by_default)
+    }
+
+    fn plugin_permission_granted(
+        &self,
+        scene_id: &str,
+        plugin: &InstalledPlugin,
+        permission: &str,
+    ) -> bool {
+        let declared = plugin
+            .manifest
+            .permissions
+            .required
+            .iter()
+            .chain(&plugin.manifest.permissions.optional)
+            .any(|declared| declared.name == permission);
+        declared
+            && self.state.scenes.get(scene_id)
+            .and_then(|scene| scene.get(&plugin.manifest.id))
+            .and_then(|state| state.permissions.get(permission))
+            .copied()
+            .unwrap_or(plugin.origin == PluginOrigin::BuiltIn)
+    }
+
+    pub(crate) fn plugin_origin(&self, plugin_id: &str) -> Option<PluginOrigin> {
+        self.plugins.get(plugin_id).map(|plugin| plugin.origin)
+    }
+
+    pub(crate) fn has_external_runtime(&self, plugin_id: &str) -> bool {
+        self.plugins.get(plugin_id).is_some_and(|plugin| {
+            plugin.origin != PluginOrigin::BuiltIn
+                && (plugin.manifest.runtime["worker"].is_string()
+                    || plugin.manifest.runtime["wasi"].is_string())
+        })
+    }
+
+    pub(crate) fn execution_plugin(
+        &self,
+        scene_id: &str,
+        plugin_id: &str,
+    ) -> Option<PluginExecutionSnapshot> {
+        let plugin = self.plugins.get(plugin_id)?;
+        let permission_grants = all_permissions(&plugin.manifest)
+            .into_iter()
+            .map(|permission| {
+                let granted = self.plugin_permission_granted(scene_id, plugin, &permission);
+                (permission, granted)
+            })
+            .collect();
+        Some(PluginExecutionSnapshot {
+            manifest: plugin.manifest.clone(),
+            origin: plugin.origin,
+            enabled: self.plugin_enabled(scene_id, plugin),
+            permission_grants,
+        })
+    }
+
+    pub(crate) fn execution_plugins(&self, scene_id: &str) -> Vec<PluginExecutionSnapshot> {
+        self.plugins
+            .keys()
+            .filter_map(|plugin_id| self.execution_plugin(scene_id, plugin_id))
+            .collect()
+    }
+
+    fn listings(&self, scene_id: &str) -> Vec<PluginListing<'_>> {
         self.plugins
             .values()
             .map(|plugin| {
@@ -234,27 +388,17 @@ impl PluginRegistry {
                         (permission, granted)
                     })
                     .collect();
-                PluginDescriptor {
-                    manifest: plugin.manifest.clone(),
+                PluginListing {
+                    manifest: &plugin.manifest,
                     origin: plugin.origin,
-                    enabled: if plugin.core {
-                        true
-                    } else {
-                        scene_state
-                            .and_then(|state| state.enabled)
-                            .unwrap_or(plugin.enabled_by_default)
-                    },
+                    enabled: self.plugin_enabled(scene_id, plugin),
                     core: plugin.core,
                     permission_grants,
-                    publisher_key_id: (plugin.origin == PluginOrigin::Signed)
-                        .then(|| self.read_signed_metadata(&plugin.manifest.id).ok())
-                        .flatten()
-                        .map(|metadata| metadata.publisher_key_id),
-                    retained_versions: if plugin.origin == PluginOrigin::Signed {
-                        self.signed_retained_versions(&plugin.manifest.id)
-                    } else {
-                        Vec::new()
-                    },
+                    publisher_key_id: plugin
+                        .publisher_identity
+                        .as_ref()
+                        .map(|(key_id, _)| key_id.clone()),
+                    retained_versions: plugin.retained_versions.clone(),
                 }
             })
             .collect()
@@ -265,9 +409,8 @@ impl PluginRegistry {
     }
 
     pub fn capabilities(&self, scene_id: &str) -> Vec<PluginCapabilityDescriptor> {
-        self.list(scene_id)
-            .into_iter()
-            .filter(|plugin| plugin.enabled)
+        self.plugins.values()
+            .filter(|plugin| self.plugin_enabled(scene_id, plugin))
             .flat_map(|plugin| {
                 let plugin_id = plugin.manifest.id.clone();
                 plugin
@@ -292,9 +435,20 @@ impl PluginRegistry {
                             input_schema: value.get("inputSchema").cloned().unwrap_or_else(
                                 || json!({ "type": "object", "additionalProperties": false }),
                             ),
-                            resource_input_max: value.get("resourceInputMax").and_then(Value::as_u64).map(|n| n as usize),
+                            resource_input_max: value
+                                .get("resourceInputMax")
+                                .and_then(Value::as_u64)
+                                .map(|n| n as usize),
+                            resource_input_mime_types: resource_input_types::declared(&value),
+                            execution_profile: value
+                                .get("executionProfile")
+                                .and_then(Value::as_str)
+                                .map(str::to_owned),
                             output_schema: value.get("outputSchema").cloned(),
-                            max_result_bytes: value.get("maxResultBytes").and_then(Value::as_u64).map(|limit| limit as usize),
+                            max_result_bytes: value
+                                .get("maxResultBytes")
+                                .and_then(Value::as_u64)
+                                .map(|limit| limit as usize),
                         })
                     })
             })
@@ -302,16 +456,9 @@ impl PluginRegistry {
     }
 
     pub fn pi_tools(&self, scene_id: &str) -> Vec<PluginPiToolDescriptor> {
-        self.list(scene_id)
-            .into_iter()
-            .filter(|plugin| {
-                plugin.enabled
-                    && plugin
-                        .permission_grants
-                        .get("pi.tools.register")
-                        .copied()
-                        .unwrap_or(false)
-            })
+        self.plugins.values()
+            .filter(|plugin| self.plugin_enabled(scene_id, plugin)
+                && self.plugin_permission_granted(scene_id, plugin, "pi.tools.register"))
             .flat_map(|plugin| {
                 let plugin_id = plugin.manifest.id.clone();
                 plugin
@@ -362,9 +509,8 @@ impl PluginRegistry {
     pub fn command_plugin(&self, scene_id: &str, command_id: &str) -> Result<String, String> {
         validate_scene_id(scene_id)?;
         let matches: Vec<String> = self
-            .list(scene_id)
-            .into_iter()
-            .filter(|plugin| plugin.enabled)
+            .plugins.values()
+            .filter(|plugin| self.plugin_enabled(scene_id, plugin))
             .filter(|plugin| {
                 plugin
                     .manifest
@@ -375,7 +521,7 @@ impl PluginRegistry {
                     .flatten()
                     .any(|command| command.get("id").and_then(Value::as_str) == Some(command_id))
             })
-            .map(|plugin| plugin.manifest.id)
+            .map(|plugin| plugin.manifest.id.clone())
             .collect();
         match matches.as_slice() {
             [plugin_id] => Ok(plugin_id.clone()),
@@ -390,26 +536,16 @@ impl PluginRegistry {
         plugin_id: &str,
     ) -> Result<(PathBuf, &'static str), String> {
         validate_scene_id(scene_id)?;
-        let descriptor = self
-            .list(scene_id)
-            .into_iter()
-            .find(|plugin| plugin.manifest.id == plugin_id)
-            .ok_or_else(|| format!("Unknown application plugin: {plugin_id}"))?;
-        if !descriptor.enabled {
-            return Err(format!(
-                "Plugin {plugin_id} is not enabled in scene {scene_id}"
-            ));
-        }
-        if !matches!(
-            descriptor.origin,
-            PluginOrigin::Developer | PluginOrigin::Signed
-        ) {
-            return Err("Built-in capabilities use Host handlers".into());
-        }
         let installed = self
             .plugins
             .get(plugin_id)
             .ok_or_else(|| format!("Unknown application plugin: {plugin_id}"))?;
+        if !self.plugin_enabled(scene_id, installed) {
+            return Err(format!("Plugin {plugin_id} is not enabled in scene {scene_id}"));
+        }
+        if !matches!(installed.origin, PluginOrigin::Developer | PluginOrigin::Signed) {
+            return Err("Built-in capabilities use Host handlers".into());
+        }
         let (entry, kind) = if let Some(entry) = installed
             .manifest
             .runtime
@@ -417,7 +553,7 @@ impl PluginRegistry {
             .and_then(Value::as_str)
         {
             (entry, "wasi")
-        } else if descriptor.origin == PluginOrigin::Developer {
+        } else if installed.origin == PluginOrigin::Developer {
             (
                 installed
                     .manifest
@@ -455,86 +591,14 @@ impl PluginRegistry {
         Ok((path, kind))
     }
 
+    #[cfg(test)]
     pub fn view_document(
         &self,
         scene_id: &str,
         plugin_id: &str,
         view_id: &str,
     ) -> Result<PluginViewDocument, String> {
-        validate_scene_id(scene_id)?;
-        self.verify_current_integrity(plugin_id)?;
-        let descriptor = self
-            .list(scene_id)
-            .into_iter()
-            .find(|plugin| plugin.manifest.id == plugin_id)
-            .ok_or_else(|| format!("Unknown application plugin: {plugin_id}"))?;
-        if !descriptor.enabled {
-            return Err(format!(
-                "Plugin {plugin_id} is not enabled in scene {scene_id}"
-            ));
-        }
-        if !matches!(
-            descriptor.origin,
-            PluginOrigin::Developer | PluginOrigin::Signed
-        ) {
-            return Err("Built-in views are loaded from application modules".into());
-        }
-        let installed = self
-            .plugins
-            .get(plugin_id)
-            .ok_or_else(|| format!("Unknown application plugin: {plugin_id}"))?;
-        let view = installed
-            .manifest
-            .contributes
-            .get("views")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .find(|view| view.get("id").and_then(Value::as_str) == Some(view_id))
-            .ok_or_else(|| format!("Plugin {plugin_id} does not declare view {view_id}"))?;
-        let entry = view
-            .get("entry")
-            .and_then(Value::as_str)
-            .ok_or_else(|| format!("View {view_id} does not declare an entry"))?;
-        let package_root = installed
-            .package_root
-            .as_ref()
-            .ok_or_else(|| "Developer plugin package path is unavailable".to_string())?;
-        validate_resource_path(entry, Some(package_root))?;
-        let path = package_root.join(entry);
-        let metadata = fs::metadata(&path)
-            .map_err(|error| format!("Cannot inspect view entry {view_id}: {error}"))?;
-        if !metadata.is_file() || metadata.len() > MAX_VIEW_DOCUMENT_BYTES {
-            return Err(format!(
-                "View {view_id} must be an HTML file no larger than 1 MiB"
-            ));
-        }
-        if path.extension().and_then(|value| value.to_str()) != Some("html") {
-            return Err(format!("View {view_id} entry must use the .html extension"));
-        }
-        let bytes =
-            fs::read(path).map_err(|error| format!("Cannot read view entry {view_id}: {error}"))?;
-        let html = String::from_utf8(bytes)
-            .map_err(|_| format!("View {view_id} entry must be UTF-8 encoded"))?;
-        if html.contains('\0') {
-            return Err(format!("View {view_id} entry contains invalid null bytes"));
-        }
-        Ok(PluginViewDocument {
-            plugin_id: plugin_id.to_string(),
-            plugin_version: installed.manifest.version.clone(),
-            view_id: view_id.to_string(),
-            title: view
-                .get("title")
-                .and_then(Value::as_str)
-                .unwrap_or(view_id)
-                .to_string(),
-            location: view
-                .get("location")
-                .and_then(Value::as_str)
-                .unwrap_or("main")
-                .to_string(),
-            html,
-        })
+        self.view_snapshot(scene_id, plugin_id, view_id)?.read()
     }
 
     pub fn set_enabled(
@@ -612,23 +676,77 @@ impl PluginRegistry {
         self.save()
     }
 
+    pub fn preview_developer_package(
+        managed_root: &Path,
+        source: &Path,
+    ) -> Result<DeveloperPluginPreview, String> {
+        let source = Self::canonical_developer_source_for(managed_root, source)?;
+        let manifest = load_manifest(&source)?;
+        let digest = package_content::digest(&source)?;
+        Ok(DeveloperPluginPreview {
+            source_path: source.to_string_lossy().into_owned(),
+            content_sha256: digest_hex(&digest),
+            plugin_id: manifest.id,
+            name: manifest.name,
+            version: manifest.version,
+            publisher: manifest.publisher,
+            permissions: manifest
+                .permissions
+                .required
+                .iter()
+                .chain(manifest.permissions.optional.iter())
+                .map(|permission| permission.name.clone())
+                .collect(),
+            capability_count: manifest
+                .contributes
+                .get("capabilities")
+                .and_then(Value::as_array)
+                .map_or(0, Vec::len),
+        })
+    }
+
+    #[cfg(test)]
     pub fn install_developer(&mut self, source: &Path) -> Result<String, String> {
+        let prepared = PreparedDeveloperInstall::prepare(&self.root, source, None)?;
+        let committed = self.commit_prepared_developer(prepared)?;
+        Ok(committed.plugin_id().to_string())
+    }
+
+    #[cfg(test)]
+    pub fn install_previewed_developer(
+        &mut self,
+        source: &Path,
+        expected_digest: &str,
+    ) -> Result<String, String> {
+        let prepared = PreparedDeveloperInstall::prepare(&self.root, source, Some(expected_digest))?;
+        let committed = self.commit_prepared_developer(prepared)?;
+        Ok(committed.plugin_id().to_string())
+    }
+
+    fn canonical_developer_source_for(
+        managed_root: &Path,
+        source: &Path,
+    ) -> Result<PathBuf, String> {
         let source = source
             .canonicalize()
             .map_err(|error| format!("Cannot resolve selected plugin directory: {error}"))?;
         if !source.is_dir() {
             return Err("Selected plugin package is not a directory".into());
         }
-        if source.starts_with(
-            self.root
-                .canonicalize()
-                .unwrap_or_else(|_| self.root.clone()),
-        ) {
-            return Err(
-                "The selected plugin is already inside the managed plugin directory".into(),
-            );
+        if source.starts_with(managed_root.canonicalize().unwrap_or_else(|_| managed_root.to_path_buf())) {
+            return Err("The selected plugin is already inside the managed plugin directory".into());
         }
-        let manifest = load_manifest(&source)?;
+        Ok(source)
+    }
+
+    pub(crate) fn commit_prepared_developer(
+        &mut self,
+        prepared: PreparedDeveloperInstall,
+    ) -> Result<CommittedDeveloperInstall, String> {
+        if prepared.managed_root != self.root {
+            return Err("Prepared developer plugin belongs to a different registry".into());
+        }
+        let manifest = &prepared.manifest;
         if self
             .plugins
             .get(&manifest.id)
@@ -642,32 +760,20 @@ impl PluginRegistry {
 
         let developer_root = self.root.join("developer");
         let nonce = uuid::Uuid::new_v4().simple().to_string();
-        let staging = self.root.join(format!(".staging-{nonce}"));
         let backup = self.root.join(format!(".backup-{nonce}"));
         let destination = developer_root.join(&manifest.id);
-        if let Err(error) = copy_package_tree(&source, &staging) {
-            let _ = fs::remove_dir_all(&staging);
-            return Err(error);
-        }
-        let copied_manifest = load_manifest(&staging)?;
-        if copied_manifest.id != manifest.id || copied_manifest.version != manifest.version {
-            let _ = fs::remove_dir_all(&staging);
-            return Err("Plugin package changed while it was being copied".into());
-        }
 
         let had_previous = destination.is_dir();
         self.invalidate_plugin_execution(&manifest.id);
         if had_previous {
             fs::rename(&destination, &backup).map_err(|error| {
-                let _ = fs::remove_dir_all(&staging);
                 format!("Cannot prepare plugin upgrade: {error}")
             })?;
         }
-        if let Err(error) = fs::rename(&staging, &destination) {
+        if let Err(error) = fs::rename(&prepared.staging, &destination) {
             if had_previous {
                 let _ = fs::rename(&backup, &destination);
             }
-            let _ = fs::remove_dir_all(&staging);
             return Err(format!("Cannot finish plugin installation: {error}"));
         }
 
@@ -693,29 +799,47 @@ impl PluginRegistry {
             }
             return Err(diagnostic);
         }
-        if had_previous {
-            if let Err(error) = fs::remove_dir_all(&backup) {
-                log::warn!(
-                    "[zicode-plugins] installed {} but could not remove backup {}: {error}",
-                    manifest.id,
-                    backup.display()
-                );
-            }
-        }
-        Ok(manifest.id)
+        Ok(CommittedDeveloperInstall {
+            plugin_id: manifest.id.clone(),
+            backup: had_previous.then_some(backup),
+        })
     }
 
+    #[cfg(test)]
     pub fn preview_signed(&self, package: &Path) -> Result<SignedPluginPreview, String> {
         preview_package(package, &self.root)
     }
 
+    #[cfg(test)]
     pub fn install_signed(&mut self, package: &Path, trust: bool) -> Result<String, String> {
         let verified = verify_package(package, &self.root)?;
-        if !verified.trusted {
-            if !trust {
-                return Err("Publisher trust confirmation is required".into());
-            }
-            trust_publisher(&self.root, &verified.publisher)?;
+        let prepared = PreparedSignedInstall::prepare(&self.root, verified)?;
+        self.install_prepared_signed(prepared, trust)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn install_verified_signed(
+        &mut self,
+        verified: VerifiedPackage,
+        trust: bool,
+    ) -> Result<String, String> {
+        let prepared = PreparedSignedInstall::prepare(&self.root, verified)?;
+        self.install_prepared_signed(prepared, trust)
+    }
+
+    pub(crate) fn install_prepared_signed(
+        &mut self,
+        mut prepared: PreparedSignedInstall,
+        trust: bool,
+    ) -> Result<String, String> {
+        if prepared.managed_root != self.root {
+            return Err("Prepared signed plugin belongs to a different registry".into());
+        }
+        let staging = prepared.staging.clone();
+        let verified = &mut prepared.verified;
+        verified.trusted = publisher_trust_status(&self.root, &verified.publisher)?;
+        if !verified.trusted && !trust {
+            return Err("Publisher trust confirmation is required".into());
         }
         let manifest = verified.manifest.clone();
         if self
@@ -732,17 +856,11 @@ impl PluginRegistry {
         fs::create_dir_all(&signed_root)
             .map_err(|error| format!("Cannot create signed plugin directory: {error}"))?;
         let nonce = uuid::Uuid::new_v4().simple().to_string();
-        let staging = self.root.join(format!(".signed-staging-{nonce}"));
         let backup = self.root.join(format!(".signed-backup-{nonce}"));
         let destination = signed_root.join(&manifest.id);
-        extract_verified_package(&verified, &staging)?;
-        let extracted = load_manifest(&staging)?;
-        if extracted.id != manifest.id || extracted.version != manifest.version {
-            let _ = fs::remove_dir_all(&staging);
-            return Err("Signed plugin changed while it was being extracted".into());
-        }
+        let reject_staged = |error| error;
         let previous = if destination.is_dir() {
-            Some(load_manifest(&destination)?)
+            Some(load_manifest(&destination).map_err(reject_staged)?)
         } else {
             None
         };
@@ -766,19 +884,34 @@ impl PluginRegistry {
         }
         if let Some(previous) = &previous {
             let old = semver::Version::parse(&previous.version)
-                .map_err(|error| format!("Installed plugin version is invalid: {error}"))?;
+                .map_err(|error| reject_staged(format!("Installed plugin version is invalid: {error}")))?;
             let new = semver::Version::parse(&manifest.version)
-                .map_err(|error| format!("Signed plugin version is invalid: {error}"))?;
+                .map_err(|error| reject_staged(format!("Signed plugin version is invalid: {error}")))?;
             if new < old {
                 let _ = fs::remove_dir_all(&staging);
                 return Err("Signed plugin downgrade requires the explicit rollback action".into());
             }
         }
+        if !verified.trusted {
+            trust_publisher(&self.root, &verified.publisher).map_err(reject_staged)?;
+        }
+        let plugin_root = self.root.clone();
+        let rollback_new_trust = |error: String| {
+            if verified.trusted {
+                return error;
+            }
+            match forget_new_publisher_trust(&plugin_root, &verified.publisher) {
+                Ok(()) => error,
+                Err(rollback_error) => {
+                    format!("{error}; cannot roll back new publisher trust: {rollback_error}")
+                }
+            }
+        };
         self.invalidate_plugin_execution(&manifest.id);
         if destination.is_dir() {
             fs::rename(&destination, &backup).map_err(|error| {
                 let _ = fs::remove_dir_all(&staging);
-                format!("Cannot prepare signed plugin update: {error}")
+                rollback_new_trust(format!("Cannot prepare signed plugin update: {error}"))
             })?;
         }
         if let Err(error) = fs::rename(&staging, &destination) {
@@ -786,7 +919,7 @@ impl PluginRegistry {
                 let _ = fs::rename(&backup, &destination);
             }
             let _ = fs::remove_dir_all(&staging);
-            return Err(format!("Cannot activate signed plugin: {error}"));
+            return Err(rollback_new_trust(format!("Cannot activate signed plugin: {error}")));
         }
         let new_metadata = SignedInstallMetadata {
             plugin_id: manifest.id.clone(),
@@ -800,7 +933,7 @@ impl PluginRegistry {
             if backup.is_dir() {
                 let _ = fs::rename(&backup, &destination);
             }
-            return Err(error);
+            return Err(rollback_new_trust(error));
         }
         if let Err(error) = self.reload_developer_plugins() {
             let _ = fs::remove_dir_all(&destination);
@@ -809,7 +942,7 @@ impl PluginRegistry {
             }
             self.restore_signed_metadata(&manifest.id, previous_metadata.as_ref());
             let _ = self.reload_developer_plugins();
-            return Err(error);
+            return Err(rollback_new_trust(error));
         }
         if !self
             .plugins
@@ -822,7 +955,9 @@ impl PluginRegistry {
             }
             self.restore_signed_metadata(&manifest.id, previous_metadata.as_ref());
             let _ = self.reload_developer_plugins();
-            return Err("Signed plugin was not registered after activation".into());
+            return Err(rollback_new_trust(
+                "Signed plugin was not registered after activation".into(),
+            ));
         }
         if same_version {
             let quarantine = self.root.join("signed-quarantine");
@@ -853,6 +988,10 @@ impl PluginRegistry {
             if let Some(previous_metadata) = previous_metadata.as_ref() {
                 self.write_signed_version_metadata(previous_metadata)?;
             }
+        }
+        let retained_versions = self.signed_retained_versions(&manifest.id);
+        if let Some(installed) = self.plugins.get_mut(&manifest.id) {
+            installed.retained_versions = retained_versions;
         }
         Ok(manifest.id)
     }
@@ -929,7 +1068,7 @@ impl PluginRegistry {
         Ok(())
     }
 
-    pub fn revoke_signed_publisher(&mut self, key_id: &str) -> Result<(), String> {
+    pub fn revoke_signed_publisher(&mut self, key_id: &str) -> Result<Vec<String>, String> {
         revoke_publisher(&self.root, key_id)?;
         let affected: Vec<String> = self
             .plugins
@@ -946,7 +1085,8 @@ impl PluginRegistry {
             }
         }
         self.save()?;
-        self.reload_developer_plugins()
+        self.reload_developer_plugins()?;
+        Ok(affected)
     }
 
     pub fn uninstall_developer(&mut self, plugin_id: &str) -> Result<(), String> {
@@ -997,12 +1137,15 @@ impl PluginRegistry {
             let manifest: PluginManifest = serde_json::from_value(value)
                 .map_err(|error| format!("Built-in plugin manifest is invalid: {error}"))?;
             validate_manifest(&manifest, None)?;
-            self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.result_epoch
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             self.plugins.insert(
                 manifest.id.clone(),
                 InstalledPlugin {
                     execution_revision: uuid::Uuid::new_v4(),
+                    content_digest: None,
                     publisher_identity: None,
+                    retained_versions: Vec::new(),
                     manifest,
                     origin: PluginOrigin::BuiltIn,
                     core,
@@ -1045,12 +1188,26 @@ impl PluginRegistry {
                         });
                         continue;
                     }
-                    self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let content_digest = match package_content::digest(&package_root) {
+                        Ok(digest) => digest,
+                        Err(error) => {
+                            self.diagnostics.push(PluginDiagnostic {
+                                package: package_name,
+                                code: "package_content_invalid".into(),
+                                message: error,
+                            });
+                            continue;
+                        }
+                    };
+                    self.result_epoch
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     self.plugins.insert(
                         manifest.id.clone(),
                         InstalledPlugin {
                             execution_revision: uuid::Uuid::new_v4(),
+                            content_digest: Some(content_digest),
                             publisher_identity: None,
+                            retained_versions: Vec::new(),
                             manifest,
                             origin: PluginOrigin::Developer,
                             core: false,
@@ -1082,35 +1239,64 @@ impl PluginRegistry {
             }
             let package_name = entry.file_name().to_string_lossy().into_owned();
             match load_manifest(&package_root) {
-                Ok(manifest)
-                    if !self.plugins.contains_key(&manifest.id)
-                        && self
-                            .read_signed_metadata(&manifest.id)
-                            .is_ok_and(|metadata| {
-                                metadata.plugin_id == manifest.id
-                                    && metadata.version == manifest.version
-                                    && self
-                                        .verify_signed_installation(
-                                            &manifest.id,
-                                            &manifest.version,
-                                            &package_root,
-                                            &metadata,
-                                        )
-                                        .is_ok()
-                                    && publisher_is_trusted(
-                                        &self.root,
-                                        &metadata.publisher_key_id,
-                                        &metadata.publisher_public_key,
-                                    )
-                            }) =>
-                {
-                    self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Ok(manifest) => {
+                    if self.plugins.contains_key(&manifest.id) {
+                        self.diagnostics.push(PluginDiagnostic {
+                            package: package_name,
+                            code: "duplicate_plugin_id".into(),
+                            message: format!("Plugin ID {} is already registered", manifest.id),
+                        });
+                        continue;
+                    }
+                    let verified = self.read_signed_metadata(&manifest.id).ok().and_then(|metadata| {
+                        let valid = metadata.plugin_id == manifest.id
+                            && metadata.version == manifest.version
+                            && self
+                                .verify_signed_installation(
+                                    &manifest.id,
+                                    &manifest.version,
+                                    &package_root,
+                                    &metadata,
+                                )
+                                .is_ok()
+                            && publisher_is_trusted(
+                                &self.root,
+                                &metadata.publisher_key_id,
+                                &metadata.publisher_public_key,
+                            );
+                        valid.then(|| {
+                            metadata
+                                .integrity
+                                .as_ref()
+                                .and_then(|proof| package_content::signed_proof_digest(proof).ok())
+                                .map(|digest| (metadata, digest))
+                        })
+                        .flatten()
+                    });
+                    let Some((metadata, content_digest)) = verified else {
+                        self.diagnostics.push(PluginDiagnostic {
+                            package: package_name,
+                            code: "signed_trust_invalid".into(),
+                            message: format!(
+                                "Signed plugin {} failed publisher or integrity verification; reinstall the original signed package (user data is preserved)",
+                                manifest.id
+                            ),
+                        });
+                        continue;
+                    };
+                    self.result_epoch
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let retained_versions = self.signed_retained_versions(&manifest.id);
                     self.plugins.insert(
                         manifest.id.clone(),
                         InstalledPlugin {
                             execution_revision: uuid::Uuid::new_v4(),
-                            publisher_identity: self.read_signed_metadata(&manifest.id).ok()
-                                .map(|metadata| (metadata.publisher_key_id, metadata.publisher_public_key)),
+                            content_digest: Some(content_digest),
+                            publisher_identity: Some((
+                                metadata.publisher_key_id,
+                                metadata.publisher_public_key,
+                            )),
+                            retained_versions,
                             manifest,
                             origin: PluginOrigin::Signed,
                             core: false,
@@ -1118,27 +1304,6 @@ impl PluginRegistry {
                             package_root: Some(package_root),
                         },
                     );
-                }
-                Ok(manifest) => {
-                    let (code, message) = if self.plugins.contains_key(&manifest.id) {
-                        (
-                            "duplicate_plugin_id",
-                            format!("Plugin ID {} is already registered", manifest.id),
-                        )
-                    } else {
-                        (
-                            "signed_trust_invalid",
-                            format!(
-                                "Signed plugin {} failed publisher or integrity verification; reinstall the original signed package (user data is preserved)",
-                                manifest.id
-                            ),
-                        )
-                    };
-                    self.diagnostics.push(PluginDiagnostic {
-                        package: package_name,
-                        code: code.into(),
-                        message,
-                    });
                 }
                 Err(message) => self.diagnostics.push(PluginDiagnostic {
                     package: package_name,
@@ -1266,7 +1431,8 @@ impl PluginRegistry {
     }
 
     fn scene_plugin_state_mut(&mut self, scene_id: &str, plugin_id: &str) -> &mut PluginSceneState {
-        let state = self.state
+        let state = self
+            .state
             .scenes
             .entry(scene_id.to_string())
             .or_default()
@@ -1329,7 +1495,8 @@ impl PluginRegistry {
     }
 
     fn save(&self) -> Result<(), String> {
-        self.result_epoch.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.result_epoch
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let destination = self.root.join("registry.json");
         let temporary = self
             .root
@@ -1350,7 +1517,7 @@ impl PluginRegistry {
 fn copy_package_tree(source: &Path, destination: &Path) -> Result<(), String> {
     let source_metadata = fs::symlink_metadata(source)
         .map_err(|error| format!("Cannot inspect plugin package: {error}"))?;
-    if !source_metadata.is_dir() || source_metadata.file_type().is_symlink() {
+    if !source_metadata.is_dir() || package_content::linked(&source_metadata) {
         return Err("Plugin package root must be a regular directory".into());
     }
     fs::create_dir(destination)
@@ -1364,30 +1531,26 @@ fn copy_package_tree(source: &Path, destination: &Path) -> Result<(), String> {
         {
             let entry =
                 entry.map_err(|error| format!("Cannot read plugin package entry: {error}"))?;
-            let file_type = entry
-                .file_type()
+            let metadata = fs::symlink_metadata(entry.path())
                 .map_err(|error| format!("Cannot inspect plugin package entry: {error}"))?;
-            if file_type.is_symlink() {
+            if package_content::linked(&metadata) {
                 let _ = fs::remove_dir_all(destination);
                 return Err(format!(
-                    "Plugin packages cannot contain symbolic links: {}",
+                    "Plugin packages cannot contain links: {}",
                     entry.path().display()
                 ));
             }
             let target = current_destination.join(entry.file_name());
-            if file_type.is_dir() {
+            if metadata.is_dir() {
                 fs::create_dir(&target)
                     .map_err(|error| format!("Cannot create plugin package directory: {error}"))?;
                 pending.push((entry.path(), target));
                 continue;
             }
-            if !file_type.is_file() {
+            if !metadata.is_file() {
                 let _ = fs::remove_dir_all(destination);
                 return Err("Plugin packages can contain only files and directories".into());
             }
-            let metadata = entry
-                .metadata()
-                .map_err(|error| format!("Cannot inspect plugin package file: {error}"))?;
             file_count += 1;
             total_bytes = total_bytes.saturating_add(metadata.len());
             if file_count > MAX_PACKAGE_FILES
@@ -1435,11 +1598,34 @@ fn load_manifest(package_root: &Path) -> Result<PluginManifest, String> {
     Ok(manifest)
 }
 
-fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> Result<(), String> {
+fn validate_staged_developer_manifest(
+    expected: &PluginManifest,
+    staging: &Path,
+) -> Result<(), String> {
+    let result = load_manifest(staging).and_then(|copied| {
+        if copied == *expected {
+            Ok(())
+        } else {
+            Err("Plugin manifest changed while it was being copied".into())
+        }
+    });
+    if result.is_err() {
+        let _ = fs::remove_dir_all(staging);
+    }
+    result
+}
+
+fn digest_hex(digest: &[u8; 32]) -> String {
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+pub(crate) fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> Result<(), String> {
     runtime_contract::validate(&manifest.runtime)?;
-    file_input::validate_manifest(manifest)?;
     engine_compatibility::validate(&manifest.engines)?;
     profile_compatibility::validate(manifest)?;
+    view_operation_directory::validate(manifest)?;
+    file_input::validate_manifest(manifest)?;
+    resource_input_types::validate(manifest)?;
     if !valid_plugin_id(&manifest.id) {
         return Err(format!("Invalid plugin ID {}", manifest.id));
     }
@@ -1460,12 +1646,13 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
         ("capabilities", "id"),
         ("piTools", "name"),
     ] {
-        for contribution in manifest
+        for (index, contribution) in manifest
             .contributes
             .get(group)
             .and_then(Value::as_array)
             .into_iter()
             .flatten()
+            .enumerate()
         {
             let id = contribution
                 .get(id_field)
@@ -1488,6 +1675,12 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
                 {
                     return Err(format!("Developer view {id} is missing entry"));
                 }
+            }
+            if group == "activities" {
+                if index != 0 && contribution.get("directory").is_some() {
+                    return Err("Only the primary activity may declare application directory metadata".into());
+                }
+                directory_metadata::validate_activity(manifest, contribution)?;
             }
             for field in ["entry", "icon"] {
                 if let Some(path) = contribution.get(field).and_then(Value::as_str) {
@@ -1517,16 +1710,25 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
         validate_input_schema(schema)?;
         if let Some(maximum) = capability.get("resourceInputMax") {
             if !matches!(maximum.as_u64(), Some(2..=4))
-                || manifest.runtime.get("resourceInputProfile").and_then(Value::as_str)
+                || manifest
+                    .runtime
+                    .get("resourceInputProfile")
+                    .and_then(Value::as_str)
                     != Some("resource.wasi.input.draft2")
-                || manifest.runtime.get("wasi").and_then(Value::as_str).is_none()
+                || manifest
+                    .runtime
+                    .get("wasi")
+                    .and_then(Value::as_str)
+                    .is_none()
             {
                 return Err("resourceInputMax requires a WASI resource input profile and a value from 2 to 4".into());
             }
         }
         directory_metadata::validate(manifest, capability)?;
         crate::plugin_capabilities::output_contract::validate_contribution(
-            manifest.schema_version, &manifest.required_profiles, capability,
+            manifest.schema_version,
+            &manifest.required_profiles,
+            capability,
         )?;
     }
     for tool in manifest
@@ -1540,8 +1742,13 @@ fn validate_manifest(manifest: &PluginManifest, package_root: Option<&Path>) -> 
         if !valid_pi_tool_name(name) {
             return Err(format!("Invalid Pi tool name {name}"));
         }
-        if matches!(name, "studio_plugin_search" | "studio_plugin_load" | "studio_plugin_call") {
-            return Err(format!("Pi tool name {name} is reserved for the Studio catalog"));
+        if matches!(
+            name,
+            "studio_plugin_search" | "studio_plugin_load" | "studio_plugin_call"
+        ) {
+            return Err(format!(
+                "Pi tool name {name} is reserved for the Studio catalog"
+            ));
         }
         let capability = tool
             .get("capability")
@@ -1975,7 +2182,12 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                 "version": "0.1.0",
                 "publisher": "zicode",
                 "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
-                "requiredProfiles": { "tool.directory.v1": "=1.0.0-preview.1" },
+                "requiredProfiles": {
+                    "tool.directory.v1": "=1.0.0-preview.1",
+                    "resource.host.input.v1": "=1.0.0-preview.1",
+                    "resource.input.types.v1": "=1.0.0-preview.1",
+                    "output.schema.v1": "=1.0.0-rc.1"
+                },
                 "activationEvents": ["onView:ocr.workbench", "onCapability:ocr.text"],
                 "contributes": {
                     "activities": [{ "id": "ocr", "title": "OCR", "order": 110 }],
@@ -1998,6 +2210,31 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                                 },
                                 "required": ["image"]
                             }
+                        },
+                        {
+                            "id": "ocr.resource-text",
+                            "title": "Extract text from shared image",
+                            "description": "Run local Windows OCR on an image output you explicitly shared.",
+                            "resourceInputProfile": "resource.host.ocr-input.v1",
+                            "resourceInputMimeTypes": ["image/png", "image/jpeg", "image/webp"],
+                            "directory": { "categoryId": "text", "aliases": ["识别图片输出", "图片转文字"] },
+                            "inputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "language": { "type": "string", "enum": ["en-US", "zh-CN", "ja-JP"] }
+                                }
+                            },
+                            "outputSchema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "ok": { "type": "boolean" },
+                                    "text": { "type": "string" },
+                                    "charCount": { "type": "integer", "minimum": 0 }
+                                },
+                                "required": ["ok", "text", "charCount"]
+                            }
                         }
                     ],
                     "piTools": [
@@ -2018,7 +2255,10 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
                     ]
                 },
                 "permissions": {
-                    "required": [{ "name": "storage.plugin", "reason": "Read the selected image for OCR" }],
+                    "required": [
+                        { "name": "storage.plugin", "reason": "Read the selected image for OCR" },
+                        { "name": "resource.read", "reason": "Read an image output only after you explicitly share it" }
+                    ],
                     "optional": [{ "name": "pi.tools.register", "reason": "Expose OCR to Pi" }]
                 }
             }),
@@ -2540,6 +2780,87 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
         (
             json!({
                 "schemaVersion": 2,
+                "id": "com.zicode.resource-inspector",
+                "name": "Resource Inspector",
+                "description": "Inspect a user-confirmed image resource in memory and report its basic metadata.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": {
+                    "tool.directory.v1": "=1.0.0-preview.1",
+                    "resource.host.input.v1": "=1.0.0-preview.1",
+                    "resource.input.types.v1": "=1.0.0-preview.1"
+                },
+                "runtime": { "resourceInputProfile": "resource.host.image-input.v1" },
+                "activationEvents": ["onCapability:image.inspect"],
+                "contributes": {
+                    "capabilities": [
+                        {
+                            "id": "image.inspect",
+                            "title": "Inspect image resource",
+                            "resourceInputMimeTypes": ["image/png", "image/jpeg", "image/webp"],
+                            "directory": { "categoryId": "media", "aliases": ["查看图片信息", "图片元数据"] },
+                            "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} }
+                        }
+                    ]
+                },
+                "permissions": {
+                    "required": [{ "name": "resource.read", "reason": "Read the image resource you explicitly shared" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 2,
+                "id": "com.zicode.text-inspector",
+                "name": "Text Inspector",
+                "description": "Inspect a user-confirmed UTF-8 text resource in memory.",
+                "version": "0.1.0",
+                "publisher": "zicode",
+                "engines": { "zicode": ">=0.4.2 <1.0.0", "pluginApi": "^1.0.0" },
+                "requiredProfiles": {
+                    "tool.directory.v1": "=1.0.0-preview.1",
+                    "resource.host.input.v1": "=1.0.0-preview.1",
+                    "resource.input.types.v1": "=1.0.0-preview.1",
+                    "output.schema.v1": "=1.0.0-rc.1"
+                },
+                "runtime": { "resourceInputProfile": "resource.host.text-input.v1" },
+                "activationEvents": ["onCapability:text.inspect"],
+                "contributes": {
+                    "capabilities": [{
+                        "id": "text.inspect",
+                        "title": "Inspect text resource",
+                        "description": "Show a bounded preview and counts for explicitly shared UTF-8 text.",
+                        "resourceInputMimeTypes": ["text/plain"],
+                        "directory": { "categoryId": "text", "aliases": ["查看文本", "文本预览"] },
+                        "inputSchema": { "type": "object", "additionalProperties": false, "properties": {} },
+                        "outputSchema": {
+                            "type": "object", "additionalProperties": false,
+                            "properties": {
+                                "ok": { "type": "boolean" },
+                                "mimeType": { "type": "string", "enum": ["text/plain"] },
+                                "byteLength": { "type": "integer", "minimum": 0 },
+                                "charCount": { "type": "integer", "minimum": 0 },
+                                "text": { "type": "string" },
+                                "truncated": { "type": "boolean" }
+                            },
+                            "required": ["ok", "mimeType", "byteLength", "charCount", "text", "truncated"]
+                        },
+                        "maxResultBytes": 32768
+                    }]
+                },
+                "permissions": {
+                    "required": [{ "name": "resource.read", "reason": "Read the text resource you explicitly shared" }]
+                }
+            }),
+            false,
+            true,
+        ),
+        (
+            json!({
+                "schemaVersion": 2,
                 "id": "com.zicode.documents",
                 "name": "Documents",
                 "description": "Import PDF and DOCX files as readable Markdown.",
@@ -2712,9 +3033,11 @@ fn builtin_manifests() -> Vec<(Value, bool, bool)> {
 #[cfg(test)]
 mod tests {
     use super::{
-        copy_package_tree, load_manifest, PluginOrigin, PluginRegistry, MAX_PACKAGE_FILE_BYTES,
+        copy_package_tree, load_manifest, validate_staged_developer_manifest, PluginOrigin,
+        PluginRegistry, PreparedDeveloperInstall, MAX_PACKAGE_FILE_BYTES,
     };
     use crate::plugin_package::write_test_signed_package;
+    use crate::plugin_package::{revoke_publisher, trust_publisher, verify_package};
     use serde_json::json;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -2758,8 +3081,8 @@ mod tests {
     fn registers_builtins_and_persists_scene_specific_enablement() {
         let root = temp_root("persistence");
         let mut registry = PluginRegistry::open(root.clone()).unwrap();
-        assert_eq!(registry.list("programming").len(), 17);
-        assert_eq!(registry.capabilities("programming").len(), 11);
+        assert_eq!(registry.list("programming").len(), 19);
+        assert_eq!(registry.capabilities("programming").len(), 13);
         // P2-6: Projects ships enabled so the shared project context applies.
         assert!(
             registry
@@ -2841,7 +3164,11 @@ mod tests {
     #[test]
     fn reserves_catalog_tool_names_before_plugin_installation() {
         let root = temp_root("reserved-catalog-tool");
-        for name in ["studio_plugin_search", "studio_plugin_load", "studio_plugin_call"] {
+        for name in [
+            "studio_plugin_search",
+            "studio_plugin_load",
+            "studio_plugin_call",
+        ] {
             let mut manifest = developer_manifest("com.example.reserved-tool");
             manifest["contributes"]["capabilities"] = json!([{
                 "id": "example.search", "inputSchema": { "type": "object" }
@@ -2850,7 +3177,9 @@ mod tests {
                 "name": name, "capability": "example.search", "inputSchema": { "type": "object" }
             }]);
             write_manifest(&root, manifest);
-            assert!(load_manifest(&root).unwrap_err().contains("reserved for the Studio catalog"));
+            assert!(load_manifest(&root)
+                .unwrap_err()
+                .contains("reserved for the Studio catalog"));
         }
         let _ = fs::remove_dir_all(root);
     }
@@ -3110,20 +3439,150 @@ mod tests {
     }
 
     #[test]
+    fn staged_developer_manifest_must_match_and_failed_staging_is_removed() {
+        let source = temp_root("manifest-source");
+        let staging = temp_root("manifest-staging");
+        let original = developer_manifest("com.example.manifest");
+        write_manifest(&source, original.clone());
+        let expected = load_manifest(&source).unwrap();
+
+        let mut changed = original.clone();
+        changed["permissions"]["required"][0]["reason"] = json!("Different reason");
+        write_manifest(&staging, changed);
+        assert!(validate_staged_developer_manifest(&expected, &staging)
+            .unwrap_err()
+            .contains("manifest changed"));
+        assert!(!staging.exists());
+
+        write_manifest(&staging, original.clone());
+        fs::write(staging.join("plugin.json"), b"{").unwrap();
+        assert!(validate_staged_developer_manifest(&expected, &staging)
+            .unwrap_err()
+            .contains("Malformed plugin.json"));
+        assert!(!staging.exists());
+
+        write_manifest(&staging, original);
+        validate_staged_developer_manifest(&expected, &staging).unwrap();
+        assert!(staging.is_dir());
+        let _ = fs::remove_dir_all(source);
+        let _ = fs::remove_dir_all(staging);
+    }
+
+    #[test]
+    fn developer_preview_does_not_install_and_rejects_changed_source() {
+        let root = temp_root("preview-registry");
+        let source = temp_root("preview-source");
+        let original = developer_manifest("com.example.preview");
+        write_manifest(&source, original.clone());
+        let mut registry = PluginRegistry::open(root.clone()).unwrap();
+
+        let preview = PluginRegistry::preview_developer_package(&root, &source).unwrap();
+        assert_eq!(preview.plugin_id, "com.example.preview");
+        assert_eq!(preview.capability_count, 0);
+        assert_eq!(preview.permissions, vec!["storage.plugin"]);
+        assert!(!root.join("developer/com.example.preview").exists());
+
+        let mut changed = original;
+        changed["permissions"]["required"][0]["reason"] = json!("Changed after review");
+        write_manifest(&source, changed);
+        assert!(registry
+            .install_previewed_developer(&source, &preview.content_sha256)
+            .unwrap_err()
+            .contains("changed after preview"));
+        assert!(!root.join("developer/com.example.preview").exists());
+
+        let updated = PluginRegistry::preview_developer_package(&root, &source).unwrap();
+        assert_eq!(
+            registry
+                .install_previewed_developer(&source, &updated.content_sha256)
+                .unwrap(),
+            "com.example.preview"
+        );
+        assert!(root.join("developer/com.example.preview/plugin.json").is_file());
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source);
+    }
+
+    #[test]
+    fn prepared_developer_rejection_cleans_staging_without_changing_builtin() {
+        let root = temp_root("prepared-builtin");
+        let source = temp_root("prepared-builtin-source");
+        write_manifest(&source, developer_manifest("core.chat"));
+        let mut registry = PluginRegistry::open(root.clone()).unwrap();
+        let prepared = PreparedDeveloperInstall::prepare(&root, &source, None).unwrap();
+        let staging = prepared.staging.clone();
+        assert!(staging.join("plugin.json").is_file());
+        assert!(registry
+            .commit_prepared_developer(prepared)
+            .unwrap_err()
+            .contains("cannot replace built-in"));
+        assert!(!staging.exists());
+        assert!(registry
+            .list("programming")
+            .iter()
+            .any(|plugin| plugin.manifest.id == "core.chat" && plugin.origin == PluginOrigin::BuiltIn));
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(source);
+    }
+
+    #[test]
     fn installs_updates_rolls_back_and_revokes_signed_packages_atomically() {
         let root = temp_root("signed-lifecycle");
         let packages = temp_root("signed-lifecycle-packages");
+        let mut registry = PluginRegistry::open(root.clone()).unwrap();
+        let mut incompatible = developer_manifest("com.example.incompatible-signed");
+        incompatible["requiredProfiles"] = json!({ "compute.wasi.v1": "^1.0.0" });
+        let incompatible_package =
+            write_test_signed_package(&packages, &incompatible, "incompatible.zicode-plugin");
+        assert!(registry
+            .preview_signed(&incompatible_package)
+            .unwrap_err()
+            .contains("requiredProfiles requires manifest schemaVersion 2"));
+        assert!(registry.install_signed(&incompatible_package, true).is_err());
+
+        let built_in = developer_manifest("com.zicode.tasks");
+        let built_in_package =
+            write_test_signed_package(&packages, &built_in, "built-in.zicode-plugin");
+        assert!(registry
+            .install_signed(&built_in_package, true)
+            .unwrap_err()
+            .contains("cannot replace existing plugin"));
+        assert!(!root.join("trust").join("publishers.json").exists());
+
+        let blocked = developer_manifest("com.example.blocked-metadata");
+        let blocked_package =
+            write_test_signed_package(&packages, &blocked, "blocked-metadata.zicode-plugin");
+        fs::write(root.join("signed-metadata"), b"blocked").unwrap();
+        assert!(registry
+            .install_signed(&blocked_package, true)
+            .unwrap_err()
+            .contains("Cannot create signed plugin metadata directory"));
+        assert!(!registry.preview_signed(&blocked_package).unwrap().trusted);
+        assert!(!root.join("signed").join("com.example.blocked-metadata").exists());
+        fs::remove_file(root.join("signed-metadata")).unwrap();
+
         let mut first = developer_manifest("com.example.signed-lifecycle");
         first["publisher"] = json!("Example Publisher");
         let first_package = write_test_signed_package(&packages, &first, "first.zicode-plugin");
-        let mut registry = PluginRegistry::open(root.clone()).unwrap();
         let preview = registry.preview_signed(&first_package).unwrap();
         assert!(!preview.trusted);
         assert!(registry
             .install_signed(&first_package, false)
             .unwrap_err()
             .contains("trust confirmation"));
+        assert!(fs::read_dir(&root).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".signed-staging-")
+        }));
         registry.install_signed(&first_package, true).unwrap();
+        let first_integrity = registry
+            .signed_integrity_snapshot("com.example.signed-lifecycle")
+            .unwrap()
+            .unwrap();
+        first_integrity.verify().unwrap();
         let installed = registry
             .list("programming")
             .into_iter()
@@ -3143,6 +3602,12 @@ mod tests {
         second["version"] = json!("1.2.4");
         let second_package = write_test_signed_package(&packages, &second, "second.zicode-plugin");
         registry.install_signed(&second_package, false).unwrap();
+        let second_integrity = registry
+            .signed_integrity_snapshot("com.example.signed-lifecycle")
+            .unwrap()
+            .unwrap();
+        assert!(first_integrity != second_integrity);
+        second_integrity.verify().unwrap();
         let upgraded = registry
             .list("programming")
             .into_iter()
@@ -3166,9 +3631,12 @@ mod tests {
         assert_eq!(rolled_back.manifest.version, "1.2.3");
         assert_eq!(rolled_back.retained_versions, vec!["1.2.4"]);
 
-        registry
-            .revoke_signed_publisher(&preview.publisher_key_id)
-            .unwrap();
+        assert_eq!(
+            registry
+                .revoke_signed_publisher(&preview.publisher_key_id)
+                .unwrap(),
+            vec!["com.example.signed-lifecycle"]
+        );
         assert!(registry
             .list("programming")
             .into_iter()
@@ -3178,6 +3646,68 @@ mod tests {
             .unwrap_err()
             .contains("revoked"));
 
+        let _ = fs::remove_dir_all(root);
+        let _ = fs::remove_dir_all(packages);
+    }
+
+    #[test]
+    fn signed_listing_uses_loaded_metadata_but_execution_checks_current_files() {
+        let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .canonicalize()
+            .unwrap();
+        let scratch = project.join(".cache/task-scratch").canonicalize().unwrap();
+        let root = scratch.join(format!("signed-listing-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("owner.json"),
+            r#"{"purpose":"signed listing cache regression","lifetime":"remove on pass; retain failure"}"#,
+        )
+        .unwrap();
+        let plugin_id = "com.example.signed-listing";
+        let manifest = developer_manifest(plugin_id);
+        let package = write_test_signed_package(
+            &root.join("source"),
+            &manifest,
+            "signed.zicode-plugin",
+        );
+        let mut registry = PluginRegistry::open(root.join("registry")).unwrap();
+        registry.install_signed(&package, true).unwrap();
+        let listed = registry.list_summary("programming");
+        assert!(listed.iter().any(|plugin| {
+            plugin["id"] == plugin_id && plugin["publisherKeyId"].is_string()
+        }));
+        fs::remove_file(registry.signed_metadata_path(plugin_id)).unwrap();
+        assert_eq!(registry.list_summary("programming"), listed);
+        assert!(registry
+            .signed_integrity_snapshot(plugin_id)
+            .unwrap()
+            .unwrap()
+            .verify()
+            .is_err());
+        assert!(root.canonicalize().unwrap().starts_with(&scratch));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn signed_install_refreshes_publisher_trust_after_package_verification() {
+        let root = temp_root("signed-trust-refresh");
+        let packages = temp_root("signed-trust-refresh-packages");
+        let manifest = developer_manifest("com.example.signed-trust-refresh");
+        let package = write_test_signed_package(&packages, &manifest, "signed.zicode-plugin");
+        let mut registry = PluginRegistry::open(root.clone()).unwrap();
+        let verified = verify_package(&package, &root).unwrap();
+        assert!(!verified.trusted);
+        trust_publisher(&root, &verified.publisher).unwrap();
+        registry.install_verified_signed(verified, false).unwrap();
+
+        let verified = verify_package(&package, &root).unwrap();
+        assert!(verified.trusted);
+        revoke_publisher(&root, &verified.publisher.key_id).unwrap();
+        assert!(registry
+            .install_verified_signed(verified, true)
+            .unwrap_err()
+            .contains("revoked"));
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(packages);
     }

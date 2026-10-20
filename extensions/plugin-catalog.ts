@@ -1,8 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { type BrokerBinding, type CatalogLoaded, createCatalogClient } from "./plugin-catalog-client";
-import { createPluginInvokeClient } from "./plugin-invoke-client";
+import { createPluginInvokeEnvelopeClient } from "./plugin-invoke-client";
 import { MAX_PLUGIN_BYTES, MAX_PLUGIN_TOOLS, type PluginToolSnapshot, pluginToolId } from "./plugin-tool-snapshot";
+import { pluginToolResult } from "./plugin-tool-result";
 
 const SEARCH = "studio_plugin_search";
 const LOAD = "studio_plugin_load";
@@ -13,7 +14,7 @@ const result = (details: unknown) => ({ content: [{ type: "text" as const, text:
 export function setupPluginCatalog(pi: ExtensionAPI, binding: BrokerBinding, request: typeof fetch,
   initial: PluginToolSnapshot[], register: (loaded: CatalogLoaded) => void): void {
   const client = createCatalogClient(binding, request);
-  const invoke = createPluginInvokeClient(binding, request);
+  const invoke = createPluginInvokeEnvelopeClient(binding, request);
   const owned = new Map(initial.map(tool => [pluginToolId(tool), { tool, revision: "" }]));
   const generic = new Map<string, { name: string; revision: string }>();
   // Pi's tool inspection APIs are unavailable during extension initialization.
@@ -35,8 +36,9 @@ export function setupPluginCatalog(pi: ExtensionAPI, binding: BrokerBinding, req
       const current = await client.load(input.toolId, input.revision, signal);
       if (current.tool.name !== admitted.name)
         throw new Error("[plugin_tool_changed] Load the changed tool again before calling it");
-      return result(await invoke({ toolCallId, toolName: current.tool.name,
-        toolId: current.toolId, catalogRevision: current.revision, input: input.input }, signal));
+      return pluginToolResult(await invoke({ toolCallId, toolName: current.tool.name,
+        toolId: current.toolId, catalogRevision: current.revision, input: input.input,
+        captureResult: true }, signal), current.tool);
     },
   });
   let pending: Promise<void> = Promise.resolve();
@@ -66,6 +68,13 @@ export function setupPluginCatalog(pi: ExtensionAPI, binding: BrokerBinding, req
         if (next.size > MAX_PLUGIN_TOOLS || bytes > MAX_PLUGIN_BYTES) {
           if (generic.size >= MAX_GENERIC_TOOL_IDS && !generic.has(loaded.toolId))
             throw new Error("[plugin_tool_budget_exceeded] End this task or use a new session with a smaller plugin tool set");
+          if (existing) {
+            // The typed registration retains its old schema and revision. Hide it
+            // when the replacement can only be called through the generic tool.
+            const active = pi.getActiveTools();
+            if (active.includes(existing.tool.name))
+              pi.setActiveTools(active.filter(name => name !== existing.tool.name));
+          }
           generic.set(loaded.toolId, { name: loaded.tool.name, revision: loaded.revision });
           return result({ loaded: false, mode: "generic", toolId: loaded.toolId, name: loaded.tool.name,
             revision: loaded.revision, inputSchema: loaded.tool.inputSchema, callTool: CALL });

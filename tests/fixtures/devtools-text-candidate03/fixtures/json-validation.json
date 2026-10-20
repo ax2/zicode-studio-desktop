@@ -1,0 +1,26 @@
+{
+  "sourceToolId": "json",
+  "sourceToolVersion": "1.2.0",
+  "operations": [
+    {
+      "capabilityId": "devtools.text.json.format",
+      "input": "{\"name\":\"Zi\"}",
+      "expected": "{\n  \"name\": \"Zi\"\n}"
+    },
+    {
+      "capabilityId": "devtools.text.json.minify",
+      "input": "{ \"name\" : \"Zi\" }",
+      "expected": "{\"name\":\"Zi\"}"
+    },
+    {
+      "capabilityId": "devtools.text.json.validate",
+      "input": "{\"name\":\"Zi\"}",
+      "expected": "JSON 有效（插件兼容规则）"
+    }
+  ],
+  "invalidValidationInputs": [
+    "not-json",
+    "{\"x\":1,\"x\":2}",
+    "9007199254740992"
+  ]
+}

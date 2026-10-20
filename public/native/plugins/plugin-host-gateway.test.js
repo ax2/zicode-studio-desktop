@@ -20,7 +20,7 @@ describe("PluginHostGateway", () => {
     await gateway.list("finance");
 
     expect(fetchImpl).toHaveBeenCalledWith(
-      new URL("http://127.0.0.1:57620/v2/plugins?sceneId=finance"),
+      new URL("http://127.0.0.1:57620/v2/plugins?sceneId=finance&summary=true"),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });

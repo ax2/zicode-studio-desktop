@@ -276,10 +276,12 @@ Cross-subdir import conventions:
 
 ## Bumping the embedded pi version
 
-1. Edit `scripts/pi-version.json` → `version`.
-2. `bun run fetch:pi` (re-downloads the platform tarball, replaces `src-tauri/resources/pi/`).
-3. Smoke test: `./src-tauri/resources/pi/pi --version` and `bun run dev`.
-4. Commit `scripts/pi-version.json`. Do **not** commit `src-tauri/resources/pi/`; it is gitignored.
+1. Run `bun run update:pi:lock -- <version>` to update `scripts/pi-version.json` with the release's platform asset digests.
+2. Align the extension SDK with that version: `bun add -d -E @earendil-works/pi-coding-agent@<version> @earendil-works/pi-tui@<version>`.
+3. Run `bun run check:pi-sdk-alignment`, `bun run typecheck:extensions-source`, and `bun run build:extensions`.
+4. `bun run fetch:pi` (re-downloads the platform tarball, replaces `src-tauri/resources/pi/`).
+5. Smoke test with `bun run smoke:pi-rpc` and `bun run dev` on the target platform; the RPC smoke checks the embedded binary's version.
+6. Commit `scripts/pi-version.json`, `package.json`, and `bun.lock`. Do **not** commit `src-tauri/resources/pi/`; it is gitignored.
 
 ## Embedded pi: how it ends up inside the .app
 

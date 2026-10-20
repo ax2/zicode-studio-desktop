@@ -1,0 +1,101 @@
+{
+  "wasmSha256": "a8a9e357e8180e03e13b3dcfeb465afda43f2fd9d3f5c8a089aa2c37c11d6c7e",
+  "viewSha256": "f1a2c7ff8cfc422fc02aca89d68b27b076e5e442ed1304ab95730490afe54335",
+  "browser": "msedge.exe",
+  "results": [
+    {
+      "theme": "light",
+      "width": 1180,
+      "height": 900,
+      "devicePixelRatio": 1,
+      "pass": true,
+      "calls": 11,
+      "actions": [
+        "java.threads",
+        "java.dependencies",
+        "java.gc",
+        "java.jfr_json",
+        "spring.config",
+        "django.migrations",
+        "django.sql",
+        "django.urls",
+        "django.openapi",
+        "django.checks",
+        "celery.report"
+      ],
+      "actualWasi": true,
+      "summaryChecks": 11,
+      "interactionChecks": [
+        "edit-marks-stale",
+        "select-complete-json",
+        "clear-resets-summary",
+        "switch-restores-result",
+        "jump-to-result",
+        "no-extra-invoke",
+        "no-horizontal-overflow"
+      ],
+      "simulatedResponseChecks": [
+        "truncation-warning",
+        "plain-text-notes",
+        "malformed-report-keeps-result",
+        "fresh-report-clears-warning"
+      ],
+      "pageTitle": "ZiDevTools 诊断报告",
+      "screenshot": "view-light.png",
+      "screenshotSha256": "030b3e70cf0e66dc62120bac03d07d7c8a395d2855a5a24eaa39a4c8d2b4c984",
+      "resultScreenshot": "view-light-results.png",
+      "resultScreenshotSha256": "030b3e70cf0e66dc62120bac03d07d7c8a395d2855a5a24eaa39a4c8d2b4c984",
+      "pageErrors": []
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "height": 844,
+      "devicePixelRatio": 1,
+      "pass": true,
+      "calls": 11,
+      "actions": [
+        "java.threads",
+        "java.dependencies",
+        "java.gc",
+        "java.jfr_json",
+        "spring.config",
+        "django.migrations",
+        "django.sql",
+        "django.urls",
+        "django.openapi",
+        "django.checks",
+        "celery.report"
+      ],
+      "actualWasi": true,
+      "summaryChecks": 11,
+      "interactionChecks": [
+        "edit-marks-stale",
+        "select-complete-json",
+        "clear-resets-summary",
+        "switch-restores-result",
+        "jump-to-result",
+        "no-extra-invoke",
+        "no-horizontal-overflow"
+      ],
+      "simulatedResponseChecks": [
+        "truncation-warning",
+        "plain-text-notes",
+        "malformed-report-keeps-result",
+        "fresh-report-clears-warning"
+      ],
+      "pageTitle": "ZiDevTools 诊断报告",
+      "screenshot": "view-dark.png",
+      "screenshotSha256": "7f6475190fc52aefefce8d877d4935354868d93c24663f66b9c7e6c5f28c37e0",
+      "resultScreenshot": "view-dark-results.png",
+      "resultScreenshotSha256": "1c2c9dec0b6290f5485ec074c0349001df36becd809a57e32c55e004308f3c7b",
+      "pageErrors": []
+    }
+  ],
+  "offlinePass": true,
+  "limitations": [
+    "Actual Chromium View with injected public SDK-shaped bridge",
+    "Each action invokes the actual WASI module through a loopback-only harness",
+    "Not Studio bridge, permissions, package lifecycle, or Host acceptance"
+  ]
+}

@@ -100,9 +100,7 @@ pub(super) async fn summarize_note(
         .plugins
         .lock()
         .map_err(|_| failure("model_config_unavailable"))?
-        .list(&request.scene_id)
-        .into_iter()
-        .find(|plugin| plugin.manifest.id == "com.zicode.notes")
+        .execution_plugin(&request.scene_id, "com.zicode.notes")
         .and_then(|plugin| plugin.permission_grants.get("network.fetch").copied())
         .unwrap_or(false);
     if !network_granted {

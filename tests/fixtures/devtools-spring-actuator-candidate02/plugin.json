@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.spring-actuator",
+  "name": "ZiDevTools Spring Actuator",
+  "displayName": "Spring Actuator 只读诊断",
+  "description": "通过 Studio Host 逐次确认读取固定 Actuator health、info、metrics JSON 端点；这是 ZiDevTools 完整工具的 HTTP View 子集。",
+  "version": "0.1.1",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "service.http.get.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onView:devtools.spring-actuator.main"
+  ],
+  "contributes": {
+    "activities": [
+      {
+        "id": "devtools.spring-actuator",
+        "title": "Spring Actuator",
+        "order": 870
+      }
+    ],
+    "views": [
+      {
+        "id": "devtools.spring-actuator.main",
+        "activity": "devtools.spring-actuator",
+        "location": "main",
+        "title": "只读诊断",
+        "entry": "views/main.html"
+      }
+    ],
+    "capabilities": [],
+    "commands": [],
+    "piTools": []
+  },
+  "permissions": {
+    "required": [],
+    "optional": [
+      {
+        "name": "service.http.read",
+        "reason": "Read one user-confirmed, fixed Spring Actuator health, info, or metrics endpoint through the Studio Host."
+      }
+    ]
+  }
+}

@@ -1,5 +1,10 @@
 # Zi DevTools Trace 候选接收与当前运行记录
 
+2026-10-17 当前 Debug 的后续反向接力：独立 Text Base64 解码结果经 Studio
+预览和明确确认，送到此 Trace 候选的 `devtools.trace.java.trace`；原生界面
+显示 1 个异常、1 个帧及 `Main.java:9`。安装副本逐文件重核收据 346/346，
+另份 Text 为 13/13；尚未签名、保存或跨平台验收。见[阶段记录](../iterations/2026-10-17-text-to-trace-native-transfer.md)。
+
 日期：2026-10-13。Studio 仅接收版本化产物；DevTools 源码、配置和独立程序未被引用或修改。
 
 ## 接收

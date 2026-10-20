@@ -479,6 +479,10 @@ export class BuiltinPluginRegistry {
       icon: presentation?.icon ?? "plugins",
       order: presentation?.order ?? activity?.order ?? 1000,
       hasActivity: Boolean(activity),
+      appDirectory: structuredClone(activity?.directory ?? null),
+      toolOpenProfile: descriptor.toolOpenProfile === true ||
+        descriptor.requiredProfiles?.["tool.open.v1"] === "=1.0.0-preview.1",
+      viewOperationDirectoryProfile: descriptor.viewOperationDirectoryProfile === true,
       core: descriptor.core === true,
       enabled: descriptor.enabled === true,
       origin: descriptor.origin,
@@ -487,6 +491,7 @@ export class BuiltinPluginRegistry {
       publisherKeyId: descriptor.publisherKeyId ?? null,
       retainedVersions: structuredClone(descriptor.retainedVersions ?? []),
       capabilities: structuredClone(contributes.capabilities ?? []),
+      viewOperations: structuredClone(contributes.viewOperations ?? []),
       views: structuredClone(views),
       sidebarViews:
         presentation?.sidebarViews ??

@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "maxWidth": {
+      "type": "string",
+      "title": "最大宽度（像素）",
+      "default": "1600",
+      "minLength": 1,
+      "maxLength": 4
+    },
+    "format": {
+      "type": "string",
+      "title": "输出格式",
+      "enum": [
+        "png",
+        "jpeg",
+        "webp"
+      ],
+      "default": "webp"
+    },
+    "quality": {
+      "type": "string",
+      "title": "JPEG质量（35–95；仅JPEG生效）",
+      "default": "82",
+      "minLength": 2,
+      "maxLength": 2
+    }
+  },
+  "required": [
+    "maxWidth",
+    "format",
+    "quality"
+  ],
+  "additionalProperties": false
+}

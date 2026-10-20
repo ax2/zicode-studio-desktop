@@ -4,7 +4,7 @@ import { afterAll, beforeAll, afterEach, expect, it, vi } from "vitest";
 import { setLocale } from "../../shared/i18n";
 import { translateDocument } from "i18n";
 import { ManualToolDirectory } from "./ManualToolDirectory";
-import type { ManualTool, ManualToolApi, ToolDetail } from "./manual-tools";
+import type { ManualTool, ManualToolApi, ToolDetail, ViewOperation } from "./manual-tools";
 import { emptyAccess, type ToolAccessStore } from "../commandPalette/tool-access";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -34,18 +34,74 @@ function api() {
     invoke: vi.fn(async () => ({ result: { text: "completed" } })),
   } satisfies ManualToolApi;
 }
-async function mount(gateway: ManualToolApi, accessStore?: ToolAccessStore) {
+async function mount(gateway: ManualToolApi, accessStore?: ToolAccessStore,
+  openApplication: (pluginId: string, capabilityId: string) => (() => void) | undefined = () => undefined,
+  openViewOperation?: (operation: ViewOperation, revision: string) => unknown) {
   setLocale("en"); vi.useFakeTimers();
   const container = document.createElement("div"); document.body.append(container);
   const root = createRoot(container); roots.push(root);
-  await act(async () => root.render(<ManualToolDirectory api={gateway} scope={scope} accessStore={accessStore} openApplication={() => undefined} />));
+  await act(async () => root.render(<ManualToolDirectory api={gateway} scope={scope} accessStore={accessStore} openApplication={openApplication} openViewOperation={openViewOperation} />));
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   return container;
 }
+
+it("opens a View operation through navigation without loading or executing a capability", async () => {
+  const gateway = api();
+  const operation: ViewOperation = { kind: "view-operation", toolId: "view-1", accessId: "view.operation:1",
+    pluginId: "fixture", operationId: "example.health", viewId: "example.main", title: "Health",
+    applicationName: "Fixture", publisher: "Studio", version: "0.1.0", enabled: true, runtime: "view" };
+  gateway.searchTools.mockResolvedValue({ items: [operation], total: 1, revision: "revision", nextOffset: null });
+  const navigate = vi.fn();
+  const container = await mount(gateway, undefined, () => undefined, navigate);
+  expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ includeViewOperations: true });
+  await click(container, "Open in application");
+  expect(navigate).toHaveBeenCalledWith(operation, "revision");
+  expect(gateway.loadTool).not.toHaveBeenCalled();
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
+
+it("passes the selected capability to the application navigation callback without executing it", async () => {
+  const gateway = api();
+  const navigate = vi.fn();
+  const container = await mount(gateway, undefined, (pluginId, capabilityId) => () => navigate(pluginId, capabilityId));
+  await click(container, "Open tool");
+  await click(container, "Open application");
+  expect(navigate).toHaveBeenCalledWith("fixture", "text.0");
+  expect(gateway.invoke).not.toHaveBeenCalled();
+});
 async function click(container: HTMLElement, label: string) {
   const button = [...container.querySelectorAll("button")].find(value => value.textContent === label);
   expect(button).toBeTruthy(); await act(async () => button?.click());
 }
+
+it("aborts an obsolete tool directory request when the search changes", async () => {
+  const gateway = api();
+  const container = await mount(gateway);
+  const oldSignal = gateway.searchTools.mock.calls[0][2];
+  const search = container.querySelector<HTMLInputElement>('input[type="search"]');
+  expect(search).not.toBeNull();
+  await act(async () => {
+    if (search) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(search, "JSON");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    await vi.advanceTimersByTimeAsync(201);
+  });
+  expect(oldSignal?.aborted).toBe(true);
+  expect(gateway.searchTools.mock.lastCall?.[2]?.aborted).toBe(false);
+});
+
+it("keeps the full tool directory available when a tray view arrives without history storage", async () => {
+  const gateway = api();
+  const container = await mount(gateway);
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent("zicode:tool-view", { detail: "favorites" }));
+    await vi.advanceTimersByTimeAsync(201);
+  });
+  expect(gateway.searchTools.mock.lastCall?.[1]).toEqual({ query: "", offset: 0, revision: null });
+  expect(container.textContent).toContain("Text 0");
+  expect(container.textContent).not.toContain("This list belongs to the current workspace and scene");
+});
 
 it("defaults a file launch to resource tools, with metadata-only reversible filtering", async () => {
   const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => "中文 & file.txt") } };
@@ -54,7 +110,7 @@ it("defaults a file launch to resource tools, with metadata-only reversible filt
   expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBe("中文 & file.txt");
   expect(container.textContent).toContain("Plugin has not declared file types");
   expect(container.textContent).toContain("Selected file: 中文 & file.txt. Its contents have not been shared.");
-  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0, revision: null }));
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0, revision: null }), expect.any(AbortSignal));
   const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
   expect(input?.checked).toBe(true);
   await act(async () => { input?.click(); await vi.advanceTimersByTimeAsync(201); });
@@ -67,12 +123,18 @@ it("defaults a file launch to resource tools, with metadata-only reversible filt
 it("asks the Host for tools that can accept the opened file count before paging", async () => {
   const gateway = { ...api(), projectFiles: { entry: vi.fn(async () => null),
     entries: vi.fn(async () => ["one.txt", "two.zip"]) } };
+  gateway.searchTools.mockResolvedValue({ items: [
+    { ...tool(0), fileInputMatch: "declared" },
+    { ...tool(1), fileInputMatch: "unknown" },
+  ], total: 2, revision: "revision", nextOffset: null });
   const container = await mount(gateway);
   expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ resourceOnly: true,
     selectedFileCount: 2, fileNames: ["one.txt", "two.zip"], offset: 0 });
   expect(gateway.searchTools.mock.lastCall?.[1].fileName).toBeUndefined();
   expect(container.textContent).toContain("support for at least 2 input files");
   expect(container.textContent).toContain("Selected files: one.txt, two.zip. Their contents have not been shared.");
+  expect(container.textContent).toContain("Plugin declares support for every selected filename");
+  expect(container.textContent).toContain("Plugin has not declared file types");
   expect(gateway.loadTool).not.toHaveBeenCalled();
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
@@ -100,7 +162,7 @@ it("keeps normal launches unfiltered and lets users opt into file tools", async 
   expect(gateway.searchTools.mock.lastCall?.[1].resourceOnly).toBeUndefined();
   const input = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
   await act(async () => { input?.click(); await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0 }));
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ resourceOnly: true, offset: 0 }), expect.any(AbortSignal));
 });
 
 it("filters project directory tools separately without choosing or executing a directory", async () => {
@@ -110,7 +172,7 @@ it("filters project directory tools separately without choosing or executing a d
   expect(boxes).toHaveLength(2);
   await act(async () => { boxes[1].click(); await vi.advanceTimersByTimeAsync(201); });
   expect(boxes[1].checked).toBe(true);
-  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ directoryOnly: true, offset: 0, revision: null }));
+  expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId, expect.objectContaining({ directoryOnly: true, offset: 0, revision: null }), expect.any(AbortSignal));
   await act(async () => { boxes[0].click(); await vi.advanceTimersByTimeAsync(201); });
   expect(boxes[0].checked).toBe(true);
   expect(boxes[1].checked).toBe(false);
@@ -126,7 +188,7 @@ it("defaults an Explorer folder launch to directory tools and restores all tools
   const container = await mount(gateway);
   expect(gateway.projectDirectories.entry).toHaveBeenCalledWith(scope.workspaceId);
   expect(gateway.searchTools).toHaveBeenLastCalledWith(scope.sceneId,
-    expect.objectContaining({ directoryOnly: true, offset: 0, revision: null }));
+    expect.objectContaining({ directoryOnly: true, offset: 0, revision: null }), expect.any(AbortSignal));
   const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
   expect(boxes[0].checked).toBe(false);
   expect(boxes[1].checked).toBe(true);
@@ -169,6 +231,32 @@ it("keeps full opened-tool names and reveals the selected item without executing
   expect(gateway.loadTool).toHaveBeenCalledTimes(2);
   expect(gateway.invoke).not.toHaveBeenCalled();
   frame.mockRestore(); item.mockRestore(); first.mockRestore();
+});
+
+it("uses one compact picker after three tools while retaining each session and close confirmation", async () => {
+  const gateway = api();
+  gateway.searchTools.mockResolvedValue({ items: [0, 1, 2, 3].map(tool), total: 4, revision: "revision", nextOffset: null });
+  const container = await mount(gateway);
+  for (let index = 0; index < 4; index++) {
+    if (index) await click(container, "Tool directory");
+    await act(async () => (container.querySelectorAll("article")[index].querySelector("button") as HTMLButtonElement).click());
+  }
+  const strip = container.querySelector<HTMLFieldSetElement>(".tool-open-switcher");
+  const picker = strip?.querySelector<HTMLSelectElement>("select[aria-label='Opened tools']");
+  expect(strip?.classList.contains("tool-open-switcher--compact")).toBe(true);
+  expect(strip?.querySelectorAll(".tool-open-item")).toHaveLength(0);
+  expect(picker?.options).toHaveLength(5);
+  expect(picker?.value).toBe(tool(3).toolId);
+  expect(gateway.loadTool).toHaveBeenCalledTimes(4);
+  await act(async () => { if (picker) { picker.value = tool(0).toolId; picker.dispatchEvent(new Event("change", { bubbles: true })); } });
+  expect(picker?.value).toBe(tool(0).toolId);
+  expect(container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]')).not.toBeNull();
+  expect(gateway.loadTool).toHaveBeenCalledTimes(4);
+  expect(gateway.invoke).not.toHaveBeenCalled();
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]')?.click());
+  await click(document.body, "Close tool");
+  expect(strip?.querySelector("select")).toBeNull();
+  expect(strip?.querySelectorAll(".tool-open-item")).toHaveLength(3);
 });
 
 it("isolates a failed detail, preserves another tool's inputs and only recovers after explicit close/reopen", async () => {
@@ -313,12 +401,12 @@ it("combines categories with source, search and favorites before paging without 
   const category = container.querySelectorAll("select")[1];
   await act(async () => { category.value = "text"; category.dispatchEvent(new Event("change", { bubbles: true })); await vi.advanceTimersByTimeAsync(201); });
   await click(container, "Next"); await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", categoryId: "text", offset: 40, revision: "revision" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", categoryId: "text", offset: 40, revision: "revision" }, expect.any(AbortSignal));
   const source = container.querySelectorAll("select")[0];
   await act(async () => { source.value = "fixture"; source.dispatchEvent(new Event("change", { bubbles: true })); await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", categoryId: "text", pluginId: "fixture", offset: 0, revision: null });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", categoryId: "text", pluginId: "fixture", offset: 0, revision: null }, expect.any(AbortSignal));
   await click(container, "Favorite tools"); await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", categoryId: "text", pluginId: "fixture", offset: 0, revision: null, view: "favorites", workspaceId: "workspace" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", categoryId: "text", pluginId: "fixture", offset: 0, revision: null, view: "favorites", workspaceId: "workspace" }, expect.any(AbortSignal));
   expect(gateway.loadTool).not.toHaveBeenCalled(); expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
@@ -347,15 +435,15 @@ it("requests favorites across the whole directory with scoped pagination rather 
   gateway.searchTools.mockResolvedValue({ items: [tool(204)], total: 55, revision: "revision", accessRevision: 3, nextOffset: 40 });
   await click(container, "Favorite tools");
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, view: "favorites", workspaceId: "workspace" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, view: "favorites", workspaceId: "workspace" }, expect.any(AbortSignal));
   expect(container.textContent).toContain("Text 204");
   expect(gateway.loadTool).not.toHaveBeenCalled(); expect(gateway.invoke).not.toHaveBeenCalled();
   await click(container, "Next");
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "revision", accessRevision: 3, view: "favorites", workspaceId: "workspace" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "revision", accessRevision: 3, view: "favorites", workspaceId: "workspace" }, expect.any(AbortSignal));
   await click(container, "Recently used tools");
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, view: "recent", workspaceId: "workspace" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, view: "recent", workspaceId: "workspace" }, expect.any(AbortSignal));
 });
 
 it("removing a favorite restarts its personalized page", async () => {
@@ -369,18 +457,26 @@ it("removing a favorite restarts its personalized page", async () => {
   await act(async () => favorite.click()); await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   expect(store.mutate).toHaveBeenCalledWith(scope, { kind: "favoriteSet", id: tool(0).accessId, enabled: false });
   expect(container.textContent).toContain("No matching tools");
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, view: "favorites", workspaceId: "workspace" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, view: "favorites", workspaceId: "workspace" }, expect.any(AbortSignal));
 });
 
 it("keeps browsing available when access metadata fails and offers a retry", async () => {
   const gateway = api();
   const store = { read: vi.fn<ToolAccessStore["read"]>(async () => { throw new Error("unavailable"); }), mutate: vi.fn(async () => emptyAccess()) };
   const container = await mount(gateway, store);
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent("zicode:tool-view", { detail: "favorites" }));
+    await vi.advanceTimersByTimeAsync(201);
+  });
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("Tool history could not be loaded or saved");
   expect(container.textContent).toContain("Text 0");
-  store.read.mockImplementation(async () => emptyAccess());
+  expect(gateway.searchTools.mock.lastCall?.[1]).toEqual({ query: "", offset: 0, revision: null });
+  expect([...container.querySelectorAll("button")].find(button => button.textContent === "Favorite tools")?.disabled).toBe(true);
+  store.read.mockImplementation(async () => ({ ...emptyAccess(), favorites: [tool(0).accessId] }));
   await click(container, "Retry");
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(gateway.searchTools.mock.lastCall?.[1]).toMatchObject({ view: "favorites", workspaceId: "workspace" });
 });
 
 it("preserves the changed favorite label during shell translation", async () => {
@@ -398,7 +494,7 @@ it("preserves the changed favorite label during shell translation", async () => 
 
 it("keeps unsupported tools discoverable and never substitutes a JSON execute form", async () => {
   const gateway = api(); gateway.loadTool.mockImplementation(async (_scene, selected) => ({ pluginId: "fixture", version: "0.1.0", revision: selected.revision, enabled: true,
-    capability: { id: selected.capabilityId, inputSchema: { type: "object", properties: { file: { type: "object" } } } }, permissions: [] }));
+    capability: { id: selected.capabilityId, inputSchema: { type: "object", properties: { file: { type: "object", properties: { path: { type: "string", format: "uri" } } } } } }, permissions: [] }));
   const container = await mount(gateway); await click(container, "Open tool");
   expect(container.textContent).toContain("generic form cannot run it");
   expect(container.querySelector("form")).toBeNull(); expect(gateway.invoke).not.toHaveBeenCalled();
@@ -411,7 +507,7 @@ it("binds the next page to its revision and returns to the directory start", asy
   await click(container, "Next");
   expect(scroll).toHaveBeenCalledWith({ block: "start" });
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "revision" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "revision" }, expect.any(AbortSignal));
   expect(gateway.loadTool).not.toHaveBeenCalled(); expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
@@ -426,8 +522,8 @@ it("returns to the first page when a paged catalog snapshot changes, keeping ope
   await click(container, "Next");
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenNthCalledWith(2, "programming", { query: "", offset: 40, revision: "old" });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null });
+  expect(gateway.searchTools).toHaveBeenNthCalledWith(2, "programming", { query: "", offset: 40, revision: "old" }, expect.any(AbortSignal));
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null }, expect.any(AbortSignal));
   expect(container.textContent).toContain("Text 1");
   expect(container.querySelectorAll(".tool-open-item")).toHaveLength(1);
   expect(container.querySelector('[role="alert"]')).toBeNull();
@@ -485,12 +581,12 @@ it("refreshes a retained directory after the plugin catalog changes without clos
   await click(container, "Tool directory");
   await click(container, "Next");
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "old" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 40, revision: "old" }, expect.any(AbortSignal));
 
   gateway.searchTools.mockResolvedValue({ items: [tool(1)], total: 1, revision: "new", nextOffset: null });
   await act(async () => roots.at(-1)?.render(<ManualToolDirectory api={gateway} scope={scope} catalogRevision={1} openApplication={() => undefined} />));
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null }, expect.any(AbortSignal));
   expect(container.textContent).toContain("1 tools");
   expect(container.textContent).toContain("Text 1");
   expect(container.querySelectorAll(".tool-open-item")).toHaveLength(1);
@@ -508,7 +604,7 @@ it("filters by the whole catalog source and resets pagination without loading to
   const select = container.querySelector("select") as HTMLSelectElement;
   await act(async () => { select.value = "other"; select.dispatchEvent(new Event("change", { bubbles: true })); });
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, pluginId: "other" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, pluginId: "other" }, expect.any(AbortSignal));
   expect(gateway.loadTool).not.toHaveBeenCalled(); expect(gateway.invoke).not.toHaveBeenCalled();
 });
 
@@ -523,7 +619,7 @@ it("combines a source with favorites and lets an unavailable source be cleared",
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   gateway.searchTools.mockResolvedValue({ items: [], total: 0, revision: "revision", nextOffset: null, sources: [] });
   await click(container, "Favorite tools"); await act(async () => { await vi.advanceTimersByTimeAsync(201); });
-  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, pluginId: "fixture", view: "favorites", workspaceId: "workspace" });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null, pluginId: "fixture", view: "favorites", workspaceId: "workspace" }, expect.any(AbortSignal));
   expect(container.textContent).toContain("Source unavailable in this list");
   await act(async () => { select.value = ""; select.dispatchEvent(new Event("change", { bubbles: true })); });
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });

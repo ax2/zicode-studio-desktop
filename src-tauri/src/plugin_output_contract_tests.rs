@@ -97,40 +97,93 @@ fn real_worker_invalid_output_cache_recheck_and_recovery() {
         output
     );
     let prior = starts.load(Ordering::SeqCst);
-    assert_eq!(broker.invoke(&registry, invocation("main")).unwrap(), output);
+    assert_eq!(
+        broker.invoke(&registry, invocation("main")).unwrap(),
+        output
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior);
     let main_call = |call_id: &str| {
         let mut call = invocation("main");
         call.tool_call_id = Some(call_id.into());
         call
     };
-    manifest["contributes"]["capabilities"][0]["outputSchema"] = json!({"const":{"value":"different"}});
+    manifest["contributes"]["capabilities"][0]["outputSchema"] =
+        json!({"const":{"value":"different"}});
     install(&mut registry, &manifest);
     // Reinstallation changes authority. Reject the old call before replay or
     // dispatch, then use an explicitly new call to test the current schema.
-    assert_eq!(broker.invoke(&registry, invocation("main")).unwrap_err().code, "idempotency_authority_changed");
+    assert_eq!(
+        broker
+            .invoke(&registry, invocation("main"))
+            .unwrap_err()
+            .code,
+        "idempotency_authority_changed"
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior);
-    assert_eq!(broker.invoke(&registry, main_call("changed-schema")).unwrap_err().code, "worker_protocol_error");
+    assert_eq!(
+        broker
+            .invoke(&registry, main_call("changed-schema"))
+            .unwrap_err()
+            .code,
+        "worker_protocol_error"
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior + 1);
     manifest["contributes"]["capabilities"][0]["outputSchema"] = good;
     install(&mut registry, &manifest);
-    assert_eq!(broker.invoke(&registry, invocation("main")).unwrap_err().code, "idempotency_authority_changed");
+    assert_eq!(
+        broker
+            .invoke(&registry, invocation("main"))
+            .unwrap_err()
+            .code,
+        "idempotency_authority_changed"
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior + 1);
-    assert_eq!(broker.invoke(&registry, main_call("recovered-schema")).unwrap(), output);
+    assert_eq!(
+        broker
+            .invoke(&registry, main_call("recovered-schema"))
+            .unwrap(),
+        output
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior + 2);
     manifest["contributes"]["capabilities"][0]["maxResultBytes"] = json!(1);
     install(&mut registry, &manifest);
-    assert_eq!(broker.invoke(&registry, main_call("recovered-schema")).unwrap_err().code, "idempotency_authority_changed");
+    assert_eq!(
+        broker
+            .invoke(&registry, main_call("recovered-schema"))
+            .unwrap_err()
+            .code,
+        "idempotency_authority_changed"
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior + 2);
     for attempt in 1..=2 {
-        assert_eq!(broker.invoke(&registry, main_call("bounded-result")).unwrap_err().code, "result_too_large");
+        assert_eq!(
+            broker
+                .invoke(&registry, main_call("bounded-result"))
+                .unwrap_err()
+                .code,
+            "result_too_large"
+        );
         assert_eq!(starts.load(Ordering::SeqCst), prior + 2 + attempt);
     }
-    manifest["contributes"]["capabilities"][0].as_object_mut().unwrap().remove("maxResultBytes");
+    manifest["contributes"]["capabilities"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("maxResultBytes");
     install(&mut registry, &manifest);
-    assert_eq!(broker.invoke(&registry, main_call("recovered-schema")).unwrap_err().code, "idempotency_authority_changed");
+    assert_eq!(
+        broker
+            .invoke(&registry, main_call("recovered-schema"))
+            .unwrap_err()
+            .code,
+        "idempotency_authority_changed"
+    );
     assert_eq!(starts.load(Ordering::SeqCst), prior + 4);
-    assert_eq!(broker.invoke(&registry, main_call("restored-limit")).unwrap(), output);
+    assert_eq!(
+        broker
+            .invoke(&registry, main_call("restored-limit"))
+            .unwrap(),
+        output
+    );
     let audit = fs::read_to_string(root.join("registry/audit/capabilities.jsonl")).unwrap();
     assert!(!audit.contains("synthetic-private-output"));
     assert_eq!(starts.load(Ordering::SeqCst), 8);
@@ -160,9 +213,31 @@ fn capability(schema: Value) -> PluginCapabilityDescriptor {
         title: "Output".into(),
         input_schema: json!({}),
         resource_input_max: None,
+        resource_input_mime_types: None,
+        execution_profile: None,
         output_schema: Some(schema),
         max_result_bytes: None,
     }
+}
+#[test]
+fn bounded_object_maps_validate_each_additional_property() {
+    let schema = json!({"type":"object","minProperties":1,"maxProperties":2,
+        "properties":{"known":{"type":"integer"}},
+        "additionalProperties":{"enum":["string","boolean"]}});
+    validate_declaration(&schema).unwrap();
+    let cap = capability(schema);
+    validate_result(&cap, &json!({"known":1,"extra":"string"})).unwrap();
+    for output in [
+        json!({}),
+        json!({"known":1,"a":"string","b":"boolean"}),
+        json!({"known":1,"extra":"integer"}),
+    ] {
+        assert_eq!(
+            validate_result(&cap, &output).unwrap_err().code,
+            "worker_protocol_error"
+        );
+    }
+    assert!(validate_declaration(&json!({"type":"object","additionalProperties":3})).is_err());
 }
 #[test]
 fn provider_envelope_shape_is_checked_without_claiming_diagnostic_profile_support() {
@@ -199,6 +274,10 @@ fn strict_declarations_and_explicit_profile_are_required() {
     for schema in [
         json!({"$ref":"#"}),
         json!({"type":"unknown"}),
+        json!({"type":["string","string"]}),
+        json!({"$schema":1}),
+        json!({"title":false}),
+        json!({"examples":"example"}),
         json!({"oneOf":[]}),
         json!({"minLength":-1}),
         json!({"minimum":"1"}),
@@ -206,6 +285,7 @@ fn strict_declarations_and_explicit_profile_are_required() {
         json!({"additionalProperties":{}}),
         json!({"properties":[]}),
         json!({"required":[1]}),
+        json!({"required":["value","value"]}),
         json!({"oneOf":vec![json!({});9]}),
         json!({"enum":[]}),
         json!({"description":"x".repeat(32768)}),

@@ -1,5 +1,9 @@
 # 文本结果发送候选 v1
 
+结构化对象接力采用单独的显式 [`result.json.v1` 候选协议](result-json-profile.md)：JSON 对象只映射到接收方 object 字段，不把 JSON 隐式转为文本。本文的默认文本 `resultRef`、string 字段映射及冻结提供方行为保持 v1。
+
+2026-10-17：普通文本结果的接收目录查询现在由可信父界面传 `AbortSignal`；新搜索、离开目录、取消或卸载会中止旧请求，序号检查仍阻止迟到数据回填。Host 的 `/v2/plugin-results/targets` 请求体及分页格式不变，同一工具可作为下一轮文本计算的接收方。此行为与资源输出接力目录的源工具排除分属不同接口；见[阶段记录](../iterations/2026-10-17-text-result-receiver-search-cancel.md)。
+
 2026-10-11：[预览输入修改、接收工具重选与原生View验证](transfer-reselection.md)。
 这是Studio可信界面改进；候选Host请求格式与冻结提供方契约保持不变。
 
@@ -11,7 +15,21 @@ POST /v2/plugin-results/commit-transfer：{scope,grantId,confirmed:true}。桌�
 
 单次输出缓存最多64KiB，最多32个grant/合计2MiB；不记录原输入文本到审计。不自动发送给模型或远端，不自动保存。执行后切换页面不撤销已经确认的计算。
 
-当前未验收：两家独立提供方的实包互通、完整桌面 UI、通用资源/异步取消及其他操作系统。首轮同包跨能力验证不代表跨插件验收。
+2026-10-17 后续原生复验：两份独立 DevTools 无签名开发候选 Text 0.1.0 与 Trace 0.1.0 已在当前 Windows Debug 窗口完成 Text Base64 解码 → Trace Java 异常链的一次预览、明确确认、接收执行及展示；两份安装目录分别以包外收据核对 13/13、346/346 文件，见[阶段记录](../iterations/2026-10-17-text-to-trace-native-transfer.md)。此前同包与派生身份测试的边界继续保留。正式签名提供方包、长时取消/恢复、通用资源及其他操作系统仍未验收。
+
+2026-10-18：冻结 Diagnostics 0.1.4 的真实 Windows Worker 报告已在隔离 Host HTTP 中经预览、明确 `confirmed:true` 转交独立 Text 开发候选，再经保存预览与确认生成单一成果；无效诊断报告不产生结果引用且不影响 Text。详见[接收与续验记录](../iterations/2026-10-18-devtools-catalog-d084-diagnostics-014-intake.md)。测试客户端的确认字段不等于原生 UI 用户点击证据；签名包、完整业务范围和跨平台仍待。
+
+## 接收方计算取消扩展（2026-10-17，Studio 本地候选）
+
+`POST /v2/plugin-results/cancel-transfer` 接受 `{scope,grantId}`，仅限桌面身份；未知字段和错误作用域拒绝。响应 `{schemaVersion:1,status}`，其中 `cancelled` 表示尚未执行的 grant 已撤销，`cancellation_requested` 表示运行中的 Worker 收到停止请求，`completed` 表示响应已经缓存、取消未生效。请求取消不是计算已停止的证明，调用方须等待原 `commit-transfer` 的最终响应；成功结果可能在取消请求前完成。Worker 停止后返回 `error.code=worker_cancelled`，不生成结果引用；同一 grant 不再启动计算。若请求取消后的提交连接失败、最终结果未知，可信界面禁止直接重试该 grant。
+
+取消不改变源/目标授权、输入映射或保存权限，也不要求提供方新增 SDK。它只作用于该 grant 的接收方计算。Windows Host/Worker 测试进程已验证实际停止；新版隔离 Debug EXE 已看到原生确认后的可用取消入口和普通接收结果，但接收工具完成过快，原生点击未证明停止 Worker。两家独立提供方、其他系统和崩溃后的结果查询仍待验收。
+
+## 同一 Host 生命周期内的结果恢复（2026-10-17）
+
+`POST /v2/plugin-results/transfer-status` 接受 `{scope,grantId}`，仅限桌面身份；查询不执行、不取消、不保存。Host 重新核对来源记录、来源及目标当前授权、安装内容 proof 和请求作用域。状态为 `ready`、`running`、`cancellation_requested`、`cancelled` 或 `completed`；仅 `completed` 带原缓存的 `response`，其中可能是成功结果或 Worker 错误。失效、跨工作区、撤权和内容变动不会借此暴露旧输出。可信父界面在提交连接中断后自动查询一次，并提供手动再查；同一 grant 的确认按钮保持禁用，找回成功结果时仍交由已有结果展示入口处理。
+
+grant 只保留 120 秒且在 Host 内存中。进程重启、grant 过期或状态查询连接也失败时，结果仍可能未知；查询失败不等于未执行，不能自动重放或自动保存。恢复接口不改变提供方 SDK、输出协议或签名要求。
 
 
 ## 精确边界

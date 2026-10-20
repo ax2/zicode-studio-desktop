@@ -1,6 +1,8 @@
 import { setupPluginBroker } from __BROKER_MODULE__;
 import { readFileSync, writeFileSync } from "node:fs";
 const pluginId = __PLUGIN_ID__, family = __FAMILY__, toolPrefix = __TOOL_PREFIX__;
+const controlPluginId = __CONTROL_PLUGIN_ID__, controlToolName = __CONTROL_TOOL_NAME__;
+const controlInput = __CONTROL_INPUT__, controlExpected = __CONTROL_EXPECTED__;
 const businessError = JSON.parse(readFileSync(__BUSINESS_ERROR_FILE__, "utf8"));
 const samples = JSON.parse(readFileSync(__SAMPLES_FILE__, "utf8"));
 const receipt = { mechanismPassed: false, fullCandidateAccepted: false, phases: [], rows: [], deniedCalls: [], controlCalls: [] };
@@ -31,16 +33,19 @@ export default function (pi) {
   };
   const execute = async (sample, id) => (await tools.get(toolPrefix + sample.id.replaceAll(".", "_")).execute(id, sample.input, signal())).details;
   const loadControl = async () => {
-    const page = (await tools.get("studio_plugin_search").execute("control-discover", {query:"com.zicode.devtools.text"}, signal())).details;
-    const control = page.items.find(item => item.name === "devtools_text_base64_encode");
-    if (!control) throw new Error("Independent control tool missing");
+    const page = (await tools.get("studio_plugin_search").execute("control-discover", {query:controlPluginId}, signal())).details;
+    const control = page.items.find(item => item.name === controlToolName);
+    if (!control) throw new Error("[independent_control_missing]");
     await tools.get("studio_plugin_load").execute("control-load", {toolId:control.toolId, revision:page.revision}, signal());
   };
   pi.registerCommand("devtools-accept", { handler: async (phase, ctx) => {
     let activeSample;
     try {
       if (phase === "unauthorized") {
-        if (tools.size !== 2 || (await search()).items.length !== 0) throw new Error("Unauthorized tools exposed");
+        if (!["studio_plugin_search", "studio_plugin_load", "studio_plugin_call"].every(name => tools.has(name))) throw new Error("[broker_startup_tool_missing]");
+        if ([...tools.keys()].some(name => name.startsWith(toolPrefix))) throw new Error("[unauthorized_tool_registered]");
+        const unauthorizedVisible = (await search()).items.length;
+        if (unauthorizedVisible !== 0) throw new Error(`[unauthorized_discovery_${unauthorizedVisible}]`);
         await loadControl();
       } else if (["revoked", "disabled", "revoked-again", "uninstalled", "reinstalled-denied"].includes(phase)) {
         if ((await search()).items.length !== 0) throw new Error("Revoked tools exposed");
@@ -73,7 +78,7 @@ export default function (pi) {
         if (phase === "run") {
           const cancelled = new AbortController(); cancelled.abort();
           try { await tools.get("studio_plugin_search").execute("cancelled", {query:"java"}, cancelled.signal); throw new Error("Cancelled search accepted"); }
-          catch (error) { if (error.name !== "AbortError") throw error; }
+          catch (error) { if (!String(error).includes("[catalog_request_cancelled]")) throw error; }
           for (const sample of samples) {
             activeSample = sample.id;
             const start = Date.now();
@@ -92,17 +97,16 @@ export default function (pi) {
         if (recovered.ok !== true || typeof recovered.data?.text !== "string") throw new Error("Recovery failed");
       }
       if (["unauthorized", "revoked", "disabled", "uninstalled", "reinstalled-denied"].includes(phase) || (phase === "run" && businessError)) {
-        activeSample = "independent-base64";
-        const input = "synthetic independent plugin";
+        activeSample = "independent-control";
         if (phase === "run" && businessError) {
-          try { await tools.get("devtools_text_base64_encode").execute("stale-control", {text:input}, signal()); throw new Error("Stale control accepted"); }
+          try { await tools.get(controlToolName).execute("stale-control", controlInput, signal()); throw new Error("Stale control accepted"); }
           catch (error) { if (!String(error).includes("[catalog_revision_changed]")) throw error; }
           receipt.staleControlDenied = true; save();
         }
         await loadControl();
-        const result = (await tools.get("devtools_text_base64_encode").execute("control-" + phase, {text:input}, signal())).details;
-        if (result.ok !== true || result.data?.text !== Buffer.from(input).toString("base64")) throw new Error("Independent plugin failed");
-        receipt.controlCalls.push({phase, pluginId:"com.zicode.devtools.text", passed:true});
+        const result = (await tools.get(controlToolName).execute("control-" + phase, controlInput, signal())).details;
+        if (result.ok !== true || result.data?.text !== controlExpected) throw new Error("[independent_control_result_mismatch]");
+        receipt.controlCalls.push({phase, pluginId:controlPluginId, passed:true});
       }
       receipt.phases.push(phase);
       receipt.mechanismPassed = phase === "reinstalled-granted";

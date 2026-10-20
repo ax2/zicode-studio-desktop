@@ -9,6 +9,7 @@ import { friendlyTaskDispatchError } from "../../shared/hostErrors";
 import { t } from "../../shared/i18n.js";
 import { mountPluginSurface } from "../../shared/reactMount.js";
 import type { TaskCenterTarget } from "./approve-task";
+import { PluginTaskOverview } from "./PluginTaskOverview";
 import {
   dateRangeLabel,
   filteredTasks,
@@ -31,10 +32,7 @@ import {
   taskProject,
   taskSummaryText,
 } from "./logic";
-import {
-  createTaskCenterStore,
-  type TaskCenterOptions,
-} from "./store";
+import { createTaskCenterStore, type TaskCenterOptions } from "./store";
 import { TaskForm } from "./TaskForm";
 
 type TaskStore = ReturnType<typeof createTaskCenterStore>;
@@ -43,6 +41,12 @@ export function TaskNav({ store }: { store: TaskStore }) {
   const tasks = store((state) => state.tasks);
   const filter = store((state) => state.filter);
   const setFilter = store((state) => state.setFilter);
+  const runtimeMode = store((state) => state.runtimeMode);
+  if (runtimeMode === "tools") {
+    return <nav className="task-center-navigation" aria-label={t("Plugin tasks")}>
+      <span>{t("Plugin tasks")}</span>
+    </nav>;
+  }
   return (
     <nav className="task-center-navigation" aria-label={t("Task filters")}>
       {TASK_FILTERS.map((id) => {
@@ -64,7 +68,17 @@ export function TaskNav({ store }: { store: TaskStore }) {
   );
 }
 
-export function TaskMain({ store }: { store: TaskStore }) {
+export function TaskMain({
+  store,
+  listPluginTasks,
+  getPluginTaskDetail,
+}: {
+  store: TaskStore;
+  listPluginTasks?: TaskCenterOptions["listPluginTasks"];
+  getPluginTaskDetail?: TaskCenterOptions["getPluginTaskDetail"];
+}) {
+  const workspaceId = store((state) => state.workspaceId);
+  const runtimeMode = store((state) => state.runtimeMode);
   const tasks = store((state) => state.tasks);
   const filter = store((state) => state.filter);
   const setFilter = store((state) => state.setFilter);
@@ -92,8 +106,12 @@ export function TaskMain({ store }: { store: TaskStore }) {
       const q = query.trim().toLowerCase();
       if (!q) return true;
       return (
-        String(task.title || "").toLowerCase().includes(q) ||
-        String(task.description || "").toLowerCase().includes(q)
+        String(task.title || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(task.description || "")
+          .toLowerCase()
+          .includes(q)
       );
     });
 
@@ -107,9 +125,7 @@ export function TaskMain({ store }: { store: TaskStore }) {
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
         ? CSS.escape(focusTaskId)
         : String(focusTaskId).replace(/"/g, '\\"');
-    const element = document.querySelector<HTMLElement>(
-      `[data-task-id="${escaped}"]`,
-    );
+    const element = document.querySelector<HTMLElement>(`[data-task-id="${escaped}"]`);
     if (element) {
       element.scrollIntoView?.({ block: "center", behavior: "smooth" });
       element.classList.add("is-focused");
@@ -127,6 +143,22 @@ export function TaskMain({ store }: { store: TaskStore }) {
   const doneCount = filteredTasks(tasks, "done").length;
   const formTask = editing ?? (creating ? ({} as SuperAgentTask) : null);
   const groups = grouped ? groupTasksByWorkspace(visible) : null;
+  if (runtimeMode === "tools") {
+    return (
+      <div className="task-center-main">
+        <header className="task-center-header">
+          <div>
+            <h1>{t("Task center")}</h1>
+            <p>{t("This tool session shows plugin tasks. Open an AI session to manage AI tasks.")}</p>
+          </div>
+        </header>
+        {listPluginTasks ? (
+          <PluginTaskOverview workspaceId={workspaceId} list={listPluginTasks}
+            detail={getPluginTaskDetail} />
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div className="task-center-main">
       <header className="task-center-header">
@@ -161,9 +193,7 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </select>
           <button
             type="button"
-            className={`ui-button ui-button--ghost ui-button--sm${
-              grouped ? " is-active" : ""
-            }`}
+            className={`ui-button ui-button--ghost ui-button--sm${grouped ? " is-active" : ""}`}
             aria-pressed={grouped}
             title={t("Group tasks by workspace")}
             onClick={() => setGrouped((value) => !value)}
@@ -210,12 +240,22 @@ export function TaskMain({ store }: { store: TaskStore }) {
           </button>
         </div>
       </header>
-      {focusTaskId && loadedOnce && !loading && !error && !tasks.some((task) => task.id === focusTaskId) && (
-        <p role="status">
-          {t("The selected task is no longer available.")}
-          <button type="button" className="ui-button ui-button--ghost" onClick={() => focusTask(null)}>{t("Dismiss")}</button>
-        </p>
-      )}
+      {focusTaskId &&
+        loadedOnce &&
+        !loading &&
+        !error &&
+        !tasks.some((task) => task.id === focusTaskId) && (
+          <p role="status">
+            {t("The selected task is no longer available.")}
+            <button
+              type="button"
+              className="ui-button ui-button--ghost"
+              onClick={() => focusTask(null)}
+            >
+              {t("Dismiss")}
+            </button>
+          </p>
+        )}
       {formTask ? (
         <TaskForm
           key={editing?.id ?? creationRequest?.sequence ?? "new"}
@@ -242,6 +282,10 @@ export function TaskMain({ store }: { store: TaskStore }) {
         onCta={() => setFilter("all")}
       />
       <TaskSummary store={store} />
+      {listPluginTasks ? (
+        <PluginTaskOverview workspaceId={workspaceId} list={listPluginTasks}
+          detail={getPluginTaskDetail} />
+      ) : null}
       {error ? (
         <StatePanel
           title={t("Could not load tasks")}
@@ -255,18 +299,18 @@ export function TaskMain({ store }: { store: TaskStore }) {
               ? t("No matching tasks")
               : dateRange !== "all"
                 ? t("No tasks in this time range")
-              : filter === "scheduled"
-                ? t("No scheduled tasks")
-                : t("No tasks in this view")
+                : filter === "scheduled"
+                  ? t("No scheduled tasks")
+                  : t("No tasks in this view")
           }
           detail={
             query.trim()
               ? t("Try a different keyword.")
               : dateRange !== "all"
                 ? t("Choose a wider time range, or clear the filter.")
-              : filter === "scheduled"
-                ? t("Create a scheduled task to run work on a timer.")
-                : t("Create a task, or wait for work from automations and the Agent Inbox.")
+                : filter === "scheduled"
+                  ? t("Create a scheduled task to run work on a timer.")
+                  : t("Create a task, or wait for work from automations and the Agent Inbox.")
           }
           actionLabel={t("New task")}
           onAction={() => {
@@ -276,59 +320,55 @@ export function TaskMain({ store }: { store: TaskStore }) {
         />
       ) : (
         <div className="task-center-list">
-          {groups ? (
-            groups.map((group) => (
-              <section
-                key={group.workspace}
-                className="task-center-workspace-group"
-                aria-label={t("Workspace: {name}").replace(
-                  "{name}",
-                  isDefaultWorkspace(group.workspace)
-                    ? t("Default workspace")
-                    : group.workspace,
-                )}
-              >
-                <h2 className="task-center-workspace-group-title">
-                  <span className="task-center-workspace-icon" aria-hidden="true">
-                    📁
-                  </span>
-                  <span className="task-center-workspace-name">
-                    {isDefaultWorkspace(group.workspace)
-                      ? t("Default workspace")
-                      : group.workspace}
-                  </span>
-                  <span className="task-center-workspace-count">
-                    {String(group.tasks.length)}
-                  </span>
-                </h2>
-                <div className="task-center-workspace-tasks">
-                  {group.tasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      store={store}
-                      task={task}
-                      onEdit={() => {
-                        setEditing(task);
-                        setCreating(false);
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))
-          ) : (
-            visible.map((task) => (
-              <TaskCard
-                key={task.id}
-                store={store}
-                task={task}
-                onEdit={() => {
-                  setEditing(task);
-                  setCreating(false);
-                }}
-              />
-            ))
-          )}
+          {groups
+            ? groups.map((group) => (
+                <section
+                  key={group.workspace}
+                  className="task-center-workspace-group"
+                  aria-label={t("Workspace: {name}").replace(
+                    "{name}",
+                    isDefaultWorkspace(group.workspace) ? t("Default workspace") : group.workspace,
+                  )}
+                >
+                  <h2 className="task-center-workspace-group-title">
+                    <span className="task-center-workspace-icon" aria-hidden="true">
+                      📁
+                    </span>
+                    <span className="task-center-workspace-name">
+                      {isDefaultWorkspace(group.workspace)
+                        ? t("Default workspace")
+                        : group.workspace}
+                    </span>
+                    <span className="task-center-workspace-count">
+                      {String(group.tasks.length)}
+                    </span>
+                  </h2>
+                  <div className="task-center-workspace-tasks">
+                    {group.tasks.map((task) => (
+                      <TaskCard
+                        key={task.id}
+                        store={store}
+                        task={task}
+                        onEdit={() => {
+                          setEditing(task);
+                          setCreating(false);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))
+            : visible.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  store={store}
+                  task={task}
+                  onEdit={() => {
+                    setEditing(task);
+                    setCreating(false);
+                  }}
+                />
+              ))}
         </div>
       )}
     </div>
@@ -393,7 +433,6 @@ function StatePanel({
   );
 }
 
-
 function TaskCard({
   store,
   task,
@@ -418,12 +457,10 @@ function TaskCard({
   const setFilter = store((state) => state.setFilter);
   const allTasks = store((state) => state.tasks);
   const limitReached = retryLimitReached(task);
-  const canRetryAndRun =
-    ["failed", "blocked"].includes(task.status) && Boolean(task.targetProject);
-  const rerunWorkflowId =
-    ["done", "cancelled", "failed"].includes(task.status)
-      ? task.automation?.workflowId
-      : undefined;
+  const canRetryAndRun = ["failed", "blocked"].includes(task.status) && Boolean(task.targetProject);
+  const rerunWorkflowId = ["done", "cancelled", "failed"].includes(task.status)
+    ? task.automation?.workflowId
+    : undefined;
   const retryConfirmText = t(
     "The automatic retry limit has been reached. Retry this task manually?",
   );
@@ -448,18 +485,10 @@ function TaskCard({
   };
   const runningMinutes =
     task.status === "running" && task.dispatch?.startedAt
-      ? Math.max(
-          0,
-          Math.floor(
-            (Date.now() - new Date(task.dispatch.startedAt).getTime()) / 60_000,
-          ),
-        )
+      ? Math.max(0, Math.floor((Date.now() - new Date(task.dispatch.startedAt).getTime()) / 60_000))
       : null;
   return (
-    <article
-      className={`ui-panel task-center-card status-${task.status}`}
-      data-task-id={task.id}
-    >
+    <article className={`ui-panel task-center-card status-${task.status}`} data-task-id={task.id}>
       <header>
         <div>
           <span className="task-center-status">
@@ -472,15 +501,20 @@ function TaskCard({
         </div>
         <div className="task-center-actions">
           {task.status === "draft" && (
-            <button type="button" className="ui-button ui-button--danger ui-button--sm" onClick={() => {
-              if (globalThis.confirm?.(t("Delete this task draft?")) !== false) void removeTask(task.id);
-            }}>{t("Delete draft")}</button>
+            <button
+              type="button"
+              className="ui-button ui-button--danger ui-button--sm"
+              onClick={() => {
+                if (globalThis.confirm?.(t("Delete this task draft?")) !== false)
+                  void removeTask(task.id);
+              }}
+            >
+              {t("Delete draft")}
+            </button>
           )}
           <button
             type="button"
-            className={`ui-button ui-button--ghost ui-button--sm${
-              task.pinned ? " is-active" : ""
-            }`}
+            className={`ui-button ui-button--ghost ui-button--sm${task.pinned ? " is-active" : ""}`}
             aria-pressed={Boolean(task.pinned)}
             title={task.pinned ? t("Unpin this task") : t("Pin this task to the top")}
             onClick={() => void togglePinned(task.id)}
@@ -532,10 +566,7 @@ function TaskCard({
               }`}
               title={limitReached ? retryConfirmText : undefined}
               onClick={() => {
-                if (
-                  limitReached &&
-                  globalThis.confirm?.(retryConfirmText) === false
-                ) {
+                if (limitReached && globalThis.confirm?.(retryConfirmText) === false) {
                   return;
                 }
                 void updateTask(
@@ -584,8 +615,7 @@ function TaskCard({
               {t("Cancel")}
             </button>
           ) : null}
-          {!scheduledTemplate &&
-          !["running", "needs_input", "blocked"].includes(task.status) ? (
+          {!scheduledTemplate && !["running", "needs_input", "blocked"].includes(task.status) ? (
             <button
               type="button"
               className="ui-button ui-button--ghost ui-button--sm"
@@ -744,8 +774,7 @@ function TaskCard({
           ) : null}
         </>
       ) : null}
-      {["needs_input", "blocked"].includes(task.status) &&
-      task.dispatch?.childSessionId ? (
+      {["needs_input", "blocked"].includes(task.status) && task.dispatch?.childSessionId ? (
         <div className="task-center-reply">
           <textarea
             className="task-center-reply-input"
@@ -778,10 +807,7 @@ function TaskCard({
               value={formatDate(task.nextRunAt || nextTaskRunAt(task))}
             />
             <Detail term={t("Runs")} value={String(scheduledStats?.runCount ?? 0)} />
-            <Detail
-              term={t("Last run")}
-              value={formatDate(scheduledStats?.lastRunAt ?? null)}
-            />
+            <Detail term={t("Last run")} value={formatDate(scheduledStats?.lastRunAt ?? null)} />
           </>
         ) : null}
         <Detail term={t("Started")} value={formatDate(task.dispatch?.startedAt)} />
@@ -789,7 +815,9 @@ function TaskCard({
           term={t("Updated")}
           value={formatDate(task.events?.at(-1)?.at || task.result?.completedAt)}
         />
-        {task.budget ? <Detail term={t("Budget")} value={`$${Number(task.budget).toFixed(2)}`} /> : null}
+        {task.budget ? (
+          <Detail term={t("Budget")} value={`$${Number(task.budget).toFixed(2)}`} />
+        ) : null}
         {task.maxRetries != null ? (
           <Detail
             term={t("Retries")}
@@ -800,10 +828,7 @@ function TaskCard({
       {limitReached ? <p className="task-center-result">{t("Retry limit reached")}</p> : null}
       {summary ? (
         <div className="task-center-result-row">
-          <p
-            className="task-center-result"
-            title={rawSummary !== summary ? rawSummary : undefined}
-          >
+          <p className="task-center-result" title={rawSummary !== summary ? rawSummary : undefined}>
             {summary}
           </p>
           <button
@@ -828,23 +853,25 @@ function TaskCard({
             {t("History")} ({task.events.length})
           </summary>
           <ol>
-            {[...task.events].reverse().slice(0, 12).map((event) => (
-              <li key={event.at ?? `${event.status}-${event.message}`}>
-                <time>{formatDate(event.at)}</time>
-                <span
-                  title={
-                    event.message &&
-                    friendlyTaskDispatchError(event.message) !== event.message
-                      ? event.message
-                      : undefined
-                  }
-                >
-                  {friendlyTaskDispatchError(
-                    t(event.message || (event.status ? statusLabel(event.status) : "event")),
-                  )}
-                </span>
-              </li>
-            ))}
+            {[...task.events]
+              .reverse()
+              .slice(0, 12)
+              .map((event) => (
+                <li key={event.at ?? `${event.status}-${event.message}`}>
+                  <time>{formatDate(event.at)}</time>
+                  <span
+                    title={
+                      event.message && friendlyTaskDispatchError(event.message) !== event.message
+                        ? event.message
+                        : undefined
+                    }
+                  >
+                    {friendlyTaskDispatchError(
+                      t(event.message || (event.status ? statusLabel(event.status) : "event")),
+                    )}
+                  </span>
+                </li>
+              ))}
           </ol>
         </details>
       ) : null}
@@ -915,6 +942,7 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
   let contentRoot: Root | null = null;
   return {
     newTask(projectPath) {
+      if (store.getState().runtimeMode === "tools") return;
       store.getState().requestCreation(projectPath);
     },
     renderNavigation(container) {
@@ -923,7 +951,8 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
     renderContent(container) {
       contentRoot = mountPluginSurface(
         container,
-        <TaskMain store={store} />,
+        <TaskMain store={store} listPluginTasks={options.listPluginTasks}
+          getPluginTaskDetail={options.getPluginTaskDetail} />,
         contentRoot,
       );
       store.getState().startPolling();
@@ -942,7 +971,15 @@ export function createTaskCenterApp(options: TaskCenterOptions): TaskCenterAppAp
       contentRoot = null;
     },
     setTarget() {
+      if (options.getTarget?.()?.runtimeMode === "tools") {
+        store.getState().stopPolling();
+        store.getState().stopScheduler();
+      }
       store.getState().syncTarget();
+      if (store.getState().runtimeMode === "ai" && contentRoot) {
+        store.getState().startPolling();
+        store.getState().startScheduler();
+      }
     },
     focusTask(taskId) {
       store.getState().focusTask(taskId);

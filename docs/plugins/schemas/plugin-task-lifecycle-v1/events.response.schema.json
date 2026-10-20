@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "operation",
+    "taskRef",
+    "requestedAfterSequence",
+    "events",
+    "nextSequence",
+    "hasMore",
+    "earliestRetainedSequence",
+    "latestSequence",
+    "snapshotRequired",
+    "cursorError",
+    "terminal",
+    "error"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operation": { "const": "task.events" },
+    "taskRef": { "$ref": "common.schema.json#/$defs/taskRef" },
+    "requestedAfterSequence": { "type": "integer", "minimum": 0 },
+    "events": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "common.schema.json#/$defs/event" }
+    },
+    "nextSequence": { "type": "integer", "minimum": 0 },
+    "hasMore": { "type": "boolean" },
+    "earliestRetainedSequence": { "type": "integer", "minimum": 1 },
+    "latestSequence": { "type": "integer", "minimum": 0 },
+    "snapshotRequired": { "type": "boolean" },
+    "cursorError": { "enum": [null, "cursor_invalid", "cursor_expired"] },
+    "terminal": { "oneOf": [{ "$ref": "common.schema.json#/$defs/terminal" }, { "type": "null" }] },
+    "error": { "type": "null" }
+  }
+}

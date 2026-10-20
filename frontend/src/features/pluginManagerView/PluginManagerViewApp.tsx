@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { matchesSearchTerms, prepareSearchQuery } from "../../shared/catalog-search";
 import { t } from "../../shared/i18n";
 import { PluginCatalog } from "./PluginCatalog";
+import { SignedPluginPreviewCard, type SignedPluginPreview } from "./SignedPluginPreviewCard";
 import {
   friendlyPluginError,
   helpPageForPlugin,
@@ -20,6 +21,17 @@ export interface PluginManagerRegistry {
   setScene?(sceneId: string): Promise<unknown>;
   reload?(): Promise<unknown>;
   uninstall?(id: string): Promise<unknown>;
+}
+
+export interface DeveloperPluginPreview {
+  sourcePath: string;
+  contentSha256: string;
+  pluginId: string;
+  name: string;
+  version: string;
+  publisher: string;
+  permissions: string[];
+  capabilityCount: number;
 }
 
 function ActionButton({
@@ -61,6 +73,7 @@ export function PluginManagerViewApp({
   getTarget,
   notify,
   renderIcon,
+  selectDeveloperPlugin,
   installDeveloperPlugin,
   selectSignedPlugin,
   installSignedPlugin,
@@ -77,22 +90,11 @@ export function PluginManagerViewApp({
   getTarget?(): { sceneId?: string } | null;
   notify?(message: string): void;
   renderIcon?(icon: string | undefined): HTMLElement;
-  installDeveloperPlugin?: (() => Promise<string | null | undefined>) | null;
-  selectSignedPlugin?:
-    | (() => Promise<
-        | {
-            packagePath: string;
-            publisher: string;
-            publisherKeyId?: string;
-            permissions?: string[];
-            trusted?: boolean;
-          }
-        | null
-        | undefined
-      >)
-    | null;
+  selectDeveloperPlugin?: (() => Promise<DeveloperPluginPreview | null | undefined>) | null;
+  installDeveloperPlugin?: ((sourcePath: string, contentSha256: string) => Promise<string | null | undefined>) | null;
+  selectSignedPlugin?: (() => Promise<SignedPluginPreview | null | undefined>) | null;
   installSignedPlugin?:
-    | ((packagePath: string, requireConfirmation: boolean) => Promise<string | null | undefined>)
+    | ((packagePath: string, manifestSha256: string, requireConfirmation: boolean) => Promise<string | null | undefined>)
     | null;
   rollbackSignedPlugin?: ((id: string, version: string) => Promise<unknown>) | null;
   revokePublisher?: ((publisherKeyId: string) => Promise<unknown>) | null;
@@ -105,6 +107,8 @@ export function PluginManagerViewApp({
 }) {
   const [activeFilter, setActiveFilter] = useState<PluginManagerFilter>(initialFilter);
   const [query, setQuery] = useState("");
+  const [developerPreview, setDeveloperPreview] = useState<DeveloperPluginPreview | null>(null);
+  const [signedPreview, setSignedPreview] = useState<SignedPluginPreview | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
 
   const setBusyKey = (key: string, value: boolean) => {
@@ -119,13 +123,17 @@ export function PluginManagerViewApp({
     matchesSearchTerms(searchTerms, [
       plugin.id,
       plugin.name,
+      t(plugin.name),
       plugin.description,
+      t(plugin.description),
       plugin.publisher,
       plugin.version,
       ...(plugin.capabilities ?? []).flatMap((capability) => [
         capability.id,
         capability.title,
+        capability.title ? t(capability.title) : undefined,
         capability.description,
+        capability.description ? t(capability.description) : undefined,
       ]),
     ]),
   );
@@ -325,19 +333,19 @@ export function PluginManagerViewApp({
         <ActionButton
           label={t("Install local plugin")}
           variant="ui-button--primary"
-          disabled={!canManagePlugins || typeof installDeveloperPlugin !== "function"}
+          disabled={!canManagePlugins || typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"}
           title={
-            typeof installDeveloperPlugin !== "function"
+            typeof selectDeveloperPlugin !== "function" || typeof installDeveloperPlugin !== "function"
               ? t("Local plugin installation is available in the desktop application.")
               : undefined
           }
-          busy={Boolean(busy["install-local"])}
+          busy={Boolean(busy["preview-local"])}
           onClick={() => {
-            void runAction("install-local", async () => {
-              const pluginId = await installDeveloperPlugin?.();
-              if (!pluginId) return;
-              await registry.setScene?.(sceneId);
-              notify?.(`${t("Installed")} ${pluginId}`);
+            setDeveloperPreview(null);
+            setSignedPreview(null);
+            void runAction("preview-local", async () => {
+              const preview = await selectDeveloperPlugin?.();
+              if (preview) setDeveloperPreview(preview);
             });
           }}
         />
@@ -349,27 +357,13 @@ export function PluginManagerViewApp({
             typeof selectSignedPlugin !== "function" ||
             typeof installSignedPlugin !== "function"
           }
-          busy={Boolean(busy["install-signed"])}
+          busy={Boolean(busy["preview-signed"])}
           onClick={() => {
-            void runAction("install-signed", async () => {
+            setDeveloperPreview(null);
+            setSignedPreview(null);
+            void runAction("preview-signed", async () => {
               const preview = await selectSignedPlugin?.();
-              if (!preview) return;
-              const permissionSummary = preview.permissions?.length
-                ? preview.permissions.join(", ")
-                : t("No permissions requested");
-              if (
-                !preview.trusted &&
-                !(await confirmPublisher?.(
-                  `${t("Trust publisher")} ${preview.publisher}?\n${t(
-                    "Key fingerprint",
-                  )}: ${preview.publisherKeyId}\n${t("Permissions")}: ${permissionSummary}`,
-                ))
-              ) {
-                return;
-              }
-              const pluginId = await installSignedPlugin?.(preview.packagePath, !preview.trusted);
-              await registry.setScene?.(sceneId);
-              notify?.(`${t("Installed")} ${pluginId}`);
+              if (preview) setSignedPreview(preview);
             });
           }}
         />
@@ -386,6 +380,62 @@ export function PluginManagerViewApp({
           }}
         />
       </div>
+      {developerPreview ? (
+        <section className="ui-card plugin-manager-preview" aria-label={t("Review local plugin")}>
+          <strong>{t("Review local plugin")}</strong>
+          <p>{`${developerPreview.name} · ${developerPreview.version} · ${developerPreview.publisher}`}</p>
+          <p><code>{developerPreview.pluginId}</code></p>
+          <p>{`${t("Declared tools")}: ${developerPreview.capabilityCount}`}</p>
+          <p>{`${t("Permissions")}: ${developerPreview.permissions.length ? developerPreview.permissions.join(", ") : t("No permissions requested")}`}</p>
+          <p>{t("Unsigned development package. It will be disabled until you enable it and grant permissions.")}</p>
+          <div className="plugin-manager-preview-actions">
+            <ActionButton
+              label={t("Install reviewed plugin")}
+              variant="ui-button--primary"
+              busy={Boolean(busy["install-local"])}
+              onClick={() => {
+                void runAction("install-local", async () => {
+                  const pluginId = await installDeveloperPlugin?.(developerPreview.sourcePath, developerPreview.contentSha256);
+                  if (!pluginId) return;
+                  setDeveloperPreview(null);
+                  await registry.setScene?.(sceneId);
+                  notify?.(`${t("Installed")} ${pluginId}`);
+                });
+              }}
+            />
+            <ActionButton label={t("Cancel")} disabled={Boolean(busy["install-local"])} onClick={() => setDeveloperPreview(null)} />
+          </div>
+        </section>
+      ) : null}
+      {signedPreview ? (
+        <SignedPluginPreviewCard
+          preview={signedPreview}
+          busy={Boolean(busy["install-signed"])}
+          onCancel={() => setSignedPreview(null)}
+          onInstall={() => {
+            void runAction("install-signed", async () => {
+              const permissionSummary = signedPreview.permissions.length
+                ? signedPreview.permissions.join(", ")
+                : t("No permissions requested");
+              if (
+                !signedPreview.trusted &&
+                !(await confirmPublisher?.(
+                  `${t("Trust publisher")} ${signedPreview.publisher}?\n${t(
+                    "Key fingerprint",
+                  )}: ${signedPreview.publisherKeyId}\n${t("Permissions")}: ${permissionSummary}`,
+                ))
+              ) {
+                return;
+              }
+              const pluginId = await installSignedPlugin?.(signedPreview.packagePath, signedPreview.manifestSha256, !signedPreview.trusted);
+              if (!pluginId) return;
+              setSignedPreview(null);
+              await registry.setScene?.(sceneId);
+              notify?.(`${t("Installed")} ${pluginId}`);
+            });
+          }}
+        />
+      ) : null}
       <div className="plugin-manager-filters" role="tablist" aria-label={t("Plugin filters")}>
         {MANAGER_FILTERS.map((filter) => (
           <button

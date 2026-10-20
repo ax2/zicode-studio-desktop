@@ -117,28 +117,59 @@ fn searched_tools_rank_exact_names_then_prefixes_aliases_and_descriptions() {
     plugin.manifest.schema_version = 2;
     plugin.manifest.engines = json!({"zicode":">=0.1.0 <1.0.0","pluginApi":"^1.0.0"});
     plugin.manifest.required_profiles = json!({"tool.directory.v1":"=1.0.0-preview.1"});
-    let caps = plugin.manifest.contributes["capabilities"].as_array_mut().unwrap();
+    let caps = plugin.manifest.contributes["capabilities"]
+        .as_array_mut()
+        .unwrap();
     caps[150]["title"] = json!("Needle");
     caps[100]["title"] = json!("Needle conversion");
     caps[50]["directory"] = json!({"categoryId":"text","aliases":["superneedle"]});
     caps[0]["directory"] = json!({"categoryId":"text","description":"Find the needle"});
     super::super::validate_manifest(&plugin.manifest, None).unwrap();
-    let mut query = CatalogQuery { scene_id:"programming".into(), query:"ＮＥＥＤＬＥ".into(), ..Default::default() };
+    let mut query = CatalogQuery {
+        scene_id: "programming".into(),
+        query: "ＮＥＥＤＬＥ".into(),
+        ..Default::default()
+    };
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 4);
-    assert_eq!(page["items"].as_array().unwrap().iter().map(|item| item["capabilityId"].as_str().unwrap()).collect::<Vec<_>>(),
-        vec!["text.150", "text.100", "text.050", "text.000"]);
+    assert_eq!(
+        page["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["capabilityId"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["text.150", "text.100", "text.050", "text.000"]
+    );
     query.query.clear();
-    assert_eq!(registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"], "text.000");
+    assert_eq!(
+        registry.manual_catalog(&query).unwrap()["items"][0]["capabilityId"],
+        "text.000"
+    );
     query.query = "needle".into();
     query.view = CatalogView::Recent;
     let plugin_id = "com.zicode.catalog-fixture";
-    let access = ToolAccess { recent: ["text.000", "text.150"].map(|id| RecentEntry {
-        id: tool_access_id(plugin_id, id), used_at: 1,
-    }).to_vec(), ..Default::default() };
-    let recent = registry.manual_catalog_with_access(&query, Some(&access)).unwrap();
-    assert_eq!(recent["items"].as_array().unwrap().iter().map(|item| item["capabilityId"].as_str().unwrap()).collect::<Vec<_>>(),
-        vec!["text.000", "text.150"]);
+    let access = ToolAccess {
+        recent: ["text.000", "text.150"]
+            .map(|id| RecentEntry {
+                id: tool_access_id(plugin_id, id),
+                used_at: 1,
+            })
+            .to_vec(),
+        ..Default::default()
+    };
+    let recent = registry
+        .manual_catalog_with_access(&query, Some(&access))
+        .unwrap();
+    assert_eq!(
+        recent["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|item| item["capabilityId"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["text.000", "text.150"]
+    );
 }
 
 #[test]
@@ -146,7 +177,11 @@ fn legacy_capability_description_remains_discoverable_without_directory_metadata
     let mut registry = tests::registry();
     let plugin = registry.plugins.values_mut().next().unwrap();
     plugin.manifest.contributes["capabilities"][42]["description"] = json!("Needle use hint");
-    let query = CatalogQuery { scene_id:"programming".into(), query:"needle hint".into(), ..Default::default() };
+    let query = CatalogQuery {
+        scene_id: "programming".into(),
+        query: "needle hint".into(),
+        ..Default::default()
+    };
     let page = registry.manual_catalog(&query).unwrap();
     assert_eq!(page["total"], 1);
     assert_eq!(page["items"][0]["capabilityId"], "text.042");

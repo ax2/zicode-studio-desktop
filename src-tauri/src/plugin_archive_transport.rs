@@ -86,7 +86,6 @@ pub(crate) fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(windows)]
     use std::sync::atomic::AtomicBool;
 
     const CALL: &str = "archive-call-12345678-1234-4123-8123-123456789abc";
@@ -182,17 +181,52 @@ mod tests {
         );
     }
 
-    #[cfg(windows)]
     fn reader_command(path: &str) -> Command {
-        let mut command = crate::process_command::new_command("powershell.exe");
-        command
-            .args(["-NoProfile", "-NonInteractive", "-Command",
-                "$bytes=[System.IO.File]::ReadAllBytes($env:ZICODE_ARCHIVE_TRACE); $length=if($env:ZICODE_ARCHIVE_TRACE_MAX){[Math]::Min([int]$env:ZICODE_ARCHIVE_TRACE_MAX,$bytes.Length)}else{$bytes.Length}; [Console]::OpenStandardOutput().Write($bytes,0,$length)"])
-            .env("ZICODE_ARCHIVE_TRACE", path);
-        command
+        #[cfg(windows)]
+        {
+            let mut command = crate::process_command::new_command("powershell.exe");
+            command
+                .args(["-NoProfile", "-NonInteractive", "-Command",
+                    "$bytes=[System.IO.File]::ReadAllBytes($env:ZICODE_ARCHIVE_TRACE); $length=if($env:ZICODE_ARCHIVE_TRACE_MAX){[Math]::Min([int]$env:ZICODE_ARCHIVE_TRACE_MAX,$bytes.Length)}else{$bytes.Length}; [Console]::OpenStandardOutput().Write($bytes,0,$length)"])
+                .env("ZICODE_ARCHIVE_TRACE", path);
+            command
+        }
+        #[cfg(not(windows))]
+        {
+            let mut command = crate::process_command::new_command("cat");
+            command.arg(path);
+            command
+        }
     }
 
-    #[cfg(windows)]
+    fn truncated_reader_command(path: &str) -> Command {
+        #[cfg(windows)]
+        {
+            let mut command = reader_command(path);
+            command.env("ZICODE_ARCHIVE_TRACE_MAX", "50");
+            command
+        }
+        #[cfg(not(windows))]
+        {
+            let mut command = crate::process_command::new_command("head");
+            command.args(["-c", "50", path]);
+            command
+        }
+    }
+
+    fn failing_command() -> Command {
+        #[cfg(windows)]
+        {
+            let mut command = crate::process_command::new_command("powershell.exe");
+            command.args(["-NoProfile", "-NonInteractive", "-Command", "exit 7"]);
+            command
+        }
+        #[cfg(not(windows))]
+        {
+            crate::process_command::new_command("false")
+        }
+    }
+
     #[test]
     fn real_process_releases_only_a_complete_bounded_trace() {
         let path = concat!(
@@ -211,11 +245,9 @@ mod tests {
         assert_eq!(result.receipt.status, "ok");
         assert_eq!(result.receipt.entries, 2);
         assert_eq!(result.events.len(), 5);
-        let mut truncated = reader_command(path);
-        truncated.env("ZICODE_ARCHIVE_TRACE_MAX", "50");
         assert_eq!(
             run(
-                truncated,
+                truncated_reader_command(path),
                 Vec::new(),
                 CALL,
                 "list",
@@ -262,11 +294,9 @@ mod tests {
             .err(),
             Some("worker_cancelled")
         );
-        let mut failed = crate::process_command::new_command("powershell.exe");
-        failed.args(["-NoProfile", "-NonInteractive", "-Command", "exit 7"]);
         assert_eq!(
             run(
-                failed,
+                failing_command(),
                 Vec::new(),
                 CALL,
                 "list",

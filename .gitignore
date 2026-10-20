@@ -4,9 +4,11 @@ site/
 .worktrees/
 .DS_Store
 .cache/
+.zicode/
 
 # Tauri build artifacts
 release/
+!tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/
 target/
 src-tauri/target/
 # Generated visual-QA screenshots (regenerate with scripts/visual-qa.mjs)

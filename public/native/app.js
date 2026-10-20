@@ -32,6 +32,7 @@ import { setupDesktopTrayLocale } from "./features/desktop-tray-locale.js";
 import { setupMobileDraftRecovery } from "./features/mobile-draft-recovery.js";
 import { consumeMobileShareTarget } from "./features/mobile-share-target.js";
 import { createNotesChatHandoff } from "./features/notes-chat-handoff.js";
+import { createPluginTaskDetailClient, createPluginTaskOverviewClient } from "./features/plugin-task-overview.js";
 import { installProjectWorkNavigation } from "./features/project-work-navigation.js";
 import {
   createAuthenticatedHostFetch,
@@ -44,6 +45,7 @@ import { estimateRequestCost } from "./models/model-routing.js";
 import { ArtifactGateway } from "./plugins/artifact-gateway.js";
 import { NotesGateway } from "./plugins/notes-gateway.js";
 import { PluginCapabilityGateway } from "./plugins/plugin-capability-gateway.js";
+import { setupChatPluginResultActions } from "./plugins/chat-plugin-result-actions.js";
 import { PluginHostGateway } from "./plugins/plugin-host-gateway.js";
 import { createBuiltinPluginRegistry } from "./plugins/plugin-registry.js";
 import { PLUGIN_HISTORY_STATE_KEY, setupPluginShell } from "./plugins/plugin-shell.js";
@@ -53,13 +55,19 @@ import { setupArtifactApp } from "./react/artifacts.js";
 import { setupAutomationApp } from "./react/automation.js";
 import { MessageRenderer, ToolCardRenderer } from "./react/chat.js";
 import { setupClipboardApp } from "./react/clipboard.js";
-import { setupCommandPalette } from "./react/command-palette.js";
-import { createModelDropdownFeed, setupComposer, setupComposerImageAttachments, setupComposerSlashMenu } from "./react/composer.js";
+import { manualToolError, setupCommandPalette } from "./react/command-palette.js";
+import {
+  createModelDropdownFeed,
+  setupComposer,
+  setupComposerImageAttachments,
+  setupComposerSlashMenu,
+} from "./react/composer.js";
 import { findLatestAssistantUsage, setupContextUsage } from "./react/context-usage.js";
 import { ConvNav } from "./react/conv-nav.js";
 import { showNativeDialog } from "./react/dialog.js";
 import { confirmPluginDiscard } from "./plugins/plugin-discard-confirmation.js";
 import { confirmPluginModelGeneration } from "./plugins/plugin-model-consent.js";
+import { confirmPluginHttpGet } from "./plugins/plugin-http-consent.js";
 import { setupDocumentsApp } from "./react/documents.js";
 import { NativeFileBrowser } from "./react/file-browser.js";
 import { setupFinanceWorkbench } from "./react/finance-workbench.js";
@@ -566,7 +574,7 @@ window.addEventListener("picot-config-gateway-ready", () => {
 // stalled runtime left the settings button dead ("can't open settings").
 setupSessionSidebar();
 sidebar?.load().catch(showError);
-setupSidebarToggle();
+const sidebarToggleController = setupSidebarToggle();
 abortButton?.addEventListener("click", abortCurrentRun);
 messagesElement.addEventListener("messagefork", async (event) => {
   const { entryId } = event.detail;
@@ -690,10 +698,41 @@ mobileDrafts
       title: t("Shared content expired or could not be read"),
     });
   });
-setupCommandPalette({
-  getToolApi: () => remoteAuth.clientType === "desktop" ? pluginCapabilityGateway : undefined,
+const toolAccessStore =
+  remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined;
+function openVisibleWorkspaceSwitcher() {
+  const toolCenterPicker = document.querySelector(".tool-workspace-picker > summary");
+  if (toolCenterPicker?.getClientRects().length) {
+    if (!toolCenterPicker.parentElement.open) toolCenterPicker.click();
+    toolCenterPicker.focus({ preventScroll: true });
+    return;
+  }
+  const switcher = document.getElementById("workspace-switcher-btn");
+  const menu = document.getElementById("workspace-switcher-menu");
+  if (!switcher || getComputedStyle(switcher).display === "none") {
+    notifications.notify({
+      title: t("Workspace switcher is unavailable here"),
+      message: t(
+        "On the mobile web client, open a session from another project in the session list to switch workspaces.",
+      ),
+      type: "info",
+    });
+    return;
+  }
+  if (document.getElementById("sidebar")?.classList.contains("collapsed")) {
+    sidebarToggleController?.setCollapsed(false);
+  }
+  if (menu?.classList.contains("hidden")) switcher.click();
+  switcher.focus({ preventScroll: true });
+}
+const commandPaletteHandle = setupCommandPalette({
+  getToolApi: () => (remoteAuth.clientType === "desktop" ? pluginCapabilityGateway : undefined),
   onOpenTool: (tool, revision, scope) => pluginShell?.openManualTool(tool, revision, scope),
-  accessStore: remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined,
+  onToolError: (error) => notifications.notify({
+    title: t(manualToolError(error)),
+    type: "error",
+  }),
+  accessStore: toolAccessStore,
   getScope: () => ({ sceneId: target.sceneId, workspaceId: target.workspaceId }),
   button: commandButton,
   palette: commandPalette,
@@ -716,7 +755,7 @@ setupCommandPalette({
         // Defer until the palette's own click has finished bubbling so the
         // switcher's outside-click listener does not close the menu it just
         // opened (target would be the palette item, not the switcher button).
-        setTimeout(() => document.getElementById("workspace-switcher-btn")?.click(), 0);
+        setTimeout(openVisibleWorkspaceSwitcher, 0);
       },
     },
     {
@@ -866,16 +905,24 @@ const pluginCapabilityGateway = new PluginCapabilityGateway({
   fetchImpl: hostFetch,
   location: window.location,
 });
+const chatPluginResultActions = setupChatPluginResultActions({
+  messages: messagesElement,
+  gateway: pluginCapabilityGateway,
+  getTarget: () => target,
+});
 const pluginViewHost = setupPluginViewHost({
   gateway: pluginHostGateway,
   allowExternalViews: remoteAuth.clientType === "desktop",
   capabilityGateway: pluginCapabilityGateway,
+  toolAccessStore,
   getTarget: () => target,
   notify: notifications.notify,
   executeCommand: (commandId, args) => pluginShell?.executeCommand(commandId, args),
   confirmDiscard: (message) => confirmPluginDiscard(message, showNativeDialog),
-  confirmModelGeneration: (preview, pluginName) =>
-    confirmPluginModelGeneration(preview, pluginName, showNativeDialog),
+  confirmModelGeneration: (preview, pluginName, dismissSignal) =>
+    confirmPluginModelGeneration(preview, pluginName, showNativeDialog, undefined, dismissSignal),
+  confirmHttpGet: (preview, pluginName, dismissSignal) =>
+    confirmPluginHttpGet(preview, pluginName, showNativeDialog, undefined, dismissSignal),
 });
 const notesGateway = new NotesGateway({
   fetchImpl: hostFetch,
@@ -918,8 +965,8 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
       : undefined,
   readStorage:
     remoteAuth.clientType === "desktop" && globalThis.__TAURI__?.core?.invoke
-      ? (workspaceId, directory) =>
-          globalThis.__TAURI__.core.invoke("inspect_project_storage", { workspaceId, directory })
+      ? (workspaceId, directory, deep = false) =>
+          globalThis.__TAURI__.core.invoke("inspect_project_storage", { workspaceId, directory, deep })
       : undefined,
   onPrepareGitReview: projectChatDraftHandoff,
   onPrepareContextPack: projectChatDraftHandoff,
@@ -932,26 +979,15 @@ const projectWorkspaceApp = setupProjectWorkspaceApp({
   call: (operation, params, options) => config.call(operation, params, options),
   getTarget: () => target,
   openApp: (pluginId) => pluginShell?.activate(pluginId),
-  onManageProjects: () => {
-    const switcher = document.getElementById("workspace-switcher-btn");
-    if (switcher && getComputedStyle(switcher).display !== "none") {
-      switcher.click();
-      return;
-    }
-    // On remote/mobile clients the native workspace switcher is hidden;
-    // explain how to switch projects there instead of leaving a dead button.
-    notifications.notify({
-      title: t("Workspace switcher is unavailable here"),
-      message: t(
-        "On the mobile web client, open a session from another project in the session list to switch workspaces.",
-      ),
-      type: "info",
-    });
-  },
+  onManageProjects: openVisibleWorkspaceSwitcher,
   notify: notifications.notify,
 });
 const taskCenterApp = setupTaskCenterApp({
   call: (operation, params, options) => config.call(operation, params, options),
+  listPluginTasks:
+    remoteAuth.clientType === "desktop" ? createPluginTaskOverviewClient(hostFetch) : undefined,
+  getPluginTaskDetail:
+    remoteAuth.clientType === "desktop" ? createPluginTaskDetailClient(hostFetch) : undefined,
   getTarget: () => target,
   runtime,
   cancelRuntimeUi: (runtimeTarget) => extensionUi.cancelSession(runtimeTarget),
@@ -1157,7 +1193,7 @@ const articlesApp = setupArticlesApp({
 });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
-  toolAccessStore: remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined,
+  toolAccessStore,
   canManagePlugins: remoteAuth.clientType === "desktop",
   capabilityGateway: pluginCapabilityGateway,
   commandGateway: pluginHostGateway,
@@ -1188,16 +1224,24 @@ pluginShell = setupPluginShell({
   pluginViewHost,
   openCommandPalette: () => commandButton?.click(),
   openFinanceWorkbench: () => financeWorkbench?.openPanel(),
+  selectDeveloperPlugin: globalThis.__TAURI__?.core?.invoke
+    ? () => globalThis.__TAURI__.core.invoke("select_developer_plugin_package")
+    : null,
   installDeveloperPlugin: globalThis.__TAURI__?.core?.invoke
-    ? () => globalThis.__TAURI__.core.invoke("select_and_install_developer_plugin")
+    ? (sourcePath, contentSha256) =>
+        globalThis.__TAURI__.core.invoke("install_previewed_developer_plugin", {
+          sourcePath,
+          contentSha256,
+        })
     : null,
   selectSignedPlugin: globalThis.__TAURI__?.core?.invoke
     ? () => globalThis.__TAURI__.core.invoke("select_signed_plugin_package")
     : null,
   installSignedPlugin: globalThis.__TAURI__?.core?.invoke
-    ? (packagePath, trustPublisher) =>
+    ? (packagePath, manifestSha256, trustPublisher) =>
         globalThis.__TAURI__.core.invoke("install_signed_plugin_package", {
           packagePath,
+          manifestSha256,
           trustPublisher,
         })
     : null,
@@ -1306,7 +1350,10 @@ setupAppKeyboardShortcuts({
   openModelDropdown: () => openModelDropdown(),
   cycleThinking: () => thinkingBtn?.click(),
   newSession: () => document.getElementById("new-session-btn")?.click(),
-  switchWorkspace: () => document.getElementById("workspace-switcher-btn")?.click(),
+  switchWorkspace: () => {
+    if (!commandPalette?.classList.contains("hidden")) commandPaletteHandle.close({ restoreFocus: false });
+    openVisibleWorkspaceSwitcher();
+  },
   openSettings: () => settingsPanel?.openSettings("general"),
   toggleFiles: () => {
     const toggle = document.querySelector("[data-file-toggle], #file-sidebar-toggle");
@@ -2976,7 +3023,10 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   // Apply the persisted auto-compaction preference to the freshly adopted
   // session runtime (the toggle also sends it live on change).
   try {
-    if (target.runtimeMode !== "tools" && localStorage.getItem("picot-settings-auto-compact") === "true") {
+    if (
+      target.runtimeMode !== "tools" &&
+      localStorage.getItem("picot-settings-auto-compact") === "true"
+    ) {
       void runtime
         .request({ type: "set_auto_compaction", enabled: true }, target, {
           idempotencyKey: randomId(),
@@ -2999,6 +3049,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   sceneIndicator?.setTarget(target);
   financeWorkbench?.setTarget(target);
   pluginShell?.setTarget(target);
+  chatPluginResultActions.clear();
   if (nextTarget.workspaceId !== previousTarget.workspaceId || !currentProjectInfo) {
     void refreshCurrentProjectInfo();
   }

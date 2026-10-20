@@ -1,8 +1,9 @@
 import type { ToolAccessScope } from "../commandPalette/tool-access";
+import type { ToolInputValue } from "./tool-json-input";
 
 export interface ManualCallScope extends ToolAccessScope { pluginId: string; capabilityId: string }
 export interface ManualCallRequest extends ManualCallScope {
-  input: Record<string, string | number | boolean>;
+  input: Record<string, ToolInputValue>;
   catalogRevision: string;
   captureResult?: boolean;
 }

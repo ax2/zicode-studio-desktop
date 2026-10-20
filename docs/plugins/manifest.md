@@ -5,6 +5,12 @@ UI 注册和 Pi Tool 注册的唯一声明来源；运行时代码不能动态�
 
 能力目录分类/别名/用途描述采用独立 [tool.directory.v1](tool-directory-v1.md) 预览扩展：schemaVersion 2与显式requiredProfiles版本协商后才允许capability.directory。旧包不要求迁移，不猜测工具类别。
 
+带主视图的插件应用可用独立的 [application.directory.v1](application-directory-v1.md) 预览扩展声明 activity 目录类别、别名和用途。该元数据只影响工具中心的应用发现；不会创建新的侧栏图标或可执行工具。
+
+自定义主 View 如需让具体工具入口定位到相应操作，可声明 [tool.open.v1](tool-open-v1.md) 预览扩展。它仅传递已声明能力 ID 并等待 View 确认定位，不执行能力或授予权限。
+
+只在 View 中交互、尚无可调用 capability 的单项操作可参考 [view.operation.directory.v1](view-operation-directory-v1.md) 的 Host 清单预览；统一搜索、收藏与精确定位尚未完成，提供方当前不要将其作为可用功能声明。
+
 ## 完整示例
 
 ```json

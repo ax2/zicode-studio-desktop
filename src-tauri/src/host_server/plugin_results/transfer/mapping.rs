@@ -77,6 +77,76 @@ pub(super) fn mapped_input(
     Ok(mapped)
 }
 
+pub(super) fn required_json_inputs(
+    schema: &Value,
+    field: &str,
+    value: &Value,
+) -> Result<Vec<String>, ApiError> {
+    let properties = schema["properties"]
+        .as_object()
+        .ok_or_else(|| rejected("result_mapping_unsupported"))?;
+    if schema["type"] != "object"
+        || field.is_empty()
+        || field.len() > 128
+        || properties.len() > 16
+        || schema["properties"][field]["type"] != "object"
+        || !value.is_object()
+        || serde_json::to_vec(value)
+            .map(|bytes| bytes.len() > 8192)
+            .unwrap_or(true)
+    {
+        return Err(rejected("result_mapping_unsupported"));
+    }
+    crate::plugin_capabilities::validate_value(&schema["properties"][field], value, "$")
+        .map_err(capability_api_error)?;
+    let mut inputs = Vec::new();
+    for name in schema["required"].as_array().into_iter().flatten() {
+        let name = name
+            .as_str()
+            .ok_or_else(|| rejected("result_mapping_unsupported"))?;
+        if name.is_empty()
+            || name.len() > 128
+            || schema["properties"][name]["type"] != "string" && name != field
+        {
+            return Err(rejected("result_mapping_unsupported"));
+        }
+        if name != field && !inputs.iter().any(|item| item == name) {
+            inputs.push(name.to_string());
+        }
+    }
+    inputs.sort();
+    Ok(inputs)
+}
+
+pub(super) fn mapped_json_input(
+    schema: &Value,
+    field: &str,
+    value: &Value,
+    values: &serde_json::Map<String, Value>,
+) -> Result<Value, ApiError> {
+    let required = required_json_inputs(schema, field, value)?;
+    if values.len() != required.len()
+        || values.keys().any(|name| !required.contains(name))
+        || values
+            .values()
+            .any(|value| value.as_str().is_none_or(|text| text.len() > 8192))
+    {
+        return Err(rejected("result_mapping_inputs_invalid"));
+    }
+    let mut fields = values.clone();
+    fields.insert(field.into(), value.clone());
+    let mapped = Value::Object(fields);
+    if serde_json::to_vec(&mapped)
+        .map(|bytes| bytes.len() > 48 * 1024)
+        .unwrap_or(true)
+    {
+        return Err(rejected("result_mapping_inputs_invalid"));
+    }
+    crate::plugin_capabilities::validate_value(schema, &mapped, "$")
+        .map_err(capability_api_error)?;
+    Ok(mapped)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,5 +203,24 @@ mod tests {
         let mut multiple = schema();
         multiple["properties"]["right"]["type"] = json!("integer");
         assert!(required_inputs(&multiple, "left", "x").is_err());
+    }
+
+    #[test]
+    fn maps_json_object_to_object_field_without_string_coercion() {
+        let schema = json!({"type":"object","properties":{
+            "document":{"type":"object","properties":{"count":{"type":"integer"}},"required":["count"],"additionalProperties":false},
+            "label":{"type":"string"}},"required":["document","label"],"additionalProperties":false});
+        let value = json!({"count":2});
+        assert_eq!(
+            required_json_inputs(&schema, "document", &value).unwrap(),
+            vec!["label"]
+        );
+        let values = json!({"label":"sample"}).as_object().unwrap().clone();
+        let mapped = mapped_json_input(&schema, "document", &value, &values).unwrap();
+        assert_eq!(mapped["document"], value);
+        assert!(mapped["document"].is_object());
+        assert!(mapped_json_input(&schema, "document", &json!({"count":"2"}), &values).is_err());
+        assert!(mapped_json_input(&schema, "label", &value, &serde_json::Map::new()).is_err());
+        assert!(mapped_json_input(&schema, "document", &value, &serde_json::Map::new()).is_err());
     }
 }

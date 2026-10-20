@@ -183,12 +183,13 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
         .unwrap();
     // Cold Windows runners may spend more than 12 seconds initializing
     // PowerShell and PSReadLine before their first prompt appears.
+    let mut shell_ready = !cfg!(windows);
+    let mut command_sent = false;
+    let mut cursor_queries_answered = 0;
     let completed = tokio::time::timeout(Duration::from_secs(30), async {
         use base64::Engine;
         let mut offset = 0;
         let mut terminal_output = String::new();
-        let mut shell_ready = !cfg!(windows);
-        let mut command_sent = false;
         while !f.0.join("terminal-path-marker").exists() {
             let (_, chunk) = manager.read(&f.0, "one", &info.id, offset).unwrap();
             offset = chunk.next_offset;
@@ -206,6 +207,7 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
                 manager
                     .input(&f.0, "one", &info.id, b"\x1b[1;1R".to_vec())
                     .unwrap();
+                cursor_queries_answered += 1;
                 terminal_output.drain(..index + 4);
             }
             if shell_ready && !command_sent {
@@ -230,8 +232,18 @@ async fn new_pty_receives_project_path_without_mutating_host_path() {
     if completed.is_err() {
         use base64::Engine;
         let (_, chunk) = manager.read(&f.0, "one", &info.id, 0).unwrap();
+        let session = manager
+            .list(&f.0, "one")
+            .ok()
+            .and_then(|sessions| sessions.into_iter().find(|session| session.id == info.id));
         panic!(
-            "tool fixture did not write marker: {}",
+            "tool fixture did not write marker; shell={}, status={}, output_closed={}, shell_ready={}, command_sent={}, cursor_queries_answered={}: {}",
+            session.as_ref().map_or("missing", |session| session.shell.as_str()),
+            session.as_ref().map_or("missing", |session| session.status.as_str()),
+            session.as_ref().is_some_and(|session| session.output_closed),
+            shell_ready,
+            command_sent,
+            cursor_queries_answered,
             String::from_utf8_lossy(
                 &base64::engine::general_purpose::STANDARD
                     .decode(chunk.data)

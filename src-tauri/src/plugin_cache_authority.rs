@@ -28,10 +28,9 @@ impl Authority {
         request: &CapabilityInvocation,
         capability: &PluginCapabilityDescriptor,
     ) -> Result<Self, CapabilityError> {
-        let external = registry.list(&request.scene_id).iter().any(|plugin| {
-            plugin.manifest.id == request.plugin_id
-                && plugin.origin != crate::plugin_registry::PluginOrigin::BuiltIn
-        });
+        let external = registry
+            .plugin_origin(&request.plugin_id)
+            .is_some_and(|origin| origin != crate::plugin_registry::PluginOrigin::BuiltIn);
         Ok(Self::new(
             registry.execution_revision(&request.scene_id, &request.plugin_id),
             capability,

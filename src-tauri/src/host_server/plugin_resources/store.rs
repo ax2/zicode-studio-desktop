@@ -18,7 +18,10 @@ struct Record {
 }
 
 #[derive(Clone)]
-struct Ancestor { access: Access, proof: String }
+struct Ancestor {
+    access: Access,
+    proof: String,
+}
 
 #[cfg(test)]
 mod tests;
@@ -32,22 +35,73 @@ pub(crate) struct Store {
     saves: HashMap<String, save::SaveGrant>,
 }
 mod outputs;
-mod transfer;
 mod save;
+mod transfer;
 pub(in crate::host_server::plugin_resources) use outputs::Pending;
 
 impl Store {
-    pub(super) fn import_file(&mut self, owner: Owner, proof: String, bytes: Vec<u8>) -> Result<Value, ApiError> {
-        self.import_bytes(owner, proof, bytes, "application/octet-stream", "resource.local-file.draft1")
+    pub(in crate::host_server) fn invalidate_runtime(&mut self, runtime_id: &str) {
+        self.file_imports.invalidate_runtime(runtime_id);
+        self.directory_imports.invalidate_runtime(runtime_id);
+        self.records
+            .retain(|_, record| record.owner.runtime_id != runtime_id);
+        self.transfers.retain(|_, grant| {
+            grant.source.owner.runtime_id != runtime_id && grant.target.runtime_id != runtime_id
+        });
+        self.saves
+            .retain(|_, grant| grant.source.owner.runtime_id != runtime_id);
+        self.prune();
     }
-    pub(super) fn import_directory(&mut self, owner: Owner, proof: String, bytes: Vec<u8>) -> Result<Value, ApiError> {
-        self.import_bytes(owner, proof, bytes, "text/plain", "resource.local-directory.draft1")
+
+    pub(super) fn import_file(
+        &mut self,
+        owner: Owner,
+        proof: String,
+        bytes: Vec<u8>,
+        mime: &str,
+    ) -> Result<Value, ApiError> {
+        self.import_bytes(owner, proof, bytes, mime, "resource.local-file.draft1")
     }
-    fn import_bytes(&mut self, owner: Owner, proof: String, bytes: Vec<u8>, mime: &str, profile: &str) -> Result<Value, ApiError> {
+    pub(super) fn import_directory(
+        &mut self,
+        owner: Owner,
+        proof: String,
+        bytes: Vec<u8>,
+    ) -> Result<Value, ApiError> {
+        self.import_bytes(
+            owner,
+            proof,
+            bytes,
+            "text/plain",
+            "resource.local-directory.draft1",
+        )
+    }
+    fn import_bytes(
+        &mut self,
+        owner: Owner,
+        proof: String,
+        bytes: Vec<u8>,
+        mime: &str,
+        profile: &str,
+    ) -> Result<Value, ApiError> {
         let version = sha256_hex(&bytes);
-        let prepared = self.prepare(Prepare { schema_version: 1, owner: owner.clone(), mime_type: mime.into(),
-            byte_length: bytes.len(), content_version: version.clone(), catalog_revision: None }, proof.clone())?;
-        let access = Access { schema_version: 1, owner, resource_id: prepared["resourceId"].as_str().unwrap().into(), content_version: version };
+        let prepared = self.prepare(
+            Prepare {
+                schema_version: 1,
+                owner: owner.clone(),
+                mime_type: mime.into(),
+                byte_length: bytes.len(),
+                content_version: version.clone(),
+                catalog_revision: None,
+            },
+            proof.clone(),
+        )?;
+        let access = Access {
+            schema_version: 1,
+            owner,
+            resource_id: prepared["resourceId"].as_str().unwrap().into(),
+            content_version: version,
+        };
         let result = (|| {
             for (index, chunk) in bytes.chunks(MAX_CHUNK).enumerate() {
                 self.append(&access, &proof, index * MAX_CHUNK, chunk.to_vec())?;
@@ -58,7 +112,9 @@ impl Store {
             result["saved"] = json!(false);
             Ok(result)
         })();
-        if result.is_err() { self.records.remove(&access.resource_id); }
+        if result.is_err() {
+            self.records.remove(&access.resource_id);
+        }
         result
     }
     #[cfg(test)]
@@ -74,12 +130,15 @@ impl Store {
                 .iter()
                 .filter(|(_, r)| {
                     r.parents.iter().any(|ancestor| {
-                        !self.records.get(&ancestor.access.resource_id).is_some_and(|p| {
-                            p.confirmed
-                                && p.version == ancestor.access.content_version
-                                && p.owner == ancestor.access.owner
-                                && p.proof == ancestor.proof
-                        })
+                        !self
+                            .records
+                            .get(&ancestor.access.resource_id)
+                            .is_some_and(|p| {
+                                p.confirmed
+                                    && p.version == ancestor.access.content_version
+                                    && p.owner == ancestor.access.owner
+                                    && p.proof == ancestor.proof
+                            })
                     })
                 })
                 .map(|(id, _)| id.clone())
@@ -140,6 +199,18 @@ impl Store {
                 r.owner == access.owner && r.proof == proof && r.version == access.content_version
             })
             .ok_or_else(|| rejected("resource_unavailable"))
+    }
+
+    pub(super) fn resource_mime_type(
+        &mut self,
+        access: &Access,
+        proof: &str,
+    ) -> Result<String, ApiError> {
+        let record = self.record(access, proof)?;
+        if !record.confirmed {
+            return Err(rejected("resource_unavailable"));
+        }
+        Ok(record.mime.clone())
     }
 
     pub(super) fn append(
