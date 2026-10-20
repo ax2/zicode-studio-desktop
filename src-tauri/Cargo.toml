@@ -1,6 +1,6 @@
 [package]
 name = "zicode-studio-desktop"
-version = "0.5.0"
+version = "0.5.1"
 description = "Local-first cross-platform personal developer platform for projects, AI collaboration, knowledge, and automation"
 authors = ["Alex Xiang and contributors"]
 edition = "2021"
