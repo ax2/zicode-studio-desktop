@@ -6,3 +6,6 @@ scripts/with-linux-notifications.sh text eol=lf
 tests/fixtures/devtools-*/** -text
 tests/fixtures/devtools-*.verification.json -text
 tests/fixtures/zifile-adapter-events/** -text
+
+# Historical catalog snapshots are also compared by their original byte hashes.
+docs/plugins/catalog-snapshots/** -text

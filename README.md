@@ -14,12 +14,12 @@ Zi DevTools接入目标为通过独立插件体系覆盖全部工具；逐项接
 [全部工具接入目标和清单](docs/plugins/devtools-all-tools.md)，首批五能力不代表整体完成。
 
 > 当前版本为早期开发版本，仓库已公开。已发布安装包见
-> [v0.5.0 安装包](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.0)（Windows、macOS、Linux）。安装包对应固定发布标签；插件全集接入仍在推进，不能视为全部工具已验收。
+> [v0.5.1 安装包](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.1)（Windows、macOS、Linux）。安装包对应固定发布标签；插件全集接入仍在推进，不能视为全部工具已验收。
 
 ## 主要能力
 
 支持托盘及可选的 Windows [资源管理器文件夹入口](docs/plugins/explorer-folder-entry.md)，
-可从目录打开对应工作区。具体原生验收范围和未完成项见[发布说明](docs/releases/v0.5.0.md)。
+可从目录打开对应工作区。具体原生验收范围和未完成项见[发布说明](docs/releases/v0.5.1.md)。
 ZiFile 通过独立插件接入的[功能范围与接口需求](docs/plugins/desktop-entry-zifile.md)已整理，实际归档插件尚未接入。
 
 - **自包含运行环境**：所有平台内置锁定版本的 Pi；Windows 另内置 Git、Bash 和

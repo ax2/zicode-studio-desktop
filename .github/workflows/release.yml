@@ -129,6 +129,11 @@ jobs:
       # Verification infrastructure is pinned independently of the immutable
       # application tag, allowing a draft's API checks to be repaired without
       # changing the application source or creating another application version.
+      - name: Enable long paths for Windows checkout
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: git config --global core.longpaths true
+
       - name: Checkout verification workflow source
         uses: actions/checkout@v6
         with:
