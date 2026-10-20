@@ -7,7 +7,10 @@
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+#[cfg(target_os = "windows")]
+use std::sync::atomic::Ordering;
+#[cfg(target_os = "windows")]
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
