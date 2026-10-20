@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 const MAX_ENTRIES: u64 = 100_000;
-const DIRECTORY_BATCH: usize = 64;
+const DIRECTORY_BATCH: usize = 32;
 const MAX_QUEUED_DIRECTORIES: usize = 1_024;
 const SCAN_BUDGET: Duration = Duration::from_secs(5);
 const DEEP_SCAN_BUDGET: Duration = Duration::from_secs(180);

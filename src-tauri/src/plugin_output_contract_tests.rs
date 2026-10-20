@@ -282,7 +282,7 @@ fn strict_declarations_and_explicit_profile_are_required() {
         json!({"minLength":-1}),
         json!({"minimum":"1"}),
         json!({"minimum":2,"maximum":1}),
-        json!({"additionalProperties":{}}),
+        json!({"additionalProperties":[]}),
         json!({"properties":[]}),
         json!({"required":[1]}),
         json!({"required":["value","value"]}),

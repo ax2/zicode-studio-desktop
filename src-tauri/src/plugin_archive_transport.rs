@@ -193,8 +193,8 @@ mod tests {
         }
         #[cfg(not(windows))]
         {
-            let mut command = crate::process_command::new_command("cat");
-            command.arg(path);
+            let mut command = crate::process_command::new_command("sh");
+            command.args(["-c", "cat >/dev/null; cat \"$1\"", "archive-fixture", path]);
             command
         }
     }
