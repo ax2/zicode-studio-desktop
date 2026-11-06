@@ -103,3 +103,7 @@ See [report](../iterations/2026-11-05-browser-native-feasibility.md) and ADR 000
 ## User correction: menu background, Commands and shared actions — 2026-11-06
 
 [Installed Windows correction and scope](../iterations/2026-11-06-browser-overlays.md): options/bookmarks/quick-tools/Commands now retain the actual native page image while their chrome overlay is open, then restore the same live page. Commands is included in native-surface obstruction checks. Wide/narrow app composition screenshots prove retained page pixels; full desktop capture remains unperformed. Quick tools/status moved above desktop Commands and adapt to the existing narrow bottom dock. Real context-menu construction includes ten browser actions; full native item-selection and link-specific selection acceptance remain open. Seven QA tabs, two synthetic notes and all audited daily files/plugin states survive restart/deployment. Downloads remain denied; their drafts are not part of this installed increment.
+
+## Release preparation — v0.5.4
+
+The previously retained note-move regression is corrected in the release branch: attachments are staged without overwriting a destination, the original note remains intact until publication succeeds, and stale versions/attachment collisions are rejected. Historical failure reports remain unchanged. Downloads under development are excluded from this release; the accepted overlay/menu/browser boundary remains the release baseline. Full browser P0–P6 and cloud-sync delivery are still open.

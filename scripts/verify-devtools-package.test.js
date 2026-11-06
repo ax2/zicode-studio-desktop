@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, rmdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { verifyDevtoolsPackage } from "./verify-devtools-package.mjs";
@@ -225,9 +225,14 @@ it("rejects a directory junction instead of following outside content", async ()
     join(f.directory, "linked"),
     process.platform === "win32" ? "junction" : "dir",
   );
-  await expect(verifyDevtoolsPackage(f.directory, f.index)).rejects.toThrow(
-    "package_link_forbidden",
-  );
+  try {
+    await expect(verifyDevtoolsPackage(f.directory, f.index)).rejects.toThrow("package_link_forbidden");
+    expect(readFileSync(join(outside, "external"), "utf8")).toBe("not package data");
+  } finally {
+    // Remove this test's directory link itself before recursive fixture cleanup.
+    if (process.platform === "win32") rmdirSync(join(f.directory, "linked"));
+    else rmSync(join(f.directory, "linked"));
+  }
 });
 
 it("rejects invalid JSON without exposing index contents", async () => {

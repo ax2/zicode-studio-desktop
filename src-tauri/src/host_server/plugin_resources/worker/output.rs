@@ -244,11 +244,13 @@ mod tests {
             &json!({"resourceOutputProfile":crate::plugin_worker::resource_output::PROFILE})
         )
         .unwrap());
+        assert!(selection(&json!({"resourceOutputProfile": crate::plugin_worker::resource_output::Profile::METADATA_NAME})).unwrap());
         for value in [
             Value::Null,
             json!(true),
             json!("resource.v1"),
-            json!("resource.wasi.output.draft2"),
+            json!("resource.wasi.output.draft3"),
+            json!("resource.wasi.output.draft2 "),
         ] {
             assert!(selection(&json!({"resourceOutputProfile":value})).is_err());
         }

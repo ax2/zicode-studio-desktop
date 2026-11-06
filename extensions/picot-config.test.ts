@@ -56,6 +56,7 @@ async function loadConfigWithIsolatedAgentRoot(sceneId = "programming") {
   vi.resetModules();
   vi.stubEnv("PI_CODING_AGENT_DIR", join(root, "scene-agent"));
   vi.stubEnv("PI_DESKTOP_INSTANCE_DIR", join(root, "instance"));
+  vi.stubEnv("LOCALAPPDATA", join(root, "local-app-data"));
   vi.stubEnv("PI_DESKTOP_WORKSPACE_DIR", workspace);
   vi.stubEnv("PI_DESKTOP_SCENE_ID", sceneId);
   const module = await import("./picot-config.ts");

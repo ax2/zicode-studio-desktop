@@ -21,6 +21,7 @@ describe("BuiltinPluginRegistry", () => {
     expect(registry.get("com.zicode.notes")).toMatchObject({ enabled: true });
     expect(registry.get("com.zicode.finance")).toMatchObject({ enabled: true });
     expect(registry.list().map((plugin) => plugin.id)).toEqual([
+      "com.zicode.browser",
       "core.chat",
       "com.zicode.tasks",
       "com.zicode.notes",

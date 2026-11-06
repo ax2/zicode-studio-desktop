@@ -10,17 +10,14 @@ describe("vanilla UI localization contract", () => {
     for (const key of [
       "Copy",
       "Copy code",
-      "Copying…",
-      "Copied",
-      "Code copied",
-      "Copy failed",
       "Scrollable table",
     ]) {
       expect(source).toContain(`t("${key}")`);
     }
-    expect(source).toMatch(
-      /textContent\s*=\s*t\(\s*"Unable to copy code\. Check browser clipboard permission\."\s*,?\s*\)/,
-    );
+    for (const key of ["Copying…", "Copied", "Code copied", "Copy failed", "Unable to copy code. Check browser clipboard permission."]) {
+      expect(source).toMatch(new RegExp(`setCopyLabel\\([^,]+, ${JSON.stringify(key).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`));
+    }
+    expect(read("public/ui/localized-copy-label.js")).toContain("element.textContent = t(source)");
     // Raw literals must not appear outside the translation call.
     expect(source).not.toMatch(/>Copy</);
     expect(source).not.toMatch(/textContent = "Copied"/);

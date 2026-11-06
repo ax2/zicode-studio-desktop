@@ -168,10 +168,12 @@ fn windows_junction_in_managed_attachments_is_not_followed() {
         let secret = directory.join(format!("{}.txt", Uuid::new_v4()));
         fs::write(&secret, b"outside data must stay here").unwrap();
         fs::remove_dir(&link).unwrap();
-        let output = std::process::Command::new("cmd.exe")
+        let output = crate::process_command::new_command("cmd.exe")
             .args(["/d", "/c", "mklink", "/J"])
-            .arg(link.to_string_lossy().replace('/', "\\"))
-            .arg(target.to_string_lossy().replace('/', "\\"))
+            // canonicalize supplies the Windows extended-length prefix, so
+            // worktree depth does not change the junction safety assertion.
+            .arg(fs::canonicalize(link.parent().unwrap()).unwrap().join("attachments"))
+            .arg(fs::canonicalize(&target).unwrap())
             .creation_flags(0x08000000)
             .output()
             .unwrap();
@@ -192,7 +194,7 @@ fn windows_junction_in_managed_attachments_is_not_followed() {
 fn real_child_process_cannot_open_locked_notes_scope() {
     let fixture = Fixture::new();
     fixture.book();
-    let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+    let mut command = crate::process_command::new_command(std::env::current_exe().unwrap());
     command
         .args([
             "--ignored",

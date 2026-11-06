@@ -7233,7 +7233,8 @@ mod tests {
             .json()
             .await
             .unwrap();
-        assert_eq!(before["plugins"].as_array().unwrap().len(), 19);
+        assert_eq!(before["plugins"].as_array().unwrap().len(), 20);
+        assert!(before["plugins"].as_array().unwrap().iter().any(|plugin| plugin["id"] == "com.zicode.browser"));
         assert!(before["plugins"]
             .as_array()
             .unwrap()
