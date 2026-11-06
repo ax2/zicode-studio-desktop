@@ -373,7 +373,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const key = getState().apiKeyInput.trim();
       if (!provider) return;
       if (options.getTarget && !target) {
-        set({ apiKeyError: t("No active scene session for configuration.") });
+        set({ apiKeyError: t("Open a conversation before changing model settings.") });
         return;
       }
       if (!key) {
@@ -394,7 +394,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       if (!isCurrentScene(sceneId, generation)) return;
       if (!resp?.ok) {
         set({
-          apiKeyError: `${localizeError(resp?.error, t("Failed to save key."))}${systemCredentialUpdated ? ` ${t("The system credential was updated. Review this scene before retrying.")}` : ""}`,
+          apiKeyError: `${localizeError(resp?.error, t("Failed to save key."))}${systemCredentialUpdated ? ` ${t("The system credential was updated. Check the API key in model settings before retrying.")}` : ""}`,
           apiKeySaving: false,
         });
         return;
@@ -408,11 +408,11 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const generation = sceneGeneration;
       const target = options.getTarget?.() ?? undefined;
       if (options.getTarget && !target) {
-        set({ apiError: t("No active scene session for configuration.") });
+        set({ apiError: t("Open a conversation before changing model settings.") });
         return;
       }
       const ok = await confirmImpl(
-        `Remove stored API key for ${provider.displayName || provider.provider}?`,
+        t('Remove the stored API key for "{provider}"?').replace("{provider}", () => provider.displayName || provider.provider),
       );
       if (!ok || !isCurrentScene(sceneId, generation)) return;
       try {
@@ -559,7 +559,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const generation = sceneGeneration;
       const target = options.getTarget?.() ?? undefined;
       if (options.getTarget && !target) {
-        set({ channelError: t("No active scene session for configuration.") });
+        set({ channelError: t("Open a conversation before changing model settings.") });
         return;
       }
       const state = getState();
@@ -607,7 +607,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
           set({
             togglingChannel: null,
             channelError: saved
-              ? t("Channel state changed, but runtime refresh is unconfirmed. Review this scene before making requests.")
+              ? t("Channel state changed, but the conversation has not confirmed the update. Start a new conversation before sending another request.")
               : localizeError(response?.error, t("Could not change model channel state. Refresh and retry.")),
           });
         }
@@ -618,9 +618,9 @@ export function createConfigStore(options: ConfigStoreOptions) {
         set({
           togglingChannel: null,
           ...(getState().channelStatus !== "ready"
-            ? { channelError: t("Channel state was saved, but the channel list could not be refreshed. Reload this scene.") }
+            ? { channelError: t("Channel state was saved, but the channel list could not be refreshed. Reopen model settings.") }
             : response.data?.runtimeReady !== true
-              ? { channelError: t("Channel state was saved, but runtime refresh is unconfirmed. Review this scene before making requests.") }
+              ? { channelError: t("Channel state was saved, but the conversation has not confirmed the update. Start a new conversation before sending another request.") }
               : {}),
         });
       }
@@ -630,7 +630,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const generation = sceneGeneration;
       const target = options.getTarget?.() ?? undefined;
       if (options.getTarget && !target) {
-        set({ channelError: t("No active scene session for configuration.") });
+        set({ channelError: t("Open a conversation before changing model settings.") });
         return;
       }
       if (!channel.provider || channel.enabled === false || getState().channelStatus !== "ready" || getState().testingChannel || getState().togglingChannel) return;
@@ -778,11 +778,11 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const generation = sceneGeneration;
       const target = options.getTarget?.() ?? undefined;
       if (options.getTarget && !target) {
-        set({ channelEditorError: t("No active scene session for configuration.") });
+        set({ channelEditorError: t("Open a conversation before changing model settings.") });
         return;
       }
       if (form.sceneId !== activeSceneId()) {
-        set({ channelEditorError: t("The active scene changed. Reopen this channel before saving.") });
+        set({ channelEditorError: t("The active configuration changed. Reopen this model channel before saving.") });
         return;
       }
       if (form.originalProvider && !form.expectedRevision) {
@@ -842,7 +842,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         if (!isCurrentScene(form.sceneId, generation)) return;
         set({
           channelSaving: false,
-          channelEditorError: `${localizeError(response?.error, t("Failed to save model channel."))}${systemCredentialUpdated ? ` ${t("The system credential was updated. Review this scene before retrying.")}` : ""}`,
+          channelEditorError: `${localizeError(response?.error, t("Failed to save model channel."))}${systemCredentialUpdated ? ` ${t("The system credential was updated. Check the API key in model settings before retrying.")}` : ""}`,
         });
         return;
       }
@@ -850,7 +850,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         try {
           await storeSystemCredential(form.sceneId, provider, apiKey);
         } catch {
-          credentialSyncWarning = t("Channel saved, but its system credential could not be updated. Check this scene's key.");
+          credentialSyncWarning = t("Channel saved, but its system credential could not be updated. Check this channel's API key in model settings.");
         }
       }
       let cleanupWarning = "";
@@ -878,7 +878,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const generation = sceneGeneration;
       const target = options.getTarget?.() ?? undefined;
       if (options.getTarget && !target) {
-        set({ channelError: t("No active scene session for configuration.") });
+        set({ channelError: t("Open a conversation before changing model settings.") });
         return;
       }
       if (!channel.revision) {
@@ -886,7 +886,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
         return;
       }
       const ok = await confirmImpl(
-        `Remove model channel "${channel.provider}" and its stored key?`,
+        t('Remove model channel "{provider}" and its stored key?').replace("{provider}", () => channel.provider || ""),
       );
       if (!ok || !isCurrentScene(sceneId, generation)) return;
       const result = await call("remove_provider_channel", { provider: channel.provider, expectedRevision: channel.revision }, { target }).catch(
@@ -1110,7 +1110,7 @@ export function createConfigStore(options: ConfigStoreOptions) {
       const generation = sceneGeneration;
       const current = getState().modelsEditor.content.trim();
       if (current && current !== "{}" && current !== '{\n  "providers": {}\n}') {
-        if (!(await confirmImpl("Replace current content with the Ollama example?"))) return;
+        if (!(await confirmImpl(t("Replace current content with the Ollama example?")))) return;
       }
       if (!isCurrentScene(sceneId, generation)) return;
       set({

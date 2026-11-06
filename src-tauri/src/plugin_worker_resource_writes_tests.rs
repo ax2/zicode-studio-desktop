@@ -2,6 +2,19 @@ use super::*;
 use wasmtime::{Engine, Module, Store};
 
 #[test]
+fn metadata_buffers_are_scoped_to_images_two_records_and_distinct_limits() {
+    let mut writes=Writes::for_profile(Profile::ImageMetadata2);
+    assert_eq!(writes.create(4,1),-1);
+    assert_eq!(writes.create(1,128*1024*1024+1),-3);
+    assert_eq!(writes.create(1,128*1024*1024),0);
+    assert_eq!(writes.create(1,2*1024*1024+1),-3);
+    assert_eq!(writes.create(1,2*1024*1024),1);
+    assert_eq!(writes.create(1,0),-3);
+    assert!(writes.finish().is_err());
+    let mut legacy=Writes::default();assert_eq!(legacy.create(1,MAX_BYTES as i64+1),-3);
+}
+
+#[test]
 fn output_record_count_reservation_sealing_and_attempts_are_bounded() {
     let mut writes = Writes::default();
     assert_eq!(writes.create(-1, 1), -1);

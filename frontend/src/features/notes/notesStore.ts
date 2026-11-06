@@ -6,6 +6,8 @@ import { createAttachmentUpload } from "./attachment-uploads";
 import { createChatNoteCapture } from "./chat-note-capture";
 import { createNoteDraftRecovery, type NoteRecoveryState } from "./draft-recovery";
 import { createNoteDraftRepository, type NoteDraftRepository } from "./draft-repository";
+import { createEditorConflict } from "./editor-conflict";
+import { orderNotebooks, readNotebookLayout, reorderNotebooks, writeNotebookLayout } from "./notebook-layout";
 import { createEditorMutations } from "./editor-mutations";
 import { createEditorNavigation } from "./editor-navigation";
 import { createNoteEditorSave, editorFingerprint } from "./editor-save";
@@ -182,6 +184,9 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   selectMode: boolean;
   selectedNoteIds: string[];
   expandedNotebookIds: Set<string>;
+  notebookOrder: string[];
+  reorderNotebook(sourceId: string, targetId: string, after?: boolean): void;
+  deleteNoteFromList(note: NoteSummary): Promise<void>;
   expandedNavSections: Map<string, boolean>;
   draftTitle: string;
   draftIcon: string;
@@ -189,7 +194,6 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   draftTags: string[];
   backlinks: NoteBacklink[];
   similarNotes: SimilarNote[];
-  deleteArmed: boolean;
   saveDisabled: boolean;
   load(options?: { preserveSelection?: boolean }): Promise<void>;
   applyFilter(options?: { tag?: string | null; sourceOnly?: boolean }): Promise<void>;
@@ -217,6 +221,7 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   purgeFromTrash(entry: TrashEntry): Promise<void>;
   emptyTrash(): Promise<void>;
   saveEditor(silent?: boolean): Promise<void>;
+  reloadConflictedNote(): Promise<void>;
   saveIfDirty(): Promise<void>;
   markDirty(): void;
   scheduleAutosave(): void;
@@ -255,8 +260,6 @@ export interface NotesState extends NoteRecoveryState, NoteShortcutState {
   invalidateCaptureView(clearSource?: boolean): void;
   setTarget(): Promise<void>;
   setProject(project: ProjectInfo | null): void;
-  resetDeleteArmed(): void;
-  setDeleteArmed(): void;
   destroy(): void;
 }
 
@@ -282,6 +285,8 @@ export function createNotesStore(options: NotesStoreOptions) {
   let stopDraftWatch = () => {};
   let stopDraftLifecycle = () => {};
   let stopShortcutWatch = () => {};
+  let stopLayoutWatch = () => {};
+  const layoutScope = () => JSON.stringify([sceneId(), workspaceId()]);
   let shortcuts!: ReturnType<typeof createNoteShortcuts>;
   let recovery!: ReturnType<typeof createNoteDraftRecovery>;
   const operationScope = createNotesOperationScope(getTarget);
@@ -290,6 +295,7 @@ export function createNotesStore(options: NotesStoreOptions) {
   const store = create<NotesState>()((set, get) => {
     const guard = createEditorTransition({ get, set, capture: operationScope.capture, localize: localizeNotesHostError });
     recovery = createNoteDraftRecovery({ get, set, capture: operationScope.capture, repository: options.draftRepository ?? createNoteDraftRepository(), guard, gateway, download: downloadFile, notify });
+    const editorSave = createNoteEditorSave({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError });
     shortcuts = createNoteShortcuts({ get, set, capture: operationScope.capture, gateway, repository: options.shortcutRepository ?? createShortcutRepository(), notify });
     return {
     ...recovery.actions,
@@ -339,7 +345,7 @@ export function createNotesStore(options: NotesStoreOptions) {
     dragTargetId: null,
     selectMode: false,
     selectedNoteIds: [],
-    expandedNotebookIds: new Set(),
+    ...readNotebookLayout(layoutScope()),
     expandedNavSections: new Map(),
     draftTitle: "",
     draftIcon: "",
@@ -348,7 +354,6 @@ export function createNotesStore(options: NotesStoreOptions) {
     relationshipLoading: false, relationshipError: null, relationshipIncomplete: false,
     backlinks: [],
     similarNotes: [],
-    deleteArmed: false,
     saveDisabled: true,
 
     async load({ preserveSelection = true } = {}) {
@@ -380,15 +385,8 @@ export function createNotesStore(options: NotesStoreOptions) {
         if (!((preserveSelection || selectionChanged) && selectedNote)) {
           if (!live.dirty) selectedNote = null;
         }
-        let expandedNotebookIds = get().expandedNotebookIds;
-        if (expandedNotebookIds.size === 0) {
-          expandedNotebookIds = new Set(
-            snapshot.notebooks
-              .filter((notebook) => notebook.parentId == null)
-              .map((notebook) => notebook.id),
-          );
-        }
-        set({ snapshot, selectedNotebookId, selectedNote, expandedNotebookIds });
+        snapshot.notebooks = orderNotebooks(snapshot.notebooks, get().notebookOrder);
+        set({ snapshot, selectedNotebookId, selectedNote });
       } catch (error) {
         if (current()) set({ error: localizeNotesHostError(error) });
       } finally {
@@ -490,7 +488,8 @@ export function createNotesStore(options: NotesStoreOptions) {
 
     ...createTrashActions({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError }),
 
-    saveEditor: createNoteEditorSave({ get, set, gateway, capture: operationScope.capture, notify, localize: localizeNotesHostError }),
+    saveEditor: editorSave.saveEditor,
+    ...createEditorConflict({ get, set, gateway, capture: operationScope.capture, waitForSave: editorSave.waitForPending, retain: recovery.retainEditorCopy, notify }),
 
     async saveIfDirty() {
       if (get().dirty) {
@@ -569,6 +568,11 @@ export function createNotesStore(options: NotesStoreOptions) {
       });
     },
 
+    reorderNotebook(sourceId, targetId, after = false) {
+      const snapshot = get().snapshot;
+      const notebooks = reorderNotebooks(snapshot.notebooks, sourceId, targetId, after);
+      if (notebooks !== snapshot.notebooks) set({ snapshot: { ...snapshot, notebooks }, notebookOrder: notebooks.map(book => book.id) });
+    },
     toggleNotebookExpanded(id, force) {
       const expanded = new Set(get().expandedNotebookIds);
       const next = typeof force === "boolean" ? force : !expanded.has(id);
@@ -633,7 +637,7 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({
         backlinks: [], similarNotes: [], relationshipLoading: false, relationshipError: null, relationshipIncomplete: false,
         mode: "library", summaryModel: null, capturing: false,
-        query: "", selectedTag: null, sourceOnly: false, expandedNotebookIds: new Set(),
+        query: "", selectedTag: null, sourceOnly: false, ...readNotebookLayout(layoutScope()),
         trash: [], trashLoading: false, trashBusy: false, trashLoaded: false, trashError: null,
         workflowBusy: null, attachmentBusy: false, editorLocked: false, transferBusy: false, saveState: "idle", saveDisabled: true,
         selectedNote: null, selectedNotebookId: null, selectedNoteIds: [], selectMode: false, snapshot: { notebooks: [], notes: [], tags: [] },
@@ -649,20 +653,13 @@ export function createNotesStore(options: NotesStoreOptions) {
       set({ project: normalizeProject(project) });
     },
 
-    resetDeleteArmed() {
-      set({ deleteArmed: false });
-    },
-
-    setDeleteArmed() {
-      set({ deleteArmed: true });
-    },
-
     destroy() {
       recovery.destroy();
       stopDraftLifecycle();
       stopDraftWatch();
       stopRelationshipWatch();
       stopShortcutWatch();
+      stopLayoutWatch();
       operationScope.destroy();
       loadSequence += 1;
       if (searchTimer) clearTimeout(searchTimer);
@@ -670,6 +667,10 @@ export function createNotesStore(options: NotesStoreOptions) {
     },
   }; });
 
+  stopLayoutWatch = store.subscribe((state, previous) => {
+    if (state.expandedNotebookIds !== previous.expandedNotebookIds || state.notebookOrder !== previous.notebookOrder)
+      writeNotebookLayout(layoutScope(), state.notebookOrder, state.expandedNotebookIds);
+  });
   stopDraftWatch = store.subscribe((state, previous) => recovery.observe(state, previous));
   stopDraftLifecycle = recovery.listen();
   stopShortcutWatch = shortcuts.listen();
@@ -702,6 +703,7 @@ export function localizeNotesHostError(error: unknown): Error {
   const importError = notesImportError(error);
   if (importError) return importError;
   const code = (error as Error & { code?: string }).code;
+  if (code === "version_conflict") return Object.assign(new Error(t("This note changed elsewhere. Reload the saved version; your edits will stay in local recovery.")), { code });
   if (code === "permission_denied" && /network/i.test(error.message)) {
     return new Error(
       t(

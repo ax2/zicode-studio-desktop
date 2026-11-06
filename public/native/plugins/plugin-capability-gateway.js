@@ -14,6 +14,7 @@ export class PluginCapabilityGateway {
     fetchImpl = globalThis.fetch?.bind(globalThis),
     location = globalThis.location,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    nativeInvoke = globalThis.__TAURI__?.core?.invoke?.bind(globalThis.__TAURI__.core),
     pickProjectFile = globalThis.__TAURI__?.core?.invoke
       ? workspaceId => globalThis.__TAURI__.core.invoke("select_project_resource_file", { workspaceId })
       : null,
@@ -36,6 +37,18 @@ export class PluginCapabilityGateway {
     this.#fetch = fetchImpl;
     this.#location = location;
     this.#timeoutMs = timeoutMs;
+    this.exports = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, source) => nativeInvoke("select_resource_export", { workspaceId, source }),
+      commit: (workspaceId, source, grantId) => nativeInvoke("commit_resource_export", { workspaceId, source, grantId, confirmed: true }),
+      cancel: (workspaceId, source, grantId) => nativeInvoke("cancel_resource_export", { workspaceId, source, grantId }),
+      verify: (workspaceId, source, grantId) => nativeInvoke("verify_resource_export", { workspaceId, source, grantId }),
+    } : null;
+    this.textExports = typeof nativeInvoke === "function" ? {
+      choose: (workspaceId, source) => nativeInvoke("select_result_text_export", { workspaceId, source }),
+      commit: (workspaceId, source, grantId) => nativeInvoke("commit_result_text_export", { workspaceId, source, grantId, confirmed: true }),
+      cancel: (workspaceId, source, grantId) => nativeInvoke("cancel_result_text_export", { workspaceId, source, grantId }),
+      verify: (workspaceId, source, grantId) => nativeInvoke("verify_result_text_export", { workspaceId, source, grantId }),
+    } : null;
     this.savedOutputs = createSavedOutputGateway({ fetchImpl, location, timeoutMs });
     this.resourceCalls = createResourceCallJournal();
     this.projectFiles = typeof pickProjectFile === "function" ? {

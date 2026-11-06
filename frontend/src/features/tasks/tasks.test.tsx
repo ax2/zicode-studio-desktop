@@ -553,7 +553,7 @@ describe("task center React app", () => {
     store.getState().destroy();
   });
 
-  it("explains that a pending manual task without a target project cannot be run", async () => {
+  it("does not expose legacy project setup prompts or run an unconfigured manual task", async () => {
     setLocale("en");
     const call = mockCall([
       {
@@ -565,8 +565,9 @@ describe("task center React app", () => {
     ]);
     const store = renderStore(call);
     await waitFor(() =>
-      expect(screen.getByText("Set a target project to run this manual task.")).toBeTruthy(),
+      expect(screen.getByText("Task without target")).toBeTruthy(),
     );
+    expect(screen.queryByText("Set a target project to run this manual task.")).toBeNull();
     expect(screen.queryByText("Approve and run")).toBeNull();
     store.getState().destroy();
   });
@@ -868,26 +869,17 @@ describe("task center task management", () => {
     expect(paths).toEqual(["C:/work/project-a", "C:/work/project-b", "C:/used/project"]);
   });
 
-  it("renders project path suggestions in the task form", async () => {
+  it("does not render project inputs or directory suggestions in the task form", async () => {
     setLocale("en");
     const { store } = managementStore();
-    render(
-      <div>
-        <TaskMain store={store} />
-      </div>,
-    );
+    render(<TaskMain store={store} />);
     fireEvent.click(screen.getAllByText("New task")[0]);
-    await waitFor(() => {
-      expect(document.querySelector("datalist#task-project-paths option")).toBeTruthy();
-    });
-    const options = Array.from(document.querySelectorAll("datalist#task-project-paths option")).map(
-      (node) => node.getAttribute("value"),
-    );
-    expect(options).toEqual(["C:/work/project-a", "C:/work/project-b"]);
+    expect(document.querySelector("datalist#task-project-paths")).toBeNull();
+    expect(screen.queryByLabelText("Target project")).toBeNull();
     store.getState().destroy();
   });
 
-  it("defaults the new-task form target to the current project path", async () => {
+  it("binds the new-task form internally without displaying its root path", async () => {
     setLocale("en");
     const { store } = managementStore([]);
     render(
@@ -900,7 +892,8 @@ describe("task center task management", () => {
     const targetInput = Array.from(form?.querySelectorAll(".task-form-field input") ?? []).find(
       (input) => (input.closest("label")?.textContent ?? "").includes("Target project"),
     );
-    expect((targetInput as HTMLInputElement | null)?.value).toBe("C:/current/project");
+    expect(targetInput).toBeUndefined();
+    expect(document.body.textContent).not.toContain("C:/current/project");
     store.getState().destroy();
   });
 
@@ -1244,7 +1237,7 @@ describe("task center task management", () => {
     expect(taskLastActivity({} as never)).toBeNull();
   });
 
-  it("groups the visible list by workspace from the header toggle", async () => {
+  it("keeps tasks in one flat list without project paths or grouping controls", async () => {
     setLocale("en");
     const call = mockCall([
       { id: "a", title: "Alpha task", status: "pending", targetProject: "C:/work/a" },
@@ -1252,13 +1245,9 @@ describe("task center task management", () => {
     ]);
     const store = renderStore(call);
     await waitFor(() => expect(screen.getByText("Alpha task")).toBeTruthy());
-    fireEvent.click(screen.getByText("Group by workspace"));
-    const groups = document.querySelectorAll(".task-center-workspace-group");
-    expect(groups.length).toBe(2);
-    expect(groups[0].textContent).toContain("C:/work/a");
-    expect(groups[0].textContent).toContain("Alpha task");
-    expect(groups[1].textContent).toContain("Default workspace");
-    expect(groups[1].textContent).toContain("Beta task");
+    expect(screen.queryByText("Group by workspace")).toBeNull();
+    expect(document.querySelector(".task-center-workspace-group")).toBeNull();
+    expect(document.body.textContent).not.toContain("C:/work/a");
     store.getState().destroy();
   });
 

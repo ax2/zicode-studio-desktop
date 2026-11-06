@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { useEffect } from "react";
 import { t } from "../../shared/i18n.js";
 import type { createAutomationDraftStore, DraftSelection } from "./draft-store";
@@ -43,7 +44,7 @@ export function DraftList({
         {state.drafts.map((draft) => (
           <article key={draft.id} className="ui-card">
             <h3>{draft.title.trim() || t("Untitled draft")}</h3>
-            <p>{draft.targetProject || t("Current project")}</p>
+            {MULTI_PROJECT_UI_ENABLED ? <p>{draft.targetProject || t("Current project")}</p> : null}
             <p>{formatDate(draft.updatedAt)}</p>
             <div className="automation-actions">
               <button

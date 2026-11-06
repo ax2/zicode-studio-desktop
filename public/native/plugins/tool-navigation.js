@@ -1,14 +1,16 @@
+import { isWorkspaceApplicationVisible } from "../workspace/workspace-mode.js";
 import { toolCategoryName } from "./tool-category-title.js";
 
 export const TOOL_CENTER_ID = "core.tools";
 export const PRIMARY_ACTIVITY_IDS = Object.freeze([
+  "com.zicode.browser",
   "core.chat", "com.zicode.projects", "com.zicode.tasks", "com.zicode.notes",
   TOOL_CENTER_ID, "com.zicode.automation",
 ]);
 
 export function primaryActivities(plugins, isAvailable) {
   const byId = new Map(plugins.map(plugin => [plugin.id, plugin]));
-  return PRIMARY_ACTIVITY_IDS.flatMap(id => {
+  return PRIMARY_ACTIVITY_IDS.filter(isWorkspaceApplicationVisible).flatMap(id => {
     if (id === TOOL_CENTER_ID) return [{ id, name: "Tools", description: "Applications and tools", icon: "plugins" }];
     const plugin = byId.get(id);
     return plugin?.enabled && isAvailable(plugin) ? [plugin] : [];
@@ -16,8 +18,8 @@ export function primaryActivities(plugins, isAvailable) {
 }
 
 const APPLICATION_CATEGORIES = {
-  "com.zicode.projects": "Projects and code", "com.zicode.tasks": "Projects and code",
-  "core.chat": "Projects and code", "com.zicode.automation": "Projects and code",
+  "com.zicode.projects": "Work and code", "com.zicode.tasks": "Work and code",
+  "core.chat": "Work and code", "com.zicode.automation": "Work and code",
   "com.zicode.notes": "Knowledge and documents", "com.zicode.documents": "Knowledge and documents",
   "com.zicode.articles": "Knowledge and documents", "com.zicode.graph": "Knowledge and documents",
   "com.zicode.idphoto": "Images and media", "com.zicode.imagetools": "Images and media",
@@ -28,6 +30,7 @@ const APPLICATION_CATEGORIES = {
 };
 
 export function isDirectoryApplication(plugin) {
+  if (!isWorkspaceApplicationVisible(plugin.id)) return false;
   if (plugin.origin === "developer" || plugin.origin === "signed") {
     return plugin.views?.some(view => view.location === "main") ?? false;
   }

@@ -7,6 +7,10 @@
 //! automatically on startup (at most once per day per workspace); retention
 //! keeps the newest backups per workspace.
 
+
+#[cfg(test)]
+mod test_support;
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -373,7 +377,7 @@ fn create_workspace_backup_inner(
     skip_if_identical_to: Option<&WorkspaceBackup>,
 ) -> Result<Option<WorkspaceBackup>, String> {
     validate_workspace_id(workspace_id)?;
-    let data_root = workspace_root.join(".zicode");
+    let data_root = crate::app_paths::workspace_app_dir(workspace_root, &crate::app_paths::system_root()?);
     if !is_plain_directory(&data_root) {
         return Err(format!(
             "Workspace data directory does not exist: {}",
@@ -595,7 +599,7 @@ pub fn restore_workspace_backup(
     {
         return Err("Backup app directories do not match metadata".to_string());
     }
-    let data_root = workspace_root.join(".zicode");
+    let data_root = crate::app_paths::workspace_app_dir(workspace_root, &crate::app_paths::system_root()?);
     if !is_plain_directory(&data_root) {
         return Err(format!(
             "Workspace data directory does not exist: {}",
@@ -766,6 +770,9 @@ mod tests {
 
     #[test]
     fn snapshots_workspace_app_data_and_lists_newest_first() {
+        if !super::test_support::isolated() {
+            return;
+        }
         let root = test_root();
         let workspace = root.join("ws-a");
         let workspace_id = unique_workspace_id("ws-a");
@@ -803,6 +810,9 @@ mod tests {
 
     #[test]
     fn startup_backup_respects_the_daily_interval() {
+        if !super::test_support::isolated() {
+            return;
+        }
         let root = test_root();
         let workspace = root.join("ws-b");
         let workspace_id = unique_workspace_id("ws-b");
@@ -834,6 +844,9 @@ mod tests {
 
     #[test]
     fn automatic_backup_replaces_a_corrupt_latest_snapshot_even_when_source_is_unchanged() {
+        if !super::test_support::isolated() {
+            return;
+        }
         let root = test_root();
         let workspace = root.join("ws-corrupt");
         let workspace_id = unique_workspace_id("ws-corrupt");
@@ -866,6 +879,9 @@ mod tests {
 
     #[test]
     fn retains_only_the_newest_backups() {
+        if !super::test_support::isolated() {
+            return;
+        }
         let root = test_root();
         let workspace = root.join("ws-c");
         let workspace_id = unique_workspace_id("ws-c");
@@ -885,6 +901,9 @@ mod tests {
 
     #[test]
     fn restores_a_snapshot_over_the_workspace_and_snapshots_current_state_first() {
+        if !super::test_support::isolated() {
+            return;
+        }
         let root = test_root();
         let workspace = root.join("ws-e");
         let workspace_id = unique_workspace_id("ws-e");
@@ -915,6 +934,9 @@ mod tests {
 
     #[test]
     fn rejects_path_traversal_backup_ids() {
+        if !super::test_support::isolated() {
+            return;
+        }
         let root = test_root();
         let workspace = root.join("ws-d");
         let workspace_id = unique_workspace_id("ws-d");

@@ -1,13 +1,14 @@
 import { t } from "../../i18n.js";
 import { outputExtension } from "./plugin-output-formats.js";
+import { savedResourceLimit } from "./resource-save-policy.js";
 
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 const HASH = /^[0-9a-f]{64}$/;
 function validItem(item, workspace) {
   const r = item?.receipt, ext = outputExtension(r?.mimeType);
-  return !!ext && r.schemaVersion === 1 && r.profile === "resource.save.draft1" && r.workspaceId === workspace &&
+  return !!ext && r.schemaVersion === 1 && savedResourceLimit(r) > 0 && r.workspaceId === workspace &&
     UUID.test(r.saveId) && r.relativePath === `.zicode/outputs/${r.saveId}/result.${ext}` &&
-    Number.isSafeInteger(r.byteLength) && r.byteLength >= 0 && r.byteLength <= 32 * 1024 * 1024 &&
+    Number.isSafeInteger(r.byteLength) && r.byteLength >= 0 && r.byteLength <= savedResourceLimit(r) &&
     HASH.test(r.contentVersion) && HASH.test(item.receiptVersion) && item.integrity === "not_checked" &&
     [r.source?.pluginId, r.source?.capabilityId, r.source?.packageVersion].every(v => typeof v === "string" && v.length > 0 && v.length <= 256) && UUID.test(r.source?.resourceId);
 }
@@ -21,8 +22,8 @@ function node(tag, text, className) {
 export function createSavedOutputPicker({ container, gateway, target, isCurrent, onSelect }) {
   if (!gateway || !target?.workspaceId) return null;
   const panel = node("section", null, "saved-outputs ui-panel");
-  panel.setAttribute("aria-label", t("Use a saved project file"));
-  const toggle = node("button", "Use a saved project file", "ui-button ui-button--secondary"); toggle.type = "button";
+  panel.setAttribute("aria-label", t("Use a saved file"));
+  const toggle = node("button", "Use a saved file", "ui-button ui-button--secondary"); toggle.type = "button";
   const content = node("div"), form = node("form", null, "saved-outputs-search");
   const label = node("label", "Search saved plugin files"), query = node("input", null, "ui-input");
   query.type = "search"; query.maxLength = 120; label.append(query);
@@ -74,7 +75,7 @@ export function createSavedOutputPicker({ container, gateway, target, isCurrent,
         });
         row.append(title, source, choose); list.append(row);
       }
-    } catch { if (current(token)) { list.replaceChildren(); page = null; status.textContent = t("Saved files could not be loaded. Check project access and refresh."); } }
+    } catch { if (current(token)) { list.replaceChildren(); page = null; status.textContent = t("Saved files could not be loaded. Check file access and refresh."); } }
     finally { if (current(token)) { loading = false; controls(); } }
   }
   toggle.addEventListener("click", () => {

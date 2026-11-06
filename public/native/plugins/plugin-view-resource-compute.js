@@ -1,5 +1,6 @@
 import { resourceViewTarget } from "./plugin-view-resource.js";
-import { normalizeResourceOutputs } from "./plugin-resource-outputs.js";
+import { normalizeResourceOutputs, normalizeHostMetadataReport } from "./plugin-resource-outputs.js";
+import { resourceExecutionProfile } from "./image-metadata-output.js";
 import { normalizeResourceAdmission, normalizeResourceReconciliation } from "./resource-call-admission.js";
 
 const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -156,7 +157,8 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
           typeof source?.packageVersion !== "string" || source.packageVersion.length > 128 ||
           result.result == null || new TextEncoder().encode(JSON.stringify(result.result)).length > 1024 * 1024)
         fail("resource_response_invalid");
-      const resources = normalizeResourceOutputs(result, params);
+      const resources = normalizeResourceOutputs(result, params, resourceExecutionProfile(instance, params.capabilityId));
+      const reportResource = normalizeHostMetadataReport(result, params, resourceExecutionProfile(instance, params.capabilityId));
       const response = { schemaVersion: 1, operationId: result.operationId,
         source: { pluginId: owner.pluginId, capabilityId: owner.capabilityId,
           packageVersion: source.packageVersion, contentVersion: params.contentVersion, profile: source.profile },
@@ -166,7 +168,11 @@ export function createResourceComputation({ instance, gateway, getTarget, isCurr
         response.resources = resources;
       }
       // Rendering failure must not turn a completed execution into an automatic retry.
-      try { onOutputs(resources ?? [], owner); } catch { /* Parent rendering is independent. */ }
+      try {
+        if (reportResource) onOutputs(resources ?? [], owner, result.result.resourceLabels, reportResource);
+        else if (Array.isArray(result.result.resourceLabels)) onOutputs(resources ?? [], owner, result.result.resourceLabels);
+        else onOutputs(resources ?? [], owner);
+      } catch { /* Parent rendering is independent. */ }
       call.completed = true;
       // A failed record cleanup must not turn a completed execution into a retry.
       if (recoverable) await gateway.resourceCalls.remove(call.record).catch(() => {});

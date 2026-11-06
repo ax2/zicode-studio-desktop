@@ -1,16 +1,17 @@
 //! Desktop lifecycle only; hiding never stops a workspace or starts a tool.
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 struct DesktopTray {
     icon: TrayIcon,
     tools: MenuItem<tauri::Wry>,
+    translation: MenuItem<tauri::Wry>,
     project_tools: MenuItem<tauri::Wry>,
-    favorite_tools: MenuItem<tauri::Wry>,
+    favorite_tools: Submenu<tauri::Wry>,
     recent_tools: MenuItem<tauri::Wry>,
     show: MenuItem<tauri::Wry>,
     hide: MenuItem<tauri::Wry>,
@@ -74,7 +75,7 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
         "zh-CN" => [
             "打开工具中心",
             "打开当前项目工具",
-            "收藏工具",
+            "快捷工具",
             "最近使用的工具",
             "显示 ZiCode Studio",
             "隐藏所有窗口（继续运行）",
@@ -84,7 +85,7 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
         "en" => [
             "Open tool center",
             "Open current project tools",
-            "Favorite tools",
+            "Quick tools",
             "Recently used tools",
             "Show ZiCode Studio",
             "Hide all windows (keep running)",
@@ -96,6 +97,7 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     let tray = window
         .try_state::<DesktopTray>()
         .ok_or("Desktop tray is unavailable")?;
+    tray.translation.set_text(if locale == "en" { "Translate" } else { "翻译" }).map_err(|error| error.to_string())?;
     tray.tools
         .set_text(labels[0])
         .map_err(|error| error.to_string())?;
@@ -120,6 +122,8 @@ pub fn set_desktop_tray_locale(window: tauri::WebviewWindow, locale: String) -> 
     tray.icon
         .set_tooltip(Some(labels[7]))
         .map_err(|error| error.to_string())?;
+    crate::desktop_tool_shortcuts::set_locale(window.app_handle(), &locale)?;
+    crate::desktop_system_tray::set_locale(window.app_handle(), &locale);
     *tray
         .locale
         .lock()
@@ -195,7 +199,19 @@ pub(crate) fn show_workspaces(app: &AppHandle) {
     }
 }
 
+fn open_workspace_feature(app: &AppHandle, event: &'static str) {
+    show_workspaces(app);
+    let focused = app.try_state::<DesktopTray>().and_then(|tray| tray.focused_window.lock().ok().and_then(|value| value.clone()));
+    let window = focused.and_then(|label| app.get_webview_window(&label)).filter(|window| window.label().starts_with("native-workspace-"))
+        .or_else(|| app.webview_windows().into_iter().find(|(label, _)| label.starts_with("native-workspace-")).map(|(_, window)| window));
+    if let Some(window) = window {
+        if let Err(error) = window.emit(event, ()) { log::warn!("Could not open workspace feature from tray: {error}"); }
+    }
+}
+
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
+    let system_information = crate::desktop_system_tray::install(app)?;
+    let translation = MenuItem::with_id(app, "studio.translation", "翻译", true, None::<&str>)?;
     let tools = MenuItem::with_id(app, "studio.tools", "打开工具中心", true, None::<&str>)?;
     let project_tools = MenuItem::with_id(
         app,
@@ -204,13 +220,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         false,
         None::<&str>,
     )?;
-    let favorite_tools = MenuItem::with_id(
-        app,
-        "studio.tools.favorites",
-        "收藏工具",
-        true,
-        None::<&str>,
-    )?;
+    let favorite_tools = crate::desktop_tool_shortcuts::install(app)?;
     let recent_tools = MenuItem::with_id(
         app,
         "studio.tools.recent",
@@ -228,9 +238,13 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     )?;
     let separator = PredefinedMenuItem::separator(app)?;
     let exit = MenuItem::with_id(app, "studio.exit", "退出 ZiCode Studio", true, None::<&str>)?;
-    let menu = Menu::with_items(
+    let menu = if crate::workspace_mode::single_default() {
+        Menu::with_items(app, &[&system_information, &translation, &tools, &favorite_tools, &recent_tools, &show, &hide, &separator, &exit])?
+    } else { Menu::with_items(
         app,
         &[
+            &system_information,
+            &translation,
             &project_tools,
             &tools,
             &favorite_tools,
@@ -240,65 +254,78 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
             &separator,
             &exit,
         ],
-    )?;
+    )? };
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
     let tray = TrayIconBuilder::with_id("zicode-studio-desktop")
         .icon(icon)
         .tooltip("ZiCode Studio Desktop · 关闭窗口后继续运行")
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "studio.project.tools" => {
-                let focused = app.try_state::<DesktopTray>().and_then(|tray| {
-                    tray.focused_window
-                        .lock()
-                        .ok()
-                        .and_then(|value| value.clone())
-                });
-                let result = focused
-                    .and_then(|label| app.get_webview_window(&label))
-                    .ok_or("No project window is focused".to_string())
-                    .and_then(|window| crate::desktop_tools::open_for_project_window(app, &window));
-                if let Err(error) = result {
-                    log::warn!("[desktop-tray] current project tools unavailable: {error}");
-                    app.dialog()
-                        .message("当前项目工具暂时无法打开。请重新打开项目后重试。")
-                        .title("ZiCode Studio Desktop")
-                        .kind(MessageDialogKind::Error)
-                        .show(|_| {});
-                }
+        .on_menu_event(|app, event| {
+            if crate::desktop_tool_shortcuts::handle_menu(app, event.id.as_ref()) {
+                return;
             }
-            "studio.tools" => {
-                if let Err(error) = crate::desktop_tools::open(app) {
-                    log::warn!("[desktop-tray] tool center unavailable: {error}");
-                    show_workspaces(app);
-                }
+            if event.id.as_ref().starts_with("studio.system.") {
+                open_workspace_feature(app, "studio-open-system-information");
+                return;
             }
-            "studio.tools.favorites" | "studio.tools.recent" => {
-                let view = if event.id.as_ref() == "studio.tools.favorites" {
-                    crate::desktop_tools::ToolDirectoryView::Favorites
-                } else {
-                    crate::desktop_tools::ToolDirectoryView::Recent
-                };
-                if let Err(error) = crate::desktop_tools::open_view(app, view) {
-                    log::warn!("[desktop-tray] filtered tool center unavailable: {error}");
-                    show_workspaces(app);
+            match event.id.as_ref() {
+                "studio.translation" => open_workspace_feature(app, "studio-open-translation"),
+                "studio.system.open" => open_workspace_feature(app, "studio-open-system-information"),
+                "studio.project.tools" => {
+                    let focused = app.try_state::<DesktopTray>().and_then(|tray| {
+                        tray.focused_window
+                            .lock()
+                            .ok()
+                            .and_then(|value| value.clone())
+                    });
+                    let result = focused
+                        .and_then(|label| app.get_webview_window(&label))
+                        .ok_or("No project window is focused".to_string())
+                        .and_then(|window| {
+                            crate::desktop_tools::open_for_project_window(app, &window)
+                        });
+                    if let Err(error) = result {
+                        log::warn!("[desktop-tray] current project tools unavailable: {error}");
+                        app.dialog()
+                            .message("当前项目工具暂时无法打开。请重新打开项目后重试。")
+                            .title("ZiCode Studio Desktop")
+                            .kind(MessageDialogKind::Error)
+                            .show(|_| {});
+                    }
                 }
-            }
-            "studio.show" => show_workspaces(app),
-            "studio.hide" => {
-                for (label, window) in app.webview_windows() {
-                    if managed_window(&label) {
-                        if let Err(error) = window.hide() {
-                            log::warn!("[desktop-tray] hide failed: {error}");
+                "studio.tools" => {
+                    if let Err(error) = crate::desktop_tools::open(app) {
+                        log::warn!("[desktop-tray] tool center unavailable: {error}");
+                        show_workspaces(app);
+                    }
+                }
+                "studio.tools.favorites" | "studio.tools.recent" => {
+                    let view = if event.id.as_ref() == "studio.tools.favorites" {
+                        crate::desktop_tools::ToolDirectoryView::Favorites
+                    } else {
+                        crate::desktop_tools::ToolDirectoryView::Recent
+                    };
+                    if let Err(error) = crate::desktop_tools::open_view(app, view) {
+                        log::warn!("[desktop-tray] filtered tool center unavailable: {error}");
+                        show_workspaces(app);
+                    }
+                }
+                "studio.show" => show_workspaces(app),
+                "studio.hide" => {
+                    for (label, window) in app.webview_windows() {
+                        if managed_window(&label) {
+                            if let Err(error) = window.hide() {
+                                log::warn!("[desktop-tray] hide failed: {error}");
+                            }
                         }
                     }
                 }
+                // Confirmation covers all tool types; keep the existing Host shutdown
+                // barrier and managed Pi cleanup after an explicit exit decision.
+                "studio.exit" => confirm_exit(app),
+                _ => {}
             }
-            // Confirmation covers all tool types; keep the existing Host shutdown
-            // barrier and managed Pi cleanup after an explicit exit decision.
-            "studio.exit" => confirm_exit(app),
-            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if matches!(
@@ -316,6 +343,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     app.manage(DesktopTray {
         icon: tray,
         tools,
+        translation,
         project_tools,
         favorite_tools,
         recent_tools,
@@ -372,3 +400,4 @@ mod tests {
         assert_ne!(english.1, english.2);
     }
 }
+

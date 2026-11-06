@@ -1,0 +1,88 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        },
+        "inputBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2097152
+        },
+        "utf8Bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2097152
+        },
+        "htmlBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "eventCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 200000
+        },
+        "mimeType": {
+          "type": "string",
+          "const": "text/html"
+        },
+        "sourceUnchanged": {
+          "type": "boolean",
+          "const": true
+        },
+        "sourceToolVersion": {
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "ok",
+        "inputBytes",
+        "utf8Bytes",
+        "htmlBytes",
+        "eventCount",
+        "mimeType",
+        "sourceUnchanged",
+        "sourceToolVersion"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": false
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "const": "MARKDOWN_FAILED"
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "ok",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

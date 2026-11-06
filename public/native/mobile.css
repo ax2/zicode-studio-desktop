@@ -307,6 +307,10 @@
     bottom: var(--mobile-nav-height);
   }
 
+  .sidebar:not([hidden]):not(.collapsed) + .sidebar-overlay.visible {
+    display: block;
+  }
+
   /* The connection-status dot (and its direct-connection badge) floats at
      the top-left above the sidebar drawer; hide them while the drawer is
      open so they do not sit on top of the session list. */

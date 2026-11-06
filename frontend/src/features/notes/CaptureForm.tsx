@@ -178,9 +178,9 @@ export function CaptureForm({
                 {t("This page is already in your notes")}
               </p>
             ) : null}
-            <strong>{preview.title}</strong>
+            <strong translate="no">{preview.title}</strong>
             {[preview.siteName, preview.author].filter(Boolean).length > 0 ? (
-              <p className="notes-capture-preview-meta">
+              <p className="notes-capture-preview-meta" translate="no">
                 {[preview.siteName, preview.author].filter(Boolean).join(" · ")}
               </p>
             ) : null}
@@ -193,7 +193,7 @@ export function CaptureForm({
             {previewExpanded ? (
               <pre className="notes-capture-preview-full">{stripMarkdown(preview.markdown)}</pre>
             ) : (
-              <p className="notes-capture-preview-excerpt">
+              <p className="notes-capture-preview-excerpt" translate="no">
                 {stripMarkdown(preview.markdown).slice(0, 320)}
               </p>
             )}

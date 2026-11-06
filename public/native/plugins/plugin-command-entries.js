@@ -1,8 +1,9 @@
+import { isWorkspaceApplicationVisible } from "../workspace/workspace-mode.js";
 import { isDirectoryApplication } from "./tool-navigation.js";
 
 export function pluginCommandEntries(plugins, options) {
   return plugins
-    .filter((plugin) => plugin.enabled && options.isAvailable(plugin))
+    .filter((plugin) => isWorkspaceApplicationVisible(plugin.id) && plugin.enabled && options.isAvailable(plugin))
     .flatMap((plugin) => {
       const entries = (plugin.commands ?? []).map((command) => ({
         id: `${plugin.id}:command:${command.id}`,

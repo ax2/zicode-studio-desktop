@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { t } from "../../shared/i18n";
 import { Select } from "../../shared/Select";
+import { FinanceSessionEntry } from "./FinanceSessionEntry";
+import type { FinanceSessionEntryStore } from "./finance-session-entry";
 import {
   asArray,
   FINANCE_VIEWS,
@@ -37,6 +39,7 @@ function record(value: unknown): Record<string, unknown> {
 }
 
 export interface FinanceWorkbenchController {
+  sessionEntry: FinanceSessionEntryStore;
   selectView(id: string): void;
   openConfiguration(): void;
   openSceneSettings(): void;
@@ -876,7 +879,6 @@ export function FinanceContentApp({
   const inputValue = (key: string) => jsonInputs[key] ?? "";
   const setInputValue = (key: string, value: string) =>
     store.setState((state) => ({ inputs: { ...state.inputs, [key]: value } }));
-  const [creatingSession, setCreatingSession] = useState(false);
   const [editingResearchCardId, setEditingResearchCardId] = useState<string | null>(null);
   const researchFormRef = useRef<HTMLFormElement | null>(null);
 
@@ -920,41 +922,7 @@ export function FinanceContentApp({
   };
 
   if (sceneId !== "finance") {
-    return (
-      <section className="finance-scene-guard ui-card">
-        <h1>{t("Finance requires a Finance scene")}</h1>
-        <p>
-          {t(
-            "Open the workbench in the Finance scene. Data, credentials, tools, and ledgers stay isolated per scene.",
-          )}
-        </p>
-        <div className="finance-scene-guard-actions">
-          <button
-            type="button"
-            className="ui-button ui-button--primary"
-            disabled={creatingSession}
-            aria-busy={creatingSession}
-            onClick={async () => {
-              setCreatingSession(true);
-              try {
-                await controller.createFinanceSession();
-              } finally {
-                setCreatingSession(false);
-              }
-            }}
-          >
-            {creatingSession ? t("Opening workbench…") : t("Open Finance Workbench")}
-          </button>
-          <button
-            type="button"
-            className="ui-button ui-button--secondary"
-            onClick={() => controller.openSceneSettings()}
-          >
-            {t("Select finance scene")}
-          </button>
-        </div>
-      </section>
-    );
+    return <FinanceSessionEntry key={sceneId} store={controller.sessionEntry} />;
   }
 
   switch (activeViewId) {

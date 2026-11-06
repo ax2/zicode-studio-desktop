@@ -48,7 +48,7 @@ it("routes a selected capability to the application's tool-location callback", a
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 260)); });
   expect(container.textContent).toContain("Format JSON");
   await act(async () => ([...container.querySelectorAll("button")].find(button => button.textContent === "Open tool") as HTMLButtonElement).click());
-  await act(async () => ([...container.querySelectorAll("button")].find(button => button.textContent === "Open application") as HTMLButtonElement).click());
+  await act(async () => ([...container.querySelectorAll("button")].find(button => button.textContent === "Open tool interface") as HTMLButtonElement).click());
   expect(onOpenToolApplication).toHaveBeenCalledWith("fixture", "format.json", "0.1.0", expect.objectContaining({ id: "fixture:open" }));
   expect(toolApi.invoke).not.toHaveBeenCalled();
 });

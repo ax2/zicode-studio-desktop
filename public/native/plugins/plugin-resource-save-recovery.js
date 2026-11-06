@@ -1,5 +1,5 @@
 const HASH = /^[0-9a-f]{64}$/;
-const MAX_BYTES = 32 * 1024 * 1024;
+import { savedResourceLimit } from "./resource-save-policy.js";
 const FIELDS = ["schemaVersion", "profile", "saveId", "workspaceId", "relativePath", "mimeType", "byteLength", "contentVersion", "preparedAt"];
 const SOURCE_FIELDS = ["pluginId", "capabilityId", "resourceId", "packageVersion"];
 
@@ -8,7 +8,7 @@ const SOURCE_FIELDS = ["pluginId", "capabilityId", "resourceId", "packageVersion
 export async function verifySavedResource({ gateway, expected, sceneId, workspaceId, signal }) {
   const unavailable = () => { throw new Error("saved_resource_unconfirmed"); };
   if (!gateway || !expected || expected.workspaceId !== workspaceId ||
-      !Number.isSafeInteger(expected.byteLength) || expected.byteLength < 0 || expected.byteLength > MAX_BYTES ||
+      !savedResourceLimit(expected) || !Number.isSafeInteger(expected.byteLength) || expected.byteLength < 0 || expected.byteLength > savedResourceLimit(expected) ||
       !HASH.test(expected.contentVersion) || signal?.aborted) unavailable();
   const page = await gateway.list(sceneId, workspaceId, { query: expected.saveId, offset: 0, signal });
   if (signal?.aborted || page?.schemaVersion !== 1 || page.profile !== "resource.library.draft1" ||

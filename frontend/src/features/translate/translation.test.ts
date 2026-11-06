@@ -49,11 +49,12 @@ describe("translation store", () => {
     expect(gateway.translate).not.toHaveBeenCalled();
   });
 
-  it("swaps languages and uses the previous result as new source", () => {
+  it("swaps languages and uses the previous result as new source", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);
     store.getState().setTargetLang("Chinese");
-    store.setState({ result: RESULT, editedText: RESULT.translated });
+    store.getState().setText("Hello");
+    await store.getState().run();
     store.getState().swap();
     expect(store.getState().targetLang).toBe("English");
     expect(store.getState().text).toBe("你好");
@@ -81,7 +82,7 @@ describe("translation store", () => {
     const { store } = createStore(gateway);
     store.getState().setText("Hello");
     await store.getState().run();
-    expect(store.getState().error).toBe("当前场景尚未配置翻译模型。");
+    expect(store.getState().error).toBe("尚未配置翻译模型，请在设置中选择模型。");
   });
 
   it("downloads the translation as a text file", async () => {

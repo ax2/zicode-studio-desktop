@@ -1,4 +1,10 @@
 //! Fixed execution budgets for explicitly negotiated resource capabilities.
+#[path = "plugin_resource_image_metadata.rs"]
+pub(crate) mod metadata;
+#[path = "plugin_resource_markdown.rs"]
+pub(crate) mod markdown;
+#[path = "plugin_resource_file_digest.rs"]
+pub(crate) mod file_digest;
 pub(crate) const IMAGE_RESIZE_PROFILE: &str = "resource.wasi.image.resize.v1";
 pub(crate) const IMAGE_RESIZE_PROFILE_VERSION: &str = "1.0.0-preview.1";
 pub(crate) const IMAGE_RESIZE_MEMORY_MIB: usize = 256;

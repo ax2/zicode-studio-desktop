@@ -1,10 +1,10 @@
 import { decodeResourceImage } from "./plugin-resource-image.js";
 import { isBinaryOutput, isTextOutput } from "./plugin-output-formats.js";
+import { textPreviewLimit } from "./plugin-text-preview-policy.js";
 const MAX_PREVIEW = 8 * 1024 * 1024;
-const MAX_TEXT = 128 * 1024;
 const fail = () => { throw new Error("preview_unavailable"); };
-export async function loadResourcePreview({ resource, read, isCurrent }) {
-  const limit = isTextOutput(resource.mimeType) ? MAX_TEXT : MAX_PREVIEW;
+export async function loadResourcePreview({ resource, read, isCurrent, executionProfile }) {
+  const limit = isTextOutput(resource.mimeType) ? textPreviewLimit(executionProfile) : MAX_PREVIEW;
   if (!Number.isSafeInteger(resource.byteLength) || resource.byteLength < 0 || resource.byteLength > limit) fail();
   const bytes = new Uint8Array(resource.byteLength);
   let offset = 0;

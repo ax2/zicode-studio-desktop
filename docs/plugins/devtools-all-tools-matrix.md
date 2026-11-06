@@ -1,3 +1,35 @@
+# 2026-10-30 当前 Windows：校验清单生成、核对与安全另存
+
+23包、103能力+7 View；154源=6完整、51部分、97无映射。新增实际文件摘要生成SHA256SUMS、系统选址及明确确认后无覆盖另存；同时修复Windows某些文件名长度下的另存失败/错误尾缀。1–4文件、清单32KiB，完整目录批量和真实缺失定位仍待。见[本批证据与边界](../iterations/2026-10-30-checksum-manifest.md)。
+
+# 2026-10-30 Markdown 当前Windows完整范围与原生另存
+
+21包、100能力操作+7View；154源工具=6完整+49部分+99无映射，总映射仍55。Markdown的原始输入/编辑/阅读/HTML源码和自选位置另存已逐项验收；其他工具输出也可通过通用父页面选择新导出位置。见[交付与证据](../iterations/2026-10-30-native-resource-export.md)及[当前154行矩阵](devtools-windows-current.json)。以下保留历史里程碑。
+
+# 2026-10-29 图片元数据本机交付
+
+20包、99项能力操作+7View；154源工具=5完整+49部分+100无映射。新增图片检查/清理，41真实Worker向量、约48MB完整图片的Host确认保存/校验下载与实际Windows界面通过。原生实例接力和报告工作流不计完整迁移。见[本批范围和证据](../iterations/2026-10-29-windows-devtools-image-metadata.md)与[当前154行矩阵](devtools-windows-current.json)。下方保留历史里程碑。
+
+# 2026-10-27 正则匹配明细与捕获组交付
+
+现有正则插件已升级0.2.0，新增匹配复核及完整捕获文本；同预算通过4096通配符近最小输入和2MiB全文捕获。当前仍19包97能力+7View，154源=5完整+48部分+101无映射。见[当前证据与剩余范围](../iterations/2026-10-27-windows-devtools-regex-review.md)及[154行当前矩阵](devtools-windows-current.json)，下方保留历史。
+
+# 2026-10-27 正则替换本机交付
+
+19包、97能力+7View；154源=5完整+48部分+101无映射，总映射53。新增正则替换粘贴/双文件入口和2MiB完整结果预览；42真实Worker向量、11 Host成功例与14集成检查、6实际界面路径通过。复杂4096通配符仍预算不足，保持部分范围。见[本批范围和证据](../iterations/2026-10-27-windows-devtools-regex-replace.md)与[当前154行矩阵](devtools-windows-current.json)。下方保留历史里程碑。
+
+# 2026-10-27 三项完整原域核验及颜色目录修复
+
+当前仍18包96能力+7View；154源工具=5完整（UUID、random、number、color、cidr）+47部分+102无映射，总映射52。Inspect0.1.3纠正HEX输入方向说明，算法/View与旧包相同；316原生/实际WASI独立预期、340真实Host和14次表单执行通过。见[逐源完整范围与限制](../iterations/2026-10-27-windows-devtools-finite-tools.md)和[最新154行矩阵](devtools-windows-current.json)。下方为保留的历史里程碑。
+
+# 2026-10-27 当前Windows验收更新
+
+18包96能力+7View；154源工具=完整接受2（UUID、random）+部分映射50+无映射102。随机工具保留两模式/原长度数量字符集/u64范围，80项真实Host与11次真实UI通过，最大生成完整显示，64KiB附加保存限制单独记录。见[本批范围和证据](../iterations/2026-10-27-windows-devtools-random.md)与[当前154行矩阵](devtools-windows-current.json)。下方保留历史里程碑，不能代替当前状态。
+
+# 2026-10-26 当前Windows验收更新
+
+当前：17包、94能力、7View；154源工具中完整接受1（UUID）、部分映射50、无映射103。完整接受目标是当前Windows Studio，不以签名/其他OS/原生computer use阻挡。见[最新154行JSON矩阵](devtools-windows-current.json)及[UUID逐项范围审计](../iterations/2026-10-26-windows-devtools-uuid.md)。**下方2026-10-09正文和旧JSON是历史快照，保留追溯，当前状态以上述最新矩阵为准。**
+
 # Zi DevTools 全工具接入矩阵
 
 日期2026-10-09；提供方公开目录0.82.0-dev.105，154项。完整工具验收0项，首批3条目的5能力已有Windows接入验证。诊断11项及文本转换9项候选已接收，尚未兼容验收；不能等同全部scope完成。源状态来自声明，评审路径非完整运行/可行性证明。
@@ -44,7 +76,7 @@
 | data-schema / 数据质量检查 | 1.0.2 / implemented | 待提供方插件包 | compute.wasi.v1 / 新工具输入输出契约 | 没有交付该工具完整范围的独立WASI包；需固定输入/输出schema、工具版本、资源预算与正反例；首批仅text输入和8192字节不能直接覆盖所有新操作。 |
 | data-transform / 数据列变换 | 1.2.0 / implemented | 待提供方插件包 | compute.wasi.v1 / 新工具输入输出契约 | 没有交付该工具完整范围的独立WASI包；需固定输入/输出schema、工具版本、资源预算与正反例；首批仅text输入和8192字节不能直接覆盖所有新操作。 |
 | csv-merge / CSV 合并与关联 | 1.2.0 / implemented | 待提供方插件包 | compute.wasi.v1 / 新工具输入输出契约 | 没有交付该工具完整范围的独立WASI包；需固定输入/输出schema、工具版本、资源预算与正反例；首批仅text输入和8192字节不能直接覆盖所有新操作。 |
-| checksum-manifest / 校验清单 | 1.0.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需同目录1–64文件集合/受限相对名称/身份与清单定位匹配；提供方交付穿越/重复名称/链接/取消正反例。
+| checksum-manifest / 校验清单 | 1.0.0 / implemented | 部分操作已导入 | devtools.checksum-manifest.review / generate | 当前Windows：1–4项真实文件摘要核对、明确读取UTF-8清单、生成标准清单及系统选址后无覆盖另存；实际取消/冲突/授权和360px语言验证通过。提供方纯计算最多64项/32KiB，原生同目录64文件、真实缺失/读取错误和身份复核仍待。 |
 | disk-inspector / 目录空间分析 | 1.0.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需用户确认的目录只读授权、条目/深度/时间预算、跳过链接和部分结果契约；现有字节快照不授予目录枚举。
 | duplicate-files / 重复文件检查 | 1.0.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需目录/候选集合授权、文件身份复核、哈希读取字节预算、取消和只读去重实包；不增加自动删除。
 | file-compare / 目录内容对比 | 1.0.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需双目录独立授权、相对路径/类型/摘要比较、部分结果和CSV交付契约及实包。
@@ -62,8 +94,8 @@
 | image-tools / 图片工作台 | 1.5.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需缩放/格式/质量/编码预览实包；独立版1600万像素与Studio4Mi像素/4096单边预览范围差异仍待协商验证。
 | image-batch / 图片批处理 | 1.3.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需1–100输入集合、输出清单/命名/冲突预览、逐项进度/取消/部分成功与目录交付契约；4项输出不是100项批处理接受。
 | image-crop-annotate / 图片裁剪与标注 | 1.4.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已用自有合成材料完成Windows原生确认资源→隔离SDK→Host→WASI→JSON显示、撤权拒绝及取消/回收底层验证；仍是内部resource draft，未发布公开profile。提供方dev.103新增共享图片预算与失败保留工作声明，尚未交付本项独立图片插件，缺正式二进制输入输出/结果存储、用户确认写入、完整算法范围与OS验收。自有WAT不替代提供方图片算法实包。 |
-| image-metadata / 图片元数据检查与清理 | 1.3.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已用自有合成材料完成Windows原生确认资源→隔离SDK→Host→WASI→JSON显示、撤权拒绝及取消/回收底层验证；仍是内部resource draft，未发布公开profile。提供方dev.103新增共享图片预算与失败保留工作声明，尚未交付本项独立图片插件，缺正式二进制输入输出/结果存储、用户确认写入、完整算法范围与OS验收。自有WAT不替代提供方图片算法实包。 |
-| markdown / Markdown 预览 | 1.0.0 / implemented | 待Host扩展 | resource.v1；纯计算子集可先交付 | Studio已验证确认资源输入/WASI消费/二进制输出/跨owner接力，以及resource.save.draft1保存与resource.library.draft1项目检索/分页/按需校验预览/原始下载；证据为源码HTTP Host/生产Worker/隔离Edge，非提供方算法。正式resource.v1、原生GUI/真实实包、统一备份/导入和完整scope仍待。 需结构化安全渲染实包及HTML交付MIME/生成名称/CSP契约；不执行原始HTML，.bin下载不等同HTML另存。
+| image-metadata / 图片元数据检查与清理 | 1.4.1 / implemented | 当前Windows已导入两操作（部分范围） | resource.wasi.image.metadata.v1 / output.draft2 / Host报告资源 | 单张静态PNG/JPEG/WebP检查与清理；原预算、方向和分类计数不变。图片与独立schema2 JSON报告均可确认后保存到项目或自选新位置；实际报告字节、取消、撤权、下载及原图保留通过。原生图片实例新建/替换及报告发送备忘录仍待，不计完整源接受。见2026-10-30图片报告另存记录。 |
+| markdown / Markdown 预览 | 1.0.2 / implemented | 当前Windows完整源范围已接受 | resource.wasi.markdown.v1 preview2，插件0.1.1候选02；原2MiB/20万事件/16MiB预算 | 原生/42Worker字节对照，实际文件载入编辑/旧草稿保留替换/完整2MiB编辑、完整结构阅读和HTML源码、10486640字节项目保存/下载与系统窗口自选新文件名/位置另存通过；取消/无覆盖/撤权/用户后续编辑保留。逐项审计见2026-10-30原生资源导出交付记录。其他目标独立记录。 |
 | unicode / Unicode 字符检查 | 1.0.2 / implemented | 候选包已接收待验收 | compute.wasi.v1 / 新工具输入输出契约 | 已接收inspect无签名候选0.1.0，4工具7操作；本工具3操作。493文件路径/字节/摘要固定；Windows实际生产Worker84可表示向量语义结果全通过；10原始字节向量未覆盖。Windows隔离资料目录发现/启用/沙箱View及7操作样例通过；搜索/错误保留/原生取消与确认/独立工具恢复通过。仅开发目录安装；历史候选Pi门禁曾失败（yaml.from_json真实worker_timeout，5000ms预算未变），签发安装仍待，不计完整接受。沿用8192 UTF8字节/48KiB预算。独立版范围映射、YAML重复键/数值语义与旧JSON试点差异、JWT不验签、Unicode标量/NFC/NFKC边界需专项验收；签名生命周期/取消/结果接力及其他OS仍待。目录快照版本与候选工具版本分别保留，不覆盖原始快照。 后续当前debug EXE303fd49a重验：本候选全部基本操作、10授权阶段、缓存拒绝与独立对照通过；旧超时证据保留为历史失败。仅Windows无模型机制验收，完整scope/签名生命周期/其他OS仍待，不提高完整接受计数。 2026-10-11当前Host/Worker与Pi1.1.0的基本样例和10阶段权限生命周期回放通过，旧失败保留；只验证对应候选操作，完整scope/签名生命周期/其他OS仍待。 |
 | escape-suite / 转义与转码扩展 | 0.0.0 / planned | 提供方规划未实现 | compute.wasi.v1 / 新工具输入输出契约 | 提供方目录标记planned，尚无该条目实现及插件交付证据；其离线算法可按纯计算候选评审，不能仅按网络/AI分类推定必须访问服务；本地数据/公钥/tokenizer/时区表应显式输入或随包固定。网络修复、保存等可选操作另行授权。 |
 | time-zone / 时区工作台 | 0.0.0 / planned | 提供方规划未实现 | compute.wasi.v1 / 新工具输入输出契约 | 提供方目录标记planned，尚无该条目实现及插件交付证据；其离线算法可按纯计算候选评审，不能仅按网络/AI分类推定必须访问服务；本地数据/公钥/tokenizer/时区表应显式输入或随包固定。网络修复、保存等可选操作另行授权。 |

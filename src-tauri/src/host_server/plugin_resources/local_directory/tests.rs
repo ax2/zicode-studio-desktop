@@ -145,13 +145,7 @@ fn directory_snapshot_rejects_reparse_entries_and_intermediate_directories() {
     let outside = fixture.0.parent().unwrap().join("outside");
     fs::create_dir(&outside).unwrap();
     let link = fixture.0.join("link");
-    if let Err(error) = std::os::windows::fs::symlink_dir(&outside, &link) {
-        if error.kind() == std::io::ErrorKind::PermissionDenied {
-            eprintln!("symlink creation unavailable; reparse case not exercised");
-            return;
-        }
-        panic!("symlink fixture failed: {error}");
-    }
+    create_directory_link(&outside, &link);
     let error = open_directory(&fixture.0, "link").err().unwrap();
     assert_eq!(
         error.1 .0["error"]["code"],
@@ -178,14 +172,37 @@ fn directory_open_rejects_link_replacing_a_checked_child() {
     let parent = Dir::open_ambient_dir(&fixture.0, ambient_authority()).unwrap();
     assert!(parent.symlink_metadata("link").unwrap().is_dir());
     fs::remove_dir(&link).unwrap();
-    if let Err(error) = std::os::windows::fs::symlink_dir(&outside, &link) {
-        if error.kind() == std::io::ErrorKind::PermissionDenied {
-            eprintln!("symlink creation unavailable; replacement case not exercised");
-            return;
-        }
-        panic!("replacement symlink fixture failed: {error}");
-    }
+    create_directory_link(&outside, &link);
     let error = open_checked_child(&parent, "link").err().unwrap();
     let (_, Json(body)) = error;
     assert_eq!(body["error"]["code"], "resource_directory_path_invalid");
+}
+
+#[cfg(windows)]
+fn create_directory_link(target: &Path, link: &Path) {
+    use std::os::windows::fs::MetadataExt;
+    if let Err(error) = std::os::windows::fs::symlink_dir(target, link) {
+        assert!(
+            error.raw_os_error() == Some(1314)
+                || error.kind() == std::io::ErrorKind::PermissionDenied,
+            "unexpected symlink fixture error: {error}"
+        );
+        // Junctions exercise the same reparse-point boundary without requiring
+        // Developer Mode or SeCreateSymbolicLinkPrivilege. Never skip the check.
+        let output = crate::process_command::new_command("cmd.exe")
+            .args(["/D", "/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "junction fixture failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    assert_ne!(
+        fs::symlink_metadata(link).unwrap().file_attributes() & 0x400,
+        0
+    );
 }

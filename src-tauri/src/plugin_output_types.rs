@@ -39,6 +39,9 @@ pub(crate) fn requires_profile(mime: &str) -> bool {
 
 pub(crate) fn extension(mime: &str) -> Option<&'static str> {
     match mime {
+        // Host-generated structured reports only. This is intentionally not in
+        // MIMES, so it does not add a new guest ABI index or permission.
+        "application/json" => Some("json"),
         "application/octet-stream" => Some("bin"),
         "image/png" => Some("png"),
         "image/jpeg" => Some("jpg"),
@@ -68,6 +71,10 @@ pub(crate) fn extension(mime: &str) -> Option<&'static str> {
         "application/x-zicode-sqlite" => Some("sqlite"),
         _ => None,
     }
+}
+
+pub(crate) fn known_extension(value: &str) -> bool {
+    value == "json" || MIMES.iter().any(|mime| extension(mime) == Some(value))
 }
 
 #[cfg(test)]

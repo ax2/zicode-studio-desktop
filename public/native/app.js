@@ -1,3 +1,9 @@
+import { setupCompactHeader } from "./workspace/compact-header.js";
+import { setupBrowserApp } from "./browser/browser-app.js";
+import { setupSystemInformationShortcut } from "./features/system-information-shortcuts.js";
+import { setupTranslationShortcuts } from "./features/translation-shortcuts.js";
+import { MULTI_PROJECT_UI_ENABLED } from "./workspace/workspace-mode.js";
+import { setupQuickTools } from "./features/quick-tools.js";
 import { getLocale, initializeI18n, t } from "../i18n.js";
 import { reconcileSnapshotTarget } from "../session/bootstrap-target.js";
 import {
@@ -53,7 +59,7 @@ import { setupPluginViewHost } from "./plugins/plugin-view-host.js";
 import { setupArticlesApp } from "./react/articles.js";
 import { setupArtifactApp } from "./react/artifacts.js";
 import { setupAutomationApp } from "./react/automation.js";
-import { MessageRenderer, ToolCardRenderer } from "./react/chat.js";
+import { MessageRenderer, ToolCardRenderer, mountQuickTools } from "./react/chat.js";
 import { setupClipboardApp } from "./react/clipboard.js";
 import { manualToolError, setupCommandPalette } from "./react/command-palette.js";
 import {
@@ -701,6 +707,7 @@ mobileDrafts
 const toolAccessStore =
   remoteAuth.clientType === "desktop" ? createToolAccessStore(control) : undefined;
 function openVisibleWorkspaceSwitcher() {
+  if (!MULTI_PROJECT_UI_ENABLED) return;
   const toolCenterPicker = document.querySelector(".tool-workspace-picker > summary");
   if (toolCenterPicker?.getClientRects().length) {
     if (!toolCenterPicker.parentElement.open) toolCenterPicker.click();
@@ -746,6 +753,7 @@ const commandPaletteHandle = setupCommandPalette({
       desc: t("Start a new conversation"),
       action: () => document.getElementById("new-session-btn")?.click(),
     },
+    ...(MULTI_PROJECT_UI_ENABLED ? [
     {
       icon: "⇄",
       id: "studio:switch-workspace",
@@ -757,7 +765,8 @@ const commandPaletteHandle = setupCommandPalette({
         // opened (target would be the palette item, not the switcher button).
         setTimeout(openVisibleWorkspaceSwitcher, 0);
       },
-    },
+    }
+    ] : []),
     {
       icon: "🗜️",
       id: "studio:compact",
@@ -1191,6 +1200,8 @@ const articlesApp = setupArticlesApp({
   notify: notifications.notify,
   openSettings: (tab) => settingsPanel?.openSettings(tab ?? "articles"),
 });
+setupCompactHeader();
+const browserApp = setupBrowserApp({ notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   toolAccessStore,
@@ -1207,6 +1218,7 @@ pluginShell = setupPluginShell({
   financeApp: financeWorkbench,
   artifactApp,
   builtinApps: {
+    "com.zicode.browser": browserApp,
     "com.zicode.projects": projectWorkspaceApp,
     "com.zicode.tasks": taskCenterApp,
     "com.zicode.automation": automationApp,
@@ -1256,6 +1268,24 @@ pluginShell = setupPluginShell({
     ? (keyId) => globalThis.__TAURI__.core.invoke("revoke_plugin_publisher", { keyId })
     : null,
   notify: notifications.notify,
+});
+setupSystemInformationShortcut({ listen: globalThis.__TAURI__?.event?.listen, openSettings: tab => settingsPanel.openSettings(tab), onError: showError });
+setupTranslationShortcuts({
+  activate: id => pluginShell.activate(id), getActivePluginId: () => pluginShell.getActivePluginId(),
+  focusInput: () => translationApp.focusInput(), listen: globalThis.__TAURI__?.event?.listen,
+  onError: showError,
+});
+const quickToolsAnchor = document.getElementById("quick-tools-anchor");
+if (quickToolsAnchor) mountQuickTools(quickToolsAnchor);
+setupQuickTools({
+  api: pluginCapabilityGateway, accessStore: toolAccessStore, getTarget: () => target,
+  openTool: (tool, revision, scope) => pluginShell.openManualTool(tool, revision, scope),
+  manage: async () => {
+    await pluginShell.activate("core.tools");
+    window.dispatchEvent(new CustomEvent("zicode:tray-tool-view", { detail: "all" }));
+  },
+  invoke: globalThis.__TAURI__?.core?.invoke,
+  onError: error => console.warn("[quick-tools]", error?.message ?? error),
 });
 // The automation scheduler must run for the whole page lifetime, not only
 // while the Automation center is open, so scheduled workflows fire while the
@@ -1326,7 +1356,7 @@ messagesElement.addEventListener("organizechattonotes", async (event) => {
     if (button?.isConnected) button.disabled = false;
   }
 });
-setupAppUpdater({ settingsPanel });
+setupAppUpdater({ settingsPanel, enabled: Boolean(globalThis.__TAURI__?.core?.invoke) });
 setupNewSessionButton({
   data,
   workspaceId: target.workspaceId,
@@ -1350,10 +1380,10 @@ setupAppKeyboardShortcuts({
   openModelDropdown: () => openModelDropdown(),
   cycleThinking: () => thinkingBtn?.click(),
   newSession: () => document.getElementById("new-session-btn")?.click(),
-  switchWorkspace: () => {
+  switchWorkspace: MULTI_PROJECT_UI_ENABLED ? () => {
     if (!commandPalette?.classList.contains("hidden")) commandPaletteHandle.close({ restoreFocus: false });
     openVisibleWorkspaceSwitcher();
-  },
+  } : undefined,
   openSettings: () => settingsPanel?.openSettings("general"),
   toggleFiles: () => {
     const toggle = document.querySelector("[data-file-toggle], #file-sidebar-toggle");

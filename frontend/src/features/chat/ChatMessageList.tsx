@@ -23,7 +23,7 @@ import {
   renderDiffData,
   toolStageLabel,
 } from "./chatLogic";
-import { allChatTemplates } from "./chatTemplates";
+import { CompactWelcome } from "./CompactWelcome";
 
 type ChatStore = {
   getState(): { items: ChatFeedItem[] };
@@ -148,14 +148,12 @@ function Markdown({ html }: { html: string }) {
   useLayoutEffect(() => {
     if (ref.current) ref.current.innerHTML = html;
   }, [html]);
-  return <div ref={ref} />;
+  return <div ref={ref} translate="no" />;
 }
 
 const WelcomeItem = memo(function WelcomeItem({
   container,
   workspacePath,
-  scene,
-  onOpenSceneSettings,
   openApp,
   getEnabledAppIds,
 }: {
@@ -287,175 +285,7 @@ const WelcomeItem = memo(function WelcomeItem({
       </div>
     );
   }
-  const sceneId = scene?.id ?? "programming";
-  const sceneName = scene ? t(scene.name) : "Programming";
-  const sceneDescription = scene
-    ? t(scene.description)
-    : "Engineering workflows for coding, debugging, repository changes, and reproducible verification.";
-  // The welcome quick actions only show enabled applications that have an
-  // activity; the first four in registry order are kept so disabled plugins
-  // never leave dead buttons.
-  const defaultQuickActions: Array<{ pluginId: string; label: string; icon: string }> = [
-    { pluginId: "com.zicode.projects", label: t("Projects"), icon: "📁" },
-    { pluginId: "com.zicode.notes", label: t("Notes"), icon: "📝" },
-    { pluginId: "com.zicode.tasks", label: t("Tasks"), icon: "✅" },
-    { pluginId: "com.zicode.automation", label: t("Automation"), icon: "⚙️" },
-  ];
-  const quickAppCatalog: Record<string, { labelKey: string; icon: string }> = {
-    "com.zicode.projects": { labelKey: "Projects", icon: "📁" },
-    "com.zicode.notes": { labelKey: "Notes", icon: "📝" },
-    "com.zicode.tasks": { labelKey: "Tasks", icon: "✅" },
-    "com.zicode.automation": { labelKey: "Automation", icon: "⚙️" },
-    "com.zicode.finance": { labelKey: "Finance", icon: "📈" },
-    "com.zicode.translate": { labelKey: "Translate", icon: "🌐" },
-    "com.zicode.idphoto": { labelKey: "ID Photo", icon: "🪪" },
-    "com.zicode.imagetools": { labelKey: "Image Tools", icon: "🖼️" },
-    "com.zicode.clipboard": { labelKey: "Clipboard", icon: "📋" },
-    "com.zicode.documents": { labelKey: "Documents", icon: "📄" },
-    "com.zicode.artifacts": { labelKey: "Artifacts", icon: "🗂️" },
-  };
-  const enabledIds = getEnabledAppIds?.() ?? null;
-  const quickActions = enabledIds
-    ? enabledIds
-        .filter((pluginId) => quickAppCatalog[pluginId])
-        .slice(0, 4)
-        .map((pluginId) => ({
-          pluginId,
-          label: t(quickAppCatalog[pluginId].labelKey),
-          icon: quickAppCatalog[pluginId].icon,
-        }))
-    : defaultQuickActions;
-  const starterTemplates = allChatTemplates();
-  return (
-    <div className="welcome">
-      <div className="welcome-hero">
-        <div className="welcome-icon">
-          <img
-            src="icons/logo-dark.svg"
-            alt="ZiCode Studio Desktop logo"
-            className="tau-icon-welcome"
-          />
-        </div>
-        <p>{t("Welcome to ZiCode Studio Desktop")}</p>
-        <p className="hint">
-          {t(
-            "Type a message below to start chatting with Pi, or select a session from the sidebar.",
-          )}
-        </p>
-        {workspacePath ? (
-          <p className="hint welcome-workspace">
-            {t("Current workspace:")} <code>{workspacePath}</code>
-          </p>
-        ) : null}
-        <button
-          className="welcome-scene"
-          type="button"
-          data-scene={sceneId}
-          title={t("Open scene settings")}
-          onClick={onOpenSceneSettings}
-        >
-          <span className="welcome-scene-dot" aria-hidden="true"></span>
-          <span className="welcome-scene-copy">
-            <span className="welcome-scene-kicker">{t("Current scene")}</span>
-            <strong data-scene-name>{sceneName}</strong>
-            <span data-scene-description>{sceneDescription}</span>
-          </span>
-        </button>
-      </div>
-      <div className="welcome-panel">
-        <p className="welcome-orientation" role="note">
-          {t(
-            "Left icons switch apps · the top bar switches workspaces · right panels hold files and background tasks",
-          )}
-        </p>
-        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of app shortcuts kept as a plain div like the shortcuts-hint row */}
-        <div className="welcome-quick-actions" role="group" aria-label={t("Quick actions")}>
-          <button
-            type="button"
-            className="welcome-quick-action"
-            data-quick-action="new-chat"
-            onClick={() => {
-              document.getElementById("message-input")?.focus();
-            }}
-          >
-            <span className="welcome-quick-action-icon" aria-hidden="true">
-              ✨
-            </span>
-            <span>{t("Start a new conversation")}</span>
-          </button>
-          <button
-            type="button"
-            className="welcome-quick-action"
-            data-quick-action="extract-memory"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent("zicode:extract-memory"));
-            }}
-          >
-            <span className="welcome-quick-action-icon" aria-hidden="true">
-              🧠
-            </span>
-            <span>{t("Save memory from this chat")}</span>
-          </button>
-          {quickActions.map((action) => (
-            <button
-              key={action.pluginId}
-              type="button"
-              className="welcome-quick-action"
-              data-quick-action={action.pluginId}
-              onClick={() => openApp?.(action.pluginId)}
-            >
-              <span className="welcome-quick-action-icon" aria-hidden="true">
-                {action.icon}
-              </span>
-              <span>{action.label}</span>
-            </button>
-          ))}
-        </div>
-        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group of starter templates kept as a plain div like the quick-actions row */}
-        <div className="welcome-templates" role="group" aria-label={t("Start from a template")}>
-          <p className="welcome-templates-heading">{t("Start from a template")}</p>
-          <div className="welcome-templates-grid">
-            {starterTemplates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                className="welcome-template"
-                data-template-id={template.id}
-                onClick={() => {
-                  container.dispatchEvent(
-                    new CustomEvent("zicode:composer-prefill", {
-                      bubbles: true,
-                      detail: { text: t(template.prompt) },
-                    }),
-                  );
-                }}
-              >
-                <span className="welcome-template-icon" aria-hidden="true">
-                  {template.icon}
-                </span>
-                <span>{t(template.label)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla welcome */}
-        <div className="shortcuts-hint" role="group" aria-label={t("Keyboard shortcuts")}>
-          <span>
-            <kbd>/</kbd> {t("Focus input")}
-          </span>
-          <span>
-            <kbd>Esc</kbd> {t("Abort")}
-          </span>
-          <span>
-            <kbd>Ctrl+Shift+P</kbd> {t("Commands")}
-          </span>
-          <span>
-            <kbd>Ctrl+K</kbd> {t("Search sessions")}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+  return <CompactWelcome openApp={openApp} enabledIds={getEnabledAppIds?.()} />;
 });
 
 function isAgentInboxPath(workspacePath?: string): boolean {

@@ -32,7 +32,31 @@ impl Drop for Fixture {
     }
 }
 fn receipt(bytes: &[u8]) -> Value {
-    json!({"byteLength":bytes.len(),"contentVersion":sha256_hex(bytes)})
+    json!({"profile":"resource.save.draft1","mimeType":"application/octet-stream","byteLength":bytes.len(),"contentVersion":sha256_hex(bytes)})
+}
+
+#[test]
+fn metadata_save_staging_and_replay_negotiate_large_images_without_enlarging_legacy() {
+    let fixture = Fixture::new();
+    // This is a raw-storage budget fixture; real image encoding is tested through HTTP.
+    let bytes = vec![91u8; 32 * 1024 * 1024 + 1];
+    let chunks = bytes.chunks(65536).map(Arc::from).collect::<Vec<_>>();
+    let id = uuid::Uuid::new_v4().to_string();
+    for (profile, mime) in [("resource.save.draft1", "image/png"),
+        ("unknown", "image/png"), ("resource.save.image-metadata.v1", "text/plain")] {
+        let mut value = receipt(&bytes);
+        value["profile"] = json!(profile); value["mimeType"] = json!(mime);
+        assert!(save_files::Staged::new(&fixture.root, &chunks, &value, "png", &id).is_err());
+        assert!(!fixture.root.join(".zicode").exists());
+    }
+    let mut value = receipt(&bytes);
+    value["profile"] = json!("resource.save.image-metadata.v1");
+    value["mimeType"] = json!("image/png");
+    let staged = save_files::Staged::new(&fixture.root, &chunks, &value, "png", &id).unwrap();
+    staged.publish(&id).unwrap(); drop(staged);
+    save_files::replay(&fixture.root, &id, &value, "png").unwrap();
+    let mut legacy = value.clone(); legacy["profile"] = json!("resource.save.draft1");
+    assert!(save_files::replay(&fixture.root, &id, &legacy, "png").is_err());
 }
 
 #[test]

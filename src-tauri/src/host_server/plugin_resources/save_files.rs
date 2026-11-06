@@ -7,6 +7,16 @@ use std::path::{Path, PathBuf};
 const MAX_FOLDERS: usize = 128;
 const MAX_BYTES: u64 = 256 * 1024 * 1024;
 
+fn receipt_limit(receipt: &Value) -> Result<u64, ApiError> {
+    receipt["profile"]
+        .as_str()
+        .zip(receipt["mimeType"].as_str())
+        .and_then(|(profile, mime)| {
+            crate::plugin_worker::resource_output::Profile::saved_limit(profile, mime)
+        })
+        .ok_or_else(|| rejected("resource_metadata_invalid"))
+}
+
 fn directory(path: &Path) -> Result<(), ApiError> {
     let meta =
         fs::symlink_metadata(path).map_err(|_| rejected("resource_save_directory_unavailable"))?;
@@ -72,7 +82,7 @@ pub(super) fn quota(root: &Path, additional: usize) -> Result<(), ApiError> {
             match child.file_name().to_str() {
                 Some("receipt.json" | ".receipt.pending") => {}
                 Some(name)
-                    if crate::plugin_output_types::MIMES.iter().any(|mime| {
+                    if name == "result.json" || crate::plugin_output_types::MIMES.iter().any(|mime| {
                         crate::plugin_output_types::extension(mime)
                             .is_some_and(|extension| name == format!("result.{extension}"))
                     }) =>
@@ -126,11 +136,9 @@ impl Staged {
             return Err(rejected("resource_save_grant_invalid"));
         }
         let size: usize = chunks.iter().map(|chunk| chunk.len()).sum();
-        if size > 32 * 1024 * 1024
+        if size as u64 > receipt_limit(receipt)?
             || Some(size as u64) != receipt["byteLength"].as_u64()
-            || !crate::plugin_output_types::MIMES
-                .iter()
-                .any(|mime| crate::plugin_output_types::extension(mime) == Some(extension))
+            || !crate::plugin_output_types::known_extension(extension)
         {
             return Err(rejected("resource_metadata_invalid"));
         }
@@ -249,13 +257,14 @@ pub(super) fn replay(
     directory(&root)?;
     let path = root.join(format!("result.{extension}"));
     let meta = fs::symlink_metadata(&path).map_err(|_| rejected("resource_save_conflict"))?;
-    if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 32 * 1024 * 1024 {
+    let limit = receipt_limit(receipt)?;
+    if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > limit {
         return Err(rejected("resource_save_conflict"));
     }
     let mut bytes = Vec::new();
     fs::File::open(path)
         .map_err(|_| rejected("resource_save_conflict"))?
-        .take(32 * 1024 * 1024 + 1)
+        .take(limit + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| rejected("resource_save_conflict"))?;
     let receipt_path = root.join("receipt.json");

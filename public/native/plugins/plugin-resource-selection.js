@@ -63,14 +63,14 @@ export function createPluginResourceSelection({
       entryPath = typeof path === "string" && path ? path : null;
       projectChoice.textContent = entryPath
         ? t("Use opened file: {name}").replace("{name}", entryPath)
-        : t("Choose from current project");
+        : t("Choose from Studio files");
     }).catch(() => {});
   }
   const fileStatus = createProjectFileStatus({ api: gateway.projectFiles, isCurrent: () => active && isCurrent() });
   if (projectChoice) {
     projectChoice.type = "button";
     projectChoice.className = "ui-button ui-button--secondary";
-    projectChoice.textContent = t("Choose from current project");
+    projectChoice.textContent = t("Choose from Studio files");
     refreshOpenedFile();
     window.addEventListener("zicode:entry-changed", refreshOpenedFile);
     projectChoice.addEventListener("click", async () => {
@@ -83,7 +83,7 @@ export function createPluginResourceSelection({
       input.disabled = capability.disabled = projectChoice.disabled = true;
       saved?.setDisabled(true);
       panel.setAttribute("aria-busy", "true");
-      status.textContent = t("Choose a file inside the current project. It will only be shared after confirmation.");
+      status.textContent = t("Choose a Studio file. It will only be shared after confirmation.");
       try {
         const preview = await prepareProjectResource({ api: gateway.projectFiles, workspaceId: target.workspaceId, owner, isCurrent: valid, relativePath: entryPath });
         if (!preview) return;
@@ -93,7 +93,7 @@ export function createPluginResourceSelection({
         status.textContent = t("Selected: {name} · {bytes} bytes · plugin {plugin}")
           .replace("{name}", selected.name).replace("{bytes}", selected.size).replace("{plugin}", `${plugin.name} ${plugin.version}`);
       } catch {
-        if (valid()) status.textContent = t("Could not select this project file. Choose a file inside the current project again.");
+        if (valid()) status.textContent = t("Could not select this file. Choose a Studio file again.");
       } finally {
         uploading = false;
         if (active && isCurrent()) {

@@ -1,4 +1,6 @@
+import { PageHeaderActions } from "../../shared/PageHeaderActions";
 import { CaptureForm } from "./CaptureForm";
+import { NoteManageButton } from "./NoteManageButton";
 import { NoteDraftRecovery } from "./NoteDraftRecovery";
 import { NoteReferenceButton } from "./NoteReferenceButton";
 import { NoteRelationshipStatus } from "./NoteRelationshipStatus";
@@ -60,13 +62,13 @@ function Icon({ svg }: { svg: string }) {
   useEffect(() => {
     if (ref.current) ref.current.innerHTML = svg;
   }, [svg]);
-  return <span ref={ref} aria-hidden="true" />;
+  return <span ref={ref} className="notes-btn-icon" aria-hidden="true" />;
 }
 
 function HighlightedText({ text, query }: { text: string; query: string }) {
   const segments = highlightSegments(text, query);
   return (
-    <>
+    <span translate="no">
       {segments.map((segment, index) =>
         segment.match ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: segments are non-reordered title slices
@@ -78,7 +80,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
           <span key={index}>{segment.text}</span>
         ),
       )}
-    </>
+    </span>
   );
 }
 
@@ -254,7 +256,7 @@ export function NotesNav({ store }: { store: NotesStore }) {
                 <span className="notes-nav-item-icon">
                   {notebook.icon || DEFAULT_NOTEBOOK_ICON}
                 </span>
-                <span className="notes-nav-item-label">{notebook.title}</span>
+                <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
               </button>
             ))}
             <button
@@ -399,6 +401,10 @@ function NotebookBranch({
     >
       {/* biome-ignore lint/a11y/noStaticElementInteractions: notebook selection pattern preserved from the vanilla tree */}
       <summary
+        draggable
+        onDragStart={event => { event.dataTransfer.setData("application/x-zicode-notebook", notebook.id); event.dataTransfer.effectAllowed = "move"; }}
+        onDragOver={event => { if (event.dataTransfer.types.includes("application/x-zicode-notebook")) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; } }}
+        onDrop={event => { event.preventDefault(); event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); store.getState().reorderNotebook(event.dataTransfer.getData("application/x-zicode-notebook"), notebook.id, event.clientY > rect.top + rect.height / 2); }}
         className={`notes-notebook-summary${
           selectedNotebookId === notebook.id && !sourceOnly && !selectedTag ? " active" : ""
         }${dragTargetId === notebook.id ? " drop-target" : ""}`}
@@ -412,12 +418,9 @@ function NotebookBranch({
           <span className="notes-folder-glyph">{expanded ? "📂" : "📁"}</span>
           {notebook.icon ? <span className="notes-notebook-icon-badge">{notebook.icon}</span> : null}
         </span>
-        <span className="notes-notebook-title" title={notebook.title}>
+        <span className="notes-notebook-title" title={notebook.title} translate="no">
           {notebook.title}
         </span>
-        <small title={`${notebook.noteCount ?? notes.length} ${t("notes")}`}>
-          {String(notebook.noteCount ?? notes.length)}
-        </small>
         <NotebookActions store={store} notebook={notebook} />
       </summary>
       {editingNotebookId === notebook.id ? <NotebookEditForm store={store} notebook={notebook} /> : null}
@@ -797,7 +800,7 @@ function QuickAccessSection({ store }: { store: NotesStore }) {
           <span className="notes-nav-item-icon">
             {note.icon || DEFAULT_NOTE_ICON}
           </span>
-          <span className="notes-nav-item-label">{note.title}</span>
+          <span className="notes-nav-item-label" translate="no">{note.title}</span>
           <span className="notes-nav-pin-mark" aria-hidden="true">
             📌
           </span>
@@ -815,7 +818,7 @@ function QuickAccessSection({ store }: { store: NotesStore }) {
               <span className="notes-nav-item-icon">
                 {note.icon || DEFAULT_NOTE_ICON}
               </span>
-              <span className="notes-nav-item-label">{note.title}</span>
+              <span className="notes-nav-item-label" translate="no">{note.title}</span>
             </button>
           ))}
           <div className="notes-nav-quick-separator" />
@@ -849,7 +852,7 @@ function TagsSection({ store }: { store: NotesStore }) {
           onClick={() => void applyFilter({ tag })}
         >
           <span className="notes-nav-item-icon">{tagIcon(tag)}</span>
-          <span className="notes-nav-item-label">{tag}</span>
+          <span className="notes-nav-item-label" translate="no">{tag}</span>
         </button>
       ))}
     </NavSection>
@@ -984,7 +987,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
         void selectNote(note);
       }}
       onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest?.(".notes-move-btn, .notes-pin-btn"))
+        if ((event.target as HTMLElement).closest?.("button"))
           return;
         beginPointerDrag(event);
       }}
@@ -1007,7 +1010,7 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
       ) : null}
       <span className="notes-note-icon">{note.icon || DEFAULT_NOTE_ICON}</span>
       <span className="notes-list-item-main">
-        <strong title={note.title}>
+        <strong title={note.title} translate="no">
           <HighlightedText text={note.title} query={query} />
         </strong>
         <span>
@@ -1015,29 +1018,14 @@ function NoteTreeItem({ store, note }: { store: NotesStore; note: NoteSummary })
           {note.source ? ` · ${t("Web clip")}` : ""}
         </span>
       </span>
-      <span className="notes-drag-handle" aria-hidden="true">
-        ⠿
-      </span>
+      <span className="notes-row-actions">
       <PinButton store={store} note={note} />
-      <button
-        type="button"
-        className="notes-move-btn"
-        title={t("Move to notebook")}
-        aria-label={t("Move to notebook")}
-        onClick={(event) => {
-          event.stopPropagation();
-          const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-          const popoverWidth = Math.min(280, window.innerWidth - 16);
-          const left = Math.max(
-            8,
-            Math.min(rect.left, window.innerWidth - popoverWidth - 8),
-          );
-          setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.round(left) });
-          openMovePopover(note);
-        }}
-      >
-        ⇄
-      </button>
+      <NoteManageButton store={store} note={note} onMove={rect => {
+        const width = Math.min(280, window.innerWidth - 16);
+        setPopoverPos({ top: Math.round(rect.bottom + 4), left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)) });
+        openMovePopover(note);
+      }} />
+      </span>
       {popoverPos ? <MovePopover store={store} note={note} pos={popoverPos} onClose={() => setPopoverPos(null)} /> : null}
     </div>
   );
@@ -1054,6 +1042,7 @@ export function buildDragGhost(note: NoteSummary): HTMLElement {
   main.className = "notes-list-item-main";
   const title = document.createElement("strong");
   title.textContent = note.title;
+  title.setAttribute("translate", "no");
   const meta = document.createElement("span");
   meta.textContent = formatDate(note.updatedAt);
   main.append(title, meta);
@@ -1129,7 +1118,7 @@ function MovePopover({
   return (
     <div ref={ref} className="notes-move-popover" role="dialog" aria-label={t("Move to notebook")} style={{ top: pos.top, left: pos.left }}>
       <strong className="notes-move-popover-title">
-        {t("Move to notebook")} · {note.title}
+        {t("Move to notebook")} · <span translate="no">{note.title}</span>
       </strong>
       <div className="notes-move-popover-list">
         {snapshot.notebooks
@@ -1146,7 +1135,7 @@ function MovePopover({
               }}
             >
               <span className="notes-nav-item-icon">{notebook.icon || DEFAULT_NOTEBOOK_ICON}</span>
-              <span className="notes-nav-item-label">{notebook.title}</span>
+              <span className="notes-nav-item-label" translate="no">{notebook.title}</span>
             </button>
           ))}
         {snapshot.notebooks.filter((notebook) => notebook.id !== note.notebookId).length === 0 ? (
@@ -1158,7 +1147,7 @@ function MovePopover({
 }
 
 export function NotesContent({ store }: { store: NotesStore }) {
-  return <><NoteDraftRecovery store={store} /><NotesContentBody store={store} /></>;
+  return <><NotesContentBody store={store} /><NoteDraftRecovery store={store} /></>;
 }
 
 function NotesContentBody({ store }: { store: NotesStore }) {
@@ -1348,7 +1337,7 @@ function TagEditor({
         {tags.map((tag) => (
           <span key={tag} className="notes-tag-chip" data-tag-chip={tag}>
             <span className="notes-tag-chip-icon">{tagIcon(tag)}</span>
-            <span className="notes-tag-chip-name">{tag}</span>
+            <span className="notes-tag-chip-name" translate="no">{tag}</span>
             <button
               type="button"
               className="notes-tag-chip-remove"
@@ -1547,7 +1536,7 @@ function FilterResultsView({ store }: { store: NotesStore }) {
                 <HighlightedText text={note.title} query={query} />
               </strong>
               {notebookNameById.get(note.notebookId) ? (
-                <span className="notes-result-notebook">
+                <span className="notes-result-notebook" translate="no">
                   {notebookNameById.get(note.notebookId)}
                 </span>
               ) : null}
@@ -1559,7 +1548,7 @@ function FilterResultsView({ store }: { store: NotesStore }) {
               {note.tags && note.tags.length > 0 ? (
                 <span className="notes-result-tags">
                   {note.tags.map((tag) => (
-                    <span key={tag} className="notes-result-tag">
+                    <span key={tag} className="notes-result-tag" translate="no">
                       {tagIcon(tag)} {tag}
                     </span>
                   ))}
@@ -1714,18 +1703,14 @@ function NoteEditor({ store }: { store: NotesStore }) {
   const dirty = store((state) => state.dirty);
   const saveDisabled = store((state) => state.saveDisabled);
   const saveState = store((state) => state.saveState);
-  const deleteArmed = store((state) => state.deleteArmed);
   const error = store((state) => state.error);
   const setDraft = store((state) => state.setDraft);
   const setPreview = store((state) => state.setPreview);
   const openNote = store((state) => state.openNote);
-  const setDeleteArmed = store((state) => state.setDeleteArmed);
-  const resetDeleteArmed = store((state) => state.resetDeleteArmed);
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
   const titleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<HTMLElement | null>(null);
   const outlineListRef = useRef<HTMLOListElement | null>(null);
-  const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [outline, setOutline] = useState<OutlineEntry[]>([]);
   const [activeOutlineId, setActiveOutlineId] = useState<string | null>(null);
@@ -1793,7 +1778,6 @@ function NoteEditor({ store }: { store: NotesStore }) {
 
   useEffect(() => {
     return () => {
-      if (deleteTimer.current) clearTimeout(deleteTimer.current);
       if (copyTimer.current) clearTimeout(copyTimer.current);
     };
   }, []);
@@ -1923,17 +1907,6 @@ function NoteEditor({ store }: { store: NotesStore }) {
     document.addEventListener("selectionchange", sync);
     return () => document.removeEventListener("selectionchange", sync);
   }, [preview]);
-
-  const armedDelete = () => {
-    if (!deleteArmed) {
-      setDeleteArmed();
-      if (deleteTimer.current) clearTimeout(deleteTimer.current);
-      deleteTimer.current = setTimeout(() => resetDeleteArmed(), 3000);
-      return;
-    }
-    resetDeleteArmed();
-    void store.getState().deleteSelectedNote();
-  };
 
   const linkSuggestions = linkOpen
     ? snapshotNotes
@@ -2148,24 +2121,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
     </>
   );
 
-  const renderDeleteButton = (role?: string) => (
-    <ToolbarButton
-      label={deleteArmed ? t("Confirm delete") : t("Delete")}
-      icon={ICONS.trash}
-      className={`notes-delete${deleteArmed ? " notes-delete-armed" : ""}`}
-      variant="ui-button--danger"
-      role={role}
-      onClick={() => {
-        if (deleteArmed) setMoreOpen(false);
-        armedDelete();
-      }}
-    />
-  );
-
   return (
     <>
       {editorLocked && <p className="ui-muted" role="status">{t("Finishing the note operation. Editing will resume shortly.")}</p>}
     <section className="notes-editor" inert={editorLocked} aria-busy={editorLocked}>
+      <PageHeaderActions owner="com.zicode.notes" locked={editorLocked}>
       <div className="notes-editor-toolbar">
         {/* biome-ignore lint/a11y/useSemanticElements: ARIA group pattern preserved from the vanilla note tabs */}
         <div className="notes-editor-tabs" role="group" aria-label={t("Note view")}>
@@ -2248,11 +2208,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
                       ? t("Unsaved changes")
                       : ""}
               </span>
-              {renderDeleteButton()}
             </>
           )}
         </div>
       </div>
+      </PageHeaderActions>
       {isNarrow && moreOpen ? (
         // biome-ignore lint/a11y/useSemanticElements: popover group of action buttons; role=group is the closest generic landmark
         <div
@@ -2281,20 +2241,20 @@ function NoteEditor({ store }: { store: NotesStore }) {
           }}
         >
           {renderSecondaryActions("menuitem")}
-          {renderDeleteButton("menuitem")}
         </div>
       ) : null}
       {error ? (
         <div className="notes-error-banner" role="alert">
           {(error as Error & { code?: string }).code === "version_conflict" ? (
             <span className="notes-error-inline">
-              {t("This note changed elsewhere. Reload it before editing again.")}
+              {error.message}
               <button
                 type="button"
                 className="ui-button ui-button--ghost ui-button--sm"
-                onClick={() => void store.getState().selectNote(note)}
+                disabled={editorLocked}
+                onClick={() => void store.getState().reloadConflictedNote()}
               >
-                {t("Refresh")}
+                {t("Reload saved version")}
               </button>
             </span>
           ) : (
@@ -2365,11 +2325,6 @@ function NoteEditor({ store }: { store: NotesStore }) {
         tags={draftTags}
         onChange={(tags) => setDraft({ tags })}
       />
-      {note.updatedAt ? (
-        <p className="notes-edited-at">
-          {t("Last edited")}: {formatRelativeTime(note.updatedAt)}
-        </p>
-      ) : null}
       {note.source?.url ? (
         <div className="notes-source">
           <p>
@@ -2423,6 +2378,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
           <article
             ref={previewRef}
             className="notes-preview markdown-body"
+            translate="no"
             onClick={(event) => {
               const target = event.target as Element;
               const anchor = target.closest<HTMLAnchorElement>(
@@ -2528,6 +2484,7 @@ function NoteEditor({ store }: { store: NotesStore }) {
                     <button
                       type="button"
                       title={entry.text}
+                      translate="no"
                       aria-current={entry.id === activeOutlineId ? "location" : undefined}
                       onClick={() =>
                         document
@@ -2842,13 +2799,20 @@ function NoteEditor({ store }: { store: NotesStore }) {
                 <span className="notes-link-suggestion-icon" aria-hidden="true">
                   {suggestion.icon || DEFAULT_NOTE_ICON}
                 </span>
-                <span>{suggestion.title}</span>
+                <span translate="no">{suggestion.title}</span>
               </button>
             ))}
           </div>
         ) : null}
         </>
       )}
+      {note.updatedAt ? (
+        <footer className="notes-editor-footer">
+          <p className="notes-edited-at">
+            {t("Last edited")}: {formatRelativeTime(note.updatedAt)}
+          </p>
+        </footer>
+      ) : null}
       <NoteRelationshipStatus store={store} />
       {backlinks.length > 0 ? (
         <nav className="notes-backlinks" aria-label={t("Backlinks")}>
@@ -2860,10 +2824,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   type="button"
                   className="notes-backlink"
                   title={backlink.title}
+                  translate="no"
                   onClick={() => void openNote(backlink.notebookId, backlink.noteId)}
                 >
-                  <span className="notes-backlink-title">{backlink.title}</span>
-                  <span className="notes-backlink-kind">
+                  <span className="notes-backlink-title" translate="no">{backlink.title}</span>
+                  <span className="notes-backlink-kind" translate="yes">
                     {backlinkKindLabel(backlink.kind)}
                   </span>
                 </button>
@@ -2882,10 +2847,11 @@ function NoteEditor({ store }: { store: NotesStore }) {
                   type="button"
                   className="notes-backlink"
                   title={similar.title}
+                  translate="no"
                   onClick={() => void openNote(similar.notebookId, similar.noteId)}
                 >
-                  <span className="notes-backlink-title">{similar.title}</span>
-                  <span className="notes-backlink-kind">
+                  <span className="notes-backlink-title" translate="no">{similar.title}</span>
+                  <span className="notes-backlink-kind" translate="no">
                     {similar.sharedTags.join(", ")}
                   </span>
                 </button>

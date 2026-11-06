@@ -1,5 +1,6 @@
-// Mirrors src-tauri/src/plugin_output_types.rs. Unknown types never gain a file extension.
+// Guest output types plus the Host-only JSON report; unknown types gain no extension.
 export const OUTPUT_EXTENSIONS = Object.freeze({
+  "application/json": "json",
   "application/octet-stream": "bin",
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -38,5 +39,5 @@ export function isBinaryOutput(mime) {
 }
 
 export function isTextOutput(mime) {
-  return mime === "text/plain" || mime === "text/csv" || mime === "text/markdown" || mime === "text/html";
+  return mime === "text/plain" || mime === "text/csv" || mime === "text/markdown" || mime === "text/html" || mime === "application/json";
 }

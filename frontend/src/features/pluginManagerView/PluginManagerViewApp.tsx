@@ -285,7 +285,7 @@ export function PluginManagerViewApp({
         </div>
         {permissions.length > 0 ? (
           <div className="plugin-manager-permissions">
-            <strong>{t("Scene permissions")}</strong>
+            <strong>{t("Permissions")}</strong>
             {permissions.map((permission) => {
               const granted = plugin.permissions?.[permission.name] === true;
               return (
@@ -317,14 +317,13 @@ export function PluginManagerViewApp({
   return (
     <>
       <section className="plugin-main-hero">
-        <span className="plugin-main-kicker">{t("Application extensions")}</span>
+        <span className="plugin-main-kicker">{t("Plugins")}</span>
         <h1>{t("Plugin Manager")}</h1>
         <p>
           {t(
-            "Manage application plugins independently from Pi extensions. State and permissions are scoped to the current scene.",
+            "Install plugins, manage permissions, and enable the tools you need.",
           )}
         </p>
-        <p className="plugin-manager-scene">{`${t("Scene")}: ${sceneId}`}</p>
         {!canManagePlugins ? (
           <p>{t("Plugin management is available in the desktop app.")}</p>
         ) : null}

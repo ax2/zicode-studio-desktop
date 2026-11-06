@@ -59,7 +59,7 @@ describe("trusted file confirmation controls", () => {
       commit: vi.fn(() => new Promise(resolve => { release = resolve; })), cancel: vi.fn(async () => ({ cancellationRequested: true, executionFinished: false })),
       status: vi.fn(async () => ({ schemaVersion: 1, phase: "reading", executionFinished: false, cancellationRequested: true, contentRead: null })) };
     const options = setup(projectFiles);
-    [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project").click();
+    [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from Studio files").click();
     await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
     options.confirm.click();
     await vi.waitFor(() => expect(release).toBeTypeOf("function"));
@@ -87,7 +87,7 @@ describe("trusted file confirmation controls", () => {
       commit: vi.fn(async () => { throw new Error("timeout"); }), cancel: vi.fn(async () => ({})),
       status: vi.fn(async () => ({ schemaVersion: 1, phase: "ended", executionFinished: true, outcome: "published", contentRead: true })) };
     const options = setup(projectFiles);
-    [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project").click();
+    [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from Studio files").click();
     await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
     options.confirm.click();
     await vi.waitFor(() => expect(projectFiles.status).toHaveBeenCalledOnce());
@@ -132,7 +132,7 @@ describe("trusted file confirmation controls", () => {
     const projectFiles = { choose: vi.fn(async () => "中文.zip"), prepare: vi.fn(async () => ({ profile: "resource.local-file.draft1", grantId: id, owner, relativePath: "中文.zip", byteLength: 3, contentRead: false, confirmed: false })),
       commit: vi.fn(async () => ({ ...access, access, confirmed: true, profile: "resource.local-file.draft1", byteLength: 3 })), cancel: vi.fn(async () => ({})) };
     const options = setup(projectFiles);
-    const choose = [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from current project");
+    const choose = [...document.querySelectorAll("button")].find(button => button.textContent === "Choose from Studio files");
     choose.click();
     await vi.waitFor(() => expect(options.confirm.disabled).toBe(false));
     expect(document.body.textContent).toContain("中文.zip");

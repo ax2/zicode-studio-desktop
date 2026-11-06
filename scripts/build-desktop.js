@@ -50,6 +50,18 @@ console.log(
     : `[build-desktop] Building ${process.platform} bundles: ${bundles}`,
 );
 const buildArgs = local ? ["--debug", "--no-bundle"] : ["--bundles", bundles];
+if (local) {
+  // The offline WebView2 installer is only consumed by the NSIS install hook.
+  // Keep all runtime/UI preparation while allowing an installed Windows runtime
+  // to run a local build without downloading a separate installer.
+  const config = JSON.parse(fs.readFileSync(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
+  const beforeBuildCommand = config.build.beforeBuildCommand
+    .split(/\s*&&\s*/)
+    .filter((step) => step !== "bun run fetch:webview2")
+    .join(" && ");
+  buildArgs.push("--config", JSON.stringify({ build: { beforeBuildCommand } }));
+}
+
 // A local no-bundle build already has the Shell DLL beside the EXE in target/debug.
 // Bundling it again tries to overwrite a file Explorer may have loaded.
 if (process.platform === "win32" && !local) buildArgs.push("--config", "src-tauri/tauri.shell.windows.conf.json");

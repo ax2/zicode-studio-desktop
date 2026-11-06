@@ -1,5 +1,7 @@
 export type SettingsTabKey =
   | "general"
+  | "system"
+  | "updates"
   | "extensions"
   | "usage"
   | "configuration"
@@ -15,6 +17,8 @@ export interface SettingsTabDef {
 
 export const SETTINGS_TABS: SettingsTabDef[] = [
   { key: "general", label: "General" },
+  { key: "system", label: "System information" },
+  { key: "updates", label: "Software updates" },
   { key: "extensions", label: "Extensions" },
   { key: "usage", label: "Usage" },
   { key: "configuration", label: "Configuration" },

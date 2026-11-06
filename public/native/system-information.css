@@ -1,0 +1,38 @@
+.system-information { display: grid; gap: var(--space-4); }
+.system-info-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.system-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: var(--space-4); }
+.system-information .ui-card { min-width: 0; padding: var(--space-4); }
+.system-information dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); margin-top: var(--space-3); }
+.system-information dt { color: var(--text-secondary); }
+.system-information dd { margin: 0; font-variant-numeric: tabular-nums; }
+.system-info-card-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+.system-info-value { color: var(--text-primary); font-size: var(--font-size-2xl); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.system-info-cpu-name { overflow-wrap: anywhere; margin-block: var(--space-2); }
+.system-info-history { margin: var(--space-3) 0; }
+.system-info-history svg { display: block; width: 100%; overflow: visible; }
+.system-info-chart-scale, .system-info-history figcaption { display: flex; justify-content: space-between; color: var(--text-dim); font-size: var(--font-size-sm); }
+.system-info-grid-line { stroke: var(--border); stroke-width: 1; }
+.system-info-trend { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.system-info-history--temperature .system-info-trend { stroke: var(--warning); }
+.system-info-history--frequency .system-info-trend { stroke: var(--success); }
+.system-info-chart-empty { fill: var(--text-dim); font-size: var(--font-size-sm); }
+.system-info-memory-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: center; gap: var(--space-4); }
+.system-info-memory-layout dl { display: block; }
+.system-info-memory-layout dd { margin-bottom: var(--space-3); }
+.system-info-memory-ring { width: 100%; }
+/* SVG strokes and viewBox values below are chart geometry. */
+.system-info-ring-track, .system-info-ring-used { fill: none; stroke-width: 10; }
+.system-info-ring-track { stroke: var(--border); }
+.system-info-ring-used { stroke: var(--accent); }
+.system-info-ring-value { fill: var(--text-primary); font-size: var(--font-size-2xl); font-weight: 650; }
+.system-info-ring-caption { fill: var(--text-secondary); font-size: var(--font-size-sm); }
+.system-info-capacity { width: 100%; display: block; margin-block: var(--space-3); }
+.system-info-capacity-track { fill: var(--border); }
+.system-info-capacity-used { fill: var(--accent); }
+.system-info-temperature-controls { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.system-info-temperature-controls .ui-button { justify-self: start; }
+.system-info-disk { min-width: 0; }
+
+@media (max-width: 1050px) {
+  .system-info-overview { grid-template-columns: minmax(0, 1fr); }
+}

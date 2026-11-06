@@ -86,7 +86,7 @@ function ArticlesNav({ store }: { store: ArticlesStore }) {
                 className={`articles-item${current?.slug === article.slug ? " active" : ""}`}
                 onClick={() => void store.getState().open(article.slug)}
               >
-                <span className="articles-item-title">{article.title || article.slug}</span>
+                <span className="articles-item-title" translate="no">{article.title || article.slug}</span>
                 {article.wechatPublishId ? (
                   <span className="articles-item-badge articles-item-badge--published">
                     {t("Published")}
@@ -284,6 +284,7 @@ function ArticlesMain({
         {preview ? (
           <div
             className="markdown-body articles-preview"
+            translate="no"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: renderMarkdown escapes HTML before returning the preview
             dangerouslySetInnerHTML={{ __html: renderMarkdown(draftMarkdown) }}
           />

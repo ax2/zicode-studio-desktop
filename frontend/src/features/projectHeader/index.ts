@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -35,7 +36,8 @@ export async function setupProjectHeader({
   }
   if (!info) return;
 
-  if (workspaceEl && info.path) {
+  if (workspaceEl && !MULTI_PROJECT_UI_ENABLED) { workspaceEl.classList.add("hidden"); workspaceEl.removeAttribute("title"); workspaceEl.replaceChildren(); }
+  if (MULTI_PROJECT_UI_ENABLED && workspaceEl && info.path) {
     const path = info.path;
     const root = createRoot(workspaceEl);
     flushSync(() => {

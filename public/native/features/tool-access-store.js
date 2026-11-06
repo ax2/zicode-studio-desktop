@@ -14,6 +14,10 @@ function validate(access) {
 export function createToolAccessStore(control) {
   return {
     read: async scope => validate((await control.toolAccess(scope)).access),
-    mutate: async (scope, mutation) => validate((await control.toolAccess(scope, mutation)).access),
+    mutate: async (scope, mutation) => {
+      const access = validate((await control.toolAccess(scope, mutation)).access);
+      if (mutation.kind === "favoriteSet") window.dispatchEvent(new Event("zicode:tool-access-changed"));
+      return access;
+    },
   };
 }

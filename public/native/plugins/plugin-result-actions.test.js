@@ -9,7 +9,7 @@ const scope = {
   capabilityId: "echo",
 };
 const savedId = "22222222-2222-4222-8222-222222222222";
-function setup(locale = "zh-CN", onOpenSaved) {
+function setup(locale = "zh-CN", onOpenSaved, options = {}) {
   setLocale(locale);
   document.body.replaceChildren();
   let target = "workspace";
@@ -32,6 +32,7 @@ function setup(locale = "zh-CN", onOpenSaved) {
     gateway,
     isCurrent: (candidate) => candidate?.workspaceId === target,
     onOpenSaved,
+    ...options,
   });
   actions.show({ resultRef: { resultId: "result" } }, scope);
   return {
@@ -79,6 +80,71 @@ it("shows model text when Host refuses result capture", () => {
   }, { ...scope, capabilityId: "model.generate.v1" });
   expect(document.body.textContent).toContain("Generated text");
   expect(document.body.textContent).toContain("result_capture_unavailable");
+  expect(document.querySelector('[role="status"]')?.textContent).toContain("Tool completed");
+  expect(document.querySelector("details").open).toBe(false);
+});
+
+it("keeps one source result view and explains capture capacity without calling it a generation failure", () => {
+  const { actions, gateway } = setup("en", undefined, { sourceResultDisplayed: true });
+  const text = "😀".repeat(25600);
+  actions.show({ result: { ok: true, data: { text } }, resultCaptureError: { code: "result_budget_exceeded" } }, scope);
+  expect(document.querySelector("pre")).toBeNull();
+  const notice = document.querySelector('[role="status"]');
+  expect(notice.textContent).toContain("Tool completed");
+  expect(notice.textContent).toContain("current capacity");
+  expect(notice.textContent).not.toContain("result_budget_exceeded");
+  expect(document.querySelector("details").open).toBe(false);
+  expect(document.querySelector("details").textContent).toContain("result_budget_exceeded");
+  expect(document.querySelector("button")).toBeNull();
+  expect(gateway.prepareSave).not.toHaveBeenCalled();
+  expect(gateway.commitSave).not.toHaveBeenCalled();
+  actions.clear();
+  expect(document.querySelector('[role="status"]')).toBeNull();
+});
+
+it("preserves a standalone result fallback and localizes the capacity notice", () => {
+  const { actions } = setup();
+  actions.show({ result: { ok: true, data: { text: "完整文本" } }, resultCaptureError: { code: "result_budget_exceeded" } }, scope);
+  expect(document.querySelector("pre").textContent).toBe("完整文本");
+  expect(document.querySelector('[role="status"]').textContent).toContain("当前可保存或转交的容量限制");
+  expect(document.querySelector("summary").textContent).toBe("技术详情");
+});
+
+it("explains unsupported formats without exposing Host messages or offering a write", () => {
+  const { actions, gateway } = setup("en");
+  actions.show({ result: { ok: true, data: { text: "output" } }, resultCaptureError: { code: "result_profile_unsupported", message: "private source detail" } }, scope);
+  expect(document.querySelector('[role="status"]').textContent).toContain("format cannot be saved");
+  expect(document.body.textContent).not.toContain("private source detail");
+  expect(gateway.commitSave).not.toHaveBeenCalled();
+});
+
+it("updates only the notice on language changes and preserves expanded details and result text", () => {
+  const { actions } = setup();
+  actions.show({ result: { ok: true, data: { text: "unchanged output" } }, resultCaptureError: { code: "result_budget_exceeded" } }, scope);
+  const details = document.querySelector("details");
+  details.open = true;
+  setLocale("en");
+  expect(document.querySelector('[role="status"]').textContent).toContain("current capacity");
+  expect(document.querySelector("summary").textContent).toBe("Technical details");
+  expect(document.querySelector("details")).toBe(details);
+  expect(details.open).toBe(true);
+  expect(document.querySelector("pre").textContent).toBe("unchanged output");
+  setLocale("zh-CN");
+  expect(document.querySelector("summary").textContent).toBe("技术详情");
+  expect(details.open).toBe(true);
+  actions.destroy();
+});
+
+it("detaches notice language listeners on replacement, clear and destruction", () => {
+  const { actions } = setup("en");
+  const response = { result: { ok: true, data: { text: "result" } }, resultCaptureError: { code: "result_budget_exceeded" } };
+  for (const cleanup of [() => actions.show({ resultRef: { resultId: "new" } }, scope), () => actions.clear(), () => actions.destroy()]) {
+    actions.show(response, scope);
+    const notice = document.querySelector('[role="status"]');
+    cleanup(); setLocale("zh-CN");
+    expect(notice.textContent).toContain("current capacity");
+    setLocale("en");
+  }
 });
 
 it("previews an explicitly captured JSON object without treating it as plain text", async () => {
@@ -180,7 +246,7 @@ it("automatically recovers a saved result by read-only status and opens it only 
   gateway.commitSave.mockRejectedValueOnce(new Error("response lost"));
   gateway.saveStatus.mockResolvedValueOnce({ schemaVersion: 1, status: "saved", artifactId: savedId });
   click("Preview save"); await vi.waitFor(() => expect(document.querySelector("pre")).toBeTruthy());
-  click("Confirm save"); await vi.waitFor(() => expect(document.body.textContent).toContain("Verified saved artifact"));
+  click("Confirm save"); await vi.waitFor(() => expect(document.body.textContent).toContain("Verified saved result"));
   expect(gateway.saveStatus).toHaveBeenCalledWith(scope, "grant");
   expect(gateway.commitSave).toHaveBeenCalledOnce();
   expect(open).not.toHaveBeenCalled();
@@ -218,7 +284,7 @@ it("ignores automatic save-status recovery after the workspace changes", async (
   switchTarget();
   resolveStatus({ schemaVersion: 1, status: "saved", artifactId: savedId });
   await Promise.resolve(); await Promise.resolve();
-  expect(document.body.textContent).not.toContain("Verified saved artifact");
+  expect(document.body.textContent).not.toContain("Verified saved result");
   expect(open).not.toHaveBeenCalled();
   expect(gateway.commitSave).toHaveBeenCalledOnce();
 });

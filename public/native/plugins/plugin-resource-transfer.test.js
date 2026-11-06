@@ -60,7 +60,7 @@ describe("trusted resource transfer", () => {
     }));
     await f.click("Run receiving tool");
     expect(f.container.textContent).toContain("Tool reported an error. Inputs are kept and no result was saved.");
-    expect(f.container.textContent).not.toContain("Receiving tool finished. Results have not been saved.");
+    expect(f.container.textContent).not.toContain("Tool finished. Review the result and save any output files explicitly.");
     expect(f.container.textContent).toContain("Run receiving tool");
     expect(f.onReceiverExecuted).toHaveBeenCalledOnce();
     f.controller.destroy();
@@ -107,7 +107,7 @@ describe("trusted resource transfer", () => {
     expect(f.gateway.prepareResourceTransfer.mock.calls[0][1]).toMatchObject({ pluginId: receiver.pluginId, capabilityId: receiver.capabilityId });
     expect(f.gateway.invokeResourceCall).toHaveBeenCalledOnce();
     expect(f.container.textContent).toContain('"width": 4');
-    expect(f.container.textContent).toContain("Results have not been saved");
+    expect(f.container.textContent).toContain("Tool finished. Review the result and save any output files explicitly.");
     f.controller.destroy();
   });
 

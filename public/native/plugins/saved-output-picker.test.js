@@ -16,7 +16,7 @@ function fixture() {
   let current = true; const onResource = vi.fn();
   const controller = createPluginResourceSelection({ container: document.querySelector("main"), plugin: { id: "receiver", name: "Receiver", version: "2", capabilities: [{ id: "consume", title: "Consume" }] }, target: { instanceId: "r", sessionId: "s", sceneId: "programming", workspaceId: "ws" }, gateway, isCurrent: () => current, onResource });
   const button = name => [...document.querySelectorAll("button")].find(b => b.textContent === name);
-  async function select() { button("Use a saved project file").click(); await vi.waitFor(() => expect(button("Select saved file")).toBeTruthy()); button("Select saved file").click(); }
+  async function select() { button("Use a saved file").click(); await vi.waitFor(() => expect(button("Select saved file")).toBeTruthy()); button("Select saved file").click(); }
   return { gateway, savedOutputs, onResource, controller, button, select, switchTarget: () => { current = false; } };
 }
 afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
@@ -48,11 +48,11 @@ describe("saved project snapshot input", () => {
     if (action === "cancel") f.button("Cancel file sharing").click(); else if (action === "destroy") f.controller.destroy(); else f.switchTarget();
     if (action !== "switch") expect(signal.aborted).toBe(true);
     if (action === "switch") f.controller.destroy();
-    finish(new Uint8Array([1, 2, 3]).buffer); await vi.waitFor(() => expect(f.button("Use a saved project file")?.disabled ?? false).toBe(false));
+    finish(new Uint8Array([1, 2, 3]).buffer); await vi.waitFor(() => expect(f.button("Use a saved file")?.disabled ?? false).toBe(false));
     expect(f.gateway.prepareResource).not.toHaveBeenCalled(); expect(f.onResource).not.toHaveBeenCalled(); f.controller.destroy();
   });
   it("rejects wrong-project or unknown metadata without offering a file", async () => {
     const f = fixture(); f.savedOutputs.list.mockResolvedValue({ schemaVersion: 1, profile: "resource.library.draft1", workspaceId: "foreign", items: [item] });
-    f.button("Use a saved project file").click(); await vi.waitFor(() => expect(document.body.textContent).toContain("Saved files could not be loaded")); expect(f.button("Select saved file")).toBeUndefined(); f.controller.destroy();
+    f.button("Use a saved file").click(); await vi.waitFor(() => expect(document.body.textContent).toContain("Saved files could not be loaded")); expect(f.button("Select saved file")).toBeUndefined(); f.controller.destroy();
   });
 });

@@ -15,8 +15,10 @@ mod lifecycle;
 mod output;
 mod slots;
 struct Execution {
+    profile: crate::plugin_worker::resource_output::Profile,
     result: Value,
     resources: Option<Value>,
+    report_resource: Option<Value>,
 }
 type Observer = Arc<dyn Fn(&'static str, u32) + Send + Sync>;
 pub(crate) struct Workers {
@@ -324,7 +326,8 @@ async fn invoke_request(
                 "ok":result.is_ok() && business_error.is_none(),"errorCode":error.or(business_error)}));
         result.map(|execution| {
             let mut response=json!({"schemaVersion":1,"operationId":operation_id,"source":{"pluginId":request.access.owner.plugin_id,"packageVersion":package_version,"capabilityId":request.access.owner.capability_id,"contentVersion":request.access.content_version,"profile":resource_profile},"result":execution.result});
-            if let Some(resources)=execution.resources { response["resources"]=resources; response["outputProfile"]=json!(crate::plugin_worker::resource_output::PROFILE); }
+            if let Some(resources)=execution.resources { response["resources"]=resources; response["outputProfile"]=json!(execution.profile.name()); }
+            if let Some(report)=execution.report_resource { response["reportResource"]=report; }
             Json(response)
         })
     }).await.map_err(|_|rejected("resource_execution_failed"))?
@@ -361,7 +364,7 @@ fn execute(
         *resource_profile = crate::plugin_resource_execution::HOST_TEXT_INPUT_PROFILE.to_owned();
         return host_text::execute(state, request, cancelled, package_version);
     }
-    let (module, scene, binary, extended_output_types, output_contract, _profile_lease) = {
+    let (module, scene, output_profile, extended_output_types, output_contract, _profile_lease) = {
         let registry = state
             .plugins
             .lock()
@@ -403,18 +406,25 @@ fn execute(
         let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
             capability.execution_profile.as_deref(),
         );
-        if capability.execution_profile.is_some() && !image_resize_profile {
+        let regex_replace_profile =
+            crate::plugin_resource_regex::selected(capability.execution_profile.as_deref());
+        let metadata_profile = crate::plugin_resource_execution::metadata::selected(capability.execution_profile.as_deref());
+        let markdown_profile = crate::plugin_resource_execution::markdown::selected(capability.execution_profile.as_deref());
+        let digest_profile = crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref());
+        if capability.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile
+        {
             return Err(rejected("resource_execution_profile_unsupported"));
         }
         if request.additional_accesses.len() + 1 > capability.resource_input_max.unwrap_or(1) {
             return Err(rejected("resource_profile_unsupported"));
         }
-        let profile_lease = if image_resize_profile {
+        // Both negotiated heavy profiles share the same global memory reservation pool.
+        let profile_lease = if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile {
             let call_lease = state
                 .plugin_resource_workers
                 .image_profile_slots
                 .clone()
-                .try_acquire_owned()
+                .try_acquire_many_owned(if metadata_profile {2} else {1})
                 .map_err(|_| rejected("resource_worker_busy"))?;
             let plugin_lease = state
                 .plugin_resource_workers
@@ -438,7 +448,8 @@ fn execute(
         }
         let module = plugin_results::module_snapshot::read(&path)
             .map_err(|_| rejected("resource_module_unavailable"))?;
-        let binary = output::selection(&plugin.manifest.runtime)?;
+        let output_profile = crate::plugin_worker::resource_output::Profile::negotiate(plugin.manifest.runtime.get("resourceOutputProfile").and_then(Value::as_str),capability.execution_profile.as_deref()).map_err(|_|rejected("resource_output_profile_unsupported"))?;
+        output::selection(&plugin.manifest.runtime)?;
         let extended_output_types = plugin
             .manifest
             .required_profiles
@@ -447,12 +458,14 @@ fn execute(
         (
             module,
             target.scene_id,
-            binary,
+            output_profile,
             extended_output_types,
             capability,
             profile_lease,
         )
     };
+    let binary=output_profile.is_some();
+    let output_profile=output_profile.unwrap_or(crate::plugin_worker::resource_output::Profile::Draft1);
     // This proof incorporates the captured module bytes, not a later mutable file read.
     let proof = identity_module(state, owner, None, Some(&module))?;
     for access in request.accesses() {
@@ -482,6 +495,24 @@ fn execute(
     let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
         output_contract.execution_profile.as_deref(),
     );
+    let regex_replace_profile =
+        crate::plugin_resource_regex::selected(output_contract.execution_profile.as_deref());
+    let markdown_profile = crate::plugin_resource_execution::markdown::selected(output_contract.execution_profile.as_deref());
+    let digest_profile = crate::plugin_resource_execution::file_digest::selected(output_contract.execution_profile.as_deref());
+    if digest_profile {
+        crate::plugin_resource_execution::file_digest::validate_resources(&resources.iter().map(|r| r.bytes.len()).collect::<Vec<_>>()).map_err(rejected)?;
+    }
+    if markdown_profile {
+        let inputs = resources.iter().map(|resource| (resource.descriptor.mime_type.as_str(), resource.bytes.len())).collect::<Vec<_>>();
+        crate::plugin_resource_execution::markdown::validate_resources(&inputs).map_err(rejected)?;
+    }
+    if regex_replace_profile {
+        let metadata = resources
+            .iter()
+            .map(|r| (r.descriptor.mime_type.as_str(), r.bytes.len()))
+            .collect::<Vec<_>>();
+        crate::plugin_resource_regex::validate_resources(&metadata).map_err(rejected)?;
+    }
     if image_resize_profile {
         if request.accesses().count() != 1 || resources.len() != 1 {
             return Err(rejected("resource_profile_unsupported"));
@@ -506,13 +537,13 @@ fn execute(
         "workerPath":"","workerKind":"wasi","pluginId":owner.plugin_id,"capabilityId":owner.capability_id,
         "sceneId":scene,"input":request.input
     });
-    if image_resize_profile {
-        worker_request["executionProfile"] =
-            json!(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE);
+    let metadata_profile=crate::plugin_resource_execution::metadata::selected(output_contract.execution_profile.as_deref());
+    if image_resize_profile || regex_replace_profile || metadata_profile || markdown_profile || digest_profile {
+        worker_request["executionProfile"] = json!(output_contract.execution_profile);
     }
     if binary {
         worker_request["resourceOutputProfile"] =
-            json!(crate::plugin_worker::resource_output::PROFILE);
+            json!(output_profile.name());
     }
     let frame = crate::plugin_worker::resource_input::encode_module_snapshot(
         worker_request,
@@ -562,13 +593,21 @@ fn execute(
             worker_process::run_observed(
                 command,
                 frame,
-                Duration::from_secs(if image_resize_profile {
+                Duration::from_secs(if metadata_profile {
+                    crate::plugin_resource_execution::metadata::TIMEOUT_SECS
+                } else if markdown_profile {
+                    crate::plugin_resource_execution::markdown::TIMEOUT_SECS
+                } else if image_resize_profile {
                     crate::plugin_resource_execution::IMAGE_RESIZE_TIMEOUT_SECS
+                } else if regex_replace_profile {
+                    crate::plugin_resource_regex::TIMEOUT_SECS
+                } else if digest_profile {
+                    crate::plugin_resource_execution::file_digest::TIMEOUT_SECS
                 } else {
                     5
                 }),
                 if binary {
-                    crate::plugin_worker::resource_output::MAX_FRAME
+                    output_profile.max_frame()
                 } else {
                     1024 * 1024 + 64 * 1024
                 },
@@ -603,8 +642,10 @@ fn execute(
             cancelled,
             &output_contract,
             output::Profiles {
+                output: output_profile,
                 extended_output_types,
                 image_resize: image_resize_profile,
+                source_bytes: &resources.iter().map(|resource| resource.bytes.as_slice()).collect::<Vec<_>>(),
             },
         );
     }
@@ -628,8 +669,10 @@ fn execute(
     }
     output::validate_result(&output_contract, result)?;
     Ok(Execution {
+        profile: output_profile,
         result: result.clone(),
         resources: None,
+        report_resource: None,
     })
 }
 

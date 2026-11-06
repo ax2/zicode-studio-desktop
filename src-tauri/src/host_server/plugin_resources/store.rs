@@ -1,10 +1,12 @@
 use super::*;
 const MAX_RESOURCE: usize = 32 * 1024 * 1024;
 const MAX_RESERVED: usize = 128 * 1024 * 1024;
+const MAX_TOTAL_RESERVED: usize = 256 * 1024 * 1024;
 const MAX_RECORDS: usize = 32;
 const MAX_CHUNKS: usize = MAX_RESOURCE.div_ceil(MAX_CHUNK);
 
 struct Record {
+    output_profile: crate::plugin_worker::resource_output::Profile,
     owner: Owner,
     proof: String,
     mime: String,
@@ -28,6 +30,7 @@ mod tests;
 
 #[derive(Default)]
 pub(crate) struct Store {
+    pub(super) exports: super::export::Grants,
     pub(super) file_imports: local_file::Grants,
     pub(super) directory_imports: local_directory::Grants,
     records: HashMap<String, Record>,
@@ -35,12 +38,14 @@ pub(crate) struct Store {
     saves: HashMap<String, save::SaveGrant>,
 }
 mod outputs;
+mod export;
 mod save;
 mod transfer;
 pub(in crate::host_server::plugin_resources) use outputs::Pending;
 
 impl Store {
     pub(in crate::host_server) fn invalidate_runtime(&mut self, runtime_id: &str) {
+        self.exports.invalidate_runtime(runtime_id);
         self.file_imports.invalidate_runtime(runtime_id);
         self.directory_imports.invalidate_runtime(runtime_id);
         self.records
@@ -154,7 +159,7 @@ impl Store {
 
     pub(super) fn prepare(&mut self, request: Prepare, proof: String) -> Result<Value, ApiError> {
         self.prune();
-        if crate::plugin_output_types::extension(&request.mime_type).is_none()
+        if request.mime_type == "application/json" || crate::plugin_output_types::extension(&request.mime_type).is_none()
             || request.content_version.len() != 64
             || !request
                 .content_version
@@ -165,8 +170,8 @@ impl Store {
         }
         if request.byte_length > MAX_RESOURCE
             || self.records.len() >= MAX_RECORDS
-            || self.records.values().map(|r| r.expected).sum::<usize>() + request.byte_length
-                > MAX_RESERVED
+            || request.byte_length > MAX_RESERVED.saturating_sub(self.records.values().filter(|r|r.output_profile==crate::plugin_worker::resource_output::Profile::Draft1).map(|r|r.expected).sum::<usize>())
+            || request.byte_length > MAX_TOTAL_RESERVED.saturating_sub(self.records.values().map(|r|r.expected).sum::<usize>())
         {
             return Err(rejected("resource_budget_exceeded"));
         }
@@ -174,6 +179,7 @@ impl Store {
         self.records.insert(
             id.clone(),
             Record {
+                output_profile: crate::plugin_worker::resource_output::Profile::Draft1,
                 owner: request.owner,
                 proof,
                 mime: request.mime_type,

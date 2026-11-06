@@ -49,3 +49,10 @@ does not remove those files when packaging.
 The NSIS installer carries a SHA-256-pinned Microsoft Evergreen Standalone
 Installer and invokes it only when WebView2 is absent. Installation does not
 depend on a network bootstrapper. Microsoft's runtime license applies.
+
+## tray-icon Windows compatibility backport
+
+- Source: <https://github.com/tauri-apps/tray-icon/tree/tray-icon-v0.23.1>
+- Version: 0.23.1 with a local NOTIFYICONDATAW size initialization correction.
+- License: MIT OR Apache-2.0; original license files retained under `vendor/tray-icon/`.
+- Patch provenance and removal condition: `vendor/tray-icon/STUDIO-PATCH.md`.

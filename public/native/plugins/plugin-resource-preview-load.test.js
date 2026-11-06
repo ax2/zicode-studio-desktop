@@ -10,6 +10,33 @@ async function fixture(bytes = new TextEncoder().encode("<script>local text</scr
 }
 afterEach(() => vi.unstubAllGlobals());
 describe("bounded parent preview reads", () => {
+  it("reads and hashes the entire negotiated 16MiB Markdown HTML without increasing ordinary limits", async () => {
+    const bytes = new TextEncoder().encode("a".repeat(16 * 1024 * 1024));
+    const c = await fixture(bytes, "text/html");
+    const result = await loadResourcePreview({ ...c, executionProfile: "resource.wasi.markdown.v1" });
+    expect(result.text).toBe("a".repeat(bytes.length)); expect(c.read).toHaveBeenCalledTimes(512);
+    c.read.mockClear();
+    for (const profile of [undefined, "resource.wasi.markdown.v2"]) await expect(loadResourcePreview({ ...c, executionProfile: profile })).rejects.toThrow();
+    expect(c.read).not.toHaveBeenCalled();
+    c.resource.byteLength++; await expect(loadResourcePreview({ ...c, executionProfile: "resource.wasi.markdown.v1" })).rejects.toThrow();
+  }, 15000);
+  it("reads the complete 2MiB result only for the exact regex profile and retains its upper bound", async () => {
+    const bytes = new TextEncoder().encode("🙂".repeat(524288));
+    const c = await fixture(bytes);
+    const result = await loadResourcePreview({ ...c, executionProfile: "resource.wasi.regex.replace.v1" });
+    // Compare the whole decoded value directly. Deep-comparing two million array
+    // entries spends the test deadline in the assertion rather than the preview.
+    expect(result.text).toBe("🙂".repeat(524288));
+    expect(c.read).toHaveBeenCalledTimes(64);
+    for (const profile of [undefined, "resource.wasi.regex.replace.v2", "compute.wasi.v1"]) {
+      c.read.mockClear();
+      await expect(loadResourcePreview({ ...c, executionProfile: profile })).rejects.toThrow();
+      expect(c.read).not.toHaveBeenCalled();
+    }
+    c.resource.byteLength++;
+    await expect(loadResourcePreview({ ...c, executionProfile: "resource.wasi.regex.replace.v1" })).rejects.toThrow();
+    expect(c.read).not.toHaveBeenCalled();
+  });
   it("verifies full digest and decodes plain UTF-8 without rendering HTML", async () => {
     const c = await fixture();
     expect(await loadResourcePreview(c)).toEqual({ kind: "text", text: "<script>local text</script>" });

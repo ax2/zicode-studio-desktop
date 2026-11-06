@@ -1,6 +1,8 @@
 //! Explicit isolated desktop profile for native acceptance and disposable work.
 //! This redirects Studio state; it is not an OS sandbox for user-selected tools.
 
+mod persistent_profile;
+
 use fs2::FileExt;
 use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions};
@@ -73,7 +75,11 @@ pub fn configure_pi_child(command: &mut std::process::Command) {
 }
 
 pub fn initialize(arguments: impl IntoIterator<Item = OsString>) -> Result<(), String> {
-    if let Some(path) = parse(arguments)? {
+    let path = match parse(arguments)? {
+        Some(explicit) => Some(explicit),
+        None => persistent_profile::selected()?,
+    };
+    if let Some(path) = path {
         let profile = prepare(&path)?;
         PROFILE
             .set(profile)
@@ -182,10 +188,10 @@ fn prepare(path: &Path) -> Result<Profile, String> {
 mod tests {
     use super::*;
 
-    struct Fixture(PathBuf);
+    pub(super) struct Fixture(PathBuf);
 
     impl Fixture {
-        fn new() -> Self {
+        pub(super) fn new() -> Self {
             let parent = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.cache/task-scratch");
             fs::create_dir_all(&parent).unwrap();
             let path = parent
@@ -197,7 +203,7 @@ mod tests {
             Self(path)
         }
 
-        fn path(&self) -> &Path {
+        pub(super) fn path(&self) -> &Path {
             &self.0
         }
     }

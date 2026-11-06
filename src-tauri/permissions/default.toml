@@ -5,6 +5,11 @@
 # the [default] set, which the capability references.
 
 [[permission]]
+identifier = "allow-set-desktop-tool-shortcuts"
+description = "Allow a trusted workspace to project up to eight navigation-only tool shortcuts into the native tray."
+commands.allow = ["set_desktop_tool_shortcuts"]
+
+[[permission]]
 identifier = "allow-open-desktop-tool-center"
 description = "Allow a trusted workspace to restore the independent Host-owned tool center window."
 commands.allow = ["open_desktop_tool_center"]
@@ -229,11 +234,41 @@ identifier = "allow-select-project-resource-directory"
 description = "Allow a trusted workspace window to select a directory inside its current registered project; selection does not enumerate entries."
 commands.allow = ["select_project_resource_directory"]
 
+[[permission]]
+identifier = "allow-select-resource-export"
+description = "Allow a trusted workspace to select a new local export destination; selection alone never writes."
+commands.allow = ["select_resource_export"]
+
+[[permission]]
+identifier = "allow-commit-resource-export"
+description = "Allow explicit confirmation of a window-bound output export without replacing existing files."
+commands.allow = ["commit_resource_export"]
+
+[[permission]]
+identifier = "allow-cancel-resource-export"
+description = "Allow discarding an uncommitted native export choice."
+commands.allow = ["cancel_resource_export"]
+
+[[permission]]
+identifier = "allow-verify-resource-export"
+description = "Allow read-only verification of an explicitly saved local export."
+commands.allow = ["verify_resource_export"]
+
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+  "allow-select-result-text-export",
+  "allow-commit-result-text-export",
+  "allow-cancel-result-text-export",
+  "allow-verify-result-text-export",
+
+  "allow-select-resource-export",
+  "allow-commit-resource-export",
+  "allow-cancel-resource-export",
+  "allow-verify-resource-export",
   "allow-open-desktop-tool-center",
   "allow-set-desktop-tray-locale",
+  "allow-set-desktop-tool-shortcuts",
   "allow-get-project-resource-entry",
   "allow-get-project-resource-entries",
   "allow-get-project-directory-entry",
@@ -261,6 +296,19 @@ permissions = [
   "allow-switch-window-workspace",
   "allow-open-session-in-project",
   "allow-ensure-agent-inbox-session",
+  "allow-get-system-information",
+  "allow-browser-control",
+  "allow-browser-capture-page",
+  "allow-browser-get-state",
+  "allow-browser-set-startup-mode",
+  "allow-browser-save-session",
+  "allow-browser-bookmarks",
+  "allow-browser-history",
+  "allow-start-system-temperature-monitor",
+  "allow-stop-system-temperature-monitor",
+  "allow-check-desktop-update",
+  "allow-install-desktop-update",
+  "allow-restart-desktop-after-update",
   "allow-check-beta-update",
   "allow-install-beta-update",
   "allow-list-scene-profiles",
@@ -302,3 +350,89 @@ commands.allow = ["get_project_directory_entry"]
 identifier = "allow-desktop-entry-mode"
 description = "Allow a trusted workspace window to identify its explicit desktop launch mode."
 commands.allow = ["desktop_entry_mode"]
+
+
+[[permission]]
+identifier = "allow-select-result-text-export"
+description = "Allow trusted workspace select of an exact captured text result using a native-selected create-new destination."
+commands.allow = ["select_result_text_export"]
+
+[[permission]]
+identifier = "allow-commit-result-text-export"
+description = "Allow trusted workspace commit of an exact captured text result using a native-selected create-new destination."
+commands.allow = ["commit_result_text_export"]
+
+[[permission]]
+identifier = "allow-cancel-result-text-export"
+description = "Allow trusted workspace cancel of an exact captured text result using a native-selected create-new destination."
+commands.allow = ["cancel_result_text_export"]
+
+[[permission]]
+identifier = "allow-verify-result-text-export"
+description = "Allow trusted workspace verify of an exact captured text result using a native-selected create-new destination."
+commands.allow = ["verify_result_text_export"]
+
+[[permission]]
+identifier = "allow-start-system-temperature-monitor"
+description = "Allow a trusted workspace to request Windows elevation for its CPU-only sensor reader using an already installed LibreHardwareMonitor and PawnIO."
+commands.allow = ["start_system_temperature_monitor"]
+
+[[permission]]
+identifier = "allow-stop-system-temperature-monitor"
+description = "Allow a trusted workspace to stop only Studio's own CPU sensor reader."
+commands.allow = ["stop_system_temperature_monitor"]
+
+[[permission]]
+identifier = "allow-get-system-information"
+description = "Read local CPU, memory, fixed disks and available hardware temperature sensors."
+commands.allow = ["get_system_information"]
+
+[[permission]]
+identifier = "allow-check-desktop-update"
+description = "Allow the trusted desktop window to check desktop update using the configured signed feed."
+commands.allow = ["check_desktop_update"]
+
+[[permission]]
+identifier = "allow-install-desktop-update"
+description = "Allow the trusted desktop window to install desktop update using the configured signed feed."
+commands.allow = ["install_desktop_update"]
+
+[[permission]]
+identifier = "allow-restart-desktop-after-update"
+description = "Allow the trusted desktop window to restart desktop after update using the configured signed feed."
+commands.allow = ["restart_desktop_after_update"]
+
+[[permission]]
+identifier = "allow-browser-get-state"
+description = "Read browser metadata for the calling trusted workspace window."
+commands.allow = ["browser_get_state"]
+
+[[permission]]
+identifier = "allow-browser-set-startup-mode"
+description = "Persist the browser or workspace startup preference from trusted desktop chrome."
+commands.allow = ["browser_set_startup_mode"]
+
+[[permission]]
+identifier = "allow-browser-save-session"
+description = "Save the calling trusted window browser session with revision conflict protection."
+commands.allow = ["browser_save_session"]
+
+[[permission]]
+identifier = "allow-browser-control"
+description = "Allow trusted workspace chrome to manage only its own isolated native browser tabs."
+commands.allow = ["browser_control"]
+
+[[permission]]
+identifier = "allow-browser-capture-page"
+description = "Allow trusted chrome to explicitly read bounded text from its own browser tab with navigation checks; never execute caller-supplied scripts."
+commands.allow = ["browser_capture_page"]
+
+[[permission]]
+identifier = "allow-browser-bookmarks"
+description = "Allow trusted workspace chrome to manage only its own durable bookmarks."
+commands.allow = ["browser_bookmarks"]
+
+[[permission]]
+identifier = "allow-browser-history"
+description = "Read and explicitly remove the owning workspace browsing history."
+commands.allow = ["browser_history"]

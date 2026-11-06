@@ -1,5 +1,66 @@
 use super::*;
 
+#[test]
+fn host_metadata_report_is_atomic_bounded_and_revoked_with_its_source() {
+    let mut store=Store::default();let source=source(&mut store);
+    let mut pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![1]}],Profile::ImageMetadata2).unwrap();
+    let report=json!({"schemaVersion":2,"material":"image-metadata-report","notes":"no original metadata values"});
+    pending.attach_metadata_report(&report).unwrap();
+    assert!(pending.attach_metadata_report(&report).is_err());
+    let (images,descriptor)=store.publish_outputs_with_report(pending,&AtomicBool::new(false)).unwrap();
+    assert_eq!(images.as_array().unwrap().len(),1);
+    let descriptor=descriptor.unwrap();assert_eq!(descriptor["mimeType"],"application/json");assert_eq!(descriptor["origin"],"host-report");
+    let access=Access{schema_version:1,owner:source.owner.clone(),resource_id:descriptor["resourceId"].as_str().unwrap().into(),content_version:descriptor["contentVersion"].as_str().unwrap().into()};
+    let saved=store.prepare_save(&access,"proof","destination".into(),std::path::PathBuf::from("fixture"),"workspace","0.1.0").unwrap();
+    assert!(saved["preview"]["relativePath"].as_str().unwrap().ends_with("/result.json"));
+    assert_eq!(serde_json::from_slice::<Value>(&store.snapshot(&access,"proof").unwrap().bytes).unwrap(),report);
+    assert!(!Profile::Draft1.permits_mime("application/json")); // host-only, never a guest type
+    store.revoke(&source).unwrap();assert!(store.snapshot(&access,"proof").is_err());
+    let mut pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![1]}],Profile::ImageMetadata2).unwrap();
+    assert!(pending.attach_metadata_report(&json!("x".repeat(48*1024))).is_err());
+}
+
+#[test]
+fn host_metadata_report_never_blocks_existing_image_output_when_draft_pool_is_full() {
+    let mut store = Store::default(); let source = source(&mut store);
+    for _ in 0..4 {
+        store.prepare(Prepare { schema_version:1, owner:source.owner.clone(), mime_type:"text/plain".into(),
+            byte_length:32*1024*1024, content_version:sha256_hex(b"unused"), catalog_revision:None }, "proof".into()).unwrap();
+    }
+    let mut pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![1]}],Profile::ImageMetadata2).unwrap();
+    pending.attach_metadata_report(&json!({"schemaVersion":2})).unwrap();
+    let (images,report)=store.publish_outputs_with_report(pending,&AtomicBool::new(false)).unwrap();
+    assert_eq!(images.as_array().unwrap().len(),1);assert!(report.is_none());
+}
+
+#[test]
+fn metadata_reservations_do_not_enlarge_legacy_budget_or_block_its_separate_reservation(){
+    let mut store=Store::default();let source=source(&mut store);
+    let pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![1]}],Profile::ImageMetadata2).unwrap();
+    let output=store.publish_outputs(pending,&AtomicBool::new(false)).unwrap();let id=output[0]["resourceId"].as_str().unwrap();
+    // Budget arithmetic fixture only; it does not claim these bytes are a decoded image.
+    store.records.get_mut(id).unwrap().expected=128*1024*1024;
+    for _ in 0..4 {
+        assert!(store.prepare(Prepare{schema_version:1,owner:source.owner.clone(),mime_type:"image/png".into(),byte_length:32*1024*1024,content_version:source.content_version.clone(),catalog_revision:None},"proof".into()).is_ok());
+    }
+    assert!(store.prepare(Prepare{schema_version:1,owner:source.owner.clone(),mime_type:"image/png".into(),byte_length:1,content_version:source.content_version.clone(),catalog_revision:None},"proof".into()).is_err());
+    store.revoke(&source).unwrap();assert_eq!(store.records.len(),4);
+}
+
+#[test]
+fn metadata_derived_receipt_is_typed_and_cancellation_keeps_the_prior_records(){
+    let mut store=Store::default();let source=source(&mut store);
+    let pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![1]}],Profile::ImageMetadata2).unwrap();
+    let descriptors=store.publish_outputs(pending,&AtomicBool::new(false)).unwrap();
+    let access=Access{schema_version:1,owner:source.owner.clone(),resource_id:descriptors[0]["resourceId"].as_str().unwrap().into(),content_version:descriptors[0]["contentVersion"].as_str().unwrap().into()};
+    let receipt=store.prepare_save(&access,"proof","destination".into(),std::path::PathBuf::from("fixture"),"workspace","0.1.0").unwrap();
+    assert_eq!(receipt["preview"]["profile"],Profile::METADATA_SAVE);
+    let count=store.records.len();
+    let pending=Pending::prepare_with_profile(std::slice::from_ref(&source),"proof",vec![Blob{mime_type:"image/png".into(),bytes:vec![2]}],Profile::ImageMetadata2).unwrap();
+    assert!(store.publish_outputs(pending,&AtomicBool::new(true)).is_err());assert_eq!(store.records.len(),count);
+    assert_eq!(store.snapshot(&access,"proof").unwrap().bytes,vec![1]);
+}
+
 fn source(store: &mut Store) -> Access {
     let owner = Owner {
         runtime_id: "r".into(),

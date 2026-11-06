@@ -136,23 +136,22 @@ it("retains edits on conflict, then saves the draft after refresh and can delete
   }
 });
 
-it("creates a draft from the form and preserves the chosen target without dispatching", async () => {
+it("creates a draft from the form and uses the default target without displaying it without dispatching", async () => {
   setLocale("en");
   const backend = service();
-  const store = createTaskCenterStore({ call: backend.call });
+  const store = createTaskCenterStore({ call: backend.call, getCurrentProjectPath: () => "C:/默认目录" });
   await store.getState().load();
   render(<TaskMain store={store} />);
   try {
     fireEvent.click(screen.getAllByRole("button", { name: "New task" })[0]);
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Read docs" } });
-    fireEvent.change(screen.getByLabelText("Target project"), {
-      target: { value: "C:/开发/工具" },
-    });
+    expect(screen.queryByLabelText("Target project")).toBeNull();
+    expect(document.body.textContent).not.toContain("C:/默认目录");
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     await waitFor(() => expect(backend.read()).toHaveLength(1));
     expect(backend.read()[0]).toMatchObject({
       status: "draft",
-      targetProject: "C:/开发/工具",
+      targetProject: "C:/默认目录",
       automation: { autoDispatch: false },
     });
     await act(async () => {

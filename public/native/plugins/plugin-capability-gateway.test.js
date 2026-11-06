@@ -1,6 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { PluginCapabilityGateway } from "./plugin-capability-gateway.js";
 
+it("native export commands use only source and a Host grant, never an arbitrary caller path or HTTP fallback", async () => {
+  const nativeInvoke = vi.fn(async () => null), fetchImpl = vi.fn();
+  const gateway = new PluginCapabilityGateway({ nativeInvoke, fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
+  const source = { resourceId: "output", contentVersion: "digest", owner: { pluginId: "plugin" } };
+  await gateway.exports.choose("workspace", source); await gateway.exports.commit("workspace", source, "grant");
+  await gateway.exports.cancel("workspace", source, "grant"); await gateway.exports.verify("workspace", source, "grant");
+  expect(nativeInvoke.mock.calls).toEqual([
+    ["select_resource_export", { workspaceId: "workspace", source }],
+    ["commit_resource_export", { workspaceId: "workspace", source, grantId: "grant", confirmed: true }],
+    ["cancel_resource_export", { workspaceId: "workspace", source, grantId: "grant" }],
+    ["verify_resource_export", { workspaceId: "workspace", source, grantId: "grant" }],
+  ]);
+  expect(fetchImpl).not.toHaveBeenCalled();
+});
+
 it("sends result transfer cancellation only to the desktop Host route", async () => {
   const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ schemaVersion: 1, status: "cancellation_requested" }) }));
   const gateway = new PluginCapabilityGateway({ fetchImpl, location: { origin: "http://127.0.0.1:57620" } });
@@ -457,4 +472,12 @@ it("cancels result receiver directory requests with the caller signal", async ()
   const pending = gateway.searchTargets({ sceneId: "programming", workspaceId: "workspace", pluginId: "source", capabilityId: "encode" }, "result", "", 0, null, { signal: controller.signal });
   controller.abort();
   await expect(pending).rejects.toMatchObject({ code: "plugin_capability_cancelled" });
+});
+
+it("routes text snapshot exports only through explicit native commands", async () => {
+  const nativeInvoke = vi.fn(async () => ({})), fetchImpl = vi.fn(), source = { scope: { workspaceId: "w" }, resultId: "r" };
+  const gateway = new PluginCapabilityGateway({ fetchImpl, nativeInvoke });
+  await gateway.textExports.choose("w", source); await gateway.textExports.commit("w", source, "g"); await gateway.textExports.cancel("w", source, "g"); await gateway.textExports.verify("w", source, "g");
+  expect(nativeInvoke.mock.calls).toEqual([["select_result_text_export", { workspaceId: "w", source }], ["commit_result_text_export", { workspaceId: "w", source, grantId: "g", confirmed: true }], ["cancel_result_text_export", { workspaceId: "w", source, grantId: "g" }], ["verify_result_text_export", { workspaceId: "w", source, grantId: "g" }]]); expect(fetchImpl).not.toHaveBeenCalled();
+  expect(new PluginCapabilityGateway({ fetchImpl, nativeInvoke: null }).textExports).toBeNull();
 });

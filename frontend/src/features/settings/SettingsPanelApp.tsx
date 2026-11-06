@@ -1,3 +1,6 @@
+import { UpdatesTab } from "./UpdatesTab";
+import { SettingsToggle } from "./SettingsToggle";
+import { SystemInfoTab } from "./SystemInfoTab";
 import { getLocale, setLocale, supportedLocales } from "i18n";
 import { useEffect, useRef, useState } from "react";
 import { applyTheme, getCurrentTheme, themes } from "themes";
@@ -28,7 +31,6 @@ import type { SettingsWidgetsStore } from "./settingsWidgetsStore";
 import { useStoragePersistenceState } from "./storagePersistenceStore";
 import type { SettingsStore } from "./store";
 import { useTaskNotificationsState } from "./taskNotificationsStore";
-import { useAppUpdaterStore } from "./updaterStore";
 
 export interface SettingsController {
   configStore: ConfigStore;
@@ -139,6 +141,12 @@ export function SettingsContent({
       >
         <GeneralTab store={store} widgets={controller.widgetsStore} controller={controller} />
       </div>
+      <div className={`settings-tab${activeTab === "updates" ? " active" : ""}`} data-settings-panel="updates">
+        <UpdatesTab store={store} widgets={controller.widgetsStore} />
+      </div>
+      <div className={`settings-tab${activeTab === "system" ? " active" : ""}`} data-settings-panel="system">
+        {activeTab === "system" && <SystemInfoTab />}
+      </div>
       <div
         className={`settings-tab${activeTab === "extensions" ? " active" : ""}`}
         data-settings-panel="extensions"
@@ -234,30 +242,6 @@ function AppearancePreferences() {
         />
       </div>
     </div>
-  );
-}
-
-function SettingsToggle({
-  id,
-  enabled,
-  onChange,
-  ariaLabel,
-}: {
-  id: string;
-  enabled: boolean;
-  onChange(): void;
-  ariaLabel?: string;
-}) {
-  return (
-    <button
-      type="button"
-      id={id}
-      className={`settings-toggle${enabled ? " on" : ""}`}
-      role="switch"
-      aria-checked={enabled}
-      aria-label={ariaLabel}
-      onClick={onChange}
-    ></button>
   );
 }
 
@@ -796,165 +780,6 @@ function ThinkingEffortControl({
   );
 }
 
-function SceneProfilesSection({ widgets }: { widgets: SettingsWidgetsStore }) {
-  const profiles = widgets((state) => state.sceneProfiles);
-  const selectedId = widgets((state) => state.sceneSelectedId);
-  const currentId = widgets((state) => state.sceneCurrentId);
-  const editorOpen = widgets((state) => state.sceneEditorOpen);
-  const form = widgets((state) => state.sceneForm);
-  const status = widgets((state) => state.sceneStatus);
-  const saving = widgets((state) => state.sceneSaving);
-  const setForm = widgets((state) => state.setSceneForm);
-  useEffect(() => {
-    void widgets.getState().loadSceneProfiles();
-  }, [widgets]);
-  const selected = profiles.find((profile) => profile.id === selectedId) || profiles[0];
-  const current = profiles.find((profile) => profile.id === currentId);
-  return (
-    <div className="settings-section" id="scene-profile-section">
-      <div className="settings-section-title">{t("New session scene")}</div>
-      <div className="settings-scene-context">
-        <span className="settings-scene-context-label">{t("Current session")}</span>
-        <strong id="scene-profile-current-name">{current?.name || currentId}</strong>
-        <code id="scene-profile-current-id">{currentId}</code>
-      </div>
-      <p className="settings-help">
-        Each scene has isolated model channels, credentials, extensions, and sessions. The selection
-        applies when you create the next session.
-      </p>
-      <div className="settings-row">
-        <span className="settings-label settings-label-stack">
-          <span className="settings-label-main">{t("Scene for the next session")}</span>
-          <span className="settings-label-sub" id="scene-profile-description">
-            {selected?.description || ""}
-          </span>
-        </span>
-        <Select
-          id="scene-profile-select"
-          value={selectedId}
-          label={t("Scene for the next session")}
-          className="scene-profile-select"
-          options={profiles.map((profile) => ({
-            value: profile.id,
-            label: profile.name,
-          }))}
-          onChange={(value) => widgets.getState().setSceneSelected(value)}
-        />
-      </div>
-      <div className="scene-profile-actions">
-        <button
-          type="button"
-          className="ui-button ui-button--secondary"
-          id="scene-profile-new"
-          onClick={() => widgets.getState().openSceneEditor()}
-        >
-          {t("New custom scene")}
-        </button>
-        <button
-          type="button"
-          className={`ui-button ui-button--secondary danger${selected?.builtin !== false ? " hidden" : ""}`}
-          id="scene-profile-delete"
-          onClick={() => void widgets.getState().deleteSceneProfile()}
-        >
-          {t("Delete selected")}
-        </button>
-      </div>
-      {editorOpen ? (
-        <form
-          className="scene-profile-editor"
-          id="scene-profile-editor"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void widgets.getState().saveSceneProfile();
-          }}
-        >
-          <label>
-            <span>{t("Scene ID")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-id"
-              required
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}"
-              placeholder="research"
-              value={form.id}
-              onChange={(event) => setForm({ id: event.target.value })}
-            />
-          </label>
-          <label>
-            <span>{t("Name")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-name"
-              required
-              maxLength={80}
-              placeholder={t("Research")}
-              value={form.name}
-              onChange={(event) => setForm({ name: event.target.value })}
-            />
-          </label>
-          <label className="scene-profile-wide">
-            <span>{t("Description")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-description-input"
-              maxLength={300}
-              value={form.description}
-              onChange={(event) => setForm({ description: event.target.value })}
-            />
-          </label>
-          <label className="scene-profile-wide">
-            <span>{t("Scene system instructions")}</span>
-            <textarea
-              className="ui-textarea"
-              id="scene-profile-prompt"
-              rows={5}
-              value={form.systemPrompt}
-              onChange={(event) => setForm({ systemPrompt: event.target.value })}
-            ></textarea>
-          </label>
-          <label className="scene-profile-wide">
-            <span>{t("Allowed tools (comma-separated; blank allows all)")}</span>
-            <input
-              className="ui-input"
-              id="scene-profile-tools"
-              placeholder="read, grep, find"
-              value={form.allowedTools}
-              onChange={(event) => setForm({ allowedTools: event.target.value })}
-            />
-          </label>
-          <div
-            className={`settings-save-status scene-profile-wide${status ? "" : " hidden"}`}
-            id="scene-profile-status"
-            aria-live="polite"
-            role="status"
-            data-tone={status?.tone}
-          >
-            {status?.message || ""}
-          </div>
-          <div className="settings-config-actions scene-profile-wide">
-            <button
-              type="button"
-              className="ui-button ui-button--secondary"
-              id="scene-profile-cancel"
-              onClick={() => widgets.getState().closeSceneEditor()}
-            >
-              {t("Cancel")}
-            </button>
-            <button
-              type="submit"
-              className="ui-button ui-button--primary"
-              id="scene-profile-save"
-              disabled={saving}
-            >
-              {saving ? t("Saving…") : t("Save scene")}
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </div>
-  );
-}
-
 function WorkspaceBackupSection({ store }: { store: BackupStore }) {
   const backups = store((state) => state.backups);
   const backupAvailable = store((state) => state.available);
@@ -1112,11 +937,8 @@ export function GeneralTab({
   widgets: SettingsWidgetsStore;
   controller: SettingsController;
 }) {
-  const piVersion = store((state) => state.piVersion);
-  const appVersion = store((state) => state.appVersion);
   const toggles = widgets((state) => state.toggles);
   const thinkingLevel = widgets((state) => state.thinkingLevel);
-  const updater = useAppUpdaterStore();
   const taskNotifications = useTaskNotificationsState();
   const storagePersistence = useStoragePersistenceState();
   const [sessionExportState, setSessionExportState] = useState<"idle" | "busy" | "done" | "error">(
@@ -1354,7 +1176,6 @@ export function GeneralTab({
           {storagePersistence.statusText}
         </p>
       </div>
-      <SceneProfilesSection widgets={widgets} />
       <div className="settings-section">
         <div className="settings-section-title">{t("Data")}</div>
         <div className="settings-row">
@@ -1431,76 +1252,7 @@ export function GeneralTab({
         </p>
         <WorkspaceBackupSection store={controller.backupStore} />
       </div>
-      <div className="settings-section" id="setting-updater-section">
-        <div className="settings-section-title">{t("Updates")}</div>
-        <div className="settings-row" id="setting-pi-version">
-          <span className="settings-label">{t("Pi version")}</span>
-          <span className="settings-static-value" id="setting-pi-version-value">
-            {piVersion}
-          </span>
-        </div>
-        <div className="settings-row">
-          <span className="settings-label">{t("Desktop version")}</span>
-          <span className="settings-static-value" id="setting-app-version-value">
-            {appVersion}
-          </span>
-        </div>
-        <div className="settings-row settings-update-row">
-          <span className="settings-label">{t("Updates")}</span>
-          <span className="settings-update-controls">
-            <span
-              className="settings-static-value"
-              id="setting-update-status"
-              role="status"
-              aria-live="polite"
-            >
-              {updater.status || t("Click to check")}
-            </span>
-            <button
-              type="button"
-              className="ui-button ui-button--secondary settings-value-btn"
-              id="btn-check-updates"
-              disabled={updater.disabled}
-              data-mode={updater.canInstall ? "install" : "check"}
-              aria-busy={updater.disabled ? "true" : "false"}
-              onClick={() => {
-                if (!updater.enabled) {
-                  // Signed auto-updates are disabled; open the manual
-                  // installer list advertised by this button.
-                  const url = "https://github.com/ax2/zicode-studio-desktop/releases";
-                  const anchor = document.createElement("a");
-                  anchor.href = url;
-                  anchor.target = "_blank";
-                  anchor.rel = "noopener noreferrer";
-                  document.body.append(anchor);
-                  anchor.click();
-                  anchor.remove();
-                  return;
-                }
-                if (updater.canInstall) {
-                  void updater.installUpdate();
-                } else {
-                  void updater.checkNow();
-                }
-              }}
-            >
-              {updater.button || t("Check now")}
-            </button>
-          </span>
-        </div>
-        <div className={`settings-row${updater.enabled ? "" : " hidden"}`}>
-          <span className="settings-label settings-label-stack">
-            <span className="settings-label-main">{t("Beta updates")}</span>
-            <span className="settings-label-sub">{t("Receive prerelease desktop builds")}</span>
-          </span>
-          <SettingsToggle
-            id="toggle-beta-updates"
-            enabled={Boolean(toggles["beta-updates"])}
-            ariaLabel={t("Receive prerelease desktop builds")}
-            onChange={() => widgets.getState().toggle("beta-updates")}
-          />
-        </div>
-      </div>
+
     </div>
   );
 }

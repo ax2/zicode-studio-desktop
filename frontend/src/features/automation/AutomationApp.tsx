@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { useEffect, useState } from "react";
 import type { Root } from "react-dom/client";
 import { FirstRunGuide } from "../../shared/FirstRunGuide";
@@ -83,7 +84,7 @@ function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, bac
     statuses: workspaceStatuses,
     error: workspaceStatusError,
     refresh: refreshWorkspaceStatuses,
-  } = useWorkspaceStatusInventory(listWorkspaceStatus);
+  } = useWorkspaceStatusInventory(MULTI_PROJECT_UI_ENABLED ? listWorkspaceStatus : undefined);
   const focusWorkflowId = store((state) => state.focusWorkflowId);
   const focusWorkflow = store((state) => state.focusWorkflow);
   const creationRequest = store((state) => state.creationRequest);
@@ -147,7 +148,7 @@ function AutomationContent({ store, listWorkspaceStatus, openWorkspaceTasks, bac
         setBackgroundWorkerLoginEnabled={setBackgroundWorkerLoginEnabled}
       />
       {approvalTasksError ? <p role="status">{t("Could not load tasks")}</p> : null}
-      {listWorkspaceStatus ? (
+      {MULTI_PROJECT_UI_ENABLED && listWorkspaceStatus ? (
         <section className="ui-card automation-workspace-overview" aria-label={t("Registered workspace automation status")}>
           <h2>{t("Registered workspace automation status")}</h2>
           <p>{t("This inventory shows queued work and tasks that need attention across registered workspaces.")}</p>
@@ -399,10 +400,10 @@ function WorkflowCard({
       <dl>
         <Detail label={t("Schedule")} value={scheduleLabel(workflow)} />
         <Detail label={t("Next run")} value={formatDate(workflow.nextRunAt)} />
-        <Detail
+{MULTI_PROJECT_UI_ENABLED ? (        <Detail
           label={t("Target project")}
           value={workflow.targetProject || t("Current project")}
-        />
+        />) : null}
       </dl>
       {workflow.history?.length ? (
         <details className="automation-history">

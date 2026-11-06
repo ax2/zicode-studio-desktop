@@ -1,15 +1,17 @@
 //! Trusted output decoding and admission. This grants no filesystem write authority.
 use super::*;
 
-pub(super) struct Profiles {
+pub(super) struct Profiles<'a> {
+    pub(super) output: crate::plugin_worker::resource_output::Profile,
     pub(super) extended_output_types: bool,
     pub(super) image_resize: bool,
+    pub(super) source_bytes: &'a [&'a [u8]],
 }
 
 pub(super) fn selection(runtime: &Value) -> Result<bool, ApiError> {
     match runtime.get("resourceOutputProfile") {
         None => Ok(false),
-        Some(Value::String(value)) if value == crate::plugin_worker::resource_output::PROFILE => {
+        Some(Value::String(value)) if value == crate::plugin_worker::resource_output::PROFILE || value==crate::plugin_worker::resource_output::Profile::METADATA_NAME => {
             Ok(true)
         }
         Some(_) => Err(rejected("resource_output_profile_unsupported")),
@@ -23,19 +25,44 @@ pub(super) fn register(
     frame: &[u8],
     cancelled: &std::sync::atomic::AtomicBool,
     capability: &crate::plugin_registry::PluginCapabilityDescriptor,
-    profiles: Profiles,
+    profiles: Profiles<'_>,
 ) -> Result<Execution, ApiError> {
-    let bundle = crate::plugin_worker::resource_output::decode(frame)
+    let bundle = crate::plugin_worker::resource_output::decode_with_profile(frame, profiles.output)
         .map_err(|_| rejected("worker_protocol_error"))?;
     validate_types(&bundle, profiles.extended_output_types)?;
+    if crate::plugin_resource_execution::file_digest::selected(capability.execution_profile.as_deref()) {
+        if profiles.source_bytes.len() != request.accesses().count() { return Err(rejected("invalid_output")); }
+        let versions = request.accesses().map(|access| access.content_version.as_str()).zip(profiles.source_bytes.iter().copied()).collect::<Vec<_>>();
+        let expected = request.input.get("expected").and_then(Value::as_str).unwrap_or("");
+        if let Some(result) = crate::plugin_resource_execution::file_digest::validate_result(&bundle.result, &versions, expected, bundle.resources.len()).map_err(rejected)? {
+            return Ok(Execution { profile: profiles.output, result, resources: None, report_resource: None });
+        }
+    }
+    if crate::plugin_resource_execution::markdown::selected(capability.execution_profile.as_deref()) {
+        if let Some(result) = crate::plugin_resource_execution::markdown::validate_outputs(&bundle).map_err(rejected)? {
+            return Ok(Execution { profile: profiles.output, result, resources: None, report_resource: None });
+        }
+    }
+    if crate::plugin_resource_execution::metadata::selected(capability.execution_profile.as_deref()) {
+        crate::plugin_resource_execution::metadata::validate_outputs(&bundle, &request.access.owner.capability_id).map_err(rejected)?;
+        if bundle.result["ok"]==false {
+            return Ok(Execution {profile: profiles.output, result:json!({"ok":false,"error":{"code":"IMAGE_METADATA_FAILED","message":"图片元数据操作失败，请检查静态图片格式、尺寸、大小和质量参数。"}}),resources:None,report_resource:None});
+        }
+    }
+    if crate::plugin_regex_review::selected(capability.execution_profile.as_deref()) {
+        let metadata=bundle.resources.iter().map(|resource|(resource.mime_type.as_str(),resource.bytes.len())).collect::<Vec<_>>();
+        crate::plugin_regex_review::validate_outputs(&bundle.result,&metadata).map_err(rejected)?;
+    }
     if profiles.image_resize {
         if let Some(result) = normalize_image_resize_failure(&bundle.result)? {
             if !bundle.resources.is_empty() {
                 return Err(rejected("invalid_output"));
             }
             return Ok(Execution {
+                profile: profiles.output,
                 result,
                 resources: None,
+                report_resource: None,
             });
         }
         validate_image_resize_outputs(&bundle)?;
@@ -50,7 +77,14 @@ pub(super) fn register(
     }
     validate_result(capability, &bundle.result)?;
     let sources = request.accesses().cloned().collect::<Vec<_>>();
-    let pending = super::super::store::Pending::prepare(&sources, proof, bundle.resources)?;
+    let mut pending = if profiles.output==crate::plugin_worker::resource_output::Profile::Draft1 {
+        super::super::store::Pending::prepare(&sources, proof, bundle.resources)?
+    } else {
+        super::super::store::Pending::prepare_with_profile(&sources, proof, bundle.resources, profiles.output)?
+    };
+    if crate::plugin_resource_execution::metadata::selected(capability.execution_profile.as_deref()) {
+        pending.attach_metadata_report(&bundle.result["report"])?;
+    }
     #[cfg(test)]
     {
         let observer = state
@@ -77,10 +111,12 @@ pub(super) fn register(
     if cancelled.load(Ordering::Acquire) {
         return Err(rejected("worker_cancelled"));
     }
-    let resources = store.publish_outputs(pending, cancelled)?;
+    let (resources, report_resource) = store.publish_outputs_with_report(pending, cancelled)?;
     Ok(Execution {
+        profile: profiles.output,
         result: bundle.result,
         resources: Some(resources),
+        report_resource,
     })
 }
 
@@ -180,7 +216,7 @@ mod tests {
     #[test]
     fn output_types_require_the_manifest_profile_before_publication() {
         let mut bundle = crate::plugin_worker::resource_output::Bundle {
-            binary: true,
+            profile: crate::plugin_worker::resource_output::Profile::Draft1, binary: true,
             result: json!({}),
             resources: vec![crate::plugin_worker::resource_output::Blob {
                 mime_type: "image/png".into(),
@@ -224,7 +260,7 @@ mod tests {
             bytes: vec![1, 2, 3],
         };
         let bundle = |resources| crate::plugin_worker::resource_output::Bundle {
-            binary: true,
+            profile: crate::plugin_worker::resource_output::Profile::Draft1, binary: true,
             result: json!({}),
             resources,
         };
@@ -306,6 +342,8 @@ mod tests {
             title: "c".into(),
             input_schema: json!({}),
             resource_input_max: None,
+            resource_input_min: None,
+            resource_input_labels: None,
             resource_input_mime_types: None,
             execution_profile: None,
             output_schema: Some(schema),

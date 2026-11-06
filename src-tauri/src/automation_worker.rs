@@ -188,7 +188,7 @@ fn registered_roots(workspaces: Vec<(String, String)>) -> HashMap<String, PathBu
         .into_iter()
         .filter_map(|(id, path)| {
             let root = PathBuf::from(path).canonicalize().ok()?;
-            root.is_dir().then_some((id, root))
+            (root.is_dir() && crate::workspace_mode::context_allowed(&root)).then_some((id, root))
         })
         .collect()
 }

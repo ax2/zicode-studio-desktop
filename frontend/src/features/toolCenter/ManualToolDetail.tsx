@@ -4,12 +4,13 @@ import type { ToolAccessScope, ToolAccessStore } from "../commandPalette/tool-ac
 import { type ManualTool, type ManualToolApi, type ToolDetail, manualToolError, supportsResultActions } from "./manual-tools";
 import { toolFields, prepareToolInput } from "./manual-tool-fields";
 import { ManualToolInput } from "./ManualToolInput";
+import { ManualToolInformation } from "./ManualToolInformation";
 import type { CapturedToolResponse } from "../../../../public/native/plugins/plugin-result-actions.js";
 import { ManualToolResultActions } from "./ManualToolResultActions";
 import { ManualToolResultView } from "./ManualToolResultView";
 import { type ManualToolResult, manualToolResult } from "./manual-tool-result";
 import { useManualToolCall } from "./use-manual-tool-call";
-import { ResourceToolRunner, type ResourceTargetProvider } from "./ResourceToolRunner";
+import { ResourceToolRunner, type ResourceTargetProvider, type ReceiveNoteDraft } from "./ResourceToolRunner";
 import type { ResourceSessionOwner } from "./resource-session-owner";
 import { ToolCallDiagnostics } from "./ToolCallDiagnostics";
 
@@ -25,6 +26,7 @@ export interface ManualToolDetailProps {
   onBusy?(running: boolean): void;
   onRecentChange?(): void;
   getResourceTarget?: ResourceTargetProvider;
+  receiveNoteDraft?: ReceiveNoteDraft;
   resourceSession?: ResourceSessionOwner;
   onReload?(): Promise<void>;
 }
@@ -34,7 +36,7 @@ export function ManualToolDetail(props: ManualToolDetailProps) {
   return <ManualToolDetailView {...props} call={call} />;
 }
 
-export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, resourceSession, onReload, call }: ManualToolDetailProps & {
+export function ManualToolDetailView({ tool, revision, api, scope, accessStore, onOpenApplication, onBusy, onRecentChange, getResourceTarget, receiveNoteDraft, resourceSession, onReload, call }: ManualToolDetailProps & {
   call: ReturnType<typeof useManualToolCall>;
 }) {
   const [detail, setDetail] = useState<ToolDetail | null>(null);
@@ -109,7 +111,7 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
   }
   return <section className="ui-card tool-detail" aria-labelledby={`${detailId}-title`} aria-busy={running || resourceBusy}>
     <h2 id={`${detailId}-title`}>{tool.title}</h2>
-    <p className="tool-center-source">{tool.applicationName} · {tool.version}</p>
+    <ManualToolInformation tool={tool} detail={detail} busy={running || actionBusy || resourceBusy} onOpenApplication={detail && !resourceTool && !supported ? undefined : onOpenApplication} />
     {!detail && !error && <p role="status">{t("Loading tool details…")}</p>}
     {error && !call.notice && call.phase !== "cancelled" && <p role="alert">{t(error)}</p>}
     {stale && onReload && <button type="button" className="ui-button ui-button--secondary"
@@ -122,30 +124,32 @@ export function ManualToolDetailView({ tool, revision, api, scope, accessStore, 
     {call.notice && <p role="status" key={call.notice}>{t(call.notice)}</p>}
     {detail && <>
       {!detail.enabled && <p role="status">{t("Plugin is disabled")}</p>}
-      {detail.permissions.length > 0 && <details><summary>{t("Declared permissions")}</summary>
-        {detail.permissions.map(permission => <p key={permission.name}>{permission.name} · {t(permission.granted ? "Granted" : "Not granted")} — {permission.reason}</p>)}
-      </details>}
       {!detail.enabled && <p>{t("Enable this plugin in Plugin Manager before running its tools.")}</p>}
       {resourceTool ? <ResourceToolRunner tool={tool} detail={detail} api={api} getTarget={getResourceTarget} scope={scope}
-        accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
-        {result !== null && <button type="button" className="ui-button ui-button--secondary" onClick={() => jumpTo(resultRef.current)}>{t("View latest execution")}</button>}
+        accessStore={accessStore} onBusy={setResourceBusy} onRecentChange={onRecentChange} session={resourceSession} receiveNoteDraft={receiveNoteDraft} /> : supported ? <form ref={formRef} tabIndex={-1} aria-label={t("Tool inputs")} onSubmit={event => { event.preventDefault(); void execute(); }}>
         {fields.map(field => <ManualToolInput key={field.key} id={`${detailId}-${field.key}`} field={field} value={values[field.key]}
           disabled={running || actionBusy} invalid={invalidField === field.key}
+          onOmit={() => { setValues(previous => { const next = { ...previous }; delete next[field.key]; return next; });
+            if (invalidField === field.key) { setInvalidField(""); setError(""); } }}
           onChange={value => setValues(previous => ({ ...previous, [field.key]: value }))} />)}
-        <p className="tool-center-source">{t("Switching pages keeps this tool running. Return here to check or cancel it before closing the window.")}</p>
         <div className="ui-toolbar">
           <button type="submit" className="ui-button ui-button--primary" disabled={running || actionBusy || !detail.enabled || call.supported === null}>
             <span key={running ? call.phase : "idle"}>{t(running ? call.phase === "preparing" ? "Preparing tool…" : "Running…" : "Execute tool")}</span>
           </button>
+          {result !== null && <button type="button" className="ui-button ui-button--secondary" onClick={() => jumpTo(resultRef.current)}>{t("View latest execution")}</button>}
           {call.supported && call.busy && <button type="button" className="ui-button ui-button--danger"
             disabled={call.phase === "preparing" || call.phase === "cancelling"} onClick={() => { void call.cancel(); }}>
             <span key={call.phase}>{t(call.phase === "cancelling" ? "Cancelling…" : "Cancel tool")}</span>
           </button>}
           {call.phase === "uncertain" && <button type="button" className="ui-button ui-button--secondary" onClick={() => { void call.checkStatus(); }}>{t("Check tool status")}</button>}
         </div>
-      </form> : detail.enabled && <p>{t("This tool needs its application UI or additional Host support. The generic form cannot run it.")}</p>}
+        {running && <p className="tool-center-source">{t("Switching pages keeps this tool running. Return here to check or cancel it before closing the window.")}</p>}
+      </form> : detail.enabled && <div className="tool-interface-entry">
+        <p>{t(onOpenApplication ? "Use the tool interface to continue." : "This tool needs its application UI or additional Host support. The generic form cannot run it.")}</p>
+        {onOpenApplication && <button type="button" className="ui-button ui-button--primary"
+          disabled={running || actionBusy || resourceBusy} onClick={onOpenApplication}>{t("Open tool interface")}</button>}
+      </div>}
     </>}
-    {onOpenApplication && <button type="button" className="ui-button ui-button--secondary" disabled={running || actionBusy || resourceBusy} onClick={onOpenApplication}>{t("Open application")}</button>}
     {result !== null && <ManualToolResultView result={result} sectionRef={resultRef} onBackToInputs={supported ? () => jumpTo(formRef.current) : undefined} />}
     {captured && supportsResultActions(api) && <ManualToolResultActions response={captured}
       accessStore={accessStore} onRecentChange={onRecentChange}

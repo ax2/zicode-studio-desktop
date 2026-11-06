@@ -1,0 +1,14 @@
+.browser-bookmarks-dialog { position: fixed; inset: 0; margin: auto; width: min(92vw, 56rem); max-height: 90vh; overflow: auto; padding: var(--space-4); background: var(--bg-solid); color: var(--text-primary); }
+.browser-bookmarks-content { display: grid; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; border: 0; }
+.browser-bookmark-toolbar { flex-wrap: wrap; }
+.browser-bookmark-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.browser-bookmark-editor label { display: grid; min-width: 0; gap: var(--space-1); }
+.browser-bookmark-editor .ui-toolbar, .browser-bookmark-help { grid-column: 1 / -1; flex-wrap: wrap; }
+.browser-bookmark-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.browser-bookmark-list { max-height: 36vh; overflow: auto; min-width: 0; }
+.browser-bookmark-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; padding: var(--space-1) 0; border-bottom: 1px solid var(--border); }
+.browser-bookmark-details { display: grid; min-width: 0; }
+.browser-bookmark-row .ui-button, .browser-bookmark-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.browser-bookmark-url { font-size: var(--font-size-sm); color: var(--text-secondary); }
+.browser-bookmark-toggle svg { width: var(--space-4); height: var(--space-4); }
+@media (max-width: 600px) { .browser-bookmark-editor, .browser-bookmark-filters { grid-template-columns: minmax(0, 1fr); } }

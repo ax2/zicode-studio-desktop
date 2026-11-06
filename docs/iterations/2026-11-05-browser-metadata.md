@@ -1,0 +1,19 @@
+# Browser metadata and startup preference — 2026-11-05
+
+This advances the browser integration baseline; it is not complete P0 or an installed browser UI.
+
+The Rust application now registers `browser_get_state`, `browser_set_startup_mode` and `browser_save_session`. Each command checks the existing trusted workspace window/Host origin guard before dispatching filesystem work to a blocking worker. The caller cannot supply a data path or another window identity. No browser-page IPC or extra remote capability is enabled. `main.rs` only gains module imports and handler registration; feature logic is in the dedicated browser modules, preserving the large-file guardrail.
+
+`app_paths::data_root()/browser/metadata.sqlite3` owns browser metadata separately from Notes and the native engine's cookie storage. A persisted UUID identifies the default engine profile. Startup preference defaults to browser and can be changed to workspace. This is the stored preference only: the startup router has not consumed it yet. Explicit file/tool/notes entry precedence remains required before UI integration.
+
+Session snapshots preserve ordered tab UUIDs, URLs, titles, active tab and revision per trusted window label. An immediate SQLite transaction and expected revision prevent older or concurrent writers from overwriting newer state. Snapshots do not include form fields, cookies or passwords; credential-bearing URLs and non-HTTP schemes except about:blank are rejected. Navigation policy must still be enforced again on restore; saved metadata is not navigation authorization. Total snapshots are bounded at 4 MiB; no low fixed tab-count limit is imposed. A future browser workspace identity can replace the owner mapping when multiwindow browser workspaces are implemented, without changing engine cookie identity.
+
+SQLite uses FULL synchronous writes. The first schema is initialized transactionally. A newer schema causes an error without downgrade, and malformed saved content is reported without silently resetting data. Browser metadata backup/recovery UI and encryption of browser history/session metadata remain separate unfinished requirements. No notes or current-profile files were used by the tests.
+
+Five real SQLite tests passed: reopen restores startup/profile/order/active tab/Unicode title; two connections reject stale saves; invalid URLs/duplicate IDs/unknown active tab leave the prior snapshot intact; future schema remains unchanged; corrupted session remains preserved and reported. These are connection-close/reopen tests, not OS crash/power-loss or installed Studio startup acceptance. `work/browser-store-tests.log` records 5 passed, 826 filtered out. Two earlier note-move regressions remain unresolved; no full-suite pass is claimed.
+
+Command permission checker passed for all 67 registered commands. Its initial failure is retained: this repository requires a separately named permission per command, so the initial grouped permission was split without changing access scope. Evidence: `work/browser-store-permissions.log` and `work/browser-store-permissions-final.log`.
+
+Next: consume this store in the real native tab service and trusted Browser interface, keep native surfaces hidden on app/overlay transitions, implement durable configurable browser-first routing and Pi context handoff, then build and verify an isolated real Studio process. The separate native engine primitive acceptance from the preceding batch remains valid for its recorded source/executable and does not establish acceptance for these newly registered commands. No installed runtime was replaced in this batch; no model calls, schedules, external publishing or native UI input.
+
+Final all-target Rust check and strict clippy passed; existing repository formatting drift remains advisory. Evidence: `work/browser-store-rust.log`.

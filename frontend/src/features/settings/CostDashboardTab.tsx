@@ -1,3 +1,4 @@
+import { MULTI_PROJECT_UI_ENABLED } from "../../shared/workspaceMode";
 import { type CSSProperties, useEffect, useMemo, useRef } from "react";
 import { t } from "../../shared/i18n";
 import {
@@ -133,6 +134,7 @@ export function CostDashboardTab({
                 </div>
               </div>
 
+              {MULTI_PROJECT_UI_ENABLED ? (
               <div className="cost-dash-panel is-active" id="usage-projects">
                 <div className="cost-dash-cost-block">
                   <div className="cost-dash-subsection-head">
@@ -141,6 +143,7 @@ export function CostDashboardTab({
                   <ProjectsPanel rows={payload.infobar.projects} />
                 </div>
               </div>
+              ) : null}
             </div>
           </div>
 
@@ -579,7 +582,7 @@ function SessionsPanel({ sessions }: { sessions: CostSession[] }) {
                 <div className="cost-dash-sessions-title">
                   {String(session.title || t("Untitled"))}
                 </div>
-                {session.workspace ? (
+                {MULTI_PROJECT_UI_ENABLED && session.workspace ? (
                   <div className="cost-dash-sessions-workspace">
                     {String(session.workspace)}
                   </div>

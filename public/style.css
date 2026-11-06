@@ -3,6 +3,7 @@
    ═══════════════════════════════════════════════════════ */
 
 @import url("shared.css");
+@import url("native/browser/browser-app.css");
 @import url("native/instance-swap.css");
 @import url("components/super-agent-chat-header.css");
 @import url("components/super-agent-runtime.css");
@@ -31,10 +32,14 @@
 @import url("native/plugins/plugin-shell.css");
 @import url("native/plugins/tool-center.css");
 @import url("native/plugins/plugin-resource-preview.css");
+@import url("native/plugins/image-metadata-result.css");
+@import url("native/plugins/markdown-output-preview.css");
 @import url("native/plugins/plugin-resource-transfer.css");
 @import url("native/plugins/plugin-resource-save.css");
 @import url("native/plugins/saved-outputs.css");
 @import url("native/plugins/notes-app.css");
+@import url("native/plugins/notes-list-layout.css");
+@import url("native/system-information.css");
 @import url("native/plugins/idphoto-app.css");
 @import url("native/plugins/imagetools-app.css");
 @import url("native/plugins/documents-app.css");
@@ -69,6 +74,8 @@
 @import url("native/settings/settings-config.css");
 @import url("native/settings/remote-access-settings.css");
 @import url("native/mobile.css");
+@import url("native/features/studio-simple.css");
+@import url("native/workspace/compact-header.css");
 
 * {
   margin: 0;
@@ -509,3 +516,5 @@ body[data-active-plugin]:not([data-active-plugin="core.chat"]) #file-sidebar-tog
     scroll-behavior: auto !important;
   }
 }
+
+

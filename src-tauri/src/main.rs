@@ -1,6 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod workspace_mode;
 mod app_paths;
+mod browser;
+use browser::browser_control;
+use browser::capture::browser_capture_page;
+#[path = "browser/store.rs"]
+mod browser_store;
+#[path = "browser/state_commands.rs"]
+mod browser_state_commands;
+use browser_state_commands::{browser_get_state, browser_set_startup_mode, browser_save_session, browser_bookmarks, browser_history};
 mod application_context;
 mod article_markdown;
 mod articles;
@@ -17,7 +26,16 @@ mod credential_broker;
 mod desktop_profile;
 mod desktop_single_instance;
 mod desktop_startup_gate;
+mod desktop_tool_shortcuts;
 mod desktop_tray;
+mod desktop_system_tray;
+mod system_information;
+mod desktop_updates;
+mod system_temperature;
+use system_information::get_system_information;
+use system_temperature::{start_system_temperature_monitor, stop_system_temperature_monitor};
+use desktop_updates::{check_desktop_update, install_desktop_update, restart_desktop_after_update};
+use desktop_tool_shortcuts::set_desktop_tool_shortcuts;
 use desktop_tray::set_desktop_tray_locale;
 use explorer_entry::desktop_entry_mode;
 mod desktop_tools;
@@ -36,6 +54,8 @@ mod image_tools;
 mod metadata_store;
 mod model_tools;
 mod native_pi_manager;
+#[cfg_attr(not(test), allow(dead_code))] // Not wired until Notes sync journal and credentials are ready.
+mod notes_sync;
 mod notes_vault;
 mod ocr;
 mod p2p;
@@ -43,8 +63,6 @@ mod pi_launch;
 mod pi_rpc_bridge;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_cursor;
-#[allow(dead_code)] // Internal store; task routes stay disabled until handler conformance.
-mod plugin_task_store;
 #[cfg_attr(not(test), allow(dead_code))]
 mod plugin_archive_events;
 #[cfg_attr(not(test), allow(dead_code))]
@@ -55,6 +73,10 @@ mod plugin_output_types;
 mod plugin_package;
 mod plugin_registry;
 mod plugin_resource_execution;
+mod plugin_resource_regex;
+mod plugin_regex_review;
+#[allow(dead_code)] // Internal store; task routes stay disabled until handler conformance.
+mod plugin_task_store;
 mod plugin_worker;
 mod portable_path;
 mod process_command;
@@ -69,6 +91,7 @@ mod remote_access_config;
 mod remote_auth;
 mod remote_enrollment;
 mod remote_tls;
+mod runtime_assets;
 mod runtime_coordinator;
 mod runtime_isolation;
 mod scene_profiles;
@@ -98,6 +121,10 @@ use std::sync::{Arc, Mutex, OnceLock};
 use tauri::image::Image;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 mod project_file_picker;
+mod resource_export_picker;
+mod result_text_export_picker;
+use result_text_export_picker::{select_result_text_export, commit_result_text_export, cancel_result_text_export, verify_result_text_export};
+use resource_export_picker::{select_resource_export, commit_resource_export, cancel_resource_export, verify_resource_export};
 use project_file_picker::{
     get_project_directory_entry, get_project_resource_entries, get_project_resource_entry,
     select_project_resource_directory, select_project_resource_file,
@@ -315,6 +342,7 @@ async fn open_folder_as_workspace(
     window: WebviewWindow,
     plugin_id: Option<String>,
 ) -> Result<Option<String>, String> {
+    if workspace_mode::single_default() { return Ok(None); }
     let picker_app = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         picker_app.dialog().file().blocking_pick_folder()
@@ -459,7 +487,7 @@ async fn open_new_session_in_workspace(
     scene_id: Option<String>,
     plugin_id: Option<String>,
 ) -> Result<(), String> {
-    let cwd = PathBuf::from(&project_path);
+    let cwd = if workspace_mode::single_default() { app_paths::global_workspace_root()? } else { PathBuf::from(&project_path) };
     if !cwd.is_dir() {
         return Err(format!("Project folder no longer exists: {project_path}"));
     }
@@ -513,6 +541,7 @@ fn list_workspaces(app: AppHandle) -> Result<Vec<WorkspaceInfo>, String> {
     Ok(metadata
         .list_workspaces()?
         .into_iter()
+        .filter(|(_,path)| workspace_mode::context_allowed(Path::new(path)))
         .map(|(id, path)| WorkspaceInfo { id, path })
         .collect())
 }
@@ -1567,51 +1596,8 @@ fn centered_position(app: &AppHandle, width: u32, height: u32) -> (i32, i32) {
     }
 }
 
-fn canonical_if_exists(dir: PathBuf) -> Option<PathBuf> {
-    if dir.join("index.html").exists() {
-        Some(fs::canonicalize(&dir).unwrap_or(dir))
-    } else {
-        None
-    }
-}
-
-fn resolve_static_dir(
-    resource_dir: Option<PathBuf>,
-    workspace_public: PathBuf,
-    current_dir: Option<PathBuf>,
-    debug_assertions: bool,
-) -> PathBuf {
-    let bundled_public = resource_dir.as_ref().map(|dir| dir.join("public"));
-    let current_public = current_dir.unwrap_or_default().join("public");
-
-    if debug_assertions {
-        if let Some(dir) = canonical_if_exists(workspace_public) {
-            return dir;
-        }
-        if let Some(dir) = canonical_if_exists(current_public.clone()) {
-            return dir;
-        }
-        return current_public;
-    }
-
-    if let Some(dir) = bundled_public.and_then(canonical_if_exists) {
-        return dir;
-    }
-
-    resource_dir
-        .map(|dir| dir.join("public"))
-        .unwrap_or_else(|| PathBuf::from("public"))
-}
-
 fn static_dir_for_resource(resource_dir: Option<PathBuf>) -> PathBuf {
-    resolve_static_dir(
-        resource_dir,
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("public"),
-        std::env::current_dir().ok(),
-        cfg!(debug_assertions),
-    )
+    runtime_assets::public_dir(resource_dir)
 }
 
 fn find_static_dir(app: &tauri::App) -> PathBuf {
@@ -1808,13 +1794,11 @@ fn select_fresh_startup_target(
     home_cwd: String,
     latest_session: Option<(String, String)>,
 ) -> (String, Option<String>) {
-    let cwd = latest_session
-        .map(|(session_cwd, _session_path)| session_cwd)
-        .unwrap_or(home_cwd);
-    (cwd, None)
+    workspace_mode::default_startup(home_cwd, latest_session)
 }
 
 fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(), String> {
+    runtime_assets::validate(&static_dir)?;
     configure_bundled_tool_path(&static_dir)?;
     notes_vault::configure_bundled_bun(&static_dir)?;
     let system_root = app_paths::system_root()?;
@@ -1875,7 +1859,8 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
     }
     // Include every registered workspace's `.zicode/sessions` when resuming
     // the most recently used session (legacy app-data roots still apply).
-    let tools_only = explorer_entry::tools_only();
+    let initial_app = browser::startup::initial_app()?;
+    let tools_only = matches!(initial_app, Some("core.tools" | "com.zicode.browser"));
     let workspace_session_roots: Vec<PathBuf> = if tools_only {
         Vec::new()
     } else {
@@ -1994,7 +1979,7 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
         app.handle(),
         &host,
         &target,
-        tools_only.then_some("core.tools"),
+        initial_app,
     ) {
         runtimes.stop_all();
         return Err(error);
@@ -2027,6 +2012,7 @@ fn main() {
     if std::env::args().nth(1).as_deref() == Some("--zicode-plugin-worker") {
         std::process::exit(plugin_worker::run_stdio());
     }
+    workspace_mode::initialize_desktop();
     if std::env::args().nth(1).as_deref() == Some("--zicode-automation-worker") {
         let arguments: Vec<std::ffi::OsString> = std::env::args_os().skip(2).collect();
         if let Err(error) = automation_worker::run(&arguments) {
@@ -2090,8 +2076,17 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             open_desktop_tool_center,
             set_desktop_tray_locale,
+            set_desktop_tool_shortcuts,
             desktop_explorer_menu,
             select_project_resource_file,
+            select_result_text_export,
+            commit_result_text_export,
+            cancel_result_text_export,
+            verify_result_text_export,
+            select_resource_export,
+            commit_resource_export,
+            cancel_resource_export,
+            verify_resource_export,
             select_project_resource_directory,
             get_project_resource_entry,
             get_project_resource_entries,
@@ -2135,6 +2130,19 @@ fn main() {
             scene_credential_status,
             send_desktop_notification,
             publish_notes_notebook,
+            get_system_information,
+            browser_control,
+            browser_capture_page,
+            browser_get_state,
+            browser_set_startup_mode,
+            browser_save_session,
+            browser_bookmarks,
+            browser_history,
+            start_system_temperature_monitor,
+            stop_system_temperature_monitor,
+            check_desktop_update,
+            install_desktop_update,
+            restart_desktop_after_update,
             check_beta_update,
             install_beta_update
         ])
@@ -2263,6 +2271,7 @@ fn main() {
                     }
                 }
                 tauri::WindowEvent::Destroyed if label.starts_with("native-workspace-") => {
+                    browser::forget_window(label);
                     desktop_tray::forget_window(window.app_handle(), label);
                     if let Some(entries) =
                         window.try_state::<explorer_launch_state::ExplorerLaunchState>()
@@ -2328,6 +2337,8 @@ fn main() {
                 }
             }
             tauri::RunEvent::Exit => {
+                if let Err(error) = browser::history_worker::flush() { log::warn!("[browser-history] {error}"); }
+
                 if let Some(host) = app_handle.try_state::<HostServer>() {
                     host.request_shutdown();
                     if let Err(error) = tauri::async_runtime::block_on(host.wait_for_shutdown()) {
@@ -2348,7 +2359,7 @@ mod tests {
     use super::{
         format_window_state, move_workspace_app_data_to_trash, parse_window_state,
         protected_workspace_reason, purge_all_workspace_trash, purge_expired_workspace_trash,
-        remove_workspace_trash_entry, resolve_static_dir, restore_app_data_from_trash,
+        remove_workspace_trash_entry, restore_app_data_from_trash,
         select_fresh_startup_target, session_dir_name, visible_position, WindowState,
         WORKSPACE_TRASH_RETENTION_SECS,
     };
@@ -2569,36 +2580,6 @@ mod tests {
         assert!(long_name.chars().count() <= 124);
     }
 
-    fn unique_temp_dir(label: &str) -> PathBuf {
-        let suffix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("picot-{label}-{suffix}"))
-    }
-
-    #[test]
-    fn debug_build_prefers_workspace_public_over_bundled_copy() {
-        let root = unique_temp_dir("static-dir-debug");
-        let workspace_public = root.join("workspace").join("public");
-        let bundled_public = root.join("bundled").join("public");
-
-        fs::create_dir_all(&workspace_public).unwrap();
-        fs::create_dir_all(&bundled_public).unwrap();
-        fs::write(workspace_public.join("index.html"), "workspace").unwrap();
-        fs::write(bundled_public.join("index.html"), "bundled").unwrap();
-
-        let resolved = resolve_static_dir(
-            Some(root.join("bundled")),
-            workspace_public.clone(),
-            Some(root.join("workspace")),
-            true,
-        );
-
-        assert_eq!(resolved, fs::canonicalize(&workspace_public).unwrap());
-        let _ = fs::remove_dir_all(root);
-    }
-
     #[test]
     fn window_state_round_trips_and_rejects_undersized_sizes() {
         let state = WindowState {
@@ -2648,7 +2629,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_the_latest_workspace_but_never_resumes_its_session_on_app_start() {
+    fn always_starts_in_default_workspace_without_resuming_a_session() {
         let selected = select_fresh_startup_target(
             "/home/user".to_string(),
             Some((
@@ -2656,6 +2637,6 @@ mod tests {
                 "/sessions/old-session.jsonl".to_string(),
             )),
         );
-        assert_eq!(selected, ("/work/project".to_string(), None));
+        assert_eq!(selected, ("/home/user".to_string(), None));
     }
 }

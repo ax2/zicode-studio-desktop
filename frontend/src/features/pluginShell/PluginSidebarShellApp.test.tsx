@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe("plugin sidebar shell", () => {
-  it("opens the project workspace from the project row", () => {
+  it("omits the project row and its navigation action in the default desktop", () => {
     const dispatched: string[] = [];
     const listener = (event: Event) => dispatched.push(event.type);
     window.addEventListener("zicode:open-project", listener);
@@ -19,9 +19,9 @@ describe("plugin sidebar shell", () => {
       />,
     );
     const row = container.querySelector(".plugin-sidebar-project") as HTMLElement;
-    expect(row).toBeTruthy();
-    row.click();
+    expect(row).toBeNull();
+    expect(container.textContent).not.toContain("C:/Users/ax2");
     window.removeEventListener("zicode:open-project", listener);
-    expect(dispatched).toEqual(["zicode:open-project"]);
+    expect(dispatched).toEqual([]);
   });
 });

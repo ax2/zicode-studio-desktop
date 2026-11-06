@@ -6,6 +6,9 @@ export const BETA_SETTINGS_KEY = "picot-settings-beta-updates";
 
 export interface UpdateInfo {
   version?: string;
+  date?: string;
+  body?: string;
+  nativeManaged?: boolean;
   downloadAndInstall?: (
     handler?: (event: unknown) => void,
   ) => Promise<unknown>;
@@ -97,6 +100,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
   },
   showIdle() {
     set({
+      update: null,
       status: t("Click to check"),
       button: t("Check now"),
       disabled: false,
@@ -132,24 +136,15 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
       const tauri = (globalThis as unknown as TauriGlobal).__TAURI__;
       const beta = betaUpdatesEnabled();
       let result: unknown = null;
-      if (beta) {
-        const invoke = tauri?.core?.invoke;
-        if (typeof invoke !== "function") {
-          throw new Error("Tauri core API is unavailable");
-        }
-        result = await invoke("check_beta_update");
-      } else {
-        const check = tauri?.updater?.check;
-        if (typeof check === "function") result = await check();
-      }
-      const update = result
-        ? beta
-          ? {
-              ...(result as UpdateInfo),
-              downloadAndInstall: () => get().installUpdate(),
-            }
-          : (result as UpdateInfo)
-        : null;
+      const invoke = tauri?.core?.invoke;
+      const native = typeof invoke === "function";
+      if (native) result = await invoke("check_desktop_update", { beta });
+      else if (!beta && typeof tauri?.updater?.check === "function") result = await tauri.updater.check();
+      else throw new Error("Desktop updater is unavailable");
+      const update = result ? native ? {
+        ...(result as UpdateInfo), nativeManaged: true,
+        downloadAndInstall: () => invoke?.("install_desktop_update", { expectedVersion: (result as UpdateInfo).version, beta }),
+      } : result as UpdateInfo : null;
       if (update) {
         get().showAvailable(update);
       } else {
@@ -170,7 +165,7 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
           disabled: false,
         });
       }
-      get().logger.warn?.("[Updater] Check failed:", error);
+      if (!silent) get().logger.warn?.("[Updater] Check failed:", error);
       return null;
     } finally {
       set({ checking: false });
@@ -207,24 +202,15 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
     let updateLeaseHeld = false;
     let restartOnFailure = true;
     try {
-      const beta = betaUpdatesEnabled();
-      if (beta) {
-        const invoke = tauri?.core?.invoke;
-        if (typeof invoke !== "function") {
-          throw new Error("Tauri core API is unavailable");
-        }
-        await invoke("install_beta_update");
-        updateLeaseHeld = true;
-      } else {
-        const update = get().update;
-        if (typeof update?.downloadAndInstall !== "function") {
-          throw new Error("Updater API is unavailable");
-        }
+      const update = get().update;
+      if (typeof update?.downloadAndInstall !== "function") throw new Error("Updater API is unavailable");
+      if (!update.nativeManaged) {
         const invoke = tauri?.core?.invoke;
         if (typeof invoke === "function") {
           await invoke("prepare_background_automation_worker_for_update");
           updateLeaseHeld = true;
         }
+      }
         await update.downloadAndInstall(
           (rawEvent: unknown) => {
             const event = rawEvent as UpdateProgressEvent;
@@ -253,25 +239,24 @@ export const useAppUpdaterStore = create<AppUpdaterState>()((set, get) => ({
             }
           },
         );
-      }
       set({
         status: t("Installed. Relaunching…"),
         button: t("Relaunching…"),
         disabled: true,
       });
       const relaunch = tauri?.process?.relaunch;
-      if (typeof relaunch !== "function") {
-        throw new Error("Tauri process plugin is unavailable");
-      }
-      await relaunch();
+      if (typeof relaunch === "function") await relaunch();
+      else if (update.nativeManaged && tauri?.core?.invoke) await tauri.core.invoke("restart_desktop_after_update");
+      else throw new Error("Tauri process plugin is unavailable");
       restartOnFailure = false;
     } catch (error) {
       get().logger.warn?.("[Updater] Install failed:", error);
       set({
         status: t("Install failed"),
-        button: t("Try again"),
+        button: t("Check now"),
         disabled: false,
-        canInstall: true,
+        update: null,
+        canInstall: false,
         sidebarVisible: true,
       });
     } finally {

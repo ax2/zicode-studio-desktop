@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 2,
+  "id": "com.zicode.devtools.markdown",
+  "name": "ZiDevTools Markdown",
+  "displayName": "ZiDevTools Markdown",
+  "description": "Preview Markdown and explicitly save complete inert HTML without changing the original file.",
+  "version": "0.1.1",
+  "publisher": "zicode",
+  "license": "MIT",
+  "engines": {
+    "zicode": ">=0.1.0 <1.0.0",
+    "pluginApi": "^1.0.0"
+  },
+  "requiredProfiles": {
+    "resource.wasi.markdown.v1": "=1.0.0-preview.2",
+    "output.schema.v1": "=1.0.0-rc.1",
+    "resource.output.types.v1": "=1.0.0-preview.1",
+    "tool.directory.v1": "=1.0.0-preview.1"
+  },
+  "activationEvents": [
+    "onCapability:devtools.markdown.render"
+  ],
+  "runtime": {
+    "wasi": "runtime/tools.wasm",
+    "resourceInputProfile": "resource.wasi.input.draft2",
+    "resourceOutputProfile": "resource.wasi.output.draft1"
+  },
+  "contributes": {
+    "activities": [],
+    "views": [],
+    "commands": [],
+    "piTools": [],
+    "capabilities": [
+      {
+        "id": "devtools.markdown.render",
+        "title": "Markdown preview and HTML export",
+        "description": "Preview UTF-8 Markdown and export a complete separate HTML file. Original content is preserved. Input up to 2 MiB, 200000 structural events; HTML up to 16 MiB.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sourceMode": {
+              "type": "string",
+              "enum": [
+                "file",
+                "draft"
+              ],
+              "default": "file"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "inputBytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2097152
+                },
+                "utf8Bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2097152
+                },
+                "htmlBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 16777216
+                },
+                "eventCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 200000
+                },
+                "mimeType": {
+                  "type": "string",
+                  "const": "text/html"
+                },
+                "sourceUnchanged": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "sourceToolVersion": {
+                  "type": "string",
+                  "maxLength": 32
+                }
+              },
+              "required": [
+                "ok",
+                "inputBytes",
+                "utf8Bytes",
+                "htmlBytes",
+                "eventCount",
+                "mimeType",
+                "sourceUnchanged",
+                "sourceToolVersion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "ok": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "error": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "MARKDOWN_FAILED"
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 512
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "ok",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "maxResultBytes": 2048,
+        "executionProfile": "resource.wasi.markdown.v1",
+        "directory": {
+          "categoryId": "text",
+          "aliases": [
+            "markdown",
+            "md",
+            "Markdown预览",
+            "HTML导出",
+            "文档预览"
+          ],
+          "description": "确认提供UTF-8文本后预览Markdown、另存完整HTML；不改写原文件。"
+        }
+      }
+    ]
+  },
+  "permissions": {
+    "required": [
+      {
+        "name": "resource.read",
+        "reason": "Read only the UTF-8 text explicitly provided and confirmed for this operation."
+      }
+    ],
+    "optional": []
+  }
+}

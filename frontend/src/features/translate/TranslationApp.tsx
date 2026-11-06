@@ -19,6 +19,7 @@ export type TranslationAppApi = {
   destroy(): void;
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
+  focusInput(): void;
   refresh(): Promise<void>;
 };
 
@@ -190,11 +191,13 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
   const store = createTranslationStore(options);
   let navRoot: Root | null = null;
   let contentRoot: Root | null = null;
+  let contentContainer: HTMLElement | null = null;
   return {
     renderNavigation(container) {
       navRoot = mountPluginSurface(container, <TranslationNav />, navRoot);
     },
     renderContent(container) {
+      contentContainer = container;
       contentRoot = mountPluginSurface(container, <TranslationMain store={store} />, contentRoot);
     },
     deactivate() {},
@@ -203,11 +206,13 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
       contentRoot?.unmount();
       navRoot = null;
       contentRoot = null;
+      contentContainer = null;
     },
     handlesCommand(commandId) {
       return commandId === "translate.open";
     },
     executeCommand() {},
+    focusInput() { requestAnimationFrame(() => contentContainer?.querySelector<HTMLTextAreaElement>(".translate-textarea")?.focus()); },
     refresh() {
       return Promise.resolve();
     },

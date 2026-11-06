@@ -9,6 +9,9 @@ pub(crate) const MAX_BYTES: usize = 32 * 1024 * 1024;
 pub(crate) const MAX_HEADER: usize = 1024 * 1024 + 4096;
 pub(crate) const MAX_FRAME: usize = 12 + MAX_HEADER + MAX_BYTES;
 const MAGIC: &[u8; 8] = b"ZIWO\0\0\0\x01";
+#[path = "plugin_worker_resource_output_profile.rs"]
+mod profile;
+pub(crate) use profile::Profile;
 pub(super) use crate::plugin_output_types::MIMES;
 
 pub(crate) struct Blob {
@@ -17,6 +20,7 @@ pub(crate) struct Blob {
 }
 
 pub(crate) struct Bundle {
+    pub profile: Profile,
     pub binary: bool,
     pub result: Value,
     pub resources: Vec<Blob>,
@@ -25,6 +29,7 @@ pub(crate) struct Bundle {
 impl Bundle {
     pub(super) fn json(result: Value) -> Self {
         Self {
+            profile: Profile::Draft1,
             binary: false,
             result,
             resources: Vec::new(),
@@ -56,8 +61,8 @@ fn invalid() -> String {
 
 pub(super) fn write(mut writer: impl Write, bundle: &Bundle) -> Result<(), String> {
     let header = Header {
-        schema_version: 1,
-        profile: PROFILE.into(),
+        schema_version: bundle.profile.schema(),
+        profile: bundle.profile.name().into(),
         result: bundle.result.clone(),
         resources: bundle
             .resources
@@ -71,11 +76,11 @@ pub(super) fn write(mut writer: impl Write, bundle: &Bundle) -> Result<(), Strin
             })
             .collect(),
     };
-    validate(&header)?;
+    validate(&header, bundle.profile)?;
     // Bounded serialization also covers escaping and a caller-supplied result value.
     let bytes = super::resource_input::encode_header(&header, MAX_HEADER).map_err(|_| invalid())?;
     writer
-        .write_all(MAGIC)
+        .write_all(bundle.profile.magic())
         .and_then(|()| writer.write_all(&(bytes.len() as u32).to_le_bytes()))
         .and_then(|()| writer.write_all(&bytes))
         .map_err(|_| invalid())?;
@@ -85,14 +90,15 @@ pub(super) fn write(mut writer: impl Write, bundle: &Bundle) -> Result<(), Strin
     Ok(())
 }
 
-fn validate(header: &Header) -> Result<(), String> {
-    if header.schema_version != 1 || header.profile != PROFILE || header.resources.len() > 4 {
+fn validate(header: &Header, profile: Profile) -> Result<(), String> {
+    if header.schema_version != profile.schema() || header.profile != profile.name() || header.resources.len() > profile.max_records() {
         return Err(invalid());
     }
     let mut total = 0usize;
     for (index, descriptor) in header.resources.iter().enumerate() {
         if descriptor.index != index
-            || !MIMES.contains(&descriptor.mime_type.as_str())
+            || !profile.permits_mime(&descriptor.mime_type)
+            || descriptor.byte_length > profile.max_file()
             || descriptor.content_version.len() != 64
             || !descriptor
                 .content_version
@@ -103,7 +109,7 @@ fn validate(header: &Header) -> Result<(), String> {
         }
         total = total
             .checked_add(descriptor.byte_length)
-            .filter(|n| *n <= MAX_BYTES)
+            .filter(|n| *n <= profile.max_bytes())
             .ok_or_else(invalid)?;
     }
     Ok(())
@@ -112,7 +118,11 @@ fn validate(header: &Header) -> Result<(), String> {
 // Reserved for the future trusted Host output-registration path, not plugin-facing.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode(frame: &[u8]) -> Result<Bundle, String> {
-    if frame.len() < 12 || frame.len() > MAX_FRAME || &frame[..8] != MAGIC {
+    decode_with_profile(frame, Profile::Draft1)
+}
+
+pub(crate) fn decode_with_profile(frame: &[u8], profile: Profile) -> Result<Bundle, String> {
+    if frame.len() < 12 || frame.len() > profile.max_frame() || &frame[..8] != profile.magic() {
         return Err(invalid());
     }
     let length = u32::from_le_bytes(frame[8..12].try_into().map_err(|_| invalid())?) as usize;
@@ -124,7 +134,7 @@ pub(crate) fn decode(frame: &[u8]) -> Result<Bundle, String> {
         .filter(|n| *n <= frame.len())
         .ok_or_else(invalid)?;
     let header: Header = serde_json::from_slice(&frame[12..end]).map_err(|_| invalid())?;
-    validate(&header)?;
+    validate(&header, profile)?;
     let expected = header
         .resources
         .iter()
@@ -147,6 +157,7 @@ pub(crate) fn decode(frame: &[u8]) -> Result<Bundle, String> {
         cursor += descriptor.byte_length;
     }
     Ok(Bundle {
+        profile,
         binary: true,
         result: header.result,
         resources,

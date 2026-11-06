@@ -28,12 +28,14 @@ pub(super) struct Grant {
 #[derive(Default)]
 pub(crate) struct Store {
     pub(super) transfers: super::transfer::Transfers,
+    pub(super) exports: super::export::Grants,
     records: HashMap<String, Record>,
     grants: HashMap<String, Grant>,
 }
 
 impl Store {
     pub(in crate::host_server) fn invalidate_workspace(&mut self, workspace_id: &str) {
+        self.exports.invalidate_workspace(workspace_id);
         self.records
             .retain(|_, record| record.scope.workspace_id != workspace_id);
         self.grants

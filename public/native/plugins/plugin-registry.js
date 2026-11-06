@@ -1,6 +1,8 @@
+import { isWorkspaceApplicationVisible } from "../workspace/workspace-mode.js";
 const STORAGE_KEY = "zicode.application-plugins.v1";
 
 export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
+  { id: "com.zicode.browser", name: "Browser", description: "Browse the web inside Studio", icon: "globe", order: -10, enabledByDefault: true, sidebarViews: [], commands: [] },
   {
     id: "core.chat",
     name: "Chat",
@@ -318,8 +320,8 @@ export class BuiltinPluginRegistry {
   }
 
   list() {
-    if (this.#hostPlugins) return this.#hostPlugins.map((plugin) => structuredClone(plugin));
-    return this.#plugins.map((plugin) => ({
+    if (this.#hostPlugins) return this.#hostPlugins.filter(plugin => isWorkspaceApplicationVisible(plugin.id)).map((plugin) => structuredClone(plugin));
+    return this.#plugins.filter(plugin => isWorkspaceApplicationVisible(plugin.id)).map((plugin) => ({
       ...structuredClone(plugin),
       enabled: this.isEnabled(plugin.id),
       hasActivity: plugin.hasActivity !== false,

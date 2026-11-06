@@ -1,0 +1,14 @@
+.markdown-output-preview { display: grid; min-width: 0; gap: var(--space-3); }
+.markdown-output-preview h3, .markdown-output-preview p { margin: 0; }
+.markdown-output-document { min-width: 0; overflow-wrap: anywhere; line-height: 1.75; }
+.markdown-output-document > * { margin-block: var(--space-3); }
+.markdown-output-document :is(h1, h2) { font-size: var(--font-size-xl); }
+.markdown-output-document :is(h3, h4, h5, h6) { font-size: var(--font-size-lg); }
+.markdown-output-document blockquote { border-inline-start: var(--space-1) solid var(--border); margin-inline: 0; padding-inline: var(--space-3); }
+.markdown-output-document table { display: block; max-width: 100%; border-collapse: collapse; overflow: auto; }
+.markdown-output-document :is(th, td) { border: 1px solid var(--border); padding: var(--space-2); }
+.markdown-output-document [data-alignment="left"] { text-align: left; }
+.markdown-output-document [data-alignment="center"] { text-align: center; }
+.markdown-output-document [data-alignment="right"] { text-align: right; }
+.markdown-output-link { color: var(--accent); text-decoration: underline; }
+.markdown-output-preview textarea { width: 100%; }

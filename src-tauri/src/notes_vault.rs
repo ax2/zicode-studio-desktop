@@ -1,3 +1,8 @@
+#[cfg(test)]
+mod body_whitespace_tests;
+#[cfg(test)]
+mod move_tests;
+mod move_attachments;
 mod import_content;
 mod import_references;
 mod import_transaction;
@@ -5,6 +10,8 @@ mod knowledge;
 mod references;
 mod trash_guard;
 mod trash_metadata;
+#[cfg_attr(not(test), allow(dead_code))] // Awaiting sync settings and credentials integration.
+mod sync;
 
 use base64::Engine;
 use chrono::{SecondsFormat, Utc};
@@ -358,6 +365,7 @@ impl NotesVault {
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;
         let storage_guard = import_transaction::lock_storage(&vault_dir)?;
         import_transaction::recover(&vault_dir)?;
+        sync::recover(&vault_dir)?;
         self.migrate_legacy(&workspace_id)?;
         Ok(NotesVault {
             root: self.root.clone(),
@@ -905,15 +913,20 @@ impl NotesVault {
                 "A note with this ID already exists in the target notebook",
             ));
         }
+        let attachments = move_attachments::MoveAttachments::prepare(self, &notebook_id, &target_notebook_id, &note_id)?;
         let bytes = serialize_note(&moved)?;
         atomic_write(&target_path, &bytes)?;
         let source_path = self.note_path(&notebook_id, &note_id)?;
-        fs::remove_file(&source_path).map_err(|_| {
-            NotesError::new(
-                "storage_unavailable",
-                "Cannot remove the note from its source",
-            )
-        })?;
+        if fs::remove_file(&source_path).is_err() {
+            // Only this operation created the destination. If rollback fails,
+            // retain its attachments too so neither copy has broken references.
+            if fs::remove_file(&target_path).is_err() {
+                if let Some(stage) = attachments { stage.retain(); }
+                return Err(NotesError::new("storage_unavailable", "The note exists in both notebooks; its attachments were retained"));
+            }
+            return Err(NotesError::new("storage_unavailable", "Cannot remove the note from its source"));
+        }
+        if let Some(stage) = attachments { stage.commit(); }
         let mut written = moved;
         written.summary.version = version_for(&bytes);
         self.touch_notebook(&target_notebook_id)?;
@@ -2071,9 +2084,9 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
     }
     output.push_str("---\n\n");
     output.push_str(&document.content);
-    if !output.ends_with('\n') {
-        output.push('\n');
-    }
+    // The reader removes one formatting newline; always append it separately
+    // so a newline belonging to the user's content is never consumed.
+    output.push('\n');
     if output.len() > MAX_NOTE_BYTES {
         return Err(NotesError::new(
             "payload_too_large",

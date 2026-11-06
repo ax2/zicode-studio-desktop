@@ -91,6 +91,12 @@ export function createEditorMutations({
     );
   }
   return {
+    async deleteNoteFromList(summary: NoteSummary) {
+      const ticket = await guard.prepare();
+      if (!ticket) return;
+      const note = summaries(ticket).find(item => key(item) === key(summary));
+      if (note) await mutate(ticket, [note]);
+    },
     async deleteSelectedNote() {
       const ticket = await guard.prepare();
       if (ticket?.state.selectedNote) await mutate(ticket, [ticket.state.selectedNote]);

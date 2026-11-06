@@ -67,7 +67,13 @@ export function setupMessagesInsets({
     const currentHeight = viewportHeight(visualViewport);
     const composerFocused = Boolean(inputArea?.contains?.(document.activeElement));
     if (!composerFocused) baselineViewportHeight = currentHeight;
-    const keyboardOpen = composerFocused && baselineViewportHeight - currentHeight >= 100;
+    // A mouse-driven desktop resize reduces both viewports. It must not hide
+    // navigation merely because the composer kept focus. Touch keyboards may
+    // resize the layout too; otherwise require actual visual viewport occlusion.
+    const touchLayout = window.matchMedia?.("(pointer: coarse)")?.matches === true;
+    const visualOcclusion = Math.max(0, window.innerHeight - currentHeight) >= 100;
+    const keyboardOpen = composerFocused && baselineViewportHeight - currentHeight >= 100 &&
+      (touchLayout || visualOcclusion);
     const viewportInsets = keyboardOpen
       ? visualViewportInsets(visualViewport)
       : { top: 0, bottom: 0 };

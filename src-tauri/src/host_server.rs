@@ -46,6 +46,7 @@ mod plugin_task_center;
 mod plugin_tool_auth;
 mod plugin_tool_catalog;
 mod plugin_tool_execution;
+pub(crate) use plugin_resources::export::Context as ResourceExportContext;
 #[cfg(test)]
 mod trace_pi_tests;
 #[cfg(test)]
@@ -523,7 +524,7 @@ impl HostServer {
             ),
             remote_access,
         });
-        let automation_roots = state.data.workspace_roots();
+        let automation_roots = crate::workspace_mode::automation_roots(state.data.workspace_roots())?;
         let automation_runtimes = state.runtimes.clone();
         let automation_state = Arc::downgrade(&state);
         let automation_lifecycle = state.lifecycle.clone();

@@ -55,17 +55,13 @@ struct WorkerResponse {
 
 pub fn run_stdio() -> i32 {
     let response = resource_input::read(io::stdin().lock()).and_then(|input| {
-        let binary = match input.request.get("resourceOutputProfile") {
-            None => false,
-            Some(Value::String(profile))
-                if profile == resource_output::PROFILE
-                    && !input.resources.is_empty()
-                    && input.module.is_some() =>
-            {
-                true
-            }
-            _ => return Err("Unsupported resource output profile".into()),
-        };
+        let output = input.request.get("resourceOutputProfile");
+        if output.is_some_and(|value| !value.is_string()) { return Err("Unsupported resource output profile".into()); }
+        let profile = resource_output::Profile::negotiate(output.and_then(Value::as_str), input.request.get("executionProfile").and_then(Value::as_str))?;
+        let binary = profile.is_some();
+        if binary && (input.resources.is_empty() || input.module.is_none()) {
+            return Err("Resource output requires bounded input and module snapshots".into());
+        }
         let request = serde_json::from_value::<WorkerRequest>(input.request)
             .map_err(|_| "Invalid Worker request".to_string())?;
         if input.resources.is_empty() {
@@ -236,11 +232,31 @@ fn execute_wasi_bundle(
     let image_resize_profile = crate::plugin_resource_execution::is_image_resize_profile(
         request.execution_profile.as_deref(),
     );
-    if request.execution_profile.is_some() && !image_resize_profile {
+    let regex_replace_profile =
+        crate::plugin_resource_regex::selected(request.execution_profile.as_deref());
+    let metadata_profile = request.execution_profile.as_deref() == Some(resource_output::Profile::METADATA_EXECUTION);
+    let markdown_profile = crate::plugin_resource_execution::markdown::selected(request.execution_profile.as_deref());
+    let digest_profile = crate::plugin_resource_execution::file_digest::selected(request.execution_profile.as_deref());
+    let output_profile = if metadata_profile { resource_output::Profile::ImageMetadata2 } else { resource_output::Profile::Draft1 };
+    if request.execution_profile.is_some() && !image_resize_profile && !regex_replace_profile && !metadata_profile && !markdown_profile && !digest_profile {
         return Err("Unsupported resource execution profile".into());
     }
     if image_resize_profile && (!resource_mode || !binary) {
         return Err("Image resize execution profile requires resource input and output".into());
+    }
+    if metadata_profile && (!resource_mode || !binary) {
+        return Err("Metadata execution profile requires resource input and output".into());
+    }
+    if markdown_profile && (!resource_mode || !binary) {
+        return Err("Markdown execution profile requires resource input and output".into());
+    }
+    if digest_profile && (!resource_mode || !binary) {
+        return Err("File digest execution profile requires resource snapshots".into());
+    }
+    if regex_replace_profile && (!resource_mode || !binary) {
+        return Err(
+            "Regex replacement execution profile requires resource input and output".into(),
+        );
     }
     let mut envelope = serde_json::json!({
         "pluginId": request.plugin_id,
@@ -251,7 +267,7 @@ fn execute_wasi_bundle(
     });
     if resource_mode {
         if binary {
-            envelope["resourceOutputProfile"] = Value::String(resource_output::PROFILE.into());
+            envelope["resourceOutputProfile"] = Value::String(output_profile.name().into());
         }
         envelope["resourceInputProfile"] = Value::String(
             if module_snapshot.is_some() {
@@ -309,7 +325,11 @@ fn execute_wasi_bundle(
         resource_reads::link(&mut linker, |state| &mut state.reads)?;
     }
     if binary {
-        resource_writes::link(&mut linker, |state| &mut state.writes)?;
+        if metadata_profile {
+            resource_writes::link_with_profile(&mut linker, |state| &mut state.writes, output_profile)?;
+        } else {
+            resource_writes::link(&mut linker, |state| &mut state.writes)?;
+        }
     }
     let wasi = WasiCtxBuilder::new()
         .stdin(stdin)
@@ -319,7 +339,11 @@ fn execute_wasi_bundle(
         .build_p1();
     let limits = StoreLimitsBuilder::new()
         .memory_size(
-            if image_resize_profile {
+            if metadata_profile {
+                crate::plugin_resource_execution::metadata::MEMORY_MIB
+            } else if markdown_profile {
+                crate::plugin_resource_execution::markdown::MEMORY_MIB
+            } else if image_resize_profile {
                 crate::plugin_resource_execution::IMAGE_RESIZE_MEMORY_MIB
             } else if resource_mode {
                 256
@@ -329,7 +353,7 @@ fn execute_wasi_bundle(
                 * 1024,
         )
         .instances(1)
-        .memories(if image_resize_profile { 1 } else { 2 })
+        .memories(if image_resize_profile || metadata_profile || markdown_profile { 1 } else { 2 })
         .tables(4)
         .build();
     let mut store = Store::new(
@@ -338,13 +362,21 @@ fn execute_wasi_bundle(
             context: wasi,
             limits,
             reads: resource_reads::Reads::new(resources),
-            writes: resource_writes::Writes::default(),
+            writes: resource_writes::Writes::for_profile(output_profile),
         },
     );
     store.limiter(|state| &mut state.limits);
     store
-        .set_fuel(if image_resize_profile {
+        .set_fuel(if metadata_profile {
+            crate::plugin_resource_execution::metadata::FUEL
+        } else if markdown_profile {
+            crate::plugin_resource_execution::markdown::FUEL
+        } else if image_resize_profile {
             crate::plugin_resource_execution::IMAGE_RESIZE_FUEL
+        } else if regex_replace_profile {
+            crate::plugin_resource_regex::FUEL
+        } else if digest_profile {
+            crate::plugin_resource_execution::file_digest::FUEL
         } else {
             10_000_000
         })
@@ -395,6 +427,7 @@ fn execute_wasi_bundle(
         .map_err(|_| "WASI module stdout must be one JSON value".to_string())?;
     let resources = store.into_data().writes.finish()?;
     Ok(resource_output::Bundle {
+        profile: output_profile,
         binary,
         result,
         resources,

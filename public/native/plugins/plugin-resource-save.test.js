@@ -18,9 +18,10 @@ function fixture() {
   };
   const notify = vi.fn();
   const controller = createResourceSave({ gateway, getTarget: () => target, isCurrent: () => true, notify });
-  controller.open(resource, owner, container);
+  const onSaved = vi.fn();
+  controller.open(resource, owner, container, onSaved);
   const click = async label => { const button = [...container.querySelectorAll("button")].find(item => item.textContent === label); expect(button).toBeTruthy(); button.click(); await flush(); };
-  return { container, gateway, controller, notify, click, receipt, changeTarget: () => { target = { ...target, workspaceId: "another" }; } };
+  return { container, gateway, controller, notify, click, receipt, onSaved, changeTarget: () => { target = { ...target, workspaceId: "another" }; } };
 }
 beforeEach(() => { setLocale("en"); resource.byteLength = 100; resource.contentVersion = hash; vi.stubGlobal("crypto", webcrypto); });
 afterEach(() => vi.unstubAllGlobals());
@@ -29,7 +30,7 @@ describe("resource save consent", () => {
     const f = fixture(); await flush(); expect(f.gateway.commitResourceSave).not.toHaveBeenCalled();
     expect(f.container.textContent).toContain(f.receipt.relativePath); expect(f.container.textContent).toContain("No file has been written yet");
     await f.click("Confirm save file"); expect(f.gateway.commitResourceSave).toHaveBeenCalledOnce();
-    expect(f.container.textContent).toContain("Saved in the current project"); expect(f.notify).toHaveBeenCalledOnce(); f.controller.destroy();
+    expect(f.container.textContent).toContain("Saved to Studio files"); expect(f.notify).toHaveBeenCalledOnce(); expect(f.onSaved).toHaveBeenCalledWith(f.receipt); f.controller.destroy();
   });
   it("cancel and Escape do not write", async () => {
     const f = fixture(); await flush(); await f.click("Cancel save");
@@ -58,6 +59,7 @@ describe("resource save consent", () => {
     await f.click("Confirm save file"); const cancel = [...f.container.querySelectorAll("button")].find(button => button.textContent === "Cancel save");
     expect(cancel.disabled).toBe(true); f.controller.destroy(); resolve(result); await flush();
     expect(f.container.textContent).toBe(""); expect(f.notify).toHaveBeenCalledWith(expect.stringContaining(f.receipt.relativePath));
+    expect(f.onSaved).not.toHaveBeenCalled();
   });
   it("offers explicit read-only verification after a lost commit response, without replaying the writer", async () => {
     const f = fixture();
@@ -75,7 +77,7 @@ describe("resource save consent", () => {
     await f.click("Check saved file");
     await vi.waitFor(() => expect(f.container.textContent).toContain("Verified saved file:"));
     expect(f.gateway.commitResourceSave).toHaveBeenCalledOnce(); expect(f.gateway.prepareResourceSave).toHaveBeenCalledOnce();
-    expect(f.container.textContent).not.toContain("Confirm save file"); f.controller.destroy();
+    expect(f.container.textContent).not.toContain("Confirm save file"); expect(f.onSaved).toHaveBeenCalledWith(f.receipt); f.controller.destroy();
     resource.byteLength = 100; resource.contentVersion = hash;
   });
   it("keeps failed checks uncertain and allows only another read-only check", async () => {

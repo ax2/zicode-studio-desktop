@@ -16,6 +16,7 @@ export interface NotesAppHandle {
   newNote(): Promise<void>;
   startCapture(): Promise<void>;
   captureChatExchange(input: { question?: string; answer?: string; sessionId?: string }): Promise<unknown>;
+  receiveIncomingDraft(input: { title: string; content: string }, isCurrent: () => boolean, verify?: () => Promise<void>): Promise<void>;
   canDeactivate(): Promise<boolean>;
   destroy(): void;
 }
@@ -157,6 +158,9 @@ export function setupNotesApp(options: NotesStoreOptions): NotesAppHandle | null
     },
     captureChatExchange(input) {
       return store.getState().captureChatExchange(input);
+    },
+    receiveIncomingDraft(input, isCurrent, verify) {
+      return store.getState().receiveIncomingDraft(input, isCurrent, verify);
     },
     canDeactivate() {
       return store.getState().canDeactivate();

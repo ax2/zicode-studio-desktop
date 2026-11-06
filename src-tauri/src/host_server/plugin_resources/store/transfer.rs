@@ -140,6 +140,7 @@ impl Store {
             };
             // Immutable Arc chunks avoid a full byte copy while holding the store lock.
             let delegated = Record {
+                output_profile: record.output_profile,
                 owner: access.owner.clone(),
                 proof: target_proof.into(),
                 mime: record.mime.clone(),

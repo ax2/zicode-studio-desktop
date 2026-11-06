@@ -101,9 +101,16 @@ export interface TranslationOptions {
 
 export function createTranslationStore(options: TranslationOptions) {
   const { gateway = new TranslationHttpGateway(), getTarget, notify } = options;
+  let inputRevision = 0;
+  let completedInput: { scope: TranslationScope; text: string; sourceLang: string; targetLang: string } | null = null;
   return create<TranslationState>()((set, get) => ({
     modelSelection: null,
-    setModelSelection(value) { set({ modelSelection: value }); },
+    setModelSelection(value) {
+      const previous = get().modelSelection;
+      if (previous?.sceneId === value?.sceneId && previous?.provider === value?.provider && previous?.model === value?.model) return;
+      inputRevision += 1;
+      set({ modelSelection: value ? { ...value } : null, error: "" });
+    },
     getSceneId: () => getTarget().sceneId,
     loadModels: () => gateway.listModels?.(getTarget()) ?? Promise.resolve([]),
     text: "",
@@ -115,26 +122,39 @@ export function createTranslationStore(options: TranslationOptions) {
     error: "",
 
     setText(value) {
-      set({ text: value, error: "", result: null });
+      if (value === get().text) return;
+      inputRevision += 1;
+      completedInput = null;
+      set({ text: value, error: "", result: null, editedText: "" });
     },
 
     setSourceLang(value) {
+      if (value === get().sourceLang) return;
+      inputRevision += 1;
       set({ sourceLang: value, error: "" });
     },
 
     setTargetLang(value) {
+      if (value === get().targetLang) return;
+      inputRevision += 1;
       set({ targetLang: value, error: "" });
     },
 
     swap() {
-      const { sourceLang, targetLang, editedText, text } = get();
+      const { sourceLang, targetLang, editedText, text, result } = get();
+      const scope = getTarget();
+      const currentResult = result && completedInput && completedInput.text === text &&
+        completedInput.sourceLang === sourceLang && completedInput.targetLang === targetLang &&
+        completedInput.scope.sceneId === scope.sceneId && completedInput.scope.workspaceId === scope.workspaceId;
+      inputRevision += 1;
+      completedInput = null;
       set({
         sourceLang: targetLang,
         targetLang: sourceLang || "English",
         // With a previous result, swap the translated text into the source.
         // Without one, keep the source text so swapping languages never
         // clears what the user typed.
-        text: editedText || text,
+        text: currentResult ? editedText : text,
         result: null,
         editedText: "",
         error: "",
@@ -144,10 +164,23 @@ export function createTranslationStore(options: TranslationOptions) {
     async run() {
       const { text, sourceLang, targetLang, busy } = get();
       if (!text.trim() || busy) return;
-      const scope = getTarget();
+      const scope = { ...getTarget() };
+      const revision = inputRevision;
       const selection = get().modelSelection;
       if (!selection || selection.sceneId !== scope.sceneId) { set({ error: t("Choose a configured model") }); return; }
-      set({ busy: true, error: "", result: null });
+      const acceptCompletion = () => {
+        const current = getTarget();
+        if (current.sceneId !== scope.sceneId || current.workspaceId !== scope.workspaceId) {
+          set({ busy: false });
+          return false;
+        }
+        if (inputRevision !== revision) {
+          set({ busy: false, error: get().text.trim() ? t("Translation input changed. Translate again when ready.") : "" });
+          return false;
+        }
+        return true;
+      };
+      set({ busy: true, error: "", result: null, editedText: "" });
       try {
         const result = await gateway.translate(scope, {
           provider: selection.provider, model: selection.model,
@@ -155,11 +188,12 @@ export function createTranslationStore(options: TranslationOptions) {
           targetLang,
           ...(sourceLang ? { sourceLang } : {}),
         });
-        if (getTarget().sceneId !== scope.sceneId) { set({ busy: false }); return; }
+        if (!acceptCompletion()) return;
+        completedInput = { scope, text, sourceLang, targetLang };
         set({ result, editedText: result.translated, busy: false });
         notify(t("Translation complete"));
       } catch (error) {
-        set({ busy: false, error: friendlyPluginError(error) });
+        if (acceptCompletion()) set({ busy: false, error: friendlyPluginError(error) });
       }
     },
 
@@ -198,6 +232,8 @@ export function createTranslationStore(options: TranslationOptions) {
     },
 
     clear() {
+      inputRevision += 1;
+      completedInput = null;
       set({ text: "", result: null, editedText: "", error: "" });
     },
   }));

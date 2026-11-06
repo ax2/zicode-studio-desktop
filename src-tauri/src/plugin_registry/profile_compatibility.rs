@@ -49,8 +49,10 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             .as_str()
             .filter(|s| !s.trim().is_empty() && s.len() <= 256)
             .ok_or_else(|| "Invalid plugin profile range".to_string())?;
-        if matches!(name.as_str(), "tool.open.v1" | "view.operation.directory.v1")
-            && range != "=1.0.0-preview.1"
+        if matches!(
+            name.as_str(),
+            "tool.open.v1" | "view.operation.directory.v1"
+        ) && range != "=1.0.0-preview.1"
         {
             return Err(format!("{name} requires the exact preview profile version"));
         }
@@ -68,6 +70,13 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
             | "resource.output.types.v1"
             | "resource.host.input.v1"
             | crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE
+            | crate::plugin_resource_regex::PROFILE
+            | crate::plugin_regex_review::PROFILE
+            | crate::plugin_resource_execution::metadata::PROFILE
+            | crate::plugin_resource_execution::markdown::PROFILE
+            | crate::plugin_resource_execution::file_digest::PROFILE
+            | crate::plugin_worker::resource_output::Profile::METADATA_NAME
+            | crate::plugin_worker::resource_output::Profile::METADATA_SAVE
             | crate::plugin_registry::resource_input_types::PROFILE
             | "model.catalog.read.v1"
             | "model.generate.v1"
@@ -76,6 +85,16 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
                     crate::plugin_registry::resource_input_types::VERSION
                 } else if name == crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE {
                     crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE_VERSION
+                } else if name == crate::plugin_resource_regex::PROFILE {
+                    crate::plugin_resource_regex::VERSION
+                } else if name == crate::plugin_regex_review::PROFILE {
+                    crate::plugin_regex_review::VERSION
+                } else if name == crate::plugin_resource_execution::metadata::PROFILE {
+                    crate::plugin_resource_execution::metadata::VERSION
+                } else if name == crate::plugin_resource_execution::markdown::PROFILE {
+                    if range == "=1.0.0-preview.1" { crate::plugin_resource_execution::markdown::LEGACY_VERSION } else { crate::plugin_resource_execution::markdown::VERSION }
+                } else if name == crate::plugin_resource_execution::file_digest::PROFILE {
+                    crate::plugin_resource_execution::file_digest::VERSION
                 } else if name == "resource.host.input.v1" {
                     crate::plugin_resource_execution::HOST_IMAGE_INPUT_PROFILE_VERSION
                 } else {
@@ -125,6 +144,11 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
         {
             missing.insert("application.directory.v1");
         }
+    }
+    let regex_replace_required = requirements.contains_key(crate::plugin_resource_regex::PROFILE)
+        || requirements.contains_key(crate::plugin_regex_review::PROFILE);
+    if regex_replace_required {
+        crate::plugin_resource_regex::validate_manifest(manifest)?;
     }
     for capability in manifest
         .contributes
@@ -204,11 +228,13 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
                 .get("resourceInputProfile")
                 .and_then(serde_json::Value::as_str)
                 != Some("resource.wasi.input.draft2")
-            || manifest
+            || (manifest
                 .runtime
                 .get("resourceOutputProfile")
                 .and_then(serde_json::Value::as_str)
-                != Some(crate::plugin_worker::resource_output::PROFILE))
+                != Some(crate::plugin_worker::resource_output::PROFILE)
+                && !(manifest.runtime["resourceOutputProfile"]==crate::plugin_worker::resource_output::Profile::METADATA_NAME
+                    && requirements.contains_key(crate::plugin_resource_execution::metadata::PROFILE))))
     {
         return Err("resource.output.types.v1 requires output.schema.v1 and a WASI resource input and output runtime".into());
     }
@@ -275,6 +301,12 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
     }
     let image_resize_required =
         requirements.contains_key(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE);
+    crate::plugin_resource_execution::markdown::validate_manifest(manifest)?;
+    crate::plugin_resource_execution::file_digest::validate_manifest(manifest)?;
+    crate::plugin_resource_execution::metadata::validate_declaration(
+        manifest.schema_version, requirements, &manifest.runtime, &manifest.contributes,
+        manifest.permissions.required.iter().chain(&manifest.permissions.optional).any(|permission|permission.name=="resource.read"),
+    )?;
     let image_resize_capabilities = manifest
         .contributes
         .get("capabilities")
@@ -330,8 +362,16 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
         .flatten()
     {
         if let Some(profile) = capability.get("executionProfile") {
-            if profile.as_str() != Some(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
-                || !image_resize_required
+            if !((profile.as_str() == Some(crate::plugin_resource_execution::IMAGE_RESIZE_PROFILE)
+                && image_resize_required)
+                || (crate::plugin_resource_regex::selected(profile.as_str())
+                    && profile.as_str().is_some_and(|name| requirements.contains_key(name)))
+                || (crate::plugin_resource_execution::metadata::selected(profile.as_str())
+                    && requirements.contains_key(crate::plugin_resource_execution::metadata::PROFILE))
+                || (crate::plugin_resource_execution::markdown::selected(profile.as_str())
+                    && requirements.contains_key(crate::plugin_resource_execution::markdown::PROFILE))
+                || (crate::plugin_resource_execution::file_digest::selected(profile.as_str())
+                    && requirements.contains_key(crate::plugin_resource_execution::file_digest::PROFILE)))
             {
                 return Err("Capability executionProfile is unsupported or missing its requiredProfiles declaration".into());
             }
@@ -377,6 +417,7 @@ pub(super) fn validate(manifest: &PluginManifest) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    include!("regex_resource_profile_tests.rs");
     use super::*;
     use serde_json::{json, Value};
     #[test]

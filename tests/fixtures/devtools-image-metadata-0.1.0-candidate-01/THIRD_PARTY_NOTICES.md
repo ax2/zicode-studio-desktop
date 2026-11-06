@@ -1,0 +1,55 @@
+# Production dependencies
+
+- zi-image-core 0.1.0: MIT; see licenses/zi-image-core-0.1.0/
+- zi-image-metadata-wasi 0.1.0: MIT; see licenses/zi-image-metadata-wasi-0.1.0/
+- adler2 2.0.1: 0BSD OR MIT OR Apache-2.0; see licenses/adler2-2.0.1/
+- anyhow 1.0.104: MIT OR Apache-2.0; see licenses/anyhow-1.0.104/
+- autocfg 1.5.1: Apache-2.0 OR MIT; see licenses/autocfg-1.5.1/
+- bitflags 2.13.2: MIT OR Apache-2.0; see licenses/bitflags-2.13.2/
+- block-buffer 0.10.4: MIT OR Apache-2.0; see licenses/block-buffer-0.10.4/
+- bytemuck 1.25.2: Zlib OR Apache-2.0 OR MIT; see licenses/bytemuck-1.25.2/
+- bytemuck_derive 1.12.1: Zlib OR Apache-2.0 OR MIT; see licenses/bytemuck_derive-1.12.1/
+- byteorder-lite 0.1.0: Unlicense OR MIT; see licenses/byteorder-lite-0.1.0/
+- cfg-if 1.0.5: MIT OR Apache-2.0; see licenses/cfg-if-1.0.5/
+- chrono 0.4.45: MIT OR Apache-2.0; see licenses/chrono-0.4.45/
+- crc32fast 1.5.2: MIT OR Apache-2.0; see licenses/crc32fast-1.5.2/
+- crypto-common 0.1.7: MIT OR Apache-2.0; see licenses/crypto-common-0.1.7/
+- digest 0.10.7: MIT OR Apache-2.0; see licenses/digest-0.10.7/
+- fax 0.2.7: MIT; see licenses/fax-0.2.7/
+- fdeflate 0.3.7: MIT OR Apache-2.0; see licenses/fdeflate-0.3.7/
+- flate2 1.1.10: MIT OR Apache-2.0; see licenses/flate2-1.1.10/
+- generic-array 0.14.7: MIT; see licenses/generic-array-0.14.7/
+- half 2.7.1: MIT OR Apache-2.0; see licenses/half-2.7.1/
+- image-webp 0.2.4: MIT OR Apache-2.0; see licenses/image-webp-0.2.4/
+- image 0.25.10: MIT OR Apache-2.0; see licenses/image-0.25.10/
+- itoa 1.0.18: MIT OR Apache-2.0; see licenses/itoa-1.0.18/
+- libm 0.2.16: MIT; see licenses/libm-0.2.16/
+- memchr 2.8.3: Unlicense OR MIT; see licenses/memchr-2.8.3/
+- miniz_oxide 0.8.9: MIT OR Zlib OR Apache-2.0; see licenses/miniz_oxide-0.8.9/
+- miniz_oxide 0.9.1: MIT OR Zlib OR Apache-2.0; see licenses/miniz_oxide-0.9.1/
+- moxcms 0.8.1: BSD-3-Clause OR Apache-2.0; see licenses/moxcms-0.8.1/
+- num-traits 0.2.19: MIT OR Apache-2.0; see licenses/num-traits-0.2.19/
+- png 0.18.1: MIT OR Apache-2.0; see licenses/png-0.18.1/
+- proc-macro2 1.0.107: MIT OR Apache-2.0; see licenses/proc-macro2-1.0.107/
+- pxfm 0.1.30: BSD-3-Clause OR Apache-2.0; see licenses/pxfm-0.1.30/
+- quick-error 2.0.1: MIT/Apache-2.0; see licenses/quick-error-2.0.1/
+- quote 1.0.47: MIT OR Apache-2.0; see licenses/quote-1.0.47/
+- serde 1.0.229: MIT OR Apache-2.0; see licenses/serde-1.0.229/
+- serde_core 1.0.229: MIT OR Apache-2.0; see licenses/serde_core-1.0.229/
+- serde_derive 1.0.229: MIT OR Apache-2.0; see licenses/serde_derive-1.0.229/
+- serde_json 1.0.151: MIT OR Apache-2.0; see licenses/serde_json-1.0.151/
+- sha2 0.10.9: MIT OR Apache-2.0; see licenses/sha2-0.10.9/
+- simd-adler32 0.3.10: MIT; see licenses/simd-adler32-0.3.10/
+- syn 2.0.119: MIT OR Apache-2.0; see licenses/syn-2.0.119/
+- syn 3.0.6: MIT OR Apache-2.0; see licenses/syn-3.0.6/
+- tiff 0.11.3: MIT; see licenses/tiff-0.11.3/
+- typenum 1.20.1: MIT OR Apache-2.0; see licenses/typenum-1.20.1/
+- unicode-ident 1.0.26: (MIT OR Apache-2.0) AND Unicode-3.0; see licenses/unicode-ident-1.0.26/
+- version_check 0.9.5: MIT/Apache-2.0; see licenses/version_check-0.9.5/
+- weezl 0.1.12: MIT OR Apache-2.0; see licenses/weezl-0.1.12/
+- zerocopy-derive 0.8.57: BSD-2-Clause OR Apache-2.0 OR MIT; see licenses/zerocopy-derive-0.8.57/
+- zerocopy 0.8.57: BSD-2-Clause OR Apache-2.0 OR MIT; see licenses/zerocopy-0.8.57/
+- zlib-rs 0.6.8: Zlib; see licenses/zlib-rs-0.6.8/
+- zmij 1.0.23: MIT; see licenses/zmij-1.0.23/
+- zune-core 0.5.3: MIT OR Apache-2.0 OR Zlib; see licenses/zune-core-0.5.3/
+- zune-jpeg 0.5.15: MIT OR Apache-2.0 OR Zlib; see licenses/zune-jpeg-0.5.15/

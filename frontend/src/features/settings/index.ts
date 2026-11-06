@@ -268,7 +268,7 @@ export interface AppUpdaterHandle {
 export function setupAppUpdater({
   logger = console,
   enabled = false,
-  settingsPanel: _settingsPanel = null,
+  settingsPanel = null,
 }: {
   logger?: { warn?: (..._args: unknown[]) => void };
   enabled?: boolean;
@@ -298,7 +298,7 @@ export function setupAppUpdater({
 
   if (enabled) {
     sidebarBtn?.addEventListener("click", () => {
-      void useAppUpdaterStore.getState().installUpdate();
+      settingsPanel?.openSettings?.("updates");
     });
 
     let silentTimer: ReturnType<typeof setInterval> | null = null;

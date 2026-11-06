@@ -1,4 +1,5 @@
 .plugin-resource-save {
+  margin: auto;
   box-sizing: border-box;
   width: min(calc(var(--control-height-lg) * 18), calc(100vw - var(--space-6)));
   max-height: calc(100dvh - var(--space-6));

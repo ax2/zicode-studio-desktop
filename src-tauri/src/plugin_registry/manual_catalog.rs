@@ -438,6 +438,7 @@ impl PluginRegistry {
                     .find(|c| c["id"].as_str() == Some(&request.capability_id))
             })
             .ok_or("tool_unavailable")?;
+        let capability = crate::plugin_resource_regex::manual_capability(capability);
         let permissions: Vec<_> = plugin.manifest.permissions.required.iter()
             .chain(plugin.manifest.permissions.optional.iter()).map(|permission| {
                 let granted = self.state.scenes.get(&request.scene_id)

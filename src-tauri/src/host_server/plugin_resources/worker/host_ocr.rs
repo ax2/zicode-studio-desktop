@@ -143,7 +143,9 @@ pub(super) fn execute(
         .map_err(|_| rejected("resource_store_unavailable"))?
         .publish_outputs(pending, cancelled)?;
     Ok(Execution {
+        profile: crate::plugin_worker::resource_output::Profile::Draft1,
         result,
         resources: Some(resources),
+        report_resource: None,
     })
 }

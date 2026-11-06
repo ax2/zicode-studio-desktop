@@ -5,12 +5,12 @@ import { createDirectoryResourceRunner } from "./directory-resource-runner.js";
 import { admission, reconciliation } from "../../../tests/helpers/resource-call-admission.js";
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const roots = [];
-function fixture(overrides = {}, maxResources = 1, directory = false, receiver = null) {
+function fixture(overrides = {}, maxResources = 1, directory = false, receiver = null, receiveNoteDraft = undefined) {
   setLocale("en"); vi.stubGlobal("crypto", webcrypto); document.body.innerHTML = "<main></main>";
   let target = { instanceId: "runtime", sessionId: "session", workspaceId: "workspace", sceneId: "programming" };
   const tool = { pluginId: "receiver", capabilityId: "consume", title: "Consume", applicationName: "Receiver", version: "1", runtime: "wasi", ...receiver };
   const profile = receiver?.resourceInputProfile ?? "resource.wasi.input.draft2";
-  const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: profile, capability: { id: tool.capabilityId, inputSchema: {}, ...(receiver?.resourceInputMimeTypes ? { resourceInputMimeTypes: receiver.resourceInputMimeTypes } : {}), ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
+  const detail = { pluginId: tool.pluginId, version: "1", revision: "a".repeat(64), enabled: true, resourceInputProfile: profile, capability: { id: tool.capabilityId, inputSchema: {}, ...(receiver?.executionProfile ? { executionProfile: receiver.executionProfile } : {}), ...(receiver?.resourceInputMimeTypes ? { resourceInputMimeTypes: receiver.resourceInputMimeTypes } : {}), ...(maxResources > 1 ? { resourceInputMax: maxResources } : {}) }, permissions: [{ name: "resource.read", granted: true }, ...(directory ? [{ name: "resource.directory.read", granted: true }] : [])] };
   const gateway = { loadTool: vi.fn(async () => detail), prepareResource: vi.fn(async () => ({ resourceId: id })), appendResource: vi.fn(async () => ({ uploadedBytes: 3 })), commitResource: vi.fn(async access => ({ ...access, confirmed: true, byteLength: 3 })), revokeResource: vi.fn(async () => ({})), readResource: vi.fn(async () => ({})), cancelResource: vi.fn(async () => ({ schemaVersion: 1, status: "requested", executionFinished: false })),
     invokeResource: vi.fn(async (owner, request) => ({ schemaVersion: 1, operationId: id, source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile }, result: { text: "received <script>literal</script>" } })), ...overrides };
   gateway.resourceCalls = { keep: vi.fn(async (target, owner, ticket) => ({ target, owner, ticket })), remove: vi.fn(async () => {}) };
@@ -19,7 +19,7 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
   gateway.invokeResourceCall = gateway.invokeResource;
   const form = { prepare: vi.fn(() => ({ input: { count: 0, flag: false } })), setDisabled: vi.fn(), destroy: vi.fn() };
   const onBusy = vi.fn(), onSuccess = vi.fn(async () => {});
-  const controller = createDirectoryResourceRunner({ container: document.querySelector("main"), tool, detail, gateway, getTarget: () => target, onBusy, onSuccess, mountInputs: async () => form }); roots.push(controller);
+  const controller = createDirectoryResourceRunner({ container: document.querySelector("main"), tool, detail, gateway, getTarget: () => target, onBusy, onSuccess, receiveNoteDraft, mountInputs: async () => form }); roots.push(controller);
   const button = name => [...document.querySelectorAll("button")].find(b => b.textContent === name);
   async function share() {
     const file = { name: "input.txt", size: 3, type: "text/plain", arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
@@ -30,6 +30,49 @@ function fixture(overrides = {}, maxResources = 1, directory = false, receiver =
 }
 afterEach(() => { for (const root of roots.splice(0)) root.destroy(); vi.unstubAllGlobals(); document.body.innerHTML = ""; setLocale("zh-CN"); });
 describe("directory-owned resource execution", () => {
+  it("does not stage a draft when the file grant is revoked", async () => {
+    const received = vi.fn();
+    const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash", executionProfile: "resource.wasi.file-digest.v1" }, received);
+    f.gateway.readResource.mockRejectedValue({ code: "permission_denied" });
+    f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      result: { ok: true, schemaVersion: 2, material: "file-integrity-report-list", files: [{ index: 0, bytes: 3, sha256: "a".repeat(64), sha512: "b".repeat(128), matches: null }] } }));
+    await f.share(); f.button("Execute tool").click(); await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    f.button("Create note draft").click(); await vi.waitFor(() => expect(document.body.textContent).toContain("Could not create the note draft"));
+    expect(received).not.toHaveBeenCalled();
+  });
+  it("rechecks access before and after staging a digest draft", async () => {
+    const received = vi.fn(async (_material, current, verify) => { expect(current()).toBe(true); await verify(); });
+    const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.files", capabilityId: "devtools.files.hash", executionProfile: "resource.wasi.file-digest.v1" }, received);
+    f.gateway.readResource.mockImplementation(async (_owner, request) => ({ schemaVersion: 1, ...request, byteLength: 1, eof: false, dataBase64: "AQ==" }));
+    f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      result: { ok: true, schemaVersion: 2, material: "file-integrity-report-list", files: [{ index: 0, bytes: 3, sha256: "a".repeat(64), sha512: "b".repeat(128), matches: null }] } }));
+    await f.share(); f.button("Execute tool").click(); await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    f.button("Create note draft").click(); await vi.waitFor(() => expect(received).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(f.gateway.readResource).toHaveBeenCalledTimes(2));
+    expect(received.mock.calls[0][0].content).toContain("a".repeat(64));
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Report draft is in Notes recovery"));
+  });
+
+  it("renders the negotiated metadata report and clears it when sharing is cancelled", async () => {
+    const f = fixture({}, 1, false, { pluginId: "com.zicode.devtools.image.metadata", capabilityId: "devtools.image.metadata.inspect", executionProfile: "resource.wasi.image.metadata.v1" });
+    f.gateway.invokeResource.mockImplementation(async (owner, request) => ({ schemaVersion: 1, operationId: id,
+      source: { ...owner, contentVersion: request.contentVersion, packageVersion: "1", profile: "resource.wasi.input.draft2" },
+      outputProfile: "resource.wasi.output.draft2", result: { ok: true, operation: "inspect", previewIndex: 0,
+        report: { schemaVersion: 2, material: "image-metadata-report", cleanedPreview: null,
+          source: { bytes: 3, displayWidth: 7, displayHeight: 12, metadata: { format: "PNG", exif: 0, icc: 0, xmp: 0, text: 0, iptc: 0, other: 0, animation: false, hasExifGpsDirectory: false, hasRecognizedMetadata: false } } } },
+      resources: [{ index: 0, resourceId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", contentVersion: "b".repeat(64), mimeType: "image/png", byteLength: 100,
+        expiresInSeconds: 900, origin: "worker-output", saved: false, derivedFrom: { resourceId: request.resourceId, contentVersion: request.contentVersion } }] }));
+    await f.share(); f.button("Execute tool").click();
+    await vi.waitFor(() => expect(f.onSuccess).toHaveBeenCalledOnce());
+    expect(document.querySelector(".image-metadata-result").hidden).toBe(false);
+    expect(document.querySelector(".image-metadata-result").textContent).toContain("PNG · 7 × 12");
+    expect(document.querySelector(".image-metadata-result details").open).toBe(false);
+    f.button("Cancel file sharing").click();
+    expect(document.querySelector(".image-metadata-result").hidden).toBe(true);
+    expect(document.querySelector("pre.tool-result").textContent).toBe("");
+  });
   it("shows declared input MIME types and explains a mismatched file without losing recovery", async () => {
     const f = fixture({}, 1, false, { resourceInputMimeTypes: ["text/plain"] });
     expect(document.body.textContent).toContain("Accepted file types: text/plain");
@@ -78,10 +121,10 @@ describe("directory-owned resource execution", () => {
       cancel: vi.fn(async () => ({})),
     };
     const f = fixture({ projectDirectories }, 1, true);
-    expect(f.button("Project directory")).toBeTruthy();
-    f.button("Project directory").click();
+    expect(f.button("Folder")).toBeTruthy();
+    f.button("Folder").click();
     expect(projectDirectories.choose).not.toHaveBeenCalled();
-    f.button("Choose a project directory").click();
+    f.button("Choose a folder").click();
     await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
     expect(projectDirectories.prepare).toHaveBeenCalledWith(owner, "src");
     expect(projectDirectories.commit).not.toHaveBeenCalled();
@@ -101,7 +144,7 @@ describe("directory-owned resource execution", () => {
     const owner = { runtimeId: "runtime", sessionId: "session", pluginId: "receiver", capabilityId: "consume" };
     const projectDirectories = { choose: vi.fn(async () => "."), prepare: vi.fn(async () => ({ profile: "resource.local-directory.draft1", confirmed: false, entryNamesRead: false, relativePath: ".", owner, grantId: id })), commit: vi.fn(), cancel: vi.fn(async () => ({})) };
     const f = fixture({ projectDirectories }, 1, true);
-    f.button("Project directory").click(); f.button("Choose a project directory").click();
+    f.button("Folder").click(); f.button("Choose a folder").click();
     await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
     f.button("Cancel directory sharing").click();
     expect(projectDirectories.cancel).toHaveBeenCalledWith(owner, id);
@@ -115,7 +158,7 @@ describe("directory-owned resource execution", () => {
       commit: vi.fn(), cancel: vi.fn(),
     };
     const f = fixture({ projectDirectories }, 1, true);
-    f.button("Project directory").click(); f.button("Choose a project directory").click();
+    f.button("Folder").click(); f.button("Choose a folder").click();
     await vi.waitFor(() => expect(document.body.textContent).toContain("resource_directory_unavailable"));
     expect(document.body.textContent).not.toContain("E:\\secret");
     expect(f.button("Execute tool").disabled).toBe(true);
@@ -131,7 +174,7 @@ describe("directory-owned resource execution", () => {
       cancel: vi.fn(async () => ({})),
     };
     const f = fixture({ projectDirectories }, 1, true);
-    f.button("Project directory").click(); f.button("Choose a project directory").click();
+    f.button("Folder").click(); f.button("Choose a folder").click();
     await vi.waitFor(() => expect(f.button("Confirm directory sharing").disabled).toBe(false));
     f.button("Confirm directory sharing").click();
     await vi.waitFor(() => expect(finishCommit).toBeTypeOf("function"));
@@ -158,8 +201,20 @@ describe("directory-owned resource execution", () => {
     expect(f.gateway.invokeResourceCall.mock.calls[0][1].additionalResources).toEqual([
       { resourceId: ids[1], contentVersion: expect.stringMatching(/^[0-9a-f]{64}$/) },
     ]);
+    expect(JSON.stringify(f.gateway.invokeResourceCall.mock.calls[0])).not.toContain("one.txt");
+    expect(JSON.stringify(f.gateway.invokeResourceCall.mock.calls[0])).not.toContain("two.txt");
     f.button("Cancel file sharing").click();
     expect(f.gateway.revokeResource).toHaveBeenCalledTimes(2);
+  });
+  it("does not render a delayed result after its selected resource is revoked", async () => {
+    const f = fixture(); await f.share();
+    const original = f.gateway.invokeResource.getMockImplementation(); let finish;
+    f.gateway.invokeResource.mockImplementation((...args) => new Promise(resolve => { finish = async () => resolve(await original(...args)); }));
+    f.button("Execute tool").click(); await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    f.button("Cancel file sharing").click(); await finish();
+    await vi.waitFor(() => expect(f.onBusy).toHaveBeenLastCalledWith(false));
+    expect(document.querySelector(".tool-result").textContent).toBe("");
+    expect(f.onSuccess).not.toHaveBeenCalled();
   });
   it("protects busy state across active and changed-Host checks without replaying", async () => {
     const f = fixture(); await f.share(); f.gateway.invokeResource.mockRejectedValue(new Error("lost response"));
@@ -215,7 +270,7 @@ describe("directory-owned resource execution", () => {
     f.gateway.invokeResource.mockImplementation(async (...args) => ({ ...await original(...args), result: { ok: false, error: { code: "INVALID_INPUT" } } }));
     f.button("Execute tool").click(); await vi.waitFor(() => expect(document.querySelector(".tool-result").textContent).toContain("INVALID_INPUT"));
     expect(document.body.textContent).toContain("Tool reported an error. Inputs are kept and no result was saved.");
-    expect(document.body.textContent).not.toContain("Receiving tool finished. Results have not been saved.");
+    expect(document.body.textContent).not.toContain("Tool finished. Review the result and save any output files explicitly.");
     expect(f.button("Execute tool").disabled).toBe(false);
     expect(f.onSuccess).not.toHaveBeenCalled();
   });

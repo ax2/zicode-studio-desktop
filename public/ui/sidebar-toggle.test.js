@@ -125,3 +125,81 @@ describe("mobile function area", () => {
     window.matchMedia = originalMatchMedia;
   });
 });
+
+it("does not create a drawer backdrop for a page whose sidebar is hidden", () => {
+  const controller = render();
+  try {
+    document.getElementById("sidebar").style.display = "none";
+    document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed", { detail: { pluginId: "core.tools" } }));
+    document.dispatchEvent(new CustomEvent("zicode:function-area-request", { detail: { open: true } }));
+    expect(document.getElementById("sidebar-overlay").classList.contains("visible")).toBe(false);
+    expect(document.getElementById("sidebar-overlay").getAttribute("aria-hidden")).toBe("true");
+    expect(document.getElementById("sidebar-toggle").hidden).toBe(true);
+    expect(document.getElementById("sidebar-toggle").disabled).toBe(true);
+    document.getElementById("sidebar-toggle").click();
+    expect(document.getElementById("sidebar-overlay").classList.contains("visible")).toBe(false);
+  } finally { controller.destroy(); }
+});
+
+it("closes an existing drawer without navigating Back when its destination has no sidebar", () => {
+  const controller = render();
+  try {
+    document.getElementById("sidebar-toggle").click();
+    expect(history.state?.zicodeMobileLayer).toBe("function-area");
+    document.getElementById("sidebar").style.display = "none";
+    document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed"));
+    expect(document.getElementById("sidebar-overlay").classList.contains("visible")).toBe(false);
+    expect(history.state?.zicodeMobileLayer).toBeUndefined();
+    document.getElementById("sidebar").style.display = "";
+    document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed"));
+    expect(document.getElementById("sidebar-toggle").hidden).toBe(false);
+    expect(document.getElementById("sidebar-toggle").disabled).toBe(false);
+    document.getElementById("sidebar-toggle").click();
+    expect(document.getElementById("sidebar-overlay").classList.contains("visible")).toBe(true);
+  } finally { controller.destroy(); }
+});
+
+it("keeps the desktop sidebar preference when visiting a page without a sidebar", () => {
+  const controller = render(1024);
+  try {
+    document.getElementById("sidebar").style.display = "none";
+    document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed"));
+    expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(false);
+    document.getElementById("sidebar").style.display = "";
+    document.dispatchEvent(new CustomEvent("zicode:active-plugin-changed"));
+    expect(document.getElementById("sidebar-toggle").hidden).toBe(false);
+    expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(false);
+  } finally { controller.destroy(); }
+});
+
+it("dismisses an open drawer when its sidebar becomes hidden without a navigation event", async () => {
+  const controller = render();
+  try {
+    document.getElementById("sidebar-toggle").click();
+    document.getElementById("sidebar").hidden = true;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(document.getElementById("sidebar-overlay").classList.contains("visible")).toBe(false);
+    expect(document.getElementById("sidebar-overlay").getAttribute("aria-hidden")).toBe("true");
+    expect(document.getElementById("sidebar-toggle").hidden).toBe(true);
+    expect(history.state?.zicodeMobileLayer).toBeUndefined();
+    document.getElementById("sidebar").hidden = false;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(document.getElementById("sidebar-toggle").hidden).toBe(false);
+    expect(document.getElementById("sidebar").classList.contains("collapsed")).toBe(true);
+  } finally { controller.destroy(); }
+});
+
+it("synchronizes a drawer collapsed outside its toggle and ignores changes after disposal", async () => {
+  const controller = render();
+  document.getElementById("sidebar-toggle").click();
+  document.getElementById("sidebar").classList.add("collapsed");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(document.getElementById("sidebar-overlay").classList.contains("visible")).toBe(false);
+  expect(document.getElementById("sidebar-toggle").getAttribute("aria-expanded")).toBe("false");
+  expect(history.state?.zicodeMobileLayer).toBeUndefined();
+  controller.destroy();
+  document.getElementById("sidebar").hidden = true;
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(document.getElementById("sidebar-toggle").hidden).toBe(false);
+});
+

@@ -1,0 +1,51 @@
+/* Shared shell density. View controls occupy the space between global actions. */
+.session-header { gap: var(--space-2); padding: var(--space-1) var(--space-2); min-height: var(--control-height-md); }
+.session-header .header-left, .session-header .header-right { flex: 0 0 auto; gap: var(--space-1); }
+#page-header-actions { display: flex; flex: 1; min-width: 0; pointer-events: auto; -webkit-app-region: no-drag; }
+#page-header-actions[hidden], #page-header-actions > [hidden] { display: none; }
+.page-header-content { flex: 1; min-width: 0; }
+.activity-utilities .status { width: var(--control-height-sm); height: var(--control-height-sm); justify-content: center; flex-shrink: 0; }
+.activity-utilities .status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.activity-utilities .status-indicator { width: var(--space-4); height: var(--space-4); background: none; border-radius: 0; box-shadow: none; }
+.activity-utilities .status-indicator svg { display: block; width: 100%; height: 100%; }
+.activity-utilities .status-indicator.connected { color: var(--text-dim); }
+.activity-utilities .status-indicator.disconnected { color: var(--text-dim); }
+.quick-tools-menu > summary svg { width: var(--space-4); height: var(--space-4); }
+#page-header-actions .browser-tab-strip { flex: 1; padding: 0; overflow: hidden; }
+#page-header-actions .browser-tab { flex-shrink: 0; max-width: calc(var(--space-12) * 4); }
+#page-header-actions .browser-tab-title { min-width: 0; }
+#page-header-actions .notes-editor-toolbar { flex: 1; min-width: 0; padding: 0; border: 0; margin: 0; flex-wrap: nowrap; gap: var(--space-1); overflow-x: auto; }
+#page-header-actions .notes-editor-tabs, #page-header-actions .notes-editor-actions { flex: 0 0 auto; gap: var(--space-1); flex-wrap: nowrap; }
+#page-header-actions .notes-editor-actions { margin-inline-start: auto; }
+#page-header-actions .notes-save-state { white-space: nowrap; }
+#page-header-actions .notes-editor-actions .notes-btn-label { display: none; }
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .session-header.header { min-height: var(--control-height-md); padding: var(--space-1) var(--space-2); background: var(--header-bg); }
+  .session-header .header-left > .sidebar-toggle { width: var(--control-height-sm); height: var(--control-height-sm); padding: var(--space-1); }
+  #page-header-actions .notes-editor-tabs .notes-btn-label { display: none; }
+  #page-header-actions .notes-editor-toolbar { min-height: 0; }
+  #page-header-actions .notes-editor-tabs .ui-button, #page-header-actions .notes-editor-actions .ui-button { width: var(--control-height-sm); min-width: var(--control-height-sm); height: var(--control-height-sm); min-height: var(--control-height-sm); }
+}
+
+body:not([data-active-plugin="core.chat"]) .session-header .header-right { display: none; }
+.main .plugin-main-view { padding: calc(var(--control-height-lg) + var(--space-2)) var(--space-3) var(--space-3); }
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .session-header .header-left > .sidebar-toggle { min-width: var(--control-height-sm); min-height: var(--control-height-sm); }
+  .session-header .header-left > .mobile-file-toggle { width: var(--control-height-sm); min-width: var(--control-height-sm); min-height: var(--control-height-sm); height: var(--control-height-sm); }
+  #page-header-actions .browser-tab-strip .ui-button { min-height: var(--control-height-sm); padding: var(--space-1); }
+}
+
+body:not([data-active-plugin="core.chat"]) .session-header .header-left > .mobile-file-toggle { display: none !important; }
+
+.activity-utilities { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.activity-utilities .status, .activity-utilities .quick-tools-menu > summary { width: var(--control-height-lg); height: var(--control-height-lg); }
+.activity-utilities .quick-tools-menu > summary svg { width: var(--space-5); height: var(--space-5); }
+.activity-utilities .quick-tools-popover { position: fixed; inset-inline-start: calc(var(--control-height-lg) + var(--space-3)); top: auto; bottom: var(--space-3); max-height: calc(100dvh - var(--space-8)); overflow: auto; }
+.plugin-activity-list--system { overflow: visible; }
+
+@media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
+  .activity-utilities { flex-direction: row; }
+  .activity-utilities .status, .activity-utilities .quick-tools-menu > summary { width: var(--control-height-sm); height: var(--control-height-sm); min-height: var(--control-height-sm); }
+  .plugin-activity-list--system { flex: 0 0 auto; }
+  .activity-utilities .quick-tools-popover { inset-inline-start: var(--space-2); bottom: calc(var(--mobile-nav-height) + var(--space-2)); }
+}

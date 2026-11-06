@@ -1,4 +1,6 @@
+import { isWorkspaceApplicationVisible, MULTI_PROJECT_UI_ENABLED } from "../workspace/workspace-mode.js";
 import { t } from "../../i18n.js";
+import { createPluginSidebarAvailability } from "./plugin-sidebar-availability.js";
 import { mountToolCenter } from "../react/tool-center.js";
 import { createRetainedToolCenter } from "./retained-tool-center.js";
 import { applicationDirectory, primaryActivities, TOOL_CENTER_ID } from "./tool-navigation.js";
@@ -58,6 +60,7 @@ export function setupPluginShell({
   const main = document.querySelector(".main");
   const header = main?.querySelector(".header");
   if (!appLayout || !sidebar || !main || !header) return null;
+  const sidebarAvailability = createPluginSidebarAvailability(sidebar);
 
   const chatSidebarElements = [
     sidebar.querySelector(".sidebar-header"),
@@ -154,6 +157,8 @@ export function setupPluginShell({
   main.append(pluginMain);
 
   let activePluginId = CHAT_PLUGIN_ID;
+  const receiveNoteDraft = notesApp?.receiveIncomingDraft
+    ? (input, isCurrent, verify) => notesApp.receiveIncomingDraft(input, isCurrent, verify) : undefined;
   const toolCenter = createRetainedToolCenter(mountToolCenter);
   let catalogRevision = 0;
   let pendingUnavailablePluginId = null;
@@ -271,6 +276,7 @@ export function setupPluginShell({
   }
 
   async function activateInner(pluginId, { focus = true, historyMode = "none" } = {}) {
+    if (!isWorkspaceApplicationVisible(pluginId)) pluginId = TOOL_CENTER_ID;
     const previousPluginId = activePluginId;
     if (
       !SHELL_VIEW_IDS.has(pluginId) &&
@@ -307,6 +313,7 @@ export function setupPluginShell({
     closeMobileActivityMenu();
     if (pluginId === CHAT_PLUGIN_ID) activityBadges.delete(CHAT_PLUGIN_ID);
     const isChat = pluginId === CHAT_PLUGIN_ID;
+    sidebarAvailability.sync(registry.get(pluginId));
     document.body.dataset.activePlugin = pluginId;
     for (const element of chatSidebarElements) toggleSurface(element, isChat);
     for (const element of chatMainElements) toggleSurface(element, isChat);
@@ -489,6 +496,7 @@ export function setupPluginShell({
   function renderSidebar(pluginId) {
     pluginSidebar.replaceChildren();
     const plugin = registry.get(pluginId);
+    sidebarAvailability.sync(plugin);
     const application = applicationViews.get(pluginId);
     const hasOwnNavigation =
       pluginId === SETTINGS_VIEW_ID ||
@@ -501,7 +509,7 @@ export function setupPluginShell({
           ? t("Help")
           : t(plugin?.name ?? "Plugins");
     const accordions = [];
-    const project = getProject();
+    const project = MULTI_PROJECT_UI_ENABLED ? getProject() : null;
     if (pluginId === MANAGER_VIEW_ID) {
       accordions.push(
         {
@@ -610,8 +618,9 @@ export function setupPluginShell({
         toolApi: capabilityGateway,
         catalogRevision,
         getResourceTarget: getTarget,
+        receiveNoteDraft,
         scope: target ? { sceneId: target.sceneId, workspaceId: target.workspaceId } : undefined,
-        workspaceApi: globalThis.__TAURI__?.core?.invoke ? {
+        workspaceApi: MULTI_PROJECT_UI_ENABLED && globalThis.__TAURI__?.core?.invoke ? {
           list: () => globalThis.__TAURI__.core.invoke("list_workspaces"),
           switchTo: projectPath => globalThis.__TAURI__.core.invoke("switch_window_workspace", { projectPath, pluginId: TOOL_CENTER_ID }),
           openFolder: () => globalThis.__TAURI__.core.invoke("open_folder_as_workspace", { pluginId: TOOL_CENTER_ID }),
@@ -696,7 +705,7 @@ export function setupPluginShell({
       target: financeTarget,
       previewStatus:
         plugin.id === "com.zicode.finance" && financeTarget?.sceneId !== "finance"
-          ? t("Open a Finance scene to use the existing workbench.")
+          ? t("Open the Finance Workbench in its dedicated session.")
           : t("This area is ready for plugin data and actions."),
       onOpenWorkbench: () => executeCommand("finance.openWorkbench"),
       onOpenConfiguration: () => executeCommand("finance.configuration"),
@@ -981,6 +990,7 @@ export function setupPluginShell({
       activityBarApi.destroy();
       shellSurfaces.destroy();
       activityBarHost.remove();
+      sidebarAvailability.destroy();
       pluginSidebar.remove();
       pluginMain.remove();
       for (const element of [...chatSidebarElements, ...chatMainElements])

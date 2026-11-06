@@ -261,7 +261,6 @@ describe("settings React panel", () => {
       "toggle-show-thinking",
       "toggle-mobile-task-notifications",
       "mobile-draft-storage-row",
-      "scene-profile-select",
       "setting-pi-version-value",
       "setting-app-version-value",
       "btn-check-updates",
@@ -276,6 +275,8 @@ describe("settings React panel", () => {
     for (const id of expectedIds) {
       expect(document.getElementById(id), `missing #${id}`).toBeTruthy();
     }
+    expect(document.getElementById("scene-profile-select")).toBeNull();
+    expect(document.getElementById("configuration-scene-name")).toBeNull();
     expect(document.getElementById("pkg-browse-search")).toBeNull();
     expect(document.querySelector("chat-settings-panel")).toBeTruthy();
   });

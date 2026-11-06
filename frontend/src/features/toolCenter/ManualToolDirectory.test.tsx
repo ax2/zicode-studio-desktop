@@ -65,7 +65,7 @@ it("passes the selected capability to the application navigation callback withou
   const navigate = vi.fn();
   const container = await mount(gateway, undefined, (pluginId, capabilityId) => () => navigate(pluginId, capabilityId));
   await click(container, "Open tool");
-  await click(container, "Open application");
+  await click(container, "Open tool interface");
   expect(navigate).toHaveBeenCalledWith("fixture", "text.0");
   expect(gateway.invoke).not.toHaveBeenCalled();
 });
@@ -100,7 +100,7 @@ it("keeps the full tool directory available when a tray view arrives without his
   });
   expect(gateway.searchTools.mock.lastCall?.[1]).toEqual({ query: "", offset: 0, revision: null });
   expect(container.textContent).toContain("Text 0");
-  expect(container.textContent).not.toContain("This list belongs to the current workspace and scene");
+  expect(container.textContent).not.toContain("This list belongs to the current workspace");
 });
 
 it("defaults a file launch to resource tools, with metadata-only reversible filtering", async () => {
@@ -233,7 +233,7 @@ it("keeps full opened-tool names and reveals the selected item without executing
   frame.mockRestore(); item.mockRestore(); first.mockRestore();
 });
 
-it("uses one compact picker after three tools while retaining each session and close confirmation", async () => {
+it("keeps four closable tabs while retaining sessions and close confirmation", async () => {
   const gateway = api();
   gateway.searchTools.mockResolvedValue({ items: [0, 1, 2, 3].map(tool), total: 4, revision: "revision", nextOffset: null });
   const container = await mount(gateway);
@@ -242,14 +242,11 @@ it("uses one compact picker after three tools while retaining each session and c
     await act(async () => (container.querySelectorAll("article")[index].querySelector("button") as HTMLButtonElement).click());
   }
   const strip = container.querySelector<HTMLFieldSetElement>(".tool-open-switcher");
-  const picker = strip?.querySelector<HTMLSelectElement>("select[aria-label='Opened tools']");
-  expect(strip?.classList.contains("tool-open-switcher--compact")).toBe(true);
-  expect(strip?.querySelectorAll(".tool-open-item")).toHaveLength(0);
-  expect(picker?.options).toHaveLength(5);
-  expect(picker?.value).toBe(tool(3).toolId);
+  expect(strip?.querySelector("select")).toBeNull();
+  expect(strip?.querySelectorAll(".tool-open-tab")).toHaveLength(4);
   expect(gateway.loadTool).toHaveBeenCalledTimes(4);
-  await act(async () => { if (picker) { picker.value = tool(0).toolId; picker.dispatchEvent(new Event("change", { bubbles: true })); } });
-  expect(picker?.value).toBe(tool(0).toolId);
+  await act(async () => strip?.querySelector<HTMLButtonElement>(`[data-open-tool-id='${tool(0).toolId}']`)?.click());
+  expect(strip?.querySelector('[data-active="true"]')?.textContent).toContain("Text 0");
   expect(container.querySelector<HTMLButtonElement>('[aria-label="Close tool: Text 0"]')).not.toBeNull();
   expect(gateway.loadTool).toHaveBeenCalledTimes(4);
   expect(gateway.invoke).not.toHaveBeenCalled();
@@ -624,4 +621,39 @@ it("combines a source with favorites and lets an unavailable source be cleared",
   await act(async () => { select.value = ""; select.dispatchEvent(new Event("change", { bubbles: true })); });
   await act(async () => { await vi.advanceTimersByTimeAsync(201); });
   expect(gateway.searchTools.mock.lastCall?.[1].pluginId).toBeUndefined();
+});
+
+it("clears combined search, source and favorites without closing an opened draft or invoking a tool", async () => {
+  const gateway = api();
+  const page = { items: [tool(0)], total: 1, revision: "revision", nextOffset: null,
+    sources: [{ pluginId: "fixture", title: "Fixture", count: 1, enabled: true }] };
+  gateway.searchTools.mockResolvedValue(page);
+  const store = { read: vi.fn(async () => emptyAccess()), mutate: vi.fn(async () => emptyAccess()) };
+  const container = await mount(gateway, store);
+  await click(container, "Open tool");
+  const draft = container.querySelector("form textarea") as HTMLTextAreaElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(draft, "keep my input");
+    draft.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await click(container, "Tool directory");
+  const source = container.querySelector('[aria-label="Tool source"]') as HTMLSelectElement;
+  await act(async () => { source.value = "fixture"; source.dispatchEvent(new Event("change", { bubbles: true })); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  await click(container, "Favorite tools");
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  gateway.searchTools.mockResolvedValue({ ...page, items: [], total: 0 });
+  const search = container.querySelector('input[type="search"]') as HTMLInputElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(search, "unmatched");
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(container.textContent).toContain("No matching tools");
+  gateway.searchTools.mockResolvedValue(page);
+  await click(container, "Clear filters and show all tools");
+  await act(async () => { await vi.advanceTimersByTimeAsync(201); });
+  expect(gateway.searchTools).toHaveBeenLastCalledWith("programming", { query: "", offset: 0, revision: null }, expect.any(AbortSignal));
+  expect(search.value).toBe("");expect(source.value).toBe("");
+  expect(draft.value).toBe("keep my input");expect(gateway.invoke).not.toHaveBeenCalled();
 });

@@ -1,6 +1,8 @@
 use super::*;
 use crate::metadata_store::tool_access::{RecentEntry, ToolAccess};
 
+include!("regex_manual_metadata_tests.rs");
+
 #[test]
 fn resource_mime_query_returns_only_exactly_declared_receivers() {
     let mut registry = tests::registry();

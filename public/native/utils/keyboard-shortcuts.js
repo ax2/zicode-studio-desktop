@@ -64,7 +64,7 @@ export function setupAppKeyboardShortcuts({
       newSession?.();
       return;
     }
-    if (meta && key === "o" && event.shiftKey) {
+    if (meta && key === "o" && event.shiftKey && switchWorkspace) {
       event.preventDefault();
       switchWorkspace?.();
       return;

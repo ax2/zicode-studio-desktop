@@ -26,6 +26,7 @@ export function ManualToolResultActions({ response, scope, gateway, onBusy, acce
     };
     const actions = createPluginResultActions({
       container: container.current,
+      sourceResultDisplayed: true,
       gateway: {
         prepareSave: (...args) => gateway.prepareSave(...args),
         commitSave: (...args) => commit("commitSave", ...args),

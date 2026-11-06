@@ -297,7 +297,7 @@ export function createResourceTransfer({ gateway, getTarget, isCurrent, mountInp
             : JSON.stringify(response.result, null, 2);
           status.textContent = t(response.result?.ok === false
             ? "Tool reported an error. Inputs are kept and no result was saved."
-            : "Receiving tool finished. Results have not been saved.");
+            : "Tool finished. Review the result and save any output files explicitly.");
           result.tabIndex = -1; result.focus();
           const token = request;
           const verify = async () => {

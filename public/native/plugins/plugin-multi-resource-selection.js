@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { renderResourceFileList } from "./plugin-resource-file-list.js";
 import { uploadConfirmedResource } from "./plugin-resource-upload.js";
 import { confirmProjectResource, prepareProjectResource } from "./project-file-resource.js";
 
@@ -8,15 +9,19 @@ const validEntryName = value => typeof value === "string" && value.length > 0 &&
 
 // Only capabilities declaring resourceInputMax use this trusted-parent control.
 export function createMultiResourceSelection({ container, plugin, target, gateway, isCurrent,
-  onResource, catalogRevision, maxResources }) {
+  onResource, catalogRevision, maxResources, minResources = 1, resourceLabels = [] }) {
   const panel = document.createElement("section");
   panel.className = "plugin-resource-selection";
   panel.setAttribute("aria-label", t("Studio resource selection"));
   const title = document.createElement("strong");
   title.textContent = t("Share files with this tool");
   const description = document.createElement("p");
-  description.textContent = t("Choose up to {count} files, then confirm. The total must be at most 32 MiB. Nothing runs until you execute the tool.")
-    .replace("{count}", String(maxResources));
+  const describe = () => {
+    description.textContent = minResources === maxResources
+      ? t("Choose exactly {count} files in the required order, then confirm. Nothing runs until you execute the tool.").replace("{count}", String(maxResources))
+      : t("Choose up to {count} files, then confirm. The total must be at most 32 MiB. Nothing runs until you execute the tool.").replace("{count}", String(maxResources));
+  };
+  describe();
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;
@@ -46,9 +51,23 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
 
   let active = true, revision = 0, entryRequest = 0, entryPaths = [], uploading = false;
   let selected = [], granted = [], projectPreviews = [];
+  const allowedSelection = () => selected.length >= minResources && selected.length <= maxResources &&
+    selected.every(file => Number.isSafeInteger(file.size) && file.size >= 0 && file.size <= MAX_BYTES) &&
+    Number.isSafeInteger(selected.reduce((sum, file) => sum + file.size, 0)) &&
+    selected.reduce((sum, file) => sum + file.size, 0) <= MAX_BYTES;
   const owner = { runtimeId: target.instanceId, sessionId: target.sessionId,
     pluginId: plugin.id, capabilityId: plugin.capabilities[0].id };
   const valid = token => active && token === revision && isCurrent();
+  const renderFiles = () => renderResourceFileList(list, { files: selected.slice(0, maxResources), labels: resourceLabels, busy: uploading,
+    onMove: (index, step) => {
+      const next = index + step;
+      if (!active || uploading || !isCurrent() || next < 0 || next >= selected.length) return;
+      release();
+      [selected[index], selected[next]] = [selected[next], selected[index]];
+      renderFiles();
+      confirm.disabled = !allowedSelection();
+      status.textContent = t("Input order changed. Confirm sharing again before running the tool.");
+    } });
   function release() {
     if (!granted.length) return;
     const old = granted;
@@ -79,7 +98,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     opened.hidden = true;
     void gateway.projectFiles.entries(target.workspaceId).then(paths => {
       if (!active || !isCurrent() || request !== entryRequest) return;
-      entryPaths = Array.isArray(paths) && paths.length >= 2 && paths.length <= maxResources &&
+      entryPaths = Array.isArray(paths) && paths.length >= Math.max(2, minResources) && paths.length <= maxResources &&
         paths.every(validEntryName) &&
         new Set(paths).size === paths.length ? paths : [];
       opened.hidden = entryPaths.length === 0;
@@ -107,12 +126,8 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
         if (!Number.isSafeInteger(total) || total > MAX_BYTES) throw new Error("selection_too_large");
         selected = projectPreviews.map(preview => ({ name: preview.relativePath,
           size: preview.byteLength, projectPreview: preview }));
-        for (const item of selected) {
-          const row = document.createElement("li");
-          row.textContent = `${item.name} · ${item.size} ${t("bytes")}`;
-          list.append(row);
-        }
-        confirm.disabled = false;
+        renderFiles();
+        confirm.disabled = !allowedSelection();
         status.textContent = t("Selected {count} files. Confirm sharing before running the tool.")
           .replace("{count}", String(selected.length));
       } catch {
@@ -122,7 +137,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
         }
       } finally {
         uploading = false;
-        if (active && isCurrent()) { panel.removeAttribute("aria-busy"); opened.disabled = input.disabled = false; }
+        if (active && isCurrent()) { panel.removeAttribute("aria-busy"); opened.disabled = input.disabled = false; renderFiles(); }
       }
     });
   }
@@ -132,19 +147,13 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
     const files = Array.from(input.files ?? []);
     reset({ clearInput: false });
     selected = files;
-    const total = selected.reduce((sum, file) => sum + file.size, 0);
-    const allowed = selected.length > 0 && selected.length <= maxResources &&
-      selected.every(file => Number.isSafeInteger(file.size) && file.size >= 0 && file.size <= MAX_BYTES) &&
-      Number.isSafeInteger(total) && total <= MAX_BYTES;
-    for (const file of selected.slice(0, maxResources)) {
-      const item = document.createElement("li");
-      item.textContent = `${file.name} · ${file.size} ${t("bytes")}`;
-      list.append(item);
-    }
+    const allowed = allowedSelection();
+    renderFiles();
     confirm.disabled = !allowed;
     status.textContent = allowed ? t("Selected {count} files. Confirm sharing before running the tool.")
       .replace("{count}", String(selected.length)) : selected.length
-        ? t("Choose at most {count} files totaling up to 32 MiB.").replace("{count}", String(maxResources)) : "";
+        ? (selected.length < minResources ? t("Choose at least {count} files before confirming.").replace("{count}", String(minResources))
+          : t("Choose at most {count} files totaling up to 32 MiB.").replace("{count}", String(maxResources))) : "";
   });
   cancel.addEventListener("click", () => {
     reset();
@@ -154,6 +163,7 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
   confirm.addEventListener("click", async () => {
     if (confirm.disabled || uploading || !active || !isCurrent() || !selected.length) return;
     uploading = true;
+    renderFiles();
     const token = ++revision;
     const files = [...selected];
     const published = [];
@@ -198,11 +208,23 @@ export function createMultiResourceSelection({ container, plugin, target, gatewa
       if (active && isCurrent()) {
         panel.removeAttribute("aria-busy");
         input.disabled = false;
+        renderFiles();
         if (!valid(token)) status.textContent = t("File sharing canceled.");
       }
     }
   });
-  return { destroy() { active = false; entryRequest++; reset();
+  function handleLocaleChange() {
+    describe(); renderFiles();
+    title.textContent = t("Share files with this tool");
+    confirm.textContent = t("Confirm file sharing");
+    cancel.textContent = t("Cancel file sharing");
+  }
+  window.addEventListener("zicode:locale-changed", handleLocaleChange);
+  return { getDisplayNames() {
+    return active && granted.length === selected.length && granted.length > 0
+      ? selected.map(file => typeof file.name === "string" ? file.name : "") : [];
+  }, destroy() { active = false; entryRequest++; reset();
+    window.removeEventListener("zicode:locale-changed", handleLocaleChange);
     if (opened) window.removeEventListener("zicode:entry-changed", handleEntryChanged);
     panel.remove(); } };
 }

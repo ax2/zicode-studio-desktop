@@ -44,7 +44,12 @@ pub(super) fn lock_storage(root: &Path) -> Result<Arc<File>, NotesError> {
         .open(lock)
         .map_err(|_| unavailable("Cannot open Notes storage lock"))?;
     FileExt::try_lock_exclusive(&file).map_err(|error| {
-        if error.kind() == std::io::ErrorKind::WouldBlock {
+        if error.kind() == std::io::ErrorKind::WouldBlock
+            || error
+                .raw_os_error()
+                .zip(fs2::lock_contended_error().raw_os_error())
+                .is_some_and(|(actual, expected)| actual == expected)
+        {
             NotesError::new(
                 "notes_storage_busy",
                 "Another process is using this Notes workspace. Try again shortly.",

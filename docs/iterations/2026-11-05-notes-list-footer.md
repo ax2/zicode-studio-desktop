@@ -1,0 +1,19 @@
+# Notes list titles and last-edited footer — 2026-11-05
+
+Notebook and note titles use the available row width while idle. On pointer hover, actions enter the grid/flex layout and the title is ellipsized before them, so no text appears beneath the buttons. Leaving restores the width, including after a pointer click. Keyboard focus reveals the same actions; an expanded note management menu keeps its anchor available. Touch devices keep actions visible. Notebook rows reserve the existing button height plus padding so hover does not change row height. List timestamps now use the existing 12px small font token, replacing an unresolved smaller-token reference that inherited 14px.
+
+Last edited is now a subdued footer after either the editor or preview, before relationship/recovery content. NotesApp.tsx already exceeds the module-size guide: the deliberate exception is only moving this existing presentation fragment, with no save/lifecycle logic added or editor extraction. All visibility/layout behavior remains in the feature stylesheet; obsolete selected-notebook opacity rules were removed from the base stylesheet.
+
+## Actual Windows evidence
+
+The rebuilt debug Studio and final CSS bundle ran in the existing isolated QA profile. At 1200 CSS pixels, real pointer hover/leave checked both title widths, action separation, unchanged text and stable row height. Notebook height stayed 36px and note height 48px. Pointer-focused notes still hide actions after leaving. Direction-key entry followed by Tab reached the action buttons. Computed date size was 12px.
+
+A new synthetic note was edited and saved through the actual UI and read back through NotesGateway/Host. The textarea node remained the same during editing. Both editor and preview put the footer after the content, including an actual below-textarea geometry assertion. Screenshots were visually inspected. After normal process exit and a second launch, both the existing synthetic baseline note and new saved note retained exact title/content. No real user profile, notebook, or daily installed runtime was overwritten.
+
+The first real hover check found a 29px-to-36px notebook row jump; reserving control height fixed it. Further keyboard inspection found that display:none during focus transfer could drop focus to the body; invisible actions now remain rendered but outside the text layout with pointer events disabled, entering the layout when shown. A diagnostic harness initially used programmatic pointer-mode focus; final acceptance uses actual ArrowDown and Tab navigation. A later harness selected a note, which returns it to preview, and was corrected to explicitly enter Edit before the save check. Failures and diagnostics were retained; geometry/focus/save assertions were not removed.
+
+Frontend/design checks and TypeScript checks passed, with existing repository warnings. Five recovery/editor stability regressions passed. This is not a whole-repository green claim; the two older move-note failures remain separate. Final CSS-only fixes reused the built executable; no extra native build or cache cleanup was needed.
+
+Session evidence: outputs/notes-list-footer-native.json, fixture.json, notebook-hover.png, note-hover.png, editor.png, preview.png (all notes-list-footer prefix); notes-hover-diagnostic.json, notes-focus-diagnostic.json and preserved failure receipts. Cross-process persistence is in outputs/browser-page-controls-restore-native.json. Check logs: work/notes-list-footer-{check,types,tests,final-check,css}.log. Shared build: work/browser-page-controls-notes-build.log. Final hash inventory: outputs/browser-page-controls-notes-acceptance.json.
+
+Only owned processes were controlled. Debug port 9231 belonged to an unrelated Edge process, so acceptance used 9233 without touching that process. No schedules, subagents, paid models, production requests or external messages were used.

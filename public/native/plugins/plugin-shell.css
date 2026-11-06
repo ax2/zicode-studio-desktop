@@ -1,3 +1,6 @@
+/* Hidden means there is no declared function area, including on narrow windows. */
+#sidebar[hidden] { display: none; }
+
 /* Application plugin shell: Activity Bar, accordion views, exclusive main
    views, command-palette contributions, and the built-in Plugin Manager. */
 
@@ -355,7 +358,8 @@ body[data-active-plugin] .plugin-sidebar-project {
 
 body[data-active-plugin="core.settings"] .plugin-main-view,
 body[data-active-plugin="core.help"] .plugin-main-view {
-  padding: 0;
+  /* Keep the shared desktop header inset; each page owns its side padding. */
+  padding: calc(var(--control-height-lg) + var(--space-3)) 0 0;
   background: var(--bg);
 }
 

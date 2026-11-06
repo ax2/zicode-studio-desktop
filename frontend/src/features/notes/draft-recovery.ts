@@ -1,7 +1,7 @@
 import { t } from "../../shared/i18n";
 import { type AttachmentEditor, appendAttachment } from "./attachment-uploads";
 import { draftScope, type NoteDraft, type NoteDraftRepository } from "./draft-repository";
-import { editorFingerprint } from "./editor-save";
+import { createDraftCopySaver } from "./draft-copy-save";
 import type { EditorTransitionGuard } from "./editor-transition";
 import { noteFrontmatter, safeFileName } from "./notesLogic";
 import type { NotesGatewayLike, NotesState } from "./notesStore";
@@ -16,6 +16,10 @@ export interface NoteRecoveryState {
   recoverDraft(id: string, asCopy?: boolean): Promise<void>;
   discardDraft(id: string): Promise<void>;
   downloadDraft(id: string): void;
+  receiveIncomingDraft(input: { title: string; content: string }, isCurrent: () => boolean, verify?: () => Promise<void>): Promise<void>;
+  updateIncomingDraft(id: string, patch: { title?: string; content?: string }): void;
+  saveIncomingDraft(id: string, notebookId: string): Promise<void>;
+  acknowledgeDraftSave(id: string): Promise<void>;
 }
 export function createNoteDraftRecovery({
   get,
@@ -147,73 +151,22 @@ export function createNoteDraftRecovery({
       await repository.remove(draft.id, draft.revision);
     });
   }
-  async function saveCopy(draft: NoteDraft) {
-    if (get().editorLocked || get().transferBusy) return;
-    const scope = capture();
-    const notebookId = get().snapshot.notebooks.some((book) => book.id === draft.note.notebookId)
-      ? draft.note.notebookId
-      : (get().selectedNotebookId ?? get().snapshot.notebooks[0]?.id);
-    if (!notebookId) {
-      set({ error: new Error(t("Create a notebook before saving a recovery copy.")) });
-      return;
-    }
-    const before = get();
-    const matches =
-      before.selectedNote?.id === draft.note.id &&
-      before.selectedNote?.notebookId === draft.note.notebookId &&
-      before.draftTitle === draft.title &&
-      before.draftIcon === draft.icon &&
-      before.draftContent === draft.content &&
-      JSON.stringify(before.draftTags) === JSON.stringify(draft.tags);
-    const fingerprint = editorFingerprint(before);
-    set({ editorLocked: true, recoveryBusy: true, error: null });
-    get().cancelAutosave();
-    try {
-      const response = await gateway.create(scope.sceneId, scope.workspaceId, notebookId, {
-        title: draft.title || t("Untitled note"),
-        icon: draft.icon,
-        content: draft.content,
-        tags: draft.tags,
-      });
-      if (!scope.isCurrent()) return;
-      if ((!before.dirty || matches) && fingerprint === editorFingerprint(get())) {
-        if (matches) {
-          const own = memory.get(idFor(before));
-          if (own) await forget(own);
-          if (!scope.isCurrent()) return;
-        }
-        set({
-          selectedNote: response.note,
-          selectedNotebookId: notebookId,
-          mode: "library",
-          preview: false,
-          dirty: false,
-          saveDisabled: true,
-          saveState: "saved",
-          selectedTag: null,
-          sourceOnly: false,
-          query: "",
-        });
-        get().syncDraftFromNote();
-      }
-      await forget(draft);
-      if (!scope.isCurrent()) return;
-      await get().load();
-      if (scope.isCurrent()) notify(t("Recovery copy saved as a new note."));
-    } catch {
-      if (scope.isCurrent())
-        set({
-          error: new Error(
-            t("Could not recover this note. Keep the draft, retry, or download it."),
-          ),
-        });
-    } finally {
-      if (scope.isCurrent()) {
-        set({ editorLocked: false, recoveryBusy: false });
-        if (get().dirty) get().scheduleAutosave();
-      }
-    }
-  }
+  const saveCopy = createDraftCopySaver({ get, set, capture, gateway, notify, forget,
+    async retireEditor(state) {
+      const own = memory.get(idFor(state));
+      if (own) await forget(own);
+    },
+    async prepare(draft, notebookId) {
+      await flush();
+      const live = get().recoveryDrafts.find((item) => item.id === draft.id);
+      if (get().recoveryPending || live?.revision !== draft.revision || live.saveAttemptNotebookId || live.scope !== draftScope(capture())) throw new Error("Draft changed or storage unavailable");
+      const marked = { ...draft, saveAttemptNotebookId: notebookId, revision: randomId() };
+      // Store the attempt before creating a note: a lost response must not replay it.
+      await repository.put(marked);
+      memory.set(marked.id, marked); show();
+      return marked;
+    },
+  });
   const actions: NoteRecoveryState = {
     recoveryDrafts: [],
     recoveryError: null,
@@ -242,6 +195,9 @@ export function createNoteDraftRecovery({
       if (get().recoveryBusy) return;
       const draft = get().recoveryDrafts.find((item) => item.id === id);
       if (!draft || draft.scope !== draftScope(capture())) return;
+      // Incoming material has no saved base note. It can only be explicitly
+      // saved as a new note, never opened as an existing note for autosave.
+      if (draft.incoming) return;
       if (draft.attachmentMarkdown) {
         if (asCopy) return;
         const scope = capture();
@@ -322,6 +278,85 @@ export function createNoteDraftRecovery({
         failure();
       }
     },
+    async receiveIncomingDraft(input, isCurrent, verify) {
+      const scope = capture();
+      if (disposed || !scope.workspaceId || !scope.isCurrent() || !isCurrent() ||
+          typeof input.title !== "string" || typeof input.content !== "string" ||
+          new TextEncoder().encode(input.content).length > 128 * 1024) throw new Error("incoming_draft_unavailable");
+      const id = JSON.stringify([draftScope(scope), writer, "incoming", randomId()]);
+      const draft: NoteDraft = {
+        incoming: true, id, revision: randomId(), scope: draftScope(scope), updatedAt: new Date().toISOString(),
+        note: { id, notebookId: "", title: input.title, content: "", tags: [] },
+        title: input.title, icon: "📝", content: input.content, tags: [],
+      };
+      if (!scope.isCurrent() || !isCurrent()) throw new Error("incoming_draft_unavailable");
+      // Do not modify the open editor or claim success before durable storage.
+      await repository.put(draft);
+      try {
+        if (disposed || !scope.isCurrent() || !isCurrent()) throw new Error("incoming_draft_unavailable");
+        await verify?.();
+        if (disposed || !scope.isCurrent() || !isCurrent()) throw new Error("incoming_draft_unavailable");
+      } catch (error) {
+        // This id and revision were created exclusively by this handoff. The
+        // conditional delete cannot remove a newer edit made by another view.
+        try { await repository.remove(draft.id, draft.revision); } catch { failure(); }
+        throw error;
+      }
+      memory.set(id, draft);
+      show();
+    },
+    updateIncomingDraft(id, patch) {
+      const previous = get().recoveryDrafts.find((item) => item.id === id && item.incoming);
+      if (!previous || previous.scope !== draftScope(capture()) || get().recoveryBusy || get().editorLocked) return;
+      const content = patch.content ?? previous.content;
+      const title = patch.title ?? previous.title;
+      if (new TextEncoder().encode(content).length > 128 * 1024 || title.length > 512) {
+        set({ recoveryError: t("Draft is too large. Keep the previous content or download it.") });
+        return;
+      }
+      const draft = { ...previous, title, content, revision: randomId(), updatedAt: new Date().toISOString() };
+      memory.set(id, draft);
+      pending.set(id, draft);
+      set({ recoveryPending: true, recoveryError: null });
+      show();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; void flush(); }, 250);
+    },
+    async saveIncomingDraft(id, notebookId) {
+      const scope = capture();
+      if (!scope.isCurrent() || get().recoveryBusy || get().editorLocked || get().transferBusy) return;
+      set({ recoveryBusy: true });
+      try {
+        await flush();
+        if (!scope.isCurrent() || get().recoveryPending || !get().snapshot.notebooks.some((book) => book.id === notebookId)) return;
+        const draft = get().recoveryDrafts.find((item) => item.id === id && item.incoming && item.scope === draftScope(scope));
+        if (!draft || draft.saveAttemptNotebookId) return;
+        const marked = { ...draft, saveAttemptNotebookId: notebookId, revision: randomId() };
+        // Persist the attempt before the Host write. A lost response or restart
+        // must not silently issue a second create request.
+        await repository.put(marked);
+        if (!scope.isCurrent()) return;
+        memory.set(id, marked); show();
+        await saveCopy(marked, notebookId, true);
+      } catch { if (scope.isCurrent()) failure(); }
+      finally { if (scope.isCurrent()) set({ recoveryBusy: false }); }
+    },
+    async acknowledgeDraftSave(id) {
+      const scope = capture();
+      if (!scope.isCurrent() || get().recoveryBusy || get().editorLocked || get().transferBusy) return;
+      set({ recoveryBusy: true });
+      try {
+        await flush();
+        if (!scope.isCurrent() || get().recoveryPending) return;
+        const draft = get().recoveryDrafts.find((item) => item.id === id && item.scope === draftScope(scope));
+        if (!draft?.saveAttemptNotebookId) return;
+        const cleared = { ...draft, saveAttemptNotebookId: undefined, revision: randomId() };
+        await repository.put(cleared);
+        if (!scope.isCurrent()) return;
+        memory.set(id, cleared); show();
+      } catch { if (scope.isCurrent()) failure(); }
+      finally { if (scope.isCurrent()) set({ recoveryBusy: false }); }
+    },
   };
   return {
     actions,
@@ -365,6 +400,25 @@ export function createNoteDraftRecovery({
       show([]);
     },
     flush,
+    async retainEditorCopy(state: NotesState) {
+      if (!state.dirty || !state.selectedNote) return;
+      const scope = capture();
+      const draft: NoteDraft = {
+        id: JSON.stringify([draftScope(scope), writer, "conflict", randomId()]),
+        revision: randomId(), scope: draftScope(scope), updatedAt: new Date().toISOString(),
+        note: structuredClone(state.selectedNote), title: state.draftTitle,
+        icon: state.draftIcon, content: state.draftContent, tags: [...state.draftTags],
+      };
+      await flush();
+      // The independent copy must be durable before the editor may be replaced.
+      // Later successful saves only retire the ordinary editor draft, never this copy.
+      await repository.put(draft);
+      memory.set(draft.id, draft);
+      if (!scope.isCurrent()) return;
+      show();
+      const own = memory.get(idFor(state));
+      if (own) await forget(own);
+    },
     async retainAttachment(scope: NotesOperationScope, editor: AttachmentEditor, markdown: string) {
       const id = JSON.stringify([draftScope(scope), writer, "attachment", randomId()]);
       const draft: NoteDraft = {

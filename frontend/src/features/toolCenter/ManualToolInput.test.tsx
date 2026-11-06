@@ -126,3 +126,47 @@ it("provides result navigation only after execution and never moves focus automa
     expect(api.invoke).toHaveBeenCalledTimes(2);
   } finally { HTMLElement.prototype.scrollIntoView=previous; }
 });
+
+it("restores an edited optional input to omission without losing required values", async()=>{
+  const {api,container,change,submit,field}=await mount({type:"object",required:["text"],properties:{
+    text:{type:"string"},options:{type:"string",minLength:1},count:{type:"integer"},flag:{type:"boolean"},
+  }});
+  await change("text","keep"); await change("options","{}"); await change("count","0"); await change("flag","1");
+  await submit();
+  expect(api.invoke).toHaveBeenLastCalledWith("programming","workspace","fixture","typed",{text:"keep",options:"{}",count:0,flag:false},{catalogRevision:"rev"});
+  await change("options",""); await submit();
+  expect(container.querySelector('[role="alert"]')).toBeTruthy();
+  const omit=()=>Array.from(container.querySelectorAll("button")).filter(e=>e.textContent==="Omit optional input");
+  expect(omit()).toHaveLength(3);
+  for(const button of omit()) await act(async()=>fireEvent.click(button));
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(field("text").value).toBe("keep");
+  await submit();
+  expect(api.invoke).toHaveBeenLastCalledWith("programming","workspace","fixture","typed",{text:"keep"},{catalogRevision:"rev"});
+  expect(omit()).toHaveLength(0);
+});
+
+it("shows accessible Unicode character limits without silently truncating pasted text",async()=>{
+  const {container,field,change,submit,api}=await mount({type:"object",required:["text"],properties:{text:{type:"string",minLength:1,maxLength:2}}});
+  await change("text","😀中");
+  expect(container.textContent).toContain("2 characters · allowed 1–2");
+  expect(field("text").getAttribute("aria-invalid")).toBe("false");
+  expect(field("text").getAttribute("aria-describedby")).toContain("-length");
+  await change("text","😀中a");
+  expect(field("text").value).toBe("😀中a");
+  expect(field("text").getAttribute("aria-invalid")).toBe("true");
+  expect(container.textContent).toContain("Outside allowed text length");
+  await submit();expect(api.invoke).not.toHaveBeenCalled();
+  await change("text","ok");await submit();expect(api.invoke).toHaveBeenCalledTimes(1);
+});
+
+it("keeps live character counts after the shell translates retained tool content",async()=>{
+  // @ts-expect-error the shell translator is JavaScript shared with the native app.
+  const {translateDocument}=await import("../../../../public/i18n.js");
+  const {container,field,change}=await mount({type:"object",required:["text"],properties:{text:{type:"string",maxLength:8192}}});
+  translateDocument(container);
+  await change("text","😀中abc");
+  translateDocument(container);
+  expect(field("text").value).toBe("😀中abc");
+  expect(container.textContent).toContain("5 characters · allowed 0–8192");
+});

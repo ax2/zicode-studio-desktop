@@ -83,7 +83,7 @@
         <div class="app-layout">
             <!-- Left Sidebar -->
             <div class="sidebar" id="sidebar">
-                <div class="workspace-bar" id="workspace-bar">
+                <div class="workspace-bar hidden" id="workspace-bar">
                     <div
                         class="workspace-bar-label"
                         id="workspace-bar-label"
@@ -306,14 +306,9 @@
                                 >Connecting...</span
                             >
                         </div>
-                        <button
-                            class="scene-indicator"
-                            id="scene-indicator"
-                            type="button"
-                            data-scene="programming"
-                            title="Current scene"
-                        ></button>
+                        <div id="quick-tools-anchor"></div>
                     </div>
+                    <div id="page-header-actions" hidden></div>
                     <div class="header-right">
                         <span
                             class="pill session-cost"

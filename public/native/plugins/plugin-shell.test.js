@@ -125,8 +125,8 @@ it("does not send an old directory choice into a workspace entered during app ac
     const button = (label) => [...document.querySelectorAll("button")]
       .find((candidate) => candidate.textContent === label);
     button("Open tool").click();
-    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
-    button("Open application").click();
+    await vi.waitFor(() => expect(button("Open tool interface")).toBeTruthy());
+    button("Open tool interface").click();
     target = { sceneId: "programming", workspaceId: "second", sessionId: "session-b" };
     await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
       "Tool changed. Reload its details before retrying."));
@@ -169,8 +169,8 @@ it("records a direct application tool only after its View confirms the current t
     const button = label => [...document.querySelectorAll("button")]
       .find(candidate => candidate.textContent === label);
     button("Open tool").click();
-    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
-    button("Open application").click();
+    await vi.waitFor(() => expect(button("Open tool interface")).toBeTruthy());
+    button("Open tool interface").click();
     await vi.waitFor(() => expect(pluginViewHost.openTool).toHaveBeenCalledTimes(previousOpens + 1));
     return pluginViewHost.openTool.mock.calls.at(-1)[2];
   };
@@ -233,9 +233,9 @@ it("does not send a stale tool choice to an upgraded plugin view", async () => {
     const button = (label) => [...document.querySelectorAll("button")]
       .find((candidate) => candidate.textContent === label);
     button("Open tool").click();
-    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    await vi.waitFor(() => expect(button("Open tool interface")).toBeTruthy());
     upgradeDuringNavigation = true;
-    button("Open application").click();
+    button("Open tool interface").click();
     await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
       "Tool changed. Reload its details before retrying."));
     expect(versionReads).toBeGreaterThan(1);
@@ -279,9 +279,9 @@ it("rejects a directory choice when the catalog changes during application activ
     const button = label => [...document.querySelectorAll("button")]
       .find(candidate => candidate.textContent === label);
     button("Open tool").click();
-    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
+    await vi.waitFor(() => expect(button("Open tool interface")).toBeTruthy());
     document.addEventListener("zicode:active-plugin-changed", refreshDuringActivation);
-    button("Open application").click();
+    button("Open tool interface").click();
     await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
       "Tool changed. Reload its details before retrying."));
     expect(testRegistry.get(pluginId).version).toBe("0.1.0");
@@ -323,8 +323,8 @@ it("keeps the shell usable when a tool application fails during direct opening",
     const button = (label) => [...document.querySelectorAll("button")]
       .find((candidate) => candidate.textContent === label);
     button("Open tool").click();
-    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
-    button("Open application").click();
+    await vi.waitFor(() => expect(button("Open tool interface")).toBeTruthy());
+    button("Open tool interface").click();
     await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
       "Could not open this application. Try again."));
     expect(notify).not.toHaveBeenCalledWith("private plugin failure");
@@ -375,8 +375,8 @@ it("contains a developer view render failure and keeps other shell destinations 
     const button = (label) => [...document.querySelectorAll("button")]
       .find((candidate) => candidate.textContent === label);
     button("Open tool").click();
-    await vi.waitFor(() => expect(button("Open application")).toBeTruthy());
-    button("Open application").click();
+    await vi.waitFor(() => expect(button("Open tool interface")).toBeTruthy());
+    button("Open tool interface").click();
     await vi.waitFor(() => expect(shell.getActivePluginId()).toBe(pluginId));
     expect(document.body.textContent).toContain("Plugin view could not be loaded");
     expect(notify).toHaveBeenCalledWith("Plugin view could not be loaded");
@@ -702,7 +702,7 @@ describe("setupPluginShell", () => {
     );
 
     expect(document.querySelector('[data-plugin-id="core.chat"]')).not.toBeNull();
-    expect(document.querySelector('[data-plugin-id="com.zicode.projects"]')).not.toBeNull();
+    expect(document.querySelector('[data-plugin-id="com.zicode.projects"]')).toBeNull();
     expect(document.querySelector('[data-plugin-id="com.zicode.notes"]')).not.toBeNull();
     expect(document.querySelector('[data-plugin-id="core.files"]')).not.toBeNull();
     expect(menuLabels).toEqual(
@@ -1225,3 +1225,37 @@ it.each(["#/settings", "#/settings/configuration", "#/settings/unknown"]) (
     shell.destroy();
   },
 );
+
+it("hides an absent external sidebar and restores declared or builtin navigation", async () => {
+  const plugins = [
+    { id: "fixture.main-only", sidebar: false },
+    { id: "fixture.with-sidebar", sidebar: true },
+  ].map(({ id, sidebar }) => ({ id, name: id, version: "0.1.0", origin: "developer", enabled: true,
+    contributes: { activities: [{ id: `${id}.activity`, title: id }], views: [
+      { id: `${id}.main`, location: "main", entry: "views/main.html" },
+      ...(sidebar ? [{ id: `${id}.sidebar`, location: "sidebar", entry: "views/sidebar.html" }] : []),
+    ] } }));
+  const testRegistry = new BuiltinPluginRegistry({ storage: { getItem: () => null, setItem: () => {} },
+    hostGateway: { list: vi.fn(async () => ({ diagnostics: [], plugins })) } });
+  const pluginViewHost = { renderNavigation: vi.fn(), renderContent: vi.fn(), destroy: vi.fn() };
+  const shell = setupPluginShell({ registry: testRegistry, pluginViewHost,
+    notesApp: { renderNavigation: vi.fn(), renderContent: vi.fn() } });
+  const sidebar = document.getElementById("sidebar");
+  try {
+    await vi.waitFor(() => expect(testRegistry.get("fixture.main-only")?.enabled).toBe(true));
+    await shell.activate("fixture.main-only");
+    expect(sidebar.hidden).toBe(true);
+    expect(pluginViewHost.renderContent).toHaveBeenCalled();
+    await shell.activate("fixture.with-sidebar");
+    expect(sidebar.hidden).toBe(false);
+    await shell.activate("fixture.main-only");
+    expect(sidebar.hidden).toBe(true);
+    await shell.activate("com.zicode.notes");
+    expect(sidebar.hidden).toBe(false);
+    await shell.activate("fixture.main-only");
+    await shell.activate("core.chat");
+    expect(sidebar.hidden).toBe(false);
+    await shell.activate("fixture.main-only");
+  } finally { shell.destroy(); }
+  expect(sidebar.hidden).toBe(false);
+});

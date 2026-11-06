@@ -1,3 +1,4 @@
+import type { SavedOutputGateway } from "../artifacts/saved-output-types";
 import type { CapturedToolResponse, ResultActionsGateway } from "../../../../public/native/plugins/plugin-result-actions.js";
 import type { ManualCallApi } from "./manual-call-protocol";
 import type { ToolInputValue } from "./tool-json-input";
@@ -23,10 +24,11 @@ export interface ToolPage { items: DirectoryItem[]; total: number; revision: str
 export interface ToolDetail {
   resourceInputProfile?: string | null;
   pluginId: string; version: string; revision: string; enabled: boolean;
-  capability: { id: string; inputSchema: unknown; resourceInputMax?: number };
+  capability: { id: string; inputSchema: unknown; resourceInputMax?: number; resourceInputMin?: number; resourceInputLabels?: string[] };
   permissions: { name: string; reason: string; required: boolean; granted: boolean }[];
 }
 export interface ManualToolApi extends Partial<ResultActionsGateway>, Partial<ManualCallApi> {
+  savedOutputs?: SavedOutputGateway;
   projectFiles?: { entry?: ((workspaceId: string) => Promise<unknown>) | null;
     entries?: ((workspaceId: string) => Promise<unknown>) | null } | null;
   projectDirectories?: { choose?: ((workspaceId: string) => Promise<unknown>) | null; entry?: ((workspaceId: string) => Promise<unknown>) | null } | null;

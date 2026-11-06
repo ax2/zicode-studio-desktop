@@ -1,5 +1,7 @@
 //! Candidate resource input grants. No filesystem access or WASI callback.
 mod authority;
+pub(super) mod export;
+pub(super) mod export_files;
 pub(super) mod library;
 pub(super) mod local_directory;
 pub(super) mod local_file;

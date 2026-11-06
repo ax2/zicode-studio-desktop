@@ -8,3 +8,8 @@
 .saved-output-preview img { max-width: 100%; object-fit: contain; align-self: flex-start; }
 .saved-output-preview .ui-button { align-self: flex-start; }
 .saved-output-preview textarea { white-space: pre-wrap; overflow-wrap: anywhere; max-height: calc(var(--control-height-lg) * 8); overflow: auto; }
+
+dialog.saved-tool-files-dialog { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(56rem, calc(100vw - var(--space-4))); max-width: none; max-height: calc(100dvh - var(--space-4)); overflow: auto; padding: var(--space-3); }
+.saved-tool-files-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.saved-tool-files-heading .dialog-title { margin: 0; }
+.saved-tool-files-dialog .saved-outputs { border: 0; padding: var(--space-3) 0 0; }

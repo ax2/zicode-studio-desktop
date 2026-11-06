@@ -41,7 +41,7 @@ export function describeModelError(message: { errorMessage?: string; error?: str
       kind: "authentication",
       title: t("Model authentication failed"),
       summary: t("The model gateway rejected the configured credential."),
-      suggestion: t("Update the API key in the current scene and try again."),
+      suggestion: t("Update the API key in model settings and try again."),
       metrics: [],
     };
   }
@@ -74,7 +74,7 @@ export function describeModelError(message: { errorMessage?: string; error?: str
     kind: "generic",
     title: t("Model request failed"),
     summary: t("The model did not return a usable response."),
-    suggestion: t("Check the current scene's model channel, then try again."),
+    suggestion: t("Check the model channel in settings, then try again."),
     metrics: [],
   };
 }
@@ -213,7 +213,7 @@ export function friendlyToolError(output: unknown): string | null {
     return t("The tool session expired. Retry to run it again.");
   }
   if (/tool[_ -]?unavailable|tool.*(missing|disabled)/i.test(raw)) {
-    return t("This tool is unavailable in the current scene.");
+    return t("This tool is unavailable. Check whether it is enabled and has the required permissions.");
   }
   return null;
 }
