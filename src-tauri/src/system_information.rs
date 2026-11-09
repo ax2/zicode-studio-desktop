@@ -2,7 +2,9 @@
 //! not an estimate of effective per-core clocks. Missing sensors remain None.
 use serde::Serialize;
 use std::sync::Mutex;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
+#[cfg(windows)]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -36,6 +38,7 @@ static SAMPLER: Mutex<Sampler> = Mutex::new(Sampler {
     cached: None,
 });
 
+#[cfg(any(windows, test))]
 fn cpu_usage(previous: [u64; 3], next: [u64; 3]) -> Option<f64> {
     if next
         .iter()

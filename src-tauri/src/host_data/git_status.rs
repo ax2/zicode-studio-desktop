@@ -450,18 +450,14 @@ mod tests {
             Fixture(std::env::temp_dir().join(format!("zicode-git-{}", uuid::Uuid::new_v4())));
         std::fs::create_dir_all(&fixture.0).unwrap();
         let root = fixture.0.as_path();
-        // A task scratch directory can be inside the Studio checkout. A gitdir
-        // boundary prevents Git from discovering that unrelated parent repo.
-        std::fs::write(
-            root.join(".git"),
-            format!(
-                "gitdir: {}/missing-repository\n",
-                root.to_string_lossy().replace('\\', "/")
-            ),
-        )
-        .unwrap();
+        // A valid bare repository is a portable non-worktree boundary. Empty
+        // .git directories are ignored during discovery; broken gitdir pointers
+        // have version-specific diagnostics. Neither is a reliable fixture.
+        assert!(run_git(root, &["init", "--bare"]).await.unwrap().0);
         assert!(!inspect(root).await.unwrap().is_repository);
-        std::fs::remove_file(root.join(".git")).unwrap();
+        let project = root.join("worktree");
+        std::fs::create_dir(&project).unwrap();
+        let root = project.as_path();
         assert!(run_git(root, &["init", "-b", "main"]).await.unwrap().0);
         let initial = inspect(root).await.unwrap();
         assert!(initial.is_repository);

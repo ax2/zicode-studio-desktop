@@ -293,7 +293,7 @@ impl NotesError {
 pub struct NotesVault {
     root: PathBuf,
     storage_dir: Option<PathBuf>,
-    storage_guard: Option<std::sync::Arc<std::fs::File>>,
+    storage_guard: Option<std::sync::Arc<import_transaction::StorageLock>>,
     workspace_id: Option<String>,
     workspace_roots:
         Option<std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, PathBuf>>>>,

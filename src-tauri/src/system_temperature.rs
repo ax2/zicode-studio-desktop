@@ -11,19 +11,9 @@ pub(crate) struct Status {
     pub library_available: bool,
     pub driver_available: bool,
 }
+#[cfg(windows)]
 pub(crate) fn status() -> Status {
-    #[cfg(windows)]
-    {
-        monitor::status()
-    }
-    #[cfg(not(windows))]
-    {
-        Status {
-            state: "unsupported",
-            library_available: false,
-            driver_available: false,
-        }
-    }
+    monitor::status()
 }
 #[tauri::command]
 pub(crate) async fn start_system_temperature_monitor(

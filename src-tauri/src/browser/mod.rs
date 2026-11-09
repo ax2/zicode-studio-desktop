@@ -3,7 +3,9 @@ pub(crate) mod history_worker;
 pub(crate) mod startup;
 use serde::Deserialize;
 use serde_json::Value;
-use tauri::{Manager, WebviewWindow};
+use tauri::WebviewWindow;
+#[cfg(windows)]
+use tauri::Manager;
 #[cfg(windows)]
 mod engine;
 #[cfg(windows)]
@@ -21,6 +23,8 @@ mod windows_policy;
 
 #[derive(Clone, Copy, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Keep the same deserialization contract on platforms without an engine.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub struct Viewport {
     pub x: f64,
     pub y: f64,
@@ -29,6 +33,8 @@ pub struct Viewport {
 }
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+// Keep the same deserialization contract on platforms without an engine.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub enum Request {
     Status,
     Snapshot { tab: String },

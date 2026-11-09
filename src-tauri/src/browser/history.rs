@@ -34,6 +34,7 @@ pub enum Request {
     },
 }
 impl Store {
+    #[cfg(any(windows, test))]
     pub fn record_visit(
         &mut self,
         owner: &str,

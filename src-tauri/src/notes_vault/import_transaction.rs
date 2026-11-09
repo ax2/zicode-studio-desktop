@@ -29,7 +29,20 @@ fn regular_directory(path: &Path) -> Result<(), NotesError> {
     Ok(())
 }
 
-pub(super) fn lock_storage(root: &Path) -> Result<Arc<File>, NotesError> {
+/// Only the last owning vault releases the lock. Explicit unlock also releases
+/// a Unix descriptor briefly inherited by an unrelated fork/exec child.
+pub(super) struct StorageLock(File);
+
+impl Drop for StorageLock {
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+
+#[cfg(test)]
+mod lock_tests;
+
+pub(super) fn lock_storage(root: &Path) -> Result<Arc<StorageLock>, NotesError> {
     let lock = root.join(".notes.lock");
     if fs::symlink_metadata(&lock)
         .is_ok_and(|metadata| !metadata.is_file() || metadata.file_type().is_symlink())
@@ -59,7 +72,7 @@ pub(super) fn lock_storage(root: &Path) -> Result<Arc<File>, NotesError> {
         }
     })?;
     // Keep the inode; removing a lock file would let another process lock a replacement.
-    Ok(Arc::new(file))
+    Ok(Arc::new(StorageLock(file)))
 }
 
 fn sync_directory(path: &Path) -> Result<(), NotesError> {
