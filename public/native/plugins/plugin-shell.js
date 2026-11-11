@@ -10,7 +10,7 @@ import {
   setupPluginActivityBar,
   setupPluginShellSurfaces,
 } from "../react/plugin-shell.js";
-import { setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
+import { MOBILE_HISTORY_LAYER_KEY, setupMobileHistoryLayer } from "../utils/mobile-history-layer.js";
 import { pluginCommandEntries } from "./plugin-command-entries.js";
 import { createBuiltinPluginRegistry } from "./plugin-registry.js";
 import { resourceViewTarget } from "./plugin-view-resource.js";
@@ -140,7 +140,9 @@ export function setupPluginShell({
       onBackdropClick: () => closeMobileActivityMenu({ restoreFocus: true }),
       onMenuClose: () => closeMobileActivityMenu({ restoreFocus: true }),
       onMenuItemClick: (item) => {
-        closeMobileActivityMenu({ discardHistory: true });
+        if (item.id === "core.files" || item.id === "core.commands") {
+          closeMobileActivityMenu({ discardHistory: true });
+        }
         if (item.onClick) item.onClick();
         else activateFromNavigation(item.id);
       },
@@ -178,23 +180,20 @@ export function setupPluginShell({
     return value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
   }
 
-  function historyUrl() {
-    const { pathname = "", search = "", hash = "" } = globalThis.location || {};
-    return `${pathname}${search}${hash}` || "/";
+  function requestedAppPluginId() {
+    return new URLSearchParams(globalThis.location?.search || "").get("app");
   }
 
   function writePluginHistory(pluginId, mode = "replace") {
     if (!globalThis.history) return;
     const state = { ...historyState(), [PLUGIN_HISTORY_STATE_KEY]: pluginId };
-    globalThis.history[mode === "push" ? "pushState" : "replaceState"](
-      state,
-      "",
-      historyUrl(),
-    );
+    const url = new URL(globalThis.location.href);
+    if (pluginId !== CHAT_PLUGIN_ID || url.searchParams.has("app")) url.searchParams.set("app", pluginId);
+    globalThis.history[mode === "push" ? "pushState" : "replaceState"](state, "", url);
   }
 
   const handlePluginPopState = (event) => {
-    const pluginId = event.state?.[PLUGIN_HISTORY_STATE_KEY] || CHAT_PLUGIN_ID;
+    const pluginId = event.state?.[PLUGIN_HISTORY_STATE_KEY] || requestedAppPluginId() || CHAT_PLUGIN_ID;
     activate(pluginId, { focus: false });
   };
   globalThis.addEventListener?.("popstate", handlePluginPopState);
@@ -337,8 +336,8 @@ export function setupPluginShell({
     document.dispatchEvent(
       new CustomEvent("zicode:active-plugin-changed", { detail: { pluginId } }),
     );
-    if (historyMode === "push" && previousPluginId !== pluginId) {
-      writePluginHistory(pluginId, "push");
+    if (historyMode !== "none") {
+      writePluginHistory(pluginId, previousPluginId === pluginId ? "replace" : historyMode);
     }
   }
 
@@ -427,9 +426,7 @@ export function setupPluginShell({
     if (settingsApp && (hash === "#/settings" || hash.startsWith("#/settings/"))) {
       return SETTINGS_VIEW_ID;
     }
-    const requested = new URLSearchParams(globalThis.location?.search || "").get(
-      "app",
-    );
+    const requested = requestedAppPluginId();
     if (!requested) return CHAT_PLUGIN_ID;
     if (SHELL_VIEW_IDS.has(requested)) return requested;
     if (registry.isEnabled(requested)) {
@@ -444,8 +441,11 @@ export function setupPluginShell({
   }
 
   async function activateFromNavigation(pluginId) {
+    // The open More menu already has its own history entry. Turn it into
+    // the destination entry so Back returns directly to the prior application.
+    const fromMenu = !mobileActivityMenu?.hidden && globalThis.history?.state?.[MOBILE_HISTORY_LAYER_KEY] === "application-menu";
     closeMobileActivityMenu({ discardHistory: true });
-    await activate(pluginId, { historyMode: "push" });
+    await activate(pluginId, { historyMode: fromMenu ? "replace" : "push" });
     if (activePluginId === pluginId) requestFunctionArea();
     return activePluginId === pluginId && failedRenderPluginId !== pluginId;
   }
@@ -772,7 +772,7 @@ export function setupPluginShell({
     booted = true;
     renderActivities();
     const initialPlugin = initialAppPluginId();
-    activate(initialPlugin, { focus: false });
+    void activate(initialPlugin, { focus: false }).then(() => writePluginHistory(activePluginId));
     if (pendingDisabledPluginId) {
       const plugin = registry.get(pendingDisabledPluginId);
       notify({
@@ -796,7 +796,6 @@ export function setupPluginShell({
       });
       pendingUnavailablePluginId = null;
     }
-    writePluginHistory(initialPlugin);
   }
 
   function setTarget(nextTarget = getTarget?.()) {

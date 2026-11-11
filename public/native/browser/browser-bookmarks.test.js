@@ -62,6 +62,15 @@ it("retains the manager when native opening fails and closes only after success"
   getByRole(h.dialog, "button", { name: `${t("Open bookmark")}: Read me` }).click();await waitFor(() => expect(h.onClose).toHaveBeenCalledOnce());
   expect(h.dialog.isConnected).toBe(false);
 });
+it("keeps the bookmark manager open when opening a background tab", async () => {
+  const h = await open();
+  getByRole(h.dialog, "button", { name: `${t("Open in background tab")}: Read me` }).click();
+  await waitFor(() => expect(getByRole(h.dialog, "status").textContent).toBe(t("Opened in a background tab")));
+  expect(h.onOpen).toHaveBeenCalledWith(library().bookmarks[0], { background: true });
+  expect(h.dialog.open).toBe(true);
+  expect(h.onClose).not.toHaveBeenCalled();
+  expect(h.calls).toEqual([{ kind: "list" }]);
+});
 it("can close during a slow read and does not reopen when it resolves", async () => {
   let resolve;const onClose = vi.fn();const dialog = showBrowserBookmarks({ invoke: () => new Promise(done => { resolve = done; }), current: null, onOpen: vi.fn(), onClose });
   getByRole(dialog, "button", { name: t("Close") }).click();expect(onClose).toHaveBeenCalledOnce();expect(dialog.isConnected).toBe(false);

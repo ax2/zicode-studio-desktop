@@ -691,6 +691,32 @@ describe("setupPluginShell", () => {
     expect(shell.getActivePluginId()).toBe("core.chat");
   });
 
+  it("keeps the application URL in sync when navigating through the compact More menu", async () => {
+    history.replaceState(null, "", "/app/workspaces/workspace-a/sessions/session-a?app=com.zicode.browser&keep=1");
+    const shell = setupPluginShell({ registry: registry() });
+    const app = () => new URLSearchParams(location.search).get("app");
+    try {
+      await vi.waitFor(() => expect(history.state?.zicodePluginId).toBe("com.zicode.browser"));
+      const length = history.length;
+      document.querySelector("[data-mobile-activity-more]").click();
+      document.querySelector('[data-mobile-plugin-id="com.zicode.tasks"]').click();
+      await vi.waitFor(() => expect(app()).toBe("com.zicode.tasks"));
+      expect(shell.getActivePluginId()).toBe(app());
+      expect(history.state?.zicodePluginId).toBe(app());
+      expect(history.state?.zicodeMobileLayer).toBeUndefined();
+      expect(history.length).toBe(length + 1);
+      expect(new URLSearchParams(location.search).get("keep")).toBe("1");
+      history.back();
+      await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.browser"));
+      expect(app()).toBe("com.zicode.browser");
+      history.forward();
+      await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.tasks"));
+      expect(app()).toBe("com.zicode.tasks");
+    } finally {
+      shell.destroy();
+    }
+  });
+
   it("keeps primary mobile destinations visible and moves secondary activities into More", async () => {
     const testRegistry = registry();
     const shell = setupPluginShell({ registry: testRegistry });

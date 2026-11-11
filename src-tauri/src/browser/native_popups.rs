@@ -43,6 +43,7 @@ pub fn install(
                     url: if allowed { url } else { String::new() },
                     user_initiated: initiated.as_bool(),
                     allowed,
+                    background: false,
                 });
                 Ok(())
             })),

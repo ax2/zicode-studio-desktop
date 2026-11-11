@@ -1,0 +1,62 @@
+.browser-tab-search-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(92vw, 36rem);
+  max-height: 86vh;
+  overflow: auto;
+  padding: var(--space-4);
+  background: var(--bg-solid);
+  color: var(--text-primary);
+}
+
+.browser-tab-search-dialog > .ui-input {
+  width: 100%;
+  margin-block: var(--space-2);
+}
+
+.browser-tab-search-results {
+  display: grid;
+  gap: var(--space-1);
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.browser-tab-search-results:empty,
+.browser-tab-search-status:empty {
+  display: none;
+}
+
+.browser-tab-search-result {
+  min-width: 0;
+  justify-content: flex-start;
+  text-align: start;
+  color: var(--text-primary);
+}
+
+.browser-tab-search-result[aria-current="true"] {
+  background: var(--bg-glass-active);
+  border-color: var(--accent);
+}
+
+.browser-tab-search-details {
+  display: grid;
+  min-width: 0;
+}
+
+.browser-tab-search-title,
+.browser-tab-search-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-tab-search-url {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.browser-tab-search-status,
+.browser-tab-search-dialog > .ui-button {
+  margin-block-start: var(--space-2);
+}

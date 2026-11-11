@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/dom";
+import { t } from "../../i18n.js";
 import { setupBrowserApp } from "./browser-app.js";
 let app;
 afterEach(async () => { await app?.canDeactivate(); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -22,7 +23,7 @@ it("defers creation while hidden, shares concurrent creation and clears only a r
   const requests = kind => invoke.mock.calls.filter(([, args]) => args?.request?.kind === kind);
   expect(requests("create")).toHaveLength(0);
   hidden = false; document.dispatchEvent(new Event("visibilitychange")); await waitFor(() => expect(requests("create")).toHaveLength(1)); resize(); resize(); await Promise.resolve(); expect(requests("create")).toHaveLength(1);
-  finishCreate(); await waitFor(() => expect(host.querySelector('.browser-footer [role="status"]').textContent).toBe("Transient viewport failure"));
+  finishCreate(); await waitFor(() => expect(host.querySelector('.browser-footer [role="status"]').textContent).toBe(t("Could not restore the browser. Your saved tabs are kept. Please retry.")));
   failPresent = false; resize(); await waitFor(() => expect(host.querySelector('.browser-footer [role="status"]').textContent).toBe(""));
   const count = requests("present").length; hidden = true; document.dispatchEvent(new Event("visibilitychange")); await waitFor(() => expect(requests("hide").length).toBeGreaterThan(0)); expect(requests("present")).toHaveLength(count);
 });

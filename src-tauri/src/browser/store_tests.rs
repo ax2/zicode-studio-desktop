@@ -8,6 +8,7 @@ fn tab() -> SavedTab {
         url: "https://example.com/docs".into(),
         title: "资料".into(),
         zoom: 1.0, muted: false,
+        pinned: false,
     }
 }
 #[test]
@@ -83,14 +84,14 @@ fn rejected_input_leaves_saved_session_unchanged() {
 fn future_schema_is_preserved_and_rejected() {
     let root = root();
     let store = Store::open(&root).unwrap();
-    store.0.pragma_update(None, "user_version", 6).unwrap();
+    store.0.pragma_update(None, "user_version", 7).unwrap();
     drop(store);
     assert!(Store::open(&root).is_err());
     let db = Connection::open(root.join("metadata.sqlite3")).unwrap();
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        6
+        7
     );
 }
 #[test]
@@ -188,3 +189,25 @@ fn version_one_sessions_upgrade_without_losing_tabs_or_preferences() {
 
 #[path = "store_page_controls_tests.rs"]
 mod page_controls;
+
+#[test]
+fn pins_round_trip_without_changing_legacy_session_payloads() {
+    let temp = root();
+    let mut store = Store::open(&temp).unwrap();
+    let mut pinned = tab();
+    pinned.pinned = true;
+    let id = pinned.id.clone();
+    store.save("one", 0, vec![pinned.clone()], Some(id.clone())).unwrap();
+    let stored: String = store.0.query_row(
+        "SELECT payload FROM browser_sessions WHERE owner='one'", [], |row| row.get(0)
+    ).unwrap();
+    assert!(!stored.contains("pinned"));
+    assert!(store.state("one").unwrap().session.tabs[0].pinned);
+    assert!(store.state("other").unwrap().session.tabs.is_empty());
+    store.save("one", 1, Vec::new(), None).unwrap();
+    drop(store);
+    let mut store = Store::open(&temp).unwrap();
+    assert!(store.state("one").unwrap().session.closed_tabs[0].tab.pinned);
+    store.save("one", 2, vec![pinned], Some(id)).unwrap();
+    assert!(store.state("one").unwrap().session.closed_tabs.is_empty());
+}

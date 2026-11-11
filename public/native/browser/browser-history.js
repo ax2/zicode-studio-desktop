@@ -1,4 +1,5 @@
 import { t } from "../../i18n.js";
+import { createBackgroundOpenButton } from "./browser-background-open.js";
 
 export function showBrowserHistory({ invoke, onOpen, onClose }) {
   let page = { entries: [], nextBefore: null, latestId: 0 }, query = "", busy = false;
@@ -50,7 +51,9 @@ export function showBrowserHistory({ invoke, onOpen, onClose }) {
       details.append(title, url, time);
       const remove = button("Remove visit", async () => { await request({ kind: "remove", id: visit.id }); await load(); });
       remove.setAttribute("aria-label", `${t("Remove visit")}: ${visit.title || visit.url}`);
-      row.append(details, remove); list.append(row);
+      const actions = el("div", "ui-toolbar");
+      actions.append(createBackgroundOpenButton(visit, { onOpen, run, message }), remove);
+      row.append(details, actions); list.append(row);
     }
   }
   const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => dialog.close());

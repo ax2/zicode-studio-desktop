@@ -4,12 +4,13 @@ mod workspace_mode;
 mod app_paths;
 mod browser;
 use browser::browser_control;
+use browser::bookmark_files::browser_bookmark_file;
 use browser::capture::browser_capture_page;
 #[path = "browser/store.rs"]
 mod browser_store;
 #[path = "browser/state_commands.rs"]
 mod browser_state_commands;
-use browser_state_commands::{browser_get_state, browser_set_startup_mode, browser_save_session, browser_bookmarks, browser_history};
+use browser_state_commands::{browser_set_search_engine, browser_get_state, browser_set_startup_mode, browser_save_session, browser_bookmarks, browser_history};
 mod application_context;
 mod article_markdown;
 mod articles;
@@ -23,6 +24,8 @@ mod backup_store;
 mod blog_deploy;
 mod clipboard_inbox;
 mod credential_broker;
+mod desktop_window_controls;
+use desktop_window_controls::desktop_window_control;
 mod desktop_profile;
 mod desktop_single_instance;
 mod desktop_startup_gate;
@@ -1424,17 +1427,12 @@ fn open_native_workspace_window_named(
         .title("ZiCode Studio Desktop")
         .enable_clipboard_access()
         .inner_size(1440.0, 900.0)
-        .min_inner_size(800.0, 600.0)
+        .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
         .icon(icon)
         .map_err(|error| error.to_string())?;
 
-    // Plain native title bar on every platform. The overlay title bar
-    // (`TitleBarStyle::Overlay` + `hidden_title(true)`) extended the WebView
-    // under the traffic lights so the custom header/sidebar could render
-    // there, but it also made three-finger/click-drag window moves
-    // unreliable — reverted in favor of the guaranteed-to-work native title
-    // bar drag behavior.
-    let builder = builder.decorations(true);
+    // Shared workspace chrome owns drag and window controls on every view.
+    let builder = builder.decorations(false);
     let window = builder.build().map_err(|error| error.to_string())?;
     if let Some(state) = load_window_state() {
         apply_window_state(&window, app, &state);
@@ -1466,7 +1464,7 @@ fn open_bootstrap_window(app: &AppHandle, startup_error: &str) -> Result<(), Str
 }
 
 const WINDOW_STATE_FILE: &str = "window-state.json";
-const MIN_WINDOW_WIDTH: u32 = 800;
+const MIN_WINDOW_WIDTH: u32 = 360;
 const MIN_WINDOW_HEIGHT: u32 = 600;
 
 #[derive(Default, Debug, PartialEq)]
@@ -1569,17 +1567,27 @@ fn visible_position(
 ) -> Option<(i32, i32)> {
     let right = x + width as i32;
     let bottom = y + height as i32;
-    let visible = work_areas
-        .iter()
-        .any(|(area_x, area_y, area_width, area_height)| {
+    work_areas.iter()
+        .filter(|(area_x, area_y, area_width, area_height)| {
             let area_right = area_x + *area_width as i32;
             let area_bottom = area_y + *area_height as i32;
             x < area_right - MIN_VISIBLE_WINDOW_EDGE
                 && right > area_x + MIN_VISIBLE_WINDOW_EDGE
                 && y < area_bottom - MIN_VISIBLE_WINDOW_EDGE
                 && bottom > area_y + MIN_VISIBLE_WINDOW_EDGE
-        });
-    visible.then_some((x, y))
+        })
+        .max_by_key(|(ax, ay, aw, ah)| {
+            i64::from(right.min(ax + *aw as i32) - x.max(*ax))
+                * i64::from(bottom.min(ay + *ah as i32) - y.max(*ay))
+        })
+        .map(|(ax, ay, aw, ah)| {
+            // Frameless controls live in the top right of the client area.
+            // Old native-frame offsets and partially offscreen restores must
+            // not leave the close button above or beyond the chosen monitor.
+            let max_x = ax + aw.saturating_sub(width) as i32;
+            let max_y = ay + ah.saturating_sub(height) as i32;
+            (x.clamp(*ax, max_x), y.clamp(*ay, max_y))
+        })
 }
 
 fn centered_position(app: &AppHandle, width: u32, height: u32) -> (i32, i32) {
@@ -2132,11 +2140,14 @@ fn main() {
             publish_notes_notebook,
             get_system_information,
             browser_control,
+            desktop_window_control,
             browser_capture_page,
             browser_get_state,
             browser_set_startup_mode,
+            browser_set_search_engine,
             browser_save_session,
             browser_bookmarks,
+            browser_bookmark_file,
             browser_history,
             start_system_temperature_monitor,
             stop_system_temperature_monitor,
@@ -2221,7 +2232,8 @@ fn main() {
                 tauri::WindowEvent::CloseRequested { api, .. }
                     if label.starts_with("native-workspace-") =>
                 {
-                    if let Ok(size) = window.inner_size() {
+                    // Fullscreen dimensions must not replace the saved normal restore size.
+                    if let Some(size) = window.inner_size().ok().filter(|_| matches!(window.is_fullscreen(), Ok(false))) {
                         let state = WindowState {
                             width: size.width,
                             height: size.height,
@@ -2337,6 +2349,8 @@ fn main() {
                 }
             }
             tauri::RunEvent::Exit => {
+                #[cfg(windows)]
+                browser::shutdown_downloads();
                 if let Err(error) = browser::history_worker::flush() { log::warn!("[browser-history] {error}"); }
 
                 if let Some(host) = app_handle.try_state::<HostServer>() {
@@ -2606,6 +2620,11 @@ mod tests {
         .unwrap();
         assert_eq!((minimal.width, minimal.height), (800, 600));
         assert!(!minimal.maximized);
+        // Compact layouts must survive restart at the physical size we saved.
+        let narrow = WindowState { width: 738, height: 1400, x: Some(-12), y: Some(-12), maximized: false };
+        assert_eq!(parse_window_state(&format_window_state(&narrow)), Some(narrow));
+        assert!(parse_window_state(r#"{"width":360,"height":600}"#).is_some());
+        assert_eq!(parse_window_state(r#"{"width":359,"height":600}"#), None);
     }
 
     #[test]
@@ -2619,11 +2638,14 @@ mod tests {
         assert_eq!(visible_position(-2000, 0, 1600, 1000, &monitors), None);
         // Completely off to the right (left edge beyond the work area).
         assert_eq!(visible_position(2000, 0, 800, 600, &monitors), None);
-        // A partial sliver on the right edge stays put (48px visible).
+        // Keep the top-right controls accessible on a partially visible restore.
         assert_eq!(
             visible_position(1700, 0, 800, 600, &monitors),
-            Some((1700, 0)),
+            Some((1120, 0)),
         );
+        assert_eq!(visible_position(-12, -12, 738, 800, &monitors), Some((0, 0)));
+        let dual = vec![(-1920, 0, 1920, 1080), (0, 0, 1920, 1080)];
+        assert_eq!(visible_position(-1700, 80, 800, 600, &dual), Some((-1700, 80)));
         // Off below the work area.
         assert_eq!(visible_position(100, 2000, 800, 600, &monitors), None);
     }

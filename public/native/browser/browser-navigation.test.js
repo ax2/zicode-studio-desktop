@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/dom";
 import { setupBrowserApp } from "./browser-app.js";
+import { t } from "../../i18n.js";
 
 let app;
 afterEach(async () => { await app?.canDeactivate(); document.body.replaceChildren(); vi.unstubAllGlobals(); });
@@ -19,13 +20,45 @@ it("uses Stop only for the selected loading tab, then restores Reload", async ()
   app = setupBrowserApp({ invoke, listen: async (_event, callback) => { emit = payload => callback({ payload }); } });
   const container = document.createElement("main"); document.body.append(container); app.renderContent(container);
   await waitFor(() => expect(container.querySelectorAll('[role="tab"]').length).toBe(2));
-  const button = container.querySelectorAll(".browser-navigation > button")[2];
-  emit({ tab: active, kind: "loading", url: "https://example.org/", finished: false });
-  emit({ tab: peer, kind: "navigationFinished", success: true });
+  const [back, forward, button] = container.querySelectorAll(".browser-navigation > button");
+  const status = () => container.querySelector('.browser-footer > [role="status"]').textContent;
+  const selectTab = async id => {
+    container.querySelector(`[data-browser-tab-id="${id}"] [role="tab"]`).click();
+    await waitFor(() => expect(container.querySelector(`[data-browser-tab-id="${id}"] [role="tab"]`).getAttribute("aria-selected")).toBe("true"));
+  };
+  const history = (tab, canGoBack, canGoForward) => emit({ kind: "historyChanged", tab, history: { canGoBack, canGoForward } });
+  expect([back.disabled, forward.disabled]).toEqual([true, true]);
+  history(peer, false, true);
+  expect([back.disabled, forward.disabled]).toEqual([true, true]);
+  history(active, true, false);
+  expect([back.disabled, forward.disabled]).toEqual([false, true]);
+  back.click();
+  await waitFor(() => expect(calls.some(c => c.args?.request?.action === "back" && c.args.request.tab === active)).toBe(true));
+  await selectTab(peer);
+  expect([back.disabled, forward.disabled]).toEqual([true, false]);
+  forward.click();
+  await waitFor(() => expect(calls.some(c => c.args?.request?.action === "forward" && c.args.request.tab === peer)).toBe(true));
+  await selectTab(active);
+  expect([back.disabled, forward.disabled]).toEqual([false, true]);
+  emit({ tab: active, kind: "navigationStarted" });
+  emit({ tab: peer, kind: "navigationFinished", success: false });
+  expect(status()).toBe("");
   button.click();
   await waitFor(() => expect(calls.some(c => c.args?.request?.action === "stop" && c.args.request.tab === active)).toBe(true));
-  emit({ tab: active, kind: "navigationFinished", success: false });
+  expect(button.getAttribute("aria-label")).toBe(t("Reload"));
+  emit({ tab: active, kind: "navigationFinished", success: false, canceled: false });
+  expect(status()).toBe("");
   button.click();
   await waitFor(() => expect(calls.some(c => c.args?.request?.action === "reload" && c.args.request.tab === active)).toBe(true));
+  await selectTab(peer);
+  expect(status()).toBe(t("Page could not be loaded"));
+  await selectTab(active);
+  expect(status()).toBe("");
+  await selectTab(peer);
+  expect(status()).toBe(t("Page could not be loaded"));
+  emit({ tab: peer, kind: "navigationStarted" });
+  expect(status()).toBe("");
+  emit({ tab: peer, kind: "navigationFinished", success: true });
+  expect(status()).toBe("");
   expect(container.querySelectorAll(".browser-navigation > button").length).toBe(4); // Back, Forward, reload/stop, Go.
 });

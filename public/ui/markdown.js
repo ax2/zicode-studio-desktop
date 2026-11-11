@@ -5,6 +5,7 @@
  * task lists, images, paragraphs.
  */
 
+import { protectMarkdownLiterals } from "./markdown-literals.js";
 import { t } from "../i18n.js";
 import remend from "../vendor/remend.js";
 import { copyText } from "./copy.js";
@@ -76,12 +77,23 @@ export function renderMarkdown(text) {
 
   // Check if a line is a table separator (e.g. |---|---|)
   function isTableSeparator(line) {
-    return /^\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line);
+    return /^\|\s*:?-{3,}:?\s*\|\s*$/.test(line) || /^\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line);
   }
 
   // Check if a line looks like a table row
   function isTableRow(line) {
     return line.trim().startsWith("|") && line.trim().endsWith("|");
+  }
+
+  function splitTableCells(line) {
+    const cells = [""];
+    let escaped = false;
+    for (const char of line.trim().slice(1, -1)) {
+      if (char === "|" && !escaped) cells.push("");
+      else cells[cells.length - 1] += char;
+      escaped = char === "\\" && !escaped;
+    }
+    return cells;
   }
 
   // Parse alignment from separator row
@@ -124,9 +136,7 @@ export function renderMarkdown(text) {
       const alignments = parseAlignments(lines[i + 1]);
 
       // Parse header
-      const _headerCells = line.split("|").filter((c) => c.trim() !== "" || line.trim() === "|");
-      // More robust: split between first and last pipe
-      const headerRow = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+      const headerRow = splitTableCells(line);
 
       html += `<div class="table-wrapper" tabindex="0" role="region" aria-label="${t("Scrollable table")}"><table><thead><tr>`;
       headerRow.forEach((cell, idx) => {
@@ -140,7 +150,7 @@ export function renderMarkdown(text) {
 
       // Parse body rows
       while (i < lines.length && isTableRow(lines[i])) {
-        const rowCells = lines[i].trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+        const rowCells = splitTableCells(lines[i]);
         html += "<tr>";
         rowCells.forEach((cell, idx) => {
           const align = alignments[idx] || "left";
@@ -293,6 +303,8 @@ export function renderUserMarkdown(text) {
 }
 
 function renderInline(text) {
+  const literals = protectMarkdownLiterals(text, escapeHtml);
+  text = literals.text;
   // Escape HTML entities up front so raw `<script>` / `<img onerror>` text
   // cannot be injected through the rendered preview. Markdown syntax (`*`,
   // `_`, `~`, `` ` ``, `[]()`, `!`) does not use these characters, so the
@@ -311,7 +323,7 @@ function renderInline(text) {
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_, alt, src) =>
-      `<img src="${safeUrl(src)}" alt="${alt}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
+      `<img src="${safeUrl(literals.restore(src))}" alt="${alt}" class="inline-image" loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
   );
 
   // Bold + italic
@@ -332,7 +344,7 @@ function renderInline(text) {
   text = text.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     (_, label, href) =>
-      `<a href="${safeUrl(href)}" target="_blank" rel="noopener">${label}</a>`,
+      `<a href="${safeUrl(literals.restore(href))}" target="_blank" rel="noopener">${label}</a>`,
   );
 
   // Auto-link bare URLs
@@ -345,7 +357,7 @@ function renderInline(text) {
   // Restore inline code
   text = text.replace(/%%ICODE(\d+)%%/g, (_, idx) => codeSpans[parseInt(idx, 10)]);
 
-  return text;
+  return literals.restore(text);
 }
 
 function escapeHtml(text) {

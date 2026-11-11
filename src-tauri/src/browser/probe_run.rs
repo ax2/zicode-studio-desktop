@@ -283,7 +283,7 @@ fn run(app: &AppHandle, root: PathBuf, origin: String, phase: String) -> Result<
         if events.lock().unwrap().iter().any(|event| {
             matches!(
                 event,
-                engine::EngineEvent::DownloadBlocked { .. }
+                engine::EngineEvent::DownloadChanged { .. }
                     | engine::EngineEvent::NativeDownloadBlocked { .. }
             )
         }) {
@@ -345,7 +345,7 @@ fn run(app: &AppHandle, root: PathBuf, origin: String, phase: String) -> Result<
         events.iter().any(|event| {
             matches!(
                 event,
-                engine::EngineEvent::DownloadBlocked { .. }
+                engine::EngineEvent::DownloadChanged { .. }
                     | engine::EngineEvent::NativeDownloadBlocked { .. }
             )
         }),

@@ -1,5 +1,19 @@
 import { t } from "../../i18n.js";
 
+export const browserPinLimit = 4;
+
+export function groupBrowserTabs(tabs) {
+  return [...tabs.filter(tab => tab.pinned), ...tabs.filter(tab => !tab.pinned)];
+}
+
+export function toggleBrowserTabPin(tabs, id) {
+  const tab = tabs.find(item => item.id === id);
+  if (!tab || (!tab.pinned && tabs.filter(item => item.pinned).length >= browserPinLimit)) return tabs;
+  const next = tabs.filter(item => item.id !== id);
+  next.splice(next.filter(item => item.pinned).length, 0, { ...tab, pinned: !tab.pinned });
+  return next;
+}
+
 export function moveBrowserTab(tabs, { id, target, after = false, step }) {
   const from = tabs.findIndex(tab => tab.id === id);
   if (from < 0) return tabs;
@@ -7,7 +21,8 @@ export function moveBrowserTab(tabs, { id, target, after = false, step }) {
     if (![1, -1].includes(step) || from + step < 0 || from + step >= tabs.length) return tabs;
     target = tabs[from + step].id; after = step > 0;
   }
-  if (target === id || !tabs.some(tab => tab.id === target)) return tabs;
+  const peer = tabs.find(tab => tab.id === target);
+  if (target === id || !peer || Boolean(peer.pinned) !== Boolean(tabs[from].pinned)) return tabs;
   const next = tabs.filter(tab => tab.id !== id);
   const index = next.findIndex(tab => tab.id === target) + Number(after);
   next.splice(index, 0, tabs[from]);
@@ -25,6 +40,8 @@ export function setupBrowserTabOrdering(host, { onMove, onFinish }) {
   const mark = (row, x) => {
     clearMarker(); destination = null;
     if (!row || row.dataset.browserTabId === source) return;
+    const origin = [...host.children].find(item => item.dataset.browserTabId === source);
+    if (!origin || row.hasAttribute("data-pinned") !== origin.hasAttribute("data-pinned")) return;
     const rect = row.getBoundingClientRect(), after = x > rect.left + rect.width / 2;
     row.dataset.dropSide = after ? "after" : "before";
     destination = { target: row.dataset.browserTabId, after };
@@ -84,10 +101,6 @@ export function setupBrowserTabOrdering(host, { onMove, onFinish }) {
       row.dataset.browserTabId = id; title.draggable = true;
       title.setAttribute("aria-keyshortcuts", "Alt+Shift+ArrowLeft Alt+Shift+ArrowRight");
       title.setAttribute("aria-description", t("Drag to reorder. When focused, Alt+Shift+Left or Right moves this tab."));
-    },
-    focus(id) {
-      const row = [...host.children].find(row => row.dataset.browserTabId === id);
-      const title = row?.querySelector('[role="tab"]'); title?.focus({ preventScroll: true }); title?.scrollIntoView({ block: "nearest", inline: "nearest" });
     },
   };
 }

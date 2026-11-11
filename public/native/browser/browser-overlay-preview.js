@@ -25,6 +25,6 @@ export function createBrowserOverlayPreview({ capture, host, current }) {
 }
 
 export function browserOverlayOpen() {
-  return [...document.querySelectorAll("dialog[open], .quick-tools-menu[open], .browser-options[open], [aria-modal='true'], #command-palette:not(.hidden), #command-palette-overlay:not(.hidden), #sidebar-overlay.visible, [data-mobile-activity-menu]:not([hidden])")]
+  return [...document.querySelectorAll("dialog[open], .quick-tools-menu[open], .browser-options[open], .browser-tab-menu:not([hidden]), [aria-modal='true'], #command-palette:not(.hidden), #command-palette-overlay:not(.hidden), #sidebar-overlay.visible, [data-mobile-activity-menu]:not([hidden])")]
     .some(element => element.getClientRects().length && getComputedStyle(element).visibility !== "hidden");
 }

@@ -1,3 +1,4 @@
+import { setupWindowChrome } from "./workspace/window-chrome.js";
 import { setupCompactHeader } from "./workspace/compact-header.js";
 import { setupBrowserApp } from "./browser/browser-app.js";
 import { setupSystemInformationShortcut } from "./features/system-information-shortcuts.js";
@@ -1201,7 +1202,32 @@ const articlesApp = setupArticlesApp({
   openSettings: (tab) => settingsPanel?.openSettings(tab ?? "articles"),
 });
 setupCompactHeader();
-const browserApp = setupBrowserApp({ notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff });
+setupWindowChrome({ report: error => notifications.notify({ type: "error", message: String(error?.message ?? error) }) });
+async function canOpenBrowserDraftConversation() {
+  const invoke = globalThis.__TAURI__?.core?.invoke;
+  return remoteAuth.clientType === "desktop" && invoke &&
+    (await invoke("desktop_entry_mode").catch(() => null)) === "regular";
+}
+
+async function openBrowserDraftConversation({ target: source, isCurrent }) {
+  const changed = () => new Error(t("Page or conversation changed. Read the page again."));
+  if (!await canOpenBrowserDraftConversation() || !isCurrent()) throw changed();
+  const sceneId = source.sceneId || "programming";
+  const session = await spawnSessionViaHost(source.workspaceId, sceneId, hostFetch);
+  if (!isCurrent() || session.workspaceId !== source.workspaceId) throw changed();
+  await switchSession(session.sessionId, { waitForDraft: true });
+  // Pi can bind the temporary route to its durable session ID while booting.
+  if (target.instanceId !== session.instanceId || target.workspaceId !== source.workspaceId) throw changed();
+  configGatewayTargetReady = true;
+  signalConfigGatewayReady();
+  void loadCommands().then(() => slashMenu.update()).catch(showError);
+  void loadAvailableModels().catch(showError);
+}
+
+const browserApp = setupBrowserApp({
+  notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff,
+  canOpenDraftConversation: canOpenBrowserDraftConversation, openDraftConversation: openBrowserDraftConversation,
+});
 pluginShell = setupPluginShell({
   registry: pluginRegistry,
   toolAccessStore,
@@ -1711,7 +1737,7 @@ function setupSessionSidebar() {
   });
 }
 
-async function switchSession(sessionId, { updateHistory = true } = {}) {
+async function switchSession(sessionId, { updateHistory = true, waitForDraft = false } = {}) {
   if (!sessionId || sessionId === target.sessionId) return;
   const generation = ++navigationGeneration;
 
@@ -1728,7 +1754,8 @@ async function switchSession(sessionId, { updateHistory = true } = {}) {
   ]);
   if (generation !== navigationGeneration) return;
 
-  await adoptTarget(nextTarget, { updateRoute: false });
+  await adoptTarget(nextTarget, { updateRoute: false, waitForDraft });
+  if (generation !== navigationGeneration) return;
   if (updateHistory) {
     // Keep the current query string (the plugin shell's `?app=` deep link)
     // when rewriting the session route, so switching/upgrading the session
@@ -3012,7 +3039,7 @@ function upsertActiveSessionFromUserMessage(message = null) {
   pendingBoundSessionFirstMessage = null;
 }
 
-async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
+async function adoptTarget(nextTarget, { updateRoute = true, waitForDraft = false } = {}) {
   const previousTarget = target;
   const sessionChanged = nextTarget.sessionId !== previousTarget.sessionId;
   const targetChanged =
@@ -3071,7 +3098,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
     previousTarget.workspaceId === nextTarget.workspaceId &&
     previousTarget.sessionId?.startsWith("temporary-");
   if (sessionChanged && !migrateTemporaryDraft) imageAttachments?.clear();
-  void mobileDrafts
+  const draftReady = mobileDrafts
     ?.setTarget(target, { preserveInput: migrateTemporaryDraft })
     .then(() => mobileSendLater?.setTarget())
     .catch(() => {});
@@ -3090,6 +3117,7 @@ async function adoptTarget(nextTarget, { updateRoute = true } = {}) {
   adapter.subscribeTarget(target);
   sidebar?.setActive(target.sessionId);
   await extensionUi.setForegroundSession(target.sessionId, { flush: false });
+  if (waitForDraft) await draftReady;
 }
 
 function projectNameFromPath(path, fallback) {

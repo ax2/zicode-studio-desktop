@@ -48,6 +48,18 @@ it("keeps the manager and records on failed navigation, then closes after actual
   getByRole(h.dialog, "button", { name: `${t("Open visited page")}: Page 2` }).click(); await waitFor(() => expect(h.onClose).toHaveBeenCalledOnce());
   expect(h.calls.every(r => r.kind === "list")).toBe(true);
 });
+it("can open successive history results in the background without closing the search", async () => {
+  const h = await open();
+  for (const id of [2, 1]) {
+    getByRole(h.dialog, "button", { name: `${t("Open in background tab")}: Page ${id}` }).click();
+    await idle(h.dialog);
+    expect(h.onOpen).toHaveBeenLastCalledWith(visit(id), { background: true });
+    expect(getByRole(h.dialog, "status").textContent).toBe(t("Opened in a background tab"));
+  }
+  expect(h.dialog.open).toBe(true);
+  expect(h.onClose).not.toHaveBeenCalled();
+  expect(h.calls).toHaveLength(1);
+});
 it("retains rows when deletion fails and still permits closing during a pending read", async () => {
   const h = await open({ handle: r => { if (r.kind !== "list") throw Error("Storage failed"); return { entries: [visit(1)], nextBefore: null, latestId: 1 }; } });
   getByRole(h.dialog, "button", { name: `${t("Remove visit")}: Page 1` }).click(); await idle(h.dialog);expect(h.dialog.textContent).toContain("Storage failed");expect(h.dialog.querySelectorAll('[role="listitem"]')).toHaveLength(1);

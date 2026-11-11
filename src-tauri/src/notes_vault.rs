@@ -64,6 +64,8 @@ pub struct NoteSource {
     pub captured_at: String,
     pub content_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_revision: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub published_at: Option<String>,
@@ -1951,6 +1953,7 @@ const notes = defineCollection({
       url: z.string().url(),
       capturedAt: z.string(),
       contentHash: z.string(),
+      documentRevision: z.string().optional(),
       author: z.string().optional(),
       publishedAt: z.string().optional(),
     }).optional(),
@@ -2069,6 +2072,9 @@ fn serialize_note(document: &NoteDocument) -> Result<Vec<u8>, NotesError> {
             "  contentHash: {}\n",
             yaml_string(&source.content_hash)
         ));
+        if let Some(revision) = &source.document_revision {
+            output.push_str(&format!("  documentRevision: {}\n", yaml_string(revision)));
+        }
         if let Some(author) = &source.author {
             output.push_str(&format!("  author: {}\n", yaml_string(author)));
         }
@@ -2133,6 +2139,7 @@ fn read_note_file(path: &Path, notebook_id: &str) -> Result<NoteDocument, NotesE
             url,
             captured_at: required_frontmatter_string(frontmatter, "capturedAt")?,
             content_hash: required_frontmatter_string(frontmatter, "contentHash")?,
+            document_revision: optional_frontmatter_string(frontmatter, "documentRevision"),
             author: optional_frontmatter_string(frontmatter, "author"),
             published_at: optional_frontmatter_string(frontmatter, "publishedAt"),
             site_name: optional_frontmatter_string(frontmatter, "siteName"),
@@ -2351,7 +2358,8 @@ fn validate_source(source: &NoteSource) -> Result<(), NotesError> {
             "Note source must be an HTTP(S) URL without credentials",
         ));
     }
-    if source.captured_at.chars().count() > 100
+    if source.document_revision.as_ref().is_some_and(|value| value.is_empty() || value.len() > 160 || value.chars().any(char::is_control))
+        || source.captured_at.chars().count() > 100
         || source.content_hash.chars().count() > 100
         || source
             .author
@@ -2680,6 +2688,7 @@ mod tests {
                 vec!["clip".into()],
                 None,
                 Some(NoteSource {
+                    document_revision: None,
                     url: "https://example.com/article".into(),
                     captured_at: "2026-07-31T00:00:00Z".into(),
                     content_hash: content_hash("Captured body"),

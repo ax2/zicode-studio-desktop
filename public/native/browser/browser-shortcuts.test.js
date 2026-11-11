@@ -24,3 +24,84 @@ it("does not change the new tab or a modal after an asynchronous focus handoff",
   const second = shortcuts.native({ tab: "b", action: "find" }); available = false; resolve(); await second; expect(args.find).not.toHaveBeenCalled();
   await shortcuts.native({ tab: "b", action: "find" }); expect(args.focusChrome).toHaveBeenCalledTimes(2);
 });
+
+it("routes tab shortcuts with the current source and suppresses repeats, composition and unrelated modifiers", () => {
+  const action = vi.fn(); setup({ tabAction: action });
+  for (const [key, shiftKey, name] of [["t", false, "newTab"], ["t", true, "reopenTab"], ["w", false, "closeTab"], ["Tab", false, "nextTab"], ["Tab", true, "previousTab"]]) {
+    const event = new KeyboardEvent("keydown", { key, ctrlKey: true, shiftKey, cancelable: true }); document.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true); expect(action).toHaveBeenLastCalledWith(name, "a");
+  }
+  expect(action).toHaveBeenCalledTimes(5);
+  for (const options of [{ repeat: true }, { isComposing: true }, { altKey: true }, { ctrlKey: false }]) {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true, cancelable: true, ...options }));
+  }
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "w", ctrlKey: true, shiftKey: true }));
+  expect(action).toHaveBeenCalledTimes(5);
+});
+it("does not intercept tab shortcuts in another application view or behind a modal", () => {
+  const action = vi.fn(); setup({ available: () => false, tabAction: action });
+  const event = new KeyboardEvent("keydown", { key: "w", ctrlKey: true, cancelable: true }); document.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false); expect(action).not.toHaveBeenCalled();
+});
+it("checks native tab identity after focus, reports failure and does not close a replacement tab", async () => {
+  let id = "a", resolve; const action = vi.fn();
+  const args = setup({ getTab: () => ({ id }), tabAction: action, focusChrome: () => new Promise(done => { resolve = done; }) });
+  const old = shortcuts.native({ tab: "a", action: "closeTab" }); id = "b"; resolve(); await old; expect(action).not.toHaveBeenCalled();
+  const next = shortcuts.native({ tab: "b", action: "nextTab" }); resolve(); await next; expect(action).toHaveBeenCalledWith("nextTab", "b");
+  args.tabAction.mockRejectedValueOnce(Error("Storage unavailable"));
+  const fail = shortcuts.native({ tab: "b", action: "closeTab" }); resolve(); await fail; expect(args.report).toHaveBeenCalledWith(expect.objectContaining({ message: "Storage unavailable" }));
+});
+it("can create a tab from an empty browser without interpreting the key as a window close", () => {
+  const action = vi.fn(); setup({ getTab: () => null, tabAction: action });
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", ctrlKey: true })); expect(action).toHaveBeenCalledWith("newTab", undefined);
+});
+
+
+it("uses plain F11 for fullscreen while retaining composition, modifier and modal guards", async () => {
+  const fullscreen = vi.fn(); const args = setup({ fullscreen });
+  const key = new KeyboardEvent("keydown", { key: "F11", cancelable: true }); document.dispatchEvent(key); expect(key.defaultPrevented).toBe(true); expect(fullscreen).toHaveBeenCalledOnce();
+  for (const options of [{ ctrlKey: true }, { altKey: true }, { shiftKey: true }, { metaKey: true }, { isComposing: true }, { repeat: true }]) document.dispatchEvent(new KeyboardEvent("keydown", { key: "F11", ...options }));
+  expect(fullscreen).toHaveBeenCalledOnce(); await shortcuts.native({ tab: "a", action: "fullscreen" }); expect(args.focusChrome).toHaveBeenCalledWith("a"); expect(fullscreen).toHaveBeenCalledTimes(2);
+});
+
+
+it("routes tab search from chrome and only after a valid native focus handoff", async () => {
+  const searchTabs = vi.fn();
+  let id = "a";
+  const args = setup({ searchTabs, getTab: () => ({ id }) });
+  const press = overrides => document.dispatchEvent(new KeyboardEvent("keydown", {
+    key: "A", ctrlKey: true, shiftKey: true, cancelable: true, ...overrides,
+  }));
+  expect(press()).toBe(false);
+  expect(searchTabs).toHaveBeenCalledWith(false, "a");
+  for (const overrides of [{ shiftKey: false }, { altKey: true }, { isComposing: true }, { repeat: true }]) press(overrides);
+  expect(searchTabs).toHaveBeenCalledTimes(1);
+  await shortcuts.native({ tab: "other", action: "searchTabs" });
+  expect(args.focusChrome).not.toHaveBeenCalled();
+  await shortcuts.native({ tab: "a", action: "searchTabs" });
+  expect(searchTabs).toHaveBeenLastCalledWith(true, "a");
+  args.focusChrome.mockImplementationOnce(async () => { id = "b"; });
+  await shortcuts.native({ tab: "a", action: "searchTabs" });
+  expect(searchTabs).toHaveBeenCalledTimes(2);
+});
+
+it("routes page refresh and history accelerators without taking focus away from the native page", async () => {
+  const pageAction = vi.fn();
+  const args = setup({ pageAction });
+  for (const [key, modifiers, action] of [
+    ["F5", {}, "reload"], ["r", { ctrlKey: true }, "reload"],
+    ["ArrowLeft", { altKey: true }, "back"], ["ArrowRight", { altKey: true }, "forward"],
+  ]) {
+    const press = overrides => document.dispatchEvent(new KeyboardEvent("keydown", { key, cancelable: true, ...modifiers, ...overrides }));
+    expect(press()).toBe(false);
+    expect(pageAction).toHaveBeenLastCalledWith(action, "a");
+    expect(press({ isComposing: true })).toBe(true);
+    expect(press({ shiftKey: true })).toBe(true);
+  }
+  expect(pageAction).toHaveBeenCalledTimes(4);
+  await shortcuts.native({ tab: "other", action: "reload" });
+  expect(pageAction).toHaveBeenCalledTimes(4);
+  await shortcuts.native({ tab: "a", action: "reload" });
+  expect(pageAction).toHaveBeenCalledTimes(5);
+  expect(args.focusChrome).not.toHaveBeenCalled();
+});

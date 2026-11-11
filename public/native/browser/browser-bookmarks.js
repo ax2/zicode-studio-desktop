@@ -1,4 +1,6 @@
+import { createBookmarkTransfer } from "./browser-bookmark-transfer.js";
 import { t } from "../../i18n.js";
+import { createBackgroundOpenButton } from "./browser-background-open.js";
 import { folderOptions, removeBookmarkFolder } from "./browser-bookmarks-data.js";
 
 export function showBrowserBookmarks({ invoke, current, editCurrent = false, onOpen, onClose }) {
@@ -25,6 +27,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     library = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
     editing = null; render(); message.textContent = t("Bookmarks saved");
   };
+  const transfer = createBookmarkTransfer({ invoke, getLibrary: () => library, save, isOpen: () => dialog.isConnected, run, report: text => { message.textContent = text; } });
   const beginCurrent = () => {
     if (!current) return;
     const found = library.bookmarks.find(item => item.url === current.url);
@@ -83,6 +86,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     toolbar.append(add, button("New bookmark", () => { editing = { kind: "bookmark", id: null, title: "", url: "https://", folderId: filter === "*" ? null : filter || null }; render(); }),
       button("New folder", () => { editing = { kind: "folder", id: null, title: "", parentId: filter === "*" ? null : filter || null }; render(); }),
       button("Reload bookmarks", async () => { library = await request({ kind: "list" }); editing = null; render(); }));
+    if (!editing) toolbar.append(...transfer.buttons);
     const search = el("input", "ui-input"); search.type = "search"; search.value = query; search.placeholder = t("Search bookmarks"); search.setAttribute("aria-label", t("Search bookmarks"));
     if (filter !== "*" && filter && !library.folders.some(f => f.id === filter)) filter = "";
     const folders = folderSelect("Show folder", filter, null, true);
@@ -103,13 +107,15 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
         const open = button("", async () => { await onOpen(bookmark); dialog.close(); }); open.textContent = bookmark.title; open.setAttribute("aria-label", `${t("Open bookmark")}: ${bookmark.title}`);
         const source = el("span", "browser-bookmark-url", bookmark.url); source.title = bookmark.url; details.append(open, source);
         const edit = button("Edit", () => { editing = { kind: "bookmark", ...bookmark }; render(); }); edit.setAttribute("aria-label", `${t("Edit bookmark")}: ${bookmark.title}`);
-        row.append(details, edit); list.append(row);
+        const actions = el("div", "ui-toolbar");
+        actions.append(createBackgroundOpenButton(bookmark, { onOpen, run, message }), edit);
+        row.append(details, actions); list.append(row);
       }
       if (!list.childElementCount) list.append(el("p", "", t("No bookmarks in this view")));
     }
     search.addEventListener("input", () => { query = search.value; renderList(); });
     folders.addEventListener("change", () => { filter = folders.value; renderList(); });
-    content.replaceChildren(toolbar);const editor = renderEditor();if (editor) content.append(editor);content.append(filters, list);renderList();
+    content.replaceChildren(toolbar); if (!editing) content.append(transfer.preview); const editor = renderEditor();if (editor) content.append(editor);content.append(filters, list);renderList();
   }
   dialog.append(heading, content, message, close);
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });

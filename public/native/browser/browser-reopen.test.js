@@ -65,3 +65,28 @@ it("reopens into an empty window and clamps the former position", async () => {
   await h.reopen();await waitFor(() => expect(h.saved().tabs).toEqual([tab(2)]));
   expect(h.saved().activeTab).toBe(tab(2).id);expect(h.saved().closedTabs).toEqual([]);
 });
+
+it("keyboard close of the last tab leaves Studio usable for restore and new tab", async () => {
+  const h = await mount({ tabs: [tab(1)], closedTabs: [] }), address = h.root.querySelector(".browser-address");
+  const key = (key, shiftKey = false) => address.dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey: true, shiftKey, bubbles: true, cancelable: true }));
+  key("w"); await waitFor(() => expect(h.saved().tabs).toEqual([]));
+  await waitFor(() => expect(document.activeElement).toBe(address));
+  key("t", true); await waitFor(() => expect(h.saved().tabs).toEqual([tab(1)]));
+  key("w"); await waitFor(() => expect(h.saved().tabs).toEqual([]));
+  await waitFor(() => expect(document.activeElement).toBe(address));
+  key("t"); await waitFor(() => expect(h.saved().tabs).toHaveLength(1));
+  expect(h.saved().tabs[0].url).toBe("about:blank"); expect(h.saved().tabs[0].id).not.toBe(tab(1).id);
+  await waitFor(() => expect(document.activeElement).toBe(address));
+});
+
+
+it("tab shortcuts replace the previous address draft with the selected page URL", async () => {
+  const h = await mount({ closedTabs: [] }), address = h.root.querySelector(".browser-address");
+  const key = async (key, shiftKey = false) => { address.focus(); address.dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey: true, shiftKey, bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)); };
+  address.value = "unsent address draft"; await key("Tab");
+  await waitFor(() => expect(h.saved().activeTab).toBe(tab(3).id)); expect(address.value).toBe(tab(3).url);
+  await key("Tab", true); await waitFor(() => expect(h.saved().activeTab).toBe(tab(1).id)); expect(address.value).toBe(tab(1).url);
+  await key("w"); await waitFor(() => expect(h.saved().tabs).toHaveLength(1)); expect(address.value).toBe(tab(3).url);
+  await key("t", true); await waitFor(() => expect(h.saved().activeTab).toBe(tab(1).id)); expect(address.value).toBe(tab(1).url);
+  await key("t"); await waitFor(() => expect(h.saved().tabs).toHaveLength(3)); expect(address.value).toBe("");
+});

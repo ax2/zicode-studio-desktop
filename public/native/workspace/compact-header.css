@@ -12,7 +12,6 @@
 .activity-utilities .status-indicator.disconnected { color: var(--text-dim); }
 .quick-tools-menu > summary svg { width: var(--space-4); height: var(--space-4); }
 #page-header-actions .browser-tab-strip { flex: 1; padding: 0; overflow: hidden; }
-#page-header-actions .browser-tab { flex-shrink: 0; max-width: calc(var(--space-12) * 4); }
 #page-header-actions .browser-tab-title { min-width: 0; }
 #page-header-actions .notes-editor-toolbar { flex: 1; min-width: 0; padding: 0; border: 0; margin: 0; flex-wrap: nowrap; gap: var(--space-1); overflow-x: auto; }
 #page-header-actions .notes-editor-tabs, #page-header-actions .notes-editor-actions { flex: 0 0 auto; gap: var(--space-1); flex-wrap: nowrap; }
@@ -32,7 +31,7 @@ body:not([data-active-plugin="core.chat"]) .session-header .header-right { displ
 @media (max-width: 768px), (max-height: 520px) and (pointer: coarse) {
   .session-header .header-left > .sidebar-toggle { min-width: var(--control-height-sm); min-height: var(--control-height-sm); }
   .session-header .header-left > .mobile-file-toggle { width: var(--control-height-sm); min-width: var(--control-height-sm); min-height: var(--control-height-sm); height: var(--control-height-sm); }
-  #page-header-actions .browser-tab-strip .ui-button { min-height: var(--control-height-sm); padding: var(--space-1); }
+  #page-header-actions .browser-tab-strip .ui-button { min-height: var(--control-height-sm); }
 }
 
 body:not([data-active-plugin="core.chat"]) .session-header .header-left > .mobile-file-toggle { display: none !important; }

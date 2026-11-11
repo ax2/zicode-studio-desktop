@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { setupBrowserApp } from "./browser-app.js";
-import { moveBrowserTab, setupBrowserTabOrdering } from "./browser-tab-order.js";
+import { groupBrowserTabs, moveBrowserTab, setupBrowserTabOrdering, toggleBrowserTabPin } from "./browser-tab-order.js";
 const tab = n => ({ id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`, url: `https://example.org/${n}`, title: `Page ${n}`, zoom: 1, muted: false });
 let app;
 beforeEach(() => { vi.stubGlobal("ResizeObserver", class { observe() {} }); vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ left: 0, right: 100, width: 100, height: 32, top: 0, bottom: 32 }); Element.prototype.scrollIntoView = vi.fn(); });
@@ -70,4 +70,19 @@ it("scrolls an overflowing strip while dragging near its edge, then stops on can
   const transfer = dataTransfer();drag(title, "dragstart", transfer);drag(title, "dragover", transfer, 99);frame(16);
   expect(host.scrollLeft).toBeGreaterThan(0);ordering.cancel();expect(cancelAnimationFrame).toHaveBeenCalledWith(7);expect(ordering.dragging).toBe(false);
   if (original) document.elementFromPoint = original;else delete document.elementFromPoint;
+});
+
+it("pins at the group edge, limits pinned slots, and refuses cross-group reorder", () => {
+  const initial = [{ id: "a" }, { id: "b", pinned: true }, { id: "c" }, { id: "d" }, { id: "e" }];
+  let ordered = groupBrowserTabs(initial);
+  expect(ordered.map(tab => tab.id)).toEqual(["b", "a", "c", "d", "e"]);
+  ordered = toggleBrowserTabPin(ordered, "c");
+  expect(ordered.map(tab => tab.id)).toEqual(["b", "c", "a", "d", "e"]);
+  expect(moveBrowserTab(ordered, { id: "c", step: 1 })).toBe(ordered);
+  expect(moveBrowserTab(ordered, { id: "a", target: "b" })).toBe(ordered);
+  ordered = toggleBrowserTabPin(toggleBrowserTabPin(ordered, "d"), "e");
+  expect(toggleBrowserTabPin(ordered, "a")).toBe(ordered);
+  const unpinned = toggleBrowserTabPin(ordered, "c");
+  expect(unpinned.map(tab => tab.id)).toEqual(["b", "d", "e", "c", "a"]);
+  expect(unpinned[3].pinned).toBe(false);
 });

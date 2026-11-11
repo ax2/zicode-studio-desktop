@@ -1,4 +1,10 @@
 pub(crate) mod capture;
+mod bookmark_html;
+pub(crate) mod bookmark_files;
+#[cfg(windows)]
+pub(crate) mod download_journal;
+#[cfg(windows)]
+mod download_commands;
 pub(crate) mod history_worker;
 pub(crate) mod startup;
 use serde::Deserialize;
@@ -20,6 +26,8 @@ mod native_preview;
 mod lifecycle;
 #[cfg(windows)]
 mod windows_policy;
+#[cfg(windows)]
+mod window_controls;
 
 #[derive(Clone, Copy, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -37,6 +45,16 @@ pub struct Viewport {
 #[cfg_attr(not(windows), allow(dead_code))]
 pub enum Request {
     Status,
+    Fullscreen { enabled: Option<bool> },
+    Downloads { before: Option<i64>, query: Option<String> },
+    DownloadSave { id: String },
+    DownloadChoose { id: String },
+    DownloadCancel { id: String },
+    DownloadRemove { id: String },
+    #[serde(skip)]
+    DownloadLive,
+    #[serde(skip)]
+    DownloadName { id: String },
     Snapshot { tab: String },
     MenuLanguage { chinese: bool },
     Create {
@@ -91,6 +109,12 @@ pub(crate) async fn browser_control(
     crate::require_workspace_window(&window)?;
     #[cfg(windows)]
     {
+        let request = match request {
+            Request::Downloads { before, query } => return download_commands::list(window, before, query).await,
+            Request::DownloadChoose { id } => return download_commands::choose(window, id).await,
+            Request::DownloadRemove { id } => return download_commands::remove(window, id).await,
+            request => request,
+        };
         let root = crate::app_paths::data_root()?.join("browser");
         let profile = if matches!(&request, Request::Create { .. }) {
             let owner = window.label().to_owned();
@@ -128,6 +152,11 @@ pub(crate) async fn browser_control(
         let _ = request;
         Err("Integrated browser is currently available on Windows".into())
     }
+}
+#[cfg(windows)]
+pub(crate) fn shutdown_downloads() {
+    runtime::shutdown_downloads();
+    if let Err(error) = download_journal::flush() { log::warn!("[browser-downloads] {error}"); }
 }
 pub(crate) fn forget_window(label: &str) {
     #[cfg(windows)]

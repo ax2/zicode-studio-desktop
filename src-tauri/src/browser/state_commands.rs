@@ -1,5 +1,5 @@
 //! Trusted Studio chrome only; callers cannot choose a data path or another window.
-use crate::browser_store::{SavedTab, Session, StartupMode, State, Store};
+use crate::browser_store::{SearchEngine, SavedTab, Session, StartupMode, State, Store};
 use tauri::WebviewWindow;
 fn context(window: &WebviewWindow) -> Result<(std::path::PathBuf, String), String> {
     crate::require_workspace_window(window)?;
@@ -24,6 +24,12 @@ pub(crate) async fn browser_set_startup_mode(
     tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_startup(mode))
         .await
         .map_err(|_| "Browser metadata worker stopped")?
+}
+#[tauri::command]
+pub(crate) async fn browser_set_search_engine(window: WebviewWindow, engine: SearchEngine) -> Result<SearchEngine, String> {
+    let (root, _) = context(&window)?;
+    tauri::async_runtime::spawn_blocking(move || Store::open(&root)?.set_search_engine(engine))
+        .await.map_err(|_| "Browser metadata worker stopped")?
 }
 #[tauri::command]
 pub(crate) async fn browser_save_session(

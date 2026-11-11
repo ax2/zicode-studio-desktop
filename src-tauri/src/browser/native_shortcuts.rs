@@ -6,12 +6,28 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CONTROL, VK_ME
 use wry::WebViewExtWindows;
 
 fn shortcut(key: u32, control: bool, alt: bool, shift: bool) -> Option<&'static str> {
-    if !control || alt || shift {
-        return None;
+    if !control && !alt && !shift {
+        if key == 0x7a { return Some("fullscreen"); }
+        if key == 0x74 { return Some("reload"); }
     }
-    match key {
-        0x46 => Some("find"),
-        0x4c => Some("address"),
+    if alt && !control && !shift {
+        return match key {
+            0x25 => Some("back"),
+            0x27 => Some("forward"),
+            _ => None,
+        };
+    }
+    if !control || alt { return None; }
+    match (key, shift) {
+        (0x41, true) => Some("searchTabs"),
+        (0x46, false) => Some("find"),
+        (0x4c, false) => Some("address"),
+        (0x52, false) => Some("reload"),
+        (0x54, false) => Some("newTab"),
+        (0x54, true) => Some("reopenTab"),
+        (0x57, false) => Some("closeTab"),
+        (0x09, false) => Some("nextTab"),
+        (0x09, true) => Some("previousTab"),
         _ => None,
     }
 }
@@ -65,7 +81,7 @@ pub fn install(
 mod tests {
     use super::*;
     #[test]
-    fn only_fixed_unshifted_control_shortcuts_are_intercepted() {
+    fn only_fixed_browser_control_shortcuts_are_intercepted() {
         assert_eq!(shortcut(0x46, true, false, false), Some("find"));
         assert_eq!(shortcut(0x4c, true, false, false), Some("address"));
         for key in [0x46, 0x4c] {
@@ -73,7 +89,29 @@ mod tests {
             assert_eq!(shortcut(key, true, true, false), None);
             assert_eq!(shortcut(key, true, false, true), None);
         }
+        assert_eq!(shortcut(0x7a, false, false, false), Some("fullscreen"));
+        assert_eq!(shortcut(0x74, false, false, false), Some("reload"));
+        assert_eq!(shortcut(0x52, true, false, false), Some("reload"));
+        assert_eq!(shortcut(0x52, true, false, true), None);
+        assert_eq!(shortcut(0x74, true, false, false), None);
+        assert_eq!(shortcut(0x25, false, true, false), Some("back"));
+        assert_eq!(shortcut(0x27, false, true, false), Some("forward"));
+        assert_eq!(shortcut(0x25, true, true, false), None);
+        assert_eq!(shortcut(0x27, false, true, true), None);
+        for (control, alt, shift) in [(true, false, false), (false, true, false), (false, false, true)] {
+            assert_eq!(shortcut(0x7a, control, alt, shift), None);
+        }
         assert_eq!(shortcut(0x43, true, false, false), None);
-        assert_eq!(shortcut(0x57, true, false, false), None);
+        assert_eq!(shortcut(0x41, true, false, true), Some("searchTabs"));
+        assert_eq!(shortcut(0x41, true, false, false), None);
+        assert_eq!(shortcut(0x41, false, false, true), None);
+        assert_eq!(shortcut(0x41, true, true, true), None);
+        for (key, shift, action) in [(0x54, false, "newTab"), (0x54, true, "reopenTab"),
+            (0x57, false, "closeTab"), (0x09, false, "nextTab"), (0x09, true, "previousTab")] {
+            assert_eq!(shortcut(key, true, false, shift), Some(action));
+            assert_eq!(shortcut(key, false, false, shift), None);
+            assert_eq!(shortcut(key, true, true, shift), None);
+        }
+        assert_eq!(shortcut(0x57, true, false, true), None);
     }
 }

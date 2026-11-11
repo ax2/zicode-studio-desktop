@@ -257,6 +257,7 @@ commands.allow = ["verify_resource_export"]
 [default]
 description = "Default set of ZiCode Studio Desktop app command permissions."
 permissions = [
+    "allow-desktop-window-control",
   "allow-select-result-text-export",
   "allow-commit-result-text-export",
   "allow-cancel-result-text-export",
@@ -301,8 +302,10 @@ permissions = [
   "allow-browser-capture-page",
   "allow-browser-get-state",
   "allow-browser-set-startup-mode",
+  "allow-browser-set-search-engine",
   "allow-browser-save-session",
   "allow-browser-bookmarks",
+  "allow-browser-bookmark-file",
   "allow-browser-history",
   "allow-start-system-temperature-monitor",
   "allow-stop-system-temperature-monitor",
@@ -413,6 +416,11 @@ description = "Persist the browser or workspace startup preference from trusted 
 commands.allow = ["browser_set_startup_mode"]
 
 [[permission]]
+identifier = "allow-browser-set-search-engine"
+description = "Persist a fixed search provider from trusted workspace chrome."
+commands.allow = ["browser_set_search_engine"]
+
+[[permission]]
 identifier = "allow-browser-save-session"
 description = "Save the calling trusted window browser session with revision conflict protection."
 commands.allow = ["browser_save_session"]
@@ -433,6 +441,16 @@ description = "Allow trusted workspace chrome to manage only its own durable boo
 commands.allow = ["browser_bookmarks"]
 
 [[permission]]
+identifier = "allow-browser-bookmark-file"
+description = "Import or export bookmarks through an explicit native file picker in trusted workspace chrome."
+commands.allow = ["browser_bookmark_file"]
+
+[[permission]]
 identifier = "allow-browser-history"
 description = "Read and explicitly remove the owning workspace browsing history."
 commands.allow = ["browser_history"]
+
+[[permission]]
+identifier = "allow-desktop-window-control"
+description = "Allow verified Studio chrome to control only its own native workspace window."
+commands.allow = ["desktop_window_control"]

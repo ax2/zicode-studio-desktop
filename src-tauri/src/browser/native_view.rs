@@ -84,6 +84,7 @@ impl Drop for Container {
     }
 }
 pub(super) struct NativeView {
+    pub favicon: std::sync::Arc<super::native_favicon::Icon>,
     pub events: EventLifetime,
     // Rust drops fields in declaration order: Wry must detach before the HWND dies.
     pub webview: WebView,

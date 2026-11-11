@@ -20,8 +20,10 @@ pub struct SavedTab {
     pub zoom: f64,
     #[serde(default)]
     pub muted: bool,
+    #[serde(default, skip_serializing_if = "pins::is_unpinned")]
+    pub pinned: bool,
 }
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Session {
     #[serde(default)]
@@ -33,6 +35,7 @@ pub struct Session {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct State {
+    pub search_engine: SearchEngine,
     pub startup_mode: StartupMode,
     pub profile_id: String,
     pub session: Session,
@@ -40,10 +43,15 @@ pub struct State {
 #[path = "store_closed.rs"]
 mod closed;
 pub use closed::ClosedTab;
+#[path = "store_pins.rs"]
+mod pins;
 #[path = "bookmarks.rs"]
 pub mod bookmarks;
 #[path = "history.rs"]
 pub mod history;
+#[path = "search_preferences.rs"]
+mod search_preferences;
+pub use search_preferences::SearchEngine;
 pub struct Store(Connection);
 impl Store {
     pub fn open(root: &Path) -> Result<Self, String> {
@@ -59,7 +67,7 @@ impl Store {
         let version: i64 = tx
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(|e| e.to_string())?;
-        if version > 5 {
+        if version > 6 {
             return Err("Browser metadata requires a newer Studio version".into());
         }
         if version == 0 {
@@ -86,6 +94,12 @@ impl Store {
                 .map_err(|e|e.to_string())?;
         }
         if version < 5 { tx.pragma_update(None, "user_version", 5).map_err(|e|e.to_string())?; }
+        if version < 6 {
+            tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_search_preferences (id INTEGER PRIMARY KEY CHECK(id=1), engine TEXT NOT NULL CHECK(engine IN ('bing','baidu','google','duckDuckGo'))); INSERT OR IGNORE INTO browser_search_preferences VALUES(1,'bing'); PRAGMA user_version=6;").map_err(|e| e.to_string())?;
+        }
+        // Additive side table. Keep the version and session JSON readable by builds without pinning.
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS browser_pinned_tabs (owner TEXT NOT NULL, tab TEXT NOT NULL, PRIMARY KEY(owner,tab));")
+            .map_err(|err| err.to_string())?;
         tx.commit().map_err(|e| e.to_string())?;
         Ok(Self(db))
     }
@@ -104,8 +118,8 @@ impl Store {
             "workspace" => StartupMode::Workspace,
             _ => return Err("Invalid browser startup preference".into()),
         };
-        let saved: Option<(i64, String)> = self
-            .0
+        let read = self.0.unchecked_transaction().map_err(|err| err.to_string())?;
+        let saved: Option<(i64, String)> = read
             .query_row(
                 "SELECT revision,payload FROM browser_sessions WHERE owner=?1",
                 [owner],
@@ -113,12 +127,15 @@ impl Store {
             )
             .optional()
             .map_err(|e| e.to_string())?;
-        let session = if let Some((revision, payload)) = saved {
+        let mut session = if let Some((revision, payload)) = saved {
             decode_session(revision, &payload)?
         } else {
             Session::default()
         };
+        pins::restore(&read, owner, &mut session)?;
+        read.commit().map_err(|err| err.to_string())?;
         Ok(State {
+            search_engine: self.search_engine()?,
             startup_mode,
             profile_id,
             session,
@@ -145,6 +162,7 @@ impl Store {
         active_tab: Option<String>,
     ) -> Result<Session, String> {
         validate(&tabs, active_tab.as_deref())?;
+        pins::validate(&tabs)?;
         let revision = expected
             .checked_add(1)
             .filter(|_| expected >= 0)
@@ -164,10 +182,11 @@ impl Store {
         if current.as_ref().map_or(0, |row| row.0) != expected {
             return Err("Browser session changed; reload before saving".into());
         }
-        let previous = current
+        let mut previous = current
             .map(|(revision, payload)| decode_session(revision, &payload))
             .transpose()?
             .unwrap_or_default();
+        let previous_pins = pins::restore(&tx, owner, &mut previous)?;
         let closed_tabs = closed::transition(previous, &tabs);
         let next = Session {
             revision,
@@ -176,7 +195,7 @@ impl Store {
             closed_tabs,
         };
         closed::validate(&next)?;
-        let payload = serde_json::to_string(&next).map_err(|e| e.to_string())?;
+        let payload = pins::persist(&tx, owner, &next, &previous_pins)?;
         if payload.len() > 4 * 1024 * 1024 {
             return Err("Browser session exceeds storage limit".into());
         }

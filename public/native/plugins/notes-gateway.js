@@ -81,7 +81,7 @@ export class NotesGateway {
     });
   }
 
-  create(sceneId, workspaceId, notebookId, { title, content = "", tags = [], icon }) {
+  create(sceneId, workspaceId, notebookId, { title, content = "", tags = [], icon, source }) {
     return this.#post("/v2/notes/create", {
       sceneId,
       workspaceId,
@@ -90,6 +90,7 @@ export class NotesGateway {
       content,
       tags,
       icon,
+      source,
     });
   }
 

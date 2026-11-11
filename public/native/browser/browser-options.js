@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, bookmarks, history, pageControls, find } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, bookmarks, history, searchTabs, pageControls, find, fullscreen, searchSettings, pin } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -11,7 +11,7 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
   const label = document.createElement("label"); label.textContent = t("Start Studio in"); label.append(startup);
   const restore = document.createElement("button"); restore.type = "button"; restore.className = "ui-button ui-button--secondary browser-reopen";
   restore.textContent = t("Reopen closed tab"); restore.disabled = !canReopen();
-  restore.title = t("Restore the latest closed tab. The last 50 are kept after restart.");
+  restore.title = `${t("Restore the latest closed tab. The last 50 are kept after restart.")} (Ctrl+Shift+T)`; restore.setAttribute("aria-keyshortcuts", "Control+Shift+t");
   restore.addEventListener("click", () => { menu.open = false; reopen(); });
   menu.addEventListener("toggle", () => { restore.disabled = !canReopen(); });
   if (pageControls) { panel.append(pageControls.element); menu.addEventListener("toggle", () => { if (menu.open) void pageControls.refresh(); }); }
@@ -19,15 +19,35 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     const search = document.createElement("button"); search.type = "button"; search.className = "ui-button ui-button--secondary browser-find-open"; search.textContent = t("Find in page"); search.setAttribute("aria-keyshortcuts", "Control+f");
     search.addEventListener("click", () => { menu.open = false; find(); }); panel.append(search);
   }
+  if (fullscreen) { panel.append(fullscreen.element); menu.addEventListener("toggle", () => { if (menu.open) void fullscreen.refresh(); }); }
   panel.append(select, restore);
-  if (bookmarks) {
-    const saved = document.createElement("button"); saved.type = "button"; saved.className = "ui-button ui-button--secondary"; saved.textContent = t("Bookmarks");
-    saved.addEventListener("click", () => { menu.open = false; bookmarks(); }); panel.append(saved);
+  if (pin) {
+    const button = document.createElement("button");
+    button.type = "button"; button.className = "ui-button ui-button--secondary browser-pin-tab";
+    const refresh = () => {
+      const { pinned, enabled } = pin.state();
+      button.textContent = t(pinned ? "Unpin tab" : "Pin tab");
+      button.title = !enabled && !pinned ? t("Pin up to four tabs") : "";
+      button.disabled = !enabled;
+    };
+    button.addEventListener("click", () => { menu.open = false; pin.toggle(); });
+    menu.addEventListener("toggle", () => { if (menu.open) refresh(); });
+    refresh(); panel.append(button);
   }
-  if (history) {
-    const visits = document.createElement("button"); visits.type = "button"; visits.className = "ui-button ui-button--secondary"; visits.textContent = t("Browsing history");
-    visits.addEventListener("click", () => { menu.open = false; history(); }); panel.append(visits);
+  for (const [name, open] of [["Search tabs", searchTabs], ["Bookmarks", bookmarks], ["Browsing history", history]]) {
+    if (!open) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ui-button ui-button--secondary";
+    button.textContent = t(name);
+    if (name === "Search tabs") {
+      button.setAttribute("aria-keyshortcuts", "Control+Shift+a");
+      button.title = `${t(name)} (Ctrl+Shift+A)`;
+    }
+    button.addEventListener("click", async () => { await open(); menu.open = false; });
+    panel.append(button);
   }
+  if (searchSettings) panel.append(searchSettings.element);
   panel.append(label); menu.append(trigger, panel);
   menu.addEventListener("keydown", event => {
     if (event.key === "Escape" && menu.open && !event.isComposing) { event.preventDefault(); event.stopPropagation(); menu.open = false; trigger.focus(); }

@@ -41,6 +41,21 @@ it("opens a user link after its source, preserving the source and adjacent tab",
   expect(h.state().tabs[1].url).toBe(requested.url);expect(h.state().activeTab).toBe(h.state().tabs[1].id);
   expect(h.calls.some(c => c.args?.request?.kind === "navigate" && c.args.request.tab === source)).toBe(false);
 });
+it("loads a background link after its source without hiding or switching the foreground", async () => {
+  const h = await mount(), original = h.state().tabs;
+  const before = h.calls.length;
+  h.emit({ ...requested, background: true });
+  await waitFor(() => expect(h.state().tabs).toHaveLength(3));
+  const [retained, child, adjacent] = h.state().tabs;
+  expect(retained).toEqual(original[0]);
+  expect(adjacent).toEqual(original[1]);
+  expect(child.url).toBe(requested.url);
+  expect(h.state().activeTab).toBe(source);
+  const commands = h.calls.slice(before).map(call => call.args?.request?.kind);
+  expect(commands).toContain("create");
+  expect(commands).not.toContain("hide");
+  expect(commands).not.toContain("present");
+});
 it("ignores inactive sources and blocks automatic or rejected requests", async () => {
   const h = await mount(); h.emit({ ...requested, tab: peer }); h.emit({ ...requested, userInitiated: false }); h.emit({ ...requested, allowed: false });
   await new Promise(resolve => setTimeout(resolve, 0));expect(h.state().tabs).toHaveLength(2);

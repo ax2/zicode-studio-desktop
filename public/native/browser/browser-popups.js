@@ -6,7 +6,7 @@ export function createBrowserPopups({ currentSource, open, blocked }) {
     if (!current || pending.has(payload.tab)) return;
     if (!payload.userInitiated || !payload.allowed) { blocked(); return; }
     pending.add(payload.tab);
-    try { await open({ url: payload.url, title: payload.url }, { after: payload.tab, current }); }
+    try { await open({ url: payload.url, title: payload.url }, { after: payload.tab, current, background: payload.background === true }); }
     finally { pending.delete(payload.tab); }
   };
 }

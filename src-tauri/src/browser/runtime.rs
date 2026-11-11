@@ -63,6 +63,7 @@ pub(super) fn execute(
     profile: Option<PathBuf>,
     request: Request,
 ) -> Result<Value, String> {
+    if let Request::Fullscreen { enabled } = request { return super::window_controls::fullscreen(window, enabled); }
     WINDOWS.with(|slot| slot.with_mut(|windows| {
         if matches!(&request, Request::Status) {
             let revision=REVISIONS.with(|values|values.borrow().get(window.label()).copied().unwrap_or(0));
@@ -72,7 +73,12 @@ pub(super) fn execute(
                     let view = browser.engine.view(id)?;
                     let mut visible = windows::core::BOOL::default();
                     unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e|e.to_string())?;
-                    Ok(json!({"id":id,"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"settings":super::engine::page_controls::read(view)?}))
+                    let mut title = windows::core::PWSTR::null();
+                    let title_result = unsafe { view.webview().DocumentTitle(&mut title) };
+                    let title = webview2_com::take_pwstr(title).chars().take(512).collect::<String>();
+                    title_result.map_err(|error| error.to_string())?;
+                    let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
+                    Ok(json!({"id":id,"history":history,"title":title,"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?}))
                 }).collect::<Result<Vec<_>,String>>()?
             } else {Vec::new()};
             return Ok(json!({"surfaceRevision":revision,"tabs":tabs}));
@@ -104,6 +110,14 @@ pub(super) fn execute(
                                 let _ = app.emit_to(tauri::EventTarget::webview_window(&owner), "zicode:browser-event", json!({"kind":"historyFailed"}));
                             }
                         }
+                        if let super::engine::EngineEvent::DownloadChanged { download } = &event {
+                            let error_app = app.clone(); let error_owner = owner.clone();
+                            let failed = move |_error: String| { let _ = error_app.emit_to(tauri::EventTarget::webview_window(&error_owner), "zicode:browser-event", json!({"kind":"downloadHistoryFailed"})); };
+                            match serde_json::to_value(download) {
+                                Ok(value) => { if super::download_journal::record(owner.clone(), value, failed).is_err() { let _ = app.emit_to(tauri::EventTarget::webview_window(&owner), "zicode:browser-event", json!({"kind":"downloadHistoryFailed"})); } },
+                                Err(error) => failed(error.to_string()),
+                            }
+                        }
                         let _ = app.emit_to(
                             tauri::EventTarget::webview_window(&owner),
                             "zicode:browser-event",
@@ -120,6 +134,7 @@ pub(super) fn execute(
             browser.tabs.push(tab.clone());
             return Ok(json!({"tab":tab}));
         }
+        if matches!(&request, Request::DownloadLive) && !windows.contains_key(window.label()) { return Ok(json!([])); }
         // Keep the hide revision even before the first native view is created.
         if !windows.contains_key(window.label()) {
             if let Request::Hide { revision } = &request {
@@ -154,6 +169,15 @@ pub(super) fn execute(
                     false,
                 )?;
             }
+            Request::DownloadLive => return serde_json::to_value(browser.engine.downloads.list()).map_err(|e| e.to_string()),
+            Request::DownloadName { id } => return Ok(json!(browser.engine.downloads.name(&id)?)),
+            Request::DownloadSave { id } => {
+                let directory = window.app_handle().path().download_dir().map_err(|e| e.to_string())?;
+                let path = super::engine::native_downloads::files::default_target(&directory, &browser.engine.downloads.name(&id)?)?;
+                browser.engine.downloads.save(&id, &path)?;
+            },
+            Request::DownloadCancel { id } => browser.engine.downloads.cancel(&id)?,
+            Request::Downloads { .. } | Request::DownloadChoose { .. } | Request::DownloadRemove { .. } => unreachable!(),
             Request::MenuLanguage { chinese } => browser.engine.menu_chinese.store(chinese, std::sync::atomic::Ordering::Relaxed),
             Request::Navigate { tab, url } => browser.engine.navigate(&tab, &url)?,
             Request::Action { tab, action } => browser.engine.action(&tab, &action)?,
@@ -171,10 +195,18 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::Create { .. } | Request::Status | Request::FindStart { .. } | Request::Snapshot { .. } => unreachable!(),
+            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Snapshot { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))
+}
+pub(super) fn save_download(window: &WebviewWindow, id: &str, path: &std::path::Path) -> Result<(), String> {
+    WINDOWS.with(|slot| slot.with_mut(|windows| windows.get(window.label()).ok_or("Browser unavailable".to_owned())?.engine.downloads.save(id,path)))
+}
+pub(super) fn shutdown_downloads() {
+    // Clone managers, release registry borrow before native cancellation can pump callbacks.
+    let managers = WINDOWS.with(|slot| slot.with_mut(|windows| Ok(windows.values().map(|browser| browser.engine.downloads.clone()).collect::<Vec<_>>())));
+    if let Ok(managers) = managers { for manager in managers { manager.cancel_all(); } }
 }
 pub(super) fn start_find(window: &WebviewWindow, tab: String, text: String, case_sensitive: bool,
     sender: tokio::sync::oneshot::Sender<Result<Value, String>>) {
@@ -327,4 +359,3 @@ mod tests {
         forget(&peer);
     }
 }
-

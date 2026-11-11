@@ -1,12 +1,58 @@
 use super::{engine::EngineEvent, policy::BrowserPolicy};
-use std::sync::Arc;
+use std::{cell::Cell, rc::Rc, sync::Arc};
 use webview2_com::{
-    take_pwstr, DownloadStartingEventHandler, Microsoft::Web::WebView2::Win32::*,
-    NavigationCompletedEventHandler, PermissionRequestedEventHandler,
-    WebResourceRequestedEventHandler,
+    take_pwstr, HistoryChangedEventHandler, Microsoft::Web::WebView2::Win32::*,
+    NavigationCompletedEventHandler, NavigationStartingEventHandler, PermissionRequestedEventHandler,
+    SourceChangedEventHandler, WebResourceRequestedEventHandler,
 };
 use windows::core::{w, Interface, HSTRING, PWSTR};
 use wry::WebViewExtWindows;
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct HistoryState {
+    pub(super) can_go_back: bool,
+    pub(super) can_go_forward: bool,
+}
+
+pub(super) fn history_state(view: &ICoreWebView2) -> windows::core::Result<HistoryState> {
+    let mut back = windows::core::BOOL::default();
+    let mut forward = windows::core::BOOL::default();
+    unsafe {
+        view.CanGoBack(&mut back)?;
+        view.CanGoForward(&mut forward)?;
+    }
+    Ok(HistoryState {
+        can_go_back: back.as_bool(),
+        can_go_forward: forward.as_bool(),
+    })
+}
+
+fn emit_visit(
+    view: &ICoreWebView2,
+    policy: &BrowserPolicy,
+    emit: &dyn Fn(EngineEvent),
+    tab: &str,
+    same_document: bool,
+) -> windows::core::Result<()> {
+    unsafe {
+        let mut url = PWSTR::null();
+        view.Source(&mut url)?;
+        let url = take_pwstr(url);
+        if url == "about:blank" || url.len() > 16384 || !policy.permits(&url) {
+            return Ok(());
+        }
+        let mut title = PWSTR::null();
+        view.DocumentTitle(&mut title)?;
+        emit(EngineEvent::Visited {
+            tab: tab.to_owned(),
+            url,
+            title: take_pwstr(title).chars().take(512).collect(),
+            same_document,
+        });
+    }
+    Ok(())
+}
 
 /// Deny privileged site capabilities until a per-site grant UI exists. This is
 /// not a browser extension host; no host objects or web-message bridge exist.
@@ -19,52 +65,106 @@ pub fn install(
 ) -> windows::core::Result<()> {
     unsafe {
         let native = view.webview();
-        // Do not depend on the user's OS download folder existing or being
-        // writable. All downloads are still canceled below, before any save.
+        // A deeply nested profile path makes WebView2 truncate suggested names.
+        // Prefer the usual destination for suggestions; the manager still defers
+        // every save and supplies its own reserved path after explicit approval.
+        let suggested_folder = dirs::download_dir().filter(|path| path.is_dir())
+            .unwrap_or_else(|| download_staging.to_path_buf());
         native
             .cast::<ICoreWebView2_13>()?
             .Profile()?
-            .SetDefaultDownloadFolderPath(&HSTRING::from(download_staging.as_os_str()))?;
+            .SetDefaultDownloadFolderPath(&HSTRING::from(suggested_folder.as_os_str()))?;
         // Wry 0.55.1 injects an ipc shim even without a handler. Disable the
         // underlying transport and host objects natively before navigation.
         let settings = native.Settings()?;
         settings.SetIsWebMessageEnabled(false)?;
         settings.SetAreHostObjectsAllowed(false)?;
         let mut token = 0;
-        let dl_emit = emit.clone();
-        let dl_tab = tab.clone();
-        native.cast::<ICoreWebView2_4>()?.add_DownloadStarting(
-            &DownloadStartingEventHandler::create(Box::new(move |_, args| {
-                if let Some(args) = args {
-                    // Cancel before resolving a default file path or presenting
-                    // native download UI. A manager can provide a destination later.
-                    args.SetCancel(true)?;
-                    dl_emit(EngineEvent::NativeDownloadBlocked { tab: dl_tab.clone() });
+        let history_emit = emit.clone();
+        let history_tab = tab.clone();
+        native.add_HistoryChanged(
+            &HistoryChangedEventHandler::create(Box::new(move |sender, _| {
+                if let Some(sender) = sender {
+                    history_emit(EngineEvent::HistoryChanged {
+                        tab: history_tab.clone(),
+                        history: history_state(&sender)?,
+                    });
                 }
                 Ok(())
-            })), &mut token)?;
+            })),
+            &mut token,
+        )?;
+        // WebView2 can start a replacement before the previous navigation completes.
+        let current_navigation = Rc::new(Cell::new(None));
+        let started_navigation = current_navigation.clone();
+        let started_emit = emit.clone();
+        let started_tab = tab.clone();
+        native.add_NavigationStarting(
+            &NavigationStartingEventHandler::create(Box::new(move |_, args| {
+                if let Some(args) = args {
+                    let mut canceled = windows::core::BOOL::default();
+                    let mut id = 0;
+                    args.Cancel(&mut canceled)?;
+                    args.NavigationId(&mut id)?;
+                    if !canceled.as_bool() && started_navigation.get() != Some(id) {
+                        started_navigation.set(Some(id));
+                        started_emit(EngineEvent::NavigationStarted {
+                            tab: started_tab.clone(),
+                        });
+                    }
+                }
+                Ok(())
+            })),
+            &mut token,
+        )?;
+        let has_document = Rc::new(Cell::new(false));
+        let route_document = has_document.clone();
+        let route_navigation = current_navigation.clone();
+        let route_emit = emit.clone();
+        let route_policy = policy.clone();
+        let route_tab = tab.clone();
+        native.add_SourceChanged(
+            &SourceChangedEventHandler::create(Box::new(move |sender, args| {
+                if let (Some(sender), Some(args)) = (sender, args) {
+                    let mut new_document = windows::core::BOOL::default();
+                    args.IsNewDocument(&mut new_document)?;
+                    // NavigationCompleted records the final URL during initial load.
+                    if !new_document.as_bool() && route_document.get() && route_navigation.get().is_none() {
+                        emit_visit(&sender, &route_policy, route_emit.as_ref(), &route_tab, true)?;
+                    }
+                }
+                Ok(())
+            })),
+            &mut token,
+        )?;
         let nav_emit = emit.clone();
+        let nav_policy = policy.clone();
         let nav_tab = tab.clone();
         native.add_NavigationCompleted(
             &NavigationCompletedEventHandler::create(Box::new(move |sender, args| {
                 if let Some(args) = args {
+                    let mut id = 0;
+                    args.NavigationId(&mut id)?;
+                    if current_navigation.get() != Some(id) {
+                        return Ok(());
+                    }
+                    current_navigation.set(None);
                     let mut success = windows::core::BOOL::default();
                     let mut error = COREWEBVIEW2_WEB_ERROR_STATUS::default();
                     args.IsSuccess(&mut success)?;
                     args.WebErrorStatus(&mut error)?;
-                    if success.as_bool() {
-                        if let Some(sender) = sender {
-                            let mut url = PWSTR::null(); sender.Source(&mut url)?;
-                            let url = take_pwstr(url);
-                            let mut title = PWSTR::null(); sender.DocumentTitle(&mut title)?;
-                            nav_emit(EngineEvent::Visited { tab: nav_tab.clone(), url, title: take_pwstr(title).chars().take(512).collect() });
-                        }
+                    let canceled = error == COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED;
+                    if !canceled {
+                        has_document.set(success.as_bool());
                     }
                     nav_emit(EngineEvent::NavigationFinished {
                         tab: nav_tab.clone(),
                         success: success.as_bool(),
-                        error: error.0,
+                        canceled,
                     });
+                    if let Some(sender) = sender.filter(|_| success.as_bool()) {
+                        emit_visit(&sender, &nav_policy, nav_emit.as_ref(), &nav_tab, false)?;
+                    }
                 }
                 Ok(())
             })),
@@ -105,7 +205,7 @@ pub fn install(
                 let mut uri = PWSTR::null();
                 request.Uri(&mut uri)?;
                 let uri = take_pwstr(uri);
-                if !policy.permits(&uri) {
+                if !policy.permits_resource(&uri) {
                     let response = environment.CreateWebResourceResponse(
                         None,
                         403,

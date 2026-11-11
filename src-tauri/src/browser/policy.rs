@@ -33,6 +33,13 @@ impl BrowserPolicy {
         })
     }
 
+    pub fn permits_download(&self, input: &str) -> bool {
+        let source = input.strip_prefix("blob:").unwrap_or(input);
+        matches!(Url::parse(source).ok().map(|v| v.scheme().to_owned()).as_deref(), Some("http" | "https")) && self.permits(source)
+    }
+    pub fn permits_resource(&self, input: &str) -> bool {
+        if input.starts_with("blob:") { self.permits_download(input) } else { self.permits(input) }
+    }
     pub fn permits(&self, input: &str) -> bool {
         if input == "about:blank" {
             return true;
@@ -141,6 +148,16 @@ mod tests {
             "http://single-label/",
         ] {
             assert!(!policy.permits(url), "{url}");
+        }
+    }
+    #[test]
+    fn blob_downloads_require_public_http_origins_without_granting_navigation() {
+        let policy = BrowserPolicy::public_web();
+        assert!(policy.permits_download("blob:https://example.org/abc"));
+        assert!(policy.permits_resource("blob:https://example.org/abc"));
+        assert!(!policy.permits("blob:https://example.org/abc"));
+        for url in ["blob:null/abc", "blob:http://127.0.0.1/abc", "blob:file:///secret", "about:blank", "data:text/plain,hi", "blob:https://user:pass@example.org/a"] {
+            assert!(!policy.permits_download(url), "{url}");
         }
     }
     #[test]

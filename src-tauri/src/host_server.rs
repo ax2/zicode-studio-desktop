@@ -37,6 +37,7 @@ mod lifecycle;
 mod manual_tool_calls;
 mod manual_tool_catalog;
 mod model_tools_http;
+mod notes_create;
 mod plugin_call_lifecycle;
 mod plugin_desktop_execution;
 mod plugin_resources;
@@ -911,7 +912,7 @@ impl HostServer {
             .route("/v2/notes/notebooks/delete", post(delete_notebook))
             .route("/v2/notes/move", post(move_note))
             .route("/v2/notes/note", get(get_note))
-            .route("/v2/notes/create", post(create_note))
+            .route("/v2/notes/create", post(notes_create::create_note))
             .route("/v2/notes/save", post(save_note))
             .route("/v2/notes/delete", post(delete_note))
             .route("/v2/notes/trash", get(list_trash))
@@ -2294,21 +2295,6 @@ struct DeleteNotebookRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct CreateNoteRequest {
-    workspace_id: String,
-    scene_id: String,
-    notebook_id: String,
-    title: String,
-    #[serde(default)]
-    content: String,
-    #[serde(default)]
-    tags: Vec<String>,
-    #[serde(default)]
-    icon: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct SaveNoteRequest {
     workspace_id: String,
     scene_id: String,
@@ -2758,28 +2744,6 @@ async fn get_note(
     Ok(Json(json!({ "note": note })))
 }
 
-async fn create_note(
-    State(state): State<Arc<HostState>>,
-    Json(request): Json<CreateNoteRequest>,
-) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    ensure_notes_authorized(&state, &request.scene_id, true)?;
-    let notes = state.notes.lock().map_err(|_| notes_unavailable())?;
-    let scoped = notes
-        .scoped(&request.workspace_id)
-        .map_err(notes_api_error)?;
-    let note = scoped
-        .create_note(
-            &request.notebook_id,
-            &request.title,
-            &request.content,
-            request.tags,
-            request.icon,
-            None,
-        )
-        .map_err(notes_api_error)?;
-    Ok(Json(json!({ "note": note })))
-}
-
 async fn save_note(
     State(state): State<Arc<HostState>>,
     Json(request): Json<SaveNoteRequest>,
@@ -2883,6 +2847,7 @@ async fn capture_note(
             tags,
             Some("🌐".to_string()),
             Some(NoteSource {
+                document_revision: None,
                 url: captured.final_url,
                 captured_at: now_iso(),
                 content_hash: hash,

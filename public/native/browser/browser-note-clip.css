@@ -1,0 +1,8 @@
+.browser-note-clip { display: grid; gap: var(--space-2); margin-top: var(--space-3); min-width: 0; border: 1px solid var(--border); padding: var(--space-3); border-radius: var(--radius); }
+.browser-note-clip[hidden], .browser-note-clip [hidden] { display: none; }
+.browser-note-clip label { display: grid; gap: var(--space-1); min-width: 0; }
+.browser-note-clip .ui-input, .browser-note-clip .ui-select { width: 100%; min-width: 0; box-sizing: border-box; }
+.browser-note-clip-status { margin: 0; font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+.browser-note-clip-status:empty { display: none; }
+.browser-capture-dialog .ui-toolbar { flex-wrap: wrap; }
+.browser-capture-dialog:has(.browser-note-clip:not([hidden])) textarea { height: 20vh; }
