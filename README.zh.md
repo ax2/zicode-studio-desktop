@@ -1,7 +1,5 @@
 # ZiCode Studio Desktop
 
-本仓库以中文为主要文档语言，完整项目说明统一维护在
-[README.md](README.md)。
+项目中文说明统一维护在 [README.md](README.md)，包括下载安装、功能范围、固定数据目录、开发和内嵌 Pi 更新流程。
 
-产品需求、架构、场景与实例隔离、Windows 打包及方案评审见
-[MkDocs 文档入口](docs/index.md)。
+架构、验收与交付记录见 [项目文档](docs/index.md)。
