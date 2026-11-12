@@ -3,11 +3,18 @@ use crate::metadata_store::MetadataStore;
 use std::collections::BTreeMap;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[ignore = "requires frozen JSON candidate, current Debug Worker and embedded Pi; run alone"]
+#[ignore = "requires ZICODE_TEST_JSON_DIR, ZICODE_TEST_JSON_RECEIPT, current Debug Worker and embedded Pi; run alone"]
 async fn frozen_json_candidate_search_load_execute_and_revoke_in_embedded_pi() {
     let project = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let source = project.join("tests/fixtures/devtools-json-object-candidate06");
-    let receipt = project.join("tests/fixtures/devtools-json-object-candidate06.verification.json");
+    let source =
+        PathBuf::from(std::env::var_os("ZICODE_TEST_JSON_DIR").expect("ZICODE_TEST_JSON_DIR"))
+            .canonicalize()
+            .unwrap();
+    let receipt = PathBuf::from(
+        std::env::var_os("ZICODE_TEST_JSON_RECEIPT").expect("ZICODE_TEST_JSON_RECEIPT"),
+    )
+    .canonicalize()
+    .unwrap();
     let output = crate::process_command::new_command("bun")
         .current_dir(&project)
         .arg("run")
@@ -18,7 +25,8 @@ async fn frozen_json_candidate_search_load_execute_and_revoke_in_embedded_pi() {
         .unwrap();
     assert!(
         output.status.success(),
-        "{}",
+        "JSON candidate receipt failed: {}\n{}",
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let verified: Value = serde_json::from_slice(&output.stdout).unwrap();

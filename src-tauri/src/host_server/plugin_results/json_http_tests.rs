@@ -255,7 +255,8 @@ async fn delivered_json_candidate_runs_confirmed_object_transfer_and_save() {
             .unwrap();
         assert!(
             output.status.success(),
-            "JSON candidate receipt failed: {}",
+            "JSON candidate receipt failed: {}\n{}",
+            String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
         let checked: Value = serde_json::from_slice(&output.stdout).unwrap();
