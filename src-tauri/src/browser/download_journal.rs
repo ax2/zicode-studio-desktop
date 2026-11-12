@@ -55,6 +55,38 @@ pub async fn list(owner: String, before: Option<i64>, query: Option<String>) -> 
     submit(Box::new(move |db| { let _ = tx.send(db.and_then(|db| page(db, &owner, before, query.as_deref()))); }))?;
     rx.await.map_err(|_| "Download history worker stopped".to_owned())?
 }
+fn find_completed_path(db: &Connection, owner: &str, id: &str) -> Result<PathBuf, String> {
+    use rusqlite::OptionalExtension;
+
+    uuid::Uuid::parse_str(id).map_err(|_| "Invalid download identity")?;
+    let record = db
+        .query_row(
+            "SELECT payload FROM downloads WHERE owner=?1 AND id=?2",
+            params![owner, id],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .ok_or("Download is no longer in this list")?;
+    let record: Value = serde_json::from_str(&record).map_err(|error| error.to_string())?;
+    if record["state"].as_str() != Some("completed") {
+        return Err("Only completed downloads can be shown in File Explorer".into());
+    }
+    record["path"]
+        .as_str()
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .ok_or_else(|| "The downloaded file is no longer available".into())
+}
+
+pub async fn completed_path(owner: String, id: String) -> Result<PathBuf, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    submit(Box::new(move |db| {
+        let _ = tx.send(db.and_then(|db| find_completed_path(db, &owner, &id)));
+    }))?;
+    rx.await.map_err(|_| "Download history worker stopped")?
+}
+
 fn delete_record(db: &Connection, owner: &str, id: &str) -> Result<(), String> {
     uuid::Uuid::parse_str(id).map_err(|_| "Invalid download identity")?;
     let changed = db.execute("DELETE FROM downloads WHERE owner=?1 AND id=?2", params![owner, id]).map_err(|e| e.to_string())?;
@@ -88,6 +120,9 @@ mod tests {
         let other = uuid::Uuid::new_v4().to_string();
         write(&db, "a", &json!({"id":id,"state":"completed","path":file})).unwrap();
         write(&db, "b", &json!({"id":other,"state":"cancelled"})).unwrap();
+        assert_eq!(find_completed_path(&db, "a", &id).unwrap(), file);
+        assert!(find_completed_path(&db, "b", &id).is_err());
+        assert!(find_completed_path(&db, "b", &other).is_err());
         assert!(delete_record(&db, "b", &id).is_err());
         assert!(delete_record(&db, "a", "not-an-id").is_err());
         assert_eq!(page(&db,"a",None,None).unwrap()["entries"].as_array().unwrap().len(),1);

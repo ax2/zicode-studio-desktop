@@ -5,7 +5,7 @@ mod app_paths;
 mod browser;
 use browser::browser_control;
 use browser::bookmark_files::browser_bookmark_file;
-use browser::capture::browser_capture_page;
+use browser::{capture::browser_capture_page, reader::browser_read_article, selection::browser_read_selection};
 #[path = "browser/store.rs"]
 mod browser_store;
 #[path = "browser/state_commands.rs"]
@@ -2142,6 +2142,8 @@ fn main() {
             browser_control,
             desktop_window_control,
             browser_capture_page,
+            browser_read_article,
+            browser_read_selection,
             browser_get_state,
             browser_set_startup_mode,
             browser_set_search_engine,

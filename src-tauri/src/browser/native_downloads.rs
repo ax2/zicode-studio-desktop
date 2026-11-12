@@ -16,6 +16,7 @@ pub struct Record {
     pub url: String,
     pub name: String,
     pub state: String,
+    pub can_resume: bool,
     pub received: i64,
     pub total: Option<i64>,
     pub path: Option<String>,
@@ -69,7 +70,7 @@ impl Downloads {
                 let mut total = 0; operation.TotalBytesToReceive(&mut total)?;
                 let id = uuid::Uuid::new_v4().to_string();
                 let record = Record { id: id.clone(), tab: tab.clone(), url,
-                    name: files::filename(&take_pwstr(suggested)), state: "waiting".into(), received: 0,
+                    name: files::filename(&take_pwstr(suggested)), state: "waiting".into(), can_resume: false, received: 0,
                     total: (total > 0).then_some(total), path: None, partial_path: None, error: None, created_at: chrono::Utc::now().to_rfc3339() };
                 let pending = (args.clone(), args.GetDeferral()?);
                 let callback_id = id.clone(); let changed = Rc::downgrade(&downloads);
@@ -116,6 +117,25 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
         }
         self.update(id); Ok(())
     }
+    #[allow(dead_code)] // The standalone probe has no download controls.
+    pub fn set_paused(&self, id: &str, paused: bool) -> Result<(), String> {
+        self.update(id);
+        let operation = {
+            let entries = self.entries.borrow();
+            let entry = entries.get(id).ok_or("Download is no longer available")?;
+            match (paused, entry.record.state.as_str()) {
+                (true, "paused") | (false, "downloading") => return Ok(()),
+                (true, "downloading") => entry.operation.clone(),
+                (false, "paused") if entry.record.can_resume => entry.operation.clone(),
+                (false, "paused") => return Err("This download cannot continue".into()),
+                _ => return Err("Download is not ready to pause or continue".into()),
+            }
+        };
+        // Native state-change events may run synchronously inside these calls.
+        let result = unsafe { if paused { operation.Pause() } else { operation.Resume() } };
+        self.update(id);
+        result.map_err(|error| error.to_string())
+    }
     fn update(&self, id: &str) {
         let operation = self.entries.borrow().get(id)
             .filter(|entry| entry.pending.is_none() && !entry.cancelling && active(&entry.record.state))
@@ -125,11 +145,22 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
         let mut reason = COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON::default();
         if unsafe { operation.State(&mut state).and_then(|_| operation.BytesReceived(&mut received)) }.is_err() { return; }
         if state == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED && unsafe { operation.InterruptReason(&mut reason) }.is_err() { return; }
+        let user_paused = state == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED
+            && reason == COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON_USER_PAUSED;
+        let mut resumable = BOOL::default();
+        if user_paused {
+            let _ = unsafe { operation.CanResume(&mut resumable) };
+        }
         let notification = {
             let mut entries = self.entries.borrow_mut(); let Some(entry) = entries.get_mut(id) else { return; };
             if entry.pending.is_some() || entry.cancelling || !active(&entry.record.state) { return; }
             entry.record.received = received.max(0);
-            if state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED {
+            let can_resume = resumable.as_bool();
+            if user_paused {
+                if entry.record.state == "paused" && entry.record.can_resume == can_resume { return; }
+                entry.record.state = "paused".into();
+                entry.record.error = None;
+            } else if state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED {
                 let result = entry.staging.as_deref().zip(entry.record.path.as_deref()).ok_or("Missing download destination".to_owned())
                     .and_then(|(staging, target)| files::finish(staging, Path::new(target)));
                 match result { Ok(()) => { entry.record.state = "completed".into(); entry.staging = None; entry.record.partial_path = None; entry.record.error = None; },
@@ -137,7 +168,11 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
             } else if state == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED {
                 entry.record.state = if reason == COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON_USER_CANCELED { "cancelled" } else { "failed" }.into();
                 entry.record.error = (entry.record.state == "failed").then(|| format!("Download interrupted (code {})", reason.0));
+            } else if state == COREWEBVIEW2_DOWNLOAD_STATE_IN_PROGRESS && entry.record.state == "paused" {
+                entry.record.state = "downloading".into();
+                entry.record.error = None;
             } else { return; }
+            entry.record.can_resume = can_resume;
             Some(entry.record.clone())
         };
         if let Some(record) = notification { self.emit(record); }
@@ -166,7 +201,7 @@ pub fn save(&self, id: &str, target: &Path) -> Result<(), String> {
             entry.cancelling = false;
             match &result {
                 Ok(()) => {
-                    entry.pending = None; entry.record.state = "cancelled".into(); entry.record.error = None;
+                    entry.pending = None; entry.record.state = "cancelled".into(); entry.record.can_resume = false; entry.record.error = None;
                     if let Some(path) = &entry.staging {
                         match std::fs::remove_file(path) {
                             Ok(()) => { entry.staging = None; entry.record.partial_path = None; },
@@ -201,4 +236,4 @@ impl Drop for Downloads {
         self.cancel_all();
     }
 }
-fn active(state: &str) -> bool { matches!(state, "waiting" | "downloading") }
+pub fn active(state: &str) -> bool { matches!(state, "waiting" | "downloading" | "paused") }

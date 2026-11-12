@@ -1,6 +1,7 @@
 import { t } from "../../i18n.js";
+import { closeOnSearchEscape } from "./browser-manager-keyboard.js";
 
-const states = { waiting: "Waiting to save", downloading: "Downloading", completed: "Download complete", cancelled: "Download cancelled", failed: "Download failed", interrupted: "Download interrupted" };
+const states = { waiting: "Waiting to save", downloading: "Downloading", paused: "Download paused", completed: "Download complete", cancelled: "Download cancelled", failed: "Download failed", interrupted: "Download interrupted" };
 export function downloadSize(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -20,6 +21,8 @@ export function showBrowserDownloads({ invoke, onClose }) {
   const list = el("div", "browser-downloads-list"); list.setAttribute("role", "list");
   const empty = el("p", "", t("No downloads yet")); list.append(empty);
   const message = el("p", "browser-downloads-message"); message.setAttribute("role", "status");
+  let actionError = "", loadError = "";
+  const updateMessage = () => { message.textContent = actionError || loadError; };
   const request = request => invoke("browser_control", { request });
   const button = (label, action) => {
     const node = el("button", "ui-button ui-button--secondary", t(label)); node.type = "button";
@@ -27,7 +30,7 @@ export function showBrowserDownloads({ invoke, onClose }) {
   };
   async function action(kind, id) {
     if (closed || acting) return;
-    acting = id; generation++; message.textContent = ""; render();
+    acting = id; generation++; actionError = ""; updateMessage(); render();
     try {
       await request({ kind, id });
       if (!closed && kind === "downloadRemove") {
@@ -36,7 +39,7 @@ export function showBrowserDownloads({ invoke, onClose }) {
         if (focused) close.focus();
       }
     }
-    catch (error) { if (!closed) message.textContent = t(String(error?.message ?? error)); }
+    catch (error) { if (!closed) { actionError = t(String(error?.message ?? error)); updateMessage(); } }
     finally { acting = null; if (!closed) { render(); await load(); } }
   }
   function createRow(id) {
@@ -50,12 +53,17 @@ export function showBrowserDownloads({ invoke, onClose }) {
     const tools = el("div", "browser-downloads-actions");
     const save = button("Save to Downloads", () => action("downloadSave", id));
     const choose = button("Choose save location", () => action("downloadChoose", id));
+    const pause = button("Pause download", () => {
+      const kind = records.get(id)?.state === "paused" ? "downloadResume" : "downloadPause";
+      return action(kind, id);
+    });
     const cancel = button("Cancel download", () => action("downloadCancel", id));
+    const reveal = button("Show in File Explorer", () => action("downloadReveal", id));
     const remove = button("Remove from list", () => action("downloadRemove", id));
     remove.title = t("Remove this record; keep the downloaded file");
-    tools.append(save, choose, cancel, remove); element.append(title, url, status, progress, path, error, tools);
+    tools.append(save, choose, pause, cancel, reveal, remove); element.append(title, url, status, progress, path, error, tools);
     list.append(element);
-    const row = { element, title, url, status, progress, path, error, tools, save, choose, cancel, remove }; rows.set(id, row); return row;
+    const row = { element, title, url, status, progress, path, error, tools, save, choose, pause, cancel, reveal, remove }; rows.set(id, row); return row;
   }
   function render() {
     empty.hidden = records.size > 0;
@@ -68,17 +76,22 @@ export function showBrowserDownloads({ invoke, onClose }) {
       row.title.textContent = record.name; row.title.title = record.name;
       row.url.textContent = record.url; row.url.title = record.url;
       row.status.textContent = `${t(states[record.state] ?? "Download interrupted")} · ${downloadSize(record.received)}${record.total ? ` / ${downloadSize(record.total)}` : ""}`;
-      row.progress.hidden = record.state !== "downloading";
+      const paused = record.state === "paused";
+      const transferring = paused || record.state === "downloading";
+      row.progress.hidden = !transferring;
       if (record.total > 0) { row.progress.max = record.total; row.progress.value = Math.min(record.received, record.total); }
       else row.progress.removeAttribute("value");
-      row.path.textContent = record.partialPath && record.state !== "downloading" ? `${t("Partial file")}: ${record.partialPath}` : record.path ?? "";
+      row.path.textContent = record.partialPath && !transferring ? `${t("Partial file")}: ${record.partialPath}` : record.path ?? "";
       row.path.hidden = !row.path.textContent; row.path.title = row.path.textContent;
       row.error.textContent = record.error ? t(record.error) : ""; row.error.hidden = !record.error;
       row.save.hidden = row.choose.hidden = record.state !== "waiting";
-      row.cancel.hidden = !["waiting", "downloading"].includes(record.state);
+      row.pause.hidden = !transferring || (paused && !record.canResume);
+      row.pause.textContent = t(paused ? "Continue download" : "Pause download");
+      row.cancel.hidden = !transferring && record.state !== "waiting";
+      row.reveal.hidden = record.state !== "completed" || !record.path;
       row.remove.hidden = !["completed", "cancelled", "failed", "interrupted"].includes(record.state);
-      row.tools.hidden = row.cancel.hidden && row.remove.hidden;
-      for (const control of [row.save, row.choose, row.cancel, row.remove]) control.disabled = !!acting;
+      row.tools.hidden = row.cancel.hidden && row.reveal.hidden && row.remove.hidden;
+      for (const control of [row.save, row.choose, row.pause, row.cancel, row.reveal, row.remove]) control.disabled = !!acting;
     }
     if (list.contains(focused) && document.activeElement !== focused) focused.focus({ preventScroll: true });
     more.hidden = nextBefore === null; more.disabled = loading;
@@ -90,6 +103,7 @@ export function showBrowserDownloads({ invoke, onClose }) {
     try {
       const page = await request({ kind: "downloads", before, ...(requestedQuery ? { query: requestedQuery } : {}) });
       if (closed || version !== generation) return;
+      loadError = ""; updateMessage();
       directory.textContent = `${t("Default download location")}: ${page.directory}`;
       if (before === null) {
         // The first page is authoritative for current ordering. Keep any
@@ -104,7 +118,7 @@ export function showBrowserDownloads({ invoke, onClose }) {
         nextBefore = page.nextBefore;
       }
       render();
-    } catch (error) { if (!closed && version === generation) message.textContent = t(String(error?.message ?? error)); }
+    } catch (error) { if (!closed && version === generation) { loadError = t(String(error?.message ?? error)); updateMessage(); } }
     finally {
       loading = false; more.disabled = false;
       if (!closed && query !== requestedQuery && !acting) void load();
@@ -117,6 +131,7 @@ export function showBrowserDownloads({ invoke, onClose }) {
   search.maxLength = 256;
   search.placeholder = t("Search downloads");
   search.setAttribute("aria-label", t("Search downloads"));
+  closeOnSearchEscape(dialog, search);
   const submit = el("button", "ui-button ui-button--secondary", t("Search"));
   submit.type = "submit";
   form.append(search, submit);
@@ -131,7 +146,7 @@ export function showBrowserDownloads({ invoke, onClose }) {
     empty.textContent = t(query ? "No matching downloads" : "No downloads yet");
     nextBefore = null;
     loadedOlder = false;
-    message.textContent = "";
+    actionError = ""; loadError = ""; updateMessage();
     render();
     void load();
   }
@@ -141,5 +156,9 @@ export function showBrowserDownloads({ invoke, onClose }) {
   const close = button("Close", () => dialog.close());
   dialog.append(el("h2", "", t("Downloads")), directory, form, list, more, message, close);
   dialog.addEventListener("close", () => { closed = true; generation++; clearTimeout(timer); dialog.remove(); onClose?.(); }, { once: true });
-  document.body.append(dialog); dialog.showModal(); void load(); return dialog;
+  document.body.append(dialog);
+  dialog.showModal();
+  search.focus({ preventScroll: true });
+  void load();
+  return dialog;
 }

@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/dom";
 import { setupBrowserApp } from "./browser-app.js";
+import { t } from "../../i18n.js";
 
 let app;
 afterEach(async () => { await app?.canDeactivate(); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -12,7 +13,7 @@ async function mount(closedTabs = []) {
   let session = { revision: 1, tabs: [tab("a"), tab("b")], activeTab: "a", closedTabs };
   let visible = null;
   const views = new Set(), requests = [];
-  const hooks = { save: async () => {}, create: async () => {}, present: async () => {} };
+  const hooks = { save: async () => {}, create: async () => {}, present: async () => {}, savePdf: async () => ({}) };
   const invoke = async (name, args) => {
     if (name === "browser_get_state") return { startupMode: "browser", session: structuredClone(session) };
     if (name === "browser_save_session") {
@@ -25,6 +26,7 @@ async function mount(closedTabs = []) {
       if (r.kind === "status") return { surfaceRevision: 0, tabs: [] };
       if (r.kind === "create") { await hooks.create(); views.add(r.tabId); }
       if (r.kind === "close") views.delete(r.tab);
+      if (r.kind === "savePdf") return hooks.savePdf();
       if (r.kind === "hide") visible = null;
       if (r.kind === "present") { await hooks.present(); visible = r.tab; }
     }
@@ -55,6 +57,29 @@ it("keeps the current document and page search during a delayed or failed select
   await waitFor(() => expect(h.visible()).toBe("b"));
   expect(h.selected()).toBe("b"); expect(h.saved().activeTab).toBe("b"); expect(h.status()).toBe("");
   expect(h.root.querySelector(".browser-find").hidden).toBe(true);
+});
+it("settles the export status layout before printing and keeps tab activation responsive", async () => {
+  const h = await mount();
+  const preparing = t("Preparing page PDF…");
+  HTMLElement.prototype.getBoundingClientRect.mockImplementation(() => ({
+    x: 50, y: 80, width: 399, height: h.status() === preparing ? 576 : 600,
+  }));
+  const menu = h.root.querySelector(".browser-options");
+  const save = [...menu.querySelectorAll("button")].find(button => button.textContent === t("Save page PDF to Downloads"));
+  let finish;
+  h.hooks.savePdf = () => new Promise((_, reject) => { finish = reject; });
+  menu.open = true;
+  save.click();
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
+  expect(h.status()).toBe(preparing);
+  const requestIndex = h.requests.findIndex(request => request.kind === "savePdf");
+  expect(h.requests[requestIndex]).toEqual({ kind: "savePdf", tab: "a", expectedUrl: "https://example.org/a" });
+  expect(h.requests.slice(0, requestIndex).filter(request => request.kind === "present").at(-1).bounds.height).toBe(576);
+  h.select("b");
+  await waitFor(() => expect(h.visible()).toBe("b"));
+  finish(Error("Browser page changed"));
+  await waitFor(() => expect(h.status()).toBe(t("Browser page changed")));
+  expect(h.selected()).toBe("b");
 });
 it("discards only the unsaved new view and retries without phantom tabs or closed history", async () => {
   const h = await mount(), before = h.saved(); h.requests.length = 0;

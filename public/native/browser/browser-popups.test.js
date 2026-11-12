@@ -82,3 +82,28 @@ it("deduplicates a pending source request and releases the guard after failure",
 it("rejects insertion when the source no longer exists without mutating its input", () => {
   const tabs = [{ id: source }];expect(() => insertBrowserLinkedTab(tabs, peer, { id: "new" })).toThrow();expect(tabs).toEqual([{ id: source }]);
 });
+
+it("closes an attached login tab back to its opener without persisting it", async () => {
+  const h = await mount(), original = h.state();
+  const request = "44444444-4444-4444-8444-444444444444";
+  h.emit({ ...requested, request });
+  const selectedTab = () => h.root.querySelector('[role="tab"][aria-selected="true"]')?.closest('[data-browser-tab-id]')?.dataset.browserTabId;
+  await waitFor(() => expect(h.root.querySelectorAll('[role="tab"]')).toHaveLength(3));
+  const login = selectedTab();
+  expect(login).not.toBe(source);
+  expect(h.calls.some(call => call.args?.request?.tabId === login && call.args.request.popupRequest === request)).toBe(true);
+  expect(h.state().tabs).toEqual(original.tabs);
+  expect(h.state().activeTab).toBe(source);
+  h.emit({ kind: "popupClosed", tab: peer });
+  h.emit({ kind: "popupClosed", tab: login });
+  await waitFor(() => expect(selectedTab()).toBe(source));
+  expect(h.state().tabs).toEqual(original.tabs);
+  expect(h.root.querySelectorAll('[role="tab"]')).toHaveLength(2);
+});
+
+it("releases a deferred popup from an inactive source without creating a view", async () => {
+  const h = await mount(), request = "33333333-3333-4333-8333-333333333333";
+  h.emit({ ...requested, tab: peer, request });
+  await waitFor(() => expect(h.calls.some(call => call.args?.request?.kind === "cancelPopup" && call.args.request.request === request)).toBe(true));
+  expect(h.calls.filter(call => call.args?.request?.kind === "create")).toHaveLength(1);
+});

@@ -4,6 +4,7 @@ export function createBrowserSurface(control) {
   let tail = Promise.resolve();
   return {
     seed(value) { revision = Math.max(revision, value); },
+    settled() { return tail; },
     send(request) {
       tail = tail.catch(() => {}).then(() => control({ ...request, revision: ++revision }));
       return tail;

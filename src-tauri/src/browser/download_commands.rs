@@ -1,5 +1,5 @@
 //! Trusted workspace-window download requests; destinations never come from webpages.
-use super::{runtime, Request};
+use super::{engine::native_downloads::active, runtime, Request};
 use serde_json::{json, Value};
 use tauri::{Manager, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
@@ -32,14 +32,14 @@ pub async fn list(window: WebviewWindow, before: Option<i64>, query: Option<Stri
     let current = live.as_array().ok_or("Invalid live downloads")?;
     for saved in entries.iter_mut() {
         if let Some(now) = current.iter().find(|v| v["id"] == saved["id"]) { *saved = now.clone(); }
-        else if matches!(saved["state"].as_str(), Some("waiting" | "downloading")) {
-            saved["state"] = json!("interrupted"); saved["error"] = json!("Studio closed before this download finished");
+        else if saved["state"].as_str().is_some_and(active) {
+            saved["state"] = json!("interrupted"); saved["canResume"] = json!(false); saved["error"] = json!("Studio closed before this download finished");
         }
     }
     entries.retain(|entry| matches_query(entry, query.as_deref()));
     if before.is_none() {
         for now in current {
-            if matches!(now["state"].as_str(), Some("waiting" | "downloading"))
+            if now["state"].as_str().is_some_and(active)
                 && matches_query(now, query.as_deref())
                 && !entries.iter().any(|saved| saved["id"] == now["id"])
             {
@@ -87,7 +87,7 @@ mod tests {
     use super::*;
     #[test]
     fn removal_requires_a_terminal_or_previous_session_download() {
-        for state in ["waiting", "downloading", "unknown"] {
+        for state in ["waiting", "downloading", "paused", "unknown"] {
             assert!(ensure_removable(&json!([{"id":"one","state":state}]), "one").is_err());
         }
         for state in ["completed", "cancelled", "failed", "interrupted"] {

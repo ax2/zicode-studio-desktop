@@ -74,6 +74,11 @@ export interface TranslationState {
   modelSelection: ModelToolSelection | null;
   setModelSelection(value: ModelToolSelection | null): void;
   getSceneId(): string;
+  getScope(): TranslationScope;
+  pendingBrowserSelection: { text: string; scope: TranslationScope } | null;
+  stageBrowserSelection(value: string): void;
+  acceptBrowserSelection(): void;
+  dismissBrowserSelection(): void;
   loadModels(): Promise<ModelToolChoice[]>;
   text: string;
   sourceLang: string;
@@ -112,6 +117,25 @@ export function createTranslationStore(options: TranslationOptions) {
       set({ modelSelection: value ? { ...value } : null, error: "" });
     },
     getSceneId: () => getTarget().sceneId,
+    getScope: getTarget,
+    pendingBrowserSelection: null,
+    stageBrowserSelection(value) {
+      if (!value.trim()) return;
+      const { text, busy } = get();
+      if (!text.trim() && !busy) get().setText(value);
+      const pending = value !== get().text ? { text: value, scope: { ...getTarget() } } : null;
+      set({ pendingBrowserSelection: pending });
+    },
+    acceptBrowserSelection() {
+      const { pendingBrowserSelection: pending, busy } = get();
+      if (!pending || busy) return;
+      const scope = getTarget();
+      if (scope.sceneId === pending.scope.sceneId && scope.workspaceId === pending.scope.workspaceId) {
+        get().setText(pending.text);
+      }
+      set({ pendingBrowserSelection: null });
+    },
+    dismissBrowserSelection() { set({ pendingBrowserSelection: null }); },
     loadModels: () => gateway.listModels?.(getTarget()) ?? Promise.resolve([]),
     text: "",
     sourceLang: "",

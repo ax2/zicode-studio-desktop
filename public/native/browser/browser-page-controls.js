@@ -5,10 +5,14 @@ export function nextPageZoom(current, direction) {
 }
 export async function applyBrowserPageSetting({ change, read, write, persist }) {
   const before = await read();
-  const after = await write(change);
+  const setting = typeof change === "function" ? change(before) : change;
+  const after = await write(setting);
+  return persistBrowserPageSetting({ after, rollback: { kind: setting.kind, value: before[setting.kind] }, write, persist });
+}
+export async function persistBrowserPageSetting({ after, rollback, write, persist }) {
   try { await persist(after); }
   catch (error) {
-    try { await write({ kind: change.kind, value: before[change.kind] }); }
+    try { await write(rollback); }
     catch { throw new Error(t("Page setting could not be saved or restored. Reopen the menu to check it.")); }
     throw error;
   }
@@ -34,6 +38,9 @@ export function createBrowserPageControls({ getTab, read, change }) {
   const smaller = button("−", "Zoom out", tab => ({ kind: "zoom", value: nextPageZoom(tab.zoom, -1) }));
   const reset = button("100%", "Reset page zoom", () => ({ kind: "zoom", value: 1 }));
   const larger = button("+", "Zoom in", tab => ({ kind: "zoom", value: nextPageZoom(tab.zoom, 1) }));
+  smaller.title += " (Ctrl+−)";
+  reset.title += " (Ctrl+0)";
+  larger.title += " (Ctrl++)";
   const mute = button(t("Mute tab"), "Mute tab", tab => ({ kind: "muted", value: !tab.muted }));
   async function refresh(clear = true) {
     const request = ++generation, tab = getTab();current = null;group.disabled = true;

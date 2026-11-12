@@ -18,7 +18,7 @@ afterEach(() => {
 });
 const library = () => ({ revision: 3, folders: [{ id: "parent", title: "Docs", parentId: null }, { id: "child", title: "Rust", parentId: "parent" }], bookmarks: [{ id: "saved", title: "Read me", url: "https://example.org/", folderId: "child" }] });
 async function open(options = {}) {
-  let saved = library(); const calls = [];
+  let saved = options.library ?? library(); const calls = [];
   const invoke = vi.fn(async (_command, { request }) => {
     calls.push(request); if (request.kind === "list") return structuredClone(saved);
     if (options.fail?.()) throw Error("Save failed");
@@ -69,6 +69,31 @@ it("keeps the bookmark manager open when opening a background tab", async () => 
   expect(h.onOpen).toHaveBeenCalledWith(library().bookmarks[0], { background: true });
   expect(h.dialog.open).toBe(true);
   expect(h.onClose).not.toHaveBeenCalled();
+  expect(h.calls).toEqual([{ kind: "list" }]);
+});
+it("finds nested bookmarks in a folder and keeps the editor draft while navigating", async () => {
+  const fixture = library();
+  fixture.bookmarks.push({ id: "outside", title: "Read me elsewhere", url: "https://outside.example.org/", folderId: null });
+  const h = await open({ library: fixture });
+  const location = getByRole(h.dialog, "navigation", { name: t("Bookmark location") });
+  const search = getByLabelText(h.dialog, t("Search bookmarks"));
+  const currentLocation = () => location.querySelector('[aria-current="location"]');
+  getByRole(h.dialog, "button", { name: `${t("Open folder")}: Docs` }).click();
+  expect(currentLocation().textContent).toBe("Docs");
+  expect(document.activeElement).toBe(currentLocation());
+  expect(h.dialog.querySelector('[data-bookmark-id="saved"]')).toBeNull();
+  fireEvent.input(search, { target: { value: " read ME " } });
+  expect(h.dialog.querySelector('[data-bookmark-id="saved"] .browser-bookmark-path').textContent).toBe("Docs / Rust");
+  expect(h.dialog.querySelector('[data-bookmark-id="outside"]')).toBeNull();
+  getByRole(h.dialog, "button", { name: `${t("Edit bookmark")}: Read me` }).click();
+  await waitFor(() => expect(h.dialog.querySelector("fieldset").disabled).toBe(false));
+  const title = getByLabelText(getByRole(h.dialog, "form", { name: t("Bookmark editor") }), t("Bookmark name"));
+  fireEvent.input(title, { target: { value: "Unsaved bookmark title" } });
+  getByRole(location.ownerDocument.querySelector(".browser-bookmark-location"), "button", { name: t("Bookmarks root") }).click();
+  expect(title.isConnected).toBe(true);
+  expect(title.value).toBe("Unsaved bookmark title");
+  expect(getByLabelText(h.dialog, t("Search bookmarks")).value).toBe("");
+  expect(h.dialog.querySelector('[data-bookmark-id="outside"]')).not.toBeNull();
   expect(h.calls).toEqual([{ kind: "list" }]);
 });
 it("can close during a slow read and does not reopen when it resolves", async () => {

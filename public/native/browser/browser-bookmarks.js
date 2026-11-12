@@ -1,12 +1,23 @@
+import { createBookmarkDraftGuard } from "./browser-bookmark-draft.js";
 import { createBookmarkTransfer } from "./browser-bookmark-transfer.js";
 import { t } from "../../i18n.js";
+import { closeOnSearchEscape } from "./browser-manager-keyboard.js";
 import { createBackgroundOpenButton } from "./browser-background-open.js";
-import { folderOptions, removeBookmarkFolder } from "./browser-bookmarks-data.js";
+import { createBookmarkFolderIndex, folderOptions, removeBookmarkFolder } from "./browser-bookmarks-data.js";
 
 export function showBrowserBookmarks({ invoke, current, editCurrent = false, onOpen, onClose }) {
   let library = { revision: 0, folders: [], bookmarks: [] }, editing = null, filter = "*", query = "", busy = false;
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
   const dialog = el("dialog", "browser-bookmarks-dialog ui-panel"); dialog.setAttribute("aria-label", t("Bookmarks"));
+  const guard = createBookmarkDraftGuard(dialog);
+  const requestClose = async () => {
+    if (!guard.dirty() || await guard.confirm()) dialog.close();
+    guard.restoreFocus();
+  };
+  dialog.addEventListener("cancel", event => { event.preventDefault(); void requestClose(); });
+  const beginEdit = async draft => {
+    if (!guard.dirty() || await guard.confirm()) { editing = draft; render(); }
+  };
   const heading = el("h2", "", t("Bookmarks"));
   const content = el("fieldset", "browser-bookmarks-content");
   const message = el("p"); message.setAttribute("role", "status");
@@ -14,14 +25,14 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     if (busy) return; busy = true; content.disabled = true; message.textContent = "";
     try { await action(); }
     catch (error) { message.textContent = t(String(error?.message ?? error)); }
-    finally { busy = false; content.disabled = false; }
+    finally { busy = false; content.disabled = false; guard.restoreFocus(); }
   };
   const button = (label, action, className = "ui-button ui-button--secondary") => {
     const node = el("button", className, t(label)); node.type = "button";
     node.addEventListener("click", () => void run(action)); return node;
   };
   // Closing the manager is always possible, including during a slow metadata read.
-  const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => dialog.close());
+  const close = el("button", "ui-button ui-button--secondary", t("Close")); close.type = "button"; close.addEventListener("click", () => void requestClose());
   const request = request => invoke("browser_bookmarks", { request });
   const save = async (folders, bookmarks) => {
     library = await request({ kind: "save", expectedRevision: library.revision, folders, bookmarks });
@@ -31,7 +42,7 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
   const beginCurrent = () => {
     if (!current) return;
     const found = library.bookmarks.find(item => item.url === current.url);
-    editing = { kind: "bookmark", ...(found ?? { id: null, title: current.title || current.url, url: current.url, folderId: filter === "*" ? null : filter || null }) }; render();
+    return beginEdit({ kind: "bookmark", ...(found ?? { id: null, title: current.title || current.url, url: current.url, folderId: filter === "*" ? null : filter || null }) });
   };
   function folderSelect(label, value, excludedId = null, all = false) {
     const select = el("select", "ui-select"); select.setAttribute("aria-label", t(label));
@@ -57,8 +68,9 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     form.append(parentLabel);
     const actions = el("div", "ui-toolbar");
     const submit = el("button", "ui-button ui-button--primary", t("Save")); submit.type = "submit";
-    actions.append(submit, button("Cancel", () => { editing = null; render(); }));
+    actions.append(submit, button("Cancel", () => beginEdit(null)));
     if (draft.id) actions.append(button(isFolder ? "Delete folder" : "Delete bookmark", async () => {
+      if (!await guard.confirm()) return;
       if (isFolder) {
         const next = removeBookmarkFolder(library, draft.id);
         if (filter === draft.id) filter = draft.parentId ?? "";
@@ -83,30 +95,80 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
     if (!dialog.isConnected) return;
     const toolbar = el("div", "ui-toolbar browser-bookmark-toolbar");
     const add = button("Bookmark this page", beginCurrent); add.disabled = !current;
-    toolbar.append(add, button("New bookmark", () => { editing = { kind: "bookmark", id: null, title: "", url: "https://", folderId: filter === "*" ? null : filter || null }; render(); }),
-      button("New folder", () => { editing = { kind: "folder", id: null, title: "", parentId: filter === "*" ? null : filter || null }; render(); }),
-      button("Reload bookmarks", async () => { library = await request({ kind: "list" }); editing = null; render(); }));
-    if (!editing) toolbar.append(...transfer.buttons);
+    toolbar.append(add, button("New bookmark", () => beginEdit({ kind: "bookmark", id: null, title: "", url: "https://", folderId: filter === "*" ? null : filter || null })),
+      button("New folder", () => beginEdit({ kind: "folder", id: null, title: "", parentId: filter === "*" ? null : filter || null })));
+    if (!editing) {
+      toolbar.append(button("Reload bookmarks", async () => { library = await request({ kind: "list" }); render(); }), ...transfer.buttons);
+    }
     const search = el("input", "ui-input"); search.type = "search"; search.value = query; search.placeholder = t("Search bookmarks"); search.setAttribute("aria-label", t("Search bookmarks"));
+    closeOnSearchEscape(dialog, search, requestClose);
     if (filter !== "*" && filter && !library.folders.some(f => f.id === filter)) filter = "";
     const folders = folderSelect("Show folder", filter, null, true);
     const filters = el("div", "browser-bookmark-filters"); filters.append(search, folders);
     const list = el("div", "browser-bookmark-list"); list.setAttribute("role", "list");
-    function renderList() {
-      list.replaceChildren(); const term = query.toLocaleLowerCase();
-      for (const folder of library.folders.filter(f => (filter === "*" || (f.parentId ?? "") === filter) && f.title.toLocaleLowerCase().includes(term))) {
-        const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.folderId = folder.id;
-        const name = button("", () => { filter = folder.id; editing = null; render(); }); name.textContent = folder.title;
-        name.setAttribute("aria-label", `${t("Open folder")}: ${folder.title}`);
-        const edit = button("Edit", () => { editing = { kind: "folder", ...folder }; render(); }); edit.setAttribute("aria-label", `${t("Edit folder")}: ${folder.title}`);
-        row.append(name, edit); list.append(row);
+    const location = el("nav", "ui-toolbar browser-bookmark-location");
+    location.setAttribute("aria-label", t("Bookmark location"));
+    const index = createBookmarkFolderIndex(library.folders);
+    const describeLocation = parent => index.path(parent).map(folder => folder.title).join(" / ") || t("Bookmarks root");
+    const locationLabel = parent => {
+      const label = el("span", "browser-bookmark-path", describeLocation(parent));
+      label.title = label.textContent;
+      return label;
+    };
+    const openFolder = id => {
+      filter = id;
+      query = "";
+      search.value = "";
+      folders.value = id;
+      renderLocation().focus();
+      renderList();
+    };
+    const folderButton = (id, title, className) => {
+      const link = el("button", className, title);
+      link.type = "button";
+      link.addEventListener("click", () => openFolder(id));
+      return link;
+    };
+    function renderLocation() {
+      location.replaceChildren();
+      const path = [{ id: "*", title: t("All bookmarks") }];
+      if (filter !== "*") path.push({ id: "", title: t("Bookmarks root") }, ...index.path(filter));
+      const currentFolder = path.pop();
+      for (const folder of path) {
+        const link = folderButton(folder.id, folder.title, "ui-button ui-button--sm ui-button--ghost");
+        link.title = folder.title;
+        const divider = el("span", "", "/"); divider.setAttribute("aria-hidden", "true");
+        location.append(link, divider);
       }
-      for (const bookmark of library.bookmarks.filter(b => (filter === "*" || (b.folderId ?? "") === filter) && `${b.title} ${b.url}`.toLocaleLowerCase().includes(term))) {
+      const current = el("span", "browser-bookmark-path", currentFolder.title);
+      current.title = currentFolder.title;
+      current.tabIndex = -1;
+      current.setAttribute("aria-current", "location");
+      location.append(current);
+      return current;
+    }
+    function renderList() {
+      list.replaceChildren();
+      const term = query.trim().toLocaleLowerCase();
+      const showLocation = filter === "*" || term.length > 0;
+      const inView = parent => filter === "*" || (parent ?? "") === filter ||
+        Boolean(term && (filter === "" || index.path(parent).some(folder => folder.id === filter)));
+      for (const folder of library.folders.filter(f => inView(f.parentId) && f.title.toLocaleLowerCase().includes(term))) {
+        const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.folderId = folder.id;
+        const name = folderButton(folder.id, folder.title, "ui-button ui-button--secondary");
+        name.setAttribute("aria-label", `${t("Open folder")}: ${folder.title}`);
+        const edit = button("Edit", () => beginEdit({ kind: "folder", ...folder })); edit.setAttribute("aria-label", `${t("Edit folder")}: ${folder.title}`);
+        const details = el("div", "browser-bookmark-details"); details.append(name);
+        if (showLocation) details.append(locationLabel(folder.parentId));
+        row.append(details, edit); list.append(row);
+      }
+      for (const bookmark of library.bookmarks.filter(b => inView(b.folderId) && `${b.title} ${b.url}`.toLocaleLowerCase().includes(term))) {
         const row = el("div", "browser-bookmark-row"); row.setAttribute("role", "listitem"); row.dataset.bookmarkId = bookmark.id;
         const details = el("div", "browser-bookmark-details");
-        const open = button("", async () => { await onOpen(bookmark); dialog.close(); }); open.textContent = bookmark.title; open.setAttribute("aria-label", `${t("Open bookmark")}: ${bookmark.title}`);
+        const open = button("", async () => { if (!await guard.confirm()) return; await onOpen(bookmark); dialog.close(); }); open.textContent = bookmark.title; open.setAttribute("aria-label", `${t("Open bookmark")}: ${bookmark.title}`);
         const source = el("span", "browser-bookmark-url", bookmark.url); source.title = bookmark.url; details.append(open, source);
-        const edit = button("Edit", () => { editing = { kind: "bookmark", ...bookmark }; render(); }); edit.setAttribute("aria-label", `${t("Edit bookmark")}: ${bookmark.title}`);
+        if (showLocation) details.append(locationLabel(bookmark.folderId));
+        const edit = button("Edit", () => beginEdit({ kind: "bookmark", ...bookmark })); edit.setAttribute("aria-label", `${t("Edit bookmark")}: ${bookmark.title}`);
         const actions = el("div", "ui-toolbar");
         actions.append(createBackgroundOpenButton(bookmark, { onOpen, run, message }), edit);
         row.append(details, actions); list.append(row);
@@ -114,12 +176,26 @@ export function showBrowserBookmarks({ invoke, current, editCurrent = false, onO
       if (!list.childElementCount) list.append(el("p", "", t("No bookmarks in this view")));
     }
     search.addEventListener("input", () => { query = search.value; renderList(); });
-    folders.addEventListener("change", () => { filter = folders.value; renderList(); });
-    content.replaceChildren(toolbar); if (!editing) content.append(transfer.preview); const editor = renderEditor();if (editor) content.append(editor);content.append(filters, list);renderList();
+    folders.addEventListener("change", () => { filter = folders.value; renderLocation(); renderList(); });
+    content.replaceChildren(toolbar);
+    if (!editing) content.append(transfer.preview);
+    const editor = renderEditor();
+    guard.track(editor);
+    if (editor) content.append(editor);
+    content.append(filters, location, list);
+    renderLocation();
+    renderList();
   }
   dialog.append(heading, content, message, close);
   dialog.addEventListener("close", () => { dialog.remove(); onClose(); }, { once: true });
   document.body.append(dialog); dialog.showModal(); close.focus();
-  void run(async () => { library = await request({ kind: "list" }); if (editCurrent && current) beginCurrent(); else render(); });
+  void run(async () => {
+    library = await request({ kind: "list" });
+    if (editCurrent && current) await beginCurrent();
+    else render();
+  }).then(() => {
+    if (!dialog.open || document.activeElement !== close) return;
+    content.querySelector(editCurrent && current ? ".browser-bookmark-editor input" : 'input[type="search"]')?.focus({ preventScroll: true });
+  });
   return dialog;
 }

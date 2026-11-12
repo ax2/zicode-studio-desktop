@@ -6,7 +6,7 @@ use webview2_com::{
 };
 use windows::core::{BOOL, HSTRING, PWSTR};
 
-const ACTIONS: [(&str, &str, &str); 12] = [
+const ACTIONS: [(&str, &str, &str); 14] = [
     ("back", "Back", "后退"),
     ("forward", "Forward", "前进"),
     ("reload", "Reload", "刷新"),
@@ -16,6 +16,8 @@ const ACTIONS: [(&str, &str, &str); 12] = [
     ("history", "Browsing history", "浏览历史"),
     ("downloads", "Downloads", "下载"),
     ("read", "Read page", "阅读网页"),
+    ("reader", "Reading mode", "阅读模式"),
+    ("translateSelection", "Translate selected text", "翻译选中文字"),
     ("zoomIn", "Zoom in", "放大"),
     ("zoomOut", "Zoom out", "缩小"),
     ("zoomReset", "Reset zoom", "重置缩放"),

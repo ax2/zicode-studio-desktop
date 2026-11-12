@@ -45,6 +45,10 @@ pub fn default_target(folder: &Path, name: &str) -> Result<PathBuf, String> {
 
 #[allow(dead_code)] // The standalone engine probe has no trusted save/list chrome.
 pub fn prepare(target: &Path, id: &str) -> Result<PathBuf, String> {
+    reserve(target, id).map(|(staging, _file)| staging)
+}
+
+pub fn reserve(target: &Path, id: &str) -> Result<(PathBuf, std::fs::File), String> {
     let name = target.file_name().and_then(|p| p.to_str()).ok_or("Invalid download filename")?;
     if !target.is_absolute() || filename(name) != name || uuid::Uuid::parse_str(id).is_err() {
         return Err("Invalid download destination".into());
@@ -56,8 +60,8 @@ pub fn prepare(target: &Path, id: &str) -> Result<PathBuf, String> {
     let staging = parent.join(format!(".zicode-download-{id}-{name}"));
     // Reserve only our unique temporary file. The requested destination stays absent
     // until completion; a concurrent creator is protected by MoveFileExW flags=0.
-    std::fs::OpenOptions::new().write(true).create_new(true).open(&staging).map_err(|e| e.to_string())?;
-    Ok(staging)
+    let file = std::fs::OpenOptions::new().write(true).create_new(true).open(&staging).map_err(|e| e.to_string())?;
+    Ok((staging, file))
 }
 
 pub fn finish(staging: &Path, target: &Path) -> Result<(), String> {

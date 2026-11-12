@@ -51,12 +51,12 @@ pub struct PageLink {
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Capture {
+pub struct Capture<T> {
     pub tab: String,
     pub document_revision: String,
     pub captured_at: String,
     pub source_trust: &'static str,
-    pub page: PageText,
+    pub page: T,
 }
 #[cfg(windows)]
 fn is_web_url(value: &str) -> bool {
@@ -132,21 +132,11 @@ pub(crate) async fn browser_capture_page(
     window: WebviewWindow,
     tab: String,
     expected_url: String,
-) -> Result<Capture, String> {
+) -> Result<Capture<PageText>, String> {
     crate::require_workspace_window(&window)?;
     #[cfg(windows)]
     {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        let app = window.app_handle().clone();
-        app.run_on_main_thread(move || {
-            // Initial and completion checks are both bound to the actual window.
-            super::runtime::capture(&window, tab, expected_url, tx);
-        })
-        .map_err(|e| e.to_string())?;
-        tokio::time::timeout(std::time::Duration::from_secs(10), rx)
-            .await
-            .map_err(|_| "Browser capture timed out")?
-            .map_err(|_| "Browser capture stopped")?
+        run(window, tab, expected_url, SCRIPT, decode).await
     }
     #[cfg(not(windows))]
     {
@@ -154,6 +144,27 @@ pub(crate) async fn browser_capture_page(
         Err("Integrated browser is currently available on Windows".into())
     }
 }
+#[cfg(windows)]
+pub(super) async fn run<T: Send + 'static>(
+    window: WebviewWindow,
+    tab: String,
+    expected_url: String,
+    script: &'static str,
+    decode: fn(&str, &str) -> Result<T, String>,
+) -> Result<Capture<T>, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let app = window.app_handle().clone();
+    app.run_on_main_thread(move || {
+        // Initial and completion checks are both bound to the actual window.
+        super::runtime::capture(&window, tab, expected_url, script, decode, tx);
+    })
+    .map_err(|error| error.to_string())?;
+    tokio::time::timeout(std::time::Duration::from_secs(10), rx)
+        .await
+        .map_err(|_| "Browser capture timed out")?
+        .map_err(|_| "Browser capture stopped")?
+}
+
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;

@@ -105,3 +105,66 @@ it("routes page refresh and history accelerators without taking focus away from 
   expect(pageAction).toHaveBeenCalledTimes(5);
   expect(args.focusChrome).not.toHaveBeenCalled();
 });
+
+it("routes numbered tab shortcuts while leaving native focus to tab activation", async () => {
+  const tabAction = vi.fn();
+  const args = setup({ tabAction });
+  const press = (key, modifiers) => document.dispatchEvent(new KeyboardEvent("keydown", {
+    key, ctrlKey: true, cancelable: true, ...modifiers,
+  }));
+  for (const digit of "123456789") {
+    expect(press(digit)).toBe(false);
+    expect(tabAction).toHaveBeenLastCalledWith(`tab${digit}`, "a");
+    expect(press(digit, { shiftKey: true })).toBe(true);
+  }
+  expect(press("1", { repeat: true })).toBe(false);
+  await shortcuts.native({ tab: "other", action: "tab1" });
+  await shortcuts.native({ tab: "a", action: "tab0" });
+  expect(tabAction).toHaveBeenCalledTimes(9);
+  await shortcuts.native({ tab: "a", action: "tab9" });
+  expect(tabAction).toHaveBeenLastCalledWith("tab9", "a");
+  expect(args.focusChrome).not.toHaveBeenCalled();
+});
+
+it("uses page-only zoom accelerators without changing native focus", async () => {
+  const pageAction = vi.fn();
+  const args = setup({ pageAction });
+  const press = (key, modifiers) => document.dispatchEvent(new KeyboardEvent("keydown", {
+    key, ctrlKey: true, cancelable: true, ...modifiers,
+  }));
+  for (const [key, shiftKey, action] of [
+    ["=", false, "zoomIn"], ["+", true, "zoomIn"], ["-", false, "zoomOut"], ["0", false, "zoomReset"],
+  ]) {
+    expect(press(key, { shiftKey })).toBe(false);
+    expect(pageAction).toHaveBeenLastCalledWith(action, "a");
+    expect(press(key, { shiftKey, altKey: true })).toBe(true);
+  }
+  expect(press("_", { shiftKey: true })).toBe(true);
+  expect(press("=", { repeat: true })).toBe(false);
+  await shortcuts.native({ tab: "other", action: "zoomIn" });
+  expect(pageAction).toHaveBeenCalledTimes(4);
+  await shortcuts.native({ tab: "a", action: "zoomOut" });
+  expect(pageAction).toHaveBeenLastCalledWith("zoomOut", "a");
+  expect(args.focusChrome).not.toHaveBeenCalled();
+});
+
+it("opens browser panels from chrome and from the same active native tab", async () => {
+  const openPanel = vi.fn();
+  const args = setup({ openPanel });
+  for (const [key, action] of [["d", "bookmark"], ["h", "history"], ["j", "downloads"]]) {
+    const press = modifiers => document.dispatchEvent(new KeyboardEvent("keydown", {
+      key, ctrlKey: true, cancelable: true, ...modifiers,
+    }));
+    expect(press()).toBe(false);
+    expect(openPanel).toHaveBeenLastCalledWith(action, false, "a");
+    for (const modifiers of [{ altKey: true }, { shiftKey: true }, { isComposing: true }]) {
+      expect(press(modifiers)).toBe(true);
+    }
+    expect(press({ repeat: true })).toBe(false);
+    await shortcuts.native({ tab: "other", action });
+    await shortcuts.native({ tab: "a", action });
+    expect(openPanel).toHaveBeenLastCalledWith(action, true, "a");
+  }
+  expect(openPanel).toHaveBeenCalledTimes(6);
+  expect(args.focusChrome).toHaveBeenCalledTimes(3);
+});

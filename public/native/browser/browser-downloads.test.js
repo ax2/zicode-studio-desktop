@@ -31,6 +31,28 @@ it("does not approve automatically, preserves the focused row during progress, a
   expect(dialog.querySelector('[data-download-id="one"]')).toBe(row); expect(document.activeElement).toBe(cancel);
   expect(row.querySelector("progress").value).toBe(54); expect(row.textContent).toContain("54 B / 100 B");
 });
+it("pauses and continues the same live download without replacing its row or progress", async () => {
+  let state = "downloading";
+  const calls = [];
+  const invoke = async (_, { request }) => {
+    calls.push(request);
+    if (request.kind === "downloadPause") { state = "paused"; return null; }
+    if (request.kind === "downloadResume") { state = "downloading"; return null; }
+    return page([{ ...item("one", state, 54), canResume: state === "paused" }, item("old", "interrupted", 10)]);
+  };
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const row = dialog.querySelector('[data-download-id="one"]');
+  const pause = getByRole(row, "button", { name: t("Pause download") });
+  pause.click(); await tick();
+  expect(calls).toContainEqual({ kind: "downloadPause", id: "one" });
+  expect(getByRole(row, "button", { name: t("Continue download") })).toBe(pause);
+  expect(getByRole(row, "progressbar").value).toBe(54);
+  expect(getByRole(row, "button", { name: t("Cancel download") })).toBeTruthy();
+  expect(dialog.querySelector('[data-download-id="old"]').textContent).toContain(t("Download interrupted"));
+  pause.click(); await tick();
+  expect(calls).toContainEqual({ kind: "downloadResume", id: "one" });
+  expect(getByRole(row, "button", { name: t("Pause download") })).toBe(pause);
+});
 it("retains errors and permits retry/cancel after a rejected save", async () => {
   const calls = []; const invoke = async (_, { request }) => {
     calls.push(request);
@@ -174,4 +196,26 @@ it("uses the latest download search for polling and older pages, ignoring a stal
   expect(ids()).toEqual(["match", "older"]);
   input.value = ""; search.click(); await tick();
   expect(ids()).toEqual(["original"]);
+});
+
+it("clears recovered polling failures without erasing an unsuccessful user action", async () => {
+  let offline = true;
+  const invoke = async (_, { request }) => {
+    if (request.kind === "downloadChoose") throw Error("Location unavailable");
+    if (offline) throw Error("Download list unavailable");
+    return page([item("one")]);
+  };
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const status = getByRole(dialog, "status");
+  expect(status.textContent).toBe("Download list unavailable");
+  offline = false; await vi.advanceTimersByTimeAsync(500);
+  expect(status.textContent).toBe("");
+  getByRole(dialog, "button", { name: t("Choose save location") }).click(); await tick();
+  expect(status.textContent).toBe("Location unavailable");
+  offline = true; await vi.advanceTimersByTimeAsync(500);
+  expect(status.textContent).toBe("Location unavailable");
+  offline = false; await vi.advanceTimersByTimeAsync(500);
+  expect(status.textContent).toBe("Location unavailable");
+  getByRole(dialog, "button", { name: t("Save to Downloads") }).click(); await tick();
+  expect(status.textContent).toBe("");
 });

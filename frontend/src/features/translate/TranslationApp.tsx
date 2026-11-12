@@ -20,6 +20,7 @@ export type TranslationAppApi = {
   handlesCommand(commandId: string): boolean;
   executeCommand(): void;
   focusInput(): void;
+  stageBrowserSelection(text: string): void;
   refresh(): Promise<void>;
 };
 
@@ -36,6 +37,10 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
   const editedText = store((state) => state.editedText);
   const busy = store((state) => state.busy);
   const error = store((state) => state.error);
+  const incoming = store((state) => {
+    const pending = state.pendingBrowserSelection, scope = state.getScope();
+    return pending?.scope.sceneId === scope.sceneId && pending.scope.workspaceId === scope.workspaceId ? pending.text : null;
+  });
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   return (
@@ -61,6 +66,19 @@ export function TranslationMain({ store }: { store: TranslationStore }) {
         onCta={() => inputRef.current?.focus()}
       />
 
+      {incoming && (
+        <section className="ui-card translate-incoming" aria-label={t("Selected webpage text")}>
+          <textarea className="ui-textarea" readOnly rows={3} value={incoming} aria-label={t("Selected webpage text")} />
+          <div className="ui-toolbar">
+            <button type="button" className="ui-button ui-button--secondary" disabled={busy} onClick={() => store.getState().acceptBrowserSelection()}>
+              {t("Use selected text")}
+            </button>
+            <button type="button" className="ui-button ui-button--ghost" onClick={() => store.getState().dismissBrowserSelection()}>
+              {t("Keep current draft")}
+            </button>
+          </div>
+        </section>
+      )}
       <section className="ui-card translate-source">
         <ModelToolPicker sceneId={store.getState().getSceneId()} value={modelSelection} onChange={store.getState().setModelSelection} load={store.getState().loadModels} disabled={busy} />
         <textarea
@@ -212,6 +230,7 @@ export function createTranslationApp(options: TranslationOptions): TranslationAp
       return commandId === "translate.open";
     },
     executeCommand() {},
+    stageBrowserSelection(text) { store.getState().stageBrowserSelection(text); },
     focusInput() { requestAnimationFrame(() => contentContainer?.querySelector<HTMLTextAreaElement>(".translate-textarea")?.focus()); },
     refresh() {
       return Promise.resolve();

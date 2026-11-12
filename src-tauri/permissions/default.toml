@@ -300,6 +300,8 @@ permissions = [
   "allow-get-system-information",
   "allow-browser-control",
   "allow-browser-capture-page",
+  "allow-browser-read-article",
+  "allow-browser-read-selection",
   "allow-browser-get-state",
   "allow-browser-set-startup-mode",
   "allow-browser-set-search-engine",
@@ -434,6 +436,16 @@ commands.allow = ["browser_control"]
 identifier = "allow-browser-capture-page"
 description = "Allow trusted chrome to explicitly read bounded text from its own browser tab with navigation checks; never execute caller-supplied scripts."
 commands.allow = ["browser_capture_page"]
+
+[[permission]]
+identifier = "allow-browser-read-article"
+description = "Read a bounded article from the owning workspace's browser tab for local reading mode."
+commands.allow = ["browser_read_article"]
+
+[[permission]]
+identifier = "allow-browser-read-selection"
+description = "Read the selected visible text in the owning browser tab for an explicit local action."
+commands.allow = ["browser_read_selection"]
 
 [[permission]]
 identifier = "allow-browser-bookmarks"

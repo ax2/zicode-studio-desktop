@@ -1,6 +1,6 @@
 import { t } from "../../i18n.js";
 
-export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, bookmarks, history, searchTabs, pageControls, find, fullscreen, searchSettings, pin } = {}) {
+export function createBrowserOptions(startup, selectAll, { reopen = () => {}, canReopen = () => false, bookmarks, history, searchTabs, pageControls, find, fullscreen, searchSettings, pin, reader, translateSelection, screenshot, savePdf } = {}) {
   const menu = document.createElement("details"); menu.className = "browser-options";
   const trigger = document.createElement("summary"); trigger.className = "ui-icon-button ui-icon-button--sm ui-icon-button--ghost";
   trigger.title = t("Browser options"); trigger.setAttribute("aria-label", t("Browser options"));
@@ -25,7 +25,8 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     const button = document.createElement("button");
     button.type = "button"; button.className = "ui-button ui-button--secondary browser-pin-tab";
     const refresh = () => {
-      const { pinned, enabled } = pin.state();
+      const { pinned, enabled, available } = pin.state();
+      button.hidden = available === false;
       button.textContent = t(pinned ? "Unpin tab" : "Pin tab");
       button.title = !enabled && !pinned ? t("Pin up to four tabs") : "";
       button.disabled = !enabled;
@@ -43,8 +44,20 @@ export function createBrowserOptions(startup, selectAll, { reopen = () => {}, ca
     if (name === "Search tabs") {
       button.setAttribute("aria-keyshortcuts", "Control+Shift+a");
       button.title = `${t(name)} (Ctrl+Shift+A)`;
+    } else if (name === "Browsing history") {
+      button.setAttribute("aria-keyshortcuts", "Control+h");
+      button.title = `${t(name)} (Ctrl+H)`;
     }
     button.addEventListener("click", async () => { await open(); menu.open = false; });
+    panel.append(button);
+  }
+  for (const [name, action] of [["Reading mode", reader], ["Translate selected text", translateSelection], ["Save viewport PNG to Downloads", screenshot], ["Save page PDF to Downloads", savePdf]]) {
+    if (!action) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ui-button ui-button--secondary";
+    button.textContent = t(name);
+    button.addEventListener("click", () => { menu.open = false; action(); });
     panel.append(button);
   }
   if (searchSettings) panel.append(searchSettings.element);

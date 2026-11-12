@@ -68,17 +68,22 @@ pub(super) fn execute(
         if matches!(&request, Request::Status) {
             let revision=REVISIONS.with(|values|values.borrow().get(window.label()).copied().unwrap_or(0));
             let tabs=if let Some(browser)=windows.get(window.label()) {
-                browser.tabs.iter().map(|id| {
+                browser.tabs.iter().filter_map(|id| {
                     use wry::WebViewExtWindows;
-                    let view = browser.engine.view(id)?;
-                    let mut visible = windows::core::BOOL::default();
-                    unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e|e.to_string())?;
-                    let mut title = windows::core::PWSTR::null();
-                    let title_result = unsafe { view.webview().DocumentTitle(&mut title) };
-                    let title = webview2_com::take_pwstr(title).chars().take(512).collect::<String>();
-                    title_result.map_err(|error| error.to_string())?;
-                    let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
-                    Ok(json!({"id":id,"history":history,"title":title,"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?}))
+                    let view = browser.engine.view_if_open(id)?;
+                    let read = || -> Result<Value, String> {
+                        let mut visible = windows::core::BOOL::default();
+                        unsafe { view.controller().IsVisible(&mut visible) }.map_err(|e|e.to_string())?;
+                        let mut title = windows::core::PWSTR::null();
+                        let title_result = unsafe { view.webview().DocumentTitle(&mut title) };
+                        let title = webview2_com::take_pwstr(title).chars().take(512).collect::<String>();
+                        title_result.map_err(|error| error.to_string())?;
+                        let history = super::windows_policy::history_state(&view.webview()).map_err(|e|e.to_string())?;
+                        Ok(json!({"id":id,"history":history,"title":title,"popupOpener":browser.engine.popup_opener(id),"url":view.url().map_err(|e|e.to_string())?,"visible":visible.as_bool(),"favicon":browser.engine.favicon(id),"settings":super::engine::page_controls::read(view)?}))
+                    };
+                    let snapshot = read();
+                    // COM calls can dispatch WindowCloseRequested while reading status.
+                    browser.engine.view_if_open(id).map(|_| snapshot)
                 }).collect::<Result<Vec<_>,String>>()?
             } else {Vec::new()};
             return Ok(json!({"surfaceRevision":revision,"tabs":tabs}));
@@ -86,7 +91,7 @@ pub(super) fn execute(
         if let Request::Create {
             url,
             bounds: viewport,
-            tab_id, zoom, muted,
+            tab_id, zoom, muted, popup_request,
         } = request
         {
             let rect = bounds(window, viewport)?;
@@ -103,7 +108,27 @@ pub(super) fn execute(
                     profile.ok_or("Browser profile unavailable")?,
                     BrowserPolicy::public_web(),
                     Arc::new(move |event| {
-                        if let super::engine::EngineEvent::Visited { url, title, .. } = &event {
+                        if let super::engine::EngineEvent::Popup { request: Some(request), .. } = &event {
+                            let app = app.clone(); let owner = owner.clone(); let request = request.clone();
+                            tauri::async_runtime::spawn(async move {
+                                tokio::time::sleep(super::engine::native_popups::EXPIRY).await;
+                                // Wry construction can temporarily borrow the registry while pumping messages.
+                                loop {
+                                    let (tx, rx) = tokio::sync::oneshot::channel();
+                                    let owner = owner.clone(); let request = request.clone();
+                                    if app.run_on_main_thread(move || {
+                                        let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
+                                            if let Some(browser) = windows.get(&owner) { browser.engine.cancel_popup(&request); }
+                                            Ok(())
+                                        }));
+                                        let _ = tx.send(result.is_ok());
+                                    }).is_err() { break; }
+                                    if !matches!(rx.await, Ok(false)) { break; }
+                                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                                }
+                            });
+                        }
+                        if let super::engine::EngineEvent::Visited { url, title, transient: false, .. } = &event {
                             let error_app = app.clone(); let error_owner = owner.clone();
                             let failed = move |_error: String| { let _ = error_app.emit_to(tauri::EventTarget::webview_window(&error_owner), "zicode:browser-event", json!({"kind":"historyFailed"})); };
                             if super::history_worker::record(owner.clone(), url.clone(), title.clone(), failed).is_err() {
@@ -130,7 +155,11 @@ pub(super) fn execute(
             let browser = windows
                 .get_mut(window.label())
                 .ok_or("Browser unavailable")?;
-            browser.engine.create(window, &tab, &url, rect, zoom, muted)?;
+            if let Some(request) = popup_request {
+                browser.engine.create_popup(window, &tab, &url, rect, (zoom, muted), &request)?;
+            } else {
+                browser.engine.create(window, &tab, &url, rect, zoom, muted)?;
+            }
             browser.tabs.push(tab.clone());
             return Ok(json!({"tab":tab}));
         }
@@ -177,7 +206,11 @@ pub(super) fn execute(
                 browser.engine.downloads.save(&id, &path)?;
             },
             Request::DownloadCancel { id } => browser.engine.downloads.cancel(&id)?,
-            Request::Downloads { .. } | Request::DownloadChoose { .. } | Request::DownloadRemove { .. } => unreachable!(),
+            Request::DownloadPause { id } => browser.engine.downloads.set_paused(&id, true)?,
+            Request::DownloadResume { id } => browser.engine.downloads.set_paused(&id, false)?,
+            Request::Downloads { .. } | Request::DownloadChoose { .. } | Request::DownloadRemove { .. }
+            | Request::DownloadReveal { .. } => unreachable!(),
+            Request::CancelPopup { request } => browser.engine.cancel_popup(&request),
             Request::MenuLanguage { chinese } => browser.engine.menu_chinese.store(chinese, std::sync::atomic::Ordering::Relaxed),
             Request::Navigate { tab, url } => browser.engine.navigate(&tab, &url)?,
             Request::Action { tab, action } => browser.engine.action(&tab, &action)?,
@@ -195,7 +228,7 @@ pub(super) fn execute(
                     json!({"url":browser.engine.view(&tab)?.url().map_err(|e|e.to_string())?}),
                 )
             }
-            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Snapshot { .. } => unreachable!(),
+            Request::Create { .. } | Request::Status | Request::Fullscreen { .. } | Request::FindStart { .. } | Request::Snapshot { .. } | Request::SaveScreenshot { .. } | Request::SavePdf { .. } => unreachable!(),
         }
         Ok(Value::Null)
     }))
@@ -227,11 +260,13 @@ pub(super) fn forget(label: &str) {
     WINDOWS.with(|slot| slot.retire(label));
 }
 
-pub(super) fn capture(
+pub(super) fn capture<T: Send + 'static>(
     window: &WebviewWindow,
     tab: String,
     expected_url: String,
-    sender: tokio::sync::oneshot::Sender<Result<super::capture::Capture, String>>,
+    script: &'static str,
+    decode: fn(&str, &str) -> Result<T, String>,
+    sender: tokio::sync::oneshot::Sender<Result<super::capture::Capture<T>, String>>,
 ) {
     // Share a single sender between setup failure and asynchronous completion.
     let sender = Arc::new(std::sync::Mutex::new(Some(sender)));
@@ -250,7 +285,7 @@ pub(super) fn capture(
                 let surface =
                     REVISIONS.with(|s| s.borrow().get(window.label()).copied().unwrap_or(0));
                 let owner = window.clone();
-                view.evaluate_script_with_callback(super::capture::SCRIPT, move |raw| {
+                view.evaluate_script_with_callback(script, move |raw| {
                     let owner = owner.clone();
                     let tab = tab.clone();
                     let url = url.clone();
@@ -287,7 +322,7 @@ pub(super) fn capture(
                                         document_revision: stamp,
                                         captured_at: chrono::Utc::now().to_rfc3339(),
                                         source_trust: "untrusted-web-content",
-                                        page: super::capture::decode(&raw, &url)?,
+                                        page: decode(&raw, &url)?,
                                     })
                                 })
                             })
@@ -319,28 +354,74 @@ pub(super) fn capture(
     }
 }
 
-// Capture only the current owner-bound native page; discard late navigation results.
-pub(super) fn preview(window: &WebviewWindow, tab: String, sender: tokio::sync::oneshot::Sender<Result<Value,String>>) {
+// Capture only the current owner-bound native page and discard late results.
+pub(super) fn page_output(
+    window: &WebviewWindow,
+    tab: String,
+    expected_url: Option<String>,
+    format: super::page_output::Format,
+    sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
+) {
     let sender = Arc::new(std::sync::Mutex::new(Some(sender)));
     let completion = sender.clone();
-    let result = WINDOWS.with(|slot| slot.with_mut(|windows| {
-        let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
-        let stamp = browser.engine.document_revision(&tab)?;
-        let owner = window.clone();
-        super::native_preview::capture(browser.engine.view(&tab)?, move |image| {
-            let queued = completion.clone(); let app = owner.app_handle().clone();
-            let dispatched = app.run_on_main_thread(move || {
-                let result = crate::require_workspace_window(&owner).and_then(|_| WINDOWS.with(|slot| slot.with_mut(|windows| {
-                    let browser = windows.get(owner.label()).ok_or("Browser unavailable")?;
-                    if browser.engine.document_revision(&tab)? != stamp { return Err("Browser page changed".into()); }
-                    image.map(Value::String)
-                })));
-                if let Ok(mut sender) = queued.lock() { if let Some(sender) = sender.take() { let _ = sender.send(result); } }
-            });
-            if let Err(error) = dispatched { if let Ok(mut sender) = completion.lock() { if let Some(sender) = sender.take() { let _ = sender.send(Err(error.to_string())); } } }
-        })
-    }));
-    if let Err(error) = result { if let Ok(mut sender) = sender.lock() { if let Some(sender) = sender.take() { let _ = sender.send(Err(error)); } } }
+    let result = crate::require_workspace_window(window).and_then(|_| {
+        WINDOWS.with(|slot| slot.with_mut(|windows| {
+            let browser = windows.get(window.label()).ok_or("Browser unavailable")?;
+            let view = browser.engine.view(&tab)?;
+            let stamp = browser.engine.document_revision(&tab)?;
+            let surface = REVISIONS.with(|revisions| revisions.borrow().get(window.label()).copied());
+            if let Some(expected) = &expected_url {
+                let url = view.url().map_err(|error| error.to_string())?;
+                if url != *expected || !(url.starts_with("https://") || url.starts_with("http://"))
+                    || !browser.engine.export_ready(&tab)
+                {
+                    return Err("Wait for the current page to finish loading".into());
+                }
+            }
+            let owner = window.clone();
+            super::page_output::capture(view, format, move |output| {
+                let queued = completion.clone();
+                let app = owner.app_handle().clone();
+                let dispatched = app.run_on_main_thread(move || {
+                    let result = crate::require_workspace_window(&owner).and_then(|_| {
+                        WINDOWS.with(|slot| slot.with_mut(|windows| {
+                            let browser = windows.get(owner.label()).ok_or("Browser unavailable")?;
+                            if browser.engine.document_revision(&tab)? != stamp {
+                                return Err("Browser page changed".into());
+                            }
+                            if let Some(expected) = expected_url {
+                                let current = REVISIONS.with(|revisions| revisions.borrow().get(owner.label()).copied());
+                                let url = browser.engine.view(&tab)?.url().map_err(|error| error.to_string())?;
+                                if current != surface || url != expected || !browser.engine.export_ready(&tab) {
+                                    return Err("Browser page changed".into());
+                                }
+                            }
+                            output
+                        }))
+                    });
+                    if let Ok(mut sender) = queued.lock() {
+                        if let Some(sender) = sender.take() {
+                            let _ = sender.send(result);
+                        }
+                    }
+                });
+                if let Err(error) = dispatched {
+                    if let Ok(mut sender) = completion.lock() {
+                        if let Some(sender) = sender.take() {
+                            let _ = sender.send(Err(error.to_string()));
+                        }
+                    }
+                }
+            })
+        }))
+    });
+    if let Err(error) = result {
+        if let Ok(mut sender) = sender.lock() {
+            if let Some(sender) = sender.take() {
+                let _ = sender.send(Err(error));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

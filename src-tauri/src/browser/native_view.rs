@@ -4,7 +4,7 @@ use super::{event_lifetime::EventLifetime, Bounds};
 use raw_window_handle::{
     HandleError, HasWindowHandle, RawWindowHandle, Win32WindowHandle, WindowHandle,
 };
-use std::num::NonZeroIsize;
+use std::{cell::Cell, num::NonZeroIsize, rc::Rc};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::{
     core::w,
@@ -86,6 +86,9 @@ impl Drop for Container {
 pub(super) struct NativeView {
     pub favicon: std::sync::Arc<super::native_favicon::Icon>,
     pub events: EventLifetime,
+    pub opener: Option<String>,
+    pub closing: Rc<Cell<bool>>,
+    pub navigation: super::super::windows_policy::NavigationState,
     // Rust drops fields in declaration order: Wry must detach before the HWND dies.
     pub webview: WebView,
     pub container: Container,

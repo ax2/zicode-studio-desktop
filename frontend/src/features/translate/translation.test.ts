@@ -42,6 +42,23 @@ describe("translation store", () => {
     expect(notify).toHaveBeenCalledWith("Translation complete");
   });
 
+  it("stages webpage selections without submitting or replacing an existing draft", () => {
+    const gateway = stubGateway();
+    const { store } = createStore(gateway);
+    store.getState().stageBrowserSelection("first selection");
+    expect(store.getState().text).toBe("first selection");
+    store.getState().stageBrowserSelection("second selection");
+    expect(store.getState().text).toBe("first selection");
+    expect(store.getState().pendingBrowserSelection?.text).toBe("second selection");
+    store.getState().dismissBrowserSelection();
+    expect(store.getState().text).toBe("first selection");
+    store.getState().stageBrowserSelection("third selection");
+    store.getState().acceptBrowserSelection();
+    expect(store.getState().text).toBe("third selection");
+    expect(store.getState().pendingBrowserSelection).toBeNull();
+    expect(gateway.translate).not.toHaveBeenCalled();
+  });
+
   it("does not translate empty text", async () => {
     const gateway = stubGateway();
     const { store } = createStore(gateway);

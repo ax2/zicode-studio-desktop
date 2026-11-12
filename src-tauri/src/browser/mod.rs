@@ -1,10 +1,14 @@
 pub(crate) mod capture;
+pub(crate) mod reader;
+pub(crate) mod selection;
 mod bookmark_html;
 pub(crate) mod bookmark_files;
 #[cfg(windows)]
 pub(crate) mod download_journal;
 #[cfg(windows)]
 mod download_commands;
+#[cfg(windows)]
+mod download_reveal;
 pub(crate) mod history_worker;
 pub(crate) mod startup;
 use serde::Deserialize;
@@ -21,7 +25,7 @@ mod runtime;
 #[cfg(windows)]
 mod native_find;
 #[cfg(windows)]
-mod native_preview;
+mod page_output;
 #[cfg(windows)]
 mod lifecycle;
 #[cfg(windows)]
@@ -50,18 +54,26 @@ pub enum Request {
     DownloadSave { id: String },
     DownloadChoose { id: String },
     DownloadCancel { id: String },
+    DownloadPause { id: String },
+    DownloadResume { id: String },
     DownloadRemove { id: String },
+    DownloadReveal { id: String },
     #[serde(skip)]
     DownloadLive,
     #[serde(skip)]
     DownloadName { id: String },
     Snapshot { tab: String },
+    SaveScreenshot { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
+    SavePdf { tab: String, #[serde(rename = "expectedUrl")] expected_url: String },
     MenuLanguage { chinese: bool },
+    CancelPopup { request: String },
     Create {
         url: String,
         bounds: Viewport,
         #[serde(rename = "tabId")]
         tab_id: Option<String>,
+        #[serde(rename = "popupRequest")]
+        popup_request: Option<String>,
         #[serde(default = "crate::browser_store::default_zoom")]
         zoom: f64,
         #[serde(default)]
@@ -113,6 +125,16 @@ pub(crate) async fn browser_control(
             Request::Downloads { before, query } => return download_commands::list(window, before, query).await,
             Request::DownloadChoose { id } => return download_commands::choose(window, id).await,
             Request::DownloadRemove { id } => return download_commands::remove(window, id).await,
+            Request::DownloadReveal { id } => {
+                return download_reveal::reveal(window, id).await;
+            }
+            Request::Snapshot { tab } => return page_output::snapshot(window, tab).await,
+            Request::SaveScreenshot { tab, expected_url } => {
+                return page_output::save(window, tab, expected_url, page_output::Format::Png).await;
+            }
+            Request::SavePdf { tab, expected_url } => {
+                return page_output::save(window, tab, expected_url, page_output::Format::Pdf).await;
+            }
             request => request,
         };
         let root = crate::app_paths::data_root()?.join("browser");
@@ -129,14 +151,13 @@ pub(crate) async fn browser_control(
         } else {
             None
         };
-        let is_find = matches!(&request, Request::FindStart { .. } | Request::Snapshot { .. });
+        let is_find = matches!(&request, Request::FindStart { .. });
         let (tx, rx) = tokio::sync::oneshot::channel();
         let app = window.app_handle().clone();
         app.run_on_main_thread(move || {
             // Origin may have changed while the UI-thread job was queued.
             if let Err(error) = crate::require_workspace_window(&window) { let _ = tx.send(Err(error)); return; }
             match request {
-                Request::Snapshot { tab } => runtime::preview(&window, tab, tx),
                 Request::FindStart { tab, text, case_sensitive } => runtime::start_find(&window, tab, text, case_sensitive, tx),
                 request => { let _ = tx.send(runtime::execute(&window, profile, request)); }
             }

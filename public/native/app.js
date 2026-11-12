@@ -1227,6 +1227,13 @@ async function openBrowserDraftConversation({ target: source, isCurrent }) {
 const browserApp = setupBrowserApp({
   notify: notifications.notify, getTarget: () => target, onPrepareDraft: projectChatDraftHandoff,
   canOpenDraftConversation: canOpenBrowserDraftConversation, openDraftConversation: openBrowserDraftConversation,
+  onTranslateSelection: async text => {
+    const { sceneId, workspaceId } = target;
+    await pluginShell.activate("com.zicode.translate", { historyMode: "push" });
+    if (pluginShell.getActivePluginId() !== "com.zicode.translate" || target.sceneId !== sceneId || target.workspaceId !== workspaceId) return;
+    if (text) translationApp.stageBrowserSelection(text);
+    translationApp.focusInput();
+  },
 });
 pluginShell = setupPluginShell({
   registry: pluginRegistry,

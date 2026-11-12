@@ -50,6 +50,7 @@ impl Selection {
                         user_initiated: true,
                         allowed: true,
                         background: action == "openLinkBackground",
+                        request: None,
                     });
                 }
             }

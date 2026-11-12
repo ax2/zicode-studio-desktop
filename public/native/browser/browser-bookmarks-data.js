@@ -1,12 +1,31 @@
-export function folderOptions(folders, excludedId = null) {
+export function createBookmarkFolderIndex(folders) {
   const byId = new Map(folders.map(folder => [folder.id, folder]));
+  const paths = new Map();
+  return {
+    path(id) {
+      if (!id) return [];
+      if (paths.has(id)) return paths.get(id);
+      const path = [], seen = new Set();
+      let cursor = id;
+      while (cursor) {
+        const folder = byId.get(cursor);
+        if (!folder || seen.has(cursor)) return [];
+        path.push(folder);
+        seen.add(cursor);
+        cursor = folder.parentId;
+      }
+      path.reverse();
+      paths.set(id, path);
+      return path;
+    },
+  };
+}
+export function folderOptions(folders, excludedId = null) {
+  const index = createBookmarkFolderIndex(folders);
   return folders.flatMap(folder => {
-    const names = [], seen = new Set(); let cursor = folder;
-    while (cursor) {
-      if (cursor.id === excludedId || seen.has(cursor.id)) return [];
-      seen.add(cursor.id); names.unshift(cursor.title); cursor = byId.get(cursor.parentId);
-    }
-    return [{ id: folder.id, title: names.join(" / ") }];
+    const path = index.path(folder.id);
+    if (!path.length || path.some(item => item.id === excludedId)) return [];
+    return [{ id: folder.id, title: path.map(item => item.title).join(" / ") }];
   }).sort((a, b) => a.title.localeCompare(b.title));
 }
 export function removeBookmarkFolder(library, id) {

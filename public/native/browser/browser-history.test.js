@@ -36,6 +36,30 @@ it("requires explicit clear confirmation and sends the displayed watermark", asy
   getByRole(h.dialog, "button", { name: t("Confirm clear history") }).click(); await idle(h.dialog);
   expect(h.calls).toContainEqual({ kind: "clear", throughId: 2 });expect(h.dialog.textContent).toContain(t("Browsing history cleared"));
 });
+it("keeps keyboard search focused and gives clear confirmation a safe default", async () => {
+  const h = await open();
+  const search = getByLabelText(h.dialog, t("Search browsing history"));
+  const clear = getByRole(h.dialog, "button", { name: t("Clear browsing history") });
+  expect(document.activeElement).toBe(search);
+  fireEvent.input(search, { target: { value: "Page" } });
+  fireEvent.submit(h.dialog.querySelector("form"));
+  await idle(h.dialog);
+  expect(document.activeElement).toBe(search);
+  expect(h.calls.at(-1).query).toBe("Page");
+  fireEvent.input(search, { target: { value: "" } });
+  search.dispatchEvent(new Event("search"));
+  await idle(h.dialog);
+  expect(h.calls.at(-1).query).toBe("");
+  clear.focus();
+  clear.click();
+  await idle(h.dialog);
+  const cancel = getByRole(h.dialog, "button", { name: t("Cancel") });
+  expect(document.activeElement).toBe(cancel);
+  cancel.click();
+  await idle(h.dialog);
+  expect(document.activeElement).toBe(clear);
+  expect(h.calls.every(request => request.kind === "list")).toBe(true);
+});
 it("removes only the selected visit and preserves the search", async () => {
   const h = await open(); fireEvent.input(getByLabelText(h.dialog, t("Search browsing history")), { target: { value: "Page" } }); fireEvent.submit(h.dialog.querySelector("form")); await idle(h.dialog);
   getByRole(h.dialog, "button", { name: `${t("Remove visit")}: Page 1` }).click(); await idle(h.dialog);

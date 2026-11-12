@@ -2,10 +2,17 @@
 use super::EngineEvent;
 use std::sync::Arc;
 use webview2_com::{AcceleratorKeyPressedEventHandler, Microsoft::Web::WebView2::Win32::*};
-use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CONTROL, VK_MENU, VK_SHIFT};
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetKeyState, VK_ADD, VK_CONTROL, VK_MENU, VK_NUMPAD0, VK_OEM_MINUS, VK_OEM_PLUS, VK_SHIFT,
+    VK_SUBTRACT,
+};
 use wry::WebViewExtWindows;
 
-fn shortcut(key: u32, control: bool, alt: bool, shift: bool) -> Option<&'static str> {
+const NUMBERED_TAB_ACTIONS: [&str; 9] = [
+    "tab1", "tab2", "tab3", "tab4", "tab5", "tab6", "tab7", "tab8", "tab9",
+];
+
+fn shortcut(key: u16, control: bool, alt: bool, shift: bool) -> Option<&'static str> {
     if !control && !alt && !shift {
         if key == 0x7a { return Some("fullscreen"); }
         if key == 0x74 { return Some("reload"); }
@@ -20,14 +27,23 @@ fn shortcut(key: u32, control: bool, alt: bool, shift: bool) -> Option<&'static 
     if !control || alt { return None; }
     match (key, shift) {
         (0x41, true) => Some("searchTabs"),
+        (0x44, false) => Some("bookmark"),
         (0x46, false) => Some("find"),
+        (0x48, false) => Some("history"),
+        (0x4a, false) => Some("downloads"),
         (0x4c, false) => Some("address"),
         (0x52, false) => Some("reload"),
         (0x54, false) => Some("newTab"),
         (0x54, true) => Some("reopenTab"),
         (0x57, false) => Some("closeTab"),
+        (0x59, true) => Some("translateSelection"),
         (0x09, false) => Some("nextTab"),
         (0x09, true) => Some("previousTab"),
+        (0x31..=0x39, false) => NUMBERED_TAB_ACTIONS.get(usize::from(key - 0x31)).copied(),
+        (0x61..=0x69, false) => NUMBERED_TAB_ACTIONS.get(usize::from(key - 0x61)).copied(),
+        (key, _) if key == VK_OEM_PLUS.0 || key == VK_ADD.0 => Some("zoomIn"),
+        (key, false) if key == VK_OEM_MINUS.0 || key == VK_SUBTRACT.0 => Some("zoomOut"),
+        (key, false) if key == u16::from(b'0') || key == VK_NUMPAD0.0 => Some("zoomReset"),
         _ => None,
     }
 }
@@ -52,6 +68,9 @@ pub fn install(
                 }
                 let mut key = 0;
                 args.VirtualKey(&mut key)?;
+                let Ok(key) = u16::try_from(key) else {
+                    return Ok(());
+                };
                 let Some(action) = shortcut(
                     key,
                     GetKeyState(VK_CONTROL.0 as i32) < 0,
@@ -113,5 +132,37 @@ mod tests {
             assert_eq!(shortcut(key, true, true, shift), None);
         }
         assert_eq!(shortcut(0x57, true, false, true), None);
+        assert_eq!(shortcut(0x59, true, false, true), Some("translateSelection"));
+        assert_eq!(shortcut(0x59, true, false, false), None);
+        assert_eq!(shortcut(0x59, true, true, true), None);
+        for (index, action) in NUMBERED_TAB_ACTIONS.into_iter().enumerate() {
+            for base in [0x31, 0x61] {
+                let key = base + index as u16;
+                assert_eq!(shortcut(key, true, false, false), Some(action));
+                assert_eq!(shortcut(key, false, false, false), None);
+                assert_eq!(shortcut(key, true, true, false), None);
+                assert_eq!(shortcut(key, true, false, true), None);
+            }
+        }
+        for (key, action) in [
+            (VK_OEM_PLUS.0, "zoomIn"),
+            (VK_ADD.0, "zoomIn"),
+            (VK_OEM_MINUS.0, "zoomOut"),
+            (VK_SUBTRACT.0, "zoomOut"),
+            (u16::from(b'0'), "zoomReset"),
+            (VK_NUMPAD0.0, "zoomReset"),
+        ] {
+            assert_eq!(shortcut(key, true, false, false), Some(action));
+            assert_eq!(shortcut(key, false, false, false), None);
+            assert_eq!(shortcut(key, true, true, false), None);
+        }
+        assert_eq!(shortcut(VK_OEM_PLUS.0, true, false, true), Some("zoomIn"));
+        assert_eq!(shortcut(VK_OEM_MINUS.0, true, false, true), None);
+        for (key, action) in [(0x44, "bookmark"), (0x48, "history"), (0x4a, "downloads")] {
+            assert_eq!(shortcut(key, true, false, false), Some(action));
+            assert_eq!(shortcut(key, false, false, false), None);
+            assert_eq!(shortcut(key, true, true, false), None);
+            assert_eq!(shortcut(key, true, false, true), None);
+        }
     }
 }

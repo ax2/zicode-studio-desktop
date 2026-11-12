@@ -49,15 +49,29 @@ fn emit_visit(
             url,
             title: take_pwstr(title).chars().take(512).collect(),
             same_document,
+            transient: false,
         });
     }
     Ok(())
 }
 
+#[derive(Default)]
+pub(super) struct NavigationState {
+    pending: Rc<Cell<Option<u64>>>,
+    loaded: Rc<Cell<bool>>,
+}
+
+impl NavigationState {
+    pub(super) fn ready(&self) -> bool {
+        self.pending.get().is_none() && self.loaded.get()
+    }
+}
+
 /// Deny privileged site capabilities until a per-site grant UI exists. This is
 /// not a browser extension host; no host objects or web-message bridge exist.
-pub fn install(
+pub(super) fn install(
     view: &wry::WebView,
+    navigation: &NavigationState,
     policy: BrowserPolicy,
     download_staging: &std::path::Path,
     tab: String,
@@ -95,7 +109,7 @@ pub fn install(
             &mut token,
         )?;
         // WebView2 can start a replacement before the previous navigation completes.
-        let current_navigation = Rc::new(Cell::new(None));
+        let current_navigation = navigation.pending.clone();
         let started_navigation = current_navigation.clone();
         let started_emit = emit.clone();
         let started_tab = tab.clone();
@@ -117,7 +131,7 @@ pub fn install(
             })),
             &mut token,
         )?;
-        let has_document = Rc::new(Cell::new(false));
+        let has_document = navigation.loaded.clone();
         let route_document = has_document.clone();
         let route_navigation = current_navigation.clone();
         let route_emit = emit.clone();
@@ -185,7 +199,15 @@ pub fn install(
             })),
             &mut token,
         )?;
+    }
+    Ok(())
+}
+
+pub fn install_resources(view: &wry::WebView, policy: BrowserPolicy) -> windows::core::Result<()> {
+    unsafe {
+        let native = view.webview();
         let environment = view.environment();
+        let mut token = 0;
         // Include frame and worker requests on runtimes which implement v22.
         if let Ok(all_sources) = native.cast::<ICoreWebView2_22>() {
             all_sources.AddWebResourceRequestedFilterWithRequestSourceKinds(
