@@ -92,7 +92,7 @@ bun run fetch:pi
 
 ### 发布
 
-正式发布使用 `bun run release VERSION`。发布脚本在干净的发布工作树校验版本并推送标签。[GitHub Actions 发布流程](.github/workflows/release.yml)构建 Windows、两种 macOS 架构和 Linux 安装包，核对五个产物后发布 Release。
+正式发布使用 `bun run release VERSION`。发布脚本在干净的发布工作树校验版本并推送标签。[GitHub Actions 发布流程](.github/workflows/release.yml)默认只构建并核对 Windows 安装包后发布 Release。仅在用户明确要求时手动选择 `all`，才构建 macOS 和 Linux；开发平台 CI 同样默认只检查 Windows。
 
 ## 文档与许可
 
