@@ -73,6 +73,13 @@ Docs ship inside the embedded pi runtime at `src-tauri/resources/pi/docs/` (popu
 
 ---
 
+
+## Default build scope (user policy, 2026-11-12)
+
+- Build and release Windows only by default. Do not start Linux or macOS application builds unless the user explicitly requests those platforms.
+- This applies to local builds, release matrices and developer-platform CI. A manual `all` selection is opt-in, not the default.
+- The already-running v0.5.7 release (run 43139112812) is explicitly allowed to finish all platforms. Do not cancel, restart or alter it to apply this rule retroactively.
+
 # Agent working notes
 
 Conventions for any coding agent working in this directory.
