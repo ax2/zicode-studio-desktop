@@ -27,6 +27,13 @@ foreach ($folder in @('public', 'extensions', 'pi', 'portable-git', 'bun', 'webv
         Copy-Item -LiteralPath $resource -Destination (Join-Path $candidate $folder) -Recurse
     }
 }
+# Portable Git rewrites config after installation, so it cannot always be
+# reused from an older installed release even when the runtime version matches.
+$gitSource = Join-Path $runtime 'portable-git'
+$gitCandidate = Join-Path $candidate 'portable-git'
+New-Item -ItemType Directory -Path $gitCandidate | Out-Null
+Copy-Item -LiteralPath (Join-Path $gitSource 'etc') -Destination (Join-Path $gitCandidate 'etc') -Recurse
+Get-ChildItem -LiteralPath $gitSource -File | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $gitCandidate }
 Copy-Item -LiteralPath $entries[0].FullName -Destination $candidate
 $inventory = @($files | Sort-Object FullName | ForEach-Object {
     @{ path = [IO.Path]::GetRelativePath($runtime, $_.FullName).Replace('\', '/');
