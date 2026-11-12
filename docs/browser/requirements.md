@@ -107,3 +107,8 @@ See [report](../iterations/2026-11-05-browser-native-feasibility.md) and ADR 000
 ## Release preparation — v0.5.4
 
 The previously retained note-move regression is corrected in the release branch: attachments are staged without overwriting a destination, the original note remains intact until publication succeeds, and stale versions/attachment collisions are rejected. Historical failure reports remain unchanged. Downloads under development are excluded from this release; the accepted overlay/menu/browser boundary remains the release baseline. Full browser P0–P6 and cloud-sync delivery are still open.
+
+
+## Download action focus — 2026-11-12
+
+[Windows download focus acceptance](../iterations/2026-11-12-browser-download-focus.md) verifies keyboard focus across changing row actions at 1,000 and 422 CSS px. Controlled rendered-state transitions and real Host cancellation/removal passed, with original tabs, notes, bookmarks and unsent webpage input preserved. All 187 browser tests and frontend checks passed. This is a frontend-only development change; no application installer was run.

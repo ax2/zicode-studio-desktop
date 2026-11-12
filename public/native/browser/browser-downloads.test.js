@@ -219,3 +219,48 @@ it("clears recovered polling failures without erasing an unsuccessful user actio
   getByRole(dialog, "button", { name: t("Save to Downloads") }).click(); await tick();
   expect(status.textContent).toBe("");
 });
+
+it("moves focus from a hidden download action to the next available action", async () => {
+  let state = "waiting";
+  const invoke = async (_, { request }) => {
+    if (request.kind === "downloadSave") state = "downloading";
+    if (request.kind === "downloadCancel") state = "cancelled";
+    return page([item("focus", state)]);
+  };
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const save = getByRole(dialog, "button", { name: t("Save to Downloads") });
+  save.focus(); save.click(); await tick();
+  expect(document.activeElement).toBe(getByRole(dialog, "button", { name: t("Pause download") }));
+  const cancel = getByRole(dialog, "button", { name: t("Cancel download") });
+  cancel.focus(); cancel.click(); await tick();
+  expect(document.activeElement).toBe(getByRole(dialog, "button", { name: t("Remove from list") }));
+});
+
+it("moves focus when polling completes a download but leaves unrelated focus alone", async () => {
+  let state = "downloading";
+  const invoke = async () => page([{ ...item("focus", state), path: "C:\\Downloads\\focus.txt" }]);
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  getByRole(dialog, "button", { name: t("Cancel download") }).focus();
+  state = "completed"; await vi.advanceTimersByTimeAsync(500);
+  expect(document.activeElement).toBe(getByRole(dialog, "button", { name: t("Show in File Explorer") }));
+  const search = getByRole(dialog, "searchbox"); search.focus();
+  state = "failed"; await vi.advanceTimersByTimeAsync(500);
+  expect(document.activeElement).toBe(search);
+});
+
+it("restores a blurred action after failure without overriding a deliberate focus change", async () => {
+  let finish;
+  const invoke = async (_, { request }) => {
+    if (request.kind === "downloadChoose") return new Promise((_, reject) => { finish = () => reject(Error("Location unavailable")); });
+    return page([item("focus")]);
+  };
+  const dialog = showBrowserDownloads({ invoke }); await tick();
+  const choose = getByRole(dialog, "button", { name: t("Choose save location") });
+  choose.focus(); choose.click(); choose.blur();
+  finish(); await tick();
+  expect(document.activeElement).toBe(choose);
+  choose.click();
+  const search = getByRole(dialog, "searchbox"); search.focus();
+  finish(); await tick();
+  expect(document.activeElement).toBe(search);
+});

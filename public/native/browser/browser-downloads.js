@@ -28,8 +28,17 @@ export function showBrowserDownloads({ invoke, onClose }) {
     const node = el("button", "ui-button ui-button--secondary", t(label)); node.type = "button";
     node.addEventListener("click", () => void action()); return node;
   };
+  const available = control => control?.isConnected && !control.matches(":disabled") && !control.closest("[hidden]");
+  const mayRestore = control => [control, dialog, document.body].includes(document.activeElement);
+  function restoreRowFocus(control) {
+    const row = control?.closest("[data-download-id]");
+    if (!row) return;
+    const next = available(control) ? control : dialog.contains(row) && [...row.querySelectorAll("button")].find(available);
+    (next || close).focus({ preventScroll: true });
+  }
   async function action(kind, id) {
     if (closed || acting) return;
+    const focused = rows.get(id)?.element.contains(document.activeElement) ? document.activeElement : null;
     acting = id; generation++; actionError = ""; updateMessage(); render();
     try {
       await request({ kind, id });
@@ -40,7 +49,13 @@ export function showBrowserDownloads({ invoke, onClose }) {
       }
     }
     catch (error) { if (!closed) { actionError = t(String(error?.message ?? error)); updateMessage(); } }
-    finally { acting = null; if (!closed) { render(); await load(); } }
+    finally {
+      acting = null;
+      if (!closed) {
+        render(); await load();
+        if (!closed && focused && mayRestore(focused)) restoreRowFocus(focused);
+      }
+    }
   }
   function createRow(id) {
     const element = el("div", "browser-downloads-row"); element.dataset.downloadId = id; element.setAttribute("role", "listitem");
@@ -93,7 +108,8 @@ export function showBrowserDownloads({ invoke, onClose }) {
       row.tools.hidden = row.cancel.hidden && row.reveal.hidden && row.remove.hidden;
       for (const control of [row.save, row.choose, row.pause, row.cancel, row.reveal, row.remove]) control.disabled = !!acting;
     }
-    if (list.contains(focused) && document.activeElement !== focused) focused.focus({ preventScroll: true });
+    if (!acting && list.contains(focused) && mayRestore(focused) &&
+        (!available(focused) || document.activeElement !== focused)) restoreRowFocus(focused);
     more.hidden = nextBefore === null; more.disabled = loading;
   }
   async function load(before = null) {
