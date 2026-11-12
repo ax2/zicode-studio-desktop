@@ -1,3 +1,9 @@
+// Shared subprocess defaults also apply to the standalone acceptance runner.
+#[cfg(all(windows, debug_assertions))]
+#[allow(dead_code)]
+#[path = "../process_command.rs"]
+mod process_command;
+
 #[cfg(all(windows, debug_assertions))]
 #[path = "../visual_assets/probe.rs"]
 mod probe;

@@ -105,7 +105,7 @@ pub(super) fn decode_static(bytes: &[u8]) -> Result<image::DynamicImage> {
 }
 
 pub fn generate(input: &Path, output: &Path) -> Result<()> {
-    let mut command = Command::new(env::current_exe()?);
+    let mut command = crate::process_command::new_command(env::current_exe()?);
     command
         .arg("--zicode-visual-assets-worker")
         .arg(input)

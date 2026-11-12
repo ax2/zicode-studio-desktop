@@ -445,7 +445,7 @@ fn real_process_exit_never_leaves_a_draft_without_its_model_source() {
             NotesVault::new(f.root.join("child-placeholder/plugins")).unwrap(),
         );
         drop(original_notes);
-        let output = std::process::Command::new(std::env::current_exe().unwrap())
+        let output = crate::process_command::new_command(std::env::current_exe().unwrap())
             .args(["--exact","visual_assets::novel_draft_commands::model_commands::adoption::tests::archive_crash_child","--nocapture"])
             .env("ZICODE_MODEL_ARCHIVE_CRASH_ROOT",&f.root).creation_flags(0x08000000).output().unwrap();
         assert_eq!(

@@ -1,6 +1,6 @@
 use super::*;
 use crate::visual_assets::catalog;
-use std::{os::windows::process::CommandExt, process::Command};
+use std::os::windows::process::CommandExt;
 
 const CHILD: &str =
     "visual_assets::novel_draft_commands::watch::store::crash_tests::watch_crash_child";
@@ -83,7 +83,7 @@ fn recovers_real_process_exits_before_and_after_checkpoint_commit() {
         .lease(&store.get(&scope).unwrap().unwrap().id)
         .unwrap()
         .unwrap();
-    let busy = Command::new(std::env::current_exe().unwrap())
+    let busy = crate::process_command::new_command(std::env::current_exe().unwrap())
         .creation_flags(0x08000000)
         .args(["--exact", CHILD, "--nocapture"])
         .env("ZICODE_WATCH_CRASH_ROOT", &root)
@@ -93,7 +93,7 @@ fn recovers_real_process_exits_before_and_after_checkpoint_commit() {
     assert_eq!(busy.status.code(), Some(88));
     drop(held);
     for (phase, code, count) in [("before", 86, 0), ("after", 87, 20)] {
-        let output = Command::new(std::env::current_exe().unwrap())
+        let output = crate::process_command::new_command(std::env::current_exe().unwrap())
             .creation_flags(0x08000000)
             .args(["--exact", CHILD, "--nocapture"])
             .env("ZICODE_WATCH_CRASH_ROOT", &root)

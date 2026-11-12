@@ -11414,7 +11414,7 @@ dependencies = [
 
 [[package]]
 name = "zicode-studio-desktop"
-version = "0.5.8"
+version = "0.5.9"
 dependencies = [
  "axum",
  "axum-server",

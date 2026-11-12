@@ -12,7 +12,6 @@ use std::{
     env, fs,
     os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
-    process::Command,
     time::Duration,
 };
 use windows_sys::Win32::Storage::FileSystem::MoveFileW;
@@ -271,7 +270,7 @@ impl Stage {
         output: animation::Output,
         checkpoint: &impl Fn() -> Result<()>,
     ) -> Result<()> {
-        let mut command = Command::new(env::current_exe()?);
+        let mut command = crate::process_command::new_command(env::current_exe()?);
         command.arg(mode).arg(&self.path);
         command.args(match output {
             animation::Output::Export => None,

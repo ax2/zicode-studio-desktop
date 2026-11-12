@@ -4,7 +4,7 @@ ZiCode Studio Desktop 是一款面向 Windows、macOS 和 Linux 的本地优先�
 
 ## 下载与安装
 
-在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载对应系统的安装包。[v0.5.8 发布说明](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.8)包含视觉资产中心入口和浏览器下载状态、键盘操作改进。本版只提供 Windows x64 安装包；macOS 和 Linux 用户可继续使用此前版本。
+在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载对应系统的安装包。[v0.5.9 发布说明](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.9)包含视觉资产中心入口和浏览器下载状态、键盘操作改进。本版只提供 Windows x64 安装包；macOS 和 Linux 用户可继续使用此前版本。
 
 | 平台 | 安装包 | 运行环境 |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ ZiCode Studio Desktop 是一款面向 Windows、macOS 和 Linux 的本地优先�
 | 使用方式 | 内嵌 Pi |
 | --- | --- |
 | 从当前源码构建 | [Pi 1.5.2](https://github.com/earendil-works/pi/releases/tag/v1.5.2)（[源码版本锁](scripts/pi-version.json)） |
-| 安装 GitHub Release 的 Studio v0.5.8 | Pi 1.5.2（[发布标签版本锁](https://github.com/ax2/zicode-studio-desktop/blob/v0.5.8/scripts/pi-version.json)） |
+| 安装 GitHub Release 的 Studio v0.5.9 | Pi 1.5.2（[发布标签版本锁](https://github.com/ax2/zicode-studio-desktop/blob/v0.5.9/scripts/pi-version.json)） |
 
 ## 开始使用
 

@@ -5,7 +5,7 @@ use std::{
     io::{self, Read, Write},
     os::windows::{fs::MetadataExt, io::OwnedHandle},
     path::Path,
-    process::{Child, Command, Stdio},
+    process::{Child, Stdio},
     sync::mpsc::{self, Receiver, SyncSender},
     thread::{self, JoinHandle},
 };
@@ -64,7 +64,7 @@ struct Worker {
 
 impl Worker {
     fn start(stage: &Path) -> Result<Self> {
-        let mut command = Command::new(env::current_exe()?);
+        let mut command = crate::process_command::new_command(env::current_exe()?);
         command
             .arg("--zicode-visual-assets-restore-worker")
             .arg(stage)
