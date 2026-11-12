@@ -37,6 +37,10 @@ jobs:
       ZICODE_CI_EXPECTED_ARCH: ${{ matrix.architecture }}
       ZICODE_CI_EXPECTED_RUST_TARGET: ${{ matrix.rust_target }}
     steps:
+      - name: Enable long paths for Windows checkout
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
