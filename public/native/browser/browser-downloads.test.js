@@ -264,3 +264,46 @@ it("restores a blurred action after failure without overriding a deliberate focu
   finish(); await tick();
   expect(document.activeElement).toBe(search);
 });
+
+it("keeps an older active row current when it leaves the first history page", async () => {
+  let emit = () => {}, finish, reads = 0;
+  const unsubscribe = vi.fn();
+  const invoke = async () => {
+    reads++;
+    if (reads === 2) return new Promise(resolve => { finish = resolve; });
+    return page([item("new", "completed"), item("older", "downloading", 40)]);
+  };
+  const dialog = showBrowserDownloads({ invoke, subscribe: listener => { emit = listener; return unsubscribe; } });
+  await tick();
+  const row = dialog.querySelector('[data-download-id="older"]');
+  getByRole(row, "button", { name: t("Cancel download") }).focus();
+  await vi.advanceTimersByTimeAsync(500);
+  emit(item("older", "cancelled", 40));
+  expect(row.textContent).toContain(t("Download cancelled"));
+  expect(document.activeElement).toBe(getByRole(row, "button", { name: t("Remove from list") }));
+  finish(page([item("new", "completed")])); await tick();
+  expect(dialog.querySelector('[data-download-id="older"]')).toBe(row);
+  expect(row.textContent).toContain(t("Download cancelled"));
+  dialog.close(); expect(unsubscribe).toHaveBeenCalledOnce();
+  emit(item("older", "downloading", 90));
+  expect(row.textContent).toContain(t("Download cancelled"));
+});
+
+it("does not regress a live update with an older list response or reinsert removed rows", async () => {
+  let emit = () => {}, finish, reads = 0;
+  const invoke = async (_, { request }) => {
+    if (request.kind === "downloadRemove") return null;
+    reads++;
+    if (reads === 2) return new Promise(resolve => { finish = resolve; });
+    return page(reads === 1 ? [item("one", "downloading", 10)] : []);
+  };
+  const dialog = showBrowserDownloads({ invoke, subscribe: listener => { emit = listener; } }); await tick();
+  await vi.advanceTimersByTimeAsync(500);
+  emit(item("one", "completed", 100));
+  finish(page([item("one", "downloading", 20)])); await tick();
+  expect(dialog.textContent).toContain(t("Download complete"));
+  getByRole(dialog, "button", { name: t("Remove from list") }).click(); await tick();
+  emit(item("one", "completed", 100));
+  emit(item("outside-query", "waiting"));
+  expect(dialog.querySelectorAll('[role="listitem"]')).toHaveLength(0);
+});

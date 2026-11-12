@@ -48,6 +48,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   const creatingPopups = new Map();
   const navigationStates = new Map();
   const waitingDownloads = new Set();
+  const downloadObservers = new Set();
   const pageVersions = new Map();
   const control = request => invoke("browser_control", { request });
   const surface = createBrowserSurface(control);
@@ -441,6 +442,7 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
       if (payload.kind === "downloadHistoryFailed") { report(t("Could not save download history")); return; }
       if (payload.kind === "downloadChanged") {
         const download = payload.download;
+        for (const observer of downloadObservers) observer(download);
         const reminder = t("A download is waiting. Open Downloads to choose where to save it.");
         if (download.state === "waiting") {
           waitingDownloads.add(download.id); report(reminder);
@@ -732,7 +734,9 @@ export function setupBrowserApp({ invoke = globalThis.__TAURI__?.core?.invoke,
   async function openDownloads(returnToPage) {
     if (document.querySelector(".browser-downloads-dialog")) return;
     await hide(true);
-    showBrowserDownloads({ invoke, onClose: () => restorePanelPage(returnToPage) });
+    showBrowserDownloads({ invoke, onClose: () => restorePanelPage(returnToPage),
+      subscribe: observer => { downloadObservers.add(observer); return () => downloadObservers.delete(observer); },
+    });
   }
   async function openHistory(returnToPage) {
     await hide(true);

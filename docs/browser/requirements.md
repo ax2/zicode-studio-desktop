@@ -112,3 +112,8 @@ The previously retained note-move regression is corrected in the release branch:
 ## Download action focus — 2026-11-12
 
 [Windows download focus acceptance](../iterations/2026-11-12-browser-download-focus.md) verifies keyboard focus across changing row actions at 1,000 and 422 CSS px. Controlled rendered-state transitions and real Host cancellation/removal passed, with original tabs, notes, bookmarks and unsent webpage input preserved. All 187 browser tests and frontend checks passed. This is a frontend-only development change; no application installer was run.
+
+
+## Live download updates beyond the first history page — 2026-11-12
+
+[Windows terminal-event acceptance](../iterations/2026-11-12-browser-download-live-updates.md) verifies that an older active row still updates after it becomes terminal outside the latest 100 history records. Real Host cancellation and row removal passed at 1,000 and 422 CSS px. Original download history, tabs, notes, bookmarks and unsent page input matched after fixture cleanup; all 189 browser tests passed. This reuses existing native events and the existing Windows executable.

@@ -8,10 +8,10 @@ export function downloadSize(bytes) {
   const unit = bytes < 1024 ** 2 ? 1024 : bytes < 1024 ** 3 ? 1024 ** 2 : 1024 ** 3;
   return `${(bytes / unit).toFixed(1)} ${unit === 1024 ? "KB" : unit === 1024 ** 2 ? "MB" : "GB"}`;
 }
-export function showBrowserDownloads({ invoke, onClose }) {
+export function showBrowserDownloads({ invoke, onClose, subscribe }) {
   let closed = false, loading = false, generation = 0, timer, nextBefore = null, acting = null;
   let records = new Map(), loadedOlder = false, query = "";
-  const rows = new Map();
+  const rows = new Map(), liveUpdates = new Map();
   const el = (tag, className = "", text) => {
     const node = document.createElement(tag); node.className = className;
     if (text !== undefined) node.textContent = text; return node;
@@ -116,20 +116,22 @@ export function showBrowserDownloads({ invoke, onClose }) {
     if (closed || loading || acting) return;
     clearTimeout(timer); loading = true; more.disabled = true;
     const version = generation, requestedQuery = query;
+    liveUpdates.clear();
     try {
       const page = await request({ kind: "downloads", before, ...(requestedQuery ? { query: requestedQuery } : {}) });
       if (closed || version !== generation) return;
       loadError = ""; updateMessage();
+      const entries = page.entries.map(record => liveUpdates.get(record.id) ?? record);
       directory.textContent = `${t("Default download location")}: ${page.directory}`;
       if (before === null) {
         // The first page is authoritative for current ordering. Keep any
         // already-loaded history after it, without replacing their row nodes.
-        const current = new Map(page.entries.map(record => [record.id, record]));
+        const current = new Map(entries.map(record => [record.id, record]));
         for (const [id, record] of records) if (!current.has(id)) current.set(id, record);
         records = current;
         if (!loadedOlder) nextBefore = page.nextBefore;
       } else {
-        for (const record of page.entries) records.set(record.id, record);
+        for (const record of entries) records.set(record.id, record);
         loadedOlder = true;
         nextBefore = page.nextBefore;
       }
@@ -171,7 +173,16 @@ export function showBrowserDownloads({ invoke, onClose }) {
   const more = button("Show older downloads", () => load(nextBefore)); more.hidden = true;
   const close = button("Close", () => dialog.close());
   dialog.append(el("h2", "", t("Downloads")), directory, form, list, more, message, close);
-  dialog.addEventListener("close", () => { closed = true; generation++; clearTimeout(timer); dialog.remove(); onClose?.(); }, { once: true });
+  const unsubscribe = subscribe?.(download => {
+    // Existing native events keep loaded rows current even after a completed
+    // download falls outside the first history page. Never revive removed rows
+    // or insert records outside the current search through this update path.
+    if (closed || !records.has(download.id)) return;
+    records.set(download.id, download);
+    if (loading) liveUpdates.set(download.id, download);
+    render();
+  });
+  dialog.addEventListener("close", () => { closed = true; unsubscribe?.(); generation++; clearTimeout(timer); dialog.remove(); onClose?.(); }, { once: true });
   document.body.append(dialog);
   dialog.showModal();
   search.focus({ preventScroll: true });
