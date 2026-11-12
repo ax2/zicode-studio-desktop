@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { verifyDevtoolsPackage } from "./verify-devtools-package.mjs";
 import {
   aggregateStatus,
   CHECKS,
@@ -172,12 +173,14 @@ describe("developer platform evidence", () => {
     expect(CHECKS.indexOf(jsonHost)).toBeLessThan(CHECKS.indexOf(jsonPi));
     expect(jsonHost.environment({ cwd: "/checkout", directory: "/evidence", env: {} })).toEqual({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath("/checkout"),
-      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-json-object-candidate06"),
-      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-json-object-candidate06.verification.json"),
+      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_HOST_RECEIPT: join("/evidence", "devtools-json-host-receipt.json"),
     });
     expect(jsonPi.environment({ cwd: "/checkout", directory: "/evidence", env: {} })).toEqual({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath("/checkout"),
+      ZICODE_TEST_JSON_DIR: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join("/checkout", "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_PI_RECEIPT: join("/evidence", "devtools-json-pi-receipt.json"),
       ZICODE_TEST_PREPARED_RESOURCES: "1",
     });
@@ -281,6 +284,22 @@ describe("developer platform evidence", () => {
     }
   });
 
+  it("binds both JSON runtime checks to a fully verified frozen provider receipt", async () => {
+    const steps = CHECKS.filter((step) => ["devtools-json-host-worker", "devtools-json-pi-worker"].includes(step.id));
+    const environments = steps.map((step) => step.environment({ cwd: process.cwd(), directory: "/evidence", env: {} }));
+    expect(environments[1].ZICODE_TEST_JSON_DIR).toBe(environments[0].ZICODE_TEST_JSON_DIR);
+    expect(environments[1].ZICODE_TEST_JSON_RECEIPT).toBe(environments[0].ZICODE_TEST_JSON_RECEIPT);
+    const verified = await verifyDevtoolsPackage(environments[0].ZICODE_TEST_JSON_DIR, environments[0].ZICODE_TEST_JSON_RECEIPT);
+    expect(verified).toMatchObject({
+      verified: true, fileCount: 43,
+      indexSha256: "757c53ddf8b0e0ef0c4dc2c66d466682fe5920c8bbed7e42d7b0c15c037beb9a",
+      directoryIndex: { status: "matched" },
+      signatureVerified: false,
+    });
+    const legacy = await verifyDevtoolsPackage("tests/fixtures/devtools-json-object-candidate06", "tests/fixtures/devtools-json-object-candidate06.verification.json");
+    expect(legacy.directoryIndex.status).toBe("encoding-unverified");
+  });
+
   it("requires exact frozen JSON Host and Pi receipts", () => {
     const directory = mkdtempSync(join(tmpdir(), "zicode-json-ci-receipt-"));
     try {
@@ -288,13 +307,13 @@ describe("developer platform evidence", () => {
         passed: true,
         mechanismPassed: true,
         candidateFamily: "json-object",
-        candidateIndexSha256: "51599cd787f007e4fbd4b6eeed8d669fa6ef1fef7598a2c3713752db4695ffe7",
+        candidateIndexSha256: "757c53ddf8b0e0ef0c4dc2c66d466682fe5920c8bbed7e42d7b0c15c037beb9a",
         fullCandidateAccepted: false,
         workerSha256: "a".repeat(64),
       };
       const cases = [
         ["devtools-json-host-worker", {
-          fileCount: 37, sourceAndReceiverExecuted: true,
+          fileCount: 43, sourceAndReceiverExecuted: true,
           unconfirmedRejected: true, jsonSaved: true,
         }, { sourceAndReceiverExecuted: false }],
         ["devtools-json-pi-worker", {

@@ -293,8 +293,8 @@ export const CHECKS = [
     validateReceipt: (receipt) =>
       receipt.mechanismPassed === true &&
       receipt.candidateFamily === "json-object" &&
-      receipt.candidateIndexSha256 === "51599cd787f007e4fbd4b6eeed8d669fa6ef1fef7598a2c3713752db4695ffe7" &&
-      receipt.fileCount === 37 &&
+      receipt.candidateIndexSha256 === "757c53ddf8b0e0ef0c4dc2c66d466682fe5920c8bbed7e42d7b0c15c037beb9a" &&
+      receipt.fileCount === 43 &&
       receipt.sourceAndReceiverExecuted === true &&
       receipt.unconfirmedRejected === true &&
       receipt.jsonSaved === true &&
@@ -305,8 +305,8 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
-      ZICODE_TEST_JSON_DIR: join(cwd, "tests/fixtures/devtools-json-object-candidate06"),
-      ZICODE_TEST_JSON_RECEIPT: join(cwd, "tests/fixtures/devtools-json-object-candidate06.verification.json"),
+      ZICODE_TEST_JSON_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_HOST_RECEIPT: join(directory, "devtools-json-host-receipt.json"),
     }),
   },
@@ -318,7 +318,7 @@ export const CHECKS = [
       receipt.mechanismPassed === true &&
       receipt.preparedResources === true &&
       receipt.candidateFamily === "json-object" &&
-      receipt.candidateIndexSha256 === "51599cd787f007e4fbd4b6eeed8d669fa6ef1fef7598a2c3713752db4695ffe7" &&
+      receipt.candidateIndexSha256 === "757c53ddf8b0e0ef0c4dc2c66d466682fe5920c8bbed7e42d7b0c15c037beb9a" &&
       receipt.capabilityCount === 2 &&
       receipt.piToolCount === 1 &&
       receipt.phaseCount === 2 &&
@@ -332,6 +332,8 @@ export const CHECKS = [
       "--", "--ignored", "--exact", "--nocapture"],
     environment: ({ cwd, directory, env }) => ({
       ZICODE_TEST_WORKER_EXE: workerBinaryPath(cwd, process.platform, env.CARGO_BUILD_TARGET, env.CARGO_TARGET_DIR),
+      ZICODE_TEST_JSON_DIR: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03"),
+      ZICODE_TEST_JSON_RECEIPT: join(cwd, "tests/fixtures/devtools-catalog-2026-10-18-9c17b7b91e84f1c7-package-bundle/release/plugin-candidates/json-object-0.1.1-candidate-03-verification.json"),
       ZICODE_TEST_JSON_PI_RECEIPT: join(directory, "devtools-json-pi-receipt.json"),
       ZICODE_TEST_PREPARED_RESOURCES: "1",
     }),
