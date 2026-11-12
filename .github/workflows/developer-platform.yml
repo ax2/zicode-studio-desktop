@@ -5,6 +5,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Windows by default; all requires explicit user request
+        required: true
+        default: windows
+        type: choice
+        options:
+          - windows
+          - all
 
 permissions:
   contents: read
@@ -22,23 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-2022
-            platform: win32
-            architecture: x64
-            rust_target: x86_64-pc-windows-msvc
-          - os: macos-15
-            platform: darwin
-            architecture: arm64
-            rust_target: aarch64-apple-darwin
-          - os: macos-15-intel
-            platform: darwin
-            architecture: x64
-            rust_target: x86_64-apple-darwin
-          - os: ubuntu-22.04
-            platform: linux
-            architecture: x64
-            rust_target: x86_64-unknown-linux-gnu
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.platform == 'all' && '[{"os":"windows-2022","platform":"win32","architecture":"x64","rust_target":"x86_64-pc-windows-msvc"},{"os":"macos-15","platform":"darwin","architecture":"arm64","rust_target":"aarch64-apple-darwin"},{"os":"macos-15-intel","platform":"darwin","architecture":"x64","rust_target":"x86_64-apple-darwin"},{"os":"ubuntu-22.04","platform":"linux","architecture":"x64","rust_target":"x86_64-unknown-linux-gnu"}]' || '[{"os":"windows-2022","platform":"win32","architecture":"x64","rust_target":"x86_64-pc-windows-msvc"}]') }}
     env:
       ZICODE_CI_EXPECTED_PLATFORM: ${{ matrix.platform }}
       ZICODE_CI_EXPECTED_ARCH: ${{ matrix.architecture }}

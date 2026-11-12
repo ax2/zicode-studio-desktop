@@ -4,13 +4,17 @@ import { describe, expect, it } from "vitest";
 import { releaseBuildMatrix } from "./release-build-matrix.mjs";
 
 describe("explicit release build scope", () => {
-  it("keeps all four platforms as the default", () => {
-    expect(releaseBuildMatrix().include.map((entry) => entry.pi_target)).toEqual([
+  it("requires explicit opt-in for all four platforms", () => {
+    expect(releaseBuildMatrix("all").include.map((entry) => entry.pi_target)).toEqual([
       "windows-x64",
       "darwin-arm64",
       "darwin-x64",
       "linux-x64",
     ]);
+  });
+  it("defaults to Windows only", () => {
+    expect(releaseBuildMatrix().include.map(entry => entry.pi_target)).toEqual(["windows-x64"]);
+    expect(releaseBuildMatrix("windows")).toEqual(releaseBuildMatrix());
   });
   it("can rebuild only Intel while preserving all job gates", () => {
     expect(releaseBuildMatrix("macos-intel")).toEqual({
@@ -28,7 +32,7 @@ describe("explicit release build scope", () => {
       "utf8",
     );
     expect(workflow).toContain(
-      "if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all'",
+      "if: github.event_name != 'workflow_dispatch' || inputs.platform == 'windows' || inputs.platform == 'all'",
     );
     expect(workflow).toContain("fromJSON(needs.prepare-release.outputs.build_matrix)");
     expect(workflow).toContain("Verify uploaded platform bundles");

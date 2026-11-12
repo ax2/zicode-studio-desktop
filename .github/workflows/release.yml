@@ -11,11 +11,12 @@ on:
         required: true
         type: string
       platform:
-        description: Partial builds never publish; reuse only after full source and artifact verification
+        description: Windows by default; all requires explicit user request; Intel-only repair never publishes
         required: true
-        default: all
+        default: windows
         type: choice
         options:
+          - windows
           - all
           - macos-intel
 
@@ -61,7 +62,7 @@ jobs:
       - name: Select explicit build scope
         id: build-matrix
         env:
-          RELEASE_PLATFORM: ${{ inputs.platform || 'all' }}
+          RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
         run: bun "$RUNNER_TEMP/release-build-matrix.mjs"
 
       - name: Verify release repository
@@ -76,7 +77,7 @@ jobs:
             import { readFileSync } from "node:fs";
             const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
             if (config.bundle?.createUpdaterArtifacts !== false) {
-              throw new Error("Release inventory currently permits only five installers. Update the publish inventory and signature checks before enabling updater artifacts.");
+              throw new Error("Release inventory permits only installers for the selected platforms. Update the publish inventory and signature checks before enabling updater artifacts.");
             }
           '
 
@@ -100,6 +101,7 @@ jobs:
 
           Artifacts:
           - Windows x64 NSIS installer: embeds Pi, PortableGit (Git + Bash), and the WebView2 offline installer.
+          Optional platforms are built only when explicitly requested.
           - macOS Apple Silicon DMG: embeds Pi; uses the operating system's shell and Git tooling.
           - macOS Intel DMG: embeds Pi; uses the operating system's shell and Git tooling.
           - Linux x64 AppImage and Debian package: embed Pi; use the operating system's shell and Git tooling.
@@ -369,7 +371,7 @@ jobs:
         run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"
 
   publish-release:
-    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all'
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'windows' || inputs.platform == 'all'
     needs: [prepare-release, build]
     runs-on: ubuntu-22.04
     steps:
@@ -392,6 +394,7 @@ jobs:
 
       - name: Verify draft contains only the expected platform bundles
         env:
+          RELEASE_PLATFORM: ${{ inputs.platform || 'windows' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
@@ -402,8 +405,10 @@ jobs:
             exit 1
           fi
           mapfile -t ASSETS < <(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          if [[ "${#ASSETS[@]}" -ne 5 ]]; then
-            echo "::error::Expected exactly five installer assets in draft $RELEASE_TAG; found ${#ASSETS[@]}."
+          EXPECTED=1
+          if [[ "$RELEASE_PLATFORM" == all ]]; then EXPECTED=5; fi
+          if [[ "${#ASSETS[@]}" -ne "$EXPECTED" ]]; then
+            echo "::error::Expected exactly $EXPECTED installer assets in draft $RELEASE_TAG; found ${#ASSETS[@]}."
             exit 1
           fi
           EXE=0
@@ -421,7 +426,12 @@ jobs:
               *) echo "::error::Unexpected release asset: $ASSET"; exit 1 ;;
             esac
           done
-          if [[ "$EXE" -ne 1 || "$DMG_ARM64" -ne 1 || "$DMG_X64" -ne 1 || "$APPIMAGE" -ne 1 || "$DEB" -ne 1 ]]; then
+          if [[ "$RELEASE_PLATFORM" == windows ]]; then
+            if [[ "$EXE" -ne 1 || "$DMG_ARM64" -ne 0 || "$DMG_X64" -ne 0 || "$APPIMAGE" -ne 0 || "$DEB" -ne 0 ]]; then
+              echo "::error::Windows release requires exactly one Windows EXE and no other installers."
+              exit 1
+            fi
+          elif [[ "$EXE" -ne 1 || "$DMG_ARM64" -ne 1 || "$DMG_X64" -ne 1 || "$APPIMAGE" -ne 1 || "$DEB" -ne 1 ]]; then
             echo "::error::Draft must contain one Windows EXE, one macOS ARM64 DMG, one macOS x64 DMG, one Linux AppImage, and one Debian package."
             exit 1
           fi
