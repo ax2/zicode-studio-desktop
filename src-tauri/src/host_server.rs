@@ -38,6 +38,8 @@ mod manual_tool_calls;
 mod manual_tool_catalog;
 mod model_tools_http;
 mod notes_create;
+#[cfg(windows)]
+mod novel_notes;
 mod plugin_call_lifecycle;
 mod plugin_desktop_execution;
 mod plugin_resources;

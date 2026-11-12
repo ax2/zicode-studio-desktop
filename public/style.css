@@ -1,5 +1,6 @@
 @import "./native/browser/browser-downloads.css";
 @import "./native/workspace/window-chrome.css";
+@import url("./native/visual-assets/visual-assets.css");
 /* ═══════════════════════════════════════════════════════
    ZiCode Studio Desktop — Dark Glassmorphism
    ═══════════════════════════════════════════════════════ */

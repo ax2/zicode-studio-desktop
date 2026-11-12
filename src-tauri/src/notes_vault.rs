@@ -8,6 +8,8 @@ mod import_references;
 mod import_transaction;
 mod knowledge;
 mod references;
+#[cfg(windows)]
+mod chapter_page;
 mod trash_guard;
 mod trash_metadata;
 #[cfg_attr(not(test), allow(dead_code))] // Awaiting sync settings and credentials integration.
@@ -1529,7 +1531,7 @@ impl NotesVault {
         Ok(None)
     }
 
-    fn list_notebooks(&self) -> Result<Vec<NotebookDescriptor>, NotesError> {
+    pub(crate) fn list_notebooks(&self) -> Result<Vec<NotebookDescriptor>, NotesError> {
         let vaults = self.vaults_dir();
         fs::create_dir_all(&vaults)
             .map_err(|_| NotesError::new("storage_unavailable", "Notes storage is unavailable"))?;

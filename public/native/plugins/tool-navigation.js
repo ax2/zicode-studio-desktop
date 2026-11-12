@@ -4,7 +4,7 @@ import { toolCategoryName } from "./tool-category-title.js";
 export const TOOL_CENTER_ID = "core.tools";
 export const PRIMARY_ACTIVITY_IDS = Object.freeze([
   "com.zicode.browser",
-  "core.chat", "com.zicode.projects", "com.zicode.tasks", "com.zicode.notes",
+  "core.chat", "com.zicode.projects", "com.zicode.tasks", "com.zicode.notes", "com.zicode.visual-assets",
   TOOL_CENTER_ID, "com.zicode.automation",
 ]);
 
@@ -18,6 +18,7 @@ export function primaryActivities(plugins, isAvailable) {
 }
 
 const APPLICATION_CATEGORIES = {
+  "com.zicode.visual-assets": "Images and media",
   "com.zicode.projects": "Work and code", "com.zicode.tasks": "Work and code",
   "core.chat": "Work and code", "com.zicode.automation": "Work and code",
   "com.zicode.notes": "Knowledge and documents", "com.zicode.documents": "Knowledge and documents",

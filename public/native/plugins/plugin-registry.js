@@ -74,6 +74,7 @@ export const BUILTIN_APPLICATION_PLUGINS = Object.freeze([
       { id: "notes.captureUrl", label: "Capture URL", icon: "clip" },
     ],
   },
+  { id: "com.zicode.visual-assets", name: "Visual assets", description: "Your local visual library", icon: "imagetools", order: 125, core: true, enabledByDefault: true, sidebarViews: [], commands: [] },
   {
     id: "com.zicode.automation",
     name: "Automation",

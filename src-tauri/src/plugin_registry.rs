@@ -1980,6 +1980,7 @@ fn pi_tool_names(manifest: &PluginManifest) -> HashSet<String> {
 fn builtin_manifests() -> Vec<(Value, bool, bool)> {
     vec![
         (crate::browser::manifest(), true, false),
+        (crate::visual_assets::manifest(), true, true),
         (
             json!({
                 "schemaVersion": 1,

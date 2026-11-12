@@ -27,6 +27,21 @@ pub struct ModelEndpoint {
     url: reqwest::Url,
 }
 
+impl ModelEndpoint {
+    /// Binds a reviewed request to its complete destination, including a path
+    /// change on the same origin. No credential material participates.
+    #[cfg(any(windows, test))]
+    pub(crate) fn request_identity(&self) -> String {
+        let identity = json!({
+            "url": self.url.as_str(),
+            "provider": self.choice.provider,
+            "model": self.choice.model,
+            "requiresKey": self.choice.requires_key,
+        });
+        format!("{:x}", Sha256::digest(identity.to_string().as_bytes()))
+    }
+}
+
 fn document(root: &Path, scene: &str) -> Result<Value, String> {
     let digest = Sha256::digest(scene.as_bytes());
     let key: String = digest[..16]

@@ -2,6 +2,8 @@
 
 mod workspace_mode;
 mod app_paths;
+mod visual_assets;
+use visual_assets::visual_assets_control;
 mod browser;
 use browser::browser_control;
 use browser::bookmark_files::browser_bookmark_file;
@@ -2017,6 +2019,10 @@ fn setup_native_runtime(app: &mut tauri::App, static_dir: PathBuf) -> Result<(),
 }
 
 fn main() {
+    #[cfg(windows)]
+    if visual_assets::is_worker_argument(std::env::args().nth(1).as_deref()) {
+        std::process::exit(visual_assets::run_worker());
+    }
     if std::env::args().nth(1).as_deref() == Some("--zicode-plugin-worker") {
         std::process::exit(plugin_worker::run_stdio());
     }
@@ -2082,6 +2088,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
+            visual_assets_control,
             open_desktop_tool_center,
             set_desktop_tray_locale,
             set_desktop_tool_shortcuts,

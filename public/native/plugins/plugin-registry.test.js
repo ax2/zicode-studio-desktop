@@ -25,6 +25,7 @@ describe("BuiltinPluginRegistry", () => {
       "core.chat",
       "com.zicode.tasks",
       "com.zicode.notes",
+      "com.zicode.visual-assets",
       "com.zicode.automation",
       "com.zicode.finance",
       "com.zicode.graph",

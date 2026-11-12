@@ -89,3 +89,10 @@ it("pins verifier infrastructure separately and preserves it before checking out
     'run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"',
   );
 });
+
+it("keeps tag builds as drafts until candidate acceptance permits publication", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  expect(workflow).toMatch(/publish:\n\s+description:[^\n]+\n\s+required: true\n\s+type: boolean\n\s+default: false/);
+  expect(workflow).toContain("- name: Publish completed release\n        if: github.event_name == 'workflow_dispatch' && inputs.publish == true");
+  expect(workflow.indexOf("Verify draft contains only the expected platform bundles")).toBeLessThan(workflow.indexOf("Publish completed release"));
+});

@@ -4,7 +4,7 @@ ZiCode Studio Desktop 是一款面向 Windows、macOS 和 Linux 的本地优先�
 
 ## 下载与安装
 
-在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载对应系统的安装包。[v0.5.7 发布说明](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.7)记录了浏览器下载管理、书签导入导出和网页剪藏等改进。
+在 [GitHub Releases](https://github.com/ax2/zicode-studio-desktop/releases/latest) 下载对应系统的安装包。[v0.5.8 发布说明](https://github.com/ax2/zicode-studio-desktop/releases/tag/v0.5.8)包含视觉资产中心入口和浏览器下载状态、键盘操作改进。本版只提供 Windows x64 安装包；macOS 和 Linux 用户可继续使用此前版本。
 
 | 平台 | 安装包 | 运行环境 |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ ZiCode Studio Desktop 是一款面向 Windows、macOS 和 Linux 的本地优先�
 | 使用方式 | 内嵌 Pi |
 | --- | --- |
 | 从当前源码构建 | [Pi 1.5.2](https://github.com/earendil-works/pi/releases/tag/v1.5.2)（[源码版本锁](scripts/pi-version.json)） |
-| 安装 GitHub Release 的 Studio v0.5.7 | Pi 1.5.2（[发布标签版本锁](https://github.com/ax2/zicode-studio-desktop/blob/v0.5.7/scripts/pi-version.json)） |
+| 安装 GitHub Release 的 Studio v0.5.8 | Pi 1.5.2（[发布标签版本锁](https://github.com/ax2/zicode-studio-desktop/blob/v0.5.8/scripts/pi-version.json)） |
 
 ## 开始使用
 
@@ -35,7 +35,7 @@ ZiCode Studio Desktop 是一款面向 Windows、macOS 和 Linux 的本地优先�
 - **工具与桌面入口** · 常用工具可从主界面和 Windows 托盘快速打开。工具中心支持独立插件、文件校验与导出。ZiDevTools 逐项接入和验收范围以清单为准。[ZiDevTools 接入清单](docs/plugins/devtools-all-tools.md)
 - **工作台** · 默认工作区提供会话、文件、任务、终端和产物管理。日常界面使用简化导航，内部保留工作区、会话和权限边界。
 
-视觉资产中心是正在开发的长期核心模块，覆盖本地图库、资产版本、备份恢复和加工导出。[视觉资产中心开发记录](docs/visual-assets/development.md)
+视觉资产中心作为长期核心模块随 Windows 版提供，可从笔记下方的“视觉资产”入口打开本地图库，导入图片、查看缩略图和预览。角色生成、文稿模型审核等高级流程仍按开发记录逐项验收，入口可用不代表全部规划已完成。[视觉资产中心开发记录](docs/visual-assets/development.md)
 
 ## 数据与凭据
 

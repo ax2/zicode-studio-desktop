@@ -10,6 +10,11 @@ on:
         description: Existing v-prefixed tag to build and publish
         required: true
         type: string
+      publish:
+        description: Publish after build only when this exact candidate has already passed Windows acceptance
+        required: true
+        type: boolean
+        default: false
       platform:
         description: Windows by default; all requires explicit user request; Intel-only repair never publishes
         required: true
@@ -335,6 +340,20 @@ jobs:
           prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
           args: --bundles ${{ matrix.bundles }} ${{ steps.macos-bundle-config.outputs.args }}
 
+      - name: Extract Windows candidate for local acceptance
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/export-windows-candidate.ps1
+
+      - name: Retain Windows acceptance candidate
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-candidate-${{ env.RELEASE_TAG }}
+          path: ${{ runner.temp }}/studio-windows-candidate/
+          retention-days: 14
+          if-no-files-found: error
+
       - name: Upload updater artifacts when signing is enabled
         if: env.UPDATER_SIGNING_CONFIGURED == 'true'
         shell: bash
@@ -437,6 +456,7 @@ jobs:
           fi
 
       - name: Publish completed release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash

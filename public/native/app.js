@@ -1,3 +1,4 @@
+import { setupVisualAssetsApp } from "./visual-assets/visual-assets-loader.js";
 import { setupWindowChrome } from "./workspace/window-chrome.js";
 import { setupCompactHeader } from "./workspace/compact-header.js";
 import { setupBrowserApp } from "./browser/browser-app.js";
@@ -1252,6 +1253,7 @@ pluginShell = setupPluginShell({
   artifactApp,
   builtinApps: {
     "com.zicode.browser": browserApp,
+    "com.zicode.visual-assets": setupVisualAssetsApp({ invoke: globalThis.__TAURI__?.core?.invoke, getTarget: () => target }),
     "com.zicode.projects": projectWorkspaceApp,
     "com.zicode.tasks": taskCenterApp,
     "com.zicode.automation": automationApp,

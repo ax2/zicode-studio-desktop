@@ -42,6 +42,7 @@ async function run() {
       help: path.join(root, "frontend/src/features/help/index.ts"),
       settings: path.join(root, "frontend/src/features/settings/index.ts"),
       notes: path.join(root, "frontend/src/features/notes/index.ts"),
+      "visual-assets": path.join(root, "frontend/src/features/visualAssets/index.ts"),
   idphoto: path.join(root, "frontend/src/features/idphoto/index.ts"),
   imagetools: path.join(root, "frontend/src/features/imagetools/index.ts"),
   documents: path.join(root, "frontend/src/features/documents/index.ts"),

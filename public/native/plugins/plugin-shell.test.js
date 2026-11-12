@@ -699,8 +699,8 @@ describe("setupPluginShell", () => {
       await vi.waitFor(() => expect(history.state?.zicodePluginId).toBe("com.zicode.browser"));
       const length = history.length;
       document.querySelector("[data-mobile-activity-more]").click();
-      document.querySelector('[data-mobile-plugin-id="com.zicode.tasks"]').click();
-      await vi.waitFor(() => expect(app()).toBe("com.zicode.tasks"));
+      document.querySelector('[data-mobile-plugin-id="com.zicode.visual-assets"]').click();
+      await vi.waitFor(() => expect(app()).toBe("com.zicode.visual-assets"));
       expect(shell.getActivePluginId()).toBe(app());
       expect(history.state?.zicodePluginId).toBe(app());
       expect(history.state?.zicodeMobileLayer).toBeUndefined();
@@ -710,8 +710,8 @@ describe("setupPluginShell", () => {
       await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.browser"));
       expect(app()).toBe("com.zicode.browser");
       history.forward();
-      await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.tasks"));
-      expect(app()).toBe("com.zicode.tasks");
+      await vi.waitFor(() => expect(shell.getActivePluginId()).toBe("com.zicode.visual-assets"));
+      expect(app()).toBe("com.zicode.visual-assets");
     } finally {
       shell.destroy();
     }
