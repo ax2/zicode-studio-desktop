@@ -489,10 +489,14 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Enable long paths for Windows checkout
+        shell: pwsh
+        run: git config --global core.longpaths true
       - name: Checkout extraction tools
         uses: actions/checkout@v6
         with:
           ref: ${{ github.workflow_sha }}
+          sparse-checkout: scripts
       - name: Preserve extraction tool
         shell: pwsh
         run: Copy-Item scripts/export-windows-runtime-config.ps1 "$env:RUNNER_TEMP/export-runtime-config.ps1"
@@ -500,6 +504,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
+          sparse-checkout: scripts
       - name: Export original runtime configuration
         shell: pwsh
         env:
