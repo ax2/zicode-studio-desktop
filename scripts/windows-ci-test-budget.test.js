@@ -15,3 +15,10 @@ it("bounds Windows harness concurrency while preserving explicit platform settin
   expect(read("./check-rust.sh")).toContain('cargo test --manifest-path "$MANIFEST"');
   expect(read("../src-tauri/src/project_environment/tests.rs")).toContain('tokio::time::timeout(Duration::from_secs(30)');
 });
+
+it("enables Windows long paths before the platform source checkout", () => {
+  const platform = read("../.github/workflows/developer-platform.yml");
+  const setting = platform.indexOf("git config --global core.longpaths true");
+  expect(setting).toBeGreaterThan(-1);
+  expect(setting).toBeLessThan(platform.indexOf("uses: actions/checkout@v6"));
+});
