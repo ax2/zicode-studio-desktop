@@ -27,8 +27,8 @@ foreach ($folder in @('public', 'extensions', 'pi', 'portable-git', 'bun', 'webv
         Copy-Item -LiteralPath $resource -Destination (Join-Path $candidate $folder) -Recurse
     }
 }
-# Portable Git rewrites config after installation, so it cannot always be
-# reused from an older installed release even when the runtime version matches.
+# Portable Git configuration can differ between installations. Export it
+# verbatim; reuse other runtime directories only after checking their digests.
 $gitSource = Join-Path $runtime 'portable-git'
 $gitCandidate = Join-Path $candidate 'portable-git'
 New-Item -ItemType Directory -Path $gitCandidate | Out-Null

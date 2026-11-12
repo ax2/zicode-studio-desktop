@@ -15,14 +15,6 @@ on:
         required: true
         type: boolean
         default: false
-      runtime_config_only:
-        description: Export mutable Windows runtime config from an existing draft installer without rebuilding
-        type: boolean
-        default: false
-      candidate_run:
-        description: Original successful release run (required for runtime_config_only)
-        type: string
-        default: ""
       platform:
         description: Windows by default; all requires explicit user request; Intel-only repair never publishes
         required: true
@@ -41,7 +33,6 @@ env:
 
 jobs:
   prepare-release:
-    if: inputs.runtime_config_only != true
     runs-on: ubuntu-22.04
     outputs:
       release_sha: ${{ steps.release-source.outputs.sha }}
@@ -399,7 +390,7 @@ jobs:
         run: bun "$RUNNER_TEMP/studio-release-verifier/verify-release-artifacts.mjs" "${{ matrix.bundles }}"
 
   publish-release:
-    if: inputs.runtime_config_only != true && (github.event_name != 'workflow_dispatch' || inputs.platform == 'windows' || inputs.platform == 'all')
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'windows' || inputs.platform == 'all'
     needs: [prepare-release, build]
     runs-on: ubuntu-22.04
     steps:
@@ -481,40 +472,3 @@ jobs:
               --draft=false \
               --prerelease=false
           fi
-
-  export-runtime-config:
-    if: github.event_name == 'workflow_dispatch' && inputs.runtime_config_only == true
-    runs-on: windows-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: Enable long paths for Windows checkout
-        shell: pwsh
-        run: git config --global core.longpaths true
-      - name: Checkout extraction tools
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.workflow_sha }}
-          sparse-checkout: scripts
-      - name: Preserve extraction tool
-        shell: pwsh
-        run: Copy-Item scripts/export-windows-runtime-config.ps1 "$env:RUNNER_TEMP/export-runtime-config.ps1"
-      - name: Checkout immutable application tag
-        uses: actions/checkout@v6
-        with:
-          ref: refs/tags/${{ env.RELEASE_TAG }}
-          sparse-checkout: scripts
-      - name: Export original runtime configuration
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CANDIDATE_RUN: ${{ inputs.candidate_run }}
-        run: '& "$env:RUNNER_TEMP/export-runtime-config.ps1"'
-      - name: Retain original runtime configuration
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-runtime-config-${{ env.RELEASE_TAG }}
-          path: ${{ runner.temp }}/studio-runtime-config
-          retention-days: 14
-          if-no-files-found: error
