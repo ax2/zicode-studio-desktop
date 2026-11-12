@@ -45,6 +45,7 @@ impl Downloads {
         let controller = view.controller();
         unsafe { view.webview().cast::<ICoreWebView2_4>()?.add_DownloadStarting(
             &DownloadStartingEventHandler::create(Box::new(move |_, args| {
+                let result: windows::core::Result<()> = (|| {
                 let Some(args) = args else { return Ok(()); };
                 args.SetHandled(true)?;
                 args.SetCancel(true)?; // Fails closed, including any setup/deferral error.
@@ -82,6 +83,11 @@ impl Downloads {
                 downloads.entries.borrow_mut().insert(id, Entry { record: record.clone(), operation, pending: Some(pending), staging: None, cancelling: false });
                 downloads.emit(record);
                 Ok(())
+                })();
+                if let Err(error) = &result {
+                    log::warn!("Browser download setup failed: {error}");
+                }
+                result
             })), &mut 0) }
     }
     #[allow(dead_code)] // The standalone engine probe has no trusted save/list chrome.

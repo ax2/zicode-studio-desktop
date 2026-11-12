@@ -198,6 +198,10 @@ impl NativeBrowserEngine {
         if uuid::Uuid::parse_str(tab).is_err() || self.views.contains_key(tab) {
             return Err("Invalid or duplicate browser tab identity".into());
         }
+        let startup_error = |stage: &str, error: &dyn std::fmt::Display| {
+            log::warn!("Integrated browser initialization failed at {stage}: {error}");
+            error.to_string()
+        };
         let opener = match &start {
             ViewStart::Navigate(url) => {
                 if !self.policy.permits(url) { return Err("Browser navigation blocked".into()); }
@@ -266,7 +270,7 @@ impl NativeBrowserEngine {
                 })
             })
             .build_as_child(&container)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| startup_error("create renderer", &error))?;
         let view = NativeView {
             favicon,
             events,
@@ -284,9 +288,9 @@ impl NativeBrowserEngine {
             .join("download-staging");
         std::fs::create_dir_all(&download_staging).map_err(|error| error.to_string())?;
         native_favicon::install(&view.webview, tab.to_string(), view.favicon.clone(), tab_emit.clone());
-        native_shortcuts::install(&view.webview, tab.to_string(), tab_emit.clone()).map_err(|error| error.to_string())?;
-        native_popups::install(&view.webview, self.policy.clone(), tab.to_string(), revision.clone(), self.popups.clone(), tab_emit.clone()).map_err(|error| error.to_string())?;
-        native_context_menu::install(&view.webview, self.policy.clone(), tab.to_string(), self.menu_chinese.clone(), self.menu_cache.clone(), tab_emit.clone()).map_err(|error| error.to_string())?;
+        native_shortcuts::install(&view.webview, tab.to_string(), tab_emit.clone()).map_err(|error| startup_error("shortcuts", &error))?;
+        native_popups::install(&view.webview, self.policy.clone(), tab.to_string(), revision.clone(), self.popups.clone(), tab_emit.clone()).map_err(|error| startup_error("popups", &error))?;
+        native_context_menu::install(&view.webview, self.policy.clone(), tab.to_string(), self.menu_chinese.clone(), self.menu_cache.clone(), tab_emit.clone()).map_err(|error| startup_error("context menu", &error))?;
         super::windows_policy::install(
             &view.webview,
             &view.navigation,
@@ -295,16 +299,16 @@ impl NativeBrowserEngine {
             tab.to_string(),
             tab_emit.clone(),
         )
-        .map_err(|error| error.to_string())?;
-        self.downloads.install(&view.webview, self.policy.clone(), tab.to_string()).map_err(|error| error.to_string())?;
-        page_controls::set_zoom(&view.webview, zoom)?;
-        page_controls::set_muted(&view.webview, muted)?;
+        .map_err(|error| startup_error("site policy", &error))?;
+        self.downloads.install(&view.webview, self.policy.clone(), tab.to_string()).map_err(|error| startup_error("downloads", &error))?;
+        page_controls::set_zoom(&view.webview, zoom).map_err(|error| startup_error("zoom", &error))?;
+        page_controls::set_muted(&view.webview, muted).map_err(|error| startup_error("audio", &error))?;
         page_controls::observe_zoom(&view.webview, tab.to_string(), tab_emit.clone())
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| startup_error("zoom events", &error))?;
         match &mut start {
             ViewStart::Navigate(url) => {
-                super::windows_policy::install_resources(&view.webview, self.policy.clone()).map_err(|error| error.to_string())?;
-                view.webview.load_url(url).map_err(|error| error.to_string())?;
+                super::windows_policy::install_resources(&view.webview, self.policy.clone()).map_err(|error| startup_error("resource policy", &error))?;
+                view.webview.load_url(url).map_err(|error| startup_error("navigation", &error))?;
             }
             ViewStart::Popup(request) => {
                 self.validate_opener(request)?;

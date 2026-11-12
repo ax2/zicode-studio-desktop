@@ -84,10 +84,19 @@ pub(super) fn install(
         // every save and supplies its own reserved path after explicit approval.
         let suggested_folder = dirs::download_dir().filter(|path| path.is_dir())
             .unwrap_or_else(|| download_staging.to_path_buf());
-        native
-            .cast::<ICoreWebView2_13>()?
-            .Profile()?
-            .SetDefaultDownloadFolderPath(&HSTRING::from(suggested_folder.as_os_str()))?;
+        // This is only a suggested filename location, not an authorization or
+        // a download destination. A rejected folder must not prevent browsing.
+        // The download handler still cancels every transfer until explicit save.
+        let profile = native.cast::<ICoreWebView2_13>()?.Profile()?;
+        let suggest = |folder: &std::path::Path| {
+            profile.SetDefaultDownloadFolderPath(&HSTRING::from(dunce::simplified(folder).as_os_str()))
+        };
+        if let Err(error) = suggest(&suggested_folder) {
+            log::warn!("WebView2 rejected the usual download folder; trying the private staging folder: {error}");
+            if let Err(error) = suggest(download_staging) {
+                log::warn!("WebView2 rejected the private suggested download folder; retaining its default: {error}");
+            }
+        }
         // Wry 0.55.1 injects an ipc shim even without a handler. Disable the
         // underlying transport and host objects natively before navigation.
         let settings = native.Settings()?;
